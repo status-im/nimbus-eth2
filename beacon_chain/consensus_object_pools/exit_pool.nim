@@ -13,7 +13,8 @@ import
   # Status libraries
   chronicles,
   # Internal
-  ../spec/[crypto, datatypes, forkedbeaconstate_helpers, helpers],
+  ../spec/[crypto, forkedbeaconstate_helpers, helpers],
+  ../spec/datatypes/base,
   "."/[blockchain_dag, block_quarantine],
   ../beacon_node_types
 

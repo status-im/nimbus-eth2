@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  ./datatypes, ./digest, ./forkedbeaconstate_helpers, ./helpers
+  ./datatypes/base, ./digest, ./forkedbeaconstate_helpers, ./helpers
 
 const
   SAFETY_DECAY* = 10'u64

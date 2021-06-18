@@ -8,8 +8,8 @@
 import
   # Specs
   ../../beacon_chain/spec/[
-    datatypes, forkedbeaconstate_helpers, state_transition,
-    state_transition_epoch]
+    forkedbeaconstate_helpers, state_transition, state_transition_epoch],
+  ../../beacon_chain/spec/datatypes/base
 
 proc processSlotsUntilEndCurrentEpoch(state: var ForkedHashedBeaconState) =
   # Process all slots until the end of the last slot of the current epoch

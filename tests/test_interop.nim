@@ -4,7 +4,8 @@ import
   stint, ./testutil, stew/byteutils,
   ../beacon_chain/interop,
   ../beacon_chain/ssz,
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, presets]
+  ../beacon_chain/spec/[beaconstate, crypto, presets],
+  ../beacon_chain/spec/datatypes/base
 
 # Interop test yaml, found here:
 # https://github.com/ethereum/eth2.0-pm/blob/a0b9d22fad424574b1307828f867b30237758468/interop/mocked_start/keygen_10_validators.yaml
