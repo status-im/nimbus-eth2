@@ -36,7 +36,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponse(
       (
         CONFIG_NAME:
-          CONFIG_NAME,
+          const_preset,
         MAX_COMMITTEES_PER_SLOT:
           Base10.toString(MAX_COMMITTEES_PER_SLOT),
         TARGET_COMMITTEE_SIZE:
