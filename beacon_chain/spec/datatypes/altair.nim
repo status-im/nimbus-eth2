@@ -71,16 +71,6 @@ static: doAssert TIMELY_SOURCE_WEIGHT + TIMELY_TARGET_WEIGHT +
   TIMELY_HEAD_WEIGHT + SYNC_REWARD_WEIGHT + PROPOSER_WEIGHT ==
   WEIGHT_DENOMINATOR
 
-let
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#misc
-  # Cannot be computed at compile-time due to importc dependency
-  G2_POINT_AT_INFINITY* = ValidatorSig.fromRaw([
-    0xc0'u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0])
-
 type
   ### New types
 
@@ -132,7 +122,7 @@ type
     signature*: ValidatorSig  ##\
     ## Signature by the validator(s) over the block root of `slot`
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/validator.md#contributionandproof
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#contributionandproof
   ContributionAndProof* = object
     aggregator_index*: uint64
     contribution*: SyncCommitteeContribution

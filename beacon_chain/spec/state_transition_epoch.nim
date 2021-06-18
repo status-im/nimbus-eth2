@@ -661,7 +661,7 @@ func process_rewards_and_penalties(
     increase_balance(state.balances.asSeq()[idx], v.delta.rewards)
     decrease_balance(state.balances.asSeq()[idx], v.delta.penalties)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#rewards-and-penalties
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#rewards-and-penalties
 func process_rewards_and_penalties(
     state: var altair.BeaconState, total_active_balance: Gwei) {.nbench.} =
   if get_current_epoch(state) == GENESIS_EPOCH:
@@ -800,7 +800,7 @@ proc process_sync_committee_updates*(state: var altair.BeaconState) =
     state.current_sync_committee = state.next_sync_committee
     state.next_sync_committee = get_next_sync_committee(state)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#inactivity-scores
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#inactivity-scores
 func process_inactivity_updates*(state: var altair.BeaconState) =
   # Score updates based on previous epoch participation, skip genesis epoch
   if get_current_epoch(state) == GENESIS_EPOCH:
@@ -814,12 +814,13 @@ func process_inactivity_updates*(state: var altair.BeaconState) =
     if not (is_active_validator(v, previous_epoch) or (v.slashed and previous_epoch + 1 < v.withdrawable_epoch)):
       continue
 
-    # Increase inactivity score of inactive validators
+    # Increase the inactivity score of inactive validators
     if index.ValidatorIndex in get_unslashed_participating_indices(state, TIMELY_TARGET_FLAG_INDEX, get_previous_epoch(state)):
       state.inactivity_scores[index] -= min(1'u64, state.inactivity_scores[index])
     else:
       state.inactivity_scores[index] += INACTIVITY_SCORE_BIAS
-    # Decrease the score of all validators for forgiveness when not during a leak
+    # Decrease the inactivity score of all eligible validators during a
+    # leak-free epoch
     if not is_in_inactivity_leak(state):
       state.inactivity_scores[index] -= min(INACTIVITY_SCORE_RECOVERY_RATE.uint64, state.inactivity_scores[index])
 

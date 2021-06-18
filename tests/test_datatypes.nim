@@ -10,7 +10,7 @@
 import
   std/typetraits,
   unittest2,
-  ../beacon_chain/spec/datatypes,
+  ../beacon_chain/spec/datatypes/base,
   ./testutil
 
 suite "Spec datatypes":

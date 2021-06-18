@@ -16,7 +16,8 @@ import
   # Standard library
   std/math,
   # Specs
-  ../../beacon_chain/spec/[beaconstate, datatypes, crypto, presets],
+  ../../beacon_chain/spec/[beaconstate, crypto, presets],
+  ../../beacon_chain/spec/datatypes/base,
   # Internals
   ../../beacon_chain/ssz,
   ../../beacon_chain/extras,
