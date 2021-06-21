@@ -18,23 +18,37 @@ logScope:
   topics = "networking peer_balancer"
 
 type
-  PeerKicker* =
-    proc (peerId: PeerID): Future[void] {.gcsafe.}
+  PeerGroupEventHandler* =
+    proc (peerGroup: PeerGroup) {.gcsafe, raises: [Defect].}
 
   PeerGroup* = ref object
     name*: string
     totalScore*: int
     lowPeers*: int
+    lowPeersEvent: PeerGroupEventHandler
     peers: HashSet[PeerID]
-    kicker: PeerKicker
 
   PeerBalancer* = ref object
     peerGroups*: seq[PeerGroup]
     maxPeers*: int
+    switch: Switch
 
 const
   #Can't be INT_MAX because that would overflow
   groupWithLowPeersScore = 1_000_000_000
+
+proc addPeer*(group: PeerGroup, peer: PeerID) =
+  group.peers.incl(peer)
+
+proc removePeer*(group: PeerGroup, peer: PeerID) =
+  group.peers.excl(peer)
+
+proc isLow*(group: PeerGroup): bool =
+  group.peers.len <= group.lowPeers
+
+proc removePeer*(balancer: PeerBalancer, peer: PeerId) =
+  for group in balancer.peerGroups:
+    group.removePeer(peer)
 
 proc sortPerScore(a, b: (PeerID, int)): int =
   system.cmp(a[1], b[1])
@@ -44,13 +58,19 @@ proc computeScores(balancer: PeerBalancer): OrderedTable[PeerID, int] =
 
   for group in balancer.peerGroups:
     let scorePerPeer =
-      if group.peers.len <= group.lowPeers:
+      if group.isLow():
+        if not isNil(group.lowPeersEvent):
+          group.lowPeersEvent(group)
         groupWithLowPeersScore
       else:
         group.totalScore div group.peers.len
 
     for peer in group.peers:
-      scores[peer] = scores.getOrDefault(peer) + scorePerPeer
+      let
+        connCount = balancer.switch.connmanager.connCount(peer)
+        thisPeersScore = scorePerPeer div max(1, connCount)
+
+      scores[peer] = scores.getOrDefault(peer) + thisPeersScore
 
   scores.sort(sortPerScore)
 
@@ -66,7 +86,9 @@ proc trimConnections*(balancer: PeerBalancer) {.async.} =
   var toKick: int = scores.len - balancer.maxPeers
 
   for peerId in scores.keys:
-    await balancer.peerGroups[0].kicker(peerId)
+    #TODO kill a single connection instead of the whole peer
+    # Not possible with the current libp2p's conn management
+    await balancer.switch.disconnect(peerId)
     dec toKick
     if toKick < 0: break
 
@@ -74,28 +96,25 @@ proc addGroup*(
   balancer: PeerBalancer,
   name: string,
   totalScore: int,
-  kicker: PeerKicker,
-  lowPeers = 0): PeerGroup =
+  lowPeers = 0,
+  lowPeersEvent: PeerGroupEventHandler = nil): PeerGroup =
 
   trace "new peer group", name, totalScore, lowPeers
 
   var group = PeerGroup(
     name: name,
     totalScore: totalScore,
-    kicker: kicker,
-    lowPeers: lowPeers)
+    lowPeers: lowPeers,
+    lowPeersEvent: lowPeersEvent)
+
   balancer.peerGroups.add(group)
   return group
 
-proc addPeer*(group: PeerGroup, peer: PeerID) =
-  group.peers.incl(peer)
+proc new*(T: typedesc[PeerBalancer], switch: Switch, maxPeers: int): T =
+  let balancer = T(switch: switch, maxPeers: maxPeers)
 
-proc removePeer*(group: PeerGroup, peer: PeerID) =
-  group.peers.excl(peer)
+  proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
+    balancer.removePeer(peerId)
 
-proc removePeer*(balancer: PeerBalancer, peer: PeerId) =
-  for group in balancer.peerGroups:
-    group.removePeer(peer)
-
-proc new*(T: typedesc[PeerBalancer], maxPeers: int): T =
-  T(maxPeers: maxPeers)
+  switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
+  return balancer

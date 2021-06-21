@@ -893,7 +893,7 @@ proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
   let nodes = await d.queryRandom()
   let eth2Field = SSZ.encode(forkId)
 
-  var filtered: seq[PeerAddr]
+  var filtered: seq[(int, PeerAddr)]
   for n in nodes:
     if n.record.contains(("eth2", eth2Field)):
       let res = n.record.tryGet("attnets", seq[byte])
@@ -907,15 +907,18 @@ proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
               peer = n.record.toURI(), exception = e.name, msg = e.msg
             continue
 
+        var score: int = 0
         for i in 0..<attnetsNode.bytes.len:
           if (attnets.bytes[i] and attnetsNode.bytes[i]) > 0:
-            # we have at least one subnet match
-            let peerAddr = n.toPeerAddr()
-            if peerAddr.isOk():
-              filtered.add(peerAddr.get())
-            break
+            inc score
 
-  return filtered
+        if score > 0:
+          # we have at least one subnet match
+          let peerAddr = n.toPeerAddr()
+          if peerAddr.isOk():
+            filtered.add((score, peerAddr.get()))
+
+  return filtered.sortedByIt(it[0]).mapIt(it[1])
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
@@ -1102,8 +1105,6 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       # Whatever caused disconnection, avoid connection spamming
       node.addSeen(peerId, SeenTableTimeReconnect)
 
-      node.peerBalancer.removePeer(peerId)
-
       let fut = peer.disconnectedFut
       if not(isNil(fut)):
         fut.complete()
@@ -1150,16 +1151,13 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, enrForkId: ENRForkID,
     rng: rng,
     connectTimeout: connectTimeout,
     seenThreshold: seenThreshold,
-    peerBalancer: PeerBalancer.new(10) #TODO use maxPeers instead
+    peerBalancer: PeerBalancer.new(switch, 10) #TODO use maxPeers instead
   )
-
-  proc peerKicker(peer: PeerID): Future[void] {.gcsafe, closure.} =
-    disconnect(node.getPeer(peer), PeerScoreLow)
 
   const scorePerProtocol = 1_000_000_000
   for attnet in 0..<metadata.attnets.len():
-    node.attnetsPeerGroups.add(node.peerBalancer.addGroup("attnet_"  & $attnet, scorePerProtocol div metadata.attnets.len(), peerKicker, 3))
-  node.eth2PeerGroup = node.peerBalancer.addGroup("eth2", scorePerProtocol div metadata.attnets.len(), peerKicker)
+    node.attnetsPeerGroups.add(node.peerBalancer.addGroup("attnet_"  & $attnet, scorePerProtocol div metadata.attnets.len(), 3))
+  node.eth2PeerGroup = node.peerBalancer.addGroup("eth2", scorePerProtocol div metadata.attnets.len())
 
   newSeq node.protocolStates, allProtocols.len
   for proto in allProtocols:
@@ -1228,6 +1226,27 @@ proc updatePeerMetadata*(node: Eth2Node, peerId: PeerID, timeout = 20.seconds) {
     elif oldMetadata.isSome and oldMetadata.get().attnets[bit] == true:
       node.attnetsPeerGroups[bit].removePeer(peerId)
 
+proc dialLowPeersAttnets(node: Eth2Node) {.async.} =
+  var
+    lowSubnetsCount = 0
+    lowSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
+
+  for i in 0..<node.attnetsPeerGroups.len():
+    if node.attnetsPeerGroups[i].isLow():
+      inc lowSubnetsCount
+      lowSubnets.setBit(i)
+
+  if lowSubnetsCount == 0: return
+
+  trace "low subnet peers, discovering new peers", lowSubnetsCount
+
+  let nicePeers = await node.discovery.queryRandom(node.forkId, lowSubnets)
+
+  if nicePeers.len == 0: return
+
+  trace "dialing a peer to have more subnet coverage..", peer=nicePeers[0]
+  asyncSpawn node.dialPeer(nicePeers[0])
+
 proc tmptmp*(node: Eth2Node) {.async.} =
   while true:
     let heartbeatStart_m = Moment.now()
@@ -1239,6 +1258,8 @@ proc tmptmp*(node: Eth2Node) {.async.} =
       if peer.metadata.isNone or
         heartbeatStart_m - peer.metadata_received > 30.minutes:
         updateFutures.add(node.updatePeerMetadata(peer.info.peerId))
+
+    updateFutures.add(node.dialLowPeersAttnets())
 
     discard await allFinished(updateFutures)
 
