@@ -33,38 +33,49 @@ export results, ValidationResult
 logScope:
   topics = "clearance"
 
+## At the GC-level, the GC is type-agnostic; it's all type-erased so
+## casting between seq[Attestation] and seq[TrustedAttestation] will
+## not disrupt GC operations.
+##
+## These SHOULD be used in function calls to avoid expensive temporary.
+## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
 template asSigVerified(x: phase0.SignedBeaconBlock):
     phase0.SigVerifiedSignedBeaconBlock =
   ## This converts a signed beacon block to a sig verified beacon clock.
   ## This assumes that their bytes representation is the same.
-  ##
-  ## At the GC-level, the GC is type-agnostic it's all type erased so
-  ## casting between seq[Attestation] and seq[TrustedAttestation]
-  ## will not disrupt GC operations.
-  ##
-  ## This SHOULD be used in function calls to avoid expensive temporary.
-  ## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
   static: # TODO See isomorphicCast
     doAssert sizeof(phase0.SignedBeaconBlock) ==
       sizeof(phase0.SigVerifiedSignedBeaconBlock)
 
   cast[ptr phase0.SigVerifiedSignedBeaconBlock](signedBlock.unsafeAddr)[]
 
+template asSigVerified(x: altair.SignedBeaconBlock):
+    altair.SigVerifiedSignedBeaconBlock =
+  ## This converts a signed beacon block to a sig verified beacon clock.
+  ## This assumes that their bytes representation is the same.
+  static: # TODO See isomorphicCast
+    doAssert sizeof(altair.SignedBeaconBlock) ==
+      sizeof(altair.SigVerifiedSignedBeaconBlock)
+
+  cast[ptr altair.SigVerifiedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+
 template asTrusted(x: phase0.SignedBeaconBlock or phase0.SigVerifiedBeaconBlock):
     phase0.TrustedSignedBeaconBlock =
   ## This converts a sigverified beacon block to a trusted beacon clock.
   ## This assumes that their bytes representation is the same.
-  ##
-  ## At the GC-level, the GC is type-agnostic it's all type erased so
-  ## casting between seq[Attestation] and seq[TrustedAttestation]
-  ## will not disrupt GC operations.
-  ##
-  ## This SHOULD be used in function calls to avoid expensive temporary.
-  ## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
   static: # TODO See isomorphicCast
-    doAssert sizeof(x) == sizeof(TrustedSignedBeaconBlock)
+    doAssert sizeof(x) == sizeof(phase0.TrustedSignedBeaconBlock)
 
-  cast[ptr TrustedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+  cast[ptr phase0.TrustedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+
+template asTrusted(x: altair.SignedBeaconBlock or altair.SigVerifiedBeaconBlock):
+    altair.TrustedSignedBeaconBlock =
+  ## This converts a sigverified beacon block to a trusted beacon clock.
+  ## This assumes that their bytes representation is the same.
+  static: # TODO See isomorphicCast
+    doAssert sizeof(x) == sizeof(altair.TrustedSignedBeaconBlock)
+
+  cast[ptr altair.TrustedSignedBeaconBlock](signedBlock.unsafeAddr)[]
 
 func batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool =
   var secureRandomBytes: array[32, byte]
