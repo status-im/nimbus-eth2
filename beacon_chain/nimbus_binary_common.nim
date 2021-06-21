@@ -19,7 +19,7 @@ import
   stew/io2,
 
   # Local modules
-  ./spec/[datatypes, crypto, helpers], beacon_clock, filepath,
+  ./spec/[crypto, helpers], ./spec/datatypes/base, beacon_clock, filepath,
   ./networking/eth2_network
 
 when defined(posix):

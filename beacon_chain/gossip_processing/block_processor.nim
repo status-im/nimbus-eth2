@@ -153,7 +153,7 @@ proc storeBlock(
   let blck = self.consensusManager.dag.addRawBlock(
     self.consensusManager.quarantine, signedBlock) do (
       blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
-      epochRef: EpochRef, state: HashedBeaconState):
+      epochRef: EpochRef):
     # Callback add to fork choice if valid
     attestationPool[].addForkChoice(
       epochRef, blckRef, trustedBlock.message, wallSlot)

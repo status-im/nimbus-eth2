@@ -1,7 +1,8 @@
 import
-  ".."/[datatypes, digest, crypto]
+  ".."/datatypes/base,
+  ".."/[digest, crypto]
 
-export datatypes, digest, crypto
+export base, crypto, digest
 
 type
   AttesterDuties* = tuple

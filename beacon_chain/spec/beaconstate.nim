@@ -649,7 +649,7 @@ func get_total_active_balance*(state: SomeBeaconState, cache: var StateCache): G
   get_total_balance(
     state, cache.get_shuffled_active_validator_indices(state, epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#get_base_reward_per_increment
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment*(state: altair.BeaconState, cache: var StateCache): Gwei =
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div
     integer_squareroot(get_total_active_balance(state, cache))
@@ -766,7 +766,7 @@ proc process_attestation*(
 
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#get_next_sync_committee_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_next_sync_committee_indices
 func get_next_sync_committee_indices(state: altair.BeaconState):
     seq[ValidatorIndex] =
   ## Return the sequence of sync committee indices (which may include
@@ -774,9 +774,6 @@ func get_next_sync_committee_indices(state: altair.BeaconState):
   ## sync committee period boundary.
 
   # TODO this size is known statically, so return array[] if possible
-
-  # Note: Committee can contain duplicate indices for small validator sets
-  # (< SYNC_COMMITTEE_SIZE + 128)
   let epoch = get_current_epoch(state) + 1
 
   const MAX_RANDOM_BYTE = 255

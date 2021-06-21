@@ -14,8 +14,9 @@ import
   eth/keys,
   ../extras, ../beacon_clock,
   ../spec/[
-    crypto, datatypes, digest, forkedbeaconstate_helpers, helpers, signatures,
+    crypto, digest, forkedbeaconstate_helpers, helpers, signatures,
     signatures_batch, state_transition],
+  ../spec/datatypes/[phase0, altair],
   ./block_pools_types, ./blockchain_dag, ./block_quarantine
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
@@ -32,35 +33,49 @@ export results, ValidationResult
 logScope:
   topics = "clearance"
 
-template asSigVerified(x: SignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+## At the GC-level, the GC is type-agnostic; it's all type-erased so
+## casting between seq[Attestation] and seq[TrustedAttestation] will
+## not disrupt GC operations.
+##
+## These SHOULD be used in function calls to avoid expensive temporary.
+## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
+template asSigVerified(x: phase0.SignedBeaconBlock):
+    phase0.SigVerifiedSignedBeaconBlock =
   ## This converts a signed beacon block to a sig verified beacon clock.
   ## This assumes that their bytes representation is the same.
-  ##
-  ## At the GC-level, the GC is type-agnostic it's all type erased so
-  ## casting between seq[Attestation] and seq[TrustedAttestation]
-  ## will not disrupt GC operations.
-  ##
-  ## This SHOULD be used in function calls to avoid expensive temporary.
-  ## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
   static: # TODO See isomorphicCast
-    doAssert sizeof(SignedBeaconBlock) == sizeof(SigVerifiedSignedBeaconBlock)
+    doAssert sizeof(phase0.SignedBeaconBlock) ==
+      sizeof(phase0.SigVerifiedSignedBeaconBlock)
 
-  cast[ptr SigVerifiedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+  cast[ptr phase0.SigVerifiedSignedBeaconBlock](signedBlock.unsafeAddr)[]
 
-template asTrusted(x: SignedBeaconBlock or SigVerifiedBeaconBlock): TrustedSignedBeaconBlock =
+template asSigVerified(x: altair.SignedBeaconBlock):
+    altair.SigVerifiedSignedBeaconBlock =
+  ## This converts a signed beacon block to a sig verified beacon clock.
+  ## This assumes that their bytes representation is the same.
+  static: # TODO See isomorphicCast
+    doAssert sizeof(altair.SignedBeaconBlock) ==
+      sizeof(altair.SigVerifiedSignedBeaconBlock)
+
+  cast[ptr altair.SigVerifiedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+
+template asTrusted(x: phase0.SignedBeaconBlock or phase0.SigVerifiedBeaconBlock):
+    phase0.TrustedSignedBeaconBlock =
   ## This converts a sigverified beacon block to a trusted beacon clock.
   ## This assumes that their bytes representation is the same.
-  ##
-  ## At the GC-level, the GC is type-agnostic it's all type erased so
-  ## casting between seq[Attestation] and seq[TrustedAttestation]
-  ## will not disrupt GC operations.
-  ##
-  ## This SHOULD be used in function calls to avoid expensive temporary.
-  ## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
   static: # TODO See isomorphicCast
-    doAssert sizeof(x) == sizeof(TrustedSignedBeaconBlock)
+    doAssert sizeof(x) == sizeof(phase0.TrustedSignedBeaconBlock)
 
-  cast[ptr TrustedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+  cast[ptr phase0.TrustedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+
+template asTrusted(x: altair.SignedBeaconBlock or altair.SigVerifiedBeaconBlock):
+    altair.TrustedSignedBeaconBlock =
+  ## This converts a sigverified beacon block to a trusted beacon clock.
+  ## This assumes that their bytes representation is the same.
+  static: # TODO See isomorphicCast
+    doAssert sizeof(x) == sizeof(altair.TrustedSignedBeaconBlock)
+
+  cast[ptr altair.TrustedSignedBeaconBlock](signedBlock.unsafeAddr)[]
 
 func batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool =
   var secureRandomBytes: array[32, byte]
@@ -71,12 +86,12 @@ func batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool
 
 proc addRawBlock*(
       dag: ChainDAGRef, quarantine: QuarantineRef,
-      signedBlock: SignedBeaconBlock, onBlockAdded: OnBlockAdded
+      signedBlock: phase0.SignedBeaconBlock, onBlockAdded: OnBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] {.gcsafe.}
 
 proc addResolvedBlock(
        dag: ChainDAGRef, quarantine: QuarantineRef,
-       state: var StateData, trustedBlock: TrustedSignedBeaconBlock,
+       state: var StateData, trustedBlock: phase0.TrustedSignedBeaconBlock,
        parent: BlockRef, cache: var StateCache,
        onBlockAdded: OnBlockAdded, stateDataDur, sigVerifyDur,
        stateVerifyDur: Duration
@@ -136,7 +151,7 @@ proc addResolvedBlock(
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
-    onBlockAdded(blockRef, trustedBlock, epochRef, state.data.hbsPhase0)
+    onBlockAdded(blockRef, trustedBlock, epochRef)
 
   # Now that we have the new block, we should see if any of the previously
   # unresolved blocks magically become resolved
@@ -151,7 +166,7 @@ proc addResolvedBlock(
     var entries = 0
     while entries != quarantine.orphans.len:
       entries = quarantine.orphans.len # keep going while quarantine is shrinking
-      var resolved: seq[SignedBeaconBlock]
+      var resolved: seq[phase0.SignedBeaconBlock]
       for _, v in quarantine.orphans:
         if v.message.parent_root in dag:
           resolved.add(v)
@@ -159,8 +174,13 @@ proc addResolvedBlock(
       for v in resolved:
         discard addRawBlock(dag, quarantine, v, onBlockAdded)
 
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+# copy of phase0.SomeSignedBeaconBlock from datatypes/phase0.nim
+type SomeSignedPhase0Block =
+  phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
+  phase0.TrustedSignedBeaconBlock
 proc checkStateTransition(
-       dag: ChainDAGRef, signedBlock: SomeSignedBeaconBlock,
+       dag: ChainDAGRef, signedBlock: SomeSignedPhase0Block,
        cache: var StateCache): (ValidationResult, BlockError) =
   ## Ensure block can be applied on a state
   func restore(v: var ForkedHashedBeaconState) =
@@ -205,7 +225,7 @@ proc advanceClearanceState*(dag: ChainDagRef) =
 
 proc addRawBlockKnownParent(
        dag: ChainDAGRef, quarantine: QuarantineRef,
-       signedBlock: SignedBeaconBlock,
+       signedBlock: phase0.SignedBeaconBlock,
        parent: BlockRef,
        onBlockAdded: OnBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] =
@@ -283,7 +303,7 @@ proc addRawBlockKnownParent(
 proc addRawBlockUnresolved(
        dag: ChainDAGRef,
        quarantine: QuarantineRef,
-       signedBlock: SignedBeaconBlock
+       signedBlock: phase0.SignedBeaconBlock
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## addRawBlock - Block is unresolved / has no parent
 
@@ -321,7 +341,7 @@ proc addRawBlockUnresolved(
 
 proc addRawBlock(
        dag: ChainDAGRef, quarantine: QuarantineRef,
-       signedBlock: SignedBeaconBlock,
+       signedBlock: phase0.SignedBeaconBlock,
        onBlockAdded: OnBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## Try adding a block to the chain, verifying first that it passes the state

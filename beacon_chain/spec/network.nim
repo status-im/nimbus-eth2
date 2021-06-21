@@ -8,7 +8,8 @@
 {.push raises: [Defect].}
 
 import
-  "."/[datatypes, digest, helpers]
+  "."/[digest, helpers],
+  "."/datatypes/base
 
 const
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#topics-and-messages

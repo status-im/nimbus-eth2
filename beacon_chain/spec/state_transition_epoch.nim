@@ -382,7 +382,7 @@ proc process_justification_and_finalization*(state: var altair.BeaconState,
     return
   let
     # these ultimately differ from phase0 only in these lines
-    # ref: https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/phase0/beacon-chain.md#justification-and-finalization
+    # ref: https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/phase0/beacon-chain.md#justification-and-finalization
     previous_indices = get_unslashed_participating_indices(
       state, TIMELY_TARGET_FLAG_INDEX, get_previous_epoch(state))
     current_indices = get_unslashed_participating_indices(
@@ -412,7 +412,7 @@ func is_in_inactivity_leak(finality_delay: uint64): bool =
 func get_finality_delay(state: SomeBeaconState): uint64 =
   get_previous_epoch(state) - state.finalized_checkpoint.epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/phase0/beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/phase0/beacon-chain.md#rewards-and-penalties-1
 func is_in_inactivity_leak(state: altair.BeaconState): bool =
   # TODO remove this, see above
   get_finality_delay(state) > MIN_EPOCHS_TO_INACTIVITY_PENALTY
@@ -615,7 +615,7 @@ iterator get_flag_index_deltas(
       else:
         (vidx, 0.Gwei, 0.Gwei)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
 iterator get_inactivity_penalty_deltas(state: altair.BeaconState):
     (ValidatorIndex, Gwei) =
   ## Return the inactivity penalty deltas by considering timely target
@@ -661,7 +661,7 @@ func process_rewards_and_penalties(
     increase_balance(state.balances.asSeq()[idx], v.delta.rewards)
     decrease_balance(state.balances.asSeq()[idx], v.delta.penalties)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#rewards-and-penalties
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#rewards-and-penalties
 func process_rewards_and_penalties(
     state: var altair.BeaconState, total_active_balance: Gwei) {.nbench.} =
   if get_current_epoch(state) == GENESIS_EPOCH:
@@ -793,33 +793,38 @@ func process_participation_flag_updates*(state: var altair.BeaconState) =
   for _ in 0 ..< state.validators.len:
     doAssert state.current_epoch_participation.add 0.ParticipationFlags
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#sync-committee-updates
 proc process_sync_committee_updates*(state: var altair.BeaconState) =
   let next_epoch = get_current_epoch(state) + 1
   if next_epoch mod EPOCHS_PER_SYNC_COMMITTEE_PERIOD == 0:
     state.current_sync_committee = state.next_sync_committee
     state.next_sync_committee = get_next_sync_committee(state)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#inactivity-scores
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#inactivity-scores
 func process_inactivity_updates*(state: var altair.BeaconState) =
   # Score updates based on previous epoch participation, skip genesis epoch
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
 
   # TODO actually implement get_eligible_validator_indices() as an iterator
-  let previous_epoch = get_previous_epoch(state)  # get_eligible_validator_indices()
+  let
+    previous_epoch = get_previous_epoch(state)  # get_eligible_validator_indices()
+    unslashed_participating_indices =
+      get_unslashed_participating_indices(
+        state, TIMELY_TARGET_FLAG_INDEX, get_previous_epoch(state))
   for index in 0'u64 ..< state.validators.lenu64:
     # get_eligible_validator_indices()
     let v = state.validators[index]
     if not (is_active_validator(v, previous_epoch) or (v.slashed and previous_epoch + 1 < v.withdrawable_epoch)):
       continue
 
-    # Increase inactivity score of inactive validators
-    if index.ValidatorIndex in get_unslashed_participating_indices(state, TIMELY_TARGET_FLAG_INDEX, get_previous_epoch(state)):
+    # Increase the inactivity score of inactive validators
+    if index.ValidatorIndex in unslashed_participating_indices:
       state.inactivity_scores[index] -= min(1'u64, state.inactivity_scores[index])
     else:
       state.inactivity_scores[index] += INACTIVITY_SCORE_BIAS
-    # Decrease the score of all validators for forgiveness when not during a leak
+    # Decrease the inactivity score of all eligible validators during a
+    # leak-free epoch
     if not is_in_inactivity_leak(state):
       state.inactivity_scores[index] -= min(INACTIVITY_SCORE_RECOVERY_RATE.uint64, state.inactivity_scores[index])
 

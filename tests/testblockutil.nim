@@ -326,4 +326,6 @@ iterator makeTestBlocks*(state: ForkedHashedBeaconState; parent_root: Eth2Digest
 proc getAttestationsforTestBlock*(
     pool: var AttestationPool, stateData: StateData, cache: var StateCache):
     seq[Attestation] =
-  pool.getAttestationsForBlock(stateData.data.hbsPhase0, cache)
+  case stateData.data.beaconStateFork:
+  of forkPhase0: pool.getAttestationsForBlock(stateData.data.hbsPhase0, cache)
+  of forkAltair: pool.getAttestationsForBlock(stateData.data.hbsAltair, cache)

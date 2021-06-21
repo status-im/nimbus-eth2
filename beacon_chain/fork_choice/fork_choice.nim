@@ -13,7 +13,8 @@ import
   # Status libraries
   stew/results, chronicles,
   # Internal
-  ../spec/[beaconstate, datatypes, digest, helpers],
+  ../spec/[beaconstate, digest, helpers],
+  ../spec/datatypes/[phase0, altair],
   # Fork choice
   ./fork_choice_types, ./proto_array,
   ../consensus_object_pools/[spec_cache, blockchain_dag]
@@ -281,11 +282,20 @@ proc process_block*(self: var ForkChoiceBackend,
   self.proto_array.onBlock(
     block_root, parent_root, justified_epoch, finalized_epoch)
 
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+# it expresses as much of:
+# blck: phase0.SomeBeaconBlock | altair.SomeBeaconBlock
+# or
+# blck: SomeSomeBeaconBlock
+# as comes up. Other types can be added as needed.
+type ReallyAnyBeaconBlock =
+  phase0.BeaconBlock | altair.BeaconBlock |
+  phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock
 proc process_block*(self: var ForkChoice,
                     dag: ChainDAGRef,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
-                    blck: SomeBeaconBlock,
+                    blck: ReallyAnyBeaconBlock,
                     wallSlot: Slot): FcResult[void] =
   ? update_time(self, dag, wallSlot)
   ? process_state(self.checkpoints, dag, epochRef, blckRef)

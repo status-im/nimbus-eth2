@@ -10,7 +10,8 @@
 import
   stew/endians2, stint,
   ./extras, ./ssz/merkleization,
-  spec/[crypto, datatypes, digest, keystore, signatures]
+  spec/[crypto, digest, keystore, signatures],
+  spec/datatypes/base
 
 func get_eth1data_stub*(deposit_count: uint64, current_epoch: Epoch): Eth1Data =
   # https://github.com/ethereum/eth2.0-pm/blob/e596c70a19e22c7def4fd3519e20ae4022349390/interop/mocked_eth1data/README.md

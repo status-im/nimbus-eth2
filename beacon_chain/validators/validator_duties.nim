@@ -343,7 +343,7 @@ proc proposeSignedBlock*(node: BeaconNode,
                          newBlock: SignedBeaconBlock): BlockRef =
   let newBlockRef = node.dag.addRawBlock(node.quarantine, newBlock) do (
       blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
-      epochRef: EpochRef, state: HashedBeaconState):
+      epochRef: EpochRef):
     # Callback add to fork choice if signed block valid (and becomes trusted)
     node.attestationPool[].addForkChoice(
       epochRef, blckRef, trustedBlock.message,

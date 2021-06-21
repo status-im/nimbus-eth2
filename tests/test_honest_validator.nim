@@ -3,7 +3,8 @@
 import
   unittest2,
   ./testutil,
-  ../beacon_chain/spec/[crypto, datatypes, network],
+  ../beacon_chain/spec/[crypto, network],
+  ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/validators/attestation_aggregation
 
 suite "Honest validator":

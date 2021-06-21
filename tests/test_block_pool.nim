@@ -12,9 +12,9 @@ import
   unittest2,
   stew/assign2,
   eth/keys,
+  ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/[
-    datatypes, digest, forkedbeaconstate_helpers, helpers, state_transition,
-    presets],
+    digest, forkedbeaconstate_helpers, helpers, state_transition, presets],
   ../beacon_chain/beacon_node_types,
   ../beacon_chain/[beacon_chain_db, ssz],
   ../beacon_chain/consensus_object_pools/[

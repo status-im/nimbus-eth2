@@ -15,7 +15,8 @@ import
 
   chronicles,
   # Internal
-  ../spec/[datatypes, digest],
+  ../spec/datatypes/base,
+  ../spec/digest,
   ../consensus_object_pools/block_pools_types
 
 # https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md

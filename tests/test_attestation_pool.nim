@@ -379,7 +379,7 @@ suite "Attestation pool processing" & preset():
       b1 = addTestBlock(state.data, dag.tail.root, cache)
       b1Add = dag.addRawBlock(quarantine, b1) do (
           blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
-          epochRef: EpochRef, state: HashedBeaconState):
+          epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
@@ -392,7 +392,7 @@ suite "Attestation pool processing" & preset():
       b2 = addTestBlock(state.data, b1.root, cache)
       b2Add = dag.addRawBlock(quarantine, b2) do (
           blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
-          epochRef: EpochRef, state: HashedBeaconState):
+          epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
@@ -407,7 +407,7 @@ suite "Attestation pool processing" & preset():
       b10 = makeTestBlock(state.data, dag.tail.root, cache)
       b10Add = dag.addRawBlock(quarantine, b10) do (
           blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
-          epochRef: EpochRef, state: HashedBeaconState):
+          epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
@@ -422,7 +422,7 @@ suite "Attestation pool processing" & preset():
       )
       b11Add = dag.addRawBlock(quarantine, b11) do (
           blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
-          epochRef: EpochRef, state: HashedBeaconState):
+          epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
@@ -468,7 +468,7 @@ suite "Attestation pool processing" & preset():
       b10 = makeTestBlock(state.data, dag.tail.root, cache)
       b10Add = dag.addRawBlock(quarantine, b10) do (
           blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
-          epochRef: EpochRef, state: HashedBeaconState):
+          epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
@@ -482,7 +482,7 @@ suite "Attestation pool processing" & preset():
     let b10_clone = b10 # Assumes deep copy
     let b10Add_clone = dag.addRawBlock(quarantine, b10_clone) do (
           blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
-          epochRef: EpochRef, state: HashedBeaconState):
+          epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
@@ -497,7 +497,7 @@ suite "Attestation pool processing" & preset():
       b10 = addTestBlock(state.data, dag.tail.root, cache)
       b10Add = dag.addRawBlock(quarantine, b10) do (
           blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
-          epochRef: EpochRef, state: HashedBeaconState):
+          epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
@@ -525,7 +525,7 @@ suite "Attestation pool processing" & preset():
         block_root = new_block.root
         let blockRef = dag.addRawBlock(quarantine, new_block) do (
             blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
-            epochRef: EpochRef, state: HashedBeaconState):
+            epochRef: EpochRef):
           # Callback add to fork choice if valid
           pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
@@ -567,7 +567,7 @@ suite "Attestation pool processing" & preset():
     # Add back the old block to ensure we have a duplicate error
     let b10Add_clone = dag.addRawBlock(quarantine, b10_clone) do (
           blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
-          epochRef: EpochRef, state: HashedBeaconState):
+          epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 

@@ -13,8 +13,8 @@ import
   stew/results,
   eth/keys,
   # Internals
-  ../spec/[
-    datatypes, crypto, digest, helpers, signatures_batch],
+  ../spec/[crypto, digest, helpers, signatures_batch],
+  ../spec/datatypes/base,
   ../consensus_object_pools/[
     blockchain_dag, block_quarantine,
     attestation_pool, exit_pool,

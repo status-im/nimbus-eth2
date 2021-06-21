@@ -49,15 +49,15 @@ const
   PARTICIPATION_FLAG_WEIGHTS* =
     [TIMELY_SOURCE_WEIGHT, TIMELY_TARGET_WEIGHT, TIMELY_HEAD_WEIGHT]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/validator.md#misc
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#misc
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 4
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/setup.py#L470
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/setup.py#L473
   FINALIZED_ROOT_INDEX* = 105'u16
   NEXT_SYNC_COMMITTEE_INDEX* = 55'u16
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#participation-flag-indices
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#participation-flag-indices
   TIMELY_SOURCE_FLAG_INDEX* = 0
   TIMELY_TARGET_FLAG_INDEX* = 1
   TIMELY_HEAD_FLAG_INDEX* = 2
@@ -71,16 +71,6 @@ static: doAssert TIMELY_SOURCE_WEIGHT + TIMELY_TARGET_WEIGHT +
   TIMELY_HEAD_WEIGHT + SYNC_REWARD_WEIGHT + PROPOSER_WEIGHT ==
   WEIGHT_DENOMINATOR
 
-let
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#misc
-  # Cannot be computed at compile-time due to importc dependency
-  G2_POINT_AT_INFINITY* = ValidatorSig.fromRaw([
-    0xc0'u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0])
-
 type
   ### New types
 
@@ -93,7 +83,7 @@ type
     sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
     sync_committee_signature*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#synccommittee
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#synccommittee
   SyncCommittee* = object
     pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
     aggregate_pubkey*: ValidatorPubKey
@@ -132,13 +122,13 @@ type
     signature*: ValidatorSig  ##\
     ## Signature by the validator(s) over the block root of `slot`
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/validator.md#contributionandproof
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#contributionandproof
   ContributionAndProof* = object
     aggregator_index*: uint64
     contribution*: SyncCommitteeContribution
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/validator.md#signedcontributionandproof
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#signedcontributionandproof
   SignedContributionAndProof* = object
     message*: ContributionAndProof
     signature*: ValidatorSig
@@ -150,7 +140,7 @@ type
 
   ### Modified/overloaded
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/sync-protocol.md#lightclientsnapshot
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/sync-protocol.md#lightclientsnapshot
   LightClientSnapshot* = object
     header*: BeaconBlockHeader ##\
     ## Beacon block header
@@ -160,7 +150,7 @@ type
 
     next_sync_committee*: SyncCommittee
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/sync-protocol.md#lightclientupdate
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
     header*: BeaconBlockHeader  ##\
     ## Update beacon block header
@@ -318,11 +308,14 @@ type
     state_root*: Eth2Digest ##\
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
-    eth1_data*: Eth1Data
-    graffiti*: GraffitiBytes
+    eth1_data*: Eth1Data ##\
+    ## Eth1 data vote
+
+    graffiti*: GraffitiBytes ##\
+    ## Arbitrary data
 
     # Operations
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
