@@ -124,11 +124,6 @@ proc get_attesting_indices*(state: ForkedHashedBeaconState;
 
   var idxBuf: seq[ValidatorIndex]
 
-  doAssert  state.beaconStateFork == forkPhase0
-  for vidx in state.hbsPhase0.data.get_attesting_indices(data, bits, cache):
-    idxBuf.add vidx
-  if true: return idxBuf
-
   if state.beaconStateFork == forkPhase0:
     for vidx in state.hbsPhase0.data.get_attesting_indices(data, bits, cache):
       idxBuf.add vidx

@@ -18,7 +18,7 @@ import
     beaconstate, crypto, digest, forkedbeaconstate_helpers,
     validator],
   ../spec/datatypes/[phase0, altair],
-  ../ssz/merkleization,
+  ../ssz/[merkleization, types],
   "."/[spec_cache, blockchain_dag, block_quarantine],
   ".."/[beacon_clock, beacon_node_types, extras],
   ../fork_choice/fork_choice
@@ -312,7 +312,7 @@ proc addAttestation*(pool: var AttestationPool,
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
-                    blck: phase0.TrustedBeaconBlock,
+                    blck: phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock,
                     wallSlot: Slot) =
   ## Add a verified block to the fork choice context
   let state = pool.forkChoice.process_block(
@@ -401,7 +401,10 @@ func init(
     for slot_committee_index in 0'u64 ..< get_committee_count_per_slot(
         state.data, epoch, cache):
       var
-        validator_bits: CommitteeValidatorsBits
+        validator_bits =
+          CommitteeValidatorsBits.init(
+            get_beacon_committee_len(
+              state.data, slot, slot_committee_index.CommitteeIndex, cache).int)
         i = 0
       for index in get_beacon_committee(
           state.data, slot, slot_committee_index.CommitteeIndex, cache):
@@ -447,7 +450,7 @@ proc score(
   bitsScore
 
 proc getAttestationsForBlock*(pool: var AttestationPool,
-                              state: phase0.HashedBeaconState,
+                              state: SomeHashedBeaconState,
                               cache: var StateCache): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
@@ -466,7 +469,13 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   var
     candidates: seq[tuple[
       score: int, slot: Slot, entry: ptr AttestationEntry, validation: int]]
-    attCache = AttestationCache.init(state)
+    attCache =
+      when state is phase0.HashedBeaconState:
+        AttestationCache.init(state)
+      elif state is altair.HashedBeaconState:
+        AttestationCache.init(state, cache)
+      else:
+        static: doAssert false
 
   for i in 0..<ATTESTATION_LOOKBACK:
     if i > maxAttestationSlot: # Around genesis..
@@ -518,8 +527,11 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   var
     prevEpoch = state.data.get_previous_epoch()
     prevEpochSpace =
-      state.data.previous_epoch_attestations.maxLen -
-        state.data.previous_epoch_attestations.len()
+      when state is altair.HashedBeaconState:
+        MAX_ATTESTATIONS
+      else:
+        state.data.previous_epoch_attestations.maxLen -
+          state.data.previous_epoch_attestations.len()
 
   var res: seq[Attestation]
   let totalCandidates = candidates.len()

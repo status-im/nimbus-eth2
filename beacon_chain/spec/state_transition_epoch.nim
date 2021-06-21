@@ -807,7 +807,11 @@ func process_inactivity_updates*(state: var altair.BeaconState) =
     return
 
   # TODO actually implement get_eligible_validator_indices() as an iterator
-  let previous_epoch = get_previous_epoch(state)  # get_eligible_validator_indices()
+  let
+    previous_epoch = get_previous_epoch(state)  # get_eligible_validator_indices()
+    unslashed_participating_indices =
+      get_unslashed_participating_indices(
+        state, TIMELY_TARGET_FLAG_INDEX, get_previous_epoch(state))
   for index in 0'u64 ..< state.validators.lenu64:
     # get_eligible_validator_indices()
     let v = state.validators[index]
@@ -815,7 +819,7 @@ func process_inactivity_updates*(state: var altair.BeaconState) =
       continue
 
     # Increase the inactivity score of inactive validators
-    if index.ValidatorIndex in get_unslashed_participating_indices(state, TIMELY_TARGET_FLAG_INDEX, get_previous_epoch(state)):
+    if index.ValidatorIndex in unslashed_participating_indices:
       state.inactivity_scores[index] -= min(1'u64, state.inactivity_scores[index])
     else:
       state.inactivity_scores[index] += INACTIVITY_SCORE_BIAS
