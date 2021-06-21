@@ -15,7 +15,8 @@ import
   stew/[results, byteutils],
   chronicles, chronicles/timings,
   # Internal
-  ../spec/[datatypes, digest, crypto],
+  ../spec/datatypes/base,
+  ../spec/[digest, crypto],
   ./slashing_protection_common,
   ./slashing_protection_v1,
   ./slashing_protection_v2

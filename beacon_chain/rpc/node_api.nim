@@ -17,7 +17,8 @@ import std/options,
   ../beacon_node_common, ../version,
   ../networking/[eth2_network, peer_pool],
   ../sync/sync_manager,
-  ../spec/[datatypes, digest, presets],
+  ../spec/datatypes/base,
+  ../spec/[digest, presets],
   ../spec/eth2_apis/callsigs_types
 
 logScope: topics = "nodeapi"

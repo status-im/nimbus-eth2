@@ -13,7 +13,8 @@ import
   unittest2,
   stew/[byteutils, endians2],
   # Internals
-  ../../beacon_chain/spec/[datatypes, presets],
+  ../../beacon_chain/spec/datatypes/base,
+  ../../beacon_chain/spec/presets,
   # Test utilities
   ../testutil, ./fixtures_utils
 

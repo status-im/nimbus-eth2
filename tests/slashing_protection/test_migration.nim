@@ -21,7 +21,8 @@ import
     slashing_protection,
     slashing_protection_v1
   ],
-  ../../beacon_chain/spec/[datatypes, digest, crypto, presets],
+  ../../beacon_chain/spec/datatypes/base,
+  ../../beacon_chain/spec/[digest, crypto, presets],
   # Test utilies
   ../testutil
 

@@ -18,7 +18,8 @@ import
   ".."/[
     beacon_node_common, nimbus_binary_common, networking/eth2_network,
     eth1/eth1_monitor, validators/validator_duties],
-  ../spec/[digest, datatypes, forkedbeaconstate_helpers, presets]
+  ../spec/datatypes/base,
+  ../spec/[digest, forkedbeaconstate_helpers, presets]
 
 
 logScope: topics = "nimbusapi"
