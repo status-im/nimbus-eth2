@@ -111,7 +111,7 @@ type
     connections*: int
     enr*: Option[enr.Record]
     metadata*: Option[MetaData]
-    metadata_received*: Moment
+    lastMetadataTime*: Moment
     direction*: PeerType
     disconnectedFut: Future[void]
 
@@ -1204,7 +1204,7 @@ proc updatePeerMetadata*(node: Eth2Node, peerId: PeerID, timeout = 20.seconds) {
   const emptyBytes = newSeq[byte](0)
   var peer = node.getPeer(peerId)
   let
-    oldMetadata= peer.metadata
+    oldMetadata = peer.metadata
     response = await makeEth2Request(
       peer,
       "/eth2/beacon_chain/req/metadata/1/",
@@ -1218,7 +1218,7 @@ proc updatePeerMetadata*(node: Eth2Node, peerId: PeerID, timeout = 20.seconds) {
 
   let newMetadata = response.get()
   peer.metadata = some(newMetadata)
-  peer.metadata_received = Moment.now()
+  peer.lastMetadataTime = Moment.now()
 
   for bit in 0..<newMetadata.attnets.len:
     if newMetadata.attnets[bit]:
@@ -1256,12 +1256,24 @@ proc tmptmp*(node: Eth2Node) {.async.} =
       if peer.connectionState != Connected: continue
 
       if peer.metadata.isNone or
-        heartbeatStart_m - peer.metadata_received > 30.minutes:
+        heartbeatStart_m - peer.lastMetadataTime > 30.minutes:
         updateFutures.add(node.updatePeerMetadata(peer.info.peerId))
 
     updateFutures.add(node.dialLowPeersAttnets())
 
     discard await allFinished(updateFutures)
+
+    for peer in node.peers.values:
+      if peer.connectionState != Connected: continue
+      let lastMetadata =
+        if peer.metadata.isNone:
+          peer.lastMetadataTime
+        else:
+          peer.lastMetadataTime + 30.minutes
+
+      if heartbeatStart_m - lastMetadata > 10.minutes:
+        debug "no metadata for 10 minutes, kicking peer", peer
+        asyncSpawn peer.disconnect(PeerScoreLow)
 
     await node.peerBalancer.trimConnections()
 
@@ -1317,6 +1329,7 @@ proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
     network: network,
     connectionState: ConnectionState.None,
     lastReqTime: now(chronos.Moment),
+    lastMetadataTime: now(chronos.Moment),
     protocolStates: newSeq[RootRef](len(allProtocols))
   )
   for i in 0 ..< len(allProtocols):
