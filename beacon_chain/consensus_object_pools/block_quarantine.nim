@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,7 +12,8 @@ import
   chronicles,
   stew/bitops2,
   eth/keys,
-  ../spec/[crypto, datatypes, digest],
+  ../spec/[crypto, digest],
+  ../spec/datatypes/[phase0, altair],
   ./block_pools_types
 
 export options, block_pools_types
@@ -55,21 +56,42 @@ template anyIt(s, pred: untyped): bool =
   result
 
 func containsOrphan*(
-    quarantine: QuarantineRef, signedBlock: SignedBeaconBlock): bool =
-  (signedBlock.root, signedBlock.signature) in quarantine.orphans
+    quarantine: QuarantineRef, signedBlock: phase0.SignedBeaconBlock): bool =
+  (signedBlock.root, signedBlock.signature) in quarantine.orphansPhase0
+
+func containsOrphan*(
+    quarantine: QuarantineRef, signedBlock: altair.SignedBeaconBlock): bool =
+  (signedBlock.root, signedBlock.signature) in quarantine.orphansAltair
 
 func addMissing*(quarantine: QuarantineRef, root: Eth2Digest) =
   ## Schedule the download a the given block
   # Can only request by root, not by signature, so partial match suffices
-  if not anyIt(quarantine.orphans.keys, it[0] == root):
+  if (not anyIt(quarantine.orphansPhase0.keys, it[0] == root)) and
+     (not anyIt(quarantine.orphansAltair.keys, it[0] == root)):
     # If the block is in orphans, we no longer need it
     discard quarantine.missing.hasKeyOrPut(root, MissingBlock())
 
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+# copy of phase0.SomeSignedBeaconBlock from datatypes/phase0.nim
+type SomeSignedPhase0Block =
+  phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
+  phase0.TrustedSignedBeaconBlock
 func removeOrphan*(
-    quarantine: QuarantineRef, signedBlock: SignedBeaconBlock) =
-  quarantine.orphans.del((signedBlock.root, signedBlock.signature))
+    quarantine: QuarantineRef, signedBlock: SomeSignedPhase0Block) =
+  quarantine.orphansPhase0.del((signedBlock.root, signedBlock.signature))
 
-func isViableOrphan(dag: ChainDAGRef, signedBlock: SignedBeaconBlock): bool =
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+# copy of altair.SomeSignedBeaconBlock from datatypes/altair.nim
+type SomeSignedAltairBlock =
+  altair.SignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock |
+  altair.TrustedSignedBeaconBlock
+func removeOrphan*(
+    quarantine: QuarantineRef, signedBlock: SomeSignedAltairBlock) =
+  quarantine.orphansAltair.del((signedBlock.root, signedBlock.signature))
+
+func isViableOrphan(
+    dag: ChainDAGRef,
+    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock): bool =
   # The orphan must be newer than the finalization point so that its parent
   # either is the finalized block or more recent
   signedBlock.message.slot > dag.finalizedHead.slot
@@ -77,39 +99,43 @@ func isViableOrphan(dag: ChainDAGRef, signedBlock: SignedBeaconBlock): bool =
 func removeOldBlocks(quarantine: QuarantineRef, dag: ChainDAGRef) =
   var oldBlocks: seq[(Eth2Digest, ValidatorSig)]
 
-  for k, v in quarantine.orphans.pairs():
-    if not isViableOrphan(dag, v):
-      oldBlocks.add k
+  template removeNonviableOrphans(orphans: untyped) =
+    for k, v in orphans.pairs():
+      if not isViableOrphan(dag, v):
+        oldBlocks.add k
 
-  for k in oldBlocks:
-    quarantine.orphans.del k
+    for k in oldBlocks:
+      orphans.del k
+
+  removeNonviableOrphans(quarantine.orphansPhase0)
+  removeNonviableOrphans(quarantine.orphansAltair)
 
 func clearQuarantine*(quarantine: QuarantineRef) =
-  quarantine.orphans.clear()
+  quarantine.orphansPhase0.clear()
+  quarantine.orphansAltair.clear()
   quarantine.missing.clear()
 
+# Typically, blocks will arrive in mostly topological order, with some
+# out-of-order block pairs. Therefore, it is unhelpful to use either a
+# FIFO or LIFO discpline, and since by definition each block gets used
+# either 0 or 1 times it's not a cache either. Instead, stop accepting
+# new blocks, and rely on syncing to cache up again if necessary. When
+# using forward sync, blocks only arrive in an order not requiring the
+# quarantine.
+#
+# For typical use cases, this need not be large, as they're two or three
+# blocks arriving out of order due to variable network delays. As blocks
+# for future slots are rejected before reaching quarantine, this usually
+# will be a block for the last couple of slots for which the parent is a
+# likely imminent arrival.
+
+# Since we start forward sync when about one epoch is missing, that's as
+# good a number as any.
+const MAX_QUARANTINE_ORPHANS = SLOTS_PER_EPOCH
+
 func add*(quarantine: QuarantineRef, dag: ChainDAGRef,
-          signedBlock: SignedBeaconBlock): bool =
+          signedBlock: phase0.SignedBeaconBlock): bool =
   ## Adds block to quarantine's `orphans` and `missing` lists.
-
-  # Typically, blocks will arrive in mostly topological order, with some
-  # out-of-order block pairs. Therefore, it is unhelpful to use either a
-  # FIFO or LIFO discpline, and since by definition each block gets used
-  # either 0 or 1 times it's not a cache either. Instead, stop accepting
-  # new blocks, and rely on syncing to cache up again if necessary. When
-  # using forward sync, blocks only arrive in an order not requiring the
-  # quarantine.
-  #
-  # For typical use cases, this need not be large, as they're two or three
-  # blocks arriving out of order due to variable network delays. As blocks
-  # for future slots are rejected before reaching quarantine, this usually
-  # will be a block for the last couple of slots for which the parent is a
-  # likely imminent arrival.
-
-  # Since we start forward sync when about one epoch is missing, that's as
-  # good a number as any.
-  const MAX_QUARANTINE_ORPHANS = SLOTS_PER_EPOCH
-
   if not isViableOrphan(dag, signedBlock):
     return false
 
@@ -119,10 +145,32 @@ func add*(quarantine: QuarantineRef, dag: ChainDAGRef,
   # downloading or we'll never get to the bottom of things
   quarantine.addMissing(signedBlock.message.parent_root)
 
-  if quarantine.orphans.lenu64 >= MAX_QUARANTINE_ORPHANS:
+  if quarantine.orphansPhase0.lenu64 >= MAX_QUARANTINE_ORPHANS:
     return false
 
-  quarantine.orphans[(signedBlock.root, signedBlock.signature)] = signedBlock
+  quarantine.orphansPhase0[(signedBlock.root, signedBlock.signature)] =
+    signedBlock
+  quarantine.missing.del(signedBlock.root)
+
+  true
+
+func add*(quarantine: QuarantineRef, dag: ChainDAGRef,
+          signedBlock: altair.SignedBeaconBlock): bool =
+  ## Adds block to quarantine's `orphans` and `missing` lists.
+  if not isViableOrphan(dag, signedBlock):
+    return false
+
+  quarantine.removeOldBlocks(dag)
+
+  # Even if the quarantine is full, we need to schedule its parent for
+  # downloading or we'll never get to the bottom of things
+  quarantine.addMissing(signedBlock.message.parent_root)
+
+  if quarantine.orphansAltair.lenu64 >= MAX_QUARANTINE_ORPHANS:
+    return false
+
+  quarantine.orphansAltair[(signedBlock.root, signedBlock.signature)] =
+    signedBlock
   quarantine.missing.del(signedBlock.root)
 
   true

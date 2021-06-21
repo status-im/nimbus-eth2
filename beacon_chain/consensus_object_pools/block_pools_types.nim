@@ -11,11 +11,11 @@ import
   # Standard library
   std/[sets, tables, hashes],
   # Status libraries
-  stew/[endians2], chronicles,
+  stew/endians2, chronicles,
   eth/keys,
   # Internals
-  ../spec/[
-    datatypes, crypto, digest, signatures_batch, forkedbeaconstate_helpers],
+  ../spec/[crypto, digest, signatures_batch, forkedbeaconstate_helpers],
+  ../spec/datatypes/[phase0, altair],
   ../beacon_chain_db, ../extras
 
 export sets, tables
@@ -57,10 +57,15 @@ type
     ##
     ## Invalid blocks are dropped immediately.
 
-    orphans*: Table[(Eth2Digest, ValidatorSig), SignedBeaconBlock] ##\
-    ## Blocks that have passed validation but that we lack a link back to tail
-    ## for - when we receive a "missing link", we can use this data to build
-    ## an entire branch
+    orphansPhase0*: Table[(Eth2Digest, ValidatorSig), phase0.SignedBeaconBlock] ##\
+    ## Phase 0 Blocks that have passed validation but that we lack a link back
+    ## to tail for - when we receive a "missing link", we can use this data to
+    ## build an entire branch
+
+    orphansAltair*: Table[(Eth2Digest, ValidatorSig), altair.SignedBeaconBlock] ##\
+    ## Altair Blocks that have passed validation, but that we lack a link back
+    ## to tail for - when we receive a "missing link", we can use this data to
+    ## build an entire branch
 
     missing*: Table[Eth2Digest, MissingBlock] ##\
     ## Roots of blocks that we would like to have (either parent_root of
@@ -199,7 +204,7 @@ type
   BlockData* = object
     ## Body and graph in one
 
-    data*: TrustedSignedBeaconBlock # We trust all blocks we have a ref for
+    data*: phase0.TrustedSignedBeaconBlock # We trust all blocks we have a ref for
     refs*: BlockRef
 
   StateData* = object
@@ -218,8 +223,14 @@ type
       ## Slot time for this BlockSlot which may differ from blck.slot when time
       ## has advanced without blocks
 
-  OnBlockAdded* = proc(
-    blckRef: BlockRef, blck: TrustedSignedBeaconBlock,
+  OnPhase0BlockAdded* = proc(
+    blckRef: BlockRef,
+    blck: phase0.TrustedSignedBeaconBlock,
+    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+
+  OnAltairBlockAdded* = proc(
+    blckRef: BlockRef,
+    blck: altair.TrustedSignedBeaconBlock,
     epochRef: EpochRef) {.gcsafe, raises: [Defect].}
 
 template head*(dag: ChainDagRef): BlockRef = dag.headState.blck

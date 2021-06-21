@@ -86,14 +86,14 @@ func batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool
 
 proc addRawBlock*(
       dag: ChainDAGRef, quarantine: QuarantineRef,
-      signedBlock: phase0.SignedBeaconBlock, onBlockAdded: OnBlockAdded
+      signedBlock: phase0.SignedBeaconBlock, onBlockAdded: OnPhase0BlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] {.gcsafe.}
 
 proc addResolvedBlock(
        dag: ChainDAGRef, quarantine: QuarantineRef,
        state: var StateData, trustedBlock: phase0.TrustedSignedBeaconBlock,
        parent: BlockRef, cache: var StateCache,
-       onBlockAdded: OnBlockAdded, stateDataDur, sigVerifyDur,
+       onBlockAdded: OnPhase0BlockAdded, stateDataDur, sigVerifyDur,
        stateVerifyDur: Duration
      ) =
   # TODO move quarantine processing out of here
@@ -164,10 +164,10 @@ proc addResolvedBlock(
     quarantine.inAdd = true
     defer: quarantine.inAdd = false
     var entries = 0
-    while entries != quarantine.orphans.len:
-      entries = quarantine.orphans.len # keep going while quarantine is shrinking
+    while entries != quarantine.orphansPhase0.len:
+      entries = quarantine.orphansPhase0.len # keep going while quarantine is shrinking
       var resolved: seq[phase0.SignedBeaconBlock]
-      for _, v in quarantine.orphans:
+      for _, v in quarantine.orphansPhase0:
         if v.message.parent_root in dag:
           resolved.add(v)
 
@@ -227,7 +227,7 @@ proc addRawBlockKnownParent(
        dag: ChainDAGRef, quarantine: QuarantineRef,
        signedBlock: phase0.SignedBeaconBlock,
        parent: BlockRef,
-       onBlockAdded: OnBlockAdded
+       onBlockAdded: OnPhase0BlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## Add a block whose parent is known, after performing validity checks
 
@@ -319,7 +319,8 @@ proc addRawBlockUnresolved(
   if signedBlock.message.parent_root in quarantine.missing or
       containsOrphan(quarantine, signedBlock):
     debug "Unresolved block (parent missing or orphaned)",
-      orphans = quarantine.orphans.len,
+      orphansPhase0 = quarantine.orphansPhase0.len,
+      orphansAltair = quarantine.orphansAltair.len,
       missing = quarantine.missing.len
 
     return err((ValidationResult.Ignore, MissingParent))
@@ -334,7 +335,8 @@ proc addRawBlockUnresolved(
   #      a risk of being slashed, making attestations a more valuable spam
   #      filter.
   debug "Unresolved block (parent missing)",
-    orphans = quarantine.orphans.len,
+    orphansPhase0 = quarantine.orphansPhase0.len,
+    orphansAltair = quarantine.orphansAltair.len,
     missing = quarantine.missing.len
 
   return err((ValidationResult.Ignore, MissingParent))
@@ -342,7 +344,7 @@ proc addRawBlockUnresolved(
 proc addRawBlock(
        dag: ChainDAGRef, quarantine: QuarantineRef,
        signedBlock: phase0.SignedBeaconBlock,
-       onBlockAdded: OnBlockAdded
+       onBlockAdded: OnPhase0BlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## Try adding a block to the chain, verifying first that it passes the state
   ## transition function and contains correct cryptographic signature.
