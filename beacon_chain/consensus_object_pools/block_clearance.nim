@@ -86,17 +86,60 @@ func batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool
 
 proc addRawBlock*(
       dag: ChainDAGRef, quarantine: QuarantineRef,
-      signedBlock: phase0.SignedBeaconBlock, onBlockAdded: OnPhase0BlockAdded
+      signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+      onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] {.gcsafe.}
+
+# Now that we have the new block, we should see if any of the previously
+# unresolved blocks magically become resolved
+# TODO This code is convoluted because when there are more than ~1.5k
+#      blocks being synced, there's a stack overflow as `add` gets called
+#      for the whole chain of blocks. Instead we use this ugly field in `dag`
+#      which could be avoided by refactoring the code
+# TODO unit test the logic, in particular interaction with fork choice block parents
+proc resolveQuarantinedBlocks(
+    dag: ChainDAGRef, quarantine: QuarantineRef,
+    onBlockAdded: OnPhase0BlockAdded) =
+  if not quarantine.inAdd:
+    quarantine.inAdd = true
+    defer: quarantine.inAdd = false
+    var entries = 0
+    while entries != quarantine.orphansPhase0.len:
+      entries = quarantine.orphansPhase0.len # keep going while quarantine is shrinking
+      var resolved: seq[phase0.SignedBeaconBlock]
+      for _, v in quarantine.orphansPhase0:
+        if v.message.parent_root in dag:
+          resolved.add(v)
+
+      for v in resolved:
+        discard addRawBlock(dag, quarantine, v, onBlockAdded)
+
+proc resolveQuarantinedBlocks(
+    dag: ChainDAGRef, quarantine: QuarantineRef,
+    onBlockAdded: OnAltairBlockAdded) =
+  if not quarantine.inAdd:
+    quarantine.inAdd = true
+    defer: quarantine.inAdd = false
+    var entries = 0
+    while entries != quarantine.orphansAltair.len:
+      entries = quarantine.orphansAltair.len # keep going while quarantine is shrinking
+      var resolved: seq[altair.SignedBeaconBlock]
+      for _, v in quarantine.orphansAltair:
+        if v.message.parent_root in dag:
+          resolved.add(v)
+
+      for v in resolved:
+        discard addRawBlock(dag, quarantine, v, onBlockAdded)
 
 proc addResolvedBlock(
        dag: ChainDAGRef, quarantine: QuarantineRef,
-       state: var StateData, trustedBlock: phase0.TrustedSignedBeaconBlock,
+       state: var StateData,
+       trustedBlock: phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock,
        parent: BlockRef, cache: var StateCache,
-       onBlockAdded: OnPhase0BlockAdded, stateDataDur, sigVerifyDur,
+       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded,
+       stateDataDur, sigVerifyDur,
        stateVerifyDur: Duration
      ) =
-  # TODO move quarantine processing out of here
   doAssert getStateField(state.data, slot) == trustedBlock.message.slot,
     "state must match block"
   doAssert state.blck.root == trustedBlock.message.parent_root,
@@ -112,7 +155,9 @@ proc addResolvedBlock(
   dag.blocks.incl(KeyedBlockRef.init(blockRef))
 
   # Resolved blocks should be stored in database
-  dag.putBlock(trustedBlock)
+  when not (trustedBlock is altair.TrustedSignedBeaconBlock):
+    # TODO implement this for altair
+    dag.putBlock(trustedBlock)
   let putBlockTick = Moment.now()
 
   var foundHead: bool
@@ -153,34 +198,16 @@ proc addResolvedBlock(
   if onBlockAdded != nil:
     onBlockAdded(blockRef, trustedBlock, epochRef)
 
-  # Now that we have the new block, we should see if any of the previously
-  # unresolved blocks magically become resolved
-  # TODO This code is convoluted because when there are more than ~1.5k
-  #      blocks being synced, there's a stack overflow as `add` gets called
-  #      for the whole chain of blocks. Instead we use this ugly field in `dag`
-  #      which could be avoided by refactoring the code
-  # TODO unit test the logic, in particular interaction with fork choice block parents
-  if not quarantine.inAdd:
-    quarantine.inAdd = true
-    defer: quarantine.inAdd = false
-    var entries = 0
-    while entries != quarantine.orphansPhase0.len:
-      entries = quarantine.orphansPhase0.len # keep going while quarantine is shrinking
-      var resolved: seq[phase0.SignedBeaconBlock]
-      for _, v in quarantine.orphansPhase0:
-        if v.message.parent_root in dag:
-          resolved.add(v)
-
-      for v in resolved:
-        discard addRawBlock(dag, quarantine, v, onBlockAdded)
+  resolveQuarantinedBlocks(dag, quarantine, onBlockAdded)
 
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-# copy of phase0.SomeSignedBeaconBlock from datatypes/phase0.nim
-type SomeSignedPhase0Block =
+type SomeSignedBlock =
   phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
-  phase0.TrustedSignedBeaconBlock
+  phase0.TrustedSignedBeaconBlock |
+  altair.SignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock |
+  altair.TrustedSignedBeaconBlock
 proc checkStateTransition(
-       dag: ChainDAGRef, signedBlock: SomeSignedPhase0Block,
+       dag: ChainDAGRef, signedBlock: SomeSignedBlock,
        cache: var StateCache): (ValidationResult, BlockError) =
   ## Ensure block can be applied on a state
   func restore(v: var ForkedHashedBeaconState) =
@@ -225,9 +252,9 @@ proc advanceClearanceState*(dag: ChainDagRef) =
 
 proc addRawBlockKnownParent(
        dag: ChainDAGRef, quarantine: QuarantineRef,
-       signedBlock: phase0.SignedBeaconBlock,
+       signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
        parent: BlockRef,
-       onBlockAdded: OnPhase0BlockAdded
+       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## Add a block whose parent is known, after performing validity checks
 
@@ -303,7 +330,7 @@ proc addRawBlockKnownParent(
 proc addRawBlockUnresolved(
        dag: ChainDAGRef,
        quarantine: QuarantineRef,
-       signedBlock: phase0.SignedBeaconBlock
+       signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## addRawBlock - Block is unresolved / has no parent
 
@@ -343,8 +370,8 @@ proc addRawBlockUnresolved(
 
 proc addRawBlock(
        dag: ChainDAGRef, quarantine: QuarantineRef,
-       signedBlock: phase0.SignedBeaconBlock,
-       onBlockAdded: OnPhase0BlockAdded
+       signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## Try adding a block to the chain, verifying first that it passes the state
   ## transition function and contains correct cryptographic signature.
