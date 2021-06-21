@@ -387,7 +387,7 @@ proc makeBeaconBlock*(
 
   return some(blck)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#preparing-for-a-beaconblock
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#preparing-a-beaconblock
 proc makeBeaconBlock*(
     preset: RuntimePreset,
     state: var altair.HashedBeaconState,
