@@ -122,7 +122,8 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
       rewards = RewardInfo()
     result =
       state_transition(
-        preset, fhState[], blck, cache, rewards, flags, rollback)
+        preset, fhState[], blck, cache, rewards, flags, rollback,
+        FAR_FUTURE_SLOT)
     data.state = fhState.hbsPhase0.data
 
   decodeAndProcess(BlockInput):

@@ -306,7 +306,7 @@ proc state_transition*(
                  phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
     rollback: RollbackForkedHashedProc,
-    altairForkSlot: Slot = FAR_FUTURE_SLOT): bool {.nbench.} =
+    altairForkSlot: Slot): bool {.nbench.} =
   ## Apply a block to the state, advancing the slot counter as necessary. The
   ## given state must be of a lower slot, or, in case the `slotProcessed` flag
   ## is set, can be the slot state of the same slot as the block (where the

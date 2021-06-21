@@ -221,12 +221,9 @@ proc checkStateTransition(
     blck = shortLog(signedBlock.message)
     blockRoot = shortLog(signedBlock.root)
 
-  # TODO this won't transition because FAR_FUTURE_SLOT, so it's
-  # fine, for now, but in general, blockchain_dag.addBlock must
-  # match the transition here.
   if not state_transition_block(
       dag.runtimePreset, dag.clearanceState.data, signedBlock,
-      cache, dag.updateFlags, restore, FAR_FUTURE_SLOT):
+      cache, dag.updateFlags, restore, dag.altairTransitionSlot):
     info "Invalid block"
 
     return (ValidationResult.Reject, Invalid)

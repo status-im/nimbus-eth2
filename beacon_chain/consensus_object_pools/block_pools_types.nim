@@ -165,6 +165,9 @@ type
       ## block - we limit the number of held EpochRefs to put a cap on
       ## memory usage
 
+    altairTransitionSlot*: Slot ##\
+      ## Slot at which to upgrade from phase 0 to Altair forks
+
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and
     ## committees in a beacon state - the epoch level information in the state
