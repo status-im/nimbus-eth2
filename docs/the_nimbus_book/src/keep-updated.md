@@ -33,7 +33,7 @@ make nimbus_beacon_node
 to [rebuild the beacon node](./build.md).
 
 ## Urgency guidelines
-As of `v1.0.4`, releases are marked with the following tags:
+As of `v1.4.0`, releases are marked with the following tags:
 
 `low-urgency`: update at your own convenience, sometime within our normal update cycle of two weeks
 
