@@ -12,8 +12,9 @@ import
   unittest2,
   ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
   ../beacon_chain/spec/[
-    beaconstate, crypto, datatypes, digest, forkedbeaconstate_helpers, presets,
+    beaconstate, crypto, digest, forkedbeaconstate_helpers, presets,
     state_transition],
+  ../beacon_chain/spec/datatypes/[phase0, altair],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
   eth/db/kvstore,
   # test utilies
@@ -22,14 +23,23 @@ import
 when isMainModule:
   import chronicles # or some random compile error happens...
 
-proc getStateRef(db: BeaconChainDB, root: Eth2Digest): NilableBeaconStateRef =
+proc getStateRef(db: BeaconChainDB, root: Eth2Digest):
+    phase0.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
-  let res = BeaconStateRef()
+  let res = (phase0.BeaconStateRef)()
   if db.getState(root, res[], noRollback):
     return res
 
-func withDigest(blck: TrustedBeaconBlock): TrustedSignedBeaconBlock =
-  TrustedSignedBeaconBlock(
+func withDigest(blck: phase0.TrustedBeaconBlock):
+    phase0.TrustedSignedBeaconBlock =
+  phase0.TrustedSignedBeaconBlock(
+    message: blck,
+    root: hash_tree_root(blck)
+  )
+
+func withDigest(blck: altair.TrustedBeaconBlock):
+    altair.TrustedSignedBeaconBlock =
+  altair.TrustedSignedBeaconBlock(
     message: blck,
     root: hash_tree_root(blck)
   )
@@ -42,12 +52,12 @@ suite "Beacon chain DB" & preset():
       db.getStateRef(Eth2Digest()).isNil
       db.getBlock(Eth2Digest()).isNone
 
-  test "sanity check blocks" & preset():
+  test "sanity check phase 0 blocks" & preset():
     var
       db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
 
     let
-      signedBlock = withDigest(TrustedBeaconBlock())
+      signedBlock = withDigest((phase0.TrustedBeaconBlock)())
       root = hash_tree_root(signedBlock.message)
 
     db.putBlock(signedBlock)
@@ -55,6 +65,39 @@ suite "Beacon chain DB" & preset():
     check:
       db.containsBlock(root)
       db.getBlock(root).get() == signedBlock
+
+    db.delBlock(root)
+    check:
+      not db.containsBlock(root)
+
+    db.putStateRoot(root, signedBlock.message.slot, root)
+    var root2 = root
+    root2.data[0] = root.data[0] + 1
+    db.putStateRoot(root, signedBlock.message.slot + 1, root2)
+
+    check:
+      db.getStateRoot(root, signedBlock.message.slot).get() == root
+      db.getStateRoot(root, signedBlock.message.slot + 1).get() == root2
+
+    db.close()
+
+  test "sanity check Altair blocks" & preset():
+    var
+      db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
+
+    let
+      signedBlock = withDigest((altair.TrustedBeaconBlock)())
+      root = hash_tree_root(signedBlock.message)
+
+    db.putBlock(signedBlock)
+
+    check:
+      db.containsBlock(root)
+      db.getAltairBlock(root).get() == signedBlock
+
+    db.delBlock(root)
+    check:
+      not db.containsBlock(root)
 
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root
@@ -95,7 +138,7 @@ suite "Beacon chain DB" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
 
-    let stateBuffer = BeaconStateRef()
+    let stateBuffer = (phase0.BeaconStateRef)()
     var testStates = getTestStates(dag.headState.data)
 
     # Ensure transitions beyond just adding validators and increasing slots
@@ -122,11 +165,11 @@ suite "Beacon chain DB" & preset():
 
     let
       a0 = withDigest(
-        TrustedBeaconBlock(slot: GENESIS_SLOT + 0))
+        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 0))
       a1 = withDigest(
-        TrustedBeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0.root))
+        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 1, parent_root: a0.root))
       a2 = withDigest(
-        TrustedBeaconBlock(slot: GENESIS_SLOT + 2, parent_root: a1.root))
+        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 2, parent_root: a1.root))
 
     doAssert toSeq(db.getAncestors(a0.root)) == []
     doAssert toSeq(db.getAncestors(a2.root)) == []
