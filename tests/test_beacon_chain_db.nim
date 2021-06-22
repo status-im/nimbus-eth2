@@ -23,11 +23,18 @@ import
 when isMainModule:
   import chronicles # or some random compile error happens...
 
-proc getStateRef(db: BeaconChainDB, root: Eth2Digest):
+proc getPhase0StateRef(db: BeaconChainDB, root: Eth2Digest):
     phase0.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
   let res = (phase0.BeaconStateRef)()
   if db.getState(root, res[], noRollback):
+    return res
+
+proc getAltairStateRef(db: BeaconChainDB, root: Eth2Digest):
+    altair.NilableBeaconStateRef =
+  # load beaconstate the way the block pool does it - into an existing instance
+  let res = (altair.BeaconStateRef)()
+  if db.getAltairState(root, res[], noRollback):
     return res
 
 func withDigest(blck: phase0.TrustedBeaconBlock):
@@ -49,7 +56,7 @@ suite "Beacon chain DB" & preset():
     var
       db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
     check:
-      db.getStateRef(Eth2Digest()).isNil
+      db.getPhase0StateRef(Eth2Digest()).isNil
       db.getBlock(Eth2Digest()).isNone
 
   test "sanity check phase 0 blocks" & preset():
@@ -110,7 +117,7 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check states" & preset():
+  test "sanity check phase 0 states" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
@@ -126,14 +133,37 @@ suite "Beacon chain DB" & preset():
 
       check:
         db.containsState(root)
-        hash_tree_root(db.getStateRef(root)[]) == root
+        hash_tree_root(db.getPhase0StateRef(root)[]) == root
 
       db.delState(root)
       check: not db.containsState(root)
 
     db.close()
 
-  test "sanity check states, reusing buffers" & preset():
+  test "sanity check Altair states" & preset():
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      testStates = getTestStates(dag.headState.data, true)
+
+    # Ensure transitions beyond just adding validators and increasing slots
+    sort(testStates) do (x, y: ref ForkedHashedBeaconState) -> int:
+      cmp($getStateRoot(x[]), $getStateRoot(y[]))
+
+    for state in testStates:
+      db.putState(state[].hbsAltair.data)
+      let root = hash_tree_root(state[])
+
+      check:
+        db.containsState(root)
+        hash_tree_root(db.getAltairStateRef(root)[]) == root
+
+      db.delState(root)
+      check: not db.containsState(root)
+
+    db.close()
+
+  test "sanity check phase 0 states, reusing buffers" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
@@ -151,6 +181,32 @@ suite "Beacon chain DB" & preset():
 
       check:
         db.getState(root, stateBuffer[], noRollback)
+        db.containsState(root)
+        hash_tree_root(stateBuffer[]) == root
+
+      db.delState(root)
+      check: not db.containsState(root)
+
+    db.close()
+
+  test "sanity check Altair states, reusing buffers" & preset():
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+
+    let stateBuffer = (altair.BeaconStateRef)()
+    var testStates = getTestStates(dag.headState.data, true)
+
+    # Ensure transitions beyond just adding validators and increasing slots
+    sort(testStates) do (x, y: ref ForkedHashedBeaconState) -> int:
+      cmp($getStateRoot(x[]), $getStateRoot(y[]))
+
+    for state in testStates:
+      db.putState(state[].hbsAltair.data)
+      let root = hash_tree_root(state[])
+
+      check:
+        db.getAltairState(root, stateBuffer[], noRollback)
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
@@ -218,7 +274,7 @@ suite "Beacon chain DB" & preset():
     db.putState(state[])
 
     check db.containsState(root)
-    let state2 = db.getStateRef(root)
+    let state2 = db.getPhase0StateRef(root)
     db.delState(root)
     check not db.containsState(root)
     db.close()

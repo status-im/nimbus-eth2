@@ -717,7 +717,7 @@ proc getState*(
   else:
     true
 
-proc getState*(
+proc getAltairState*(
     db: BeaconChainDB, key: Eth2Digest, output: var altair.BeaconState,
     rollback: AltairRollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid

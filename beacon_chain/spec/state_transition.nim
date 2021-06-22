@@ -108,7 +108,10 @@ type
   AltairRollbackProc* = proc(v: var altair.BeaconState) {.gcsafe, raises: [Defect].}
 
 func noRollback*(state: var phase0.BeaconState) =
-  trace "Skipping rollback of broken state"
+  trace "Skipping rollback of broken phase 0 state"
+
+func noRollback*(state: var altair.BeaconState) =
+  trace "Skipping rollback of broken Altair state"
 
 type
   RollbackHashedProc* = proc(state: var phase0.HashedBeaconState) {.gcsafe, raises: [Defect].}
@@ -171,7 +174,7 @@ func noRollback*(state: var phase0.HashedBeaconState) =
 func noRollback*(state: var altair.HashedBeaconState) =
   trace "Skipping rollback of broken Altair state"
 
-proc maybeUpgradeStateToAltair(
+proc maybeUpgradeStateToAltair*(
     state: var ForkedHashedBeaconState, altairForkSlot: Slot) =
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
