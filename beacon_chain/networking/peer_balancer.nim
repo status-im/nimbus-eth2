@@ -34,8 +34,8 @@ type
     switch: Switch
 
 const
-  #Can't be INT_MAX because that would overflow
-  groupWithLowPeersScore = 1_000_000_000
+  #Can't be INT_MAX because that would easily overflow
+  groupWithLowPeersScore = 500_000_000
 
 proc addPeer*(group: PeerGroup, peer: PeerID) =
   group.peers.incl(peer)
@@ -88,6 +88,7 @@ proc trimConnections*(balancer: PeerBalancer) {.async.} =
   for peerId in scores.keys:
     #TODO kill a single connection instead of the whole peer
     # Not possible with the current libp2p's conn management
+    debug "kicking peer", peerId
     await balancer.switch.disconnect(peerId)
     dec toKick
     if toKick < 0: break
@@ -113,7 +114,7 @@ proc addGroup*(
 proc new*(T: typedesc[PeerBalancer], switch: Switch, maxPeers: int): T =
   let balancer = T(switch: switch, maxPeers: maxPeers)
 
-  proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
+  proc peerHook(peerId: PeerID, event: ConnEvent) {.gcsafe, async.} =
     balancer.removePeer(peerId)
 
   switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)

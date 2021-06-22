@@ -72,7 +72,6 @@ type
     discoveryEnabled*: bool
     wantedPeers*: int
     peerPool*: PeerPool[Peer, PeerID]
-    peerBalancer: PeerBalancer
     protocolStates*: seq[RootRef]
     libp2pTransportLoops*: seq[Future[void]]
     metadata*: MetaData
@@ -86,9 +85,8 @@ type
     rng*: ref BrHmacDrbgContext
     peers*: Table[PeerID, Peer]
     validTopics: HashSet[string]
-
-    #TMP
-    heartbeater*: Future[void]
+    peerBalancer: PeerBalancer
+    peerBalancerHeartbeatFut: Future[void]
     attnetsPeerGroups: seq[PeerGroup]
     eth2PeerGroup: PeerGroup
 
@@ -1151,10 +1149,10 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, enrForkId: ENRForkID,
     rng: rng,
     connectTimeout: connectTimeout,
     seenThreshold: seenThreshold,
-    peerBalancer: PeerBalancer.new(switch, 10) #TODO use maxPeers instead
+    peerBalancer: PeerBalancer.new(switch, config.maxPeers)
   )
 
-  const scorePerProtocol = 1_000_000_000
+  const scorePerProtocol = 1_000_000
   for attnet in 0..<metadata.attnets.len():
     node.attnetsPeerGroups.add(node.peerBalancer.addGroup("attnet_"  & $attnet, scorePerProtocol div metadata.attnets.len(), 3))
   node.eth2PeerGroup = node.peerBalancer.addGroup("eth2", scorePerProtocol div metadata.attnets.len())
@@ -1247,7 +1245,7 @@ proc dialLowPeersAttnets(node: Eth2Node) {.async.} =
   trace "dialing a peer to have more subnet coverage..", peer=nicePeers[0]
   asyncSpawn node.dialPeer(nicePeers[0])
 
-proc tmptmp*(node: Eth2Node) {.async.} =
+proc peerBalancerHeartbeat*(node: Eth2Node) {.async.} =
   while true:
     let heartbeatStart_m = Moment.now()
     var updateFutures: seq[Future[void]]
@@ -1307,7 +1305,7 @@ proc start*(node: Eth2Node) {.async.} =
         let pa = tr.get().toPeerAddr(tcpProtocol)
         if pa.isOk():
           await node.connQueue.addLast(pa.get())
-  node.heartbeater = node.tmptmp()
+  node.peerBalancerHeartbeatFut = node.peerBalancerHeartbeat()
 
 proc stop*(node: Eth2Node) {.async.} =
   # Ignore errors in futures, since we're shutting down (but log them on the
@@ -1316,6 +1314,7 @@ proc stop*(node: Eth2Node) {.async.} =
     waitedFutures = @[
       node.discovery.closeWait(),
       node.switch.stop(),
+      node.peerBalancerHeartbeatFut.cancelAndWait()
     ]
     timeout = 5.seconds
     completed = await withTimeout(allFutures(waitedFutures), timeout)
