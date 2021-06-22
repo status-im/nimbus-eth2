@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[typetraits, algorithm, math, sets, tables]
+  std/[algorithm, math, sets, tables]
 
 import
   chronos, chronicles, metrics,
@@ -18,14 +18,10 @@ logScope:
   topics = "networking peer_balancer"
 
 type
-  PeerGroupEventHandler* =
-    proc (peerGroup: PeerGroup) {.gcsafe, raises: [Defect].}
-
   PeerGroup* = ref object
     name*: string
     totalScore*: int
     lowPeers*: int
-    lowPeersEvent: PeerGroupEventHandler
     peers: HashSet[PeerID]
 
   PeerBalancer* = ref object
@@ -59,8 +55,6 @@ proc computeScores(balancer: PeerBalancer): OrderedTable[PeerID, int] =
   for group in balancer.peerGroups:
     let scorePerPeer =
       if group.isLow():
-        if not isNil(group.lowPeersEvent):
-          group.lowPeersEvent(group)
         groupWithLowPeersScore
       else:
         group.totalScore div group.peers.len
@@ -102,16 +96,14 @@ proc addGroup*(
   balancer: PeerBalancer,
   name: string,
   totalScore: int,
-  lowPeers = 0,
-  lowPeersEvent: PeerGroupEventHandler = nil): PeerGroup =
+  lowPeers = 0): PeerGroup =
 
   trace "new peer group", name, totalScore, lowPeers
 
   var group = PeerGroup(
     name: name,
     totalScore: totalScore,
-    lowPeers: lowPeers,
-    lowPeersEvent: lowPeersEvent)
+    lowPeers: lowPeers)
 
   balancer.peerGroups.add(group)
   return group
