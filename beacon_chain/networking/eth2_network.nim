@@ -1197,139 +1197,6 @@ proc startListening*(node: Eth2Node) {.async.} =
 
   await node.pubsub.start()
 
-proc updatePeerMetadata*(node: Eth2Node, peerId: PeerID, timeout = 20.seconds) {.async.} =
-  trace "updating peer metadata", peerId
-
-  const emptyBytes = newSeq[byte](0)
-  var peer = node.getPeer(peerId)
-  let
-    oldMetadata = peer.metadata
-    response = await makeEth2Request(
-      peer,
-      "/eth2/beacon_chain/req/metadata/1/",
-      emptyBytes,
-      Metadata,
-      timeout)
-
-  if response.isErr:
-    debug "Failed to retrieve metadata from peer!", peerId
-    return
-
-  let newMetadata = response.get()
-  peer.metadata = some(newMetadata)
-  peer.lastMetadataTime = Moment.now()
-
-  # This peer will now be managed by the peerbalancer
-  peer.network.eth2PeerGroup.addPeer(peer.info.peerId)
-
-  for bit in 0..<newMetadata.attnets.len:
-    if newMetadata.attnets[bit]:
-      node.attnetsPeerGroups[bit].addPeer(peerId)
-    elif oldMetadata.isSome and oldMetadata.get().attnets[bit] == true:
-      node.attnetsPeerGroups[bit].removePeer(peerId)
-
-proc dialLowPeersAttnets(node: Eth2Node) {.async.} =
-  var
-    lowSubnetsCount = 0
-    lowSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
-
-  for i in 0..<node.attnetsPeerGroups.len():
-    if node.attnetsPeerGroups[i].isLow():
-      inc lowSubnetsCount
-      lowSubnets.setBit(i)
-
-  if lowSubnetsCount == 0: return
-
-  trace "low subnet peers, discovering new peers", lowSubnets
-
-  let
-    nicePeers = await node.discovery.queryRandom(node.forkId, lowSubnets)
-    niceNewPeers = nicePeers.filterIt(node.checkPeer(it))
-
-  if niceNewPeers.len == 0: return
-
-  if node.switch.connManager.outSema.count < 2:
-    trace "kicking a peer to make room for a better one"
-    await node.peerBalancer.trimConnections(1)
-
-  trace "dialing a peer to have more subnet coverage..", peer=niceNewPeers[0]
-  asyncSpawn node.dialPeer(niceNewPeers[0])
-
-proc peerBalancerHeartbeat*(node: Eth2Node) {.async.} =
-  while true:
-    let heartbeatStart_m = Moment.now()
-    var updateFutures: seq[Future[void]]
-
-    for peer in node.peers.values:
-      if peer.connectionState != Connected: continue
-
-      if peer.metadata.isNone or
-        heartbeatStart_m - peer.lastMetadataTime > 30.minutes:
-        updateFutures.add(node.updatePeerMetadata(peer.info.peerId))
-
-    discard await allFinished(updateFutures)
-
-    for peer in node.peers.values:
-      if peer.connectionState != Connected: continue
-      let lastMetadata =
-        if peer.metadata.isNone:
-          peer.lastMetadataTime
-        else:
-          peer.lastMetadataTime + 30.minutes
-
-      if heartbeatStart_m - lastMetadata > 30.seconds:
-        debug "no metadata for 30 seconds, kicking peer", peer
-        asyncSpawn peer.disconnect(PeerScoreLow)
-
-    await node.dialLowPeersAttnets()
-
-    await sleepAsync(15.seconds)
-
-proc start*(node: Eth2Node) {.async.} =
-
-  proc onPeerCountChanged() =
-    trace "Number of peers has been changed",
-          space = node.peerPool.shortLogSpace(),
-          acquired = node.peerPool.shortLogAcquired(),
-          available = node.peerPool.shortLogAvailable(),
-          current = node.peerPool.shortLogCurrent(),
-          length = len(node.peerPool)
-    nbc_peers.set int64(len(node.peerPool))
-
-  node.peerPool.setPeerCounter(onPeerCountChanged)
-
-  for i in 0 ..< ConcurrentConnections:
-    node.connWorkers.add connectWorker(node, i)
-
-  if node.discoveryEnabled:
-    node.discovery.start()
-    traceAsyncErrors node.runDiscoveryLoop()
-  else:
-    notice "Discovery disabled; trying bootstrap nodes",
-      nodes = node.discovery.bootstrapRecords.len
-    for enr in node.discovery.bootstrapRecords:
-      let tr = enr.toTypedRecord()
-      if tr.isOk():
-        let pa = tr.get().toPeerAddr(tcpProtocol)
-        if pa.isOk():
-          await node.connQueue.addLast(pa.get())
-  node.peerBalancerHeartbeatFut = node.peerBalancerHeartbeat()
-
-proc stop*(node: Eth2Node) {.async.} =
-  # Ignore errors in futures, since we're shutting down (but log them on the
-  # TRACE level, if a timeout is reached).
-  let
-    waitedFutures = @[
-      node.discovery.closeWait(),
-      node.switch.stop(),
-      node.peerBalancerHeartbeatFut.cancelAndWait()
-    ]
-    timeout = 5.seconds
-    completed = await withTimeout(allFutures(waitedFutures), timeout)
-  if not completed:
-    trace "Eth2Node.stop(): timeout reached", timeout,
-      futureErrors = waitedFutures.filterIt(it.error != nil).mapIt(it.error.msg)
-
 proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
   let res = Peer(
     info: info,
@@ -1469,6 +1336,137 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
     return newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit)
+
+#Must import here because of cyclicity
+import ../sync/sync_protocol
+
+proc updatePeerMetadata*(node: Eth2Node, peerId: PeerID, timeout = 20.seconds) {.async.} =
+  trace "updating peer metadata", peerId
+
+  const emptyBytes = newSeq[byte](0)
+  var peer = node.getPeer(peerId)
+  let
+    oldMetadata = peer.metadata
+    response = await peer.getMetaData(timeout)
+
+  if response.isErr:
+    debug "Failed to retrieve metadata from peer!", peerId
+    return
+
+  let newMetadata = response.get()
+  peer.metadata = some(newMetadata)
+  peer.lastMetadataTime = Moment.now()
+
+  # This peer will now be managed by the peerbalancer
+  peer.network.eth2PeerGroup.addPeer(peer.info.peerId)
+
+  for bit in 0..<newMetadata.attnets.len:
+    if newMetadata.attnets[bit]:
+      node.attnetsPeerGroups[bit].addPeer(peerId)
+    elif oldMetadata.isSome and oldMetadata.get().attnets[bit] == true:
+      node.attnetsPeerGroups[bit].removePeer(peerId)
+
+proc dialLowPeersAttnets(node: Eth2Node) {.async.} =
+  var
+    lowSubnetsCount = 0
+    lowSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
+
+  for i in 0..<node.attnetsPeerGroups.len():
+    if node.attnetsPeerGroups[i].isLow():
+      inc lowSubnetsCount
+      lowSubnets.setBit(i)
+
+  if lowSubnetsCount == 0: return
+
+  trace "low subnet peers, discovering new peers", lowSubnets
+
+  let
+    nicePeers = await node.discovery.queryRandom(node.forkId, lowSubnets)
+    niceNewPeers = nicePeers.filterIt(node.checkPeer(it))
+
+  if niceNewPeers.len == 0: return
+
+  if node.switch.connManager.outSema.count < 2:
+    trace "kicking a peer to make room for a better one"
+    await node.peerBalancer.trimConnections(1)
+
+  trace "dialing a peer to have more subnet coverage..", peer=niceNewPeers[0]
+  asyncSpawn node.dialPeer(niceNewPeers[0])
+
+proc peerBalancerHeartbeat*(node: Eth2Node) {.async.} =
+  while true:
+    let heartbeatStart_m = Moment.now()
+    var updateFutures: seq[Future[void]]
+
+    for peer in node.peers.values:
+      if peer.connectionState != Connected: continue
+
+      if peer.metadata.isNone or
+        heartbeatStart_m - peer.lastMetadataTime > 30.minutes:
+        updateFutures.add(node.updatePeerMetadata(peer.info.peerId))
+
+    discard await allFinished(updateFutures)
+
+    for peer in node.peers.values:
+      if peer.connectionState != Connected: continue
+      let lastMetadata =
+        if peer.metadata.isNone:
+          peer.lastMetadataTime
+        else:
+          peer.lastMetadataTime + 30.minutes
+
+      if heartbeatStart_m - lastMetadata > 30.seconds:
+        debug "no metadata for 30 seconds, kicking peer", peer
+        asyncSpawn peer.disconnect(PeerScoreLow)
+
+    await node.dialLowPeersAttnets()
+
+    await sleepAsync(15.seconds)
+
+proc start*(node: Eth2Node) {.async.} =
+
+  proc onPeerCountChanged() =
+    trace "Number of peers has been changed",
+          space = node.peerPool.shortLogSpace(),
+          acquired = node.peerPool.shortLogAcquired(),
+          available = node.peerPool.shortLogAvailable(),
+          current = node.peerPool.shortLogCurrent(),
+          length = len(node.peerPool)
+    nbc_peers.set int64(len(node.peerPool))
+
+  node.peerPool.setPeerCounter(onPeerCountChanged)
+
+  for i in 0 ..< ConcurrentConnections:
+    node.connWorkers.add connectWorker(node, i)
+
+  if node.discoveryEnabled:
+    node.discovery.start()
+    traceAsyncErrors node.runDiscoveryLoop()
+  else:
+    notice "Discovery disabled; trying bootstrap nodes",
+      nodes = node.discovery.bootstrapRecords.len
+    for enr in node.discovery.bootstrapRecords:
+      let tr = enr.toTypedRecord()
+      if tr.isOk():
+        let pa = tr.get().toPeerAddr(tcpProtocol)
+        if pa.isOk():
+          await node.connQueue.addLast(pa.get())
+  node.peerBalancerHeartbeatFut = node.peerBalancerHeartbeat()
+
+proc stop*(node: Eth2Node) {.async.} =
+  # Ignore errors in futures, since we're shutting down (but log them on the
+  # TRACE level, if a timeout is reached).
+  let
+    waitedFutures = @[
+      node.discovery.closeWait(),
+      node.switch.stop(),
+      node.peerBalancerHeartbeatFut.cancelAndWait()
+    ]
+    timeout = 5.seconds
+    completed = await withTimeout(allFutures(waitedFutures), timeout)
+  if not completed:
+    trace "Eth2Node.stop(): timeout reached", timeout,
+      futureErrors = waitedFutures.filterIt(it.error != nil).mapIt(it.error.msg)
 
 func asLibp2pKey*(key: keys.PublicKey): PublicKey =
   PublicKey(scheme: Secp256k1, skkey: secp.SkPublicKey(key))
