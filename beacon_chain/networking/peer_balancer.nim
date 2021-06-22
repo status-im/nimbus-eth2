@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[typetraits, sequtils, os, algorithm, math, sets, tables]
+  std/[typetraits, algorithm, math, sets, tables]
 
 import
   chronos, chronicles, metrics,
@@ -76,14 +76,19 @@ proc computeScores(balancer: PeerBalancer): OrderedTable[PeerID, int] =
 
   return scores
 
-proc trimConnections*(balancer: PeerBalancer) {.async.} =
+proc trimConnections*(balancer: PeerBalancer, conncount = -1) {.async.} =
   var scores = balancer.computeScores()
 
   trace "starting trimming", scores
 
-  if scores.len <= balancer.maxPeers: return
+  var toKick =
+    if conncount < 0:
+      if scores.len <= balancer.maxPeers: return
+      scores.len - balancer.maxPeers
+    else: conncount
 
-  var toKick: int = scores.len - balancer.maxPeers
+  #Trying to kick everyone, probably a mistake
+  if toKick >= scores.len: return
 
   for peerId in scores.keys:
     #TODO kill a single connection instead of the whole peer
@@ -91,7 +96,7 @@ proc trimConnections*(balancer: PeerBalancer) {.async.} =
     debug "kicking peer", peerId
     await balancer.switch.disconnect(peerId)
     dec toKick
-    if toKick < 0: break
+    if toKick <= 0: return
 
 proc addGroup*(
   balancer: PeerBalancer,

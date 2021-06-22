@@ -1036,7 +1036,6 @@ proc handlePeer*(peer: Peer) {.async.} =
     peer.connectionState = Connected
     # We spawn task which will obtain ENR for this peer.
     resolvePeer(peer)
-    peer.network.eth2PeerGroup.addPeer(peer.info.peerId)
     debug "Peer successfully connected", peer = peer,
                                          connections = peer.connections
 
@@ -1152,10 +1151,12 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, enrForkId: ENRForkID,
     peerBalancer: PeerBalancer.new(switch, config.maxPeers)
   )
 
-  const scorePerProtocol = 1_000_000
+  const
+    scorePerProtocol = 1_000_000
+    scorePerAttnet = scorePerProtocol div ATTESTATION_SUBNET_COUNT
   for attnet in 0..<metadata.attnets.len():
-    node.attnetsPeerGroups.add(node.peerBalancer.addGroup("attnet_"  & $attnet, scorePerProtocol div metadata.attnets.len(), 3))
-  node.eth2PeerGroup = node.peerBalancer.addGroup("eth2", scorePerProtocol div metadata.attnets.len())
+    node.attnetsPeerGroups.add(node.peerBalancer.addGroup("attnet_"  & $attnet, scorePerAttnet, 5))
+  node.eth2PeerGroup = node.peerBalancer.addGroup("eth2", scorePerAttnet)
 
   newSeq node.protocolStates, allProtocols.len
   for proto in allProtocols:
@@ -1218,6 +1219,9 @@ proc updatePeerMetadata*(node: Eth2Node, peerId: PeerID, timeout = 20.seconds) {
   peer.metadata = some(newMetadata)
   peer.lastMetadataTime = Moment.now()
 
+  # This peer will now be managed by the peerbalancer
+  peer.network.eth2PeerGroup.addPeer(peer.info.peerId)
+
   for bit in 0..<newMetadata.attnets.len:
     if newMetadata.attnets[bit]:
       node.attnetsPeerGroups[bit].addPeer(peerId)
@@ -1236,14 +1240,20 @@ proc dialLowPeersAttnets(node: Eth2Node) {.async.} =
 
   if lowSubnetsCount == 0: return
 
-  trace "low subnet peers, discovering new peers", lowSubnetsCount
+  trace "low subnet peers, discovering new peers", lowSubnets
 
-  let nicePeers = await node.discovery.queryRandom(node.forkId, lowSubnets)
+  let
+    nicePeers = await node.discovery.queryRandom(node.forkId, lowSubnets)
+    niceNewPeers = nicePeers.filterIt(node.checkPeer(it))
 
-  if nicePeers.len == 0: return
+  if niceNewPeers.len == 0: return
 
-  trace "dialing a peer to have more subnet coverage..", peer=nicePeers[0]
-  asyncSpawn node.dialPeer(nicePeers[0])
+  if node.switch.connManager.outSema.count < 2:
+    trace "kicking a peer to make room for a better one"
+    await node.peerBalancer.trimConnections(1)
+
+  trace "dialing a peer to have more subnet coverage..", peer=niceNewPeers[0]
+  asyncSpawn node.dialPeer(niceNewPeers[0])
 
 proc peerBalancerHeartbeat*(node: Eth2Node) {.async.} =
   while true:
@@ -1257,8 +1267,6 @@ proc peerBalancerHeartbeat*(node: Eth2Node) {.async.} =
         heartbeatStart_m - peer.lastMetadataTime > 30.minutes:
         updateFutures.add(node.updatePeerMetadata(peer.info.peerId))
 
-    updateFutures.add(node.dialLowPeersAttnets())
-
     discard await allFinished(updateFutures)
 
     for peer in node.peers.values:
@@ -1269,13 +1277,13 @@ proc peerBalancerHeartbeat*(node: Eth2Node) {.async.} =
         else:
           peer.lastMetadataTime + 30.minutes
 
-      if heartbeatStart_m - lastMetadata > 10.minutes:
-        debug "no metadata for 10 minutes, kicking peer", peer
+      if heartbeatStart_m - lastMetadata > 30.seconds:
+        debug "no metadata for 30 seconds, kicking peer", peer
         asyncSpawn peer.disconnect(PeerScoreLow)
 
-    await node.peerBalancer.trimConnections()
+    await node.dialLowPeersAttnets()
 
-    await sleepAsync(30.seconds)
+    await sleepAsync(15.seconds)
 
 proc start*(node: Eth2Node) {.async.} =
 
