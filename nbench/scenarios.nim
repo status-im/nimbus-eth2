@@ -164,7 +164,7 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
                 else: {}
     let success = state_transition(
       defaultRuntimePreset, state[], signedBlock, cache, rewards, flags,
-      noRollback)
+      noRollback, FAR_FUTURE_SLOT)
     echo "State transition status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
 proc runProcessSlots*(dir, preState: string, numSlots: uint64) =

@@ -12,7 +12,8 @@ import
   ../consensus_object_pools/[blockchain_dag, exit_pool],
   ../gossip_processing/gossip_validation,
   ../validators/validator_duties,
-  ../spec/[crypto, datatypes, digest, forkedbeaconstate_helpers, network],
+  ../spec/[crypto, digest, forkedbeaconstate_helpers, network],
+  ../spec/datatypes/base,
   ../ssz/merkleization,
   ./eth2_json_rest_serialization, ./rest_utils
 

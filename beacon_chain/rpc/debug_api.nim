@@ -13,7 +13,8 @@ import
   chronicles,
   ../version, ../beacon_node_common,
   ../networking/[eth2_network, peer_pool],
-  ../spec/[datatypes, digest, presets],
+  ../spec/datatypes/base,
+  ../spec/[digest, presets],
   ./rpc_utils, ./eth2_json_rpc_serialization
 
 logScope: topics = "debugapi"

@@ -90,7 +90,8 @@ proc doTransition(conf: NcliConf) =
     cache = StateCache()
     rewards = RewardInfo()
   if not state_transition(getRuntimePresetForNetwork(conf.eth2Network),
-                          stateY[], blckX, cache, rewards, flags, noRollback):
+                          stateY[], blckX, cache, rewards, flags, noRollback,
+                          FAR_FUTURE_SLOT):
     error "State transition failed"
     quit 1
   else:

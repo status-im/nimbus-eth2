@@ -12,7 +12,8 @@ import
   stew/byteutils,
   ../beacon_node_common, ../validators/validator_duties,
   ../consensus_object_pools/[block_pools_types, blockchain_dag],
-  ../spec/[datatypes, digest, forkedbeaconstate_helpers, helpers]
+  ../spec/datatypes/base,
+  ../spec/[digest, forkedbeaconstate_helpers, helpers]
 
 export blockchain_dag
 
