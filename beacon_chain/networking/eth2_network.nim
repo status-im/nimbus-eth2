@@ -86,7 +86,7 @@ type
     peers*: Table[PeerID, Peer]
     validTopics: HashSet[string]
     peerBalancer: PeerBalancer
-    peerBalancerHeartbeatFut: Future[void]
+    peerPingerHeartbeatFut: Future[void]
     attnetsPeerGroups: seq[PeerGroup]
     eth2PeerGroup: PeerGroup
 
@@ -883,13 +883,13 @@ proc toPeerAddr(node: Node): Result[PeerAddr, cstring] {.raises: [Defect].} =
   let peerAddr = ? nodeRecord.toPeerAddr(tcpProtocol)
   ok(peerAddr)
 
-proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
+proc queryRandom*(node: Eth2Node,
     attnets: BitArray[ATTESTATION_SUBNET_COUNT]):
     Future[seq[PeerAddr]] {.async, raises: [Defect].} =
-  ## Perform a discovery query for a random target matching the eth2 field
-  ## (forkId) and matching at least one of the attestation subnets.
-  let nodes = await d.queryRandom()
-  let eth2Field = SSZ.encode(forkId)
+  ## Perform a discovery query for a random target
+  ## and sort for maximum (attnets) coverage
+  let nodes = await node.discovery.queryRandom()
+  let eth2Field = SSZ.encode(node.forkId)
 
   var filtered: seq[(int, PeerAddr)]
   for n in nodes:
@@ -910,43 +910,53 @@ proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
           if (attnets.bytes[i] and attnetsNode.bytes[i]) > 0:
             inc score
 
-        if score > 0:
-          # we have at least one subnet match
-          let peerAddr = n.toPeerAddr()
-          if peerAddr.isOk():
-            filtered.add((score, peerAddr.get()))
+        let peerAddr = n.toPeerAddr()
+        if peerAddr.isOk():
+          filtered.add((score, peerAddr.get()))
 
+  node.rng[].shuffle(filtered)
   return filtered.sortedByIt(it[0]).mapIt(it[1])
+
+proc getLowAttnets(node: Eth2Node): (int, BitArray[ATTESTATION_SUBNET_COUNT]) =
+  var
+    lowSubnetsCount = 0
+    lowSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
+
+  for i in 0..<node.attnetsPeerGroups.len():
+    if node.attnetsPeerGroups[i].isLow():
+      inc lowSubnetsCount
+      lowSubnets.setBit(i)
+  return (lowSubnetsCount, lowSubnets)
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
-  let enrField = ("eth2", SSZ.encode(node.forkId))
 
   while true:
-    if node.switch.connManager.outSema.count > 0:
-      var discoveredNodes = await node.discovery.queryRandom(enrField)
+    let (lowAttnetsCount, wantedAttnets) = node.getLowAttnets()
+
+    if node.switch.connManager.outSema.count > 0 or lowAttnetsCount > 0:
+      var discoveredNodes = await node.queryRandom(wantedAttnets)
+
+      if node.switch.connManager.outSema.count == 0 and lowAttnetsCount > 0:
+        #We're full of bad peers, kick a few ones
+        await node.peerBalancer.trimConnections(2)
+
       var newPeers = 0
-      for discNode in discoveredNodes:
-        let res = discNode.toPeerAddr()
-        if res.isOk():
-          let peerAddr = res.get()
-          # Waiting for an empty space in PeerPool.
-          while true:
-            if node.peerPool.lenSpace({PeerType.Outgoing}) == 0:
-              await node.peerPool.waitForEmptySpace(PeerType.Outgoing)
-            else:
-              break
-          # Check if peer present in SeenTable or PeerPool.
-          if node.checkPeer(peerAddr):
-            if peerAddr.peerId notin node.connTable:
-              # We adding to pending connections table here, but going
-              # to remove it only in `connectWorker`.
-              node.connTable.incl(peerAddr.peerId)
-              await node.connQueue.addLast(peerAddr)
-              inc(newPeers)
-        else:
-          debug "Failed to decode discovery's node address",
-                node = discnode, errMsg = res.error
+      for peerAddr in discoveredNodes:
+        # Waiting for an empty space in PeerPool.
+        while true:
+          if node.peerPool.lenSpace({PeerType.Outgoing}) == 0:
+            await node.peerPool.waitForEmptySpace(PeerType.Outgoing)
+          else:
+            break
+        # Check if peer present in SeenTable or PeerPool.
+        if node.checkPeer(peerAddr):
+          if peerAddr.peerId notin node.connTable:
+            # We adding to pending connections table here, but going
+            # to remove it only in `connectWorker`.
+            node.connTable.incl(peerAddr.peerId)
+            await node.connQueue.addLast(peerAddr)
+            inc(newPeers)
 
       debug "Discovery tick", wanted_peers = node.wantedPeers,
             space = node.peerPool.shortLogSpace(),
@@ -1340,14 +1350,14 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 #Must import here because of cyclicity
 import ../sync/sync_protocol
 
-proc updatePeerMetadata*(node: Eth2Node, peerId: PeerID, timeout = 20.seconds) {.async.} =
+proc updatePeerMetadata*(node: Eth2Node, peerId: PeerID) {.async.} =
   trace "updating peer metadata", peerId
 
   const emptyBytes = newSeq[byte](0)
   var peer = node.getPeer(peerId)
   let
     oldMetadata = peer.metadata
-    response = await peer.getMetaData(timeout)
+    response = await peer.getMetaData()
 
   if response.isErr:
     debug "Failed to retrieve metadata from peer!", peerId
@@ -1366,34 +1376,7 @@ proc updatePeerMetadata*(node: Eth2Node, peerId: PeerID, timeout = 20.seconds) {
     elif oldMetadata.isSome and oldMetadata.get().attnets[bit] == true:
       node.attnetsPeerGroups[bit].removePeer(peerId)
 
-proc dialLowPeersAttnets(node: Eth2Node) {.async.} =
-  var
-    lowSubnetsCount = 0
-    lowSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
-
-  for i in 0..<node.attnetsPeerGroups.len():
-    if node.attnetsPeerGroups[i].isLow():
-      inc lowSubnetsCount
-      lowSubnets.setBit(i)
-
-  if lowSubnetsCount == 0: return
-
-  trace "low subnet peers, discovering new peers", lowSubnets
-
-  let
-    nicePeers = await node.discovery.queryRandom(node.forkId, lowSubnets)
-    niceNewPeers = nicePeers.filterIt(node.checkPeer(it))
-
-  if niceNewPeers.len == 0: return
-
-  if node.switch.connManager.outSema.count < 2:
-    trace "kicking a peer to make room for a better one"
-    await node.peerBalancer.trimConnections(1)
-
-  trace "dialing a peer to have more subnet coverage..", peer=niceNewPeers[0]
-  asyncSpawn node.dialPeer(niceNewPeers[0])
-
-proc peerBalancerHeartbeat*(node: Eth2Node) {.async.} =
+proc peerPingerHeartbeat*(node: Eth2Node) {.async.} =
   while true:
     let heartbeatStart_m = Moment.now()
     var updateFutures: seq[Future[void]]
@@ -1418,8 +1401,6 @@ proc peerBalancerHeartbeat*(node: Eth2Node) {.async.} =
       if heartbeatStart_m - lastMetadata > 30.seconds:
         debug "no metadata for 30 seconds, kicking peer", peer
         asyncSpawn peer.disconnect(PeerScoreLow)
-
-    await node.dialLowPeersAttnets()
 
     await sleepAsync(15.seconds)
 
@@ -1451,7 +1432,7 @@ proc start*(node: Eth2Node) {.async.} =
         let pa = tr.get().toPeerAddr(tcpProtocol)
         if pa.isOk():
           await node.connQueue.addLast(pa.get())
-  node.peerBalancerHeartbeatFut = node.peerBalancerHeartbeat()
+  node.peerPingerHeartbeatFut = node.peerPingerHeartbeat()
 
 proc stop*(node: Eth2Node) {.async.} =
   # Ignore errors in futures, since we're shutting down (but log them on the
@@ -1460,7 +1441,7 @@ proc stop*(node: Eth2Node) {.async.} =
     waitedFutures = @[
       node.discovery.closeWait(),
       node.switch.stop(),
-      node.peerBalancerHeartbeatFut.cancelAndWait()
+      node.peerPingerHeartbeatFut.cancelAndWait()
     ]
     timeout = 5.seconds
     completed = await withTimeout(allFutures(waitedFutures), timeout)
