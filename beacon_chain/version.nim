@@ -15,7 +15,7 @@ when not defined(nimscript):
 
 const
   versionMajor* = 1
-  versionMinor* = 3
+  versionMinor* = 4
   versionBuild* = 0
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffitti
@@ -43,4 +43,3 @@ func shortNimBanner*(): string =
     tmp[0] & " (" & gitHash & ")"
   else:
     tmp[0]
-
