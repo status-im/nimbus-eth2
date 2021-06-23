@@ -584,6 +584,8 @@ proc getAltairBlock*(db: BeaconChainDB, key: Eth2Digest):
   if db.altairBlocks.getSnappySSZ(key.data, result.get) == GetResult.found:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
+  else:
+    result.err()
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],

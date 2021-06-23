@@ -76,6 +76,7 @@ suite "Beacon chain DB" & preset():
     db.delBlock(root)
     check:
       not db.containsBlock(root)
+      db.getBlock(root).isErr()
 
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root
@@ -105,6 +106,7 @@ suite "Beacon chain DB" & preset():
     db.delBlock(root)
     check:
       not db.containsBlock(root)
+      db.getAltairBlock(root).isErr()
 
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root
@@ -136,7 +138,9 @@ suite "Beacon chain DB" & preset():
         hash_tree_root(db.getPhase0StateRef(root)[]) == root
 
       db.delState(root)
-      check: not db.containsState(root)
+      check:
+        not db.containsState(root)
+        db.getPhase0StateRef(root).isNil
 
     db.close()
 
@@ -159,7 +163,9 @@ suite "Beacon chain DB" & preset():
         hash_tree_root(db.getAltairStateRef(root)[]) == root
 
       db.delState(root)
-      check: not db.containsState(root)
+      check:
+        not db.containsState(root)
+        db.getAltairStateRef(root).isNil
 
     db.close()
 
@@ -185,7 +191,9 @@ suite "Beacon chain DB" & preset():
         hash_tree_root(stateBuffer[]) == root
 
       db.delState(root)
-      check: not db.containsState(root)
+      check:
+        not db.containsState(root)
+        not db.getState(root, stateBuffer[], noRollback)
 
     db.close()
 
@@ -211,7 +219,9 @@ suite "Beacon chain DB" & preset():
         hash_tree_root(stateBuffer[]) == root
 
       db.delState(root)
-      check: not db.containsState(root)
+      check:
+        not db.containsState(root)
+        not db.getAltairState(root, stateBuffer[], noRollback)
 
     db.close()
 
