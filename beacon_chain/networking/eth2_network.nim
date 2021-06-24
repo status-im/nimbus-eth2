@@ -1504,7 +1504,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 func gossipId(data: openArray[byte], topic: string, valid: bool): seq[byte] =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#topics-and-messages
   # and
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/altair/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/p2p-interface.md#topics-and-messages
   const
     MESSAGE_DOMAIN_INVALID_SNAPPY = [0x00'u8, 0x00, 0x00, 0x00]
     MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
@@ -1519,10 +1519,12 @@ func gossipId(data: openArray[byte], topic: string, valid: bool): seq[byte] =
   return messageDigest.data[0..19].toSeq()
 
 func isAltairTopic(topic: string): bool =
-  #TODO make a better one one when we have global constants
-  topic.startsWith("sync_committee_") or
-  topic.startsWith("sync_committee_contribution_and_proof") or
-  topic.startsWith("beacon_block")
+  let splitted = topic.split('/')
+  if splitted.len < 3:
+    false
+  #TODO i'm not sure how to get the altair fork digest
+  else:
+    splitted[1] == "ALTAIRFORKDIGEST"
 
 func getAltairTopic(m: messages.Message): string =
   let topic = if m.topicIDs.len > 0: m.topicIDs[0] else: ""
