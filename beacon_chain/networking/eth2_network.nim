@@ -883,13 +883,13 @@ proc toPeerAddr(node: Node): Result[PeerAddr, cstring] {.raises: [Defect].} =
   let peerAddr = ? nodeRecord.toPeerAddr(tcpProtocol)
   ok(peerAddr)
 
-proc queryRandom*(node: Eth2Node,
+proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
     attnets: BitArray[ATTESTATION_SUBNET_COUNT]):
     Future[seq[PeerAddr]] {.async, raises: [Defect].} =
   ## Perform a discovery query for a random target
   ## and sort for maximum (attnets) coverage
-  let nodes = await node.discovery.queryRandom()
-  let eth2Field = SSZ.encode(node.forkId)
+  let nodes = await d.queryRandom()
+  let eth2Field = SSZ.encode(forkId)
 
   var filtered: seq[(int, PeerAddr)]
   for n in nodes:
@@ -914,7 +914,7 @@ proc queryRandom*(node: Eth2Node,
         if peerAddr.isOk():
           filtered.add((score, peerAddr.get()))
 
-  node.rng[].shuffle(filtered)
+  d.rng[].shuffle(filtered)
   return filtered.sortedByIt(it[0]).mapIt(it[1])
 
 proc getLowAttnets(node: Eth2Node): (int, BitArray[ATTESTATION_SUBNET_COUNT]) =
@@ -935,7 +935,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     let (lowAttnetsCount, wantedAttnets) = node.getLowAttnets()
 
     if node.switch.connManager.outSema.count > 0 or lowAttnetsCount > 0:
-      var discoveredNodes = await node.queryRandom(wantedAttnets)
+      var discoveredNodes = await node.discovery.queryRandom(node.forkId, wantedAttnets)
 
       if node.switch.connManager.outSema.count == 0 and lowAttnetsCount > 0:
         #We're full of bad peers, kick a few ones
