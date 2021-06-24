@@ -559,9 +559,11 @@ proc putState(dag: ChainDAGRef, state: var StateData) =
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
-  if state.data.beaconStateFork != forkAltair:
-    # TODO re-enable for Altair
+  case state.data.beaconStateFork:
+  of forkPhase0:
     dag.db.putState(getStateRoot(state.data), state.data.hbsPhase0.data)
+  of forkAltair:
+    dag.db.putState(getStateRoot(state.data), state.data.hbsAltair.data)
 
   dag.db.putStateRoot(
     state.blck.root, getStateField(state.data, slot), getStateRoot(state.data))
