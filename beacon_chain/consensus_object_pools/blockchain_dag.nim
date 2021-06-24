@@ -17,7 +17,7 @@ import
     beaconstate, forkedbeaconstate_helpers],
   ../spec/datatypes/[phase0, altair],
   ../beacon_clock,
-  "."/[block_pools_types, block_quarantine]
+  "."/[block_pools_types, block_quarantine, forkedbeaconstate_dbhelpers]
 
 export block_pools_types, helpers, phase0
 
@@ -45,7 +45,8 @@ declareGauge beacon_processed_deposits_total, "Number of total deposits included
 logScope: topics = "chaindag"
 
 proc putBlock*(
-    dag: ChainDAGRef, signedBlock: phase0.TrustedSignedBeaconBlock) =
+    dag: ChainDAGRef, signedBlock:
+      phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock) =
   dag.db.putBlock(signedBlock)
 
 proc updateStateData*(
@@ -540,7 +541,7 @@ proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
 
   false
 
-proc putState(dag: ChainDAGRef, state: var StateData) =
+proc putState(dag: ChainDAGRef, state: StateData) =
   # Store a state and its root
   logScope:
     blck = shortLog(state.blck)
@@ -559,12 +560,7 @@ proc putState(dag: ChainDAGRef, state: var StateData) =
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
-  case state.data.beaconStateFork:
-  of forkPhase0:
-    dag.db.putState(getStateRoot(state.data), state.data.hbsPhase0.data)
-  of forkAltair:
-    dag.db.putState(getStateRoot(state.data), state.data.hbsAltair.data)
-
+  dag.db.putState(state.data)
   dag.db.putStateRoot(
     state.blck.root, getStateField(state.data, slot), getStateRoot(state.data))
 

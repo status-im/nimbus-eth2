@@ -3,10 +3,11 @@ import
   chronicles, confutils, stew/byteutils, eth/db/kvstore_sqlite3,
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db, extras],
-  ../beacon_chain/consensus_object_pools/blockchain_dag,
-  ../beacon_chain/spec/[crypto, datatypes, digest, forkedbeaconstate_helpers,
-                        helpers, state_transition, state_transition_epoch,
-                        presets],
+  ../beacon_chain/consensus_object_pools/[
+    blockchain_dag, forkedbeaconstate_dbhelpers],
+  ../beacon_chain/spec/[
+    crypto, datatypes, digest, forkedbeaconstate_helpers, helpers,
+    state_transition, state_transition_epoch, presets],
   ../beacon_chain/ssz, ../beacon_chain/ssz/sszdump,
   ../research/simutils, ./e2store
 
@@ -222,11 +223,11 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
 
     if getStateField(state[].data, slot).isEpoch and conf.storeStates:
       if getStateField(state[].data, slot).epoch < 2:
-        dbBenchmark.putState(getStateRoot(state[].data), state[].data.hbsPhase0.data)
+        dbBenchmark.putState(state[].data)
         dbBenchmark.checkpoint()
       else:
         withTimer(timers[tDbStore]):
-          dbBenchmark.putState(getStateRoot(state[].data), state[].data.hbsPhase0.data)
+          dbBenchmark.putState(state[].data)
           dbBenchmark.checkpoint()
 
         withTimer(timers[tDbLoad]):
