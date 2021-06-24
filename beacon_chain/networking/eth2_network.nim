@@ -9,7 +9,7 @@
 
 import
   # Std lib
-  std/[typetraits, sequtils, os, algorithm, math, sets],
+  std/[typetraits, sequtils, os, algorithm, math, sets, strutils],
   std/options as stdOptions,
 
   # Status libs
@@ -1500,25 +1500,44 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
       pubKey = privKey.getKey().expect("working public key from random")
     NetKeyPair(seckey: privKey, pubkey: pubKey)
 
-func gossipId(data: openArray[byte], valid: bool): seq[byte] =
+
+func gossipId(data: openArray[byte], topic: string, valid: bool): seq[byte] =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#topics-and-messages
+  # and
+  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/altair/p2p-interface.md#topics-and-messages
   const
     MESSAGE_DOMAIN_INVALID_SNAPPY = [0x00'u8, 0x00, 0x00, 0x00]
     MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
   let messageDigest = withEth2Hash:
     h.update(
       if valid: MESSAGE_DOMAIN_VALID_SNAPPY else: MESSAGE_DOMAIN_INVALID_SNAPPY)
+    if topic.len > 0: #altair topic
+      h.update topic.len.uint64.toBytesLE
+      h.update topic
     h.update data
 
-  result = newSeq[byte](20)
-  result[0..19] = messageDigest.data.toOpenArray(0, 19)
+  return messageDigest.data[0..19].toSeq()
+
+func isAltairTopic(topic: string): bool =
+  #TODO make a better one one when we have global constants
+  topic.startsWith("sync_committee_") or
+  topic.startsWith("sync_committee_contribution_and_proof") or
+  topic.startsWith("beacon_block")
+
+func getAltairTopic(m: messages.Message): string =
+  let topic = if m.topicIDs.len > 0: m.topicIDs[0] else: ""
+  if isAltairTopic(topic):
+    topic
+  else:
+    ""
 
 func msgIdProvider(m: messages.Message): seq[byte] =
+  let topic = getAltairTopic(m)
   try:
     let decoded = snappy.decode(m.data, GOSSIP_MAX_SIZE)
-    gossipId(decoded, true)
+    gossipId(decoded, topic, true)
   except CatchableError:
-    gossipId(m.data, false)
+    gossipId(m.data, topic, false)
 
 proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
                       address: MultiAddress,
@@ -1760,7 +1779,7 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
     var futSnappy = try: node.pubsub.publish(topic & "_snappy", compressed)
     except Exception as exc:
       raiseAssert exc.msg # TODO fix libp2p
-    traceMessage(futSnappy, gossipId(uncompressed, true))
+    traceMessage(futSnappy, gossipId(uncompressed, topic & "_snappy", true))
   except IOError as exc:
     raiseAssert exc.msg # TODO in-memory compression shouldn't fail
 
