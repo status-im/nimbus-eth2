@@ -74,6 +74,11 @@ type
         argument
         desc: "Filename of state resulting from applying blck to preState"}: string
 
+template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
+  case value.beaconStateFork:
+  of forkPhase0: SSZ.saveFile(filename, value.hbsPhase0.data)
+  of forkAltair: SSZ.saveFile(filename, value.hbsAltair.data)
+
 proc doTransition(conf: NcliConf) =
   let
     stateY = (ref ForkedHashedBeaconState)(
@@ -95,7 +100,7 @@ proc doTransition(conf: NcliConf) =
     error "State transition failed"
     quit 1
   else:
-    SSZ.saveFile(conf.postState, stateY.hbsPhase0.data)
+    saveSSZFile(conf.postState, stateY[])
 
 proc doSlots(conf: NcliConf) =
   type
@@ -126,7 +131,7 @@ proc doSlots(conf: NcliConf) =
         FAR_FUTURE_SLOT)
 
   withTimer(timers[tSaveState]):
-    SSZ.saveFile(conf.postState, stateY.hbsPhase0.data)
+    saveSSZFile(conf.postState, stateY[])
 
   printTimers(false, timers)
 

@@ -691,7 +691,7 @@ func process_rewards_and_penalties(
     decrease_balance(state, ValidatorIndex(index), penalties[index])
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#slashings
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#slashings
 func process_slashings*(state: var SomeBeaconState, total_balance: Gwei) {.nbench.}=
   let
     epoch = get_current_epoch(state)
@@ -784,14 +784,19 @@ func process_participation_record_updates*(state: var phase0.BeaconState) {.nben
   state.previous_epoch_attestations.clear()
   swap(state.previous_epoch_attestations, state.current_epoch_attestations)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#participation-flags-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#participation-flags-updates
 func process_participation_flag_updates*(state: var altair.BeaconState) =
   state.previous_epoch_participation = state.current_epoch_participation
 
-  # TODO more subtle clearing
-  state.current_epoch_participation.clear()
-  for _ in 0 ..< state.validators.len:
-    doAssert state.current_epoch_participation.add 0.ParticipationFlags
+  const zero = 0.ParticipationFlags
+  for i in 0 ..< state.current_epoch_participation.len:
+    state.current_epoch_participation.data[i] = zero
+
+  # Shouldn't be wasted zeroing, because state.current_epoch_participation only
+  # grows. New elements are automatically initialized to 0, as required.
+  doAssert state.current_epoch_participation.data.setLen(state.validators.len)
+
+  state.current_epoch_participation.resetCache()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#sync-committee-updates
 proc process_sync_committee_updates*(state: var altair.BeaconState) =

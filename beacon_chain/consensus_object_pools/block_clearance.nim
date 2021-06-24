@@ -155,9 +155,7 @@ proc addResolvedBlock(
   dag.blocks.incl(KeyedBlockRef.init(blockRef))
 
   # Resolved blocks should be stored in database
-  when not (trustedBlock is altair.TrustedSignedBeaconBlock):
-    # TODO implement this for altair
-    dag.putBlock(trustedBlock)
+  dag.putBlock(trustedBlock)
   let putBlockTick = Moment.now()
 
   var foundHead: bool
