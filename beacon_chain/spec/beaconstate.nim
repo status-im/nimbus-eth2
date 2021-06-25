@@ -654,17 +654,15 @@ func get_base_reward_per_increment*(state: altair.BeaconState, cache: var StateC
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div
     integer_squareroot(get_total_active_balance(state, cache))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#get_base_reward
-func get_base_reward(state: altair.BeaconState, index: ValidatorIndex, cache: var StateCache): Gwei =
-    ## Return the base reward for the validator defined by ``index`` with respect to the current ``state``.
-
-    # Note: An optimally performing validator can earn one base reward per
-    # epoch over a long time horizon. This takes into account both per-epoch
-    # (e.g. attestation) and intermittent duties (e.g. block proposal and sync
-    # committees).
-    let increments =
-      state.validators[index].effective_balance div EFFECTIVE_BALANCE_INCREMENT
-    increments * get_base_reward_per_increment(state, cache)
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_base_reward
+func get_base_reward(
+    state: altair.BeaconState, index: ValidatorIndex,
+    base_reward_per_increment: Gwei): Gwei =
+  ## Return the base reward for the validator defined by ``index`` with respect
+  ## to the current ``state``.
+  let increments =
+    state.validators[index].effective_balance div EFFECTIVE_BALANCE_INCREMENT
+  increments * base_reward_per_increment
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
@@ -736,13 +734,18 @@ proc process_attestation*(
     var proposer_reward_numerator = 0'u64
 
     # Participation flag indices
-    let participation_flag_indices = get_attestation_participation_flag_indices(state, attestation.data, state.slot - attestation.data.slot)
+    let
+      participation_flag_indices =
+        get_attestation_participation_flag_indices(
+          state, attestation.data, state.slot - attestation.data.slot)
+      base_reward_per_increment = get_base_reward_per_increment(state, cache)
 
     for index in get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache):
         for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
             if flag_index in participation_flag_indices and not has_flag(epoch_participation[index], flag_index):
               epoch_participation[index] = add_flag(epoch_participation[index], flag_index)
-              proposer_reward_numerator += get_base_reward(state, index, cache) * weight.uint64 # these are all valid, #TODO statically verify or do it type-safely
+              proposer_reward_numerator += get_base_reward(
+                state, index, base_reward_per_increment) * weight.uint64 # these are all valid, #TODO statically verify or do it type-safely
 
     # Reward proposer
     let
