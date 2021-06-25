@@ -1541,12 +1541,14 @@ func gossipId(data: openArray[byte], topic: string, valid: bool): seq[byte] =
   return messageDigest.data[0..19].toSeq()
 
 func isAltairTopic(topic: string, altairPrefix: string): bool =
-  # TODO Eliminate the memory allocations here
-  let splitted = topic.split('/')
-  if splitted.len < 3:
+  const prefixLen = "/eth2/".len
+
+  if topic.len <= altairPrefix.len + prefixLen:
     false
   else:
-    splitted[1] == altairPrefix
+    for ind, ch in altairPrefix:
+      if ch != topic[ind + prefixLen]: return false
+    true
 
 func getAltairTopic(m: messages.Message, altairPrefix: string): string =
   # TODO Return a lent string here to avoid the string copy
