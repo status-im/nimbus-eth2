@@ -885,8 +885,8 @@ suite "PeerPool testing suite":
       pool7.lenSpace({PeerType.Incoming}) == 0
       pool7.lenSpace({PeerType.Outgoing}) == high(int) - 39
 
-    # We could not check whole high(int), so we check 10_000 items
-    for i in 0 ..< 10_000:
+    # We could not check whole high(int), so we check 1_000 items
+    for i in 0 ..< 1_000:
       check:
         pool7.addPeerNoWait(PeerTest.init("idOut" & $i),
                             PeerType.Outgoing) == PeerStatus.Success
@@ -910,8 +910,8 @@ suite "PeerPool testing suite":
       pool8.lenSpace({PeerType.Outgoing}) == 0
       pool8.lenSpace({PeerType.Incoming}) == high(int) - 40
 
-    # We could not check whole high(int), so we check 10_000 items
-    for i in 0 ..< 10_000:
+    # We could not check whole high(int), so we check 1_000 items
+    for i in 0 ..< 1_000:
       check:
         pool8.addPeerNoWait(PeerTest.init("idInc" & $i),
                             PeerType.Incoming) == PeerStatus.Success
@@ -920,8 +920,8 @@ suite "PeerPool testing suite":
         pool8.lenSpace({PeerType.Incoming}) == high(int) - 40 - (i + 1)
 
     # POOL 9
-    # We could not check whole high(int), so we check 10_000 items
-    for i in 0 ..< 10_000:
+    # We could not check whole high(int), so we check 1_000 items
+    for i in 0 ..< 1_000:
       check:
         pool9.addPeerNoWait(PeerTest.init("idInc" & $i),
                             PeerType.Incoming) == PeerStatus.Success
