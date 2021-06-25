@@ -12,9 +12,8 @@ import
   unittest2,
   ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
   ../beacon_chain/spec/[
-    beaconstate, crypto, digest, forkedbeaconstate_helpers, presets,
+    beaconstate, crypto, datatypes, digest, forkedbeaconstate_helpers, presets,
     state_transition],
-  ../beacon_chain/spec/datatypes/[phase0, altair],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
   eth/db/kvstore,
   # test utilies
@@ -23,30 +22,14 @@ import
 when isMainModule:
   import chronicles # or some random compile error happens...
 
-proc getPhase0StateRef(db: BeaconChainDB, root: Eth2Digest):
-    phase0.NilableBeaconStateRef =
+proc getStateRef(db: BeaconChainDB, root: Eth2Digest): NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
-  let res = (phase0.BeaconStateRef)()
+  let res = BeaconStateRef()
   if db.getState(root, res[], noRollback):
     return res
 
-proc getAltairStateRef(db: BeaconChainDB, root: Eth2Digest):
-    altair.NilableBeaconStateRef =
-  # load beaconstate the way the block pool does it - into an existing instance
-  let res = (altair.BeaconStateRef)()
-  if db.getAltairState(root, res[], noRollback):
-    return res
-
-func withDigest(blck: phase0.TrustedBeaconBlock):
-    phase0.TrustedSignedBeaconBlock =
-  phase0.TrustedSignedBeaconBlock(
-    message: blck,
-    root: hash_tree_root(blck)
-  )
-
-func withDigest(blck: altair.TrustedBeaconBlock):
-    altair.TrustedSignedBeaconBlock =
-  altair.TrustedSignedBeaconBlock(
+func withDigest(blck: TrustedBeaconBlock): TrustedSignedBeaconBlock =
+  TrustedSignedBeaconBlock(
     message: blck,
     root: hash_tree_root(blck)
   )
@@ -56,15 +39,15 @@ suite "Beacon chain DB" & preset():
     var
       db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
     check:
-      db.getPhase0StateRef(Eth2Digest()).isNil
+      db.getStateRef(Eth2Digest()).isNil
       db.getBlock(Eth2Digest()).isNone
 
-  test "sanity check phase 0 blocks" & preset():
+  test "sanity check blocks" & preset():
     var
       db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
 
     let
-      signedBlock = withDigest((phase0.TrustedBeaconBlock)())
+      signedBlock = withDigest(TrustedBeaconBlock())
       root = hash_tree_root(signedBlock.message)
 
     db.putBlock(signedBlock)
@@ -73,11 +56,6 @@ suite "Beacon chain DB" & preset():
       db.containsBlock(root)
       db.getBlock(root).get() == signedBlock
 
-    db.delBlock(root)
-    check:
-      not db.containsBlock(root)
-      db.getBlock(root).isErr()
-
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root
     root2.data[0] = root.data[0] + 1
@@ -89,37 +67,7 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check Altair blocks" & preset():
-    var
-      db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
-
-    let
-      signedBlock = withDigest((altair.TrustedBeaconBlock)())
-      root = hash_tree_root(signedBlock.message)
-
-    db.putBlock(signedBlock)
-
-    check:
-      db.containsBlock(root)
-      db.getAltairBlock(root).get() == signedBlock
-
-    db.delBlock(root)
-    check:
-      not db.containsBlock(root)
-      db.getAltairBlock(root).isErr()
-
-    db.putStateRoot(root, signedBlock.message.slot, root)
-    var root2 = root
-    root2.data[0] = root.data[0] + 1
-    db.putStateRoot(root, signedBlock.message.slot + 1, root2)
-
-    check:
-      db.getStateRoot(root, signedBlock.message.slot).get() == root
-      db.getStateRoot(root, signedBlock.message.slot + 1).get() == root2
-
-    db.close()
-
-  test "sanity check phase 0 states" & preset():
+  test "sanity check states" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
@@ -135,46 +83,19 @@ suite "Beacon chain DB" & preset():
 
       check:
         db.containsState(root)
-        hash_tree_root(db.getPhase0StateRef(root)[]) == root
+        hash_tree_root(db.getStateRef(root)[]) == root
 
       db.delState(root)
-      check:
-        not db.containsState(root)
-        db.getPhase0StateRef(root).isNil
+      check: not db.containsState(root)
 
     db.close()
 
-  test "sanity check Altair states" & preset():
-    var
-      db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimePreset, db)
-      testStates = getTestStates(dag.headState.data, true)
-
-    # Ensure transitions beyond just adding validators and increasing slots
-    sort(testStates) do (x, y: ref ForkedHashedBeaconState) -> int:
-      cmp($getStateRoot(x[]), $getStateRoot(y[]))
-
-    for state in testStates:
-      db.putState(state[].hbsAltair.data)
-      let root = hash_tree_root(state[])
-
-      check:
-        db.containsState(root)
-        hash_tree_root(db.getAltairStateRef(root)[]) == root
-
-      db.delState(root)
-      check:
-        not db.containsState(root)
-        db.getAltairStateRef(root).isNil
-
-    db.close()
-
-  test "sanity check phase 0 states, reusing buffers" & preset():
+  test "sanity check states, reusing buffers" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
 
-    let stateBuffer = (phase0.BeaconStateRef)()
+    let stateBuffer = BeaconStateRef()
     var testStates = getTestStates(dag.headState.data)
 
     # Ensure transitions beyond just adding validators and increasing slots
@@ -191,37 +112,7 @@ suite "Beacon chain DB" & preset():
         hash_tree_root(stateBuffer[]) == root
 
       db.delState(root)
-      check:
-        not db.containsState(root)
-        not db.getState(root, stateBuffer[], noRollback)
-
-    db.close()
-
-  test "sanity check Altair states, reusing buffers" & preset():
-    var
-      db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimePreset, db)
-
-    let stateBuffer = (altair.BeaconStateRef)()
-    var testStates = getTestStates(dag.headState.data, true)
-
-    # Ensure transitions beyond just adding validators and increasing slots
-    sort(testStates) do (x, y: ref ForkedHashedBeaconState) -> int:
-      cmp($getStateRoot(x[]), $getStateRoot(y[]))
-
-    for state in testStates:
-      db.putState(state[].hbsAltair.data)
-      let root = hash_tree_root(state[])
-
-      check:
-        db.getAltairState(root, stateBuffer[], noRollback)
-        db.containsState(root)
-        hash_tree_root(stateBuffer[]) == root
-
-      db.delState(root)
-      check:
-        not db.containsState(root)
-        not db.getAltairState(root, stateBuffer[], noRollback)
+      check: not db.containsState(root)
 
     db.close()
 
@@ -231,11 +122,11 @@ suite "Beacon chain DB" & preset():
 
     let
       a0 = withDigest(
-        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 0))
+        TrustedBeaconBlock(slot: GENESIS_SLOT + 0))
       a1 = withDigest(
-        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 1, parent_root: a0.root))
+        TrustedBeaconBlock(slot: GENESIS_SLOT + 1, parent_root: a0.root))
       a2 = withDigest(
-        (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 2, parent_root: a1.root))
+        TrustedBeaconBlock(slot: GENESIS_SLOT + 2, parent_root: a1.root))
 
     doAssert toSeq(db.getAncestors(a0.root)) == []
     doAssert toSeq(db.getAncestors(a2.root)) == []
@@ -284,7 +175,7 @@ suite "Beacon chain DB" & preset():
     db.putState(state[])
 
     check db.containsState(root)
-    let state2 = db.getPhase0StateRef(root)
+    let state2 = db.getStateRef(root)
     db.delState(root)
     check not db.containsState(root)
     db.close()
