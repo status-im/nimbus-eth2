@@ -52,10 +52,6 @@ type
     dumpDirInvalid: string
     dumpDirIncoming: string
 
-    # Clock
-    # ----------------------------------------------------------------
-    getWallTime: GetWallTimeFn
-
     # Producers
     # ----------------------------------------------------------------
     blocksQueue*: AsyncQueue[BlockEntry] # Exported for "test_sync_manager"
@@ -71,18 +67,16 @@ type
 proc new*(T: type BlockProcessor,
           dumpEnabled: bool,
           dumpDirInvalid, dumpDirIncoming: string,
-          consensusManager: ref ConsensusManager,
-          getWallTime: GetWallTimeFn): ref BlockProcessor =
+          consensusManager: ref ConsensusManager): ref BlockProcessor =
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
     dumpDirInvalid: dumpDirInvalid,
     dumpDirIncoming: dumpDirIncoming,
-
-    getWallTime: getWallTime,
-
     blocksQueue: newAsyncQueue[BlockEntry](),
-    consensusManager: consensusManager,
-  )
+    consensusManager: consensusManager)
+
+template getWallTime*(self: BlockProcessor): BeaconTime =
+  self.consensusManager.dag.beaconClock.now
 
 # Sync callbacks
 # ------------------------------------------------------------------------------

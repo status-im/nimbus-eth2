@@ -49,7 +49,6 @@ type
     rpcServer*: RpcServer
     restServer*: RestServerRef
     vcProcess*: Process
-    forkDigest*: ForkDigest
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerID]
     topicBeaconBlocks*: string

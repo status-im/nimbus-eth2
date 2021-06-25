@@ -404,14 +404,18 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
                          "Beacon node is currently syncing, try again later.")
     let head = node.dag.head
     if head.slot >= blck.message.slot:
-      node.network.broadcast(getBeaconBlocksTopic(node.forkDigest), blck)
+      # TODO altair-transition
+      let blocksTopic = getBeaconBlocksTopic(node.dag.forkDigests.phase0)
+      node.network.broadcast(blocksTopic, blck)
       # The block failed validation, but was successfully broadcast anyway.
       # It was not integrated into the beacon node's database.
       return 202
     else:
       let res = await proposeSignedBlock(node, head, AttachedValidator(), blck)
       if res == head:
-        node.network.broadcast(getBeaconBlocksTopic(node.forkDigest), blck)
+        # TODO altair-transition
+        let blocksTopic = getBeaconBlocksTopic(node.dag.forkDigests.phase0)
+        node.network.broadcast(blocksTopic, blck)
         # The block failed validation, but was successfully broadcast anyway.
         # It was not integrated into the beacon node''s database.
         return 202

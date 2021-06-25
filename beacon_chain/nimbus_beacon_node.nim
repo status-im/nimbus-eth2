@@ -245,8 +245,6 @@ proc init*(T: type BeaconNode,
     chainDagFlags = if config.verifyFinalization: {verifyFinalization}
                      else: {}
     dag = ChainDAGRef.init(runtimePreset, db, chainDagFlags)
-    beaconClock =
-      BeaconClock.init(getStateField(dag.headState.data, genesis_time))
     quarantine = QuarantineRef.init(rng)
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState.data, genesis_validators_root)
@@ -264,7 +262,7 @@ proc init*(T: type BeaconNode,
 
   if config.weakSubjectivityCheckpoint.isSome:
     let
-      currentSlot = beaconClock.now.slotOrZero
+      currentSlot = dag.beaconClock.now.slotOrZero
       isCheckpointStale = not is_within_weak_subjectivity_period(
         currentSlot,
         dag.headState.data,
@@ -314,12 +312,12 @@ proc init*(T: type BeaconNode,
     netKeys = getPersistentNetKeys(rng[], config)
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
-    enrForkId = getENRForkID(
-      getStateField(dag.headState.data, fork),
+    network = createEth2Node(
+      rng, config, netKeys, runtimePreset, dag.forkDigests,
       getStateField(dag.headState.data, genesis_validators_root))
-    topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.fork_digest)
-    topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.fork_digest)
-    network = createEth2Node(rng, config, netKeys, enrForkId)
+    # TODO altair-transition
+    topicBeaconBlocks = getBeaconBlocksTopic(dag.forkDigests.phase0)
+    topicAggregateAndProofs = getAggregateAndProofsTopic(dag.forkDigests.phase0)
     attestationPool = newClone(AttestationPool.init(dag, quarantine))
     exitPool = newClone(ExitPool.init(dag, quarantine))
 
@@ -347,15 +345,13 @@ proc init*(T: type BeaconNode,
     )
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      consensusManager,
-      proc(): BeaconTime = beaconClock.now())
+      consensusManager)
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor,
       dag, attestationPool, exitPool, validatorPool,
       quarantine,
-      rng,
-      proc(): BeaconTime = beaconClock.now())
+      rng)
 
   var node = BeaconNode(
     nickname: nickname,
@@ -371,10 +367,8 @@ proc init*(T: type BeaconNode,
     attachedValidators: validatorPool,
     exitPool: exitPool,
     eth1Monitor: eth1Monitor,
-    beaconClock: beaconClock,
     rpcServer: rpcServer,
     restServer: restServer,
-    forkDigest: enrForkId.fork_digest,
     topicBeaconBlocks: topicBeaconBlocks,
     topicAggregateAndProofs: topicAggregateAndProofs,
     processor: processor,
@@ -386,16 +380,17 @@ proc init*(T: type BeaconNode,
   # set topic validation routine
   network.setValidTopics(
     block:
+      # TODO altair-transition
       var
         topics = @[
             topicBeaconBlocks,
-            getAttesterSlashingsTopic(enrForkId.fork_digest),
-            getProposerSlashingsTopic(enrForkId.fork_digest),
-            getVoluntaryExitsTopic(enrForkId.fork_digest),
-            getAggregateAndProofsTopic(enrForkId.fork_digest)
+            getAttesterSlashingsTopic(network.forkDigests.phase0),
+            getProposerSlashingsTopic(network.forkDigests.phase0),
+            getVoluntaryExitsTopic(network.forkDigests.phase0),
+            getAggregateAndProofsTopic(network.forkDigests.phase0)
           ]
       for subnet_id in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
-        topics &= getAttestationTopic(enrForkId.fork_digest, SubnetId(subnet_id))
+        topics &= getAttestationTopic(network.forkDigests.phase0, SubnetId(subnet_id))
       topics)
 
   if node.config.inProcessValidators:
@@ -411,7 +406,8 @@ proc init*(T: type BeaconNode,
 
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
-  network.initBeaconSync(dag, enrForkId.fork_digest)
+  # TODO altair-transition
+  network.initBeaconSync(dag, network.forkDigests.phase0)
 
   node.updateValidatorMetrics()
 
@@ -635,7 +631,7 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) {.async.} =
 
 proc getInitialAggregateSubnets(node: BeaconNode): Table[SubnetId, Slot] =
   let
-    wallEpoch = node.beaconClock.now().slotOrZero().epoch
+    wallEpoch = node.dag.beaconClock.now.slotOrZero.epoch
     validatorIndices = toIntSet(toSeq(node.getAttachedValidators().keys()))
 
   template mergeAggregateSubnets(epoch: Epoch) =
@@ -674,7 +670,7 @@ proc subscribeAttestationSubnetHandlers(node: BeaconNode) {.
       ss.subnet_id = SubnetId(i)
       ss.expiration = FAR_FUTURE_EPOCH
   else:
-    let wallEpoch = node.beaconClock.now().slotOrZero().epoch
+    let wallEpoch = node.dag.beaconClock.now.slotOrZero.epoch
 
     # TODO make length dynamic when validator-client-based validators join and leave
     # In normal mode, there's one subnet subscription per validator, changing
@@ -758,11 +754,12 @@ proc addMessageHandlers(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     aggregateTopicParams.validateParameters().tryGet()
     basicParams.validateParameters.tryGet()
 
+  # TODO altair-transition
   node.network.subscribe(node.topicBeaconBlocks, blocksTopicParams, enableTopicMetrics = true)
-  node.network.subscribe(getAttesterSlashingsTopic(node.forkDigest), basicParams)
-  node.network.subscribe(getProposerSlashingsTopic(node.forkDigest), basicParams)
-  node.network.subscribe(getVoluntaryExitsTopic(node.forkDigest), basicParams)
-  node.network.subscribe(getAggregateAndProofsTopic(node.forkDigest), aggregateTopicParams, enableTopicMetrics = true)
+  node.network.subscribe(getAttesterSlashingsTopic(node.dag.forkDigests.phase0), basicParams)
+  node.network.subscribe(getProposerSlashingsTopic(node.dag.forkDigests.phase0), basicParams)
+  node.network.subscribe(getVoluntaryExitsTopic(node.dag.forkDigests.phase0), basicParams)
+  node.network.subscribe(getAggregateAndProofsTopic(node.dag.forkDigests.phase0), aggregateTopicParams, enableTopicMetrics = true)
   node.subscribeAttestationSubnetHandlers()
 
 func getTopicSubscriptionEnabled(node: BeaconNode): bool =
@@ -772,15 +769,16 @@ proc removeMessageHandlers(node: BeaconNode) {.raises: [Defect, CatchableError].
   node.attestationSubnets.enabled = false
   doAssert not node.getTopicSubscriptionEnabled()
 
-  node.network.unsubscribe(getBeaconBlocksTopic(node.forkDigest))
-  node.network.unsubscribe(getVoluntaryExitsTopic(node.forkDigest))
-  node.network.unsubscribe(getProposerSlashingsTopic(node.forkDigest))
-  node.network.unsubscribe(getAttesterSlashingsTopic(node.forkDigest))
-  node.network.unsubscribe(getAggregateAndProofsTopic(node.forkDigest))
+  # TODO altair-transition
+  node.network.unsubscribe(getBeaconBlocksTopic(node.dag.forkDigests.phase0))
+  node.network.unsubscribe(getVoluntaryExitsTopic(node.dag.forkDigests.phase0))
+  node.network.unsubscribe(getProposerSlashingsTopic(node.dag.forkDigests.phase0))
+  node.network.unsubscribe(getAttesterSlashingsTopic(node.dag.forkDigests.phase0))
+  node.network.unsubscribe(getAggregateAndProofsTopic(node.dag.forkDigests.phase0))
 
   for subnet_id in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
     node.network.unsubscribe(
-      getAttestationTopic(node.forkDigest, SubnetId(subnet_id)))
+      getAttestationTopic(node.dag.forkDigests.phase0, SubnetId(subnet_id)))
 
 proc setupDoppelgangerDetection(node: BeaconNode, slot: Slot) =
   # When another client's already running, this is very likely to detect
@@ -932,7 +930,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       node.attestationSubnets.proposingSlots,
       node.attestationSubnets.lastCalculatedEpoch, slot)
     nextActionWaitTime = saturate(fromNow(
-      node.beaconClock, min(nextAttestationSlot, nextProposalSlot)))
+      node.dag.beaconClock, min(nextAttestationSlot, nextProposalSlot)))
 
   info "Slot end",
     slot = shortLog(slot),
@@ -959,7 +957,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # state in anticipation of receiving the next block - we do it after logging
   # slot end since the nextActionWaitTime can be short
   let
-    advanceCutoff = node.beaconClock.fromNow(
+    advanceCutoff = node.dag.beaconClock.fromNow(
       slot.toBeaconTime(chronos.seconds(int(SECONDS_PER_SLOT - 1))))
   if advanceCutoff.inFuture:
     # We wait until there's only a second left before the next slot begins, then
@@ -1037,7 +1035,7 @@ proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
     await sleepAsync(timeToNextSlot)
 
     let
-      wallTime = node.beaconClock.now()
+      wallTime = node.dag.beaconClock.now()
       wallSlot = wallTime.slotOrZero() # Always > GENESIS!
 
     if wallSlot < nextSlot:
@@ -1086,7 +1084,7 @@ proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
 
     curSlot = wallSlot
     nextSlot = wallSlot + 1
-    timeToNextSlot = saturate(node.beaconClock.fromNow(nextSlot))
+    timeToNextSlot = saturate(node.dag.beaconClock.fromNow(nextSlot))
 
 proc handleMissingBlocks(node: BeaconNode) =
   let missingBlocks = node.quarantine.checkMissing()
@@ -1118,7 +1116,7 @@ proc startSyncManager(node: BeaconNode) =
     node.dag.head.slot
 
   proc getLocalWallSlot(): Slot =
-    node.beaconClock.now().slotOrZero
+    node.dag.beaconClock.now.slotOrZero
 
   func getFirstSlotAtFinalizedEpoch(): Slot =
     node.dag.finalizedHead.slot
@@ -1180,17 +1178,19 @@ proc installMessageValidators(node: BeaconNode) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
+
+  # TODO altair-transition
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
     closureScope:
       let subnet_id = SubnetId(it)
       node.network.addAsyncValidator(
-        getAttestationTopic(node.forkDigest, subnet_id),
+        getAttestationTopic(node.dag.forkDigests.phase0, subnet_id),
         # This proc needs to be within closureScope; don't lift out of loop.
         proc(attestation: Attestation): Future[ValidationResult] =
           node.processor.attestationValidator(attestation, subnet_id))
 
   node.network.addAsyncValidator(
-    getAggregateAndProofsTopic(node.forkDigest),
+    getAggregateAndProofsTopic(node.dag.forkDigests.phase0),
     proc(signedAggregateAndProof: SignedAggregateAndProof): Future[ValidationResult] =
       node.processor.aggregateValidator(signedAggregateAndProof))
 
@@ -1200,17 +1200,17 @@ proc installMessageValidators(node: BeaconNode) =
       node.processor[].blockValidator(signedBlock))
 
   node.network.addValidator(
-    getAttesterSlashingsTopic(node.forkDigest),
+    getAttesterSlashingsTopic(node.dag.forkDigests.phase0),
     proc (attesterSlashing: AttesterSlashing): ValidationResult =
       node.processor[].attesterSlashingValidator(attesterSlashing))
 
   node.network.addValidator(
-    getProposerSlashingsTopic(node.forkDigest),
+    getProposerSlashingsTopic(node.dag.forkDigests.phase0),
     proc (proposerSlashing: ProposerSlashing): ValidationResult =
       node.processor[].proposerSlashingValidator(proposerSlashing))
 
   node.network.addValidator(
-    getVoluntaryExitsTopic(node.forkDigest),
+    getVoluntaryExitsTopic(node.dag.forkDigests.phase0),
     proc (signedVoluntaryExit: SignedVoluntaryExit): ValidationResult =
       node.processor[].voluntaryExitValidator(signedVoluntaryExit))
 
@@ -1246,7 +1246,7 @@ proc run*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
 
     node.installMessageValidators()
 
-    let startTime = node.beaconClock.now()
+    let startTime = node.dag.beaconClock.now()
     asyncSpawn runSlotLoop(node, startTime)
     asyncSpawn runOnSecondLoop(node)
     asyncSpawn runQueueProcessingLoop(node.blockProcessor)
@@ -1310,14 +1310,14 @@ proc start(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   let
     head = node.dag.head
     finalizedHead = node.dag.finalizedHead
-    genesisTime = node.beaconClock.fromNow(toBeaconTime(Slot 0))
+    genesisTime = node.dag.beaconClock.fromNow(toBeaconTime(Slot 0))
 
   notice "Starting beacon node",
     version = fullVersionStr,
     enr = node.network.announcedENR.toURI,
     peerId = $node.network.switch.peerInfo.peerId,
     timeSinceFinalization =
-      node.beaconClock.now() - finalizedHead.slot.toBeaconTime(),
+      node.dag.beaconClock.now() - finalizedHead.slot.toBeaconTime(),
     head = shortLog(head),
     finalizedHead = shortLog(finalizedHead),
     SLOTS_PER_EPOCH,
@@ -1756,7 +1756,8 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raise
         some(config.bootstrapPort),
         some(config.bootstrapPort),
         [toFieldPair("eth2", SSZ.encode(getENRForkID(
-          initialState[].fork, initialState[].genesis_validators_root))),
+          initialState[].fork.current_version,
+          initialState[].genesis_validators_root))),
         toFieldPair("attnets", SSZ.encode(netMetadata.attnets))])
 
     writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)

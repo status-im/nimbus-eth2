@@ -33,8 +33,6 @@ type
 
   BeaconTime* = distinct Duration ## Nanoseconds from beacon genesis time
 
-  GetWallTimeFn* = proc(): BeaconTime {.gcsafe, raises: [Defect].}
-
 proc init*(T: type BeaconClock, genesis_time: uint64): T =
   # ~290 billion years into the future
   doAssert genesis_time <= high(int64).uint64

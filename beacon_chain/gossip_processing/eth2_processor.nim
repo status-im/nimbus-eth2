@@ -60,7 +60,6 @@ type
 
   Eth2Processor* = object
     doppelGangerDetectionEnabled*: bool
-    getWallTime*: GetWallTimeFn
 
     # Local sources of truth for validation
     # ----------------------------------------------------------------
@@ -97,13 +96,11 @@ proc new*(T: type Eth2Processor,
           exitPool: ref ExitPool,
           validatorPool: ref ValidatorPool,
           quarantine: QuarantineRef,
-          rng: ref BrHmacDrbgContext,
-          getWallTime: GetWallTimeFn): ref Eth2Processor =
+          rng: ref BrHmacDrbgContext): ref Eth2Processor =
   (ref Eth2Processor)(
     doppelGangerDetectionEnabled: doppelGangerDetectionEnabled,
     doppelgangerDetection: DoppelgangerProtection(
-      nodeLaunchSlot: getWallTime().slotOrZero),
-    getWallTime: getWallTime,
+      nodeLaunchSlot: dag.beaconClock.now.slotOrZero),
     blockProcessor: blockProcessor,
     dag: dag,
     attestationPool: attestationPool,
@@ -116,6 +113,9 @@ proc new*(T: type Eth2Processor,
       # processing blocks in order to give priority to block processing
       eager = proc(): bool = not blockProcessor[].hasBlocks())
   )
+
+template getWallTime*(self: Eth2Processor|ref Eth2Processor): BeaconTime =
+  self.dag.beaconClock.now()
 
 # Gossip Management
 # -----------------------------------------------------------------------------------
