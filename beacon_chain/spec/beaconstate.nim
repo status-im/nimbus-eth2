@@ -824,6 +824,8 @@ proc get_next_sync_committee*(state: altair.BeaconState): SyncCommittee =
 func translate_participation(
     state: var altair.BeaconState,
     pending_attestations: openArray[phase0.PendingAttestation]) =
+
+  var cache = StateCache()
   for attestation in pending_attestations:
     let
       data = attestation.data
@@ -834,8 +836,6 @@ func translate_participation(
         get_attestation_participation_flag_indices(state, data, inclusion_delay)
 
     # Apply flags to all attesting validators
-    var cache = StateCache()  # TODO hoist/pass as param
-
     for index in get_attesting_indices(
         state, data, attestation.aggregation_bits, cache):
       for flag_index in participation_flag_indices:
@@ -852,10 +852,12 @@ proc upgrade_to_altair*(pre: phase0.BeaconState): ref altair.BeaconState =
     empty_participation =
       HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]()
     inactivity_scores = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]()
-  for _ in 0 ..< len(pre.validators):
-    doAssert empty_participation.add 0.ParticipationFlags
-  for _ in 0 ..< len(pre.validators):
-    doAssert inactivity_scores.add 0'u64
+
+  doAssert empty_participation.data.setLen(pre.validators.len)
+  empty_participation.resetCache()
+
+  doAssert inactivity_scores.data.setLen(pre.validators.len)
+  inactivity_scores.resetCache()
 
   var post = (ref altair.BeaconState)(
     genesis_time: pre.genesis_time,
