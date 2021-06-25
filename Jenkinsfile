@@ -12,7 +12,7 @@ if (env.BRANCH_NAME != "stable" && env.BRANCH_NAME != "testing" && env.BRANCH_NA
 def runStages() {
 	try {
 		// clean the workspace
-		cleanWs(disableDeferredWipeout: true, deleteDirs: true)
+		preBuildCleanup(disableDeferredWipeout: true, deleteDirs: true)
 
 		stage("Clone") {
 			/* source code checkout */
