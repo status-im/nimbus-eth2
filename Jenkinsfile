@@ -11,6 +11,9 @@ if (env.BRANCH_NAME != "stable" && env.BRANCH_NAME != "testing" && env.BRANCH_NA
 
 def runStages() {
 	try {
+		// clean the workspace
+		cleanWs(disableDeferredWipeout: true, deleteDirs: true)
+
 		stage("Clone") {
 			/* source code checkout */
 			checkout scm
@@ -69,8 +72,6 @@ def runStages() {
 			println(e.toString());
 			// we don't need to re-raise it here; it might be a PR build being cancelled by a newer one
 		}
-		// clean the workspace
-		cleanWs(disableDeferredWipeout: true, deleteDirs: true)
 	}
 }
 
