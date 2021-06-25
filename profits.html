@@ -189,7 +189,7 @@ nextActionWait=4m35s874ms405us837ns
 <p>Specifically, have a look at <code>nextActionWait</code> time.</p>
 <p>If you're concerned about missing an attestation or proposal, wait until <code>nextActionWait</code> is greater than 4 minutes or so before restarting Nimbus.</p>
 <p>You can also use the <code>nimbus-eth2</code> <a href="./api.html">API</a>. For example, to check if your validator has a next Proposal slot assigned, run:</p>
-<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_duties_proposer&quot;,&quot;params&quot;:[${EPOCH_NUMBER_OF_INTEREST}],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq &quot;.result[]&quot; | grep ${PATTERN_WHICH_MATCHES_VALIDATOR_PUBLIC_KEYS}
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_duties_proposer&quot;,&quot;params&quot;:[${HEAD_EPOCH_NUMBER}],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq &quot;.result[]&quot; | grep ${PATTERN_WHICH_MATCHES_VALIDATOR_PUBLIC_KEYS}
 </code></pre>
 <h2><a class="header" href="#subscribe-to-all-subnets" id="subscribe-to-all-subnets">Subscribe to all subnets</a></h2>
 <p>Launching the beacon node with the <code>--subscribe-all-subnets</code> option increases bandwidth and cpu usage, but helps the network and makes the block production algorithm perform slightly better.</p>

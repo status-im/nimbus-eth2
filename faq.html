@@ -171,6 +171,11 @@
                     <main>
                         <h1><a class="header" href="#frequently-asked-questions" id="frequently-asked-questions">Frequently Asked Questions</a></h1>
 <h2><a class="header" href="#general" id="general">General</a></h2>
+<h3><a class="header" href="#how-do-i-check-which-version-of-nimbus-im-currently-running" id="how-do-i-check-which-version-of-nimbus-im-currently-running">How do I check which version of Nimbus I'm currently running?</a></h3>
+<p>If you'v enabled RPC, the version is available via</p>
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_node_version&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s
+</code></pre>
+<p>You can also run <code>build/nimbus_beacon_node --version</code></p>
 <h3><a class="header" href="#how-do-i-fix-the-discovered-new-external-address-warning-log" id="how-do-i-fix-the-discovered-new-external-address-warning-log">How do I fix the discovered new external address warning log?</a></h3>
 <pre><code>WRN 2021-03-15 02:23:37.569+00:00 Discovered new external address but ENR auto update is off topics=&quot;discv5&quot;...
 </code></pre>
