@@ -2,6 +2,17 @@
 
 ## General
 
+### How do I check which version of Nimbus I'm currently running?
+
+If you'v enabled RPC, the version is available via
+
+```
+curl -d '{"jsonrpc":"2.0","method":"get_v1_node_version","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s
+```
+
+
+You can also run `build/nimbus_beacon_node --version`
+
 ### How do I fix the discovered new external address warning log?
  
 ```
