@@ -107,7 +107,6 @@ type
   RollbackProc* = proc() {.gcsafe, raises: [Defect].}
 
 func noRollback*() =
-  doAssert false
   trace "Skipping rollback of broken state"
 
 type
