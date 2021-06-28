@@ -510,11 +510,23 @@ proc getState(
     else:
       unsafeAddr dag.headState
 
-  func restore(v: var phase0.BeaconState) =
-    assign(v, restoreAddr[].data.hbsPhase0.data)
+  let v = addr state.data
 
-  if not dag.db.getState(stateRoot, state.data.hbsPhase0.data, restore):
-    return false
+  func restore() =
+    assign(v[], restoreAddr[].data)
+
+  if blck.slot < dag.altairTransitionSlot:
+    if state.data.beaconStateFork != forkPhase0:
+      state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkPhase0)[]
+
+    if not dag.db.getState(stateRoot, state.data.hbsPhase0.data, restore):
+      return false
+  else:
+    if state.data.beaconStateFork != forkAltair:
+      state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkAltair)[]
+
+    if not dag.db.getAltairState(stateRoot, state.data.hbsAltair.data, restore):
+      return false
 
   state.blck = blck
   setStateRoot(state.data, stateRoot)

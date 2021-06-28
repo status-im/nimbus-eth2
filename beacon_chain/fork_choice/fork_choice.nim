@@ -157,7 +157,7 @@ proc process_attestation_queue(self: var ForkChoice) =
     if it.slot < self.checkpoints.time:
       for validator_index in it.attesting_indices:
         self.backend.process_attestation(
-          validator_index.ValidatorIndex, it.block_root, it.slot.epoch())
+          validator_index, it.block_root, it.slot.epoch())
       false
     else:
       true

@@ -110,10 +110,10 @@ proc getAttachedValidator*(node: BeaconNode,
                            idx: ValidatorIndex): AttachedValidator =
   if idx < state_validators.len.ValidatorIndex:
     let validator = node.getAttachedValidator(state_validators[idx].pubkey)
-    if validator != nil and validator.index != some(idx.ValidatorIndex):
+    if validator != nil and validator.index != some(idx):
       # Update index, in case the validator was activated!
       notice "Validator activated", pubkey = validator.pubkey, index = idx
-      validator.index  = some(idx.ValidatorIndex)
+      validator.index  = some(idx)
     validator
   else:
     warn "Validator index out of bounds",
