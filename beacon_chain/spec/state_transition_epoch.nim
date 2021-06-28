@@ -874,7 +874,7 @@ proc process_epoch*(
   process_historical_roots_update(state)
   process_participation_record_updates(state)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#epoch-processing
 proc process_epoch*(
     state: var altair.BeaconState, flags: UpdateFlags, cache: var StateCache,
     rewards: var RewardInfo) {.nbench.} =
