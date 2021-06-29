@@ -49,8 +49,7 @@ create distributable tarballs.
 
 Configured in `.github/workflows/release.yml` (only for Linux AMD64, ARM and
 ARM64): we unpack the distribution tarball and copy its content into a third
-type of Docker image - this one meant for end users and defined by
+type of Docker image - meant for end users and defined by
 `docker/dist/binaries/Dockerfile.amd64` and related.
 
 We then publish that to [Docker Hub](https://hub.docker.com/r/statusim/nimbus-eth2).
-
