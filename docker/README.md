@@ -16,7 +16,7 @@ to Docker Hub.
 Docker images for end-users, obtained by copying distributable binaries inside
 official Debian images. Uploaded to Docker Hub as part of the CI release process.
 
-There are also some example `docker-compose` configuration files.
+Also contains some example `docker-compose` configuration files.
 
 ## more details
 
