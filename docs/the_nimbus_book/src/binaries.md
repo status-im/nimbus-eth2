@@ -15,8 +15,7 @@ We've designed the build process to be reproducible. In practice, this means tha
 For instructions on how to reproduce those binaries, see "README.md" inside the archive.
 
 > **N.B.** These binaries are meant to run as a service. As such, they do not
-support the `log-file` [option](./options.md) because duplicating stdout to a
+support the `log-file` [option](./options.md) - duplicating stdout to a
 log file would complicate things in that scenario. We recommend capturing
 their output (stdout and stderr) with a [log rotation
 helper](./log-rotate.md) instead.
-
