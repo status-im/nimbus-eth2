@@ -237,13 +237,16 @@ FixtureAll-mainnet
 + [Valid]   success                                                                          OK
 + [Valid]   success_already_exited_long_ago                                                  OK
 + [Valid]   success_already_exited_recent                                                    OK
++ [Valid]   success_attestation_from_future                                                  OK
 + [Valid]   success_block_header                                                             OK
++ [Valid]   success_block_header_from_future                                                 OK
 + [Valid]   success_double                                                                   OK
 + [Valid]   success_exit_queue                                                               OK
 + [Valid]   success_low_balances                                                             OK
 + [Valid]   success_misc_balances                                                            OK
 + [Valid]   success_multi_proposer_index_iterations                                          OK
 + [Valid]   success_previous_epoch                                                           OK
++ [Valid]   success_proposer_index_slashed                                                   OK
 + [Valid]   success_slashed_and_proposer_index_the_same                                      OK
 + [Valid]   success_surround                                                                 OK
 + [Valid]   success_with_effective_balance_disparity                                         OK
@@ -265,7 +268,7 @@ FixtureAll-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 262/262 Fail: 0/262 Skip: 0/262
+OK: 265/265 Fail: 0/265 Skip: 0/265
 ## Official - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -483,4 +486,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 393/393 Fail: 0/393 Skip: 0/393
+OK: 396/396 Fail: 0/396 Skip: 0/396
