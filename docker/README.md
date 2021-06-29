@@ -2,7 +2,7 @@
 
 ### dist/base_image/
 
-Base Docker images for building distributable binaries. These are uploaded to
+Base Docker images for building distributable binaries. Uploaded to
 Docker Hub since we need them to reproduce officially released builds.
 
 ### dist/
@@ -21,4 +21,3 @@ There are also some example `docker-compose` configuration files.
 ## more details
 
 See the ["Binary distribution internals"](https://nimbus.guide/distribution_internals.html) page of the Nimbus book.
-
