@@ -344,7 +344,7 @@ proc new*(T: type BeaconChainDB,
     altair_blocks: altair_blocks,
     stateRoots: stateRoots,
     statesNoVal: statesNoVal,
-    altairStatesNoVal: statesNoVal,
+    altairStatesNoVal: altairStatesNoVal,
     stateDiffs: stateDiffs,
     summaries: summaries,
   )
@@ -514,6 +514,13 @@ proc putState*(
     db: BeaconChainDB, value: phase0.BeaconState | altair.BeaconState) =
   db.putState(hash_tree_root(value), value)
 
+# For testing rollback
+proc putCorruptPhase0State*(db: BeaconChainDB, key: Eth2Digest) =
+  db.statesNoVal.putSnappySSZ(key.data, Validator())
+
+proc putCorruptAltairState*(db: BeaconChainDB, key: Eth2Digest) =
+  db.altairStatesNoVal.putSnappySSZ(key.data, Validator())
+
 func stateRootKey(root: Eth2Digest, slot: Slot): array[40, byte] =
   var ret: array[40, byte]
   # big endian to get a naturally ascending order on slots in sorted indices
@@ -626,13 +633,13 @@ proc getStateOnlyMutableValidators(
   of GetResult.notFound:
     false
   of GetResult.corrupted:
-    rollback(output)
+    rollback()
     false
 
 proc getAltairStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
     store: KvStoreRef, key: openArray[byte], output: var altair.BeaconState,
-    rollback: AltairRollbackProc): bool =
+    rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
   ## Return `true` iff the entry was found in the database and `output` was
@@ -668,7 +675,7 @@ proc getAltairStateOnlyMutableValidators(
   of GetResult.notFound:
     false
   of GetResult.corrupted:
-    rollback(output)
+    rollback()
     false
 
 proc getState(
@@ -697,7 +704,7 @@ proc getState(
   of GetResult.notFound:
     false
   of GetResult.corrupted:
-    rollback(output)
+    rollback()
     false
 
 proc getState*(
@@ -721,7 +728,7 @@ proc getState*(
 
 proc getAltairState*(
     db: BeaconChainDB, key: Eth2Digest, output: var altair.BeaconState,
-    rollback: AltairRollbackProc): bool =
+    rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
   ## Return `true` iff the entry was found in the database and `output` was

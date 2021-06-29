@@ -104,14 +104,10 @@ func verifyStateRoot(state: phase0.BeaconState, blck: altair.TrustedBeaconBlock)
   true
 
 type
-  RollbackProc* = proc(v: var phase0.BeaconState) {.gcsafe, raises: [Defect].}
-  AltairRollbackProc* = proc(v: var altair.BeaconState) {.gcsafe, raises: [Defect].}
+  RollbackProc* = proc() {.gcsafe, raises: [Defect].}
 
-func noRollback*(state: var phase0.BeaconState) =
-  trace "Skipping rollback of broken phase 0 state"
-
-func noRollback*(state: var altair.BeaconState) =
-  trace "Skipping rollback of broken Altair state"
+func noRollback*() =
+  trace "Skipping rollback of broken state"
 
 type
   RollbackHashedProc* = proc(state: var phase0.HashedBeaconState) {.gcsafe, raises: [Defect].}

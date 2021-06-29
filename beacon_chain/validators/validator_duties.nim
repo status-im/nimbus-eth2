@@ -110,10 +110,10 @@ proc getAttachedValidator*(node: BeaconNode,
                            idx: ValidatorIndex): AttachedValidator =
   if idx < state_validators.len.ValidatorIndex:
     let validator = node.getAttachedValidator(state_validators[idx].pubkey)
-    if validator != nil and validator.index != some(idx.ValidatorIndex):
+    if validator != nil and validator.index != some(idx):
       # Update index, in case the validator was activated!
       notice "Validator activated", pubkey = validator.pubkey, index = idx
-      validator.index  = some(idx.ValidatorIndex)
+      validator.index  = some(idx)
     validator
   else:
     warn "Validator index out of bounds",
@@ -340,7 +340,8 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 proc proposeSignedBlock*(node: BeaconNode,
                          head: BlockRef,
                          validator: AttachedValidator,
-                         newBlock: SignedBeaconBlock): BlockRef =
+                         newBlock: SignedBeaconBlock):
+                         Future[BlockRef] {.async.} =
   let newBlockRef = node.dag.addRawBlock(node.quarantine, newBlock) do (
       blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
       epochRef: EpochRef):
@@ -420,7 +421,7 @@ proc proposeBlock(node: BeaconNode,
   newBlock.signature = await validator.signBlockProposal(
     fork, genesis_validators_root, slot, newBlock.root)
 
-  return node.proposeSignedBlock(head, validator, newBlock)
+  return await node.proposeSignedBlock(head, validator, newBlock)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should

@@ -18,7 +18,8 @@ import
   json_serialization/std/[options, net],
 
   # Local modules
-  ./spec/[datatypes, digest, crypto, helpers, network, signatures],
+  ./spec/datatypes/[phase0, altair],
+  ./spec/[digest, crypto, helpers, network, signatures],
   ./spec/eth2_apis/beacon_rpc_client,
   ./sync/sync_manager,
   "."/[conf, beacon_clock, version],
@@ -140,7 +141,7 @@ proc onSlotStart(vc: ValidatorClient, lastSlot, scheduledSlot: Slot) {.gcsafe, a
       let validator = vc.attachedValidators.validators[public_key]
       let randao_reveal = await validator.genRandaoReveal(
         vc.fork, vc.beaconGenesis.genesis_validators_root, slot)
-      var newBlock = SignedBeaconBlock(
+      var newBlock = phase0.SignedBeaconBlock(
           message: await vc.client.get_v1_validator_block(slot, vc.graffitiBytes, randao_reveal)
         )
       newBlock.root = hash_tree_root(newBlock.message)

@@ -60,8 +60,7 @@ suite "Beacon chain DB" & preset():
       db.getBlock(Eth2Digest()).isNone
 
   test "sanity check phase 0 blocks" & preset():
-    var
-      db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
+    var db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
 
     let
       signedBlock = withDigest((phase0.TrustedBeaconBlock)())
@@ -90,8 +89,7 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Altair blocks" & preset():
-    var
-      db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
+    var db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
 
     let
       signedBlock = withDigest((altair.TrustedBeaconBlock)())
@@ -224,6 +222,53 @@ suite "Beacon chain DB" & preset():
         not db.getAltairState(root, stateBuffer[], noRollback)
 
     db.close()
+
+  test "sanity check phase 0 getState rollback" & preset():
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      state = (ref ForkedHashedBeaconState)(
+        beaconStateFork: forkPhase0,
+        hbsPhase0: phase0.HashedBeaconState(data: phase0.BeaconState(
+          slot: 10.Slot)))
+      root = Eth2Digest()
+
+    db.putCorruptPhase0State(root)
+
+    let restoreAddr = addr dag.headState
+
+    func restore() =
+      assign(state[], restoreAddr[].data)
+
+    check:
+      state[].hbsPhase0.data.slot == 10.Slot
+      not db.getState(root, state[].hbsPhase0.data, restore)
+      state[].hbsPhase0.data.slot != 10.Slot
+
+  test "sanity check Altair and cross-fork getState rollback" & preset():
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      state = (ref ForkedHashedBeaconState)(
+        beaconStateFork: forkAltair,
+        hbsAltair: altair.HashedBeaconState(data: altair.BeaconState(
+          slot: 10.Slot)))
+      root = Eth2Digest()
+
+    db.putCorruptAltairState(root)
+
+    let restoreAddr = addr dag.headState
+
+    func restore() =
+      assign(state[], restoreAddr[].data)
+
+    check:
+      state[].hbsAltair.data.slot == 10.Slot
+      not db.getAltairState(root, state[].hbsAltair.data, restore)
+
+      # assign() has switched the case object fork
+      state[].beaconStateFork == forkPhase0
+      state[].hbsPhase0.data.slot != 10.Slot
 
   test "find ancestors" & preset():
     var

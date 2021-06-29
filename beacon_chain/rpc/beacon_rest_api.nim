@@ -502,7 +502,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         else:
           let idx = cindex.get()
           if uint64(idx) < committees_per_slot:
-            res.add(getCommittee(slot, CommitteeIndex(idx)))
+            res.add(getCommittee(slot, idx))
 
       var res: seq[RestBeaconStatesCommittees]
       let qepoch =
@@ -629,7 +629,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node.network.broadcast(getBeaconBlocksTopic(node.forkDigest), blck)
       return RestApiResponse.jsonError(Http202, BlockValidationError)
     else:
-      let res = proposeSignedBlock(node, head, AttachedValidator(), blck)
+      let res = await proposeSignedBlock(node, head, AttachedValidator(), blck)
       if res == head:
         node.network.broadcast(getBeaconBlocksTopic(node.forkDigest), blck)
         return RestApiResponse.jsonError(Http202, BlockValidationError)

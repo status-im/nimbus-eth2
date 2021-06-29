@@ -336,9 +336,9 @@ proc decodeBody*[T](t: typedesc[T],
   let data =
     try:
       RestJson.decode(cast[string](body.data), T)
-    except SerializationError as exc:
+    except SerializationError:
       return err("Unable to deserialize data")
-    except CatchableError as exc:
+    except CatchableError:
       return err("Unexpected deserialization error")
   ok(data)
 

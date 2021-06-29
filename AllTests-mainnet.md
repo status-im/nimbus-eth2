@@ -82,16 +82,18 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 ```diff
 + empty database [Preset: mainnet]                                                           OK
 + find ancestors [Preset: mainnet]                                                           OK
++ sanity check Altair and cross-fork getState rollback [Preset: mainnet]                     OK
 + sanity check Altair blocks [Preset: mainnet]                                               OK
 + sanity check Altair states [Preset: mainnet]                                               OK
 + sanity check Altair states, reusing buffers [Preset: mainnet]                              OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
++ sanity check phase 0 getState rollback [Preset: mainnet]                                   OK
 + sanity check phase 0 states [Preset: mainnet]                                              OK
 + sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
+OK: 12/12 Fail: 0/12 Skip: 0/12
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
@@ -311,4 +313,4 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 177/185 Fail: 0/185 Skip: 8/185
+OK: 179/187 Fail: 0/187 Skip: 8/187
