@@ -52,6 +52,10 @@ def runStages() {
 			./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --data-dir local_testnet1_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port \$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) --timeout 2400 -- --verify-finalization --discv5:no
 			"""
 		}
+
+		stage("REST test suite") {
+			sh "./tests/simulation/restapi.sh --base-port \$(( 9100 + EXECUTOR_NUMBER * 100 )) --base-rest-port \$(( 7100 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8108 + EXECUTOR_NUMBER * 100 )) --timeout 30"
+		}
 	} catch(e) {
 		// we need to rethrow the exception here
 		throw e

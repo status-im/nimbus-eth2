@@ -1,9 +1,96 @@
 #!/usr/bin/env bash
 
+set -e
+
+# DEFAULTS
+BASE_PORT="49000"
+BASE_METRICS_PORT="48008"
+BASE_REST_PORT="47000"
+TIMEOUT_DURATION="30"
+TEST_DIRNAME="build/resttest_sim"
+
+####################
+# argument parsing #
+####################
+
+GETOPT_BINARY="getopt"
+if uname | grep -qi darwin; then
+  # macOS
+  GETOPT_BINARY="/usr/local/opt/gnu-getopt/bin/getopt"
+  [[ -f "$GETOPT_BINARY" ]] || { echo "GNU getopt not installed. Please run 'brew install gnu-getopt'. Aborting."; exit 1; }
+fi
+
+! ${GETOPT_BINARY} --test > /dev/null
+if [ ${PIPESTATUS[0]} != 4 ]; then
+  echo '`getopt --test` failed in this environment.'
+  exit 1
+fi
+
+OPTS="h"
+LONGOPTS="help,test-dir:,base-port:,base-rest-port:,base-metrics-port:,timeout:"
+
+print_help() {
+  cat <<EOF
+Usage: $(basename "$0") [OPTIONS] -- [BEACON NODE OPTIONS]
+
+  -h, --help                  this help message
+  --test-dir                  node's data directory (default: GIT_ROOT/${TEST_DIRNAME})
+  --base-port                 bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
+  --base-rest-port            bootstrap node's REST port (default: ${BASE_REST_PORT})
+  --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
+  --timeout                   timeout in seconds (default: ${TIMEOUT_DURATION} seconds)
+EOF
+}
+
+! PARSED=$(${GETOPT_BINARY} --options=${OPTS} --longoptions=${LONGOPTS} --name "$0" -- "$@")
+if [ ${PIPESTATUS[0]} != 0 ]; then
+  # getopt has complained about wrong arguments to stdout
+  exit 1
+fi
+
+eval set -- "$PARSED"
+
+while true; do
+  case "$1" in
+    -h|--help)
+      print_help
+      exit
+      ;;
+    --test-dir)
+      TEST_DIRNAME="$2"
+      shift 2
+      ;;
+    --base-port)
+      BASE_PORT="$2"
+      shift 2
+      ;;
+    --base-rest-port)
+      BASE_REST_PORT="$2"
+      shift 2
+      ;;
+    --base-metrics-port)
+      BASE_METRICS_PORT="$2"
+      shift 2
+      ;;
+    --timeout)
+      TIMEOUT_DURATION="$2"
+      shift 2
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      echo "argument parsing error"
+      print_help
+      exit 1
+  esac
+done
+
 NUM_VALIDATORS=${VALIDATORS:-32}
 TOTAL_NODES=${NODES:-1}
 GIT_ROOT="$(git rev-parse --show-toplevel)"
-TEST_DIR="${GIT_ROOT}/build/resttest_sim"
+TEST_DIR="${GIT_ROOT}/${TEST_DIRNAME}"
 LOG_FILE="${TEST_DIR}/resttest_node.log"
 VALIDATORS_DIR="${TEST_DIR}/validators"
 SECRETS_DIR="${TEST_DIR}/secrets"
@@ -15,7 +102,7 @@ BOOTSTRAP_ENR_FILE="${TEST_DIR}/beacon_node.enr"
 NETWORK_METADATA_FILE="${TEST_DIR}/network.json"
 DEPOSITS_FILE="${TEST_DIR}/deposits.json"
 REST_ADDRESS="127.0.0.1"
-REST_PORT="5052"
+METRICS_ADDRESS="127.0.0.1"
 MKDIR_SCRIPT="${GIT_ROOT}/scripts/makedir.sh"
 
 $MKDIR_SCRIPT "${TEST_DIR}"
@@ -100,6 +187,8 @@ if [[ -f "${SNAPSHOT_FILE}" ]]; then
 fi
 
 ../nimbus_beacon_node \
+  --tcp-port=${BASE_PORT} \
+  --udp-port=${BASE_PORT} \
   --log-level=${LOG_LEVEL:-DEBUG} \
   --network="${NETWORK_METADATA_FILE}" \
   --data-dir="${TEST_DIR}" \
@@ -107,9 +196,12 @@ fi
   ${SNAPSHOT_ARG} \
   --doppelganger-detection=off \
   --nat=none \
-  --rest=true \
+  --metrics \
+  --metrics-address=${METRICS_ADDRESS} \
+  --metrics-port=${BASE_METRICS_PORT} \
+  --rest \
   --rest-address=${REST_ADDRESS} \
-  --rest-port= ${REST_PORT} \
+  --rest-port= ${BASE_REST_PORT} \
   ${ADDITIONAL_BEACON_NODE_ARGS} \
   "$@" > ${LOG_FILE} 2>&1 &
 BEACON_NODE_STATUS=$?
@@ -120,12 +212,12 @@ if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
   BEACON_NODE_PID="$(jobs -p)"
 
   ../resttest \
-    --delay=30 \
+    --delay=${TIMEOUT_DURATION} \
     --timeout=60 \
     --skip-topic=slow \
     --connections=4 \
     --rules-file="${RESTTEST_RULES}" \
-    http://${REST_ADDRESS}:${REST_PORT}/api
+    http://${REST_ADDRESS}:${BASE_REST_PORT}/api
   RESTTEST_STATUS=$?
 
   kill -SIGINT ${BEACON_NODE_PID}
