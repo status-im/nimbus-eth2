@@ -3,7 +3,7 @@
 ### dist/base_image/
 
 Base Docker images for building distributable binaries. Uploaded to
-Docker Hub since we need them to reproduce officially released builds.
+Docker Hub (we need them to reproduce officially released builds).
 
 ### dist/
 
