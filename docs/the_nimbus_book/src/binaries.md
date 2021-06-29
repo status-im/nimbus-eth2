@@ -16,6 +16,6 @@ For instructions on how to reproduce those binaries, see "README.md" inside the 
 
 > **N.B.** These binaries are meant to run as a service. As such, they do not
 support the `log-file` [option](./options.md) - duplicating stdout to a
-log file would complicate things in that scenario. We recommend capturing
+log file would complicate things. We recommend capturing
 their output (stdout and stderr) with a [log rotation
 helper](./log-rotate.md) instead.
