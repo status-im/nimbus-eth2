@@ -31,6 +31,7 @@ proc setupStdoutLogging*(logLevel: string) =
       proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe, raises: [Defect].} =
         try:
           stdout.write(msg)
+          stdout.flushFile()
         except IOError as err:
           logLoggingFailure(cstring(msg), err)
 
