@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -e
+if type systemctl >/dev/null 2>/dev/null; then
+	if [ -z "$D" ]; then
+		systemctl stop nimbus.service
+		systemctl disable nimbus.service
+	fi
+fi
+
+exit 0

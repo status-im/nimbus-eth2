@@ -1,0 +1,6 @@
+#!/bin/sh
+
+set -e
+chmod 777 /var/lib/nimbus
+
+exit 0

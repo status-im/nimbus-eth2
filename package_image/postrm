@@ -1,0 +1,7 @@
+#!/bin/sh
+
+set -e
+rm -rf /var/lib/nimbus
+rm -rf /usr/lib/systemd/system/nimbus.service
+
+exit 0
