@@ -412,7 +412,7 @@ func is_in_inactivity_leak(finality_delay: uint64): bool =
 func get_finality_delay(state: SomeBeaconState): uint64 =
   get_previous_epoch(state) - state.finalized_checkpoint.epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/phase0/beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/phase0/beacon-chain.md#rewards-and-penalties-1
 func is_in_inactivity_leak(state: altair.BeaconState): bool =
   # TODO remove this, see above
   get_finality_delay(state) > MIN_EPOCHS_TO_INACTIVITY_PENALTY
@@ -566,7 +566,7 @@ func get_base_reward_per_increment(
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div
     integer_squareroot(total_active_balance)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_base_reward
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
     state: altair.BeaconState, index: ValidatorIndex, total_active_balance: Gwei):
     Gwei =
@@ -661,7 +661,7 @@ func process_rewards_and_penalties(
     increase_balance(state.balances.asSeq()[idx], v.delta.rewards)
     decrease_balance(state.balances.asSeq()[idx], v.delta.penalties)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#rewards-and-penalties
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#rewards-and-penalties
 func process_rewards_and_penalties(
     state: var altair.BeaconState, total_active_balance: Gwei) {.nbench.} =
   if get_current_epoch(state) == GENESIS_EPOCH:
@@ -691,7 +691,7 @@ func process_rewards_and_penalties(
     decrease_balance(state, ValidatorIndex(index), penalties[index])
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#slashings
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#slashings
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#slashings
 func process_slashings*(state: var SomeBeaconState, total_balance: Gwei) {.nbench.}=
   let
     epoch = get_current_epoch(state)
@@ -805,7 +805,7 @@ proc process_sync_committee_updates*(state: var altair.BeaconState) =
     state.current_sync_committee = state.next_sync_committee
     state.next_sync_committee = get_next_sync_committee(state)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#inactivity-scores
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#inactivity-scores
 func process_inactivity_updates*(state: var altair.BeaconState) =
   # Score updates based on previous epoch participation, skip genesis epoch
   if get_current_epoch(state) == GENESIS_EPOCH:
