@@ -28,5 +28,5 @@ const
 
   # Sync protocol
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/presets/minimal/altair.yaml#L21
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/presets/minimal/altair.yaml#L21
   MIN_SYNC_COMMITTEE_PARTICIPANTS* = 1
