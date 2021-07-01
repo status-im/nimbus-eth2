@@ -382,7 +382,7 @@ proc process_justification_and_finalization*(state: var altair.BeaconState,
     return
   let
     # these ultimately differ from phase0 only in these lines
-    # ref: https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/phase0/beacon-chain.md#justification-and-finalization
+    # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/phase0/beacon-chain.md#justification-and-finalization
     previous_indices = get_unslashed_participating_indices(
       state, TIMELY_TARGET_FLAG_INDEX, get_previous_epoch(state))
     current_indices = get_unslashed_participating_indices(
@@ -559,7 +559,7 @@ func get_attestation_deltas(state: phase0.BeaconState, rewards: var RewardInfo) 
         rewards.statuses[proposer_index].delta.add(
           proposer_delta.get()[1])
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_base_reward_per_increment
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment(
     state: altair.BeaconState, total_active_balance: Gwei): Gwei =
   # TODO hoist this integer_squareroot, as with phase 0
@@ -798,7 +798,7 @@ func process_participation_flag_updates*(state: var altair.BeaconState) =
 
   state.current_epoch_participation.resetCache()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#sync-committee-updates
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#sync-committee-updates
 proc process_sync_committee_updates*(state: var altair.BeaconState) =
   let next_epoch = get_current_epoch(state) + 1
   if next_epoch mod EPOCHS_PER_SYNC_COMMITTEE_PERIOD == 0:

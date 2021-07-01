@@ -38,7 +38,7 @@ import ./base, ./phase0
 export base
 
 const
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#incentivization-weights
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#incentivization-weights
   TIMELY_SOURCE_WEIGHT* = 14
   TIMELY_TARGET_WEIGHT* = 26
   TIMELY_HEAD_WEIGHT* = 14
@@ -53,16 +53,16 @@ const
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 4
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/setup.py#L473
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/setup.py#L473
   FINALIZED_ROOT_INDEX* = 105'u16
   NEXT_SYNC_COMMITTEE_INDEX* = 55'u16
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#participation-flag-indices
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#participation-flag-indices
   TIMELY_SOURCE_FLAG_INDEX* = 0
   TIMELY_TARGET_FLAG_INDEX* = 1
   TIMELY_HEAD_FLAG_INDEX* = 2
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#inactivity-penalties
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#inactivity-penalties
   INACTIVITY_SCORE_BIAS* = 4
   INACTIVITY_SCORE_RECOVERY_RATE* = 16
 
@@ -78,7 +78,7 @@ type
   # TODO could be distinct
   ParticipationFlags* = uint8
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#syncaggregate
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#syncaggregate
   SyncAggregate* = object
     sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
     sync_committee_signature*: ValidatorSig
@@ -88,7 +88,7 @@ type
     pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
     aggregate_pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#synccommitteemessage
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/validator.md#synccommitteemessage
   SyncCommitteeMessage* = object
     slot*: Slot ##\
     ## Slot to which this contribution pertains
@@ -102,7 +102,7 @@ type
     signature*: ValidatorSig ##\
     ## Signature by the validator over the block root of `slot`
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#synccommitteecontribution
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/validator.md#synccommitteecontribution
   SyncCommitteeContribution* = object
     slot*: Slot ##\
     ## Slot to which this contribution pertains
@@ -122,7 +122,7 @@ type
     signature*: ValidatorSig  ##\
     ## Signature by the validator(s) over the block root of `slot`
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#contributionandproof
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/validator.md#contributionandproof
   ContributionAndProof* = object
     aggregator_index*: uint64
     contribution*: SyncCommitteeContribution
@@ -172,7 +172,7 @@ type
     fork_version*: Version ##\
     ## Fork version for the aggregate signature
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64

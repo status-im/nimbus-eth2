@@ -180,7 +180,7 @@ func get_seed*(state: SomeBeaconState, epoch: Epoch, domain_type: DomainType):
       epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1).data
   eth2digest(seed_input)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#add_flag
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#add_flag
 func add_flag*(flags: ParticipationFlags, flag_index: int): ParticipationFlags =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   flags or flag

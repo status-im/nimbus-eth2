@@ -649,12 +649,13 @@ func get_total_active_balance*(state: SomeBeaconState, cache: var StateCache): G
   get_total_balance(
     state, cache.get_shuffled_active_validator_indices(state, epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_base_reward_per_increment
-func get_base_reward_per_increment*(state: altair.BeaconState, cache: var StateCache): Gwei =
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#get_base_reward_per_increment
+func get_base_reward_per_increment*(
+    state: altair.BeaconState, cache: var StateCache): Gwei =
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div
     integer_squareroot(get_total_active_balance(state, cache))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_base_reward
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
     state: altair.BeaconState, index: ValidatorIndex,
     base_reward_per_increment: Gwei): Gwei =
@@ -848,7 +849,7 @@ func translate_participation(
 proc upgrade_to_altair*(pre: phase0.BeaconState): ref altair.BeaconState =
   let epoch = get_current_epoch(pre)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/fork.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/fork.md#configuration
   const ALTAIR_FORK_VERSION = Version [byte 1, 0, 0, 0]
 
   var

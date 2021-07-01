@@ -22,7 +22,7 @@ const
 
   # Sync Committee
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/presets/mainnet/altair.yaml#L13
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/presets/mainnet/altair.yaml#L13
   SYNC_COMMITTEE_SIZE* = 512
   EPOCHS_PER_SYNC_COMMITTEE_PERIOD* = 256
 
