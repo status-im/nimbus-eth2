@@ -11,7 +11,7 @@
 const
   # Updated penalty values
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/presets/minimal/altair.yaml#L3
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/presets/minimal/altair.yaml#L3
   CONFIG_NAME* = "minimal"
 
   INACTIVITY_PENALTY_QUOTIENT_ALTAIR* = 50331648 ##\
@@ -22,7 +22,7 @@ const
 
   # Sync protocol
   # ---------------------------------------------------------------
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/presets/minimal/altair.yaml#L13
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/presets/minimal/altair.yaml#L13
   SYNC_COMMITTEE_SIZE* = 32
   EPOCHS_PER_SYNC_COMMITTEE_PERIOD* = 8
 
