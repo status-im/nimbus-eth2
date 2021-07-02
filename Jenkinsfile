@@ -62,7 +62,7 @@ def runStages() {
 	} finally {
 		// archive testnet logs
 		sh """#!/bin/bash
-		for D in local_testnet0_data local_testnet1_data; do
+		for D in local_testnet0_data local_testnet1_data resttest0_data; do
 			[[ -d "\$D" ]] && tar cjf "\${D}-\${NODE_NAME}.tar.bz2" "\${D}"/*.txt || true
 		done
 		"""
