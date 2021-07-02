@@ -14,6 +14,7 @@ PrivateTmp=yes
 ProtectSystem=full
 ProtectHome=yes
 
+User=nimbus
 WorkingDirectory=/var/lib/nimbus
 TimeoutSec=1200
 Restart=always

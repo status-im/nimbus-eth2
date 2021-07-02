@@ -1,4 +1,5 @@
 #!/bin/sh
 
 set -e
-chmod 777 /var/lib/nimbus
+adduser --system --no-create-home --group nimbus
+chown nimbus:nimbus /var/lib/nimbus
