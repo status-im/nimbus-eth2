@@ -403,7 +403,7 @@ proc makeBeaconBlock*(
     voluntaryExits: seq[SignedVoluntaryExit],
     executionPayload: ExecutionPayload,
     rollback: RollbackAltairHashedProc,
-    cache: var StateCache): Option[altair.BeaconBlock] =
+    cache: var StateCache): Option[phase0.BeaconBlock] =
   ## Create a block for the given state. The last block applied to it must be
   ## the one identified by parent_root and process_slots must be called up to
   ## the slot for which a block is to be created.
@@ -411,11 +411,11 @@ proc makeBeaconBlock*(
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.
 
-  var blck = altair.BeaconBlock(
+  var blck = phase0.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
     parent_root: parent_root,
-    body: altair.BeaconBlockBody(
+    body: phase0.BeaconBlockBody(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,

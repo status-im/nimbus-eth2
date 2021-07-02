@@ -244,7 +244,8 @@ proc init*(T: type BeaconNode,
   let
     chainDagFlags = if config.verifyFinalization: {verifyFinalization}
                      else: {}
-    dag = ChainDAGRef.init(runtimePreset, db, chainDagFlags)
+    dag = ChainDAGRef.init(
+      runtimePreset, db, chainDagFlags, SLOTS_PER_EPOCH.Slot)
     beaconClock =
       BeaconClock.init(getStateField(dag.headState.data, genesis_time))
     quarantine = QuarantineRef.init(rng)

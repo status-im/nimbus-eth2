@@ -127,7 +127,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
               ), [validatorIdx], sig, data.slot)
 
   proc getNewBlock[T](
-      stateData: var StateData, slot: Slot, cache: var StateCache): T =
+      stateData: var StateData, slot: Slot, cache: var StateCache):
+      phase0.SignedBeaconBlock =
     let
       finalizedEpochRef = dag.getFinalizedEpochRef()
       proposerIdx = get_beacon_proposer_index(
@@ -166,7 +167,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         cache)
 
     var
-      newBlock = T(
+      newBlock = phase0.SignedBeaconBlock(
         message: message.get()
       )
 
@@ -211,7 +212,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       let
         newBlock = getNewBlock[altair.SignedBeaconBlock](stateData, slot, cache)
         added = dag.addRawBlock(quarantine, newBlock) do (
-            blckRef: BlockRef, signedBlock: altair.TrustedSignedBeaconBlock,
+            blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
             epochRef: EpochRef):
           # Callback add to fork choice if valid
           attPool.addForkChoice(

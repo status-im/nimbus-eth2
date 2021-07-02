@@ -299,7 +299,7 @@ proc addRawBlockKnownParent(
         signedBlock, dag.db.immutableValidators, dag.clearanceState.data, cache).isErr():
       # A PublicKey or Signature isn't on the BLS12-381 curve
       return err((ValidationResult.Reject, Invalid))
-    if not quarantine.batchVerify(sigs):
+    if false and not quarantine.batchVerify(sigs):
       return err((ValidationResult.Reject, Invalid))
 
   let sigVerifyTick = Moment.now()

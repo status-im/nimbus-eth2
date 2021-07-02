@@ -20,8 +20,9 @@ import
   eth/keys, eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
+  ../spec/datatypes/[altair, phase0],
   ../spec/[
-    datatypes, digest, crypto, forkedbeaconstate_helpers, helpers, network,
+    digest, crypto, forkedbeaconstate_helpers, helpers, network,
     signatures, state_transition],
   ../conf, ../beacon_clock,
   ../consensus_object_pools/[
@@ -296,7 +297,8 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     validator_index: ValidatorIndex,
                                     graffiti: GraffitiBytes,
                                     head: BlockRef,
-                                    slot: Slot): Future[Option[BeaconBlock]] {.async.} =
+                                    slot: Slot):
+                                    Future[Option[phase0.BeaconBlock]] {.async.} =
   # Advance state to the slot that we're proposing for
 
   let
@@ -310,40 +312,68 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 
     if eth1Proposal.hasMissingDeposits:
       error "Eth1 deposits not available. Skipping block proposal", slot
-      return none(BeaconBlock)
+      return none(phase0.BeaconBlock)
 
-    func restore(v: var HashedBeaconState) =
-      # TODO address this ugly workaround - there should probably be a
-      #      `state_transition` that takes a `StateData` instead and updates
-      #      the block as well
-      doAssert v.addr == addr proposalStateAddr.data.hbsPhase0
-      assign(proposalStateAddr[], poolPtr.headState)
+    if proposalStateAddr.data.beaconStateFork == forkPhase0:
+      func restore(v: var phase0.HashedBeaconState) =
+        # TODO address this ugly workaround - there should probably be a
+        #      `state_transition` that takes a `StateData` instead and updates
+        #      the block as well
+        doAssert v.addr == addr proposalStateAddr.data.hbsPhase0
+        assign(proposalStateAddr[], poolPtr.headState)
 
-    return makeBeaconBlock(
-      node.runtimePreset,
-      stateData.data.hbsPhase0,
-      validator_index,
-      head.root,
-      randao_reveal,
-      eth1Proposal.vote,
-      graffiti,
-      node.attestationPool[].getAttestationsForBlock(
-        stateData.data.hbsPhase0, cache),
-      eth1Proposal.deposits,
-      node.exitPool[].getProposerSlashingsForBlock(),
-      node.exitPool[].getAttesterSlashingsForBlock(),
-      node.exitPool[].getVoluntaryExitsForBlock(),
-      default(ExecutionPayload),
-      restore,
-      cache)
+      return makeBeaconBlock(
+        node.runtimePreset,
+        stateData.data.hbsPhase0,
+        validator_index,
+        head.root,
+        randao_reveal,
+        eth1Proposal.vote,
+        graffiti,
+        node.attestationPool[].getAttestationsForBlock(
+          stateData.data.hbsPhase0, cache),
+        eth1Proposal.deposits,
+        node.exitPool[].getProposerSlashingsForBlock(),
+        node.exitPool[].getAttesterSlashingsForBlock(),
+        node.exitPool[].getVoluntaryExitsForBlock(),
+        default(ExecutionPayload),
+        restore,
+        cache)
+    elif proposalStateAddr.data.beaconStateFork == forkAltair:
+      func restore(v: var altair.HashedBeaconState) =
+        # TODO address this ugly workaround - there should probably be a
+        #      `state_transition` that takes a `StateData` instead and updates
+        #      the block as well
+        doAssert v.addr == addr proposalStateAddr.data.hbsPhase0
+        assign(proposalStateAddr[], poolPtr.headState)
+
+      return makeBeaconBlock(
+        node.runtimePreset,
+        stateData.data.hbsAltair,
+        validator_index,
+        head.root,
+        randao_reveal,
+        eth1Proposal.vote,
+        graffiti,
+        node.attestationPool[].getAttestationsForBlock(
+          stateData.data.hbsAltair, cache),
+        eth1Proposal.deposits,
+        node.exitPool[].getProposerSlashingsForBlock(),
+        node.exitPool[].getAttesterSlashingsForBlock(),
+        node.exitPool[].getVoluntaryExitsForBlock(),
+        default(ExecutionPayload),
+        restore,
+        cache)
+    else:
+      doAssert false
 
 proc proposeSignedBlock*(node: BeaconNode,
                          head: BlockRef,
                          validator: AttachedValidator,
-                         newBlock: SignedBeaconBlock):
+                         newBlock: phase0.SignedBeaconBlock):
                          Future[BlockRef] {.async.} =
   let newBlockRef = node.dag.addRawBlock(node.quarantine, newBlock) do (
-      blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
+      blckRef: BlockRef, trustedBlock: phase0.TrustedSignedBeaconBlock,
       epochRef: EpochRef):
     # Callback add to fork choice if signed block valid (and becomes trusted)
     node.attestationPool[].addForkChoice(
@@ -398,7 +428,7 @@ proc proposeBlock(node: BeaconNode,
     return head # already logged elsewhere!
 
   var
-    newBlock = SignedBeaconBlock(
+    newBlock = phase0.SignedBeaconBlock(
       message: message.get()
     )
 
