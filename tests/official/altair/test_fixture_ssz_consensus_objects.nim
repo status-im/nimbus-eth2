@@ -89,15 +89,17 @@ proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
 
 suite "Official - Altair - SSZ consensus objects " & preset():
   doAssert existsDir(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the official test vectors."
-  for pathKind, sszType in walkDir(SSZDir, relative = true):
+  for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir
 
     test &"  Testing    {sszType}":
       let path = SSZDir/sszType
-      for pathKind, sszTestKind in walkDir(path, relative = true):
+      for pathKind, sszTestKind in walkDir(
+          path, relative = true, checkDir = true):
         doAssert pathKind == pcDir
         let path = SSZDir/sszType/sszTestKind
-        for pathKind, sszTestCase in walkDir(path, relative = true):
+        for pathKind, sszTestCase in walkDir(
+            path, relative = true, checkDir = true):
           let path = SSZDir/sszType/sszTestKind/sszTestCase
           let hash = loadExpectedHashTreeRoot(path)
 
