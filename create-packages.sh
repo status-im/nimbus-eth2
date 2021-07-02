@@ -25,12 +25,10 @@ if ! [[ "$PKG_VERSION" =~ ^[0-9]+\.[0-9]+ ]]; then
 fi
 
 mkdir -p $PKG_IMG_DIR/var/lib/nimbus
+mkdir -p $PKG_IMG_DIR/usr/bin
+
 cp build/nimbus_beacon_node $PKG_IMG_DIR/usr/bin
 cp build/nimbus_signing_process $PKG_IMG_DIR/usr/bin
-cp build/ncli $PKG_IMG_DIR/usr/bin/nimbus_cli
-cp build/ncli_db $PKG_IMG_DIR/usr/bin/nimbus_cli_db
-cp build/nimbus_validator_client $PKG_IMG_DIR/usr/bin
-cp build/inspector $PKG_IMG_DIR/usr/bin/nimbus_inspector
 
 fpm -s dir -t deb -n nimbus \
    --deb-no-default-config-files \
@@ -58,11 +56,6 @@ fpm -s dir -t rpm -n nimbus \
     --url "https://nimbus.team/"
 
 # clean up to avoid committing binaries to the repository
-rm $PKG_IMG_DIR/usr/bin/nimbus_beacon_node
-rm $PKG_IMG_DIR/usr/bin/nimbus_signing_process
-rm $PKG_IMG_DIR/usr/bin/nimbus_cli
-rm $PKG_IMG_DIR/usr/bin/nimbus_cli_db
-rm $PKG_IMG_DIR/usr/bin/nimbus_validator_client
-rm $PKG_IMG_DIR/usr/bin/nimbus_inspector
+rm -rf $PKG_IMG_DIR/usr/bin/
 
 exit 0
