@@ -930,3 +930,20 @@ static:
   doAssert supportsCopyMem(Validator)
   doAssert supportsCopyMem(Eth2Digest)
   doAssert ATTESTATION_SUBNET_COUNT <= high(distinctBase SubnetId).int
+
+func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
+  for name, value in x.fieldPairs:
+    when value is tuple|object:
+      result.add getSizeofSig(value, n + 1)
+    # TrustedSig and ValidatorSig differ in that they have otherwise identical
+    # fields where one is "blob" and the other is "data". They're structurally
+    # isomorphic, regardless. Grandfather that exception in, but in general it
+    # is still better to keep field names parallel.
+    result.add((name.replace("blob", "data"), sizeof(value), n))
+
+template isomorphicCast*[T, U](x: U): T =
+  # Each of these pairs of types has ABI-compatible memory representations.
+  static:
+    doAssert sizeof(T) == sizeof(U)
+    doAssert getSizeofSig(T()) == getSizeofSig(U())
+  cast[ptr T](unsafeAddr x)[]

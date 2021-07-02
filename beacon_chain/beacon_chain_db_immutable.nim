@@ -8,14 +8,12 @@
 {.push raises: [Defect].}
 
 import
-  tables,
-  stew/[assign2, io2, objects, results],
+  stew/[assign2, objects, results],
   serialization,
-  eth/db/[kvstore, kvstore_sqlite3],
+  eth/db/kvstore,
   ./spec/[crypto, digest],
   ./spec/datatypes/[base, altair],
-  ./ssz/[ssz_serialization, merkleization],
-  filepath
+  ./ssz/[ssz_serialization, merkleization]
 
 type
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconstate
@@ -133,19 +131,3 @@ type
     # Light client sync committees
     current_sync_committee*: SyncCommittee     # [New in Altair]
     next_sync_committee*: SyncCommittee        # [New in Altair]
-
-func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
-  for name, value in x.fieldPairs:
-    when value is tuple|object:
-      result.add getSizeofSig(value, n + 1)
-    result.add((name, sizeof(value), n))
-
-template isomorphicCast*[T, U](x: U): T =
-  # Each of these pairs of types has ABI-compatible memory representations, so
-  # that the SSZ serialization can read and write directly from an object with
-  # only mutable portions of BeaconState into a full BeaconState without using
-  # extra copies.
-  static:
-    doAssert sizeof(T) == sizeof(U)
-    doAssert getSizeofSig(T()) == getSizeofSig(U())
-  cast[ptr T](unsafeAddr x)[]
