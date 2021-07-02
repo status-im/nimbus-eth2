@@ -38,7 +38,7 @@ fpm -s dir -t deb -n nimbus \
   --after-install $PKG_IMG_DIR/postinst \
   --before-remove $PKG_IMG_DIR/prerm \
   --after-remove $PKG_IMG_DIR/postrm \
-  --license "Apache 2.0" \
+  --license "Apache 2.0 + MIT" \
   --maintainer "The Nimbus Team" \
   --description "Nim implementation of the Ethereum 2.0 blockchain" \
   --url "https://nimbus.team/"
@@ -50,7 +50,7 @@ fpm -s dir -t rpm -n nimbus \
     --after-install $PKG_IMG_DIR/postinst \
     --before-remove $PKG_IMG_DIR/prerm \
     --after-remove $PKG_IMG_DIR/postrm \
-    --license "Apache 2.0" \
+    --license "Apache 2.0 + MIT" \
     --maintainer "The Nimbus Team" \
     --description "Nim implementation of the Ethereum 2.0 blockchain" \
     --url "https://nimbus.team/"
