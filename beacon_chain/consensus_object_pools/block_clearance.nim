@@ -13,6 +13,7 @@ import
   stew/[assign2, results],
   eth/keys,
   ../extras, ../beacon_clock,
+  ../beacon_clock,
   ../spec/[
     crypto, digest, forkedbeaconstate_helpers, helpers, signatures,
     signatures_batch, state_transition],
@@ -43,39 +44,25 @@ template asSigVerified(x: phase0.SignedBeaconBlock):
     phase0.SigVerifiedSignedBeaconBlock =
   ## This converts a signed beacon block to a sig verified beacon clock.
   ## This assumes that their bytes representation is the same.
-  static: # TODO See isomorphicCast
-    doAssert sizeof(phase0.SignedBeaconBlock) ==
-      sizeof(phase0.SigVerifiedSignedBeaconBlock)
-
-  cast[ptr phase0.SigVerifiedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+  isomorphicCast[phase0.SigVerifiedSignedBeaconBlock](signedBlock)
 
 template asSigVerified(x: altair.SignedBeaconBlock):
     altair.SigVerifiedSignedBeaconBlock =
   ## This converts a signed beacon block to a sig verified beacon clock.
   ## This assumes that their bytes representation is the same.
-  static: # TODO See isomorphicCast
-    doAssert sizeof(altair.SignedBeaconBlock) ==
-      sizeof(altair.SigVerifiedSignedBeaconBlock)
-
-  cast[ptr altair.SigVerifiedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+  isomorphicCast[altair.SigVerifiedSignedBeaconBlock](signedBlock)
 
 template asTrusted(x: phase0.SignedBeaconBlock or phase0.SigVerifiedBeaconBlock):
     phase0.TrustedSignedBeaconBlock =
   ## This converts a sigverified beacon block to a trusted beacon clock.
   ## This assumes that their bytes representation is the same.
-  static: # TODO See isomorphicCast
-    doAssert sizeof(x) == sizeof(phase0.TrustedSignedBeaconBlock)
-
-  cast[ptr phase0.TrustedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+  isomorphicCast[phase0.TrustedSignedBeaconBlock](signedBlock)
 
 template asTrusted(x: altair.SignedBeaconBlock or altair.SigVerifiedBeaconBlock):
     altair.TrustedSignedBeaconBlock =
   ## This converts a sigverified beacon block to a trusted beacon clock.
   ## This assumes that their bytes representation is the same.
-  static: # TODO See isomorphicCast
-    doAssert sizeof(x) == sizeof(altair.TrustedSignedBeaconBlock)
-
-  cast[ptr altair.TrustedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+  isomorphicCast[altair.TrustedSignedBeaconBlock](signedBlock)
 
 func batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool =
   var secureRandomBytes: array[32, byte]
