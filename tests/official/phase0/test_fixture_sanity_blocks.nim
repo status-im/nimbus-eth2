@@ -71,9 +71,9 @@ proc runTest(testName, testDir, unitTestName: string) =
   `testImpl _ blck _ testName`()
 
 suite "Official - Phase 0 - Sanity - Blocks " & preset():
-  for kind, path in walkDir(SanityBlocksDir, true):
+  for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
     runTest("Official - Phase 0 - Sanity - Blocks", SanityBlocksDir, path)
 
 suite "Official - Phase 0 - Finality " & preset():
-  for kind, path in walkDir(FinalityDir, true):
+  for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
     runTest("Official - Phase 0 - Finality", FinalityDir, path)

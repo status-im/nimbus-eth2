@@ -86,5 +86,5 @@ proc runTest(testName, testDir, unitTestName: string) =
   `testImpl _ blck _ testName`()
 
 suite "Official - Altair - Transition " & preset():
-  for kind, path in walkDir(TransitionDir, true):
+  for kind, path in walkDir(TransitionDir, relative = true, checkDir = true):
     runTest("Official - Altair - Transition", TransitionDir, path)

@@ -64,5 +64,5 @@ proc runTest(identifier: string) =
   `testImpl _ operations_attester_slashing _ identifier`()
 
 suite "Official - Altair - Operations - Attester slashing " & preset():
-  for kind, path in walkDir(OpAttSlashingDir, true):
+  for kind, path in walkDir(OpAttSlashingDir, relative = true, checkDir = true):
     runTest(path)
