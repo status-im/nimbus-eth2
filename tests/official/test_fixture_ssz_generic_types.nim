@@ -248,7 +248,7 @@ proc sszCheck(baseDir, sszType, sszSubType: string) =
 
 suite "Official - SSZ generic types":
   doAssert existsDir(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the official test vectors."
-  for pathKind, sszType in walkDir(SSZDir, relative = true):
+  for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir
 
     var skipped: string
@@ -262,13 +262,15 @@ suite "Official - SSZ generic types":
 
     test &"Testing {sszType:12} inputs - valid" & skipped:
       let path = SSZDir/sszType/"valid"
-      for pathKind, sszSubType in walkDir(path, relative = true):
+      for pathKind, sszSubType in walkDir(
+          path, relative = true, checkDir = true):
         if pathKind != pcDir: continue
         sszCheck(path, sszType, sszSubType)
 
     test &"Testing {sszType:12} inputs - invalid" & skipped:
       let path = SSZDir/sszType/"invalid"
-      for pathKind, sszSubType in walkDir(path, relative = true):
+      for pathKind, sszSubType in walkDir(
+          path, relative = true, checkDir = true):
         if pathKind != pcDir: continue
         try:
           sszCheck(path, sszType, sszSubType)

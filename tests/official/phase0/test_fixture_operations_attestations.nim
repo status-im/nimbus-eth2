@@ -62,5 +62,6 @@ proc runTest(identifier: string) =
   `testImpl _ operations_attestations _ identifier`()
 
 suite "Official - Phase 0 - Operations - Attestations " & preset():
-  for kind, path in walkDir(OperationsAttestationsDir, true):
+  for kind, path in walkDir(
+      OperationsAttestationsDir, relative = true, checkDir = true):
     runTest(path)

@@ -64,5 +64,6 @@ proc runTest(identifier: string) =
   `testImpl _ voluntary_exit _ identifier`()
 
 suite "Official - Phase 0 - Operations - Voluntary exit " & preset():
-  for kind, path in walkDir(OpVoluntaryExitDir, true):
+  for kind, path in walkDir(
+      OpVoluntaryExitDir, relative = true, checkDir = true):
     runTest(path)

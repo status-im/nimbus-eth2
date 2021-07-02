@@ -128,5 +128,5 @@ proc runTest(rewardsDir, identifier: string) =
 
 suite "Official - Rewards " & preset():
   for rewardsDir in [RewardsDirBasic, RewardsDirLeak, RewardsDirRandom]:
-    for kind, path in walkDir(rewardsDir, true):
+    for kind, path in walkDir(rewardsDir, relative = true, checkDir = true):
       runTest(rewardsDir, path)
