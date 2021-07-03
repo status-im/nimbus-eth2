@@ -34,6 +34,7 @@ fpm -s dir -t deb -n nimbus \
    --deb-no-default-config-files \
   -v $PKG_VERSION \
   -C $PKG_IMG_DIR \
+  -d 'dialog' \
   -p ${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH}.deb \
   --after-install $PKG_IMG_DIR/postinst \
   --before-remove $PKG_IMG_DIR/prerm \
@@ -46,6 +47,7 @@ fpm -s dir -t deb -n nimbus \
 fpm -s dir -t rpm -n nimbus \
     -v $PKG_VERSION \
     -C $PKG_IMG_DIR \
+    -d 'dialog' \
     -p ${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH}.rpm \
     --after-install $PKG_IMG_DIR/postinst \
     --before-remove $PKG_IMG_DIR/prerm \
