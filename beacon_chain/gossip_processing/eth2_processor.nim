@@ -85,6 +85,9 @@ type
     # ----------------------------------------------------------------
     quarantine*: QuarantineRef
 
+    # Application-provided current time provider (to facilitate testing)
+    getTime*: GetTimeFn
+
 # Initialization
 # ------------------------------------------------------------------------------
 
@@ -96,7 +99,8 @@ proc new*(T: type Eth2Processor,
           exitPool: ref ExitPool,
           validatorPool: ref ValidatorPool,
           quarantine: QuarantineRef,
-          rng: ref BrHmacDrbgContext): ref Eth2Processor =
+          rng: ref BrHmacDrbgContext,
+          getTime: GetTimeFn): ref Eth2Processor =
   (ref Eth2Processor)(
     doppelGangerDetectionEnabled: doppelGangerDetectionEnabled,
     doppelgangerDetection: DoppelgangerProtection(
@@ -107,6 +111,7 @@ proc new*(T: type Eth2Processor,
     exitPool: exitPool,
     validatorPool: validatorPool,
     quarantine: quarantine,
+    getTime: getTime,
     batchCrypto: BatchCrypto.new(
       rng = rng,
       # Only run eager attestation signature verification if we're not
@@ -114,8 +119,8 @@ proc new*(T: type Eth2Processor,
       eager = proc(): bool = not blockProcessor[].hasBlocks())
   )
 
-template getWallTime*(self: Eth2Processor|ref Eth2Processor): BeaconTime =
-  self.dag.beaconClock.now()
+proc getCurrentBeaconTime*(self: Eth2Processor|ref Eth2Processor): BeaconTime =
+  self.dag.beaconClock.toBeaconTime(self.getTime())
 
 # Gossip Management
 # -----------------------------------------------------------------------------------
@@ -128,7 +133,7 @@ proc blockValidator*(
     blockRoot = shortLog(signedBlock.root)
 
   let
-    wallTime = self.getWallTime()
+    wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot()
 
   if not afterGenesis:
@@ -167,7 +172,7 @@ proc blockValidator*(
   # propagation of seemingly good blocks
   trace "Block validated"
   self.blockProcessor[].addBlock(
-    signedBlock, validationDur = self.getWallTime() - wallTime)
+    signedBlock, validationDur = self.getCurrentBeaconTime() - wallTime)
 
   ValidationResult.Accept
 
@@ -207,7 +212,7 @@ proc attestationValidator*(
     attestation = shortLog(attestation)
     subnet_id
 
-  let wallTime = self.getWallTime()
+  let wallTime = self.getCurrentBeaconTime()
   var (afterGenesis, wallSlot) = wallTime.toSlot()
 
   if not afterGenesis:
@@ -228,7 +233,7 @@ proc attestationValidator*(
     return v.error[0]
 
   # Due to async validation the wallSlot here might have changed
-  (afterGenesis, wallSlot) = self.getWallTime().toSlot()
+  (afterGenesis, wallSlot) = self.getCurrentBeaconTime().toSlot()
 
   beacon_attestations_received.inc()
   beacon_attestation_delay.observe(delay.toFloatSeconds())
@@ -250,7 +255,7 @@ proc aggregateValidator*(
     aggregate = shortLog(signedAggregateAndProof.message.aggregate)
     signature = shortLog(signedAggregateAndProof.signature)
 
-  let wallTime = self.getWallTime()
+  let wallTime = self.getCurrentBeaconTime()
   var (afterGenesis, wallSlot) = wallTime.toSlot()
 
   if not afterGenesis:
@@ -276,7 +281,7 @@ proc aggregateValidator*(
     return v.error[0]
 
   # Due to async validation the wallSlot here might have changed
-  (afterGenesis, wallSlot) = self.getWallTime().toSlot()
+  (afterGenesis, wallSlot) = self.getCurrentBeaconTime().toSlot()
 
   beacon_aggregates_received.inc()
   beacon_aggregate_delay.observe(delay.toFloatSeconds())

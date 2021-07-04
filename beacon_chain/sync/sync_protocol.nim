@@ -11,7 +11,7 @@ import
   options, tables, sets, macros,
   chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
   ../spec/[crypto, datatypes, digest, forkedbeaconstate_helpers, network],
-  ../beacon_node_types,
+  ../beacon_node_types, ../beacon_clock,
   ../networking/eth2_network,
   ../consensus_object_pools/blockchain_dag
 
@@ -51,6 +51,7 @@ type
   BeaconSyncNetworkState* = ref object
     dag*: ChainDAGRef
     forkDigest*: ForkDigest
+    getTime*: GetTimeFn
 
   BeaconSyncPeerState* = ref object
     statusLastTime*: chronos.Moment
@@ -126,9 +127,11 @@ proc getCurrentStatus*(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
   let
     dag = state.dag
     headBlock = dag.head
+    wallTime = state.getTime()
+    wallTimeSlot = dag.beaconClock.toBeaconTime(wallTime).slotOrZero
 
   StatusMsg(
-    forkDigest: state.dag.currentForkDigest,
+    forkDigest: state.dag.forkDigestAtSlot(wallTimeSlot),
     finalizedRoot:
       getStateField(dag.headState.data, finalized_checkpoint).root,
     finalizedEpoch:
@@ -380,7 +383,9 @@ proc handleStatus(peer: Peer,
       await peer.handlePeer()
 
 proc initBeaconSync*(network: Eth2Node, dag: ChainDAGRef,
-                     forkDigest: ForkDigest) =
+                     forkDigest: ForkDigest,
+                     getTime: GetTimeFn) =
   var networkState = network.protocolState(BeaconSync)
   networkState.dag = dag
   networkState.forkDigest = forkDigest
+  networkState.getTime = getTime

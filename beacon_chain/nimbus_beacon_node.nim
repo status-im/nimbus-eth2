@@ -345,13 +345,11 @@ proc init*(T: type BeaconNode,
     )
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      consensusManager)
+      consensusManager, getTime)
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
-      blockProcessor,
-      dag, attestationPool, exitPool, validatorPool,
-      quarantine,
-      rng)
+      blockProcessor, dag, attestationPool, exitPool, validatorPool,
+      quarantine, rng, getTime)
 
   var node = BeaconNode(
     nickname: nickname,
@@ -407,7 +405,7 @@ proc init*(T: type BeaconNode,
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
   # TODO altair-transition
-  network.initBeaconSync(dag, network.forkDigests.phase0)
+  network.initBeaconSync(dag, network.forkDigests.phase0, getTime)
 
   node.updateValidatorMetrics()
 

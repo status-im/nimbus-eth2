@@ -545,10 +545,8 @@ func stateCheckpoint*(bs: BlockSlot): BlockSlot =
     bs = bs.parentOrSlot
   bs
 
-proc currentForkDigest*(dag: ChainDAGRef): ForkDigest =
-  ## Returns the current ForkDigest according to the wall clock
-  let currentSlot = dag.beaconClock.now.slotOrZero
-  if currentSlot < dag.altairTransitionSlot:
+proc forkDigestAtSlot*(dag: ChainDAGRef, slot: Slot): ForkDigest =
+  if slot < dag.altairTransitionSlot:
     dag.forkDigests.phase0
   else:
     dag.forkDigests.altair
