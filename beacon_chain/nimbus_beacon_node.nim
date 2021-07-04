@@ -44,10 +44,15 @@ import
     helpers, network, presets, weak_subjectivity, signatures],
   ./consensus_object_pools/[
     blockchain_dag, block_quarantine, block_clearance, block_pools_types,
-    attestation_pool, exit_pool, spec_cache],
+    attestation_pool, sync_committee_msg_pool, exit_pool, spec_cache],
   ./eth1/eth1_monitor
 
 from eth/common/eth_types import BlockHashOrNumber
+
+from spec/datatypes/altair import
+  SyncCommitteeMessage,
+  SignedContributionAndProof,
+  SYNC_COMMITTEE_SUBNET_COUNT
 
 when defined(posix):
   import system/ansi_c
@@ -314,6 +319,7 @@ proc init*(T: type BeaconNode,
       rng, config, netKeys, cfg, dag.forkDigests,
       getStateField(dag.headState.data, genesis_validators_root))
     attestationPool = newClone(AttestationPool.init(dag, quarantine))
+    syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init())
     exitPool = newClone(ExitPool.init(dag, quarantine))
 
   case config.slashingDbKind
@@ -344,7 +350,7 @@ proc init*(T: type BeaconNode,
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, dag, attestationPool, exitPool, validatorPool,
-      quarantine, rng, getTime)
+      syncCommitteeMsgPool, quarantine, rng, getTime)
 
   var node = BeaconNode(
     nickname: nickname,
@@ -357,6 +363,7 @@ proc init*(T: type BeaconNode,
     dag: dag,
     quarantine: quarantine,
     attestationPool: attestationPool,
+    syncCommitteeMsgPool: syncCommitteeMsgPool,
     attachedValidators: validatorPool,
     exitPool: exitPool,
     eth1Monitor: eth1Monitor,
@@ -432,7 +439,6 @@ proc getAttachedValidators(node: BeaconNode):
   for validatorIndex in 0 ..<
       getStateField(node.dag.headState.data, validators).len:
     let attachedValidator = node.getAttachedValidator(
-      getStateField(node.dag.headState.data, validators),
       validatorIndex.ValidatorIndex)
     if attachedValidator.isNil:
       continue
@@ -789,6 +795,35 @@ proc setupDoppelgangerDetection(node: BeaconNode, slot: Slot) =
     broadcastStartEpoch =
       node.processor.doppelgangerDetection.broadcastStartEpoch
 
+proc subscribeToPersistentAltairTopics*(
+    node: BeaconNode, epoch: Epoch) {.
+    raises: [Defect, CatchableError].} =
+  if node.syncCommitteesUpdatedAt.isSome:
+    return
+
+  node.syncCommitteesUpdatedAt = some epoch
+
+  # TODO: SYNC_COMMITTEE_SUBNET_COUNT is not appropraite here
+  for it in 0'u64 ..< SYNC_COMMITTEE_SUBNET_COUNT.uint64:
+    closureScope:
+      let subnet_id = SubnetId(it)
+      node.network.addValidator(
+        getSyncCommitteeTopic(node.dag.forkDigests.altair, subnet_id),
+        # This proc needs to be within closureScope; don't lift out of loop.
+        proc(msg: SyncCommitteeMessage): ValidationResult =
+          node.processor.syncCommitteeMsgValidator(msg, subnet_id))
+
+  node.network.addValidator(
+    getSyncCommitteeContributionAndProofTopic(node.dag.forkDigests.altair),
+    proc(msg: SignedContributionAndProof): ValidationResult =
+      node.processor.syncCommitteeContributionValidator(msg))
+
+proc trackSyncCommitteeTopics*(
+    node: BeaconNode) {.
+    raises: [Defect, CatchableError].} =
+  # TODO
+  discard
+
 proc updateGossipStatus(node: BeaconNode, slot: Slot) {.raises: [Defect, CatchableError].} =
   # Syncing tends to be ~1 block/s, and allow for an epoch of time for libp2p
   # subscribing to spin up. The faster the sync, the more wallSlot - headSlot
@@ -905,6 +940,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Checkpoint the database to clear the WAL file and make sure changes in
   # the database are synced with the filesystem.
   node.db.checkpoint()
+
+  node.syncCommitteeMsgPool[].clearPerSlotData()
 
   # -1 is a more useful output than 18446744073709551615 as an indicator of
   # no future attestation/proposal known.
