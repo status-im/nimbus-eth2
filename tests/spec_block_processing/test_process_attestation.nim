@@ -53,7 +53,7 @@ suite "[Unit - Spec - Block processing] Attestations " & preset():
       # ----------------------------------------
       var cache = StateCache()
       check process_attestation(
-        state.hbsPhase0.data, attestation, flags = {}, cache
+        state.hbsPhase0.data, attestation, flags = {}, 0.Gwei, cache
       ).isOk
 
       # Check that the attestation was processed
