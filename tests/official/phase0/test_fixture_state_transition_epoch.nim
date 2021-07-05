@@ -25,7 +25,7 @@ from ../../../beacon_chain/spec/beaconstate import process_registry_updates
 template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, useCache: static bool): untyped =
   suite "Official - Phase 0 - Epoch Processing - " & testName & preset():
     doAssert dirExists(suiteDir)
-    for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}):
+    for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}, checkDir = true):
 
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
       test testName & " - " & unitTestName & preset():
