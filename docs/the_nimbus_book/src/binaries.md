@@ -4,7 +4,7 @@ We currently have binaries available for Linux `AMD64`, `ARM` and `ARM64`, Windo
 
 You can find the latest release here: [https://github.com/status-im/nimbus-eth2/releases](https://github.com/status-im/nimbus-eth2/releases)
 
-Scroll to the bottom of the first release you see (no, not the nightly pre-release), and click on `Assets`. You should see a list that looks like the following:
+Scroll to the bottom of the first (non-nightly) release you see, and click on `Assets`. You should see a list that looks like the following:
 
 ![](https://i.imgur.com/6wuvM2d.png)
 
