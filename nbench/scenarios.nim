@@ -286,8 +286,11 @@ genProcessBlockScenario(runProcessProposerSlashing,
                         needFlags = true,
                         needCache = true)
 
+template do_process_attestation(state, operation, flags, cache: untyped):
+    untyped =
+  process_attestation(state, operation, flags, 0.Gwei, cache)
 genProcessBlockScenario(runProcessAttestation,
-                        process_attestation,
+                        do_process_attestation,
                         attestation,
                         Attestation,
                         needFlags = true,

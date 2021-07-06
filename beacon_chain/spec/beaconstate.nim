@@ -702,7 +702,8 @@ proc check_attestation*(
 
 proc process_attestation*(
     state: var SomeBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.} =
+    base_reward_per_increment: Gwei, cache: var StateCache):
+    Result[void, cstring] {.nbench.} =
   # In the spec, attestation validation is mixed with state mutation, so here
   # we've split it into two functions so that the validation logic can be
   # reused when looking for suitable blocks to include in attestations.
@@ -739,7 +740,6 @@ proc process_attestation*(
       participation_flag_indices =
         get_attestation_participation_flag_indices(
           state, attestation.data, state.slot - attestation.data.slot)
-      base_reward_per_increment = get_base_reward_per_increment(state, cache)
 
     for index in get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache):
         for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
@@ -756,11 +756,13 @@ proc process_attestation*(
     increase_balance(state, proposer_index.get, proposer_reward)
 
   when state is phase0.BeaconState:
+    doAssert base_reward_per_increment == 0.Gwei
     if attestation.data.target.epoch == get_current_epoch(state):
       addPendingAttestation(state.current_epoch_attestations)
     else:
       addPendingAttestation(state.previous_epoch_attestations)
   elif state is altair.BeaconState:
+    doAssert base_reward_per_increment > 0.Gwei
     if attestation.data.target.epoch == get_current_epoch(state):
       updateParticipationFlags(state.current_epoch_participation)
     else:
