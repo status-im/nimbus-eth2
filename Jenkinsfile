@@ -54,7 +54,7 @@ def runStages() {
 		}
 
 		stage("REST test suite") {
-			sh "./tests/simulation/restapi.sh --base-port \$(( 9100 + EXECUTOR_NUMBER * 100 )) --base-rest-port \$(( 7100 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8108 + EXECUTOR_NUMBER * 100 )) --timeout 30"
+			sh "./tests/simulation/restapi.sh --data-dir resttest0_data --base-port \$(( 9100 + EXECUTOR_NUMBER * 100 )) --base-rest-port \$(( 7100 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8108 + EXECUTOR_NUMBER * 100 )) --sleep-timeout 30"
 		}
 	} catch(e) {
 		// we need to rethrow the exception here
@@ -62,7 +62,7 @@ def runStages() {
 	} finally {
 		// archive testnet logs
 		sh """#!/bin/bash
-		for D in local_testnet0_data local_testnet1_data; do
+		for D in local_testnet0_data local_testnet1_data resttest0_data; do
 			[[ -d "\$D" ]] && tar cjf "\${D}-\${NODE_NAME}.tar.bz2" "\${D}"/*.txt || true
 		done
 		"""
