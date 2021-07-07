@@ -16,7 +16,7 @@ import
   # Internals
   ../spec/[crypto, digest, signatures_batch, forkedbeaconstate_helpers],
   ../spec/datatypes/[phase0, altair],
-  ../beacon_chain_db, ../extras
+  ".."/[beacon_chain_db, beacon_clock, extras]
 
 export sets, tables
 
@@ -114,6 +114,8 @@ type
     db*: BeaconChainDB ##\
       ## ColdDB - Stores the canonical chain
 
+    beaconClock*: BeaconClock
+
     # -----------------------------------
     # ChainDAGRef - DAG of candidate chains
 
@@ -164,6 +166,12 @@ type
       ## Cached information about a particular epoch ending with the given
       ## block - we limit the number of held EpochRefs to put a cap on
       ## memory usage
+
+    forkDigests*: ForkDigestsRef
+      ## Cached copy of the fork digests associated with the current
+      ## database. We use a ref type to facilitate sharing this small
+      ## value with other components which don't have access to the
+      ## full ChainDAG.
 
     altairTransitionSlot*: Slot ##\
       ## Slot at which to upgrade from phase 0 to Altair forks
@@ -236,7 +244,7 @@ type
     blck: altair.TrustedSignedBeaconBlock,
     epochRef: EpochRef) {.gcsafe, raises: [Defect].}
 
-template head*(dag: ChainDagRef): BlockRef = dag.headState.blck
+template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 
 template epoch*(e: EpochRef): Epoch = e.key.epoch
 

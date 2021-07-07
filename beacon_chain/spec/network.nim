@@ -73,13 +73,14 @@ func getAttestationTopic*(forkDigest: ForkDigest, subnet_id: SubnetId):
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "beacon_attestation_" & $uint64(subnet_id) & "/ssz"
 
-func getENRForkID*(fork: Fork, genesis_validators_root: Eth2Digest): ENRForkID =
+func getENRForkID*(fork_version: Version,
+                   genesis_validators_root: Eth2Digest): ENRForkID =
   let
-    current_fork_version = fork.current_version
+    current_fork_version = fork_version
     fork_digest = compute_fork_digest(
       current_fork_version, genesis_validators_root)
 
   ENRForkID(
     fork_digest: fork_digest,
     next_fork_version: current_fork_version,
-    next_fork_epoch: FAR_FUTURE_EPOCH)
+    next_fork_epoch: FAR_FUTURE_EPOCH) # TODO altair-transition

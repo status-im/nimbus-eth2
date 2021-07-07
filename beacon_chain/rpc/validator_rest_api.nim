@@ -302,7 +302,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         dres.get()
 
     for item in proofs:
-      let wallTime = node.processor.getWallTime()
+      let wallTime = node.processor.getCurrentBeaconTime()
       let res = await node.attestationPool.validateAggregate(
         node.processor.batchCrypto, item, wallTime
       )

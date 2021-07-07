@@ -177,7 +177,9 @@ proc sendAttestation*(
   return case ok
     of ValidationResult.Accept:
       node.network.broadcast(
-        getAttestationTopic(node.forkDigest, subnet_id), attestation)
+        # TODO altair-transition
+        getAttestationTopic(node.dag.forkDigests.phase0, subnet_id),
+        attestation)
       beacon_attestations_sent.inc()
       true
     else:
@@ -187,15 +189,19 @@ proc sendAttestation*(
       false
 
 proc sendVoluntaryExit*(node: BeaconNode, exit: SignedVoluntaryExit) =
-  node.network.broadcast(getVoluntaryExitsTopic(node.forkDigest), exit)
+  # TODO altair-transition
+  let exitsTopic = getVoluntaryExitsTopic(node.dag.forkDigests.phase0)
+  node.network.broadcast(exitsTopic, exit)
 
 proc sendAttesterSlashing*(node: BeaconNode, slashing: AttesterSlashing) =
-  node.network.broadcast(getAttesterSlashingsTopic(node.forkDigest),
-                         slashing)
+  # TODO altair-transition
+  let attesterSlashingsTopic = getAttesterSlashingsTopic(node.dag.forkDigests.phase0)
+  node.network.broadcast(attesterSlashingsTopic, slashing)
 
 proc sendProposerSlashing*(node: BeaconNode, slashing: ProposerSlashing) =
-  node.network.broadcast(getProposerSlashingsTopic(node.forkDigest),
-                         slashing)
+  # TODO altair-transition
+  let proposerSlashingsTopic = getProposerSlashingsTopic(node.dag.forkDigests.phase0)
+  node.network.broadcast(proposerSlashingsTopic, slashing)
 
 proc sendAttestation*(node: BeaconNode, attestation: Attestation): Future[bool] =
   # For the validator API, which doesn't supply the subnet id.

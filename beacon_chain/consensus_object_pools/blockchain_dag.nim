@@ -410,6 +410,11 @@ proc init*(T: type ChainDAGRef,
     tail: tailRef,
     genesis: genesisRef,
     db: db,
+    beaconClock: BeaconClock.init(
+      getStateField(tmpState.data, genesis_time)),
+    forkDigests: newClone ForkDigests.init(
+      preset,
+      getStateField(tmpState.data, genesis_validators_root)),
     heads: @[headRef],
     headState: tmpState[],
     epochRefState: tmpState[],
@@ -540,6 +545,12 @@ func stateCheckpoint*(bs: BlockSlot): BlockSlot =
     bs = bs.parentOrSlot
   bs
 
+proc forkDigestAtSlot*(dag: ChainDAGRef, slot: Slot): ForkDigest =
+  if slot < dag.altairTransitionSlot:
+    dag.forkDigests.phase0
+  else:
+    dag.forkDigests.altair
+
 proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
   ## Load a state from the database given a block and a slot - this will first
   ## lookup the state root in the state root table then load the corresponding
@@ -656,6 +667,20 @@ proc get*(dag: ChainDAGRef, blck: BlockRef): BlockData =
   doAssert data.isSome, "BlockRef without backing data, database corrupt?"
 
   BlockData(data: data.get(), refs: blck)
+
+proc getForkedBlock*(dag: ChainDAGRef, blck: BlockRef): ForkedTrustedSignedBeaconBlock =
+  # TODO implement this properly
+  let phase0Block = dag.db.getBlock(blck.root)
+  if phase0Block.isOk:
+    return ForkedTrustedSignedBeaconBlock(kind: BeaconBlockFork.Phase0,
+                                          phase0Block: phase0Block.get)
+
+  let altairBlock = dag.db.getAltairBlock(blck.root)
+  if altairBlock.isOk:
+    return ForkedTrustedSignedBeaconBlock(kind: BeaconBlockFork.Altair,
+                                          altairBlock: altairBlock.get)
+
+  raiseAssert "BlockRef without backing data, database corrupt?"
 
 proc get*(dag: ChainDAGRef, root: Eth2Digest): Option[BlockData] =
   ## Retrieve a resolved block reference and its associated body, if available

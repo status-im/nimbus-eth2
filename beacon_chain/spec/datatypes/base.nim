@@ -777,6 +777,9 @@ func low*(v: ForkDigest | Version): int = 0
 func high*(v: ForkDigest | Version): int = len(v) - 1
 func `[]`*(v: ForkDigest | Version, idx: int): byte = array[4, byte](v)[idx]
 
+template bytes*(v: ForkDigest): array[4, byte] =
+  distinctBase(v)
+
 func shortLog*(s: Slot): uint64 =
   s - GENESIS_SLOT
 

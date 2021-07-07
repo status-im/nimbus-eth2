@@ -43,25 +43,25 @@ template asSigVerified(x: phase0.SignedBeaconBlock):
     phase0.SigVerifiedSignedBeaconBlock =
   ## This converts a signed beacon block to a sig verified beacon clock.
   ## This assumes that their bytes representation is the same.
-  isomorphicCast[phase0.SigVerifiedSignedBeaconBlock](signedBlock)
+  isomorphicCast[phase0.SigVerifiedSignedBeaconBlock](x)
 
 template asSigVerified(x: altair.SignedBeaconBlock):
     altair.SigVerifiedSignedBeaconBlock =
   ## This converts a signed beacon block to a sig verified beacon clock.
   ## This assumes that their bytes representation is the same.
-  isomorphicCast[altair.SigVerifiedSignedBeaconBlock](signedBlock)
+  isomorphicCast[altair.SigVerifiedSignedBeaconBlock](x)
 
 template asTrusted(x: phase0.SignedBeaconBlock or phase0.SigVerifiedBeaconBlock):
     phase0.TrustedSignedBeaconBlock =
   ## This converts a sigverified beacon block to a trusted beacon clock.
   ## This assumes that their bytes representation is the same.
-  isomorphicCast[phase0.TrustedSignedBeaconBlock](signedBlock)
+  isomorphicCast[phase0.TrustedSignedBeaconBlock](x)
 
 template asTrusted(x: altair.SignedBeaconBlock or altair.SigVerifiedBeaconBlock):
     altair.TrustedSignedBeaconBlock =
   ## This converts a sigverified beacon block to a trusted beacon clock.
   ## This assumes that their bytes representation is the same.
-  isomorphicCast[altair.TrustedSignedBeaconBlock](signedBlock)
+  isomorphicCast[altair.TrustedSignedBeaconBlock](x)
 
 func batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool =
   var secureRandomBytes: array[32, byte]
@@ -213,7 +213,7 @@ proc checkStateTransition(
     return (ValidationResult.Reject, Invalid)
   return (ValidationResult.Accept, default(BlockError))
 
-proc advanceClearanceState*(dag: ChainDagRef) =
+proc advanceClearanceState*(dag: ChainDAGRef) =
   # When the chain is synced, the most likely block to be produced is the block
   # right after head - we can exploit this assumption and advance the state
   # to that slot before the block arrives, thus allowing us to do the expensive
