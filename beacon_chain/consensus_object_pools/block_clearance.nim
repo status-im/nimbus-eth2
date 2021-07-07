@@ -207,7 +207,7 @@ proc checkStateTransition(
 
   if not state_transition_block(
       dag.cfg, dag.clearanceState.data, signedBlock,
-      cache, dag.updateFlags, restore, dag.altairTransitionSlot):
+      cache, dag.updateFlags, restore):
     info "Invalid block"
 
     return (ValidationResult.Reject, Invalid)

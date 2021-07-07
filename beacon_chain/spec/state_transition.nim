@@ -172,10 +172,10 @@ func noRollback*(state: var altair.HashedBeaconState) =
   trace "Skipping rollback of broken Altair state"
 
 proc maybeUpgradeStateToAltair*(
-    state: var ForkedHashedBeaconState, altairForkSlot: Slot) =
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
-  if  getStateField(state, slot) == altairForkSlot and
+  if getStateField(state, slot).epoch == cfg.ALTAIR_FORK_EPOCH and
       state.beaconStateFork == forkPhase0:
     var newState = upgrade_to_altair(state.hbsPhase0.data)
     state = (ref ForkedHashedBeaconState)(
@@ -185,8 +185,7 @@ proc maybeUpgradeStateToAltair*(
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
-    cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
-    altairForkSlot: Slot): bool {.nbench.} =
+    cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags): bool {.nbench.} =
   if not (getStateField(state, slot) < slot):
     if slotProcessed notin flags or getStateField(state, slot) != slot:
       notice "Unusual request for a slot in the past",
@@ -217,7 +216,7 @@ proc process_slots*(
         # block after
         state.hbsAltair.root = hash_tree_root(state)
 
-    maybeUpgradeStateToAltair(state, altairForkSlot)
+    maybeUpgradeStateToAltair(cfg, state)
 
   true
 
@@ -277,7 +276,7 @@ proc state_transition_block*(
                  phase0.TrustedSignedBeaconBlock |
                  altair.SignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock,
     cache: var StateCache, flags: UpdateFlags,
-    rollback: RollbackForkedHashedProc, altairForkSlot: Slot): bool {.nbench.} =
+    rollback: RollbackForkedHashedProc): bool {.nbench.} =
   ## `rollback` is called if the transition fails and the given state has been
   ## partially changed. If a temporary state was given to `state_transition`,
   ## it is safe to use `noRollback` and leave it broken, else the state
@@ -286,7 +285,7 @@ proc state_transition_block*(
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
 
   # Ensure state_transition_block()-only callers trigger this
-  maybeUpgradeStateToAltair(state, altairForkSlot)
+  maybeUpgradeStateToAltair(cfg, state)
 
   let success = case state.beaconStateFork:
     of forkPhase0: state_transition_block_aux(
@@ -306,8 +305,7 @@ proc state_transition*(
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
                  phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
-    rollback: RollbackForkedHashedProc,
-    altairForkSlot: Slot): bool {.nbench.} =
+    rollback: RollbackForkedHashedProc): bool {.nbench.} =
   ## Apply a block to the state, advancing the slot counter as necessary. The
   ## given state must be of a lower slot, or, in case the `slotProcessed` flag
   ## is set, can be the slot state of the same slot as the block (where the
@@ -325,10 +323,10 @@ proc state_transition*(
   ## before the state has been updated, `rollback` will not be called.
   if not process_slots(
       cfg, state, signedBlock.message.slot, cache, rewards,
-      flags + {skipLastStateRootCalculation}, altairForkSlot):
+      flags + {skipLastStateRootCalculation}):
     return false
   state_transition_block(
-    cfg, state, signedBlock, cache, flags, rollback, altairForkSlot)
+    cfg, state, signedBlock, cache, flags, rollback)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#preparing-for-a-beaconblock
 proc makeBeaconBlock*(

@@ -21,7 +21,7 @@ proc nextEpoch*(state: var ForkedHashedBeaconState) =
   let slot =
     getStateField(state, slot) + SLOTS_PER_EPOCH -
       (getStateField(state, slot) mod SLOTS_PER_EPOCH)
-  doAssert process_slots(defaultRuntimeConfig, state, slot, cache, rewards, {}, FAR_FUTURE_SLOT)
+  doAssert process_slots(defaultRuntimeConfig, state, slot, cache, rewards, {})
 
 proc nextSlot*(state: var ForkedHashedBeaconState) =
   ## Transition to the next slot
@@ -30,4 +30,4 @@ proc nextSlot*(state: var ForkedHashedBeaconState) =
     rewards = RewardInfo()
 
   doAssert process_slots(
-    defaultRuntimeConfig, state, getStateField(state, slot) + 1, cache, rewards, {}, FAR_FUTURE_SLOT)
+    defaultRuntimeConfig, state, getStateField(state, slot) + 1, cache, rewards, {})

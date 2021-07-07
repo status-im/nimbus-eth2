@@ -173,9 +173,6 @@ type
       ## value with other components which don't have access to the
       ## full ChainDAG.
 
-    altairTransitionSlot*: Slot ##\
-      ## Slot at which to upgrade from phase 0 to Altair forks
-
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and
     ## committees in a beacon state - the epoch level information in the state

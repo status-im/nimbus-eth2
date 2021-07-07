@@ -60,7 +60,7 @@ suite "Attestation pool processing" & preset():
   setup:
     # Genesis state that results in 6 members per committee
     var
-      dag = init(ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 6))
+      dag = init(ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 6), {})
       quarantine = QuarantineRef.init(keys.newRng())
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
@@ -69,8 +69,8 @@ suite "Attestation pool processing" & preset():
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
       process_slots(
-        dag.cfg, state.data, getStateField(state.data, slot) + 1, cache, rewards, {},
-        FAR_FUTURE_SLOT)
+        dag.cfg, state.data, getStateField(state.data, slot) + 1, cache, rewards,
+        {})
 
   test "Can add and retrieve simple attestations" & preset():
     let
@@ -102,7 +102,7 @@ suite "Attestation pool processing" & preset():
       process_slots(
         defaultRuntimeConfig, state.data,
         getStateField(state.data, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
-        rewards, {}, FAR_FUTURE_SLOT)
+        rewards, {})
 
     let attestations = pool[].getAttestationsForTestBlock(state[], cache)
 
@@ -122,7 +122,7 @@ suite "Attestation pool processing" & preset():
       process_slots(
         defaultRuntimeConfig, state.data,
         getStateField(state.data, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
-        rewards, {}, FAR_FUTURE_SLOT)
+        rewards, {})
 
     check:
       # shouldn't include already-included attestations
@@ -200,7 +200,7 @@ suite "Attestation pool processing" & preset():
       process_slots(
         defaultRuntimeConfig, state.data,
         getStateField(state.data, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
-        rewards, {}, FAR_FUTURE_SLOT)
+        rewards, {})
 
     check:
       pool[].getAttestationsForTestBlock(state[], cache).len() == 2
@@ -247,8 +247,7 @@ suite "Attestation pool processing" & preset():
       check:
         process_slots(
           defaultRuntimeConfig, state.data,
-          getStateField(state.data, slot) + 1, cache, rewards, {},
-          FAR_FUTURE_SLOT)
+          getStateField(state.data, slot) + 1, cache, rewards, {})
 
     doAssert attestations.uint64 > MAX_ATTESTATIONS,
       "6*SLOTS_PER_EPOCH validators > 128 mainnet MAX_ATTESTATIONS"
@@ -270,7 +269,7 @@ suite "Attestation pool processing" & preset():
     check:
       process_slots(
         defaultRuntimeConfig, state.data, getStateField(state.data, slot) + 1,
-        cache, rewards, {}, FAR_FUTURE_SLOT)
+        cache, rewards, {})
 
     let
       bc1 = get_beacon_committee(state[].data,
@@ -285,8 +284,7 @@ suite "Attestation pool processing" & preset():
 
     discard process_slots(
       defaultRuntimeConfig, state.data,
-      MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards, {},
-      FAR_FUTURE_SLOT)
+      MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards, {})
 
     let attestations = pool[].getAttestationsForTestBlock(state[], cache)
 
@@ -312,8 +310,7 @@ suite "Attestation pool processing" & preset():
     check:
       process_slots(
         defaultRuntimeConfig, state.data,
-        MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards,
-        {}, FAR_FUTURE_SLOT)
+        MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards, {})
 
     let attestations = pool[].getAttestationsForTestBlock(state[], cache)
 
@@ -342,8 +339,7 @@ suite "Attestation pool processing" & preset():
     check:
       process_slots(
         defaultRuntimeConfig, state.data,
-        MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards,
-        {}, FAR_FUTURE_SLOT)
+        MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards, {})
 
     let attestations = pool[].getAttestationsForTestBlock(state[], cache)
 
@@ -371,8 +367,7 @@ suite "Attestation pool processing" & preset():
     check:
       process_slots(
         defaultRuntimeConfig, state.data,
-        MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards,
-        {}, FAR_FUTURE_SLOT)
+        MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards, {})
 
     let attestations = pool[].getAttestationsForTestBlock(state[], cache)
 

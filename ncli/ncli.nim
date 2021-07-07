@@ -4,7 +4,8 @@ import
   stew/byteutils,
   ../research/simutils,
   ../beacon_chain/spec/[
-    crypto, datatypes, digest, forkedbeaconstate_helpers, helpers, state_transition],
+    crypto, datatypes, digest, forkedbeaconstate_helpers, helpers, presets,
+    state_transition],
   ../beacon_chain/extras,
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
@@ -95,8 +96,7 @@ proc doTransition(conf: NcliConf) =
     cache = StateCache()
     rewards = RewardInfo()
   if not state_transition(getRuntimePresetForNetwork(conf.eth2Network),
-                          stateY[], blckX, cache, rewards, flags, noRollback,
-                          FAR_FUTURE_SLOT):
+                          stateY[], blckX, cache, rewards, flags, noRollback):
     error "State transition failed"
     quit 1
   else:
@@ -127,8 +127,8 @@ proc doSlots(conf: NcliConf) =
     let isEpoch = (getStateField(stateY[], slot) + 1).isEpoch
     withTimer(timers[if isEpoch: tApplyEpochSlot else: tApplySlot]):
       doAssert process_slots(
-        stateY[], getStateField(stateY[], slot) + 1, cache, rewards, {},
-        FAR_FUTURE_SLOT)
+        defaultRuntimeConfig, stateY[], getStateField(stateY[], slot) + 1,
+        cache, rewards, {})
 
   withTimer(timers[tSaveState]):
     saveSSZFile(conf.postState, stateY[])

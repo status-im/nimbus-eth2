@@ -6,7 +6,7 @@ import
   ../beacon_chain/consensus_object_pools/[
     blockchain_dag, forkedbeaconstate_dbhelpers],
   ../beacon_chain/spec/[
-    crypto, datatypes, digest, forkedbeaconstate_helpers, helpers,
+    crypto, datatypes/phase0, digest, forkedbeaconstate_helpers, helpers,
     state_transition, state_transition_epoch, presets],
   ../beacon_chain/ssz, ../beacon_chain/ssz/sszdump,
   ../research/simutils, ./e2store
@@ -177,7 +177,7 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimeConfig) =
   var
     (start, ends) = dag.getSlotRange(conf.benchSlot, conf.benchSlots)
     blockRefs = dag.getBlockRange(start, ends)
-    blocks: seq[TrustedSignedBeaconBlock]
+    blocks: seq[phase0.TrustedSignedBeaconBlock]
 
   echo &"Loaded {dag.blocks.len} blocks, head slot {dag.head.slot}, selected {blockRefs.len} blocks"
   doAssert blockRefs.len() > 0, "Must select at least one block"
@@ -191,7 +191,7 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimeConfig) =
   var
     cache = StateCache()
     rewards = RewardInfo()
-    loadedState = new BeaconState
+    loadedState = new phase0.BeaconState
 
   withTimer(timers[tLoadState]):
     dag.updateStateData(
@@ -202,8 +202,8 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimeConfig) =
       let isEpoch = (getStateField(state[].data, slot) + 1).isEpoch()
       withTimer(timers[if isEpoch: tAdvanceEpoch else: tAdvanceSlot]):
         let ok = process_slots(
-          state[].data, getStateField(state[].data, slot) + 1, cache, rewards,
-          {}, FAR_FUTURE_SLOT)
+          dag.cfg, state[].data, getStateField(state[].data, slot) + 1, cache,
+          rewards, {})
         doAssert ok, "Slot processing can't fail with correct inputs"
 
     var start = Moment.now()
@@ -211,7 +211,7 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimeConfig) =
       if conf.resetCache:
         cache = StateCache()
       if not state_transition_block(
-          runtimePreset, state[].data, b, cache, {}, noRollback, FAR_FUTURE_SLOT):
+          dag.cfg, state[].data, b, cache, {}, noRollback):
         dump("./", b)
         echo "State transition failed (!)"
         quit 1
@@ -361,7 +361,7 @@ proc cmdRewindState(conf: DbConf, preset: RuntimeConfig) =
     quit 1
 
   echo "Initializing block pool..."
-  let dag = init(ChainDAGRef, preset, db)
+  let dag = init(ChainDAGRef, preset, db, {})
 
   let blckRef = dag.getRef(fromHex(Eth2Digest, conf.blockRoot))
   if blckRef == nil:
@@ -389,7 +389,7 @@ proc cmdExportEra(conf: DbConf, preset: RuntimeConfig) =
 
   echo "Initializing block pool..."
   let
-    dag = init(ChainDAGRef, preset, db)
+    dag = init(ChainDAGRef, preset, db, {})
 
   let tmpState = assignClone(dag.headState)
 
@@ -526,23 +526,23 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimeConfig) =
     blck = db.getBlock(blockRefs[blockRefs.len - bi - 1].root).get()
     while getStateField(state[].data, slot) < blck.message.slot:
       let ok = process_slots(
-        state[].data, getStateField(state[].data, slot) + 1, cache, rewards,
-        {}, FAR_FUTURE_SLOT)
+        dag.cfg, state[].data, getStateField(state[].data, slot) + 1, cache,
+        rewards, {})
       doAssert ok, "Slot processing can't fail with correct inputs"
 
       if getStateField(state[].data, slot).isEpoch():
         processEpoch()
 
     if not state_transition_block(
-        runtimePreset, state[].data, blck, cache, {}, noRollback, FAR_FUTURE_SLOT):
+        dag.cfg, state[].data, blck, cache, {}, noRollback):
       echo "State transition failed (!)"
       quit 1
 
   # Capture rewards of empty slots as well
   while getStateField(state[].data, slot) < ends:
     let ok = process_slots(
-      state[].data, getStateField(state[].data, slot) + 1, cache, rewards, {},
-      FAR_FUTURE_SLOT)
+      dag.cfg, state[].data, getStateField(state[].data, slot) + 1, cache,
+      rewards, {})
     doAssert ok, "Slot processing can't fail with correct inputs"
 
     if getStateField(state[].data, slot).isEpoch():
@@ -755,15 +755,15 @@ proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimeConfig) =
     blck = db.getBlock(blockRefs[blockRefs.len - bi - 1].root).get()
     while getStateField(state[].data, slot) < blck.message.slot:
       let ok = process_slots(
-        state[].data, getStateField(state[].data, slot) + 1, cache, rewards,
-        {}, FAR_FUTURE_SLOT)
+        runtimePreset, state[].data, getStateField(state[].data, slot) + 1, cache, rewards,
+        {})
       doAssert ok, "Slot processing can't fail with correct inputs"
 
       if getStateField(state[].data, slot).isEpoch():
         processEpoch()
 
     if not state_transition_block(
-        runtimePreset, state[].data, blck, cache, {}, noRollback, FAR_FUTURE_SLOT):
+        runtimePreset, state[].data, blck, cache, {}, noRollback):
       echo "State transition failed (!)"
       quit 1
 
@@ -771,8 +771,8 @@ proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimeConfig) =
   # finalized
   while getStateField(state[].data, slot) <= ends:
     let ok = process_slots(
-      state[].data, getStateField(state[].data, slot) + 1, cache, rewards, {},
-      FAR_FUTURE_SLOT)
+      runtimePreset, state[].data, getStateField(state[].data, slot) + 1, cache,
+      rewards, {})
     doAssert ok, "Slot processing can't fail with correct inputs"
 
     if getStateField(state[].data, slot).isEpoch():

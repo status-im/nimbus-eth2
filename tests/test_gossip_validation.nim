@@ -33,7 +33,7 @@ suite "Gossip validation " & preset():
   setup:
     # Genesis state that results in 3 members per committee
     var
-      dag = init(ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3))
+      dag = init(ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3), {})
       quarantine = QuarantineRef.init(keys.newRng())
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
@@ -44,7 +44,7 @@ suite "Gossip validation " & preset():
     check:
       process_slots(
         defaultRuntimeConfig, state.data, getStateField(state.data, slot) + 1,
-        cache, rewards, {}, FAR_FUTURE_SLOT)
+        cache, rewards, {})
 
   test "Validation sanity":
     # TODO: refactor tests to avoid skipping BLS validation

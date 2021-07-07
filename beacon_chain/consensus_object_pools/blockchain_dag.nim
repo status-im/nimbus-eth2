@@ -320,8 +320,7 @@ func isStateCheckpoint(bs: BlockSlot): bool =
 proc init*(T: type ChainDAGRef,
            cfg: RuntimeConfig,
            db: BeaconChainDB,
-           updateFlags: UpdateFlags = {},
-           altairTransitionSlot: Slot = FAR_FUTURE_SLOT): ChainDAGRef =
+           updateFlags: UpdateFlags): ChainDAGRef =
   # TODO we require that the db contains both a head and a tail block -
   #      asserting here doesn't seem like the right way to go about it however..
 
@@ -424,7 +423,6 @@ proc init*(T: type ChainDAGRef,
     # allow skipping some validation.
     updateFlags: {verifyFinalization} * updateFlags,
     cfg: cfg,
-    altairTransitionSlot: altairTransitionSlot
   )
 
   doAssert dag.updateFlags in [{}, {verifyFinalization}]
@@ -520,7 +518,7 @@ proc getState(
   func restore() =
     assign(v[], restoreAddr[].data)
 
-  if blck.slot < dag.altairTransitionSlot:
+  if blck.slot.epoch < dag.cfg.ALTAIR_FORK_EPOCH:
     if state.data.beaconStateFork != forkPhase0:
       state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkPhase0)[]
 
@@ -546,7 +544,7 @@ func stateCheckpoint*(bs: BlockSlot): BlockSlot =
   bs
 
 proc forkDigestAtSlot*(dag: ChainDAGRef, slot: Slot): ForkDigest =
-  if slot < dag.altairTransitionSlot:
+  if slot.epoch < dag.cfg.ALTAIR_FORK_EPOCH:
     dag.forkDigests.phase0
   else:
     dag.forkDigests.altair
@@ -703,7 +701,7 @@ proc advanceSlots(
 
     doAssert process_slots(
         dag.cfg, state.data, getStateField(state.data, slot) + 1, cache, rewards,
-        dag.updateFlags, dag.altairTransitionSlot),
+        dag.updateFlags),
       "process_slots shouldn't fail when state slot is correct"
     if save:
       dag.putState(state)
@@ -727,8 +725,7 @@ proc applyBlock(
 
   let ok = state_transition(
     dag.cfg, state.data, blck.data,
-    cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore,
-    dag.altairTransitionSlot)
+    cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
   if ok:
     state.blck = blck.refs
 

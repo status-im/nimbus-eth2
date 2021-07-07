@@ -21,7 +21,7 @@ proc processSlotsUntilEndCurrentEpoch(state: var ForkedHashedBeaconState) =
       (getStateField(state, slot) mod SLOTS_PER_EPOCH)
 
   # Transition to slot before the epoch state transition
-  discard process_slots(defaultRuntimeConfig, state, slot - 1, cache, rewards, {}, FAR_FUTURE_SLOT)
+  discard process_slots(defaultRuntimeConfig, state, slot - 1, cache, rewards, {})
 
   # For the last slot of the epoch,
   # only process_slot without process_epoch

@@ -90,7 +90,7 @@ proc addTestBlock*(
     var rewards: RewardInfo
     doAssert process_slots(
       defaultRuntimeConfig, state, getStateField(state, slot) + 1, cache,
-      rewards, flags, FAR_FUTURE_SLOT)
+      rewards, flags)
 
   let
     proposer_index = get_beacon_proposer_index(

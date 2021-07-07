@@ -63,15 +63,19 @@ proc getTestStates*(
     tmpState = assignClone(initialState)
     cache = StateCache()
     rewards = RewardInfo()
+    cfg = defaultRuntimeConfig
+
+  if useAltair:
+    cfg.ALTAIR_FORK_EPOCH = 1.Epoch
 
   for i, epoch in stateEpochs:
     let slot = epoch.Epoch.compute_start_slot_at_epoch
     if getStateField(tmpState[], slot) < slot:
       doAssert process_slots(
-        defaultRuntimeConfig, tmpState[], slot, cache, rewards, {}, FAR_FUTURE_SLOT)
+        cfg, tmpState[], slot, cache, rewards, {})
 
     if useAltair and epoch == 1:
-      maybeUpgradeStateToAltair(tmpState[], slot)
+      maybeUpgradeStateToAltair(cfg, tmpState[])
 
     if i mod 3 == 0:
       if tmpState[].beaconStateFork == forkPhase0:

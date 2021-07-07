@@ -402,7 +402,7 @@ proc init*(T: type BeaconNode,
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
   # TODO altair-transition
-  network.initBeaconSync(dag, network.forkDigests.phase0, getTime)
+  network.initBeaconSync(dag, getTime)
 
   node.updateValidatorMetrics()
 

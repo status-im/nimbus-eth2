@@ -120,7 +120,7 @@ suite "Block pool processing" & preset():
   setup:
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db)
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
       quarantine = QuarantineRef.init(keys.newRng())
       nilPhase0Callback: OnPhase0BlockAdded
       state = newClone(dag.headState.data)
@@ -178,7 +178,7 @@ suite "Block pool processing" & preset():
     check:
       process_slots(
         defaultRuntimeConfig, state[], getStateField(state[], slot) + 1, cache,
-        rewards, {}, FAR_FUTURE_SLOT)
+        rewards, {})
 
     let
       b4 = addTestBlock(state[], b2.root, cache)
@@ -261,7 +261,7 @@ suite "Block pool processing" & preset():
 
     # check that init also reloads block graph
     var
-      dag2 = init(ChainDAGRef, defaultRuntimeConfig, db)
+      dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, {})
 
     check:
       # ensure we loaded the correct head state
@@ -345,7 +345,7 @@ suite "chain DAG finalization tests" & preset():
   setup:
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db)
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
       quarantine = QuarantineRef.init(keys.newRng())
       nilPhase0Callback: OnPhase0BlockAdded
       cache = StateCache()
@@ -360,7 +360,7 @@ suite "chain DAG finalization tests" & preset():
       process_slots(
         defaultRuntimeConfig, tmpState[],
         getStateField(tmpState[], slot) + (5 * SLOTS_PER_EPOCH).uint64,
-        cache, rewards, {}, FAR_FUTURE_SLOT)
+        cache, rewards, {})
 
     let lateBlock = addTestBlock(tmpState[], dag.head.root, cache)
     block:
@@ -433,7 +433,7 @@ suite "chain DAG finalization tests" & preset():
         db.getStateRoot(finalizedCheckpoint.blck.root, finalizedCheckpoint.slot).isSome
 
     let
-      dag2 = init(ChainDAGRef, defaultRuntimeConfig, db)
+      dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, {})
 
     # check that the state reloaded from database resembles what we had before
     check:
@@ -462,8 +462,8 @@ suite "chain DAG finalization tests" & preset():
     cache = StateCache()
 
     doAssert process_slots(
-      defaultRuntimeConfig, prestate[], getStateField(prestate[], slot) + 1, cache, rewards, {},
-      FAR_FUTURE_SLOT)
+      defaultRuntimeConfig, prestate[], getStateField(prestate[], slot) + 1,
+      cache, rewards, {})
 
     # create another block, orphaning the head
     let blck = makeTestBlock(prestate[], dag.head.parent.root, cache)
@@ -473,7 +473,7 @@ suite "chain DAG finalization tests" & preset():
     check: added.isOk()
 
     var
-      dag2 = init(ChainDAGRef, defaultRuntimeConfig, db)
+      dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, {})
 
     # check that we can apply the block after the orphaning
     let added2 = dag2.addRawBlock(quarantine, blck, nilPhase0Callback)
@@ -491,8 +491,8 @@ suite "chain DAG finalization tests" & preset():
     # Advance past epoch so that the epoch transition is gapped
     check:
       process_slots(
-        defaultRuntimeConfig, dag.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2), cache, rewards, {},
-        FAR_FUTURE_SLOT)
+        defaultRuntimeConfig, dag.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2),
+        cache, rewards, {})
 
     var blck = makeTestBlock(
       dag.headState.data, dag.head.root, cache,
@@ -519,7 +519,7 @@ suite "chain DAG finalization tests" & preset():
         cur = cur.parent
 
     let
-      dag2 = init(ChainDAGRef, defaultRuntimeConfig, db)
+      dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, {})
 
     # check that the state reloaded from database resembles what we had before
     check:

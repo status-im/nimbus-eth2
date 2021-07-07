@@ -120,7 +120,7 @@ suite "Beacon chain DB" & preset():
   test "sanity check phase 0 states" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db)
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
       testStates = getTestStates(dag.headState.data)
 
     # Ensure transitions beyond just adding validators and increasing slots
@@ -145,7 +145,7 @@ suite "Beacon chain DB" & preset():
   test "sanity check Altair states" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db)
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
       testStates = getTestStates(dag.headState.data, true)
 
     # Ensure transitions beyond just adding validators and increasing slots
@@ -170,7 +170,7 @@ suite "Beacon chain DB" & preset():
   test "sanity check phase 0 states, reusing buffers" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db)
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
 
     let stateBuffer = (phase0.BeaconStateRef)()
     var testStates = getTestStates(dag.headState.data)
@@ -198,7 +198,7 @@ suite "Beacon chain DB" & preset():
   test "sanity check Altair states, reusing buffers" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db)
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
 
     let stateBuffer = (altair.BeaconStateRef)()
     var testStates = getTestStates(dag.headState.data, true)
@@ -226,7 +226,7 @@ suite "Beacon chain DB" & preset():
   test "sanity check phase 0 getState rollback" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db)
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
       state = (ref ForkedHashedBeaconState)(
         beaconStateFork: forkPhase0,
         hbsPhase0: phase0.HashedBeaconState(data: phase0.BeaconState(
@@ -248,7 +248,7 @@ suite "Beacon chain DB" & preset():
   test "sanity check Altair and cross-fork getState rollback" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db)
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
       state = (ref ForkedHashedBeaconState)(
         beaconStateFork: forkAltair,
         hbsAltair: altair.HashedBeaconState(data: altair.BeaconState(

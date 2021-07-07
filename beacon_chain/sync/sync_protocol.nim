@@ -50,7 +50,6 @@ type
 
   BeaconSyncNetworkState* = ref object
     dag*: ChainDAGRef
-    forkDigest*: ForkDigest
     getTime*: GetTimeFn
 
   BeaconSyncPeerState* = ref object
@@ -372,7 +371,7 @@ proc handleStatus(peer: Peer,
                   state: BeaconSyncNetworkState,
                   ourStatus: StatusMsg,
                   theirStatus: StatusMsg) {.async, gcsafe.} =
-  if theirStatus.forkDigest != state.forkDigest:
+  if theirStatus.forkDigest != ourStatus.forkDigest:
     debug "Irrelevant peer", peer, theirStatus, ourStatus
     await peer.disconnect(IrrelevantNetwork)
   else:
@@ -383,9 +382,7 @@ proc handleStatus(peer: Peer,
       await peer.handlePeer()
 
 proc initBeaconSync*(network: Eth2Node, dag: ChainDAGRef,
-                     forkDigest: ForkDigest,
                      getTime: GetTimeFn) =
   var networkState = network.protocolState(BeaconSync)
   networkState.dag = dag
-  networkState.forkDigest = forkDigest
   networkState.getTime = getTime

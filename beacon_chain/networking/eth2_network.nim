@@ -203,7 +203,7 @@ type
     case kind*: Eth2NetworkingErrorKind
     of ReceivedErrorResponse:
       responseCode: ResponseCode
-      errorMsg: ErrorMsg
+      errorMsg: string
     else:
       discard
 
