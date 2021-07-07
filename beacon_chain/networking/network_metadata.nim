@@ -113,7 +113,6 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       genesisPath = path & "/genesis.ssz"
       genesisDepositsSnapshotPath = path & "/genesis_deposit_contract_snapshot.ssz"
       configPath = path & "/config.yaml"
-      depositContractPath = path & "/deposit_contract.txt"
       depositContractBlockPath = path & "/deposit_contract_block.txt"
       bootstrapNodesPath = path & "/bootstrap_nodes.txt"
 
@@ -134,6 +133,11 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
 
       bootstrapNodes = if fileExists(bootstrapNodesPath):
         readFile(bootstrapNodesPath).splitLines()
+      elif "yeerongpilly" in path: # doesn't come with boostrap_nodes.txt
+        @[
+          "enr:-KG4QNFYe_ASIxDXpZXtzyZcndMr1QyQnAr0EXXgJq8qj1UaS8TNK_LYyG-B14RkMfDRUEhF3bihIjfeyVNZYGgjL8EDhGV0aDKQf_nhygAAQQX__________4JpZIJ2NIJpcIQDFuG2iXNlY3AyNTZrMaECcnSX6eiDjA01nO4vSzHEiAz5h95HUBL6KqSehXmvUGeDdGNwgiMog3VkcIIjKA",
+          "enr:-KG4QPWCj_yDwL5APPetgWzVbkKmhFAVL9iZOI14cpiorPDLIKl1htlOJ4_R8zS1MFcnoJRMmMTxBbHXpjwpc_A3Nn4DhGV0aDKQf_nhygAAQQX__________4JpZIJ2NIJpcIQDE-qUiXNlY3AyNTZrMaECzrP1L8i28thLTEwnCIUgEanpCVQbHZe0Bb3crPc2o36DdGNwgiMog3VkcIIjKA",
+        ]
       else:
         @[]
 
@@ -185,6 +189,7 @@ template eth2testnet(path: string): Eth2NetworkMetadata =
 const
   pyrmontMetadata* = eth2testnet "shared/pyrmont"
   praterMetadata* = eth2testnet "shared/prater"
+  yeerongpillyMetadata* = eth2testnet "teku/yeerongpilly"
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
   var
@@ -195,6 +200,8 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: 
         pyrmontMetadata
       of "prater":
         praterMetadata
+      of "yeerongpilly":
+        yeerongpillyMetadata
       else:
         if fileExists(networkName):
           try:

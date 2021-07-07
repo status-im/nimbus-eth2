@@ -342,13 +342,6 @@ else:
 
   # createConstantsFromPreset const_preset
 
-  # const defaultRuntimeConfig* = RuntimeConfig(
-  #   MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: MIN_GENESIS_ACTIVE_VALIDATOR_COUNT,
-  #   MIN_GENESIS_TIME: MIN_GENESIS_TIME,
-  #   GENESIS_FORK_VERSION: GENESIS_FORK_VERSION,
-  #   GENESIS_DELAY: GENESIS_DELAY,
-  #   ETH1_FOLLOW_DISTANCE: ETH1_FOLLOW_DISTANCE)
-
 func parse(T: type uint64, input: string): T
            {.raises: [ValueError, Defect].} =
   var res: BiggestUInt
@@ -375,7 +368,7 @@ template parse(T: type Epoch, input: string): T =
   Epoch parse(uint64, input)
 
 template parse(T: type string, input: string): T =
-  input
+  input.strip(chars = {'"', '\''})
 
 template parse(T: type Eth1Address, input: string): T =
   Eth1Address.fromHex(input)
@@ -422,4 +415,4 @@ proc readRuntimeConfig*(path: string): RuntimeConfig
 
   if result.PRESET_BASE != const_preset:
     raise (ref PresetFileError)(
-      msg: "Config not compatible with binary, compile with d:" & result.PRESET_BASE)
+      msg: "Config not compatible with binary, compile with -d:const_preset=" & result.PRESET_BASE)
