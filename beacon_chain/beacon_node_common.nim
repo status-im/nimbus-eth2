@@ -45,7 +45,6 @@ type
     attestationPool*: ref AttestationPool
     exitPool*: ref ExitPool
     eth1Monitor*: Eth1Monitor
-    beaconClock*: BeaconClock
     rpcServer*: RpcServer
     restServer*: RestServerRef
     vcProcess*: Process
@@ -71,6 +70,9 @@ template findIt*(s: openArray, predicate: untyped): int =
       res = i
       break
   res
+
+template beaconClock*(node: BeaconNode): BeaconClock =
+  node.dag.beaconClock
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
