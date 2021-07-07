@@ -579,7 +579,7 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
       return
 
     if node.config.dumpEnabled:
-      dump(node.config.dumpDirOutgoing, msg, validator.pubKey.toPubKey())
+      dump(node.config.dumpDirOutgoing, msg, validator.pubKey)
 
     let
       wallTime = node.beaconClock.now()
@@ -683,7 +683,7 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
 
     let contribution =
       node.syncCommitteeMsgPool[].produceContribution(
-        slot, head, candidateAggregators[i].committeeIdx)
+        slot, head, SubnetId candidateAggregators[i].committeeIdx)
 
     asyncSpawn signAndSendContribution(
       node,
