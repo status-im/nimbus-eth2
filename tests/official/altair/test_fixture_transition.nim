@@ -65,7 +65,7 @@ proc runTest(testName, testDir, unitTestName: string) =
           let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, phase0.SignedBeaconBlock)
 
           let success = state_transition(
-            defaultRuntimeConfig, fhPreState[], blck,
+            cfg, fhPreState[], blck,
             cache, rewards,
             flags = {skipStateRootValidation}, noRollback)
           doAssert success, "Failure when applying block " & $i
@@ -73,7 +73,7 @@ proc runTest(testName, testDir, unitTestName: string) =
           let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, altair.SignedBeaconBlock)
 
           let success = state_transition(
-            defaultRuntimeConfig, fhPreState[], blck,
+            cfg, fhPreState[], blck,
             cache, rewards,
             flags = {skipStateRootValidation}, noRollback)
           doAssert success, "Failure when applying block " & $i
