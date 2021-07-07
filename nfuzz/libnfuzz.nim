@@ -103,7 +103,7 @@ proc nfuzz_attestation(input: openArray[byte], xoutput: ptr byte,
 proc nfuzz_attester_slashing(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(AttesterSlashingInput):
-    process_attester_slashing(data.state, data.attesterSlashing, flags, cache).isOk
+    process_attester_slashing(defaultRuntimeConfig, data.state, data.attesterSlashing, flags, cache).isOk
 
 proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
@@ -141,12 +141,12 @@ proc nfuzz_deposit(input: openArray[byte], xoutput: ptr byte,
 proc nfuzz_proposer_slashing(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(ProposerSlashingInput):
-    process_proposer_slashing(data.state, data.proposerSlashing, flags, cache).isOk
+    process_proposer_slashing(defaultRuntimeConfig, data.state, data.proposerSlashing, flags, cache).isOk
 
 proc nfuzz_voluntary_exit(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(VoluntaryExitInput):
-    process_voluntary_exit(data.state, data.exit, flags, cache).isOk
+    process_voluntary_exit(defaultRuntimeConfig, data.state, data.exit, flags, cache).isOk
 
 # Note: Could also accept raw input pointer and access list_size + seed here.
 # However, list_size needs to be known also outside this proc to allocate xoutput.
