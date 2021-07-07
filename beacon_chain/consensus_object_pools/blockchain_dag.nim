@@ -318,7 +318,7 @@ func isStateCheckpoint(bs: BlockSlot): bool =
   (bs.slot.isEpoch and bs.slot.epoch == (bs.blck.slot.epoch + 1))
 
 proc init*(T: type ChainDAGRef,
-           preset: RuntimePreset,
+           cfg: RuntimeConfig,
            db: BeaconChainDB,
            updateFlags: UpdateFlags = {},
            altairTransitionSlot: Slot = FAR_FUTURE_SLOT): ChainDAGRef =
@@ -413,7 +413,7 @@ proc init*(T: type ChainDAGRef,
     beaconClock: BeaconClock.init(
       getStateField(tmpState.data, genesis_time)),
     forkDigests: newClone ForkDigests.init(
-      preset,
+      cfg,
       getStateField(tmpState.data, genesis_validators_root)),
     heads: @[headRef],
     headState: tmpState[],
@@ -423,7 +423,7 @@ proc init*(T: type ChainDAGRef,
     # The only allowed flag right now is verifyFinalization, as the others all
     # allow skipping some validation.
     updateFlags: {verifyFinalization} * updateFlags,
-    runtimePreset: preset,
+    cfg: cfg,
     altairTransitionSlot: altairTransitionSlot
   )
 
@@ -702,7 +702,7 @@ proc advanceSlots(
     loadStateCache(dag, cache, state.blck, getStateField(state.data, slot).epoch)
 
     doAssert process_slots(
-        state.data, getStateField(state.data, slot) + 1, cache, rewards,
+        dag.cfg, state.data, getStateField(state.data, slot) + 1, cache, rewards,
         dag.updateFlags, dag.altairTransitionSlot),
       "process_slots shouldn't fail when state slot is correct"
     if save:
@@ -726,7 +726,7 @@ proc applyBlock(
   loadStateCache(dag, cache, state.blck, getStateField(state.data, slot).epoch)
 
   let ok = state_transition(
-    dag.runtimePreset, state.data, blck.data,
+    dag.cfg, state.data, blck.data,
     cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore,
     dag.altairTransitionSlot)
   if ok:

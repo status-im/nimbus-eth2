@@ -13,7 +13,7 @@ import
   # Utilities
   stew/results,
   # Beacon chain internals
-  ../../../beacon_chain/spec/[beaconstate, presets],
+  ../../../beacon_chain/spec/[state_transition_block, presets],
   ../../../beacon_chain/spec/datatypes/phase0,
   ../../../beacon_chain/ssz,
   # Test utilities
@@ -47,10 +47,10 @@ proc runTest(identifier: string) =
       if existsFile(testDir/"post.ssz_snappy"):
         let postState =
           newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
-        discard process_deposit(defaultRuntimePreset, preState[], deposit)
+        discard process_deposit(defaultRuntimeConfig, preState[], deposit, {})
         reportDiff(preState, postState)
       else:
-        check process_deposit(defaultRuntimePreset, preState[], deposit).isErr
+        check process_deposit(defaultRuntimeConfig, preState[], deposit, {}).isErr
 
   `testImpl _ operations_deposits _ identifier`()
 

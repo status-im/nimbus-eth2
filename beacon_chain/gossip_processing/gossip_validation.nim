@@ -730,7 +730,8 @@ proc validateVoluntaryExit*(
   # [REJECT] All of the conditions within process_voluntary_exit pass
   # validation.
   let voluntary_exit_validity =
-    check_voluntary_exit(pool.dag.headState.data, signed_voluntary_exit, {})
+    check_voluntary_exit(
+      pool.dag.cfg, pool.dag.headState.data, signed_voluntary_exit, {})
   if voluntary_exit_validity.isErr:
     return err((ValidationResult.Reject, voluntary_exit_validity.error))
 

@@ -148,8 +148,6 @@ libbacktrace:
 
 # test binaries that can output an XML report
 XML_TEST_BINARIES := \
-	test_fixture_const_sanity_check_minimal \
-	test_fixture_const_sanity_check_mainnet \
 	test_fixture_ssz_generic_types \
 	all_fixtures_require_ssz \
 	test_official_interchange_vectors \
@@ -164,22 +162,6 @@ TEST_BINARIES := \
 	state_sim \
 	block_sim
 .PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES)
-
-test_fixture_const_sanity_check_minimal: | build deps
-	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
-			$@ \
-			"tests/official/test_fixture_const_sanity_check.nim" \
-			$(NIM_PARAMS) -d:const_preset=minimal -d:chronicles_sinks="json[file]" && \
-		echo -e $(BUILD_END_MSG) "build/$@"
-
-test_fixture_const_sanity_check_mainnet: | build deps
-	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
-			$@ \
-			"tests/official/test_fixture_const_sanity_check.nim" \
-			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
-		echo -e $(BUILD_END_MSG) "build/$@"
 
 # Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
 test_fixture_ssz_generic_types: | build deps

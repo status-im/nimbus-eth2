@@ -1,68 +1,5 @@
 AllTests-mainnet
 ===
-## 
-```diff
-+ BASE_REWARD_FACTOR                                64                   [Preset: mainnet]   OK
-+ BLS_WITHDRAWAL_PREFIX                             "0x00"               [Preset: mainnet]   OK
-+ CHURN_LIMIT_QUOTIENT                              65536                [Preset: mainnet]   OK
-  DEPOSIT_CHAIN_ID                                  1                    [Preset: mainnet]   Skip
-  DEPOSIT_CONTRACT_ADDRESS                          "0x00000000219ab540356cBB839Cbe05303d770 Skip
-  DEPOSIT_NETWORK_ID                                1                    [Preset: mainnet]   Skip
-+ DOMAIN_AGGREGATE_AND_PROOF                        "0x06000000"         [Preset: mainnet]   OK
-+ DOMAIN_BEACON_ATTESTER                            "0x01000000"         [Preset: mainnet]   OK
-+ DOMAIN_BEACON_PROPOSER                            "0x00000000"         [Preset: mainnet]   OK
-+ DOMAIN_DEPOSIT                                    "0x03000000"         [Preset: mainnet]   OK
-+ DOMAIN_RANDAO                                     "0x02000000"         [Preset: mainnet]   OK
-+ DOMAIN_SELECTION_PROOF                            "0x05000000"         [Preset: mainnet]   OK
-+ DOMAIN_VOLUNTARY_EXIT                             "0x04000000"         [Preset: mainnet]   OK
-+ EFFECTIVE_BALANCE_INCREMENT                       1000000000           [Preset: mainnet]   OK
-+ EJECTION_BALANCE                                  16000000000          [Preset: mainnet]   OK
-+ EPOCHS_PER_ETH1_VOTING_PERIOD                     64                   [Preset: mainnet]   OK
-+ EPOCHS_PER_HISTORICAL_VECTOR                      65536                [Preset: mainnet]   OK
-+ EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION             256                  [Preset: mainnet]   OK
-+ EPOCHS_PER_SLASHINGS_VECTOR                       8192                 [Preset: mainnet]   OK
-  ETH1_FOLLOW_DISTANCE                              2048                 [Preset: mainnet]   Skip
-  GENESIS_DELAY                                     604800               [Preset: mainnet]   Skip
-  GENESIS_FORK_VERSION                              "0x00000000"         [Preset: mainnet]   Skip
-+ HISTORICAL_ROOTS_LIMIT                            16777216             [Preset: mainnet]   OK
-+ HYSTERESIS_DOWNWARD_MULTIPLIER                    1                    [Preset: mainnet]   OK
-+ HYSTERESIS_QUOTIENT                               4                    [Preset: mainnet]   OK
-+ HYSTERESIS_UPWARD_MULTIPLIER                      5                    [Preset: mainnet]   OK
-+ INACTIVITY_PENALTY_QUOTIENT                       67108864             [Preset: mainnet]   OK
-+ MAX_ATTESTATIONS                                  128                  [Preset: mainnet]   OK
-+ MAX_ATTESTER_SLASHINGS                            2                    [Preset: mainnet]   OK
-+ MAX_COMMITTEES_PER_SLOT                           64                   [Preset: mainnet]   OK
-+ MAX_DEPOSITS                                      16                   [Preset: mainnet]   OK
-+ MAX_EFFECTIVE_BALANCE                             32000000000          [Preset: mainnet]   OK
-+ MAX_PROPOSER_SLASHINGS                            16                   [Preset: mainnet]   OK
-+ MAX_SEED_LOOKAHEAD                                4                    [Preset: mainnet]   OK
-+ MAX_VALIDATORS_PER_COMMITTEE                      2048                 [Preset: mainnet]   OK
-+ MAX_VOLUNTARY_EXITS                               16                   [Preset: mainnet]   OK
-+ MIN_ATTESTATION_INCLUSION_DELAY                   1                    [Preset: mainnet]   OK
-+ MIN_DEPOSIT_AMOUNT                                1000000000           [Preset: mainnet]   OK
-+ MIN_EPOCHS_TO_INACTIVITY_PENALTY                  4                    [Preset: mainnet]   OK
-  MIN_GENESIS_ACTIVE_VALIDATOR_COUNT                16384                [Preset: mainnet]   Skip
-  MIN_GENESIS_TIME                                  1606824000           [Preset: mainnet]   Skip
-+ MIN_PER_EPOCH_CHURN_LIMIT                         4                    [Preset: mainnet]   OK
-+ MIN_SEED_LOOKAHEAD                                1                    [Preset: mainnet]   OK
-+ MIN_SLASHING_PENALTY_QUOTIENT                     128                  [Preset: mainnet]   OK
-+ MIN_VALIDATOR_WITHDRAWABILITY_DELAY               256                  [Preset: mainnet]   OK
-+ PROPORTIONAL_SLASHING_MULTIPLIER                  1                    [Preset: mainnet]   OK
-+ PROPOSER_REWARD_QUOTIENT                          8                    [Preset: mainnet]   OK
-+ RANDOM_SUBNETS_PER_VALIDATOR                      1                    [Preset: mainnet]   OK
-+ SAFE_SLOTS_TO_UPDATE_JUSTIFIED                    8                    [Preset: mainnet]   OK
-+ SECONDS_PER_ETH1_BLOCK                            14                   [Preset: mainnet]   OK
-+ SECONDS_PER_SLOT                                  12                   [Preset: mainnet]   OK
-+ SHARD_COMMITTEE_PERIOD                            256                  [Preset: mainnet]   OK
-+ SHUFFLE_ROUND_COUNT                               90                   [Preset: mainnet]   OK
-+ SLOTS_PER_EPOCH                                   32                   [Preset: mainnet]   OK
-+ SLOTS_PER_HISTORICAL_ROOT                         8192                 [Preset: mainnet]   OK
-+ TARGET_AGGREGATORS_PER_COMMITTEE                  16                   [Preset: mainnet]   OK
-+ TARGET_COMMITTEE_SIZE                             128                  [Preset: mainnet]   OK
-+ VALIDATOR_REGISTRY_LIMIT                          1099511627776        [Preset: mainnet]   OK
-+ WHISTLEBLOWER_REWARD_QUOTIENT                     512                  [Preset: mainnet]   OK
-```
-OK: 51/59 Fail: 0/59 Skip: 8/59
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestations may arrive in any order [Preset: mainnet]                                     OK
@@ -313,4 +250,4 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 179/187 Fail: 0/187 Skip: 8/187
+OK: 128/128 Fail: 0/128 Skip: 0/128

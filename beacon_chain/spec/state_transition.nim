@@ -146,6 +146,7 @@ func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot(
+    cfg: RuntimeConfig,
     state: var SomeBeaconState, previous_slot_state_root: Eth2Digest,
     flags: UpdateFlags, cache: var StateCache, rewards: var RewardInfo) {.nbench.} =
   # Do the per-slot and potentially the per-epoch processing, then bump the
@@ -159,7 +160,7 @@ proc advance_slot(
   let is_epoch_transition = (state.slot + 1).isEpoch
   if is_epoch_transition:
     # Note: Genesis epoch = 0, no need to test if before Genesis
-    process_epoch(state, flags, cache, rewards)
+    process_epoch(cfg, state, flags, cache, rewards)
     clear_epoch_from_cache(cache, (state.slot + 1).compute_epoch_at_slot)
 
   state.slot += 1
@@ -183,7 +184,7 @@ proc maybeUpgradeStateToAltair*(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
 proc process_slots*(
-    state: var ForkedHashedBeaconState, slot: Slot,
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
     altairForkSlot: Slot): bool {.nbench.} =
   if not (getStateField(state, slot) < slot):
@@ -199,7 +200,7 @@ proc process_slots*(
     case state.beaconStateFork:
     of forkPhase0:
       advance_slot(
-        state.hbsPhase0.data, getStateRoot(state), flags, cache, rewards)
+        cfg,state.hbsPhase0.data, getStateRoot(state), flags, cache, rewards)
 
       if skipLastStateRootCalculation notin flags or
           getStateField(state, slot) < slot:
@@ -208,7 +209,7 @@ proc process_slots*(
         state.hbsPhase0.root = hash_tree_root(state)
     of forkAltair:
       advance_slot(
-        state.hbsAltair.data, state.hbsAltair.root, flags, cache, rewards)
+        cfg, state.hbsAltair.data, state.hbsAltair.root, flags, cache, rewards)
 
       if skipLastStateRootCalculation notin flags or
           getStateField(state, slot) < slot:
@@ -221,7 +222,7 @@ proc process_slots*(
   true
 
 proc state_transition_block_aux(
-    preset: RuntimePreset,
+    cfg: RuntimeConfig,
     state: var SomeHashedBeaconState,
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
                  phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock |
@@ -239,7 +240,7 @@ proc state_transition_block_aux(
     signature = shortLog(signedBlock.signature),
     blockRoot = shortLog(signedBlock.root)
 
-  let res = process_block(preset, state.data, signedBlock.message, flags, cache)
+  let res = process_block(cfg, state.data, signedBlock.message, flags, cache)
 
   if not res.isOk():
     debug "state_transition: process_block failed",
@@ -270,7 +271,7 @@ func noRollback*(state: var ForkedHashedBeaconState) =
   trace "Skipping rollback of broken state"
 
 proc state_transition_block*(
-    preset: RuntimePreset,
+    cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
                  phase0.TrustedSignedBeaconBlock |
@@ -289,9 +290,9 @@ proc state_transition_block*(
 
   let success = case state.beaconStateFork:
     of forkPhase0: state_transition_block_aux(
-      preset, state.hbsPhase0, signedBlock, cache, flags)
+      cfg, state.hbsPhase0, signedBlock, cache, flags)
     of forkAltair: state_transition_block_aux(
-      preset, state.hbsAltair, signedBlock, cache, flags)
+      cfg, state.hbsAltair, signedBlock, cache, flags)
 
   if not success:
     rollback(state)
@@ -300,7 +301,7 @@ proc state_transition_block*(
   true
 
 proc state_transition*(
-    preset: RuntimePreset,
+    cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
                  phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
@@ -323,15 +324,15 @@ proc state_transition*(
   ## object should be rolled back to a consistent state. If the transition fails
   ## before the state has been updated, `rollback` will not be called.
   if not process_slots(
-      state, signedBlock.message.slot, cache, rewards,
+      cfg, state, signedBlock.message.slot, cache, rewards,
       flags + {skipLastStateRootCalculation}, altairForkSlot):
     return false
   state_transition_block(
-    preset, state, signedBlock, cache, flags, rollback, altairForkSlot)
+    cfg, state, signedBlock, cache, flags, rollback, altairForkSlot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#preparing-for-a-beaconblock
 proc makeBeaconBlock*(
-    preset: RuntimePreset,
+    cfg: RuntimeConfig,
     state: var phase0.HashedBeaconState,
     proposer_index: ValidatorIndex,
     parent_root: Eth2Digest,
@@ -370,7 +371,7 @@ proc makeBeaconBlock*(
       voluntary_exits:
         List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits)))
 
-  let res = process_block(preset, state.data, blck, {skipBlsValidation}, cache)
+  let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
 
   if res.isErr:
     warn "Unable to apply new block to state",
@@ -389,7 +390,7 @@ proc makeBeaconBlock*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#preparing-a-beaconblock
 proc makeBeaconBlock*(
-    preset: RuntimePreset,
+    cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,
     proposer_index: ValidatorIndex,
     parent_root: Eth2Digest,
@@ -430,7 +431,7 @@ proc makeBeaconBlock*(
 
   # TODO sync committees
 
-  let res = process_block(preset, state.data, blck, {skipBlsValidation}, cache)
+  let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
 
   if res.isErr:
     warn "Unable to apply new block to state",

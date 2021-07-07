@@ -24,7 +24,7 @@ suite "state diff tests" & preset():
   setup:
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db)
 
   test "random slot differences" & preset():
     let testStates = getTestStates(dag.headState.data)

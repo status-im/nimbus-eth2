@@ -63,7 +63,7 @@ proc runTest(testName, testDir, unitTestName: string) =
           let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, phase0.SignedBeaconBlock)
 
           let success = state_transition(
-            defaultRuntimePreset, fhPreState[], blck,
+            defaultRuntimeConfig, fhPreState[], blck,
             cache, rewards,
             flags = {skipStateRootValidation}, noRollback,
             transitionEpoch.fork_epoch.Epoch.compute_start_slot_at_epoch)
@@ -72,7 +72,7 @@ proc runTest(testName, testDir, unitTestName: string) =
           let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, altair.SignedBeaconBlock)
 
           let success = state_transition(
-            defaultRuntimePreset, fhPreState[], blck,
+            defaultRuntimeConfig, fhPreState[], blck,
             cache, rewards,
             flags = {skipStateRootValidation}, noRollback,
             transitionEpoch.fork_epoch.Epoch.compute_start_slot_at_epoch)

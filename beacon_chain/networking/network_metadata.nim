@@ -28,10 +28,9 @@ import
 # We can compress the embedded states with snappy before embedding them here.
 
 export
-  ethtypes, conversions, RuntimePreset
+  ethtypes, conversions, RuntimeConfig
 
 type
-  Eth1Address* = ethtypes.Address
   Eth1BlockHash* = ethtypes.BlockHash
 
   Eth1Network* = enum
@@ -50,12 +49,11 @@ type
       #      in this branch.
       dummy: string
       eth1Network*: Option[Eth1Network]
-      runtimePreset*: RuntimePreset
+      cfg*: RuntimeConfig
 
       # Parsing `enr.Records` is still not possible at compile-time
       bootstrapNodes*: seq[string]
 
-      depositContractAddress*: Eth1Address
       depositContractDeployedAt*: BlockHashOrNumber
 
       # Please note that we are using `string` here because SSZ.decode
@@ -79,38 +77,34 @@ type
 const
   eth2testnetsDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-testnets"
 
-const presetValueLoaders = genExpr(nnkBracket):
-  for constName in PresetValue:
-    let
-      constNameIdent = ident $constName
-      constType = ident getType(constName)
+# const presetValueLoaders = genExpr(nnkBracket):
+#   for constName in PresetValue:
+#     let
+#       constNameIdent = ident $constName
+#       constType = ident getType(constName)
 
-    yield quote do:
-      (
-        proc (preset: var RuntimePreset, presetValue: string): bool
-             {.gcsafe, noSideEffect, raises: [Defect].} =
-          try:
-            when PresetValue.`constNameIdent` in runtimeValues:
-              preset.`constNameIdent` = parse(`constType`, presetValue)
-              true
-            elif PresetValue.`constNameIdent` in ignoredValues:
-              true
-            else:
-              `constType`(`constNameIdent`) == parse(`constType`, presetValue)
-          except CatchableError:
-            false
-      )
+#     yield quote do:
+#       (
+#         proc (preset: var RuntimeConfig, presetValue: string): bool
+#              {.gcsafe, noSideEffect, raises: [Defect].} =
+#           try:
+#             when PresetValue.`constNameIdent` in runtimeValues:
+#               preset.`constNameIdent` = parse(`constType`, presetValue)
+#               true
+#             elif PresetValue.`constNameIdent` in ignoredValues:
+#               true
+#             else:
+#               `constType`(`constNameIdent`) == parse(`constType`, presetValue)
+#           except CatchableError:
+#             false
+#       )
 
-proc extractRuntimePreset*(configPath: string, configData: PresetFile): RuntimePreset
-                          {.raises: [PresetIncompatible, Defect].} =
-  result = RuntimePreset()
-
-  for name, value in configData.values:
-    if not presetValueLoaders[name.int](result, value):
-      let errMsg = "The preset '" & configPath & "'is not compatible with " &
-                   "the current build due to an incompatible value " &
-                   $name & " = " & value.string
-      raise newException(PresetIncompatible, errMsg)
+  # for name, value in configData.values:
+  #   if not presetValueLoaders[name.int](result, value):
+  #     let errMsg = "The preset '" & configPath & "'is not compatible with " &
+  #                  "the current build due to an incompatible value " &
+  #                  $name & " = " & value.string
+  #     raise newException(PresetIncompatible, errMsg)
 
 proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
                              {.raises: [CatchableError, Defect].} =
@@ -123,15 +117,10 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       depositContractBlockPath = path & "/deposit_contract_block.txt"
       bootstrapNodesPath = path & "/bootstrap_nodes.txt"
 
-      runtimePreset = if fileExists(configPath):
-        extractRuntimePreset(configPath, readPresetFile(configPath))
+      runtimeConfig = if fileExists(configPath):
+        readRuntimeConfig(configPath)
       else:
-        mainnetRuntimePreset
-
-      depositContractAddress = if fileExists(depositContractPath):
-        Eth1Address.fromHex readFile(depositContractPath).strip
-      else:
-        default(Eth1Address)
+        defaultRuntimeConfig
 
       depositContractBlock = if fileExists(depositContractBlockPath):
         readFile(depositContractBlockPath).strip
@@ -161,9 +150,8 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
     Eth2NetworkMetadata(
       incompatible: false,
       eth1Network: some goerli,
-      runtimePreset: runtimePreset,
+      cfg: runtimeConfig,
       bootstrapNodes: bootstrapNodes,
-      depositContractAddress: depositContractAddress,
       depositContractDeployedAt: depositContractDeployedAt,
       genesisData: genesisData,
       genesisDepositsSnapshot: genesisDepositsSnapshot)
@@ -180,9 +168,8 @@ const
       incompatible: false, # TODO: This can be more accurate if we verify
                            # that there are no constant overrides
       eth1Network: some mainnet,
-      runtimePreset: mainnetRuntimePreset,
+      cfg: mainnetRuntimeConfig,
       bootstrapNodes: readFile(mainnetMetadataDir & "/bootstrap_nodes.txt").splitLines,
-      depositContractAddress: Eth1Address.fromHex "0x00000000219ab540356cBB839Cbe05303d7705Fa",
       depositContractDeployedAt: BlockHashOrNumber.init "11052984",
       genesisData: readFile(mainnetMetadataDir & "/genesis.ssz"),
       genesisDepositsSnapshot: readFile(mainnetMetadataDir & "/genesis_deposit_contract_snapshot.ssz"))
@@ -228,10 +215,10 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: 
   return metadata
 
 proc getRuntimePresetForNetwork*(
-    eth2Network: Option[string]): RuntimePreset {.raises: [Defect, IOError].} =
+    eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
   if eth2Network.isSome:
-    return getMetadataForNetwork(eth2Network.get).runtimePreset
-  return defaultRuntimePreset
+    return getMetadataForNetwork(eth2Network.get).cfg
+  return defaultRuntimeConfig
 
 proc extractGenesisValidatorRootFromSnapshop*(
     snapshot: string): Eth2Digest {.raises: [Defect, IOError, SszError].} =

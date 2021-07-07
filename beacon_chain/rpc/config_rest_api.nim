@@ -18,10 +18,7 @@ import
 logScope: topics = "rest_config"
 
 func getDepositAddress(node: BeaconNode): string =
-  if isNil(node.eth1Monitor):
-    ""
-  else:
-    $node.eth1Monitor.depositContractAddress
+  $node.runtimePreset.DEPOSIT_CONTRACT_ADDRESS
 
 proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
@@ -45,9 +42,9 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
         MAX_VALIDATORS_PER_COMMITTEE:
           Base10.toString(MAX_VALIDATORS_PER_COMMITTEE),
         MIN_PER_EPOCH_CHURN_LIMIT:
-          Base10.toString(MIN_PER_EPOCH_CHURN_LIMIT),
+          Base10.toString(node.runtimePreset.MIN_PER_EPOCH_CHURN_LIMIT),
         CHURN_LIMIT_QUOTIENT:
-          Base10.toString(CHURN_LIMIT_QUOTIENT),
+          Base10.toString(node.runtimePreset.CHURN_LIMIT_QUOTIENT),
         SHUFFLE_ROUND_COUNT:
           Base10.toString(SHUFFLE_ROUND_COUNT),
         MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
@@ -73,11 +70,11 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
         EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION:
           Base10.toString(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION),
         SECONDS_PER_ETH1_BLOCK:
-          Base10.toString(SECONDS_PER_ETH1_BLOCK),
+          Base10.toString(node.runtimePreset.SECONDS_PER_ETH1_BLOCK),
         DEPOSIT_CHAIN_ID:
-          Base10.toString(uint64(DEPOSIT_CHAIN_ID)),
+          Base10.toString(uint64(node.runtimePreset.DEPOSIT_CHAIN_ID)),
         DEPOSIT_NETWORK_ID:
-          Base10.toString(uint64(DEPOSIT_NETWORK_ID)),
+          Base10.toString(uint64(node.runtimePreset.DEPOSIT_NETWORK_ID)),
         DEPOSIT_CONTRACT_ADDRESS:
           node.getDepositAddress(),
         MIN_DEPOSIT_AMOUNT:
@@ -85,7 +82,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
         MAX_EFFECTIVE_BALANCE:
           Base10.toString(MAX_EFFECTIVE_BALANCE),
         EJECTION_BALANCE:
-          Base10.toString(EJECTION_BALANCE),
+          Base10.toString(node.runtimePreset.EJECTION_BALANCE),
         EFFECTIVE_BALANCE_INCREMENT:
           Base10.toString(EFFECTIVE_BALANCE_INCREMENT),
         GENESIS_FORK_VERSION:
@@ -95,7 +92,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
         GENESIS_DELAY:
           Base10.toString(node.runtimePreset.GENESIS_DELAY),
         SECONDS_PER_SLOT:
-          Base10.toString(SECONDS_PER_SLOT),
+          Base10.toString(uint64(SECONDS_PER_SLOT)),
         MIN_ATTESTATION_INCLUSION_DELAY:
           Base10.toString(MIN_ATTESTATION_INCLUSION_DELAY),
         SLOTS_PER_EPOCH:
@@ -109,9 +106,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
         SLOTS_PER_HISTORICAL_ROOT:
           Base10.toString(SLOTS_PER_HISTORICAL_ROOT),
         MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
-          Base10.toString(MIN_VALIDATOR_WITHDRAWABILITY_DELAY),
+          Base10.toString(
+            node.runtimePreset.MIN_VALIDATOR_WITHDRAWABILITY_DELAY),
         SHARD_COMMITTEE_PERIOD:
-          Base10.toString(SHARD_COMMITTEE_PERIOD),
+          Base10.toString(node.runtimePreset.SHARD_COMMITTEE_PERIOD),
         MIN_EPOCHS_TO_INACTIVITY_PENALTY:
           Base10.toString(MIN_EPOCHS_TO_INACTIVITY_PENALTY),
         EPOCHS_PER_HISTORICAL_VECTOR:
@@ -164,7 +162,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/api/eth/v1/config/deposit_contract") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(
-      (chain_id: $DEPOSIT_CHAIN_ID, address: node.getDepositAddress())
+      (chain_id: $node.runtimePreset.DEPOSIT_CHAIN_ID, address: node.getDepositAddress())
     )
 
   router.redirect(

@@ -78,7 +78,7 @@ type
     db: SqStoreRef
 
     v0: BeaconChainDBV0
-    preset*: RuntimePreset
+    preset*: RuntimeConfig
     genesisDeposits*: DepositsSeq
 
     # immutableValidatorsDb only stores the total count; it's a proxy for SQL
@@ -264,7 +264,7 @@ proc loadImmutableValidators(vals: DbSeq[ImmutableValidatorData2]): seq[Immutabl
     result.add vals.get(i)
 
 proc new*(T: type BeaconChainDB,
-          preset: RuntimePreset,
+          preset: RuntimeConfig,
           dir: string,
           inMemory = false,
     ): BeaconChainDB =

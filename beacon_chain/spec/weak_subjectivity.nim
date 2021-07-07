@@ -14,18 +14,20 @@ const
   SAFETY_DECAY* = 10'u64
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/weak-subjectivity.md#calculating-the-weak-subjectivity-period
-func compute_weak_subjectivity_period(state: ForkedHashedBeaconState): uint64 =
-  var weak_subjectivity_period = MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+func compute_weak_subjectivity_period(
+    cfg: RuntimeConfig, state: ForkedHashedBeaconState): uint64 =
+  var weak_subjectivity_period = cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
   let validator_count =
     get_active_validator_indices_len(state, get_current_epoch(state))
-  if validator_count >= MIN_PER_EPOCH_CHURN_LIMIT * CHURN_LIMIT_QUOTIENT:
-    weak_subjectivity_period += SAFETY_DECAY * CHURN_LIMIT_QUOTIENT div (2 * 100)
+  if validator_count >= cfg.MIN_PER_EPOCH_CHURN_LIMIT * cfg.CHURN_LIMIT_QUOTIENT:
+    weak_subjectivity_period += SAFETY_DECAY * cfg.CHURN_LIMIT_QUOTIENT div (2 * 100)
   else:
-    weak_subjectivity_period += SAFETY_DECAY * validator_count div (2 * 100 * MIN_PER_EPOCH_CHURN_LIMIT)
+    weak_subjectivity_period +=
+      SAFETY_DECAY * validator_count div (2 * 100 * cfg.MIN_PER_EPOCH_CHURN_LIMIT)
   return weak_subjectivity_period
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/weak-subjectivity.md#checking-for-stale-weak-subjectivity-checkpoint
-func is_within_weak_subjectivity_period*(current_slot: Slot,
+func is_within_weak_subjectivity_period*(cfg: RuntimeConfig, current_slot: Slot,
                                          ws_state: ForkedHashedBeaconState,
                                          ws_checkpoint: Checkpoint): bool =
   # Clients may choose to validate the input state against the input Weak Subjectivity Checkpoint
@@ -35,7 +37,7 @@ func is_within_weak_subjectivity_period*(current_slot: Slot,
     ws_checkpoint.epoch
 
   let
-    ws_period = compute_weak_subjectivity_period(ws_state)
+    ws_period = compute_weak_subjectivity_period(cfg, ws_state)
     ws_state_epoch = compute_epoch_at_slot(getStateField(ws_state, slot))
     current_epoch = compute_epoch_at_slot(current_slot)
 

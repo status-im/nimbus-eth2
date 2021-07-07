@@ -7,9 +7,6 @@
 
 import ./testutil
 
-import # Official constants
-  ./official/test_fixture_const_sanity_check
-
 import # Unit test
   ./test_attestation_pool,
   ./test_beacon_chain_db,

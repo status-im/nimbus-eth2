@@ -61,7 +61,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   let
     (state, depositContractSnapshot) = loadGenesis(validators, false)
     genesisBlock = get_initial_beacon_block(state[].data)
-    runtimePreset = defaultRuntimePreset
+    runtimePreset = defaultRuntimeConfig
     genesisTime = float state[].data.genesis_time
 
   const altairTransitionSlot = 96.Slot
@@ -237,7 +237,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     while true:
       let nextBlockTime = lastEth1BlockAt +
-                          max(1.0, gauss(r, float SECONDS_PER_ETH1_BLOCK, 3.0))
+                          max(1.0, gauss(r, float defaultRuntimeConfig.SECONDS_PER_ETH1_BLOCK, 3.0))
       if nextBlockTime > now:
         break
 

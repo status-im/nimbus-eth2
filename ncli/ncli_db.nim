@@ -154,7 +154,7 @@ proc getBlockRange(dag: ChainDAGRef, start, ends: Slot): seq[BlockRef] =
     cur = cur.parent
   blockRefs
 
-proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
+proc cmdBench(conf: DbConf, runtimePreset: RuntimeConfig) =
   var timers: array[Timers, RunningStat]
 
   echo "Opening database..."
@@ -238,7 +238,7 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimePreset) =
 
   printTimers(false, timers)
 
-proc cmdDumpState(conf: DbConf, preset: RuntimePreset) =
+proc cmdDumpState(conf: DbConf, preset: RuntimeConfig) =
   let db = BeaconChainDB.new(preset, conf.databaseDir.string)
   defer: db.close()
 
@@ -253,7 +253,7 @@ proc cmdDumpState(conf: DbConf, preset: RuntimePreset) =
     except CatchableError as e:
       echo "Couldn't load ", stateRoot, ": ", e.msg
 
-proc cmdDumpBlock(conf: DbConf, preset: RuntimePreset) =
+proc cmdDumpBlock(conf: DbConf, preset: RuntimeConfig) =
   let db = BeaconChainDB.new(preset, conf.databaseDir.string)
   defer: db.close()
 
@@ -339,7 +339,7 @@ proc copyPrunedDatabase(
     copyDb.putHeadBlock(headBlock.get)
     copyDb.putTailBlock(tailBlock.get)
 
-proc cmdPrune(conf: DbConf, preset: RuntimePreset) =
+proc cmdPrune(conf: DbConf, preset: RuntimeConfig) =
   let
     db = BeaconChainDB.new(preset, conf.databaseDir.string)
     # TODO: add the destination as CLI paramter
@@ -351,7 +351,7 @@ proc cmdPrune(conf: DbConf, preset: RuntimePreset) =
 
   db.copyPrunedDatabase(copyDb, conf.dryRun, conf.verbose, conf.keepOldStates)
 
-proc cmdRewindState(conf: DbConf, preset: RuntimePreset) =
+proc cmdRewindState(conf: DbConf, preset: RuntimeConfig) =
   echo "Opening database..."
   let db = BeaconChainDB.new(preset, conf.databaseDir.string)
   defer: db.close()
@@ -379,7 +379,7 @@ proc atCanonicalSlot(blck: BlockRef, slot: Slot): BlockSlot =
   else:
     blck.atSlot(slot - 1).blck.atSlot(slot)
 
-proc cmdExportEra(conf: DbConf, preset: RuntimePreset) =
+proc cmdExportEra(conf: DbConf, preset: RuntimeConfig) =
   let db = BeaconChainDB.new(preset, conf.databaseDir.string)
   defer: db.close()
 
@@ -439,7 +439,7 @@ type
     first_slot_head_attester_when_first_slot_not_empty: uint64
     delays: Table[uint64, uint64]
 
-proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
+proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimeConfig) =
   echo "Opening database..."
   let
     db = BeaconChainDB.new(
@@ -569,7 +569,7 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimePreset) =
       perf.first_slot_head_attester_when_first_slot_empty,",",
       perf.first_slot_head_attester_when_first_slot_not_empty
 
-proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimePreset) =
+proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimeConfig) =
   # Create a database with performance information for every epoch
   echo "Opening database..."
   let

@@ -163,7 +163,7 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
     let flags = if skipBLS: {skipBlsValidation}
                 else: {}
     let success = state_transition(
-      defaultRuntimePreset, state[], signedBlock, cache, rewards, flags,
+      defaultRuntimeConfig, state[], signedBlock, cache, rewards, flags,
       noRollback, FAR_FUTURE_SLOT)
     echo "State transition status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
@@ -211,7 +211,7 @@ template genProcessEpochScenario(name, transitionFn: untyped, needCache: static 
 proc process_deposit(state: var BeaconState;
                      deposit: Deposit;
                      flags: UpdateFlags = {}): Result[void, cstring] =
-  process_deposit(defaultRuntimePreset, state, deposit, flags)
+  process_deposit(defaultRuntimeConfig, state, deposit, flags)
 
 template processBlockScenarioImpl(
            dir, preState: string, skipBLS: bool,

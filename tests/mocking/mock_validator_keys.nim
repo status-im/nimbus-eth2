@@ -46,10 +46,10 @@ func genMockPubKeys(pubkeys: var openArray[ValidatorPubKey],
     pubkeys[i] = toPubKey(privkeys[i]).toPubKey()
 
 # Ref array necessary to limit stack usage / binary size
-var MockPrivKeys* = newSeq[ValidatorPrivKey](defaultRuntimePreset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT)
+var MockPrivKeys* = newSeq[ValidatorPrivKey](defaultRuntimeConfig.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT)
 genMockPrivKeys(MockPrivKeys)
 
-var MockPubKeys* = newSeq[ValidatorPubKey](defaultRuntimePreset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT)
+var MockPubKeys* = newSeq[ValidatorPubKey](defaultRuntimeConfig.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT)
 genMockPubKeys(MockPubKeys, MockPrivKeys)
 
 type MockKey = ValidatorPrivKey or ValidatorPubKey
@@ -60,7 +60,7 @@ template `[]`*[N: static int](a: array[N, MockKey], idx: ValidatorIndex): MockKe
 when isMainModule:
   echo "========================================"
   echo "Mock keys"
-  for i in 0 ..< defaultRuntimePreset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
+  for i in 0 ..< defaultRuntimeConfig.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
     echo "  validator ", i
     echo "    seckey: ", MockPrivKeys[i].toHex()
     echo "    pubkey: ", MockPubKeys[i]

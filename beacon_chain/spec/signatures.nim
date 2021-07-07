@@ -163,7 +163,7 @@ proc verify_attestation_signature*(
     blsFastAggregateVerify(pubkeys, signing_root.data, signature)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#deposits
-func get_deposit_signature*(preset: RuntimePreset,
+func get_deposit_signature*(preset: RuntimeConfig,
                             deposit: DepositData,
                             privkey: ValidatorPrivKey): CookedSig =
   let
@@ -174,7 +174,7 @@ func get_deposit_signature*(preset: RuntimePreset,
 
   blsSign(privKey, signing_root.data)
 
-proc verify_deposit_signature*(preset: RuntimePreset,
+proc verify_deposit_signature*(preset: RuntimeConfig,
                                deposit: DepositData): bool =
   let
     deposit_message = deposit.getDepositMessage()

@@ -15,7 +15,7 @@ import "."/[testutil, testdbutil]
 
 proc getExitPool(): auto =
   let dag =
-    init(ChainDAGRef, defaultRuntimePreset, makeTestDB(SLOTS_PER_EPOCH * 3))
+    init(ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3))
   newClone(ExitPool.init(dag, QuarantineRef.init(keys.newRng())))
 
 suite "Exit pool testing suite":

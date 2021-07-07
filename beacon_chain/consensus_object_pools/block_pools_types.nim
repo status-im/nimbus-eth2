@@ -160,7 +160,7 @@ type
 
     updateFlags*: UpdateFlags
 
-    runtimePreset*: RuntimePreset
+    cfg*: RuntimeConfig
 
     epochRefs*: array[32, EpochRef] ##\
       ## Cached information about a particular epoch ending with the given

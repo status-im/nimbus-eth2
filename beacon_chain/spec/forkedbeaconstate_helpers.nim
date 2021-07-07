@@ -179,13 +179,14 @@ proc check_proposer_slashing*(
     check_proposer_slashing(state.hbsAltair.data, proposer_slashing, flags)
 
 proc check_voluntary_exit*(
-    state: ForkedHashedBeaconState; signed_voluntary_exit: SomeSignedVoluntaryExit;
+    cfg: RuntimeConfig, state: ForkedHashedBeaconState;
+    signed_voluntary_exit: SomeSignedVoluntaryExit;
     flags: UpdateFlags): Result[void, cstring] =
   case state.beaconStateFork:
   of forkPhase0:
-    check_voluntary_exit(state.hbsPhase0.data, signed_voluntary_exit, flags)
+    check_voluntary_exit(cfg, state.hbsPhase0.data, signed_voluntary_exit, flags)
   of forkAltair:
-    check_voluntary_exit(state.hbsAltair.data, signed_voluntary_exit, flags)
+    check_voluntary_exit(cfg, state.hbsAltair.data, signed_voluntary_exit, flags)
 
 # Derived utilities
 
@@ -204,14 +205,14 @@ func get_previous_epoch*(stateData: ForkedHashedBeaconState): Epoch =
     current_epoch - 1
 
 func init*(T: type ForkDigests,
-           runtimePreset: RuntimePreset,
+           cfg: RuntimeConfig,
            genesisValidatorsRoot: Eth2Digest): T =
   let altairForkDigest = compute_fork_digest(
-    runtimePreset.ALTAIR_FORK_VERSION,
+    cfg.ALTAIR_FORK_VERSION,
     genesisValidatorsRoot)
 
   T(phase0: compute_fork_digest(
-      runtimePreset.GENESIS_FORK_VERSION,
+      cfg.GENESIS_FORK_VERSION,
       genesisValidatorsRoot),
     altair: altairForkDigest,
     altairTopicPrefix: $altairForkDigest)

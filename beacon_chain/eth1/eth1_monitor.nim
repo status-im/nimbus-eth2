@@ -70,7 +70,7 @@ type
 
   Eth1Chain* = object
     db: BeaconChainDB
-    preset: RuntimePreset
+    cfg: RuntimeConfig
     blocks: Deque[Eth1Block]
     blocksByHash: Table[BlockHash, Eth1Block]
     finalizedBlockHash: Eth2Digest
@@ -160,19 +160,19 @@ when hasGenesisDetection:
   import spec/[beaconstate, signatures]
 
   template hasEnoughValidators(m: Eth1Monitor, blk: Eth1Block): bool =
-    blk.activeValidatorsCount >= m.preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT
+    blk.activeValidatorsCount >= m.cfg.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT
 
   func chainHasEnoughValidators(m: Eth1Monitor): bool =
     if m.eth1Chain.blocks.len > 0:
       m.hasEnoughValidators(m.eth1Chain.blocks[^1])
     else:
       m.knownStart.depositContractState.depositCountU64 >=
-        m.preset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT
+        m.cfg.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT
 
   func isAfterMinGenesisTime(m: Eth1Monitor, blk: Eth1Block): bool =
     doAssert blk.timestamp != 0
-    let t = genesis_time_from_eth1_timestamp(m.preset, uint64 blk.timestamp)
-    t >= m.preset.MIN_GENESIS_TIME
+    let t = genesis_time_from_eth1_timestamp(m.cfg, uint64 blk.timestamp)
+    t >= m.cfg.MIN_GENESIS_TIME
 
   func isGenesisCandidate(m: Eth1Monitor, blk: Eth1Block): bool =
     m.hasEnoughValidators(blk) and m.isAfterMinGenesisTime(blk)
@@ -202,7 +202,7 @@ when hasGenesisDetection:
     var deposits = m.allGenesisDepositsUpTo(eth1Block.voteData.deposit_count)
 
     result = initialize_beacon_state_from_eth1(
-      m.preset,
+      m.cfg,
       eth1Block.voteData.block_hash,
       eth1Block.timestamp.uint64,
       deposits, {})
@@ -213,7 +213,7 @@ when hasGenesisDetection:
   proc produceDerivedData(m: Eth1Monitor, deposit: DepositData) =
     let htr = hash_tree_root(deposit)
 
-    if verify_deposit_signature(m.preset, deposit):
+    if verify_deposit_signature(m.cfg, deposit):
       let pubkey = deposit.pubkey
       if pubkey notin m.genesisValidatorKeyToIndex:
         let idx = ValidatorIndex m.genesisValidators.len
@@ -229,8 +229,8 @@ when hasGenesisDetection:
 template blocks*(m: Eth1Monitor): Deque[Eth1Block] =
   m.eth1Chain.blocks
 
-template preset(m: Eth1Monitor): auto =
-  m.eth1Chain.preset
+template cfg(m: Eth1Monitor): auto =
+  m.eth1Chain.cfg
 
 template finalizedDepositsMerkleizer(m: Eth1Monitor): auto =
   m.eth1Chain.finalizedDepositsMerkleizer
@@ -276,9 +276,9 @@ proc fixupWeb3Urls*(web3Url: var string) =
 template toGaugeValue(x: Quantity): int64 =
   toGaugeValue(distinctBase x)
 
-# TODO: Add preset validation
+# TODO: Add cfg validation
 # MIN_GENESIS_ACTIVE_VALIDATOR_COUNT should be larger than SLOTS_PER_EPOCH
-#  doAssert SECONDS_PER_ETH1_BLOCK * preset.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
+#  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
 #             "Invalid configuration: GENESIS_DELAY is set too low"
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
@@ -294,11 +294,11 @@ func voting_period_start_time*(state: ForkedHashedBeaconState): uint64 =
     getStateField(state, genesis_time), eth1_voting_period_start_slot)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
-func is_candidate_block(preset: RuntimePreset,
+func is_candidate_block(cfg: RuntimeConfig,
                         blk: Eth1Block,
                         period_start: uint64): bool =
-  (blk.timestamp + SECONDS_PER_ETH1_BLOCK * preset.ETH1_FOLLOW_DISTANCE <= period_start) and
-  (blk.timestamp + SECONDS_PER_ETH1_BLOCK * preset.ETH1_FOLLOW_DISTANCE * 2 >= period_start)
+  (blk.timestamp + cfg.SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE <= period_start) and
+  (blk.timestamp + cfg.SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE * 2 >= period_start)
 
 func asEth2Digest*(x: BlockHash): Eth2Digest =
   Eth2Digest(data: array[32, byte](x))
@@ -330,7 +330,7 @@ func makeSuccessorWithoutDeposits(existingBlock: Eth1Block,
 func latestCandidateBlock(chain: Eth1Chain, periodStart: uint64): Eth1Block =
   for i in countdown(chain.blocks.len - 1, 0):
     let blk = chain.blocks[i]
-    if is_candidate_block(chain.preset, blk, periodStart):
+    if is_candidate_block(chain.cfg, blk, periodStart):
       return blk
 
 proc popFirst(chain: var Eth1Chain) =
@@ -712,7 +712,7 @@ proc getBlockProposalData*(chain: var Eth1Chain,
     if eth1Block != nil and
        eth1Block.voteData.deposit_root == vote.deposit_root and
        vote.deposit_count >= getStateField(state, eth1_data).deposit_count and
-       is_candidate_block(chain.preset, eth1Block, periodStart):
+       is_candidate_block(chain.cfg, eth1Block, periodStart):
       otherVotesCountTable.inc vote
     else:
       debug "Ignoring eth1 vote",
@@ -796,20 +796,19 @@ template getOrDefault[T, E](r: Result[T, E]): T =
   type TT = T
   get(r, default(TT))
 
-proc init*(T: type Eth1Chain, preset: RuntimePreset, db: BeaconChainDB): T =
+proc init*(T: type Eth1Chain, cfg: RuntimeConfig, db: BeaconChainDB): T =
   let finalizedDeposits = db.getEth2FinalizedTo().getOrDefault()
   let m = finalizedDeposits.createMerkleizer
 
   T(db: db,
-    preset: preset,
+    cfg: cfg,
     finalizedBlockHash: finalizedDeposits.eth1Block,
     finalizedDepositsMerkleizer: finalizedDeposits.createMerkleizer)
 
 proc init*(T: type Eth1Monitor,
-           preset: RuntimePreset,
+           cfg: RuntimeConfig,
            db: BeaconChainDB,
            web3Urls: seq[string],
-           depositContractAddress: Eth1Address,
            depositContractSnapshot: DepositContractSnapshot,
            eth1Network: Option[Eth1Network]): T =
   doAssert web3Urls.len > 0
@@ -821,8 +820,8 @@ proc init*(T: type Eth1Monitor,
   putInitialDepositContractSnapshot(db, depositContractSnapshot)
 
   T(state: Initialized,
-    eth1Chain: Eth1Chain.init(preset, db),
-    depositContractAddress: depositContractAddress,
+    eth1Chain: Eth1Chain.init(cfg, db),
+    depositContractAddress: cfg.DEPOSIT_CONTRACT_ADDRESS,
     web3Urls: web3Urls,
     eth1Network: eth1Network,
     eth1Progress: newAsyncEvent())
@@ -860,7 +859,7 @@ const
   votedBlocksSafetyMargin = 50
 
 proc earliestBlockOfInterest(m: Eth1Monitor): Eth1BlockNumber =
-  m.latestEth1BlockNumber - (2 * m.preset.ETH1_FOLLOW_DISTANCE) - votedBlocksSafetyMargin
+  m.latestEth1BlockNumber - (2 * m.cfg.ETH1_FOLLOW_DISTANCE) - votedBlocksSafetyMargin
 
 
 
@@ -1119,10 +1118,10 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
     m.eth1Progress.clear()
 
-    if m.latestEth1BlockNumber <= m.preset.ETH1_FOLLOW_DISTANCE:
+    if m.latestEth1BlockNumber <= m.cfg.ETH1_FOLLOW_DISTANCE:
       continue
 
-    let targetBlock = m.latestEth1BlockNumber - m.preset.ETH1_FOLLOW_DISTANCE
+    let targetBlock = m.latestEth1BlockNumber - m.cfg.ETH1_FOLLOW_DISTANCE
     if targetBlock <= eth1SyncedTo:
       continue
 
@@ -1193,7 +1192,7 @@ proc testWeb3Provider*(web3Url: Uri,
 when hasGenesisDetection:
   proc init*(T: type Eth1Monitor,
              db: BeaconChainDB,
-             preset: RuntimePreset,
+             cfg: RuntimeConfig,
              web3Urls: seq[string],
              depositContractAddress: Eth1Address,
              depositContractDeployedAt: BlockHashOrNumber,
@@ -1237,7 +1236,7 @@ when hasGenesisDetection:
 
       var monitor = Eth1Monitor.init(
         db,
-        preset,
+        cfg,
         web3Urls,
         depositContractAddress,
         depositContractSnapshot,
@@ -1266,8 +1265,8 @@ when hasGenesisDetection:
 
     while startBlock.number + 1 < endBlock.number:
       let
-        MIN_GENESIS_TIME = m.preset.MIN_GENESIS_TIME
-        startBlockTime = genesis_time_from_eth1_timestamp(m.preset, startBlock.timestamp)
+        MIN_GENESIS_TIME = m.cfg.MIN_GENESIS_TIME
+        startBlockTime = genesis_time_from_eth1_timestamp(m.cfg, startBlock.timestamp)
         secondsPerBlock = float(endBlock.timestamp - startBlock.timestamp) /
                           float(endBlock.number - startBlock.number)
         blocksToJump = max(float(MIN_GENESIS_TIME - startBlockTime) / secondsPerBlock, 1.0)
@@ -1281,7 +1280,7 @@ when hasGenesisDetection:
       candidateAsEth1Block.voteData.block_hash = candidateBlock.hash.asEth2Digest
 
       let candidateGenesisTime = genesis_time_from_eth1_timestamp(
-        m.preset, candidateBlock.timestamp.uint64)
+        m.cfg, candidateBlock.timestamp.uint64)
 
       notice "Probing possible genesis block",
         `block` = candidateBlock.number.uint64,

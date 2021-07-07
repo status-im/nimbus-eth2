@@ -24,7 +24,7 @@ proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): Hashed
     )
 
   initialize_hashed_beacon_state_from_eth1(
-    defaultRuntimePreset, eth1BlockHash, 0, deposits, {})
+    defaultRuntimeConfig, eth1BlockHash, 0, deposits, {})
 
 when isMainModule:
   # Smoke test

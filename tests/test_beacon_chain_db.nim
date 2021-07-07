@@ -54,13 +54,13 @@ func withDigest(blck: altair.TrustedBeaconBlock):
 suite "Beacon chain DB" & preset():
   test "empty database" & preset():
     var
-      db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
+      db = BeaconChainDB.new(defaultRuntimeConfig, "", inMemory = true)
     check:
       db.getPhase0StateRef(Eth2Digest()).isNil
       db.getBlock(Eth2Digest()).isNone
 
   test "sanity check phase 0 blocks" & preset():
-    var db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
+    var db = BeaconChainDB.new(defaultRuntimeConfig, "", inMemory = true)
 
     let
       signedBlock = withDigest((phase0.TrustedBeaconBlock)())
@@ -89,7 +89,7 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Altair blocks" & preset():
-    var db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
+    var db = BeaconChainDB.new(defaultRuntimeConfig, "", inMemory = true)
 
     let
       signedBlock = withDigest((altair.TrustedBeaconBlock)())
@@ -120,7 +120,7 @@ suite "Beacon chain DB" & preset():
   test "sanity check phase 0 states" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db)
       testStates = getTestStates(dag.headState.data)
 
     # Ensure transitions beyond just adding validators and increasing slots
@@ -145,7 +145,7 @@ suite "Beacon chain DB" & preset():
   test "sanity check Altair states" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db)
       testStates = getTestStates(dag.headState.data, true)
 
     # Ensure transitions beyond just adding validators and increasing slots
@@ -170,7 +170,7 @@ suite "Beacon chain DB" & preset():
   test "sanity check phase 0 states, reusing buffers" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db)
 
     let stateBuffer = (phase0.BeaconStateRef)()
     var testStates = getTestStates(dag.headState.data)
@@ -198,7 +198,7 @@ suite "Beacon chain DB" & preset():
   test "sanity check Altair states, reusing buffers" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db)
 
     let stateBuffer = (altair.BeaconStateRef)()
     var testStates = getTestStates(dag.headState.data, true)
@@ -226,7 +226,7 @@ suite "Beacon chain DB" & preset():
   test "sanity check phase 0 getState rollback" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db)
       state = (ref ForkedHashedBeaconState)(
         beaconStateFork: forkPhase0,
         hbsPhase0: phase0.HashedBeaconState(data: phase0.BeaconState(
@@ -248,7 +248,7 @@ suite "Beacon chain DB" & preset():
   test "sanity check Altair and cross-fork getState rollback" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimePreset, db)
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db)
       state = (ref ForkedHashedBeaconState)(
         beaconStateFork: forkAltair,
         hbsAltair: altair.HashedBeaconState(data: altair.BeaconState(
@@ -272,7 +272,7 @@ suite "Beacon chain DB" & preset():
 
   test "find ancestors" & preset():
     var
-      db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
+      db = BeaconChainDB.new(defaultRuntimeConfig, "", inMemory = true)
 
     let
       a0 = withDigest(
@@ -318,11 +318,11 @@ suite "Beacon chain DB" & preset():
     # serialization where an all-zero default-initialized bls signature could
     # not be deserialized because the deserialization was too strict.
     var
-      db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
+      db = BeaconChainDB.new(defaultRuntimeConfig, "", inMemory = true)
 
     let
       state = initialize_beacon_state_from_eth1(
-        defaultRuntimePreset, eth1BlockHash, 0,
+        defaultRuntimeConfig, eth1BlockHash, 0,
         makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation})
       root = hash_tree_root(state[])
 
@@ -339,7 +339,7 @@ suite "Beacon chain DB" & preset():
 
   test "sanity check state diff roundtrip" & preset():
     var
-      db = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
+      db = BeaconChainDB.new(defaultRuntimeConfig, "", inMemory = true)
 
     # TODO htr(diff) probably not interesting/useful, but stand-in
     let

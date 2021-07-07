@@ -52,12 +52,12 @@ proc runTest(testName, testDir, unitTestName: string) =
 
         if hasPostState:
           let success = state_transition(
-            defaultRuntimePreset, fhPreState[], blck, cache, rewards, flags = {},
+            defaultRuntimeConfig, fhPreState[], blck, cache, rewards, flags = {},
             noRollback, FAR_FUTURE_SLOT)
           doAssert success, "Failure when applying block " & $i
         else:
           let success = state_transition(
-            defaultRuntimePreset, fhPreState[], blck, cache, rewards, flags = {},
+            defaultRuntimeConfig, fhPreState[], blck, cache, rewards, flags = {},
             noRollback, FAR_FUTURE_SLOT)
           doAssert (i + 1 < numBlocks) or not success,
             "We didn't expect these invalid blocks to be processed"

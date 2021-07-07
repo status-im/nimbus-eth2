@@ -40,8 +40,9 @@ proc runTest(identifier: string) =
 
       check:
         process_slots(
-          fhPreState[], getStateField(fhPreState[], slot) + num_slots, cache,
-          rewards, {}, FAR_FUTURE_SLOT)
+          defaultRuntimeConfig, fhPreState[],
+          getStateField(fhPreState[], slot) + num_slots, cache, rewards, {},
+          FAR_FUTURE_SLOT)
 
         getStateRoot(fhPreState[]) == postState[].hash_tree_root()
       let newPreState = newClone(fhPreState.hbsAltair.data)

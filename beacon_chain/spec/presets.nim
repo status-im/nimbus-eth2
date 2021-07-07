@@ -10,71 +10,346 @@
 import
   std/[macros, strutils, parseutils, tables],
   stew/endians2,
-  preset_values
+  web3/[ethtypes]
 
 export
-  PresetValue, toBytesBE
+  toBytesBE
+
+const
+  BLS_WITHDRAWAL_PREFIX*: byte = 0
+
+  # Constants from `validator.md` not covered by config/presets in the spec
+  TARGET_AGGREGATORS_PER_COMMITTEE*: uint64 = 16
+  RANDOM_SUBNETS_PER_VALIDATOR*: uint64 = 1
+  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64 = 256
 
 type
   Slot* = distinct uint64
   Epoch* = distinct uint64
   Version* = distinct array[4, byte]
+  Eth1Address* = ethtypes.Address
 
-  RuntimePreset* = object
-    GENESIS_FORK_VERSION*: Version
-    ALTAIR_FORK_VERSION*: Version
-    GENESIS_DELAY*: uint64
+  RuntimeConfig* = object
+    ## https://github.com/ethereum/eth2.0-specs/tree/1d5c4ecffbadc70b62189cb4219be055b8efa2e9/configs
+
+    PRESET_BASE*: string
+
+    # Genesis
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64
     MIN_GENESIS_TIME*: uint64
+    GENESIS_FORK_VERSION*: Version
+    GENESIS_DELAY*: uint64
+
+    # Altair
+    ALTAIR_FORK_VERSION*: Version
+    ALTAIR_FORK_EPOCH*: Epoch
+
+    # Merge
+    MERGE_FORK_VERSION*: Version
+    MERGE_FORK_EPOCH*: Epoch
+
+    # Sharding
+    SHARDING_FORK_VERSION*: Version
+    SHARDING_FORK_EPOCH*: Epoch
+
+    TRANSITION_TOTAL_DIFFICULTY*: uint64
+
+    # SECONDS_PER_SLOT*: uint64
+    SECONDS_PER_ETH1_BLOCK*: uint64
+    MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
+    SHARD_COMMITTEE_PERIOD*: uint64
     ETH1_FOLLOW_DISTANCE*: uint64
 
+    INACTIVITY_SCORE_BIAS*: uint64
+    INACTIVITY_SCORE_RECOVERY_RATE*: uint64
+    EJECTION_BALANCE*: uint64
+    MIN_PER_EPOCH_CHURN_LIMIT*: uint64
+    CHURN_LIMIT_QUOTIENT*: uint64
+
+    DEPOSIT_CHAIN_ID*: uint64
+    DEPOSIT_NETWORK_ID*: uint64
+    DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
+
   PresetFile* = object
-    values*: Table[PresetValue, TaintedString]
-    missingValues*: set[PresetValue]
+    values*: Table[TaintedString, TaintedString]
+    missingValues*: seq[string]
 
   PresetFileError* = object of CatchableError
 
 const
   const_preset* {.strdefine.} = "mainnet"
 
-  runtimeValues* = {
-    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT,
-    MIN_GENESIS_TIME,
-    GENESIS_FORK_VERSION,
-    ALTAIR_FORK_VERSION,
-    GENESIS_DELAY,
-    ETH1_FOLLOW_DISTANCE,
-  }
-
   # These constants cannot really be overriden in a preset.
   # If we encounter them, we'll just ignore the preset value.
-  ignoredValues* = {
-    # The deposit contract address is loaded through a dedicated
-    # metadata file. It would break the property we are exploiting
-    # right now that all preset values can be parsed as uint64
-    DEPOSIT_CONTRACT_ADDRESS,
+  ignoredValues* = [
+    "SECONDS_PER_SLOT",
 
-    # These are defined as an enum in datatypes.nim:
-    DOMAIN_BEACON_PROPOSER,
-    DOMAIN_BEACON_ATTESTER,
-    DOMAIN_RANDAO,
-    DOMAIN_DEPOSIT,
-    DOMAIN_VOLUNTARY_EXIT,
-    DOMAIN_SELECTION_PROOF,
-    DOMAIN_AGGREGATE_AND_PROOF,
-    DOMAIN_SYNC_COMMITTEE,
-    DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF,
-    DOMAIN_CONTRIBUTION_AND_PROOF,
-    CONFIG_NAME
-  }
+    "BLS_WITHDRAWAL_PREFIX",
 
-  presetValueTypes* = {
-    ALTAIR_FORK_VERSION: "Version",
-    BLS_WITHDRAWAL_PREFIX: "byte",
-    GENESIS_FORK_VERSION: "Version",
-  }.toTable
+    "MAX_COMMITTEES_PER_SLOT",
+    "TARGET_COMMITTEE_SIZE",
+    "MAX_VALIDATORS_PER_COMMITTEE",
+    "SHUFFLE_ROUND_COUNT",
+    "HYSTERESIS_QUOTIENT",
+    "HYSTERESIS_DOWNWARD_MULTIPLIER",
+    "HYSTERESIS_UPWARD_MULTIPLIER",
+    "SAFE_SLOTS_TO_UPDATE_JUSTIFIED",
+    "MIN_DEPOSIT_AMOUNT",
+    "MAX_EFFECTIVE_BALANCE",
+    "EFFECTIVE_BALANCE_INCREMENT",
+    "MIN_ATTESTATION_INCLUSION_DELAY",
+    "SLOTS_PER_EPOCH",
+    "MIN_SEED_LOOKAHEAD",
+    "MAX_SEED_LOOKAHEAD",
+    "EPOCHS_PER_ETH1_VOTING_PERIOD",
+    "SLOTS_PER_HISTORICAL_ROOT",
+    "MIN_EPOCHS_TO_INACTIVITY_PENALTY",
+    "EPOCHS_PER_HISTORICAL_VECTOR",
+    "EPOCHS_PER_SLASHINGS_VECTOR",
+    "HISTORICAL_ROOTS_LIMIT",
+    "VALIDATOR_REGISTRY_LIMIT",
+    "BASE_REWARD_FACTOR",
+    "WHISTLEBLOWER_REWARD_QUOTIENT",
+    "PROPOSER_REWARD_QUOTIENT",
+    "INACTIVITY_PENALTY_QUOTIENT",
+    "MIN_SLASHING_PENALTY_QUOTIENT",
+    "PROPORTIONAL_SLASHING_MULTIPLIER",
+    "MAX_PROPOSER_SLASHINGS",
+    "MAX_ATTESTER_SLASHINGS",
+    "MAX_ATTESTATIONS",
+    "MAX_DEPOSITS",
+    "MAX_VOLUNTARY_EXITS",
 
-func parse*(T: type uint64, input: string): T
+    "TARGET_AGGREGATORS_PER_COMMITTEE",
+    "RANDOM_SUBNETS_PER_VALIDATOR",
+    "EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION",
+    "ATTESTATION_SUBNET_COUNT",
+
+    "DOMAIN_BEACON_PROPOSER",
+    "DOMAIN_BEACON_ATTESTER",
+    "DOMAIN_RANDAO",
+    "DOMAIN_DEPOSIT",
+    "DOMAIN_VOLUNTARY_EXIT",
+    "DOMAIN_SELECTION_PROOF",
+    "DOMAIN_AGGREGATE_AND_PROOF",
+    "DOMAIN_SYNC_COMMITTEE",
+    "DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF",
+    "DOMAIN_CONTRIBUTION_AND_PROOF",
+
+    "CONFIG_NAME",
+  ]
+
+  # presetValueTypes* = {
+  #   ALTAIR_FORK_VERSION: "Version",
+  #   GENESIS_FORK_VERSION: "Version",
+  # }.toTable
+
+# template getType*(presetValue: PresetValue): string =
+#   presetValueTypes.getOrDefault(presetValue, "uint64")
+
+# template toUInt64*(v: Version): uint64 =
+#   fromBytesBE(uint64, array[4, byte](v))
+
+  # result.missingValues = PresetValue.entireSet - presetValues
+
+# https://github.com/ethereum/eth2.0-specs/blob/1d5c4ecffbadc70b62189cb4219be055b8efa2e9/configs/mainnet.yaml
+const
+  mainnetRuntimeConfig* = RuntimeConfig(
+    PRESET_BASE: "mainnet",
+
+    # Genesis
+    # ---------------------------------------------------------------
+    # `2**14` (= 16,384)
+    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 16384,
+    # Dec 1, 2020, 12pm UTC
+    MIN_GENESIS_TIME: 1606824000,
+    # Mainnet initial fork version, recommend altering for testnets
+    GENESIS_FORK_VERSION: Version [byte 0x00, 0x00, 0x00, 0x00],
+    # 604800 seconds (7 days)
+    GENESIS_DELAY: 604800,
+
+
+    # Forking
+    # ---------------------------------------------------------------
+    # Some forks are disabled for now:
+    #  - These may be re-assigned to another fork-version later
+    #  - Temporarily set to max uint64 value: 2**64 - 1
+
+    # Altair
+    ALTAIR_FORK_VERSION: Version [byte 0x01, 0x00, 0x00, 0x00],
+    ALTAIR_FORK_EPOCH: Epoch(uint64.high),
+    # Merge
+    MERGE_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x00],
+    MERGE_FORK_EPOCH: Epoch(uint64.high),
+    # Sharding
+    SHARDING_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x00],
+    SHARDING_FORK_EPOCH: Epoch(uint64.high),
+
+    # TBD, 2**32 is a placeholder. Merge transition approach is in active R&D.
+    TRANSITION_TOTAL_DIFFICULTY: 4294967296'u64,
+
+
+    # Time parameters
+    # ---------------------------------------------------------------
+    # 12 seconds
+    # TODO SECONDS_PER_SLOT: 12,
+    # 14 (estimate from Eth1 mainnet)
+    SECONDS_PER_ETH1_BLOCK: 14,
+    # 2**8 (= 256) epochs ~27 hours
+    MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
+    # 2**8 (= 256) epochs ~27 hours
+    SHARD_COMMITTEE_PERIOD: 256,
+    # 2**11 (= 2,048) Eth1 blocks ~8 hours
+    ETH1_FOLLOW_DISTANCE: 2048,
+
+
+    # Validator cycle
+    # ---------------------------------------------------------------
+    # 2**2 (= 4)
+    INACTIVITY_SCORE_BIAS: 4,
+    # 2**4 (= 16)
+    INACTIVITY_SCORE_RECOVERY_RATE: 16,
+    # 2**4 * 10**9 (= 16,000,000,000) Gwei
+    EJECTION_BALANCE: 16000000000'u64,
+    # 2**2 (= 4)
+    MIN_PER_EPOCH_CHURN_LIMIT: 4,
+    # 2**16 (= 65,536)
+    CHURN_LIMIT_QUOTIENT: 65536,
+
+
+    # Deposit contract
+    # ---------------------------------------------------------------
+    # Ethereum PoW Mainnet
+    DEPOSIT_CHAIN_ID: 1,
+    DEPOSIT_NETWORK_ID: 1,
+    DEPOSIT_CONTRACT_ADDRESS: Eth1Address.fromHex("0x00000000219ab540356cBB839Cbe05303d7705Fa")
+  )
+
+  # https://github.com/ethereum/eth2.0-specs/blob/1d5c4ecffbadc70b62189cb4219be055b8efa2e9/configs/minimal.yaml
+  minimalRuntimeConfig* = RuntimeConfig(
+    # Minimal config
+
+    # Extends the minimal preset
+    PRESET_BASE: "minimal",
+
+    # Genesis
+    # ---------------------------------------------------------------
+    # [customized]
+    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 64,
+    # Jan 3, 2020
+    MIN_GENESIS_TIME: 1578009600,
+    # Highest byte set to 0x01 to avoid collisions with mainnet versioning
+    GENESIS_FORK_VERSION: Version [byte 0x00, 0x00, 0x00, 0x01],
+    # [customized] Faster to spin up testnets, but does not give validator reasonable warning time for genesis
+    GENESIS_DELAY: 300,
+
+
+    # Forking
+    # ---------------------------------------------------------------
+    # Values provided for illustrative purposes.
+    # Individual tests/testnets may set different values.
+
+    # Altair
+    ALTAIR_FORK_VERSION: Version [byte 0x01, 0x00, 0x00, 0x01],
+    ALTAIR_FORK_EPOCH: Epoch(uint64.high),
+    # Merge
+    MERGE_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x01],
+    MERGE_FORK_EPOCH: Epoch(uint64.high),
+    # Sharding
+    SHARDING_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x01],
+    SHARDING_FORK_EPOCH: Epoch(uint64.high),
+
+    # TBD, 2**32 is a placeholder. Merge transition approach is in active R&D.
+    TRANSITION_TOTAL_DIFFICULTY: 4294967296'u64,
+
+
+    # Time parameters
+    # ---------------------------------------------------------------
+    # [customized] Faster for testing purposes
+    # TODO SECONDS_PER_SLOT: 6,
+    # 14 (estimate from Eth1 mainnet)
+    SECONDS_PER_ETH1_BLOCK: 14,
+    # 2**8 (= 256) epochs
+    MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
+    # [customized] higher frequency of committee turnover and faster time to acceptable voluntary exit
+    SHARD_COMMITTEE_PERIOD: 64,
+    # [customized] process deposits more quickly, but insecure
+    ETH1_FOLLOW_DISTANCE: 16,
+
+
+    # Validator cycle
+    # ---------------------------------------------------------------
+    # 2**2 (= 4)
+    INACTIVITY_SCORE_BIAS: 4,
+    # 2**4 (= 16)
+    INACTIVITY_SCORE_RECOVERY_RATE: 16,
+    # 2**4 * 10**9 (= 16,000,000,000) Gwei
+    EJECTION_BALANCE: 16000000000'u64,
+    # 2**2 (= 4)
+    MIN_PER_EPOCH_CHURN_LIMIT: 4,
+    # 2**16 (= 65,536)
+    CHURN_LIMIT_QUOTIENT: 65536,
+
+
+    # Deposit contract
+    # ---------------------------------------------------------------
+    # Ethereum Goerli testnet
+    DEPOSIT_CHAIN_ID: 5,
+    DEPOSIT_NETWORK_ID: 5,
+    # Configured on a per testnet basis
+    # DEPOSIT_CONTRACT_ADDRESS: 0x1234567890123456789012345678901234567890
+  )
+
+when const_preset == "mainnet":
+  template defaultRuntimeConfig*: auto = mainnetRuntimeConfig
+  import
+    ./presets/mainnet
+  export mainnet
+
+  # TODO turn into runtime config
+  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12
+elif const_preset == "minimal":
+  template defaultRuntimeConfig*: auto = minimalRuntimeConfig
+
+  import
+    ./presets/minimal
+  export minimal
+
+  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
+
+else:
+  {.error: "Only mainnet and minimal presets supported".}
+  # macro createConstantsFromPreset*(path: static string): untyped =
+  #   result = newStmtList()
+
+  #   let preset = try: readPresetFile(path)
+  #                except CatchableError as err:
+  #                  error err.msg # TODO: This should be marked as noReturn
+  #                  return
+
+  #   for name, value in preset.values:
+  #     let
+  #       typ = getType(name)
+  #       value = if typ in ["int64", "uint64", "byte"]: typ & "(" & value & ")"
+  #               else: "parse(" & typ & ", \"" & value & "\")"
+  #     try:
+  #       result.add parseStmt("const $1* {.intdefine.} = $2" % [$name, value])
+  #     except ValueError:
+  #       doAssert false, "All values in the presets are printable"
+
+  #   if preset.missingValues.card > 0:
+  #     warning "Missing constants in preset: " & $preset.missingValues
+
+  # createConstantsFromPreset const_preset
+
+  # const defaultRuntimeConfig* = RuntimeConfig(
+  #   MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: MIN_GENESIS_ACTIVE_VALIDATOR_COUNT,
+  #   MIN_GENESIS_TIME: MIN_GENESIS_TIME,
+  #   GENESIS_FORK_VERSION: GENESIS_FORK_VERSION,
+  #   GENESIS_DELAY: GENESIS_DELAY,
+  #   ETH1_FOLLOW_DISTANCE: ETH1_FOLLOW_DISTANCE)
+
+func parse(T: type uint64, input: string): T
            {.raises: [ValueError, Defect].} =
   var res: BiggestUInt
   if input.len > 2 and input[0] == '0' and input[1] == 'x':
@@ -86,30 +361,29 @@ func parse*(T: type uint64, input: string): T
 
   result = uint64(res)
 
-template parse*(T: type byte, input: string): T =
+template parse(T: type byte, input: string): T =
   byte parse(uint64, input)
 
-proc parse*(T: type Version, input: string): T
+func parse(T: type Version, input: string): T
            {.raises: [ValueError, Defect].} =
   Version toBytesBE(uint32 parse(uint64, input))
 
-template parse*(T: type Slot, input: string): T =
+template parse(T: type Slot, input: string): T =
   Slot parse(uint64, input)
 
-template getType*(presetValue: PresetValue): string =
-  presetValueTypes.getOrDefault(presetValue, "uint64")
+template parse(T: type Epoch, input: string): T =
+  Epoch parse(uint64, input)
 
-template toUInt64*(v: Version): uint64 =
-  fromBytesBE(uint64, array[4, byte](v))
+template parse(T: type string, input: string): T =
+  input
 
-template entireSet(T: type enum): untyped =
-  {low(T) .. high(T)}
+template parse(T: type Eth1Address, input: string): T =
+  Eth1Address.fromHex(input)
 
-proc readPresetFile*(path: string): PresetFile
-                    {.raises: [IOError, PresetFileError, Defect].} =
+proc readRuntimeConfig*(path: string): RuntimeConfig
+                      {.raises: [IOError, PresetFileError, Defect].} =
   var
     lineNum = 0
-    presetValues = ignoredValues
 
   template lineinfo: string =
     try: "$1($2) " % [path, $lineNum]
@@ -118,6 +392,13 @@ proc readPresetFile*(path: string): PresetFile
   template fail(msg) =
     raise newException(PresetFileError, lineinfo() & msg)
 
+  result = defaultRuntimeConfig
+
+  var names: seq[string]
+  for name, field in result.fieldPairs():
+    names.add name
+
+  var values: Table[string, string]
   for line in splitLines(readFile(path)):
     inc lineNum
     if line.len == 0 or line[0] == '#': continue
@@ -126,86 +407,19 @@ proc readPresetFile*(path: string): PresetFile
     if lineParts.len != 2:
       fail "Invalid syntax: A preset file should include only assignments in the form 'ConstName: Value'"
 
-    let value = try: parseEnum[PresetValue](lineParts[0])
-                except ValueError: fail "Unrecognized constant in a preset: " & lineParts[0]
+    if lineParts[0] in ignoredValues: continue
 
-    if value in ignoredValues: continue
-    presetValues.incl value
-    result.values.add value, lineParts[1].strip
+    if lineParts[0] notin names:
+      fail "Unrecognized constant in a preset: " & lineParts[0]
+    values[lineParts[0]] = lineParts[1].strip
 
-  result.missingValues = PresetValue.entireSet - presetValues
-
-const mainnetRuntimePreset* = RuntimePreset(
-  MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 16384,
-  MIN_GENESIS_TIME: 1606824000, # Dec 1, 2020, 12pm UTC
-  GENESIS_FORK_VERSION: Version [byte 0, 0, 0, 0],
-  ALTAIR_FORK_VERSION: Version [byte 1, 0, 0, 0],
-  GENESIS_DELAY: 604800,
-  ETH1_FOLLOW_DISTANCE: 2048)
-
-const
-  minimalRuntimePreset* = RuntimePreset(
-    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 64,
-    MIN_GENESIS_TIME: 1606824000, # Dec 1, 2020, 12pm UTC
-    GENESIS_FORK_VERSION: Version [byte 0, 0, 0, 1],
-    ALTAIR_FORK_VERSION: Version [byte 1, 0, 0, 0],
-    GENESIS_DELAY: 300,
-    ETH1_FOLLOW_DISTANCE: 16)
-
-when const_preset == "mainnet":
-  template defaultRuntimePreset*: auto = mainnetRuntimePreset
-  import
-    ./presets/v1_0_1/mainnet as phase0Mainnet,
-    ./presets/altair/mainnet as altairMainnet
-
-  # https://github.com/nim-lang/Nim/issues/17511 workaround
-  static:
-    discard phase0Mainnet.CONFIG_NAME
-    discard altairMainnet.CONFIG_NAME
-
-  export phase0Mainnet, altairMainnet
-
-elif const_preset == "minimal":
-  template defaultRuntimePreset*: auto = minimalRuntimePreset
-  import
-    ./presets/v1_0_1/minimal as phase0Minimal,
-    ./presets/altair/minimal as altairMinimal
-
-  # https://github.com/nim-lang/Nim/issues/17511 workaround
-  static:
-    discard phase0Minimal.CONFIG_NAME
-    discard altairMinimal.CONFIG_NAME
-
-  export phase0Minimal, altairMinimal
-
-else:
-  macro createConstantsFromPreset*(path: static string): untyped =
-    result = newStmtList()
-
-    let preset = try: readPresetFile(path)
-                 except CatchableError as err:
-                   error err.msg # TODO: This should be marked as noReturn
-                   return
-
-    for name, value in preset.values:
-      let
-        typ = getType(name)
-        value = if typ in ["int64", "uint64", "byte"]: typ & "(" & value & ")"
-                else: "parse(" & typ & ", \"" & value & "\")"
+  for name, field in result.fieldPairs():
+    if name in values:
       try:
-        result.add parseStmt("const $1* {.intdefine.} = $2" % [$name, value])
+        field = parse(typeof(field), values[name])
       except ValueError:
-        doAssert false, "All values in the presets are printable"
+        raise (ref PresetFileError)(msg: "Unable to parse " & name)
 
-    if preset.missingValues.card > 0:
-      warning "Missing constants in preset: " & $preset.missingValues
-
-  createConstantsFromPreset const_preset
-
-  const defaultRuntimePreset* = RuntimePreset(
-    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: MIN_GENESIS_ACTIVE_VALIDATOR_COUNT,
-    MIN_GENESIS_TIME: MIN_GENESIS_TIME,
-    GENESIS_FORK_VERSION: GENESIS_FORK_VERSION,
-    GENESIS_DELAY: GENESIS_DELAY,
-    ETH1_FOLLOW_DISTANCE: ETH1_FOLLOW_DISTANCE)
-
+  if result.PRESET_BASE != const_preset:
+    raise (ref PresetFileError)(
+      msg: "Config not compatible with binary, compile with d:" & result.PRESET_BASE)

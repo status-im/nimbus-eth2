@@ -615,8 +615,8 @@ iterator get_flag_index_deltas(
       else:
         (vidx, 0.Gwei, 0.Gwei)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
-iterator get_inactivity_penalty_deltas(state: altair.BeaconState):
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
+iterator get_inactivity_penalty_deltas(cfg: RuntimeConfig, state: altair.BeaconState):
     (ValidatorIndex, Gwei) =
   ## Return the inactivity penalty deltas by considering timely target
   ## participation flags and inactivity scores.
@@ -624,6 +624,9 @@ iterator get_inactivity_penalty_deltas(state: altair.BeaconState):
     previous_epoch = get_previous_epoch(state)
     matching_target_indices =
       get_unslashed_participating_indices(state, TIMELY_TARGET_FLAG_INDEX, previous_epoch)
+    penalty_denominator =
+      cfg.INACTIVITY_SCORE_BIAS * INACTIVITY_PENALTY_QUOTIENT_ALTAIR
+
   for index in 0 ..< state.validators.len:
     # get_eligible_validator_indices()
     let v = state.validators[index]
@@ -633,8 +636,6 @@ iterator get_inactivity_penalty_deltas(state: altair.BeaconState):
 
     template vidx: untyped = index.ValidatorIndex
     if not (vidx in matching_target_indices):
-      const penalty_denominator =
-        INACTIVITY_SCORE_BIAS * INACTIVITY_PENALTY_QUOTIENT_ALTAIR
       let
         penalty_numerator = state.validators[index].effective_balance *
           state.inactivity_scores[index]
@@ -663,7 +664,7 @@ func process_rewards_and_penalties(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#rewards-and-penalties
 func process_rewards_and_penalties(
-    state: var altair.BeaconState, total_active_balance: Gwei) {.nbench.} =
+    cfg: RuntimeConfig, state: var altair.BeaconState, total_active_balance: Gwei) {.nbench.} =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
 
@@ -683,7 +684,7 @@ func process_rewards_and_penalties(
       rewards[validator_index] += reward
       penalties[validator_index] += penalty
 
-  for validator_index, penalty in get_inactivity_penalty_deltas(state):
+  for validator_index, penalty in get_inactivity_penalty_deltas(cfg, state):
     penalties[validator_index] += penalty
 
   for index in 0 ..< len(state.validators):
@@ -806,7 +807,7 @@ proc process_sync_committee_updates*(state: var altair.BeaconState) =
     state.next_sync_committee = get_next_sync_committee(state)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#inactivity-scores
-func process_inactivity_updates*(state: var altair.BeaconState) =
+func process_inactivity_updates*(cfg: RuntimeConfig, state: var altair.BeaconState) =
   # Score updates based on previous epoch participation, skip genesis epoch
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
@@ -827,7 +828,7 @@ func process_inactivity_updates*(state: var altair.BeaconState) =
     if index.ValidatorIndex in unslashed_participating_indices:
       state.inactivity_scores[index] -= min(1'u64, state.inactivity_scores[index])
     else:
-      state.inactivity_scores[index] += INACTIVITY_SCORE_BIAS
+      state.inactivity_scores[index] += cfg.INACTIVITY_SCORE_BIAS
     # Decrease the inactivity score of all eligible validators during a
     # leak-free epoch
     if not is_in_inactivity_leak(state):
@@ -835,8 +836,8 @@ func process_inactivity_updates*(state: var altair.BeaconState) =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(
-    state: var phase0.BeaconState, flags: UpdateFlags, cache: var StateCache,
-    rewards: var RewardInfo) {.nbench.} =
+    cfg: RuntimeConfig, state: var phase0.BeaconState, flags: UpdateFlags,
+    cache: var StateCache, rewards: var RewardInfo) {.nbench.} =
   let currentEpoch = get_current_epoch(state)
   trace "process_epoch",
     current_epoch = currentEpoch
@@ -861,7 +862,7 @@ proc process_epoch*(
   process_rewards_and_penalties(state, rewards)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#registry-updates
-  process_registry_updates(state, cache)
+  process_registry_updates(cfg, state, cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#slashings
   process_slashings(state, rewards.total_balances.current_epoch)
@@ -876,8 +877,8 @@ proc process_epoch*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#epoch-processing
 proc process_epoch*(
-    state: var altair.BeaconState, flags: UpdateFlags, cache: var StateCache,
-    rewards: var RewardInfo) {.nbench.} =
+    cfg: RuntimeConfig, state: var altair.BeaconState, flags: UpdateFlags,
+    cache: var StateCache, rewards: var RewardInfo) {.nbench.} =
   let currentEpoch = get_current_epoch(state)
   trace "process_epoch",
     current_epoch = currentEpoch
@@ -900,13 +901,13 @@ proc process_epoch*(
     # the finalization rules triggered.
     doAssert state.finalized_checkpoint.epoch + 3 >= currentEpoch
 
-  process_inactivity_updates(state)  # [New in Altair]
+  process_inactivity_updates(cfg, state)  # [New in Altair]
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#rewards-and-penalties-1
-  process_rewards_and_penalties(state, total_active_balance)
+  process_rewards_and_penalties(cfg, state, total_active_balance)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#registry-updates
-  process_registry_updates(state, cache)
+  process_registry_updates(cfg, state, cache)
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#slashings
   process_slashings(state, total_active_balance)
