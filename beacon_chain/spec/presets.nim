@@ -75,6 +75,7 @@ type
     missingValues*: seq[string]
 
   PresetFileError* = object of CatchableError
+  PresetIncompatible* = object of CatchableError
 
 const
   const_preset* {.strdefine.} = "mainnet"
@@ -374,7 +375,7 @@ template parse(T: type Eth1Address, input: string): T =
   Eth1Address.fromHex(input)
 
 proc readRuntimeConfig*(path: string): RuntimeConfig
-                      {.raises: [IOError, PresetFileError, Defect].} =
+                      {.raises: [IOError, PresetFileError, PresetIncompatibleError, Defect].} =
   var
     lineNum = 0
 
@@ -414,5 +415,5 @@ proc readRuntimeConfig*(path: string): RuntimeConfig
         raise (ref PresetFileError)(msg: "Unable to parse " & name)
 
   if result.PRESET_BASE != const_preset:
-    raise (ref PresetFileError)(
+    raise (ref PresetIncompatible)(
       msg: "Config not compatible with binary, compile with -d:const_preset=" & result.PRESET_BASE)

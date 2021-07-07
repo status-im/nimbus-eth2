@@ -38,8 +38,6 @@ type
     rinkeby
     goerli
 
-  PresetIncompatible* = object of CatchableError
-
   Eth2NetworkMetadata* = object
     case incompatible*: bool
     of false:
