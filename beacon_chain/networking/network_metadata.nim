@@ -67,42 +67,12 @@ type
       # `genesisData` will have `len == 0` for networks with a still
       # unknown genesis state.
       genesisData*: string
-      genesisDataPath*: string
       genesisDepositsSnapshot*: string
     else:
       incompatibilityDesc*: string
 
 const
   eth2testnetsDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-testnets"
-
-# const presetValueLoaders = genExpr(nnkBracket):
-#   for constName in PresetValue:
-#     let
-#       constNameIdent = ident $constName
-#       constType = ident getType(constName)
-
-#     yield quote do:
-#       (
-#         proc (preset: var RuntimeConfig, presetValue: string): bool
-#              {.gcsafe, noSideEffect, raises: [Defect].} =
-#           try:
-#             when PresetValue.`constNameIdent` in runtimeValues:
-#               preset.`constNameIdent` = parse(`constType`, presetValue)
-#               true
-#             elif PresetValue.`constNameIdent` in ignoredValues:
-#               true
-#             else:
-#               `constType`(`constNameIdent`) == parse(`constType`, presetValue)
-#           except CatchableError:
-#             false
-#       )
-
-  # for name, value in configData.values:
-  #   if not presetValueLoaders[name.int](result, value):
-  #     let errMsg = "The preset '" & configPath & "'is not compatible with " &
-  #                  "the current build due to an incompatible value " &
-  #                  $name & " = " & value.string
-  #     raise newException(PresetIncompatibleError, errMsg)
 
 proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
                              {.raises: [CatchableError, Defect].} =
@@ -201,22 +171,20 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: 
       of "yeerongpilly":
         yeerongpillyMetadata
       else:
-        if fileExists(networkName):
+        if fileExists(networkName / "config.yaml"):
           try:
-            Json.loadFile(networkName, Eth2NetworkMetadata)
-          except SerializationError as err:
-            echo err.formatMsg(networkName)
+            loadEth2NetworkMetadata(networkName)
+          except CatchableError as exc:
+            fatal "Cannot load network", msg = exc.msg, networkName
             quit 1
         else:
-          fatal "Unrecognized network name", networkName
+          fatal "config.yaml not found for network", networkName
           quit 1
 
   if metadata.incompatible:
     fatal "The selected network is not compatible with the current build",
             reason = metadata.incompatibilityDesc
     quit 1
-  if metadata.genesisData.len == 0 and metadata.genesisDataPath.len > 0:
-    metadata.genesisData = readFile(metadata.genesisDataPath)
   return metadata
 
 proc getRuntimePresetForNetwork*(
