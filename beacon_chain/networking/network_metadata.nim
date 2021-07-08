@@ -102,7 +102,7 @@ const
   #     let errMsg = "The preset '" & configPath & "'is not compatible with " &
   #                  "the current build due to an incompatible value " &
   #                  $name & " = " & value.string
-  #     raise newException(PresetIncompatible, errMsg)
+  #     raise newException(PresetIncompatibleError, errMsg)
 
 proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
                              {.raises: [CatchableError, Defect].} =
@@ -158,7 +158,7 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       genesisData: genesisData,
       genesisDepositsSnapshot: genesisDepositsSnapshot)
 
-  except PresetIncompatible as err:
+  except PresetIncompatibleError as err:
     Eth2NetworkMetadata(incompatible: true,
                         incompatibilityDesc: err.msg)
 

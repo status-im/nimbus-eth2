@@ -75,7 +75,7 @@ type
     missingValues*: seq[string]
 
   PresetFileError* = object of CatchableError
-  PresetIncompatible* = object of CatchableError
+  PresetIncompatibleError* = object of CatchableError
 
 const
   const_preset* {.strdefine.} = "mainnet"
@@ -415,5 +415,5 @@ proc readRuntimeConfig*(path: string): RuntimeConfig
         raise (ref PresetFileError)(msg: "Unable to parse " & name)
 
   if result.PRESET_BASE != const_preset:
-    raise (ref PresetIncompatible)(
+    raise (ref PresetIncompatibleError)(
       msg: "Config not compatible with binary, compile with -d:const_preset=" & result.PRESET_BASE)
