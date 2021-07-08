@@ -153,7 +153,7 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
     hbsPhase0: HashedBeaconState(data: parseSSZ(prePath, BeaconState)),
     beaconStateFork: forkPhase0
   )
-  state.hbsPhase0.root = hash_tree_root(state[])
+  setStateRoot(state[], hash_tree_root(state[]))
 
   for i in 0 ..< blocksQty:
     let blockPath = dir / blocksPrefix & $i & ".ssz"
@@ -164,7 +164,7 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
                 else: {}
     let success = state_transition(
       defaultRuntimePreset, state[], signedBlock, cache, rewards, flags,
-      noRollback)
+      noRollback, FAR_FUTURE_SLOT)
     echo "State transition status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
 proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
@@ -177,7 +177,7 @@ proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
   let state = (ref ForkedHashedBeaconState)(
     hbsPhase0: HashedBeaconState(data: parseSSZ(prePath, BeaconState)),
     beaconStateFork: forkPhase0)
-  state.hbsPhase0.root = hash_tree_root(state[])
+  setStateRoot(state[], hash_tree_root(state[]))
 
   # Shouldn't necessarily assert, because nbench can run test suite
   discard process_slots(
@@ -286,8 +286,11 @@ genProcessBlockScenario(runProcessProposerSlashing,
                         needFlags = true,
                         needCache = true)
 
+template do_process_attestation(state, operation, flags, cache: untyped):
+    untyped =
+  process_attestation(state, operation, flags, 0.Gwei, cache)
 genProcessBlockScenario(runProcessAttestation,
-                        process_attestation,
+                        do_process_attestation,
                         attestation,
                         Attestation,
                         needFlags = true,

@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
@@ -14,7 +14,8 @@ import
   chronicles,
   # Internal
   ../../beacon_chain/validators/[slashing_protection, slashing_protection_v2],
-  ../../beacon_chain/spec/[datatypes, digest, crypto, presets],
+  ../../beacon_chain/spec/datatypes/base,
+  ../../beacon_chain/spec/[digest, crypto, presets],
   # Test utilies
   ../testutil, ../testdbutil,
   ../official/fixtures_utils
@@ -210,7 +211,7 @@ proc runTest(identifier: string) =
     db.close()
     sqlite3db_delete(TestDir, dbname)
 
-
 suite "Slashing Interchange tests " & preset():
-  for kind, path in walkDir(InterchangeTestsDir, true):
+  for kind, path in walkDir(
+      InterchangeTestsDir, relative = true, checkDir = true):
     runTest(path)

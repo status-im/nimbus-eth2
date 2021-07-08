@@ -27,7 +27,7 @@ template runSuite(
     useCache, useTAB: static bool = false): untyped =
   suite "Official - Altair - Epoch Processing - " & testName & preset():
     doAssert dirExists(suiteDir)
-    for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}):
+    for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}, checkDir = true):
 
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
       test testName & " - " & unitTestName & preset():

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -52,13 +52,13 @@ const BLSDir = JsonTestsDir/"general"/"phase0"/"bls"
 
 suite "Official - BLS tests":
   test "Private to public key conversion":
-    for file in walkDirRec(BLSDir/"priv_to_pub"):
+    for file in walkDirRec(BLSDir/"priv_to_pub", checkDir = true):
       let t = parseTest(file, Json, BLSPrivToPub)
       let implResult = t.input.pubkey()
       check: implResult == t.output
 
   test "Message signing":
-    for file in walkDirRec(BLSDir/"sign_msg"):
+    for file in walkDirRec(BLSDir/"sign_msg", checkDir = true):
       let t = parseTest(file, Json, BLSSignMsg)
       let implResult = t.input.privkey.bls_sign(
         t.input.message,
@@ -67,13 +67,13 @@ suite "Official - BLS tests":
       check: implResult == t.output
 
   test "Aggregating signatures":
-    for file in walkDirRec(BLSDir/"aggregate_sigs"):
+    for file in walkDirRec(BLSDir/"aggregate_sigs", checkDir = true):
       let t = parseTest(file, Json, BLSAggSig)
       let implResult = t.input.combine()
       check: implResult == t.output
 
   test "Aggregating public keys":
-    for file in walkDirRec(BLSDir/"aggregate_pubkeys"):
+    for file in walkDirRec(BLSDir/"aggregate_pubkeys", checkDir = true):
       let t = parseTest(file, Json, BLSAggPubKey)
       let implResult = t.input.combine()
       check: implResult == t.output

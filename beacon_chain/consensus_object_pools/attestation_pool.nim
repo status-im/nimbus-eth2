@@ -18,7 +18,7 @@ import
     beaconstate, crypto, digest, forkedbeaconstate_helpers,
     validator],
   ../spec/datatypes/[phase0, altair],
-  ../ssz/merkleization,
+  ../ssz/[merkleization, types],
   "."/[spec_cache, blockchain_dag, block_quarantine],
   ".."/[beacon_clock, beacon_node_types, extras],
   ../fork_choice/fork_choice
@@ -312,7 +312,7 @@ proc addAttestation*(pool: var AttestationPool,
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
-                    blck: phase0.TrustedBeaconBlock,
+                    blck: phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock,
                     wallSlot: Slot) =
   ## Add a verified block to the fork choice context
   let state = pool.forkChoice.process_block(
@@ -384,6 +384,50 @@ func init(T: type AttestationCache, state: phase0.HashedBeaconState): T =
       state.data.current_epoch_attestations[i].data,
       state.data.current_epoch_attestations[i].aggregation_bits)
 
+func init(
+    T: type AttestationCache, state: altair.HashedBeaconState,
+    cache: var StateCache): T =
+  # Load attestations that are scheduled for being given rewards for
+  let
+    prev_epoch = state.data.get_previous_epoch()
+    cur_epoch = state.data.get_current_epoch()
+    prev_epoch_committees_per_slot = get_committee_count_per_slot(
+      state.data, prev_epoch, cache)
+    cur_epoch_committees_per_slot = get_committee_count_per_slot(
+      state.data, cur_epoch, cache)
+
+  template update_attestation_pool_cache(
+      epoch: Epoch, slot: Slot, participation_bitmap: untyped) =
+    for slot_committee_index in 0'u64 ..< get_committee_count_per_slot(
+        state.data, epoch, cache):
+      var
+        validator_bits =
+          CommitteeValidatorsBits.init(
+            get_beacon_committee_len(
+              state.data, slot, slot_committee_index.CommitteeIndex, cache).int)
+        i = 0
+      for index in get_beacon_committee(
+          state.data, slot, slot_committee_index.CommitteeIndex, cache):
+        if participation_bitmap[index] != 0:
+          # If any flag got set, there was an attestation from this validator.
+          validator_bits[i] = true
+        i += 1
+      result.add(
+        (slot, slot_committee_index),
+        validator_bits)
+
+  # This treats all types of rewards as equivalent, which isn't ideal
+  for slot_offset in 0 ..< SLOTS_PER_EPOCH:
+    update_attestation_pool_cache(
+      state.data.get_previous_epoch(),
+      prev_epoch.compute_start_slot_at_epoch + slot_offset,
+      state.data.previous_epoch_participation)
+
+    update_attestation_pool_cache(
+      state.data.get_current_epoch(),
+      cur_epoch.compute_start_slot_at_epoch + slot_offset,
+      state.data.current_epoch_participation)
+
 proc score(
     attCache: var AttestationCache, data: AttestationData,
     aggregation_bits: CommitteeValidatorsBits): int =
@@ -406,7 +450,7 @@ proc score(
   bitsScore
 
 proc getAttestationsForBlock*(pool: var AttestationPool,
-                              state: phase0.HashedBeaconState,
+                              state: SomeHashedBeaconState,
                               cache: var StateCache): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
@@ -425,7 +469,13 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   var
     candidates: seq[tuple[
       score: int, slot: Slot, entry: ptr AttestationEntry, validation: int]]
-    attCache = AttestationCache.init(state)
+    attCache =
+      when state is phase0.HashedBeaconState:
+        AttestationCache.init(state)
+      elif state is altair.HashedBeaconState:
+        AttestationCache.init(state, cache)
+      else:
+        static: doAssert false
 
   for i in 0..<ATTESTATION_LOOKBACK:
     if i > maxAttestationSlot: # Around genesis..
@@ -477,8 +527,11 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   var
     prevEpoch = state.data.get_previous_epoch()
     prevEpochSpace =
-      state.data.previous_epoch_attestations.maxLen -
-        state.data.previous_epoch_attestations.len()
+      when state is altair.HashedBeaconState:
+        MAX_ATTESTATIONS
+      else:
+        state.data.previous_epoch_attestations.maxLen -
+          state.data.previous_epoch_attestations.len()
 
   var res: seq[Attestation]
   let totalCandidates = candidates.len()

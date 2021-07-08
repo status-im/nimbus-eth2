@@ -8,21 +8,19 @@
 {.used.}
 
 import
+  chronicles,
   std/[options, sequtils],
   unittest2,
   stew/assign2,
   eth/keys,
+  ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/[
-    datatypes, digest, forkedbeaconstate_helpers, helpers, state_transition,
-    presets],
+    digest, forkedbeaconstate_helpers, helpers, state_transition, presets],
   ../beacon_chain/beacon_node_types,
   ../beacon_chain/[beacon_chain_db, ssz],
   ../beacon_chain/consensus_object_pools/[
     blockchain_dag, block_quarantine, block_clearance],
   ./testutil, ./testdbutil, ./testblockutil
-
-when isMainModule:
-  import chronicles # or some random compile error happens...
 
 proc `$`(x: BlockRef): string =
   $x.root
@@ -124,6 +122,7 @@ suite "Block pool processing" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
       quarantine = QuarantineRef.init(keys.newRng())
+      nilPhase0Callback: OnPhase0BlockAdded
       state = newClone(dag.headState.data)
       cache = StateCache()
       rewards = RewardInfo()
@@ -143,7 +142,7 @@ suite "Block pool processing" & preset():
 
   test "Simple block add&get" & preset():
     let
-      b1Add = dag.addRawBlock(quarantine, b1, nil)
+      b1Add = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
       b1Get = dag.get(b1.root)
 
     check:
@@ -154,7 +153,7 @@ suite "Block pool processing" & preset():
       dag.heads[0] == b1Add[]
 
     let
-      b2Add = dag.addRawBlock(quarantine, b2, nil)
+      b2Add = dag.addRawBlock(quarantine, b2, nilPhase0Callback)
       b2Get = dag.get(b2.root)
       er = dag.findEpochRef(b1Add[], b1Add[].slot.epoch)
       validators = getStateField(dag.headState.data, validators).lenu64()
@@ -183,7 +182,7 @@ suite "Block pool processing" & preset():
 
     let
       b4 = addTestBlock(state[], b2.root, cache)
-      b4Add = dag.addRawBlock(quarantine, b4, nil)
+      b4Add = dag.addRawBlock(quarantine, b4, nilPhase0Callback)
 
     check:
       b4Add[].parent == b2Add[]
@@ -231,14 +230,14 @@ suite "Block pool processing" & preset():
       blocks[2..<2].len == 0
 
   test "Reverse order block add & get" & preset():
-    let missing = dag.addRawBlock(quarantine, b2, nil)
+    let missing = dag.addRawBlock(quarantine, b2, nilPhase0Callback)
     check: missing.error == (ValidationResult.Ignore, MissingParent)
 
     check:
       dag.get(b2.root).isNone() # Unresolved, shouldn't show up
       FetchRecord(root: b1.root) in quarantine.checkMissing()
 
-    let status = dag.addRawBlock(quarantine, b1, nil)
+    let status = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
 
     check: status.isOk
 
@@ -275,8 +274,8 @@ suite "Block pool processing" & preset():
 
   test "Adding the same block twice returns a Duplicate error" & preset():
     let
-      b10 = dag.addRawBlock(quarantine, b1, nil)
-      b11 = dag.addRawBlock(quarantine, b1, nil)
+      b10 = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
+      b11 = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
 
     check:
       b11.error == (ValidationResult.Ignore, Duplicate)
@@ -284,7 +283,7 @@ suite "Block pool processing" & preset():
 
   test "updateHead updates head and headState" & preset():
     let
-      b1Add = dag.addRawBlock(quarantine, b1, nil)
+      b1Add = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
 
     dag.updateHead(b1Add[], quarantine)
     dag.pruneAtFinalization()
@@ -295,8 +294,8 @@ suite "Block pool processing" & preset():
 
   test "updateStateData sanity" & preset():
     let
-      b1Add = dag.addRawBlock(quarantine, b1, nil)
-      b2Add = dag.addRawBlock(quarantine, b2, nil)
+      b1Add = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
+      b2Add = dag.addRawBlock(quarantine, b2, nilPhase0Callback)
       bs1 = BlockSlot(blck: b1Add[], slot: b1.message.slot)
       bs1_3 = b1Add[].atSlot(3.Slot)
       bs2_3 = b2Add[].atSlot(3.Slot)
@@ -348,6 +347,7 @@ suite "chain DAG finalization tests" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimePreset, db)
       quarantine = QuarantineRef.init(keys.newRng())
+      nilPhase0Callback: OnPhase0BlockAdded
       cache = StateCache()
       rewards = RewardInfo()
 
@@ -363,7 +363,7 @@ suite "chain DAG finalization tests" & preset():
 
     let lateBlock = addTestBlock(tmpState[], dag.head.root, cache)
     block:
-      let status = dag.addRawBlock(quarantine, blck, nil)
+      let status = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
       check: status.isOk()
 
     assign(tmpState[], dag.headState.data)
@@ -378,7 +378,7 @@ suite "chain DAG finalization tests" & preset():
         tmpState[], dag.head.root, cache,
         attestations = makeFullAttestations(
           tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {}))
-      let added = dag.addRawBlock(quarantine, blck, nil)
+      let added = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
       dag.pruneAtFinalization()
@@ -420,7 +420,7 @@ suite "chain DAG finalization tests" & preset():
     block:
       # The late block is a block whose parent was finalized long ago and thus
       # is no longer a viable head candidate
-      let status = dag.addRawBlock(quarantine, lateBlock, nil)
+      let status = dag.addRawBlock(quarantine, lateBlock, nilPhase0Callback)
       check: status.error == (ValidationResult.Ignore, Unviable)
 
     block:
@@ -449,7 +449,7 @@ suite "chain DAG finalization tests" & preset():
         assign(prestate[], dag.headState.data)
 
       let blck = makeTestBlock(dag.headState.data, dag.head.root, cache)
-      let added = dag.addRawBlock(quarantine, blck, nil)
+      let added = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
       dag.pruneAtFinalization()
@@ -468,21 +468,21 @@ suite "chain DAG finalization tests" & preset():
     let blck = makeTestBlock(prestate[], dag.head.parent.root, cache)
 
     # Add block, but don't update head
-    let added = dag.addRawBlock(quarantine, blck, nil)
+    let added = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
     check: added.isOk()
 
     var
       dag2 = init(ChainDAGRef, defaultRuntimePreset, db)
 
     # check that we can apply the block after the orphaning
-    let added2 = dag2.addRawBlock(quarantine, blck, nil)
+    let added2 = dag2.addRawBlock(quarantine, blck, nilPhase0Callback)
     check: added2.isOk()
 
   test "init with gaps" & preset():
     for blck in makeTestBlocks(
         dag.headState.data, dag.head.root, cache, int(SLOTS_PER_EPOCH * 6 - 2),
         true):
-      let added = dag.addRawBlock(quarantine, blck, nil)
+      let added = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
       dag.pruneAtFinalization()
@@ -499,7 +499,7 @@ suite "chain DAG finalization tests" & preset():
         dag.headState.data, dag.head.root, getStateField(dag.headState.data, slot),
         cache, {}))
 
-    let added = dag.addRawBlock(quarantine, blck, nil)
+    let added = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
     check: added.isOk()
     dag.updateHead(added[], quarantine)
     dag.pruneAtFinalization()

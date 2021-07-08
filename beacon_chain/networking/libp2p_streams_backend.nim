@@ -93,8 +93,8 @@ proc uncompressFramedStream*(conn: Connection,
 
   return ok output
 
-proc readChunkPayload(conn: Connection, peer: Peer,
-                      MsgType: type): Future[NetRes[MsgType]] {.async.} =
+proc readChunkPayload*(conn: Connection, peer: Peer,
+                       MsgType: type): Future[NetRes[MsgType]] {.async.} =
   let sm = now(chronos.Moment)
   let size =
     try: await conn.readVarint()
@@ -126,6 +126,8 @@ proc readChunkPayload(conn: Connection, peer: Peer,
 
 proc readResponseChunk(conn: Connection, peer: Peer,
                        MsgType: typedesc): Future[NetRes[MsgType]] {.async.} =
+  mixin readChunkPayload
+
   try:
     var responseCodeByte: byte
     try:

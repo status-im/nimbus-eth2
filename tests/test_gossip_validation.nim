@@ -57,7 +57,7 @@ suite "Gossip validation " & preset():
         int(SLOTS_PER_EPOCH * 5), false):
       let added = dag.addRawBlock(quarantine, blck) do (
           blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
-          epochRef: EpochRef, state: HashedBeaconState):
+          epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 

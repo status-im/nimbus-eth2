@@ -16,7 +16,7 @@ import
     beaconstate, crypto, datatypes, forkedbeaconstate_helpers, helpers,
     presets, state_transition]
 
-proc valid_deposit(state: var BeaconState) =
+proc valid_deposit[T](state: var T) =
   const deposit_amount = MAX_EFFECTIVE_BALANCE
   let validator_index = state.validators.len
   let deposit = mockUpdateStateForNewDeposit(
@@ -41,7 +41,8 @@ proc valid_deposit(state: var BeaconState) =
       EFFECTIVE_BALANCE_INCREMENT
     )
 
-proc getTestStates*(initialState: ForkedHashedBeaconState):
+proc getTestStates*(
+    initialState: ForkedHashedBeaconState, useAltair: bool = false):
     seq[ref ForkedHashedBeaconState] =
   # Randomly generated slot numbers, with a jump to around
   # SLOTS_PER_HISTORICAL_ROOT to force wraparound of those
@@ -68,7 +69,16 @@ proc getTestStates*(initialState: ForkedHashedBeaconState):
     if getStateField(tmpState[], slot) < slot:
       doAssert process_slots(
         tmpState[], slot, cache, rewards, {}, FAR_FUTURE_SLOT)
+
+    if useAltair and epoch == 1:
+      maybeUpgradeStateToAltair(tmpState[], slot)
+
     if i mod 3 == 0:
-      valid_deposit(tmpState.hbsPhase0.data)
+      if tmpState[].beaconStateFork == forkPhase0:
+        valid_deposit(tmpState[].hbsPhase0.data)
+      else:
+        valid_deposit(tmpState[].hbsAltair.data)
     doAssert getStateField(tmpState[], slot) == slot
-    result.add assignClone(tmpState[])
+
+    if useAltair == (tmpState[].beaconStateFork == forkAltair):
+      result.add assignClone(tmpState[])

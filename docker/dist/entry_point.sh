@@ -192,7 +192,7 @@ for BINARY in ${BINARIES}; do
   fi
   cd - >/dev/null
 done
-sed -e "s/GIT_COMMIT/${GIT_COMMIT}/" docker/dist/README.md > "${DIST_PATH}/README.md"
+sed -e "s/GIT_COMMIT/${GIT_COMMIT}/" docker/dist/README.md.tpl > "${DIST_PATH}/README.md"
 
 if [[ "${PLATFORM}" == "Linux_amd64" ]]; then
   sed -i -e 's/^make dist$/make dist-amd64/' "${DIST_PATH}/README.md"
@@ -202,7 +202,7 @@ elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
   sed -i -e 's/^make dist$/make dist-arm64/' "${DIST_PATH}/README.md"
 elif [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   sed -i -e 's/^make dist$/make dist-win64/' "${DIST_PATH}/README.md"
-  cp -a docker/dist/README-Windows.md "${DIST_PATH}/"
+  cp -a docker/dist/README-Windows.md.tpl "${DIST_PATH}/README-Windows.md"
 elif [[ "${PLATFORM}" == "macOS_amd64" ]]; then
   sed -i -e 's/^make dist$/make dist-macos/' "${DIST_PATH}/README.md"
 elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then

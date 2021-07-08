@@ -9,7 +9,8 @@
 
 import
   std/options,
-  ../spec/[datatypes, digest, crypto, helpers],
+  ../spec/datatypes/base,
+  ../spec/[digest, crypto, helpers],
   ../consensus_object_pools/[spec_cache, attestation_pool]
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#aggregation-selection

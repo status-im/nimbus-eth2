@@ -20,9 +20,10 @@ import
   confutils, chronicles, eth/db/kvstore_sqlite3,
   eth/keys,
   ../tests/testblockutil,
-  ../beacon_chain/spec/[beaconstate, crypto, datatypes, digest,
+  ../beacon_chain/spec/[beaconstate, crypto, digest,
                         forkedbeaconstate_helpers, presets,
                         helpers, signatures, state_transition],
+  ../beacon_chain/spec/datatypes/[phase0, altair],
   ../beacon_chain/[beacon_node_types, beacon_chain_db, extras],
   ../beacon_chain/eth1/eth1_monitor,
   ../beacon_chain/validators/validator_pool,
@@ -52,7 +53,7 @@ proc gauss(r: var Rand; mu = 0.0; sigma = 1.0): float =
   result = mu + sigma * (b / a)
 
 # TODO confutils is an impenetrable black box. how can a help text be added here?
-cli do(slots = SLOTS_PER_EPOCH * 5,
+cli do(slots = SLOTS_PER_EPOCH * 6,
        validators = SLOTS_PER_EPOCH * 400, # One per shard is minimum
        attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.82,
        blockRatio {.desc: "ratio of slots with blocks"} = 1.0,
@@ -63,6 +64,8 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
     runtimePreset = defaultRuntimePreset
     genesisTime = float state[].data.genesis_time
 
+  const altairTransitionSlot = 96.Slot
+
   echo "Starting simulation..."
 
   let db = BeaconChainDB.new(runtimePreset, "block_sim_db")
@@ -72,7 +75,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
   putInitialDepositContractSnapshot(db, depositContractSnapshot)
 
   var
-    dag = ChainDAGRef.init(runtimePreset, db)
+    dag = ChainDAGRef.init(runtimePreset, db, {}, altairTransitionSlot)
     eth1Chain = Eth1Chain.init(runtimePreset, db)
     merkleizer = depositContractSnapshot.createMerkleizer
     quarantine = QuarantineRef.init(keys.newRng())
@@ -123,65 +126,96 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
                 signature: sig.toValidatorSig()
               ), [validatorIdx], sig, data.slot)
 
-  proc proposeBlock(slot: Slot) =
+  proc getNewBlock[T](
+      stateData: var StateData, slot: Slot, cache: var StateCache): T =
+    let
+      finalizedEpochRef = dag.getFinalizedEpochRef()
+      proposerIdx = get_beacon_proposer_index(
+        stateData.data, cache, getStateField(stateData.data, slot)).get()
+      privKey = hackPrivKey(
+        getStateField(stateData.data, validators)[proposerIdx])
+      eth1ProposalData = eth1Chain.getBlockProposalData(
+        stateData.data,
+        finalizedEpochRef.eth1_data,
+        finalizedEpochRef.eth1_deposit_index)
+      hashedState =
+        when T is phase0.SignedBeaconBlock:
+          addr stateData.data.hbsPhase0
+        elif T is altair.SignedBeaconBlock:
+          addr stateData.data.hbsAltair
+        else:
+          static: doAssert false
+      message = makeBeaconBlock(
+        runtimePreset,
+        hashedState[],
+        proposerIdx,
+        dag.head.root,
+        privKey.genRandaoReveal(
+          getStateField(stateData.data, fork),
+          getStateField(stateData.data, genesis_validators_root),
+          slot).toValidatorSig(),
+        eth1ProposalData.vote,
+        default(GraffitiBytes),
+        attPool.getAttestationsForTestBlock(stateData, cache),
+        eth1ProposalData.deposits,
+        @[],
+        @[],
+        @[],
+        ExecutionPayload(),
+        noRollback,
+        cache)
+
+    var
+      newBlock = T(
+        message: message.get()
+      )
+
+    let blockRoot = withTimerRet(timers[tHashBlock]):
+      hash_tree_root(newBlock.message)
+    newBlock.root = blockRoot
+    # Careful, state no longer valid after here because of the await..
+    newBlock.signature = withTimerRet(timers[tSignBlock]):
+      get_block_signature(
+        getStateField(stateData.data, fork),
+        getStateField(stateData.data, genesis_validators_root),
+        newBlock.message.slot,
+        blockRoot, privKey).toValidatorSig()
+
+    newBlock
+
+  proc proposePhase0Block(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
       return
 
-    let
-      head = dag.head
-
-    dag.withState(tmpState[], head.atSlot(slot)):
+    dag.withState(tmpState[], dag.head.atSlot(slot)):
       let
-        finalizedEpochRef = dag.getFinalizedEpochRef()
-        proposerIdx = get_beacon_proposer_index(
-          stateData.data, cache, getStateField(stateData.data, slot)).get()
-        privKey = hackPrivKey(
-          getStateField(stateData.data, validators)[proposerIdx])
-        eth1ProposalData = eth1Chain.getBlockProposalData(
-          stateData.data,
-          finalizedEpochRef.eth1_data,
-          finalizedEpochRef.eth1_deposit_index)
-        message = makeBeaconBlock(
-          runtimePreset,
-          stateData.data.hbsPhase0,
-          proposerIdx,
-          head.root,
-          privKey.genRandaoReveal(
-            getStateField(stateData.data, fork),
-            getStateField(stateData.data, genesis_validators_root),
-            slot).toValidatorSig(),
-          eth1ProposalData.vote,
-          default(GraffitiBytes),
-          attPool.getAttestationsForTestBlock(stateData, cache),
-          eth1ProposalData.deposits,
-          @[],
-          @[],
-          @[],
-          ExecutionPayload(),
-          noRollback,
-          cache)
+        newBlock = getNewBlock[phase0.SignedBeaconBlock](stateData, slot, cache)
+        added = dag.addRawBlock(quarantine, newBlock) do (
+            blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
+            epochRef: EpochRef):
+          # Callback add to fork choice if valid
+          attPool.addForkChoice(
+            epochRef, blckRef, signedBlock.message, blckRef.slot)
 
-      var
-        newBlock = SignedBeaconBlock(
-          message: message.get()
-        )
+      blck() = added[]
+      dag.updateHead(added[], quarantine)
+      if dag.needStateCachesAndForkChoicePruning():
+        dag.pruneStateCachesDAG()
+        attPool.prune()
 
-      let blockRoot = withTimerRet(timers[tHashBlock]):
-        hash_tree_root(newBlock.message)
-      newBlock.root = blockRoot
-      # Careful, state no longer valid after here because of the await..
-      newBlock.signature = withTimerRet(timers[tSignBlock]):
-        get_block_signature(
-          getStateField(stateData.data, fork),
-          getStateField(stateData.data, genesis_validators_root),
-          newBlock.message.slot,
-          blockRoot, privKey).toValidatorSig()
+  proc proposeAltairBlock(slot: Slot) =
+    if rand(r, 1.0) > blockRatio:
+      return
 
-      let added = dag.addRawBlock(quarantine, newBlock) do (
-          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
-          epochRef: EpochRef, state: HashedBeaconState):
-        # Callback add to fork choice if valid
-        attPool.addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
+    dag.withState(tmpState[], dag.head.atSlot(slot)):
+      let
+        newBlock = getNewBlock[altair.SignedBeaconBlock](stateData, slot, cache)
+        added = dag.addRawBlock(quarantine, newBlock) do (
+            blckRef: BlockRef, signedBlock: altair.TrustedSignedBeaconBlock,
+            epochRef: EpochRef):
+          # Callback add to fork choice if valid
+          attPool.addForkChoice(
+            epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       blck() = added[]
       dag.updateHead(added[], quarantine)
@@ -228,7 +262,10 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
     if blockRatio > 0.0:
       withTimer(timers[t]):
-        proposeBlock(slot)
+        if slot < altairTransitionSlot:
+          proposePhase0Block(slot)
+        else:
+          proposeAltairBlock(slot)
     if attesterRatio > 0.0:
       withTimer(timers[tAttest]):
         handleAttestations(slot)

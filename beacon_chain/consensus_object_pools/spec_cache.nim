@@ -10,9 +10,8 @@
 import
   std/[intsets],
   chronicles,
-  ../spec/[
-    crypto, datatypes, digest, helpers, network, presets, signatures,
-    validator],
+  ../spec/[crypto, digest, helpers, network, presets, signatures, validator],
+  ../spec/datatypes/base,
   ../extras,
   ./block_pools_types, ./blockchain_dag
 

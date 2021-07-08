@@ -26,6 +26,31 @@ type
     of forkPhase0: hbsPhase0*: phase0.HashedBeaconState
     of forkAltair: hbsAltair*: altair.HashedBeaconState
 
+  BeaconBlockFork* {.pure.} = enum
+    Phase0
+    Altair
+
+  ForkedSignedBeaconBlock* = object
+    case kind*: BeaconBlockFork
+    of BeaconBlockFork.Phase0:
+      phase0Block*: phase0.SignedBeaconBlock
+    of BeaconBlockFork.Altair:
+      altairBlock*: altair.SignedBeaconBlock
+
+  ForkedTrustedSignedBeaconBlock* = object
+    case kind*: BeaconBlockFork
+    of BeaconBlockFork.Phase0:
+      phase0Block*: phase0.TrustedSignedBeaconBlock
+    of BeaconBlockFork.Altair:
+      altairBlock*: altair.TrustedSignedBeaconBlock
+
+  ForkDigests* = object
+    phase0*: ForkDigest
+    altair*: ForkDigest
+    altairTopicPrefix*: string # Used by isAltairTopic
+
+  ForkDigestsRef* = ref ForkDigests
+
 # State-related functionality based on ForkedHashedBeaconState instead of BeaconState
 
 # Dispatch functions
@@ -53,10 +78,23 @@ template getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
   of forkPhase0: x.hbsPhase0.root
   of forkAltair: x.hbsAltair.root
 
+func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
+  case x.beaconStateFork:
+  of forkPhase0: x.hbsPhase0.root = root
+  of forkAltair: x.hbsAltair.root = root
+
 template hash_tree_root*(x: ForkedHashedBeaconState): Eth2Digest =
   case x.beaconStateFork:
   of forkPhase0: hash_tree_root(x.hbsPhase0.data)
   of forkAltair: hash_tree_root(x.hbsAltair.data)
+
+func get_active_validator_indices_len*(
+    state: ForkedHashedBeaconState; epoch: Epoch): uint64 =
+  case state.beaconStateFork:
+  of forkPhase0:
+    get_active_validator_indices_len(state.hbsPhase0.data, epoch)
+  of forkAltair:
+    get_active_validator_indices_len(state.hbsAltair.data, epoch)
 
 func get_beacon_committee*(
     state: ForkedHashedBeaconState, slot: Slot, index: CommitteeIndex,
@@ -69,7 +107,7 @@ func get_beacon_committee*(
   case state.beaconStateFork:
   of forkPhase0: get_beacon_committee(state.hbsPhase0.data, slot, index, cache)
   of forkAltair: get_beacon_committee(state.hbsAltair.data, slot, index, cache)
-  
+
 func get_committee_count_per_slot*(state: ForkedHashedBeaconState,
                                    epoch: Epoch,
                                    cache: var StateCache): uint64 =
@@ -110,11 +148,6 @@ proc get_attesting_indices*(state: ForkedHashedBeaconState;
   # iterator
 
   var idxBuf: seq[ValidatorIndex]
-
-  doAssert  state.beaconStateFork == forkPhase0
-  for vidx in state.hbsPhase0.data.get_attesting_indices(data, bits, cache):
-    idxBuf.add vidx
-  if true: return idxBuf
 
   if state.beaconStateFork == forkPhase0:
     for vidx in state.hbsPhase0.data.get_attesting_indices(data, bits, cache):
@@ -169,3 +202,37 @@ func get_previous_epoch*(stateData: ForkedHashedBeaconState): Epoch =
     GENESIS_EPOCH
   else:
     current_epoch - 1
+
+func init*(T: type ForkDigests,
+           runtimePreset: RuntimePreset,
+           genesisValidatorsRoot: Eth2Digest): T =
+  let altairForkDigest = compute_fork_digest(
+    runtimePreset.ALTAIR_FORK_VERSION,
+    genesisValidatorsRoot)
+
+  T(phase0: compute_fork_digest(
+      runtimePreset.GENESIS_FORK_VERSION,
+      genesisValidatorsRoot),
+    altair: altairForkDigest,
+    altairTopicPrefix: $altairForkDigest)
+
+template asSigned*(x: phase0.TrustedSignedBeaconBlock or phase0.SigVerifiedBeaconBlock):
+    phase0.SignedBeaconBlock =
+  static: # TODO See isomorphicCast
+    doAssert sizeof(x) == sizeof(phase0.SignedBeaconBlock)
+
+  cast[ptr phase0.SignedBeaconBlock](x.unsafeAddr)[]
+
+template asSigned*(x: altair.TrustedSignedBeaconBlock or altair.SigVerifiedBeaconBlock):
+    altair.SignedBeaconBlock =
+  static: # TODO See isomorphicCast
+    doAssert sizeof(x) == sizeof(altair.SignedBeaconBlock)
+
+  cast[ptr altair.SignedBeaconBlock](x.unsafeAddr)[]
+
+template asSigned*(x: ForkedTrustedSignedBeaconBlock): ForkedSignedBeaconBlock =
+  static: # TODO See isomorphicCast
+    doAssert sizeof(x) == sizeof(ForkedSignedBeaconBlock)
+
+  cast[ptr ForkedSignedBeaconBlock](x.unsafeAddr)[]
+

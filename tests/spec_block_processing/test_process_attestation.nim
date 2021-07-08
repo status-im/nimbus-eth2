@@ -14,8 +14,8 @@
 import
   stew/results,
   # Specs
-  ../../beacon_chain/spec/[
-    beaconstate, datatypes, forkedbeaconstate_helpers, helpers],
+  ../../beacon_chain/spec/[beaconstate, forkedbeaconstate_helpers, helpers],
+  ../../beacon_chain/spec/datatypes/base,
   # Mock helpers
   ../mocking/[mock_genesis, mock_attestations, mock_state],
   ../testutil
@@ -53,7 +53,7 @@ suite "[Unit - Spec - Block processing] Attestations " & preset():
       # ----------------------------------------
       var cache = StateCache()
       check process_attestation(
-        state.hbsPhase0.data, attestation, flags = {}, cache
+        state.hbsPhase0.data, attestation, flags = {}, 0.Gwei, cache
       ).isOk
 
       # Check that the attestation was processed

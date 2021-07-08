@@ -649,22 +649,21 @@ func get_total_active_balance*(state: SomeBeaconState, cache: var StateCache): G
   get_total_balance(
     state, cache.get_shuffled_active_validator_indices(state, epoch))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#get_base_reward_per_increment
-func get_base_reward_per_increment*(state: altair.BeaconState, cache: var StateCache): Gwei =
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#get_base_reward_per_increment
+func get_base_reward_per_increment*(
+    state: altair.BeaconState, cache: var StateCache): Gwei =
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div
     integer_squareroot(get_total_active_balance(state, cache))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#get_base_reward
-func get_base_reward(state: altair.BeaconState, index: ValidatorIndex, cache: var StateCache): Gwei =
-    ## Return the base reward for the validator defined by ``index`` with respect to the current ``state``.
-
-    # Note: An optimally performing validator can earn one base reward per
-    # epoch over a long time horizon. This takes into account both per-epoch
-    # (e.g. attestation) and intermittent duties (e.g. block proposal and sync
-    # committees).
-    let increments =
-      state.validators[index].effective_balance div EFFECTIVE_BALANCE_INCREMENT
-    increments * get_base_reward_per_increment(state, cache)
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#get_base_reward
+func get_base_reward(
+    state: altair.BeaconState, index: ValidatorIndex,
+    base_reward_per_increment: Gwei): Gwei =
+  ## Return the base reward for the validator defined by ``index`` with respect
+  ## to the current ``state``.
+  let increments =
+    state.validators[index].effective_balance div EFFECTIVE_BALANCE_INCREMENT
+  increments * base_reward_per_increment
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
@@ -703,7 +702,8 @@ proc check_attestation*(
 
 proc process_attestation*(
     state: var SomeBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.} =
+    base_reward_per_increment: Gwei, cache: var StateCache):
+    Result[void, cstring] {.nbench.} =
   # In the spec, attestation validation is mixed with state mutation, so here
   # we've split it into two functions so that the validation logic can be
   # reused when looking for suitable blocks to include in attestations.
@@ -736,13 +736,17 @@ proc process_attestation*(
     var proposer_reward_numerator = 0'u64
 
     # Participation flag indices
-    let participation_flag_indices = get_attestation_participation_flag_indices(state, attestation.data, state.slot - attestation.data.slot)
+    let
+      participation_flag_indices =
+        get_attestation_participation_flag_indices(
+          state, attestation.data, state.slot - attestation.data.slot)
 
     for index in get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache):
         for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
             if flag_index in participation_flag_indices and not has_flag(epoch_participation[index], flag_index):
               epoch_participation[index] = add_flag(epoch_participation[index], flag_index)
-              proposer_reward_numerator += get_base_reward(state, index, cache) * weight.uint64 # these are all valid, #TODO statically verify or do it type-safely
+              proposer_reward_numerator += get_base_reward(
+                state, index, base_reward_per_increment) * weight.uint64 # these are all valid, #TODO statically verify or do it type-safely
 
     # Reward proposer
     let
@@ -752,11 +756,13 @@ proc process_attestation*(
     increase_balance(state, proposer_index.get, proposer_reward)
 
   when state is phase0.BeaconState:
+    doAssert base_reward_per_increment == 0.Gwei
     if attestation.data.target.epoch == get_current_epoch(state):
       addPendingAttestation(state.current_epoch_attestations)
     else:
       addPendingAttestation(state.previous_epoch_attestations)
   elif state is altair.BeaconState:
+    doAssert base_reward_per_increment > 0.Gwei
     if attestation.data.target.epoch == get_current_epoch(state):
       updateParticipationFlags(state.current_epoch_participation)
     else:
@@ -766,7 +772,7 @@ proc process_attestation*(
 
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#get_next_sync_committee_indices
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_next_sync_committee_indices
 func get_next_sync_committee_indices(state: altair.BeaconState):
     seq[ValidatorIndex] =
   ## Return the sequence of sync committee indices (which may include
@@ -774,9 +780,6 @@ func get_next_sync_committee_indices(state: altair.BeaconState):
   ## sync committee period boundary.
 
   # TODO this size is known statically, so return array[] if possible
-
-  # Note: Committee can contain duplicate indices for small validator sets
-  # (< SYNC_COMMITTEE_SIZE + 128)
   let epoch = get_current_epoch(state) + 1
 
   const MAX_RANDOM_BYTE = 255
@@ -827,6 +830,8 @@ proc get_next_sync_committee*(state: altair.BeaconState): SyncCommittee =
 func translate_participation(
     state: var altair.BeaconState,
     pending_attestations: openArray[phase0.PendingAttestation]) =
+
+  var cache = StateCache()
   for attestation in pending_attestations:
     let
       data = attestation.data
@@ -837,8 +842,6 @@ func translate_participation(
         get_attestation_participation_flag_indices(state, data, inclusion_delay)
 
     # Apply flags to all attesting validators
-    var cache = StateCache()  # TODO hoist/pass as param
-
     for index in get_attesting_indices(
         state, data, attestation.aggregation_bits, cache):
       for flag_index in participation_flag_indices:
@@ -848,17 +851,19 @@ func translate_participation(
 proc upgrade_to_altair*(pre: phase0.BeaconState): ref altair.BeaconState =
   let epoch = get_current_epoch(pre)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/fork.md#configuration
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/fork.md#configuration
   const ALTAIR_FORK_VERSION = Version [byte 1, 0, 0, 0]
 
   var
     empty_participation =
       HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]()
     inactivity_scores = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]()
-  for _ in 0 ..< len(pre.validators):
-    doAssert empty_participation.add 0.ParticipationFlags
-  for _ in 0 ..< len(pre.validators):
-    doAssert inactivity_scores.add 0'u64
+
+  doAssert empty_participation.data.setLen(pre.validators.len)
+  empty_participation.resetCache()
+
+  doAssert inactivity_scores.data.setLen(pre.validators.len)
+  inactivity_scores.resetCache()
 
   var post = (ref altair.BeaconState)(
     genesis_time: pre.genesis_time,

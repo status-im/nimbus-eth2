@@ -55,5 +55,6 @@ proc runTest(identifier: string) =
   `testImpl _ operations_deposits _ identifier`()
 
 suite "Official - Altair - Operations - Deposits " & preset():
-  for kind, path in walkDir(OperationsDepositsDir, true):
+  for kind, path in walkDir(
+      OperationsDepositsDir, relative = true, checkDir = true):
     runTest(path)

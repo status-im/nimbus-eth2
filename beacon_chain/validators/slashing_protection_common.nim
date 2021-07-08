@@ -18,7 +18,8 @@ import
   json_serialization,
   chronicles,
   # Internal
-  ../spec/[datatypes, digest, crypto]
+  ../spec/datatypes/base,
+  ../spec/[digest, crypto]
 
 export serialization, json_serialization # Generic sandwich https://github.com/nim-lang/Nim/issues/11225
 

@@ -110,10 +110,10 @@ proc getAttachedValidator*(node: BeaconNode,
                            idx: ValidatorIndex): AttachedValidator =
   if idx < state_validators.len.ValidatorIndex:
     let validator = node.getAttachedValidator(state_validators[idx].pubkey)
-    if validator != nil and validator.index != some(idx.ValidatorIndex):
+    if validator != nil and validator.index != some(idx):
       # Update index, in case the validator was activated!
       notice "Validator activated", pubkey = validator.pubkey, index = idx
-      validator.index  = some(idx.ValidatorIndex)
+      validator.index  = some(idx)
     validator
   else:
     warn "Validator index out of bounds",
@@ -177,7 +177,9 @@ proc sendAttestation*(
   return case ok
     of ValidationResult.Accept:
       node.network.broadcast(
-        getAttestationTopic(node.forkDigest, subnet_id), attestation)
+        # TODO altair-transition
+        getAttestationTopic(node.dag.forkDigests.phase0, subnet_id),
+        attestation)
       beacon_attestations_sent.inc()
       true
     else:
@@ -187,15 +189,19 @@ proc sendAttestation*(
       false
 
 proc sendVoluntaryExit*(node: BeaconNode, exit: SignedVoluntaryExit) =
-  node.network.broadcast(getVoluntaryExitsTopic(node.forkDigest), exit)
+  # TODO altair-transition
+  let exitsTopic = getVoluntaryExitsTopic(node.dag.forkDigests.phase0)
+  node.network.broadcast(exitsTopic, exit)
 
 proc sendAttesterSlashing*(node: BeaconNode, slashing: AttesterSlashing) =
-  node.network.broadcast(getAttesterSlashingsTopic(node.forkDigest),
-                         slashing)
+  # TODO altair-transition
+  let attesterSlashingsTopic = getAttesterSlashingsTopic(node.dag.forkDigests.phase0)
+  node.network.broadcast(attesterSlashingsTopic, slashing)
 
 proc sendProposerSlashing*(node: BeaconNode, slashing: ProposerSlashing) =
-  node.network.broadcast(getProposerSlashingsTopic(node.forkDigest),
-                         slashing)
+  # TODO altair-transition
+  let proposerSlashingsTopic = getProposerSlashingsTopic(node.dag.forkDigests.phase0)
+  node.network.broadcast(proposerSlashingsTopic, slashing)
 
 proc sendAttestation*(node: BeaconNode, attestation: Attestation): Future[bool] =
   # For the validator API, which doesn't supply the subnet id.
@@ -340,10 +346,11 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 proc proposeSignedBlock*(node: BeaconNode,
                          head: BlockRef,
                          validator: AttachedValidator,
-                         newBlock: SignedBeaconBlock): BlockRef =
+                         newBlock: SignedBeaconBlock):
+                         Future[BlockRef] {.async.} =
   let newBlockRef = node.dag.addRawBlock(node.quarantine, newBlock) do (
       blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
-      epochRef: EpochRef, state: HashedBeaconState):
+      epochRef: EpochRef):
     # Callback add to fork choice if signed block valid (and becomes trusted)
     node.attestationPool[].addForkChoice(
       epochRef, blckRef, trustedBlock.message,
@@ -420,7 +427,7 @@ proc proposeBlock(node: BeaconNode,
   newBlock.signature = await validator.signBlockProposal(
     fork, genesis_validators_root, slot, newBlock.root)
 
-  return node.proposeSignedBlock(head, validator, newBlock)
+  return await node.proposeSignedBlock(head, validator, newBlock)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
@@ -692,14 +699,18 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       # An opposite case is that we received (or produced) a block that has
       # not yet reached our neighbours. To protect against our attestations
       # being dropped (because the others have not yet seen the block), we'll
-      # impose a minimum delay of 250ms. The delay is enforced only when we're
+      # impose a minimum delay of 1000ms. The delay is enforced only when we're
       # not hitting the "normal" cutoff time for sending out attestations.
+      # An earlier delay of 250ms has proven to be not enough, increasing the
+      # risk of losing attestations.
+      # Regardless, because we "just" received the block, we'll impose the
+      # delay.
 
-      const afterBlockDelay = 250
+      const afterBlockDelay = 1000
       let
         afterBlockTime = node.beaconClock.now() + millis(afterBlockDelay)
         afterBlockCutoff = node.beaconClock.fromNow(
-          min(afterBlockTime, attestationCutoffTime))
+          min(afterBlockTime, attestationCutoffTime + millis(afterBlockDelay)))
 
       if afterBlockCutoff.inFuture:
         debug "Got block, waiting to send attestations",

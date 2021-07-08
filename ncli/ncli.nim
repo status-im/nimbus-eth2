@@ -74,6 +74,11 @@ type
         argument
         desc: "Filename of state resulting from applying blck to preState"}: string
 
+template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
+  case value.beaconStateFork:
+  of forkPhase0: SSZ.saveFile(filename, value.hbsPhase0.data)
+  of forkAltair: SSZ.saveFile(filename, value.hbsAltair.data)
+
 proc doTransition(conf: NcliConf) =
   let
     stateY = (ref ForkedHashedBeaconState)(
@@ -84,17 +89,18 @@ proc doTransition(conf: NcliConf) =
     blckX = SSZ.loadFile(conf.blck, SignedBeaconBlock)
     flags = if not conf.verifyStateRoot: {skipStateRootValidation} else: {}
 
-  stateY.hbsPhase0.root = hash_tree_root(stateY[])
+  setStateRoot(stateY[], hash_tree_root(stateY[]))
 
   var
     cache = StateCache()
     rewards = RewardInfo()
   if not state_transition(getRuntimePresetForNetwork(conf.eth2Network),
-                          stateY[], blckX, cache, rewards, flags, noRollback):
+                          stateY[], blckX, cache, rewards, flags, noRollback,
+                          FAR_FUTURE_SLOT):
     error "State transition failed"
     quit 1
   else:
-    SSZ.saveFile(conf.postState, stateY.hbsPhase0.data)
+    saveSSZFile(conf.postState, stateY[])
 
 proc doSlots(conf: NcliConf) =
   type
@@ -112,7 +118,7 @@ proc doSlots(conf: NcliConf) =
       beaconStateFork: forkPhase0
     )
 
-  stateY.hbsPhase0.root = hash_tree_root(stateY[])
+  setStateRoot(stateY[], hash_tree_root(stateY[]))
 
   var
     cache = StateCache()
@@ -125,7 +131,7 @@ proc doSlots(conf: NcliConf) =
         FAR_FUTURE_SLOT)
 
   withTimer(timers[tSaveState]):
-    SSZ.saveFile(conf.postState, stateY.hbsPhase0.data)
+    saveSSZFile(conf.postState, stateY[])
 
   printTimers(false, timers)
 

@@ -12,7 +12,8 @@ import
   # Vendored packages
   stew/bitops2,
   # Specs
-  ../../beacon_chain/spec/[datatypes, forkedbeaconstate_helpers],
+  ../../beacon_chain/spec/datatypes/base,
+  ../../beacon_chain/spec/forkedbeaconstate_helpers,
   # Test helpers
   ../mocking/mock_genesis,
   ./epoch_utils,

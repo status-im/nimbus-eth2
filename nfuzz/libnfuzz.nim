@@ -98,7 +98,7 @@ template decodeAndProcess(typ, process: untyped): bool =
 proc nfuzz_attestation(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(AttestationInput):
-    process_attestation(data.state, data.attestation, flags, cache).isOk
+    process_attestation(data.state, data.attestation, flags, 0.Gwei, cache).isOk
 
 proc nfuzz_attester_slashing(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
@@ -122,7 +122,8 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
       rewards = RewardInfo()
     result =
       state_transition(
-        preset, fhState[], blck, cache, rewards, flags, rollback)
+        preset, fhState[], blck, cache, rewards, flags, rollback,
+        FAR_FUTURE_SLOT)
     data.state = fhState.hbsPhase0.data
 
   decodeAndProcess(BlockInput):

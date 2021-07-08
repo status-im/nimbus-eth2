@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,10 +11,11 @@ import
   # Status libraries
   stew/[results, endians2],
   # Internals
-  ../../beacon_chain/spec/[datatypes, digest],
+  ../../beacon_chain/spec/datatypes/base,
+  ../../beacon_chain/spec/digest,
   ../../beacon_chain/fork_choice/[fork_choice, fork_choice_types]
 
-export results, datatypes, digest, fork_choice, fork_choice_types, tables, options
+export results, base, digest, fork_choice, fork_choice_types, tables, options
 
 func fakeHash*(index: SomeInteger): Eth2Digest =
   ## Create fake hashes

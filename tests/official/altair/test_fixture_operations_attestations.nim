@@ -51,16 +51,21 @@ proc runTest(identifier: string) =
       if existsFile(testDir/"post.ssz_snappy"):
         let postState =
           newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
-        let done = process_attestation(preState[], attestation, {}, cache).isOk
+        let done = process_attestation(
+          preState[], attestation, {},
+          get_base_reward_per_increment(preState[], cache), cache).isOk
         doAssert done, "Valid attestation not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
-        let done = process_attestation(preState[], attestation, {}, cache).isOk
+        let done = process_attestation(
+          preState[], attestation, {},
+          get_base_reward_per_increment(preState[], cache), cache).isOk
         doAssert done == false, "We didn't expect this invalid attestation to be processed."
 
   `testImpl _ operations_attestations _ identifier`()
 
 suite "Official - Altair - Operations - Attestations " & preset():
-  for kind, path in walkDir(OperationsAttestationsDir, true):
+  for kind, path in walkDir(
+      OperationsAttestationsDir, relative = true, checkDir = true):
     runTest(path)

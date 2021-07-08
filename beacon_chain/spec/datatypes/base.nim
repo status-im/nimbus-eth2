@@ -121,7 +121,7 @@ type
     DOMAIN_SELECTION_PROOF = 5
     DOMAIN_AGGREGATE_AND_PROOF = 6
 
-    # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#domain-types
+    # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#domain-types
     DOMAIN_SYNC_COMMITTEE = 7
     DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF = 8
     DOMAIN_CONTRIBUTION_AND_PROOF = 9
@@ -470,9 +470,6 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  DoppelgangerProtection* = object
-    broadcastStartEpoch*: Epoch
-
 type
   # Caches for computing justificiation, rewards and penalties - based on
   # implementation in Lighthouse:
@@ -780,6 +777,9 @@ func low*(v: ForkDigest | Version): int = 0
 func high*(v: ForkDigest | Version): int = len(v) - 1
 func `[]`*(v: ForkDigest | Version, idx: int): byte = array[4, byte](v)[idx]
 
+template bytes*(v: ForkDigest): array[4, byte] =
+  distinctBase(v)
+
 func shortLog*(s: Slot): uint64 =
   s - GENESIS_SLOT
 
@@ -933,3 +933,20 @@ static:
   doAssert supportsCopyMem(Validator)
   doAssert supportsCopyMem(Eth2Digest)
   doAssert ATTESTATION_SUBNET_COUNT <= high(distinctBase SubnetId).int
+
+func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
+  for name, value in x.fieldPairs:
+    when value is tuple|object:
+      result.add getSizeofSig(value, n + 1)
+    # TrustedSig and ValidatorSig differ in that they have otherwise identical
+    # fields where one is "blob" and the other is "data". They're structurally
+    # isomorphic, regardless. Grandfather that exception in, but in general it
+    # is still better to keep field names parallel.
+    result.add((name.replace("blob", "data"), sizeof(value), n))
+
+template isomorphicCast*[T, U](x: U): T =
+  # Each of these pairs of types has ABI-compatible memory representations.
+  static:
+    doAssert sizeof(T) == sizeof(U)
+    doAssert getSizeofSig(T()) == getSizeofSig(U())
+  cast[ptr T](unsafeAddr x)[]

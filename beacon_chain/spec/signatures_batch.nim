@@ -14,8 +14,9 @@ import
   # Internal
   ../ssz/merkleization,
   "."/[
-    crypto, datatypes, helpers, presets, beaconstate, digest,
-    forkedbeaconstate_helpers]
+    crypto, helpers, presets, beaconstate, digest,
+    forkedbeaconstate_helpers],
+  "."/datatypes/[altair, phase0]
 
 # Otherwise, error.
 import chronicles
@@ -252,7 +253,7 @@ proc addAggregateAndProofSignature*(
 
 proc collectSignatureSets*(
        sigs: var seq[SignatureSet],
-       signed_block: SignedBeaconBlock,
+       signed_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
        validatorKeys: auto,
        state: ForkedHashedBeaconState,
        cache: var StateCache): Result[void, cstring] =

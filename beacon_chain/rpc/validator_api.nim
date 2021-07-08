@@ -9,15 +9,16 @@
 
 import
   # Standard library
-  std/[tables],
+  std/tables,
 
   # Nimble packages
-  stew/[objects],
+  stew/objects,
   json_rpc/servers/httpserver,
   chronicles,
 
   # Local modules
-  ../spec/[crypto, datatypes, digest, forkedbeaconstate_helpers, helpers, network, signatures],
+  ../spec/[crypto, digest, forkedbeaconstate_helpers, helpers, network, signatures],
+  ../spec/datatypes/base,
   ../spec/eth2_apis/callsigs_types,
   ../consensus_object_pools/[blockchain_dag, spec_cache, attestation_pool], ../ssz/merkleization,
   ../beacon_node_common, ../beacon_node_types,
@@ -55,7 +56,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     if head.slot >= body.message.slot:
       raise newException(CatchableError,
         "Proposal is for a past slot: " & $body.message.slot)
-    if head == proposeSignedBlock(node, head, AttachedValidator(), body):
+    if head == await proposeSignedBlock(node, head, AttachedValidator(), body):
       raise newException(CatchableError, "Could not propose block")
     return true
 

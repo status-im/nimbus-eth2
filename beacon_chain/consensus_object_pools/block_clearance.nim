@@ -14,8 +14,9 @@ import
   eth/keys,
   ../extras, ../beacon_clock,
   ../spec/[
-    crypto, datatypes, digest, forkedbeaconstate_helpers, helpers, signatures,
+    crypto, digest, forkedbeaconstate_helpers, helpers, signatures,
     signatures_batch, state_transition],
+  ../spec/datatypes/[phase0, altair],
   ./block_pools_types, ./blockchain_dag, ./block_quarantine
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
@@ -32,35 +33,35 @@ export results, ValidationResult
 logScope:
   topics = "clearance"
 
-template asSigVerified(x: SignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+## At the GC-level, the GC is type-agnostic; it's all type-erased so
+## casting between seq[Attestation] and seq[TrustedAttestation] will
+## not disrupt GC operations.
+##
+## These SHOULD be used in function calls to avoid expensive temporary.
+## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
+template asSigVerified(x: phase0.SignedBeaconBlock):
+    phase0.SigVerifiedSignedBeaconBlock =
   ## This converts a signed beacon block to a sig verified beacon clock.
   ## This assumes that their bytes representation is the same.
-  ##
-  ## At the GC-level, the GC is type-agnostic it's all type erased so
-  ## casting between seq[Attestation] and seq[TrustedAttestation]
-  ## will not disrupt GC operations.
-  ##
-  ## This SHOULD be used in function calls to avoid expensive temporary.
-  ## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
-  static: # TODO See isomorphicCast
-    doAssert sizeof(SignedBeaconBlock) == sizeof(SigVerifiedSignedBeaconBlock)
+  isomorphicCast[phase0.SigVerifiedSignedBeaconBlock](x)
 
-  cast[ptr SigVerifiedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+template asSigVerified(x: altair.SignedBeaconBlock):
+    altair.SigVerifiedSignedBeaconBlock =
+  ## This converts a signed beacon block to a sig verified beacon clock.
+  ## This assumes that their bytes representation is the same.
+  isomorphicCast[altair.SigVerifiedSignedBeaconBlock](x)
 
-template asTrusted(x: SignedBeaconBlock or SigVerifiedBeaconBlock): TrustedSignedBeaconBlock =
+template asTrusted(x: phase0.SignedBeaconBlock or phase0.SigVerifiedBeaconBlock):
+    phase0.TrustedSignedBeaconBlock =
   ## This converts a sigverified beacon block to a trusted beacon clock.
   ## This assumes that their bytes representation is the same.
-  ##
-  ## At the GC-level, the GC is type-agnostic it's all type erased so
-  ## casting between seq[Attestation] and seq[TrustedAttestation]
-  ## will not disrupt GC operations.
-  ##
-  ## This SHOULD be used in function calls to avoid expensive temporary.
-  ## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
-  static: # TODO See isomorphicCast
-    doAssert sizeof(x) == sizeof(TrustedSignedBeaconBlock)
+  isomorphicCast[phase0.TrustedSignedBeaconBlock](x)
 
-  cast[ptr TrustedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+template asTrusted(x: altair.SignedBeaconBlock or altair.SigVerifiedBeaconBlock):
+    altair.TrustedSignedBeaconBlock =
+  ## This converts a sigverified beacon block to a trusted beacon clock.
+  ## This assumes that their bytes representation is the same.
+  isomorphicCast[altair.TrustedSignedBeaconBlock](x)
 
 func batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool =
   var secureRandomBytes: array[32, byte]
@@ -71,17 +72,60 @@ func batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool
 
 proc addRawBlock*(
       dag: ChainDAGRef, quarantine: QuarantineRef,
-      signedBlock: SignedBeaconBlock, onBlockAdded: OnBlockAdded
+      signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+      onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] {.gcsafe.}
+
+# Now that we have the new block, we should see if any of the previously
+# unresolved blocks magically become resolved
+# TODO This code is convoluted because when there are more than ~1.5k
+#      blocks being synced, there's a stack overflow as `add` gets called
+#      for the whole chain of blocks. Instead we use this ugly field in `dag`
+#      which could be avoided by refactoring the code
+# TODO unit test the logic, in particular interaction with fork choice block parents
+proc resolveQuarantinedBlocks(
+    dag: ChainDAGRef, quarantine: QuarantineRef,
+    onBlockAdded: OnPhase0BlockAdded) =
+  if not quarantine.inAdd:
+    quarantine.inAdd = true
+    defer: quarantine.inAdd = false
+    var entries = 0
+    while entries != quarantine.orphansPhase0.len:
+      entries = quarantine.orphansPhase0.len # keep going while quarantine is shrinking
+      var resolved: seq[phase0.SignedBeaconBlock]
+      for _, v in quarantine.orphansPhase0:
+        if v.message.parent_root in dag:
+          resolved.add(v)
+
+      for v in resolved:
+        discard addRawBlock(dag, quarantine, v, onBlockAdded)
+
+proc resolveQuarantinedBlocks(
+    dag: ChainDAGRef, quarantine: QuarantineRef,
+    onBlockAdded: OnAltairBlockAdded) =
+  if not quarantine.inAdd:
+    quarantine.inAdd = true
+    defer: quarantine.inAdd = false
+    var entries = 0
+    while entries != quarantine.orphansAltair.len:
+      entries = quarantine.orphansAltair.len # keep going while quarantine is shrinking
+      var resolved: seq[altair.SignedBeaconBlock]
+      for _, v in quarantine.orphansAltair:
+        if v.message.parent_root in dag:
+          resolved.add(v)
+
+      for v in resolved:
+        discard addRawBlock(dag, quarantine, v, onBlockAdded)
 
 proc addResolvedBlock(
        dag: ChainDAGRef, quarantine: QuarantineRef,
-       state: var StateData, trustedBlock: TrustedSignedBeaconBlock,
+       state: var StateData,
+       trustedBlock: phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock,
        parent: BlockRef, cache: var StateCache,
-       onBlockAdded: OnBlockAdded, stateDataDur, sigVerifyDur,
+       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded,
+       stateDataDur, sigVerifyDur,
        stateVerifyDur: Duration
      ) =
-  # TODO move quarantine processing out of here
   doAssert getStateField(state.data, slot) == trustedBlock.message.slot,
     "state must match block"
   doAssert state.blck.root == trustedBlock.message.parent_root,
@@ -136,31 +180,18 @@ proc addResolvedBlock(
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
-    onBlockAdded(blockRef, trustedBlock, epochRef, state.data.hbsPhase0)
+    onBlockAdded(blockRef, trustedBlock, epochRef)
 
-  # Now that we have the new block, we should see if any of the previously
-  # unresolved blocks magically become resolved
-  # TODO This code is convoluted because when there are more than ~1.5k
-  #      blocks being synced, there's a stack overflow as `add` gets called
-  #      for the whole chain of blocks. Instead we use this ugly field in `dag`
-  #      which could be avoided by refactoring the code
-  # TODO unit test the logic, in particular interaction with fork choice block parents
-  if not quarantine.inAdd:
-    quarantine.inAdd = true
-    defer: quarantine.inAdd = false
-    var entries = 0
-    while entries != quarantine.orphans.len:
-      entries = quarantine.orphans.len # keep going while quarantine is shrinking
-      var resolved: seq[SignedBeaconBlock]
-      for _, v in quarantine.orphans:
-        if v.message.parent_root in dag:
-          resolved.add(v)
+  resolveQuarantinedBlocks(dag, quarantine, onBlockAdded)
 
-      for v in resolved:
-        discard addRawBlock(dag, quarantine, v, onBlockAdded)
-
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+type SomeSignedBlock =
+  phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
+  phase0.TrustedSignedBeaconBlock |
+  altair.SignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock |
+  altair.TrustedSignedBeaconBlock
 proc checkStateTransition(
-       dag: ChainDAGRef, signedBlock: SomeSignedBeaconBlock,
+       dag: ChainDAGRef, signedBlock: SomeSignedBlock,
        cache: var StateCache): (ValidationResult, BlockError) =
   ## Ensure block can be applied on a state
   func restore(v: var ForkedHashedBeaconState) =
@@ -174,18 +205,15 @@ proc checkStateTransition(
     blck = shortLog(signedBlock.message)
     blockRoot = shortLog(signedBlock.root)
 
-  # TODO this won't transition because FAR_FUTURE_SLOT, so it's
-  # fine, for now, but in general, blockchain_dag.addBlock must
-  # match the transition here.
   if not state_transition_block(
       dag.runtimePreset, dag.clearanceState.data, signedBlock,
-      cache, dag.updateFlags, restore, FAR_FUTURE_SLOT):
+      cache, dag.updateFlags, restore, dag.altairTransitionSlot):
     info "Invalid block"
 
     return (ValidationResult.Reject, Invalid)
   return (ValidationResult.Accept, default(BlockError))
 
-proc advanceClearanceState*(dag: ChainDagRef) =
+proc advanceClearanceState*(dag: ChainDAGRef) =
   # When the chain is synced, the most likely block to be produced is the block
   # right after head - we can exploit this assumption and advance the state
   # to that slot before the block arrives, thus allowing us to do the expensive
@@ -205,9 +233,9 @@ proc advanceClearanceState*(dag: ChainDagRef) =
 
 proc addRawBlockKnownParent(
        dag: ChainDAGRef, quarantine: QuarantineRef,
-       signedBlock: SignedBeaconBlock,
+       signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
        parent: BlockRef,
-       onBlockAdded: OnBlockAdded
+       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## Add a block whose parent is known, after performing validity checks
 
@@ -283,7 +311,7 @@ proc addRawBlockKnownParent(
 proc addRawBlockUnresolved(
        dag: ChainDAGRef,
        quarantine: QuarantineRef,
-       signedBlock: SignedBeaconBlock
+       signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## addRawBlock - Block is unresolved / has no parent
 
@@ -299,7 +327,8 @@ proc addRawBlockUnresolved(
   if signedBlock.message.parent_root in quarantine.missing or
       containsOrphan(quarantine, signedBlock):
     debug "Unresolved block (parent missing or orphaned)",
-      orphans = quarantine.orphans.len,
+      orphansPhase0 = quarantine.orphansPhase0.len,
+      orphansAltair = quarantine.orphansAltair.len,
       missing = quarantine.missing.len
 
     return err((ValidationResult.Ignore, MissingParent))
@@ -314,15 +343,16 @@ proc addRawBlockUnresolved(
   #      a risk of being slashed, making attestations a more valuable spam
   #      filter.
   debug "Unresolved block (parent missing)",
-    orphans = quarantine.orphans.len,
+    orphansPhase0 = quarantine.orphansPhase0.len,
+    orphansAltair = quarantine.orphansAltair.len,
     missing = quarantine.missing.len
 
   return err((ValidationResult.Ignore, MissingParent))
 
 proc addRawBlock(
        dag: ChainDAGRef, quarantine: QuarantineRef,
-       signedBlock: SignedBeaconBlock,
-       onBlockAdded: OnBlockAdded
+       signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## Try adding a block to the chain, verifying first that it passes the state
   ## transition function and contains correct cryptographic signature.

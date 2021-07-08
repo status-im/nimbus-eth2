@@ -1,8 +1,10 @@
 # Optimise for profitability
 
-Profitability depends heavily on the network and peer quality.
+Key insights:
+- Profitability depends heavily on the network and peer quality
+- While block proposals are more lucrative than attestations, they are much rarer
 
-While block proposals are more lucrative than attestations, they are much rarer.
+
 
 
 ## Check for next action before restarting
@@ -32,7 +34,7 @@ If you're concerned about missing an attestation or proposal, wait until `nextAc
 You can also use the `nimbus-eth2` [API](./api.md). For example, to check if your validator has a next Proposal slot assigned, run:
 
 ```
-curl -d '{"jsonrpc":"2.0","method":"get_v1_validator_duties_proposer","params":[${EPOCH_NUMBER_OF_INTEREST}],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq ".result[]" | grep ${PATTERN_WHICH_MATCHES_VALIDATOR_PUBLIC_KEYS}
+curl -d '{"jsonrpc":"2.0","method":"get_v1_validator_duties_proposer","params":[${HEAD_EPOCH_NUMBER}],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq ".result[]" | grep ${PATTERN_WHICH_MATCHES_VALIDATOR_PUBLIC_KEYS}
 ```
 
 
@@ -43,10 +45,11 @@ To elaborate a little, without this option enabled Nimbus only listens to a subs
 
 With this option enabled, Nimbus listens to all unaggregated channels (subscribes to all subnets). Practically speaking, this means that when producing a block, Nimbus can "top up" the aggregates that other peers have made with it's own unaggregated attestations. This can lead to better packing in some cases, which can lead to slightly greater rewards.
 
+## Useful resources
 
+- [The journey of a validator balance](https://kb.beaconcha.in/rewards-and-penalties)
 
-
-
+- [Validator rewards in practice](https://pintail.xyz/posts/validator-rewards-in-practice/)
 
 
 

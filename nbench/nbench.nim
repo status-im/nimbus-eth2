@@ -11,7 +11,7 @@ import
   # Status libraries
   confutils, serialization,
   # Beacon-chain
-  ../beacon_chain/spec/datatypes,
+  ../beacon_chain/spec/datatypes/base,
   # Bench specific
   scenarios, bench_lab, reports
 

@@ -52,10 +52,6 @@ type
     dumpDirInvalid: string
     dumpDirIncoming: string
 
-    # Clock
-    # ----------------------------------------------------------------
-    getWallTime: GetWallTimeFn
-
     # Producers
     # ----------------------------------------------------------------
     blocksQueue*: AsyncQueue[BlockEntry] # Exported for "test_sync_manager"
@@ -64,6 +60,7 @@ type
     # ----------------------------------------------------------------
     consensusManager: ref ConsensusManager
       ## Blockchain DAG, AttestationPool and Quarantine
+    getTime: GetTimeFn
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -72,17 +69,17 @@ proc new*(T: type BlockProcessor,
           dumpEnabled: bool,
           dumpDirInvalid, dumpDirIncoming: string,
           consensusManager: ref ConsensusManager,
-          getWallTime: GetWallTimeFn): ref BlockProcessor =
+          getTime: GetTimeFn): ref BlockProcessor =
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
     dumpDirInvalid: dumpDirInvalid,
     dumpDirIncoming: dumpDirIncoming,
-
-    getWallTime: getWallTime,
-
     blocksQueue: newAsyncQueue[BlockEntry](),
     consensusManager: consensusManager,
-  )
+    getTime: getTime)
+
+proc getCurrentBeaconTime*(self: BlockProcessor): BeaconTime =
+  self.consensusManager.dag.beaconClock.toBeaconTime(self.getTime())
 
 # Sync callbacks
 # ------------------------------------------------------------------------------
@@ -153,7 +150,7 @@ proc storeBlock(
   let blck = self.consensusManager.dag.addRawBlock(
     self.consensusManager.quarantine, signedBlock) do (
       blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
-      epochRef: EpochRef, state: HashedBeaconState):
+      epochRef: EpochRef):
     # Callback add to fork choice if valid
     attestationPool[].addForkChoice(
       epochRef, blckRef, trustedBlock.message, wallSlot)
@@ -175,7 +172,7 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
     blockRoot = shortLog(entry.blck.root)
 
   let
-    wallTime = self.getWallTime()
+    wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot()
 
   if not afterGenesis:

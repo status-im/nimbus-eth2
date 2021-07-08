@@ -12,7 +12,8 @@ import
   ../consensus_object_pools/[blockchain_dag, exit_pool],
   ../gossip_processing/gossip_validation,
   ../validators/validator_duties,
-  ../spec/[crypto, datatypes, digest, forkedbeaconstate_helpers, network],
+  ../spec/[crypto, digest, forkedbeaconstate_helpers, network],
+  ../spec/datatypes/base,
   ../ssz/merkleization,
   ./eth2_json_rest_serialization, ./rest_utils
 
@@ -501,7 +502,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         else:
           let idx = cindex.get()
           if uint64(idx) < committees_per_slot:
-            res.add(getCommittee(slot, CommitteeIndex(idx)))
+            res.add(getCommittee(slot, idx))
 
       var res: seq[RestBeaconStatesCommittees]
       let qepoch =
@@ -625,12 +626,16 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 
     if head.slot >= blck.message.slot:
-      node.network.broadcast(getBeaconBlocksTopic(node.forkDigest), blck)
+      # TODO altair-transition
+      let blocksTopic = getBeaconBlocksTopic(node.dag.forkDigests.phase0)
+      node.network.broadcast(blocksTopic, blck)
       return RestApiResponse.jsonError(Http202, BlockValidationError)
     else:
-      let res = proposeSignedBlock(node, head, AttachedValidator(), blck)
+      let res = await proposeSignedBlock(node, head, AttachedValidator(), blck)
       if res == head:
-        node.network.broadcast(getBeaconBlocksTopic(node.forkDigest), blck)
+        # TODO altair-transition
+        let blocksTopic = getBeaconBlocksTopic(node.dag.forkDigests.phase0)
+        node.network.broadcast(blocksTopic, blck)
         return RestApiResponse.jsonError(Http202, BlockValidationError)
       else:
         return RestApiResponse.jsonError(Http200, BlockValidationSuccess)

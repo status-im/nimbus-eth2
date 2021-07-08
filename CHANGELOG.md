@@ -1,3 +1,35 @@
+2021-06-21 v1.4.0
+=================
+
+This release is marked as low-urgency - please update at your convenience.
+
+It contains **improvements to attestation effectiveness and CPU usage**.
+
+It also contains **improvements to the RPC APIs**, as suggested by DappNode and RocketPool, and in preparation for our refactored validator client.
+### Outdated Nimbus instances
+
+A reminder that if you're running Nimbus with a version prior to `1.0.10` (March 2021) you are exposed to a vulnerability in our core cryptography library (this library is used by all eth2 clients). See this [blst security advisory](https://github.com/supranational/blst/security/advisories/GHSA-x279-68rr-jp4p) for more information. If this concerns you, please update as soon as you can.
+
+## Notable changes
+### We've added:
+
+* Nightly builds for the very adventurous. (https://github.com/status-im/nimbus-eth2/pull/2640)
+    * We expect users of nightly builds to be comfortable providing debugging logs.
+
+### We've fixed:
+
+* RPC API endpoints (https://github.com/status-im/nimbus-eth2/pull/2585, https://github.com/status-im/nimbus-eth2/pull/2586)
+    * `/eth/v1/beacon/pool/attestations`
+    * `/api/eth/v1/validator/aggregate_and_proofs`
+* Doppelganger detection: fixed false positive on fast restart (https://github.com/status-im/nimbus-eth2/pull/2656/)
+
+
+### We've improved
+
+* Database read performance improvements during epoch transitions and startup (https://github.com/status-im/nimbus-eth2/pull/2639, https://github.com/status-im/nimbus-eth2/pull/2617)
+* Better usage of caches, specially when validating attestations (https://github.com/status-im/nimbus-eth2/pull/2631)
+
+
 2021-05-17 v1.3.0
 =================
 
@@ -705,4 +737,3 @@ the Eth2 mainnet launch.
 
 * Support for storing the validator signing keys in a separate process, isolated
   from the network, with a minimal attack surface.
-

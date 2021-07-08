@@ -12,7 +12,8 @@ import
   stew/byteutils,
   ../beacon_node_common, ../validators/validator_duties,
   ../consensus_object_pools/[block_pools_types, blockchain_dag],
-  ../spec/[datatypes, digest, forkedbeaconstate_helpers, helpers]
+  ../spec/datatypes/base,
+  ../spec/[digest, forkedbeaconstate_helpers, helpers]
 
 export blockchain_dag
 
@@ -25,7 +26,7 @@ template withStateForStateId*(stateId: string, body: untyped): untyped =
 
   if isState(node.dag.headState):
     withStateVars(node.dag.headState):
-      var cache {.inject.}: StateCache
+      var cache {.inject, used.}: StateCache
       body
   else:
     let rpcState = assignClone(node.dag.headState)

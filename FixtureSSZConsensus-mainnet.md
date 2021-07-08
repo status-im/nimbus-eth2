@@ -188,18 +188,21 @@ FixtureSSZConsensus-mainnet
 + [Valid]   success                                                                          OK
 + [Valid]   success_already_exited_long_ago                                                  OK
 + [Valid]   success_already_exited_recent                                                    OK
++ [Valid]   success_attestation_from_future                                                  OK
 + [Valid]   success_block_header                                                             OK
++ [Valid]   success_block_header_from_future                                                 OK
 + [Valid]   success_double                                                                   OK
 + [Valid]   success_exit_queue                                                               OK
 + [Valid]   success_low_balances                                                             OK
 + [Valid]   success_misc_balances                                                            OK
 + [Valid]   success_multi_proposer_index_iterations                                          OK
 + [Valid]   success_previous_epoch                                                           OK
++ [Valid]   success_proposer_index_slashed                                                   OK
 + [Valid]   success_slashed_and_proposer_index_the_same                                      OK
 + [Valid]   success_surround                                                                 OK
 + [Valid]   success_with_effective_balance_disparity                                         OK
 ```
-OK: 196/196 Fail: 0/196 Skip: 0/196
+OK: 199/199 Fail: 0/199 Skip: 0/199
 ## Official - Altair - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -337,4 +340,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 287/287 Fail: 0/287 Skip: 0/287
+OK: 290/290 Fail: 0/290 Skip: 0/290

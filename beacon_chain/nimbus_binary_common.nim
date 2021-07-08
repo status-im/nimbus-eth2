@@ -19,7 +19,7 @@ import
   stew/io2,
 
   # Local modules
-  ./spec/[datatypes, crypto, helpers], beacon_clock, filepath,
+  ./spec/[crypto, helpers], ./spec/datatypes/base, beacon_clock, filepath,
   ./networking/eth2_network
 
 when defined(posix):
@@ -31,6 +31,7 @@ proc setupStdoutLogging*(logLevel: string) =
       proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe, raises: [Defect].} =
         try:
           stdout.write(msg)
+          stdout.flushFile()
         except IOError as err:
           logLoggingFailure(cstring(msg), err)
 

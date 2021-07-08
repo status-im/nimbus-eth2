@@ -11,7 +11,8 @@ import
   std/tables,
   stew/results,
   chronicles, chronos, metrics,
-  ../spec/[crypto, datatypes, digest],
+  ../spec/[crypto, digest],
+  ../spec/datatypes/base,
   ../consensus_object_pools/[block_clearance, blockchain_dag, exit_pool, attestation_pool],
   ./gossip_validation, ./block_processor,
   ./batch_validation,
@@ -45,9 +46,20 @@ declareHistogram beacon_block_delay,
   "Time(s) between slot start and beacon block reception", buckets = delayBuckets
 
 type
+  DoppelgangerProtection = object
+    broadcastStartEpoch*: Epoch  ##\
+    ## Set anew, each time gossip is re-enabled after syncing completes, so
+    ## might reset multiple times per instance. This allows some safe level
+    ## of gossip interleaving between nodes so long as they don't gossip at
+    ## the same time.
+
+    nodeLaunchSlot: Slot ##\
+    ## Set once, at node launch. This functions as a basic protection against
+    ## false positives from attestations persisting within the gossip network
+    ## across quick restarts.
+
   Eth2Processor* = object
     doppelGangerDetectionEnabled*: bool
-    getWallTime*: GetWallTimeFn
 
     # Local sources of truth for validation
     # ----------------------------------------------------------------
@@ -73,6 +85,9 @@ type
     # ----------------------------------------------------------------
     quarantine*: QuarantineRef
 
+    # Application-provided current time provider (to facilitate testing)
+    getTime*: GetTimeFn
+
 # Initialization
 # ------------------------------------------------------------------------------
 
@@ -85,22 +100,27 @@ proc new*(T: type Eth2Processor,
           validatorPool: ref ValidatorPool,
           quarantine: QuarantineRef,
           rng: ref BrHmacDrbgContext,
-          getWallTime: GetWallTimeFn): ref Eth2Processor =
+          getTime: GetTimeFn): ref Eth2Processor =
   (ref Eth2Processor)(
     doppelGangerDetectionEnabled: doppelGangerDetectionEnabled,
-    getWallTime: getWallTime,
+    doppelgangerDetection: DoppelgangerProtection(
+      nodeLaunchSlot: dag.beaconClock.now.slotOrZero),
     blockProcessor: blockProcessor,
     dag: dag,
     attestationPool: attestationPool,
     exitPool: exitPool,
     validatorPool: validatorPool,
     quarantine: quarantine,
+    getTime: getTime,
     batchCrypto: BatchCrypto.new(
       rng = rng,
       # Only run eager attestation signature verification if we're not
       # processing blocks in order to give priority to block processing
       eager = proc(): bool = not blockProcessor[].hasBlocks())
   )
+
+proc getCurrentBeaconTime*(self: Eth2Processor|ref Eth2Processor): BeaconTime =
+  self.dag.beaconClock.toBeaconTime(self.getTime())
 
 # Gossip Management
 # -----------------------------------------------------------------------------------
@@ -113,7 +133,7 @@ proc blockValidator*(
     blockRoot = shortLog(signedBlock.root)
 
   let
-    wallTime = self.getWallTime()
+    wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot()
 
   if not afterGenesis:
@@ -152,21 +172,21 @@ proc blockValidator*(
   # propagation of seemingly good blocks
   trace "Block validated"
   self.blockProcessor[].addBlock(
-    signedBlock, validationDur = self.getWallTime() - wallTime)
+    signedBlock, validationDur = self.getCurrentBeaconTime() - wallTime)
 
   ValidationResult.Accept
 
 proc checkForPotentialDoppelganger(
     self: var Eth2Processor, attestation: Attestation,
-    attesterIndices: openArray[ValidatorIndex], wallSlot: Slot) =
-  let epoch = wallSlot.epoch
-
-  # Only check for current epoch, not potential attestations bouncing around
-  # from up to several minutes prior.
-  if attestation.data.slot.epoch < epoch:
+    attesterIndices: openArray[ValidatorIndex]) =
+  # Only check for attestations after node launch. There might be one slot of
+  # overlap in quick intra-slot restarts so trade off a few true negatives in
+  # the service of avoiding more likely false positives.
+  if attestation.data.slot <= self.doppelgangerDetection.nodeLaunchSlot + 1:
     return
 
-  if epoch < self.doppelgangerDetection.broadcastStartEpoch:
+  if attestation.data.slot.epoch <
+      self.doppelgangerDetection.broadcastStartEpoch:
     let tgtBlck = self.dag.getRef(attestation.data.target.root)
     doAssert not tgtBlck.isNil  # because attestation is valid above
 
@@ -192,9 +212,8 @@ proc attestationValidator*(
     attestation = shortLog(attestation)
     subnet_id
 
-  let
-    wallTime = self.getWallTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
+  let wallTime = self.getCurrentBeaconTime()
+  var (afterGenesis, wallSlot) = wallTime.toSlot()
 
   if not afterGenesis:
     notice "Attestation before genesis"
@@ -211,16 +230,17 @@ proc attestationValidator*(
       self.batchCrypto, attestation, wallTime, subnet_id, checkSignature)
   if v.isErr():
     debug "Dropping attestation", validationError = v.error
-
     return v.error[0]
+
+  # Due to async validation the wallSlot here might have changed
+  (afterGenesis, wallSlot) = self.getCurrentBeaconTime().toSlot()
 
   beacon_attestations_received.inc()
   beacon_attestation_delay.observe(delay.toFloatSeconds())
 
   let (attestation_index, sig) = v.get()
 
-  self[].checkForPotentialDoppelganger(
-    attestation, [attestation_index], wallSlot)
+  self[].checkForPotentialDoppelganger(attestation, [attestation_index])
 
   trace "Attestation validated"
   self.attestationPool[].addAttestation(
@@ -235,9 +255,8 @@ proc aggregateValidator*(
     aggregate = shortLog(signedAggregateAndProof.message.aggregate)
     signature = shortLog(signedAggregateAndProof.signature)
 
-  let
-    wallTime = self.getWallTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
+  let wallTime = self.getCurrentBeaconTime()
+  var (afterGenesis, wallSlot) = wallTime.toSlot()
 
   if not afterGenesis:
     notice "Aggregate before genesis"
@@ -261,19 +280,20 @@ proc aggregateValidator*(
       wallSlot
     return v.error[0]
 
+  # Due to async validation the wallSlot here might have changed
+  (afterGenesis, wallSlot) = self.getCurrentBeaconTime().toSlot()
+
   beacon_aggregates_received.inc()
   beacon_aggregate_delay.observe(delay.toFloatSeconds())
 
   let (attesting_indices, sig) = v.get()
 
   self[].checkForPotentialDoppelganger(
-    signedAggregateAndProof.message.aggregate, attesting_indices,
-    wallSlot)
+    signedAggregateAndProof.message.aggregate, attesting_indices)
 
   trace "Aggregate validated",
     aggregator_index = signedAggregateAndProof.message.aggregator_index,
-    selection_proof = signedAggregateAndProof.message.selection_proof,
-    wallSlot
+    selection_proof = signedAggregateAndProof.message.selection_proof
 
   self.attestationPool[].addAttestation(
     signedAggregateAndProof.message.aggregate, attesting_indices, sig, wallSlot)

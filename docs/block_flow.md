@@ -133,7 +133,7 @@ To mitigate blocking networking and timeshare between Io and compute, blocks are
 
 This in turn calls:
 - `storeBlock(Eth2Processor, SignedBeaconBlock, Slot)`
-- `addRawBlock(ChainDagRef, QuarantineRef, SignedBeaconBlock, forkChoiceCallback)`
+- `addRawBlock(ChainDAGRef, QuarantineRef, SignedBeaconBlock, forkChoiceCallback)`
 - trigger sending attestation if relevant
 
 ### Steady state (synced to head)

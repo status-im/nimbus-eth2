@@ -20,14 +20,14 @@ import
   ./networking/eth2_network,
   ./eth1/eth1_monitor,
   ./consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
-  ./spec/datatypes,
+  ./spec/datatypes/base,
   ./sync/[sync_manager, request_manager]
 
 export
   osproc, chronos, httpserver, conf, beacon_clock, beacon_chain_db,
   attestation_pool, eth2_network, beacon_node_types, eth1_monitor,
   request_manager, sync_manager, eth2_processor, blockchain_dag, block_quarantine,
-  datatypes
+  base
 
 type
   RpcServer* = RpcHttpServer
@@ -45,11 +45,9 @@ type
     attestationPool*: ref AttestationPool
     exitPool*: ref ExitPool
     eth1Monitor*: Eth1Monitor
-    beaconClock*: BeaconClock
     rpcServer*: RpcServer
     restServer*: RestServerRef
     vcProcess*: Process
-    forkDigest*: ForkDigest
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerID]
     topicBeaconBlocks*: string
@@ -72,6 +70,9 @@ template findIt*(s: openArray, predicate: untyped): int =
       res = i
       break
   res
+
+template beaconClock*(node: BeaconNode): BeaconClock =
+  node.dag.beaconClock
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero

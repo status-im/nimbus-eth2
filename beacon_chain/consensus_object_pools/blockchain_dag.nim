@@ -17,7 +17,7 @@ import
     beaconstate, forkedbeaconstate_helpers],
   ../spec/datatypes/[phase0, altair],
   ../beacon_clock,
-  "."/[block_pools_types, block_quarantine]
+  "."/[block_pools_types, block_quarantine, forkedbeaconstate_dbhelpers]
 
 export block_pools_types, helpers, phase0
 
@@ -45,7 +45,8 @@ declareGauge beacon_processed_deposits_total, "Number of total deposits included
 logScope: topics = "chaindag"
 
 proc putBlock*(
-    dag: ChainDAGRef, signedBlock: phase0.TrustedSignedBeaconBlock) =
+    dag: ChainDAGRef, signedBlock:
+      phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock) =
   dag.db.putBlock(signedBlock)
 
 proc updateStateData*(
@@ -319,7 +320,8 @@ func isStateCheckpoint(bs: BlockSlot): bool =
 proc init*(T: type ChainDAGRef,
            preset: RuntimePreset,
            db: BeaconChainDB,
-           updateFlags: UpdateFlags = {}): ChainDAGRef =
+           updateFlags: UpdateFlags = {},
+           altairTransitionSlot: Slot = FAR_FUTURE_SLOT): ChainDAGRef =
   # TODO we require that the db contains both a head and a tail block -
   #      asserting here doesn't seem like the right way to go about it however..
 
@@ -391,7 +393,7 @@ proc init*(T: type ChainDAGRef,
       let root = db.getStateRoot(cur.blck.root, cur.slot)
       if root.isSome():
         if db.getState(root.get(), tmpState.data.hbsPhase0.data, noRollback):
-          tmpState.data.hbsPhase0.root = root.get()
+          setStateRoot(tmpState.data, root.get())
           tmpState.blck = cur.blck
 
           break
@@ -408,6 +410,11 @@ proc init*(T: type ChainDAGRef,
     tail: tailRef,
     genesis: genesisRef,
     db: db,
+    beaconClock: BeaconClock.init(
+      getStateField(tmpState.data, genesis_time)),
+    forkDigests: newClone ForkDigests.init(
+      preset,
+      getStateField(tmpState.data, genesis_validators_root)),
     heads: @[headRef],
     headState: tmpState[],
     epochRefState: tmpState[],
@@ -417,6 +424,7 @@ proc init*(T: type ChainDAGRef,
     # allow skipping some validation.
     updateFlags: {verifyFinalization} * updateFlags,
     runtimePreset: preset,
+    altairTransitionSlot: altairTransitionSlot
   )
 
   doAssert dag.updateFlags in [{}, {verifyFinalization}]
@@ -507,14 +515,26 @@ proc getState(
     else:
       unsafeAddr dag.headState
 
-  func restore(v: var phase0.BeaconState) =
-    assign(v, restoreAddr[].data.hbsPhase0.data)
+  let v = addr state.data
 
-  if not dag.db.getState(stateRoot, state.data.hbsPhase0.data, restore):
-    return false
+  func restore() =
+    assign(v[], restoreAddr[].data)
+
+  if blck.slot < dag.altairTransitionSlot:
+    if state.data.beaconStateFork != forkPhase0:
+      state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkPhase0)[]
+
+    if not dag.db.getState(stateRoot, state.data.hbsPhase0.data, restore):
+      return false
+  else:
+    if state.data.beaconStateFork != forkAltair:
+      state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkAltair)[]
+
+    if not dag.db.getAltairState(stateRoot, state.data.hbsAltair.data, restore):
+      return false
 
   state.blck = blck
-  state.data.hbsPhase0.root = stateRoot
+  setStateRoot(state.data, stateRoot)
 
   true
 
@@ -524,6 +544,12 @@ func stateCheckpoint*(bs: BlockSlot): BlockSlot =
   while not isStateCheckPoint(bs):
     bs = bs.parentOrSlot
   bs
+
+proc forkDigestAtSlot*(dag: ChainDAGRef, slot: Slot): ForkDigest =
+  if slot < dag.altairTransitionSlot:
+    dag.forkDigests.phase0
+  else:
+    dag.forkDigests.altair
 
 proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
   ## Load a state from the database given a block and a slot - this will first
@@ -538,7 +564,7 @@ proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
 
   false
 
-proc putState(dag: ChainDAGRef, state: var StateData) =
+proc putState(dag: ChainDAGRef, state: StateData) =
   # Store a state and its root
   logScope:
     blck = shortLog(state.blck)
@@ -557,8 +583,7 @@ proc putState(dag: ChainDAGRef, state: var StateData) =
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
-  dag.db.putState(getStateRoot(state.data), state.data.hbsPhase0.data)
-
+  dag.db.putState(state.data)
   dag.db.putStateRoot(
     state.blck.root, getStateField(state.data, slot), getStateRoot(state.data))
 
@@ -643,6 +668,20 @@ proc get*(dag: ChainDAGRef, blck: BlockRef): BlockData =
 
   BlockData(data: data.get(), refs: blck)
 
+proc getForkedBlock*(dag: ChainDAGRef, blck: BlockRef): ForkedTrustedSignedBeaconBlock =
+  # TODO implement this properly
+  let phase0Block = dag.db.getBlock(blck.root)
+  if phase0Block.isOk:
+    return ForkedTrustedSignedBeaconBlock(kind: BeaconBlockFork.Phase0,
+                                          phase0Block: phase0Block.get)
+
+  let altairBlock = dag.db.getAltairBlock(blck.root)
+  if altairBlock.isOk:
+    return ForkedTrustedSignedBeaconBlock(kind: BeaconBlockFork.Altair,
+                                          altairBlock: altairBlock.get)
+
+  raiseAssert "BlockRef without backing data, database corrupt?"
+
 proc get*(dag: ChainDAGRef, root: Eth2Digest): Option[BlockData] =
   ## Retrieve a resolved block reference and its associated body, if available
   let refs = dag.getRef(root)
@@ -664,7 +703,7 @@ proc advanceSlots(
 
     doAssert process_slots(
         state.data, getStateField(state.data, slot) + 1, cache, rewards,
-        dag.updateFlags, FAR_FUTURE_SLOT),
+        dag.updateFlags, dag.altairTransitionSlot),
       "process_slots shouldn't fail when state slot is correct"
     if save:
       dag.putState(state)
@@ -688,7 +727,8 @@ proc applyBlock(
 
   let ok = state_transition(
     dag.runtimePreset, state.data, blck.data,
-    cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
+    cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore,
+    dag.altairTransitionSlot)
   if ok:
     state.blck = blck.refs
 

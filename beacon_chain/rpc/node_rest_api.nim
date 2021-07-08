@@ -7,7 +7,8 @@ import
   nimcrypto/utils as ncrutils,
   ../version, ../beacon_node_common, ../sync/sync_manager,
   ../networking/[eth2_network, peer_pool],
-  ../spec/[datatypes, digest, presets],
+  ../spec/datatypes/base,
+  ../spec/[digest, presets],
   ../spec/eth2_apis/callsigs_types,
   ./eth2_json_rest_serialization, ./rest_utils
 

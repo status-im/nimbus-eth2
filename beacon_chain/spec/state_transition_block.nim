@@ -310,12 +310,23 @@ proc process_operations(preset: RuntimePreset,
                         cache: var StateCache): Result[void, cstring] {.nbench.} =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
+  template base_reward_per_increment(state: phase0.BeaconState): Gwei = 0.Gwei
+  template base_reward_per_increment(state: altair.BeaconState): Gwei =
+    get_base_reward_per_increment(state, cache)
+
   let
     req_deposits = min(MAX_DEPOSITS,
                        state.eth1_data.deposit_count - state.eth1_deposit_index)
+    generalized_base_reward_per_increment = base_reward_per_increment(state)
+
   if state.eth1_data.deposit_count < state.eth1_deposit_index or
       body.deposits.lenu64 != req_deposits:
     return err("incorrect number of deposits")
+
+  template do_process_attestation(state, operation, flags, cache: untyped):
+      untyped =
+    process_attestation(
+      state, operation, flags, generalized_base_reward_per_increment, cache)
 
   template for_ops(operations: auto, fn: auto) =
     for operation in operations:
@@ -325,7 +336,7 @@ proc process_operations(preset: RuntimePreset,
 
   for_ops(body.proposer_slashings, process_proposer_slashing)
   for_ops(body.attester_slashings, process_attester_slashing)
-  for_ops(body.attestations, process_attestation)
+  for_ops(body.attestations, do_process_attestation)
 
   for deposit in body.deposits:
     let res = process_deposit(preset, state, deposit, flags)
@@ -422,7 +433,7 @@ proc process_block*(
   # The transition-triggering block creates, not acts on, an Altair state
   err("process_block: Altair state with Phase 0 block")
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#block-processing
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/altair.nim
 type SomeAltairBlock =

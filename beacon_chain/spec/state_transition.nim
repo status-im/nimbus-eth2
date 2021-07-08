@@ -104,13 +104,14 @@ func verifyStateRoot(state: phase0.BeaconState, blck: altair.TrustedBeaconBlock)
   true
 
 type
-  RollbackProc* = proc(v: var phase0.BeaconState) {.gcsafe, raises: [Defect].}
+  RollbackProc* = proc() {.gcsafe, raises: [Defect].}
 
-func noRollback*(state: var phase0.BeaconState) =
+func noRollback*() =
   trace "Skipping rollback of broken state"
 
 type
   RollbackHashedProc* = proc(state: var phase0.HashedBeaconState) {.gcsafe, raises: [Defect].}
+  RollbackAltairHashedProc* = proc(state: var altair.HashedBeaconState) {.gcsafe, raises: [Defect].}
 
 # Hashed-state transition functions
 # ---------------------------------------------------------------
@@ -164,9 +165,12 @@ proc advance_slot(
   state.slot += 1
 
 func noRollback*(state: var phase0.HashedBeaconState) =
-  trace "Skipping rollback of broken state"
+  trace "Skipping rollback of broken phase 0 state"
 
-proc maybeUpgradeStateToAltair(
+func noRollback*(state: var altair.HashedBeaconState) =
+  trace "Skipping rollback of broken Altair state"
+
+proc maybeUpgradeStateToAltair*(
     state: var ForkedHashedBeaconState, altairForkSlot: Slot) =
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
@@ -220,7 +224,8 @@ proc state_transition_block_aux(
     preset: RuntimePreset,
     state: var SomeHashedBeaconState,
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
-                 phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
+                 phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock |
+                 altair.SigVerifiedSignedBeaconBlock,
     cache: var StateCache, flags: UpdateFlags): bool {.nbench.} =
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
@@ -301,7 +306,7 @@ proc state_transition*(
                  phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
     rollback: RollbackForkedHashedProc,
-    altairForkSlot: Slot = FAR_FUTURE_SLOT): bool {.nbench.} =
+    altairForkSlot: Slot): bool {.nbench.} =
   ## Apply a block to the state, advancing the slot counter as necessary. The
   ## given state must be of a lower slot, or, in case the `slotProcessed` flag
   ## is set, can be the slot state of the same slot as the block (where the
@@ -364,6 +369,66 @@ proc makeBeaconBlock*(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits:
         List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits)))
+
+  let res = process_block(preset, state.data, blck, {skipBlsValidation}, cache)
+
+  if res.isErr:
+    warn "Unable to apply new block to state",
+      blck = shortLog(blck),
+      slot = state.data.slot,
+      eth1_deposit_index = state.data.eth1_deposit_index,
+      deposit_root = shortLog(state.data.eth1_data.deposit_root),
+      error = res.error
+    rollback(state)
+    return
+
+  state.root = hash_tree_root(state.data)
+  blck.state_root = state.root
+
+  return some(blck)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#preparing-a-beaconblock
+proc makeBeaconBlock*(
+    preset: RuntimePreset,
+    state: var altair.HashedBeaconState,
+    proposer_index: ValidatorIndex,
+    parent_root: Eth2Digest,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit],
+    proposerSlashings: seq[ProposerSlashing],
+    attesterSlashings: seq[AttesterSlashing],
+    voluntaryExits: seq[SignedVoluntaryExit],
+    executionPayload: ExecutionPayload,
+    rollback: RollbackAltairHashedProc,
+    cache: var StateCache): Option[altair.BeaconBlock] =
+  ## Create a block for the given state. The last block applied to it must be
+  ## the one identified by parent_root and process_slots must be called up to
+  ## the slot for which a block is to be created.
+
+  # To create a block, we'll first apply a partial block to the state, skipping
+  # some validations.
+
+  var blck = altair.BeaconBlock(
+    slot: state.data.slot,
+    proposer_index: proposer_index.uint64,
+    parent_root: parent_root,
+    body: altair.BeaconBlockBody(
+      randao_reveal: randao_reveal,
+      eth1_data: eth1data,
+      graffiti: graffiti,
+      proposer_slashings: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS](
+        proposerSlashings),
+      attester_slashings: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS](
+        attesterSlashings),
+      attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
+      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
+      voluntary_exits:
+        List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits)))
+
+  # TODO sync committees
 
   let res = process_block(preset, state.data, blck, {skipBlsValidation}, cache)
 

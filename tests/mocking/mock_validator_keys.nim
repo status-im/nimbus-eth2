@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,7 +11,8 @@
 import
   bearssl, eth/keys,
   blscurve,
-  ../../beacon_chain/spec/[datatypes, crypto, presets]
+  ../../beacon_chain/spec/[crypto, presets],
+  ../../beacon_chain/spec/datatypes/base
 
 proc newKeyPair(rng: var BrHmacDrbgContext): BlsResult[tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey]] =
   ## Generates a new public-private keypair

@@ -11,12 +11,12 @@ import
   # Standard library
   std/[sets, tables, hashes],
   # Status libraries
-  stew/[endians2], chronicles,
+  stew/endians2, chronicles,
   eth/keys,
   # Internals
-  ../spec/[
-    datatypes, crypto, digest, signatures_batch, forkedbeaconstate_helpers],
-  ../beacon_chain_db, ../extras
+  ../spec/[crypto, digest, signatures_batch, forkedbeaconstate_helpers],
+  ../spec/datatypes/[phase0, altair],
+  ".."/[beacon_chain_db, beacon_clock, extras]
 
 export sets, tables
 
@@ -57,10 +57,15 @@ type
     ##
     ## Invalid blocks are dropped immediately.
 
-    orphans*: Table[(Eth2Digest, ValidatorSig), SignedBeaconBlock] ##\
-    ## Blocks that have passed validation but that we lack a link back to tail
-    ## for - when we receive a "missing link", we can use this data to build
-    ## an entire branch
+    orphansPhase0*: Table[(Eth2Digest, ValidatorSig), phase0.SignedBeaconBlock] ##\
+    ## Phase 0 Blocks that have passed validation but that we lack a link back
+    ## to tail for - when we receive a "missing link", we can use this data to
+    ## build an entire branch
+
+    orphansAltair*: Table[(Eth2Digest, ValidatorSig), altair.SignedBeaconBlock] ##\
+    ## Altair Blocks that have passed validation, but that we lack a link back
+    ## to tail for - when we receive a "missing link", we can use this data to
+    ## build an entire branch
 
     missing*: Table[Eth2Digest, MissingBlock] ##\
     ## Roots of blocks that we would like to have (either parent_root of
@@ -108,6 +113,8 @@ type
 
     db*: BeaconChainDB ##\
       ## ColdDB - Stores the canonical chain
+
+    beaconClock*: BeaconClock
 
     # -----------------------------------
     # ChainDAGRef - DAG of candidate chains
@@ -160,6 +167,15 @@ type
       ## block - we limit the number of held EpochRefs to put a cap on
       ## memory usage
 
+    forkDigests*: ForkDigestsRef
+      ## Cached copy of the fork digests associated with the current
+      ## database. We use a ref type to facilitate sharing this small
+      ## value with other components which don't have access to the
+      ## full ChainDAG.
+
+    altairTransitionSlot*: Slot ##\
+      ## Slot at which to upgrade from phase 0 to Altair forks
+
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and
     ## committees in a beacon state - the epoch level information in the state
@@ -199,7 +215,7 @@ type
   BlockData* = object
     ## Body and graph in one
 
-    data*: TrustedSignedBeaconBlock # We trust all blocks we have a ref for
+    data*: phase0.TrustedSignedBeaconBlock # We trust all blocks we have a ref for
     refs*: BlockRef
 
   StateData* = object
@@ -218,11 +234,17 @@ type
       ## Slot time for this BlockSlot which may differ from blck.slot when time
       ## has advanced without blocks
 
-  OnBlockAdded* = proc(
-    blckRef: BlockRef, blck: TrustedSignedBeaconBlock,
-    epochRef: EpochRef, state: HashedBeaconState) {.gcsafe, raises: [Defect].}
+  OnPhase0BlockAdded* = proc(
+    blckRef: BlockRef,
+    blck: phase0.TrustedSignedBeaconBlock,
+    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
 
-template head*(dag: ChainDagRef): BlockRef = dag.headState.blck
+  OnAltairBlockAdded* = proc(
+    blckRef: BlockRef,
+    blck: altair.TrustedSignedBeaconBlock,
+    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+
+template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 
 template epoch*(e: EpochRef): Epoch = e.key.epoch
 
