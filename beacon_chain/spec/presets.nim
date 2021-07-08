@@ -298,7 +298,7 @@ const
     DEPOSIT_CHAIN_ID: 5,
     DEPOSIT_NETWORK_ID: 5,
     # Configured on a per testnet basis
-    # DEPOSIT_CONTRACT_ADDRESS: 0x1234567890123456789012345678901234567890
+    DEPOSIT_CONTRACT_ADDRESS: Eth1Address.fromHex("0x1234567890123456789012345678901234567890")
   )
 
 when const_preset == "mainnet":
@@ -374,10 +374,12 @@ template parse(T: type string, input: string): T =
 template parse(T: type Eth1Address, input: string): T =
   Eth1Address.fromHex(input)
 
-proc readRuntimeConfig*(path: string): RuntimeConfig
+proc readRuntimeConfig*(path: string): (RuntimeConfig, seq[string])
                       {.raises: [IOError, PresetFileError, PresetIncompatibleError, Defect].} =
   var
     lineNum = 0
+    cfg = defaultRuntimeConfig
+    unknowns: seq[string]
 
   template lineinfo: string =
     try: "$1($2) " % [path, $lineNum]
@@ -386,10 +388,8 @@ proc readRuntimeConfig*(path: string): RuntimeConfig
   template fail(msg) =
     raise newException(PresetFileError, lineinfo() & msg)
 
-  result = defaultRuntimeConfig
-
   var names: seq[string]
-  for name, field in result.fieldPairs():
+  for name, field in cfg.fieldPairs():
     names.add name
 
   var values: Table[string, string]
@@ -404,16 +404,19 @@ proc readRuntimeConfig*(path: string): RuntimeConfig
     if lineParts[0] in ignoredValues: continue
 
     if lineParts[0] notin names:
-      fail "Unrecognized constant in a preset: " & lineParts[0]
+      unknowns.add(lineParts[0])
+
     values[lineParts[0]] = lineParts[1].strip
 
-  for name, field in result.fieldPairs():
+  for name, field in cfg.fieldPairs():
     if name in values:
       try:
         field = parse(typeof(field), values[name])
       except ValueError:
         raise (ref PresetFileError)(msg: "Unable to parse " & name)
 
-  if result.PRESET_BASE != const_preset:
+  if cfg.PRESET_BASE != const_preset:
     raise (ref PresetIncompatibleError)(
-      msg: "Config not compatible with binary, compile with -d:const_preset=" & result.PRESET_BASE)
+      msg: "Config not compatible with binary, compile with -d:const_preset=" & cfg.PRESET_BASE)
+
+  (cfg, unknowns)

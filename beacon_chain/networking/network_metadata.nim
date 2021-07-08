@@ -85,7 +85,15 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       bootstrapNodesPath = path & "/bootstrap_nodes.txt"
 
       runtimeConfig = if fileExists(configPath):
-        readRuntimeConfig(configPath)
+        let (cfg, unknowns) = readRuntimeConfig(configPath)
+        if unknowns.len > 0:
+          debugecho unknowns
+          when nimvm:
+            # TODO print the unknowns at compile time...
+            {.warning: "Unknown constants in file".}
+          else:
+            warn "Unknown constants in config file", unknowns
+        cfg
       else:
         defaultRuntimeConfig
 
