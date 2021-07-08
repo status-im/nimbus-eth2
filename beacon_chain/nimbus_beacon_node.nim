@@ -38,10 +38,11 @@ import
          beacon_rest_api, event_rest_api, validator_rest_api, nimbus_rest_api],
   ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,
     validator_api],
+  ./spec/datatypes/[altair, phase0],
   ./spec/[
-    datatypes/phase0, datatypes/altair, digest, crypto,
-    forkedbeaconstate_helpers, beaconstate, eth2_apis/beacon_rpc_client,
-    helpers, network, presets, weak_subjectivity, signatures],
+    digest, crypto, forkedbeaconstate_helpers, beaconstate,
+    eth2_apis/beacon_rpc_client, helpers, network, presets, weak_subjectivity,
+    signatures],
   ./consensus_object_pools/[
     blockchain_dag, block_quarantine, block_clearance, block_pools_types,
     attestation_pool, sync_committee_msg_pool, exit_pool, spec_cache],

@@ -14,10 +14,11 @@ import
   chronicles, chronos, metrics,
   stew/results,
   # Internals
+  ../spec/datatypes/[phase0, altair],
   ../spec/[
     beaconstate, state_transition_block,
-    datatypes/phase0, datatypes/altair, crypto, digest,
-    forkedbeaconstate_helpers, helpers, network, signatures],
+    crypto, digest, forkedbeaconstate_helpers, helpers, network,
+    signatures],
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_quarantine, spec_cache,
     attestation_pool, exit_pool, sync_committee_msg_pool
