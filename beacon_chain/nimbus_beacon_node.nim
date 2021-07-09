@@ -1,4 +1,3 @@
-# beacon_chain
 # Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -96,6 +95,9 @@ declareGauge ticks_delay,
 
 declareGauge next_action_wait,
   "Seconds until the next attestation will be sent"
+
+declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
+versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
 
 logScope: topics = "beacnde"
 
