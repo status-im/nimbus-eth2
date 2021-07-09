@@ -1,4 +1,3 @@
-# beacon_chain
 # Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -22,7 +21,7 @@ const
 
   gitRevision* = strip(staticExec("git rev-parse --short HEAD"))[0..5]
 
-  nimBanner* = staticExec("nim --version | grep -v Compiled")
+  nimBanner* = staticExec("nim --version | grep Version")
 
   versionAsStr* =
     $versionMajor & "." & $versionMinor & "." & $versionBuild
