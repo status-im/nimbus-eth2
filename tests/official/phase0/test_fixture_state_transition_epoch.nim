@@ -33,8 +33,8 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
         var preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
         let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
         var cache {.used.}: StateCache
-        when compiles(transitionProc(defaultRuntimeConfig(), preState[], cache)):
-          transitionProc(defaultRuntimeConfig(), preState[], cache)
+        when compiles(transitionProc(defaultRuntimeConfig, preState[], cache)):
+          transitionProc(defaultRuntimeConfig, preState[], cache)
         elif compiles(transitionProc(preState[], cache)):
           transitionProc(preState[], cache)
         else:

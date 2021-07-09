@@ -76,6 +76,9 @@ const
 
 proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
                              {.raises: [CatchableError, Defect].} =
+  # Load data in eth2-networks format
+  # https://github.com/eth2-clients/eth2-networks/
+
   try:
     let
       genesisPath = path & "/genesis.ssz"
@@ -87,10 +90,9 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       runtimeConfig = if fileExists(configPath):
         let (cfg, unknowns) = readRuntimeConfig(configPath)
         if unknowns.len > 0:
-          debugecho unknowns
           when nimvm:
-            # TODO print the unknowns at compile time...
-            {.warning: "Unknown constants in file".}
+            # TODO better printing
+            echo "Unknown constants in file: " & unknowns
           else:
             warn "Unknown constants in config file", unknowns
         cfg
@@ -140,32 +142,14 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
     Eth2NetworkMetadata(incompatible: true,
                         incompatibilityDesc: err.msg)
 
-const
-  mainnetMetadataDir = eth2testnetsDir & "/shared/mainnet"
-
-  mainnetMetadata* = when const_preset == "mainnet":
-    Eth2NetworkMetadata(
-      incompatible: false, # TODO: This can be more accurate if we verify
-                           # that there are no constant overrides
-      eth1Network: some mainnet,
-      cfg: mainnetRuntimeConfig,
-      bootstrapNodes: readFile(mainnetMetadataDir & "/bootstrap_nodes.txt").splitLines,
-      depositContractDeployedAt: BlockHashOrNumber.init "11052984",
-      genesisData: readFile(mainnetMetadataDir & "/genesis.ssz"),
-      genesisDepositsSnapshot: readFile(mainnetMetadataDir & "/genesis_deposit_contract_snapshot.ssz"))
-  else:
-    Eth2NetworkMetadata(
-      incompatible: true,
-      incompatibilityDesc: "This build is compiled with the " & const_preset & " const preset. " &
-                           "It's not compatible with mainnet")
-
-template eth2testnet(path: string): Eth2NetworkMetadata =
+template eth2Network(path: string): Eth2NetworkMetadata =
   loadEth2NetworkMetadata(eth2testnetsDir & "/" & path)
 
 const
-  pyrmontMetadata* = eth2testnet "shared/pyrmont"
-  praterMetadata* = eth2testnet "shared/prater"
-  yeerongpillyMetadata* = eth2testnet "teku/yeerongpilly"
+  mainnetMetadata* = eth2Network "shared/mainnet"
+  pyrmontMetadata* = eth2Network "shared/pyrmont"
+  praterMetadata* = eth2Network "shared/prater"
+  yeerongpillyMetadata* = eth2Network "teku/yeerongpilly"
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
   var

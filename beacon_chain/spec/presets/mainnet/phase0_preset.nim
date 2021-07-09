@@ -1,4 +1,4 @@
-# https://github.com/ethereum/eth2.0-specs/blob/153e1b34dd682ea031324c2c125268605ed3dca9/presets/mainnet/phase0.yaml
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/presets/mainnet/phase0.yaml
 
 const
   #

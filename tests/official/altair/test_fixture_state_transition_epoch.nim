@@ -38,8 +38,8 @@ template runSuite(
         doAssert not (useCache and useTAB)
         when useCache:
           var cache = StateCache()
-          when compiles(transitionProc(defaultRuntimeConfig(), preState[], cache)):
-            transitionProc(defaultRuntimeConfig(), preState[], cache)
+          when compiles(transitionProc(defaultRuntimeConfig, preState[], cache)):
+            transitionProc(defaultRuntimeConfig, preState[], cache)
           else:
             transitionProc(preState[], cache)
         elif useTAB:
@@ -50,7 +50,7 @@ template runSuite(
           when compiles(transitionProc(preState[])):
             transitionProc(preState[])
           else:
-            transitionProc(defaultRuntimeConfig(), preState[])
+            transitionProc(defaultRuntimeConfig, preState[])
 
         reportDiff(preState, postState)
 

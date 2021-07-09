@@ -52,7 +52,7 @@ type
     SHARDING_FORK_VERSION*: Version
     SHARDING_FORK_EPOCH*: Epoch
 
-    TRANSITION_TOTAL_DIFFICULTY*: uint64
+    MIN_ANCHOR_POW_BLOCK_DIFFICULTY*: uint64
 
     # SECONDS_PER_SLOT*: uint64
     SECONDS_PER_ETH1_BLOCK*: uint64
@@ -82,6 +82,7 @@ const
 
   # These constants cannot really be overriden in a preset.
   # If we encounter them, we'll just ignore the preset value.
+  # TODO verify the value against the constant instead
   ignoredValues* = [
     "SECONDS_PER_SLOT",
 
@@ -138,24 +139,20 @@ const
     "DOMAIN_CONTRIBUTION_AND_PROOF",
 
     "CONFIG_NAME",
+
+    "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
   ]
 
-  # presetValueTypes* = {
-  #   ALTAIR_FORK_VERSION: "Version",
-  #   GENESIS_FORK_VERSION: "Version",
-  # }.toTable
+when const_preset == "mainnet":
+  import ./presets/mainnet
+  export mainnet
 
-# template getType*(presetValue: PresetValue): string =
-#   presetValueTypes.getOrDefault(presetValue, "uint64")
+  # TODO Move this to RuntimeConfig
+  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12
 
-# template toUInt64*(v: Version): uint64 =
-#   fromBytesBE(uint64, array[4, byte](v))
-
-  # result.missingValues = PresetValue.entireSet - presetValues
-
-# https://github.com/ethereum/eth2.0-specs/blob/1d5c4ecffbadc70b62189cb4219be055b8efa2e9/configs/mainnet.yaml
-const
-  mainnetRuntimeConfig* = RuntimeConfig(
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/configs/mainnet.yaml
+  # TODO Read these from yaml file
+  const defaultRuntimeConfig* = RuntimeConfig(
     PRESET_BASE: "mainnet",
 
     # Genesis
@@ -187,7 +184,7 @@ const
     SHARDING_FORK_EPOCH: Epoch(uint64.high),
 
     # TBD, 2**32 is a placeholder. Merge transition approach is in active R&D.
-    TRANSITION_TOTAL_DIFFICULTY: 4294967296'u64,
+    MIN_ANCHOR_POW_BLOCK_DIFFICULTY: 4294967296'u64,
 
 
     # Time parameters
@@ -226,8 +223,14 @@ const
     DEPOSIT_CONTRACT_ADDRESS: Eth1Address.fromHex("0x00000000219ab540356cBB839Cbe05303d7705Fa")
   )
 
-  # https://github.com/ethereum/eth2.0-specs/blob/1d5c4ecffbadc70b62189cb4219be055b8efa2e9/configs/minimal.yaml
-  minimalRuntimeConfig* = RuntimeConfig(
+elif const_preset == "minimal":
+  import ./presets/minimal
+  export minimal
+
+  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
+
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/configs/minimal.yaml
+  const defaultRuntimeConfig* = RuntimeConfig(
     # Minimal config
 
     # Extends the minimal preset
@@ -261,7 +264,7 @@ const
     SHARDING_FORK_EPOCH: Epoch(uint64.high),
 
     # TBD, 2**32 is a placeholder. Merge transition approach is in active R&D.
-    TRANSITION_TOTAL_DIFFICULTY: 4294967296'u64,
+    MIN_ANCHOR_POW_BLOCK_DIFFICULTY: 4294967296'u64,
 
 
     # Time parameters
@@ -301,23 +304,6 @@ const
     DEPOSIT_CONTRACT_ADDRESS: Eth1Address.fromHex("0x1234567890123456789012345678901234567890")
   )
 
-when const_preset == "mainnet":
-  template defaultRuntimeConfig*: auto = mainnetRuntimeConfig
-  import
-    ./presets/mainnet
-  export mainnet
-
-  # TODO turn into runtime config
-  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12
-elif const_preset == "minimal":
-  template defaultRuntimeConfig*: auto = minimalRuntimeConfig
-
-  import
-    ./presets/minimal
-  export minimal
-
-  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
-
 else:
   {.error: "Only mainnet and minimal presets supported".}
   # macro createConstantsFromPreset*(path: static string): untyped =
@@ -343,8 +329,7 @@ else:
 
   # createConstantsFromPreset const_preset
 
-func parse(T: type uint64, input: string): T
-           {.raises: [ValueError, Defect].} =
+func parse(T: type uint64, input: string): T {.raises: [ValueError, Defect].} =
   var res: BiggestUInt
   if input.len > 2 and input[0] == '0' and input[1] == 'x':
     if parseHex(input, res) != input.len:
@@ -353,7 +338,7 @@ func parse(T: type uint64, input: string): T
     if parseBiggestUInt(input, res) != input.len:
       raise newException(ValueError, "The constant value should be a valid unsigned integer")
 
-  result = uint64(res)
+  uint64(res)
 
 template parse(T: type byte, input: string): T =
   byte parse(uint64, input)
@@ -374,8 +359,9 @@ template parse(T: type string, input: string): T =
 template parse(T: type Eth1Address, input: string): T =
   Eth1Address.fromHex(input)
 
-proc readRuntimeConfig*(path: string): (RuntimeConfig, seq[string])
-                      {.raises: [IOError, PresetFileError, PresetIncompatibleError, Defect].} =
+proc readRuntimeConfig*(
+    path: string): (RuntimeConfig, seq[string]) {.
+    raises: [IOError, PresetFileError, PresetIncompatibleError, Defect].} =
   var
     lineNum = 0
     cfg = defaultRuntimeConfig

@@ -615,7 +615,7 @@ iterator get_flag_index_deltas(
       else:
         (vidx, 0.Gwei, 0.Gwei)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
 iterator get_inactivity_penalty_deltas(cfg: RuntimeConfig, state: altair.BeaconState):
     (ValidatorIndex, Gwei) =
   ## Return the inactivity penalty deltas by considering timely target

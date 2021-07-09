@@ -196,14 +196,14 @@ template processEpochScenarioImpl(
   state.root = hash_tree_root(state.data)
 
   var cache {.used.} = StateCache()
-  when compiles(transitionFn(defaultRuntimeConfig(), state.data, cache)):
-    transitionFn(defaultRuntimeConfig(), state.data, cache)
+  when compiles(transitionFn(defaultRuntimeConfig, state.data, cache)):
+    transitionFn(defaultRuntimeConfig, state.data, cache)
   elif compiles(transitionFn(state.data, cache)):
     transitionFn(state.data, cache)
   elif compiles(transitionFn(state.data)):
     transitionFn(state.data)
   else:
-    transitionFn(defaultRuntimeConfig(), state.data)
+    transitionFn(defaultRuntimeConfig, state.data)
 
   echo astToStr(transitionFn) & " status: ", "Done" # if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
@@ -238,8 +238,8 @@ template processBlockScenarioImpl(
 
   when compiles(transitionFn(state.data, consObj[], flags, cache)):
     let success = transitionFn(state.data, consObj[], flags, cache).isOk
-  elif compiles(transitionFn(defaultRuntimeConfig(), state.data, consObj[], flags, cache)):
-    let success = transitionFn(defaultRuntimeConfig(), state.data, consObj[], flags, cache).isOk
+  elif compiles(transitionFn(defaultRuntimeConfig, state.data, consObj[], flags, cache)):
+    let success = transitionFn(defaultRuntimeConfig, state.data, consObj[], flags, cache).isOk
   elif compiles(transitionFn(state.data, consObj[], flags)):
     let success = transitionFn(state.data, consObj[], flags).isOk
   elif compiles(transitionFn(state, consObj[], flags, cache)):
