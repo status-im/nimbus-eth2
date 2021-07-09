@@ -908,7 +908,13 @@ proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
     Future[seq[PeerAddr]] {.async, raises: [Defect].} =
   ## Perform a discovery query for a random target
   ## and sort for maximum (attnets) coverage
-  let nodes = await d.queryRandom()
+
+  let queryFut = d.queryRandom()
+  let querySuccedeed = await queryFut.withTimeout(10.seconds)
+  if not querySuccedeed:
+    return newSeq[PeerAddr]()
+
+  let nodes = await queryFut
   let eth2Field = SSZ.encode(forkId)
 
   var filtered: seq[(int, PeerAddr)]
@@ -1188,7 +1194,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf,
     scorePerProtocol = 1_000_000
     scorePerAttnet = scorePerProtocol div ATTESTATION_SUBNET_COUNT
   for attnet in 0..<metadata.attnets.len():
-    node.attnetsPeerGroups.add(node.peerBalancer.addGroup("attnet_"  & $attnet, scorePerAttnet, 5))
+    node.attnetsPeerGroups.add(node.peerBalancer.addGroup("attnet_"  & $attnet, scorePerAttnet, 8))
   node.eth2PeerGroup = node.peerBalancer.addGroup("eth2", scorePerAttnet)
 
   newSeq node.protocolStates, allProtocols.len
