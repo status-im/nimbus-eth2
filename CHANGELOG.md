@@ -1,3 +1,27 @@
+2021-07-10 v1.4.1
+=================
+
+Nimbus v1.4.1 - "Every attestation counts"
+
+This release is marked as `low-urgency`
+
+## Notable changes
+
+Nimbus `v1.4.0` users might have noticed that they are missing a small number of (seemingly random) attestations since the update. Our investigation into the matter has showed that, due to `v1.4.0`'s significant performance improvements, Nimbus validators occasionally send their first attestation for a new epoch before some peers are ready. These "slow" peers end up dropping early attestations because they're busy with the epoch transition.
+
+It's a rare occurrence, since it requires a validator to be scheduled to attest in the first slot of an epoch *and* for the beacon node to only be connected to "slow" peers for the respective libp2p topic. If both these conditions are true, a premature attestation may be lost in time, like tears in the rain.
+
+As a fix, we are using a larger send delay: [#2705](https://github.com/status-im/nimbus-eth2/pull/2705).
+
+Fo those Nimbus `v1.4.0` users who are concerned about reaching optimal attestation effectiveness, we encourage you to upgrade as soon as possible.
+
+Other changes include log flushing and metrics fixes.
+
+Full list:
+- increase attestation wait time ([#2705](https://github.com/status-im/nimbus-eth2/pull/2705))
+- ensure logs are printed without delays ([#2669](https://github.com/status-im/nimbus-eth2/pull/2669))
+- fix metrics on Windows ([#2707](https://github.com/status-im/nimbus-eth2/pull/2707))
+
 2021-06-21 v1.4.0
 =================
 
