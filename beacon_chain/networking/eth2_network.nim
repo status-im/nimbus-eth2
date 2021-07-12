@@ -203,7 +203,7 @@ type
     case kind*: Eth2NetworkingErrorKind
     of ReceivedErrorResponse:
       responseCode: ResponseCode
-      errorMsg: ErrorMsg
+      errorMsg: string
     else:
       discard
 
@@ -1581,7 +1581,7 @@ proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
 proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      config: BeaconNodeConf,
                      netKeys: NetKeyPair,
-                     runtimePreset: RuntimePreset,
+                     cfg: RuntimeConfig,
                      forkDigests: ForkDigestsRef,
                      genesisValidatorsRoot: Eth2Digest): Eth2Node
                     {.raises: [Defect, CatchableError].} =
@@ -1591,7 +1591,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       # This function should gain an extra argument specifying
       # whether the client head state is already past the Altair
       # migration point.
-      runtimePreset.GENESIS_FORK_VERSION,
+      cfg.GENESIS_FORK_VERSION,
       genesisValidatorsRoot)
 
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(

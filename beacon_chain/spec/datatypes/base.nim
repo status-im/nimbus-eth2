@@ -877,14 +877,16 @@ const
   # http://facweb.cs.depaul.edu/sjost/it212/documents/ascii-pr.htm
   PrintableAsciiChars = {' '..'~'}
 
-func `$`*(value: GraffitiBytes): string =
-  result = strip(string.fromBytes(distinctBase value),
+func toPrettyString*(bytes: openArray[byte]): string =
+  result = strip(string.fromBytes(bytes),
                  leading = false,
                  chars = Whitespace + {'\0'})
 
   # TODO: Perhaps handle UTF-8 at some point
   if not allCharsInSet(result, PrintableAsciiChars):
-    result = "0x" & toHex(distinctBase value)
+    result = "0x" & toHex(bytes)
+
+func `$`*(value: GraffitiBytes): string = toPrettyString(distinctBase value)
 
 func init*(T: type GraffitiBytes, input: string): GraffitiBytes
           {.raises: [ValueError, Defect].} =

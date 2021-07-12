@@ -16,7 +16,7 @@ import
   # Standard library
   std/math,
   # Specs
-  ../../beacon_chain/spec/[beaconstate, crypto, presets],
+  ../../beacon_chain/spec/[crypto, presets, state_transition_block],
   ../../beacon_chain/spec/datatypes/base,
   # Internals
   ../../beacon_chain/ssz,
@@ -56,7 +56,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
 
       # State transition
       # ----------------------------------------
-      check: process_deposit(defaultRuntimePreset(), state.data, deposit, {}).isOk
+      check: process_deposit(defaultRuntimeConfig, state.data, deposit, {}).isOk
 
       # Check invariants
       # ----------------------------------------
@@ -98,7 +98,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
 
     # State transition
     # ----------------------------------------
-    check: process_deposit(defaultRuntimePreset(), state.data, deposit, {}).isOk
+    check: process_deposit(defaultRuntimeConfig, state.data, deposit, {}).isOk
 
     # Check invariants
     # ----------------------------------------
@@ -134,7 +134,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
       # State transition
       # ----------------------------------------
       check:
-        process_deposit(defaultRuntimePreset(), state.data, deposit, {}).isOk
+        process_deposit(defaultRuntimeConfig, state.data, deposit, {}).isOk
 
       # Check invariants
       # ----------------------------------------

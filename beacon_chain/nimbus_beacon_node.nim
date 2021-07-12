@@ -105,10 +105,9 @@ const SlashingDbName = "slashing_protection"
   # changing this requires physical file rename as well or history is lost.
 
 proc init*(T: type BeaconNode,
-           runtimePreset: RuntimePreset,
+           cfg: RuntimeConfig,
            rng: ref BrHmacDrbgContext,
            config: BeaconNodeConf,
-           depositContractAddress: Eth1Address,
            depositContractDeployedAt: BlockHashOrNumber,
            eth1Network: Option[Eth1Network],
            genesisStateContents: string,
@@ -116,7 +115,7 @@ proc init*(T: type BeaconNode,
     raises: [Defect, CatchableError].} =
   let
     db = BeaconChainDB.new(
-      runtimePreset, config.databaseDir, inMemory = false)
+      cfg, config.databaseDir, inMemory = false)
 
   var
     genesisState, checkpointState: ref BeaconState
@@ -177,10 +176,9 @@ proc init*(T: type BeaconNode,
         # TODO Could move this to a separate "GenesisMonitor" process or task
         #      that would do only this - see Paul's proposal for this.
         let eth1MonitorRes = waitFor Eth1Monitor.init(
-          runtimePreset,
+          cfg,
           db,
           config.web3Urls,
-          depositContractAddress,
           depositContractDeployedAt,
           eth1Network)
 
@@ -188,7 +186,6 @@ proc init*(T: type BeaconNode,
           fatal "Failed to start Eth1 monitor",
                 reason = eth1MonitorRes.error,
                 web3Urls = config.web3Urls,
-                depositContractAddress,
                 depositContractDeployedAt
           quit 1
         else:
@@ -246,7 +243,7 @@ proc init*(T: type BeaconNode,
   let
     chainDagFlags = if config.verifyFinalization: {verifyFinalization}
                      else: {}
-    dag = ChainDAGRef.init(runtimePreset, db, chainDagFlags)
+    dag = ChainDAGRef.init(cfg, db, chainDagFlags)
     quarantine = QuarantineRef.init(rng)
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState.data, genesis_validators_root)
@@ -266,6 +263,7 @@ proc init*(T: type BeaconNode,
     let
       currentSlot = dag.beaconClock.now.slotOrZero
       isCheckpointStale = not is_within_weak_subjectivity_period(
+        cfg,
         currentSlot,
         dag.headState.data,
         config.weakSubjectivityCheckpoint.get)
@@ -293,10 +291,9 @@ proc init*(T: type BeaconNode,
     let genesisDepositsSnapshot = SSZ.decode(genesisDepositsSnapshotContents,
                                              DepositContractSnapshot)
     eth1Monitor = Eth1Monitor.init(
-      runtimePreset,
+      cfg,
       db,
       config.web3Urls,
-      depositContractAddress,
       genesisDepositsSnapshot,
       eth1Network)
 
@@ -315,7 +312,7 @@ proc init*(T: type BeaconNode,
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
     network = createEth2Node(
-      rng, config, netKeys, runtimePreset, dag.forkDigests,
+      rng, config, netKeys, cfg, dag.forkDigests,
       getStateField(dag.headState.data, genesis_validators_root))
     # TODO altair-transition
     topicBeaconBlocks = getBeaconBlocksTopic(dag.forkDigests.phase0)
@@ -407,7 +404,7 @@ proc init*(T: type BeaconNode,
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
   # TODO altair-transition
-  network.initBeaconSync(dag, network.forkDigests.phase0, getTime)
+  network.initBeaconSync(dag, getTime)
 
   node.updateValidatorMetrics()
 
@@ -1661,10 +1658,9 @@ proc loadBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext): Bea
     config.bootstrapNodes.add node
 
   BeaconNode.init(
-    metadata.runtimePreset,
+    metadata.cfg,
     rng,
     config,
-    metadata.depositContractAddress,
     metadata.depositContractDeployedAt,
     metadata.eth1Network,
     metadata.genesisData,
@@ -1820,7 +1816,7 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
       quit QuitFailure
 
     let deposits = generateDeposits(
-      metadata.runtimePreset,
+      metadata.cfg,
       rng,
       seed,
       walletPath.wallet.nextAccount,
@@ -1839,7 +1835,7 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
         config.outValidatorsDir / "deposit_data-" & $epochTime() & ".json"
 
       let launchPadDeposits =
-        mapIt(deposits.value, LaunchPadDeposit.init(metadata.runtimePreset, it))
+        mapIt(deposits.value, LaunchPadDeposit.init(metadata.cfg, it))
 
       Json.saveFile(depositDataPath, launchPadDeposits)
       echo "Deposit data written to \"", depositDataPath, "\""
@@ -1950,7 +1946,7 @@ proc doWeb3Cmd(config: BeaconNodeConf) {.raises: [Defect, CatchableError].} =
   of Web3Cmd.test:
     let metadata = config.loadEth2Network()
     waitFor testWeb3Provider(config.web3TestUrl,
-                             metadata.depositContractAddress)
+                             metadata.cfg.DEPOSIT_CONTRACT_ADDRESS)
 
 proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError, Defect].}=
   let

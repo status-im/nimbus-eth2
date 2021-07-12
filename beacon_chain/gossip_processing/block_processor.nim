@@ -11,7 +11,7 @@ import
   std/math,
   stew/results,
   chronicles, chronos, metrics,
-  ../spec/[crypto, datatypes, digest],
+  ../spec/[crypto, datatypes/phase0, digest],
   ../consensus_object_pools/[block_clearance, blockchain_dag, attestation_pool],
   ./consensus_manager,
   ".."/[beacon_clock, beacon_node_types],
@@ -26,7 +26,7 @@ declareHistogram beacon_store_block_duration_seconds,
 
 type
   BlockEntry* = object
-    blck*: SignedBeaconBlock
+    blck*: phase0.SignedBeaconBlock
     resfut*: Future[Result[void, BlockError]]
     queueTick*: Moment # Moment when block was enqueued
     validationDur*: Duration # Time it took to perform gossip validation
@@ -103,7 +103,7 @@ proc hasBlocks*(self: BlockProcessor): bool =
 # ------------------------------------------------------------------------------
 
 proc addBlock*(
-    self: var BlockProcessor, blck: SignedBeaconBlock,
+    self: var BlockProcessor, blck: phase0.SignedBeaconBlock,
     resfut: Future[Result[void, BlockError]] = nil,
     validationDur = Duration()) =
   ## Enqueue a Gossip-validated block for consensus verification
@@ -128,7 +128,7 @@ proc addBlock*(
 # ------------------------------------------------------------------------------
 
 proc dumpBlock*[T](
-    self: BlockProcessor, signedBlock: SignedBeaconBlock,
+    self: BlockProcessor, signedBlock: phase0.SignedBeaconBlock,
     res: Result[T, (ValidationResult, BlockError)]) =
   if self.dumpEnabled and res.isErr:
     case res.error[1]
@@ -142,14 +142,14 @@ proc dumpBlock*[T](
       discard
 
 proc storeBlock(
-    self: var BlockProcessor, signedBlock: SignedBeaconBlock,
+    self: var BlockProcessor, signedBlock: phase0.SignedBeaconBlock,
     wallSlot: Slot): Result[void, BlockError] =
   let
     attestationPool = self.consensusManager.attestationPool
 
   let blck = self.consensusManager.dag.addRawBlock(
     self.consensusManager.quarantine, signedBlock) do (
-      blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
+      blckRef: BlockRef, trustedBlock: phase0.TrustedSignedBeaconBlock,
       epochRef: EpochRef):
     # Callback add to fork choice if valid
     attestationPool[].addForkChoice(

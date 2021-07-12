@@ -32,9 +32,10 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
         # BeaconState objects are stored on the heap to avoid stack overflow
         var preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
         let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
-
-        when useCache:
-          var cache = StateCache()
+        var cache {.used.}: StateCache
+        when compiles(transitionProc(defaultRuntimeConfig, preState[], cache)):
+          transitionProc(defaultRuntimeConfig, preState[], cache)
+        elif compiles(transitionProc(preState[], cache)):
           transitionProc(preState[], cache)
         else:
           transitionProc(preState[])

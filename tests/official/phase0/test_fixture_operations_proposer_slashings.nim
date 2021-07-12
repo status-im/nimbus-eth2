@@ -55,12 +55,13 @@ proc runTest(identifier: string) =
           postState =
             newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
           done = process_proposer_slashing(
-            preState[], proposerSlashing, {}, cache).isOk
+            defaultRuntimeConfig, preState[], proposerSlashing, {}, cache).isOk
         doAssert done, "Valid proposer slashing not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
-        let done = process_proposer_slashing(preState[], proposerSlashing, {}, cache).isOk
+        let done = process_proposer_slashing(
+          defaultRuntimeConfig, preState[], proposerSlashing, {}, cache).isOk
         doAssert done == false, "We didn't expect this invalid proposer slashing to be processed."
 
   `testImpl_proposer_slashing _ identifier`()

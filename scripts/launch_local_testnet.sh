@@ -208,11 +208,11 @@ $MAKE -j ${NPROC} LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:testnet_serv
 
 PIDS=""
 WEB3_ARG=""
-GENESIS_DATA_PATH=""
 BOOTSTRAP_TIMEOUT=30 # in seconds
 DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
 NETWORK_METADATA_FILE="${DATA_DIR}/network.json"
+RUNTIME_CONFIG_FILE="${DATA_DIR}/config.yaml"
 NUM_JOBS=${NUM_NODES}
 
 if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
@@ -231,15 +231,14 @@ if [[ $USE_GANACHE == "0" ]]; then
     --data-dir="${DATA_DIR}" \
     --deposits-file="${DEPOSITS_FILE}" \
     --total-validators=${TOTAL_VALIDATORS} \
-    --output-genesis="${NETWORK_DIR}/genesis.ssz" \
-    --output-bootstrap-file="${NETWORK_DIR}/bootstrap_nodes.txt" \
+    --output-genesis="${DATA_DIR}/genesis.ssz" \
+    --output-bootstrap-file="${DATA_DIR}/bootstrap_nodes.txt" \
     --bootstrap-address=${BOOTSTRAP_IP} \
     --bootstrap-port=${BASE_PORT} \
     --netkey-file=network_key.json \
     --insecure-netkey-password=true \
     --genesis-offset=${GENESIS_OFFSET} # Delay in seconds
 
-  GENESIS_DATA_PATH="\"genesisDataPath\": \"${NETWORK_DIR}/genesis.ssz\","
 else
   echo "Launching ganache"
   ganache-cli --blockTime 17 --gasLimit 100000000 -e 100000 --verbose > "${DATA_DIR}/log_ganache.txt" 2>&1 &
@@ -279,16 +278,20 @@ fi
 echo Wrote $NETWORK_METADATA_FILE:
 tee "$NETWORK_METADATA_FILE" <<EOF
 {
-  $GENESIS_DATA_PATH
-  "runtimePreset": {
-    "MIN_GENESIS_ACTIVE_VALIDATOR_COUNT": ${TOTAL_VALIDATORS},
-    "MIN_GENESIS_TIME": 0,
-    "GENESIS_DELAY": 10,
-    "GENESIS_FORK_VERSION": "0x00000000"
-  },
-  "depositContractAddress": "${DEPOSIT_CONTRACT_ADDRESS}",
   "depositContractDeployedAt": "${DEPOSIT_CONTRACT_BLOCK}"
 }
+EOF
+
+echo Wrote $RUNTIME_CONFIG_FILE:
+
+tee "$RUNTIME_CONFIG_FILE" <<EOF
+PRESET_BASE: "$CONST_PRESET"
+MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${TOTAL_VALIDATORS}
+MIN_GENESIS_TIME: 0
+GENESIS_DELAY: 10
+GENESIS_FORK_VERSION: 0x00000000
+DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
+ETH1_FOLLOW_DISTANCE: 1
 EOF
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
@@ -382,7 +385,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   ./build/nimbus_beacon_node \
     --non-interactive \
     --nat:extip:127.0.0.1 \
-    --network="${NETWORK_METADATA_FILE}" \
+    --network="${DATA_DIR}" \
     --log-level="${LOG_LEVEL}" \
     --tcp-port=$(( BASE_PORT + NUM_NODE )) \
     --udp-port=$(( BASE_PORT + NUM_NODE )) \

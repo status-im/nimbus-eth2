@@ -160,7 +160,7 @@ type
 
     updateFlags*: UpdateFlags
 
-    runtimePreset*: RuntimePreset
+    cfg*: RuntimeConfig
 
     epochRefs*: array[32, EpochRef] ##\
       ## Cached information about a particular epoch ending with the given
@@ -172,9 +172,6 @@ type
       ## database. We use a ref type to facilitate sharing this small
       ## value with other components which don't have access to the
       ## full ChainDAG.
-
-    altairTransitionSlot*: Slot ##\
-      ## Slot at which to upgrade from phase 0 to Altair forks
 
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and

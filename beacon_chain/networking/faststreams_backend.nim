@@ -111,7 +111,7 @@ proc readResponseChunk(s: AsyncInputStream,
                    else: return err(errorMsgChunk.error)
     return err Eth2NetworkingError(kind: ReceivedErrorResponse,
                                    responseCode: responseCode,
-                                   errorMsg: errorMsg)
+                                   errorMsg: toPrettyString(errorMsg.asSeq()))
   of Success:
     discard
 
