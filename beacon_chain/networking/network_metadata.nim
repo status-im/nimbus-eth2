@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  tables, strutils, os,
+  std/[sequtils, tables, strutils, os],
   stew/shims/macros, nimcrypto/hash,
   eth/common/eth_types as commonEthTypes,
   web3/[ethtypes, conversions],
@@ -74,6 +74,24 @@ type
 const
   eth2testnetsDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-testnets"
 
+proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError, Defect].} =
+  # Read a list of ENR values from a YAML file containing a flat list of entries
+  if fileExists(path):
+    splitLines(readFile(path)).
+      filterIt(it.startsWith("enr:")).
+      mapIt(it.strip())
+  else:
+    @[]
+
+proc readBootEnr*(path: string): seq[string] {.raises: [IOError, Defect].} =
+  # Read a list of ENR values from a YAML file containing a flat list of entries
+  if fileExists(path):
+    splitLines(readFile(path)).
+      filterIt(it.startsWith("- enr:")).
+      mapIt(it[2..^1].strip())
+  else:
+    @[]
+
 proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
                              {.raises: [CatchableError, Defect].} =
   # Load data in eth2-networks format
@@ -86,6 +104,7 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       configPath = path & "/config.yaml"
       depositContractBlockPath = path & "/deposit_contract_block.txt"
       bootstrapNodesPath = path & "/bootstrap_nodes.txt"
+      bootEnrPath = path & "/boot_enr.yaml"
 
       runtimeConfig = if fileExists(configPath):
         let (cfg, unknowns) = readRuntimeConfig(configPath)
@@ -109,15 +128,9 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       else:
         BlockHashOrNumber(isHash: false, number: 1)
 
-      bootstrapNodes = if fileExists(bootstrapNodesPath):
-        readFile(bootstrapNodesPath).splitLines()
-      elif "yeerongpilly" in path: # doesn't come with boostrap_nodes.txt
-        @[
-          "enr:-KG4QNFYe_ASIxDXpZXtzyZcndMr1QyQnAr0EXXgJq8qj1UaS8TNK_LYyG-B14RkMfDRUEhF3bihIjfeyVNZYGgjL8EDhGV0aDKQf_nhygAAQQX__________4JpZIJ2NIJpcIQDFuG2iXNlY3AyNTZrMaECcnSX6eiDjA01nO4vSzHEiAz5h95HUBL6KqSehXmvUGeDdGNwgiMog3VkcIIjKA",
-          "enr:-KG4QPWCj_yDwL5APPetgWzVbkKmhFAVL9iZOI14cpiorPDLIKl1htlOJ4_R8zS1MFcnoJRMmMTxBbHXpjwpc_A3Nn4DhGV0aDKQf_nhygAAQQX__________4JpZIJ2NIJpcIQDE-qUiXNlY3AyNTZrMaECzrP1L8i28thLTEwnCIUgEanpCVQbHZe0Bb3crPc2o36DdGNwgiMog3VkcIIjKA",
-        ]
-      else:
-        @[]
+      bootstrapNodes = deduplicate(
+        readBootstrapNodes(bootstrapNodesPath) &
+        readBootEnr(bootEnrPath))
 
       genesisData = if fileExists(genesisPath):
         readFile(genesisPath)
@@ -149,7 +162,7 @@ const
   mainnetMetadata* = eth2Network "shared/mainnet"
   pyrmontMetadata* = eth2Network "shared/pyrmont"
   praterMetadata* = eth2Network "shared/prater"
-  yeerongpillyMetadata* = eth2Network "teku/yeerongpilly"
+  altairDevnet0Metadata* = eth2Network "shared/altair-devnet-0"
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
   var
@@ -160,8 +173,8 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: 
         pyrmontMetadata
       of "prater":
         praterMetadata
-      of "yeerongpilly":
-        yeerongpillyMetadata
+      of "altair-devnet-0":
+        altairDevnet0Metadata
       else:
         if fileExists(networkName / "config.yaml"):
           try:
