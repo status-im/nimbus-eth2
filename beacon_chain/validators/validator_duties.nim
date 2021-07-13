@@ -584,10 +584,10 @@ proc updateValidatorMetrics*(node: BeaconNode) =
   when defined(metrics):
     # Technically, this only needs to be done on epoch transitions and if there's
     # a reorg that spans an epoch transition, but it's easier to implement this
-    # way for now..
+    # way for now.
 
     # We'll limit labelled metrics to the first 64, so that we don't overload
-    # prom
+    # Prometheus.
 
     var total: Gwei
     var i = 0
@@ -608,8 +608,8 @@ proc updateValidatorMetrics*(node: BeaconNode) =
       if i < 64:
         attached_validator_balance.set(
           balance.toGaugeValue, labelValues = [shortLog(v.pubkey)])
-      else:
-        inc i
+
+      inc i
       total += balance
 
     node.attachedValidatorBalanceTotal = total
