@@ -85,7 +85,7 @@ cd "$NODE_DATA_DIR"
 $BEACON_NODE_BIN \
   --log-level=${LOG_LEVEL:-DEBUG} \
   $BOOTSTRAP_ARG \
-  --network=$NETWORK_METADATA_FILE \
+  --network="$SIMULATION_DIR" \
   --data-dir=$NODE_DATA_DIR \
   --secrets-dir=$NODE_SECRETS_DIR \
   --node-name=$NODE_ID \

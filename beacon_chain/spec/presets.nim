@@ -54,7 +54,7 @@ type
 
     MIN_ANCHOR_POW_BLOCK_DIFFICULTY*: uint64
 
-    # SECONDS_PER_SLOT*: uint64
+    # TODO SECONDS_PER_SLOT*: uint64
     SECONDS_PER_ETH1_BLOCK*: uint64
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
     SHARD_COMMITTEE_PERIOD*: uint64
@@ -84,6 +84,8 @@ const
   # If we encounter them, we'll just ignore the preset value.
   # TODO verify the value against the constant instead
   ignoredValues* = [
+    # TODO Once implemented as part of the RuntimeConfig,
+    #      this should be removed from here
     "SECONDS_PER_SLOT",
 
     "BLS_WITHDRAWAL_PREFIX",
