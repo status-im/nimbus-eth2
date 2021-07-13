@@ -233,18 +233,18 @@ proc sendSyncCommitteeContribution*(
       false
 
 proc sendVoluntaryExit*(node: BeaconNode, exit: SignedVoluntaryExit) =
-  # TODO altair-transition; well, low-priority, won't come up
-  let exitsTopic = getVoluntaryExitsTopic(node.dag.forkDigests.phase0)
+  let exitsTopic = getVoluntaryExitsTopic(
+    node.dag.forkDigestAtSlot(node.beaconClock.now().slotOrZero))
   node.network.broadcast(exitsTopic, exit)
 
 proc sendAttesterSlashing*(node: BeaconNode, slashing: AttesterSlashing) =
-  # TODO altair-transition; low-priority given that only API seems to do this
-  let attesterSlashingsTopic = getAttesterSlashingsTopic(node.dag.forkDigests.phase0)
+  let attesterSlashingsTopic = getAttesterSlashingsTopic(
+    node.dag.forkDigestAtSlot(node.beaconClock.now().slotOrZero))
   node.network.broadcast(attesterSlashingsTopic, slashing)
 
 proc sendProposerSlashing*(node: BeaconNode, slashing: ProposerSlashing) =
-  # TODO altair-transition; low-priority given that only API seems to do this
-  let proposerSlashingsTopic = getProposerSlashingsTopic(node.dag.forkDigests.phase0)
+  let proposerSlashingsTopic = getProposerSlashingsTopic(
+    node.dag.forkDigestAtSlot(node.beaconClock.now().slotOrZero))
   node.network.broadcast(proposerSlashingsTopic, slashing)
 
 proc sendAttestation*(node: BeaconNode, attestation: Attestation): Future[bool] =
@@ -833,9 +833,8 @@ proc sendAggregatedAttestations(
       var signedAP = SignedAggregateAndProof(
         message: aggregateAndProof.get,
         signature: sig)
-      # TODO altair
-      node.network.broadcast(
-        getAggregateAndProofsTopic(node.dag.forkDigests.phase0), signedAP)
+      node.network.broadcast(getAggregateAndProofsTopic(
+        node.dag.forkDigestAtSlot(node.beaconClock.now().slotOrZero)), signedAP)
       notice "Aggregated attestation sent",
         attestation = shortLog(signedAP.message.aggregate),
         validator = shortLog(curr[0].v),
