@@ -322,7 +322,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       assign(proposalStateAddr[], poolPtr.headState)
 
     return makeBeaconBlock(
-      node.runtimePreset,
+      node.dag.cfg,
       stateData.data.hbsPhase0,
       validator_index,
       head.root,

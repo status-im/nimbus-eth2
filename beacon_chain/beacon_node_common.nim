@@ -76,6 +76,3 @@ template beaconClock*(node: BeaconNode): BeaconClock =
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
-
-template runtimePreset*(node: BeaconNode): RuntimeConfig =
-  node.db.preset

@@ -72,7 +72,7 @@ type
       incompatibilityDesc*: string
 
 const
-  eth2testnetsDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-testnets"
+  eth2NetworksDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-networks"
 
 proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError, Defect].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
@@ -156,7 +156,7 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
                         incompatibilityDesc: err.msg)
 
 template eth2Network(path: string): Eth2NetworkMetadata =
-  loadEth2NetworkMetadata(eth2testnetsDir & "/" & path)
+  loadEth2NetworkMetadata(eth2NetworksDir & "/" & path)
 
 const
   mainnetMetadata* = eth2Network "shared/mainnet"
@@ -192,7 +192,7 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: 
     quit 1
   return metadata
 
-proc getRuntimePresetForNetwork*(
+proc getRuntimeConfig*(
     eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
   if eth2Network.isSome:
     return getMetadataForNetwork(eth2Network.get).cfg

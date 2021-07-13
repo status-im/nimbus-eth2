@@ -167,7 +167,7 @@ The [inspector tool](./ncli/inspector.nim) can help monitor the libp2p network a
 build/inspector_minimal --help
 
 # Connect to a network from eth2 testnet repo bootstrap file - --decode option attempts to decode the messages as well
-build/inspector_minimal --decode -b:$(curl -s https://raw.githubusercontent.com/eth2-clients/eth2-testnets/master/nimbus/testnet0/bootstrap_nodes.txt | head -n1)
+build/inspector_minimal --decode -b:$(curl -s https://raw.githubusercontent.com/eth2-clients/eth2-networks/master/nimbus/testnet0/bootstrap_nodes.txt | head -n1)
 ```
 
 ### CI setup

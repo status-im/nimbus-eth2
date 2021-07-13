@@ -24,13 +24,6 @@ type
 template unimplemented() =
   raise (ref CatchableError)(msg: "Unimplemented")
 
-func getDepositAddress(node: BeaconNode): string =
-  if isNil(node.eth1Monitor):
-    ""
-  else:
-    $node.runtimePreset.DEPOSIT_CONTRACT_ADDRESS
-
-
 proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     raises: [Exception].} = # TODO fix json-rpc
   rpcServer.rpc("get_v1_config_fork_schedule") do () -> seq[Fork]:
@@ -41,33 +34,33 @@ proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       "MAX_COMMITTEES_PER_SLOT": $MAX_COMMITTEES_PER_SLOT,
       "TARGET_COMMITTEE_SIZE": $TARGET_COMMITTEE_SIZE,
       "MAX_VALIDATORS_PER_COMMITTEE": $MAX_VALIDATORS_PER_COMMITTEE,
-      "MIN_PER_EPOCH_CHURN_LIMIT": $node.runtimePreset.MIN_PER_EPOCH_CHURN_LIMIT,
-      "CHURN_LIMIT_QUOTIENT": $node.runtimePreset.CHURN_LIMIT_QUOTIENT,
+      "MIN_PER_EPOCH_CHURN_LIMIT": $node.dag.cfg.MIN_PER_EPOCH_CHURN_LIMIT,
+      "CHURN_LIMIT_QUOTIENT": $node.dag.cfg.CHURN_LIMIT_QUOTIENT,
       "SHUFFLE_ROUND_COUNT": $SHUFFLE_ROUND_COUNT,
       "MIN_GENESIS_ACTIVE_VALIDATOR_COUNT":
-        $node.runtimePreset.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT,
-      "MIN_GENESIS_TIME": $node.runtimePreset.MIN_GENESIS_TIME,
+        $node.dag.cfg.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT,
+      "MIN_GENESIS_TIME": $node.dag.cfg.MIN_GENESIS_TIME,
       "HYSTERESIS_QUOTIENT": $HYSTERESIS_QUOTIENT,
       "HYSTERESIS_DOWNWARD_MULTIPLIER": $HYSTERESIS_DOWNWARD_MULTIPLIER,
       "HYSTERESIS_UPWARD_MULTIPLIER": $HYSTERESIS_UPWARD_MULTIPLIER,
       "SAFE_SLOTS_TO_UPDATE_JUSTIFIED": $SAFE_SLOTS_TO_UPDATE_JUSTIFIED,
-      "ETH1_FOLLOW_DISTANCE": $node.runtimePreset.ETH1_FOLLOW_DISTANCE,
+      "ETH1_FOLLOW_DISTANCE": $node.dag.cfg.ETH1_FOLLOW_DISTANCE,
       "TARGET_AGGREGATORS_PER_COMMITTEE": $TARGET_AGGREGATORS_PER_COMMITTEE,
       "RANDOM_SUBNETS_PER_VALIDATOR": $RANDOM_SUBNETS_PER_VALIDATOR,
       "EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION":
         $EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION,
-      "SECONDS_PER_ETH1_BLOCK": $node.runtimePreset.SECONDS_PER_ETH1_BLOCK,
-      "DEPOSIT_CHAIN_ID": $node.runtimePreset.DEPOSIT_CHAIN_ID,
-      "DEPOSIT_NETWORK_ID": $node.runtimePreset.DEPOSIT_NETWORK_ID,
-      "DEPOSIT_CONTRACT_ADDRESS": node.getDepositAddress,
+      "SECONDS_PER_ETH1_BLOCK": $node.dag.cfg.SECONDS_PER_ETH1_BLOCK,
+      "DEPOSIT_CHAIN_ID": $node.dag.cfg.DEPOSIT_CHAIN_ID,
+      "DEPOSIT_NETWORK_ID": $node.dag.cfg.DEPOSIT_NETWORK_ID,
+      "DEPOSIT_CONTRACT_ADDRESS": $node.dag.cfg.DEPOSIT_CONTRACT_ADDRESS,
       "MIN_DEPOSIT_AMOUNT": $MIN_DEPOSIT_AMOUNT,
       "MAX_EFFECTIVE_BALANCE": $MAX_EFFECTIVE_BALANCE,
-      "EJECTION_BALANCE": $node.runtimePreset.EJECTION_BALANCE,
+      "EJECTION_BALANCE": $node.dag.cfg.EJECTION_BALANCE,
       "EFFECTIVE_BALANCE_INCREMENT": $EFFECTIVE_BALANCE_INCREMENT,
       "GENESIS_FORK_VERSION":
-        "0x" & $node.runtimePreset.GENESIS_FORK_VERSION,
+        "0x" & $node.dag.cfg.GENESIS_FORK_VERSION,
       "BLS_WITHDRAWAL_PREFIX": "0x" & ncrutils.toHex([BLS_WITHDRAWAL_PREFIX]),
-      "GENESIS_DELAY": $node.runtimePreset.GENESIS_DELAY,
+      "GENESIS_DELAY": $node.dag.cfg.GENESIS_DELAY,
       "SECONDS_PER_SLOT": $SECONDS_PER_SLOT,
       "MIN_ATTESTATION_INCLUSION_DELAY": $MIN_ATTESTATION_INCLUSION_DELAY,
       "SLOTS_PER_EPOCH": $SLOTS_PER_EPOCH,
@@ -76,8 +69,8 @@ proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       "EPOCHS_PER_ETH1_VOTING_PERIOD": $EPOCHS_PER_ETH1_VOTING_PERIOD,
       "SLOTS_PER_HISTORICAL_ROOT": $SLOTS_PER_HISTORICAL_ROOT,
       "MIN_VALIDATOR_WITHDRAWABILITY_DELAY":
-        $node.runtimePreset.MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
-      "SHARD_COMMITTEE_PERIOD": $node.runtimePreset.SHARD_COMMITTEE_PERIOD,
+        $node.dag.cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY,
+      "SHARD_COMMITTEE_PERIOD": $node.dag.cfg.SHARD_COMMITTEE_PERIOD,
       "MIN_EPOCHS_TO_INACTIVITY_PENALTY": $MIN_EPOCHS_TO_INACTIVITY_PENALTY,
       "EPOCHS_PER_HISTORICAL_VECTOR": $EPOCHS_PER_HISTORICAL_VECTOR,
       "EPOCHS_PER_SLASHINGS_VECTOR": $EPOCHS_PER_SLASHINGS_VECTOR,
@@ -112,6 +105,6 @@ proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("get_v1_config_deposit_contract") do () -> JsonNode:
     return %*{
-      "chain_id": $node.runtimePreset.DEPOSIT_CHAIN_ID,
-      "address": node.getDepositAddress
+      "chain_id": $node.dag.cfg.DEPOSIT_CHAIN_ID,
+      "address": node.dag.cfg.DEPOSIT_CONTRACT_ADDRESS
     }
