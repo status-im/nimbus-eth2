@@ -157,7 +157,7 @@ func check_attestation_subnet(
 # Gossip Validation
 # ----------------------------------------------------------------
 
-template rejectFirmly(msg: cstring): untyped =
+template errReject(msg: cstring): untyped =
   if verifyFinalization in pool.dag.updateFlags:
     # This doesn't depend on the wall clock or the exact state of the DAG; it's
     # an internal consistency/correctness check only, and effectively never has
@@ -165,7 +165,7 @@ template rejectFirmly(msg: cstring): untyped =
     doAssert false
   err((ValidationResult.Reject, msg))
 
-template rejectFirmly(error: (ValidationResult, cstring)): untyped =
+template errReject(error: (ValidationResult, cstring)): untyped =
   doAssert error[0] == ValidationResult.Reject
   if verifyFinalization in pool.dag.updateFlags:
     # This doesn't depend on the wall clock or the exact state of the DAG; it's
@@ -194,7 +194,7 @@ proc validateAttestation*(
   block:
     let v = check_attestation_slot_target(attestation.data)
     if v.isErr():
-      return rejectFirmly(v.error)
+      return errReject(v.error)
 
   # attestation.data.slot is within the last ATTESTATION_PROPAGATION_SLOT_RANGE
   # slots (within a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
@@ -212,7 +212,7 @@ proc validateAttestation*(
   block:
     let v = check_aggregation_count(attestation, singular = true) # [REJECT]
     if v.isErr():
-      return rejectFirmly(v.error)
+      return errReject(v.error)
 
   # The block being voted for (attestation.data.beacon_block_root) has been seen
   # (via both gossip and non-gossip sources) (a client MAY queue attestations for
@@ -240,7 +240,7 @@ proc validateAttestation*(
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
   if not (attestation.data.index < get_committee_count_per_slot(epochRef)):
-    return rejectFirmly(cstring(
+    return errReject(cstring(
       "validateAttestation: committee index not within expected range"))
 
   # [REJECT] The attestation is for the correct subnet -- i.e.
@@ -263,7 +263,7 @@ proc validateAttestation*(
   # attestation.data.beacon_block_root.
   if not (attestation.aggregation_bits.lenu64 == get_beacon_committee_len(
       epochRef, attestation.data.slot, attestation.data.index.CommitteeIndex)):
-    return rejectFirmly(cstring(
+    return errReject(cstring(
       "validateAttestation: number of aggregation bits and committee size mismatch"))
 
   let
@@ -295,7 +295,7 @@ proc validateAttestation*(
         fork, genesis_validators_root, epochRef, attestation,
         {skipBLSValidation})
     if v.isErr():
-      return rejectFirmly(v.error)
+      return errReject(v.error)
 
   let sig =
     if checkSignature:
@@ -306,7 +306,7 @@ proc validateAttestation*(
                               attestation
                             )
       if deferredCrypto.isErr():
-        return rejectFirmly(deferredCrypto.error)
+        return errReject(deferredCrypto.error)
 
       # Await the crypto check
       let
@@ -315,7 +315,7 @@ proc validateAttestation*(
       var x = (await cryptoFut)
       case x
       of BatchResult.Invalid:
-        return rejectFirmly(cstring("validateAttestation: invalid signature"))
+        return errReject(cstring("validateAttestation: invalid signature"))
       of BatchResult.Timeout:
         beacon_attestations_dropped_queue_full.inc()
         return err((ValidationResult.Ignore, cstring("validateAttestation: timeout checking signature")))
@@ -359,7 +359,7 @@ proc validateAggregate*(
   block:
     let v = check_attestation_slot_target(aggregate.data)
     if v.isErr():
-      return rejectFirmly(v.error)
+      return errReject(v.error)
 
   # [IGNORE] aggregate.data.slot is within the last
   # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
@@ -427,7 +427,7 @@ proc validateAggregate*(
   if not is_aggregator(
       epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex,
       aggregate_and_proof.selection_proof):
-    return rejectFirmly(cstring("Incorrect aggregator"))
+    return errReject(cstring("Incorrect aggregator"))
 
   # [REJECT] The aggregator's validator index is within the committee -- i.e.
   # aggregate_and_proof.aggregator_index in get_beacon_committee(state,
@@ -435,7 +435,7 @@ proc validateAggregate*(
   if aggregate_and_proof.aggregator_index.ValidatorIndex notin
       get_beacon_committee(
         epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex):
-    return rejectFirmly(cstring(
+    return errReject(cstring(
       "Aggregator's validator index not in committee"))
 
   # 1. [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
@@ -456,7 +456,7 @@ proc validateAggregate*(
                   signed_aggregate_and_proof
                 )
   if deferredCrypto.isErr():
-    return rejectFirmly(deferredCrypto.error)
+    return errReject(deferredCrypto.error)
 
   let
     (cryptoFuts, sig) = deferredCrypto.get()
@@ -466,7 +466,7 @@ proc validateAggregate*(
     var x = await cryptoFuts.slotCheck
     case x
     of BatchResult.Invalid:
-      return rejectFirmly(cstring("validateAggregate: invalid slot signature"))
+      return errReject(cstring("validateAggregate: invalid slot signature"))
     of BatchResult.Timeout:
       beacon_aggregates_dropped_queue_full.inc()
       return err((ValidationResult.Reject, cstring("validateAggregate: timeout checking slot signature")))
@@ -478,7 +478,7 @@ proc validateAggregate*(
     var x = await cryptoFuts.aggregatorCheck
     case x
     of BatchResult.Invalid:
-      return rejectFirmly(cstring(
+      return errReject(cstring(
         "validateAggregate: invalid aggregator signature"))
     of BatchResult.Timeout:
       beacon_aggregates_dropped_queue_full.inc()
@@ -491,7 +491,7 @@ proc validateAggregate*(
     var x = await cryptoFuts.aggregateCheck
     case x
     of BatchResult.Invalid:
-      return rejectFirmly(cstring(
+      return errReject(cstring(
         "validateAggregate: invalid aggregate signature"))
     of BatchResult.Timeout:
       beacon_aggregates_dropped_queue_full.inc()
