@@ -95,7 +95,7 @@ proc doTransition(conf: NcliConf) =
   var
     cache = StateCache()
     rewards = RewardInfo()
-  if not state_transition(getRuntimePresetForNetwork(conf.eth2Network),
+  if not state_transition(getRuntimeConfig(conf.eth2Network),
                           stateY[], blckX, cache, rewards, flags, noRollback):
     error "State transition failed"
     quit 1

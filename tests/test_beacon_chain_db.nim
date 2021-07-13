@@ -54,13 +54,13 @@ func withDigest(blck: altair.TrustedBeaconBlock):
 suite "Beacon chain DB" & preset():
   test "empty database" & preset():
     var
-      db = BeaconChainDB.new(defaultRuntimeConfig, "", inMemory = true)
+      db = BeaconChainDB.new("", inMemory = true)
     check:
       db.getPhase0StateRef(Eth2Digest()).isNil
       db.getBlock(Eth2Digest()).isNone
 
   test "sanity check phase 0 blocks" & preset():
-    var db = BeaconChainDB.new(defaultRuntimeConfig, "", inMemory = true)
+    var db = BeaconChainDB.new("", inMemory = true)
 
     let
       signedBlock = withDigest((phase0.TrustedBeaconBlock)())
@@ -89,7 +89,7 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Altair blocks" & preset():
-    var db = BeaconChainDB.new(defaultRuntimeConfig, "", inMemory = true)
+    var db = BeaconChainDB.new("", inMemory = true)
 
     let
       signedBlock = withDigest((altair.TrustedBeaconBlock)())
@@ -272,7 +272,7 @@ suite "Beacon chain DB" & preset():
 
   test "find ancestors" & preset():
     var
-      db = BeaconChainDB.new(defaultRuntimeConfig, "", inMemory = true)
+      db = BeaconChainDB.new("", inMemory = true)
 
     let
       a0 = withDigest(
@@ -318,7 +318,7 @@ suite "Beacon chain DB" & preset():
     # serialization where an all-zero default-initialized bls signature could
     # not be deserialized because the deserialization was too strict.
     var
-      db = BeaconChainDB.new(defaultRuntimeConfig, "", inMemory = true)
+      db = BeaconChainDB.new("", inMemory = true)
 
     let
       state = initialize_beacon_state_from_eth1(
@@ -339,7 +339,7 @@ suite "Beacon chain DB" & preset():
 
   test "sanity check state diff roundtrip" & preset():
     var
-      db = BeaconChainDB.new(defaultRuntimeConfig, "", inMemory = true)
+      db = BeaconChainDB.new("", inMemory = true)
 
     # TODO htr(diff) probably not interesting/useful, but stand-in
     let

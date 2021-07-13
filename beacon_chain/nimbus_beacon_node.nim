@@ -114,8 +114,7 @@ proc init*(T: type BeaconNode,
            genesisDepositsSnapshotContents: string): BeaconNode {.
     raises: [Defect, CatchableError].} =
   let
-    db = BeaconChainDB.new(
-      cfg, config.databaseDir, inMemory = false)
+    db = BeaconChainDB.new(config.databaseDir, inMemory = false)
 
   var
     genesisState, checkpointState: ref BeaconState
@@ -1651,10 +1650,10 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raise
     outGenesis = config.outputGenesis.string
     eth1Hash = if config.web3Urls.len == 0: eth1BlockHash
                else: (waitFor getEth1BlockHash(config.web3Urls[0], blockId("latest"))).asEth2Digest
-    runtimePreset = getRuntimePresetForNetwork(config.eth2Network)
+    cfg = getRuntimeConfig(config.eth2Network)
   var
     initialState = initialize_beacon_state_from_eth1(
-      runtimePreset, eth1Hash, startTime, deposits, {skipBlsValidation})
+      cfg, eth1Hash, startTime, deposits, {skipBlsValidation})
 
   # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
   initialState.genesis_time = startTime

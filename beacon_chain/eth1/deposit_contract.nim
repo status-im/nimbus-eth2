@@ -183,54 +183,54 @@ proc sendDeposits*(deposits: seq[LaunchPadDeposit],
 
 {.pop.} # TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 proc main() {.async.} =
-  var cfg = CliConfig.load()
+  var conf = CliConfig.load()
   let rng = keys.newRng()
 
-  if cfg.cmd == StartUpCommand.generateSimulationDeposits:
+  if conf.cmd == StartUpCommand.generateSimulationDeposits:
     let
       mnemonic = generateMnemonic(rng[])
       seed = getSeed(mnemonic, KeyStorePass.init "")
-      runtimePreset = getRuntimePresetForNetwork(cfg.eth2Network)
+      cfg = getRuntimeConfig(conf.eth2Network)
 
-    let vres = secureCreatePath(string cfg.outValidatorsDir)
+    let vres = secureCreatePath(string conf.outValidatorsDir)
     if vres.isErr():
       warn "Could not create validators folder",
-           path = string cfg.outValidatorsDir, err = ioErrorMsg(vres.error)
+           path = string conf.outValidatorsDir, err = ioErrorMsg(vres.error)
 
-    let sres = secureCreatePath(string cfg.outSecretsDir)
+    let sres = secureCreatePath(string conf.outSecretsDir)
     if sres.isErr():
       warn "Could not create secrets folder",
-           path = string cfg.outSecretsDir, err = ioErrorMsg(sres.error)
+           path = string conf.outSecretsDir, err = ioErrorMsg(sres.error)
 
     let deposits = generateDeposits(
-      runtimePreset,
+      cfg,
       rng[],
       seed,
-      0, cfg.simulationDepositsCount,
-      string cfg.outValidatorsDir,
-      string cfg.outSecretsDir)
+      0, conf.simulationDepositsCount,
+      string conf.outValidatorsDir,
+      string conf.outSecretsDir)
 
     if deposits.isErr:
       fatal "Failed to generate deposits", err = deposits.error
       quit 1
 
     let launchPadDeposits =
-      mapIt(deposits.value, LaunchPadDeposit.init(runtimePreset, it))
+      mapIt(deposits.value, LaunchPadDeposit.init(cfg, it))
 
-    Json.saveFile(string cfg.outDepositsFile, launchPadDeposits)
-    notice "Deposit data written", filename = cfg.outDepositsFile
+    Json.saveFile(string conf.outDepositsFile, launchPadDeposits)
+    notice "Deposit data written", filename = conf.outDepositsFile
     quit 0
 
   var deposits: seq[LaunchPadDeposit]
-  if cfg.cmd == StartUpCommand.sendDeposits:
-    deposits = Json.loadFile(string cfg.depositsFile, seq[LaunchPadDeposit])
+  if conf.cmd == StartUpCommand.sendDeposits:
+    deposits = Json.loadFile(string conf.depositsFile, seq[LaunchPadDeposit])
 
-  if cfg.askForKey:
+  if conf.askForKey:
     var
       privateKey: TaintedString
       reasonForKey = ""
 
-    if cfg.cmd == StartUpCommand.sendDeposits:
+    if conf.cmd == StartUpCommand.sendDeposits:
       let
         depositsWord = if deposits.len > 1: "deposits" else: "deposit"
         totalEthNeeded = 32 * deposits.len
@@ -244,40 +244,40 @@ proc main() {.async.} =
       error "Failed to read an Eth1 private key from standard input"
 
     if privateKey.len > 0:
-      cfg.privateKey = privateKey.string
+      conf.privateKey = privateKey.string
 
-  let web3 = await initWeb3(cfg.web3Url, cfg.privateKey)
+  let web3 = await initWeb3(conf.web3Url, conf.privateKey)
 
-  case cfg.cmd
+  case conf.cmd
   of StartUpCommand.deploy:
     let receipt = await web3.deployContract(contractCode)
     echo receipt.contractAddress.get, ";", receipt.blockHash
 
   of StartUpCommand.drain:
     let sender = web3.contractSender(DepositContract,
-                                     cfg.drainedContractAddress)
+                                     conf.drainedContractAddress)
     discard await sender.drain().send(gasPrice = 1)
 
   of StartUpCommand.sendEth:
-    echo await sendEth(web3, cfg.toAddress, cfg.valueEth.parseInt)
+    echo await sendEth(web3, conf.toAddress, conf.valueEth.parseInt)
 
   of StartUpCommand.sendDeposits:
     var delayGenerator: DelayGenerator
-    if not (cfg.maxDelay > 0.0):
-      cfg.maxDelay = cfg.minDelay
-    elif cfg.minDelay > cfg.maxDelay:
+    if not (conf.maxDelay > 0.0):
+      conf.maxDelay = conf.minDelay
+    elif conf.minDelay > conf.maxDelay:
       echo "The minimum delay should not be larger than the maximum delay"
       quit 1
 
-    if cfg.maxDelay > 0.0:
+    if conf.maxDelay > 0.0:
       delayGenerator = proc (): chronos.Duration =
         let
-          minDelay = (cfg.minDelay*1000).int64
-          maxDelay = (cfg.maxDelay*1000).int64
+          minDelay = (conf.minDelay*1000).int64
+          maxDelay = (conf.maxDelay*1000).int64
         chronos.milliseconds (rng[].rand(maxDelay - minDelay) + minDelay)
 
-    await sendDeposits(deposits, cfg.web3Url, cfg.privateKey,
-                       cfg.depositContractAddress, delayGenerator)
+    await sendDeposits(deposits, conf.web3Url, conf.privateKey,
+                       conf.depositContractAddress, delayGenerator)
 
   of StartUpCommand.generateSimulationDeposits:
     # This is handled above before the case statement

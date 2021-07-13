@@ -30,7 +30,7 @@ type
   Eth1Address* = ethtypes.Address
 
   RuntimeConfig* = object
-    ## https://github.com/ethereum/eth2.0-specs/tree/1d5c4ecffbadc70b62189cb4219be055b8efa2e9/configs
+    ## https://github.com/ethereum/eth2.0-specs/tree/v1.1.0-alpha.8/configs
 
     PRESET_BASE*: string
 
