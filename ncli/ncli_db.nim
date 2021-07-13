@@ -154,14 +154,13 @@ proc getBlockRange(dag: ChainDAGRef, start, ends: Slot): seq[BlockRef] =
     cur = cur.parent
   blockRefs
 
-proc cmdBench(conf: DbConf, runtimePreset: RuntimeConfig) =
+proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
   var timers: array[Timers, RunningStat]
 
   echo "Opening database..."
   let
-    db = BeaconChainDB.new(
-      runtimePreset, conf.databaseDir.string,)
-    dbBenchmark = BeaconChainDB.new(runtimePreset, "benchmark")
+    db = BeaconChainDB.new(conf.databaseDir.string,)
+    dbBenchmark = BeaconChainDB.new("benchmark")
   defer:
     db.close()
     dbBenchmark.close()
@@ -172,7 +171,7 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimeConfig) =
 
   echo "Initializing block pool..."
   let dag = withTimerRet(timers[tInit]):
-    ChainDAGRef.init(runtimePreset, db, {})
+    ChainDAGRef.init(cfg, db, {})
 
   var
     (start, ends) = dag.getSlotRange(conf.benchSlot, conf.benchSlots)
@@ -238,8 +237,8 @@ proc cmdBench(conf: DbConf, runtimePreset: RuntimeConfig) =
 
   printTimers(false, timers)
 
-proc cmdDumpState(conf: DbConf, preset: RuntimeConfig) =
-  let db = BeaconChainDB.new(preset, conf.databaseDir.string)
+proc cmdDumpState(conf: DbConf) =
+  let db = BeaconChainDB.new(conf.databaseDir.string)
   defer: db.close()
 
   for stateRoot in conf.stateRoot:
@@ -253,8 +252,8 @@ proc cmdDumpState(conf: DbConf, preset: RuntimeConfig) =
     except CatchableError as e:
       echo "Couldn't load ", stateRoot, ": ", e.msg
 
-proc cmdDumpBlock(conf: DbConf, preset: RuntimeConfig) =
-  let db = BeaconChainDB.new(preset, conf.databaseDir.string)
+proc cmdDumpBlock(conf: DbConf) =
+  let db = BeaconChainDB.new(conf.databaseDir.string)
   defer: db.close()
 
   for blockRoot in conf.blockRootx:
@@ -339,11 +338,11 @@ proc copyPrunedDatabase(
     copyDb.putHeadBlock(headBlock.get)
     copyDb.putTailBlock(tailBlock.get)
 
-proc cmdPrune(conf: DbConf, preset: RuntimeConfig) =
+proc cmdPrune(conf: DbConf) =
   let
-    db = BeaconChainDB.new(preset, conf.databaseDir.string)
+    db = BeaconChainDB.new(conf.databaseDir.string)
     # TODO: add the destination as CLI paramter
-    copyDb = BeaconChainDB.new(preset, "pruned_db")
+    copyDb = BeaconChainDB.new("pruned_db")
 
   defer:
     db.close()
@@ -351,9 +350,9 @@ proc cmdPrune(conf: DbConf, preset: RuntimeConfig) =
 
   db.copyPrunedDatabase(copyDb, conf.dryRun, conf.verbose, conf.keepOldStates)
 
-proc cmdRewindState(conf: DbConf, preset: RuntimeConfig) =
+proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."
-  let db = BeaconChainDB.new(preset, conf.databaseDir.string)
+  let db = BeaconChainDB.new(conf.databaseDir.string)
   defer: db.close()
 
   if not ChainDAGRef.isInitialized(db):
@@ -361,7 +360,7 @@ proc cmdRewindState(conf: DbConf, preset: RuntimeConfig) =
     quit 1
 
   echo "Initializing block pool..."
-  let dag = init(ChainDAGRef, preset, db, {})
+  let dag = init(ChainDAGRef, cfg, db, {})
 
   let blckRef = dag.getRef(fromHex(Eth2Digest, conf.blockRoot))
   if blckRef == nil:
@@ -379,8 +378,8 @@ proc atCanonicalSlot(blck: BlockRef, slot: Slot): BlockSlot =
   else:
     blck.atSlot(slot - 1).blck.atSlot(slot)
 
-proc cmdExportEra(conf: DbConf, preset: RuntimeConfig) =
-  let db = BeaconChainDB.new(preset, conf.databaseDir.string)
+proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
+  let db = BeaconChainDB.new(conf.databaseDir.string)
   defer: db.close()
 
   if not ChainDAGRef.isInitialized(db):
@@ -389,7 +388,7 @@ proc cmdExportEra(conf: DbConf, preset: RuntimeConfig) =
 
   echo "Initializing block pool..."
   let
-    dag = init(ChainDAGRef, preset, db, {})
+    dag = init(ChainDAGRef, cfg, db, {})
 
   let tmpState = assignClone(dag.headState)
 
@@ -439,11 +438,10 @@ type
     first_slot_head_attester_when_first_slot_not_empty: uint64
     delays: Table[uint64, uint64]
 
-proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimeConfig) =
+proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."
   let
-    db = BeaconChainDB.new(
-      runtimePreset, conf.databaseDir.string,)
+    db = BeaconChainDB.new(conf.databaseDir.string,)
   defer:
     db.close()
 
@@ -452,7 +450,7 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimeConfig) =
     quit 1
 
   echo "# Initializing block pool..."
-  let dag = ChainDAGRef.init(runtimePreset, db, {})
+  let dag = ChainDAGRef.init(cfg, db, {})
 
   var
     (start, ends) = dag.getSlotRange(conf.perfSlot, conf.perfSlots)
@@ -569,12 +567,11 @@ proc cmdValidatorPerf(conf: DbConf, runtimePreset: RuntimeConfig) =
       perf.first_slot_head_attester_when_first_slot_empty,",",
       perf.first_slot_head_attester_when_first_slot_not_empty
 
-proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimeConfig) =
+proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   # Create a database with performance information for every epoch
   echo "Opening database..."
   let
-    db = BeaconChainDB.new(
-      runtimePreset, conf.databaseDir.string,)
+    db = BeaconChainDB.new(conf.databaseDir.string,)
   defer:
     db.close()
 
@@ -583,7 +580,7 @@ proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimeConfig) =
     quit 1
 
   echo "Initializing block pool..."
-  let dag = ChainDAGRef.init(runtimePreset, db, {})
+  let dag = ChainDAGRef.init(cfg, db, {})
 
   let outDb = SqStoreRef.init(conf.outDir, "validatorDb").expect("DB")
   defer: outDb.close()
@@ -755,7 +752,7 @@ proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimeConfig) =
     blck = db.getBlock(blockRefs[blockRefs.len - bi - 1].root).get()
     while getStateField(state[].data, slot) < blck.message.slot:
       let ok = process_slots(
-        runtimePreset, state[].data, getStateField(state[].data, slot) + 1, cache, rewards,
+        cfg, state[].data, getStateField(state[].data, slot) + 1, cache, rewards,
         {})
       doAssert ok, "Slot processing can't fail with correct inputs"
 
@@ -763,7 +760,7 @@ proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimeConfig) =
         processEpoch()
 
     if not state_transition_block(
-        runtimePreset, state[].data, blck, cache, {}, noRollback):
+        cfg, state[].data, blck, cache, {}, noRollback):
       echo "State transition failed (!)"
       quit 1
 
@@ -771,7 +768,7 @@ proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimeConfig) =
   # finalized
   while getStateField(state[].data, slot) <= ends:
     let ok = process_slots(
-      runtimePreset, state[].data, getStateField(state[].data, slot) + 1, cache,
+      cfg, state[].data, getStateField(state[].data, slot) + 1, cache,
       rewards, {})
     doAssert ok, "Slot processing can't fail with correct inputs"
 
@@ -781,22 +778,22 @@ proc cmdValidatorDb(conf: DbConf, runtimePreset: RuntimeConfig) =
 when isMainModule:
   var
     conf = DbConf.load()
-    runtimePreset = getRuntimePresetForNetwork(conf.eth2Network)
+    cfg = getRuntimeConfig(conf.eth2Network)
 
   case conf.cmd
   of bench:
-    cmdBench(conf, runtimePreset)
+    cmdBench(conf, cfg)
   of dumpState:
-    cmdDumpState(conf, runtimePreset)
+    cmdDumpState(conf)
   of dumpBlock:
-    cmdDumpBlock(conf, runtimePreset)
+    cmdDumpBlock(conf)
   of pruneDatabase:
-    cmdPrune(conf, runtimePreset)
+    cmdPrune(conf)
   of rewindState:
-    cmdRewindState(conf, runtimePreset)
+    cmdRewindState(conf, cfg)
   of exportEra:
-    cmdExportEra(conf, runtimePreset)
+    cmdExportEra(conf, cfg)
   of validatorPerf:
-    cmdValidatorPerf(conf, runtimePreset)
+    cmdValidatorPerf(conf, cfg)
   of validatorDb:
-    cmdValidatorDb(conf, runtimePreset)
+    cmdValidatorDb(conf, cfg)

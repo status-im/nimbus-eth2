@@ -111,7 +111,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         genesis_time: getStateField(node.dag.headState.data, genesis_time),
         genesis_validators_root:
           getStateField(node.dag.headState.data, genesis_validators_root),
-        genesis_fork_version: node.runtimePreset.GENESIS_FORK_VERSION
+        genesis_fork_version: node.dag.cfg.GENESIS_FORK_VERSION
       )
     )
 

@@ -16,7 +16,7 @@ import
 export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 
 proc makeTestDB*(tailState: var BeaconState, tailBlock: TrustedSignedBeaconBlock): BeaconChainDB =
-  result = BeaconChainDB.new(defaultRuntimeConfig, "", inMemory = true)
+  result = BeaconChainDB.new("", inMemory = true)
   ChainDAGRef.preInit(result, tailState, tailState, tailBlock)
 
 proc makeTestDB*(validators: Natural): BeaconChainDB =

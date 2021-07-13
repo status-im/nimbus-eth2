@@ -345,8 +345,8 @@ define CONNECT_TO_NETWORK
 		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
-	[ "$(3)" == "FastSync" ] && { export CHECKPOINT_PARAMS="--finalized-checkpoint-state=vendor/eth2-testnets/shared/$(1)/recent-finalized-state.ssz \
-																													--finalized-checkpoint-block=vendor/eth2-testnets/shared/$(1)/recent-finalized-block.ssz" ; }; \
+	[ "$(3)" == "FastSync" ] && { export CHECKPOINT_PARAMS="--finalized-checkpoint-state=vendor/eth2-networks/shared/$(1)/recent-finalized-state.ssz \
+																													--finalized-checkpoint-block=vendor/eth2-network/shared/$(1)/recent-finalized-block.ssz" ; }; \
 	$(CPU_LIMIT_CMD) build/$(2) \
 		--network=$(1) \
 		--log-level="$(RUNTIME_LOG_LEVEL)" \
@@ -419,7 +419,7 @@ define MAKE_DEPOSIT
 
 	build/deposit_contract sendDeposits \
 		--web3-url=$(WEB3_URL) \
-		--deposit-contract=$$(cat vendor/eth2-testnets/shared/$(1)/deposit_contract.txt) \
+		--deposit-contract=$$(cat vendor/eth2-network/shared/$(1)/deposit_contract.txt) \
 		--deposits-file=nbc-$(1)-deposits.json \
 		--min-delay=$(DEPOSITS_DELAY) \
 		--ask-for-key

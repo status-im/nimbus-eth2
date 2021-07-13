@@ -26,8 +26,8 @@ echo "Bootstrap node hostname : ${BOOTSTRAP_HOST:="master-01.aws-eu-central-1a.n
 echo "Bootstrap node ip       : ${BOOTSTRAP_IP:="$(dig +short $BOOTSTRAP_HOST)"}"
 echo "Bootstrap node port     : ${BOOTSTRAP_PORT:=9000}"
 echo "Reset testnet at end    : ${PUBLISH_TESTNET_RESETS:="1"}"
-echo "Testnet metadata repo   : ${ETH2_TESTNETS_GIT_URL:="git@github.com:${ETH2_TESTNETS_ORG:=eth2-clients}/eth2-testnets"}"
-echo "Testnet metadata dir    : ${ETH2_TESTNETS:="build/eth2-testnets"}"
+echo "Testnet metadata repo   : ${ETH2_TESTNETS_GIT_URL:="git@github.com:${ETH2_TESTNETS_ORG:=eth2-clients}/eth2-networks"}"
+echo "Testnet metadata dir    : ${ETH2_TESTNETS:="build/eth2-networks"}"
 echo "Beacon node data dir    : ${DATA_DIR:="build/testnet-reset-data/$NETWORK"}"
 echo "Nim build flags         : $NETWORK_NIM_FLAGS"
 

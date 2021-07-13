@@ -178,11 +178,6 @@
 	url = https://github.com/status-im/nim-chronicles-tail.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/eth2-testnets"]
-	path = vendor/eth2-testnets
-	url = https://github.com/eth2-clients/eth2-testnets.git
-	ignore = untracked
-	branch = master
 [submodule "vendor/nimbus-security-resources"]
 	path = vendor/nimbus-security-resources
 	url = https://github.com/status-im/nimbus-security-resources.git
@@ -214,3 +209,6 @@
 	ignore = untracked
 	branch = master
 
+[submodule "vendor/eth2-networks"]
+	path = vendor/eth2-networks
+	url = https://github.com/eth2-clients/eth2-networks.git
