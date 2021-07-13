@@ -11,7 +11,7 @@ import
   # Status
   chronicles, chronos,
   stew/results,
-  eth/keys,
+  eth/keys, taskpools,
   # Internals
   ../spec/[helpers, signatures_batch],
   ../spec/datatypes/base,
@@ -67,6 +67,10 @@ type
     rng: ref BrHmacDrbgContext  ##\
     ## A reference to the Nimbus application-wide RNG
     pruneTime: Moment ## :ast time we had to prune something
+    ## A pointer to the Nimbus application-wide threadpool
+    taskpool: TaskPoolPtr
+
+  TaskPoolPtr* = TaskPool
 
 const
   # We cap waiting for an idle slot in case there's a lot of network traffic
@@ -84,8 +88,9 @@ const
   BatchedCryptoSize = 16
 
 proc new*(
-    T: type BatchCrypto, rng: ref BrHmacDrbgContext, eager: Eager): ref BatchCrypto =
-  (ref BatchCrypto)(rng: rng, eager: eager, pruneTime: Moment.now())
+    T: type BatchCrypto, rng: ref BrHmacDrbgContext,
+    eager: Eager, taskpool: TaskPoolPtr): ref BatchCrypto =
+  (ref BatchCrypto)(rng: rng, eager: eager, pruneTime: Moment.now(), taskpool: taskpool)
 
 func len(batch: Batch): int =
   doAssert batch.resultsBuffer.len() == batch.pendingBuffer.len()
@@ -146,11 +151,13 @@ proc processBatch(batchCrypto: ref BatchCrypto) =
   var secureRandomBytes: array[32, byte]
   batchCrypto[].rng[].brHmacDrbgGenerate(secureRandomBytes)
 
-  # TODO: For now only enable serial batch verification
-  let ok = batchVerifySerial(
-    batchCrypto.sigVerifCache,
-    batch.pendingBuffer,
-    secureRandomBytes)
+  let ok = try:
+    batchCrypto.taskpool.batchVerify(
+      batchCrypto.sigVerifCache,
+      batch.pendingBuffer,
+      secureRandomBytes)
+  except Exception as exc:
+    raise newException(Defect, "Unexpected exception in batchVerify.")
 
   trace "batch crypto - finished",
     batchSize,

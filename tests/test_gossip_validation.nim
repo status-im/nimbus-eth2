@@ -11,7 +11,7 @@ import
   # Status lib
   unittest2,
   chronicles, chronos,
-  eth/keys,
+  eth/keys, taskpools
   # Internal
   ../beacon_chain/[beacon_node_types, beacon_clock],
   ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
@@ -38,7 +38,8 @@ suite "Gossip validation " & preset():
       state = newClone(dag.headState)
       cache = StateCache()
       rewards = RewardInfo()
-      batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false)
+      taskpool = TaskPool.new()
+      batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false, taskpool)
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
       process_slots(
