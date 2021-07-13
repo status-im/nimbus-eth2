@@ -759,10 +759,6 @@ proc addMessageHandlers(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   node.network.subscribe(getVoluntaryExitsTopic(node.dag.forkDigests.phase0), basicParams)
   node.network.subscribe(getAggregateAndProofsTopic(node.dag.forkDigests.phase0), aggregateTopicParams, enableTopicMetrics = true)
 
-  warn "FOO0: node.dag.forkDigests.altair",
-    fp0 = node.dag.forkDigests.phase0,
-    fA = node.dag.forkDigests.altair
-
   node.network.subscribe(getBeaconBlocksTopic(
     node.dag.forkDigests.altair), blocksTopicParams, enableTopicMetrics = true)
   node.network.subscribe(getAttesterSlashingsTopic(node.dag.forkDigests.altair), basicParams)
