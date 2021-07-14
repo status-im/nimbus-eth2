@@ -12,7 +12,7 @@ import
   std/[options, sequtils],
   unittest2,
   stew/assign2,
-  eth/keys,
+  eth/keys, taskpools,
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
   ../beacon_chain/beacon_node_types,
@@ -120,7 +120,8 @@ suite "Block pool processing" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
-      quarantine = QuarantineRef.init(keys.newRng())
+      taskpool = Taskpool.new()
+      quarantine = QuarantineRef.init(keys.newRng(), taskpool)
       nilPhase0Callback: OnPhase0BlockAdded
       state = newClone(dag.headState.data)
       cache = StateCache()
@@ -347,7 +348,9 @@ suite "chain DAG finalization tests" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
-      quarantine = QuarantineRef.init(keys.newRng())
+      taskpool = Taskpool.new()
+      quarantine = QuarantineRef.init(keys.newRng(), taskpool)
+      nilPhase0Callback: OnPhase0BlockAdded
       cache = StateCache()
       rewards = RewardInfo()
 

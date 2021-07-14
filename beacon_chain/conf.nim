@@ -157,8 +157,8 @@ type
       name: "slashing-db-kind" }: SlashingDbKind
 
     numThreads* {.
-      defaultValue: 0,
-      desc: "Number of threads used (0 for all logical threads)"
+      defaultValue: 1,
+      desc: "Number of threads used (0 to use all logical threads)"
       name: "num-threads" }: int
 
     case cmd* {.
