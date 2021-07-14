@@ -732,7 +732,7 @@ proc run(conf: InspectorConf) {.async.} =
                                      eth2_bootnodes = eth2bootnodes,
                                      disc5_bootnodes = disc5bootnodes
 
-  asyncCheck connectLoop(switch, connectQueue,
+  asyncSpawn connectLoop(switch, connectQueue,
                          pubsubPeers, 10.seconds)
 
   for node in eth2bootnodes:
@@ -742,10 +742,10 @@ proc run(conf: InspectorConf) {.async.} =
     var proto = bootstrapDiscovery(conf, hostAddress.get(), seckey,
                                    disc5bootnodes, enrFields)
     if not(conf.noDiscovery):
-      asyncCheck discoveryLoop(conf, proto, switch, connectQueue,
+      asyncSpawn discoveryLoop(conf, proto, switch, connectQueue,
                                pubsubPeers)
 
-    asyncCheck resolveLoop(conf, proto, switch, resolveQueue,
+    asyncSpawn resolveLoop(conf, proto, switch, resolveQueue,
                            pubsubPeers)
 
   # We are not going to exit from this procedure
