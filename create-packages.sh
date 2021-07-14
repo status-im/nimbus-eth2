@@ -14,11 +14,22 @@ PKG_ARCH=amd64
 PKG_IMG_DIR=package_image
 
 if [ -z $1 ]; then
+  printf "Please provide a Package Architecture!\n"
+  exit 1
+else
+  PKG_ARCH=$1
+  if [ $PKG_ARCH != "amd64" -a $PKG_ARCH != "arm64" -a $PKG_ARCH != "arm" ]; then
+    printf "Package Architecture options:\n-amd64\n-arm64\n-arm\n"
+    exit 1
+  fi
+fi
+
+if [ -z $2 ]; then
   printf "Please provide a Package Version!\n"
   exit 1
 fi
 
-PKG_VERSION=$1
+PKG_VERSION=$2
 if ! [[ "$PKG_VERSION" =~ ^[0-9]+\.[0-9]+ ]]; then
     echo "Invalid Package Version!"
     exit 1
