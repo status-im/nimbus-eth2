@@ -841,41 +841,38 @@ proc sendAggregatedAttestations(
         aggregationSlot
 
 proc updateValidatorMetrics*(node: BeaconNode) =
-  when defined(metrics):
-    # Technically, this only needs to be done on epoch transitions and if there's
-    # a reorg that spans an epoch transition, but it's easier to implement this
-    # way for now.
+  # Technically, this only needs to be done on epoch transitions and if there's
+  # a reorg that spans an epoch transition, but it's easier to implement this
+  # way for now.
 
-    # We'll limit labelled metrics to the first 64, so that we don't overload
-    # Prometheus.
+  # We'll limit labelled metrics to the first 64, so that we don't overload
+  # Prometheus.
 
-    var total: Gwei
-    var i = 0
-    for _, v in node.attachedValidators[].validators:
-      let balance =
-        if v.index.isNone():
-          0.Gwei
-        elif v.index.get().uint64 >=
-            getStateField(node.dag.headState.data, balances).lenu64:
-          debug "Cannot get validator balance, index out of bounds",
-            pubkey = shortLog(v.pubkey), index = v.index.get(),
-            balances = getStateField(node.dag.headState.data, balances).len,
-            stateRoot = getStateRoot(node.dag.headState.data)
-          0.Gwei
-        else:
-          getStateField(node.dag.headState.data, balances)[v.index.get()]
+  var total: Gwei
+  var i = 0
+  for _, v in node.attachedValidators[].validators:
+    let balance =
+      if v.index.isNone():
+        0.Gwei
+      elif v.index.get().uint64 >=
+          getStateField(node.dag.headState.data, balances).lenu64:
+        debug "Cannot get validator balance, index out of bounds",
+          pubkey = shortLog(v.pubkey), index = v.index.get(),
+          balances = getStateField(node.dag.headState.data, balances).len,
+          stateRoot = getStateRoot(node.dag.headState.data)
+        0.Gwei
+      else:
+        getStateField(node.dag.headState.data, balances)[v.index.get()]
 
-      if i < 64:
-        attached_validator_balance.set(
-          balance.toGaugeValue, labelValues = [shortLog(v.pubkey)])
+    if i < 64:
+      attached_validator_balance.set(
+        balance.toGaugeValue, labelValues = [shortLog(v.pubkey)])
 
-      inc i
-      total += balance
+    inc i
+    total += balance
 
-    node.attachedValidatorBalanceTotal = total
-    attached_validator_balance_total.set(total.toGaugeValue)
-  else:
-    discard
+  node.attachedValidatorBalanceTotal = total
+  attached_validator_balance_total.set(total.toGaugeValue)
 
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
