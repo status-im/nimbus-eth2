@@ -313,9 +313,6 @@ proc init*(T: type BeaconNode,
     network = createEth2Node(
       rng, config, netKeys, cfg, dag.forkDigests,
       getStateField(dag.headState.data, genesis_validators_root))
-    # TODO altair-transition
-    topicBeaconBlocks = getBeaconBlocksTopic(dag.forkDigests.phase0)
-    topicAggregateAndProofs = getAggregateAndProofsTopic(dag.forkDigests.phase0)
     attestationPool = newClone(AttestationPool.init(dag, quarantine))
     exitPool = newClone(ExitPool.init(dag, quarantine))
 
@@ -365,8 +362,6 @@ proc init*(T: type BeaconNode,
     eth1Monitor: eth1Monitor,
     rpcServer: rpcServer,
     restServer: restServer,
-    topicBeaconBlocks: topicBeaconBlocks,
-    topicAggregateAndProofs: topicAggregateAndProofs,
     processor: processor,
     blockProcessor: blockProcessor,
     consensusManager: consensusManager,
@@ -379,7 +374,7 @@ proc init*(T: type BeaconNode,
       # TODO altair-transition
       var
         topics = @[
-            topicBeaconBlocks,
+            getBeaconBlocksTopic(network.forkDigests.phase0),
             getAttesterSlashingsTopic(network.forkDigests.phase0),
             getProposerSlashingsTopic(network.forkDigests.phase0),
             getVoluntaryExitsTopic(network.forkDigests.phase0),
@@ -751,7 +746,8 @@ proc addMessageHandlers(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     basicParams.validateParameters.tryGet()
 
   # TODO altair-transition
-  node.network.subscribe(node.topicBeaconBlocks, blocksTopicParams, enableTopicMetrics = true)
+  node.network.subscribe(
+    getBeaconBlocksTopic(node.dag.forkDigests.phase0), blocksTopicParams, enableTopicMetrics = true)
   node.network.subscribe(getAttesterSlashingsTopic(node.dag.forkDigests.phase0), basicParams)
   node.network.subscribe(getProposerSlashingsTopic(node.dag.forkDigests.phase0), basicParams)
   node.network.subscribe(getVoluntaryExitsTopic(node.dag.forkDigests.phase0), basicParams)
@@ -1121,7 +1117,7 @@ proc installMessageValidators(node: BeaconNode) =
       node.processor.aggregateValidator(signedAggregateAndProof))
 
   node.network.addValidator(
-    node.topicBeaconBlocks,
+    getBeaconBlocksTopic(node.dag.forkDigests.phase0),
     proc (signedBlock: SignedBeaconBlock): ValidationResult =
       node.processor[].blockValidator(signedBlock))
 

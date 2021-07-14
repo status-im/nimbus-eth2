@@ -50,8 +50,6 @@ type
     vcProcess*: Process
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerID]
-    topicBeaconBlocks*: string
-    topicAggregateAndProofs*: string
     genesisSnapshotContent*: string
     attestationSubnets*: AttestationSubnets
     processor*: ref Eth2Processor

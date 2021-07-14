@@ -367,7 +367,8 @@ proc proposeSignedBlock*(node: BeaconNode,
   if node.config.dumpEnabled:
     dump(node.config.dumpDirOutgoing, newBlock)
 
-  node.network.broadcast(node.topicBeaconBlocks, newBlock)
+  node.network.broadcast(
+    getBeaconBlocksTopic(node.dag.forkDigests.phase0), newBlock)
 
   beacon_blocks_proposed.inc()
 
@@ -574,7 +575,8 @@ proc broadcastAggregatedAttestations(
       var signedAP = SignedAggregateAndProof(
         message: aggregateAndProof.get,
         signature: sig)
-      node.network.broadcast(node.topicAggregateAndProofs, signedAP)
+      node.network.broadcast(
+        getAggregateAndProofsTopic(node.dag.forkDigests.phase0), signedAP)
       notice "Aggregated attestation sent",
         attestation = shortLog(signedAP.message.aggregate),
         validator = shortLog(curr[0].v),

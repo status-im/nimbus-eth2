@@ -563,13 +563,13 @@ proc isValidBeaconBlock*(
 
   if not slotBlockRef.isNil:
     let blck = dag.get(slotBlockRef).data
-    if blck.message.proposer_index ==
+    if getForkedBlockField(blck, proposer_index) ==
           signed_beacon_block.message.proposer_index and
-        blck.message.slot == signed_beacon_block.message.slot and
+        getForkedBlockField(blck, slot) == signed_beacon_block.message.slot and
         blck.signature.toRaw() != signed_beacon_block.signature.toRaw():
       notice "block isn't first block with valid signature received for the proposer",
-        blckRef = slotBlockRef,
-        existing_block = shortLog(blck.message)
+        blckRef = slotBlockRef
+        #existing_block = shortLog(blck.message)
       return err((ValidationResult.Ignore, Invalid))
 
   # [IGNORE] The block's parent (defined by block.parent_root) has been seen
