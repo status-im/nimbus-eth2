@@ -16,8 +16,8 @@ import
   # Internals
   ../spec/[
     beaconstate, state_transition_block,
-    datatypes, crypto, digest, forkedbeaconstate_helpers, helpers, network,
-    signatures],
+    datatypes/phase0, datatypes/altair, crypto, digest,
+    forkedbeaconstate_helpers, helpers, network, signatures],
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_quarantine, spec_cache,
     attestation_pool, exit_pool, sync_committee_msg_pool
@@ -28,10 +28,6 @@ import
   ./batch_validation
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
-from ../spec/datatypes/altair import
-  SyncCommitteeMessage,
-  SignedContributionAndProof,
-  SYNC_COMMITTEE_SUBNET_COUNT
 
 export ValidationResult
 
@@ -509,8 +505,8 @@ proc validateAggregate*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
 proc isValidBeaconBlock*(
        dag: ChainDAGRef, quarantine: QuarantineRef,
-       signed_beacon_block: SignedBeaconBlock, wallTime: BeaconTime,
-       flags: UpdateFlags):
+       signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+       wallTime: BeaconTime, flags: UpdateFlags):
        Result[void, (ValidationResult, BlockError)] =
   logScope:
     received_block = shortLog(signed_beacon_block.message)
