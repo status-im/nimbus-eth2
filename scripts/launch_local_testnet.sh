@@ -32,7 +32,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,testnet:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rpc-port:,base-metrics-port:,reuse-existing-data-dir,timeout:"
+LONGOPTS="help,preset:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rpc-port:,base-metrics-port:,reuse-existing-data-dir,timeout:"
 
 # default values
 NUM_NODES="10"
@@ -48,6 +48,7 @@ REUSE_EXISTING_DATA_DIR="0"
 ENABLE_LOGTRACE="0"
 STOP_AT_EPOCH_FLAG=""
 TIMEOUT_DURATION="0"
+CONST_PRESET="mainnet"
 
 print_help() {
   cat <<EOF
@@ -61,6 +62,7 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   -s, --stop-at-epoch         stop simulation at epoch (default: infinite)
   -d, --data-dir              directory where all the node data and logs will end up
                               (default: "${DATA_DIR}")
+  --preset                    Const preset to be (default: mainnet)
   --base-port                 bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
   --base-rpc-port             bootstrap node's RPC port (default: ${BASE_RPC_PORT})
   --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
@@ -98,6 +100,10 @@ while true; do
     -g|--with-ganache)
       USE_GANACHE="1"
       shift
+      ;;
+    --preset)
+      CONST_PRESET="$2"
+      shift 2
       ;;
     --stop-at-epoch)
       STOP_AT_EPOCH_FLAG="--stop-at-epoch=$2"
@@ -196,7 +202,7 @@ if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
   BINARIES="${BINARIES} logtrace"
 fi
 
-$MAKE -j ${NPROC} LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:testnet_servers_image -d:local_testnet" ${BINARIES}
+$MAKE -j ${NPROC} LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:testnet_servers_image -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
 
 PIDS=""
 WEB3_ARG=""
@@ -268,7 +274,7 @@ fi
 echo Wrote $RUNTIME_CONFIG_FILE:
 
 tee "$RUNTIME_CONFIG_FILE" <<EOF
-PRESET_BASE: mainnet
+PRESET_BASE: ${CONST_PRESET}
 MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${TOTAL_VALIDATORS}
 MIN_GENESIS_TIME: 0
 GENESIS_DELAY: 10
