@@ -1,4 +1,4 @@
-# APIs
+# JSON-RPC API
 
 `nimbus-eth2`  exposes a collection of APIs for querying the state of the application at runtime.
 
