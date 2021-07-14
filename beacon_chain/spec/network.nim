@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  "."/[digest, helpers],
+  "."/[digest, helpers, forkedbeaconstate_helpers],
   "."/datatypes/base
 
 const
@@ -32,6 +32,10 @@ const
 
   # This is not part of the spec! But its port which uses Lighthouse
   DefaultEth2RestPort* = 5052
+
+  enrAttestationSubnetsField* = "attnets"
+  enrSyncSubnetsField* = "syncnets"
+  enrForkIdField* = "eth2"
 
 template eth2Prefix(forkDigest: ForkDigest): string =
   "/eth2/" & $forkDigest & "/"
@@ -84,14 +88,15 @@ func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string 
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof" & "/ssz"
 
-func getENRForkID*(fork_version: Version,
+func getENRForkID*(cfg: RuntimeConfig,
+                   slot: Slot,
                    genesis_validators_root: Eth2Digest): ENRForkID =
   let
-    current_fork_version = fork_version
-    fork_digest = compute_fork_digest(
-      current_fork_version, genesis_validators_root)
-
+    current_fork_version = cfg.forkVersionAtSlot(slot)
+    fork_digest = compute_fork_digest(current_fork_version,
+                                      genesis_validators_root)
   ENRForkID(
     fork_digest: fork_digest,
-    next_fork_version: current_fork_version,
-    next_fork_epoch: FAR_FUTURE_EPOCH) # TODO altair-transition
+    next_fork_version: cfg.ALTAIR_FORK_VERSION,
+    next_fork_epoch: cfg.nextForkEpochAtSlot(slot))
+

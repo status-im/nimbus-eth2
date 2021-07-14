@@ -413,11 +413,6 @@ type
     withdrawable_epoch*: Epoch ##\
     ## When validator can withdraw or transfer funds
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#metadata
-  MetaData* = object
-    seq_number*: uint64
-    attnets*: BitArray[ATTESTATION_SUBNET_COUNT]
-
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#eth2-field
   ENRForkID* = object
     fork_digest*: ForkDigest
@@ -952,3 +947,4 @@ template isomorphicCast*[T, U](x: U): T =
     doAssert sizeof(T) == sizeof(U)
     doAssert getSizeofSig(T()) == getSizeofSig(U())
   cast[ptr T](unsafeAddr x)[]
+

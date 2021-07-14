@@ -155,7 +155,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       message =
         when T is phase0.SignedBeaconBlock:
           makeBeaconBlock(
-            runtimePreset,
+            cfg,
             hashedState[],
             proposerIdx,
             dag.head.root,
@@ -175,7 +175,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             cache)
         elif T is altair.SignedBeaconBlock:
           makeBeaconBlock(
-            runtimePreset,
+            cfg,
             hashedState[],
             proposerIdx,
             dag.head.root,

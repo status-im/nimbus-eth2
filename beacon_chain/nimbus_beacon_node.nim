@@ -318,6 +318,7 @@ proc init*(T: type BeaconNode,
                else: config.nodeName
     network = createEth2Node(
       rng, config, netKeys, cfg, dag.forkDigests,
+      getStateField(dag.headState.data, slot),
       getStateField(dag.headState.data, genesis_validators_root))
     attestationPool = newClone(AttestationPool.init(dag, quarantine))
     syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init())
@@ -409,9 +410,6 @@ proc init*(T: type BeaconNode,
     except Exception as exc: raiseAssert exc.msg
     node.addRemoteValidators()
 
-  # This merely configures the BeaconSync
-  # The traffic will be started when we join the network.
-  # TODO altair-transition
   network.initBeaconSync(dag, getTime)
 
   node.updateValidatorMetrics()
@@ -620,8 +618,20 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) {.async.} =
     unsubscribeSubnets = prevAllSubnets - allSubnets
     subscribeSubnets = allSubnets - prevAllSubnets
 
-  node.network.unsubscribeAttestationSubnets(unsubscribeSubnets)
-  node.network.subscribeAttestationSubnets(subscribeSubnets)
+  case node.gossipState
+  of GossipState.Disconnected:
+    discard
+  of GossipState.ConnectedToPhase0:
+    node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, node.dag.forkDigests.phase0)
+    node.network.subscribeAttestationSubnets(subscribeSubnets, node.dag.forkDigests.phase0)
+  of GossipState.InTransitionToAltair:
+    node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, node.dag.forkDigests.phase0)
+    node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, node.dag.forkDigests.altair)
+    node.network.subscribeAttestationSubnets(subscribeSubnets, node.dag.forkDigests.phase0)
+    node.network.subscribeAttestationSubnets(subscribeSubnets, node.dag.forkDigests.altair)
+  of GossipState.ConnectedToAltair:
+    node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, node.dag.forkDigests.altair)
+    node.network.subscribeAttestationSubnets(subscribeSubnets, node.dag.forkDigests.altair)
 
   debug "Attestation subnets",
     wallSlot,
@@ -658,7 +668,8 @@ proc getInitialAggregateSubnets(node: BeaconNode): Table[SubnetId, Slot] =
   mergeAggregateSubnets(wallEpoch)
   mergeAggregateSubnets(wallEpoch + 1)
 
-proc subscribeAttestationSubnetHandlers(node: BeaconNode) {.
+proc subscribeAttestationSubnetHandlers(node: BeaconNode,
+                                        forkDigest: ForkDigest) {.
   raises: [Defect, CatchableError].} =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   # TODO:
@@ -706,20 +717,109 @@ proc subscribeAttestationSubnetHandlers(node: BeaconNode) {.
      aggregateSubnets = subnetLog(node.attestationSubnets.aggregateSubnets),
      stabilitySubnets = subnetLog(stabilitySubnets)
   node.network.subscribeAttestationSubnets(
-    node.attestationSubnets.aggregateSubnets + stabilitySubnets)
+    node.attestationSubnets.aggregateSubnets + stabilitySubnets,
+    forkDigest)
 
-proc subscribeToPersistentAltairTopics*(node: BeaconNode, params: TopicParams, epoch: Epoch)
-                                       {.raises: [Defect, CatchableError].} =
+# inspired by lighthouse research here
+# https://gist.github.com/blacktemplar/5c1862cb3f0e32a1a7fb0b25e79e6e2c#file-generate-scoring-params-py
+const
+  blocksTopicParams = TopicParams(
+    topicWeight: 0.5,
+    timeInMeshWeight: 0.03333333333333333,
+    timeInMeshQuantum: chronos.seconds(12),
+    timeInMeshCap: 300,
+    firstMessageDeliveriesWeight: 1.1471603557060206,
+    firstMessageDeliveriesDecay: 0.9928302477768374,
+    firstMessageDeliveriesCap: 34.86870846001471,
+    meshMessageDeliveriesWeight: -458.31054878249114,
+    meshMessageDeliveriesDecay: 0.9716279515771061,
+    meshMessageDeliveriesThreshold: 0.6849191409056553,
+    meshMessageDeliveriesCap: 2.054757422716966,
+    meshMessageDeliveriesActivation: chronos.seconds(384),
+    meshMessageDeliveriesWindow: chronos.seconds(2),
+    meshFailurePenaltyWeight: -458.31054878249114 ,
+    meshFailurePenaltyDecay: 0.9716279515771061,
+    invalidMessageDeliveriesWeight: -214.99999999999994,
+    invalidMessageDeliveriesDecay: 0.9971259067705325
+  )
+  aggregateTopicParams = TopicParams(
+    topicWeight: 0.5,
+    timeInMeshWeight: 0.03333333333333333,
+    timeInMeshQuantum: chronos.seconds(12),
+    timeInMeshCap: 300,
+    firstMessageDeliveriesWeight: 0.10764904539552399,
+    firstMessageDeliveriesDecay: 0.8659643233600653,
+    firstMessageDeliveriesCap: 371.5778421725158,
+    meshMessageDeliveriesWeight: -0.07538533073670682,
+    meshMessageDeliveriesDecay: 0.930572040929699,
+    meshMessageDeliveriesThreshold: 53.404248450179836,
+    meshMessageDeliveriesCap: 213.61699380071934,
+    meshMessageDeliveriesActivation: chronos.seconds(384),
+    meshMessageDeliveriesWindow: chronos.seconds(2),
+    meshFailurePenaltyWeight: -0.07538533073670682 ,
+    meshFailurePenaltyDecay: 0.930572040929699,
+    invalidMessageDeliveriesWeight: -214.99999999999994,
+    invalidMessageDeliveriesDecay: 0.9971259067705325
+  )
+  basicParams = TopicParams.init()
+
+static:
+  # compile time validation
+  blocksTopicParams.validateParameters().tryGet()
+  aggregateTopicParams.validateParameters().tryGet()
+  basicParams.validateParameters.tryGet()
+
+proc addPhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest)
+                             {.raises: [Defect, CatchableError].} =
+  node.network.subscribe(getBeaconBlocksTopic(forkDigest), blocksTopicParams, enableTopicMetrics = true)
+  node.network.subscribe(getAttesterSlashingsTopic(forkDigest), basicParams)
+  node.network.subscribe(getProposerSlashingsTopic(forkDigest), basicParams)
+  node.network.subscribe(getVoluntaryExitsTopic(forkDigest), basicParams)
+  node.network.subscribe(getAggregateAndProofsTopic(forkDigest), aggregateTopicParams, enableTopicMetrics = true)
+
+  node.subscribeAttestationSubnetHandlers(forkDigest)
+
+proc addPhase0MessageHandlers(node: BeaconNode)
+                             {.raises: [Defect, CatchableError].} =
+  addPhase0MessageHandlers(node, node.dag.forkDigests.phase0)
+
+proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest)
+                                {.raises: [Defect, CatchableError].} =
+  node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
+  node.network.unsubscribe(getVoluntaryExitsTopic(forkDigest))
+  node.network.unsubscribe(getProposerSlashingsTopic(forkDigest))
+  node.network.unsubscribe(getAttesterSlashingsTopic(forkDigest))
+  node.network.unsubscribe(getAggregateAndProofsTopic(forkDigest))
+
+  for subnet_id in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
+    node.network.unsubscribe(
+      getAttestationTopic(forkDigest, SubnetId(subnet_id)))
+
+proc removePhase0MessageHandlers(node: BeaconNode)
+                                {.raises: [Defect, CatchableError].} =
+  removePhase0MessageHandlers(node, node.dag.forkDigests.phase0)
+
+proc addAltairMessageHandlers(node: BeaconNode, slot: Slot)
+                             {.raises: [Defect, CatchableError].} =
+  node.addPhase0MessageHandlers(node.dag.forkDigests.altair)
+
+  var syncnets: BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
+
+  # TODO: What are the best topic params for this?
   for it in 0'u64 ..< SYNC_COMMITTEE_SUBNET_COUNT.uint64:
     closureScope:
       let subnet_id = SubnetId(it)
       # TODO This should be done in dynamic way in trackSyncCommitteeTopics
-      node.network.subscribe(getSyncCommitteeTopic(node.dag.forkDigests.altair, subnet_id), params)
+      node.network.subscribe(getSyncCommitteeTopic(node.dag.forkDigests.altair, subnet_id), basicParams)
+      syncnets.setBit(it)
 
-  node.network.subscribe(getSyncCommitteeContributionAndProofTopic(node.dag.forkDigests.altair), params)
+  node.network.subscribe(getSyncCommitteeContributionAndProofTopic(node.dag.forkDigests.altair), basicParams)
+  node.network.updateSyncnetsMetadata(syncnets)
 
-proc unsubscribeToPersistentAltairTopics*(node: BeaconNode)
-                                         {.raises: [Defect, CatchableError].} =
+proc removeAltairMessageHandlers(node: BeaconNode)
+                                {.raises: [Defect, CatchableError].} =
+  node.removePhase0MessageHandlers(node.dag.forkDigests.altair)
+
   for it in 0'u64 ..< SYNC_COMMITTEE_SUBNET_COUNT.uint64:
     closureScope:
       let subnet_id = SubnetId(it)
@@ -728,107 +828,12 @@ proc unsubscribeToPersistentAltairTopics*(node: BeaconNode)
 
   node.network.unsubscribe(getSyncCommitteeContributionAndProofTopic(node.dag.forkDigests.altair))
 
-proc addMessageHandlers(node: BeaconNode, slot: Slot) {.raises: [Defect, CatchableError].} =
-  # inspired by lighthouse research here
-  # https://gist.github.com/blacktemplar/5c1862cb3f0e32a1a7fb0b25e79e6e2c#file-generate-scoring-params-py
-  const
-    blocksTopicParams = TopicParams(
-      topicWeight: 0.5,
-      timeInMeshWeight: 0.03333333333333333,
-      timeInMeshQuantum: chronos.seconds(12),
-      timeInMeshCap: 300,
-      firstMessageDeliveriesWeight: 1.1471603557060206,
-      firstMessageDeliveriesDecay: 0.9928302477768374,
-      firstMessageDeliveriesCap: 34.86870846001471,
-      meshMessageDeliveriesWeight: -458.31054878249114,
-      meshMessageDeliveriesDecay: 0.9716279515771061,
-      meshMessageDeliveriesThreshold: 0.6849191409056553,
-      meshMessageDeliveriesCap: 2.054757422716966,
-      meshMessageDeliveriesActivation: chronos.seconds(384),
-      meshMessageDeliveriesWindow: chronos.seconds(2),
-      meshFailurePenaltyWeight: -458.31054878249114 ,
-      meshFailurePenaltyDecay: 0.9716279515771061,
-      invalidMessageDeliveriesWeight: -214.99999999999994,
-      invalidMessageDeliveriesDecay: 0.9971259067705325
-    )
-    aggregateTopicParams = TopicParams(
-      topicWeight: 0.5,
-      timeInMeshWeight: 0.03333333333333333,
-      timeInMeshQuantum: chronos.seconds(12),
-      timeInMeshCap: 300,
-      firstMessageDeliveriesWeight: 0.10764904539552399,
-      firstMessageDeliveriesDecay: 0.8659643233600653,
-      firstMessageDeliveriesCap: 371.5778421725158,
-      meshMessageDeliveriesWeight: -0.07538533073670682,
-      meshMessageDeliveriesDecay: 0.930572040929699,
-      meshMessageDeliveriesThreshold: 53.404248450179836,
-      meshMessageDeliveriesCap: 213.61699380071934,
-      meshMessageDeliveriesActivation: chronos.seconds(384),
-      meshMessageDeliveriesWindow: chronos.seconds(2),
-      meshFailurePenaltyWeight: -0.07538533073670682 ,
-      meshFailurePenaltyDecay: 0.930572040929699,
-      invalidMessageDeliveriesWeight: -214.99999999999994,
-      invalidMessageDeliveriesDecay: 0.9971259067705325
-    )
-    basicParams = TopicParams.init()
-
-  static:
-    # compile time validation
-    blocksTopicParams.validateParameters().tryGet()
-    aggregateTopicParams.validateParameters().tryGet()
-    basicParams.validateParameters.tryGet()
-
-  # TODO altair-transition
-  node.network.subscribe(
-    getBeaconBlocksTopic(node.dag.forkDigests.phase0), blocksTopicParams, enableTopicMetrics = true)
-  node.network.subscribe(getAttesterSlashingsTopic(node.dag.forkDigests.phase0), basicParams)
-  node.network.subscribe(getProposerSlashingsTopic(node.dag.forkDigests.phase0), basicParams)
-  node.network.subscribe(getVoluntaryExitsTopic(node.dag.forkDigests.phase0), basicParams)
-  node.network.subscribe(getAggregateAndProofsTopic(node.dag.forkDigests.phase0), aggregateTopicParams, enableTopicMetrics = true)
-
-  warn "FOO0: node.dag.forkDigests.altair",
-    fp0 = node.dag.forkDigests.phase0,
-    fA = node.dag.forkDigests.altair
-
-  node.network.subscribe(getBeaconBlocksTopic(
-    node.dag.forkDigests.altair), blocksTopicParams, enableTopicMetrics = true)
-  node.network.subscribe(getAttesterSlashingsTopic(node.dag.forkDigests.altair), basicParams)
-  node.network.subscribe(getProposerSlashingsTopic(node.dag.forkDigests.altair), basicParams)
-  node.network.subscribe(getVoluntaryExitsTopic(node.dag.forkDigests.altair), basicParams)
-  node.network.subscribe(getAggregateAndProofsTopic(node.dag.forkDigests.altair), aggregateTopicParams, enableTopicMetrics = true)
-
-  node.subscribeAttestationSubnetHandlers()
-  # TODO: This should be done when we detect that Altair is close enough
-  #       Similar code should be present for all Altair topics
-  # TODO: What are the best topic params for this?
-  node.subscribeToPersistentAltairTopics(basicParams, slot.epoch)
-
 func getTopicSubscriptionEnabled(node: BeaconNode): bool =
   node.attestationSubnets.enabled
 
-proc removeMessageHandlers(node: BeaconNode) {.raises: [Defect, CatchableError].} =
-  node.attestationSubnets.enabled = false
-  doAssert not node.getTopicSubscriptionEnabled()
-
-  node.network.unsubscribe(getBeaconBlocksTopic(node.dag.forkDigests.phase0))
-  node.network.unsubscribe(getVoluntaryExitsTopic(node.dag.forkDigests.phase0))
-  node.network.unsubscribe(getProposerSlashingsTopic(node.dag.forkDigests.phase0))
-  node.network.unsubscribe(getAttesterSlashingsTopic(node.dag.forkDigests.phase0))
-  node.network.unsubscribe(getAggregateAndProofsTopic(node.dag.forkDigests.phase0))
-
-  node.network.unsubscribe(getBeaconBlocksTopic(node.dag.forkDigests.altair))
-  node.network.unsubscribe(getVoluntaryExitsTopic(node.dag.forkDigests.altair))
-  node.network.unsubscribe(getProposerSlashingsTopic(node.dag.forkDigests.altair))
-  node.network.unsubscribe(getAttesterSlashingsTopic(node.dag.forkDigests.altair))
-  node.network.unsubscribe(getAggregateAndProofsTopic(node.dag.forkDigests.altair))
-
-  for subnet_id in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
-    node.network.unsubscribe(
-      getAttestationTopic(node.dag.forkDigests.phase0, SubnetId(subnet_id)))
-    node.network.unsubscribe(
-      getAttestationTopic(node.dag.forkDigests.altair, SubnetId(subnet_id)))
-
-  node.unsubscribeToPersistentAltairTopics()
+proc removeAllMessageHandlers(node: BeaconNode) {.raises: [Defect, CatchableError].} =
+  node.removePhase0MessageHandlers()
+  node.removeAltairMessageHandlers()
 
 proc setupDoppelgangerDetection(node: BeaconNode, slot: Slot) =
   # When another client's already running, this is very likely to detect
@@ -863,12 +868,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.raises: [Defect, Catchab
 
   let
     syncQueueLen = node.syncManager.syncQueueLen
-    topicSubscriptionEnabled = node.getTopicSubscriptionEnabled()
-  if
-      # Don't enable if already enabled; to avoid race conditions requires care,
-      # but isn't crucial, as this condition spuriously fail, but the next time,
-      # should properly succeed.
-      not topicSubscriptionEnabled and
+    targetGossipState =
       # SyncManager forward sync by default runs until maxHeadAge slots, or one
       # epoch range is achieved. This particular condition has a couple caveats
       # including that under certain conditions, debtsCount appears to push len
@@ -878,28 +878,80 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.raises: [Defect, Catchab
       # are left. Furthermore, even when 0 peers are being used, this won't get
       # to 0 slots in syncQueueLen, but that's a vacuous condition given that a
       # networking interaction cannot happen under such circumstances.
-      syncQueueLen < TOPIC_SUBSCRIBE_THRESHOLD_SLOTS:
-    # When node.cycleAttestationSubnets() is enabled more properly, integrate
-    # this into the node.cycleAttestationSubnets() call.
+      if syncQueueLen < TOPIC_SUBSCRIBE_THRESHOLD_SLOTS:
+        GossipState.Disconnected
+      elif slot.epoch + 1 < node.dag.cfg.ALTAIR_FORK_EPOCH:
+        GossipState.ConnectedToPhase0
+      elif slot.epoch >= node.dag.cfg.ALTAIR_FORK_EPOCH:
+        GossipState.ConnectedToAltair
+      else:
+        GossipState.InTransitionToAltair
+
+  if node.gossipState == GossipState.Disconnected and
+     targetGossipState != GossipState.Disconnected:
+    # We are synced, so we will connect
     debug "Enabling topic subscriptions",
       wallSlot = slot,
       headSlot = node.dag.head.slot,
       syncQueueLen
 
     node.setupDoppelgangerDetection(slot)
-    node.addMessageHandlers(slot)
-    doAssert node.getTopicSubscriptionEnabled()
-  elif
-      topicSubscriptionEnabled and
-      syncQueueLen > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER and
-      # Filter out underflow from debtsCount; plausible queue lengths can't
-      # exceed wallslot, with safety margin.
-      syncQueueLen < 2 * slot.uint64:
-    debug "Disabling topic subscriptions",
-      wallSlot = slot,
-      headSlot = node.dag.head.slot,
-      syncQueueLen
-    node.removeMessageHandlers()
+
+  block addRemoveHandlers:
+    case targetGossipState
+    of GossipState.Disconnected:
+      case node.gossipState:
+      of GossipState.Disconnected: break
+      else:
+        if syncQueueLen > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER and
+           # Filter out underflow from debtsCount; plausible queue lengths can't
+           # exceed wallslot, with safety margin.
+           syncQueueLen < 2 * slot.uint64:
+          debug "Disabling topic subscriptions",
+            wallSlot = slot,
+            headSlot = node.dag.head.slot,
+            syncQueueLen
+          node.removeAllMessageHandlers()
+          node.gossipState = GossipState.Disconnected
+          break
+
+    of GossipState.ConnectedToPhase0:
+      case node.gossipState:
+      of GossipState.ConnectedToPhase0: break
+      of GossipState.Disconnected:
+        node.addPhase0MessageHandlers()
+      of GossipState.InTransitionToAltair:
+        warn "Unexpected clock regression during altair transition"
+        node.removeAltairMessageHandlers()
+      of GossipState.ConnectedToAltair:
+        warn "Unexpected clock regression during altair transition"
+        node.removeAltairMessageHandlers()
+        node.addPhase0MessageHandlers()
+
+    of GossipState.InTransitionToAltair:
+      case node.gossipState:
+      of GossipState.InTransitionToAltair: break
+      of GossipState.Disconnected:
+        node.addPhase0MessageHandlers()
+        node.addAltairMessageHandlers(slot)
+      of GossipState.ConnectedToPhase0:
+        node.addAltairMessageHandlers(slot)
+      of GossipState.ConnectedToAltair:
+        warn "Unexpected clock regression during altair transition"
+        node.addPhase0MessageHandlers()
+
+    of GossipState.ConnectedToAltair:
+      case node.gossipState:
+      of GossipState.ConnectedToAltair: break
+      of GossipState.Disconnected:
+        node.addAltairMessageHandlers(slot)
+      of GossipState.ConnectedToPhase0:
+        node.removePhase0MessageHandlers()
+        node.addAltairMessageHandlers(slot)
+      of GossipState.InTransitionToAltair:
+        node.removePhase0MessageHandlers()
+
+    node.gossipState = targetGossipState
 
   # Subscription or unsubscription might have occurred; recheck. Since Nimbus
   # initially subscribes to all subnets, simply do not ever cycle attestation
@@ -1009,6 +1061,10 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   if nextAttestationSlot != FAR_FUTURE_SLOT:
     next_action_wait.set(nextActionWaitTime.toFloatSeconds)
 
+  if slot.epoch >= node.network.forkId.next_fork_epoch:
+    node.network.updateForkId(
+      node.dag.cfg.getENRForkID(slot, node.dag.genesisValidatorsRoot))
+
   node.updateGossipStatus(slot)
 
   # When we're not behind schedule, we'll speculatively update the clearance
@@ -1116,7 +1172,8 @@ proc startSyncManager(node: BeaconNode) =
       true
 
   proc onDeletePeer(peer: Peer) =
-    if peer.connectionState notin {Disconnecting, Disconnected}:
+    if peer.connectionState notin {ConnectionState.Disconnecting,
+                                   ConnectionState.Disconnected}:
       if peer.score < PeerScoreLowLimit:
         debug "Peer was removed from PeerPool due to low score", peer = peer,
               peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
@@ -1291,11 +1348,9 @@ proc run*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     node.requestManager.start()
     node.startSyncManager()
 
-    if not startTime.toSlot().afterGenesis:
-      let slot = startTime.slotOrZero()
-      node.setupDoppelgangerDetection(slot)
-      node.addMessageHandlers(slot)
-      doAssert node.getTopicSubscriptionEnabled()
+    let startTimeAsSlot = startTime.toSlot()
+    if not startTimeAsSlot.afterGenesis:
+      node.updateGossipStatus(startTimeAsSlot.slot)
 
   ## Ctrl+C handling
   proc controlCHandler() {.noconv.} =
@@ -1786,16 +1841,20 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raise
     let
       networkKeys = getPersistentNetKeys(rng, config)
       netMetadata = getPersistentNetMetadata(config)
+      forkId = getENRForkID(
+        cfg,
+        initialState[].slot,
+        initialState[].genesis_validators_root)
       bootstrapEnr = enr.Record.init(
         1, # sequence number
         networkKeys.seckey.asEthKey,
         some(config.bootstrapAddress),
         some(config.bootstrapPort),
         some(config.bootstrapPort),
-        [toFieldPair("eth2", SSZ.encode(getENRForkID(
-          initialState[].fork.current_version,
-          initialState[].genesis_validators_root))),
-        toFieldPair("attnets", SSZ.encode(netMetadata.attnets))])
+        [
+          toFieldPair(enrForkIdField, SSZ.encode(forkId)),
+          toFieldPair(enrAttestationSubnetsField, SSZ.encode(netMetadata.attnets))
+        ])
 
     writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)
     echo "Wrote ", bootstrapFile

@@ -562,11 +562,8 @@ func stateCheckpoint*(bs: BlockSlot): BlockSlot =
     bs = bs.parentOrSlot
   bs
 
-proc forkAtSlot*(dag: ChainDAGRef, slot: Slot): Fork =
-  if slot.epoch < dag.cfg.ALTAIR_FORK_EPOCH:
-    genesisFork(dag.cfg)
-  else:
-    altairFork(dag.cfg)
+template forkAtSlot*(dag: ChainDAGRef, slot: Slot): Fork =
+  forkAtSlot(dag.cfg, slot)
 
 proc forkDigestAtSlot*(dag: ChainDAGRef, slot: Slot): ForkDigest =
   if slot.epoch < dag.cfg.ALTAIR_FORK_EPOCH:
@@ -988,9 +985,10 @@ proc syncSubcommittee*(syncCommittee: openarray[ValidatorIndex],
     return @[]
 
   let
-    startIdx = subnetId.int * SYNC_COMMITTEE_SIZE
-    onePastEndIdx = min(startIdx + SYNC_COMMITTEE_SIZE, syncCommittee.len)
+    startIdx = subnetId.int * SYNC_SUBCOMMITTEE_SIZE
+    onePastEndIdx = startIdx + SYNC_SUBCOMMITTEE_SIZE
   doAssert startIdx < syncCommittee.len
+
   @(toOpenArray(syncCommittee, startIdx, onePastEndIdx - 1))
 
 proc getSubcommitteePosition*(dag: ChainDAGRef,

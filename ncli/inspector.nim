@@ -237,7 +237,7 @@ proc getBootstrapAddress(bootnode: string): Option[BootstrapAddress] =
     warn "Incorrect bootstrap address", address = bootnode, errMsg = exc.msg
 
 func tryGetForkDigest(bootnode: enr.Record): Option[ForkDigest] =
-  let sszForkData = bootnode.tryGet("eth2", seq[byte])
+  let sszForkData = bootnode.tryGet(enrForkIdField, seq[byte])
   if sszForkData.isSome():
     try:
       let forkId = SSZ.decode(sszForkData.get(), ENRForkID)
@@ -246,8 +246,8 @@ func tryGetForkDigest(bootnode: enr.Record): Option[ForkDigest] =
       discard
 
 func tryGetFieldPairs(bootnode: enr.Record): Option[ENRFieldPair] =
-  var sszEth2 = bootnode.tryGet("eth2", seq[byte])
-  var sszAttnets = bootnode.tryGet("attnets", seq[byte])
+  var sszEth2 = bootnode.tryGet(enrForkIdField, seq[byte])
+  var sszAttnets = bootnode.tryGet(enrAttestationSubnetsField, seq[byte])
   if sszEth2.isSome() and sszAttnets.isSome():
     result = some(ENRFieldPair(eth2: sszEth2.get(),
                                attnets: sszAttnets.get()))
@@ -405,7 +405,10 @@ proc bootstrapDiscovery(conf: InspectorConf,
   let host = host.toIpAddress()
   if enrFields.isSome():
     let fields = enrFields.get()
-    let pairs = {"eth2": fields.eth2, "attnets": fields.attnets}
+    let pairs = {
+      enrForkIdField: fields.eth2,
+      enrAttestationSubnetsField: fields.attnets
+    }
     result = newProtocol(pk, host, some(tcpPort), some(udpPort), pairs,
       bootnodes, bindPort = udpPort)
   else:
@@ -422,8 +425,8 @@ proc logEnrAddress(address: string) =
     attnets: string
 
   if fromURI(rec, EnrUri(address)):
-    var eth2Data = rec.tryGet("eth2", seq[byte])
-    var attnData = rec.tryGet("attnets", seq[byte])
+    var eth2Data = rec.tryGet(enrForkIdField, seq[byte])
+    var attnData = rec.tryGet(enrAttestationSubnetsField, seq[byte])
     var optrec = rec.toTypedRecord()
 
     if optrec.isOk():
