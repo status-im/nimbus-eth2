@@ -35,7 +35,6 @@ OPTS="ht:n:d:g"
 LONGOPTS="help,testnet:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rpc-port:,base-metrics-port:,reuse-existing-data-dir,timeout:"
 
 # default values
-TESTNET="1"
 NUM_NODES="10"
 DATA_DIR="local_testnet_data"
 USE_HTOP="1"
@@ -52,12 +51,11 @@ TIMEOUT_DURATION="0"
 
 print_help() {
   cat <<EOF
-Usage: $(basename "$0") --testnet <testnet number> [OTHER OPTIONS] -- [BEACON NODE OPTIONS]
-E.g.: $(basename "$0") --testnet ${TESTNET} --nodes ${NUM_NODES} --stop-at-epoch 5 --data-dir "${DATA_DIR}" # defaults
+Usage: $(basename "$0") [OPTIONS] -- [BEACON NODE OPTIONS]
+E.g.: $(basename "$0") --nodes ${NUM_NODES} --stop-at-epoch 5 --data-dir "${DATA_DIR}" # defaults
 CI run: $(basename "$0") --disable-htop -- --verify-finalization
 
   -h, --help                  this help message
-  -t, --testnet               testnet number (default: ${TESTNET})
   -n, --nodes                 number of nodes to launch (default: ${NUM_NODES})
   -g, --with-ganache          simulate a genesis event based on a deposit contract
   -s, --stop-at-epoch         stop simulation at epoch (default: infinite)
@@ -88,10 +86,6 @@ while true; do
     -h|--help)
       print_help
       exit
-      ;;
-    -t|--testnet)
-      TESTNET="$2"
-      shift 2
       ;;
     -n|--nodes)
       NUM_NODES="$2"
@@ -161,7 +155,6 @@ EXTRA_ARGS="$@"
 if [[ $# != 0 ]]; then
   shift $#
 fi
-NETWORK="testnet${TESTNET}"
 
 if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
   rm -rf "${DATA_DIR}"
@@ -180,9 +173,8 @@ scripts/makedir.sh "${SECRETS_DIR}"
 NETWORK_DIR="${DATA_DIR}/network_dir"
 mkdir -p "${NETWORK_DIR}"
 
-set -a
-source "scripts/${NETWORK}.env"
-set +a
+USER_VALIDATORS=8
+TOTAL_VALIDATORS=128
 
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
@@ -203,8 +195,8 @@ BINARIES="nimbus_beacon_node nimbus_signing_process nimbus_validator_client depo
 if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
   BINARIES="${BINARIES} logtrace"
 fi
-NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh "${NETWORK}")
-$MAKE -j ${NPROC} LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" ${BINARIES}
+
+$MAKE -j ${NPROC} LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:testnet_servers_image -d:local_testnet" ${BINARIES}
 
 PIDS=""
 WEB3_ARG=""
