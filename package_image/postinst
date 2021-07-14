@@ -50,8 +50,8 @@ while true; do
     ;;
   [Nn]*)
     echo "Warning: you must manually edit /usr/lib/systemd/system/nimbus.service and setting proper values on NETWORK and WEB3_URL."
-    echo "Environment=NETWORK=mainnet
-Environment=WEB3_URL=
+    echo "Environment=NETWORK=${NETWORK}
+Environment=WEB3_URL=${WEB3_URL}
 " >>/usr/lib/systemd/system/nimbus.service
     exit
     ;;
