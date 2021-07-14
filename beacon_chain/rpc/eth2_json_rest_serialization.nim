@@ -7,7 +7,7 @@ import
   nimcrypto/utils as ncrutils,
   ../beacon_node_common, ../networking/eth2_network,
   ../consensus_object_pools/[blockchain_dag, exit_pool],
-  ../spec/[crypto, digest, datatypes, eth2_apis/callsigs_types],
+  ../spec/[crypto, digest, datatypes/phase0, eth2_apis/callsigs_types],
   ../ssz/merkleization,
   rest_utils
 export json_serialization
@@ -151,7 +151,7 @@ type
   DataRestFork* = DataEnclosedObject[Fork]
   DataRestProposerDuties* = DataRootEnclosedObject[seq[RestProposerDuty]]
   DataRestAttesterDuties* = DataRootEnclosedObject[seq[RestAttesterDuty]]
-  DataRestBeaconBlock* = DataEnclosedObject[BeaconBlock]
+  DataRestBeaconBlock* = DataEnclosedObject[phase0.BeaconBlock]
   DataRestAttestationData* = DataEnclosedObject[AttestationData]
   DataRestAttestation* = DataEnclosedObject[Attestation]
   DataRestSyncInfo* = DataEnclosedObject[RestSyncInfo]
@@ -160,7 +160,7 @@ type
   DataRestVersion* = DataEnclosedObject[RestVersion]
   DataRestConfig* = DataEnclosedObject[RestConfig]
 
-  EncodeTypes* = SignedBeaconBlock
+  EncodeTypes* = phase0.SignedBeaconBlock
   EncodeArrays* = seq[ValidatorIndex] | seq[Attestation] |
                   seq[SignedAggregateAndProof] | seq[RestCommitteeSubscription]
 
@@ -581,7 +581,7 @@ proc decodeBody*[T](t: typedesc[T],
       return err("Unexpected deserialization error")
   ok(data)
 
-RestJson.useCustomSerialization(BeaconState.justification_bits):
+RestJson.useCustomSerialization(phase0.BeaconState.justification_bits):
   read:
     let s = reader.readValue(string)
     if s.len != 4:

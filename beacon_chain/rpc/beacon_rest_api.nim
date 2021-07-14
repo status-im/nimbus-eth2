@@ -13,7 +13,7 @@ import
   ../gossip_processing/gossip_validation,
   ../validators/validator_duties,
   ../spec/[crypto, digest, forkedbeaconstate_helpers, network],
-  ../spec/datatypes/base,
+  ../spec/datatypes/phase0,
   ../ssz/merkleization,
   ./eth2_json_rest_serialization, ./rest_utils
 
@@ -595,7 +595,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let dres = decodeBody(SignedBeaconBlock, contentBody.get())
+        let dres = decodeBody(phase0.SignedBeaconBlock, contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
                                            $dres.error())
@@ -615,7 +615,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node.network.broadcast(blocksTopic, blck)
       return RestApiResponse.jsonError(Http202, BlockValidationError)
     else:
-      let res = await proposeSignedBlock(node, head, AttachedValidator(), blck)
+      let res = await proposeSignedBlock(
+        node, head, AttachedValidator(), blck)
       if res == head:
         # TODO altair-transition, but not for immediate testnet-priority
         let blocksTopic = getBeaconBlocksTopic(node.dag.forkDigests.phase0)
@@ -636,7 +637,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
         res.get()
-    static: doAssert bdata.data.phase0Block is TrustedSignedBeaconBlock
+    static: doAssert bdata.data.phase0Block is phase0.TrustedSignedBeaconBlock
     return RestApiResponse.jsonResponse(bdata.data.phase0Block)
 
   # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockRoot
@@ -950,7 +951,7 @@ proc getStateFork*(state_id: StateIdent): RestResponse[DataRestFork] {.
      meth: MethodGet.}
   ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateFork
 
-proc publishBlock*(body: SignedBeaconBlock): RestPlainResponse {.
+proc publishBlock*(body: phase0.SignedBeaconBlock): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/blocks",
      meth: MethodPost.}
   ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/publishBlock

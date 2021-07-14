@@ -28,7 +28,16 @@ proc dump*(dir: string, v: AttestationData, validator: ValidatorPubKey) =
 proc dump*(dir: string, v: phase0.TrustedSignedBeaconBlock) =
   logErrors:
     SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(v.root)}.ssz", v)
+
+proc dump*(dir: string, v: altair.TrustedSignedBeaconBlock) =
+  logErrors:
+    SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(v.root)}.ssz", v)
+
 proc dump*(dir: string, v: phase0.SignedBeaconBlock) =
+  logErrors:
+    SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(v.root)}.ssz", v)
+
+proc dump*(dir: string, v: altair.SignedBeaconBlock) =
   logErrors:
     SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(v.root)}.ssz", v)
 
