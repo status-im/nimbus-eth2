@@ -7,6 +7,8 @@ As it stands, we are continuously making improvements to both stability and memo
 
 > **Note:** While the `stable` branch of the `nimbus-eth2` repository is more stable, the latest updates happen in the `unstable` branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the `unstable` branch, be prepared for instabilities!
 
+### Console hanging for too long on update
+
 To update and restart, run `git pull`, `make update`, followed by `make nimbus_beacon_node`:
 
 ```
@@ -21,15 +23,15 @@ If you find that `make update` causes the console to hang for too long, try runn
 
 >**Note:** rest assured that when you restart the beacon node, the software will resume from where it left off, using the validator keys you have already imported.
 
-### Starting over
+### Starting over after importing wrong keys
 The directory that stores the blockchain data of the testnet is `build/data/prater_shared_0` (if you're connecting to another testnet, replace `prater` with that testnet's name). If you've imported the wrong keys, and wish to start over, delete this repository.
 
-### Syncing
+### Sync problems
 If you’re experiencing sync problems,  we recommend running `make clean-prater` to delete the database and restart your sync (make sure you’ve updated to the latest `master` first though).
 
 > **Warning**: `make clean-prater` will erase all of your syncing progress so far, so it should only be used as a last resort -- if your client gets stuck for a long time (because it's unable to find the right chain and/or stay with the same head value) and a normal restart doesn't improve things.
 
-### Pruning the database
+### Running out of storage
 If you're running out of storage, you can [prune](https://blog.ethereum.org/2015/06/26/state-tree-pruning/) the database of unnecessary blocks and states by running:
 
 ```
@@ -43,13 +45,28 @@ Options:
 - `--keepOldStates` (boolean):  Keep pre-finalisation states; defaults to `true`.
 - `--verbose` (boolean): Print a more verbose output to the console; defaults to `false`.
 
-### Low peer counts
+### Low peer count
 
 If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing `--nat:extip:$EXT_IP_ADDRESS` as an option to `./run-prater-beacon-node.sh`, where `$EXT_IP_ADDRESS` is your real IP. For example, if your real IP address is `35.124.65.104`, you'd run:
 
 ```
 ./run-prater-beacon-node.sh --nat:extip:35.124.65.104
 ```
+
+### No peers for topic, skipping publish (logs)
+
+If you see a message that looks like the following in your logs:
+
+```
+NOT 2021-07-11 17:17:00.928+00:00 No peers for topic, skipping publish       topics="libp2p gossipsub" tid=284547 file=gossipsub.nim:457 peersOnTopic=0 connectedPeers=0 topic=/eth2/b5303f2a/beacon_attestation_0/ssz_snappy
+```
+
+It could be that your max peer count (`--max-peers`) has been set too low. In order to ensure your attestations are published correctly, we recommend setting `--max-peers` to 60, at the *very least*.
+
+> Note that Nimbus manages peers slightly differently to other clients (we automatically connect to more peers than we actually use, in order not to have to do costly reconnects). As such, `--max-peers` is set to 160 by default.
+
+If this doesn't fix the problem, please double check your node is able to [receive incoming connections](./health.md).
+
 ### noCommand does not accept arguments
 
 If, on start,  you see `The command 'noCommand' does not accept arguments`
