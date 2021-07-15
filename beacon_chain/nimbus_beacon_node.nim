@@ -363,6 +363,7 @@ proc init*(T: type BeaconNode,
     db: db,
     config: config,
     dag: dag,
+    gossipState: GossipState.Disconnected,
     quarantine: quarantine,
     attestationPool: attestationPool,
     syncCommitteeMsgPool: syncCommitteeMsgPool,
@@ -878,7 +879,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.raises: [Defect, Catchab
       # are left. Furthermore, even when 0 peers are being used, this won't get
       # to 0 slots in syncQueueLen, but that's a vacuous condition given that a
       # networking interaction cannot happen under such circumstances.
-      if syncQueueLen < TOPIC_SUBSCRIBE_THRESHOLD_SLOTS:
+      if syncQueueLen > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS:
         GossipState.Disconnected
       elif slot.epoch + 1 < node.dag.cfg.ALTAIR_FORK_EPOCH:
         GossipState.ConnectedToPhase0
@@ -1348,9 +1349,7 @@ proc run*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     node.requestManager.start()
     node.startSyncManager()
 
-    let startTimeAsSlot = startTime.toSlot()
-    if not startTimeAsSlot.afterGenesis:
-      node.updateGossipStatus(startTimeAsSlot.slot)
+    node.updateGossipStatus(startTime.slotOrZero)
 
   ## Ctrl+C handling
   proc controlCHandler() {.noconv.} =
