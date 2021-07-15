@@ -21,8 +21,8 @@ import
 
   # Local modules
   ../spec/[
-    datatypes, digest, crypto, forkedbeaconstate_helpers, helpers, network,
-    signatures, state_transition],
+    datatypes/phase0, datatypes/altair, digest, crypto,
+    forkedbeaconstate_helpers, helpers, network, signatures, state_transition],
   ../conf, ../beacon_clock,
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_clearance,
@@ -298,7 +298,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     validator_index: ValidatorIndex,
                                     graffiti: GraffitiBytes,
                                     head: BlockRef,
-                                    slot: Slot): Future[Option[BeaconBlock]] {.async.} =
+                                    slot: Slot): Future[Option[phase0.BeaconBlock]] {.async.} =
   # Advance state to the slot that we're proposing for
 
   let
@@ -312,9 +312,9 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 
     if eth1Proposal.hasMissingDeposits:
       error "Eth1 deposits not available. Skipping block proposal", slot
-      return none(BeaconBlock)
+      return none(phase0.BeaconBlock)
 
-    func restore(v: var HashedBeaconState) =
+    func restore(v: var phase0.HashedBeaconState) =
       # TODO address this ugly workaround - there should probably be a
       #      `state_transition` that takes a `StateData` instead and updates
       #      the block as well
@@ -342,10 +342,10 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 proc proposeSignedBlock*(node: BeaconNode,
                          head: BlockRef,
                          validator: AttachedValidator,
-                         newBlock: SignedBeaconBlock):
+                         newBlock: phase0.SignedBeaconBlock):
                          Future[BlockRef] {.async.} =
   let newBlockRef = node.dag.addRawBlock(node.quarantine, newBlock) do (
-      blckRef: BlockRef, trustedBlock: TrustedSignedBeaconBlock,
+      blckRef: BlockRef, trustedBlock: phase0.TrustedSignedBeaconBlock,
       epochRef: EpochRef):
     # Callback add to fork choice if signed block valid (and becomes trusted)
     node.attestationPool[].addForkChoice(
@@ -401,7 +401,7 @@ proc proposeBlock(node: BeaconNode,
     return head # already logged elsewhere!
 
   var
-    newBlock = SignedBeaconBlock(
+    newBlock = phase0.SignedBeaconBlock(
       message: message.get()
     )
 

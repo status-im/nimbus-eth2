@@ -39,9 +39,9 @@ import
   ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,
     validator_api],
   ./spec/[
-    datatypes, digest, crypto, forkedbeaconstate_helpers, beaconstate,
-    eth2_apis/beacon_rpc_client, helpers, network, presets, weak_subjectivity,
-    signatures],
+    datatypes/phase0, datatypes/altair, digest, crypto,
+    forkedbeaconstate_helpers, beaconstate, eth2_apis/beacon_rpc_client,
+    helpers, network, presets, weak_subjectivity, signatures],
   ./consensus_object_pools/[
     blockchain_dag, block_quarantine, block_clearance, block_pools_types,
     attestation_pool, exit_pool, spec_cache],
@@ -117,13 +117,13 @@ proc init*(T: type BeaconNode,
     db = BeaconChainDB.new(config.databaseDir, inMemory = false)
 
   var
-    genesisState, checkpointState: ref BeaconState
-    checkpointBlock: TrustedSignedBeaconBlock
+    genesisState, checkpointState: ref phase0.BeaconState
+    checkpointBlock: phase0.TrustedSignedBeaconBlock
 
   if config.finalizedCheckpointState.isSome:
     let checkpointStatePath = config.finalizedCheckpointState.get.string
     checkpointState = try:
-      newClone(SSZ.loadFile(checkpointStatePath, BeaconState))
+      newClone(SSZ.loadFile(checkpointStatePath, phase0.BeaconState))
     except SerializationError as err:
       fatal "Checkpoint state deserialization failed",
             err = formatMsg(err, checkpointStatePath)
@@ -140,7 +140,7 @@ proc init*(T: type BeaconNode,
       let checkpointBlockPath = config.finalizedCheckpointBlock.get.string
       try:
         # TODO Perform sanity checks like signature and slot verification at least
-        checkpointBlock = SSZ.loadFile(checkpointBlockPath, TrustedSignedBeaconBlock)
+        checkpointBlock = SSZ.loadFile(checkpointBlockPath, phase0.TrustedSignedBeaconBlock)
       except SerializationError as err:
         fatal "Invalid checkpoint block", err = err.formatMsg(checkpointBlockPath)
         quit 1
@@ -156,8 +156,8 @@ proc init*(T: type BeaconNode,
   var eth1Monitor: Eth1Monitor
   if not ChainDAGRef.isInitialized(db):
     var
-      tailState: ref BeaconState
-      tailBlock: TrustedSignedBeaconBlock
+      tailState: ref phase0.BeaconState
+      tailBlock: phase0.TrustedSignedBeaconBlock
 
     if genesisStateContents.len == 0 and checkpointState == nil:
       when hasGenesisDetection:
@@ -216,7 +216,7 @@ proc init*(T: type BeaconNode,
         quit 1
     else:
       try:
-        genesisState = newClone(SSZ.decode(genesisStateContents, BeaconState))
+        genesisState = newClone(SSZ.decode(genesisStateContents, phase0.BeaconState))
       except CatchableError as err:
         raiseAssert "Invalid baked-in state: " & err.msg
 
@@ -1118,7 +1118,7 @@ proc installMessageValidators(node: BeaconNode) =
 
   node.network.addValidator(
     getBeaconBlocksTopic(node.dag.forkDigests.phase0),
-    proc (signedBlock: SignedBeaconBlock): ValidationResult =
+    proc (signedBlock: phase0.SignedBeaconBlock): ValidationResult =
       node.processor[].blockValidator(signedBlock))
 
   node.network.addValidator(
