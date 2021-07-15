@@ -178,15 +178,15 @@ proc getCurrentSlot*(vc: ValidatorClientRef): Option[Slot] =
     some(wallSlot.slot)
 
 proc getAttesterDutiesForSlot*(vc: ValidatorClientRef,
-                               slot: Slot): seq[RestAttesterDuty] =
+                               slot: Slot): seq[DutyAndProof] =
   ## Returns all `DutyAndPrrof` for the given `slot`.
-  var res: seq[RestAttesterDuty]
+  var res: seq[DutyAndProof]
   let epoch = slot.epoch()
   for key, item in vc.attesters.pairs():
     let duty = item.duties.getOrDefault(epoch, DefaultDutyAndProof)
     if not(duty.isDefault()):
       if duty.data.slot == slot:
-        res.add(duty.data)
+        res.add(duty)
   res
 
 proc getDurationToNextAttestation*(vc: ValidatorClientRef,
