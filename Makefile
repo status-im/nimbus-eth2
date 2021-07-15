@@ -148,10 +148,9 @@ libbacktrace:
 
 # test binaries that can output an XML report
 XML_TEST_BINARIES := \
-	test_fixture_const_sanity_check_minimal \
-	test_fixture_const_sanity_check_mainnet \
 	test_fixture_ssz_generic_types \
 	all_fixtures_require_ssz \
+	all_fixtures_require_ssz_minimal \
 	test_official_interchange_vectors \
 	all_tests \
 	test_keystore
@@ -164,22 +163,6 @@ TEST_BINARIES := \
 	state_sim \
 	block_sim
 .PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES)
-
-test_fixture_const_sanity_check_minimal: | build deps
-	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
-			$@ \
-			"tests/official/test_fixture_const_sanity_check.nim" \
-			$(NIM_PARAMS) -d:const_preset=minimal -d:chronicles_sinks="json[file]" && \
-		echo -e $(BUILD_END_MSG) "build/$@"
-
-test_fixture_const_sanity_check_mainnet: | build deps
-	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
-			$@ \
-			"tests/official/test_fixture_const_sanity_check.nim" \
-			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
-		echo -e $(BUILD_END_MSG) "build/$@"
 
 # Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
 test_fixture_ssz_generic_types: | build deps
@@ -197,6 +180,14 @@ all_fixtures_require_ssz: | build deps
 			$@ \
 			"tests/official/$@.nim" \
 			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
+		echo -e $(BUILD_END_MSG) "build/$@"
+
+all_fixtures_require_ssz_minimal: | build deps
+	+ echo -e $(BUILD_MSG) "build/$@" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			$@ \
+			"tests/official/all_fixtures_require_ssz.nim" \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=minimal -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # EIP-3076 - Slashing interchange
@@ -354,8 +345,8 @@ define CONNECT_TO_NETWORK
 		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
-	[ "$(3)" == "FastSync" ] && { export CHECKPOINT_PARAMS="--finalized-checkpoint-state=vendor/eth2-testnets/shared/$(1)/recent-finalized-state.ssz \
-																													--finalized-checkpoint-block=vendor/eth2-testnets/shared/$(1)/recent-finalized-block.ssz" ; }; \
+	[ "$(3)" == "FastSync" ] && { export CHECKPOINT_PARAMS="--finalized-checkpoint-state=vendor/eth2-networks/shared/$(1)/recent-finalized-state.ssz \
+																													--finalized-checkpoint-block=vendor/eth2-network/shared/$(1)/recent-finalized-block.ssz" ; }; \
 	$(CPU_LIMIT_CMD) build/$(2) \
 		--network=$(1) \
 		--log-level="$(RUNTIME_LOG_LEVEL)" \
@@ -428,7 +419,7 @@ define MAKE_DEPOSIT
 
 	build/deposit_contract sendDeposits \
 		--web3-url=$(WEB3_URL) \
-		--deposit-contract=$$(cat vendor/eth2-testnets/shared/$(1)/deposit_contract.txt) \
+		--deposit-contract=$$(cat vendor/eth2-network/shared/$(1)/deposit_contract.txt) \
 		--deposits-file=nbc-$(1)-deposits.json \
 		--min-delay=$(DEPOSITS_DELAY) \
 		--ask-for-key

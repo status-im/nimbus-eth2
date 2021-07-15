@@ -67,17 +67,12 @@ proc findValidator(validators: auto, pubKey: ValidatorPubKey):
     some(idx.ValidatorIndex)
 
 proc addLocalValidator(node: BeaconNode,
-                       validators: openArray[Validator],
                        privKey: ValidatorPrivKey) =
-  let pubKey = privKey.toPubKey()
-  node.attachedValidators[].addLocalValidator(
-    pubKey, privKey,
-    findValidator(validators, pubKey.toPubKey()))
+  node.attachedValidators[].addLocalValidator(privKey)
 
 proc addLocalValidators*(node: BeaconNode) =
   for validatorKey in node.config.validatorKeys:
-    node.addLocalValidator(
-      getStateField(node.dag.headState.data, validators).asSeq, validatorKey)
+    node.addLocalValidator(validatorKey)
 
 proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError].} =
   # load all the validators from the child process - loop until `end`
@@ -90,14 +85,14 @@ proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError]
           getStateField(node.dag.headState.data, validators).asSeq, key)
         pk = key.load()
       if pk.isSome():
-        let v = AttachedValidator(pubKey: pk.get(),
+        let v = AttachedValidator(pubKey: key,
                                   index: index,
                                   kind: ValidatorKind.remote,
                                   connection: ValidatorConnection(
                                     inStream: node.vcProcess.inputStream,
                                     outStream: node.vcProcess.outputStream,
                                     pubKeyStr: $key))
-        node.attachedValidators[].addRemoteValidator(pk.get(), v)
+        node.attachedValidators[].addRemoteValidator(key, v)
       else:
         warn "Could not load public key", line
 
@@ -177,7 +172,9 @@ proc sendAttestation*(
   return case ok
     of ValidationResult.Accept:
       node.network.broadcast(
-        getAttestationTopic(node.forkDigest, subnet_id), attestation)
+        # TODO altair-transition
+        getAttestationTopic(node.dag.forkDigests.phase0, subnet_id),
+        attestation)
       beacon_attestations_sent.inc()
       true
     else:
@@ -187,15 +184,19 @@ proc sendAttestation*(
       false
 
 proc sendVoluntaryExit*(node: BeaconNode, exit: SignedVoluntaryExit) =
-  node.network.broadcast(getVoluntaryExitsTopic(node.forkDigest), exit)
+  # TODO altair-transition
+  let exitsTopic = getVoluntaryExitsTopic(node.dag.forkDigests.phase0)
+  node.network.broadcast(exitsTopic, exit)
 
 proc sendAttesterSlashing*(node: BeaconNode, slashing: AttesterSlashing) =
-  node.network.broadcast(getAttesterSlashingsTopic(node.forkDigest),
-                         slashing)
+  # TODO altair-transition
+  let attesterSlashingsTopic = getAttesterSlashingsTopic(node.dag.forkDigests.phase0)
+  node.network.broadcast(attesterSlashingsTopic, slashing)
 
 proc sendProposerSlashing*(node: BeaconNode, slashing: ProposerSlashing) =
-  node.network.broadcast(getProposerSlashingsTopic(node.forkDigest),
-                         slashing)
+  # TODO altair-transition
+  let proposerSlashingsTopic = getProposerSlashingsTopic(node.dag.forkDigests.phase0)
+  node.network.broadcast(proposerSlashingsTopic, slashing)
 
 proc sendAttestation*(node: BeaconNode, attestation: Attestation): Future[bool] =
   # For the validator API, which doesn't supply the subnet id.
@@ -233,7 +234,8 @@ proc createAndSendAttestation(node: BeaconNode,
       return
 
     if node.config.dumpEnabled:
-      dump(node.config.dumpDirOutgoing, attestation.data, validator.pubKey.toPubKey())
+      dump(node.config.dumpDirOutgoing, attestation.data,
+           validator.pubKey)
 
     let wallTime = node.beaconClock.now()
     let deadline = attestationData.slot.toBeaconTime() +
@@ -320,7 +322,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       assign(proposalStateAddr[], poolPtr.headState)
 
     return makeBeaconBlock(
-      node.runtimePreset,
+      node.dag.cfg,
       stateData.data.hbsPhase0,
       validator_index,
       head.root,
@@ -365,7 +367,8 @@ proc proposeSignedBlock*(node: BeaconNode,
   if node.config.dumpEnabled:
     dump(node.config.dumpDirOutgoing, newBlock)
 
-  node.network.broadcast(node.topicBeaconBlocks, newBlock)
+  node.network.broadcast(
+    getBeaconBlocksTopic(node.dag.forkDigests.phase0), newBlock)
 
   beacon_blocks_proposed.inc()
 
@@ -409,7 +412,7 @@ proc proposeBlock(node: BeaconNode,
     fork, genesis_validators_root, slot, newBlock.root)
   let notSlashable = node.attachedValidators
     .slashingProtection
-    .registerBlock(validator_index, validator.pubkey.toPubKey(), slot, signing_root)
+    .registerBlock(validator_index, validator.pubkey, slot, signing_root)
 
   if notSlashable.isErr:
     warn "Slashing protection activated",
@@ -481,7 +484,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           .slashingProtection
           .registerAttestation(
             validator_index,
-            validator.pubkey.toPubKey(),
+            validator.pubkey,
             data.source.epoch,
             data.target.epoch,
             signing_root)
@@ -572,7 +575,8 @@ proc broadcastAggregatedAttestations(
       var signedAP = SignedAggregateAndProof(
         message: aggregateAndProof.get,
         signature: sig)
-      node.network.broadcast(node.topicAggregateAndProofs, signedAP)
+      node.network.broadcast(
+        getAggregateAndProofsTopic(node.dag.forkDigests.phase0), signedAP)
       notice "Aggregated attestation sent",
         attestation = shortLog(signedAP.message.aggregate),
         validator = shortLog(curr[0].v),
@@ -582,10 +586,10 @@ proc updateValidatorMetrics*(node: BeaconNode) =
   when defined(metrics):
     # Technically, this only needs to be done on epoch transitions and if there's
     # a reorg that spans an epoch transition, but it's easier to implement this
-    # way for now..
+    # way for now.
 
     # We'll limit labelled metrics to the first 64, so that we don't overload
-    # prom
+    # Prometheus.
 
     var total: Gwei
     var i = 0
@@ -606,8 +610,8 @@ proc updateValidatorMetrics*(node: BeaconNode) =
       if i < 64:
         attached_validator_balance.set(
           balance.toGaugeValue, labelValues = [shortLog(v.pubkey)])
-      else:
-        inc i
+
+      inc i
       total += balance
 
     node.attachedValidatorBalanceTotal = total
@@ -693,14 +697,18 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       # An opposite case is that we received (or produced) a block that has
       # not yet reached our neighbours. To protect against our attestations
       # being dropped (because the others have not yet seen the block), we'll
-      # impose a minimum delay of 250ms. The delay is enforced only when we're
+      # impose a minimum delay of 1000ms. The delay is enforced only when we're
       # not hitting the "normal" cutoff time for sending out attestations.
+      # An earlier delay of 250ms has proven to be not enough, increasing the
+      # risk of losing attestations.
+      # Regardless, because we "just" received the block, we'll impose the
+      # delay.
 
-      const afterBlockDelay = 250
+      const afterBlockDelay = 1000
       let
         afterBlockTime = node.beaconClock.now() + millis(afterBlockDelay)
         afterBlockCutoff = node.beaconClock.fromNow(
-          min(afterBlockTime, attestationCutoffTime))
+          min(afterBlockTime, attestationCutoffTime + millis(afterBlockDelay)))
 
       if afterBlockCutoff.inFuture:
         debug "Got block, waiting to send attestations",

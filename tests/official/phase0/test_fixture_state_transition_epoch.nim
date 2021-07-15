@@ -25,16 +25,17 @@ from ../../../beacon_chain/spec/beaconstate import process_registry_updates
 template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, useCache: static bool): untyped =
   suite "Official - Phase 0 - Epoch Processing - " & testName & preset():
     doAssert dirExists(suiteDir)
-    for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}):
+    for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}, checkDir = true):
 
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
       test testName & " - " & unitTestName & preset():
         # BeaconState objects are stored on the heap to avoid stack overflow
         var preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
         let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
-
-        when useCache:
-          var cache = StateCache()
+        var cache {.used.}: StateCache
+        when compiles(transitionProc(defaultRuntimeConfig, preState[], cache)):
+          transitionProc(defaultRuntimeConfig, preState[], cache)
+        elif compiles(transitionProc(preState[], cache)):
           transitionProc(preState[], cache)
         else:
           transitionProc(preState[])

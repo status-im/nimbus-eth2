@@ -11,7 +11,7 @@ import
   # Standard library
   os, strutils,
   # Beacon chain internals
-  ../../../beacon_chain/spec/state_transition_epoch,
+  ../../../beacon_chain/spec/[presets, state_transition_epoch],
   ../../../beacon_chain/spec/[datatypes/altair, beaconstate],
   # Test utilities
   ../../testutil,
@@ -27,7 +27,7 @@ template runSuite(
     useCache, useTAB: static bool = false): untyped =
   suite "Official - Altair - Epoch Processing - " & testName & preset():
     doAssert dirExists(suiteDir)
-    for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}):
+    for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}, checkDir = true):
 
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
       test testName & " - " & unitTestName & preset():
@@ -38,13 +38,19 @@ template runSuite(
         doAssert not (useCache and useTAB)
         when useCache:
           var cache = StateCache()
-          transitionProc(preState[], cache)
+          when compiles(transitionProc(defaultRuntimeConfig, preState[], cache)):
+            transitionProc(defaultRuntimeConfig, preState[], cache)
+          else:
+            transitionProc(preState[], cache)
         elif useTAB:
           var cache = StateCache()
           let total_active_balance = preState[].get_total_active_balance(cache)
           transitionProc(preState[], total_active_balance)
         else:
-          transitionProc(preState[])
+          when compiles(transitionProc(preState[])):
+            transitionProc(preState[])
+          else:
+            transitionProc(defaultRuntimeConfig, preState[])
 
         reportDiff(preState, postState)
 

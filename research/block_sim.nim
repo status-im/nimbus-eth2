@@ -61,22 +61,23 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   let
     (state, depositContractSnapshot) = loadGenesis(validators, false)
     genesisBlock = get_initial_beacon_block(state[].data)
-    runtimePreset = defaultRuntimePreset
     genesisTime = float state[].data.genesis_time
 
-  const altairTransitionSlot = 96.Slot
+  var cfg = defaultRuntimeConfig
+
+  cfg.ALTAIR_FORK_EPOCH = 96.Slot.epoch
 
   echo "Starting simulation..."
 
-  let db = BeaconChainDB.new(runtimePreset, "block_sim_db")
+  let db = BeaconChainDB.new("block_sim_db")
   defer: db.close()
 
   ChainDAGRef.preInit(db, state[].data, state[].data, genesisBlock)
   putInitialDepositContractSnapshot(db, depositContractSnapshot)
 
   var
-    dag = ChainDAGRef.init(runtimePreset, db, {}, altairTransitionSlot)
-    eth1Chain = Eth1Chain.init(runtimePreset, db)
+    dag = ChainDAGRef.init(cfg, db, {})
+    eth1Chain = Eth1Chain.init(cfg, db)
     merkleizer = depositContractSnapshot.createMerkleizer
     quarantine = QuarantineRef.init(keys.newRng())
     attPool = AttestationPool.init(dag, quarantine)
@@ -146,7 +147,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         else:
           static: doAssert false
       message = makeBeaconBlock(
-        runtimePreset,
+        cfg,
         hashedState[],
         proposerIdx,
         dag.head.root,
@@ -237,7 +238,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     while true:
       let nextBlockTime = lastEth1BlockAt +
-                          max(1.0, gauss(r, float SECONDS_PER_ETH1_BLOCK, 3.0))
+                          max(1.0, gauss(r, float defaultRuntimeConfig.SECONDS_PER_ETH1_BLOCK, 3.0))
       if nextBlockTime > now:
         break
 
@@ -262,7 +263,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     if blockRatio > 0.0:
       withTimer(timers[t]):
-        if slot < altairTransitionSlot:
+        if slot.epoch < dag.cfg.ALTAIR_FORK_EPOCH:
           proposePhase0Block(slot)
         else:
           proposeAltairBlock(slot)

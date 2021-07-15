@@ -211,7 +211,7 @@ proc runTest(identifier: string) =
     db.close()
     sqlite3db_delete(TestDir, dbname)
 
-
 suite "Slashing Interchange tests " & preset():
-  for kind, path in walkDir(InterchangeTestsDir, true):
+  for kind, path in walkDir(
+      InterchangeTestsDir, relative = true, checkDir = true):
     runTest(path)

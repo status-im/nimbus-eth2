@@ -61,5 +61,5 @@ proc runTest(identifier: string) =
   `testImpl _ blockheader _ identifier`()
 
 suite "Official - Altair - Operations - Block header " & preset():
-  for kind, path in walkDir(OpBlockHeaderDir, true):
+  for kind, path in walkDir(OpBlockHeaderDir, relative = true, checkDir = true):
     runTest(path)

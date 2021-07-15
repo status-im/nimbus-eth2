@@ -353,6 +353,12 @@ type
     # [New in Altair]
     sync_aggregate*: SyncAggregate
 
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/p2p-interface.md#metadata
+  MetaData* = object
+    seq_number*: uint64
+    attnets*: BitArray[ATTESTATION_SUBNET_COUNT]
+    syncnets*: BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
+
   TrustedBeaconBlockBody* = object
     ## A full verified block
     randao_reveal*: TrustedSig

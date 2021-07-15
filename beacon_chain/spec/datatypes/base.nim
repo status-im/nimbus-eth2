@@ -777,6 +777,9 @@ func low*(v: ForkDigest | Version): int = 0
 func high*(v: ForkDigest | Version): int = len(v) - 1
 func `[]`*(v: ForkDigest | Version, idx: int): byte = array[4, byte](v)[idx]
 
+template bytes*(v: ForkDigest): array[4, byte] =
+  distinctBase(v)
+
 func shortLog*(s: Slot): uint64 =
   s - GENESIS_SLOT
 
@@ -874,14 +877,16 @@ const
   # http://facweb.cs.depaul.edu/sjost/it212/documents/ascii-pr.htm
   PrintableAsciiChars = {' '..'~'}
 
-func `$`*(value: GraffitiBytes): string =
-  result = strip(string.fromBytes(distinctBase value),
+func toPrettyString*(bytes: openArray[byte]): string =
+  result = strip(string.fromBytes(bytes),
                  leading = false,
                  chars = Whitespace + {'\0'})
 
   # TODO: Perhaps handle UTF-8 at some point
   if not allCharsInSet(result, PrintableAsciiChars):
-    result = "0x" & toHex(distinctBase value)
+    result = "0x" & toHex(bytes)
+
+func `$`*(value: GraffitiBytes): string = toPrettyString(distinctBase value)
 
 func init*(T: type GraffitiBytes, input: string): GraffitiBytes
           {.raises: [ValueError, Defect].} =
@@ -930,3 +935,20 @@ static:
   doAssert supportsCopyMem(Validator)
   doAssert supportsCopyMem(Eth2Digest)
   doAssert ATTESTATION_SUBNET_COUNT <= high(distinctBase SubnetId).int
+
+func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
+  for name, value in x.fieldPairs:
+    when value is tuple|object:
+      result.add getSizeofSig(value, n + 1)
+    # TrustedSig and ValidatorSig differ in that they have otherwise identical
+    # fields where one is "blob" and the other is "data". They're structurally
+    # isomorphic, regardless. Grandfather that exception in, but in general it
+    # is still better to keep field names parallel.
+    result.add((name.replace("blob", "data"), sizeof(value), n))
+
+template isomorphicCast*[T, U](x: U): T =
+  # Each of these pairs of types has ABI-compatible memory representations.
+  static:
+    doAssert sizeof(T) == sizeof(U)
+    doAssert getSizeofSig(T()) == getSizeofSig(U())
+  cast[ptr T](unsafeAddr x)[]

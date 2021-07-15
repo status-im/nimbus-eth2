@@ -98,12 +98,12 @@ template decodeAndProcess(typ, process: untyped): bool =
 proc nfuzz_attestation(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(AttestationInput):
-    process_attestation(data.state, data.attestation, flags, cache).isOk
+    process_attestation(data.state, data.attestation, flags, 0.Gwei, cache).isOk
 
 proc nfuzz_attester_slashing(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(AttesterSlashingInput):
-    process_attester_slashing(data.state, data.attesterSlashing, flags, cache).isOk
+    process_attester_slashing(defaultRuntimeConfig, data.state, data.attesterSlashing, flags, cache).isOk
 
 proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
@@ -111,7 +111,7 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
   # and requiring HashedBeaconState (yet). So to keep consistent, puts wrapper
   # only in one function.
   proc state_transition(
-      preset: RuntimePreset, data: auto, blck: auto, flags: auto,
+      cfg: RuntimeConfig, data: auto, blck: auto, flags: auto,
       rollback: RollbackForkedHashedProc): auto =
     var
       fhState = (ref ForkedHashedBeaconState)(
@@ -122,12 +122,11 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
       rewards = RewardInfo()
     result =
       state_transition(
-        preset, fhState[], blck, cache, rewards, flags, rollback,
-        FAR_FUTURE_SLOT)
+        cfg, fhState[], blck, cache, rewards, flags, rollback)
     data.state = fhState.hbsPhase0.data
 
   decodeAndProcess(BlockInput):
-    state_transition(defaultRuntimePreset, data, data.beaconBlock, flags, noRollback)
+    state_transition(defaultRuntimeConfig, data, data.beaconBlock, flags, noRollback)
 
 proc nfuzz_block_header(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
@@ -137,17 +136,17 @@ proc nfuzz_block_header(input: openArray[byte], xoutput: ptr byte,
 proc nfuzz_deposit(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(DepositInput):
-    process_deposit(defaultRuntimePreset, data.state, data.deposit, flags).isOk
+    process_deposit(defaultRuntimeConfig, data.state, data.deposit, flags).isOk
 
 proc nfuzz_proposer_slashing(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(ProposerSlashingInput):
-    process_proposer_slashing(data.state, data.proposerSlashing, flags, cache).isOk
+    process_proposer_slashing(defaultRuntimeConfig, data.state, data.proposerSlashing, flags, cache).isOk
 
 proc nfuzz_voluntary_exit(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =
   decodeAndProcess(VoluntaryExitInput):
-    process_voluntary_exit(data.state, data.exit, flags, cache).isOk
+    process_voluntary_exit(defaultRuntimeConfig, data.state, data.exit, flags, cache).isOk
 
 # Note: Could also accept raw input pointer and access list_size + seed here.
 # However, list_size needs to be known also outside this proc to allocate xoutput.

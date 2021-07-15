@@ -52,17 +52,20 @@ proc runTest(identifier: string) =
           postState =
             newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
           done =
-            process_voluntary_exit(preState[], voluntaryExit, {}, cache).isOk
+            process_voluntary_exit(
+              defaultRuntimeConfig, preState[], voluntaryExit, {}, cache).isOk
         doAssert done, "Valid voluntary exit not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
         let done =
-          process_voluntary_exit(preState[], voluntaryExit, {}, cache).isOk
+          process_voluntary_exit(
+            defaultRuntimeConfig, preState[], voluntaryExit, {}, cache).isOk
         doAssert done == false, "We didn't expect this invalid voluntary exit to be processed."
 
   `testImpl _ voluntary_exit _ identifier`()
 
 suite "Official - Phase 0 - Operations - Voluntary exit " & preset():
-  for kind, path in walkDir(OpVoluntaryExitDir, true):
+  for kind, path in walkDir(
+      OpVoluntaryExitDir, relative = true, checkDir = true):
     runTest(path)

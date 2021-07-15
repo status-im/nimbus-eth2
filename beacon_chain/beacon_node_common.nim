@@ -45,15 +45,11 @@ type
     attestationPool*: ref AttestationPool
     exitPool*: ref ExitPool
     eth1Monitor*: Eth1Monitor
-    beaconClock*: BeaconClock
     rpcServer*: RpcServer
     restServer*: RestServerRef
     vcProcess*: Process
-    forkDigest*: ForkDigest
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerID]
-    topicBeaconBlocks*: string
-    topicAggregateAndProofs*: string
     genesisSnapshotContent*: string
     attestationSubnets*: AttestationSubnets
     processor*: ref Eth2Processor
@@ -73,8 +69,8 @@ template findIt*(s: openArray, predicate: untyped): int =
       break
   res
 
+template beaconClock*(node: BeaconNode): BeaconClock =
+  node.dag.beaconClock
+
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
-
-template runtimePreset*(node: BeaconNode): RuntimePreset =
-  node.db.preset

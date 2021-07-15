@@ -7,7 +7,7 @@ BASE_PORT="49000"
 BASE_METRICS_PORT="48008"
 BASE_REST_PORT="47000"
 TIMEOUT_DURATION="30"
-TEST_DIRNAME="build/resttest_sim"
+TEST_DIRNAME="resttest0_data"
 
 ####################
 # argument parsing #
@@ -27,18 +27,18 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="h"
-LONGOPTS="help,test-dir:,base-port:,base-rest-port:,base-metrics-port:,timeout:"
+LONGOPTS="help,data-dir:,base-port:,base-rest-port:,base-metrics-port:,sleep-timeout:"
 
 print_help() {
   cat <<EOF
 Usage: $(basename "$0") [OPTIONS] -- [BEACON NODE OPTIONS]
 
   -h, --help                  this help message
-  --test-dir                  node's data directory (default: GIT_ROOT/${TEST_DIRNAME})
+  --data-dir                  node's data directory (default: ${TEST_DIRNAME})
   --base-port                 bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
   --base-rest-port            bootstrap node's REST port (default: ${BASE_REST_PORT})
   --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
-  --timeout                   timeout in seconds (default: ${TIMEOUT_DURATION} seconds)
+  --sleep-timeout             timeout in seconds (default: ${TIMEOUT_DURATION} seconds)
 EOF
 }
 
@@ -56,7 +56,7 @@ while true; do
       print_help
       exit
       ;;
-    --test-dir)
+    --data-dir)
       TEST_DIRNAME="$2"
       shift 2
       ;;
@@ -72,7 +72,7 @@ while true; do
       BASE_METRICS_PORT="$2"
       shift 2
       ;;
-    --timeout)
+    --sleep-timeout)
       TIMEOUT_DURATION="$2"
       shift 2
       ;;
@@ -90,23 +90,26 @@ done
 NUM_VALIDATORS=${VALIDATORS:-32}
 TOTAL_NODES=${NODES:-1}
 GIT_ROOT="$(git rev-parse --show-toplevel)"
-TEST_DIR="${GIT_ROOT}/${TEST_DIRNAME}"
-LOG_FILE="${TEST_DIR}/resttest_node.log"
+TEST_DIR="${TEST_DIRNAME}"
+LOG_NODE_FILE="${TEST_DIR}/node_log.txt"
+LOG_TEST_FILE="${TEST_DIR}/client_log.txt"
 VALIDATORS_DIR="${TEST_DIR}/validators"
 SECRETS_DIR="${TEST_DIR}/secrets"
-SNAPSHOT_FILE="${TEST_DIR}/state_snapshot.ssz"
-NETWORK_BOOTSTRAP_FILE="${TEST_DIR}/bootstrap_hidden_nodes.txt"
+SNAPSHOT_FILE="${TEST_DIR}/genesis.ssz"
+NETWORK_BOOTSTRAP_FILE="${TEST_DIR}/bootstrap_nodes.txt"
 RESTTEST_RULES="${GIT_ROOT}/ncli/resttest-rules.json"
 DEPOSIT_CONTRACT_BIN="${GIT_ROOT}/build/deposit_contract"
+RESTTEST_BIN="${GIT_ROOT}/build/resttest"
+NIMBUS_BEACON_NODE_BIN="${GIT_ROOT}/build/nimbus_beacon_node"
 BOOTSTRAP_ENR_FILE="${TEST_DIR}/beacon_node.enr"
 NETWORK_METADATA_FILE="${TEST_DIR}/network.json"
+RUNTIME_CONFIG_FILE="${TEST_DIR}/config.yaml"
 DEPOSITS_FILE="${TEST_DIR}/deposits.json"
 REST_ADDRESS="127.0.0.1"
 METRICS_ADDRESS="127.0.0.1"
 MKDIR_SCRIPT="${GIT_ROOT}/scripts/makedir.sh"
 
 $MKDIR_SCRIPT "${TEST_DIR}"
-cd "${TEST_DIR}"
 
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
@@ -138,7 +141,7 @@ fi
 if [[ ${EXISTING_VALIDATORS} -ne ${NUM_VALIDATORS} ]]; then
   build_if_missing deposit_contract
   rm -rf "${VALIDATORS_DIR}" "${SECRETS_DIR}"
-  ../deposit_contract generateSimulationDeposits \
+  ${DEPOSIT_CONTRACT_BIN} generateSimulationDeposits \
     --count="${NUM_VALIDATORS}" \
     --out-validators-dir="${VALIDATORS_DIR}" \
     --out-secrets-dir="${SECRETS_DIR}" \
@@ -151,7 +154,7 @@ build_if_missing resttest
 
 if [[ ! -f "${SNAPSHOT_FILE}" ]]; then
   echo "Creating testnet genesis..."
-  ../nimbus_beacon_node \
+  ${NIMBUS_BEACON_NODE_BIN} \
     --data-dir="${TEST_DIR}" \
     createTestnet \
     --deposits-file="${DEPOSITS_FILE}" \
@@ -166,34 +169,32 @@ fi
 DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
 
-echo "Writing ${NETWORK_METADATA_FILE}:"
-tee "${NETWORK_METADATA_FILE}" <<EOF
+echo Wrote $NETWORK_METADATA_FILE:
+tee "$NETWORK_METADATA_FILE" <<EOF
 {
-  "runtimePreset": {
-    "MIN_GENESIS_ACTIVE_VALIDATOR_COUNT": ${NUM_VALIDATORS},
-    "MIN_GENESIS_TIME": 0,
-    "GENESIS_DELAY": 0,
-    "GENESIS_FORK_VERSION": "0x00000000",
-    "ETH1_FOLLOW_DISTANCE": 1,
-  },
-  "depositContractAddress": "${DEPOSIT_CONTRACT_ADDRESS}",
   "depositContractDeployedAt": "${DEPOSIT_CONTRACT_BLOCK}"
 }
 EOF
 
-SNAPSHOT_ARG=""
-if [[ -f "${SNAPSHOT_FILE}" ]]; then
-  SNAPSHOT_ARG="--finalized-checkpoint-state=${SNAPSHOT_FILE}"
-fi
+echo Wrote $RUNTIME_CONFIG_FILE:
 
-../nimbus_beacon_node \
+tee "$RUNTIME_CONFIG_FILE" <<EOF
+PRESET_BASE: "mainnet"
+MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${TOTAL_VALIDATORS}
+MIN_GENESIS_TIME: 0
+GENESIS_DELAY: 10
+GENESIS_FORK_VERSION: 0x00000000
+DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
+ETH1_FOLLOW_DISTANCE: 1
+EOF
+
+${NIMBUS_BEACON_NODE_BIN} \
   --tcp-port=${BASE_PORT} \
   --udp-port=${BASE_PORT} \
   --log-level=${LOG_LEVEL:-DEBUG} \
-  --network="${NETWORK_METADATA_FILE}" \
+  --network="${TEST_DIR}" \
   --data-dir="${TEST_DIR}" \
   --secrets-dir="${SECRETS_DIR}" \
-  ${SNAPSHOT_ARG} \
   --doppelganger-detection=off \
   --nat=none \
   --metrics \
@@ -203,7 +204,7 @@ fi
   --rest-address=${REST_ADDRESS} \
   --rest-port= ${BASE_REST_PORT} \
   ${ADDITIONAL_BEACON_NODE_ARGS} \
-  "$@" > ${LOG_FILE} 2>&1 &
+  "$@" > ${LOG_NODE_FILE} 2>&1 &
 BEACON_NODE_STATUS=$?
 
 if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
@@ -211,13 +212,14 @@ if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
 
   BEACON_NODE_PID="$(jobs -p)"
 
-  ../resttest \
+  ${RESTTEST_BIN} \
     --delay=${TIMEOUT_DURATION} \
     --timeout=60 \
     --skip-topic=slow \
     --connections=4 \
     --rules-file="${RESTTEST_RULES}" \
-    http://${REST_ADDRESS}:${BASE_REST_PORT}/api
+    http://${REST_ADDRESS}:${BASE_REST_PORT}/api \
+    > ${LOG_TEST_FILE} 2>&1
   RESTTEST_STATUS=$?
 
   kill -SIGINT ${BEACON_NODE_PID}
@@ -226,7 +228,7 @@ if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
     echo "All tests were completed successfully!"
   else
     echo "Some of the tests failed!"
-    tail -n 100 ${LOG_FILE}
+    tail -n 100 ${LOG_NODE_FILE}
     exit 1
   fi
 else

@@ -40,8 +40,8 @@ proc runTest(identifier: string) =
 
       check:
         process_slots(
-          fhPreState[], getStateField(fhPreState[], slot) + num_slots, cache,
-          rewards, {}, FAR_FUTURE_SLOT)
+          defaultRuntimeConfig, fhPreState[],
+          getStateField(fhPreState[], slot) + num_slots, cache, rewards, {})
 
         getStateRoot(fhPreState[]) == postState[].hash_tree_root()
       let newPreState = newClone(fhPreState.hbsAltair.data)
@@ -50,5 +50,5 @@ proc runTest(identifier: string) =
   `testImpl _ slots _ identifier`()
 
 suite "Official - Altair - Sanity - Slots " & preset():
-  for kind, path in walkDir(SanitySlotsDir, true):
+  for kind, path in walkDir(SanitySlotsDir, relative = true, checkDir = true):
     runTest(path)

@@ -1,4 +1,3 @@
-# beacon_chain
 # Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -97,24 +96,25 @@ declareGauge ticks_delay,
 declareGauge next_action_wait,
   "Seconds until the next attestation will be sent"
 
+declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
+versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
+
 logScope: topics = "beacnde"
 
 const SlashingDbName = "slashing_protection"
   # changing this requires physical file rename as well or history is lost.
 
 proc init*(T: type BeaconNode,
-           runtimePreset: RuntimePreset,
+           cfg: RuntimeConfig,
            rng: ref BrHmacDrbgContext,
            config: BeaconNodeConf,
-           depositContractAddress: Eth1Address,
            depositContractDeployedAt: BlockHashOrNumber,
            eth1Network: Option[Eth1Network],
            genesisStateContents: string,
            genesisDepositsSnapshotContents: string): BeaconNode {.
     raises: [Defect, CatchableError].} =
   let
-    db = BeaconChainDB.new(
-      runtimePreset, config.databaseDir, inMemory = false)
+    db = BeaconChainDB.new(config.databaseDir, inMemory = false)
 
   var
     genesisState, checkpointState: ref BeaconState
@@ -175,10 +175,9 @@ proc init*(T: type BeaconNode,
         # TODO Could move this to a separate "GenesisMonitor" process or task
         #      that would do only this - see Paul's proposal for this.
         let eth1MonitorRes = waitFor Eth1Monitor.init(
-          runtimePreset,
+          cfg,
           db,
           config.web3Urls,
-          depositContractAddress,
           depositContractDeployedAt,
           eth1Network)
 
@@ -186,7 +185,6 @@ proc init*(T: type BeaconNode,
           fatal "Failed to start Eth1 monitor",
                 reason = eth1MonitorRes.error,
                 web3Urls = config.web3Urls,
-                depositContractAddress,
                 depositContractDeployedAt
           quit 1
         else:
@@ -244,9 +242,7 @@ proc init*(T: type BeaconNode,
   let
     chainDagFlags = if config.verifyFinalization: {verifyFinalization}
                      else: {}
-    dag = ChainDAGRef.init(runtimePreset, db, chainDagFlags)
-    beaconClock =
-      BeaconClock.init(getStateField(dag.headState.data, genesis_time))
+    dag = ChainDAGRef.init(cfg, db, chainDagFlags)
     quarantine = QuarantineRef.init(rng)
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState.data, genesis_validators_root)
@@ -264,8 +260,9 @@ proc init*(T: type BeaconNode,
 
   if config.weakSubjectivityCheckpoint.isSome:
     let
-      currentSlot = beaconClock.now.slotOrZero
+      currentSlot = dag.beaconClock.now.slotOrZero
       isCheckpointStale = not is_within_weak_subjectivity_period(
+        cfg,
         currentSlot,
         dag.headState.data,
         config.weakSubjectivityCheckpoint.get)
@@ -293,10 +290,9 @@ proc init*(T: type BeaconNode,
     let genesisDepositsSnapshot = SSZ.decode(genesisDepositsSnapshotContents,
                                              DepositContractSnapshot)
     eth1Monitor = Eth1Monitor.init(
-      runtimePreset,
+      cfg,
       db,
       config.web3Urls,
-      depositContractAddress,
       genesisDepositsSnapshot,
       eth1Network)
 
@@ -314,12 +310,9 @@ proc init*(T: type BeaconNode,
     netKeys = getPersistentNetKeys(rng[], config)
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
-    enrForkId = getENRForkID(
-      getStateField(dag.headState.data, fork),
+    network = createEth2Node(
+      rng, config, netKeys, cfg, dag.forkDigests,
       getStateField(dag.headState.data, genesis_validators_root))
-    topicBeaconBlocks = getBeaconBlocksTopic(enrForkId.fork_digest)
-    topicAggregateAndProofs = getAggregateAndProofsTopic(enrForkId.fork_digest)
-    network = createEth2Node(rng, config, netKeys, enrForkId)
     attestationPool = newClone(AttestationPool.init(dag, quarantine))
     exitPool = newClone(ExitPool.init(dag, quarantine))
 
@@ -347,15 +340,11 @@ proc init*(T: type BeaconNode,
     )
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      consensusManager,
-      proc(): BeaconTime = beaconClock.now())
+      consensusManager, getTime)
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
-      blockProcessor,
-      dag, attestationPool, exitPool, validatorPool,
-      quarantine,
-      rng,
-      proc(): BeaconTime = beaconClock.now())
+      blockProcessor, dag, attestationPool, exitPool, validatorPool,
+      quarantine, rng, getTime)
 
   var node = BeaconNode(
     nickname: nickname,
@@ -371,12 +360,8 @@ proc init*(T: type BeaconNode,
     attachedValidators: validatorPool,
     exitPool: exitPool,
     eth1Monitor: eth1Monitor,
-    beaconClock: beaconClock,
     rpcServer: rpcServer,
     restServer: restServer,
-    forkDigest: enrForkId.fork_digest,
-    topicBeaconBlocks: topicBeaconBlocks,
-    topicAggregateAndProofs: topicAggregateAndProofs,
     processor: processor,
     blockProcessor: blockProcessor,
     consensusManager: consensusManager,
@@ -386,16 +371,17 @@ proc init*(T: type BeaconNode,
   # set topic validation routine
   network.setValidTopics(
     block:
+      # TODO altair-transition
       var
         topics = @[
-            topicBeaconBlocks,
-            getAttesterSlashingsTopic(enrForkId.fork_digest),
-            getProposerSlashingsTopic(enrForkId.fork_digest),
-            getVoluntaryExitsTopic(enrForkId.fork_digest),
-            getAggregateAndProofsTopic(enrForkId.fork_digest)
+            getBeaconBlocksTopic(network.forkDigests.phase0),
+            getAttesterSlashingsTopic(network.forkDigests.phase0),
+            getProposerSlashingsTopic(network.forkDigests.phase0),
+            getVoluntaryExitsTopic(network.forkDigests.phase0),
+            getAggregateAndProofsTopic(network.forkDigests.phase0)
           ]
       for subnet_id in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
-        topics &= getAttestationTopic(enrForkId.fork_digest, SubnetId(subnet_id))
+        topics &= getAttestationTopic(network.forkDigests.phase0, SubnetId(subnet_id))
       topics)
 
   if node.config.inProcessValidators:
@@ -411,7 +397,8 @@ proc init*(T: type BeaconNode,
 
   # This merely configures the BeaconSync
   # The traffic will be started when we join the network.
-  network.initBeaconSync(dag, enrForkId.fork_digest)
+  # TODO altair-transition
+  network.initBeaconSync(dag, getTime)
 
   node.updateValidatorMetrics()
 
@@ -635,7 +622,7 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) {.async.} =
 
 proc getInitialAggregateSubnets(node: BeaconNode): Table[SubnetId, Slot] =
   let
-    wallEpoch = node.beaconClock.now().slotOrZero().epoch
+    wallEpoch = node.dag.beaconClock.now.slotOrZero.epoch
     validatorIndices = toIntSet(toSeq(node.getAttachedValidators().keys()))
 
   template mergeAggregateSubnets(epoch: Epoch) =
@@ -674,7 +661,7 @@ proc subscribeAttestationSubnetHandlers(node: BeaconNode) {.
       ss.subnet_id = SubnetId(i)
       ss.expiration = FAR_FUTURE_EPOCH
   else:
-    let wallEpoch = node.beaconClock.now().slotOrZero().epoch
+    let wallEpoch = node.dag.beaconClock.now.slotOrZero.epoch
 
     # TODO make length dynamic when validator-client-based validators join and leave
     # In normal mode, there's one subnet subscription per validator, changing
@@ -758,11 +745,13 @@ proc addMessageHandlers(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     aggregateTopicParams.validateParameters().tryGet()
     basicParams.validateParameters.tryGet()
 
-  node.network.subscribe(node.topicBeaconBlocks, blocksTopicParams, enableTopicMetrics = true)
-  node.network.subscribe(getAttesterSlashingsTopic(node.forkDigest), basicParams)
-  node.network.subscribe(getProposerSlashingsTopic(node.forkDigest), basicParams)
-  node.network.subscribe(getVoluntaryExitsTopic(node.forkDigest), basicParams)
-  node.network.subscribe(getAggregateAndProofsTopic(node.forkDigest), aggregateTopicParams, enableTopicMetrics = true)
+  # TODO altair-transition
+  node.network.subscribe(
+    getBeaconBlocksTopic(node.dag.forkDigests.phase0), blocksTopicParams, enableTopicMetrics = true)
+  node.network.subscribe(getAttesterSlashingsTopic(node.dag.forkDigests.phase0), basicParams)
+  node.network.subscribe(getProposerSlashingsTopic(node.dag.forkDigests.phase0), basicParams)
+  node.network.subscribe(getVoluntaryExitsTopic(node.dag.forkDigests.phase0), basicParams)
+  node.network.subscribe(getAggregateAndProofsTopic(node.dag.forkDigests.phase0), aggregateTopicParams, enableTopicMetrics = true)
   node.subscribeAttestationSubnetHandlers()
 
 func getTopicSubscriptionEnabled(node: BeaconNode): bool =
@@ -772,15 +761,16 @@ proc removeMessageHandlers(node: BeaconNode) {.raises: [Defect, CatchableError].
   node.attestationSubnets.enabled = false
   doAssert not node.getTopicSubscriptionEnabled()
 
-  node.network.unsubscribe(getBeaconBlocksTopic(node.forkDigest))
-  node.network.unsubscribe(getVoluntaryExitsTopic(node.forkDigest))
-  node.network.unsubscribe(getProposerSlashingsTopic(node.forkDigest))
-  node.network.unsubscribe(getAttesterSlashingsTopic(node.forkDigest))
-  node.network.unsubscribe(getAggregateAndProofsTopic(node.forkDigest))
+  # TODO altair-transition
+  node.network.unsubscribe(getBeaconBlocksTopic(node.dag.forkDigests.phase0))
+  node.network.unsubscribe(getVoluntaryExitsTopic(node.dag.forkDigests.phase0))
+  node.network.unsubscribe(getProposerSlashingsTopic(node.dag.forkDigests.phase0))
+  node.network.unsubscribe(getAttesterSlashingsTopic(node.dag.forkDigests.phase0))
+  node.network.unsubscribe(getAggregateAndProofsTopic(node.dag.forkDigests.phase0))
 
   for subnet_id in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
     node.network.unsubscribe(
-      getAttestationTopic(node.forkDigest, SubnetId(subnet_id)))
+      getAttestationTopic(node.dag.forkDigests.phase0, SubnetId(subnet_id)))
 
 proc setupDoppelgangerDetection(node: BeaconNode, slot: Slot) =
   # When another client's already running, this is very likely to detect
@@ -932,7 +922,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       node.attestationSubnets.proposingSlots,
       node.attestationSubnets.lastCalculatedEpoch, slot)
     nextActionWaitTime = saturate(fromNow(
-      node.beaconClock, min(nextAttestationSlot, nextProposalSlot)))
+      node.dag.beaconClock, min(nextAttestationSlot, nextProposalSlot)))
 
   info "Slot end",
     slot = shortLog(slot),
@@ -959,7 +949,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # state in anticipation of receiving the next block - we do it after logging
   # slot end since the nextActionWaitTime can be short
   let
-    advanceCutoff = node.beaconClock.fromNow(
+    advanceCutoff = node.dag.beaconClock.fromNow(
       slot.toBeaconTime(chronos.seconds(int(SECONDS_PER_SLOT - 1))))
   if advanceCutoff.inFuture:
     # We wait until there's only a second left before the next slot begins, then
@@ -1018,76 +1008,6 @@ proc onSlotStart(
 
   await onSlotEnd(node, wallSlot)
 
-proc runSlotLoop(node: BeaconNode, startTime: BeaconTime) {.async.} =
-  var
-    curSlot = startTime.slotOrZero()
-    nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
-    timeToNextSlot = nextSlot.toBeaconTime() - startTime
-
-  info "Scheduling first slot action",
-    startTime = shortLog(startTime),
-    nextSlot = shortLog(nextSlot),
-    timeToNextSlot = shortLog(timeToNextSlot)
-
-  while true:
-    # Start by waiting for the time when the slot starts. Sleeping relinquishes
-    # control to other tasks which may or may not finish within the alotted
-    # time, so below, we need to be wary that the ship might have sailed
-    # already.
-    await sleepAsync(timeToNextSlot)
-
-    let
-      wallTime = node.beaconClock.now()
-      wallSlot = wallTime.slotOrZero() # Always > GENESIS!
-
-    if wallSlot < nextSlot:
-      # While we were sleeping, the system clock changed and time moved
-      # backwards!
-      if wallSlot + 1 < nextSlot:
-        # This is a critical condition where it's hard to reason about what
-        # to do next - we'll call the attention of the user here by shutting
-        # down.
-        fatal "System time adjusted backwards significantly - clock may be inaccurate - shutting down",
-          nextSlot = shortLog(nextSlot),
-          wallSlot = shortLog(wallSlot)
-        bnStatus = BeaconNodeStatus.Stopping
-        return
-
-      # Time moved back by a single slot - this could be a minor adjustment,
-      # for example when NTP does its thing after not working for a while
-      warn "System time adjusted backwards, rescheduling slot actions",
-        wallTime = shortLog(wallTime),
-        nextSlot = shortLog(nextSlot),
-        wallSlot = shortLog(wallSlot)
-
-      # cur & next slot remain the same
-      timeToNextSlot = nextSlot.toBeaconTime() - wallTime
-      continue
-
-    if wallSlot > nextSlot + SLOTS_PER_EPOCH:
-      # Time moved forwards by more than an epoch - either the clock was reset
-      # or we've been stuck in processing for a long time - either way, we will
-      # skip ahead so that we only process the events of the last
-      # SLOTS_PER_EPOCH slots
-      warn "Time moved forwards by more than an epoch, skipping ahead",
-        curSlot = shortLog(curSlot),
-        nextSlot = shortLog(nextSlot),
-        wallSlot = shortLog(wallSlot)
-
-      curSlot = wallSlot - SLOTS_PER_EPOCH
-
-    elif wallSlot > nextSlot:
-        notice "Missed expected slot start, catching up",
-          delay = shortLog(wallTime - nextSlot.toBeaconTime()),
-          curSlot = shortLog(curSlot),
-          nextSlot = shortLog(curSlot)
-
-    await onSlotStart(node, wallTime, curSlot)
-
-    curSlot = wallSlot
-    nextSlot = wallSlot + 1
-    timeToNextSlot = saturate(node.beaconClock.fromNow(nextSlot))
-
 proc handleMissingBlocks(node: BeaconNode) =
   let missingBlocks = node.quarantine.checkMissing()
   if missingBlocks.len > 0:
@@ -1118,7 +1038,7 @@ proc startSyncManager(node: BeaconNode) =
     node.dag.head.slot
 
   proc getLocalWallSlot(): Slot =
-    node.beaconClock.now().slotOrZero
+    node.dag.beaconClock.now.slotOrZero
 
   func getFirstSlotAtFinalizedEpoch(): Slot =
     node.dag.finalizedHead.slot
@@ -1180,37 +1100,39 @@ proc installMessageValidators(node: BeaconNode) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
+
+  # TODO altair-transition
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
     closureScope:
       let subnet_id = SubnetId(it)
       node.network.addAsyncValidator(
-        getAttestationTopic(node.forkDigest, subnet_id),
+        getAttestationTopic(node.dag.forkDigests.phase0, subnet_id),
         # This proc needs to be within closureScope; don't lift out of loop.
         proc(attestation: Attestation): Future[ValidationResult] =
           node.processor.attestationValidator(attestation, subnet_id))
 
   node.network.addAsyncValidator(
-    getAggregateAndProofsTopic(node.forkDigest),
+    getAggregateAndProofsTopic(node.dag.forkDigests.phase0),
     proc(signedAggregateAndProof: SignedAggregateAndProof): Future[ValidationResult] =
       node.processor.aggregateValidator(signedAggregateAndProof))
 
   node.network.addValidator(
-    node.topicBeaconBlocks,
+    getBeaconBlocksTopic(node.dag.forkDigests.phase0),
     proc (signedBlock: SignedBeaconBlock): ValidationResult =
       node.processor[].blockValidator(signedBlock))
 
   node.network.addValidator(
-    getAttesterSlashingsTopic(node.forkDigest),
+    getAttesterSlashingsTopic(node.dag.forkDigests.phase0),
     proc (attesterSlashing: AttesterSlashing): ValidationResult =
       node.processor[].attesterSlashingValidator(attesterSlashing))
 
   node.network.addValidator(
-    getProposerSlashingsTopic(node.forkDigest),
+    getProposerSlashingsTopic(node.dag.forkDigests.phase0),
     proc (proposerSlashing: ProposerSlashing): ValidationResult =
       node.processor[].proposerSlashingValidator(proposerSlashing))
 
   node.network.addValidator(
-    getVoluntaryExitsTopic(node.forkDigest),
+    getVoluntaryExitsTopic(node.dag.forkDigests.phase0),
     proc (signedVoluntaryExit: SignedVoluntaryExit): ValidationResult =
       node.processor[].voluntaryExitValidator(signedVoluntaryExit))
 
@@ -1246,8 +1168,8 @@ proc run*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
 
     node.installMessageValidators()
 
-    let startTime = node.beaconClock.now()
-    asyncSpawn runSlotLoop(node, startTime)
+    let startTime = node.dag.beaconClock.now()
+    asyncSpawn runSlotLoop(node, startTime, onSlotStart)
     asyncSpawn runOnSecondLoop(node)
     asyncSpawn runQueueProcessingLoop(node.blockProcessor)
 
@@ -1310,14 +1232,14 @@ proc start(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   let
     head = node.dag.head
     finalizedHead = node.dag.finalizedHead
-    genesisTime = node.beaconClock.fromNow(toBeaconTime(Slot 0))
+    genesisTime = node.dag.beaconClock.fromNow(toBeaconTime(Slot 0))
 
   notice "Starting beacon node",
     version = fullVersionStr,
     enr = node.network.announcedENR.toURI,
     peerId = $node.network.switch.peerInfo.peerId,
     timeSinceFinalization =
-      node.beaconClock.now() - finalizedHead.slot.toBeaconTime(),
+      node.dag.beaconClock.now() - finalizedHead.slot.toBeaconTime(),
     head = shortLog(head),
     finalizedHead = shortLog(finalizedHead),
     SLOTS_PER_EPOCH,
@@ -1661,10 +1583,9 @@ proc loadBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext): Bea
     config.bootstrapNodes.add node
 
   BeaconNode.init(
-    metadata.runtimePreset,
+    metadata.cfg,
     rng,
     config,
-    metadata.depositContractAddress,
     metadata.depositContractDeployedAt,
     metadata.eth1Network,
     metadata.genesisData,
@@ -1725,10 +1646,10 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raise
     outGenesis = config.outputGenesis.string
     eth1Hash = if config.web3Urls.len == 0: eth1BlockHash
                else: (waitFor getEth1BlockHash(config.web3Urls[0], blockId("latest"))).asEth2Digest
-    runtimePreset = getRuntimePresetForNetwork(config.eth2Network)
+    cfg = getRuntimeConfig(config.eth2Network)
   var
     initialState = initialize_beacon_state_from_eth1(
-      runtimePreset, eth1Hash, startTime, deposits, {skipBlsValidation})
+      cfg, eth1Hash, startTime, deposits, {skipBlsValidation})
 
   # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
   initialState.genesis_time = startTime
@@ -1756,7 +1677,8 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raise
         some(config.bootstrapPort),
         some(config.bootstrapPort),
         [toFieldPair("eth2", SSZ.encode(getENRForkID(
-          initialState[].fork, initialState[].genesis_validators_root))),
+          initialState[].fork.current_version,
+          initialState[].genesis_validators_root))),
         toFieldPair("attnets", SSZ.encode(netMetadata.attnets))])
 
     writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)
@@ -1819,7 +1741,7 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
       quit QuitFailure
 
     let deposits = generateDeposits(
-      metadata.runtimePreset,
+      metadata.cfg,
       rng,
       seed,
       walletPath.wallet.nextAccount,
@@ -1838,7 +1760,7 @@ proc doDeposits(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
         config.outValidatorsDir / "deposit_data-" & $epochTime() & ".json"
 
       let launchPadDeposits =
-        mapIt(deposits.value, LaunchPadDeposit.init(metadata.runtimePreset, it))
+        mapIt(deposits.value, LaunchPadDeposit.init(metadata.cfg, it))
 
       Json.saveFile(depositDataPath, launchPadDeposits)
       echo "Deposit data written to \"", depositDataPath, "\""
@@ -1949,7 +1871,7 @@ proc doWeb3Cmd(config: BeaconNodeConf) {.raises: [Defect, CatchableError].} =
   of Web3Cmd.test:
     let metadata = config.loadEth2Network()
     waitFor testWeb3Provider(config.web3TestUrl,
-                             metadata.depositContractAddress)
+                             metadata.cfg.DEPOSIT_CONTRACT_ADDRESS)
 
 proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError, Defect].}=
   let

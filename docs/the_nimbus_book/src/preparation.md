@@ -7,9 +7,9 @@ Please check that you are running the latest stable [Nimbus software release](ht
 
 > **Note:** If you are setting up your client before launch, it is your responsibility  to check for any new software releases in the run up to launch. At the minimum you should check the [release page](https://github.com/status-im/nimbus-eth2/releases) weekly.
 
-## More than 20 peers
+## More than 50 peers
 
-Please check that your node has at least 15 peers. See [the footer](keep-an-eye.md#keep-track-of-your-syncing-progress) at the bottom of the terminal window for your peer count.
+Please check that your node has at least 50 peers. To monitor your peer count, pay attention to the [`Slot start` messages in your logs](keep-an-eye.md#keep-track-of-your-syncing-progress).
 
 ## Validator attached
 
@@ -24,10 +24,6 @@ Systemd will also ensure your validator keeps running when you exit your ssh ses
 
 For the details on how to do this, see [this page](./beacon-node-systemd.md).
 
-
-## VPN
-
-To avoid exposing your validator identity (IP address) to the network, we recommend using a trustworthy VPN such as [protonmail](https://protonmail.com/). While it may result in the occasional missed attestation, we believe the [tradeoff](https://our.status.im/validator-privacy-call-to-action/) is worth it.
 
 ## Ethereum Foundation's Checklist
 

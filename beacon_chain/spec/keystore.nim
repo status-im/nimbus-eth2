@@ -756,7 +756,7 @@ func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
 proc makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
   makeWithdrawalCredentials(k.toPubKey())
 
-proc prepareDeposit*(preset: RuntimePreset,
+proc prepareDeposit*(cfg: RuntimeConfig,
                      withdrawalPubKey: CookedPubKey,
                      signingKey: ValidatorPrivKey, signingPubKey: CookedPubKey,
                      amount = MAX_EFFECTIVE_BALANCE.Gwei): DepositData =
@@ -765,5 +765,5 @@ proc prepareDeposit*(preset: RuntimePreset,
     pubkey: signingPubKey.toPubKey(),
     withdrawal_credentials: makeWithdrawalCredentials(withdrawalPubKey))
 
-  res.signature = preset.get_deposit_signature(res, signingKey).toValidatorSig()
+  res.signature = get_deposit_signature(cfg, res, signingKey).toValidatorSig()
   return res

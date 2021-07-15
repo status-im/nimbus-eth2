@@ -52,13 +52,13 @@ proc runTest(testName, testDir, unitTestName: string) =
 
         if hasPostState:
           let success = state_transition(
-            defaultRuntimePreset, fhPreState[], blck, cache, rewards, flags = {},
-            noRollback, FAR_FUTURE_SLOT)
+            defaultRuntimeConfig, fhPreState[], blck, cache, rewards, flags = {},
+            noRollback)
           doAssert success, "Failure when applying block " & $i
         else:
           let success = state_transition(
-            defaultRuntimePreset, fhPreState[], blck, cache, rewards, flags = {},
-            noRollback, FAR_FUTURE_SLOT)
+            defaultRuntimeConfig, fhPreState[], blck, cache, rewards, flags = {},
+            noRollback)
           doAssert (i + 1 < numBlocks) or not success,
             "We didn't expect these invalid blocks to be processed"
 
@@ -71,9 +71,9 @@ proc runTest(testName, testDir, unitTestName: string) =
   `testImpl _ blck _ testName`()
 
 suite "Official - Altair - Sanity - Blocks " & preset():
-  for kind, path in walkDir(SanityBlocksDir, true):
+  for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
     runTest("Official - Altair - Sanity - Blocks", SanityBlocksDir, path)
 
 suite "Official - Altair - Finality " & preset():
-  for kind, path in walkDir(FinalityDir, true):
+  for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
     runTest("Official - Altair - Finality", FinalityDir, path)

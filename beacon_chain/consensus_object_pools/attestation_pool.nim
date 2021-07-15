@@ -64,7 +64,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef, quarantine: QuarantineRef)
   var epochRef = finalizedEpochRef
   for i in 0..<blocks.len:
     let
-      blck = blocks[blocks.len - i - 1]
+      blckRef = blocks[blocks.len - i - 1]
       status =
         if i < (blocks.len - ForkChoiceHorizon) and (i mod 1024 != 0):
           # Fork choice needs to know about the full block tree up to the
@@ -74,13 +74,14 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef, quarantine: QuarantineRef)
           # and then to make sure the fork choice data structure doesn't grow
           # too big - getting an EpochRef can be expensive.
           forkChoice.backend.process_block(
-            blck.root, blck.parent.root,
+            blckRef.root, blckRef.parent.root,
             epochRef.current_justified_checkpoint.epoch,
             epochRef.finalized_checkpoint.epoch)
         else:
-          epochRef = dag.getEpochRef(blck, blck.slot.epoch)
-          forkChoice.process_block(
-            dag, epochRef, blck, dag.get(blck).data.message, blck.slot)
+          epochRef = dag.getEpochRef(blckRef, blckRef.slot.epoch)
+          withBlck(dag.get(blckRef).data):
+            forkChoice.process_block(
+              dag, epochRef, blckRef, blck.message, blckRef.slot)
 
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 

@@ -65,7 +65,7 @@ func decrease_balance*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#deposits
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#modified-process_deposit
-func get_validator_from_deposit(deposit: DepositData):
+func get_validator_from_deposit*(deposit: DepositData):
     Validator =
   let
     amount = deposit.amount
@@ -82,73 +82,6 @@ func get_validator_from_deposit(deposit: DepositData):
     effective_balance: effective_balance
   )
 
-proc process_deposit*(preset: RuntimePreset,
-                      state: var SomeBeaconState,
-                      deposit: Deposit,
-                      flags: UpdateFlags = {}): Result[void, cstring] {.nbench.}=
-  ## Process an Eth1 deposit, registering a validator or increasing its balance.
-
-  # Verify the Merkle branch
-  if not is_valid_merkle_branch(
-    hash_tree_root(deposit.data),
-    deposit.proof,
-    DEPOSIT_CONTRACT_TREE_DEPTH + 1,  # Add 1 for the `List` length mix-in
-    state.eth1_deposit_index,
-    state.eth1_data.deposit_root,
-  ):
-    return err("process_deposit: deposit Merkle validation failed")
-
-  # Deposits must be processed in order
-  state.eth1_deposit_index += 1
-
-  let
-    pubkey = deposit.data.pubkey
-    amount = deposit.data.amount
-
-  var index = -1
-
-  # This linear scan is unfortunate, but should be fairly fast as we do a simple
-  # byte comparison of the key. The alternative would be to build a Table, but
-  # given that each block can hold no more than 16 deposits, it's slower to
-  # build the table and use it for lookups than to scan it like this.
-  # Once we have a reusable, long-lived cache, this should be revisited
-  for i in 0..<state.validators.len():
-    if state.validators.asSeq()[i].pubkey == pubkey:
-      index = i
-      break
-
-  if index != -1:
-    # Increase balance by deposit amount
-    increase_balance(state, index.ValidatorIndex, amount)
-  else:
-    # Verify the deposit signature (proof of possession) which is not checked
-    # by the deposit contract
-    if skipBLSValidation in flags or verify_deposit_signature(preset, deposit.data):
-      # New validator! Add validator and balance entries
-      if not state.validators.add(get_validator_from_deposit(deposit.data)):
-        return err("process_deposit: too many validators")
-      if not state.balances.add(amount):
-        static: doAssert state.balances.maxLen == state.validators.maxLen
-        raiseAssert "adding validator succeeded, so should balances"
-
-      when state is altair.BeaconState:
-        if not state.previous_epoch_participation.add(ParticipationFlags(0)):
-          return err("process_deposit: too many validators (previous_epoch_participation)")
-        if not state.current_epoch_participation.add(ParticipationFlags(0)):
-          return err("process_deposit: too many validators (current_epoch_participation)")
-        if not state.inactivity_scores.add(0'u64):
-          return err("process_deposit: too many validators (inactivity_scores)")
-
-      doAssert state.validators.len == state.balances.len
-    else:
-      # Deposits may come with invalid signatures - in that case, they are not
-      # turned into a validator but still get processed to keep the deposit
-      # index correct
-      trace "Skipping deposit with invalid signature",
-        deposit = shortLog(deposit.data)
-
-  ok()
-
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
 func compute_activation_exit_epoch(epoch: Epoch): Epoch =
   ## Return the epoch during which validator activations and exits initiated in
@@ -156,16 +89,17 @@ func compute_activation_exit_epoch(epoch: Epoch): Epoch =
   epoch + 1 + MAX_SEED_LOOKAHEAD
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_validator_churn_limit
-func get_validator_churn_limit(state: SomeBeaconState, cache: var StateCache):
+func get_validator_churn_limit(
+      cfg: RuntimeConfig, state: SomeBeaconState, cache: var StateCache):
     uint64 =
   ## Return the validator churn limit for the current epoch.
   max(
-    MIN_PER_EPOCH_CHURN_LIMIT,
+    cfg.MIN_PER_EPOCH_CHURN_LIMIT,
     count_active_validators(
-      state, state.get_current_epoch(), cache) div CHURN_LIMIT_QUOTIENT)
+      state, state.get_current_epoch(), cache) div cfg.CHURN_LIMIT_QUOTIENT)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#initiate_validator_exit
-func initiate_validator_exit*(state: var SomeBeaconState,
+func initiate_validator_exit*(cfg: RuntimeConfig, state: var SomeBeaconState,
                               index: ValidatorIndex, cache: var StateCache) =
   ## Initiate the exit of the validator with index ``index``.
 
@@ -196,21 +130,22 @@ func initiate_validator_exit*(state: var SomeBeaconState,
     if state.validators.asSeq()[idx].exit_epoch == exit_queue_epoch:
       exit_queue_churn += 1
 
-  if exit_queue_churn.uint64 >= get_validator_churn_limit(state, cache):
+  if exit_queue_churn.uint64 >= get_validator_churn_limit(cfg, state, cache):
     exit_queue_epoch += 1
 
   # Set validator exit epoch and withdrawable epoch
   validator.exit_epoch = exit_queue_epoch
   validator.withdrawable_epoch =
-    validator.exit_epoch + MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+    validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#modified-slash_validator
-proc slash_validator*(state: var SomeBeaconState, slashed_index: ValidatorIndex,
-    cache: var StateCache) =
+proc slash_validator*(
+    cfg: RuntimeConfig, state: var SomeBeaconState,
+    slashed_index: ValidatorIndex, cache: var StateCache) =
   ## Slash the validator with index ``index``.
   let epoch = get_current_epoch(state)
-  initiate_validator_exit(state, slashed_index, cache)
+  initiate_validator_exit(cfg, state, slashed_index, cache)
   let validator = addr state.validators[slashed_index]
 
   trace "slash_validator: ejecting validator via slashing (validator_leaving)",
@@ -265,12 +200,12 @@ proc slash_validator*(state: var SomeBeaconState, slashed_index: ValidatorIndex,
   increase_balance(
     state, whistleblower_index, whistleblower_reward - proposer_reward)
 
-func genesis_time_from_eth1_timestamp*(preset: RuntimePreset, eth1_timestamp: uint64): uint64 =
-  eth1_timestamp + preset.GENESIS_DELAY
+func genesis_time_from_eth1_timestamp*(cfg: RuntimeConfig, eth1_timestamp: uint64): uint64 =
+  eth1_timestamp + cfg.GENESIS_DELAY
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1*(
-    preset: RuntimePreset,
+    cfg: RuntimeConfig,
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[DepositData],
@@ -293,10 +228,10 @@ proc initialize_beacon_state_from_eth1*(
 
   var state = phase0.BeaconStateRef(
     fork: Fork(
-      previous_version: preset.GENESIS_FORK_VERSION,
-      current_version: preset.GENESIS_FORK_VERSION,
+      previous_version: cfg.GENESIS_FORK_VERSION,
+      current_version: cfg.GENESIS_FORK_VERSION,
       epoch: GENESIS_EPOCH),
-    genesis_time: genesis_time_from_eth1_timestamp(preset, eth1_timestamp),
+    genesis_time: genesis_time_from_eth1_timestamp(cfg, eth1_timestamp),
     eth1_data:
       Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
     latest_block_header:
@@ -328,7 +263,7 @@ proc initialize_beacon_state_from_eth1*(
       increase_balance(state[], ValidatorIndex foundIdx[], amount)
     do:
       if skipBlsValidation in flags or
-         verify_deposit_signature(preset, deposit):
+         verify_deposit_signature(cfg, deposit):
         pubkeyToIndex[pubkey] = state.validators.len
         if not state.validators.add(get_validator_from_deposit(deposit)):
           raiseAssert "too many validators"
@@ -359,13 +294,13 @@ proc initialize_beacon_state_from_eth1*(
   state
 
 proc initialize_hashed_beacon_state_from_eth1*(
-    preset: RuntimePreset,
+    cfg: RuntimeConfig,
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[DepositData],
     flags: UpdateFlags = {}): phase0.HashedBeaconState =
   let genesisState = initialize_beacon_state_from_eth1(
-    preset, eth1_block_hash, eth1_timestamp, deposits, flags)
+    cfg, eth1_block_hash, eth1_timestamp, deposits, flags)
   phase0.HashedBeaconState(
     data: genesisState[], root: hash_tree_root(genesisState[]))
 
@@ -425,8 +360,8 @@ func is_eligible_for_activation(state: SomeBeaconState, validator: Validator):
     validator.activation_epoch == FAR_FUTURE_EPOCH
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#registry-updates
-proc process_registry_updates*(state: var SomeBeaconState,
-    cache: var StateCache) {.nbench.} =
+proc process_registry_updates*(
+    cfg: RuntimeConfig, state: var SomeBeaconState, cache: var StateCache) {.nbench.} =
   ## Process activation eligibility and ejections
 
   # Make visible, e.g.,
@@ -450,8 +385,8 @@ proc process_registry_updates*(state: var SomeBeaconState,
         get_current_epoch(state) + 1
 
     if is_active_validator(state.validators.asSeq()[index], get_current_epoch(state)) and
-        state.validators.asSeq()[index].effective_balance <= EJECTION_BALANCE:
-      initiate_validator_exit(state, index.ValidatorIndex, cache)
+        state.validators.asSeq()[index].effective_balance <= cfg.EJECTION_BALANCE:
+      initiate_validator_exit(cfg, state, index.ValidatorIndex, cache)
 
   ## Queue validators eligible for activation and not dequeued for activation
   var activation_queue : seq[tuple[a: Epoch, b: int]] = @[]
@@ -465,7 +400,7 @@ proc process_registry_updates*(state: var SomeBeaconState,
 
   ## Dequeued validators for activation up to churn limit (without resetting
   ## activation epoch)
-  let churn_limit = get_validator_churn_limit(state, cache)
+  let churn_limit = get_validator_churn_limit(cfg, state, cache)
   for i, epoch_and_index in activation_queue:
     if i.uint64 >= churn_limit:
       break
@@ -702,7 +637,8 @@ proc check_attestation*(
 
 proc process_attestation*(
     state: var SomeBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.} =
+    base_reward_per_increment: Gwei, cache: var StateCache):
+    Result[void, cstring] {.nbench.} =
   # In the spec, attestation validation is mixed with state mutation, so here
   # we've split it into two functions so that the validation logic can be
   # reused when looking for suitable blocks to include in attestations.
@@ -739,7 +675,6 @@ proc process_attestation*(
       participation_flag_indices =
         get_attestation_participation_flag_indices(
           state, attestation.data, state.slot - attestation.data.slot)
-      base_reward_per_increment = get_base_reward_per_increment(state, cache)
 
     for index in get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache):
         for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
@@ -756,11 +691,13 @@ proc process_attestation*(
     increase_balance(state, proposer_index.get, proposer_reward)
 
   when state is phase0.BeaconState:
+    doAssert base_reward_per_increment == 0.Gwei
     if attestation.data.target.epoch == get_current_epoch(state):
       addPendingAttestation(state.current_epoch_attestations)
     else:
       addPendingAttestation(state.previous_epoch_attestations)
   elif state is altair.BeaconState:
+    doAssert base_reward_per_increment > 0.Gwei
     if attestation.data.target.epoch == get_current_epoch(state):
       updateParticipationFlags(state.current_epoch_participation)
     else:

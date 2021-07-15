@@ -11,16 +11,17 @@ for software that deals with digital tokens of significant value.
 
 ## Docker containers for internal use
 
-The easiest way to guarantee that users are able to replicate 
+The easiest way to guarantee that users are able to replicate
 our binaries for themselves is to give them the same software environment we used in CI. Docker
 containers fit the bill, so everything starts with the architecture- and
-OS-specific containers in `docker/dist/base\_image/`.
+OS-specific containers in `docker/dist/base_image/`.
 
 These images contain all the packages we need, are built and published once (to
 Docker Hub), and are then reused as the basis for temporary Docker
 images where the `nimbus-eth2` build is carried out.
 
-These temporary images are controlled by Dockerfiles in `docker/dist/`. Since we're not publishing them anywhere, we can customize them to the system
+These temporary images are controlled by Dockerfiles in `docker/dist/`. Since
+we're not publishing them anywhere, we can customize them to the system
 they run on (we ensure they use the host's UID/GID, the host's QEMU static
 binaries, etc); they get access to the source code through the use of external volumes.
 
@@ -30,25 +31,25 @@ It all starts from the GitHub actions in `.github/workflows/release.yml`. There
 is a different job for each supported OS-architecture combination and they all
 run in parallel (ideally).
 
-The `build-amd64` CI job is special, because it creates a new
-GitHub release draft, as soon as possible. All the other jobs will upload their
-binary distribution tarballs to this draft release, but, since it's not feasible
-to communicate between CI jobs, they simply use GitHub APIs to find out what
-the latest release is, check that it has the right Git tag, and use that as their
-last step.
+Once all those CI jobs complete successfully, a GitHub release draft is created
+and all the distributable archives are uploaded to it. A list of checksums for
+the main binaries is inserted in the release description. That draft needs to
+be manually published.
 
-The build itself is triggered by a Make target: `make dist-amd64`. This invokes
-`scripts/make\_dist.sh` which builds the corresponding Docker container from
+The build itself is triggered by a Make target. E.g.: `make dist-amd64`. This invokes
+`scripts/make_dist.sh` which builds the corresponding Docker container from
 `docker/dist/` and runs it with the Git repository's top directory as an external
 volume.
 
-The entry point for that container is `docker/dist/entry\_point.sh` and that's
+The entry point for that container is `docker/dist/entry_point.sh` and that's
 where you'll find the Make invocations needed to finally build the software and
 create distributable tarballs.
 
 ## Docker images for end users
 
-Configured in `.github/workflows/release.yml` (exclusively for the `build-amd64` job):  we unpack the distribution tarball and copy its content into a third type of Docker image - this one meant for end users and defined by `docker/dist/binaries/Dockerfile.amd64`.
+Configured in `.github/workflows/release.yml` (only for Linux AMD64, ARM and
+ARM64): we unpack the distribution tarball and copy its content into a third
+type of Docker image - meant for end users and defined by
+`docker/dist/binaries/Dockerfile.amd64` (and related).
 
 We then publish that to [Docker Hub](https://hub.docker.com/r/statusim/nimbus-eth2).
-

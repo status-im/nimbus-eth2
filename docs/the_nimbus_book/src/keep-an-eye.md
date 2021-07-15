@@ -31,7 +31,7 @@ Note that the port number is displayed directly after the IP -- in the above cas
 
 ## Keep track of your syncing progress
 
-To keep track of your sync progress, pay attention to the `Slot start` messages in you logs:
+To keep track of your sync progress, pay attention to the `Slot start` messages in your logs:
 
 ```
 INF 2021-05-24 14:53:59.067+02:00 Slot start                                 

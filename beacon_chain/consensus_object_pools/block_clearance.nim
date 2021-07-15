@@ -43,39 +43,25 @@ template asSigVerified(x: phase0.SignedBeaconBlock):
     phase0.SigVerifiedSignedBeaconBlock =
   ## This converts a signed beacon block to a sig verified beacon clock.
   ## This assumes that their bytes representation is the same.
-  static: # TODO See isomorphicCast
-    doAssert sizeof(phase0.SignedBeaconBlock) ==
-      sizeof(phase0.SigVerifiedSignedBeaconBlock)
-
-  cast[ptr phase0.SigVerifiedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+  isomorphicCast[phase0.SigVerifiedSignedBeaconBlock](x)
 
 template asSigVerified(x: altair.SignedBeaconBlock):
     altair.SigVerifiedSignedBeaconBlock =
   ## This converts a signed beacon block to a sig verified beacon clock.
   ## This assumes that their bytes representation is the same.
-  static: # TODO See isomorphicCast
-    doAssert sizeof(altair.SignedBeaconBlock) ==
-      sizeof(altair.SigVerifiedSignedBeaconBlock)
-
-  cast[ptr altair.SigVerifiedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+  isomorphicCast[altair.SigVerifiedSignedBeaconBlock](x)
 
 template asTrusted(x: phase0.SignedBeaconBlock or phase0.SigVerifiedBeaconBlock):
     phase0.TrustedSignedBeaconBlock =
   ## This converts a sigverified beacon block to a trusted beacon clock.
   ## This assumes that their bytes representation is the same.
-  static: # TODO See isomorphicCast
-    doAssert sizeof(x) == sizeof(phase0.TrustedSignedBeaconBlock)
-
-  cast[ptr phase0.TrustedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+  isomorphicCast[phase0.TrustedSignedBeaconBlock](x)
 
 template asTrusted(x: altair.SignedBeaconBlock or altair.SigVerifiedBeaconBlock):
     altair.TrustedSignedBeaconBlock =
   ## This converts a sigverified beacon block to a trusted beacon clock.
   ## This assumes that their bytes representation is the same.
-  static: # TODO See isomorphicCast
-    doAssert sizeof(x) == sizeof(altair.TrustedSignedBeaconBlock)
-
-  cast[ptr altair.TrustedSignedBeaconBlock](signedBlock.unsafeAddr)[]
+  isomorphicCast[altair.TrustedSignedBeaconBlock](x)
 
 func batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool =
   var secureRandomBytes: array[32, byte]
@@ -220,14 +206,14 @@ proc checkStateTransition(
     blockRoot = shortLog(signedBlock.root)
 
   if not state_transition_block(
-      dag.runtimePreset, dag.clearanceState.data, signedBlock,
-      cache, dag.updateFlags, restore, dag.altairTransitionSlot):
+      dag.cfg, dag.clearanceState.data, signedBlock,
+      cache, dag.updateFlags, restore):
     info "Invalid block"
 
     return (ValidationResult.Reject, Invalid)
   return (ValidationResult.Accept, default(BlockError))
 
-proc advanceClearanceState*(dag: ChainDagRef) =
+proc advanceClearanceState*(dag: ChainDAGRef) =
   # When the chain is synced, the most likely block to be produced is the block
   # right after head - we can exploit this assumption and advance the state
   # to that slot before the block arrives, thus allowing us to do the expensive

@@ -53,7 +53,7 @@ func makeDeposit*(i: int, flags: UpdateFlags = {}): DepositData =
 
   if skipBLSValidation notin flags:
     result.signature = get_deposit_signature(
-      defaultRuntimePreset, result, privkey).toValidatorSig()
+      defaultRuntimeConfig, result, privkey).toValidatorSig()
 
 func makeInitialDeposits*(
     n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[DepositData] =
@@ -89,8 +89,8 @@ proc addTestBlock*(
   if nextSlot:
     var rewards: RewardInfo
     doAssert process_slots(
-      state, getStateField(state, slot) + 1, cache, rewards, flags,
-      FAR_FUTURE_SLOT)
+      defaultRuntimeConfig, state, getStateField(state, slot) + 1, cache,
+      rewards, flags)
 
   let
     proposer_index = get_beacon_proposer_index(
@@ -107,7 +107,7 @@ proc addTestBlock*(
 
   let
     message = makeBeaconBlock(
-      defaultRuntimePreset,
+      defaultRuntimeConfig,
       state.hbsPhase0,
       proposer_index.get(),
       parent_root,

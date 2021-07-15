@@ -25,14 +25,15 @@
 - [Add an additional validator](./additional-validator.md)
 - [Monitor attestation performance](./attestation-performance.md)
 
-
 # How-to (misc)
 - [Update Nimbus](./keep-updated.md)
 - [Run an eth1 node](./eth1.md)
+- [Obtain Goerli ETH](./goerli-eth.md)
 - [Set up a systemd service](./beacon-node-systemd.md)
 - [Set up log rotation](./log-rotate.md)
 - [Verify the integrity of Nimbus](./checksums.md)
 - [Back up your database](./database-backup.md)
+- [Change log level](./log-levels.md)
 - [Set up email notifications](./email-notifications.md)
 - [Graffiti the blockchain](./graffiti.md)
 - [Optimise for profitability](./profits.md)
@@ -50,7 +51,8 @@
 - [Download Docker images](./docker.md)
 
 # Reference
-- [API](./api.md)
+- [JSON-RPC API](./api.md)
+- [REST API](./rest-api.md)
 - [Help / Command line options](./options.md)
 - [Advanced migration options](./migration-options.md)
 - [Troubleshooting](./troubleshooting.md)

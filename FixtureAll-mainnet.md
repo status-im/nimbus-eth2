@@ -33,11 +33,11 @@ FixtureAll-mainnet
 + Rewards - full_random_1 [Preset: mainnet]                                                  OK
 + Rewards - full_random_2 [Preset: mainnet]                                                  OK
 + Rewards - full_random_3 [Preset: mainnet]                                                  OK
-+ Rewards - full_random_five_epoch_leak [Preset: mainnet]                                    OK
 + Rewards - full_random_leak [Preset: mainnet]                                               OK
 + Rewards - full_random_low_balances_0 [Preset: mainnet]                                     OK
 + Rewards - full_random_low_balances_1 [Preset: mainnet]                                     OK
 + Rewards - full_random_misc_balances [Preset: mainnet]                                      OK
++ Rewards - full_random_seven_epoch_leak [Preset: mainnet]                                   OK
 + Rewards - full_random_ten_epoch_leak [Preset: mainnet]                                     OK
 + Rewards - half_full [Preset: mainnet]                                                      OK
 + Rewards - half_full_leak [Preset: mainnet]                                                 OK
@@ -130,6 +130,7 @@ FixtureAll-mainnet
 + [Invalid] invalid_sig_1_and_2_swap                                                         OK
 + [Invalid] invalid_sig_2                                                                    OK
 + [Invalid] invalid_signature                                                                OK
++ [Invalid] invalid_signature_bad_domain                                                     OK
 + [Invalid] invalid_signature_extra_participant                                              OK
 + [Invalid] invalid_signature_missing_participant                                            OK
 + [Invalid] invalid_signature_past_block                                                     OK
@@ -234,6 +235,11 @@ FixtureAll-mainnet
 + [Valid]   incorrect_target_epoch_delay                                                     OK
 + [Valid]   incorrect_target_min_inclusion_delay                                             OK
 + [Valid]   incorrect_target_sqrt_epoch_delay                                                OK
++ [Valid]   random_all_but_one_participating_with_duplicates                                 OK
++ [Valid]   random_high_participation_with_duplicates                                        OK
++ [Valid]   random_low_participation_with_duplicates                                         OK
++ [Valid]   random_misc_balances_and_half_participation_with_duplicates                      OK
++ [Valid]   random_only_one_participant_with_duplicates                                      OK
 + [Valid]   success                                                                          OK
 + [Valid]   success_already_exited_long_ago                                                  OK
 + [Valid]   success_already_exited_recent                                                    OK
@@ -250,7 +256,9 @@ FixtureAll-mainnet
 + [Valid]   success_slashed_and_proposer_index_the_same                                      OK
 + [Valid]   success_surround                                                                 OK
 + [Valid]   success_with_effective_balance_disparity                                         OK
-+ [Valid]   sync_committee_rewards_duplicate_committee                                       OK
++ [Valid]   sync_committee_rewards_duplicate_committee_full_participation                    OK
++ [Valid]   sync_committee_rewards_duplicate_committee_half_participation                    OK
++ [Valid]   sync_committee_rewards_duplicate_committee_no_participation                      OK
 + [Valid]   sync_committee_rewards_empty_participants                                        OK
 + [Valid]   sync_committee_rewards_not_full_participants                                     OK
 + altair_fork_random_0                                                                       OK
@@ -268,7 +276,7 @@ FixtureAll-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 265/265 Fail: 0/265 Skip: 0/265
+OK: 273/273 Fail: 0/273 Skip: 0/273
 ## Official - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -288,14 +296,25 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Official - Altair - Epoch Processing - Inactivity [Preset: mainnet]
 ```diff
 + Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
 + Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
 + Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
 + Inactivity - genesis [Preset: mainnet]                                                     OK
++ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
 + Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
 + Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
 + Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
++ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
+OK: 18/18 Fail: 0/18 Skip: 0/18
 ## Official - Altair - Epoch Processing - Justification & Finalization [Preset: mainnet]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
@@ -313,12 +332,16 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 ```diff
 + Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
 + Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
++ Participation flag updates - current_filled [Preset: mainnet]                              OK
 + Participation flag updates - filled [Preset: mainnet]                                      OK
 + Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
-+ Participation flag updates - random [Preset: mainnet]                                      OK
++ Participation flag updates - previous_filled [Preset: mainnet]                             OK
++ Participation flag updates - random_0 [Preset: mainnet]                                    OK
++ Participation flag updates - random_1 [Preset: mainnet]                                    OK
++ Participation flag updates - random_2 [Preset: mainnet]                                    OK
 + Participation flag updates - random_genesis [Preset: mainnet]                              OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 10/10 Fail: 0/10 Skip: 0/10
 ## Official - Altair - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
@@ -486,4 +509,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 396/396 Fail: 0/396 Skip: 0/396
+OK: 419/419 Fail: 0/419 Skip: 0/419

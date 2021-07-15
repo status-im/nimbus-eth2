@@ -66,5 +66,6 @@ proc runTest(dir, identifier: string) =
   `testImpl_sync_committee _ identifier`()
 
 suite "Official - Altair - Operations - Sync Aggregate" & preset():
-  for kind, path in walkDir(OpSyncAggregateDir, true):
+  for kind, path in walkDir(
+      OpSyncAggregateDir, relative = true, checkDir = true):
     runTest(OpSyncAggregateDir, path)

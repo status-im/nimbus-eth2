@@ -10,7 +10,7 @@ cargo install mdbook mdbook-toc mdbook-open-on-gh
 cd docs/the_nimbus_book
 mdbook serve -p 4000
 
-# Publish book using makefile (in top-level)
+# Publish book using makefile (in the top-level dir)
 make publish-book
 ```
 

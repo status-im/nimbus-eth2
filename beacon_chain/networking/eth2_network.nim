@@ -36,9 +36,11 @@ import
     version, conf,
     ssz/ssz_serialization, beacon_clock],
   ../spec/datatypes/base,
-  ../spec/[digest, network],
+  ../spec/[digest, network, helpers, forkedbeaconstate_helpers],
   ../validators/keystore_management,
   ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
+
+from ../spec/datatypes/altair import nil
 
 when chronicles.enabledLogLevel == LogLevel.TRACE:
   import std/sequtils
@@ -75,7 +77,7 @@ type
     peerPool*: PeerPool[Peer, PeerID]
     protocolStates*: seq[RootRef]
     libp2pTransportLoops*: seq[Future[void]]
-    metadata*: MetaData
+    metadata*: altair.MetaData
     connectTimeout*: chronos.Duration
     seenThreshold*: chronos.Duration
     connQueue: AsyncQueue[PeerAddr]
@@ -83,6 +85,7 @@ type
     connWorkers: seq[Future[void]]
     connTable: HashSet[PeerID]
     forkId: ENRForkID
+    forkDigests*: ForkDigestsRef
     rng*: ref BrHmacDrbgContext
     peers*: Table[PeerID, Peer]
     validTopics: HashSet[string]
@@ -119,7 +122,7 @@ type
     Disconnecting,
     Disconnected
 
-  UntypedResponse = ref object
+  UntypedResponse* = ref object
     peer*: Peer
     stream*: Connection
     writtenChunks*: int
@@ -194,12 +197,13 @@ type
     ReadResponseTimeout
     ZeroSizePrefix
     SizePrefixOverflow
+    InvalidContextBytes
 
   Eth2NetworkingError = object
     case kind*: Eth2NetworkingErrorKind
     of ReceivedErrorResponse:
       responseCode: ResponseCode
-      errorMsg: ErrorMsg
+      errorMsg: string
     else:
       discard
 
@@ -207,6 +211,11 @@ type
 
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
+
+func phase0metadata*(node: Eth2Node): MetaData =
+  MetaData(
+    seq_number: node.metadata.seq_number,
+    attnets: node.metadata.attnets)
 
 const
   clientId* = "Nimbus beacon node " & fullVersionStr
@@ -243,7 +252,7 @@ const
   SeenTableTimeReconnect = 1.minutes
     ## Minimal time between disconnection and reconnection attempt
 
-template neterr(kindParam: Eth2NetworkingErrorKind): auto =
+template neterr*(kindParam: Eth2NetworkingErrorKind): auto =
   err(type(result), Eth2NetworkingError(kind: kindParam))
 
 # Metrics for tracking attestation and beacon block loss
@@ -487,14 +496,19 @@ proc getRequestProtoName(fn: NimNode): NimNode =
 
 proc writeChunk*(conn: Connection,
                  responseCode: Option[ResponseCode],
-                 payload: Bytes): Future[void] =
+                 payload: Bytes,
+                 contextBytes: openarray[byte] = []): Future[void] =
   var output = memoryOutput()
 
   try:
     if responseCode.isSome:
       output.write byte(responseCode.get)
 
+    if contextBytes.len > 0:
+      output.write contextBytes
+
     output.write toBytes(payload.lenu64, Leb128).toOpenArray()
+
     framingFormatCompress(output, payload)
   except IOError as exc:
     raiseAssert exc.msg # memoryOutput shouldn't raise
@@ -545,7 +559,7 @@ proc sendResponseChunkBytes(response: UntypedResponse, payload: Bytes): Future[v
   inc response.writtenChunks
   response.stream.writeChunk(some Success, payload)
 
-proc sendResponseChunkObj(response: UntypedResponse, val: auto): Future[void] =
+proc sendResponseChunk*(response: UntypedResponse, val: auto): Future[void] =
   inc response.writtenChunks
   response.stream.writeChunk(some Success, SSZ.encode(val))
 
@@ -593,12 +607,14 @@ proc init*[MsgType](T: type SingleChunkResponse[MsgType],
                     peer: Peer, conn: Connection): T =
   T(UntypedResponse(peer: peer, stream: conn))
 
-template write*[M](r: MultipleChunksResponse[M], val: auto): untyped =
-  sendResponseChunkObj(UntypedResponse(r), val)
+template write*[M](r: MultipleChunksResponse[M], val: M): untyped =
+  mixin sendResponseChunk
+  sendResponseChunk(UntypedResponse(r), val)
 
-template send*[M](r: SingleChunkResponse[M], val: auto): untyped =
+template send*[M](r: SingleChunkResponse[M], val: M): untyped =
+  mixin sendResponseChunk
   doAssert UntypedResponse(r).writtenChunks == 0
-  sendResponseChunkObj(UntypedResponse(r), val)
+  sendResponseChunk(UntypedResponse(r), val)
 
 proc performProtocolHandshakes*(peer: Peer, incoming: bool) {.async.} =
   # Loop down serially because it's easier to reason about the connection state
@@ -722,6 +738,9 @@ proc handleIncomingStream(network: Eth2Node,
       let (responseCode, errMsg) = case msg.error.kind
         of UnexpectedEOF, PotentiallyExpectedEOF:
           (InvalidRequest, errorMsgLit "Incomplete request")
+
+        of InvalidContextBytes:
+          (ServerError, errorMsgLit "Unrecognized context bytes")
 
         of InvalidSnappyBytes:
           (InvalidRequest, errorMsgLit "Failed to decompress snappy payload")
@@ -960,10 +979,11 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     # when no peers are in the routing table. Don't run it in continuous loop.
     await sleepAsync(1.seconds)
 
-proc getPersistentNetMetadata*(config: BeaconNodeConf): MetaData {.raises: [Defect, IOError, SerializationError].} =
+proc getPersistentNetMetadata*(config: BeaconNodeConf): altair.MetaData
+                              {.raises: [Defect, IOError, SerializationError].} =
   let metadataPath = config.dataDir / nodeMetadataFilename
   if not fileExists(metadataPath):
-    result = MetaData()
+    result = altair.MetaData()
     for i in 0 ..< ATTESTATION_SUBNET_COUNT:
       # TODO:
       # Persistent (stability) subnets should be stored with their expiration
@@ -971,7 +991,7 @@ proc getPersistentNetMetadata*(config: BeaconNodeConf): MetaData {.raises: [Defe
       result.attnets[i] = false
     Json.saveFile(metadataPath, result)
   else:
-    result = Json.loadFile(metadataPath, MetaData)
+    result = Json.loadFile(metadataPath, altair.MetaData)
 
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
@@ -1105,7 +1125,8 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
               peer = peerId, peer_state = peer.connectionState
       peer.connectionState = Disconnected
 
-proc new*(T: type Eth2Node, config: BeaconNodeConf, enrForkId: ENRForkID,
+proc new*(T: type Eth2Node, config: BeaconNodeConf,
+          enrForkId: ENRForkID, forkDigests: ForkDigestsRef,
           switch: Switch, pubsub: GossipSub, ip: Option[ValidIpAddress],
           tcpPort, udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
           rng: ref BrHmacDrbgContext): T {.raises: [Defect, CatchableError].} =
@@ -1132,6 +1153,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, enrForkId: ENRForkID,
     # the previous netkey.
     metadata: metadata,
     forkId: enrForkId,
+    forkDigests: forkDigests,
     discovery: Eth2DiscoveryProtocol.new(
       config, ip, tcpPort, udpPort, privKey,
       {"eth2": SSZ.encode(enrForkId), "attnets": SSZ.encode(metadata.attnets)},
@@ -1214,10 +1236,10 @@ proc stop*(node: Eth2Node) {.async.} =
   # Ignore errors in futures, since we're shutting down (but log them on the
   # TRACE level, if a timeout is reached).
   let
-    waitedFutures = @[
-      node.discovery.closeWait(),
-      node.switch.stop(),
-    ]
+    waitedFutures = if node.discoveryEnabled:
+                      @[node.discovery.closeWait(), node.switch.stop()]
+                    else:
+                      @[node.switch.stop()]
     timeout = 5.seconds
     completed = await withTimeout(allFutures(waitedFutures), timeout)
   if not completed:
@@ -1518,28 +1540,23 @@ func gossipId(data: openArray[byte], topic: string, valid: bool): seq[byte] =
 
   return messageDigest.data[0..19].toSeq()
 
-func isAltairTopic(topic: string): bool =
-  let splitted = topic.split('/')
-  if splitted.len < 3:
-    false
-  #TODO i'm not sure how to get the altair fork digest
-  else:
-    splitted[1] == "ALTAIRFORKDIGEST"
+func isAltairTopic(topic: string, altairPrefix: string): bool =
+  const prefixLen = "/eth2/".len
 
-func getAltairTopic(m: messages.Message): string =
+  if topic.len <= altairPrefix.len + prefixLen:
+    false
+  else:
+    for ind, ch in altairPrefix:
+      if ch != topic[ind + prefixLen]: return false
+    true
+
+func getAltairTopic(m: messages.Message, altairPrefix: string): string =
+  # TODO Return a lent string here to avoid the string copy
   let topic = if m.topicIDs.len > 0: m.topicIDs[0] else: ""
-  if isAltairTopic(topic):
+  if isAltairTopic(topic, altairPrefix):
     topic
   else:
     ""
-
-func msgIdProvider(m: messages.Message): seq[byte] =
-  let topic = getAltairTopic(m)
-  try:
-    let decoded = snappy.decode(m.data, GOSSIP_MAX_SIZE)
-    gossipId(decoded, topic, true)
-  except CatchableError:
-    gossipId(m.data, topic, false)
 
 proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
                       address: MultiAddress,
@@ -1564,12 +1581,24 @@ proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
 proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      config: BeaconNodeConf,
                      netKeys: NetKeyPair,
-                     enrForkId: ENRForkID): Eth2Node {.raises: [Defect, CatchableError].} =
+                     cfg: RuntimeConfig,
+                     forkDigests: ForkDigestsRef,
+                     genesisValidatorsRoot: Eth2Digest): Eth2Node
+                    {.raises: [Defect, CatchableError].} =
   var
+    enrForkId = getENRForkID(
+      # TODO altair-transition
+      # This function should gain an extra argument specifying
+      # whether the client head state is already past the Altair
+      # migration point.
+      cfg.GENESIS_FORK_VERSION,
+      genesisValidatorsRoot)
+
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(
       config.nat, config.listenAddress, config.tcpPort, config.udpPort, clientId)
     except CatchableError as exc: raise exc
     except Exception as exc: raiseAssert exc.msg
+
     hostAddress = tcpEndPoint(config.listenAddress, config.tcpPort)
     announcedAddresses = if extIp.isNone() or extTcpPort.isNone(): @[]
                          else: @[tcpEndPoint(extIp.get(), extTcpPort.get())]
@@ -1582,6 +1611,14 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
   # that are different from the host address (this is relevant when we
   # are running behind a NAT).
   var switch = newBeaconSwitch(config, netKeys.seckey, hostAddress, rng)
+
+  func msgIdProvider(m: messages.Message): seq[byte] =
+    let topic = getAltairTopic(m, forkDigests.altairTopicPrefix)
+    try:
+      let decoded = snappy.decode(m.data, GOSSIP_MAX_SIZE)
+      gossipId(decoded, topic, true)
+    except CatchableError:
+      gossipId(m.data, topic, false)
 
   let
     params = GossipSubParams(
@@ -1638,7 +1675,9 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
     except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
   switch.mount(pubsub)
 
-  Eth2Node.new(config, enrForkId, switch, pubsub,
+  Eth2Node.new(config, enrForkId,
+               forkDigests,
+               switch, pubsub,
                extIp, extTcpPort, extUdpPort,
                netKeys.seckey.asEthKey,
                discovery = config.discv5Enabled,

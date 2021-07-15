@@ -430,7 +430,7 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
 
   ok()
 
-proc generateDeposits*(preset: RuntimePreset,
+proc generateDeposits*(cfg: RuntimeConfig,
                        rng: var BrHmacDrbgContext,
                        seed: KeySeed,
                        firstValidatorIdx, totalNewValidators: int,
@@ -463,8 +463,8 @@ proc generateDeposits*(preset: RuntimePreset,
                    derivedKey, signingPubKey,
                    makeKeyPath(validatorIdx, signingKeyKind))
 
-    deposits.add preset.prepareDeposit(
-      withdrawalPubKey, derivedKey, signingPubKey)
+    deposits.add prepareDeposit(
+      cfg, withdrawalPubKey, derivedKey, signingPubKey)
 
   ok deposits
 
@@ -895,14 +895,14 @@ type
     fork_version*: Version
 
 func init*(T: type LaunchPadDeposit,
-           preset: RuntimePreset, d: DepositData): T =
+           cfg: RuntimeConfig, d: DepositData): T =
   T(pubkey: d.pubkey,
     withdrawal_credentials: d.withdrawal_credentials,
     amount: d.amount,
     signature: d.signature,
     deposit_message_root: hash_tree_root(d as DepositMessage),
     deposit_data_root: hash_tree_root(d),
-    fork_version: preset.GENESIS_FORK_VERSION)
+    fork_version: cfg.GENESIS_FORK_VERSION)
 
 func `as`*(copied: LaunchPadDeposit, T: type DepositData): T =
   T(pubkey: copied.pubkey,

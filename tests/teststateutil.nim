@@ -13,8 +13,8 @@ import
   ./helpers/math_helpers,
   ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[
-    beaconstate, crypto, datatypes, forkedbeaconstate_helpers, helpers,
-    presets, state_transition]
+    crypto, datatypes, forkedbeaconstate_helpers, helpers,
+    presets, state_transition, state_transition_block]
 
 proc valid_deposit[T](state: var T) =
   const deposit_amount = MAX_EFFECTIVE_BALANCE
@@ -31,7 +31,7 @@ proc valid_deposit[T](state: var T) =
                       state.balances[validator_index]
                     else:
                       0
-  doAssert process_deposit(defaultRuntimePreset(), state, deposit, {}).isOk
+  doAssert process_deposit(defaultRuntimeConfig, state, deposit, {}).isOk
   doAssert state.validators.len == pre_val_count + 1
   doAssert state.balances.len == pre_val_count + 1
   doAssert state.balances[validator_index] == pre_balance + deposit.data.amount
@@ -63,15 +63,19 @@ proc getTestStates*(
     tmpState = assignClone(initialState)
     cache = StateCache()
     rewards = RewardInfo()
+    cfg = defaultRuntimeConfig
+
+  if useAltair:
+    cfg.ALTAIR_FORK_EPOCH = 1.Epoch
 
   for i, epoch in stateEpochs:
     let slot = epoch.Epoch.compute_start_slot_at_epoch
     if getStateField(tmpState[], slot) < slot:
       doAssert process_slots(
-        tmpState[], slot, cache, rewards, {}, FAR_FUTURE_SLOT)
+        cfg, tmpState[], slot, cache, rewards, {})
 
     if useAltair and epoch == 1:
-      maybeUpgradeStateToAltair(tmpState[], slot)
+      maybeUpgradeStateToAltair(cfg, tmpState[])
 
     if i mod 3 == 0:
       if tmpState[].beaconStateFork == forkPhase0:

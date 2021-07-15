@@ -167,15 +167,15 @@ if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
   rm -rf "${DATA_DIR}"
 fi
 
-mkdir -m 0700 -p "${DATA_DIR}"
+scripts/makedir.sh "${DATA_DIR}"
 
 DEPOSITS_FILE="${DATA_DIR}/deposits.json"
 
 VALIDATORS_DIR="${DATA_DIR}/validators"
-mkdir -p "${VALIDATORS_DIR}"
+scripts/makedir.sh "${VALIDATORS_DIR}"
 
 SECRETS_DIR="${DATA_DIR}/secrets"
-mkdir -p "${SECRETS_DIR}"
+scripts/makedir.sh "${SECRETS_DIR}"
 
 NETWORK_DIR="${DATA_DIR}/network_dir"
 mkdir -p "${NETWORK_DIR}"
@@ -208,11 +208,11 @@ $MAKE -j ${NPROC} LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:testnet_serv
 
 PIDS=""
 WEB3_ARG=""
-GENESIS_DATA_PATH=""
 BOOTSTRAP_TIMEOUT=30 # in seconds
 DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
 NETWORK_METADATA_FILE="${DATA_DIR}/network.json"
+RUNTIME_CONFIG_FILE="${DATA_DIR}/config.yaml"
 NUM_JOBS=${NUM_NODES}
 
 if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
@@ -231,15 +231,14 @@ if [[ $USE_GANACHE == "0" ]]; then
     --data-dir="${DATA_DIR}" \
     --deposits-file="${DEPOSITS_FILE}" \
     --total-validators=${TOTAL_VALIDATORS} \
-    --output-genesis="${NETWORK_DIR}/genesis.ssz" \
-    --output-bootstrap-file="${NETWORK_DIR}/bootstrap_nodes.txt" \
+    --output-genesis="${DATA_DIR}/genesis.ssz" \
+    --output-bootstrap-file="${DATA_DIR}/bootstrap_nodes.txt" \
     --bootstrap-address=${BOOTSTRAP_IP} \
     --bootstrap-port=${BASE_PORT} \
     --netkey-file=network_key.json \
     --insecure-netkey-password=true \
     --genesis-offset=${GENESIS_OFFSET} # Delay in seconds
 
-  GENESIS_DATA_PATH="\"genesisDataPath\": \"${NETWORK_DIR}/genesis.ssz\","
 else
   echo "Launching ganache"
   ganache-cli --blockTime 17 --gasLimit 100000000 -e 100000 --verbose > "${DATA_DIR}/log_ganache.txt" 2>&1 &
@@ -279,16 +278,20 @@ fi
 echo Wrote $NETWORK_METADATA_FILE:
 tee "$NETWORK_METADATA_FILE" <<EOF
 {
-  $GENESIS_DATA_PATH
-  "runtimePreset": {
-    "MIN_GENESIS_ACTIVE_VALIDATOR_COUNT": ${TOTAL_VALIDATORS},
-    "MIN_GENESIS_TIME": 0,
-    "GENESIS_DELAY": 10,
-    "GENESIS_FORK_VERSION": "0x00000000"
-  },
-  "depositContractAddress": "${DEPOSIT_CONTRACT_ADDRESS}",
   "depositContractDeployedAt": "${DEPOSIT_CONTRACT_BLOCK}"
 }
+EOF
+
+echo Wrote $RUNTIME_CONFIG_FILE:
+
+tee "$RUNTIME_CONFIG_FILE" <<EOF
+PRESET_BASE: "$CONST_PRESET"
+MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${TOTAL_VALIDATORS}
+MIN_GENESIS_TIME: 0
+GENESIS_DELAY: 10
+GENESIS_FORK_VERSION: 0x00000000
+DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
+ETH1_FOLLOW_DISTANCE: 1
 EOF
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
@@ -335,6 +338,43 @@ BOOTSTRAP_ENR="${DATA_DIR}/node${BOOTSTRAP_NODE}/beacon_node.enr"
 NETWORK_KEYFILE="../network_key.json"
 
 for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
+  # Copy validators to individual nodes.
+  # The first $NODES_WITH_VALIDATORS nodes split them equally between them,
+  # after skipping the first $USER_VALIDATORS.
+  NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
+  rm -rf "${NODE_DATA_DIR}"
+  scripts/makedir.sh "${NODE_DATA_DIR}" 2>&1
+  scripts/makedir.sh "${NODE_DATA_DIR}/validators" 2>&1
+  scripts/makedir.sh "${NODE_DATA_DIR}/secrets" 2>&1
+
+  if [[ $NUM_NODE -lt $NODES_WITH_VALIDATORS ]]; then
+    if [ "${USE_VC:-}" == "1" ]; then
+      VALIDATOR_DATA_DIR="${DATA_DIR}/validator${NUM_NODE}"
+      rm -rf "${VALIDATOR_DATA_DIR}"
+      scripts/makedir.sh "${VALIDATOR_DATA_DIR}" 2>&1
+      scripts/makedir.sh "${VALIDATOR_DATA_DIR}/validators" 2>&1
+      scripts/makedir.sh "${VALIDATOR_DATA_DIR}/secrets" 2>&1
+      for VALIDATOR in $(ls "${VALIDATORS_DIR}" | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_VALIDATOR * $NUM_NODE) + 1 + $VALIDATOR_OFFSET )) | head -n $VALIDATORS_PER_VALIDATOR); do
+        cp -a "${VALIDATORS_DIR}/${VALIDATOR}" "${VALIDATOR_DATA_DIR}/validators/" 2>&1
+        cp -a "${SECRETS_DIR}/${VALIDATOR}" "${VALIDATOR_DATA_DIR}/secrets/" 2>&1
+      done
+      if [[ $OS = "Windows_NT" ]]; then
+        find "${VALIDATOR_DATA_DIR}" -type f \( -iname "*.json" -o ! -iname "*.*" \) -exec icacls "{}" /inheritance:r /grant:r ${USERDOMAIN}\\${USERNAME}:\(F\) \;
+      fi
+    fi
+    for VALIDATOR in $(ls "${VALIDATORS_DIR}" | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
+      cp -a "${VALIDATORS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/validators/" 2>&1
+      cp -a "${SECRETS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/secrets/" 2>&1
+    done
+    if [[ $OS = "Windows_NT" ]]; then
+      find "${NODE_DATA_DIR}" -type f \( -iname "*.json" -o ! -iname "*.*" \) -exec icacls "{}" /inheritance:r /grant:r ${USERDOMAIN}\\${USERNAME}:\(F\) \;
+    fi
+  fi
+done
+
+for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
+  NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
+  VALIDATOR_DATA_DIR="${DATA_DIR}/validator${NUM_NODE}"
   if [[ ${NUM_NODE} == ${BOOTSTRAP_NODE} ]]; then
     BOOTSTRAP_ARG="--netkey-file=${NETWORK_KEYFILE} --insecure-netkey-password=true"
   else
@@ -352,37 +392,10 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     done
   fi
 
-  # Copy validators to individual nodes.
-  # The first $NODES_WITH_VALIDATORS nodes split them equally between them, after skipping the first $USER_VALIDATORS.
-  NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
-  rm -rf "${NODE_DATA_DIR}"
-  mkdir -m 0700 -p "${NODE_DATA_DIR}"
-  mkdir -p "${NODE_DATA_DIR}/validators"
-  mkdir -p "${NODE_DATA_DIR}/secrets"
-
-  if [[ $NUM_NODE -lt $NODES_WITH_VALIDATORS ]]; then
-    if [ "${USE_VC:-}" == "1" ]; then
-      VALIDATOR_DATA_DIR="${DATA_DIR}/validator${NUM_NODE}"
-      rm -rf "${VALIDATOR_DATA_DIR}"
-      mkdir -p "${VALIDATOR_DATA_DIR}/validators"
-      mkdir -p "${VALIDATOR_DATA_DIR}/secrets"
-
-      for VALIDATOR in $(ls "${VALIDATORS_DIR}" | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_VALIDATOR * $NUM_NODE) + 1 + $VALIDATOR_OFFSET )) | head -n $VALIDATORS_PER_VALIDATOR); do
-        cp -a "${VALIDATORS_DIR}/$VALIDATOR" "${VALIDATOR_DATA_DIR}/validators/"
-        cp -a "${SECRETS_DIR}/${VALIDATOR}" "${VALIDATOR_DATA_DIR}/secrets/"
-      done
-    fi
-
-    for VALIDATOR in $(ls "${VALIDATORS_DIR}" | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
-      cp -a "${VALIDATORS_DIR}/$VALIDATOR" "${NODE_DATA_DIR}/validators/"
-      cp -a "${SECRETS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/secrets/"
-    done
-  fi
-
   ./build/nimbus_beacon_node \
     --non-interactive \
     --nat:extip:127.0.0.1 \
-    --network="${NETWORK_METADATA_FILE}" \
+    --network="${DATA_DIR}" \
     --log-level="${LOG_LEVEL}" \
     --tcp-port=$(( BASE_PORT + NUM_NODE )) \
     --udp-port=$(( BASE_PORT + NUM_NODE )) \
@@ -391,9 +404,9 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     ${BOOTSTRAP_ARG} \
     ${WEB3_ARG} \
     ${STOP_AT_EPOCH_FLAG} \
-    --rpc \
-    --rpc-address="127.0.0.1" \
-    --rpc-port="$(( BASE_RPC_PORT + NUM_NODE ))" \
+    --rest \
+    --rest-address="127.0.0.1" \
+    --rest-port="$(( BASE_RPC_PORT + NUM_NODE ))" \
     --metrics \
     --metrics-address="127.0.0.1" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
@@ -412,7 +425,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
       --log-level="${LOG_LEVEL}" \
       ${STOP_AT_EPOCH_FLAG} \
       --data-dir="${VALIDATOR_DATA_DIR}" \
-      --rpc-port="$(( BASE_RPC_PORT + NUM_NODE ))" \
+      --beacon-node="http://127.0.0.1:$((BASE_RPC_PORT + NUM_NODE))" \
       > "${DATA_DIR}/log_val${NUM_NODE}.txt" 2>&1 &
   fi
 done
@@ -453,7 +466,11 @@ else
     dump_logs
     dump_logtrace
     if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
-      pkill -HUP -P ${WATCHER_PID}
+      if uname | grep -qiE "mingw|msys"; then
+        taskkill //F //PID ${WATCHER_PID}
+      else
+        pkill -HUP -P ${WATCHER_PID}
+      fi
     fi
     exit 1
   fi
@@ -462,6 +479,9 @@ fi
 dump_logtrace
 
 if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
-  pkill -HUP -P ${WATCHER_PID}
+  if uname | grep -qiE "mingw|msys"; then
+    taskkill //F //PID ${WATCHER_PID}
+  else
+    pkill -HUP -P ${WATCHER_PID}
+  fi
 fi
-

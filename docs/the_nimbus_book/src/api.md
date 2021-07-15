@@ -1,8 +1,8 @@
-# APIs
+# JSON-RPC API
 
-`nimbus-eth2`  exposes a collection of APIs for querying the state of the application at runtime.
+`nimbus-eth2` exposes a collection of APIs for querying the state of the application at runtime.
 
-> **Note:** Where applicable, these APIs mimic the [eth2 APIs](https://github.com/ethereum/eth2.0-APIs) with the exception that JSON-RPC is used instead of http rest (the method names, parameters and results are all the same except for the encoding / access method).
+Where applicable, these APIs mimic the [eth2 APIs](https://github.com/ethereum/eth2.0-APIs) with the exception that `JSON-RPC` is used instead of [http `REST`](./rest-api.md) (the method names, parameters and results are all the same except for the encoding / access method).
 
 ## Introduction
 

@@ -51,18 +51,18 @@ proc runTest(identifier: string) =
         let
           postState =
             newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
-          done = process_attester_slashing(preState[], attesterSlashing,
-                                           {}, cache).isOk
+          done = process_attester_slashing(
+            defaultRuntimeConfig, preState[], attesterSlashing, {}, cache).isOk
         doAssert done, "Valid attestater slashing not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
-        let done = process_attester_slashing(preState[], attesterSlashing,
-                                             {}, cache).isOk
+        let done = process_attester_slashing(
+          defaultRuntimeConfig, preState[], attesterSlashing, {}, cache).isOk
         doAssert done == false, "We didn't expect this invalid attester slashing to be processed."
 
   `testImpl _ operations_attester_slashing _ identifier`()
 
 suite "Official - Phase 0 - Operations - Attester slashing " & preset():
-  for kind, path in walkDir(OpAttSlashingDir, true):
+  for kind, path in walkDir(OpAttSlashingDir, relative = true, checkDir = true):
     runTest(path)
