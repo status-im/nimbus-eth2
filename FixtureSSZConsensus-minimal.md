@@ -25,11 +25,11 @@ FixtureSSZConsensus-minimal
 + Rewards - full_random_1 [Preset: minimal]                                                  OK
 + Rewards - full_random_2 [Preset: minimal]                                                  OK
 + Rewards - full_random_3 [Preset: minimal]                                                  OK
-+ Rewards - full_random_five_epoch_leak [Preset: minimal]                                    OK
 + Rewards - full_random_leak [Preset: minimal]                                               OK
 + Rewards - full_random_low_balances_0 [Preset: minimal]                                     OK
 + Rewards - full_random_low_balances_1 [Preset: minimal]                                     OK
 + Rewards - full_random_misc_balances [Preset: minimal]                                      OK
++ Rewards - full_random_seven_epoch_leak [Preset: minimal]                                   OK
 + Rewards - full_random_ten_epoch_leak [Preset: minimal]                                     OK
 + Rewards - half_full [Preset: minimal]                                                      OK
 + Rewards - half_full_leak [Preset: minimal]                                                 OK
