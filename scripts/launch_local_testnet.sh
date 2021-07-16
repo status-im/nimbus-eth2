@@ -278,9 +278,9 @@ PRESET_BASE: ${CONST_PRESET}
 MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${TOTAL_VALIDATORS}
 MIN_GENESIS_TIME: 0
 GENESIS_DELAY: 10
-GENESIS_FORK_VERSION: 0x00000000
 DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
 ETH1_FOLLOW_DISTANCE: 1
+ALTAIR_FORK_EPOCH: 2
 EOF
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
@@ -400,6 +400,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --metrics-address="127.0.0.1" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
     --doppelganger-detection=off \
+    --subscribe-all-subnets \
     ${EXTRA_ARGS} \
     > "${DATA_DIR}/log${NUM_NODE}.txt" 2>&1 &
 

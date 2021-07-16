@@ -616,7 +616,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http202, BlockValidationError)
     else:
       let res = await proposeSignedBlock(
-        node, head, AttachedValidator(), blck)
+        node, head, AttachedValidator(), ForkedSignedBeaconBlock.init(blck))
       if res == head:
         # TODO altair-transition, but not for immediate testnet-priority
         let blocksTopic = getBeaconBlocksTopic(node.dag.forkDigests.phase0)

@@ -207,13 +207,13 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     var res: NodePeerCountTuple
     for item in node.network.peers.values():
       case item.connectionState
-      of Connecting:
+      of ConnectionState.Connecting:
         inc(res.connecting)
-      of Connected:
+      of ConnectionState.Connected:
         inc(res.connected)
-      of Disconnecting:
+      of ConnectionState.Disconnecting:
         inc(res.disconnecting)
-      of Disconnected:
+      of ConnectionState.Disconnected:
         inc(res.disconnected)
       of ConnectionState.None:
         discard

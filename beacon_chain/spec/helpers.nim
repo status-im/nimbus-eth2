@@ -41,6 +41,12 @@ template epoch*(slot: Slot): Epoch =
 template isEpoch*(slot: Slot): bool =
   (slot mod SLOTS_PER_EPOCH) == 0
 
+template syncCommitteePeriod*(epoch: Epoch): uint64 =
+  epoch div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+
+template syncCommitteePeriod*(slot: Slot): uint64 =
+  epoch(slot) div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
 func compute_start_slot_at_epoch*(epoch: Epoch): Slot =
   ## Return the start slot of ``epoch``.
@@ -189,3 +195,4 @@ func add_flag*(flags: ParticipationFlags, flag_index: int): ParticipationFlags =
 func has_flag*(flags: ParticipationFlags, flag_index: int): bool =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   (flags and flag) == flag
+

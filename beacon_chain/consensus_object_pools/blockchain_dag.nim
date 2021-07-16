@@ -125,7 +125,7 @@ func validatorKey*(
   ## at any point in time - this function may return pubkeys for indicies that
   ## are not (yet) part of the head state (if the key has been observed on a
   ## non-head branch)!
-  dag.db.immutableValidators.load(index)
+  dag.db.immutableValidators.byIndex.load(index)
 
 func validatorKey*(
     epochRef: EpochRef, index: ValidatorIndex or uint64): Option[CookedPubKey] =
@@ -149,7 +149,22 @@ func init*(
         getStateField(state.data, current_justified_checkpoint),
       finalized_checkpoint: getStateField(state.data, finalized_checkpoint),
       shuffled_active_validator_indices:
-        cache.get_shuffled_active_validator_indices(state.data, epoch))
+        cache.get_shuffled_active_validator_indices(state.data, epoch),
+      sync_committee:
+        case state.data.beaconStateFork
+        of forkAltair:
+          mapIt(
+            state.data.hbsAltair.data.current_sync_committee.pubkeys,
+            block:
+              try:
+                dag.db.immutableValidators.validatorIdx(it)
+              except KeyError:
+                raiseAssert "the validator keys are valid"
+          )
+        of forkPhase0:
+          @[]
+      )
+
   for i in 0'u64..<SLOTS_PER_EPOCH:
     epochRef.beacon_proposers[i] = get_beacon_proposer_index(
       state.data, cache, epoch.compute_start_slot_at_epoch() + i)
@@ -454,6 +469,9 @@ proc init*(T: type ChainDAGRef,
 
   dag
 
+template genesisValidatorsRoot*(dag: ChainDAGRef): Eth2Digest =
+  getStateField(dag.headState.data, genesis_validators_root)
+
 func getEpochRef*(
     dag: ChainDAGRef, state: StateData, cache: var StateCache): EpochRef =
   let
@@ -543,6 +561,9 @@ func stateCheckpoint*(bs: BlockSlot): BlockSlot =
   while not isStateCheckPoint(bs):
     bs = bs.parentOrSlot
   bs
+
+template forkAtSlot*(dag: ChainDAGRef, slot: Slot): Fork =
+  forkAtSlot(dag.cfg, slot)
 
 proc forkDigestAtSlot*(dag: ChainDAGRef, slot: Slot): ForkDigest =
   if slot.epoch < dag.cfg.ALTAIR_FORK_EPOCH:
@@ -955,6 +976,52 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     currentCandidateHeads = dag.heads.len,
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
+
+proc syncSubcommittee*(syncCommittee: openarray[ValidatorIndex],
+                       subnetId: SubnetId): seq[ValidatorIndex] =
+  ## TODO Return a view type
+  ## Unfortunately, this doesn't work as a template right now.
+  if syncCommittee.len == 0:
+    return @[]
+
+  let
+    startIdx = subnetId.int * SYNC_SUBCOMMITTEE_SIZE
+    onePastEndIdx = startIdx + SYNC_SUBCOMMITTEE_SIZE
+  doAssert startIdx < syncCommittee.len
+
+  @(toOpenArray(syncCommittee, startIdx, onePastEndIdx - 1))
+
+proc getSubcommitteePosition*(dag: ChainDAGRef,
+                              blockRef: BlockRef,
+                              committeeIdx: SubnetId,
+                              validatorIdx: ValidatorIndex): Option[uint64] =
+  let epochRef = dag.getEpochRef(blockRef, blockRef.slot.epoch)
+  for pos, valIdx in epochRef.sync_committee.syncSubcommittee(committeeIdx):
+    if valIdx == validatorIdx:
+      return some uint64(pos)
+
+template syncCommitteeParticipants*(dag: ChainDAGRef,
+                                    blockRef: BlockRef): openarray[ValidatorIndex] =
+  dag.getEpochRef(blockRef, blockRef.slot.epoch).sync_committee
+
+template syncCommitteeParticipants*(
+    dag: ChainDAGRef,
+    blockRef: BlockRef,
+    committeeIdx: SubnetId): seq[ValidatorIndex] =
+  let
+    startIdx = committeeIdx.int * SYNC_SUBCOMMITTEE_SIZE
+    onePastEndIdx = startIdx + SYNC_SUBCOMMITTEE_SIZE
+  # TODO Nim is not happy with returning an openarray here
+  @(toOpenArray(dag.syncCommitteeParticipants(blockRef), startIdx, onePastEndIdx - 1))
+
+iterator syncCommitteeParticipants*(
+    dag: ChainDAGRef,
+    blockRef: BlockRef,
+    committeeIdx: SubnetId,
+    aggregationBits: SyncCommitteeAggregationBits): ValidatorIndex =
+  for pos, valIdx in pairs(dag.syncCommitteeParticipants(blockRef, committeeIdx)):
+    if aggregationBits[pos]:
+      yield valIdx
 
 func needStateCachesAndForkChoicePruning*(dag: ChainDAGRef): bool =
   dag.lastPrunePoint != dag.finalizedHead
