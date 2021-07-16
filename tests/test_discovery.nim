@@ -122,7 +122,7 @@ suite "Eth2 specific discovery tests":
       check node2.updateRecord(
         {"eth2": SSZ.encode(enrForkId), "attnets": SSZ.encode(attnets)}).isOk()
 
-      let nodes = await node1.findNode(node2.localNode, @[0'u32])
+      let nodes = await node1.findNode(node2.localNode, @[0'u16])
       check nodes.isOk() and nodes[].len > 0
       discard node1.addNode(nodes[][0])
 
