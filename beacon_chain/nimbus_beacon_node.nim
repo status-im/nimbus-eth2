@@ -1050,7 +1050,7 @@ proc startSyncManager(node: BeaconNode) =
       true
 
   proc onDeletePeer(peer: Peer) =
-    if peer.connectionState notin {Disconnecting, Disconnected}:
+    if peer.connectionState notin {Disconnecting, ConnectionState.Disconnected}:
       if peer.score < PeerScoreLowLimit:
         debug "Peer was removed from PeerPool due to low score", peer = peer,
               peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
