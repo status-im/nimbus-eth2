@@ -11,9 +11,8 @@ import
   std/math,
   stew/results,
   chronicles, chronos, metrics,
-  ../spec/[
-    crypto, datatypes/phase0, datatypes/altair, digest,
-    forkedbeaconstate_helpers],
+  ../spec/datatypes/[phase0, altair],
+  ../spec/[crypto, digest, forkedbeaconstate_helpers],
   ../consensus_object_pools/[block_clearance, blockchain_dag, attestation_pool],
   ./consensus_manager,
   ".."/[beacon_clock, beacon_node_types],
@@ -123,7 +122,8 @@ proc addBlock*(
   # sanity check
   try:
     self.blocksQueue.addLastNoWait(BlockEntry(
-      blck: blck, resfut: resfut, queueTick: Moment.now(),
+      blck: blck,
+      resfut: resfut, queueTick: Moment.now(),
       validationDur: validationDur))
   except AsyncQueueFullError:
     raiseAssert "unbounded queue"
