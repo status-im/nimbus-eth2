@@ -317,14 +317,14 @@ jobs:
         shell: bash
         working-directory: nim-beacon-chain
         run: |
-          ./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port 9000 --base-rpc-port 7000  --base-metrics-port 8008 --timeout 600 -- --verify-finalization --discv5:no
+          ./scripts/launch_local_testnet.sh --preset minimal --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port 9000 --base-rpc-port 7000  --base-metrics-port 8008 --timeout 600 -- --verify-finalization --discv5:no
 
       - name: Run nim-beacon-chain testnet1 (mainnet)
         if: matrix.target.TEST_KIND == 'finalization-mainnet'
         shell: bash
         working-directory: nim-beacon-chain
         run: |
-          ./scripts/launch_local_testnet.sh --testnet 1 --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port 9000 --base-rpc-port 7000 --base-metrics-port 8008 --timeout 2400 -- --verify-finalization --discv5:no
+          ./scripts/launch_local_testnet.sh --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port 9000 --base-rpc-port 7000 --base-metrics-port 8008 --timeout 2400 -- --verify-finalization --discv5:no
 
   publish-test-results:
     name: "Publish Unit Tests Results"

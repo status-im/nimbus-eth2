@@ -14,7 +14,7 @@ get_genesis_hash.sh` to verify that Catalyst is properly configured.
 # How to run Nimbus
 
 - Check out branch `quick-merge-v1`
-- Run `./scripts/launch_local_testnet.sh --testnet 0 --nodes 4 --disable-htop --stop-at-epoch 8 -- --verify-finalization --discv5:no`
+- Run `./scripts/launch_local_testnet.sh --nodes 4 --disable-htop --stop-at-epoch 8 -- --verify-finalization --discv5:no`
 
 ![./rayonism_catalyst_logs.png](./rayonism_catalyst_logs.png)
 

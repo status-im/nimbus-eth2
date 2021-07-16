@@ -36,7 +36,6 @@ BEACON_NODE_BIN="${GIT_ROOT}/build/nimbus_beacon_node"
 VALIDATOR_CLIENT_BIN="${GIT_ROOT}/build/nimbus_validator_client"
 DEPOSIT_CONTRACT_BIN="${GIT_ROOT}/build/deposit_contract"
 BOOTSTRAP_ENR_FILE="${SIMULATION_DIR}/node-${BOOTSTRAP_NODE}/beacon_node.enr"
-NETWORK_METADATA_FILE="${SIMULATION_DIR}/network.json"
 RUNTIME_CONFIG_FILE="${SIMULATION_DIR}/config.yaml"
 DEPOSITS_FILE="${SIMULATION_DIR}/deposits.json"
 

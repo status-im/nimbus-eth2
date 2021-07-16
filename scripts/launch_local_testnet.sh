@@ -32,10 +32,9 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,testnet:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rpc-port:,base-metrics-port:,reuse-existing-data-dir,timeout:"
+LONGOPTS="help,preset:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rpc-port:,base-metrics-port:,reuse-existing-data-dir,timeout:"
 
 # default values
-TESTNET="1"
 NUM_NODES="10"
 DATA_DIR="local_testnet_data"
 USE_HTOP="1"
@@ -49,20 +48,21 @@ REUSE_EXISTING_DATA_DIR="0"
 ENABLE_LOGTRACE="0"
 STOP_AT_EPOCH_FLAG=""
 TIMEOUT_DURATION="0"
+CONST_PRESET="mainnet"
 
 print_help() {
   cat <<EOF
-Usage: $(basename "$0") --testnet <testnet number> [OTHER OPTIONS] -- [BEACON NODE OPTIONS]
-E.g.: $(basename "$0") --testnet ${TESTNET} --nodes ${NUM_NODES} --stop-at-epoch 5 --data-dir "${DATA_DIR}" # defaults
+Usage: $(basename "$0") [OPTIONS] -- [BEACON NODE OPTIONS]
+E.g.: $(basename "$0") --nodes ${NUM_NODES} --stop-at-epoch 5 --data-dir "${DATA_DIR}" # defaults
 CI run: $(basename "$0") --disable-htop -- --verify-finalization
 
   -h, --help                  this help message
-  -t, --testnet               testnet number (default: ${TESTNET})
   -n, --nodes                 number of nodes to launch (default: ${NUM_NODES})
   -g, --with-ganache          simulate a genesis event based on a deposit contract
   -s, --stop-at-epoch         stop simulation at epoch (default: infinite)
   -d, --data-dir              directory where all the node data and logs will end up
                               (default: "${DATA_DIR}")
+  --preset                    Const preset to be (default: mainnet)
   --base-port                 bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
   --base-rpc-port             bootstrap node's RPC port (default: ${BASE_RPC_PORT})
   --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
@@ -89,10 +89,6 @@ while true; do
       print_help
       exit
       ;;
-    -t|--testnet)
-      TESTNET="$2"
-      shift 2
-      ;;
     -n|--nodes)
       NUM_NODES="$2"
       shift 2
@@ -104,6 +100,10 @@ while true; do
     -g|--with-ganache)
       USE_GANACHE="1"
       shift
+      ;;
+    --preset)
+      CONST_PRESET="$2"
+      shift 2
       ;;
     --stop-at-epoch)
       STOP_AT_EPOCH_FLAG="--stop-at-epoch=$2"
@@ -161,7 +161,6 @@ EXTRA_ARGS="$@"
 if [[ $# != 0 ]]; then
   shift $#
 fi
-NETWORK="testnet${TESTNET}"
 
 if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
   rm -rf "${DATA_DIR}"
@@ -180,9 +179,8 @@ scripts/makedir.sh "${SECRETS_DIR}"
 NETWORK_DIR="${DATA_DIR}/network_dir"
 mkdir -p "${NETWORK_DIR}"
 
-set -a
-source "scripts/${NETWORK}.env"
-set +a
+USER_VALIDATORS=8
+TOTAL_VALIDATORS=128
 
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
@@ -203,15 +201,14 @@ BINARIES="nimbus_beacon_node nimbus_signing_process nimbus_validator_client depo
 if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
   BINARIES="${BINARIES} logtrace"
 fi
-NETWORK_NIM_FLAGS=$(scripts/load-testnet-nim-flags.sh "${NETWORK}")
-$MAKE -j ${NPROC} LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:testnet_servers_image -d:local_testnet ${NETWORK_NIM_FLAGS}" ${BINARIES}
+
+$MAKE -j ${NPROC} LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:testnet_servers_image -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
 
 PIDS=""
 WEB3_ARG=""
 BOOTSTRAP_TIMEOUT=30 # in seconds
 DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
-NETWORK_METADATA_FILE="${DATA_DIR}/network.json"
 RUNTIME_CONFIG_FILE="${DATA_DIR}/config.yaml"
 NUM_JOBS=${NUM_NODES}
 
@@ -274,18 +271,10 @@ fi
     --base-metrics-port ${BASE_METRICS_PORT} \
     --config-file "${DATA_DIR}/prometheus.yml" || true # TODO: this currently fails on macOS,
                                                        # but it can be considered non-critical
-
-echo Wrote $NETWORK_METADATA_FILE:
-tee "$NETWORK_METADATA_FILE" <<EOF
-{
-  "depositContractDeployedAt": "${DEPOSIT_CONTRACT_BLOCK}"
-}
-EOF
-
 echo Wrote $RUNTIME_CONFIG_FILE:
 
 tee "$RUNTIME_CONFIG_FILE" <<EOF
-PRESET_BASE: "$CONST_PRESET"
+PRESET_BASE: ${CONST_PRESET}
 MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${TOTAL_VALIDATORS}
 MIN_GENESIS_TIME: 0
 GENESIS_DELAY: 10
