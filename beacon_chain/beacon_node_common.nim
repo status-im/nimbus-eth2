@@ -32,12 +32,6 @@ export
 type
   RpcServer* = RpcHttpServer
 
-  GossipState* = enum
-    Disconnected
-    ConnectedToPhase0
-    InTransitionToAltair
-    ConnectedToAltair
-
   BeaconNode* = ref object
     nickname*: string
     graffitiBytes*: GraffitiBytes
@@ -49,7 +43,6 @@ type
     dag*: ChainDAGRef
     quarantine*: QuarantineRef
     attestationPool*: ref AttestationPool
-    syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     exitPool*: ref ExitPool
     eth1Monitor*: Eth1Monitor
     rpcServer*: RpcServer
@@ -63,8 +56,6 @@ type
     blockProcessor*: ref BlockProcessor
     consensusManager*: ref ConsensusManager
     attachedValidatorBalanceTotal*: uint64
-    syncCommitteesUpdatedAt*: Option[Epoch]
-    gossipState*: GossipState
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
