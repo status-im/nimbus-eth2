@@ -342,27 +342,30 @@ template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
                        RestBeaconNodeStatus.Uninitalized}
     let offlineNodes = vc.beaconNodes.filterIt(it.status in offlineMask)
 
-    warn "There no beacon nodes available, refreshing nodes status",
+    warn "There no working beacon nodes available, refreshing nodes status",
          online_nodes = len(onlineNodes), offline_nodes = len(offlineNodes)
 
     var checkFut = vc.checkNodes(offlineMask)
 
     let checkOp =
       block:
-        var dontRushFut = sleepAsync(500.milliseconds)
         if isNil(timerFut):
           try:
             # We use `allFutures()` to keep result in `checkFut`, but still
             # be able to check errors.
-            await allFutures(checkFut, dontRushFut)
+            await allFutures(checkFut)
+            let onlineCount = vc.beaconNodes.countIt(
+                                it.status == RestBeaconNodeStatus.Online)
+            if onlineCount == 0:
+              # Small pause here to avoid continous spam beacon nodes with
+              # checking requests.
+              await sleepAsync(500.milliseconds)
             ApiOperation.Success
           except CancelledError:
             # `allFutures()` could not cancel Futures.
             if not(checkFut.finished()):
               checkFut.cancel()
-            if not(dontRushFut.finished()):
-              dontRushFut.cancel()
-            await allFutures(checkFut, dontRushFut)
+            await allFutures(checkFut)
             ApiOperation.Interrupt
           except CatchableError as exc:
             # This only could happened if `race()` or `allFutures()` start raise
@@ -370,24 +373,26 @@ template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
             ApiOperation.Failure
         else:
           try:
-            discard await race(allFutures(checkFut, dontRushFut), timerFut)
+            discard await race(checkFut, timerFut)
             if checkFut.finished():
+              let onlineCount = vc.beaconNodes.countIt(
+                                  it.status == RestBeaconNodeStatus.Online)
+              if onlineCount == 0:
+                # Small pause here to avoid continous spam beacon nodes with
+                # checking requests.
+                await sleepAsync(500.milliseconds)
               ApiOperation.Success
             else:
               checkFut.cancel()
-              if not(dontRushFut.finished()):
-                dontRushFut.cancel()
-              await allFutures(checkFut, dontRushFut)
+              await allFutures(checkFut)
               ApiOperation.Timeout
           except CancelledError:
             # `race()` and `allFutures()` could not cancel Futures.
             if not(timerFut.finished()):
               timerFut.cancel()
-            if not(dontRushFut.finished()):
-              dontRushFut.cancel()
             if not(checkFut.finished()):
               checkFut.cancel()
-            await allFutures(checkFut, dontRushFut, timerFut)
+            await allFutures(checkFut, timerFut)
             ApiOperation.Interrupt
           except CatchableError as exc:
             # This only could happened if `race` or `allFutures` start raise
