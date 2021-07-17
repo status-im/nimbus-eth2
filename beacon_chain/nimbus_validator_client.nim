@@ -186,10 +186,10 @@ programMain:
         fatal "Not enough beacon nodes in command line"
         quit 1
 
-      debug "Launching validator client", version = fullVersionStr,
-                                          cmdParams = commandLineParams(),
-                                          config,
-                                          beacon_nodes_count = len(beaconNodes)
+      notice "Launching validator client", version = fullVersionStr,
+                                           cmdParams = commandLineParams(),
+                                           config,
+                                           beacon_nodes_count = len(beaconNodes)
 
       var vc = ValidatorClientRef(
         config: config,

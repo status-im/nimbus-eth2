@@ -5,11 +5,6 @@ logScope: service = "block_service"
 
 proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                   validator: AttachedValidator) {.async.} =
-  logScope:
-    validator = validator.pubKey
-    slot = slot
-    wallSlot = currentSlot
-
   let
     genesisRoot = vc.beaconGenesis.genesis_validators_root
     graffiti =
@@ -19,21 +14,26 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
         defaultGraffitiBytes()
     fork = vc.fork.get()
 
-  debug "Publishing block", validator = validator.pubKey,
+  debug "Publishing block", validator = shortLog(validator),
                             delay = vc.getDelay(ZeroDuration),
+                            wall_slot = currentSlot,
                             genesis_root = genesisRoot,
                             graffiti = graffiti, fork = fork, slot = slot,
                             wall_slot = currentSlot
-
   try:
     let randaoReveal = await validator.genRandaoReveal(fork, genesisRoot, slot)
     let beaconBlock =
       try:
         await vc.produceBlock(slot, randaoReveal, graffiti)
-      except ValidatorApiError as exc:
-        error "Unable to retrieve block data", slot = currentSlot,
-              validator = validator.pubKey
+      except ValidatorApiError:
+        error "Unable to retrieve block data", slot = slot,
+              wall_slot = currentSlot, validator = shortLog(validator)
         return
+      except CatchableError as exc:
+        error "An unexpected error occurred while getting block data",
+              err_name = exc.name, err_msg = exc.msg
+        return
+
     let blockRoot = hash_tree_root(beaconBlock)
     var signedBlock = SignedBeaconBlock(message: beaconBlock,
                                         root: hash_tree_root(beaconBlock))
@@ -55,28 +55,33 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
         try:
           await vc.publishBlock(signedBlock)
         except ValidatorApiError:
-          error "Unable to submit block", slot = currentSlot,
-            validator = validator.pubKey, block_root = blockRoot,
-            deposits = len(signedBlock.message.body.deposits),
-            attestations = len(signedBlock.message.body.attestations),
-            graffiti = graffiti
+          error "Unable to publish block", blck = shortLog(signedBlock.message),
+                blockRoot = shortLog(blockRoot),
+                validator = shortLog(validator),
+                validator_index = validator.index.get(),
+                wall_slot = currentSlot
+          return
+        except CatchableError as exc:
+          error "An unexpected error occurred while publishing block",
+                err_name = exc.name, err_msg = exc.msg
           return
       if res:
-        notice "Block published", slot = currentSlot,
-          validator = validator.pubKey, validator_index = validator.index.get(),
-          deposits = len(signedBlock.message.body.deposits),
-          attestations = len(signedBlock.message.body.attestations),
-          graffiti = graffiti
+        notice "Block proposed", blck = shortLog(signedBlock.message),
+          blockRoot = shortLog(blockRoot), validator = shortLog(validator),
+          validator_index = validator.index.get()
       else:
-        warn "Block was not accepted by beacon node", slot = currentSlot,
-          validator = validator.pubKey, validator_index = validator.index.get(),
-          deposits = len(signedBlock.message.body.deposits),
-          attestations = len(signedBlock.message.body.attestations),
-          graffiti = graffiti
+        warn "Block was not accepted by beacon node",
+          blck = shortLog(signedBlock.message),
+          blockRoot = shortLog(blockRoot),
+          validator = shortLog(validator),
+          validator_index = validator.index.get(),
+          wall_slot = currentSlot
     else:
       warn "Slashing protection activated for block proposal",
-           slot = currentSlot, validator = validator.pubKey,
+           blck = shortLog(beaconBlock), blockRoot = shortLog(blockRoot),
+           validator = shortLog(validator),
            validator_index = validator.index.get(),
+           wall_slot = currentSlot,
            existingProposal = notSlashable.error
   except CatchableError as exc:
     error "Unexpected error happens while proposing block",
@@ -87,25 +92,27 @@ proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
   let (inFuture, timeToSleep) = vc.beaconClock.fromNow(slot)
   try:
     if inFuture:
-      debug "Proposing block", timeIn = timeToSleep, validator = proposerKey
+      debug "Proposing block", timeIn = timeToSleep,
+                               validator = shortLog(proposerKey)
       await sleepAsync(timeToSleep)
     else:
-      debug "Proposing block", timeIn = 0.seconds, validator = proposerKey
+      debug "Proposing block", timeIn = 0.seconds,
+                               validator = shortLog(proposerKey)
 
     let sres = vc.getCurrentSlot()
     if sres.isSome():
       let currentSlot = sres.get()
-      # We need to check that we still have validator in our pool.
-      let validator = vc.attachedValidators.getValidator(proposerKey)
-      if isNil(validator):
-        debug "Validator is not present in pool anymore, exiting",
-              validator = proposerKey
-        return
+      let validator =
+        block:
+          let res = vc.getValidator(proposerKey)
+          if res.isNone():
+            return
+          res.get()
       await vc.publishBlock(currentSlot, slot, validator)
 
   except CancelledError:
-    debug "Proposing task was cancelled", slot = slot, validator = proposerKey
-
+    debug "Proposing task was cancelled", slot = slot,
+                                          validator = shortLog(proposerKey)
 
 proc spawnProposalTask(vc: ValidatorClientRef,
                        duty: RestProposerDuty): ProposerTask =
@@ -142,18 +149,20 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
             if task notin duties:
               # Task is no more relevant, so cancel it.
               debug "Cancelling running proposal duty task",
-                    slot = task.duty.slot, validator = task.duty.pubkey
+                    slot = task.duty.slot,
+                    validator = shortLog(task.duty.pubkey)
               task.future.cancel()
             else:
               # If task is already running for proper slot, we keep it alive.
               debug "Keep running previous proposal duty task",
-                    slot = task.duty.slot, validator = task.duty.pubkey
+                    slot = task.duty.slot,
+                    validator = shortLog(task.duty.pubkey)
               res.add(task)
 
           for duty in duties:
             if duty notin res:
               debug "New proposal duty received", slot = duty.slot,
-                    validator = duty.pubkey
+                    validator = shortLog(duty.pubkey)
               let task = vc.spawnProposalTask(duty)
               if duty.slot in hashset:
                 error "Multiple block proposers for this slot, " &
@@ -171,7 +180,7 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
         var res: seq[ProposerTask]
         for duty in duties:
           debug "New proposal duty received", slot = duty.slot,
-                validator = duty.pubkey
+                validator = shortLog(duty.pubkey)
           let task = vc.spawnProposalTask(duty)
           if duty.slot in hashset:
             error "Multiple block proposers for this slot, " &

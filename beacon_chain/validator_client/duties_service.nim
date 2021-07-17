@@ -48,8 +48,12 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
     let res =
       try:
         await vc.getValidators(idents)
-      except ValidatorApiError as exc:
-        error "Unable to retrieve head state's validator information"
+      except ValidatorApiError:
+        error "Unable to get head state's validator information"
+        return
+      except CatchableError as exc:
+        error "Unexpected error occurred while getting validator information",
+              err_name = exc.name, err_msg = exc.msg
         return
 
     for item in res:
@@ -94,8 +98,12 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
     let res =
       try:
         await vc.getAttesterDuties(epoch, indices)
-      except ValidatorApiError as exc:
-        error "Unable to retrieve attester duties", epoch = epoch
+      except ValidatorApiError:
+        error "Unable to get attester duties", epoch = epoch
+        return 0
+      except CatchableError as exc:
+        error "Unexpected error occured while getting attester duties",
+              epoch = epoch, err_name = exc.name, err_msg = exc.msg
         return 0
 
     if currentRoot.isNone():
@@ -264,9 +272,13 @@ proc pollForBeaconProposers*(vc: ValidatorClientRef) {.async.} =
         else:
           debug "No relevant proposer duties received", slot = currentSlot,
                 duties_count = len(duties)
-      except ValidatorApiError as exc:
-        debug "Unable to retrieve proposer duties", slot = currentSlot,
+      except ValidatorApiError:
+        debug "Unable to get proposer duties", slot = currentSlot,
               epoch = currentEpoch
+      except CatchableError as exc:
+        debug "Unexpected error occured while getting proposer duties",
+              slot = currentSlot, epoch = currentEpoch, err_name = exc.name,
+              err_msg = exc.msg
 
     vc.pruneBeaconProposers(currentEpoch)
 

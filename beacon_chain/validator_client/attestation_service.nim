@@ -13,10 +13,12 @@ type
 proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
                       duty: DutyAndProof): Future[bool] {.async.} =
   let vc = service.client
-  let validator = vc.attachedValidators.getValidator(duty.data.pubkey)
-  if validator.index.isNone():
-    warn "Validator index is missing", validator = validator.pubKey
-    return false
+  let validator =
+    block:
+      let res = vc.getValidator(duty.data.pubkey)
+      if res.isNone():
+        return false
+      res.get()
 
   let fork = vc.fork.get()
 
@@ -32,10 +34,10 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
                                             adata.source.epoch,
                                             adata.target.epoch, signingRoot)
   if notSlashable.isErr():
-    warn "Slashing protection activated for attestation", slot = duty.data.slot,
-         validator = validator.pubKey,
-         validator_index = duty.data.validator_index,
-         badVoteDetails = $notSlashable.error
+    warn "Slashing protection activated for attestation",
+         slot = duty.data.slot,
+         validator = shortLog(validator),
+         validator_index = vindex, badVoteDetails = $notSlashable.error
     return false
 
   let attestation = await validator.produceAndSignAttestation(adata,
@@ -46,24 +48,35 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
   let res =
     try:
       await vc.submitPoolAttestations(@[attestation])
-    except ValidatorApiError as exc:
-      error "Unable to submit attestation", slot = duty.data.slot,
-        validator = validator.pubKey,
-        validator_index = duty.data.validator_index
-      raise exc
+    except ValidatorApiError:
+      error "Unable to publish attestation",
+            attestation = shortLog(attestation),
+            validator = shortLog(validator),
+            validator_index = vindex
+      return false
+    except CatchableError as exc:
+      error "Unexpected error occured while publishing attestation",
+            attestation = shortLog(attestation),
+            validator = shortLog(validator),
+            validator_index = vindex,
+            err_name = exc.name, err_msg = exc.msg
+      return false
 
   let delay = vc.getDelay(seconds(int64(SECONDS_PER_SLOT) div 3))
+  let indexInCommittee = duty.data.validator_committee_index
   if res:
-    notice "Attestation published", validator = validator.pubKey,
-           validator_index = duty.data.validator_index, slot = duty.data.slot,
-           delay = delay
-    return true
+    notice "Attestation sent", attestation = shortLog(attestation),
+                               validator = shortLog(validator),
+                               validator_index = vindex,
+                               delay = delay,
+                               indexInCommittee = indexInCommittee
   else:
     warn "Attestation was not accepted by beacon node",
-         validator = validator.pubKey,
-         validator_index = duty.data.validator_index,
-         slot = duty.data.slot, delay = delay
-    return false
+         attestation = shortLog(attestation),
+         validator = shortLog(validator),
+         validator_index = vindex, delay = delay,
+         indexInCommittee = indexInCommittee
+  return res
 
 proc serveAggregateAndProof*(service: AttestationServiceRef,
                              proof: AggregateAndProof,
@@ -78,15 +91,39 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
                                               genesisRoot)
   let signedProof = SignedAggregateAndProof(message: proof,
                                             signature: signature)
-  try:
-    return await vc.publishAggregateAndProofs(@[signedProof]):
-  except ValidatorApiError:
-    warn "Unable to publish aggregate and proofs"
-    return false
-  except CatchableError as exc:
-    error "Unexpected error happened", err_name = exc.name,
-          err_msg = exc.msg
-    return false
+
+  let aggregationSlot = proof.aggregate.data.slot
+  let vindex = validator.index.get()
+  let res =
+    try:
+      await vc.publishAggregateAndProofs(@[signedProof])
+    except ValidatorApiError:
+      error "Unable to publish aggregated attestation",
+            attestation = shortLog(signedProof.message.aggregate),
+            validator = shortLog(validator),
+            aggregationSlot = aggregationSlot,
+            validator_index = vindex
+      return false
+    except CatchableError as exc:
+      error "Unexpected error occured while publishing aggregated attestation",
+            attestation = shortLog(signedProof.message.aggregate),
+            validator = shortLog(validator),
+            aggregationSlot = aggregationSlot,
+            validator_index = vindex,
+            err_name = exc.name, err_msg = exc.msg
+      return false
+
+  if res:
+    notice "Aggregated attestation sent",
+           attestation = shortLog(signedProof.message.aggregate),
+           validator = shortLog(validator),
+           aggregationSlot = aggregationSlot, validator_index = vindex
+  else:
+    warn "Aggregated attestation was not accepted by beacon node",
+         attestation = shortLog(signedProof.message.aggregate),
+         validator = shortLog(validator),
+         aggregationSlot = aggregationSlot, validator_index = vindex
+  return res
 
 proc produceAndPublishAttestations*(service: AttestationServiceRef,
                                     slot: Slot, committee_index: CommitteeIndex,
@@ -108,7 +145,8 @@ proc produceAndPublishAttestations*(service: AttestationServiceRef,
         if (duty.data.slot != ad.slot) or
            (uint64(duty.data.committee_index) != ad.index):
           error "Inconsistent validator duties during attestation signing",
-                validator = duty.data.pubkey, duty_slot = duty.data.slot,
+                validator = shortLog(duty.data.pubkey),
+                duty_slot = duty.data.slot,
                 duty_index = duty.data.committee_index,
                 attestation_slot = ad.slot, attestation_index = ad.index
           continue
@@ -182,7 +220,13 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
       try:
         await vc.getAggregatedAttestation(slot, attestationRoot)
       except ValidatorApiError:
-        error "Unable to retrieve aggregated attestation data"
+        error "Unable to get aggregated attestation data", slot = slot,
+              attestation_root = shortLog(attestationRoot)
+        return
+      except CatchableError as exc:
+        error "Unexpected error occured while getting aggregated attestation",
+              slot = slot, attestation_root = shortLog(attestationRoot),
+              err_name = exc.name, err_msg = exc.msg
         return
 
     let pendingAggregates =
@@ -219,13 +263,13 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
         (succeed, errored, failed)
 
     let delay = vc.getDelay(seconds((int64(SECONDS_PER_SLOT) div 3) * 2))
-    debug "Aggregate attestation statistics", total = len(pendingAggregates),
-       succeed = statistics[0], failed_to_deliver = statistics[1],
-       not_accepted = statistics[2], delay = delay, slot = slot,
-       committee_index = committeeIndex
+    debug "Aggregated attestation statistics", total = len(pendingAggregates),
+          succeed = statistics[0], failed_to_deliver = statistics[1],
+          not_accepted = statistics[2], delay = delay, slot = slot,
+          committee_index = committeeIndex
 
   else:
-    notice "No aggregate and proofs scheduled for slot", slot = slot,
+    debug "No aggregate and proofs scheduled for slot", slot = slot,
            committee_index = committeeIndex
 
 proc publishAttestationsAndAggregates(service: AttestationServiceRef,
@@ -242,22 +286,26 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
   # TODO (cheatfate): Here should be present timeout.
   let startTime = Moment.now()
   await vc.waitForBlockPublished(slot)
-  let finishTime = Moment.now()
-  debug "Block proposal awaited", slot = slot,
-                                  duration = (finishTime - startTime)
+  let dur = Moment.now() - startTime
+  debug "Block proposal awaited", slot = slot, duration = dur
 
   block:
     let delay = vc.getDelay(seconds(int64(SECONDS_PER_SLOT) div 3))
-    notice "Producing attestations", delay = delay, slot = slot,
-                                     committee_index = committee_index,
-                                     duties_count = len(duties)
+    debug "Producing attestations", delay = delay, slot = slot,
+                                    committee_index = committee_index,
+                                    duties_count = len(duties)
 
   let ad =
     try:
-      await service.produceAndPublishAttestations(slot, committee_index,
-                                                  duties)
+      await service.produceAndPublishAttestations(slot, committee_index, duties)
     except ValidatorApiError:
-      error "Unable to proceed attestations"
+      error "Unable to proceed attestations", slot = slot,
+            committee_index = committee_index, duties_count = len(duties)
+      return
+    except CatchableError as exc:
+      error "Unexpected error while producing attestations", slot = slot,
+            committee_index = committee_index, duties_count = len(duties),
+            err_name = exc.name, err_msg = exc.msg
       return
 
   if aggregateTime != ZeroDuration:
@@ -265,7 +313,7 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
 
   block:
     let delay = vc.getDelay(seconds((int64(SECONDS_PER_SLOT) div 3) * 2))
-    notice "Producing aggregate and proofs", delay = delay
+    debug "Producing aggregate and proofs", delay = delay
   await service.produceAndPublishAggregates(ad, duties)
 
 proc spawnAttestationTasks(service: AttestationServiceRef,
