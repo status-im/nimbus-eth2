@@ -21,6 +21,8 @@ if [ ! -f $NBC_BIN -o ! -f $NSP_BIN ]; then
   exit 1
 fi
 
+PKG_VERSION=$(./$NBC_BIN --version | awk -F[-v] 'NR==1{print $2}')
+
 if [ -z $1 ]; then
   printf "Please provide a Package Architecture!\n"
   exit 1
@@ -30,17 +32,6 @@ else
     printf "Package Architecture options:\n-amd64\n-arm64\n-arm\n"
     exit 1
   fi
-fi
-
-if [ -z $2 ]; then
-  printf "Please provide a Package Version!\n"
-  exit 1
-fi
-
-PKG_VERSION=$2
-if ! [[ "$PKG_VERSION" =~ ^[0-9]+\.[0-9]+ ]]; then
-    echo "Invalid Package Version!"
-    exit 1
 fi
 
 mkdir -p $PKG_IMG_DIR/var/lib/nimbus
