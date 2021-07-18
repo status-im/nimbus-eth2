@@ -1,7 +1,11 @@
 #!/bin/bash
 
 set -e
-adduser --system --no-create-home --group nimbus
+
+if [ ! `sed -n "/^nimbus/p" /etc/passwd` ]; then
+  adduser --system --no-create-home --group nimbus
+fi
+
 chown nimbus:nimbus /var/lib/nimbus
 
 dialog_network() {
