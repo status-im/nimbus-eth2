@@ -7,15 +7,6 @@ After=network-online.target
 WantedBy=multi-user.target
 
 [Service]
-LimitNOFILE=4096
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=nimbus
-PrivateDevices=yes
-PrivateTmp=yes
-ProtectSystem=full
-ProtectHome=yes
-
 User=nimbus
 WorkingDirectory=/var/lib/nimbus
 TimeoutSec=1200
