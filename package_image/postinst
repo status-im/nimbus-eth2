@@ -31,7 +31,7 @@ You should fix this by editing /usr/lib/systemd/system/nimbus.service and settin
   fi
 
   # check for Web3 Provider URL prefixes (https:// or wss://)
-  if [[ !( -z $WEB3_URL ) && !( $WEB3_URL =~ ^https\:\/\/.* || $WEB3_URL =~ ^wss\:\/\/.* ) ]]; then
+  if [[ !( -z $WEB3_URL ) && !( $WEB3_URL =~ ^http\:\/\/.* || $WEB3_URL =~ ^https\:\/\/.* || $WEB3_URL =~ ^ws\:\/\/.* || $WEB3_URL =~ ^wss\:\/\/.* ) ]]; then
     echo "You provided an invalid Eth1 Web3 Provider. This might lead to unexpected behavior on Nimbus.
 You should fix this by editing /usr/lib/systemd/system/nimbus.service and setting proper value on WEB3_URL"
   fi
