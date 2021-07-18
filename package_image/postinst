@@ -4,7 +4,7 @@ set -e
 adduser --system --no-create-home --group nimbus
 chown nimbus:nimbus /var/lib/nimbus
 
-dialog_user() {
+dialog_network() {
   exec 3>&1
 
   NETWORK_DIALOG=(dialog --keep-tite --title "Eth2 Network" --menu "Select Eth2 Network for Nimbus:" 22 76 16)
@@ -14,11 +14,17 @@ dialog_user() {
   )
   NETWORK=$("${NETWORK_DIALOG[@]}" "${OPTIONS[@]}" 2>&1 >/dev/tty)
 
+  echo "Environment=NETWORK=${NETWORK}" >>/usr/lib/systemd/system/nimbus.service
+}
+
+dialog_web3_provider() {
+  exec 3>&1
+
   WEB3_HELP="To monitor the Eth1 validator deposit contract, you'll need to pair the Nimbus beacon node with a Web3 provider capable of serving Eth1 event logs. This could be a locally running Eth1 client such as Geth or a cloud service such as Infura. For more information please see our setup guides:
 
 https://status-im.github.io/nimbus-eth2/eth1.html
 
-Note: please make sure the provider is compatible with the Eth2 Network selected in the previous step (${NETWORK})."
+Note: please make sure the provider is compatible with the selected Eth2 Network (${NETWORK})."
 
   WEB3_URL=$(dialog --title "Eth1 Web3 Provider" \
     --clear \
@@ -36,25 +42,17 @@ You should fix this by editing /usr/lib/systemd/system/nimbus.service and settin
 You should fix this by editing /usr/lib/systemd/system/nimbus.service and setting proper value on WEB3_URL"
   fi
 
-  echo "Environment=NETWORK=${NETWORK}
-Environment=WEB3_URL=${WEB3_URL}
-" >>/usr/lib/systemd/system/nimbus.service
+  echo "Environment=WEB3_URL=${WEB3_URL}" >>/usr/lib/systemd/system/nimbus.service
 }
 
-while true; do
-  read -p "Do you want to be assisted in the configuration of the Nimbus SystemD Service? y/n " yn
-  case $yn in
-  [Yy]*)
-    dialog_user
-    break
-    ;;
-  [Nn]*)
-    echo "Warning: you must manually edit /usr/lib/systemd/system/nimbus.service and setting proper values on NETWORK and WEB3_URL."
-    echo "Environment=NETWORK=${NETWORK}
-Environment=WEB3_URL=${WEB3_URL}
-" >>/usr/lib/systemd/system/nimbus.service
-    exit
-    ;;
-  *) echo "Please answer yes or no." ;;
-  esac
-done
+if [[ -z $NETWORK || !( $NETWORK == "mainnet" || $NETWORK == "pyrmont" || $NETWORK == "prater" ) ]]; then
+  dialog_network
+else
+  echo "Environment=NETWORK=${NETWORK}" >>/usr/lib/systemd/system/nimbus.service
+fi
+
+if [ -z $WEB3_URL ]; then
+  dialog_web3_provider
+else
+  echo "Environment=WEB3_URL=${WEB3_URL}" >>/usr/lib/systemd/system/nimbus.service
+fi
