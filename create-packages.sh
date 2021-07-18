@@ -13,6 +13,14 @@ PKG_NAME=nimbus
 PKG_ARCH=amd64
 PKG_IMG_DIR=package_image
 
+NBC_BIN=build/nimbus_beacon_node
+NSP_BIN=build/nimbus_signing_process
+
+if [ ! -f $NBC_BIN -o ! -f $NSP_BIN ]; then
+  printf "Please build nimbus!\n"
+  exit 1
+fi
+
 if [ -z $1 ]; then
   printf "Please provide a Package Architecture!\n"
   exit 1
@@ -38,8 +46,8 @@ fi
 mkdir -p $PKG_IMG_DIR/var/lib/nimbus
 mkdir -p $PKG_IMG_DIR/usr/bin
 
-cp build/nimbus_beacon_node $PKG_IMG_DIR/usr/bin
-cp build/nimbus_signing_process $PKG_IMG_DIR/usr/bin
+cp $NBC_BIN $PKG_IMG_DIR/usr/bin
+cp $NSP_BIN $PKG_IMG_DIR/usr/bin
 
 fpm -s dir -t deb -n nimbus \
    --deb-no-default-config-files \
