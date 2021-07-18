@@ -20,7 +20,7 @@ User=nimbus
 WorkingDirectory=/var/lib/nimbus
 TimeoutSec=1200
 Restart=always
-ExecStart=/bin/bash -c '/usr/bin/nimbus_beacon_node --network=${NETWORK} --data-dir=${DATA_DIR_PREFIX}/shared_${NETWORK}_${NODE_ID} --tcp-port=${TCP_PORT} --udp-port=${UDP_PORT} --rpc --rpc-port=${RPC_PORT} --web3-url=${WEB3_URL}'
+ExecStart=/usr/bin/nimbus_beacon_node --network=${NETWORK} --data-dir="${DATA_DIR_PREFIX}/shared_${NETWORK}_${NODE_ID}" --tcp-port=${TCP_PORT} --udp-port=${UDP_PORT} --rpc --rpc-port=${RPC_PORT} --web3-url=${WEB3_URL}
 
 Environment=NODE_ID=0
 Environment=DATA_DIR_PREFIX=/var/lib/nimbus/
