@@ -244,3 +244,16 @@ proc getDelay*(vc: ValidatorClientRef, instant: Duration): Duration =
   let slotStartTime = currentBeaconTime.slotOrZero().toBeaconTime()
   let idealTime = Duration(slotStartTime) + instant
   currentTime - idealTime
+
+proc getValidator*(vc: ValidatorClientRef,
+                   key: ValidatorPubkey): Option[AttachedValidator] =
+  let validator = vc.attachedValidators.getValidator(key)
+  if isNil(validator):
+    warn "Validator not in pool anymore", validator = shortLog(validator)
+    none[AttachedValidator]()
+  else:
+    if validator.index.isNone():
+      warn "Validator index is missing", validator = shortLog(validator)
+      none[AttachedValidator]()
+    else:
+      some(validator)

@@ -10,6 +10,10 @@ proc pollForFork(vc: ValidatorClientRef) {.async.} =
     except ValidatorApiError as exc:
       error "Unable to retrieve head state's fork", reason = exc.msg
       return
+    except CatchableError as exc:
+      error "Unexpected error occured while getting fork information",
+            err_name = exc.name, err_msg = exc.msg
+      return
 
   if vc.fork.isNone() or vc.fork.get() != fork:
     vc.fork = some(fork)
