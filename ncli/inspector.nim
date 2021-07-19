@@ -551,6 +551,7 @@ proc resolveLoop(conf: InspectorConf,
         warn "Node address resolution failed", errMsg = exc.msg,
                                                peer_id = peerId,
                                                node_id = idOpt.get()
+        raise exc
 
 proc discoveryLoop(conf: InspectorConf,
                    discovery: DiscoveryProtocol,
@@ -576,6 +577,7 @@ proc discoveryLoop(conf: InspectorConf,
 
     except CatchableError as exc:
       debug "Error in discovery", errMsg = exc.msg
+      raise exc
 
     await sleepAsync(1.seconds)
 
@@ -732,7 +734,7 @@ proc run(conf: InspectorConf) {.async.} =
                                      eth2_bootnodes = eth2bootnodes,
                                      disc5_bootnodes = disc5bootnodes
 
-  asyncCheck connectLoop(switch, connectQueue,
+  asyncSpawn connectLoop(switch, connectQueue,
                          pubsubPeers, 10.seconds)
 
   for node in eth2bootnodes:
@@ -742,11 +744,13 @@ proc run(conf: InspectorConf) {.async.} =
     var proto = bootstrapDiscovery(conf, hostAddress.get(), seckey,
                                    disc5bootnodes, enrFields)
     if not(conf.noDiscovery):
-      asyncCheck discoveryLoop(conf, proto, switch, connectQueue,
+      asyncSpawn(try: discoveryLoop(conf, proto, switch, connectQueue,
                                pubsubPeers)
+      except CatchableError as exc: raise exc)
 
-    asyncCheck resolveLoop(conf, proto, switch, resolveQueue,
+    asyncSpawn(try: resolveLoop(conf, proto, switch, resolveQueue,
                            pubsubPeers)
+    except CatchableError as exc: raise exc)
 
   # We are not going to exit from this procedure
   var emptyFut = newFuture[void]()
