@@ -131,38 +131,82 @@ proc contains(data: openArray[ProposerTask], duty: RestProposerDuty): bool =
       return true
   false
 
+proc checkDuty(duty: RestProposerDuty, epoch: Epoch, slot: Slot): bool =
+  let lastSlot = compute_start_slot_at_epoch(epoch + 1'u64)
+  if duty.slot >= slot:
+    if duty.slot < lastSlot:
+      true
+    else:
+      warn "Block proposal duty is in the far future, ignoring",
+           duty_slot = duty.slot, validator = shortLog(duty.pubkey),
+           wall_slot = slot, last_slot_in_epoch = (lastSlot - 1'u64)
+      false
+  else:
+    warn "Block proposal duty is in the past, ignoring", duty_slot = duty.slot,
+         validator = shortLog(duty.pubkey), wall_slot = slot
+    false
+
 proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
                             dependentRoot: Eth2Digest,
                             duties: openArray[RestProposerDuty]) =
-  let epochDuties = vc.proposers.getOrDefault(epoch)
-  if not(epochDuties.isDefault()):
-    if epochDuties.dependentRoot != dependentRoot:
-      warn "Proposer duties re-organization",
-           prior_dependent_root = epochDuties.dependentRoot,
-           dependent_root = dependentRoot
+  let default = ProposedData(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
+  let sres = vc.getCurrentSlot()
+  if sres.isSome():
+    let
+      currentSlot = sres.get()
+      epochDuties = vc.proposers.getOrDefault(epoch, default)
+    if not(epochDuties.isDefault()):
+      if epochDuties.dependentRoot != dependentRoot:
+        warn "Proposer duties re-organization", duties_count = len(duties),
+             wall_slot = currentSlot, epoch = epoch,
+             prior_dependent_root = epochDuties.dependentRoot,
+             dependent_root = dependentRoot, wall_slot = currentSlot
+        let tasks =
+          block:
+            var res: seq[ProposerTask]
+            var hashset = initHashSet[Slot]()
+
+            for task in epochDuties.duties:
+              if task notin duties:
+                # Task is no more relevant, so cancel it.
+                debug "Cancelling running proposal duty task",
+                      slot = task.duty.slot,
+                      validator = shortLog(task.duty.pubkey)
+                task.future.cancel()
+              else:
+                # If task is already running for proper slot, we keep it alive.
+                debug "Keep running previous proposal duty task",
+                      slot = task.duty.slot,
+                      validator = shortLog(task.duty.pubkey)
+                res.add(task)
+
+            for duty in duties:
+              if duty notin res:
+                debug "New proposal duty received", slot = duty.slot,
+                      validator = shortLog(duty.pubkey)
+                if checkDuty(duty, epoch, currentSlot):
+                  let task = vc.spawnProposalTask(duty)
+                  if duty.slot in hashset:
+                    error "Multiple block proposers for this slot, " &
+                          "producing blocks for all proposers", slot = duty.slot
+                  else:
+                    hashset.incl(duty.slot)
+                  res.add(task)
+            res
+        vc.proposers[epoch] = ProposedData.init(epoch, dependentRoot, tasks)
+    else:
+      debug "New block proposal duties received",
+            dependent_root = dependentRoot, duties_count = len(duties),
+            wall_slot = currentSlot, epoch = epoch
+      # Spawn new proposer tasks and modify proposers map.
       let tasks =
         block:
-          var res: seq[ProposerTask]
           var hashset = initHashSet[Slot]()
-
-          for task in epochDuties.duties:
-            if task notin duties:
-              # Task is no more relevant, so cancel it.
-              debug "Cancelling running proposal duty task",
-                    slot = task.duty.slot,
-                    validator = shortLog(task.duty.pubkey)
-              task.future.cancel()
-            else:
-              # If task is already running for proper slot, we keep it alive.
-              debug "Keep running previous proposal duty task",
-                    slot = task.duty.slot,
-                    validator = shortLog(task.duty.pubkey)
-              res.add(task)
-
+          var res: seq[ProposerTask]
           for duty in duties:
-            if duty notin res:
-              debug "New proposal duty received", slot = duty.slot,
-                    validator = shortLog(duty.pubkey)
+            debug "New proposal duty received", slot = duty.slot,
+                  validator = shortLog(duty.pubkey)
+            if checkDuty(duty, epoch, currentSlot):
               let task = vc.spawnProposalTask(duty)
               if duty.slot in hashset:
                 error "Multiple block proposers for this slot, " &
@@ -172,24 +216,6 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
               res.add(task)
           res
       vc.proposers[epoch] = ProposedData.init(epoch, dependentRoot, tasks)
-  else:
-    # Spawn new proposer tasks and modify proposers map.
-    let tasks =
-      block:
-        var hashset = initHashSet[Slot]()
-        var res: seq[ProposerTask]
-        for duty in duties:
-          debug "New proposal duty received", slot = duty.slot,
-                validator = shortLog(duty.pubkey)
-          let task = vc.spawnProposalTask(duty)
-          if duty.slot in hashset:
-            error "Multiple block proposers for this slot, " &
-                  "producing blocks for all proposers", slot = duty.slot
-          else:
-            hashset.incl(duty.slot)
-          res.add(task)
-        res
-    vc.proposers[epoch] = ProposedData.init(epoch, dependentRoot, tasks)
 
 proc waitForBlockPublished*(vc: ValidatorClientRef, slot: Slot) {.async.} =
   ## This procedure will wait for all the block proposal tasks to be finished at
