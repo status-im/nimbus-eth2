@@ -66,7 +66,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                 err_name = exc.name, err_msg = exc.msg
           return
       if res:
-        notice "Block proposed", blck = shortLog(signedBlock.message),
+        notice "Block published", blck = shortLog(signedBlock.message),
           blockRoot = shortLog(blockRoot), validator = shortLog(validator),
           validator_index = validator.index.get()
       else:
