@@ -17,7 +17,7 @@ proc pollForFork(vc: ValidatorClientRef) {.async.} =
 
   if vc.fork.isNone() or vc.fork.get() != fork:
     vc.fork = some(fork)
-    debug "Fork update success", fork = fork
+    notice "Fork update success", fork = fork
 
 proc waitForNextEpoch(service: ForkServiceRef) {.async.} =
   let vc = service.client
