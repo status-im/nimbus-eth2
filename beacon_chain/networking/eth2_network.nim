@@ -645,7 +645,7 @@ proc setEventHandlers(p: ProtocolInfo,
   p.onPeerConnected = onPeerConnected
   p.onPeerDisconnected = onPeerDisconnected
 
-proc implementSendProcBody(sendProc: SendProc) {.raises: [Exception].} =
+proc implementSendProcBody(sendProc: SendProc) =
   let
     msg = sendProc.msg
     UntypedResponse = bindSym "UntypedResponse"
