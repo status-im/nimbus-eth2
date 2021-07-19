@@ -905,19 +905,14 @@ proc toPeerAddr(node: Node): Result[PeerAddr, cstring] {.raises: [Defect].} =
 
 proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
     attnets: BitArray[ATTESTATION_SUBNET_COUNT]):
-    Future[seq[PeerAddr]] {.async, raises: [Defect].} =
+    Future[seq[Node]] {.async, raises: [Defect].} =
   ## Perform a discovery query for a random target
   ## and sort for maximum (attnets) coverage
 
-  let queryFut = d.queryRandom()
-  let querySuccedeed = await queryFut.withTimeout(10.seconds)
-  if not querySuccedeed:
-    return newSeq[PeerAddr]()
-
-  let nodes = await queryFut
   let eth2Field = SSZ.encode(forkId)
+  let nodes = await d.queryRandom(("eth2", eth2Field))
 
-  var filtered: seq[(int, PeerAddr)]
+  var filtered: seq[(int, Node)]
   for n in nodes:
     if n.record.contains(("eth2", eth2Field)):
       let res = n.record.tryGet("attnets", seq[byte])
@@ -936,9 +931,8 @@ proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
           if (attnets.bytes[i] and attnetsNode.bytes[i]) > 0:
             inc score
 
-        let peerAddr = n.toPeerAddr()
-        if peerAddr.isOk():
-          filtered.add((score, peerAddr.get()))
+        if score > 0:
+          filtered.add((score, n))
 
   d.rng[].shuffle(filtered)
   return filtered.sortedByIt(it[0]).mapIt(it[1])
@@ -961,28 +955,39 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     let (lowAttnetsCount, wantedAttnets) = node.getLowAttnets()
 
     if node.switch.connManager.outSema.count > 0 or lowAttnetsCount > 0:
-      var discoveredNodes = await node.discovery.queryRandom(node.forkId, wantedAttnets)
+      let discoveredNodes =
+        block:
+          if lowAttnetsCount > 0:
+            await node.discovery.queryRandom(node.forkId, wantedAttnets)
+          else:
+            await node.discovery.queryRandom(("eth2", SSZ.encode(node.forkId)))
 
       if node.switch.connManager.outSema.count == 0 and lowAttnetsCount > 0:
         #We're full of bad peers, kick a few ones
         await node.peerBalancer.trimConnections(2)
 
       var newPeers = 0
-      for peerAddr in discoveredNodes:
-        # Waiting for an empty space in PeerPool.
-        while true:
-          if node.peerPool.lenSpace({PeerType.Outgoing}) == 0:
-            await node.peerPool.waitForEmptySpace(PeerType.Outgoing)
-          else:
-            break
-        # Check if peer present in SeenTable or PeerPool.
-        if node.checkPeer(peerAddr):
-          if peerAddr.peerId notin node.connTable:
-            # We adding to pending connections table here, but going
-            # to remove it only in `connectWorker`.
-            node.connTable.incl(peerAddr.peerId)
-            await node.connQueue.addLast(peerAddr)
-            inc(newPeers)
+      for discNode in discoveredNodes:
+        let res = discNode.toPeerAddr()
+        if res.isOk():
+          let peerAddr = res.get()
+          # Waiting for an empty space in PeerPool.
+          while true:
+            if node.peerPool.lenSpace({PeerType.Outgoing}) == 0:
+              await node.peerPool.waitForEmptySpace(PeerType.Outgoing)
+            else:
+              break
+          # Check if peer present in SeenTable or PeerPool.
+          if node.checkPeer(peerAddr):
+            if peerAddr.peerId notin node.connTable:
+              # We adding to pending connections table here, but going
+              # to remove it only in `connectWorker`.
+              node.connTable.incl(peerAddr.peerId)
+              await node.connQueue.addLast(peerAddr)
+              inc(newPeers)
+        else:
+          debug "Failed to decode discovery's node address",
+                node = discnode, errMsg = res.error
 
       debug "Discovery tick", wanted_peers = node.wantedPeers,
             space = node.peerPool.shortLogSpace(),
