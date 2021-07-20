@@ -13,7 +13,7 @@ import
   ../gossip_processing/gossip_validation,
   ../validators/validator_duties,
   ../spec/[crypto, digest, forkedbeaconstate_helpers, network],
-  ../spec/datatypes/base,
+  ../spec/datatypes/[base, phase0],
   ../ssz/merkleization,
   ./rest_utils
 
@@ -155,7 +155,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
                                                $slot.error())
             slot.get()
-
         let qrandao =
           if randao_reveal.isNone():
             return RestApiResponse.jsonError(Http400, MissingRandaoRevealValue)
@@ -194,8 +193,84 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isNone():
           return RestApiResponse.jsonError(Http400, BlockProduceError)
         res.get()
+    return
+      when message is phase0.BeaconBlock:
+        # TODO (cheatfate): This could be removed when `altair` branch will be
+        # merged.
+        RestApiResponse.jsonResponse(message)
+      else:
+        case message.kind
+        of BeaconBlockFork.Phase0:
+          RestApiResponse.jsonResponse(message.phase0Block)
+        of BeaconBlockFork.Altair:
+          return RestApiResponse.jsonError(Http400, BlockProduceError)
 
-    return RestApiResponse.jsonResponse(message)
+  router.api(MethodGet, "/api/eth/v2/validator/blocks/{slot}") do (
+    slot: Slot, randao_reveal: Option[ValidatorSig],
+    graffiti: Option[GraffitiBytes]) -> RestApiResponse:
+    let message =
+      block:
+        let qslot =
+          block:
+            if slot.isErr():
+              return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                               $slot.error())
+            slot.get()
+        let qrandao =
+          if randao_reveal.isNone():
+            return RestApiResponse.jsonError(Http400, MissingRandaoRevealValue)
+          else:
+            let res = randao_reveal.get()
+            if res.isErr():
+              return RestApiResponse.jsonError(Http400,
+                                               InvalidRandaoRevealValue,
+                                               $res.error())
+            res.get()
+        let qgraffiti =
+          if graffiti.isNone():
+            defaultGraffitiBytes()
+          else:
+            let res = graffiti.get()
+            if res.isErr():
+              return RestApiResponse.jsonError(Http400,
+                                               InvalidGraffitiBytesValye,
+                                               $res.error())
+            res.get()
+        let qhead =
+          block:
+            let res = node.getCurrentHead(qslot)
+            if res.isErr():
+              if not(node.isSynced(node.dag.head)):
+                return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+              else:
+                return RestApiResponse.jsonError(Http400, NoHeadForSlotError,
+                                                 $res.error())
+            res.get()
+        let proposer = node.dag.getProposer(qhead, qslot)
+        if proposer.isNone():
+          return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
+        let res = await makeBeaconBlockForHeadAndSlot(
+          node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
+        if res.isNone():
+          return RestApiResponse.jsonError(Http400, BlockProduceError)
+        res.get()
+    return
+      when message is phase0.BeaconBlock:
+        # TODO (cheatfate): This could be removed when `altair` branch will be
+        # merged.
+        RestApiResponse.jsonResponse(
+            (version: "phase0", data: message)
+        )
+      else:
+        case message.kind
+        of BeaconBlockFork.Phase0:
+          RestApiResponse.jsonResponse(
+            (version: "phase0", data: message.phase0Block)
+          )
+        of BeaconBlockFork.Altair:
+          RestApiResponse.jsonResponse(
+            (version: "altair", data: message.altairBlock)
+          )
 
   # https://ethereum.github.io/eth2.0-APIs/#/Validator/produceAttestationData
   router.api(MethodGet, "/api/eth/v1/validator/attestation_data") do (
@@ -365,6 +440,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     MethodGet,
     "/eth/v1/validator/blocks/{slot}",
     "/api/eth/v1/validator/blocks/{slot}"
+  )
+  router.redirect(
+    MethodGet,
+    "/eth/v2/validator/blocks/{slot}",
+    "/api/eth/v2/validator/blocks/{slot}"
   )
   router.redirect(
     MethodGet,
