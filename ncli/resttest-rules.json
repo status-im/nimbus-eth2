@@ -1555,7 +1555,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"root": "", "canonical": true, "header": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""}, "signature": ""}}}]
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"root": "", "canonical": true, "header": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""}, "signature": ""}}]}]
     }
   },
   {
@@ -1567,7 +1567,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"root": "", "canonical": true, "header": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""}, "signature": ""}}}]
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"root": "", "canonical": true, "header": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""}, "signature": ""}}]}]
     }
   },
   {
