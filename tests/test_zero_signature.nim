@@ -8,6 +8,7 @@
 {.used.}
 
 import
+  std/strutils,
   unittest2,
   ../beacon_chain/spec/crypto,
   ../beacon_chain/spec/datatypes/base,
@@ -53,3 +54,12 @@ suite "Zero signature sanity checks":
       SSZ.decode(sszDefaultBlockHeader, SignedBeaconBlockHeader)
 
     check(defaultBlockHeader == deserBlockHeader)
+
+  test "default initialization of signatures":
+    block:
+      let sig = default(CookedSig)
+      doAssert sig.toValidatorSig().toHex() == "c" & '0'.repeat(191)
+
+    block:
+      let sig = AggregateSignature()
+      doAssert sig.toHex() == "c" & '0'.repeat(191)
