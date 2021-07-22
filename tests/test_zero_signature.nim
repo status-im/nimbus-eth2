@@ -63,3 +63,7 @@ suite "Zero signature sanity checks":
     block:
       let sig = AggregateSignature()
       doAssert sig.toHex() == "c" & '0'.repeat(191)
+
+    block:
+      let sig = ValidatorSig()
+      doAssert sig.toHex() == "c" & '0'.repeat(191)
