@@ -310,9 +310,6 @@ proc toGaugeValue*(hash: Eth2Digest): int64 =
 func `$`*(x: ValidatorPrivKey): string =
   "<private key>"
 
-func `$`*(x: ValidatorPubKey | ValidatorSig): string =
-  x.blob.toHex()
-
 func toRaw*(x: ValidatorPrivKey): array[32, byte] =
   # TODO: distinct type - see https://github.com/status-im/nim-blscurve/pull/67
   when BLS_BACKEND == BLST:
@@ -322,10 +319,30 @@ func toRaw*(x: ValidatorPrivKey): array[32, byte] =
     let raw = SecretKey(x).exportRaw()
     result[0..32-1] = raw.toOpenArray(48-32, 48-1)
 
+func isZero(a: openarray[byte]): bool =
+  # We don't need constant-time comparison here
+  for b in a:
+    if b != 0:
+      return false
+  return true
+
 template toRaw*(x: ValidatorPubKey | ValidatorSig): auto =
-  x.blob
+  if x.blob.isZero():
+    # A signature can be full zero in an aggregation context and no aggregation occured.
+    # serialization is 0xc000...0000 (with 191 zeros)
+
+    var r = default(typeof(x.blob))
+    # https://github.com/zcash/librustzcash/tree/f55f094ef69c2caeaa941bcf851dac8cb5fa9942/pairing/src/bls12_381#serialization
+    # The most significant bit, when set, indicates that the point is in compressed form. Otherwise, the point is in uncompressed form.
+    # The second-most significant bit indicates that the point is at infinity. If this bit is set, the remaining bits of the group element's encoding should be set to zero.
+    # The third-most significant bit is set if (and only if) this point is in compressed form and it is not the point at infinity and its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
+    r[0] = byte 0xc0 # set the 2 most significant-bit
+    r
+  else:
+    x.blob
 
 template toRaw*(x: TrustedSig): auto =
+  # A trusted sig has been BLS verified and so can't be an infinity point.
   x.data
 
 func toHex*(x: BlsCurveType): string =
@@ -333,6 +350,9 @@ func toHex*(x: BlsCurveType): string =
 
 func toHex*(x: CookedPubKey): string =
   toHex(x.toPubKey())
+
+func `$`*(x: ValidatorPubKey | ValidatorSig): string =
+  x.toHex()
 
 func `$`*(x: CookedPubKey): string =
   $(x.toPubKey())
