@@ -40,6 +40,7 @@ import
   ../validators/keystore_management,
   ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
 
+from ../spec/datatypes/phase0 import nil
 from ../spec/datatypes/altair import nil
 
 when chronicles.enabledLogLevel == LogLevel.TRACE:
@@ -84,7 +85,7 @@ type
     seenTable: Table[PeerID, SeenItem]
     connWorkers: seq[Future[void]]
     connTable: HashSet[PeerID]
-    forkId: ENRForkID
+    forkId*: ENRForkID
     forkDigests*: ForkDigestsRef
     rng*: ref BrHmacDrbgContext
     peers*: Table[PeerID, Peer]
@@ -212,8 +213,8 @@ type
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
 
-func phase0metadata*(node: Eth2Node): MetaData =
-  MetaData(
+func phase0metadata*(node: Eth2Node): phase0.MetaData =
+  phase0.MetaData(
     seq_number: node.metadata.seq_number,
     attnets: node.metadata.attnets)
 
@@ -903,11 +904,11 @@ proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
   ## Perform a discovery query for a random target matching the eth2 field
   ## (forkId) and matching at least one of the attestation subnets.
   let nodes = await d.queryRandom()
-  let eth2Field = SSZ.encode(forkId)
+  let sszForkId = SSZ.encode(forkId)
 
   var filtered: seq[PeerAddr]
   for n in nodes:
-    if n.record.contains(("eth2", eth2Field)):
+    if n.record.contains(("eth2", sszForkId)):
       let res = n.record.tryGet("attnets", seq[byte])
 
       if res.isSome():
