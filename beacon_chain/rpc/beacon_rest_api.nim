@@ -538,7 +538,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         node.dag.get(blockSlot.blck)
 
     return RestApiResponse.jsonResponse(
-      (
+      [(
         # TODO Altair insofar as it should detect the error condition rather
         # than crashing. This API is only specified for phase 0
         root: bdata.data.phase0Block.root,
@@ -553,7 +553,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           ),
           signature: bdata.data.phase0Block.signature
         )
-      )
+      )]
     )
 
   # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockHeader
