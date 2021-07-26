@@ -357,7 +357,7 @@ type
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object
     message*: BeaconBlockHeader
-    signature*: ValidatorSig
+    signature*: NullableValidatorSig # Genesis block has zero signature (different from infinity sig)
 
   TrustedSignedBeaconBlockHeader* = object
     message*: BeaconBlockHeader

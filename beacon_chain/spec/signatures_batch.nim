@@ -34,7 +34,7 @@ func `$`*(s: SignatureSet): string =
 #     there is no guarantee that pubkeys and signatures received are valid
 #     unlike when Nimbus did eager loading which ensured they were correct beforehand
 
-template loadOrExit(signature: ValidatorSig, error: cstring):
+template loadOrExit(signature: ValidatorSig|NullableValidatorSig, error: cstring):
     untyped =
   ## Load a BLS signature from a raw signature
   ## Exits the **caller** with false if the signature is invalid

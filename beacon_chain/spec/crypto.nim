@@ -62,18 +62,26 @@ type
   CookedPubKey* = distinct blscurve.PublicKey ## Valid deserialized key
 
   ValidatorSig* = object
+    ## A ValidatorSig default serialization is the infinity point
+    ## "0xc000...000" (96 bytes)
+    ## For example this might denote the "signature" from an empty Altair sync committee
     blob*: array[RawSigSize, byte]
+
+  NullableValidatorSig* {.borrow:`.`.} = distinct ValidatorSig
+    ## A ValidatorSig default serialization is the zero signature
+    ## This is NOT a true point on a curve and only used for the genesis block
+    ## "0x0000...000" (96 bytes)
 
   ValidatorPrivKey* = distinct blscurve.SecretKey
 
-  BlsCurveType* = ValidatorPrivKey | ValidatorPubKey | ValidatorSig
+  BlsCurveType* = ValidatorPrivKey | ValidatorPubKey | ValidatorSig | NullableValidatorSig
 
   BlsResult*[T] = Result[T, cstring]
 
   TrustedSig* = object
     data*: array[RawSigSize, byte]
 
-  SomeSig* = TrustedSig | ValidatorSig
+  SomeSig* = TrustedSig | ValidatorSig | NullableValidatorSig
 
   CookedSig* = distinct blscurve.Signature  ## \
     ## Cooked signatures are those that have been loaded successfully from a
@@ -156,6 +164,8 @@ proc load*(v: ValidatorSig): Option[CookedSig] =
   else:
     none(CookedSig)
 
+proc load*(v: NullableValidatorSig): Option[CookedSig] {.borrow.}
+
 func init*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.}=
   ## Initializes an aggregate signature context
   agg.init(blscurve.PublicKey(pubkey))
@@ -222,7 +232,7 @@ proc blsVerify*(
 
 proc blsVerify*(
     pubkey: ValidatorPubKey | CookedPubKey, message: openArray[byte],
-    signature: ValidatorSig): bool =
+    signature: ValidatorSig | NullableValidatorSig): bool =
   let
     parsedSig = signature.load()
   # Guard against invalid signature blobs that fail to parse
@@ -285,7 +295,7 @@ proc blsFastAggregateVerify*(
 proc blsFastAggregateVerify*(
        publicKeys: openArray[CookedPubKey],
        message: openArray[byte],
-       signature: ValidatorSig
+       signature: ValidatorSig or NullableValidatorSig
      ): bool =
   let parsedSig = signature.load()
   parsedSig.isSome and blsFastAggregateVerify(publicKeys, message, parsedSig.get())
@@ -293,7 +303,7 @@ proc blsFastAggregateVerify*(
 proc blsFastAggregateVerify*(
        publicKeys: openArray[ValidatorPubKey],
        message: openArray[byte],
-       signature: ValidatorSig
+       signature: ValidatorSig or NullableValidatorSig
      ): bool =
   let parsedSig = signature.load()
   parsedSig.isSome and blsFastAggregateVerify(publicKeys, message, parsedSig.get())
@@ -341,6 +351,9 @@ template toRaw*(x: ValidatorPubKey | ValidatorSig): auto =
   else:
     x.blob
 
+template toRaw*(x: NullableValidatorSig): auto =
+  x.blob
+
 template toRaw*(x: TrustedSig): auto =
   # A trusted sig has been BLS verified and so can't be an infinity point.
   x.data
@@ -351,7 +364,7 @@ func toHex*(x: BlsCurveType): string =
 func toHex*(x: CookedPubKey): string =
   toHex(x.toPubKey())
 
-func `$`*(x: ValidatorPubKey | ValidatorSig): string =
+func `$`*(x: ValidatorPubKey | ValidatorSig | NullableValidatorSig): string =
   x.toHex()
 
 func `$`*(x: CookedPubKey): string =
@@ -359,6 +372,9 @@ func `$`*(x: CookedPubKey): string =
 
 func toValidatorSig*(x: CookedSig): ValidatorSig =
   ValidatorSig(blob: blscurve.Signature(x).exportRaw())
+
+template toNullableValidatorSig*(x: CookedSig): NullableValidatorSig =
+  NullableValidatorSig(x.toValidatorSig())
 
 func fromRaw*(T: type ValidatorPrivKey, bytes: openArray[byte]): BlsResult[T] =
   var val: SecretKey
@@ -374,6 +390,14 @@ func fromRaw*(BT: type[ValidatorPubKey | ValidatorSig], bytes: openArray[byte]):
   else:
     ok BT(blob: toArray(sizeof(BT), bytes))
 
+func fromRaw*(_: type NullableValidatorSig, bytes: openArray[byte]): BlsResult[NullableValidatorSig] =
+  if bytes.len() != sizeof(NullableValidatorSig):
+    err "bls: invalid bls length"
+  else:
+    ok NullableValidatorSig(
+        ValidatorSig(blob: toArray(sizeof(NullableValidatorSig), bytes))
+    )
+
 func fromHex*(T: type BlsCurveType, hexStr: string): BlsResult[T] {.inline.} =
   ## Initialize a BLSValue from its hex representation
   try:
@@ -381,13 +405,13 @@ func fromHex*(T: type BlsCurveType, hexStr: string): BlsResult[T] {.inline.} =
   except ValueError:
     err "bls: cannot parse value"
 
-func `==`*(a, b: ValidatorPubKey | ValidatorSig): bool =
+func `==`*(a, b: ValidatorPubKey | ValidatorSig | NullableValidatorSig): bool =
   equalMem(unsafeAddr a.blob[0], unsafeAddr b.blob[0], sizeof(a.blob))
 
 # Hashing
 # ----------------------------------------------------------------------
 
-template hash*(x: ValidatorPubKey | ValidatorSig): Hash =
+template hash*(x: ValidatorPubKey | ValidatorSig | NullableValidatorSig): Hash =
   static: doAssert sizeof(Hash) <= x.blob.len div 2
   # We use rough "middle" of blob for the hash, assuming this is where most of
   # the entropy is found
@@ -411,12 +435,12 @@ proc readValue*(reader: var JsonReader, value: var ValidatorPubKey)
     # TODO: Can we provide better diagnostic?
     raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
 
-proc writeValue*(writer: var JsonWriter, value: ValidatorSig) {.
+proc writeValue*(writer: var JsonWriter, value: ValidatorSig | NullableValidatorSig) {.
     inline, raises: [IOError, Defect].} =
   # Workaround: https://github.com/status-im/nimbus-eth2/issues/374
   writer.writeValue(value.toHex())
 
-proc readValue*(reader: var JsonReader, value: var ValidatorSig)
+proc readValue*(reader: var JsonReader, value: var ValidatorSig | NullableValidatorSig)
                {.serializationRaises.} =
   let sig = ValidatorSig.fromHex(reader.readValue(string))
   if sig.isOk:
@@ -438,7 +462,7 @@ proc readValue*(reader: var JsonReader, value: var ValidatorPrivKey)
     # TODO: Can we provide better diagnostic?
     raiseUnexpectedValue(reader, "Valid hex-encoded private key expected")
 
-template fromSszBytes*(T: type[ValidatorPubKey | ValidatorSig], bytes: openArray[byte]): auto =
+template fromSszBytes*(T: type[ValidatorPubKey | ValidatorSig | NullableValidatorSig], bytes: openArray[byte]): auto =
   let v = fromRaw(T, bytes)
   if v.isErr:
     raise newException(MalformedSszError, $v.error)
@@ -447,7 +471,7 @@ template fromSszBytes*(T: type[ValidatorPubKey | ValidatorSig], bytes: openArray
 # Logging
 # ----------------------------------------------------------------------
 
-func shortLog*(x: ValidatorPubKey | ValidatorSig): string =
+func shortLog*(x: ValidatorPubKey | ValidatorSig | NullableValidatorSig): string =
   ## Logging for wrapped BLS types
   ## that may contain valid or non-validated data
   byteutils.toHex(x.blob.toOpenArray(0, 3))

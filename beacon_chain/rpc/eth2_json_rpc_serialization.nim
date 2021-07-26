@@ -67,6 +67,13 @@ proc fromJson*(n: JsonNode, argName: string, result: var ValidatorSig) {.raises:
 proc `%`*(value: ValidatorSig): JsonNode =
   newJString(toJsonHex(toRaw(value)))
 
+proc fromJson*(n: JsonNode, argName: string, result: var NullableValidatorSig) {.raises: [Defect, ValueError].} =
+  n.kind.expect(JString, argName)
+  result = NullableValidatorSig.fromHex(n.getStr()).tryGet()
+
+proc `%`*(value: NullableValidatorSig): JsonNode =
+  newJString(toJsonHex(toRaw(value)))
+
 proc fromJson*(n: JsonNode, argName: string, result: var TrustedSig) {.raises: [Defect, ValueError].} =
   n.kind.expect(JString, argName)
   hexToByteArray(n.getStr(), result.data)
