@@ -14,9 +14,10 @@ import
   chronicles, chronos, metrics,
   stew/results,
   # Internals
+  ../spec/datatypes/[phase0, altair],
   ../spec/[
     beaconstate, state_transition_block,
-    datatypes, crypto, digest, forkedbeaconstate_helpers, helpers, network,
+    crypto, digest, forkedbeaconstate_helpers, helpers, network,
     signatures],
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_quarantine, spec_cache,
@@ -28,6 +29,7 @@ import
   ./batch_validation
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
+
 export ValidationResult
 
 logScope:
@@ -69,12 +71,12 @@ func check_attestation_block(
   ok()
 
 func check_propagation_slot_range(
-    data: AttestationData, wallTime: BeaconTime):
+    msgSlot: Slot, wallTime: BeaconTime):
     Result[void, (ValidationResult, cstring)] =
   let
     futureSlot = (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
-  if not futureSlot.afterGenesis or data.slot > futureSlot.slot:
+  if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
     return err((ValidationResult.Ignore, cstring(
       "Attestation slot in the future")))
 
@@ -88,7 +90,7 @@ func check_propagation_slot_range(
   const ATTESTATION_PROPAGATION_SLOT_RANGE = 28
 
   if pastSlot.afterGenesis and
-      data.slot + ATTESTATION_PROPAGATION_SLOT_RANGE < pastSlot.slot:
+      msgSlot + ATTESTATION_PROPAGATION_SLOT_RANGE < pastSlot.slot:
     return err((ValidationResult.Ignore, cstring(
       "Attestation slot in the past")))
 
@@ -202,7 +204,7 @@ proc validateAttestation*(
   # >= attestation.data.slot (a client MAY queue future attestations for
   # processing at the appropriate slot).
   block:
-    let v = check_propagation_slot_range(attestation.data, wallTime) # [IGNORE]
+    let v = check_propagation_slot_range(attestation.data.slot, wallTime) # [IGNORE]
     if v.isErr():
       return err(v.error)
 
@@ -366,7 +368,7 @@ proc validateAggregate*(
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
   # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
   block:
-    let v = check_propagation_slot_range(aggregate.data, wallTime) # [IGNORE]
+    let v = check_propagation_slot_range(aggregate.data.slot, wallTime) # [IGNORE]
     if v.isErr():
       return err(v.error)
 
@@ -523,7 +525,8 @@ proc validateAggregate*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
 proc isValidBeaconBlock*(
        dag: ChainDAGRef, quarantine: QuarantineRef,
-       signed_beacon_block: SignedBeaconBlock, wallTime: BeaconTime,
+       signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+       wallTime: BeaconTime,
        flags: UpdateFlags):
        Result[void, (ValidationResult, BlockError)] =
   logScope:
