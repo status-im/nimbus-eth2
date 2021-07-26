@@ -194,7 +194,8 @@ ${NIMBUS_BEACON_NODE_BIN} \
   --metrics-port=${BASE_METRICS_PORT} \
   --rest \
   --rest-address=${REST_ADDRESS} \
-  --rest-port= ${BASE_REST_PORT} \
+  --rest-port=${BASE_REST_PORT} \
+  --discv5=no \
   ${ADDITIONAL_BEACON_NODE_ARGS} \
   "$@" > ${LOG_NODE_FILE} 2>&1 &
 BEACON_NODE_STATUS=$?
