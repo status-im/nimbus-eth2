@@ -365,7 +365,10 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
   VALIDATOR_DATA_DIR="${DATA_DIR}/validator${NUM_NODE}"
   if [[ ${NUM_NODE} == ${BOOTSTRAP_NODE} ]]; then
-    BOOTSTRAP_ARG="--netkey-file=${NETWORK_KEYFILE} --insecure-netkey-password=true"
+    # Due to star topology, the bootstrap node must relay all attestations,
+    # even if it itself is not interested. --subscribe-all-subnets could be
+    # removed by switching to a fully-connected topology.
+    BOOTSTRAP_ARG="--netkey-file=${NETWORK_KEYFILE} --insecure-netkey-password=true --subscribe-all-subnets"
   else
     BOOTSTRAP_ARG="--bootstrap-file=${BOOTSTRAP_ENR}"
     # Wait for the master node to write out its address file
