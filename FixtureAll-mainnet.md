@@ -132,6 +132,8 @@ FixtureAll-mainnet
 + [Invalid] invalid_signature                                                                OK
 + [Invalid] invalid_signature_bad_domain                                                     OK
 + [Invalid] invalid_signature_extra_participant                                              OK
++ [Invalid] invalid_signature_infinite_signature_with_all_participants                       OK
++ [Invalid] invalid_signature_infinite_signature_with_single_participant                     OK
 + [Invalid] invalid_signature_missing_participant                                            OK
 + [Invalid] invalid_signature_past_block                                                     OK
 + [Invalid] invalid_slot_block_header                                                        OK
@@ -276,7 +278,7 @@ FixtureAll-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 273/273 Fail: 0/273 Skip: 0/273
+OK: 275/275 Fail: 0/275 Skip: 0/275
 ## Official - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -509,4 +511,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 419/419 Fail: 0/419 Skip: 0/419
+OK: 421/421 Fail: 0/421 Skip: 0/421
