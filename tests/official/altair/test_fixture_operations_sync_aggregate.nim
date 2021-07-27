@@ -61,14 +61,11 @@ proc runTest(dir, identifier: string) =
         reportDiff(preState, postState)
       else:
         let done = process_sync_aggregate(preState[], syncAggregate, cache).isOk
-        doAssert done == false, "We didn't expect this invalid proposer slashing to be processed."
+        doAssert done == false, "We didn't expect this invalid sync aggregate to be processed."
 
   `testImpl_sync_committee _ identifier`()
 
 suite "Official - Altair - Operations - Sync Aggregate" & preset():
   for kind, path in walkDir(
       OpSyncAggregateDir, relative = true, checkDir = true):
-    # TODO remove when it works
-    if path == "invalid_signature_no_participants":
-      continue
     runTest(OpSyncAggregateDir, path)

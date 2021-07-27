@@ -427,7 +427,9 @@ proc makeBeaconBlock*(
       attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits:
-        List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits)))
+        List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits),
+      sync_aggregate: SyncAggregate(sync_committee_signature:
+        default(CookedSig).toValidatorSig)))
 
   # TODO sync committees
 
