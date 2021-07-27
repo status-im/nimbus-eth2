@@ -32,7 +32,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rpc-port:,base-metrics-port:,reuse-existing-data-dir,timeout:"
+LONGOPTS="help,preset:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rpc-port:,base-metrics-port:,reuse-existing-data-dir,timeout:,kill-old-processes"
 
 # default values
 NUM_NODES="10"
@@ -49,6 +49,7 @@ ENABLE_LOGTRACE="0"
 STOP_AT_EPOCH_FLAG=""
 TIMEOUT_DURATION="0"
 CONST_PRESET="mainnet"
+KILL_OLD_PROCESSES="0"
 
 print_help() {
   cat <<EOF
@@ -72,6 +73,7 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --log-level                 set the log level (default: ${LOG_LEVEL})
   --reuse-existing-data-dir   instead of deleting and recreating the data dir, keep it and reuse everything we can from it
   --timeout                   timeout in seconds (default: ${TIMEOUT_DURATION} - no timeout)
+  --kill-old-processes        if any process is found listening on a port we use, kill it (default: disabled)
 EOF
 }
 
@@ -145,6 +147,10 @@ while true; do
       TIMEOUT_DURATION="$2"
       shift 2
       ;;
+    --kill-old-processes)
+      KILL_OLD_PROCESSES="1"
+      shift
+      ;;
     --)
       shift
       break
@@ -195,6 +201,22 @@ if uname | grep -qi darwin; then
 else
   NPROC="$(nproc)"
 fi
+
+# kill lingering processes from a previous run
+for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
+  for PORT in $(( BASE_PORT + NUM_NODE )) $(( BASE_METRICS_PORT + NUM_NODE )) $(( BASE_RPC_PORT + NUM_NODE )); do
+    for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
+      echo -n "Found old process listening on port ${PORT}, with PID ${PID}. "
+      if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
+        echo "Killing it."
+        kill -9 ${PID} || true
+      else
+        echo "Aborting."
+        exit 1
+      fi
+    done
+  done
+done
 
 # Build the binaries
 BINARIES="nimbus_beacon_node nimbus_signing_process nimbus_validator_client deposit_contract"
