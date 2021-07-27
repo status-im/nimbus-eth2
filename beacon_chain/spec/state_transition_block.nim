@@ -425,6 +425,12 @@ proc process_sync_aggregate*(
     if aggregate.sync_committee_bits[i]:
       participant_pubkeys.add committee_pubkeys[i]
 
+  # p2p-interface message validators check for empty sync committees, so it
+  # shouldn't run except as part of test suite.
+  if  participant_pubkeys.len == 0 and
+      aggregate.sync_committee_signature != default(CookedSig).toValidatorSig():
+    return err("process_sync_aggregate: empty sync aggregates need signature of point at infinity")
+
   # Empty participants allowed
   if participant_pubkeys.len > 0 and not blsFastAggregateVerify(
       participant_pubkeys, signing_root.data, aggregate.sync_committee_signature):
