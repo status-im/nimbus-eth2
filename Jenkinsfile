@@ -52,8 +52,16 @@ def runStages() {
 			// EXECUTOR_NUMBER will be 0 or 1, since we have 2 executors per Jenkins node
 			sh """#!/bin/bash
 			set -e
-			./scripts/launch_local_testnet.sh --preset minimal --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --data-dir local_testnet0_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port \$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) --timeout 600 -- --verify-finalization --discv5:no --kill-old-processes
-			./scripts/launch_local_testnet.sh --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --data-dir local_testnet1_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port \$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) --timeout 2400 -- --verify-finalization --discv5:no --kill-old-processes
+			./scripts/launch_local_testnet.sh --preset minimal --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop \
+				--data-dir local_testnet0_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port \
+				\$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) --timeout 600 \
+				--kill-old-processes \
+				-- --verify-finalization --discv5:no
+			./scripts/launch_local_testnet.sh --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop \
+				--data-dir local_testnet1_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port \
+				\$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) --timeout 2400 \
+				--kill-old-processes \
+				-- --verify-finalization --discv5:no
 			"""
 		}
 	} catch(e) {
