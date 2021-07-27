@@ -203,6 +203,7 @@ else
 fi
 
 # kill lingering processes from a previous run
+which lsof &>/dev/null || { echo "'lsof' not installed. Aborting."; exit 1; }
 for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   for PORT in $(( BASE_PORT + NUM_NODE )) $(( BASE_METRICS_PORT + NUM_NODE )) $(( BASE_RPC_PORT + NUM_NODE )); do
     for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
