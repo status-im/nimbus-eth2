@@ -315,6 +315,12 @@ cleanup() {
   sleep 2
   pkill -f -9 -P $$ nimbus_beacon_node &>/dev/null || true
   pkill -f -9 -P $$ nimbus_validator_client &>/dev/null || true
+
+  # Delete the binaries we just built, because these are unusable outside this
+  # local testnet.
+  for BINARY in ${BINARIES}; do
+    rm build/${BINARY}
+  done
 }
 trap 'cleanup' SIGINT SIGTERM EXIT
 
