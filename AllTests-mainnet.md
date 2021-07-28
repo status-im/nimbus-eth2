@@ -200,8 +200,10 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
++ Zero signatures cannot be loaded into a BLS signature object                               OK
++ default initialization of signatures                                                       OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## [Unit - Spec - Block processing] Attestations  [Preset: mainnet]
 ```diff
 + Valid attestation                                                                          OK
@@ -250,4 +252,4 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 128/128 Fail: 0/128 Skip: 0/128
+OK: 130/130 Fail: 0/130 Skip: 0/130
