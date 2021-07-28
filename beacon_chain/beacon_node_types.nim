@@ -181,6 +181,69 @@ type
     proposingSlots*: array[2, uint32]
     lastCalculatedEpoch*: Epoch
 
+  # #############################################
+  #
+  #              Validator Monitoring
+  #
+  # #############################################
+  # see lighthouse/beacon_node/beacon_chain/src/validator_monitor.rs
+  EpochSummary* = object
+    #
+    # Attestations with a target in the current epoch.
+    #
+    # Attestations seen.
+    attestations*: uint64
+    # Delay between when the attestation should have been produced and when it was observed.
+    attestationMinDelay*: Option[Duration]
+    # Times a validator's attestation was seen in an aggregate.
+    attestationAggregateInclusions*: uint64
+    # Times a validator's attestation was seen in a block.
+    attestationBlockInclusions*: uint64
+    # Minimum observed inclusion distance for an attestation for this epoch.
+    attestationMinBlockInclusionDistance*: Option[Slot]
+    #
+    # Blocks with a slot in the current epoch.
+    #
+    # Blocks observed.
+    blocks*: uint64
+    # Delay between when the block should have been produced and when it was observed.
+    blockMinDelay*: Option[Duration]
+    #
+    # Aggregates with a target in the current epoch
+    #
+    # Signed aggregate and proofs observed.
+    aggregates*: uint64
+    # Delay between when the aggregate should have been produced and when it was observed.
+    aggregateMinDelay*: Option[Duration]
+    #
+    # Others pertaining to this epoch.
+    #
+    # Voluntary exists observed.
+    exits*: uint64
+    # Proposer slashings observed.
+    proposerSlashings*: uint64
+    # Attester slashings observed.
+    attesterSlashings*: uint64
+
+  SummaryMap* = Table[Epoch, EpochSummary]
+
+  # A validator that is being monitored by the `ValidatorMonitor`.
+  MonitoredValidator* = object
+    # A human-readable identifier for the validator.
+    id*: string
+    # The validator voting pubkey.
+    pubkey*: ValidatorPubKey
+    # The validator index in the state.
+    index*: Option[ValidatorIndex]
+    # A history of the validator over time.
+    summaries*: SummaryMap
+
+  ValidatorMonitor* = object
+    # The validators that require additional monitoring.
+    validators*: Table[ValidatorPubKey, MonitoredValidator]
+    # A map of validator index to a validator public key.
+    indices*: Table[ValidatorIndex, ValidatorPubKey]
+
 func shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
 
 func hash*(x: SyncCommitteeMsgKey): Hash =

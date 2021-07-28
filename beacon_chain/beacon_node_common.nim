@@ -65,6 +65,7 @@ type
     attachedValidatorBalanceTotal*: uint64
     gossipState*: GossipState
     beaconClock*: BeaconClock
+    validatorMonitor*: ValidatorMonitor
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

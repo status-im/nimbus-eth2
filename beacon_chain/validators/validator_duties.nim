@@ -86,6 +86,20 @@ proc addLocalValidator(node: BeaconNode,
                        privKey: ValidatorPrivKey) =
   node.attachedValidators[].addLocalValidator(privKey)
 
+  let
+    pubKey = privKey.toPubKey().toPubKey()
+    index = findValidator(getStateField(node.dag.headState.data, validators).asSeq, pubKey)
+    id = if index.isSome(): $index.get() else: $pubkey
+
+  node.validatorMonitor.validators[pubKey] = MonitoredValidator(
+    id: id,
+    pubkey: pubKey,
+    index: index,
+    summaries: initTable[Epoch, EpochSummary](),
+  )
+  if index.isSome():
+    node.validatorMonitor.indices[index.get()] = pubKey
+
 proc addLocalValidators*(node: BeaconNode) =
   for validatorKey in node.config.validatorKeys:
     node.addLocalValidator(validatorKey)
@@ -101,14 +115,24 @@ proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError]
           getStateField(node.dag.headState.data, validators).asSeq, key)
         pk = key.load()
       if pk.isSome():
-        let v = AttachedValidator(pubKey: key,
-                                  index: index,
-                                  kind: ValidatorKind.remote,
-                                  connection: ValidatorConnection(
-                                    inStream: node.vcProcess.inputStream,
-                                    outStream: node.vcProcess.outputStream,
-                                    pubKeyStr: $key))
+        let
+          v = AttachedValidator(pubKey: key,
+                                index: index,
+                                kind: ValidatorKind.remote,
+                                connection: ValidatorConnection(
+                                  inStream: node.vcProcess.inputStream,
+                                  outStream: node.vcProcess.outputStream,
+                                  pubKeyStr: $key))
+          id = if index.isSome(): $index.get() else: $key
         node.attachedValidators[].addRemoteValidator(key, v)
+        node.validatorMonitor.validators[key] = MonitoredValidator(
+          id: id,
+          pubkey: key,
+          index: index,
+          summaries: initTable[Epoch, EpochSummary](),
+        )
+        if index.isSome():
+          node.validatorMonitor.indices[index.get()] = key
       else:
         warn "Could not load public key", line
 
