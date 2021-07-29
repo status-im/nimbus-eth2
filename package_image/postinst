@@ -2,7 +2,7 @@
 
 set -e
 
-if [ ! `sed -n "/^nimbus/p" /etc/passwd` ]; then
+if ! id -u nimbus > /dev/null 2>&1; then
   adduser --system --no-create-home --group nimbus
 fi
 
