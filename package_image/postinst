@@ -17,8 +17,6 @@ dialog_network() {
     prater "Prater Testnet"
   )
   NETWORK=$("${NETWORK_DIALOG[@]}" "${OPTIONS[@]}" 2>&1 >/dev/tty)
-
-  echo "Environment=NETWORK=${NETWORK}" >>/usr/lib/systemd/system/nimbus.service
 }
 
 dialog_web3_provider() {
@@ -45,18 +43,15 @@ You should fix this by editing /usr/lib/systemd/system/nimbus.service and settin
     echo "You provided an invalid Eth1 Web3 Provider. This might lead to unexpected behavior on Nimbus.
 You should fix this by editing /usr/lib/systemd/system/nimbus.service and setting proper value on WEB3_URL"
   fi
-
-  echo "Environment=WEB3_URL=${WEB3_URL}" >>/usr/lib/systemd/system/nimbus.service
 }
 
 if [[ -z $NETWORK || !( $NETWORK == "mainnet" || $NETWORK == "pyrmont" || $NETWORK == "prater" ) ]]; then
   dialog_network
-else
-  echo "Environment=NETWORK=${NETWORK}" >>/usr/lib/systemd/system/nimbus.service
 fi
 
 if [ -z $WEB3_URL ]; then
   dialog_web3_provider
-else
-  echo "Environment=WEB3_URL=${WEB3_URL}" >>/usr/lib/systemd/system/nimbus.service
 fi
+
+echo "Environment=NETWORK=${NETWORK}" >>/usr/lib/systemd/system/nimbus.service
+echo "Environment=WEB3_URL=${WEB3_URL}" >>/usr/lib/systemd/system/nimbus.service
