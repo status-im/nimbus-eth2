@@ -45,7 +45,12 @@ def runStages() {
 		}
 
 		stage("REST test suite") {
-			sh "./tests/simulation/restapi.sh --data-dir resttest0_data --base-port \$(( 9100 + EXECUTOR_NUMBER * 100 )) --base-rest-port \$(( 7100 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8108 + EXECUTOR_NUMBER * 100 )) --sleep-timeout 30"
+			sh """#!/bin/bash
+			set -e
+			./tests/simulation/restapi.sh --data-dir resttest0_data --base-port \$(( 9100 + EXECUTOR_NUMBER * 100 )) \
+				--base-rest-port \$(( 7100 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \
+				\$(( 8108 + EXECUTOR_NUMBER * 100 )) --sleep-timeout 30 --kill-old-processes
+			"""
 		}
 
 		stage("Testnet finalization") {
