@@ -19,7 +19,7 @@ import
 
   eth/[keys, async_utils], eth/net/nat,
   eth/db/[kvstore, kvstore_sqlite3],
-  eth/p2p/enode, eth/p2p/discoveryv5/[protocol, enr, random2],
+  eth/p2p/discoveryv5/[protocol, enr, random2],
 
   # Local modules
   "."/[
