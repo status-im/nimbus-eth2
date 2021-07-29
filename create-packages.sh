@@ -34,6 +34,11 @@ else
   fi
 fi
 
+if ! command -v fpm &> /dev/null;then
+  printf "Please install FPM! \nhttps://fpm.readthedocs.io/en/latest/installing.html\n"
+  exit 1
+fi
+
 mkdir -p $PKG_IMG_DIR/var/lib/nimbus
 mkdir -p $PKG_IMG_DIR/usr/bin
 
