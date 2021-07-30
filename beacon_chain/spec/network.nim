@@ -8,6 +8,7 @@
 {.push raises: [Defect].}
 
 import
+  parseutils,
   "."/[digest, helpers],
   "."/datatypes/base
 
@@ -72,6 +73,15 @@ func getAttestationTopic*(forkDigest: ForkDigest, subnet_id: SubnetId):
     string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "beacon_attestation_" & $uint64(subnet_id) & "/ssz"
+
+func getTopicAttestationSubnet*(forkDigest: ForkDigest, topic: string): int =
+  #Can't return subnetid because of -1
+  let prefix = eth2Prefix(forkDigest) & "beacon_attestation_"
+  if topic.len > prefix.len and topic[0..<prefix.len] == prefix:
+    var parsed: int
+    if parseSaturatedNatural(topic, parsed, prefix.len) > 0:
+      return parsed
+  return -1
 
 func getENRForkID*(fork_version: Version,
                    genesis_validators_root: Eth2Digest): ENRForkID =

@@ -11,6 +11,8 @@ import
   # Std lib
   std/[typetraits, sequtils, os, algorithm, math, sets, strutils],
   std/options as stdOptions,
+  #TODO move popcount to stew's bitops2
+  bitops,
 
   # Status libs
   stew/[leb128, base58, endians2, results, byteutils, io2], bearssl,
@@ -26,7 +28,7 @@ import
   libp2p/muxers/muxer, libp2p/muxers/mplex/mplex,
   libp2p/transports/[transport, tcptransport],
   libp2p/protocols/secure/[secure, noise],
-  libp2p/protocols/pubsub/[pubsub, gossipsub, rpc/message, rpc/messages],
+  libp2p/protocols/pubsub/[pubsub, gossipsub, rpc/message, rpc/messages, peertable],
   libp2p/transports/tcptransport,
   libp2p/stream/connection,
   libp2p/utils/semaphore,
@@ -217,6 +219,11 @@ type
 
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
+
+#TODO move to stew
+func popcount[T](a: BitArray[T]): int =
+  for i in 0..<a.bytes.len:
+    result.inc(a.bytes[i].popcount())
 
 func phase0metadata*(node: Eth2Node): MetaData =
   MetaData(
@@ -892,7 +899,7 @@ proc connectWorker(node: Eth2Node, index: int) {.async.} =
     # Previous worker dial might have hit the maximum peers.
     # TODO: could clear the whole connTable and connQueue here also, best
     # would be to have this event based coming from peer pool or libp2p.
-    if node.switch.connManager.outSema.count > 0:
+    if node.switch.connManager.outSema.count < node.switch.connManager.outSema.size:
       await node.dialPeer(remotePeerAddr, index)
     # Peer was added to `connTable` before adding it to `connQueue`, so we
     # excluding peer here after processing.
@@ -937,32 +944,62 @@ proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
   d.rng[].shuffle(filtered)
   return filtered.sortedByIt(it[0]).mapIt(it[1])
 
-proc getLowAttnets(node: Eth2Node): (int, BitArray[ATTESTATION_SUBNET_COUNT]) =
+proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
+  # 3 priorities:
+  # - Have 0 subscribed subnet below dLow
+  # - Have 0 subscribed subnet below d
+  # - Have 0 subnet < 3 peers
+
   var
-    lowSubnetsCount = 0
     lowSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
+
+    belowDSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
+
+  for topic, _ in node.pubsub.topics:
+    let subNetId = getTopicAttestationSubnet(node.forkId.forkDigest, topic)
+    info "Topic id", topic, subNetId, count=node.pubsub.mesh.peers(topic), dHigh=node.pubsub.parameters.dHigh
+
+    if subNetId < 0: continue
+
+    if node.pubsub.mesh.peers(topic) < node.pubsub.parameters.dLow:
+      lowSubnets.setBit(subNetId)
+
+    if node.pubsub.mesh.peers(topic) < node.pubsub.parameters.d:
+      belowDSubnets.setBit(subNetId)
+
+  if lowSubnets.popcount() > 0:
+    info "Low topics: ", lowSubnets
+    return lowSubnets
+
+  if belowDSubnets.popcount() > 0:
+    info "Below d topics: ", belowDSubnets
+    return belowDSubnets
 
   for i in 0..<node.attnetsPeerGroups.len():
     if node.attnetsPeerGroups[i].isLow():
-      inc lowSubnetsCount
       lowSubnets.setBit(i)
-  return (lowSubnetsCount, lowSubnets)
+
+  info "isLow topics: ", lowSubnets
+  return lowSubnets
+
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
 
   while true:
-    let (lowAttnetsCount, wantedAttnets) = node.getLowAttnets()
+    let
+      wantedAttnets = node.getLowAttnets()
+      wantedAttnetsCount = wantedAttnets.popcount()
 
-    if node.switch.connManager.outSema.count > 0 or lowAttnetsCount > 0:
+    if node.switch.connManager.outSema.count < node.switch.connManager.outSema.size or wantedAttnetsCount > 0:
       let discoveredNodes =
         block:
-          if lowAttnetsCount > 0:
+          if wantedAttnetsCount > 0:
             await node.discovery.queryRandom(node.forkId, wantedAttnets)
           else:
             await node.discovery.queryRandom(("eth2", SSZ.encode(node.forkId)))
 
-      if node.switch.connManager.outSema.count == 0 and lowAttnetsCount > 0:
+      if node.switch.connManager.outSema.count >= node.switch.connManager.outSema.size and wantedAttnetsCount > 0:
         #We're full of bad peers, kick a few ones
         await node.peerBalancer.trimConnections(2)
 
@@ -988,6 +1025,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
         else:
           debug "Failed to decode discovery's node address",
                 node = discnode, errMsg = res.error
+      info "Discovered nodes", count = discoveredNodes.len, newPeers
 
       debug "Discovery tick", wanted_peers = node.wantedPeers,
             space = node.peerPool.shortLogSpace(),
@@ -1082,6 +1120,8 @@ proc handlePeer*(peer: Peer) {.async.} =
                                          connections = peer.connections
 
 proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
+  # Let as much peers in as we have out peers
+  node.switch.connManager.inSema.setSize(node.switch.connManager.outSema.count)
   let peer = node.getPeer(peerId)
   case event.kind
   of ConnEventKind.Connected:
@@ -1199,7 +1239,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf,
     scorePerProtocol = 1_000_000
     scorePerAttnet = scorePerProtocol div ATTESTATION_SUBNET_COUNT
   for attnet in 0..<metadata.attnets.len():
-    node.attnetsPeerGroups.add(node.peerBalancer.addGroup("attnet_"  & $attnet, scorePerAttnet, 8))
+    node.attnetsPeerGroups.add(node.peerBalancer.addGroup("attnet_"  & $attnet, scorePerAttnet, 3))
   node.eth2PeerGroup = node.peerBalancer.addGroup("eth2", scorePerAttnet)
 
   newSeq node.protocolStates, allProtocols.len
@@ -1212,8 +1252,8 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf,
         msg.protocolMounter node
 
 
-  proc peerHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
-    onConnEvent(node, peerId, event)
+  proc peerHook(peerInfo: PeerInfo, event: ConnEvent): Future[void] {.gcsafe.} =
+    onConnEvent(node, peerInfo.peerId, event)
 
   try:
     switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
@@ -1435,6 +1475,7 @@ proc peerPingerHeartbeat*(node: Eth2Node) {.async.} =
       if heartbeatStart_m - lastMetadata > 30.seconds:
         debug "no metadata for 30 seconds, kicking peer", peer
         asyncSpawn peer.disconnect(PeerScoreLow)
+      info "Peer data", id = $peer.info.peerId, metadata = $peer.metadata
 
     await sleepAsync(15.seconds)
 
@@ -1667,7 +1708,8 @@ proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
       .withRng(rng)
       .withNoise()
       .withMplex(5.minutes, 5.minutes)
-      .withMaxConnections(config.maxPeers)
+      .withMaxOut(config.maxPeers div 2)
+      .withMaxIn(0)
       .withAgentVersion(config.agentString)
       .withTcpTransport({ServerFlags.ReuseAddr})
       .build()

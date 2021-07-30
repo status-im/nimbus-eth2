@@ -111,8 +111,8 @@ proc addGroup*(
 proc new*(T: typedesc[PeerBalancer], switch: Switch, maxPeers: int): T =
   let balancer = T(switch: switch, maxPeers: maxPeers)
 
-  proc peerHook(peerId: PeerID, event: ConnEvent) {.gcsafe, async.} =
-    balancer.removePeer(peerId)
+  proc peerHook(peerInfo: PeerInfo, event: ConnEvent) {.gcsafe, async.} =
+    balancer.removePeer(peerInfo.peerId)
 
   switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
   return balancer
