@@ -216,11 +216,17 @@ when hasGenesisDetection:
     if verify_deposit_signature(m.cfg, deposit):
       let pubkey = deposit.pubkey
       if pubkey notin m.genesisValidatorKeyToIndex:
-        let idx = ValidatorIndex m.genesisValidators.len
+        let idx = m.genesisValidators.len
         m.genesisValidators.add ImmutableValidatorData(
           pubkey: pubkey,
           withdrawal_credentials: deposit.withdrawal_credentials)
-        m.genesisValidatorKeyToIndex[pubkey] = idx
+        m.genesisValidatorKeyToIndex[pubkey] =
+          IHaveVerifiedThisValue(ValidatorIndex, idx, """
+            This is the index of the last item that was just added
+            to the table. Since the history of Eth1 is assumed to
+            be immutable due to the large follow distance, we know
+            that the ValidatorIndex will remain the same on the
+            beacon chain. """)
 
   proc processGenesisDeposit*(m: Eth1Monitor, newDeposit: DepositData) =
     m.db.genesisDeposits.add newDeposit

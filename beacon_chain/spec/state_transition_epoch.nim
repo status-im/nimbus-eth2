@@ -593,27 +593,26 @@ iterator get_flag_index_deltas(
       unslashed_participating_balance div EFFECTIVE_BALANCE_INCREMENT
     active_increments = total_active_balance div EFFECTIVE_BALANCE_INCREMENT
 
-  for index in 0 ..< state.validators.len:
+  for index in state.validatorIndices:
     # TODO Obviously not great
     let v = state.validators[index]
     if  not (is_active_validator(v, previous_epoch) or
         (v.slashed and previous_epoch + 1 < v.withdrawable_epoch)):
       continue
 
-    template vidx: ValidatorIndex = index.ValidatorIndex
-    let base_reward = get_base_reward(state, vidx, total_active_balance)
+    let base_reward = get_base_reward(state, index, total_active_balance)
     yield
-      if vidx in unslashed_participating_indices:
+      if index in unslashed_participating_indices:
         if not is_in_inactivity_leak(state):
           let reward_numerator =
             base_reward * weight * unslashed_participating_increments
-          (vidx, reward_numerator div (active_increments * WEIGHT_DENOMINATOR), 0.Gwei)
+          (index, reward_numerator div (active_increments * WEIGHT_DENOMINATOR), 0.Gwei)
         else:
-          (vidx, 0.Gwei, 0.Gwei)
+          (index, 0.Gwei, 0.Gwei)
       elif flag_index != TIMELY_HEAD_FLAG_INDEX:
-        (vidx, 0.Gwei, base_reward * weight div WEIGHT_DENOMINATOR)
+        (index, 0.Gwei, base_reward * weight div WEIGHT_DENOMINATOR)
       else:
-        (vidx, 0.Gwei, 0.Gwei)
+        (index, 0.Gwei, 0.Gwei)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
 iterator get_inactivity_penalty_deltas(cfg: RuntimeConfig, state: altair.BeaconState):

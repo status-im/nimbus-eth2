@@ -46,6 +46,7 @@ type
     SignedVoluntaryExit
 
   EncodeArrays* =
+    seq[RestValidatorIndex] |
     seq[ValidatorIndex] |
     seq[Attestation] |
     seq[SignedAggregateAndProof] |
@@ -252,19 +253,9 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ValidatorIndex) {.
      raises: [IOError, Defect].} =
   writeValue(writer, Base10.toString(uint64(value)))
 
-proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorIndex) {.
-     raises: [IOError, SerializationError, Defect].} =
-  let svalue = reader.readValue(string)
-  let res = Base10.decode(uint64, svalue)
-  if res.isOk():
-    let v = res.get()
-    if v < VALIDATOR_REGISTRY_LIMIT:
-      value = ValidatorIndex(v)
-    else:
-      reader.raiseUnexpectedValue(
-        "Validator index is bigger then VALIDATOR_REGISTRY_LIMIT")
-  else:
-    reader.raiseUnexpectedValue($res.error())
+proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorIndex)
+               {.error: "Types such as `ValidatorIndex` have to be subjected to validation." &
+                        "For this reason, they cannot appear in REST API input structures".}
 
 ## RestValidatorIndex
 proc writeValue*(writer: var JsonWriter[RestJson],

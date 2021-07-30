@@ -8,7 +8,8 @@ import
   stew/[results, base10],
   chronicles,
   nimcrypto/utils as ncrutils,
-  ../beacon_node_common, ../networking/eth2_network,
+  ".."/[beacon_chain_db, beacon_node_common],
+  ../networking/eth2_network,
   ../consensus_object_pools/[blockchain_dag, spec_cache, attestation_pool],
   ../gossip_processing/gossip_validation,
   ../validators/validator_duties,
@@ -35,16 +36,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         var res: seq[ValidatorIndex]
         let items = dres.get()
         for item in items:
-          let vres = item.toValidatorIndex()
-          if vres.isErr():
-            case vres.error()
-            of ValidatorIndexError.TooHighValue:
-              return RestApiResponse.jsonError(Http400,
-                                               TooHighValidatorIndexValueError)
-            of ValidatorIndexError.UnsupportedValue:
-              return RestApiResponse.jsonError(Http500,
-                                            UnsupportedValidatorIndexValueError)
-          res.add(vres.get())
+          let idx = uint64(item).validateValidatorIndexOr(node.dag.db):
+            return RestApiResponse.jsonError(Http400,
+                                             TooHighValidatorIndexValueError)
+          res.add(idx)
         if len(res) == 0:
           return RestApiResponse.jsonError(Http400,
                                            EmptyValidatorIndexArrayError)
@@ -83,19 +78,17 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             for index_in_committee, validator_index in commitee:
               if validator_index in indexList:
                 let validator_key = epochRef.validatorKey(validator_index)
-                if validator_key.isSome():
-                  res.add(
-                    RestAttesterDuty(
-                      pubkey: validator_key.get().toPubKey(),
-                      validator_index: validator_index,
-                      committee_index: CommitteeIndex(committee_index),
-                      committee_length: lenu64(commitee),
-                      committees_at_slot: committees_per_slot,
-                      validator_committee_index:
-                        ValidatorIndex(index_in_committee),
-                      slot: slot
-                    )
+                res.add(
+                  RestAttesterDuty(
+                    pubkey: validator_key.toPubKey(),
+                    validator_index: validator_index.toRestType,
+                    committee_index: CommitteeIndex(committee_index),
+                    committee_length: lenu64(commitee),
+                    committees_at_slot: committees_per_slot,
+                    validator_committee_index: RestValidatorIndex(index_in_committee),
+                    slot: slot
                   )
+                )
         res
     return RestApiResponse.jsonResponseWRoot(duties, droot)
 
@@ -135,8 +128,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if bp.isSome():
             res.add(
               RestProposerDuty(
-                pubkey: epochRef.validatorKey(bp.get()).get().toPubKey(),
-                validator_index: bp.get(),
+                pubkey: epochRef.validatorKey(bp.get).toPubKey,
+                validator_index: bp.get.toRestType,
                 slot: compute_start_slot_at_epoch(qepoch) + i
               )
             )
@@ -322,9 +315,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                          InvalidCommitteeIndexValueError)
       let validator_pubkey =
         block:
-          let idx = request.validator_index
-          if uint64(idx) >=
-                           lenu64(getStateField(node.dag.headState.data, validators)):
+          let idx = uint64(request.validator_index)
+          if idx >= lenu64(getStateField(node.dag.headState.data, validators)):
             return RestApiResponse.jsonError(Http400,
                                              InvalidValidatorIndexValueError)
           getStateField(node.dag.headState.data, validators)[idx].pubkey

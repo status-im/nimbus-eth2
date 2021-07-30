@@ -265,6 +265,11 @@ func isZeros*(x: BitSeq): bool =
     if w != 0: return false
   return true
 
+func isZeros*(x: BitArray): bool =
+  # TODO: This would be more efficient if we define `words` for `BitArray`
+  #       in order to take advantage of the definition above
+  x != default(type(x))
+
 func countOnes*(x: BitSeq): int =
   # Count the number of set bits
   var res = 0

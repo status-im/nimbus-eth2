@@ -49,7 +49,7 @@ export
 # Eventually, we could also differentiate between user/tainted data and
 # internal state that's gone through sanity checks already.
 
-const SPEC_VERSION* = "1.0.1"
+const SPEC_VERSION* = "1.1.0"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -683,6 +683,19 @@ proc `<`*(x, y: ValidatorIndex) : bool {.borrow, noSideEffect.}
 proc hash*(x: ValidatorIndex): Hash {.borrow, noSideEffect.}
 func `$`*(x: ValidatorIndex): auto = $(distinctBase(x))
 
+template `==`*(x: uint64, y: ValidatorIndex): bool =
+  x == y.uint64
+
+template `==`*(x: ValidatorIndex, y: uint64): bool =
+  x.uint64 == y
+
+template asUInt64*(x: ValidatorIndex): uint64 =
+  uint64(distinctBase(x))
+
+template IHaveVerifiedThis*(T: type ValidatorIndex, x: untyped,
+                            explanation: static string): ValidatorIndex =
+  ValidatorIndex(x)
+
 # TODO Nim 1.4, but not Nim 1.2, defines a function by this name, which works
 # only on openArray[int]. They do the same thing, so either's fine, when both
 # overloads match. The Nim 1.4 stdlib doesn't int-convert but it's a no-op in
@@ -696,6 +709,10 @@ proc `==`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
 proc `<`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
 proc hash*(x: CommitteeIndex): Hash {.borrow, noSideEffect.}
 func `$`*(x: CommitteeIndex): auto = $(distinctBase(x))
+
+template IHaveVerifiedThis*(T: type CommitteeIndex, x: untyped,
+                            explanation: static string): CommitteeIndex =
+  CommitteeIndex(x)
 
 proc `==`*(x, y: SubnetId) : bool {.borrow, noSideEffect.}
 proc `$`*(x: SubnetId): string {.borrow, noSideEffect.}
@@ -947,3 +964,4 @@ template isomorphicCast*[T, U](x: U): T =
     doAssert sizeof(T) == sizeof(U)
     doAssert getSizeofSig(T()) == getSizeofSig(U())
   cast[ptr T](unsafeAddr x)[]
+

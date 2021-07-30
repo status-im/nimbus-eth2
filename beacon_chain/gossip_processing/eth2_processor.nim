@@ -66,6 +66,7 @@ type
     dag*: ChainDAGRef
     attestationPool*: ref AttestationPool
     validatorPool: ref ValidatorPool
+    syncCommitteeMsgPool: SyncCommitteeMsgPoolRef
 
     doppelgangerDetection*: DoppelgangerProtection
 
@@ -98,6 +99,7 @@ proc new*(T: type Eth2Processor,
           attestationPool: ref AttestationPool,
           exitPool: ref ExitPool,
           validatorPool: ref ValidatorPool,
+          syncCommitteeMsgPool: SyncCommitteeMsgPoolRef,
           quarantine: QuarantineRef,
           rng: ref BrHmacDrbgContext,
           getTime: GetTimeFn): ref Eth2Processor =
@@ -110,6 +112,7 @@ proc new*(T: type Eth2Processor,
     attestationPool: attestationPool,
     exitPool: exitPool,
     validatorPool: validatorPool,
+    syncCommitteeMsgPool: syncCommitteeMsgPool,
     quarantine: quarantine,
     getTime: getTime,
     batchCrypto: BatchCrypto.new(
@@ -150,9 +153,14 @@ proc blockValidator*(
     debug "Dropping already-seen gossip block", delay
     return ValidationResult.Ignore  # "[IGNORE] The block is the first block ..."
 
-  # Start of block processing - in reality, we have already gone through SSZ
-  # decoding at this stage, which may be significant
-  debug "Block received", delay
+  block:
+    when signedBlock is altair.SignedBeaconBlock:
+      logScope:
+        sync_aggregate = $(signedBlock.message.body.sync_aggregate.sync_committee_bits)
+
+    # Start of block processing - in reality, we have already gone through SSZ
+    # decoding at this stage, which may be significant
+    debug "Block received", delay
 
   let blck = self.dag.isValidBeaconBlock(
     self.quarantine, signedBlock, wallTime, {})
@@ -194,7 +202,7 @@ proc checkForPotentialDoppelganger(
     let epochRef = self.dag.getEpochRef(
       tgtBlck, attestation.data.target.epoch)
     for validatorIndex in attesterIndices:
-      let validatorPubkey = epochRef.validatorKey(validatorIndex).get().toPubKey()
+      let validatorPubkey = self.dag.validatorKey(validatorIndex).toPubKey()
       if  self.doppelgangerDetectionEnabled and
           self.validatorPool[].getValidator(validatorPubkey) !=
             default(AttachedValidator):
@@ -345,3 +353,49 @@ proc voluntaryExitValidator*(
   beacon_voluntary_exits_received.inc()
 
   ValidationResult.Accept
+
+proc syncCommitteeMsgValidator*(
+    self: ref Eth2Processor,
+    syncCommitteeMsg: SyncCommitteeMessage,
+    committeeIdx: SyncCommitteeIndex,
+    checkSignature: bool = true): ValidationResult =
+  let wallTime = self.getCurrentBeaconTime()
+
+  # Potential under/overflows are fine; would just create odd metrics and logs
+  let delay = wallTime - syncCommitteeMsg.slot.toBeaconTime
+  debug "Sync committee message received",
+        delay, msg = shortLog(syncCommitteeMsg)
+
+  # Now proceed to validation
+  let v = validateSyncCommitteeMessage(self.dag, self.syncCommitteeMsgPool,
+                                       syncCommitteeMsg, committeeIdx, wallTime,
+                                       checkSignature)
+  if v.isErr():
+    debug "Dropping sync committee message", validationError = v.error
+    return v.error[0]
+
+  ValidationResult.Accept
+
+proc syncCommitteeContributionValidator*(
+    self: ref Eth2Processor,
+    contributionAndProof: SignedContributionAndProof,
+    checkSignature: bool = true): ValidationResult =
+  let wallTime = self.getCurrentBeaconTime()
+
+  # Potential under/overflows are fine; would just create odd metrics and logs
+  let delay = wallTime - contributionAndProof.message.contribution.slot.toBeaconTime
+  debug "Contribution received",
+        delay, aggregator = contributionAndProof.message.aggregator_index,
+        msg = shortLog(contributionAndProof.message.contribution)
+
+  # Now proceed to validation
+  let v = validateSignedContributionAndProof(self.dag, self.syncCommitteeMsgPool,
+                                             contributionAndProof, wallTime,
+                                             checkSignature)
+  if v.isErr():
+    debug "Dropping sync committee contribution and proof",
+           validationError = v.error
+    return v.error[0]
+
+  ValidationResult.Accept
+

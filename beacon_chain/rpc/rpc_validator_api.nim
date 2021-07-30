@@ -44,7 +44,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       node, randao_reveal, proposer.get(), graffiti, head, slot)
     if message.isNone():
       raise newException(CatchableError, "could not retrieve block for slot: " & $slot)
-    return message.get()
+    return message.get().phase0Block.message
 
   rpcServer.rpc("post_v1_validator_block") do (body: phase0.SignedBeaconBlock) -> bool:
     debug "post_v1_validator_block",
@@ -55,7 +55,8 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     if head.slot >= body.message.slot:
       raise newException(CatchableError,
         "Proposal is for a past slot: " & $body.message.slot)
-    if head == await proposeSignedBlock(node, head, AttachedValidator(), body):
+    if head == await proposeSignedBlock(
+        node, head, AttachedValidator(), ForkedSignedBeaconBlock.init(body)):
       raise newException(CatchableError, "Could not propose block")
     return true
 
@@ -98,14 +99,13 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
           epochRef, slot, committee_index.CommitteeIndex)
         for index_in_committee, validatorIdx in committee:
           let curr_val_pubkey = epochRef.validatorKey(validatorIdx)
-          if curr_val_pubkey.isSome():
-            if public_keys.findIt(it == curr_val_pubkey.get().toPubKey()) != -1:
-              result.add((public_key: curr_val_pubkey.get().toPubKey(),
-                          validator_index: validatorIdx,
-                          committee_index: committee_index.CommitteeIndex,
-                          committee_length: committee.lenu64,
-                          validator_committee_index: index_in_committee.uint64,
-                          slot: slot))
+          if public_keys.findIt(it == curr_val_pubkey.toPubKey()) != -1:
+            result.add((public_key: curr_val_pubkey.toPubKey(),
+                        validator_index: validatorIdx,
+                        committee_index: committee_index.CommitteeIndex,
+                        committee_length: committee.lenu64,
+                        validator_committee_index: index_in_committee.uint64,
+                        slot: slot))
 
   rpcServer.rpc("get_v1_validator_duties_proposer") do (
       epoch: Epoch) -> seq[RpcValidatorDuties]:
@@ -115,7 +115,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       epochRef = node.dag.getEpochRef(head, epoch)
     for i, bp in epochRef.beacon_proposers:
       if bp.isSome():
-        result.add((public_key: epochRef.validatorKey(bp.get()).get().toPubKey(),
+        result.add((public_key: epochRef.validatorKey(bp.get).toPubKey,
                     validator_index: bp.get(),
                     slot: compute_start_slot_at_epoch(epoch) + i))
 

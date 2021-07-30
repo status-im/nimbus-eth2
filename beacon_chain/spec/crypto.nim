@@ -54,6 +54,10 @@ type
     ## cases, like the database state)
     blob*: array[RawPubKeySize, byte]
 
+  ValidCompressedPubKeyBytes* = object
+    ## Compressed raw serialized key bytes - it's guaranteed that the key is valid
+    blob*: array[RawPubKeySize, byte]
+
   UncompressedPubKey* = object
     ## Uncompressed variation of ValidatorPubKey - this type is faster to
     ## deserialize but doubles the storage footprint
@@ -79,7 +83,9 @@ type
     ## Cooked signatures are those that have been loaded successfully from a
     ## ValidatorSig and are used to avoid expensive reloading as well as error
     ## checking
-export AggregateSignature
+
+export
+  AggregateSignature
 
 # API
 # ----------------------------------------------------------------------
@@ -96,6 +102,7 @@ func toPubKey*(privkey: ValidatorPrivKey): CookedPubKey =
 
 template toRaw*(x: CookedPubKey): auto =
   PublicKey(x).exportRaw()
+
 template toUncompressed*(x: CookedPubKey): auto =
   UncompressedPubKey(blob: PublicKey(x).exportUncompressed())
 
@@ -155,6 +162,9 @@ proc load*(v: ValidatorSig): Option[CookedSig] =
     some(CookedSig(parsed))
   else:
     none(CookedSig)
+
+template hash*(x: ValidCompressedPubKeyBytes): Hash =
+  hash(x.blob)
 
 func init*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.}=
   ## Initializes an aggregate signature context
@@ -468,6 +478,9 @@ func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noInit
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   v[]
+
+func infinity*(T: type ValidatorSig): T =
+  result.blob[0] = byte 0xC0
 
 proc burnMem*(key: var ValidatorPrivKey) =
   ncrutils.burnMem(addr key, sizeof(ValidatorPrivKey))

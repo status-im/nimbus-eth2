@@ -216,7 +216,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let (keySet, indexSet) =
       block:
         var res1: HashSet[ValidatorPubKey]
-        var res2: HashSet[ValidatorIndex]
+        var res2: HashSet[RestValidatorIndex]
         for item in validatorIds:
           case item.kind
           of ValidatorQueryKind.Key:
@@ -240,7 +240,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if vitem in res2:
               return RestApiResponse.jsonError(Http400,
                                                UniqueValidatorIndexError)
-            res2.incl(vitem)
+            res2.incl(item.index)
         (res1, res2)
 
     node.withStateForBlockSlot(bslot):
@@ -249,7 +249,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       for index, validator in getStateField(stateData.data, validators).pairs():
         let includeFlag =
           (len(keySet) == 0) and (len(indexSet) == 0) or
-          (len(indexSet) > 0 and (ValidatorIndex(index) in indexSet)) or
+          (len(indexSet) > 0 and RestValidatorIndex(index) in indexSet) or
           (len(keySet) > 0 and (validator.pubkey in keySet))
         let sres = validator.getStatus(current_epoch)
         if sres.isOk():
@@ -257,7 +257,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           let statusFlag = vstatus in validatorsMask
           if includeFlag and statusFlag:
             res.add(RestValidator(
-              index: ValidatorIndex(index),
+              index: RestValidatorIndex(index),
               balance:
                 Base10.toString(getStateField(stateData.data, balances)[index]),
               status: toString(vstatus),
@@ -295,7 +295,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if sres.isOk():
               return RestApiResponse.jsonResponse(
                 (
-                  index: ValidatorIndex(index),
+                  index: index,
                   balance:
                     Base10.toString(getStateField(stateData.data, balances)[index]),
                   status: toString(sres.get()),
@@ -320,15 +320,15 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                             UnsupportedValidatorIndexValueError)
             vres.get()
 
-        if uint64(vindex) >= uint64(len(getStateField(stateData.data, validators))):
+        if uint64(vindex) >= getStateField(stateData.data, validators).lenu64:
           return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
-        let validator = getStateField(stateData.data, validators)[vindex]
+        let validator = getStateField(stateData.data, validators)[uint64(vindex)]
         let sres = validator.getStatus(current_epoch)
         if sres.isOk():
           return RestApiResponse.jsonResponse(
             (
               index: vindex,
-              balance: Base10.toString(getStateField(stateData.data, balances)[vindex]),
+              balance: Base10.toString(getStateField(stateData.data, balances)[uint64(vindex)]),
               status: toString(sres.get()),
               validator: validator
             )
@@ -365,7 +365,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let (keySet, indexSet) =
       block:
         var res1: HashSet[ValidatorPubKey]
-        var res2: HashSet[ValidatorIndex]
+        var res2: HashSet[RestValidatorIndex]
         for item in validatorIds:
           case item.kind
           of ValidatorQueryKind.Key:
@@ -381,10 +381,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                   case vres.error()
                   of ValidatorIndexError.TooHighValue:
                     return RestApiResponse.jsonError(Http400,
-                                                TooHighValidatorIndexValueError)
+                      TooHighValidatorIndexValueError)
                   of ValidatorIndexError.UnsupportedValue:
                     return RestApiResponse.jsonError(Http500,
-                                            UnsupportedValidatorIndexValueError)
+                      UnsupportedValidatorIndexValueError)
                 vres.get()
             if vitem in res2:
               return RestApiResponse.jsonError(Http400,
@@ -397,14 +397,14 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       for index, validator in getStateField(stateData.data, validators).pairs():
         let includeFlag =
           (len(keySet) == 0) and (len(indexSet) == 0) or
-          (len(indexSet) > 0 and (ValidatorIndex(index) in indexSet)) or
+          (len(indexSet) > 0 and (RestValidatorIndex(index) in indexSet)) or
           (len(keySet) > 0 and (validator.pubkey in keySet))
         let sres = validator.getStatus(current_epoch)
         if sres.isOk():
           let vstatus = sres.get()
           if includeFlag:
             res.add(RestValidatorBalance(
-              index: ValidatorIndex(index),
+              index: RestValidatorIndex(index),
               balance:
                 Base10.toString(getStateField(stateData.data, balances)[index]),
             ))
@@ -461,8 +461,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlot(bslot):
       proc getCommittee(slot: Slot,
                        index: CommitteeIndex): RestBeaconStatesCommittees =
-        let validators = get_beacon_committee(stateData.data, slot, index,
-                                              cache).mapIt(it)
+        let validators = get_beacon_committee(stateData.data, slot, index, cache)
+                        .mapIt(it.toRestType)
         RestBeaconStatesCommittees(index: index, slot: slot,
                                    validators: validators)
 
@@ -611,7 +611,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http202, BlockValidationError)
     else:
       let res = await proposeSignedBlock(
-        node, head, AttachedValidator(), blck)
+        node, head, AttachedValidator(), ForkedSignedBeaconBlock.init(blck))
       if res == head:
         # TODO altair-transition, but not for immediate testnet-priority
         let blocksTopic = getBeaconBlocksTopic(node.dag.forkDigests.phase0)

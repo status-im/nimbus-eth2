@@ -120,20 +120,20 @@ proc updateValidatorKeys*(dag: ChainDAGRef, validators: openArray[Validator]) =
   dag.db.updateImmutableValidators(validators)
 
 func validatorKey*(
-    dag: ChainDAGRef, index: ValidatorIndex or uint64): Option[CookedPubKey] =
+    dag: ChainDAGRef, index: ValidatorIndex): CookedPubKey =
   ## Returns the validator pubkey for the index, assuming it's been observed
   ## at any point in time - this function may return pubkeys for indicies that
   ## are not (yet) part of the head state (if the key has been observed on a
   ## non-head branch)!
-  dag.db.immutableValidators.load(index)
+  dag.db.immutableValidators.byIndex.load(index).get # all validator keys are valid
 
-func validatorKey*(
-    epochRef: EpochRef, index: ValidatorIndex or uint64): Option[CookedPubKey] =
+template validatorKey*(
+    epochRef: EpochRef, index: ValidatorIndex): CookedPubKey =
   ## Returns the validator pubkey for the index, assuming it's been observed
   ## at any point in time - this function may return pubkeys for indicies that
   ## are not (yet) part of the head state (if the key has been observed on a
   ## non-head branch)!
-  epochRef.dag.validatorKey(index)
+  validatorKey(epochRef.dag, index)
 
 func init*(
     T: type EpochRef, dag: ChainDAGRef, state: StateData,
@@ -149,7 +149,9 @@ func init*(
         getStateField(state.data, current_justified_checkpoint),
       finalized_checkpoint: getStateField(state.data, finalized_checkpoint),
       shuffled_active_validator_indices:
-        cache.get_shuffled_active_validator_indices(state.data, epoch))
+        cache.get_shuffled_active_validator_indices(state.data, epoch)
+      )
+
   for i in 0'u64..<SLOTS_PER_EPOCH:
     epochRef.beacon_proposers[i] = get_beacon_proposer_index(
       state.data, cache, epoch.compute_start_slot_at_epoch() + i)
@@ -454,6 +456,9 @@ proc init*(T: type ChainDAGRef,
 
   dag
 
+template genesisValidatorsRoot*(dag: ChainDAGRef): Eth2Digest =
+  getStateField(dag.headState.data, genesis_validators_root)
+
 func getEpochRef*(
     dag: ChainDAGRef, state: StateData, cache: var StateCache): EpochRef =
   let
@@ -544,8 +549,11 @@ func stateCheckpoint*(bs: BlockSlot): BlockSlot =
     bs = bs.parentOrSlot
   bs
 
-proc forkDigestAtSlot*(dag: ChainDAGRef, slot: Slot): ForkDigest =
-  if slot.epoch < dag.cfg.ALTAIR_FORK_EPOCH:
+template forkAtEpoch*(dag: ChainDAGRef, epoch: Epoch): Fork =
+  forkAtEpoch(dag.cfg, epoch)
+
+proc forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
+  if epoch < dag.cfg.ALTAIR_FORK_EPOCH:
     dag.forkDigests.phase0
   else:
     dag.forkDigests.altair
@@ -956,6 +964,104 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
 
+proc syncSubcommittee*(syncCommittee: openarray[ValidatorPubKey],
+                       committeeIdx: SyncCommitteeIndex): seq[ValidatorPubKey] =
+  ## TODO Return a view type
+  ## Unfortunately, this doesn't work as a template right now.
+  if syncCommittee.len == 0:
+    return @[]
+
+  let
+    startIdx = committeeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
+    onePastEndIdx = startIdx + SYNC_SUBCOMMITTEE_SIZE
+  doAssert startIdx < syncCommittee.len
+
+  @(toOpenArray(syncCommittee, startIdx, onePastEndIdx - 1))
+
+const emptySyncCommittee = newSeq[ValidatorPubKey]()
+
+proc syncCommitteeParticipants*(dagParam: ChainDAGRef,
+                                slotParam: Slot): seq[ValidatorPubKey] =
+  # TODO:
+  # Use view types in Nim 1.6
+  # Right now, the compiler is not able to handle turning this into a
+  # template and returning an openarray
+  let
+    dag = dagParam
+    slot = slotParam
+
+  if dag.headState.data.beaconStateFork == forkAltair:
+    let
+      headSlot = dag.headState.data.hbsAltair.data.slot
+      headCommitteePeriod = syncCommitteePeriod(headSlot)
+      periodStart = syncCommitteePeriodStartSlot(headCommitteePeriod)
+      nextPeriodStart = periodStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
+
+    if slot >= nextPeriodStart:
+      @(dag.headState.data.hbsAltair.data.next_sync_committee.pubkeys.data)
+    elif slot >= periodStart:
+      @(dag.headState.data.hbsAltair.data.current_sync_committee.pubkeys.data)
+    else:
+      emptySyncCommittee
+  else:
+    emptySyncCommittee
+
+proc getSubcommitteePositionAux*(
+    dag: ChainDAGRef,
+    syncCommittee: openarray[ValidatorPubKey],
+    committeeIdx: SyncCommitteeIndex,
+    validatorIdx: ValidatorIndex): Option[uint64] =
+  # TODO Can we avoid the key conversions by getting a compressed key
+  #      out of ImmutableValidatorData2? If we had this, we can define
+  #      the function `dag.validatorKeyBytes` and use it here.
+  let validatorKey = dag.validatorKey(validatorIdx).toPubKey
+
+  for pos, key in syncCommittee.syncSubcommittee(committeeIdx):
+    if validatorKey == key:
+      return some uint64(pos)
+
+proc getSubcommitteePosition*(dag: ChainDAGRef,
+                              slot: Slot,
+                              committeeIdx: SyncCommitteeIndex,
+                              validatorIdx: ValidatorIndex): Option[uint64] =
+  if dag.headState.data.beaconStateFork == forkPhase0:
+    return
+
+  let
+    headSlot = dag.headState.data.hbsAltair.data.slot
+    headCommitteePeriod = syncCommitteePeriod(headSlot)
+    periodStart = syncCommitteePeriodStartSlot(headCommitteePeriod)
+    nextPeriodStart = periodStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
+
+  template search(syncCommittee: openarray[ValidatorPubKey]): Option[uint64] =
+    dag.getSubcommitteePositionAux(syncCommittee, committeeIdx, validatorIdx)
+
+  if slot < periodStart:
+    return
+  elif slot >= nextPeriodStart:
+    return search(dag.headState.data.hbsAltair.data.next_sync_committee.pubkeys.data)
+  else:
+    return search(dag.headState.data.hbsAltair.data.current_sync_committee.pubkeys.data)
+
+template syncCommitteeParticipants*(
+    dag: ChainDAGRef,
+    slot: Slot,
+    committeeIdx: SyncCommitteeIndex): seq[ValidatorPubKey] =
+  let
+    startIdx = committeeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
+    onePastEndIdx = startIdx + SYNC_SUBCOMMITTEE_SIZE
+  # TODO Nim is not happy with returning an openarray here
+  @(toOpenArray(dag.syncCommitteeParticipants(slot), startIdx, onePastEndIdx - 1))
+
+iterator syncCommitteeParticipants*(
+    dag: ChainDAGRef,
+    slot: Slot,
+    committeeIdx: SyncCommitteeIndex,
+    aggregationBits: SyncCommitteeAggregationBits): ValidatorPubKey =
+  for pos, valIdx in pairs(dag.syncCommitteeParticipants(slot, committeeIdx)):
+    if aggregationBits[pos]:
+      yield valIdx
+
 func needStateCachesAndForkChoicePruning*(dag: ChainDAGRef): bool =
   dag.lastPrunePoint != dag.finalizedHead
 
@@ -1199,3 +1305,14 @@ proc getProposer*(
       return none(ValidatorIndex)
 
   proposer
+
+template validateCommitteeIndexOr*(idxParam: uint64,
+                                   epochRef: EpochRef,
+                                   failureCase: untyped): CommitteeIndex =
+  let committeesCount = get_committee_count_per_slot(epochRef)
+  let idx = idxParam
+  if idx < committeesCount:
+    IHaveVerifiedThis(CommitteeIndex, idx, "Just verified")
+  else:
+    failureCase
+

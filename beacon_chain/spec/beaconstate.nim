@@ -203,6 +203,18 @@ proc slash_validator*(
 func genesis_time_from_eth1_timestamp*(cfg: RuntimeConfig, eth1_timestamp: uint64): uint64 =
   eth1_timestamp + cfg.GENESIS_DELAY
 
+func genesisFork*(cfg: RuntimeConfig): Fork =
+  Fork(
+    previous_version: cfg.GENESIS_FORK_VERSION,
+    current_version: cfg.GENESIS_FORK_VERSION,
+    epoch: GENESIS_EPOCH)
+
+func altairFork*(cfg: RuntimeConfig): Fork =
+  Fork(
+    previous_version: cfg.GENESIS_FORK_VERSION,
+    current_version: cfg.ALTAIR_FORK_VERSION,
+    epoch: cfg.ALTAIR_FORK_EPOCH)
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1*(
     cfg: RuntimeConfig,
@@ -227,10 +239,7 @@ proc initialize_beacon_state_from_eth1*(
   doAssert deposits.lenu64 >= SLOTS_PER_EPOCH
 
   var state = phase0.BeaconStateRef(
-    fork: Fork(
-      previous_version: cfg.GENESIS_FORK_VERSION,
-      current_version: cfg.GENESIS_FORK_VERSION,
-      epoch: GENESIS_EPOCH),
+    fork: genesisFork(cfg),
     genesis_time: genesis_time_from_eth1_timestamp(cfg, eth1_timestamp),
     eth1_data:
       Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
@@ -252,7 +261,7 @@ proc initialize_beacon_state_from_eth1*(
                                              deposits.len)
   state.eth1_deposit_index = deposits.lenu64
 
-  var pubkeyToIndex = initTable[ValidatorPubKey, int]()
+  var pubkeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
   for idx, deposit in deposits:
     let
       pubkey = deposit.pubkey
@@ -260,16 +269,19 @@ proc initialize_beacon_state_from_eth1*(
 
     pubkeyToIndex.withValue(pubkey, foundIdx) do:
       # Increase balance by deposit amount
-      increase_balance(state[], ValidatorIndex foundIdx[], amount)
+      increase_balance(state[], foundIdx[], amount)
     do:
       if skipBlsValidation in flags or
          verify_deposit_signature(cfg, deposit):
-        pubkeyToIndex[pubkey] = state.validators.len
+        let nextValidatorIdx = state.validators.len
         if not state.validators.add(get_validator_from_deposit(deposit)):
           raiseAssert "too many validators"
         if not state.balances.add(amount):
           raiseAssert "same as validators"
-
+        pubkeyToIndex[pubkey] =
+          IHaveVerifiedThis(ValidatorIndex, nextValidatorIdx, """
+            This index is obviously correct because we have just added
+            the new validator to the state. """)
       else:
         # Invalid deposits are perfectly possible
         trace "Skipping deposit with invalid signature",
@@ -359,6 +371,11 @@ func is_eligible_for_activation(state: SomeBeaconState, validator: Validator):
   # Has not yet been activated
     validator.activation_epoch == FAR_FUTURE_EPOCH
 
+iterator validatorIndices*(state: SomeBeaconState): ValidatorIndex =
+  for i in 0 ..< state.validators.len:
+    yield IHaveVerifiedThis(ValidatorIndex, i,
+                            "This is obviously a valid index")
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#registry-updates
 proc process_registry_updates*(
     cfg: RuntimeConfig, state: var SomeBeaconState, cache: var StateCache) {.nbench.} =
@@ -379,14 +396,14 @@ proc process_registry_updates*(
   # the current epoch, 1 + MAX_SEED_LOOKAHEAD epochs ahead. Thus caches
   # remain valid for this epoch through though this function along with
   # the rest of the epoch transition.
-  for index in 0..<state.validators.len():
+  for index in state.validatorIndices:
     if is_eligible_for_activation_queue(state.validators.asSeq()[index]):
       state.validators[index].activation_eligibility_epoch =
         get_current_epoch(state) + 1
 
     if is_active_validator(state.validators.asSeq()[index], get_current_epoch(state)) and
         state.validators.asSeq()[index].effective_balance <= cfg.EJECTION_BALANCE:
-      initiate_validator_exit(cfg, state, index.ValidatorIndex, cache)
+      initiate_validator_exit(cfg, state, index, cache)
 
   ## Queue validators eligible for activation and not dequeued for activation
   var activation_queue : seq[tuple[a: Epoch, b: int]] = @[]
@@ -783,12 +800,7 @@ func translate_participation(
         state.previous_epoch_participation[index] =
           add_flag(state.previous_epoch_participation[index], flag_index)
 
-proc upgrade_to_altair*(pre: phase0.BeaconState): ref altair.BeaconState =
-  let epoch = get_current_epoch(pre)
-
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/fork.md#configuration
-  const ALTAIR_FORK_VERSION = Version [byte 1, 0, 0, 0]
-
+proc upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState): ref altair.BeaconState =
   var
     empty_participation =
       HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]()
@@ -804,11 +816,7 @@ proc upgrade_to_altair*(pre: phase0.BeaconState): ref altair.BeaconState =
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
     slot: pre.slot,
-    fork: Fork(
-      previous_version: pre.fork.current_version,
-      current_version: ALTAIR_FORK_VERSION,
-      epoch: epoch
-    ),
+    fork: altairFork(cfg),
 
     # History
     latest_block_header: pre.latest_block_header,

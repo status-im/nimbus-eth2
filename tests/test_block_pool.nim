@@ -170,9 +170,14 @@ suite "Block pool processing" & preset():
       # Different epoch that was never processed
       dag.findEpochRef(b1Add[], b1Add[].slot.epoch + 1).isNil
 
-      er.validatorKey(0'u64).isSome()
-      er.validatorKey(validators - 1).isSome()
-      er.validatorKey(validators).isNone()
+      proc isValidIndex(idx: uint64): bool =
+        discard idx.validateValidatorIndexOr(db):
+          return false
+        return true
+
+      check isValidIndex(0'u64)
+      check isValidIndex(validators - 1)
+      check (not isValidIndex(validators))
 
     # Skip one slot to get a gap
     check:

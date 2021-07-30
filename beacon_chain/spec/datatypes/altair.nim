@@ -431,6 +431,8 @@ type
 
   SomeSomeSignedBeaconBlock* = SomeSignedBeaconBlock | phase0.SomeSignedBeaconBlock
 
+  SyncCommitteeIndex* = distinct uint8
+
 # TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
 # switch proc {.noSideEffect.} to func.
 when false:
@@ -440,6 +442,24 @@ when false:
   proc `==`*(x, y: ParticipationFlags) : bool {.borrow, noSideEffect.}
 
 chronicles.formatIt BeaconBlock: it.shortLog
+chronicles.formatIt SyncCommitteeIndex: uint8(it)
+
+template asInt*(x: SyncCommitteeIndex): int = int(x)
+template asUInt8*(x: SyncCommitteeIndex): uint8 = uint8(x)
+template asUInt64*(x: SyncCommitteeIndex): uint64 = uint64(x)
+
+proc `==`*(lhs, rhs: SyncCommitteeIndex): bool {.borrow, noSideEffect.}
+
+iterator allSyncCommittees*: SyncCommitteeIndex =
+  for committeeIdx in 0 ..< SYNC_COMMITTEE_SUBNET_COUNT:
+    yield SyncCommitteeIndex(committeeIdx)
+
+template validateSyncCommitteeIndexOr*(networkValParam: uint64, elseBody: untyped) =
+  let networkVal = networkValParam
+  if networkVal < SYNC_COMMITTEE_SUBNET_COUNT:
+    SyncCommitteeIndex(networkVal)
+  else:
+    elseBody
 
 Json.useCustomSerialization(BeaconState.justification_bits):
   read:
@@ -477,6 +497,14 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
+func shortLog*(v: SyncCommitteeContribution): auto =
+  (
+    slot: shortLog(v.slot),
+    blk: shortLog(v.beacon_block_root),
+    subnetId: v.subcommittee_index,
+    aggregation_bits: $v.aggregation_bits
+  )
+
 func shortLog*(v: SyncCommitteeMessage): auto =
   (
     slot: shortLog(v.slot),
@@ -484,5 +512,8 @@ func shortLog*(v: SyncCommitteeMessage): auto =
     validator_index: v.validator_index,
     signature: shortLog(v.signature)
   )
+
+func shortLog*(v: SyncAggregate): auto =
+  $(v.sync_committee_bits)
 
 chronicles.formatIt SyncCommitteeMessage: shortLog(it)
