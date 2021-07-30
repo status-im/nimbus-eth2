@@ -40,7 +40,7 @@ import
   ../spec/datatypes/base,
   ../spec/[digest, network, helpers, forkedbeaconstate_helpers],
   ../validators/keystore_management,
-  ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization, ./peer_balancer
+  ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
 
 from ../spec/datatypes/altair import nil
 
@@ -91,10 +91,7 @@ type
     rng*: ref BrHmacDrbgContext
     peers*: Table[PeerID, Peer]
     validTopics: HashSet[string]
-    peerBalancer: PeerBalancer
     peerPingerHeartbeatFut: Future[void]
-    attnetsPeerGroups: seq[PeerGroup]
-    eth2PeerGroup: PeerGroup
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -944,6 +941,36 @@ proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
   d.rng[].shuffle(filtered)
   return filtered.sortedByIt(it[0]).mapIt(it[1])
 
+proc trimConnections(node: Eth2Node, count: int) {.async.} =
+  var scores = initOrderedTable[PeerID, int]()
+
+  for topic, _ in node.pubsub.topics:
+    let scorePerPeer = 1_000 div node.pubsub.mesh.peers(topic)
+
+    for peer in node.pubsub.mesh[topic]:
+      let
+        connCount = node.switch.connmanager.connCount(peer.peerId)
+        thisPeersScore = scorePerPeer div max(1, connCount)
+
+      scores[peer.peerId] = scores.getOrDefault(peer.peerId) + thisPeersScore
+
+  #TODO Take stability subnets into account?
+
+  proc sortPerScore(a, b: (PeerID, int)): int =
+    system.cmp(a[1], b[1])
+
+  scores.sort(sortPerScore)
+
+  var toKick = count
+
+  for peerId in scores.keys:
+    #TODO kill a single connection instead of the whole peer
+    # Not possible with the current libp2p's conn management
+    debug "kicking peer", peerId
+    await node.switch.disconnect(peerId)
+    dec toKick
+    if toKick <= 0: return
+
 proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
   # 3 priorities:
   # - Have 0 subscribed subnet below dLow
@@ -975,9 +1002,20 @@ proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
     info "Below d topics: ", belowDSubnets
     return belowDSubnets
 
-  for i in 0..<node.attnetsPeerGroups.len():
-    if node.attnetsPeerGroups[i].isLow():
-      lowSubnets.setBit(i)
+
+  var peerPerStabilitySubnet: array[ATTESTATION_SUBNET_COUNT, int]
+  for peer in node.peers.values:
+    if peer.connectionState != Connected: continue
+    if peer.metadata.isNone: continue
+
+    let stabilitySubnets = peer.metadata.get().attnets
+    for subnet, subscribed in stabilitySubnets:
+      if subscribed:
+        peerPerStabilitySubnet[subnet].inc()
+
+  for subnet, count in peerPerStabilitySubnet:
+    if count < 3:
+      lowSubnets.setBit(subnet)
 
   info "isLow topics: ", lowSubnets
   return lowSubnets
@@ -1001,7 +1039,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
 
       if node.switch.connManager.outSema.count >= node.switch.connManager.outSema.size and wantedAttnetsCount > 0:
         #We're full of bad peers, kick a few ones
-        await node.peerBalancer.trimConnections(2)
+        await node.trimConnections(2)
 
       var newPeers = 0
       for discNode in discoveredNodes:
@@ -1231,16 +1269,8 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf,
     discoveryEnabled: discovery,
     rng: rng,
     connectTimeout: connectTimeout,
-    seenThreshold: seenThreshold,
-    peerBalancer: PeerBalancer.new(switch, config.maxPeers)
+    seenThreshold: seenThreshold
   )
-
-  const
-    scorePerProtocol = 1_000_000
-    scorePerAttnet = scorePerProtocol div ATTESTATION_SUBNET_COUNT
-  for attnet in 0..<metadata.attnets.len():
-    node.attnetsPeerGroups.add(node.peerBalancer.addGroup("attnet_"  & $attnet, scorePerAttnet, 3))
-  node.eth2PeerGroup = node.peerBalancer.addGroup("eth2", scorePerAttnet)
 
   newSeq node.protocolStates, allProtocols.len
   for proto in allProtocols:
@@ -1440,15 +1470,6 @@ proc updatePeerMetadata*(node: Eth2Node, peerId: PeerID) {.async.} =
   let newMetadata = response.get()
   peer.metadata = some(newMetadata)
   peer.lastMetadataTime = Moment.now()
-
-  # This peer will now be managed by the peerbalancer
-  peer.network.eth2PeerGroup.addPeer(peer.info.peerId)
-
-  for bit in 0..<newMetadata.attnets.len:
-    if newMetadata.attnets[bit]:
-      node.attnetsPeerGroups[bit].addPeer(peerId)
-    elif oldMetadata.isSome and oldMetadata.get().attnets[bit] == true:
-      node.attnetsPeerGroups[bit].removePeer(peerId)
 
 proc peerPingerHeartbeat*(node: Eth2Node) {.async.} =
   while true:
