@@ -1124,10 +1124,12 @@ proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
     return false
 
   let
-    headBlock = db.getBlock(headBlockRoot.get())
+    headBlockPhase0 = db.getBlock(headBlockRoot.get())
+    headBlockAltair = db.getAltairBlock(headBlockRoot.get())
     tailBlock = db.getBlock(tailBlockRoot.get())
 
-  if not (headBlock.isSome() and tailBlock.isSome()):
+  if not ((headBlockPhase0.isSome() or headBlockAltair.isSome()) and
+          tailBlock.isSome()):
     return false
 
   if not db.containsState(tailBlock.get().message.state_root):
