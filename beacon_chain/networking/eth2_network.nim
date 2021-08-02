@@ -1165,8 +1165,9 @@ proc handlePeer*(peer: Peer) {.async.} =
                                          connections = peer.connections
 
 proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
+  let incomingCapacity = max(node.switch.connManager.outSema.count, 10)
   # Let as much peers in as we have out peers
-  node.switch.connManager.inSema.setSize(node.switch.connManager.outSema.count)
+  node.switch.connManager.inSema.setSize(incomingCapacity)
   let peer = node.getPeer(peerId)
   case event.kind
   of ConnEventKind.Connected:
@@ -1738,7 +1739,7 @@ proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
       .withNoise()
       .withMplex(5.minutes, 5.minutes)
       .withMaxOut(config.maxPeers div 2)
-      .withMaxIn(0)
+      .withMaxIn(config.maxPeers div 2)
       .withAgentVersion(config.agentString)
       .withTcpTransport({ServerFlags.ReuseAddr})
       .build()
