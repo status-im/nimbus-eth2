@@ -11,11 +11,9 @@ import
   # Std lib
   std/[typetraits, sequtils, os, algorithm, math, sets, strutils],
   std/options as stdOptions,
-  #TODO move popcount to stew's bitops2
-  bitops,
 
   # Status libs
-  stew/[leb128, base58, endians2, results, byteutils, io2], bearssl,
+  stew/[leb128, base58, endians2, results, byteutils, io2, bitops2], bearssl,
   stew/shims/net as stewNet,
   stew/shims/[macros, tables],
   faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
@@ -219,9 +217,9 @@ type
     ## This is type returned from all network requests
 
 #TODO move to stew
-func popcount[T](a: BitArray[T]): int =
+func countOnes[T](a: BitArray[T]): int =
   for i in 0..<a.bytes.len:
-    result.inc(a.bytes[i].popcount())
+    result.inc(a.bytes[i].countOnes())
 
 func phase0metadata*(node: Eth2Node): MetaData =
   MetaData(
@@ -995,11 +993,11 @@ proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
     if node.pubsub.mesh.peers(topic) < node.pubsub.parameters.d:
       belowDSubnets.setBit(subNetId)
 
-  if lowSubnets.popcount() > 0:
+  if lowSubnets.countOnes() > 0:
     info "Low topics: ", lowSubnets
     return lowSubnets
 
-  if belowDSubnets.popcount() > 0:
+  if belowDSubnets.countOnes() > 0:
     info "Below d topics: ", belowDSubnets
     return belowDSubnets
 
@@ -1028,7 +1026,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
   while true:
     let
       wantedAttnets = node.getLowAttnets()
-      wantedAttnetsCount = wantedAttnets.popcount()
+      wantedAttnetsCount = wantedAttnets.countOnes()
 
       semaphoreFull =
         node.switch.connManager.outSema.count >= node.switch.connManager.outSema.size
