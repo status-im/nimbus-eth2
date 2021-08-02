@@ -227,6 +227,37 @@ fi
 
 $MAKE -j ${NPROC} LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:testnet_servers_image -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
 
+# Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
+# instance as the parent and the target process name as a pattern to the
+# "pkill" command.
+cleanup() {
+  pkill -f -P $$ nimbus_beacon_node &>/dev/null || true
+  pkill -f -P $$ nimbus_validator_client &>/dev/null || true
+  sleep 2
+  pkill -f -9 -P $$ nimbus_beacon_node &>/dev/null || true
+  pkill -f -9 -P $$ nimbus_validator_client &>/dev/null || true
+
+  # Delete the binaries we just built, because these are unusable outside this
+  # local testnet.
+  for BINARY in ${BINARIES}; do
+    rm build/${BINARY}
+  done
+}
+trap 'cleanup' SIGINT SIGTERM EXIT
+
+# timeout - implemented with a background job
+timeout_reached() {
+  echo -e "\nTimeout reached. Aborting.\n"
+  cleanup
+}
+trap 'timeout_reached' SIGALRM
+
+if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
+  export PARENT_PID=$$
+  ( sleep ${TIMEOUT_DURATION} && kill -ALRM ${PARENT_PID} ) 2>/dev/null & WATCHER_PID=$!
+fi
+
+# deposit and testnet creation
 PIDS=""
 WEB3_ARG=""
 BOOTSTRAP_TIMEOUT=30 # in seconds
@@ -305,24 +336,6 @@ GENESIS_FORK_VERSION: 0x00000000
 DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
 ETH1_FOLLOW_DISTANCE: 1
 EOF
-
-# Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
-# instance as the parent and the target process name as a pattern to the
-# "pkill" command.
-cleanup() {
-  pkill -f -P $$ nimbus_beacon_node &>/dev/null || true
-  pkill -f -P $$ nimbus_validator_client &>/dev/null || true
-  sleep 2
-  pkill -f -9 -P $$ nimbus_beacon_node &>/dev/null || true
-  pkill -f -9 -P $$ nimbus_validator_client &>/dev/null || true
-
-  # Delete the binaries we just built, because these are unusable outside this
-  # local testnet.
-  for BINARY in ${BINARIES}; do
-    rm build/${BINARY}
-  done
-}
-trap 'cleanup' SIGINT SIGTERM EXIT
 
 dump_logs() {
   LOG_LINES=20
@@ -454,23 +467,14 @@ done
 # give the regular nodes time to crash
 sleep 5
 BG_JOBS="$(jobs | wc -l | tr -d ' ')"
+if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
+  BG_JOBS=$(( BG_JOBS - 1 )) # minus the timeout bg job
+fi
 if [[ "$BG_JOBS" != "$NUM_JOBS" ]]; then
   echo "$(( NUM_JOBS - BG_JOBS )) nimbus_beacon_node/nimbus_validator_client instance(s) exited early. Aborting."
   dump_logs
   dump_logtrace
   exit 1
-fi
-
-# timeout - implemented with a background job
-timeout_reached() {
-  echo -e "\nTimeout reached. Aborting.\n"
-  cleanup
-}
-trap 'timeout_reached' SIGALRM
-
-if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
-  export PARENT_PID=$$
-  ( sleep ${TIMEOUT_DURATION} && kill -ALRM ${PARENT_PID} ) 2>/dev/null & WATCHER_PID=$!
 fi
 
 # launch htop or wait for background jobs
