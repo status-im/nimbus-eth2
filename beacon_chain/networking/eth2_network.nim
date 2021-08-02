@@ -1088,7 +1088,9 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
 
     # Discovery `queryRandom` can have a synchronous fast path for example
     # when no peers are in the routing table. Don't run it in continuous loop.
-    await sleepAsync(1.seconds)
+    #
+    # Also, give some time to dial the discovered nodes and update stats etc
+    await sleepAsync(3.seconds)
 
 proc getPersistentNetMetadata*(config: BeaconNodeConf): altair.MetaData
                               {.raises: [Defect, IOError, SerializationError].} =
@@ -1163,8 +1165,10 @@ proc handlePeer*(peer: Peer) {.async.} =
                                          connections = peer.connections
 
 proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
-  let incomingCapacity = max(node.switch.connManager.outSema.count, 10)
-  # Let as much peers in as we have out peers
+  # Let as much peers in as we have free slots on outgoing semaphore
+  let incomingCapacity =
+    max(10,
+    node.wantedPeers - node.switch.connManager.outSema.count)
   node.switch.connManager.inSema.setSize(incomingCapacity)
   let peer = node.getPeer(peerId)
   case event.kind
@@ -1736,8 +1740,8 @@ proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
       .withRng(rng)
       .withNoise()
       .withMplex(5.minutes, 5.minutes)
-      .withMaxOut(config.maxPeers div 2)
-      .withMaxIn(config.maxPeers div 2)
+      .withMaxOut(config.maxPeers)
+      .withMaxIn(config.maxPeers)
       .withAgentVersion(config.agentString)
       .withTcpTransport({ServerFlags.ReuseAddr})
       .build()
