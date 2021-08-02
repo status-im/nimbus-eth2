@@ -92,6 +92,7 @@ type
     peers*: Table[PeerID, Peer]
     validTopics: HashSet[string]
     peerPingerHeartbeatFut: Future[void]
+    lazyDial: bool
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -975,7 +976,7 @@ proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
   # 3 priorities:
   # - Have 0 subscribed subnet below dLow
   # - Have 0 subscribed subnet below d
-  # - Have 0 subnet < 3 peers
+  # - Have 0 stability subnet with < 5 peers
 
   var
     lowSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
@@ -984,7 +985,7 @@ proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
 
   for topic, _ in node.pubsub.topics:
     let subNetId = getTopicAttestationSubnet(node.forkId.forkDigest, topic)
-    info "Topic id", topic, subNetId, count=node.pubsub.mesh.peers(topic), dHigh=node.pubsub.parameters.dHigh
+    #info "Topic id", topic, subNetId, count=node.pubsub.mesh.peers(topic), dHigh=node.pubsub.parameters.dHigh
 
     if subNetId < 0: continue
 
@@ -1014,7 +1015,7 @@ proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
         peerPerStabilitySubnet[subnet].inc()
 
   for subnet, count in peerPerStabilitySubnet:
-    if count < 3:
+    if count < 5:
       lowSubnets.setBit(subnet)
 
   info "isLow topics: ", lowSubnets
@@ -1029,16 +1030,22 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
       wantedAttnets = node.getLowAttnets()
       wantedAttnetsCount = wantedAttnets.popcount()
 
-    if node.switch.connManager.outSema.count < node.switch.connManager.outSema.size or wantedAttnetsCount > 0:
-      let discoveredNodes =
-        block:
-          if wantedAttnetsCount > 0:
-            await node.discovery.queryRandom(node.forkId, wantedAttnets)
-          else:
-            await node.discovery.queryRandom(("eth2", SSZ.encode(node.forkId)))
+      semaphoreFull =
+        node.switch.connManager.outSema.count >= node.switch.connManager.outSema.size
 
-      if node.switch.connManager.outSema.count >= node.switch.connManager.outSema.size and wantedAttnetsCount > 0:
-        #We're full of bad peers, kick a few ones
+    if wantedAttnetsCount > 0 or
+      not (node.lazyDial or semaphoreFull):
+      let discoveredNodes =
+        if wantedAttnetsCount > 0:
+          await node.discovery.queryRandom(node.forkId, wantedAttnets)
+        else:
+          await node.discovery.queryRandom(("eth2", SSZ.encode(node.forkId)))
+
+      if semaphoreFull and wantedAttnetsCount > 0:
+        # We're full of bad peers, kick a few ones
+        # This will both kick incoming and outgoing
+        # meaning we may not actually free outgoing slots.
+        # But we also want to keep good incoming peers
         await node.trimConnections(2)
 
       var newPeers = 0
@@ -1269,7 +1276,8 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf,
     discoveryEnabled: discovery,
     rng: rng,
     connectTimeout: connectTimeout,
-    seenThreshold: seenThreshold
+    seenThreshold: seenThreshold,
+    lazyDial: config.lazyDial
   )
 
   newSeq node.protocolStates, allProtocols.len
@@ -1496,7 +1504,7 @@ proc peerPingerHeartbeat*(node: Eth2Node) {.async.} =
       if heartbeatStart_m - lastMetadata > 30.seconds:
         debug "no metadata for 30 seconds, kicking peer", peer
         asyncSpawn peer.disconnect(PeerScoreLow)
-      info "Peer data", id = $peer.info.peerId, metadata = $peer.metadata
+      #info "Peer data", id = $peer.info.peerId, metadata = $peer.metadata
 
     await sleepAsync(15.seconds)
 
