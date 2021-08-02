@@ -264,7 +264,7 @@ jobs:
         shell: bash
         working-directory: nimbus-eth2
         run: |
-          PS4='Line ${LINENO}: ' bash -x scripts/setup_official_tests.sh fixturesCache
+          scripts/setup_official_tests.sh fixturesCache
 
       - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
         if: matrix.target.TEST_KIND == 'unit-tests'
@@ -274,7 +274,7 @@ jobs:
           if [[ "${{ runner.os }}" == "macOS" ]]; then
             ulimit -n 1024
           fi
-          make V=1 -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" nimbus_beacon_node nimbus_validator_client
+          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" nimbus_beacon_node nimbus_validator_client
 
       - name: Run nimbus-eth2 tests
         if: matrix.target.TEST_KIND == 'unit-tests'
