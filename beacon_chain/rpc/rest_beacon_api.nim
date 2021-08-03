@@ -15,14 +15,9 @@ import
   ../spec/[crypto, digest, forkedbeaconstate_helpers, network],
   ../spec/datatypes/phase0,
   ../ssz/merkleization,
-  ./eth2_json_rest_serialization, ./rest_utils
+  ./rest_utils
 
 logScope: topics = "rest_beaconapi"
-
-const
-  # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
-  # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validators.yaml#L17
-  MaximumValidatorIds* = 30
 
 proc validateFilter(filters: seq[ValidatorFilter]): Result[ValidatorFilter,
                                                            cstring] =
@@ -940,38 +935,3 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     "/eth/v1/beacon/pool/voluntary_exits",
     "/api/eth/v1/beacon/pool/voluntary_exits"
   )
-
-proc getBeaconGenesis*(): RestResponse[DataRestBeaconGenesis] {.
-     rest, endpoint: "/eth/v1/beacon/genesis",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getGenesis
-
-proc getStateFork*(state_id: StateIdent): RestResponse[DataRestFork] {.
-     rest, endpoint: "/eth/v1/beacon/states/{state_id}/fork",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateFork
-
-proc publishBlock*(body: phase0.SignedBeaconBlock): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blocks",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/publishBlock
-
-proc getStateValidator*(state_id: StateIdent,
-                        validator_id: ValidatorIdent
-                       ): RestResponse[DataRestValidator] {.
-     rest,
-     endpoint: "/eth/v1/beacon/states/{state_id}/validators/{validator_id}",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidator
-
-proc getStateValidators*(state_id: StateIdent,
-                         id: seq[ValidatorIdent]
-                        ): RestResponse[DataRestValidatorList] {.
-     rest, endpoint: "/eth/v1/beacon/states/{state_id}/validators",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidators
-
-proc submitPoolAttestations*(body: seq[Attestation]): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/pool/attestations",
-     meth: MethodPost.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolAttestations

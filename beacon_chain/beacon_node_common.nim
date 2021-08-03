@@ -24,7 +24,7 @@ import
   ./sync/[sync_manager, request_manager]
 
 export
-  osproc, chronos, httpserver, conf, beacon_clock, beacon_chain_db,
+  osproc, chronos, httpserver, presto, conf, beacon_clock, beacon_chain_db,
   attestation_pool, eth2_network, beacon_node_types, eth1_monitor,
   request_manager, sync_manager, eth2_processor, blockchain_dag, block_quarantine,
   base

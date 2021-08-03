@@ -4,7 +4,7 @@ import
   chronicles,
   ../version, ../beacon_node_common,
   ../spec/[datatypes, digest, presets],
-  ./eth2_json_rest_serialization, ./rest_utils
+  ./rest_utils
 
 logScope: topics = "rest_debug"
 
@@ -42,3 +42,8 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     "/eth/v1/debug/beacon/heads",
     "/api/eth/v1/debug/beacon/heads"
   )
+
+proc getDebugChainHeads*(): RestResponse[GetDebugChainHeadsResponse] {.
+     rest, endpoint: "/eth/v1/debug/beacon/heads",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getDebugChainHeads

@@ -34,13 +34,10 @@ import
     attestation_aggregation, validator_duties, validator_pool,
     slashing_protection, keystore_management],
   ./sync/[sync_manager, sync_protocol, request_manager],
-  ./rpc/[rest_utils, config_rest_api, debug_rest_api, node_rest_api,
-         beacon_rest_api, event_rest_api, validator_rest_api, nimbus_rest_api],
-  ./rpc/[beacon_api, config_api, debug_api, event_api, nimbus_api, node_api,
-    validator_api],
+  ./rpc/[rest_api, rpc_api],
   ./spec/[
     datatypes/phase0, datatypes/altair, digest, crypto,
-    forkedbeaconstate_helpers, beaconstate, eth2_apis/beacon_rpc_client,
+    forkedbeaconstate_helpers, beaconstate, eth2_apis/rpc_beacon_client,
     helpers, network, presets, weak_subjectivity, signatures],
   ./consensus_object_pools/[
     blockchain_dag, block_quarantine, block_clearance, block_pools_types,

@@ -13,13 +13,12 @@ import std/options,
   eth/p2p/discoveryv5/enr,
   libp2p/[multiaddress, multicodec],
   nimcrypto/utils as ncrutils,
-  ./eth2_json_rpc_serialization,
   ../beacon_node_common, ../version,
   ../networking/[eth2_network, peer_pool],
   ../sync/sync_manager,
   ../spec/datatypes/base,
   ../spec/[digest, presets],
-  ../spec/eth2_apis/callsigs_types
+  ./rpc_utils
 
 logScope: topics = "nodeapi"
 
@@ -152,7 +151,7 @@ proc getP2PAddresses(node: BeaconNode): Option[seq[string]] =
 
 proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     raises: [Exception].} = # TODO fix json-rpc
-  rpcServer.rpc("get_v1_node_identity") do () -> NodeIdentityTuple:
+  rpcServer.rpc("get_v1_node_identity") do () -> RpcNodeIdentity:
     let discoveryAddresses =
       block:
         let res = node.getDiscoveryAddresses()
@@ -179,8 +178,8 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     )
 
   rpcServer.rpc("get_v1_node_peers") do (state: Option[seq[string]],
-                          direction: Option[seq[string]]) -> seq[NodePeerTuple]:
-    var res = newSeq[NodePeerTuple]()
+                          direction: Option[seq[string]]) -> seq[RpcNodePeer]:
+    var res = newSeq[RpcNodePeer]()
     let rstates = validateState(state)
     if rstates.isNone():
       raise newException(CatchableError, "Incorrect state parameter")
@@ -203,8 +202,8 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
         res.add(peer)
     return res
 
-  rpcServer.rpc("get_v1_node_peer_count") do () -> NodePeerCountTuple:
-    var res: NodePeerCountTuple
+  rpcServer.rpc("get_v1_node_peer_count") do () -> RpcNodePeerCount:
+    var res: RpcNodePeerCount
     for item in node.network.peers.values():
       case item.connectionState
       of ConnectionState.Connecting:
@@ -220,7 +219,7 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     return res
 
   rpcServer.rpc("get_v1_node_peers_peerId") do (
-    peer_id: string) -> NodePeerTuple:
+    peer_id: string) -> RpcNodePeer:
     let pres = PeerID.init(peer_id)
     if pres.isErr():
       raise newException(CatchableError,
@@ -243,7 +242,7 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("get_v1_node_version") do () -> JsonNode:
     return %*{"version": "Nimbus/" & fullVersionStr}
 
-  rpcServer.rpc("get_v1_node_syncing") do () -> SyncInfo:
+  rpcServer.rpc("get_v1_node_syncing") do () -> RpcSyncInfo:
     return node.syncManager.getInfo()
 
   rpcServer.rpc("get_v1_node_health") do () -> JsonNode:

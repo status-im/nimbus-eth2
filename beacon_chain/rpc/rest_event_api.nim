@@ -8,7 +8,7 @@ import
   stew/results,
   chronicles,
   presto,
-  ./eth2_json_rest_serialization, ./rest_utils,
+  ./rest_utils,
   ../beacon_node_common
 
 logScope: topics = "rest_eventapi"

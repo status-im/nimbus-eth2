@@ -1,4 +1,6 @@
-import common
+import
+  ../spec/datatypes/[phase0, altair],
+  common
 
 type
   ApiResponse*[T] = Result[T, string]
@@ -11,7 +13,7 @@ proc checkCompatible*(vc: ValidatorClientRef,
   let info =
     try:
       debug "Requesting beacon node network configuration"
-      let res = await node.client.getConfig()
+      let res = await node.client.getSpec()
       res.data.data
     except CancelledError as exc:
       error "Configuration request was interrupted"
@@ -31,7 +33,7 @@ proc checkCompatible*(vc: ValidatorClientRef,
   let genesis =
     try:
       debug "Requesting beacon node genesis information"
-      let res = await node.client.getBeaconGenesis()
+      let res = await node.client.getGenesis()
       res.data.data
     except CancelledError as exc:
       error "Genesis request was interrupted"
@@ -120,7 +122,7 @@ proc checkOnline*(node: BeaconNodeServerRef) {.async.} =
   debug "Checking beacon node status"
   let agent =
     try:
-      let res = await node.client.getVersion()
+      let res = await node.client.getNodeVersion()
       res.data.data
     except CancelledError as exc:
       error "Status request was interrupted"
@@ -404,10 +406,10 @@ template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
       break
 
 proc getProposerDuties*(vc: ValidatorClientRef,
-                        epoch: Epoch): Future[DataRestProposerDuties] {.
+                        epoch: Epoch): Future[GetProposerDutiesResponse] {.
      async.} =
   logScope: request = "getProposerDuties"
-  vc.firstSuccessTimeout(RestResponse[DataRestProposerDuties], SlotDuration,
+  vc.firstSuccessTimeout(RestResponse[GetProposerDutiesResponse], SlotDuration,
                          getProposerDuties(it, epoch)):
     if apiResponse.isErr():
       debug "Unable to retrieve proposer duties", endpoint = node,
@@ -440,9 +442,9 @@ proc getProposerDuties*(vc: ValidatorClientRef,
 
 proc getAttesterDuties*(vc: ValidatorClientRef, epoch: Epoch,
                         validators: seq[ValidatorIndex]
-                       ): Future[DataRestAttesterDuties] {.async.} =
+                       ): Future[GetAttesterDutiesResponse] {.async.} =
   logScope: request = "getAttesterDuties"
-  vc.firstSuccessTimeout(RestResponse[DataRestAttesterDuties], SlotDuration,
+  vc.firstSuccessTimeout(RestResponse[GetAttesterDutiesResponse], SlotDuration,
                          getAttesterDuties(it, epoch, validators)):
     if apiResponse.isErr():
       debug "Unable to retrieve attester duties", endpoint = node,
@@ -476,7 +478,7 @@ proc getAttesterDuties*(vc: ValidatorClientRef, epoch: Epoch,
 proc getHeadStateFork*(vc: ValidatorClientRef): Future[Fork] {.async.} =
   logScope: request = "getHeadStateFork"
   let stateIdent = StateIdent.init(StateIdentType.Head)
-  vc.firstSuccessTimeout(RestResponse[DataRestFork], SlotDuration,
+  vc.firstSuccessTimeout(RestResponse[GetStateForkResponse], SlotDuration,
                          getStateFork(it, stateIdent)):
     if apiResponse.isErr():
       debug "Unable to retrieve head state's fork", endpoint = node,
@@ -508,7 +510,7 @@ proc getValidators*(vc: ValidatorClientRef,
      async.} =
   logScope: request = "getStateValidators"
   let stateIdent = StateIdent.init(StateIdentType.Head)
-  vc.firstSuccessTimeout(RestResponse[DataRestValidatorList], SlotDuration,
+  vc.firstSuccessTimeout(RestResponse[GetStateValidatorsResponse], SlotDuration,
                          getStateValidators(it, stateIdent, id)):
     if apiResponse.isErr():
       debug "Unable to retrieve head state's validator information",
@@ -540,7 +542,7 @@ proc produceAttestationData*(vc: ValidatorClientRef,  slot: Slot,
                              committee_index: CommitteeIndex
                             ): Future[AttestationData] {.async.} =
   logScope: request = "produceAttestationData"
-  vc.firstSuccessTimeout(RestResponse[DataRestAttestationData],
+  vc.firstSuccessTimeout(RestResponse[ProduceAttestationDataResponse],
                          OneThirdDuration,
                          produceAttestationData(it, slot, committee_index)):
     if apiResponse.isErr():
@@ -633,7 +635,7 @@ proc getAggregatedAttestation*(vc: ValidatorClientRef, slot: Slot,
                                root: Eth2Digest): Future[Attestation] {.
      async.} =
   logScope: request = "getAggregatedAttestation"
-  vc.firstSuccessTimeout(RestResponse[DataRestAttestation],
+  vc.firstSuccessTimeout(RestResponse[GetAggregatedAttestationResponse],
                          OneThirdDuration,
                          getAggregatedAttestation(it, root, slot)):
     if apiResponse.isErr():
@@ -699,9 +701,9 @@ proc publishAggregateAndProofs*(vc: ValidatorClientRef,
 
 proc produceBlock*(vc: ValidatorClientRef, slot: Slot,
                    randao_reveal: ValidatorSig,
-                   graffiti: GraffitiBytes): Future[BeaconBlock] {.async.} =
+                   graffiti: GraffitiBytes): Future[phase0.BeaconBlock] {.async.} =
   logScope: request = "produceBlock"
-  vc.firstSuccessTimeout(RestResponse[DataRestBeaconBlock],
+  vc.firstSuccessTimeout(RestResponse[ProduceBlockResponse],
                          SlotDuration,
                          produceBlock(it, slot, randao_reveal, graffiti)):
     if apiResponse.isErr():
@@ -734,7 +736,7 @@ proc produceBlock*(vc: ValidatorClientRef, slot: Slot,
   raise newException(ValidatorApiError, "Unable to retrieve block data")
 
 proc publishBlock*(vc: ValidatorClientRef,
-                   data: SignedBeaconBlock): Future[bool] {.async.} =
+                   data: phase0.SignedBeaconBlock): Future[bool] {.async.} =
   logScope: request = "publishBlock"
   vc.firstSuccessTimeout(RestPlainResponse,
                          SlotDuration, publishBlock(it, data)):

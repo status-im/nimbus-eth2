@@ -1,7 +1,7 @@
 import
-  callsigs_types
+  rpc_types
 
-export callsigs_types
+export rpc_types
 
 proc getBeaconHead(): Slot
 proc getChainHead(): JsonNode
