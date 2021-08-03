@@ -580,6 +580,7 @@ proc broadcastAggregatedAttestations(
       notice "Aggregated attestation sent",
         attestation = shortLog(signedAP.message.aggregate),
         validator = shortLog(curr[0].v),
+        signature = shortLog(signedAP.signature),
         aggregationSlot
 
 proc updateValidatorMetrics*(node: BeaconNode) =

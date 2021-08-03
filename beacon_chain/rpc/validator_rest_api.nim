@@ -290,6 +290,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                          $res.error())
       node.network.broadcast(
         getAggregateAndProofsTopic(node.dag.forkDigests.phase0), item)
+      notice "Aggregated attestation sent",
+        attestation = shortLog(item.message.aggregate),
+        signature = shortLog(item.signature)
 
     return RestApiResponse.jsonMsgResponse(AggregateAndProofValidationSuccess)
 
