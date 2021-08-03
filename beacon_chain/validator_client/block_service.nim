@@ -1,3 +1,4 @@
+import ../spec/datatypes/[phase0, altair]
 import common, api
 import chronicles
 
@@ -35,7 +36,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
         return
 
     let blockRoot = hash_tree_root(beaconBlock)
-    var signedBlock = SignedBeaconBlock(message: beaconBlock,
+    var signedBlock = phase0.SignedBeaconBlock(message: beaconBlock,
                                         root: hash_tree_root(beaconBlock))
 
     # TODO: signing_root is recomputed in signBlockProposal just after
@@ -49,7 +50,8 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     if notSlashable.isOk():
       let signature = await validator.signBlockProposal(fork, genesisRoot, slot,
                                                         blockRoot)
-      let signedBlock = SignedBeaconBlock(message: beaconBlock, root: blockRoot,
+      let signedBlock =
+        phase0.SignedBeaconBlock(message: beaconBlock, root: blockRoot,
                                           signature: signature)
       let res =
         try:

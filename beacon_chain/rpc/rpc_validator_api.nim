@@ -19,12 +19,11 @@ import
   # Local modules
   ../spec/[crypto, digest, forkedbeaconstate_helpers, helpers, network, signatures],
   ../spec/datatypes/phase0,
-  ../spec/eth2_apis/callsigs_types,
+  ../spec/eth2_apis/rpc_types,
   ../consensus_object_pools/[blockchain_dag, spec_cache, attestation_pool], ../ssz/merkleization,
   ../beacon_node_common, ../beacon_node_types,
   ../validators/validator_duties,
   ../networking/eth2_network,
-  ./eth2_json_rpc_serialization,
   ./rpc_utils
 
 logScope: topics = "valapi"
@@ -86,7 +85,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       signature = shortLog(payload.signature)
 
   rpcServer.rpc("get_v1_validator_duties_attester") do (
-      epoch: Epoch, public_keys: seq[ValidatorPubKey]) -> seq[AttesterDuties]:
+      epoch: Epoch, public_keys: seq[ValidatorPubKey]) -> seq[RpcAttesterDuties]:
     debug "get_v1_validator_duties_attester", epoch = epoch
     let
       head = node.doChecksAndGetCurrentHead(epoch)
@@ -109,7 +108,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
                           slot: slot))
 
   rpcServer.rpc("get_v1_validator_duties_proposer") do (
-      epoch: Epoch) -> seq[ValidatorDutiesTuple]:
+      epoch: Epoch) -> seq[RpcValidatorDuties]:
     debug "get_v1_validator_duties_proposer", epoch = epoch
     let
       head = node.doChecksAndGetCurrentHead(epoch)

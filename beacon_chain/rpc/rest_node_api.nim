@@ -9,8 +9,8 @@ import
   ../networking/[eth2_network, peer_pool],
   ../spec/datatypes/base,
   ../spec/[digest, presets],
-  ../spec/eth2_apis/callsigs_types,
-  ./eth2_json_rest_serialization, ./rest_utils
+  ../spec/eth2_apis/rpc_types,
+  ./rest_utils
 
 logScope: topics = "rest_node"
 
@@ -183,7 +183,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $dres.error())
         dres.get()
 
-    var res: seq[NodePeerTuple]
+    var res: seq[RpcNodePeer]
     for item in node.network.peers.values():
       if (item.connectionState in connectionMask) and
          (item.direction in directionMask):
@@ -291,13 +291,3 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
     "/eth/v1/node/health",
     "/api/eth/v1/node/health"
   )
-
-proc getSyncingStatus*(): RestResponse[DataRestSyncInfo] {.
-     rest, endpoint: "/eth/v1/node/syncing",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Node/getSyncingStatus
-
-proc getVersion*(): RestResponse[DataRestVersion] {.
-     rest, endpoint: "/eth/v1/node/version",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Node/getNodeVersion

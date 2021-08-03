@@ -10,7 +10,7 @@
 import chronicles
 import options, deques, heapqueue, tables, strutils, sequtils, math, algorithm
 import stew/results, chronos, chronicles
-import ../spec/[datatypes/phase0, datatypes/altair, digest, helpers, eth2_apis/callsigs_types, forkedbeaconstate_helpers],
+import ../spec/[datatypes/phase0, datatypes/altair, digest, helpers, eth2_apis/rpc_types, forkedbeaconstate_helpers],
        ../networking/[peer_pool, eth2_network]
 
 import ../gossip_processing/block_processor
@@ -1200,7 +1200,7 @@ proc start*[A, B](man: SyncManager[A, B]) =
   ## Starts SyncManager's main loop.
   man.syncFut = man.syncLoop()
 
-proc getInfo*[A, B](man: SyncManager[A, B]): SyncInfo =
+proc getInfo*[A, B](man: SyncManager[A, B]): RpcSyncInfo =
   ## Returns current synchronization information for RPC call.
   let wallSlot = man.getLocalWallSlot()
   let headSlot = man.getLocalHeadSlot()

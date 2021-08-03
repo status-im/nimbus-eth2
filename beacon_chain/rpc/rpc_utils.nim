@@ -13,9 +13,10 @@ import
   ../beacon_node_common, ../validators/validator_duties,
   ../consensus_object_pools/[block_pools_types, blockchain_dag],
   ../spec/datatypes/base,
-  ../spec/[digest, forkedbeaconstate_helpers, helpers]
+  ../spec/[digest, forkedbeaconstate_helpers, helpers],
+  ../spec/eth2_apis/[rpc_types, eth2_json_rpc_serialization]
 
-export blockchain_dag
+export rpc_types, eth2_json_rpc_serialization, blockchain_dag
 
 template withStateForStateId*(stateId: string, body: untyped): untyped =
   let
