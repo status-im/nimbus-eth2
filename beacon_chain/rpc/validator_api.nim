@@ -82,7 +82,8 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     node.network.broadcast(
       getAggregateAndProofsTopic(node.dag.forkDigests.phase0), payload)
     notice "Aggregated attestation sent",
-      attestation = shortLog(payload.message.aggregate)
+      attestation = shortLog(payload.message.aggregate),
+      signature = shortLog(payload.signature)
 
   rpcServer.rpc("get_v1_validator_duties_attester") do (
       epoch: Epoch, public_keys: seq[ValidatorPubKey]) -> seq[AttesterDuties]:
