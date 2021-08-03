@@ -61,9 +61,14 @@ proc contains*(pool: ValidatorPool, pubKey: ValidatorPubKey): bool =
   ## Returns ``true`` if validator with key ``pubKey`` present in ``pool``.
   pool.validators.contains(pubKey)
 
-proc removeValidator*(pool: var ValidatorPool, pubKey: ValidatorPubKey) =
+proc removeValidator*(pool: var ValidatorPool, validatorKey: ValidatorPubKey) =
   ## Delete validator with public key ``pubKey`` from ``pool``.
-  pool.validators.del(pubKey)
+  let validator = pool.validators.getOrDefault(validatorKey)
+  if not(isNil(validator)):
+    pool.validators.del(validatorKey)
+    notice "Local or remote validator detached", validatorKey,
+           validator = shortLog(validator)
+    validators.set(pool.count().int64)
 
 proc updateValidator*(pool: var ValidatorPool, pubKey: ValidatorPubKey,
                       index: ValidatorIndex) =

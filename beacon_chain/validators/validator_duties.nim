@@ -87,7 +87,7 @@ proc addLocalValidator(node: BeaconNode,
   node.attachedValidators[].addLocalValidator(privKey)
 
 proc addLocalValidators*(node: BeaconNode) =
-  for validatorKey in node.config.validatorKeys:
+  for validatorKey in node.config.validatorKeys():
     node.addLocalValidator(validatorKey)
 
 proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError].} =

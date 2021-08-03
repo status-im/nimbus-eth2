@@ -1252,6 +1252,8 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installNimbusApiHandlers(node)
   restServer.router.installNodeApiHandlers(node)
   restServer.router.installValidatorApiHandlers(node)
+  if node.config.validatorApiEnabled:
+    restServer.router.installValidatorManagementHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
