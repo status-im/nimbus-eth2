@@ -30,22 +30,17 @@ func init*(T: type ValidatorPool,
 template count*(pool: ValidatorPool): int =
   len(pool.validators)
 
-proc addLocalValidator*(pool: var ValidatorPool,
-                        privKey: ValidatorPrivKey,
+proc addLocalValidator*(pool: var ValidatorPool, item: ValidatorPrivateItem,
                         index: Option[ValidatorIndex]) =
-  let pubKey = privKey.toPubKey().toPubKey()
-  let v = AttachedValidator(kind: inProcess, pubKey: pubKey, index: index,
-                            privKey: privKey)
+  let pubKey = item.privateKey.toPubKey().toPubKey()
+  let v = AttachedValidator(kind: ValidatorKind.Local, pubKey: pubKey,
+                            index: index, data: item)
   pool.validators[pubKey] = v
   notice "Local validator attached", pubKey, validator = shortLog(v)
   validators.set(pool.count().int64)
 
-proc addLocalValidator*(pool: var ValidatorPool, privKey: ValidatorPrivKey) =
-  let pubKey = privKey.toPubKey().toPubKey()
-  let v = AttachedValidator(kind: inProcess, pubKey: pubKey, privKey: privKey)
-  pool.validators[pubKey] = v
-  notice "Local validator attached", pubKey, validator = shortLog(v)
-  validators.set(pool.count().int64)
+proc addLocalValidator*(pool: var ValidatorPool, item: ValidatorPrivateItem) =
+  addLocalValidator(pool, item, none[ValidatorIndex]())
 
 proc addRemoteValidator*(pool: var ValidatorPool, pubKey: ValidatorPubKey,
                          v: AttachedValidator) =
@@ -106,23 +101,26 @@ proc signWithRemoteValidator(v: AttachedValidator,
 proc signBlockProposal*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         blockRoot: Eth2Digest): Future[ValidatorSig] {.async.} =
-  return if v.kind == inProcess:
-    get_block_signature(fork, genesis_validators_root, slot, blockRoot,
-                        v.privKey).toValidatorSig()
-  else:
-    let root = compute_block_root(fork, genesis_validators_root, slot,
-                                  blockRoot)
-    await signWithRemoteValidator(v, root)
+  return
+    case v.kind
+    of ValidatorKind.Local:
+      get_block_signature(fork, genesis_validators_root, slot, blockRoot,
+                          v.data.privateKey).toValidatorSig()
+    of ValidatorKind.Remote:
+      let root = compute_block_root(fork, genesis_validators_root, slot,
+                                    blockRoot)
+      await signWithRemoteValidator(v, root)
 
 proc signAttestation*(v: AttachedValidator,
                       data: AttestationData,
                       fork: Fork, genesis_validators_root: Eth2Digest):
                       Future[ValidatorSig] {.async.} =
   return
-    if v.kind == inProcess:
+    case v.kind
+    of ValidatorKind.Local:
       get_attestation_signature(fork, genesis_validators_root, data,
-                                v.privKey).toValidatorSig()
-    else:
+                                v.data.privateKey).toValidatorSig()
+    of ValidatorKind.Remote:
       let root = compute_attestation_root(fork, genesis_validators_root, data)
       await signWithRemoteValidator(v, root)
 
@@ -147,11 +145,12 @@ proc signAggregateAndProof*(v: AttachedValidator,
                             fork: Fork, genesis_validators_root: Eth2Digest):
                             Future[ValidatorSig] {.async.} =
   return
-    if v.kind == inProcess:
+    case v.kind
+    of ValidatorKind.Local:
       get_aggregate_and_proof_signature(fork, genesis_validators_root,
                                         aggregate_and_proof,
-                                        v.privKey).toValidatorSig()
-    else:
+                                        v.data.privateKey).toValidatorSig()
+    of ValidatorKind.Remote:
       let root = compute_aggregate_and_proof_root(fork, genesis_validators_root,
                                                   aggregate_and_proof)
       await signWithRemoteValidator(v, root)
@@ -219,10 +218,11 @@ proc genRandaoReveal*(v: AttachedValidator, fork: Fork,
                       genesis_validators_root: Eth2Digest, slot: Slot):
                       Future[ValidatorSig] {.async.} =
   return
-    if v.kind == inProcess:
-      genRandaoReveal(v.privKey, fork, genesis_validators_root,
+    case v.kind
+    of ValidatorKind.Local:
+      genRandaoReveal(v.data.privateKey, fork, genesis_validators_root,
                       slot).toValidatorSig()
-    else:
+    of ValidatorKind.Remote:
       let root = compute_epoch_root(fork, genesis_validators_root,
                                     slot.compute_epoch_at_slot)
       await signWithRemoteValidator(v, root)
@@ -231,9 +231,10 @@ proc getSlotSig*(v: AttachedValidator, fork: Fork,
                  genesis_validators_root: Eth2Digest, slot: Slot
                  ): Future[ValidatorSig] {.async.} =
   return
-    if v.kind == inProcess:
+    case v.kind
+    of ValidatorKind.Local:
       get_slot_signature(fork, genesis_validators_root, slot,
-                         v.privKey).toValidatorSig()
-    else:
+                         v.data.privateKey).toValidatorSig()
+    of ValidatorKind.Remote:
       let root = compute_slot_root(fork, genesis_validators_root, slot)
       await signWithRemoteValidator(v, root)

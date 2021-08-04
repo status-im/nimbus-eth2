@@ -11,12 +11,12 @@ import
   std/[os, strutils, terminal, wordwrap, unicode],
   chronicles, chronos, json_serialization, zxcvbn,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
-  ../spec/[eth2_merkleization, keystore],
-  ../spec/datatypes/base,
+  ".."/spec/[eth2_merkleization, keystore],
+  ".."/spec/datatypes/base,
   stew/io2, libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
-  ".."/[conf, filepath],
-  ../networking/network_metadata
+  ".."/[conf, filepath, beacon_node_types],
+  ".."/networking/network_metadata
 
 export
   keystore
@@ -57,6 +57,16 @@ proc echoP*(msg: string) =
   ## Prints a paragraph aligned to 80 columns
   echo ""
   echo wrapWords(msg, 80)
+
+proc init*(t: typedesc[ValidatorPrivateItem], privateKey: ValidatorPrivKey,
+           keystore: Keystore): ValidatorPrivateItem =
+  ValidatorPrivateItem(
+    privateKey: privateKey,
+    description: some(keystore.description[]),
+    path: some(keystore.path),
+    uuid: some(keystore.uuid),
+    version: some(uint64(keystore.version))
+  )
 
 proc checkAndCreateDataDir*(dataDir: string): bool =
   when defined(posix):
@@ -245,7 +255,8 @@ proc keyboardCreatePassword(prompt: string,
     return ok(password)
 
 proc keyboardGetPassword[T](prompt: string, attempts: int,
-                            pred: proc(p: string): KsResult[T] {.gcsafe, raises: [Defect].}): KsResult[T] =
+                            pred: proc(p: string): KsResult[T] {.
+     gcsafe, raises: [Defect].}): KsResult[T] =
   var
     remainingAttempts = attempts
     counter = 1
@@ -266,45 +277,51 @@ proc keyboardGetPassword[T](prompt: string, attempts: int,
       dec(remainingAttempts)
   err("Failed to decrypt keystore")
 
+proc loadKeystoreFile*(path: string): KsResult[Keystore] {.
+     raises: [Defect].} =
+  try:
+    ok(Json.loadFile(path, Keystore))
+  except IOError as err:
+    return err("Could not read keystore file")
+  except SerializationError as err:
+    return err("Could not decode keystore file")
+
+proc loadSecretFile*(path: string): KsResult[KeystorePass] {.
+     raises: [Defect].} =
+  try:
+    ok(KeystorePass.init(readFile(path)))
+  except IOError:
+    return err("Could not read password file")
+
 proc loadKeystoreUnsafe*(validatorsDir, secretsDir,
-                         keyName: string): KsResult[ValidatorPrivKey] =
+                         keyName: string): KsResult[ValidatorPrivateItem] =
   ## Load keystore without any checks on keystore/secret permissions.
   let
     keystorePath = validatorsDir / keyName / KeystoreFileName
-    keystore =
-      try:
-        Json.loadFile(keystorePath, Keystore)
-      except IOError as err:
-        return err("Failed to read keystore")
-      except SerializationError as err:
-        return err("Failed to deserialize keystore")
+    keystore = ? loadKeystoreFile(keystorePath)
 
   let
     passphrasePath = secretsDir / keyName
-    passphrase = KeystorePass.init:
-      try:
-        readFile(passphrasePath)
-      except IOError as err:
-        return err("Failed to read secret file")
+    passphrase = ? loadSecretFile(passphrasePath)
 
   let res = decryptKeystore(keystore, passphrase)
   if res.isOk():
-    ok(res.get())
+    ok(ValidatorPrivateItem.init(res.get(), keystore))
   else:
     err("Failed to decrypt keystore")
 
 proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
-                   nonInteractive: bool): Option[ValidatorPrivKey] =
+                   nonInteractive: bool): Option[ValidatorPrivateItem] =
   let
     keystorePath = validatorsDir / keyName / KeystoreFileName
     keystore =
-      try: Json.loadFile(keystorePath, Keystore)
-      except IOError as err:
-        error "Failed to read keystore", err = err.msg, path = keystorePath
-        return
-      except SerializationError as err:
-        error "Invalid keystore", err = err.formatMsg(keystorePath)
-        return
+      block:
+        let res = loadKeystoreFile(keystorePath)
+        if res.isErr():
+          error "Failed to read keystore file", error = res.error(),
+                path = keystorePath
+          return
+        res.get()
 
   let passphrasePath = secretsDir / keyName
   if fileExists(passphrasePath):
@@ -312,17 +329,18 @@ proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
       error "Password file has insecure permissions", key_path = keyStorePath
       return
 
-    let passphrase = KeystorePass.init:
-      try:
-        readFile(passphrasePath)
-      except IOError as err:
-        error "Failed to read passphrase file", err = err.msg,
-              path = passphrasePath
-        return
+    let passphrase =
+      block:
+        let res = loadSecretFile(passphrasePath)
+        if res.isErr():
+          error "Failed to read passphrase file", err = res.error(),
+                path = passphrasePath
+          return
+        res.get()
 
     let res = decryptKeystore(keystore, passphrase)
-    if res.isOk:
-      return res.get.some
+    if res.isOk():
+      return some(ValidatorPrivateItem.init(res.get(), keystore))
     else:
       error "Failed to decrypt keystore", keystorePath, passphrasePath
       return
@@ -343,7 +361,7 @@ proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
   )
 
   if res.isOk():
-    some(res.get())
+    some(ValidatorPrivateItem.init(res.get(), keystore))
   else:
     return
 
@@ -374,21 +392,21 @@ proc isEnabled*(conf: AnyConf, publicKey: ValidatorPubKey): bool {.
   isEnabled(conf, publicKey.toHex())
 
 iterator validatorKeysFromDirs*(validatorsDir,
-                                secretsDir: string): ValidatorPrivKey =
+                                secretsDir: string): ValidatorPrivateItem =
   try:
     for kind, file in walkDir(validatorsDir):
       if kind == pcDir:
         let keyName = splitFile(file).name
         if isEnabled(validatorsDir, keyName):
-          let key = loadKeystore(validatorsDir, secretsDir, keyName, true)
-          if key.isSome():
-            yield key.get()
+          let item = loadKeystore(validatorsDir, secretsDir, keyName, true)
+          if item.isSome():
+            yield item.get()
           else:
             quit 1
   except OSError:
     quit 1
 
-iterator validatorKeys*(config: AnyConf): ValidatorPrivKey =
+iterator validatorItems*(config: AnyConf): ValidatorPrivateItem =
   let validatorsDir = config.validatorsDir()
   let secretsDir = config.secretsDir()
   try:
@@ -396,10 +414,10 @@ iterator validatorKeys*(config: AnyConf): ValidatorPrivKey =
       if kind == pcDir:
         let keyName = splitFile(file).name
         if isEnabled(config, keyName):
-          let key = loadKeystore(validatorsDir, secretsDir, keyName,
-                                 config.nonInteractive)
-          if key.isSome():
-            yield key.get()
+          let item = loadKeystore(validatorsDir, secretsDir, keyName,
+                                  config.nonInteractive)
+          if item.isSome():
+            yield item.get()
           else:
             quit 1
   except OSError as err:

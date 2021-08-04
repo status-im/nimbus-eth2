@@ -8,14 +8,14 @@
 {.push raises: [Defect].}
 
 import
-  std/[deques, intsets, streams, tables, hashes],
+  std/[deques, intsets, streams, tables, hashes, options],
   stew/endians2,
   ./spec/datatypes/[phase0, altair],
   ./consensus_object_pools/block_pools_types,
   ./fork_choice/fork_choice_types,
   ./validators/slashing_protection
 
-export deques, tables, hashes, block_pools_types
+export deques, tables, hashes, options, block_pools_types
 
 const
   ATTESTATION_LOOKBACK* =
@@ -146,22 +146,27 @@ type
   #              Validator Pool
   #
   # #############################################
-  ValidatorKind* = enum
-    inProcess
-    remote
+  ValidatorKind* {.pure.} = enum
+    Local, Remote
 
   ValidatorConnection* = object
     inStream*: Stream
     outStream*: Stream
     pubKeyStr*: string
 
+  ValidatorPrivateItem* = object
+    privateKey*: ValidatorPrivKey
+    description*: Option[string]
+    path*: Option[KeyPath]
+    uuid*: Option[string]
+    version*: Option[uint64]
+
   AttachedValidator* = ref object
     pubKey*: ValidatorPubKey
-
     case kind*: ValidatorKind
-    of inProcess:
-      privKey*: ValidatorPrivKey
-    else:
+    of ValidatorKind.Local:
+      data*: ValidatorPrivateItem
+    of ValidatorKind.Remote:
       connection*: ValidatorConnection
 
     # The index at which this validator has been observed in the chain -

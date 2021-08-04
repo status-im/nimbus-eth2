@@ -28,11 +28,15 @@ type
     name*: string
     filename*: string
     flag*: StoredValidatorKeyFlag
+    path*: KeyPath
+    description*: string
     pubkey*: ValidatorPubKey
 
   ValidatorListItem* = object
     pubkey*: ValidatorPubKey
     status*: string
+    description*: string
+    path*: string
 
   ValidatorKeystoreItem* = object
     keystore*: Keystore
@@ -49,10 +53,11 @@ proc `$`*(s: StoredValidatorKeyFlag): string =
   of StoredValidatorKeyFlag.Disabled:
     "disabled"
 
-proc init*(t: typedesc[ValidatorListItem], key: ValidatorPubKey,
-           flag: StoredValidatorKeyFlag): ValidatorListItem {.
+proc init*(t: typedesc[ValidatorListItem],
+           key: StoredValidatorKey): ValidatorListItem {.
      raises: [Defect].} =
-  ValidatorListItem(pubkey: key, status: $flag)
+  ValidatorListItem(pubkey: key.pubkey, status: $key.flag,
+                    description: key.description, path: string(key.path))
 
 proc listValidators*(conf: AnyConf): seq[StoredValidatorKey] {.
      raises: [Defect].} =
@@ -66,8 +71,22 @@ proc listValidators*(conf: AnyConf): seq[StoredValidatorKey] {.
           # Skip folders which represents invalid public key
           continue
         let secretFile = conf.secretsDir() / keyName
-        let keystoreFile = conf.validatorsDir() / keyName / KeystoreFileName
-        let disableFile = conf.validatorsDir() / keyName / DisableFileName
+        let keystorePath = conf.validatorsDir() / keyName
+        let keystoreFile = keystorePath / KeystoreFileName
+        let disableFile = keystorePath / DisableFileName
+
+        if not(fileExists(keystoreFile)):
+          # Skip folders which do not have keystore file inside.
+          continue
+
+        let keystore =
+          block:
+            let res = loadKeystoreFile(keystoreFile)
+            if res.isErr():
+              # Skip folders which do not have keystore of proper format.
+              continue
+            res.get()
+
         let flag =
           if fileExists(secretFile):
             if checkSensitiveFilePermissions(secretFile):
@@ -79,8 +98,11 @@ proc listValidators*(conf: AnyConf): seq[StoredValidatorKey] {.
               StoredValidatorKeyFlag.NoPermission
           else:
             StoredValidatorKeyFlag.NoPassword
-        let item = StoredValidatorKey(name: keyName, filename: keystoreFile,
-                                      flag: flag, pubkey: rkey.get())
+        let item = StoredValidatorKey(name: keyName,
+                                      filename: keystoreFile, flag: flag,
+                                      path: keystore.path,
+                                      description: keystore.description[],
+                                      pubkey: rkey.get())
         validators.add(item)
     validators
   except OSError:
@@ -171,7 +193,7 @@ proc addValidator(pool: var ValidatorPool,
       if cleanupValidatorsDir: discard io2.removeDir(conf.validatorsDir())
       return err("Could not store keystore file")
 
-  pool.addLocalValidator(privateKey)
+  pool.addLocalValidator(ValidatorPrivateItem.init(privateKey, keystore))
   ok()
 
 proc removeValidator(pool: var ValidatorPool, conf: AnyConf,
@@ -268,7 +290,7 @@ proc installValidatorManagementHandlers*(router: var RestRouter,
   router.api(MethodGet, "/api/nimbus/v1/validators") do (
     ) -> RestApiResponse:
     let validators = node.config.listValidators().mapIt(
-      ValidatorListItem.init(it.pubkey, it.flag)
+      ValidatorListItem.init(it)
     )
     return RestApiResponse.jsonResponse(validators)
 
