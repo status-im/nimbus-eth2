@@ -205,11 +205,15 @@ proc addRawBlockKnownParent(
        onBlockAdded: OnBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## Add a block whose parent is known, after performing validity checks
+  logScope:
+    blck = shortLog(signedBlock.message)
+    blockRoot = shortLog(signedBlock.root)
+    signature = shortLog(signedBlock.signature)
 
   if parent.slot >= signedBlock.message.slot:
     # A block whose parent is newer than the block itself is clearly invalid -
     # discard it immediately
-    debug "Invalid block slot",
+    info "Block with invalid parent, dropping",
       parentBlock = shortLog(parent)
 
     return err((ValidationResult.Reject, Invalid))
@@ -225,7 +229,7 @@ proc addRawBlockKnownParent(
     # correct - from their point of view, the head block they have is the
     # latest thing that happened on the chain and they're performing their
     # duty correctly.
-    debug "Unviable block, dropping",
+    info "Unviable block, dropping",
       finalizedHead = shortLog(dag.finalizedHead),
       tail = shortLog(dag.tail)
 
@@ -249,11 +253,15 @@ proc addRawBlockKnownParent(
     # TODO: remove skipBLSValidation
 
     var sigs: seq[SignatureSet]
-    if sigs.collectSignatureSets(
-        signedBlock, dag.db.immutableValidators, dag.clearanceState, cache).isErr():
+    if (let e = sigs.collectSignatureSets(
+        signedBlock, dag.db.immutableValidators, dag.clearanceState, cache); e.isErr()):
+      info "Unable to load signature sets",
+        err = e.error()
+
       # A PublicKey or Signature isn't on the BLS12-381 curve
       return err((ValidationResult.Reject, Invalid))
     if not quarantine.batchVerify(sigs):
+      info "Block signature verification failed"
       return err((ValidationResult.Reject, Invalid))
 
   let sigVerifyTick = Moment.now()
