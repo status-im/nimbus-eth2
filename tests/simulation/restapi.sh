@@ -115,11 +115,14 @@ MKDIR_SCRIPT="${GIT_ROOT}/scripts/makedir.sh"
 
 $MKDIR_SCRIPT "${TEST_DIR}"
 
+HAVE_LSOF=0
+
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
   MAKE="mingw32-make"
 else
   MAKE="make"
+  which lsof &>/dev/null && HAVE_LSOF=1 || { echo "'lsof' not installed and we need it to check for ports already in use. Aborting."; exit 1; }
 fi
 
 # number of CPU cores
@@ -130,19 +133,20 @@ else
 fi
 
 # kill lingering processes from a previous run
-which lsof &>/dev/null || { echo "'lsof' not installed. Aborting."; exit 1; }
-for PORT in ${BASE_PORT} ${BASE_METRICS_PORT} ${BASE_REST_PORT}; do
-  for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
-    echo -n "Found old process listening on port ${PORT}, with PID ${PID}. "
-    if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
-      echo "Killing it."
-      kill -9 ${PID} || true
-    else
-      echo "Aborting."
-      exit 1
-    fi
+if [[ "${HAVE_LSOF}" == "1" ]]; then
+  for PORT in ${BASE_PORT} ${BASE_METRICS_PORT} ${BASE_REST_PORT}; do
+    for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
+      echo -n "Found old process listening on port ${PORT}, with PID ${PID}. "
+      if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
+	echo "Killing it."
+	kill -9 ${PID} || true
+      else
+	echo "Aborting."
+	exit 1
+      fi
+    done
   done
-done
+fi
 
 build_if_missing () {
   if [[ ! -e "${GIT_ROOT}/build/${1}" ]]; then
