@@ -440,6 +440,10 @@ proc init*(T: type ChainDAGRef,
   # Pruning metadata
   dag.lastPrunePoint = dag.finalizedHead
 
+  # Fill validator key cache in case we're loading an old database that doesn't
+  # have a cache
+  dag.updateValidatorKeys(getStateField(dag.headState, validators).asSeq())
+
   info "Block dag initialized",
     head = shortLog(headRef),
     finalizedHead = shortLog(dag.finalizedHead),
