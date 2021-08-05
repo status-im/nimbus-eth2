@@ -1,3 +1,24 @@
+2021-07-10 v1.4.2
+=================
+
+Nimbus `v1.4.2` - "Upgrade procedure: Hotfix release"
+
+This release is marked as `low-urgency` for all Nimbus users other than those who have recently updated to `v1.4.1` from a version earlier than `v1.1.0` - for these users this is a `high-urgency` release.
+
+## Notable changes
+This release fixes an issue in the upgrade procedure when upgrading from a version earlier than `1.1.0` to `1.4.x`.
+
+**How can I tell if I've been affected?**
+
+If you've already upgraded to `1.4.1`, you can tell that you've been affected if you're seeing the following` WRN log`:
+
+```
+ Received invalid sequence of blocks
+```
+
+To re-iterate, this issue only affects users who are upgrading from `1.0.12` or earlier (released on `2021-03-10`), **and have not run any release in between**. Everyone else can ignore this release.
+
+
 2021-07-10 v1.4.1
 =================
 
@@ -21,6 +42,7 @@ Full list:
 - increase attestation wait time ([#2705](https://github.com/status-im/nimbus-eth2/pull/2705))
 - ensure logs are printed without delays ([#2669](https://github.com/status-im/nimbus-eth2/pull/2669))
 - fix metrics on Windows ([#2707](https://github.com/status-im/nimbus-eth2/pull/2707))
+
 
 2021-06-21 v1.4.0
 =================
