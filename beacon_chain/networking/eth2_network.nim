@@ -26,7 +26,7 @@ import
   libp2p/muxers/muxer, libp2p/muxers/mplex/mplex,
   libp2p/transports/[transport, tcptransport],
   libp2p/protocols/secure/[secure, noise],
-  libp2p/protocols/pubsub/[pubsub, gossipsub, rpc/message, rpc/messages, peertable],
+  libp2p/protocols/pubsub/[pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   libp2p/transports/tcptransport,
   libp2p/stream/connection,
   libp2p/utils/semaphore,
@@ -974,12 +974,15 @@ proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
   # 3 priorities:
   # - Have 0 subscribed subnet below dLow
   # - Have 0 subscribed subnet below d
+  # - Have 0 subscribed subnet below dOut
   # - Have 0 stability subnet with < 5 peers
 
   var
     lowSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
 
     belowDSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
+
+    belowDOutSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
 
   for topic, _ in node.pubsub.topics:
     let subNetId = getTopicAttestationSubnet(node.forkId.forkDigest, topic)
@@ -993,6 +996,10 @@ proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
     if node.pubsub.mesh.peers(topic) < node.pubsub.parameters.d:
       belowDSubnets.setBit(subNetId)
 
+    let outPeers = node.pubsub.mesh.getOrDefault(topic).toSeq().filterIt(it.outbound)
+    if outPeers.len() < node.pubsub.parameters.dOut:
+      belowDOutSubnets.setBit(subNetId)
+
   if lowSubnets.countOnes() > 0:
     info "Low topics: ", lowSubnets
     return lowSubnets
@@ -1000,6 +1007,10 @@ proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
   if belowDSubnets.countOnes() > 0:
     info "Below d topics: ", belowDSubnets
     return belowDSubnets
+
+  if belowDOutSubnets.countOnes() > 0:
+    info "Below dOut topics: ", belowDOutSubnets
+    return belowDOutSubnets
 
 
   var peerPerStabilitySubnet: array[ATTESTATION_SUBNET_COUNT, int]
