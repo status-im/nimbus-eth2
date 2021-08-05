@@ -295,3 +295,26 @@ jobs:
             macOS_arm64_archive
             macOS_arm64_checksum
 
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build multi-arch Docker image
+        run: |
+          REFNAME="${{ github.ref }}"
+          TAG="${REFNAME#refs/tags/}"
+          docker manifest create \
+            statusim/nimbus-eth2:multiarch-${TAG} \
+            --amend statusim/nimbus-eth2:amd64-${TAG} \
+            --amend statusim/nimbus-eth2:arm64-${TAG} \
+            --amend statusim/nimbus-eth2:arm-${TAG}
+          docker manifest push statusim/nimbus-eth2:multiarch-${TAG}
+          docker manifest create \
+            statusim/nimbus-eth2:multiarch-latest \
+            --amend statusim/nimbus-eth2:amd64-latest \
+            --amend statusim/nimbus-eth2:arm64-latest \
+            --amend statusim/nimbus-eth2:arm-latest
+          docker manifest push statusim/nimbus-eth2:multiarch-latest
+
