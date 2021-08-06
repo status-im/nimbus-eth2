@@ -69,7 +69,7 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
   --disable-htop              don't use "htop" to see the nimbus_beacon_node processes
   --disable-vc                don't use validator client binaries for validators (by default validators are split 50/50 between beacon nodes and validator clients)
-  --enable-logtrace           display logtrace asr analysis
+  --enable-logtrace           display logtrace aasr analysis
   --log-level                 set the log level (default: ${LOG_LEVEL})
   --reuse-existing-data-dir   instead of deleting and recreating the data dir, keep it and reuse everything we can from it
   --timeout                   timeout in seconds (default: ${TIMEOUT_DURATION} - no timeout)
@@ -351,7 +351,7 @@ dump_logs() {
 
 dump_logtrace() {
   if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
-    find "${DATA_DIR}" -maxdepth 1 -type f -regex '.*/log[0-9]+.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/logtrace asr --log-dir="${DATA_DIR}" || true
+    find "${DATA_DIR}" -maxdepth 1 -type f -regex '.*/log[0-9]+.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/logtrace aasr --log-dir="${DATA_DIR}" || true
   fi
 }
 

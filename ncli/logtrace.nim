@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,154 +9,159 @@ import confutils, json, times, streams, os, strutils, options, chronicles,
 import json_serialization
 
 const
-  LogTraceName* = "Beacon-Chain LogTrace Tool"
-  LogTraceMajor*: int = 0
-  LogTraceMinor*: int = 0
-  LogTracePatch*: int = 4
-  LogTraceVersion* = $LogTraceMajor & "." & $LogTraceMinor & "." &
+  LogTraceName = "Beacon-Chain LogTrace Tool"
+  LogTraceMajor: int = 0
+  LogTraceMinor: int = 0
+  LogTracePatch: int = 4
+  LogTraceVersion = $LogTraceMajor & "." & $LogTraceMinor & "." &
                       $LogTracePatch
-  LogTraceCopyright* = "Copyright(C) 2020" &
+  LogTraceCopyright = "Copyright(C) 2021" &
                        " Status Research & Development GmbH"
-  LogTraceHeader* = LogTraceName & ", Version " & LogTraceVersion &
+  LogTraceHeader = LogTraceName & ", Version " & LogTraceVersion &
                     " [" & hostOS & ": " & hostCPU & "]\r\n" &
                     LogTraceCopyright & "\r\n"
 
 type
-  StartUpCommand* {.pure.} = enum
-    pubsub, asl, asr, lat
+  StartUpCommand {.pure.} = enum
+    pubsub, asl, asr, aasr, lat
 
-  LogTraceConf* = object
-    logFiles* {.
+  LogTraceConf = object
+    logFiles {.
       desc: "Specifies one or more log files",
       abbr: "f",
       name: "log-file" }: seq[string]
 
-    simDir* {.
+    simDir {.
       desc: "Specifies path to eth2_network_simulation directory",
       name: "sim-dir",
       defaultValue: "" }: string
 
-    netDir* {.
+    netDir {.
       desc: "Specifies path to network build directory",
       name: "net-dir",
       defaultValue: "" }: string
 
-    logDir* {.
+    logDir {.
       desc: "Specifies path with bunch of logs",
       name: "log-dir",
       defaultValue: "" }: string
 
-    ignoreSerializationErrors* {.
+    ignoreSerializationErrors {.
       desc: "Ignore serialization errors while parsing log files",
       name: "ignore-errors",
       defaultValue: true }: bool
 
-    dumpSerializationErrors* {.
+    dumpSerializationErrors {.
       desc: "Dump full serialization errors while parsing log files",
       name: "dump-errors",
       defaultValue: false }: bool
 
-    nodes* {.
+    nodes {.
       desc: "Specifies node names which logs will be used",
       name: "nodes" }: seq[string]
 
-    allowedLag* {.
+    allowedLag {.
       desc: "Allowed latency lag multiplier",
       name: "lag",
       defaultValue: 2.0 }: float
 
-    case cmd* {.command.}: StartUpCommand
+    case cmd {.command.}: StartUpCommand
     of pubsub:
       discard
     of asl:
       discard
     of asr:
       discard
+    of aasr:
+      discard
     of lat:
       discard
 
-  GossipDirection* = enum
+  GossipDirection = enum
     None, Incoming, Outgoing
 
-  NodeDirectory* = object
-    name*: string
-    path*: string
-    logs*: seq[string]
+  NodeDirectory = object
+    name: string
+    path: string
+    logs: seq[string]
 
-  LogMessage* = object of RootObj
-    level* {.serializedFieldName: "lvl" .}: string
-    timestamp* {.serializedFieldName: "ts" .}: DateTime
-    msg*: string
-    topics*: string
-    tid*: int
+  LogMessage = object of RootObj
+    level {.serializedFieldName: "lvl" .}: string
+    timestamp {.serializedFieldName: "ts" .}: DateTime
+    msg: string
+    topics: string
+    tid: int
 
-  SlotStartMessage* = object of LogMessage
-    beaconTime*: uint64
-    finalizedEpoch*: uint64
-    finalizedRoot*: string
-    finalizedSlot*: uint64
-    headEpoch*: uint64
-    headRoot*: string
-    headSlot*: uint64
-    lastSlot*: uint64
-    peers*: uint64
-    scheduledSlot*: uint64
+  SlotStartMessage = object of LogMessage
+    beaconTime: uint64
+    finalizedEpoch: uint64
+    finalizedRoot: string
+    finalizedSlot: uint64
+    headEpoch: uint64
+    headRoot: string
+    headSlot: uint64
+    lastSlot: uint64
+    peers: uint64
+    scheduledSlot: uint64
 
-  AttestationDataObject* = object
-    slot*: uint64
-    index*: uint64
-    beaconBlockRoot* {.serializedFieldName: "beacon_block_root".}: string
-    sourceEpoch* {.serializedFieldName: "source_epoch".}: uint64
-    sourceRoot* {.serializedFieldName: "source_root".}: string
-    targetEpoch* {.serializedFieldName: "target_epoch".}: uint64
-    targetRoot* {.serializedFieldName: "target_root".}: string
+  AttestationDataObject = object
+    slot: uint64
+    index: uint64
+    beaconBlockRoot {.serializedFieldName: "beacon_block_root".}: string
+    sourceEpoch {.serializedFieldName: "source_epoch".}: uint64
+    sourceRoot {.serializedFieldName: "source_root".}: string
+    targetEpoch {.serializedFieldName: "target_epoch".}: uint64
+    targetRoot {.serializedFieldName: "target_root".}: string
 
-  AttestationObject* = object
-    aggregationBits* {.serializedFieldName: "aggregation_bits".}: string
-    data*: AttestationDataObject
-    signature*: string
+  AttestationObject = object
+    aggregationBits {.serializedFieldName: "aggregation_bits".}: string
+    data: AttestationDataObject
+    signature: string
 
-  AttestationSentMessage* = object of LogMessage
-    attestation*: AttestationObject
-    indexInCommittee*: uint64
-    validator*: string
+  AttestationSentMessage = object of LogMessage
+    attestation: AttestationObject
+    indexInCommittee: uint64
+    validator: string
 
-  AttestationReceivedMessage* = object of LogMessage
-    attestation*: AttestationObject
-    head*: string
-    wallSlot*: uint64
-    pcs*: string
+  AttestationReceivedMessage = object of LogMessage
+    attestation: AttestationObject
+    head: string
+    wallSlot: uint64
+    pcs: string
 
-  GossipMessage* = object
-    kind*: GossipDirection
-    id*: string
-    datetime*: DateTime
-    processed*: bool
+  AggregatedAttestationSentMessage = object of LogMessage
+    attestation: AttestationObject
+    validator: string
+    signature: string
+    aggregationSlot: uint64
 
-  SaMessageType* {.pure.} = enum
+  AggregatedAttestationReceivedMessage = object of LogMessage
+    aggregate: AttestationObject
+    wallSlot: uint64
+    signature: string
+
+  GossipMessage = object
+    kind: GossipDirection
+    id: string
+    datetime: DateTime
+    processed: bool
+
+  SaMessageType {.pure.} = enum
     AttestationSent, SlotStart
 
-  SRMessageType* {.pure.} = enum
-    AttestationSent, AttestationReceived
-
-  SlotAttMessage* = object
-    case kind*: SaMessageType
+  SlotAttMessage = object
+    case kind: SaMessageType
     of SaMessageType.AttestationSent:
-      asmsg*: AttestationSentMessage
+      asmsg: AttestationSentMessage
     of SaMessageType.SlotStart:
-      ssmsg*: SlotStartMessage
+      ssmsg: SlotStartMessage
 
-  SRAttMessage* = object
-    case kind*: SRMessageType
-    of SRMessageType.AttestationSent:
-      asmsg*: AttestationSentMessage
-    of SRMessageType.AttestationReceived:
-      armsg*: AttestationReceivedMessage
-
-  SRANode* = object
-    directory*: NodeDirectory
-    sends*: seq[AttestationSentMessage]
-    recvs*: TableRef[string, AttestationReceivedMessage]
+  SRANode = object
+    directory: NodeDirectory
+    sends: seq[AttestationSentMessage]
+    recvs: TableRef[string, AttestationReceivedMessage]
+    aggSends: seq[AggregatedAttestationSentMessage]
+    aggRecvs: TableRef[string, AggregatedAttestationReceivedMessage]
 
 proc readValue*(reader: var JsonReader, value: var DateTime) =
   let s = reader.readValue(string)
@@ -273,6 +278,14 @@ proc readLogFileForASRMessages(file: string, srnode: var SRANode,
         let rm = Json.decode(line, AttestationReceivedMessage,
                              allowUnknownFields = true)
         discard srnode.recvs.hasKeyOrPut(rm.attestation.signature, rm)
+      elif m.msg == "Aggregate received":
+        let rm = Json.decode(line, AggregatedAttestationReceivedMessage,
+                             allowUnknownFields = true)
+        discard srnode.aggRecvs.hasKeyOrPut(rm.signature, rm)
+      elif m.msg == "Aggregated attestation sent":
+        let sm = Json.decode(line, AggregatedAttestationSentMessage,
+                             allowUnknownFields = true)
+        srnode.aggSends.add(sm)
 
       if counter mod 10_000 == 0:
         info "Processing file", file = extractFilename(file),
@@ -410,7 +423,7 @@ proc runPubsub(logConf: LogTraceConf, logFiles: seq[string]) =
   var logs = newSeq[tuple[name: string, data: seq[GossipMessage]]]()
 
   if len(logFiles) < 2:
-    error "Number of log files are not enough to process pubsub messages",
+    error "Number of log files insufficient to process pubsub messages",
           logs_count = len(logFiles)
     quit(1)
 
@@ -450,7 +463,7 @@ proc runPubsub(logConf: LogTraceConf, logFiles: seq[string]) =
 proc runAttSend(logConf: LogTraceConf, logFiles: seq[string]) =
   info "Check for late `attestation sent` messages"
   if len(logFiles) < 1:
-    error "Number of log files are not enough to process pubsub messages",
+    error "Number of log files insufficient to process pubsub messages",
           logs_count = len(logFiles)
     quit(1)
 
@@ -491,9 +504,9 @@ proc toSimple*(s: seq[string]): string =
   result = "[" & s.mapIt("'" & it & "'").join(", ") & "]"
 
 proc runAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
-  info "Check for attestations send/receive messages"
+  info "Check for attestation sent/received messages"
   if len(nodes) < 2:
-    error "Number of nodes' log files are not enough", nodes_count = len(nodes)
+    error "Number of nodes' log files insufficient", nodes_count = len(nodes)
     quit(1)
   var srnodes = newSeq[SRANode]()
 
@@ -501,7 +514,9 @@ proc runAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
     var srnode = SRANode(
       directory: node,
       sends: newSeq[AttestationSentMessage](),
-      recvs: newTable[string, AttestationReceivedMessage]()
+      recvs: newTable[string, AttestationReceivedMessage](),
+      aggSends: newSeq[AggregatedAttestationSentMessage](),
+      aggRecvs: newTable[string, AggregatedAttestationReceivedMessage]()
     )
     info "Processing node", node = node.name
     for logfile in node.logs:
@@ -513,7 +528,7 @@ proc runAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
     srnodes.add(srnode)
 
   if len(nodes) < 2:
-    error "Number of nodes' log files are not enough", nodes_count = len(nodes)
+    error "Number of nodes' log files insufficient", nodes_count = len(nodes)
     quit(1)
 
   for i in 0 ..< len(srnodes):
@@ -539,11 +554,63 @@ proc runAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
          successful_broadcasts = success, failed_broadcasts = failed,
          total_broadcasts = len(srnodes[i].sends)
 
+proc runAggAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
+  info "Check for aggregated attestation sent/received messages"
+  if len(nodes) < 2:
+    error "Number of nodes' log files insufficient", nodes_count = len(nodes)
+    quit(1)
+  var srnodes = newSeq[SRANode]()
+
+  for node in nodes:
+    var srnode = SRANode(
+      directory: node,
+      sends: newSeq[AttestationSentMessage](),
+      recvs: newTable[string, AttestationReceivedMessage](),
+      aggSends: newSeq[AggregatedAttestationSentMessage](),
+      aggRecvs: newTable[string, AggregatedAttestationReceivedMessage]()
+    )
+    info "Processing node", node = node.name
+    for logfile in node.logs:
+      let path = node.path & DirSep & logfile
+      info "Processing node's logfile", node = node.name, logfile = path
+      readLogFileForASRMessages(path, srnode,
+                                logConf.ignoreSerializationErrors,
+                                logConf.dumpSerializationErrors)
+    srnodes.add(srnode)
+
+  if len(nodes) < 2:
+    error "Number of nodes' log files insufficient", nodes_count = len(nodes)
+    quit(1)
+
+  for i in 0 ..< len(srnodes):
+    var success = 0
+    var failed = 0
+    for item in srnodes[i].aggSends:
+      var k = (i + 1) mod len(srnodes)
+      var misses = newSeq[string]()
+      while k != i:
+        if item.signature notin srnodes[k].aggRecvs:
+          misses.add(srnodes[k].directory.name)
+        k = (k + 1) mod len(srnodes)
+
+      if len(misses) == 0:
+        inc(success)
+      else:
+        inc(failed)
+        info "Aggregated attestation was not received",
+           sender = srnodes[i].directory.name,
+           signature = item.signature,
+           receivers = misses.toSimple(), send_stamp = item.timestamp
+
+    info "Statistics for sender node", sender = srnodes[i].directory.name,
+       successful_broadcasts = success, failed_broadcasts = failed,
+       total_broadcasts = len(srnodes[i].aggSends)
+
 proc runLatencyCheck(logConf: LogTraceConf, logFiles: seq[string],
                      nodes: seq[NodeDirectory]) =
   info "Check for async responsiveness"
   if len(nodes) == 0 and len(logFiles) == 0:
-    error "Number of log files are not enough", nodes_count = len(nodes)
+    error "Number of log files insufficient", nodes_count = len(nodes)
     quit(1)
 
   let allowedTime = int64(float(initDuration(seconds = 1).inMilliseconds()) *
@@ -617,6 +684,8 @@ proc run(conf: LogTraceConf) =
     runAttSend(conf, logFiles)
   of StartUpCommand.asr:
     runAttSendReceive(conf, logNodes)
+  of StartUpCommand.aasr:
+    runAggAttSendReceive(conf, logNodes)
   of StartUpCommand.lat:
     runLatencyCheck(conf, logFiles, logNodes)
 
