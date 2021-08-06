@@ -555,7 +555,7 @@ proc runAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
          total_broadcasts = len(srnodes[i].sends)
 
 proc runAggAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
-  info "Check for aggregated attestation sent/received messages"
+  info "Check for aggregate attestation sent/received messages"
   if len(nodes) < 2:
     error "Number of nodes' log files insufficient", nodes_count = len(nodes)
     quit(1)
@@ -597,7 +597,7 @@ proc runAggAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
         inc(success)
       else:
         inc(failed)
-        info "Aggregated attestation was not received",
+        info "Aggregate attestation was not received",
            sender = srnodes[i].directory.name,
            signature = item.signature,
            receivers = misses.toSimple(), send_stamp = item.timestamp
