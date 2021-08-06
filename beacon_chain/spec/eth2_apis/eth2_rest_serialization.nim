@@ -514,7 +514,7 @@ proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openarray[byte],
   case contentType
   of "application/json":
     try:
-      ok RestJson.decode(value, T)
+      ok RestJson.decode(value, T, allowUnknownFields = true)
     except SerializationError as exc:
       err("Serialization error")
   else:
