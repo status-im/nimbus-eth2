@@ -23,7 +23,7 @@ const
 
 type
   StartUpCommand {.pure.} = enum
-    pubsub, asl, asr, aasr, lat
+    pubsub, asl, asr, aggasr, lat
 
   LogTraceConf = object
     logFiles {.
@@ -72,7 +72,7 @@ type
       discard
     of asr:
       discard
-    of aasr:
+    of aggasr:
       discard
     of lat:
       discard
@@ -684,7 +684,7 @@ proc run(conf: LogTraceConf) =
     runAttSend(conf, logFiles)
   of StartUpCommand.asr:
     runAttSendReceive(conf, logNodes)
-  of StartUpCommand.aasr:
+  of StartUpCommand.aggasr:
     runAggAttSendReceive(conf, logNodes)
   of StartUpCommand.lat:
     runLatencyCheck(conf, logFiles, logNodes)
