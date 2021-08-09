@@ -278,3 +278,21 @@ func shortLog*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): aut
 
 chronicles.formatIt ForkedSignedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedTrustedSignedBeaconBlock: it.shortLog
+
+proc forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
+  if epoch < cfg.ALTAIR_FORK_EPOCH:
+    genesisFork(cfg)
+  else:
+    altairFork(cfg)
+
+proc forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
+  if epoch < cfg.ALTAIR_FORK_EPOCH:
+    cfg.GENESIS_FORK_VERSION
+  else:
+    cfg.ALTAIR_FORK_VERSION
+
+proc nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
+  if epoch < cfg.ALTAIR_FORK_EPOCH:
+    cfg.ALTAIR_FORK_EPOCH
+  else:
+    FAR_FUTURE_EPOCH

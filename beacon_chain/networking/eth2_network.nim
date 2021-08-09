@@ -1825,27 +1825,26 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   except IOError as exc:
     raiseAssert exc.msg # TODO in-memory compression shouldn't fail
 
-proc subscribeAttestationSubnets*(
-    node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT]) {.
-    raises: [Defect, CatchableError].} =
+proc subscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT],
+                                  forkDigest: ForkDigest)
+                                 {.raises: [Defect, CatchableError].} =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # nimbus won't score attestation subnets for now, we just rely on block and aggregate which are more stabe and reliable
 
   for subnet_id, enabled in subnets:
     if enabled:
       node.subscribe(getAttestationTopic(
-        node.forkID.fork_digest, SubnetId(subnet_id)), TopicParams.init()) # don't score attestation subnets for now
+        forkDigest, SubnetId(subnet_id)), TopicParams.init()) # don't score attestation subnets for now
 
-proc unsubscribeAttestationSubnets*(
-    node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT]) {.
-    raises: [Defect, CatchableError].} =
+proc unsubscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT],
+                                    forkDigest: ForkDigest)
+                                   {.raises: [Defect, CatchableError].} =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # nimbus won't score attestation subnets for now, we just rely on block and aggregate which are more stabe and reliable
 
   for subnet_id, enabled in subnets:
     if enabled:
-      node.unsubscribe(getAttestationTopic(
-        node.forkID.fork_digest, SubnetId(subnet_id)))
+      node.unsubscribe(getAttestationTopic(forkDigest, SubnetId(subnet_id)))
 
 proc updateStabilitySubnetMetadata*(
     node: Eth2Node, attnets: BitArray[ATTESTATION_SUBNET_COUNT]) =

@@ -203,6 +203,18 @@ proc slash_validator*(
 func genesis_time_from_eth1_timestamp*(cfg: RuntimeConfig, eth1_timestamp: uint64): uint64 =
   eth1_timestamp + cfg.GENESIS_DELAY
 
+func genesisFork*(cfg: RuntimeConfig): Fork =
+  Fork(
+    previous_version: cfg.GENESIS_FORK_VERSION,
+    current_version: cfg.GENESIS_FORK_VERSION,
+    epoch: GENESIS_EPOCH)
+
+func altairFork*(cfg: RuntimeConfig): Fork =
+  Fork(
+    previous_version: cfg.GENESIS_FORK_VERSION,
+    current_version: cfg.ALTAIR_FORK_VERSION,
+    epoch: cfg.ALTAIR_FORK_EPOCH)
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1*(
     cfg: RuntimeConfig,
