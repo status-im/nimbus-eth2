@@ -310,6 +310,7 @@ proc init*(T: type BeaconNode,
                else: config.nodeName
     network = createEth2Node(
       rng, config, netKeys, cfg, dag.forkDigests,
+      getStateField(dag.headState.data, slot),
       getStateField(dag.headState.data, genesis_validators_root))
     attestationPool = newClone(AttestationPool.init(dag, quarantine))
     exitPool = newClone(ExitPool.init(dag, quarantine))
@@ -1783,16 +1784,20 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raise
     let
       networkKeys = getPersistentNetKeys(rng, config)
       netMetadata = getPersistentNetMetadata(config)
+      forkId = getENRForkID(
+        cfg,
+        initialState[].slot.epoch,
+        initialState[].genesis_validators_root)
       bootstrapEnr = enr.Record.init(
         1, # sequence number
         networkKeys.seckey.asEthKey,
         some(config.bootstrapAddress),
         some(config.bootstrapPort),
         some(config.bootstrapPort),
-        [toFieldPair("eth2", SSZ.encode(getENRForkID(
-          initialState[].fork.current_version,
-          initialState[].genesis_validators_root))),
-        toFieldPair("attnets", SSZ.encode(netMetadata.attnets))])
+        [
+          toFieldPair(enrForkIdField, SSZ.encode(forkId)),
+          toFieldPair(enrAttestationSubnetsField, SSZ.encode(netMetadata.attnets))
+        ])
 
     writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)
     echo "Wrote ", bootstrapFile
