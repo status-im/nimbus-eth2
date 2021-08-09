@@ -899,3 +899,15 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
       newSummaries.add(res)
 
     res.root = res.summary.parent_root
+
+# Test operations used to create broken and/or legacy database
+
+proc putStateV0*(db: BeaconChainDB, key: Eth2Digest, value: phase0.BeaconState) =
+  # Writes to KVStore, as done in 1.0.12 and earlier
+  db.v0.backend.putSnappySSZ(subkey(type value, key), value)
+
+proc putBlockV0*(db: BeaconChainDB, value: phase0.TrustedSignedBeaconBlock) =
+  # Write to KVStore, as done in 1.0.12 and earlier
+  # In particular, no summary is written here - it should be recreated
+  # automatically
+  db.v0.backend.putSnappySSZ(subkey(phase0.SignedBeaconBlock, value.root), value)
