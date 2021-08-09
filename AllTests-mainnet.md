@@ -114,6 +114,11 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Mocked start private key                                                                   OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Old database versions [Preset: mainnet]
+```diff
++ pre-1.1.0                                                                                  OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## PeerPool testing suite
 ```diff
 + Access peers by key test                                                                   OK
@@ -252,4 +257,4 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 130/130 Fail: 0/130 Skip: 0/130
+OK: 131/131 Fail: 0/131 Skip: 0/131
