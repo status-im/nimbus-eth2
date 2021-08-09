@@ -1586,11 +1586,11 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      netKeys: NetKeyPair,
                      cfg: RuntimeConfig,
                      forkDigests: ForkDigestsRef,
-                     headEpoch: Epoch,
+                     wallEpoch: Epoch,
                      genesisValidatorsRoot: Eth2Digest): Eth2Node
                     {.raises: [Defect, CatchableError].} =
   var
-    enrForkId = getENRForkID(cfg, headEpoch, genesisValidatorsRoot)
+    enrForkId = getENRForkID(cfg, wallEpoch, genesisValidatorsRoot)
 
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(
       config.nat, config.listenAddress, config.tcpPort, config.udpPort, clientId)

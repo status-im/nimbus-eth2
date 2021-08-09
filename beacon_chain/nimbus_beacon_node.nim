@@ -310,7 +310,7 @@ proc init*(T: type BeaconNode,
                else: config.nodeName
     network = createEth2Node(
       rng, config, netKeys, cfg, dag.forkDigests,
-      get_current_epoch(dag.headState.data),
+      dag.beaconClock.now.slotOrZero.epoch,
       getStateField(dag.headState.data, genesis_validators_root))
     attestationPool = newClone(AttestationPool.init(dag, quarantine))
     exitPool = newClone(ExitPool.init(dag, quarantine))
