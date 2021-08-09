@@ -1205,21 +1205,3 @@ proc getProposer*(
       return none(ValidatorIndex)
 
   proposer
-
-template validateValidatorIndexOr*(idxParam: uint64, dag: ChainDAGRef,
-                                   failureCase: untyped): ValidatorIndex =
-  let idx = idxParam
-  if idx < uint64(len(dag.db.immutableValidators)):
-    ValidatorIndex.verifiedValue(idx)
-  else:
-    failureCase
-
-template validateCommitteeIndexOr*(idxParam: uint64,
-                                   epochRef: EpochRef,
-                                   failureCase: untyped): CommitteeIndex =
-  let committeesCount = get_committee_count_per_slot(epochRef)
-  let idx = idxParam
-  if idx < committeesCount:
-    CommitteeIndex.verifiedValue(idx)
-  else:
-    failureCase
