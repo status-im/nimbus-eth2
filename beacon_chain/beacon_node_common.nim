@@ -32,6 +32,12 @@ export
 type
   RpcServer* = RpcHttpServer
 
+  GossipState* = enum
+    Disconnected
+    ConnectedToPhase0
+    InTransitionToAltair
+    ConnectedToAltair
+
   BeaconNode* = ref object
     nickname*: string
     graffitiBytes*: GraffitiBytes
@@ -56,6 +62,7 @@ type
     blockProcessor*: ref BlockProcessor
     consensusManager*: ref ConsensusManager
     attachedValidatorBalanceTotal*: uint64
+    gossipState*: GossipState
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

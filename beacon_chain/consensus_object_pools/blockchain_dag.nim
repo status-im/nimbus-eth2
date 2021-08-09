@@ -454,6 +454,9 @@ proc init*(T: type ChainDAGRef,
 
   dag
 
+template genesisValidatorsRoot*(dag: ChainDAGRef): Eth2Digest =
+  getStateField(dag.headState.data, genesis_validators_root)
+
 func getEpochRef*(
     dag: ChainDAGRef, state: StateData, cache: var StateCache): EpochRef =
   let
@@ -544,8 +547,11 @@ func stateCheckpoint*(bs: BlockSlot): BlockSlot =
     bs = bs.parentOrSlot
   bs
 
-proc forkDigestAtSlot*(dag: ChainDAGRef, slot: Slot): ForkDigest =
-  if slot.epoch < dag.cfg.ALTAIR_FORK_EPOCH:
+template forkAtEpoch*(dag: ChainDAGRef, epoch: Epoch): Fork =
+  forkAtEpoch(dag.cfg, epoch)
+
+proc forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
+  if epoch < dag.cfg.ALTAIR_FORK_EPOCH:
     dag.forkDigests.phase0
   else:
     dag.forkDigests.altair
@@ -1199,3 +1205,21 @@ proc getProposer*(
       return none(ValidatorIndex)
 
   proposer
+
+template validateValidatorIndexOr*(idxParam: uint64, dag: ChainDAGRef,
+                                   failureCase: untyped): ValidatorIndex =
+  let idx = idxParam
+  if idx < uint64(len(dag.db.immutableValidators)):
+    ValidatorIndex.verifiedValue(idx)
+  else:
+    failureCase
+
+template validateCommitteeIndexOr*(idxParam: uint64,
+                                   epochRef: EpochRef,
+                                   failureCase: untyped): CommitteeIndex =
+  let committeesCount = get_committee_count_per_slot(epochRef)
+  let idx = idxParam
+  if idx < committeesCount:
+    CommitteeIndex.verifiedValue(idx)
+  else:
+    failureCase

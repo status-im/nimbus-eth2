@@ -130,7 +130,7 @@ proc getCurrentStatus*(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
     wallTimeSlot = dag.beaconClock.toBeaconTime(wallTime).slotOrZero
 
   StatusMsg(
-    forkDigest: state.dag.forkDigestAtSlot(wallTimeSlot),
+    forkDigest: state.dag.forkDigestAtEpoch(wallTimeSlot.epoch),
     finalizedRoot:
       getStateField(dag.headState.data, finalized_checkpoint).root,
     finalizedEpoch:
