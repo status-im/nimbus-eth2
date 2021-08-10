@@ -1,6 +1,6 @@
 import presto, presto/client as presto_client,
        nimcrypto/utils as ncrutils,
-       ../spec/[crypto, datatypes, digest, forkedbeaconstate_helpers],
+       ../spec/[crypto, datatypes, digest, forks],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization],
        ../beacon_node_common,
        ../consensus_object_pools/[block_pools_types, blockchain_dag]

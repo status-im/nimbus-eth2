@@ -138,3 +138,26 @@ suite "Bit fields":
         not a.overlaps(b)
         not b.overlaps(a)
         a.countOverlap(b) == 0
+
+  test "isZeros":
+    template carryOutTests(N: static int) =
+      var a = BitArray[N]()
+      check a.isZeros()
+
+      for i in 0 ..< N:
+        var b = a
+        b.setBit(i)
+        check(not b.isZeros())
+
+    carryOutTests(1)
+    carryOutTests(10)
+    carryOutTests(31)
+    carryOutTests(32)
+    carryOutTests(63)
+    carryOutTests(64)
+    carryOutTests(65)
+    carryOutTests(95)
+    carryOutTests(96)
+    carryOutTests(97)
+    carryOutTests(12494)
+

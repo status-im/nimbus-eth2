@@ -22,7 +22,7 @@ import
   # Local modules
   ../spec/[
     datatypes/phase0, datatypes/altair, digest, crypto,
-    forkedbeaconstate_helpers, helpers, network, signatures, state_transition],
+    forks, helpers, network, signatures, state_transition],
   ../conf, ../beacon_clock,
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_clearance,

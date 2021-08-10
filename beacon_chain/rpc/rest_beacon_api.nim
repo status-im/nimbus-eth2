@@ -12,7 +12,7 @@ import
   ../consensus_object_pools/[blockchain_dag, exit_pool],
   ../gossip_processing/gossip_validation,
   ../validators/validator_duties,
-  ../spec/[crypto, digest, forkedbeaconstate_helpers, network],
+  ../spec/[crypto, digest, forks, network],
   ../spec/datatypes/[phase0, altair],
   ../ssz/merkleization,
   ./rest_utils

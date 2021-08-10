@@ -14,7 +14,7 @@ import
   ../ssz/[ssz_serialization, merkleization], ../beacon_chain_db, ../extras,
   ../spec/[
     crypto, digest, helpers, validator, state_transition,
-    beaconstate, forkedbeaconstate_helpers],
+    beaconstate, forks],
   ../spec/datatypes/[phase0, altair],
   ../beacon_clock,
   "."/[block_pools_types, block_quarantine, forkedbeaconstate_dbhelpers]
@@ -403,6 +403,20 @@ proc init*(T: type ChainDAGRef,
     # TODO Potentially we could recover from here instead of crashing - what
     #      would be a good recovery model?
     raiseAssert "No state found in head history, database corrupt?"
+
+  case tmpState.data.beaconStateFork
+  of forkPhase0:
+    if tmpState.data.hbsPhase0.data.fork != genesisFork(cfg):
+      error "State from database does not match network, check --network parameter",
+        stateFork = tmpState.data.hbsPhase0.data.fork,
+        configFork = genesisFork(cfg)
+      quit 1
+  of forkAltair:
+    if tmpState.data.hbsAltair.data.fork != altairFork(cfg):
+      error "State from database does not match network, check --network parameter",
+        stateFork = tmpState.data.hbsAltair.data.fork,
+        configFork = altairFork(cfg)
+      quit 1
 
   let dag = ChainDAGRef(
     blocks: blocks,

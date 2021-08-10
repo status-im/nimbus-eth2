@@ -265,6 +265,9 @@ func isZeros*(x: BitSeq): bool =
     if w != 0: return false
   return true
 
+func isZeros*(x: BitArray): bool =
+  x == default(type(x))
+
 func countOnes*(x: BitSeq): int =
   # Count the number of set bits
   var res = 0

@@ -10,12 +10,11 @@
 import
   options, tables, sets, macros,
   chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
-  ../spec/[crypto, datatypes, digest, forkedbeaconstate_helpers, network],
+  ../spec/datatypes/[phase0, altair],
+  ../spec/[crypto, datatypes, digest, forks, network],
   ../beacon_node_types, ../beacon_clock,
   ../networking/eth2_network,
   ../consensus_object_pools/blockchain_dag
-
-from ../spec/datatypes/altair import nil
 
 logScope:
   topics = "sync"
@@ -46,8 +45,6 @@ type
     else:
       index: uint32
 
-  BeaconBlockCallback* = proc(signedBlock: SignedBeaconBlock) {.gcsafe, raises: [Defect].}
-
   BeaconSyncNetworkState* = ref object
     dag*: ChainDAGRef
     getTime*: GetTimeFn
@@ -62,8 +59,6 @@ type
 
   BlockRootsList* = List[Eth2Digest, Limit MAX_REQUEST_BLOCKS]
 
-  AltairSignedBeaconBlock* = altair.SignedBeaconBlock
-
 proc readChunkPayload*(conn: Connection, peer: Peer,
                        MsgType: type ForkedSignedBeaconBlock): Future[NetRes[ForkedSignedBeaconBlock]] {.async.} =
   var contextBytes: ForkDigest
@@ -73,7 +68,7 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
     return neterr UnexpectedEOF
 
   if contextBytes == peer.network.forkDigests.phase0:
-    let res = await readChunkPayload(conn, peer, SignedBeaconBlock)
+    let res = await readChunkPayload(conn, peer, phase0.SignedBeaconBlock)
     if res.isOk:
       return ok ForkedSignedBeaconBlock(
         kind: BeaconBlockFork.Phase0,
@@ -81,7 +76,7 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
     else:
       return err(res.error)
   elif contextBytes == peer.network.forkDigests.altair:
-    let res = await readChunkPayload(conn, peer, AltairSignedBeaconBlock)
+    let res = await readChunkPayload(conn, peer, altair.SignedBeaconBlock)
     if res.isOk:
       return ok ForkedSignedBeaconBlock(
         kind: BeaconBlockFork.Altair,
@@ -191,9 +186,9 @@ p2pProtocol BeaconSync(version = 1,
     {.libp2pProtocol("ping", 1).} =
     return peer.network.metadata.seq_number
 
-  proc getMetaData(peer: Peer): MetaData
+  proc getMetaData(peer: Peer): phase0.MetaData
     {.libp2pProtocol("metadata", 1).} =
-    return peer.network.phase0Metadata
+    return peer.network.phase0metadata
 
   proc getMetadata_v2(peer: Peer): altair.MetaData
     {.libp2pProtocol("metadata", 2).} =
@@ -204,7 +199,7 @@ p2pProtocol BeaconSync(version = 1,
       startSlot: Slot,
       reqCount: uint64,
       reqStep: uint64,
-      response: MultipleChunksResponse[SignedBeaconBlock])
+      response: MultipleChunksResponse[phase0.SignedBeaconBlock])
       {.async, libp2pProtocol("beacon_blocks_by_range", 1).} =
     trace "got range request", peer, startSlot,
                                count = reqCount, step = reqStep
@@ -252,7 +247,7 @@ p2pProtocol BeaconSync(version = 1,
       # Please note that the SSZ list here ensures that the
       # spec constant MAX_REQUEST_BLOCKS is enforced:
       blockRoots: BlockRootsList,
-      response: MultipleChunksResponse[SignedBeaconBlock])
+      response: MultipleChunksResponse[phase0.SignedBeaconBlock])
       {.async, libp2pProtocol("beacon_blocks_by_root", 1).} =
     if blockRoots.len == 0:
       raise newException(InvalidInputsError, "No blocks requested")

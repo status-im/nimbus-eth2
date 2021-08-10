@@ -14,7 +14,7 @@ import
   eth/keys,
   ../extras, ../beacon_clock,
   ../spec/[
-    crypto, digest, forkedbeaconstate_helpers, helpers, signatures,
+    crypto, digest, forks, helpers, signatures,
     signatures_batch, state_transition],
   ../spec/datatypes/[phase0, altair],
   ./block_pools_types, ./blockchain_dag, ./block_quarantine

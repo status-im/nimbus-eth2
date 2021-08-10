@@ -6,7 +6,7 @@ import
   ../beacon_chain/consensus_object_pools/[
     blockchain_dag, forkedbeaconstate_dbhelpers],
   ../beacon_chain/spec/[
-    crypto, datatypes/phase0, digest, forkedbeaconstate_helpers, helpers,
+    crypto, datatypes/phase0, digest, forks, helpers,
     state_transition, state_transition_epoch, presets],
   ../beacon_chain/ssz, ../beacon_chain/ssz/sszdump,
   ../research/simutils, ./e2store

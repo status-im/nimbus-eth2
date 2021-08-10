@@ -6,7 +6,7 @@ import chronos
 import ../beacon_chain/gossip_processing/block_processor,
        ../beacon_chain/sync/sync_manager,
        ../beacon_chain/spec/datatypes/phase0,
-       ../beacon_chain/spec/forkedbeaconstate_helpers
+       ../beacon_chain/spec/forks
 
 type
   SomeTPeer = ref object

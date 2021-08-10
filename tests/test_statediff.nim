@@ -12,7 +12,7 @@ import
   unittest2,
   ./testutil, ./testdbutil, ./teststateutil,
   ../beacon_chain/spec/[
-    datatypes, digest, forkedbeaconstate_helpers, helpers, presets],
+    datatypes, digest, forks, helpers, presets],
   ../beacon_chain/[beacon_node_types, statediff],
   ../beacon_chain/ssz,
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine]

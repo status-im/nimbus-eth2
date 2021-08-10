@@ -19,7 +19,7 @@ import
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool],
   ../beacon_chain/ssz/merkleization,
-  ../beacon_chain/spec/[crypto, datatypes, digest, forkedbeaconstate_helpers,
+  ../beacon_chain/spec/[crypto, datatypes, digest, forks,
                         state_transition, helpers, presets, network],
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil

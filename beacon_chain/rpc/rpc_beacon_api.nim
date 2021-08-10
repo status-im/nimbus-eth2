@@ -18,7 +18,7 @@ import
   ../validators/validator_duties,
   ../gossip_processing/gossip_validation,
   ../consensus_object_pools/blockchain_dag,
-  ../spec/[crypto, datatypes/phase0, digest, forkedbeaconstate_helpers, network],
+  ../spec/[crypto, datatypes/phase0, digest, forks, network],
   ../ssz/merkleization,
   ./rpc_utils
 

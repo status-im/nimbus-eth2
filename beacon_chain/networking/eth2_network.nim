@@ -35,13 +35,10 @@ import
   ".."/[
     version, conf,
     ssz/ssz_serialization, beacon_clock],
-  ../spec/datatypes/base,
-  ../spec/[digest, network, helpers, forkedbeaconstate_helpers],
+  ../spec/datatypes/[phase0, altair],
+  ../spec/[digest, network, helpers, forks],
   ../validators/keystore_management,
   ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
-
-from ../spec/datatypes/phase0 import nil
-from ../spec/datatypes/altair import nil
 
 when chronicles.enabledLogLevel == LogLevel.TRACE:
   import std/sequtils
@@ -343,7 +340,7 @@ proc getPeer*(node: Eth2Node, peerId: PeerID): Peer =
     return peer[]
   do:
     let peer = Peer.init(node, PeerInfo.init(peerId))
-    return node.peers.mGetOrPut(peerId, peer)
+    return node.peers.mgetOrPut(peerId, peer)
 
 proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerInfo.peerId)
@@ -984,15 +981,16 @@ proc getPersistentNetMetadata*(config: BeaconNodeConf): altair.MetaData
                               {.raises: [Defect, IOError, SerializationError].} =
   let metadataPath = config.dataDir / nodeMetadataFilename
   if not fileExists(metadataPath):
-    result = altair.MetaData()
+    var res: altair.MetaData
     for i in 0 ..< ATTESTATION_SUBNET_COUNT:
       # TODO:
       # Persistent (stability) subnets should be stored with their expiration
       # epochs. For now, indicate that we participate in no persistent subnets.
-      result.attnets[i] = false
-    Json.saveFile(metadataPath, result)
+      res.attnets[i] = false
+    Json.saveFile(metadataPath, res)
+    res
   else:
-    result = Json.loadFile(metadataPath, altair.MetaData)
+    Json.loadFile(metadataPath, altair.MetaData)
 
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
@@ -1589,7 +1587,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      wallEpoch: Epoch,
                      genesisValidatorsRoot: Eth2Digest): Eth2Node
                     {.raises: [Defect, CatchableError].} =
-  var
+  let
     enrForkId = getENRForkID(cfg, wallEpoch, genesisValidatorsRoot)
 
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(
@@ -1657,7 +1655,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                 maddress = MultiAddress.init(s).tryGet()
                 mpeerId = maddress[multiCodec("p2p")].tryGet()
                 peerId = PeerID.init(mpeerId.protoAddress().tryGet()).tryGet()
-              res.mGetOrPut(peerId, @[]).add(maddress)
+              res.mgetOrPut(peerId, @[]).add(maddress)
               info "Adding priviledged direct peer", peerId, address = maddress
           res
     )

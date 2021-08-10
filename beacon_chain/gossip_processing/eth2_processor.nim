@@ -11,7 +11,7 @@ import
   std/tables,
   stew/results,
   chronicles, chronos, metrics,
-  ../spec/[crypto, digest, forkedbeaconstate_helpers],
+  ../spec/[crypto, digest, forks],
   ../spec/datatypes/[altair, phase0],
   ../consensus_object_pools/[block_clearance, blockchain_dag, exit_pool, attestation_pool],
   ./gossip_validation, ./block_processor,

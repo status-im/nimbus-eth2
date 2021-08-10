@@ -21,7 +21,7 @@ import
   eth/keys,
   ../tests/testblockutil,
   ../beacon_chain/spec/[beaconstate, crypto, digest,
-                        forkedbeaconstate_helpers, presets,
+                        forks, presets,
                         helpers, signatures, state_transition],
   ../beacon_chain/spec/datatypes/[phase0, altair],
   ../beacon_chain/[beacon_node_types, beacon_chain_db, extras],

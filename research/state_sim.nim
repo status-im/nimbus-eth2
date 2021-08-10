@@ -14,7 +14,7 @@ import
   options, sequtils, random, tables,
   ../tests/testblockutil,
   ../beacon_chain/spec/[
-   beaconstate, crypto, datatypes, digest, forkedbeaconstate_helpers, helpers],
+   beaconstate, crypto, datatypes, digest, forks, helpers],
   ../beacon_chain/extras,
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils

@@ -11,7 +11,7 @@ import
   nimcrypto/utils as ncrutils,
   ../beacon_node_common, ../eth1/eth1_monitor,
   ../spec/datatypes/base,
-  ../spec/[digest, forkedbeaconstate_helpers, presets],
+  ../spec/[digest, forks, presets],
   ./rest_utils
 
 logScope: topics = "rest_config"

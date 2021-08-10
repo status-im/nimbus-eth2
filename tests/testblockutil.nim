@@ -12,7 +12,7 @@ import
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[crypto, datatypes, digest, presets, helpers,
-                        signatures, state_transition, forkedbeaconstate_helpers],
+                        signatures, state_transition, forks],
   ../beacon_chain/consensus_object_pools/attestation_pool
 
 func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
