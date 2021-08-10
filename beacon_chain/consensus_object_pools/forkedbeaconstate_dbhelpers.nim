@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  ../spec/forkedbeaconstate_helpers,
+  ../spec/forks,
   ../beacon_chain_db
 
 proc putState*(db: BeaconChainDB, state: ForkedHashedBeaconState) =

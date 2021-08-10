@@ -15,7 +15,7 @@ import
   ../ssz/merkleization,
   "."/[
     crypto, helpers, presets, beaconstate, digest,
-    forkedbeaconstate_helpers],
+    forks],
   "."/datatypes/[altair, phase0]
 
 # Otherwise, error.

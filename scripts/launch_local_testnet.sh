@@ -330,12 +330,12 @@ fi
                                                        # but it can be considered non-critical
 echo Wrote $RUNTIME_CONFIG_FILE:
 
+# TODO the runtime config file should be used during deposit generation as well!
 tee "$RUNTIME_CONFIG_FILE" <<EOF
 PRESET_BASE: ${CONST_PRESET}
 MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${TOTAL_VALIDATORS}
 MIN_GENESIS_TIME: 0
 GENESIS_DELAY: 10
-GENESIS_FORK_VERSION: 0x00000000
 DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
 ETH1_FOLLOW_DISTANCE: 1
 EOF

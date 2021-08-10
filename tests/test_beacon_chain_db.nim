@@ -12,7 +12,7 @@ import
   unittest2,
   ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
   ../beacon_chain/spec/[
-    beaconstate, crypto, digest, forkedbeaconstate_helpers, presets,
+    beaconstate, crypto, digest, forks, presets,
     state_transition],
   ../beacon_chain/spec/datatypes/[phase0, altair],
   ../beacon_chain/consensus_object_pools/blockchain_dag,

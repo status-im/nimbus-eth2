@@ -37,7 +37,7 @@ import
   ./rpc/[rest_api, rpc_api],
   ./spec/datatypes/[altair, phase0],
   ./spec/[
-    digest, crypto, forkedbeaconstate_helpers, beaconstate,
+    digest, crypto, forks, beaconstate,
     eth2_apis/rpc_beacon_client, helpers, network, presets,
     weak_subjectivity, signatures],
   ./consensus_object_pools/[

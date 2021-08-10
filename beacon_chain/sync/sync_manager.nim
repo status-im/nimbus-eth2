@@ -10,7 +10,7 @@
 import chronicles
 import options, deques, heapqueue, tables, strutils, sequtils, math, algorithm
 import stew/results, chronos, chronicles
-import ../spec/[datatypes/phase0, datatypes/altair, digest, helpers, eth2_apis/rpc_types, forkedbeaconstate_helpers],
+import ../spec/[datatypes/phase0, datatypes/altair, digest, helpers, eth2_apis/rpc_types, forks],
        ../networking/[peer_pool, eth2_network]
 
 import ../gossip_processing/block_processor

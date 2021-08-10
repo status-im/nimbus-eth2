@@ -4,7 +4,7 @@ import
   stew/byteutils,
   ../research/simutils,
   ../beacon_chain/spec/[
-    crypto, datatypes, digest, forkedbeaconstate_helpers, helpers, presets,
+    crypto, datatypes, digest, forks, helpers, presets,
     state_transition],
   ../beacon_chain/extras,
   ../beacon_chain/networking/network_metadata,

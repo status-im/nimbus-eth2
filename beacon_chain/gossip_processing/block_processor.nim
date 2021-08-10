@@ -12,7 +12,7 @@ import
   stew/results,
   chronicles, chronos, metrics,
   ../spec/datatypes/[phase0, altair],
-  ../spec/[crypto, digest, forkedbeaconstate_helpers],
+  ../spec/[crypto, digest, forks],
   ../consensus_object_pools/[block_clearance, blockchain_dag, attestation_pool],
   ./consensus_manager,
   ".."/[beacon_clock, beacon_node_types],

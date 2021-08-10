@@ -11,7 +11,7 @@ import
   # Standard library
   os,
   # Beacon chain internals
-  ../../../beacon_chain/spec/beaconstate,
+  ../../../beacon_chain/spec/[beaconstate, helpers],
   ../../../beacon_chain/spec/datatypes/[phase0, altair],
   ../../../beacon_chain/ssz,
   # Test utilities
@@ -36,7 +36,12 @@ proc runTest(identifier: string) =
           parseTest(testDir/"pre.ssz_snappy", SSZ, phase0.BeaconState))
         postState = newClone(
           parseTest(testDir/"post.ssz_snappy", SSZ, altair.BeaconState))
-        upgradedState = upgrade_to_altair(preState[])
+
+      var cfg = defaultRuntimeConfig
+      cfg.ALTAIR_FORK_EPOCH = preState[].slot.epoch
+
+      let
+        upgradedState = upgrade_to_altair(cfg, preState[])
       check: upgradedState[].hash_tree_root() == postState[].hash_tree_root()
       reportDiff(upgradedState, postState)
 

@@ -17,7 +17,7 @@ import
   ../spec/datatypes/[phase0, altair],
   ../spec/[
     beaconstate, state_transition_block,
-    crypto, digest, forkedbeaconstate_helpers, helpers, network,
+    crypto, digest, forks, helpers, network,
     signatures],
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_quarantine, spec_cache,
@@ -269,7 +269,7 @@ proc validateAttestation*(
       "validateAttestation: number of aggregation bits and committee size mismatch"))
 
   let
-    fork = getStateField(pool.dag.headState.data, fork)
+    fork = pool.dag.forkAtEpoch(attestation.data.slot.epoch)
     genesis_validators_root =
       getStateField(pool.dag.headState.data, genesis_validators_root)
     attesting_index = get_attesting_indices_one(
@@ -448,7 +448,7 @@ proc validateAggregate*(
   # 3. [REJECT] The signature of aggregate is valid.
 
   let
-    fork = getStateField(pool.dag.headState.data, fork)
+    fork = pool.dag.forkAtEpoch(aggregate.data.slot.epoch)
     genesis_validators_root =
       getStateField(pool.dag.headState.data, genesis_validators_root)
 
@@ -650,7 +650,7 @@ proc isValidBeaconBlock*(
   # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
   # with respect to the proposer_index pubkey.
   if not verify_block_signature(
-      getStateField(dag.headState.data, fork),
+      dag.forkAtEpoch(signed_beacon_block.message.slot.epoch),
       getStateField(dag.headState.data, genesis_validators_root),
       signed_beacon_block.message.slot,
       signed_beacon_block.message,

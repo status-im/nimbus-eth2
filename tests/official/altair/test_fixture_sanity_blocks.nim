@@ -12,7 +12,7 @@ import
   os, sequtils, chronicles,
   # Beacon chain internals
   ../../../beacon_chain/spec/[
-    crypto, forkedbeaconstate_helpers, presets, state_transition],
+    crypto, forks, presets, state_transition],
   ../../../beacon_chain/spec/datatypes/altair,
   ../../../beacon_chain/ssz,
   # Test utilities

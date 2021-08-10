@@ -9,7 +9,7 @@
 
 import options, sequtils, strutils
 import chronos, chronicles
-import ../spec/[datatypes/phase0, datatypes/altair, digest, forkedbeaconstate_helpers],
+import ../spec/[datatypes/phase0, datatypes/altair, digest, forks],
        ../networking/eth2_network,
        ../beacon_node_types,
        ../ssz/merkleization,

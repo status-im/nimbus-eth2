@@ -4,7 +4,7 @@ import
   ../beacon_chain/[extras, beacon_chain_db],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ../beacon_chain/spec/[
-    beaconstate, crypto, datatypes, digest, forkedbeaconstate_helpers,
+    beaconstate, crypto, datatypes, digest, forks,
     helpers, presets],
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_pools_types],
   ../beacon_chain/eth1/eth1_monitor

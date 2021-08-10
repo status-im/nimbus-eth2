@@ -5,7 +5,7 @@ import
   stew/ptrops, stew/ranges/ptr_arith, chronicles,
   ../beacon_chain/extras,
   ../beacon_chain/spec/[
-    beaconstate, crypto, datatypes, digest, forkedbeaconstate_helpers, presets,
+    beaconstate, crypto, datatypes, digest, forks, presets,
       validator, state_transition, state_transition_block],
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
 

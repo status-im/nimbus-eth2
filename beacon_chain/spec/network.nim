@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  "."/[digest, helpers, forkedbeaconstate_helpers],
+  "."/[digest, helpers, forks],
   "."/datatypes/base
 
 const

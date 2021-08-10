@@ -15,7 +15,7 @@ import
   chronicles, stew/byteutils, json_serialization/std/sets as jsonSets,
   # Internal
   ../spec/[
-    beaconstate, crypto, digest, forkedbeaconstate_helpers,
+    beaconstate, crypto, digest, forks,
     validator],
   ../spec/datatypes/[phase0, altair],
   ../ssz/[merkleization, types],
@@ -298,7 +298,7 @@ proc addAttestation*(pool: var AttestationPool,
       return
   do:
     if not addAttestation(
-        pool.candidates[candidateIdx.get()].mGetOrPut(
+        pool.candidates[candidateIdx.get()].mgetOrPut(
           attestation_data_root,
           AttestationEntry(
             data: attestation.data,

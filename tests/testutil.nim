@@ -51,7 +51,7 @@ func toFloatSeconds(duration: Duration): float =
 
 method testEnded*(formatter: TimingCollector, testResult: TestResult) =
   {.gcsafe.}: # Lie!
-    status.mGetOrPut(testResult.suiteName, initOrderedTable[string, Status]())[testResult.testName] =
+    status.mgetOrPut(testResult.suiteName, initOrderedTable[string, Status]())[testResult.testName] =
       case testResult.status
       of TestStatus.OK: Status.OK
       of TestStatus.FAILED: Status.Fail

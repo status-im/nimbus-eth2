@@ -46,7 +46,7 @@ import
   stew/results,
   ../extras, ../ssz/merkleization, metrics,
   ./datatypes/[phase0, altair], ./crypto, ./digest, ./helpers, ./signatures, ./validator, ./beaconstate,
-  ./state_transition_block, ./state_transition_epoch, forkedbeaconstate_helpers,
+  ./state_transition_block, ./state_transition_epoch, forks,
   ../../nbench/bench_lab
 
 # TODO why need anything except the first two?
@@ -177,7 +177,7 @@ proc maybeUpgradeStateToAltair*(
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.ALTAIR_FORK_EPOCH and
       state.beaconStateFork == forkPhase0:
-    var newState = upgrade_to_altair(state.hbsPhase0.data)
+    var newState = upgrade_to_altair(cfg, state.hbsPhase0.data)
     state = (ref ForkedHashedBeaconState)(
       beaconStateFork: forkAltair,
       hbsAltair: altair.HashedBeaconState(

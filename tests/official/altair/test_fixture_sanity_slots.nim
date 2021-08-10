@@ -12,7 +12,7 @@ import
   # Standard library
   os, strutils,
   # Beacon chain internals
-  ../../../beacon_chain/spec/[forkedbeaconstate_helpers, state_transition],
+  ../../../beacon_chain/spec/[forks, state_transition],
   ../../../beacon_chain/spec/datatypes/altair,
   # Test utilities
   ../../testutil,

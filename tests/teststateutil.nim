@@ -13,7 +13,7 @@ import
   ./helpers/math_helpers,
   ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[
-    crypto, datatypes, forkedbeaconstate_helpers, helpers,
+    crypto, datatypes, forks, helpers,
     presets, state_transition, state_transition_block]
 
 proc valid_deposit[T](state: var T) =
