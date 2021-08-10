@@ -169,9 +169,10 @@ proc sendAttestation*(
 
   return case ok
     of ValidationResult.Accept:
+      let forkPrefix = node.dag.forkDigestAtEpoch(
+        node.beaconClock.now.slotOrZero.epoch)
       node.network.broadcast(
-        # TODO altair-transition
-        getAttestationTopic(node.dag.forkDigests.phase0, subnet_id),
+        getAttestationTopic(forkPrefix, subnet_id),
         attestation)
       beacon_attestations_sent.inc()
       true
@@ -182,18 +183,18 @@ proc sendAttestation*(
       false
 
 proc sendVoluntaryExit*(node: BeaconNode, exit: SignedVoluntaryExit) =
-  # TODO altair-transition
-  let exitsTopic = getVoluntaryExitsTopic(node.dag.forkDigests.phase0)
+  let exitsTopic = getVoluntaryExitsTopic(
+    node.dag.forkDigestAtEpoch(node.beaconClock.now.slotOrZero.epoch))
   node.network.broadcast(exitsTopic, exit)
 
 proc sendAttesterSlashing*(node: BeaconNode, slashing: AttesterSlashing) =
-  # TODO altair-transition
-  let attesterSlashingsTopic = getAttesterSlashingsTopic(node.dag.forkDigests.phase0)
+  let attesterSlashingsTopic = getAttesterSlashingsTopic(
+    node.dag.forkDigestAtEpoch(node.beaconClock.now.slotOrZero.epoch))
   node.network.broadcast(attesterSlashingsTopic, slashing)
 
 proc sendProposerSlashing*(node: BeaconNode, slashing: ProposerSlashing) =
-  # TODO altair-transition
-  let proposerSlashingsTopic = getProposerSlashingsTopic(node.dag.forkDigests.phase0)
+  let proposerSlashingsTopic = getProposerSlashingsTopic(
+    node.dag.forkDigestAtEpoch(node.beaconClock.now.slotOrZero.epoch))
   node.network.broadcast(proposerSlashingsTopic, slashing)
 
 proc sendAttestation*(node: BeaconNode, attestation: Attestation): Future[bool] =
@@ -522,7 +523,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
 
   return head
 
-proc broadcastAggregatedAttestations(
+proc sendAggregatedAttestations(
     node: BeaconNode, aggregationHead: BlockRef, aggregationSlot: Slot) {.async.} =
   # The index is via a
   # locally attested validator. Unlike in handleAttestations(...) there's a
@@ -739,7 +740,10 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
         aggregateWaitTime = shortLog(aggregateWaitTime.offset)
       await sleepAsync(aggregateWaitTime.offset)
 
-    await broadcastAggregatedAttestations(node, head, slot)
+    let sendAggregatedAttestationsFut =
+      sendAggregatedAttestations(node, head, slot)
+
+    await sendAggregatedAttestationsFut
 
   if node.eth1Monitor != nil and (slot mod SLOTS_PER_EPOCH) == 0:
     let finalizedEpochRef = node.dag.getFinalizedEpochRef()
