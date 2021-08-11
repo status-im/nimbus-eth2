@@ -169,6 +169,12 @@ proc sendAttestation*(
 
   return case ok
     of ValidationResult.Accept:
+      # Regardless of the contents of the attestation,
+      # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-beta.2/specs/altair/p2p-interface.md#transitioning-the-gossip
+      # implies that pre-fork, messages using post-fork digests might be
+      # ignored, whilst post-fork, there is effectively a seen_ttl-based
+      # timer unsubscription point that means no new pre-fork-forkdigest
+      # should be sent.
       let forkPrefix = node.dag.forkDigestAtEpoch(
         node.beaconClock.now.slotOrZero.epoch)
       node.network.broadcast(
