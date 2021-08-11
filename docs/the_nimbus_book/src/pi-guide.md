@@ -2,7 +2,7 @@
 
 <blockquote class="twitter-tweet"><p lang="en" dir="ltr">I expect the new Raspberry Pi 4 (4GB RAM option, external SSD) to handle an Eth2 validator node without breaking a sweat. That&#39;s $100 of hardware running at 10 Watts to support a 32 ETH node (currently ~$10K stake).</p>&mdash; Justin Ðrake (@drakefjustin) <a href="https://twitter.com/drakefjustin/status/1143091047058366465?ref_src=twsrc%5Etfw">June 24, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 
-> In addition to this guide, we highly recommend this [wonderful and complementary resource](https://github.com/jclapis/rp-pi-guide/blob/main/Overview.md) by community member Joe Clapis.
+> In addition to this guide, we highly recommend this [wonderful and complementary resource](https://docs.rocketpool.net/guides/node/local/prepare-pi.html#preliminary-setup) by community member Joe Clapis.
 
 
 ## Introduction
@@ -373,7 +373,7 @@ For the details on how to do this, see [this page](./beacon-node-systemd.md).
 
 #### Overclocking
 
-While you shouldn't need to, if you're feeling adventurous and want to try and squeeze out some extra performance out of your Pi's CPU, see [this guide](https://github.com/jclapis/rp-pi-guide/blob/main/Overclocking.md) by Joe Clapis.
+While you shouldn't need to, if you're feeling adventurous and want to try and squeeze out some extra performance out of your Pi's CPU, see [this guide](https://docs.rocketpool.net/guides/node/local/prepare-pi.html#overclocking-the-pi) by Joe Clapis.
 
 >  **Note:** we have since improved performance in several ways which should make a vanilla Pi perform well. However, overclocking may still give some benefits, in particular you have more performance to deal with anomalies (like spamming etc).
 
