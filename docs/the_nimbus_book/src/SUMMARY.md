@@ -38,6 +38,7 @@
 - [Graffiti the blockchain](./graffiti.md)
 - [Optimise for profitability](./profits.md)
 - [Monitor the health of your node](./health.md)
+- [Install specific Nimbus version](./install-version.md)
 
 # Guides
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)
