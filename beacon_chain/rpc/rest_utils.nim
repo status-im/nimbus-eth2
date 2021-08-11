@@ -217,6 +217,8 @@ proc validate(key: string, value: string): int =
     0
   of "{validator_id}":
     0
+  of "{validator_key_wo0x}":
+    0
   else:
     1
 
