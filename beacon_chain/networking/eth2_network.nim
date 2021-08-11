@@ -90,7 +90,6 @@ type
     peers*: Table[PeerID, Peer]
     validTopics: HashSet[string]
     peerPingerHeartbeatFut: Future[void]
-    lazyDial: bool
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -895,7 +894,7 @@ proc connectWorker(node: Eth2Node, index: int) {.async.} =
     # Previous worker dial might have hit the maximum peers.
     # TODO: could clear the whole connTable and connQueue here also, best
     # would be to have this event based coming from peer pool or libp2p.
-    if node.switch.connManager.outSema.count < node.switch.connManager.outSema.size:
+    if node.switch.connManager.outSema.count > 0:
       await node.dialPeer(remotePeerAddr, index)
     # Peer was added to `connTable` before adding it to `connQueue`, so we
     # excluding peer here after processing.
@@ -1039,40 +1038,28 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
       wantedAttnets = node.getLowAttnets()
       wantedAttnetsCount = wantedAttnets.countOnes()
 
-      semaphoreFull =
-        node.switch.connManager.outSema.count >= node.switch.connManager.outSema.size
-
-    if wantedAttnetsCount > 0 or
-      not (node.lazyDial or semaphoreFull):
-      let discoveredNodes =
-        if wantedAttnetsCount > 0:
-          await node.discovery.queryRandom(node.forkId, wantedAttnets)
-        else:
-          await node.discovery.queryRandom(("eth2", SSZ.encode(node.forkId)))
-
-      if semaphoreFull and wantedAttnetsCount > 0:
-        # We're full of bad peers, kick a few ones
-        # This will both kick incoming and outgoing
-        # meaning we may not actually free outgoing slots.
-        # But we also want to keep good incoming peers
-        await node.trimConnections(2)
+    if wantedAttnetsCount > 0:
+      let discoveredNodes = await node.discovery.queryRandom(node.forkId, wantedAttnets)
 
       var newPeers = 0
       for discNode in discoveredNodes:
         let res = discNode.toPeerAddr()
         if res.isOk():
           let peerAddr = res.get()
-          # Waiting for an empty space in PeerPool.
-          while true:
-            if node.peerPool.lenSpace({PeerType.Outgoing}) == 0:
-              await node.peerPool.waitForEmptySpace(PeerType.Outgoing)
-            else:
-              break
           # Check if peer present in SeenTable or PeerPool.
           if node.checkPeer(peerAddr):
             if peerAddr.peerId notin node.connTable:
               # We adding to pending connections table here, but going
               # to remove it only in `connectWorker`.
+
+              # If we are full, try to kick a peer
+              while node.peerPool.lenSpace({PeerType.Outgoing}) == 0 and newPeers == 0:
+                await node.trimConnections(1)
+
+              if node.peerPool.lenSpace({PeerType.Outgoing}) == 0:
+                # No room anymore
+                break
+
               node.connTable.incl(peerAddr.peerId)
               await node.connQueue.addLast(peerAddr)
               inc(newPeers)
@@ -1176,11 +1163,6 @@ proc handlePeer*(peer: Peer) {.async.} =
                                          connections = peer.connections
 
 proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
-  # Let as much peers in as we have free slots on outgoing semaphore
-  let incomingCapacity =
-    max(10,
-    node.wantedPeers - node.switch.connManager.outSema.count)
-  node.switch.connManager.inSema.setSize(incomingCapacity)
   let peer = node.getPeer(peerId)
   case event.kind
   of ConnEventKind.Connected:
@@ -1290,8 +1272,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf,
     discoveryEnabled: discovery,
     rng: rng,
     connectTimeout: connectTimeout,
-    seenThreshold: seenThreshold,
-    lazyDial: config.lazyDial
+    seenThreshold: seenThreshold
   )
 
   newSeq node.protocolStates, allProtocols.len

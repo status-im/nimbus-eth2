@@ -150,11 +150,6 @@ type
       desc: "Subscribe to all attestation subnet topics when gossiping"
       name: "subscribe-all-subnets" }: bool
 
-    lazyDial* {.
-      defaultValue: false,
-      desc: "Connect to the minimal number of peers"
-      name: "lazy-dial" }: bool
-
     slashingDbKind* {.
       hidden
       defaultValue: SlashingDbKind.v2
