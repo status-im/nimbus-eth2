@@ -10,10 +10,13 @@
 import
   std/[intsets],
   chronicles,
-  ../spec/[crypto, digest, helpers, network, presets, signatures, validator],
-  ../spec/datatypes/base,
   ../extras,
-  ./block_pools_types, ./blockchain_dag
+  ../spec/[helpers, network, signatures, validator],
+  ../spec/datatypes/base,
+  ./block_pools_types, blockchain_dag
+
+export
+  base, extras
 
 # Spec functions implemented based on cached values instead of the full state
 func count_active_validators*(epochInfo: EpochRef): uint64 =

@@ -30,8 +30,9 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped{ident}, us
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
       test testName & " - " & unitTestName & preset():
         # BeaconState objects are stored on the heap to avoid stack overflow
-        var preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
-        let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
+        type T = phase0.BeaconState
+        var preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
+        let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, T))
         var cache {.used.}: StateCache
         when compiles(transitionProc(defaultRuntimeConfig, preState[], cache)):
           transitionProc(defaultRuntimeConfig, preState[], cache)

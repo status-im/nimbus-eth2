@@ -13,7 +13,7 @@ import
   ../beacon_node_common, ../validators/validator_duties,
   ../consensus_object_pools/[block_pools_types, blockchain_dag],
   ../spec/datatypes/base,
-  ../spec/[digest, forks, helpers],
+  ../spec/[forks, helpers],
   ../spec/eth2_apis/[rpc_types, eth2_json_rpc_serialization]
 
 export rpc_types, eth2_json_rpc_serialization, blockchain_dag

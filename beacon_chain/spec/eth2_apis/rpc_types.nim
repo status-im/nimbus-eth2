@@ -11,10 +11,9 @@
 {.push raises: [Defect].}
 
 import
-  ".."/datatypes/base,
-  ".."/[digest, crypto]
+  ../datatypes/[phase0, altair]
 
-export base, crypto, digest
+export phase0, altair
 
 type
   RpcAttesterDuties* = tuple

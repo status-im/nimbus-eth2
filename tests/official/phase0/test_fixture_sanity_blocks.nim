@@ -11,8 +11,7 @@ import
   # Standard library
   os, sequtils, chronicles,
   # Beacon chain internals
-  ../../../beacon_chain/spec/[
-    crypto, forks, presets, state_transition],
+  ../../../beacon_chain/spec/[forks, state_transition],
   ../../../beacon_chain/spec/datatypes/phase0,
   ../../../beacon_chain/ssz,
   # Test utilities
@@ -38,7 +37,7 @@ proc runTest(testName, testDir, unitTestName: string) =
 
     test prefix & testName & " - " & unitTestName & preset():
       var
-        preState = newClone(parseTest(testPath/"pre.ssz_snappy", SSZ, BeaconState))
+        preState = newClone(parseTest(testPath/"pre.ssz_snappy", SSZ, phase0.BeaconState))
         fhPreState = (ref ForkedHashedBeaconState)(hbsPhase0: phase0.HashedBeaconState(
           data: preState[], root: hash_tree_root(preState[])), beaconStateFork: forkPhase0)
         cache = StateCache()
@@ -48,7 +47,7 @@ proc runTest(testName, testDir, unitTestName: string) =
       # so purely lexicographic sorting wouldn't sort properly.
       let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
       for i in 0 ..< numBlocks:
-        let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, SignedBeaconBlock)
+        let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, phase0.SignedBeaconBlock)
 
         if hasPostState:
           let success = state_transition(
@@ -63,7 +62,7 @@ proc runTest(testName, testDir, unitTestName: string) =
             "We didn't expect these invalid blocks to be processed"
 
       if hasPostState:
-        let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, BeaconState))
+        let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, phase0.BeaconState))
         when false:
           reportDiff(hashedPreState.hbsPhase0.data, postState)
         doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()

@@ -13,7 +13,7 @@ import
   math,
 
   # Specs
-  ../../beacon_chain/spec/[crypto, digest, keystore, signatures, presets],
+  ../../beacon_chain/spec/[keystore, signatures],
   ../../beacon_chain/spec/datatypes/base,
 
   # Internals

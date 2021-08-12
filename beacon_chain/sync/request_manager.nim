@@ -9,12 +9,14 @@
 
 import options, sequtils, strutils
 import chronos, chronicles
-import ../spec/[datatypes/phase0, datatypes/altair, digest, forks],
-       ../networking/eth2_network,
-       ../beacon_node_types,
-       ../ssz/merkleization,
-       ../gossip_processing/block_processor,
-       ./sync_protocol, ./sync_manager
+import
+  ../spec/datatypes/[phase0, altair],
+  ../spec/forks,
+  ../networking/eth2_network,
+  ../beacon_node_types,
+  ../ssz/merkleization,
+  ../gossip_processing/block_processor,
+  "."/sync_protocol, "."/sync_manager
 export sync_manager
 
 logScope:

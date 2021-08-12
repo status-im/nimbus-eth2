@@ -13,12 +13,12 @@ import
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./beacon_chain_db_immutable,
-  ./spec/[crypto, digest, state_transition],
+  ./spec/state_transition,
   ./spec/datatypes/[phase0, altair],
   ./ssz/[ssz_serialization, merkleization],
   ./filepath
 
-export crypto
+export phase0, altair
 
 logScope: topics = "bc_db"
 

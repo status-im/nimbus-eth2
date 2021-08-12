@@ -45,12 +45,12 @@ proc runTest(identifier: string) =
       var
         cache = StateCache()
         preState =
-          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, altair.BeaconState))
 
       if existsFile(testDir/"post.ssz_snappy"):
         let
           postState =
-            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
+            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, altair.BeaconState))
           done = process_attester_slashing(
             defaultRuntimeConfig, preState[], attesterSlashing, {}, cache).isOk
         doAssert done, "Valid attestater slashing not processed"

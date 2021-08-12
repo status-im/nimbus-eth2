@@ -14,9 +14,9 @@ import
   stew/endians2, chronicles,
   eth/keys,
   # Internals
-  ../spec/[crypto, digest, signatures_batch, forks],
+  ../spec/[signatures_batch, forks],
   ../spec/datatypes/[phase0, altair],
-  ".."/[beacon_chain_db, beacon_clock, extras]
+  ".."/[beacon_chain_db, beacon_clock]
 
 export sets, tables
 

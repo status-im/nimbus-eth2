@@ -2,12 +2,12 @@ import
   os, stats, strformat, tables,
   chronicles, confutils, stew/byteutils, eth/db/kvstore_sqlite3,
   ../beacon_chain/networking/network_metadata,
-  ../beacon_chain/[beacon_chain_db, extras],
+  ../beacon_chain/[beacon_chain_db],
   ../beacon_chain/consensus_object_pools/[
     blockchain_dag, forkedbeaconstate_dbhelpers],
+  ../beacon_chain/spec/datatypes/phase0,
   ../beacon_chain/spec/[
-    crypto, datatypes/phase0, digest, forks, helpers,
-    state_transition, state_transition_epoch, presets],
+    forks, helpers, state_transition, state_transition_epoch],
   ../beacon_chain/ssz, ../beacon_chain/ssz/sszdump,
   ../research/simutils, ./e2store
 
@@ -244,7 +244,7 @@ proc cmdDumpState(conf: DbConf) =
   for stateRoot in conf.stateRoot:
     try:
       let root = Eth2Digest(data: hexToByteArray[32](stateRoot))
-      var state = (ref HashedBeaconState)(root: root)
+      var state = (ref phase0.HashedBeaconState)(root: root)
       if not db.getState(root, state.data, noRollback):
         echo "Couldn't load ", root
       else:
@@ -280,11 +280,11 @@ proc copyPrunedDatabase(
   doAssert db.getBlock(tailBlock.get).isOk
 
   var
-    beaconState: ref BeaconState
+    beaconState: ref phase0.BeaconState
     finalizedEpoch: Epoch  # default value of 0 is conservative/safe
     prevBlockSlot = db.getBlock(db.getHeadBlock().get).get.message.slot
 
-  beaconState = new BeaconState
+  beaconState = new phase0.BeaconState
   let headEpoch = db.getBlock(headBlock.get).get.message.slot.epoch
 
   # Tail states are specially addressed; no stateroot intermediary
@@ -459,7 +459,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
       getStateField(dag.headState.data, validators).len())
     cache = StateCache()
     rewards = RewardInfo()
-    blck: TrustedSignedBeaconBlock
+    blck: phase0.TrustedSignedBeaconBlock
 
   doAssert blockRefs.len() > 0, "Must select at least one block"
 
@@ -683,7 +683,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   var
     cache = StateCache()
     rewards = RewardInfo()
-    blck: TrustedSignedBeaconBlock
+    blck: phase0.TrustedSignedBeaconBlock
 
   let
     start = minEpoch.compute_start_slot_at_epoch()

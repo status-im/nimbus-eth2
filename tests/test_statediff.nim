@@ -11,8 +11,8 @@ import
   options, sequtils,
   unittest2,
   ./testutil, ./testdbutil, ./teststateutil,
-  ../beacon_chain/spec/[
-    datatypes, digest, forks, helpers, presets],
+  ../beacon_chain/spec/datatypes/phase0,
+  ../beacon_chain/spec/[forks, helpers],
   ../beacon_chain/[beacon_node_types, statediff],
   ../beacon_chain/ssz,
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine]

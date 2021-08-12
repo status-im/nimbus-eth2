@@ -11,15 +11,13 @@ import
   std/[options, sequtils, tables, sets],
   stew/[assign2, byteutils],
   metrics, snappy, chronicles,
-  ../ssz/[ssz_serialization, merkleization], ../beacon_chain_db, ../extras,
-  ../spec/[
-    crypto, digest, helpers, validator, state_transition,
-    beaconstate, forks],
+  ../ssz/[ssz_serialization, merkleization],
+  ../spec/[helpers, validator, state_transition, beaconstate, forks],
   ../spec/datatypes/[phase0, altair],
-  ../beacon_clock,
+  ".."/[beacon_clock, beacon_chain_db],
   "."/[block_pools_types, block_quarantine, forkedbeaconstate_dbhelpers]
 
-export block_pools_types, helpers, phase0
+export block_pools_types
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"

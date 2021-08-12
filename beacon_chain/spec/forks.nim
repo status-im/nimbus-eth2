@@ -12,9 +12,10 @@ import
   chronicles,
   stew/[assign2, results],
   ../extras,
-  ../spec/[
-    beaconstate, digest, helpers, presets, state_transition_block, validator],
+  ../spec/[beaconstate, helpers, state_transition_block, validator],
   ./datatypes/[phase0, altair]
+
+export extras, phase0, altair
 
 type
   BeaconStateFork* = enum

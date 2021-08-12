@@ -18,7 +18,6 @@ import
   json_serialization,
   # Internal
   ../spec/datatypes/base,
-  ../spec/[digest, crypto],
   ../ssz,
   ./slashing_protection_common
 

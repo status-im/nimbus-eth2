@@ -27,7 +27,7 @@ import
   # Status libraries
   chronicles,
   nimcrypto/[sha2, hash],
-  stew/byteutils,
+  stew/[endians2, byteutils],
   json_serialization,
   blscurve
 
@@ -119,3 +119,9 @@ proc readValue*(r: var JsonReader, a: var Eth2Digest) {.raises: [Defect, IOError
     a = fromHex(type(a), r.readValue(string))
   except ValueError:
     raiseUnexpectedValue(r, "Hex string expected")
+
+proc toGaugeValue*(hash: Eth2Digest): int64 =
+  # Only the last 8 bytes are taken into consideration in accordance
+  # to the ETH2 metrics spec:
+  # https://github.com/ethereum/eth2.0-metrics/blob/6a79914cb31f7d54858c7dd57eee75b6162ec737/metrics.md#interop-metrics
+  cast[int64](uint64.fromBytesLE(hash.data.toOpenArray(24, 31)))

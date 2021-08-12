@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, strutils, tables,
+  std/[os, strutils, tables],
 
   # Local modules
   ./spec/[digest, crypto],

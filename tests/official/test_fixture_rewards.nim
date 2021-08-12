@@ -13,7 +13,8 @@ import
   # Utilities
   stew/results,
   # Beacon chain internals
-  ../../beacon_chain/spec/[validator, datatypes, helpers, state_transition_epoch],
+  ../../beacon_chain/spec/datatypes/phase0,
+  ../../beacon_chain/spec/[validator, helpers, state_transition_epoch],
   ../../beacon_chain/ssz,
   # Test utilities
   ../testutil,
@@ -50,7 +51,7 @@ proc runTest(rewardsDir, identifier: string) =
   proc `testImpl _ rewards _ identifier`() =
     test "Rewards" & " - " & identifier & preset():
       var
-        state = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+        state = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, phase0.BeaconState))
         cache = StateCache()
       let
         sourceDeltas =

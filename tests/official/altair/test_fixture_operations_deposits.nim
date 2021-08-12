@@ -42,11 +42,11 @@ proc runTest(identifier: string) =
     test prefix & " " & identifier:
       let deposit = parseTest(testDir/"deposit.ssz_snappy", SSZ, Deposit)
       var preState =
-        newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+        newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, altair.BeaconState))
 
       if existsFile(testDir/"post.ssz_snappy"):
         let postState =
-          newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
+          newClone(parseTest(testDir/"post.ssz_snappy", SSZ, altair.BeaconState))
         discard process_deposit(defaultRuntimeConfig, preState[], deposit, {})
         reportDiff(preState, postState)
       else:

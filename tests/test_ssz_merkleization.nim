@@ -1,7 +1,8 @@
 import
   std/[strutils, sequtils, macros, bitops],
   stew/[bitops2, endians2],
-  ../beacon_chain/spec/[beaconstate, datatypes, digest, helpers],
+  ../beacon_chain/spec/datatypes/phase0,
+  ../beacon_chain/spec/[beaconstate, helpers],
   ../beacon_chain/eth1/merkle_minimal,
   ../beacon_chain/ssz,
   mocking/mock_deposits

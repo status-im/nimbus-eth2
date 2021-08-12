@@ -10,8 +10,7 @@ import
   chronicles,
   nimcrypto/utils as ncrutils,
   ../beacon_node_common, ../eth1/eth1_monitor,
-  ../spec/datatypes/base,
-  ../spec/[digest, forks, presets],
+  ../spec/forks,
   ./rest_utils
 
 logScope: topics = "rest_config"

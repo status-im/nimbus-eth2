@@ -15,9 +15,9 @@ import
   chronicles,
   json_serialization,
   json_serialization/std/[options, sets, net], serialization/errors,
-  ../ssz/navigator,
+  ../ssz/[navigator, spec_types],
   eth/common/eth_types_json_serialization,
-  ../spec/[presets, datatypes, digest]
+  ../spec/datatypes/phase0
 
 # ATTENTION! This file will produce a large C file, because we are inlining
 # genesis states as C literals in the generated code (and blobs in the final
@@ -200,4 +200,4 @@ proc getRuntimeConfig*(
 
 proc extractGenesisValidatorRootFromSnapshop*(
     snapshot: string): Eth2Digest {.raises: [Defect, IOError, SszError].} =
-  sszMount(snapshot, BeaconState).genesis_validators_root[]
+  sszMount(snapshot, phase0.BeaconState).genesis_validators_root[]

@@ -9,7 +9,7 @@
 
 import
   chronos, chronicles,
-  ./spec/[datatypes, helpers]
+  ./spec/helpers
 
 from times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
 

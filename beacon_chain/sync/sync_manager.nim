@@ -7,15 +7,20 @@
 
 {.push raises: [Defect].}
 
-import chronicles
-import options, deques, heapqueue, tables, strutils, sequtils, math, algorithm
+import std/[
+  options, deques, heapqueue, tables, strutils, sequtils, math, algorithm]
 import stew/results, chronos, chronicles
-import ../spec/[datatypes/phase0, datatypes/altair, digest, helpers, eth2_apis/rpc_types, forks],
-       ../networking/[peer_pool, eth2_network]
+
+import
+  ../spec/datatypes/[phase0, altair],
+  ../spec/eth2_apis/rpc_types,
+  ../spec/[helpers, forks],
+  ../networking/[peer_pool, eth2_network]
 
 import ../gossip_processing/block_processor
 import ../consensus_object_pools/block_pools_types
-export phase0, altair, digest, chronos, chronicles, results, block_pools_types,
+
+export phase0, altair, chronos, chronicles, results, block_pools_types,
        helpers
 
 logScope:

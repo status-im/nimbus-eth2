@@ -9,7 +9,9 @@
 
 import
   ../ssz/merkleization,
-  ./crypto, ./digest, ./datatypes/[phase0, altair], ./helpers, ./presets
+  ./datatypes/[phase0, altair], ./helpers
+
+export phase0, altair
 
 template withTrust(sig: SomeSig, body: untyped): bool =
   when sig is TrustedSig:

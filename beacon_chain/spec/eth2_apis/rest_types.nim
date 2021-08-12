@@ -14,11 +14,10 @@
 {.push raises: [Defect].}
 
 import
-  std/json,
-  ".."/datatypes/[phase0, altair],
-  ".."/[crypto, digest]
+  std/[json, typetraits],
+  ".."/datatypes/[phase0, altair]
 
-export phase0, altair, crypto, digest
+export phase0, altair
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17

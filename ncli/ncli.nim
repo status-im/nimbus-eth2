@@ -3,10 +3,8 @@ import
   confutils, chronicles, json_serialization,
   stew/byteutils,
   ../research/simutils,
-  ../beacon_chain/spec/[
-    crypto, datatypes, digest, forks, helpers, presets,
-    state_transition],
-  ../beacon_chain/extras,
+  ../beacon_chain/spec/datatypes/[phase0],
+  ../beacon_chain/spec/[forks, helpers, state_transition],
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
@@ -83,11 +81,11 @@ template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
 proc doTransition(conf: NcliConf) =
   let
     stateY = (ref ForkedHashedBeaconState)(
-      hbsPhase0: HashedBeaconState(
-        data: SSZ.loadFile(conf.preState, BeaconState)),
+      hbsPhase0: phase0.HashedBeaconState(
+        data: SSZ.loadFile(conf.preState, phase0.BeaconState)),
       beaconStateFork: forkPhase0
     )
-    blckX = SSZ.loadFile(conf.blck, SignedBeaconBlock)
+    blckX = SSZ.loadFile(conf.blck, phase0.SignedBeaconBlock)
     flags = if not conf.verifyStateRoot: {skipStateRootValidation} else: {}
 
   setStateRoot(stateY[], hash_tree_root(stateY[]))
@@ -113,8 +111,8 @@ proc doSlots(conf: NcliConf) =
   var timers: array[Timers, RunningStat]
   let
     stateY = withTimerRet(timers[tLoadState]): (ref ForkedHashedBeaconState)(
-      hbsPhase0: HashedBeaconState(
-        data: SSZ.loadFile(conf.preState2, BeaconState)),
+      hbsPhase0: phase0.HashedBeaconState(
+        data: SSZ.loadFile(conf.preState2, phase0.BeaconState)),
       beaconStateFork: forkPhase0
     )
 
@@ -156,7 +154,7 @@ proc doSSZ(conf: NcliConf) =
 
     case conf.cmd:
     of hashTreeRoot:
-      when t is SignedBeaconBlock:
+      when t is phase0.SignedBeaconBlock:
         echo hash_tree_root(v.message).data.toHex()
       else:
         echo hash_tree_root(v[]).data.toHex()
@@ -170,14 +168,14 @@ proc doSSZ(conf: NcliConf) =
   case kind
   of "attester_slashing": printit(AttesterSlashing)
   of "attestation": printit(Attestation)
-  of "signed_block": printit(SignedBeaconBlock)
-  of "block": printit(BeaconBlock)
-  of "block_body": printit(BeaconBlockBody)
+  of "signed_block": printit(phase0.SignedBeaconBlock)
+  of "block": printit(phase0.BeaconBlock)
+  of "block_body": printit(phase0.BeaconBlockBody)
   of "block_header": printit(BeaconBlockHeader)
   of "deposit": printit(Deposit)
   of "deposit_data": printit(DepositData)
   of "eth1_data": printit(Eth1Data)
-  of "state": printit(BeaconState)
+  of "state": printit(phase0.BeaconState)
   of "proposer_slashing": printit(ProposerSlashing)
   of "voluntary_exit": printit(VoluntaryExit)
 

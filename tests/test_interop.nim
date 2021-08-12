@@ -4,7 +4,7 @@ import
   stint, ./testutil, stew/byteutils,
   ../beacon_chain/interop,
   ../beacon_chain/ssz,
-  ../beacon_chain/spec/[beaconstate, crypto, presets],
+  ../beacon_chain/spec/[beaconstate],
   ../beacon_chain/spec/datatypes/base
 
 # Interop test yaml, found here:

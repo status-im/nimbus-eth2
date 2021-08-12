@@ -47,13 +47,13 @@ proc runTest(identifier: string) =
         testDir/"proposer_slashing.ssz_snappy", SSZ, ProposerSlashing)
       var
         preState =
-          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, phase0.BeaconState))
         cache = StateCache()
 
       if existsFile(testDir/"post.ssz_snappy"):
         let
           postState =
-            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
+            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, phase0.BeaconState))
           done = process_proposer_slashing(
             defaultRuntimeConfig, preState[], proposerSlashing, {}, cache).isOk
         doAssert done, "Valid proposer slashing not processed"

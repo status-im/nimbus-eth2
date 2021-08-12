@@ -15,7 +15,6 @@ import
   # Internal
   ../../beacon_chain/validators/[slashing_protection, slashing_protection_v2],
   ../../beacon_chain/spec/datatypes/base,
-  ../../beacon_chain/spec/[digest, crypto, presets],
   # Test utilies
   ../testutil, ../testdbutil,
   ../official/fixtures_utils

@@ -9,7 +9,8 @@
 
 import
   unittest2,
-  ../beacon_chain/spec/[beaconstate, datatypes, digest, presets],
+  ../beacon_chain/spec/datatypes/base,
+  ../beacon_chain/spec/beaconstate,
   ./testutil, ./testblockutil
 
 suite "Beacon state" & preset():

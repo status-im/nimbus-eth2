@@ -14,11 +14,9 @@ import
   stew/assign2,
   eth/keys,
   ../beacon_chain/spec/datatypes/base,
-  ../beacon_chain/spec/[
-    beaconstate, digest, forks, helpers, state_transition,
-    presets],
+  ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
   ../beacon_chain/beacon_node_types,
-  ../beacon_chain/[beacon_chain_db, ssz, extras],
+  ../beacon_chain/[beacon_chain_db, ssz],
   ../beacon_chain/consensus_object_pools/[
     blockchain_dag, block_quarantine, block_clearance],
   ./testutil, ./testdbutil, ./testblockutil

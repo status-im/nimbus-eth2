@@ -1,6 +1,7 @@
 import
   options,
-  rpc_types
+  rpc_types,
+  ../datatypes/phase0
 
 proc get_v1_beacon_genesis(): RpcBeaconGenesis
 
@@ -34,7 +35,7 @@ proc get_v1_beacon_headers_blockId(blockId: string):
   tuple[canonical: bool, header: SignedBeaconBlockHeader]
 
 # TODO blockId is part of the REST path
-proc get_v1_beacon_blocks_blockId(blockId: string): SignedBeaconBlock
+proc get_v1_beacon_blocks_blockId(blockId: string): phase0.SignedBeaconBlock
 
 # TODO blockId is part of the REST path
 proc get_v1_beacon_blocks_blockId_root(blockId: string): Eth2Digest

@@ -16,7 +16,8 @@ import
   chronicles,
   sqlite3_abi,
   # Internal
-  ../spec/[datatypes, digest, crypto, helpers],
+  ../spec/datatypes/base,
+  ../spec/helpers,
   ../ssz,
   ./slashing_protection_common
 

@@ -9,7 +9,8 @@ import
   # Standard library
   strformat, tables,
   # Specs
-  ../../beacon_chain/spec/[beaconstate, datatypes, validator, helpers],
+  ../../beacon_chain/spec/datatypes/phase0,
+  ../../beacon_chain/spec/[beaconstate, validator, helpers],
   # Test helpers
   ../helpers/digest_helpers
 
@@ -17,7 +18,7 @@ import
 # ---------------------------------------------------------------
 
 proc addMockAttestations*(
-       state: var BeaconState, epoch: Epoch,
+       state: var phase0.BeaconState, epoch: Epoch,
        source, target: Checkpoint,
        sufficient_support = false
   ) =
@@ -85,7 +86,7 @@ proc getCheckpoints*(epoch: Epoch): tuple[c1, c2, c3, c4, c5: Checkpoint] =
   if epoch >= 5: result.c5 = Checkpoint(epoch: epoch - 5, root: [byte 0xEE] * 32)
 
 proc putCheckpointsInBlockRoots*(
-       state: var BeaconState,
+       state: var phase0.BeaconState,
        checkpoints: openArray[Checkpoint]) =
   for c in checkpoints:
     let idx = c.epoch.compute_start_slot_at_epoch() mod SLOTS_PER_HISTORICAL_ROOT

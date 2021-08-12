@@ -16,16 +16,13 @@ import
   # Internals
   ../spec/datatypes/[phase0, altair],
   ../spec/[
-    beaconstate, state_transition_block,
-    crypto, digest, forks, helpers, network,
-    signatures],
+    beaconstate, state_transition_block, forks, helpers, network, signatures],
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_quarantine, spec_cache,
     attestation_pool, exit_pool
   ],
   ".."/[beacon_node_types, ssz, beacon_clock],
   ../validators/attestation_aggregation,
-  ../extras,
   ./batch_validation
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult

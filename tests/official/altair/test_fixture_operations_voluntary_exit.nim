@@ -44,13 +44,13 @@ proc runTest(identifier: string) =
         testDir/"voluntary_exit.ssz_snappy", SSZ, SignedVoluntaryExit)
       var
         preState =
-          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, altair.BeaconState))
         cache = StateCache()
 
       if existsFile(testDir/"post.ssz_snappy"):
         let
           postState =
-            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
+            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, altair.BeaconState))
           done =
             process_voluntary_exit(defaultRuntimeConfig, preState[], voluntaryExit, {}, cache).isOk
         doAssert done, "Valid voluntary exit not processed"

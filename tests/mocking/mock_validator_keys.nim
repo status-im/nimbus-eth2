@@ -11,7 +11,6 @@
 import
   bearssl, eth/keys,
   blscurve,
-  ../../beacon_chain/spec/[crypto, presets],
   ../../beacon_chain/spec/datatypes/base
 
 proc newKeyPair(rng: var BrHmacDrbgContext): BlsResult[tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey]] =

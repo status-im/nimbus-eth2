@@ -11,7 +11,7 @@ import
   std/[os, strutils, terminal, wordwrap, unicode],
   chronicles, chronos, web3, stint, json_serialization, zxcvbn,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
-  ../spec/[digest, crypto, keystore],
+  ../spec/[keystore],
   ../spec/datatypes/base,
   stew/io2, libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,

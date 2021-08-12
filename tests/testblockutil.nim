@@ -8,11 +8,11 @@
 import
   chronicles,
   options, stew/endians2,
-  ../beacon_chain/[beacon_node_types, extras],
+  ../beacon_chain/[beacon_node_types],
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/ssz/merkleization,
-  ../beacon_chain/spec/[crypto, datatypes, digest, presets, helpers,
-                        signatures, state_transition, forks],
+  ../beacon_chain/spec/datatypes/[phase0, altair, merge],
+  ../beacon_chain/spec/[helpers, signatures, state_transition, forks],
   ../beacon_chain/consensus_object_pools/attestation_pool
 
 func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
@@ -61,10 +61,10 @@ func makeInitialDeposits*(
     result.add makeDeposit(i, flags)
 
 func signBlock(
-    fork: Fork, genesis_validators_root: Eth2Digest, blck: BeaconBlock,
-    privKey: ValidatorPrivKey, flags: UpdateFlags = {}): SignedBeaconBlock =
+    fork: Fork, genesis_validators_root: Eth2Digest, blck: phase0.BeaconBlock,
+    privKey: ValidatorPrivKey, flags: UpdateFlags = {}): phase0.SignedBeaconBlock =
   let root = hash_tree_root(blck)
-  SignedBeaconBlock(
+  phase0.SignedBeaconBlock(
     message: blck,
     root: root,
     signature:
@@ -84,7 +84,7 @@ proc addTestBlock*(
     deposits = newSeq[Deposit](),
     graffiti = default(GraffitiBytes),
     flags: set[UpdateFlag] = {},
-    nextSlot = true): SignedBeaconBlock =
+    nextSlot = true): phase0.SignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
   if nextSlot:
     var rewards: RewardInfo
@@ -144,7 +144,7 @@ proc makeTestBlock*(
     eth1_data = Eth1Data(),
     attestations = newSeq[Attestation](),
     deposits = newSeq[Deposit](),
-    graffiti = default(GraffitiBytes)): SignedBeaconBlock =
+    graffiti = default(GraffitiBytes)): phase0.SignedBeaconBlock =
   # Create a block for `state.slot + 1` - like a block proposer would do!
   # It's a bit awkward - in order to produce a block for N+1, we need to
   # calculate what the state will look like after that block has been applied,
@@ -286,7 +286,7 @@ func makeFullAttestations*(
     result.add attestation
 
 func makeFullAttestations*(
-    state: HashedBeaconState, beacon_block_root: Eth2Digest, slot: Slot,
+    state: phase0.HashedBeaconState, beacon_block_root: Eth2Digest, slot: Slot,
     cache: var StateCache,
     flags: UpdateFlags = {}): seq[Attestation] =
   # TODO this only supports phase 0 currently. Either expand that to
@@ -297,11 +297,11 @@ func makeFullAttestations*(
     beacon_block_root, slot, cache, flags)
 
 iterator makeTestBlocks*(
-  state: HashedBeaconState,
+  state: phase0.HashedBeaconState,
   parent_root: Eth2Digest,
   cache: var StateCache,
   blocks: int,
-  attested: bool): SignedBeaconBlock =
+  attested: bool): phase0.SignedBeaconBlock =
   var
     # TODO replace wrapper with more native usage
     state = (ref ForkedHashedBeaconState)(
@@ -319,7 +319,7 @@ iterator makeTestBlocks*(
     parent_root = blck.root
 
 iterator makeTestBlocks*(state: ForkedHashedBeaconState; parent_root: Eth2Digest;
-                         cache: var StateCache; blocks: int; attested: bool): SignedBeaconBlock =
+                         cache: var StateCache; blocks: int; attested: bool): phase0.SignedBeaconBlock =
   for blck in makeTestBlocks(state.hbsPhase0, parent_root, cache, blocks, attested):
     yield blck
 

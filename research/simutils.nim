@@ -1,11 +1,10 @@
 import
   stats, os, strformat, times,
   ../tests/testblockutil,
-  ../beacon_chain/[extras, beacon_chain_db],
+  ../beacon_chain/beacon_chain_db,
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
-  ../beacon_chain/spec/[
-    beaconstate, crypto, datatypes, digest, forks,
-    helpers, presets],
+  ../beacon_chain/spec/datatypes/[phase0, altair],
+  ../beacon_chain/spec/[beaconstate, forks, helpers],
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_pools_types],
   ../beacon_chain/eth1/eth1_monitor
 
@@ -28,7 +27,7 @@ template withTimerRet*(stats: var RunningStat, body: untyped): untyped =
 
   tmp
 
-func verifyConsensus*(state: BeaconState, attesterRatio: auto) =
+func verifyConsensus*(state: phase0.BeaconState, attesterRatio: auto) =
   if attesterRatio < 0.63:
     doAssert state.current_justified_checkpoint.epoch == 0
     doAssert state.finalized_checkpoint.epoch == 0
@@ -63,16 +62,16 @@ func verifyConsensus*(state: ForkedHashedBeaconState, attesterRatio: auto) =
       state, finalized_checkpoint).epoch + 2 >= current_epoch
 
 proc loadGenesis*(validators: Natural, validate: bool):
-                 (ref HashedBeaconState, DepositContractSnapshot) =
+                 (ref phase0.HashedBeaconState, DepositContractSnapshot) =
   let
     genesisFn =
       &"genesis_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
     contractSnapshotFn =
       &"deposit_contract_snapshot_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
-    res = (ref HashedBeaconState)()
+    res = (ref phase0.HashedBeaconState)()
 
   if fileExists(genesisFn) and fileExists(contractSnapshotFn):
-    res.data = SSZ.loadFile(genesisFn, BeaconState)
+    res.data = SSZ.loadFile(genesisFn, phase0.BeaconState)
     res.root = hash_tree_root(res.data)
     if res.data.slot != GENESIS_SLOT:
       echo "Can only start from genesis state"
@@ -138,7 +137,7 @@ proc printTimers*[Timers: enum](
       $t
 
 proc printTimers*[Timers: enum](
-    state: BeaconState, attesters: RunningStat, validate: bool,
+    state: phase0.BeaconState, attesters: RunningStat, validate: bool,
     timers: array[Timers, RunningStat]) =
   echo "Validators: ", state.validators.len, ", epoch length: ", SLOTS_PER_EPOCH
   echo "Validators per attestation (mean): ", attesters.mean
