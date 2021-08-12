@@ -834,7 +834,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            AttesterSlashingValidationError,
                                            $vres.error())
         res
-    node.sendAttesterSlashing(slashing)
+    node.network.sendAttesterSlashing(slashing)
     return RestApiResponse.jsonMsgResponse(AttesterSlashingValidationSuccess)
 
   # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolProposerSlashings
@@ -868,7 +868,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            ProposerSlashingValidationError,
                                            $vres.error())
         res
-    node.sendProposerSlashing(slashing)
+    node.network.sendProposerSlashing(slashing)
     return RestApiResponse.jsonMsgResponse(ProposerSlashingValidationSuccess)
 
   # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolVoluntaryExits
@@ -902,7 +902,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            VoluntaryExitValidationError,
                                            $vres.error())
         res
-    node.sendVoluntaryExit(exit)
+    node.network.sendVoluntaryExit(exit)
     return RestApiResponse.jsonMsgResponse(VoluntaryExitValidationSuccess)
 
   router.redirect(

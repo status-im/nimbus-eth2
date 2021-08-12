@@ -36,7 +36,7 @@ import
     version, conf,
     ssz/ssz_serialization, beacon_clock],
   ../spec/datatypes/[phase0, altair],
-  ../spec/[network, helpers, forks],
+  ../spec/[beaconstate, network, helpers, forks],
   ../validators/keystore_management,
   ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
 
@@ -87,6 +87,8 @@ type
     rng*: ref BrHmacDrbgContext
     peers*: Table[PeerID, Peer]
     validTopics: HashSet[string]
+    cfg: RuntimeConfig
+    beaconClock: BeaconClock
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -1124,10 +1126,11 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
               peer = peerId, peer_state = peer.connectionState
       peer.connectionState = Disconnected
 
-proc new*(T: type Eth2Node, config: BeaconNodeConf,
+proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
           enrForkId: ENRForkID, forkDigests: ForkDigestsRef,
-          switch: Switch, pubsub: GossipSub, ip: Option[ValidIpAddress],
-          tcpPort, udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
+          beaconClock: BeaconClock, switch: Switch, pubsub: GossipSub,
+          ip: Option[ValidIpAddress], tcpPort, udpPort: Option[Port],
+          privKey: keys.PrivateKey, discovery: bool,
           rng: ref BrHmacDrbgContext): T {.raises: [Defect, CatchableError].} =
   let
     metadata = getPersistentNetMetadata(config)
@@ -1144,6 +1147,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf,
     switch: switch,
     pubsub: pubsub,
     wantedPeers: config.maxPeers,
+    cfg: runtimeCfg,
     peerPool: newPeerPool[Peer, PeerID](maxPeers = config.maxPeers),
     # Its important here to create AsyncQueue with limited size, otherwise
     # it could produce HIGH cpu usage.
@@ -1153,6 +1157,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf,
     metadata: metadata,
     forkId: enrForkId,
     forkDigests: forkDigests,
+    beaconClock: beaconClock,
     discovery: Eth2DiscoveryProtocol.new(
       config, ip, tcpPort, udpPort, privKey,
       {
@@ -1584,11 +1589,12 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      netKeys: NetKeyPair,
                      cfg: RuntimeConfig,
                      forkDigests: ForkDigestsRef,
-                     wallEpoch: Epoch,
+                     beaconClock: BeaconClock,
                      genesisValidatorsRoot: Eth2Digest): Eth2Node
                     {.raises: [Defect, CatchableError].} =
   let
-    enrForkId = getENRForkID(cfg, wallEpoch, genesisValidatorsRoot)
+    enrForkId = getENRForkID(
+      cfg, beaconClock.now.slotOrZero.epoch, genesisValidatorsRoot)
 
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(
       config.nat, config.listenAddress, config.tcpPort, config.udpPort, clientId)
@@ -1671,8 +1677,8 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
     except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
   switch.mount(pubsub)
 
-  Eth2Node.new(config, enrForkId,
-               forkDigests,
+  Eth2Node.new(config, cfg, enrForkId,
+               forkDigests, beaconClock,
                switch, pubsub,
                extIp, extTcpPort, extUdpPort,
                netKeys.seckey.asEthKey,
@@ -1892,3 +1898,38 @@ func getStabilitySubnetLength*(node: Eth2Node): uint64 =
 
 func getRandomSubnetId*(node: Eth2Node): SubnetId =
   node.rng[].rand(ATTESTATION_SUBNET_COUNT - 1).SubnetId
+
+func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
+  if epoch < node.cfg.ALTAIR_FORK_EPOCH:
+    node.forkDigests.phase0
+  else:
+    node.forkDigests.altair
+
+proc sendAttestation*(
+    node: Eth2Node, subnet_id: SubnetId, attestation: Attestation) =
+  # Regardless of the contents of the attestation,
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-beta.2/specs/altair/p2p-interface.md#transitioning-the-gossip
+  # implies that pre-fork, messages using post-fork digests might be
+  # ignored, whilst post-fork, there is effectively a seen_ttl-based
+  # timer unsubscription point that means no new pre-fork-forkdigest
+  # should be sent.
+  let forkPrefix = node.forkDigestAtEpoch(
+    node.beaconClock.now.slotOrZero.epoch)
+  node.broadcast(
+    getAttestationTopic(forkPrefix, subnet_id),
+    attestation)
+
+proc sendVoluntaryExit*(node: Eth2Node, exit: SignedVoluntaryExit) =
+  let exitsTopic = getVoluntaryExitsTopic(
+    node.forkDigestAtEpoch(node.beaconClock.now.slotOrZero.epoch))
+  node.broadcast(exitsTopic, exit)
+
+proc sendAttesterSlashing*(node: Eth2Node, slashing: AttesterSlashing) =
+  let attesterSlashingsTopic = getAttesterSlashingsTopic(
+    node.forkDigestAtEpoch(node.beaconClock.now.slotOrZero.epoch))
+  node.broadcast(attesterSlashingsTopic, slashing)
+
+proc sendProposerSlashing*(node: Eth2Node, slashing: ProposerSlashing) =
+  let proposerSlashingsTopic = getProposerSlashingsTopic(
+    node.forkDigestAtEpoch(node.beaconClock.now.slotOrZero.epoch))
+  node.broadcast(proposerSlashingsTopic, slashing)

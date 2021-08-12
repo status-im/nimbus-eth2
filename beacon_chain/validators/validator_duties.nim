@@ -169,17 +169,7 @@ proc sendAttestation*(
 
   return case ok
     of ValidationResult.Accept:
-      # Regardless of the contents of the attestation,
-      # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-beta.2/specs/altair/p2p-interface.md#transitioning-the-gossip
-      # implies that pre-fork, messages using post-fork digests might be
-      # ignored, whilst post-fork, there is effectively a seen_ttl-based
-      # timer unsubscription point that means no new pre-fork-forkdigest
-      # should be sent.
-      let forkPrefix = node.dag.forkDigestAtEpoch(
-        node.beaconClock.now.slotOrZero.epoch)
-      node.network.broadcast(
-        getAttestationTopic(forkPrefix, subnet_id),
-        attestation)
+      node.network.sendAttestation(subnet_id, attestation)
       beacon_attestations_sent.inc()
       true
     else:
@@ -187,21 +177,6 @@ proc sendAttestation*(
         attestation = shortLog(attestation),
         result = $ok
       false
-
-proc sendVoluntaryExit*(node: BeaconNode, exit: SignedVoluntaryExit) =
-  let exitsTopic = getVoluntaryExitsTopic(
-    node.dag.forkDigestAtEpoch(node.beaconClock.now.slotOrZero.epoch))
-  node.network.broadcast(exitsTopic, exit)
-
-proc sendAttesterSlashing*(node: BeaconNode, slashing: AttesterSlashing) =
-  let attesterSlashingsTopic = getAttesterSlashingsTopic(
-    node.dag.forkDigestAtEpoch(node.beaconClock.now.slotOrZero.epoch))
-  node.network.broadcast(attesterSlashingsTopic, slashing)
-
-proc sendProposerSlashing*(node: BeaconNode, slashing: ProposerSlashing) =
-  let proposerSlashingsTopic = getProposerSlashingsTopic(
-    node.dag.forkDigestAtEpoch(node.beaconClock.now.slotOrZero.epoch))
-  node.network.broadcast(proposerSlashingsTopic, slashing)
 
 proc sendAttestation*(node: BeaconNode, attestation: Attestation): Future[bool] =
   # For the validator API, which doesn't supply the subnet id.
