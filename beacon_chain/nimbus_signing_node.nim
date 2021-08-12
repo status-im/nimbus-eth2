@@ -10,7 +10,7 @@ import chronos, presto, presto/secureserver, chronicles, confutils,
        json_serialization/std/[options, net]
 
 import "."/[conf, version, nimbus_binary_common, beacon_node_types]
-import "."/spec/[crypto, digest, network],
+import "."/spec/[crypto, digest, network, signatures],
        "."/spec/datatypes/[base, altair, phase0]
 import "."/rpc/[rest_utils]
 import "."/validators/[keystore_management, validator_pool]
@@ -34,55 +34,21 @@ type
     signingServer: SigningNodeServer
     keysList: string
 
-  SignRequestKind* = enum
+  SignRequestKind* {.pure.} = enum
     Phase0Block, AltairBlock, Attestation, Randao
 
-  SignRequestBase* = object of RootObj
-    blsDomain* {.
-      serializedFieldName: "bls_domain".}: string
-    fork*: Fork
-    genesisValidatorsRoot* {.
-      serializedFieldName: "genesis_validators_root".}: Eth2Digest
-
-  SignRequestPhase0Block* = object of SignRequestBase
-    data*: phase0.BeaconBlock
-
-  SignRequestAltairBlock* = object of SignRequestBase
-    data*: altair.BeaconBlock
-
-  SignRequestAttestation* = object of SignRequestBase
-    data*: AttestationData
-
-  SignRequestRandao* = object of SignRequestBase
-    data*: Epoch
-
-  SignRequest* = object of SignRequestBase
+  SignRequest* = object
+    fork: Fork
+    genesisValidatorsRoot: Eth2Digest
     case kind: SignRequestKind
-    of Phase0Block:
+    of SignRequestKind.Phase0Block:
       phase0Block: phase0.BeaconBlock
-    of AltairBlock:
+    of SignRequestKind.AltairBlock:
       altairBlock: altair.BeaconBlock
-    of Attestation:
+    of SignRequestKind.Attestation:
       attestation: AttestationData
-    of Randao:
+    of SignRequestKind.Randao:
       epoch: Epoch
-
-# proc state*(rs: RestServerRef): RestServerState {.raises: [Defect].} =
-#   ## Returns current REST server's state.
-#   case rs.server.state
-#   of HttpServerState.ServerClosed:
-#     RestServerState.Closed
-#   of HttpServerState.ServerStopped:
-#     RestServerState.Stopped
-#   of HttpServerState.ServerRunning:
-#     RestServerState.Running
-
-# template server(sn: SigningNode): untyped =
-#   case sn.signingServer.kind
-#   of SigningNodeKind.Secure:
-#     sn.signingServer.sserver
-#   of SigningNodeKind.NonSecure:
-#     sn.signingServer.nserver
 
 proc router(sn: SigningNode): RestRouter =
   case sn.signingServer.kind
@@ -139,6 +105,103 @@ proc loadTLSKey(pathName: InputFile): Result[TLSPrivateKey, cstring] =
     except TLSStreamProtocolError:
       return err("Invalid private key or incorrect file format")
   ok(key)
+
+proc readValue*(reader: var JsonReader[RestJson], value: var SignRequest) {.
+     raises: [IOError, SerializationError, Defect].} =
+  var
+    kind: Option[SignRequestKind]
+    fork: Option[Fork]
+    root: Option[Eth2Digest]
+    data: Option[JsonString]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "bls_domain":
+      if kind.isSome():
+        reader.raiseUnexpectedField("Multiple bls_domain fields found",
+                                    "SignRequest")
+      let domain = reader.readValue(string)
+      case domain
+      of "beacon_proposer": kind = some(SignRequestKind.Phase0Block)
+      of "beacon_attester": kind = some(SignRequestKind.Attestation)
+      of "randao": kind = some(SignRequestKind.Randao)
+      else:
+        reader.raiseUnexpectedValue("Incorrect bls_domain value")
+    of "fork":
+      if fork.isSome():
+        reader.raiseUnexpectedField("Multiple fork fields found", "SignRequest")
+      fork = some(reader.readValue(Fork))
+    of "genesis_validators_root":
+      if root.isSome():
+        reader.raiseUnexpectedField("Multiple genesis_validators_root " &
+                                    "fields found", "SignRequest")
+      root = some(reader.readValue(Eth2Digest))
+    of "data":
+      if data.isSome():
+        reader.raiseUnexpectedField("Multiple data fields found", "SignRequest")
+      data = some(reader.readValue(JsonString))
+    else:
+      reader.raiseUnexpectedField(fieldName, "SignRequest")
+
+  if kind.isNone():
+    reader.raiseUnexpectedValue("Field bls_domain is missing")
+  if fork.isNone():
+    reader.raiseUnexpectedValue("Field fork is missing")
+  if root.isNone():
+    reader.raiseUnexpectedValue("Field genesis_validators_root is missing")
+  if data.isNone():
+    reader.raiseUnexpectedValue("Field data is missing")
+
+  let kkind = kind.get()
+  case kkind
+  of SignRequestKind.Phase0Block, SignRequestKind.AltairBlock:
+    let altairBlock =
+      try:
+        some(RestJson.decode(string(data.get()), altair.BeaconBlock,
+                             requireAllFields = true))
+      except SerializationError:
+        none[altair.BeaconBlock]()
+    if altairBlock.isSome():
+      value = SignRequest(
+        kind: SignRequestKind.AltairBlock,
+        fork: fork.get(),
+        genesisValidatorsRoot: root.get(),
+        altairBlock: altairBlock.get()
+      )
+    else:
+      let phase0Block =
+        try:
+          some(RestJson.decode(string(data.get()), phase0.BeaconBlock,
+                               requireAllFields = true))
+        except SerializationError:
+          none[phase0.BeaconBlock]()
+      if phase0Block.isSome():
+        value = SignRequest(
+          kind: SignRequestKind.Phase0Block,
+          fork: fork.get(),
+          genesisValidatorsRoot: root.get(),
+          phase0Block: phase0Block.get()
+        )
+      else:
+        reader.raiseUnexpectedValue("Incorrect beacon block format")
+  of SignRequestKind.Attestation:
+    let attestation = RestJson.decode(string(data.get()), AttestationData,
+                                      requireAllFields = true)
+    value = SignRequest(
+      kind: SignRequestKind.Attestation,
+      fork: fork.get(),
+      genesisValidatorsRoot: root.get(),
+      attestation: attestation
+    )
+  of SignRequestKind.Randao:
+    let epoch = RestJson.decode(string(data.get()), Epoch,
+                                requireAllFields = true)
+    value = SignRequest(
+      kind: SignRequestKind.Randao,
+      fork: fork.get(),
+      genesisValidatorsRoot: root.get(),
+      epoch: epoch
+    )
 
 proc initValidators(sn: var SigningNode): bool =
   info "Initializaing validators", path = sn.config.validatorsDir()
@@ -211,49 +274,11 @@ proc init(t: typedesc[SigningNode], config: SigningNodeConf): SigningNode =
       SigningNodeServer(kind: SigningNodeKind.NonSecure, nserver: res.get())
   sn
 
-proc init*(t: typedesc[SignRequest],
-           data: ContentBody): Result[SignRequest, cstring] =
-  let base = ? decodeBodyWithUnknownFields(SignRequestBase, data)
-  case base.blsDomain
-  of "beacon_proposer":
-    let altairRes = decodeBodyWithUnknownFields(SignRequestAltairBlock, data)
-    if altairRes.isErr():
-      let phase0res = decodeBodyWithUnknownFields(SignRequestPhase0Block, data)
-      if phase0res.isErr():
-        err("Incorrect block format")
-      else:
-        let data = phase0res.get()
-        let req = SignRequest(kind: SignRequestKind.Phase0Block,
-                              phase0Block: data.data,
-                              blsDomain: data.blsDomain, fork: data.fork,
-                              genesisValidatorsRoot: data.genesisValidatorsRoot)
-        ok(req)
-    else:
-      let data = altairRes.get()
-      let req = SignRequest(kind: SignRequestKind.AltairBlock,
-                            altairBlock: data.data,
-                            blsDomain: data.blsDomain, fork: data.fork,
-                            genesisValidatorsRoot: data.genesisValidatorsRoot)
-      ok(req)
-  of "beacon_attester":
-    let data = ? decodeBodyWithUnknownFields(SignRequestAttestation, data)
-    let req = SignRequest(kind: SignRequestKind.Attestation,
-                          attestation: data.data,
-                          blsDomain: data.blsDomain, fork: data.fork,
-                          genesisValidatorsRoot: data.genesisValidatorsRoot)
-    ok(req)
-  of "randao":
-    let data = ? decodeBodyWithUnknownFields(SignRequestRandao, data)
-    let req = SignRequest(kind: SignRequestKind.Randao, epoch: data.data,
-                          blsDomain: data.blsDomain, fork: data.fork,
-                          genesisValidatorsRoot: data.genesisValidatorsRoot)
-    ok(req)
-  else:
-    err("Incorrect BLS domain value")
-
-template errorResponse(t: typedesc[RestApiResponse], code: HttpCode,
-                       message: string): RestApiResponse =
+template errorResponse(code: HttpCode, message: string): RestApiResponse =
   RestApiResponse.response("{\"error\": \"" & message & "\"}", code)
+
+template signatureResponse(code: HttpCode, signature: string): RestApiResponse =
+  RestApiResponse.response("{\"signature\": \"" & signature & "\"}", code)
 
 proc installApiHandlers*(node: SigningNode) =
   var router = node.router()
@@ -273,25 +298,40 @@ proc installApiHandlers*(node: SigningNode) =
     let request =
       block:
         if contentBody.isNone():
-          return RestApiResponse.errorResponse(Http400, EmptyRequestBodyError)
-        let body = contentBody.get()
-        let res = SignRequest.init(body)
+          return errorResponse(Http400, EmptyRequestBodyError)
+        let res = decodeBody(SignRequest, contentBody.get())
         if res.isErr():
-          return RestApiResponse.errorResponse(Http400, $res.error())
+          return errorResponse(Http400, $res.error())
         res.get()
 
     let validator =
       block:
         if validator_key_wo0x.isErr():
-          return RestApiResponse.errorResponse(Http400,
-                 "Invalid validator key")
+          return errorResponse(Http400, "Invalid validator key")
         let key = validator_key_wo0x.get()
         let validator = node.attachedValidators.getValidator(key)
         if isNil(validator):
-          return RestApiResponse.errorResponse(Http404,
-                 "Validator key not found: " & key.toHex())
+          return errorResponse(Http404, "Validator key not found")
         validator
 
+    case request.kind
+    of SignRequestKind.Phase0Block:
+      discard
+    of SignRequestKind.AltairBlock:
+      discard
+    of SignRequestKind.Attestation:
+      let cooked = get_attestation_signature(request.fork,
+                                             request.genesis_validators_root,
+                                             request.attestation,
+                                             validator.privKey)
+      let signature = cooked.toValidatorSig().toHex()
+      return signatureResponse(Http200, signature)
+    of SignRequestKind.Randao:
+      let cooked = get_epoch_signature(request.fork,
+                                       request.genesisValidatorsRoot,
+                                       request.epoch, validator.privKey)
+      let signature = cooked.toValidatorSig().toHex()
+      return signatureResponse(Http200, signature)
 
 programMain:
   let config = makeBannerAndConfig("Nimbus signing node " & fullVersionStr,
