@@ -46,11 +46,11 @@ proc runTest(identifier: string) =
       let attestation =
         parseTest(testDir/"attestation.ssz_snappy", SSZ, Attestation)
       var preState =
-        newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+        newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, phase0.BeaconState))
 
       if existsFile(testDir/"post.ssz_snappy"):
         let postState =
-          newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
+          newClone(parseTest(testDir/"post.ssz_snappy", SSZ, phase0.BeaconState))
         let done = process_attestation(
           preState[], attestation, {}, 0.Gwei, cache).isOk
         doAssert done, "Valid attestation not processed"

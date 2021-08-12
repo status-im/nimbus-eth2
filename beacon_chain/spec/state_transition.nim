@@ -44,10 +44,16 @@ import
   std/tables,
   chronicles,
   stew/results,
-  ../extras, ../ssz/merkleization, metrics,
-  ./datatypes/[phase0, altair], ./crypto, ./digest, ./helpers, ./signatures, ./validator, ./beaconstate,
-  ./state_transition_block, ./state_transition_epoch, forks,
+  metrics,
+  ../extras,
+  ../ssz/merkleization,
+  ./datatypes/[phase0, altair],
+  "."/[
+    helpers, signatures, validator, beaconstate, state_transition_block,
+    state_transition_epoch, forks],
   ../../nbench/bench_lab
+
+export extras, phase0, altair
 
 # TODO why need anything except the first two?
 type Foo = phase0.SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock | phase0.SignedBeaconBlock | altair.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock

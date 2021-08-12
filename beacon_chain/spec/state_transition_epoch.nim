@@ -24,8 +24,11 @@ import
   stew/[bitops2], chronicles,
   ../extras,
   ../ssz/merkleization,
-  ./beaconstate, ./crypto, ./datatypes/[phase0, altair], ./digest, ./helpers, ./validator,
+  ./datatypes/[phase0, altair],
+  "."/[beaconstate, helpers, validator],
   ../../nbench/bench_lab
+
+export extras, phase0, altair
 
 # Logging utilities
 # --------------------------------------------------------

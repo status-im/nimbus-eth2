@@ -28,12 +28,12 @@ proc runTest(identifier: string) =
   proc `testImpl _ slots _ identifier`() =
     test "Slots - " & identifier:
       var
-        preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+        preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, phase0.BeaconState))
         fhPreState = (ref ForkedHashedBeaconState)(hbsPhase0: phase0.HashedBeaconState(
           data: preState[], root: hash_tree_root(preState[])), beaconStateFork: forkPhase0)
         cache = StateCache()
         rewards: RewardInfo
-      let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
+      let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, phase0.BeaconState))
 
       check:
         process_slots(

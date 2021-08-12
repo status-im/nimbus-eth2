@@ -17,7 +17,6 @@ import std/options,
   ../networking/[eth2_network, peer_pool],
   ../sync/sync_manager,
   ../spec/datatypes/base,
-  ../spec/[digest, presets],
   ./rpc_utils
 
 logScope: topics = "nodeapi"

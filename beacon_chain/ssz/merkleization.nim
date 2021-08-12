@@ -16,7 +16,7 @@ import
   stew/ranges/ptr_arith,
   serialization/testing/tracing,
   ../spec/digest,
-  ./bitseqs, ./spec_types, ./types
+  "."/[bitseqs, spec_types, types]
 
 export
   spec_types, types

@@ -5,9 +5,9 @@ import
 # calls that return a bool are actually without a return type in the main REST API
 # spec but nim-json-rpc requires that all RPC calls have a return type.
 
-proc get_v1_validator_block(slot: Slot, graffiti: GraffitiBytes, randao_reveal: ValidatorSig): BeaconBlock
+proc get_v1_validator_block(slot: Slot, graffiti: GraffitiBytes, randao_reveal: ValidatorSig): phase0.BeaconBlock
 
-proc post_v1_validator_block(body: SignedBeaconBlock): bool
+proc post_v1_validator_block(body: phase0.SignedBeaconBlock): bool
 
 proc get_v1_validator_attestation_data(slot: Slot, committee_index: CommitteeIndex): AttestationData
 

@@ -28,11 +28,11 @@ import
   std/[macros, hashes, intsets, strutils, tables, typetraits],
   stew/[assign2, byteutils], chronicles,
   json_serialization,
-  ../../version, ../../ssz/types as sszTypes, ../crypto, ../digest, ../presets,
-  ./merge
+  ../../version, ../../ssz/types as sszTypes,
+  ".."/[crypto, digest, presets]
 
 export
-  crypto, sszTypes, merge, presets, json_serialization
+  crypto, digest, sszTypes, presets, json_serialization
 
 # Presently, we're reusing the data types from the serialization (uint64) in the
 # objects we pass around to the beacon chain logic, thus keeping the two

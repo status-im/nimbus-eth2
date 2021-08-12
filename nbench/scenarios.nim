@@ -11,10 +11,9 @@ import
   # Status libraries
   confutils/defs, serialization, chronicles,
   # Beacon-chain
+  ../beacon_chain/spec/datatypes/[phase0],
   ../beacon_chain/spec/[
-      beaconstate, crypto, datatypes, forks, helpers,
-      presets, state_transition, state_transition_block],
-  ../beacon_chain/extras,
+      beaconstate, forks, helpers, state_transition, state_transition_block],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ../tests/official/fixtures_utils
 
@@ -150,7 +149,7 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
 
   echo "Running: ", prePath
   let state = (ref ForkedHashedBeaconState)(
-    hbsPhase0: HashedBeaconState(data: parseSSZ(prePath, BeaconState)),
+    hbsPhase0: phase0.HashedBeaconState(data: parseSSZ(prePath, phase0.BeaconState)),
     beaconStateFork: forkPhase0
   )
   setStateRoot(state[], hash_tree_root(state[]))
@@ -159,7 +158,7 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
     let blockPath = dir / blocksPrefix & $i & ".ssz"
     echo "Processing: ", blockPath
 
-    let signedBlock = parseSSZ(blockPath, SignedBeaconBlock)
+    let signedBlock = parseSSZ(blockPath, phase0.SignedBeaconBlock)
     let flags = if skipBLS: {skipBlsValidation}
                 else: {}
     let success = state_transition(
@@ -175,7 +174,8 @@ proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
 
   echo "Running: ", prePath
   let state = (ref ForkedHashedBeaconState)(
-    hbsPhase0: HashedBeaconState(data: parseSSZ(prePath, BeaconState)),
+    hbsPhase0: phase0.HashedBeaconState(
+      data: parseSSZ(prePath, phase0.BeaconState)),
     beaconStateFork: forkPhase0)
   setStateRoot(state[], hash_tree_root(state[]))
 
@@ -190,8 +190,9 @@ template processEpochScenarioImpl(
   let prePath = dir/preState & ".ssz"
 
   echo "Running: ", prePath
-  let state = (ref HashedBeaconState)(
-    data: parseSSZ(prePath, BeaconState)
+  type T = phase0.BeaconState
+  let state = (ref phase0.HashedBeaconState)(
+    data: parseSSZ(prePath, T)
   )
   state.root = hash_tree_root(state.data)
 
@@ -211,7 +212,7 @@ template genProcessEpochScenario(name, transitionFn: untyped): untyped =
   proc `name`*(dir, preState: string) =
     processEpochScenarioImpl(dir, preState, transitionFn)
 
-proc process_deposit(state: var BeaconState;
+proc process_deposit(state: var phase0.BeaconState;
                      deposit: Deposit;
                      flags: UpdateFlags = {}): Result[void, cstring] =
   process_deposit(defaultRuntimeConfig, state, deposit, flags)
@@ -223,8 +224,9 @@ template processBlockScenarioImpl(
   let prePath = dir/preState & ".ssz"
 
   echo "Running: ", prePath
-  let state = (ref HashedBeaconState)(
-    data: parseSSZ(prePath, BeaconState)
+  type T = phase0.BeaconState
+  let state = (ref phase0.HashedBeaconState)(
+    data: parseSSZ(prePath, T)
   )
   state.root = hash_tree_root(state.data)
 
@@ -267,7 +269,7 @@ genProcessEpochScenario(runProcessSlashings,
 genProcessBlockScenario(runProcessBlockHeader,
                         process_block_header,
                         block_header,
-                        BeaconBlock)
+                        phase0.BeaconBlock)
 
 genProcessBlockScenario(runProcessProposerSlashing,
                         process_proposer_slashing,

@@ -3,7 +3,6 @@ import
   presto,
   chronicles,
   ../version, ../beacon_node_common,
-  ../spec/[datatypes, digest, presets],
   ./rest_utils
 
 logScope: topics = "rest_debug"

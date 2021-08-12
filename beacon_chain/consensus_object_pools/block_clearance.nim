@@ -12,12 +12,10 @@ import
   chronicles,
   stew/[assign2, results],
   eth/keys,
-  ../extras, ../beacon_clock,
-  ../spec/[
-    crypto, digest, forks, helpers, signatures,
-    signatures_batch, state_transition],
+  ".."/[beacon_clock],
+  ../spec/[forks, helpers, signatures, signatures_batch, state_transition],
   ../spec/datatypes/[phase0, altair],
-  ./block_pools_types, ./blockchain_dag, ./block_quarantine
+  "."/[block_pools_types, blockchain_dag, block_quarantine]
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
 

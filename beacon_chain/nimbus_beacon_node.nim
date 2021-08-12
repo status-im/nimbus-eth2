@@ -23,11 +23,9 @@ import
 
   # Local modules
   "."/[
-    beacon_chain_db,
-    beacon_node_common, beacon_node_status, beacon_node_types, conf,
-    extras, filepath, interop,
-    nimbus_binary_common, ssz/merkleization, statusbar,
-    beacon_clock, version],
+    beacon_clock, beacon_chain_db, beacon_node_common, beacon_node_status,
+    beacon_node_types, conf, filepath, interop, nimbus_binary_common, statusbar,
+    version],
   ./networking/[eth2_discovery, eth2_network, network_metadata],
   ./gossip_processing/[eth2_processor, block_processor, consensus_manager],
   ./validators/[
@@ -36,10 +34,9 @@ import
   ./sync/[sync_manager, sync_protocol, request_manager],
   ./rpc/[rest_api, rpc_api],
   ./spec/datatypes/[altair, phase0],
-  ./spec/[
-    digest, crypto, forks, beaconstate,
-    eth2_apis/rpc_beacon_client, helpers, network, presets,
-    weak_subjectivity, signatures],
+  ./spec/eth2_apis/rpc_beacon_client,
+  ./spec/[beaconstate, forks, helpers, network, weak_subjectivity, signatures],
+  ./ssz/merkleization,
   ./consensus_object_pools/[
     blockchain_dag, block_quarantine, block_clearance, block_pools_types,
     attestation_pool, exit_pool, spec_cache],

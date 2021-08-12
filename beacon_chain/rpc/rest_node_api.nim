@@ -8,7 +8,6 @@ import
   ../version, ../beacon_node_common, ../sync/sync_manager,
   ../networking/[eth2_network, peer_pool],
   ../spec/datatypes/base,
-  ../spec/[digest, presets],
   ../spec/eth2_apis/rpc_types,
   ./rest_utils
 

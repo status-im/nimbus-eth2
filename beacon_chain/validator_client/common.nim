@@ -5,20 +5,22 @@ import chronos, presto, presto/client as presto_client, chronicles, confutils,
        eth/db/[kvstore, kvstore_sqlite3]
 
 # Local modules
-import ".."/spec/[datatypes, digest, crypto, helpers, signatures],
-       ".."/spec/eth2_apis/rest_beacon_client,
-       ".."/validators/[attestation_aggregation, keystore_management,
-                        validator_pool, slashing_protection],
-       ".."/[conf, beacon_clock, version, beacon_node_types,
-             nimbus_binary_common],
-       ".."/ssz/merkleization
+import
+  ../spec/datatypes/[phase0, altair],
+  ../spec/[helpers, signatures],
+  ../spec/eth2_apis/rest_beacon_client,
+  ../validators/[attestation_aggregation, keystore_management,
+                  validator_pool, slashing_protection],
+  ".."/[conf, beacon_clock, version, beacon_node_types,
+        nimbus_binary_common],
+  ".."/ssz/merkleization
 
 export os, tables, sequtils, sequtils, chronos, presto, chronicles, confutils,
        nimbus_binary_common, version, conf, options, tables, results, base10,
        byteutils, presto_client
 
 export rest_beacon_client,
-       datatypes, crypto, digest, helpers, signatures, merkleization,
+       phase0, altair, helpers, signatures, merkleization,
        beacon_clock,
        kvstore, kvstore_sqlite3,
        keystore_management, slashing_protection, validator_pool,

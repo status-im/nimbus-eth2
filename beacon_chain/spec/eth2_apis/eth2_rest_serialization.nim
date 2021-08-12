@@ -11,7 +11,7 @@ import
   libp2p/peerid,
   json_serialization, json_serialization/std/[options, net],
   nimcrypto/utils as ncrutils,
-  ../datatypes/[phase0, altair],
+  ../datatypes/[phase0, altair, merge],
   ./rest_types
 
 export results, peerid, presto, json_serialization, options, net, rest_types

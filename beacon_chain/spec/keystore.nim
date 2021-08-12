@@ -18,7 +18,9 @@ import
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Local modules
   libp2p/crypto/crypto as lcrypto,
-  ./datatypes/base, ./crypto, ./digest, ./signatures
+  ./datatypes/base,  ./signatures
+
+export base
 
 # We use `ncrutils` for constant-time hexadecimal encoding/decoding procedures.
 import nimcrypto/utils as ncrutils

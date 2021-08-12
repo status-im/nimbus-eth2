@@ -8,7 +8,8 @@
 import
   options,
   # Specs
-  ../../beacon_chain/spec/[crypto, datatypes, helpers, signatures, validator],
+  ../../beacon_chain/spec/datatypes/phase0,
+  ../../beacon_chain/spec/[helpers, signatures, validator],
   # Internals
   ../../beacon_chain/ssz,
   # Mock helpers
@@ -18,8 +19,8 @@ import
 # ---------------------------------------------------------------
 
 proc signMockBlockImpl(
-      state: BeaconState,
-      signedBlock: var SignedBeaconBlock
+      state: phase0.BeaconState,
+      signedBlock: var phase0.SignedBeaconBlock
     ) =
   let block_slot = signedBlock.message.slot
   doAssert state.slot <= block_slot
@@ -34,12 +35,12 @@ proc signMockBlockImpl(
     state.fork, state.genesis_validators_root, block_slot,
     signedBlock.root, privkey).toValidatorSig()
 
-proc signMockBlock*(state: BeaconState, signedBlock: var SignedBeaconBlock) =
+proc signMockBlock*(state: phase0.BeaconState, signedBlock: var phase0.SignedBeaconBlock) =
   signMockBlockImpl(state, signedBlock)
 
 proc mockBlock(
-    state: BeaconState,
-    slot: Slot): SignedBeaconBlock =
+    state: phase0.BeaconState,
+    slot: Slot): phase0.SignedBeaconBlock =
   ## TODO don't do this gradual construction, for exception safety
   ## Mock a BeaconBlock for the specific slot
 
@@ -56,5 +57,5 @@ proc mockBlock(
 
   signMockBlock(state, result)
 
-proc mockBlockForNextSlot*(state: BeaconState): SignedBeaconBlock =
+proc mockBlockForNextSlot*(state: phase0.BeaconState): phase0.SignedBeaconBlock =
   mockBlock(state, state.slot + 1)

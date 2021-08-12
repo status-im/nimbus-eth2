@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  ./datatypes/base, ./digest, ./forks, ./helpers
+  ./datatypes/base, ./forks, ./helpers
 
 const
   SAFETY_DECAY* = 10'u64

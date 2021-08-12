@@ -32,8 +32,9 @@ template runSuite(
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
       test testName & " - " & unitTestName & preset():
         # BeaconState objects are stored on the heap to avoid stack overflow
-        var preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
-        let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
+        type T = altair.BeaconState
+        var preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
+        let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, T))
 
         doAssert not (useCache and useTAB)
         when useCache:

@@ -13,10 +13,11 @@ import
   json_serialization/std/sets,
   chronicles,
   ../extras, ../ssz/merkleization,
-  ./crypto, ./datatypes/[phase0, altair], ./digest, ./helpers, ./signatures, ./validator,
+  ./datatypes/[phase0, altair, merge],
+  "."/[helpers, signatures, validator],
   ../../nbench/bench_lab
 
-import blscurve # TODO bad
+export extras, phase0, altair, merge
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_valid_merkle_branch
 func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openArray[Eth2Digest],

@@ -17,7 +17,7 @@ import
   eth/p2p/discoveryv5/enr,
   json_serialization, web3/[ethtypes, confutils_defs],
 
-  ./spec/[crypto, keystore, digest, network],
+  ./spec/[keystore, network],
   ./spec/datatypes/base,
   ./networking/network_metadata,
   ./validators/slashing_protection_common,

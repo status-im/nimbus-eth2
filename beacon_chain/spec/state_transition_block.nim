@@ -23,9 +23,11 @@ import
   std/[algorithm, intsets, options, sequtils, sets, tables],
   chronicles,
   ../extras, ../ssz/merkleization, metrics,
-  ./beaconstate, ./crypto, ./datatypes/[phase0, altair], ./digest, ./helpers,
-  ./validator, ./signatures, ./presets,
+  ./datatypes/[phase0, altair],
+  "."/[beaconstate, helpers, validator, signatures],
   ../../nbench/bench_lab
+
+export extras, phase0, altair
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(

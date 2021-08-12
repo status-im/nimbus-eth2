@@ -11,7 +11,6 @@ import
   stew/[assign2, objects, results],
   serialization,
   eth/db/kvstore,
-  ./spec/[crypto, digest],
   ./spec/datatypes/[base, altair],
   ./ssz/[ssz_serialization, merkleization]
 

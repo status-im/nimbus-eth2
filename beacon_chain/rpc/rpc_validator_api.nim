@@ -17,7 +17,7 @@ import
   chronicles,
 
   # Local modules
-  ../spec/[crypto, digest, forks, helpers, network, signatures],
+  ../spec/[forks, helpers, network, signatures],
   ../spec/datatypes/phase0,
   ../spec/eth2_apis/rpc_types,
   ../consensus_object_pools/[blockchain_dag, spec_cache, attestation_pool], ../ssz/merkleization,

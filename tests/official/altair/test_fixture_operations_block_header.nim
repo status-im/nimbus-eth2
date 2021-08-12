@@ -13,7 +13,7 @@ import
   # Utilities
   stew/results,
   # Beacon chain internals
-  ../../../beacon_chain/spec/[state_transition_block, crypto],
+  ../../../beacon_chain/spec/[state_transition_block],
   ../../../beacon_chain/spec/datatypes/altair,
   ../../../beacon_chain/ssz,
   # Test utilities
@@ -40,16 +40,16 @@ proc runTest(identifier: string) =
       prefix = "[Invalid] "
 
     test prefix & identifier:
-      let blck = parseTest(testDir/"block.ssz_snappy", SSZ, BeaconBlock)
+      let blck = parseTest(testDir/"block.ssz_snappy", SSZ, altair.BeaconBlock)
       var
         cache = StateCache()
         preState =
-          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, altair.BeaconState))
 
       if existsFile(testDir/"post.ssz_snappy"):
         let
           postState =
-            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
+            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, altair.BeaconState))
           done = process_block_header(preState[], blck, {}, cache).isOk
         doAssert done, "Valid block header not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()

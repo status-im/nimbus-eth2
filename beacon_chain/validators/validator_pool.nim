@@ -12,7 +12,7 @@ import
   chronos, chronicles, metrics,
   json_serialization/std/[sets, net],
   eth/db/[kvstore, kvstore_sqlite3],
-  ../spec/[crypto, digest, signatures, helpers],
+  ../spec/[signatures, helpers],
   ../spec/datatypes/base,
   ../beacon_node_types,
   ./slashing_protection

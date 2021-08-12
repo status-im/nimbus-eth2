@@ -14,8 +14,8 @@ import
   # Status
   chronicles,
   # Specs
-  ../../beacon_chain/spec/[datatypes, beaconstate, helpers, validator, crypto,
-                           signatures, presets],
+  ../../beacon_chain/spec/datatypes/phase0,
+  ../../beacon_chain/spec/[beaconstate, helpers, validator, signatures],
   # Internals
   ../../beacon_chain/ssz,
   # Mocking procs
@@ -23,7 +23,7 @@ import
   ./mock_validator_keys
 
 proc mockAttestationData(
-       state: BeaconState,
+       state: phase0.BeaconState,
        slot: Slot,
        index: uint64): AttestationData =
   doAssert state.slot >= slot
@@ -56,7 +56,7 @@ proc mockAttestationData(
     epoch: target_epoch, root: epoch_boundary_root
   )
 
-proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
+proc signMockAttestation*(state: phase0.BeaconState, attestation: var Attestation) =
   var cache = StateCache()
 
   var agg {.noInit.}: AggregateSignature
@@ -82,7 +82,7 @@ proc signMockAttestation*(state: BeaconState, attestation: var Attestation) =
     # Otherwise no participants so zero sig
 
 proc mockAttestationImpl(
-       state: BeaconState,
+       state: phase0.BeaconState,
        slot: Slot): Attestation =
 
   var cache = StateCache()
@@ -106,10 +106,10 @@ proc mockAttestationImpl(
   signMockAttestation(state, result)
 
 proc mockAttestation*(
-       state: BeaconState): Attestation =
+       state: phase0.BeaconState): Attestation =
   mockAttestationImpl(state, state.slot)
 
 proc mockAttestation*(
-       state: BeaconState,
+       state: phase0.BeaconState,
        slot: Slot): Attestation =
   mockAttestationImpl(state, slot)

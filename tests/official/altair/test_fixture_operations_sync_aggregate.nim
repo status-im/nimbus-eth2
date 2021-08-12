@@ -47,13 +47,13 @@ proc runTest(dir, identifier: string) =
         testDir/"sync_aggregate.ssz_snappy", SSZ, SyncAggregate)
       var
         preState =
-          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, altair.BeaconState))
         cache = StateCache()
 
       if existsFile(testDir/"post.ssz_snappy"):
         let
           postState =
-            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
+            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, altair.BeaconState))
           done = process_sync_aggregate(
             preState[], syncAggregate, cache).isOk
         doAssert done, "Valid sync aggregate not processed"

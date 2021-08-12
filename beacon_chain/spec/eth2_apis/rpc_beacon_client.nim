@@ -1,7 +1,8 @@
 import
   std/os,
   json_rpc/rpcclient,
-  "."/[rpc_types, eth2_json_rpc_serialization]
+  "."/[rpc_types, eth2_json_rpc_serialization],
+  ../datatypes/[phase0, altair]
 
 export
   rpcclient,

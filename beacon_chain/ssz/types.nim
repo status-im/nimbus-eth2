@@ -11,7 +11,7 @@ import
   std/[tables, options, typetraits, strformat],
   stew/shims/macros, stew/[byteutils, bitops2, objects],
   serialization/[object_serialization, errors],
-  ./spec_types, ./bitseqs,
+  "."/[bitseqs],
   ../spec/digest
 
 export bitseqs

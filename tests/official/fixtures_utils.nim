@@ -10,7 +10,8 @@ import
   os, strutils, typetraits,
   # Internals
   ../../beacon_chain/ssz,
-  ../../beacon_chain/spec/[datatypes, crypto, state_transition_epoch],
+  ../../beacon_chain/spec/datatypes/[phase0, altair],
+  ../../beacon_chain/spec/[state_transition_epoch],
   # Status libs,
   snappy,
   stew/byteutils,
@@ -21,7 +22,7 @@ export  # Workaround:
   #   - https://github.com/status-im/nim-serialization/issues/5
   #   - https://github.com/nim-lang/Nim/issues/11225
   serialization.readValue,
-  Json, ssz, crypto
+  Json, ssz, phase0, altair
 
 # Process current EF test format
 # ---------------------------------------------
@@ -77,7 +78,7 @@ proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
     stderr.write err.formatMsg(path), "\n"
     quit 1
 
-proc process_justification_and_finalization*(state: var BeaconState) =
+proc process_justification_and_finalization*(state: var phase0.BeaconState) =
   var cache = StateCache()
 
   var rewards: RewardInfo
@@ -85,7 +86,7 @@ proc process_justification_and_finalization*(state: var BeaconState) =
   rewards.process_attestations(state, cache)
   process_justification_and_finalization(state, rewards.total_balances)
 
-func process_slashings*(state: var BeaconState) =
+func process_slashings*(state: var phase0.BeaconState) =
   var cache = StateCache()
   var rewards: RewardInfo
   rewards.init(state)

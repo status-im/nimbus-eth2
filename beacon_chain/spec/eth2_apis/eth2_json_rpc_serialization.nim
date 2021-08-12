@@ -30,9 +30,9 @@ import
 
   # Local modules
   ../../ssz/types,
-  ".."/[datatypes, crypto, digest]
+  ../datatypes/base
 
-export jsonmarshal, datatypes, crypto, digest
+export jsonmarshal, base
 
 proc toJsonHex(data: openArray[byte]): string =
   # Per the eth2 API spec, hex arrays are printed with leading 0x

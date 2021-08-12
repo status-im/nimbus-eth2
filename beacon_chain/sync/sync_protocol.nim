@@ -11,8 +11,8 @@ import
   options, tables, sets, macros,
   chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
   ../spec/datatypes/[phase0, altair],
-  ../spec/[crypto, datatypes, digest, forks, network],
-  ../beacon_node_types, ../beacon_clock,
+  ../spec/[helpers, forks, network],
+  ".."/[beacon_node_types, beacon_clock],
   ../networking/eth2_network,
   ../consensus_object_pools/blockchain_dag
 

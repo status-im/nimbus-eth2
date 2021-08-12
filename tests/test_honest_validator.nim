@@ -3,7 +3,7 @@
 import
   unittest2,
   ./testutil,
-  ../beacon_chain/spec/[crypto, network],
+  ../beacon_chain/spec/network,
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/validators/attestation_aggregation
 
