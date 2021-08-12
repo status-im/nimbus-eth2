@@ -964,19 +964,6 @@ proc decodeBody*[T](t: typedesc[T],
       return err("Unexpected deserialization error")
   ok(data)
 
-proc decodeBodyWithUnknownFields*[T](t: typedesc[T],
-                                     body: ContentBody): Result[T, cstring] =
-  if body.contentType != "application/json":
-    return err("Unsupported content type")
-  let data =
-    try:
-      RestJson.decode(cast[string](body.data), T, allowUnknownFields = true)
-    except SerializationError:
-      return err("Unable to deserialize data")
-    except CatchableError:
-      return err("Unexpected deserialization error")
-  ok(data)
-
 RestJson.useCustomSerialization(phase0.BeaconState.justification_bits):
   read:
     let s = reader.readValue(string)
