@@ -952,7 +952,18 @@ proc trimConnections(node: Eth2Node, count: int) {.async.} =
 
       scores[peer.peerId] = scores.getOrDefault(peer.peerId) + thisPeersScore
 
-  #TODO Take stability subnets into account?
+  # Take into account the stabilitySubnets
+  # During sync, only this will be used to score peers
+  for peer in node.peers.values:
+    if peer.connectionState != Connected: continue
+    if peer.metadata.isNone: continue
+
+    let
+      stabilitySubnets = peer.metadata.get().attnets
+      stabilitySubnetsCount = stabilitySubnets.countOnes()
+      thisPeersScore = 10 * stabilitySubnetsCount
+
+    scores[peer.info.peerId] = scores.getOrDefault(peer.info.peerId) + thisPeersScore
 
   proc sortPerScore(a, b: (PeerID, int)): int =
     system.cmp(a[1], b[1])
@@ -1052,9 +1063,11 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
               # We adding to pending connections table here, but going
               # to remove it only in `connectWorker`.
 
-              # If we are full, try to kick a peer
-              while node.peerPool.lenSpace({PeerType.Outgoing}) == 0 and newPeers == 0:
-                await node.trimConnections(1)
+              # If we are full, try to kick a peer (4 max)
+              for _ in 0..<3:
+                if node.peerPool.lenSpace({PeerType.Outgoing}) == 0 and newPeers == 0:
+                  await node.trimConnections(1)
+                else: break
 
               if node.peerPool.lenSpace({PeerType.Outgoing}) == 0:
                 # No room anymore
@@ -1732,8 +1745,7 @@ proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
       .withRng(rng)
       .withNoise()
       .withMplex(5.minutes, 5.minutes)
-      .withMaxOut(config.maxPeers)
-      .withMaxIn(config.maxPeers)
+      .withMaxConnections(config.maxPeers)
       .withAgentVersion(config.agentString)
       .withTcpTransport({ServerFlags.ReuseAddr})
       .build()
