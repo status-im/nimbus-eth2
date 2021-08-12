@@ -36,7 +36,7 @@ import
     version, conf,
     ssz/ssz_serialization, beacon_clock],
   ../spec/datatypes/[phase0, altair],
-  ../spec/[beaconstate, network, helpers, forks],
+  ../spec/[digest, network, helpers, forks],
   ../validators/keystore_management,
   ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
 
