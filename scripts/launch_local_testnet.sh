@@ -40,7 +40,7 @@ DATA_DIR="local_testnet_data"
 USE_HTOP="1"
 USE_VC="1"
 USE_GANACHE="0"
-LOG_LEVEL="DEBUG"
+LOG_LEVEL="DEBUG; TRACE:networking"
 BASE_PORT="9000"
 BASE_METRICS_PORT="8008"
 BASE_RPC_PORT="7000"
@@ -228,7 +228,7 @@ if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
   BINARIES="${BINARIES} logtrace"
 fi
 
-$MAKE -j ${NPROC} LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:testnet_servers_image -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
+$MAKE -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:testnet_servers_image -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
 # instance as the parent and the target process name as a pattern to the
