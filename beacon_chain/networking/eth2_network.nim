@@ -942,16 +942,6 @@ proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
 proc trimConnections(node: Eth2Node, count: int) {.async.} =
   var scores = initOrderedTable[PeerID, int]()
 
-  for topic, _ in node.pubsub.topics:
-    let scorePerPeer = 1_000 div node.pubsub.mesh.peers(topic)
-
-    for peer in node.pubsub.mesh[topic]:
-      let
-        connCount = node.switch.connmanager.connCount(peer.peerId)
-        thisPeersScore = scorePerPeer div max(1, connCount)
-
-      scores[peer.peerId] = scores.getOrDefault(peer.peerId) + thisPeersScore
-
   # Take into account the stabilitySubnets
   # During sync, only this will be used to score peers
   for peer in node.peers.values:
@@ -963,7 +953,24 @@ proc trimConnections(node: Eth2Node, count: int) {.async.} =
       stabilitySubnetsCount = stabilitySubnets.countOnes()
       thisPeersScore = 10 * stabilitySubnetsCount
 
-    scores[peer.info.peerId] = scores.getOrDefault(peer.info.peerId) + thisPeersScore
+    scores[peer.info.peerId] = thisPeersScore
+
+  # Split a 1000 points for each topic's peers
+  for topic, _ in node.pubsub.topics:
+    let
+      peerCount = node.pubsub.mesh.peers(topic)
+      scorePerPeer = 1_000 div max(peerCount, 1)
+
+    if peerCount == 0: continue
+
+    for peer in node.pubsub.mesh[topic]:
+      if peer.peerId notin scores: continue
+
+      let
+        connCount = node.switch.connmanager.connCount(peer.peerId)
+        thisPeersScore = scorePerPeer div max(1, connCount)
+
+      scores[peer.peerId] = scores[peer.peerId] + thisPeersScore
 
   proc sortPerScore(a, b: (PeerID, int)): int =
     system.cmp(a[1], b[1])
@@ -1101,7 +1108,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     # when no peers are in the routing table. Don't run it in continuous loop.
     #
     # Also, give some time to dial the discovered nodes and update stats etc
-    await sleepAsync(3.seconds)
+    await sleepAsync(5.seconds)
 
 proc getPersistentNetMetadata*(config: BeaconNodeConf): altair.MetaData
                               {.raises: [Defect, IOError, SerializationError].} =
