@@ -430,6 +430,8 @@ type
 
   SomeSomeSignedBeaconBlock* = SomeSignedBeaconBlock | phase0.SomeSignedBeaconBlock
 
+  SyncCommitteeIndex* = distinct uint8
+
 # TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
 # switch proc {.noSideEffect.} to func.
 when false:
@@ -439,6 +441,8 @@ when false:
   proc `==`*(x, y: ParticipationFlags) : bool {.borrow, noSideEffect.}
 
 chronicles.formatIt BeaconBlock: it.shortLog
+
+template asUInt8*(x: SyncCommitteeIndex): uint8 = uint8(x)
 
 Json.useCustomSerialization(BeaconState.justification_bits):
   read:

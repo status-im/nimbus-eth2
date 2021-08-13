@@ -514,7 +514,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
               perf.first_slot_head_attester_when_first_slot_not_empty += 1
 
           if s.is_previous_epoch_attester.isSome():
-            perf.delays.mGetOrPut(
+            perf.delays.mgetOrPut(
               s.is_previous_epoch_attester.get().delay, 0'u64) += 1
 
         else:
