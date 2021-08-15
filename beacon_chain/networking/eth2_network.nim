@@ -9,7 +9,7 @@
 
 import
   # Std lib
-  std/[typetraits, sequtils, os, algorithm, math, sets, strutils],
+  std/[typetraits, sequtils, os, algorithm, math, sets],
   std/options as stdOptions,
 
   # Status libs

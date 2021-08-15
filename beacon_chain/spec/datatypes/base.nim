@@ -678,10 +678,23 @@ func `[]`*[T](a: seq[T], b: ValidatorIndex): auto =
   a[b.int]
 
 # `ValidatorIndex` Nim integration
-proc `==`*(x, y: ValidatorIndex) : bool {.borrow, noSideEffect.}
-proc `<`*(x, y: ValidatorIndex) : bool {.borrow, noSideEffect.}
-proc hash*(x: ValidatorIndex): Hash {.borrow, noSideEffect.}
-func `$`*(x: ValidatorIndex): auto = $(distinctBase(x))
+template `==`*(x, y: ValidatorIndex) : bool =
+  distinctBase(x) == distinctBase(y)
+
+template `<`*(x, y: ValidatorIndex): bool =
+  distinctBase(x) < distinctBase(y)
+
+template hash*(x: ValidatorIndex): Hash =
+  hash distinctBase(x)
+
+template `$`*(x: ValidatorIndex): auto =
+  $ distinctBase(x)
+
+template `==`*(x: uint64, y: ValidatorIndex): bool =
+  x == uint64(y)
+
+template `==`*(x: ValidatorIndex, y: uint64): bool =
+  uint64(x) == y
 
 # TODO Nim 1.4, but not Nim 1.2, defines a function by this name, which works
 # only on openArray[int]. They do the same thing, so either's fine, when both
@@ -692,13 +705,23 @@ func toIntSet*[T](x: openArray[T]): IntSet =
   for item in items(x):
     result.incl(item.int)
 
-proc `==`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
-proc `<`*(x, y: CommitteeIndex) : bool {.borrow, noSideEffect.}
-proc hash*(x: CommitteeIndex): Hash {.borrow, noSideEffect.}
-func `$`*(x: CommitteeIndex): auto = $(distinctBase(x))
+template `==`*(x, y: CommitteeIndex): bool =
+  distinctBase(x) == distinctBase(y)
 
-proc `==`*(x, y: SubnetId) : bool {.borrow, noSideEffect.}
-proc `$`*(x: SubnetId): string {.borrow, noSideEffect.}
+template `<`*(x, y: CommitteeIndex): bool =
+  distinctBase(x) < distinctBase(y)
+
+template hash*(x: CommitteeIndex): Hash =
+  hash distinctBase(x)
+
+template `$`*(x: CommitteeIndex): auto =
+  $ distinctBase(x)
+
+template `==`*(x, y: SubnetId): bool =
+  distinctBase(x) == distinctBase(y)
+
+template `$`*(x: SubnetId): string =
+  $ distinctBase(x)
 
 func `as`*(d: DepositData, T: type DepositMessage): T =
   T(pubkey: d.pubkey,
@@ -753,7 +776,7 @@ template newClone*[T](x: ref T not nil): ref T =
   newClone(x[])
 
 template lenu64*(x: untyped): untyped =
-  x.len.uint64
+  uint64(len(x))
 
 func `$`*(v: ForkDigest | Version): string =
   toHex(array[4, byte](v))
