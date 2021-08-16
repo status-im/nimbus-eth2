@@ -210,7 +210,7 @@ curl -d '{"jsonrpc":"2.0","id":"id","method":"get_v1_validator_duties_proposer",
 ### [`get_v1_validator_block`](https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/produceBlock)
 
 ```
-curl -d '{"jsonrpc":"2.0","method":"get_v1_validator_block","params":["1","0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505","0x4e696d6275732f76312e302e322d64333032633164382d73746174656f667573"],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+curl -d '{"jsonrpc":"2.0","method":"get_v1_validator_block","params":[1,"0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505","0x4e696d6275732f76312e302e322d64333032633164382d73746174656f667573"],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 ```
 
 ### [`get_v1_validator_attestation_data`](https://ethereum.github.io/eth2.0-APIs/#/Validator/produceAttestationData)
@@ -284,13 +284,7 @@ curl -d '{"jsonrpc":"2.0","id":"id","method":"getChainHead","params":[] }' -H 'C
 ### getNodeVersion
 
 ```
- curl -d '{"jsonrpc":"2.0","method":"getNodeVersion","params":[],"id":1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
-```
-
-### getSpecPreset
-
-```
- curl -d '{"jsonrpc":"2.0","method":"getSpecPreset","params":[],"id":1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+ curl -d '{"jsonrpc":"2.0","method":"getNodeVersion","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 ```
 
 ### peers
@@ -298,7 +292,7 @@ curl -d '{"jsonrpc":"2.0","id":"id","method":"getChainHead","params":[] }' -H 'C
 Show a list of peers in PeerPool.
 
 ```
- curl -d '{"jsonrpc":"2.0","method":"peers","params":[],"id":1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+ curl -d '{"jsonrpc":"2.0","method":"peers","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 ```
 
 ### getSyncing
@@ -306,7 +300,7 @@ Show a list of peers in PeerPool.
 Shows current state of forward syncing manager.
 
 ```
- curl -d '{"jsonrpc":"2.0","method":"getSyncing","params":[],"id":1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+ curl -d '{"jsonrpc":"2.0","method":"getSyncing","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 ```
 
 ### getNetworkPeerId
@@ -314,7 +308,7 @@ Shows current state of forward syncing manager.
 Shows current node's libp2p peer identifier (PeerID).
 
 ```
- curl -d '{"jsonrpc":"2.0","method":"getNetworkPeerId","params":[],"id":1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+ curl -d '{"jsonrpc":"2.0","method":"getNetworkPeerId","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 ```
 
 ### getNetworkPeers
@@ -322,7 +316,7 @@ Shows current node's libp2p peer identifier (PeerID).
 Shows list of available PeerIDs in PeerPool.
 
 ```
- curl -d '{"jsonrpc":"2.0","method":"getNetworkPeers","params":[],"id":1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+ curl -d '{"jsonrpc":"2.0","method":"getNetworkPeers","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 ```
 
 ### getNetworkEnr
@@ -360,18 +354,18 @@ Inspect the eth1 data that the beacon node would produce if it was tasked to pro
 curl -d '{"jsonrpc":"2.0","id":"id","method":"getEth1ProposalData","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
 ```
 
-### getChronosFutures
+### debug_getChronosFutures
 
 Get the current list of live async futures in the process - compile with `-d:chronosFutureTracking` to enable.
 
 ```
-curl -d '{"jsonrpc":"2.0","id":"id","method":"getChronosFutures","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result | (.[0] | keys_unsorted) as $keys | $keys, map([.[ $keys[] ]])[] | @csv'
+curl -d '{"jsonrpc":"2.0","id":"id","method":"debug_getChronosFutures","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result | (.[0] | keys_unsorted) as $keys | $keys, map([.[ $keys[] ]])[] | @csv'
 ```
 
-### getGossipSubPeers
+### debug_getGossipSubPeers
 
 Get the current list of live async futures in the process - compile with `-d:chronosFutureTracking` to enable.
 
 ```
-curl -d '{"jsonrpc":"2.0","id":"id","method":"getGossipSubPeers","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
+curl -d '{"jsonrpc":"2.0","id":"id","method":"debug_getGossipSubPeers","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
 ```
