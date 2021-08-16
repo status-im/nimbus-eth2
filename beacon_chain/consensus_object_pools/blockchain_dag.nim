@@ -11,8 +11,9 @@ import
   std/[options, sequtils, tables, sets],
   stew/[assign2, byteutils],
   metrics, snappy, chronicles,
-  ../ssz/[ssz_serialization, merkleization],
-  ../spec/[helpers, validator, state_transition, beaconstate, forks],
+  ../spec/[
+    beaconstate, eth2_merkleization, eth2_ssz_serialization, forks, helpers,
+    state_transition, validator],
   ../spec/datatypes/[phase0, altair],
   ".."/[beacon_clock, beacon_chain_db],
   "."/[block_pools_types, block_quarantine, forkedbeaconstate_dbhelpers]

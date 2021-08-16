@@ -8,7 +8,10 @@
 {.push raises: [Defect].}
 
 import
-  stew/[bitops2, endians2, ptrops]
+  stew/[bitops2, endians2, byteutils, ptrops],
+  json_serialization
+
+export json_serialization
 
 type
   Bytes = seq[byte]
@@ -319,3 +322,12 @@ func countOnes*(a: BitArray): int =
   for bit in a:
     if bit: inc result
 
+Json.useCustomSerialization(BitSeq):
+  read:
+    try:
+      BitSeq reader.readValue(string).hexToSeqByte
+    except ValueError:
+      raiseUnexpectedValue(reader, "A BitSeq value should be a valid hex string")
+
+  write:
+    writer.writeValue "0x" & seq[byte](value).toHex

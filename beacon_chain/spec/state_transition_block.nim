@@ -21,10 +21,10 @@
 
 import
   std/[algorithm, intsets, options, sequtils, sets, tables],
-  chronicles,
-  ../extras, ../ssz/merkleization, metrics,
+  chronicles, metrics,
+  ../extras,
   ./datatypes/[phase0, altair],
-  "."/[beaconstate, helpers, validator, signatures],
+  "."/[beaconstate, eth2_merkleization, helpers, validator, signatures],
   ../../nbench/bench_lab
 
 export extras, phase0, altair

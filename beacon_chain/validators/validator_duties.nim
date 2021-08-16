@@ -21,12 +21,13 @@ import
 
   # Local modules
   ../spec/datatypes/[phase0, altair, merge],
-  ../spec/[forks, helpers, network, signatures, state_transition],
+  ../spec/[
+    eth2_merkleization, forks, helpers, network, signatures, state_transition],
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_clearance, attestation_pool, exit_pool],
   ../eth1/eth1_monitor,
   ../networking/eth2_network,
-  ../ssz, ../ssz/sszdump, ../sync/sync_manager,
+  ../sszdump, ../sync/sync_manager,
   ../gossip_processing/consensus_manager,
   ".."/[conf, beacon_clock, beacon_node_common, beacon_node_types, version],
   "."/[

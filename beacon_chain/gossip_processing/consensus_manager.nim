@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  chronicles,
+  chronicles, chronos,
   ../spec/datatypes/base,
   ../consensus_object_pools/[blockchain_dag, attestation_pool]
 

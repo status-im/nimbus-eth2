@@ -2,7 +2,6 @@ import
   stats, os, strformat, times,
   ../tests/testblockutil,
   ../beacon_chain/beacon_chain_db,
-  ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ../beacon_chain/spec/datatypes/[phase0, altair],
   ../beacon_chain/spec/[beaconstate, forks, helpers],
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_pools_types],

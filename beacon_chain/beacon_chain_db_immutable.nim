@@ -12,7 +12,7 @@ import
   serialization,
   eth/db/kvstore,
   ./spec/datatypes/[base, altair],
-  ./ssz/[ssz_serialization, merkleization]
+  ./spec/[eth2_ssz_serialization, eth2_merkleization]
 
 type
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconstate

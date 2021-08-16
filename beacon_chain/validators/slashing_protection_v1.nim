@@ -14,11 +14,9 @@ import
   eth/db/[kvstore, kvstore_sqlite3],
   chronicles,
   nimcrypto/hash,
-  serialization,
-  json_serialization,
   # Internal
   ../spec/datatypes/base,
-  ../ssz,
+  ../spec/eth2_ssz_serialization,
   ./slashing_protection_common
 
 # Requirements

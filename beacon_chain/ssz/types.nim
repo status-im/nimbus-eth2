@@ -8,13 +8,14 @@
 {.push raises: [Defect].}
 
 import
-  std/[tables, options, typetraits, strformat],
+  std/[tables, typetraits, strformat],
   stew/shims/macros, stew/[byteutils, bitops2, objects],
   serialization/[object_serialization, errors],
+  json_serialization,
   "."/[bitseqs],
   ../spec/digest
 
-export bitseqs
+export bitseqs, json_serialization
 
 const
   offsetSize* = 4
@@ -131,10 +132,13 @@ type
     actualSszSize*: int
     elementSize*: int
 
-template asSeq*(x: List): auto = distinctBase(x)
+  # These are supported by the SSZ library - anything that's not covered here
+  # needs to overload toSszType and fromSszBytes
+  SszType* =
+    BasicType | array | HashArray | List | HashList | BitArray | BitList |
+    object | tuple
 
-template init*[T](L: type List, x: seq[T], N: static Limit): auto =
-  List[T, N](x)
+template asSeq*(x: List): auto = distinctBase(x)
 
 template init*[T, N](L: type List[T, N], x: seq[T]): auto =
   List[T, N](x)
@@ -326,6 +330,11 @@ proc addDefault*(x: var HashList): ptr x.T =
   clearCaches(x, x.data.len() - 1)
   addr x.data[^1]
 
+template init*[T, N](L: type HashList[T, N], x: seq[T]): auto =
+  var tmp = HashList[T, N](data: List[T, N].init(x))
+  tmp.growHashes()
+  tmp
+
 template len*(x: HashList|HashArray): auto = len(x.data)
 template low*(x: HashList|HashArray): auto = low(x.data)
 template high*(x: HashList|HashArray): auto = high(x.data)
@@ -379,7 +388,10 @@ macro unsupported*(T: typed): untyped =
   # so we use this macro instead. It's also much better at figuring
   # out the actual type that was used in the instantiation.
   # File both problems as issues.
-  error "SSZ serialization of the type " & humaneTypeName(T) & " is not supported"
+  when T is enum:
+    error "Nim `enum` types map poorly to SSZ and make it easy to introduce security issues because of spurious Defect's"
+  else:
+    error "SSZ serialization of the type " & humaneTypeName(T) & " is not supported, overload toSszType and fromSszBytes"
 
 template ElemType*(T: type HashArray): untyped =
   T.T
@@ -529,3 +541,25 @@ method formatMsg*(
     &"SSZ size mismatch, element {err.elementSize}, actual {err.actualSszSize}, type {err.deserializedType}, file {filename}"
   except CatchableError:
     "SSZ size mismatch"
+
+template readValue*(reader: var JsonReader, value: var List) =
+  value = type(value)(readValue(reader, seq[type value[0]]))
+
+template writeValue*(writer: var JsonWriter, value: List) =
+  writeValue(writer, asSeq value)
+
+proc writeValue*(writer: var JsonWriter, value: HashList)
+                {.raises: [IOError, SerializationError, Defect].} =
+  writeValue(writer, value.data)
+
+proc readValue*(reader: var JsonReader, value: var HashList)
+               {.raises: [IOError, SerializationError, Defect].} =
+  value.resetCache()
+  readValue(reader, value.data)
+
+template readValue*(reader: var JsonReader, value: var BitList) =
+  type T = type(value)
+  value = T readValue(reader, BitSeq)
+
+template writeValue*(writer: var JsonWriter, value: BitList) =
+  writeValue(writer, BitSeq value)

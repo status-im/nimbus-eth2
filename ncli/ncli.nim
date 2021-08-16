@@ -4,9 +4,9 @@ import
   stew/byteutils,
   ../research/simutils,
   ../beacon_chain/spec/datatypes/[phase0],
-  ../beacon_chain/spec/[forks, helpers, state_transition],
-  ../beacon_chain/networking/network_metadata,
-  ../beacon_chain/ssz/[merkleization, ssz_serialization]
+  ../beacon_chain/spec/[
+    eth2_ssz_serialization, forks, helpers, state_transition],
+  ../beacon_chain/networking/network_metadata
 
 type
   Cmd* = enum

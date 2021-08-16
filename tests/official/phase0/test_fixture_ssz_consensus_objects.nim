@@ -15,7 +15,6 @@ import
   yaml,
   # Beacon chain internals
   ../../beacon_chain/spec/datatypes/phase0,
-  ../../beacon_chain/ssz,
   # Status libraries
   snappy,
   # Test utilities

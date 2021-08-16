@@ -16,8 +16,6 @@ import
   # Specs
   ../../beacon_chain/spec/datatypes/phase0,
   ../../beacon_chain/spec/[beaconstate, helpers, validator, signatures],
-  # Internals
-  ../../beacon_chain/ssz,
   # Mocking procs
   ./mock_blocks,
   ./mock_validator_keys

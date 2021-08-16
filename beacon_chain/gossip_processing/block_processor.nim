@@ -16,7 +16,7 @@ import
   ../consensus_object_pools/[block_clearance, blockchain_dag, attestation_pool],
   ./consensus_manager,
   ".."/[beacon_clock, beacon_node_types],
-  ../ssz/sszdump
+  ../sszdump
 
 export sszdump
 

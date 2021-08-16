@@ -5,8 +5,8 @@ import
   stew/ptrops, stew/ranges/ptr_arith, chronicles,
   ../beacon_chain/spec/datatypes/phase0,
   ../beacon_chain/spec/[
-    beaconstate, forks, validator, state_transition, state_transition_block],
-  ../beacon_chain/ssz/[merkleization, ssz_serialization]
+    beaconstate, eth2_ssz_serialization, forks, validator, state_transition,
+    state_transition_block]
 
 type
   AttestationInput = object

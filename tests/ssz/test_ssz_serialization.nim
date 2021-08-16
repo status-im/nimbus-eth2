@@ -8,13 +8,10 @@
 {.used.}
 
 import
-  std/[options],
+  std/typetraits,
   unittest2,
-  nimcrypto/hash,
-  json_serialization,
-  ../beacon_chain/spec/datatypes/base,
-  ../beacon_chain/ssz,
-  ../beacon_chain/ssz/[navigator, dynamic_navigator]
+  ../../beacon_chain/ssz/[ssz_serialization, merkleization],
+  ../../beacon_chain/ssz/[navigator, dynamic_navigator]
 
 type
   SomeEnum = enum
@@ -52,13 +49,11 @@ type
     f0: uint8
     f1: uint32
     f2: array[20, byte]
-    f3: MDigest[256]
-    f4: seq[byte]
-    f5: ValidatorIndex
+    f3: Eth2Digest
 
 static:
   doAssert fixedPortionSize(ObjWithFields) ==
-    1 + 4 + sizeof(array[20, byte]) + (256 div 8) + 4 + 8
+    1 + 4 + sizeof(array[20, byte]) + (256 div 8)
 
 type
   Foo = object
@@ -154,7 +149,7 @@ suite "SSZ navigator":
     var leaves = HashList[uint64, 1'i64 shl 3]()
     while leaves.len < leaves.maxLen:
       check:
-        leaves.add leaves.lenu64
+        leaves.add leaves.len.uint64
         hash_tree_root(leaves) == hash_tree_root(leaves.data)
 
 suite "SSZ dynamic navigator":
@@ -311,3 +306,48 @@ suite "hash":
     readSszValue(emptyBytes, sloaded)
     check:
       emptyRoot == hash_tree_root(sloaded)
+
+suite "underlong values":
+  template testit(t: auto) =
+    test "Underlong SSZ.decode: " & type(t).name():
+      let encoded = SSZ.encode(t)
+      expect(SszError):
+        discard SSZ.decode(encoded[0..^2], type t)
+
+    test "Underlong readSszBytes: " & type(t).name():
+      let encoded = SSZ.encode(t)
+      var t2: type t
+      expect(SszError):
+        readSszBytes(encoded[0..^2], t2)
+
+    test "Overlong SSZ.decode: " & type(t).name():
+      when not (t is BasicType | BitArray | array | HashArray | BitList | Simple):
+        let encoded = SSZ.encode(t)
+        expect(SszError):
+          discard SSZ.decode(encoded & @[32'u8], type t)
+      else:
+        skip # TODO Difference between decode and readSszBytes needs revisiting
+
+    test "Overlong readSszBytes: " & type(t).name():
+      when not (t is BitList | Simple):
+        let encoded = SSZ.encode(t)
+        var t2: type t
+        expect(SszError):
+          readSszBytes(encoded & @[32'u8], t2)
+      else:
+        skip # TODO Difference between decode and readSszBytes needs revisiting
+
+  # All SszType types
+  testit(default(bool))
+  testit(default(uint8))
+  testit(default(uint16))
+  testit(default(uint32))
+  testit(default(uint64))
+  testit(default(array[32, uint8]))
+  testit(default(HashArray[32, uint8]))
+  testit(List[uint64, 32].init(@[42'u64]))
+  testit(HashList[uint64, 32].init(@[42'u64]))
+  testit(default(BitArray[32]))
+  testit(BitList[32].init(10))
+  testit(default(Simple))
+  # TODO testit((32'u8, )) fails with a semcheck bug

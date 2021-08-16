@@ -8,10 +8,11 @@
 {.push raises: [Defect].}
 
 import
-  os, strformat, chronicles,
-  ./ssz_serialization,
-  ../spec/datatypes/[phase0, altair],
-  ../consensus_object_pools/block_pools_types
+  std/[os, strformat],
+  chronicles,
+  ./spec/[eth2_ssz_serialization, eth2_merkleization],
+  ./spec/datatypes/[phase0, altair],
+  ./consensus_object_pools/block_pools_types
 
 # Dump errors are generally not fatal where used currently - the code calling
 # these functions, like most code, is not exception safe

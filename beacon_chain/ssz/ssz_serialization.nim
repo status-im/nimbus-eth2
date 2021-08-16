@@ -12,13 +12,13 @@
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/ssz/simple-serialize.md#serialization
 
 import
-  std/[typetraits, options],
+  std/typetraits,
   stew/[endians2, leb128, objects],
   serialization, serialization/testing/tracing,
-  ./bytes_reader, ./bitseqs, ./types, ./spec_types
+  ./codec, ./bitseqs, ./types
 
 export
-  serialization, types, spec_types, bitseqs
+  serialization, codec, types, bitseqs
 
 type
   SszReader* = object
@@ -48,7 +48,7 @@ template sizePrefixed*[TT](x: TT): untyped =
 
 proc init*(T: type SszReader,
            stream: InputStream,
-           updateRoot: bool = true): T {.raises: [Defect].} =
+           updateRoot: bool = true): T =
   T(stream: stream, updateRoot: updateRoot)
 
 proc writeFixedSized(s: var (OutputStream|WriteCursor), x: auto) {.raises: [Defect, IOError].} =
@@ -85,12 +85,12 @@ template supports*(_: type SSZ, T: type): bool =
   mixin toSszType
   anonConst compiles(fixedPortionSize toSszType(declval T))
 
-func init*(T: type SszWriter, stream: OutputStream): T {.raises: [Defect].} =
+func init*(T: type SszWriter, stream: OutputStream): T =
   result.stream = stream
 
 proc writeVarSizeType(w: var SszWriter, value: auto) {.gcsafe, raises: [Defect, IOError].}
 
-proc beginRecord*(w: var SszWriter, TT: type): auto {.raises: [Defect].} =
+proc beginRecord*(w: var SszWriter, TT: type): auto  =
   type T = TT
   when isFixedSize(T):
     FixedSizedWriterCtx()
@@ -222,23 +222,23 @@ proc writeValue*[T](w: var SszWriter, x: SizePrefixed[T]) {.raises: [Defect, IOE
   let length = toBytes(uint64(w.stream.pos - initPos), Leb128)
   cursor.finalWrite length.toOpenArray()
 
-proc readValue*[T](r: var SszReader, val: var T) {.raises: [Defect, MalformedSszError, SszSizeMismatchError, IOError].} =
+proc readValue*(r: var SszReader, val: var auto) {.raises: [Defect, MalformedSszError, SszSizeMismatchError, IOError].} =
+  mixin readSszBytes
+  type T = type val
   when isFixedSize(T):
     const minimalSize = fixedPortionSize(T)
     if r.stream.readable(minimalSize):
-      readSszValue(r.stream.read(minimalSize), val, r.updateRoot)
+      readSszBytes(r.stream.read(minimalSize), val, r.updateRoot)
     else:
       raise newException(MalformedSszError, "SSZ input of insufficient size")
   else:
     # TODO(zah) Read the fixed portion first and precisely measure the
     # size of the dynamic portion to consume the right number of bytes.
-    readSszValue(r.stream.read(r.stream.len.get), val, r.updateRoot)
+    readSszBytes(r.stream.read(r.stream.len.get), val, r.updateRoot)
 
 proc readSszBytes*[T](data: openArray[byte], val: var T, updateRoot = true) {.
     raises: [Defect, MalformedSszError, SszSizeMismatchError].} =
-  when isFixedSize(T):
-    const minimalSize = fixedPortionSize(T)
-    if data.len < minimalSize:
-      raise newException(MalformedSszError, "SSZ input of insufficient size")
-
-  readSszValue(data, val, updateRoot)
+  # Overload `readSszBytes` to perform custom operations on T after
+  # deserialization
+  mixin readSszValue
+  readSszValue(data, val)

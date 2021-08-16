@@ -11,6 +11,6 @@
 # with unittest2 as of writing
 import
   serialization/testing/generic_suite,
-  ../beacon_chain/ssz
+  ../../beacon_chain/ssz/ssz_serialization
 
 executeRoundTripTests SSZ

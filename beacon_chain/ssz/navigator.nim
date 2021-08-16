@@ -10,9 +10,9 @@
 
 import
   stew/[ptrops, objects], stew/ranges/ptr_arith,
-  ./bytes_reader, ./types, ./spec_types
+  ./codec, ./types
 
-export bytes_reader, types
+export codec, types
 
 type
   MemRange* = object

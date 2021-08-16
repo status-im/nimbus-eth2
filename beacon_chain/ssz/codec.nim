@@ -6,16 +6,20 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 {.push raises: [Defect].}
-
 {.pragma: raisesssz, raises: [Defect, MalformedSszError, SszSizeMismatchError].}
 
-import
-  std/[typetraits, options],
-  stew/[endians2, objects],
-  ../spec/digest, ./types, ./spec_types, ./merkleization,
-  ../spec/datatypes/[phase0, altair]
+# Coding and decoding of primitive SSZ types - every "simple" type passed to
+# and from the SSZ library must have a `fromSssBytes` and `toSszType` overload.
 
-template raiseIncorrectSize(T: type) =
+import
+  std/typetraits,
+  stew/[endians2, objects],
+  ../spec/digest, ./types
+
+export
+  digest, types
+
+template raiseIncorrectSize*(T: type) =
   const typeName = name(T)
   raise newException(MalformedSszError,
                      "SSZ " & typeName & " input of incorrect size")
@@ -49,30 +53,6 @@ func fromSszBytes*(T: type Eth2Digest, data: openArray[byte]): T {.raisesssz.} =
     raiseIncorrectSize T
   copyMem(result.data.addr, unsafeAddr data[0], sizeof(result.data))
 
-func fromSszBytes*(T: type GraffitiBytes, data: openArray[byte]): T {.raisesssz.} =
-  if data.len != sizeof(result):
-    raiseIncorrectSize T
-  copyMem(result.addr, unsafeAddr data[0], sizeof(result))
-
-template fromSszBytes*(T: type Slot, bytes: openArray[byte]): T =
-  T fromSszBytes(uint64, bytes)
-
-template fromSszBytes*(T: type Epoch, bytes: openArray[byte]): T =
-  T fromSszBytes(uint64, bytes)
-
-template fromSszBytes*(T: type ParticipationFlags, bytes: openArray[byte]): T =
-  T fromSszBytes(uint8, bytes)
-
-func fromSszBytes*(T: type ForkDigest, bytes: openArray[byte]): T {.raisesssz.} =
-  if bytes.len != sizeof(result):
-    raiseIncorrectSize T
-  copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
-
-func fromSszBytes*(T: type Version, bytes: openArray[byte]): T {.raisesssz.} =
-  if bytes.len != sizeof(result):
-    raiseIncorrectSize T
-  copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
-
 template fromSszBytes*(T: type BitSeq, bytes: openArray[byte]): auto =
   BitSeq @bytes
 
@@ -96,7 +76,7 @@ template checkForForbiddenBits(ResulType: type,
       raiseIncorrectSize ResulType
 
 func readSszValue*[T](input: openArray[byte],
-                      val: var T, updateRoot: bool = true) {.raisesssz.} =
+                      val: var T) {.raisesssz.} =
   mixin fromSszBytes, toSszType
 
   template readOffsetUnchecked(n: int): uint32 {.used.}=
@@ -107,14 +87,6 @@ func readSszValue*[T](input: openArray[byte],
     if offset > input.len.uint32:
       raise newException(MalformedSszError, "SSZ list element offset points past the end of the input")
     int(offset)
-
-  #when result is List:
-  #  result.setOutputSize input.len
-  #  readOpenArray(toSeq result, input)
-
-  #elif result is array:
-  #  result.checkOutputSize input.len
-  #  readOpenArray(result, input)
 
   when val is BitList:
     if input.len == 0:
@@ -256,9 +228,21 @@ func readSszValue*[T](input: openArray[byte],
           type(field),
           input.toOpenArray(int(startOffset), int(endOffset - 1)))
 
-    when val is phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
-                altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock:
-      if updateRoot:
-        val.root = hash_tree_root(val.message)
+  else:
+    unsupported T
+
+# Identity conversions for core SSZ types
+
+template toSszType*(v: auto): auto =
+  ## toSszType converts a given value into one of the primitive types supported
+  ## by SSZ - to add support for a custom type (for example a `distinct` type),
+  ## add an overload for `toSszType` which converts it to one of the `SszType`
+  ## types, as well as a `fromSszBytes`.
+  type T = type(v)
+  when T is SszType:
+    when T is Eth2Digest:
+      v.data
+    else:
+      v
   else:
     unsupported T

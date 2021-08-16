@@ -14,7 +14,6 @@ import
   ../validators/validator_duties,
   ../spec/[forks, network],
   ../spec/datatypes/[phase0],
-  ../ssz/merkleization,
   ./rest_utils
 
 logScope: topics = "rest_validatorapi"
