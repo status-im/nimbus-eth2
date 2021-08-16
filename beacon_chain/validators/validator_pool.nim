@@ -13,7 +13,7 @@ import
   json_serialization/std/[sets, net],
   eth/db/[kvstore, kvstore_sqlite3],
   ../spec/[signatures, helpers],
-  ../spec/datatypes/base,
+  ../spec/datatypes/[phase0, altair],
   ../beacon_node_types,
   ./slashing_protection
 
@@ -151,6 +151,58 @@ proc signAggregateAndProof*(v: AttachedValidator,
       let root = compute_aggregate_and_proof_root(fork, genesis_validators_root,
                                                   aggregate_and_proof)
       await signWithRemoteValidator(v, root)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#prepare-sync-committee-message
+proc signSyncCommitteeMessage*(v: AttachedValidator,
+                               slot: Slot,
+                               fork: Fork,
+                               genesis_validators_root: Eth2Digest,
+                               block_root: Eth2Digest): Future[SyncCommitteeMessage] {.async.} =
+  let
+    signing_root = sync_committee_msg_signing_root(
+      fork, slot.epoch, genesis_validators_root, block_root)
+
+  let signature = if v.kind == inProcess:
+    blsSign(v.privkey, signing_root.data).toValidatorSig
+  else:
+    await signWithRemoteValidator(v, signing_root)
+
+  return SyncCommitteeMessage(
+    slot: slot,
+    beacon_block_root: block_root,
+    validator_index: v.index.get.uint64,
+    signature: signature)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#aggregation-selection
+proc getSyncCommitteeSelectionProof*(
+    v: AttachedValidator,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    slot: Slot,
+    subcommittee_index: uint64): Future[ValidatorSig] {.async.} =
+  let
+    signing_root = sync_committee_selection_proof_signing_root(
+      fork, genesis_validators_root, slot, subcommittee_index)
+
+  return if v.kind == inProcess:
+    blsSign(v.privkey, signing_root.data).toValidatorSig
+  else:
+    await signWithRemoteValidator(v, signing_root)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#signature
+proc sign*(
+    v: AttachedValidator,
+    msg: ref SignedContributionAndProof,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest) {.async.} =
+  let
+    signing_root = contribution_and_proof_signing_root(
+      fork, genesis_validators_root, msg.message)
+
+  msg.signature = if v.kind == inProcess:
+    blsSign(v.privkey, signing_root.data).toValidatorSig
+  else:
+    await signWithRemoteValidator(v, signing_root)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#randao-reveal
 func genRandaoReveal*(k: ValidatorPrivKey, fork: Fork,

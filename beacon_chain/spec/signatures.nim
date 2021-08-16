@@ -142,6 +142,38 @@ func compute_attestation_root*(
       fork, DOMAIN_BEACON_ATTESTER, epoch, genesis_validators_root)
   result = compute_signing_root(attestation_data, domain)
 
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#prepare-sync-committee-message
+func sync_committee_msg_signing_root*(
+    fork: Fork, epoch: Epoch,
+    genesis_validators_root: Eth2Digest,
+    block_root: Eth2Digest): Eth2Digest =
+  let domain = get_domain(fork, DOMAIN_SYNC_COMMITTEE, epoch, genesis_validators_root)
+  compute_signing_root(block_root, domain)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#signature
+func contribution_and_proof_signing_root*(
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    msg: ContributionAndProof): Eth2Digest =
+  let domain = get_domain(fork, DOMAIN_CONTRIBUTION_AND_PROOF,
+                          msg.contribution.slot.epoch,
+                          genesis_validators_root)
+  compute_signing_root(msg, domain)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#aggregation-selection
+proc sync_committee_selection_proof_signing_root*(
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    slot: Slot,
+    subcommittee_index: uint64): Eth2Digest =
+  let
+    domain = get_domain(fork, DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF,
+                        slot.epoch, genesis_validators_root)
+    signing_data = SyncAggregatorSelectionData(
+      slot: slot,
+      subcommittee_index: subcommittee_index)
+  compute_signing_root(signing_data, domain)
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#aggregate-signature
 func get_attestation_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
@@ -211,3 +243,52 @@ proc verify_voluntary_exit_signature*(
       signing_root = compute_signing_root(voluntary_exit, domain)
 
     blsVerify(pubkey, signing_root.data, signature)
+
+proc verify_sync_committee_message_signature*(
+    epoch: Epoch,
+    beacon_block_root: Eth2Digest,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    pubkey: CookedPubKey,
+    signature: CookedSig): bool =
+  let
+    domain = get_domain(
+      fork, DOMAIN_SYNC_COMMITTEE, epoch, genesis_validators_root)
+    signing_root = compute_signing_root(beacon_block_root, domain)
+
+  blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#aggregation-selection
+proc is_sync_committee_aggregator*(signature: ValidatorSig): bool =
+  let
+    signatureDigest = eth2digest(signature.blob)
+    modulo = max(1'u64, (SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_SUBNET_COUNT) div TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE)
+  bytes_to_uint64(signatureDigest.data.toOpenArray(0, 7)) mod modulo == 0
+
+proc verify_signed_contribution_and_proof_signature*(
+    msg: SignedContributionAndProof,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    pubkey: ValidatorPubKey | CookedPubKey): bool =
+  let
+    domain = get_domain(
+      fork, DOMAIN_CONTRIBUTION_AND_PROOF, msg.message.contribution.slot.epoch, genesis_validators_root)
+    signing_root = compute_signing_root(msg.message, domain)
+
+  blsVerify(pubkey, signing_root.data, msg.signature)
+
+proc verify_selection_proof_signature*(
+    msg: ContributionAndProof,
+    fork: Fork,
+    genesis_validators_root: Eth2Digest,
+    pubkey: ValidatorPubKey | CookedPubKey): bool =
+  let
+    slot = msg.contribution.slot
+    domain = get_domain(
+      fork, DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF, slot.epoch, genesis_validators_root)
+    signing_data = SyncAggregatorSelectionData(
+      slot: slot,
+      subcommittee_index: msg.contribution.subcommittee_index)
+    signing_root = compute_signing_root(signing_data, domain)
+
+  blsVerify(pubkey, signing_root.data, msg.selection_proof)
