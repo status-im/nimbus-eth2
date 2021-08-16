@@ -52,9 +52,6 @@ from
 import
   TopicParams, validateParameters, init
 
-const
-  hasPrompt = false and not defined(withoutPrompt) # disabled, doesn't work
-
 type
   RpcServer* = RpcHttpServer
 
@@ -1502,38 +1499,6 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
 
   asyncSpawn statusBarUpdatesPollingLoop()
 
-when hasPrompt:
-  # TODO: nim-prompt seems to have threading issues at the moment
-  #       which result in sporadic crashes. We should introduce a
-  #       lock that guards the access to the internal prompt line
-  #       variable.
-  #
-  # var p = Prompt.init("nimbus > ", providePromptCompletions)
-  # p.useHistoryFile()
-
-  from unicode import Rune
-  import prompt
-
-  func providePromptCompletions*(line: seq[Rune], cursorPos: int): seq[string] =
-    # TODO
-    # The completions should be generated with the general-purpose command-line
-    # parsing API of Confutils
-    result = @[]
-
-  proc processPromptCommands(p: ptr Prompt) {.thread.} =
-    while true:
-      var cmd = p[].readLine()
-      case cmd
-      of "quit":
-        quit 0
-      else:
-        p[].writeLine("Unknown command: " & cmd)
-
-  proc initPrompt(node: BeaconNode) =
-    # var t: Thread[ptr Prompt]
-    # createThread(t, processPromptCommands, addr p)
-    discard
-
 proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
   let port = try:
     let value = parseInt(config.rpcUrlForExit.port)
@@ -1731,9 +1696,6 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
     return
 
   initStatusBar(node)
-
-  when hasPrompt:
-    initPrompt(node)
 
   if node.nickname != "":
     dynamicLogScope(node = node.nickname): node.start()
