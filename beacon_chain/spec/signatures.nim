@@ -32,7 +32,7 @@ func compute_slot_root*(
     epoch = compute_epoch_at_slot(slot)
     domain = get_domain(
       fork, DOMAIN_SELECTION_PROOF, epoch, genesis_validators_root)
-  result = compute_signing_root(slot, domain)
+  compute_signing_root(slot, domain)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#aggregation-selection
 func get_slot_signature*(
@@ -55,9 +55,8 @@ proc verify_slot_signature*(
 func compute_epoch_root*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch
     ): Eth2Digest =
-  let
-    domain = get_domain(fork, DOMAIN_RANDAO, epoch, genesis_validators_root)
-  result = compute_signing_root(epoch, domain)
+  let domain = get_domain(fork, DOMAIN_RANDAO, epoch, genesis_validators_root)
+  compute_signing_root(epoch, domain)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#randao-reveal
 func get_epoch_signature*(
@@ -82,7 +81,7 @@ func compute_block_root*(
     epoch = compute_epoch_at_slot(slot)
     domain = get_domain(
       fork, DOMAIN_BEACON_PROPOSER, epoch, genesis_validators_root)
-  result = compute_signing_root(root, domain)
+  compute_signing_root(root, domain)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#signature
 func get_block_signature*(
@@ -110,7 +109,7 @@ func compute_aggregate_and_proof_root*(fork: Fork, genesis_validators_root: Eth2
     epoch = compute_epoch_at_slot(aggregate_and_proof.aggregate.data.slot)
     domain = get_domain(
       fork, DOMAIN_AGGREGATE_AND_PROOF, epoch, genesis_validators_root)
-  result = compute_signing_root(aggregate_and_proof, domain)
+  compute_signing_root(aggregate_and_proof, domain)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-aggregate
 func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
@@ -140,7 +139,7 @@ func compute_attestation_root*(
     epoch = attestation_data.target.epoch
     domain = get_domain(
       fork, DOMAIN_BEACON_ATTESTER, epoch, genesis_validators_root)
-  result = compute_signing_root(attestation_data, domain)
+  compute_signing_root(attestation_data, domain)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#prepare-sync-committee-message
 func sync_committee_msg_signing_root*(

@@ -115,6 +115,18 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Mocked start private key                                                                   OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Message signatures
+```diff
++ Aggregate and proof signatures                                                             OK
++ Attestation signatures                                                                     OK
++ Deposit signatures                                                                         OK
++ Slot signatures                                                                            OK
++ Sync committee message signatures                                                          OK
++ Sync committee selection proof signatures                                                  OK
++ Sync committee signed contribution and proof signatures                                    OK
++ Voluntary exit signatures                                                                  OK
+```
+OK: 8/8 Fail: 0/8 Skip: 0/8
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -258,4 +270,4 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 132/132 Fail: 0/132 Skip: 0/132
+OK: 140/140 Fail: 0/140 Skip: 0/140
