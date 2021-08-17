@@ -297,3 +297,11 @@ proc nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
     cfg.ALTAIR_FORK_EPOCH
   else:
     FAR_FUTURE_EPOCH
+
+func getForkSchedule*(cfg: RuntimeConfig): array[2, Fork] =
+  ## This procedure returns list of known and/or scheduled forks.
+  ##
+  ## This procedure is used by HTTP REST framework and validator client.
+  ##
+  ## NOTE: Update this procedure when new fork will be scheduled.
+  [cfg.genesisFork(), cfg.altairFork()]
