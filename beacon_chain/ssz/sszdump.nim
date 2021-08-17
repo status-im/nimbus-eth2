@@ -10,10 +10,8 @@
 import
   os, strformat, chronicles,
   ./ssz_serialization,
-  ../spec/[crypto, datatypes/base, datatypes/altair, datatypes/phase0, digest],
+  ../spec/datatypes/[phase0, altair],
   ../consensus_object_pools/block_pools_types
-
-from ../spec/datatypes/altair import SyncCommitteeMessage
 
 # Dump errors are generally not fatal where used currently - the code calling
 # these functions, like most code, is not exception safe

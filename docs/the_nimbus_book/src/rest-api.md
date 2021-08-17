@@ -1,6 +1,5 @@
 # REST API
 
+Nimbus supports the [common REST API](https://ethereum.github.io/eth2.0-APIs/#/) for runtime communication with the application. For historical reasons, a [JSON-RPC-based API](./api.md) is also supported.
 
-The community has settled on REST as a common interface, as [documented here](https://ethereum.github.io/eth2.0-APIs/#/) -- the `REST` API is an updated version of the [`JSON-RPC` api](./api.md).
-
-If you're looking to use this more standard API, you can enable it by running the Beacon Node with the `--rest` parameter (note this is currently in Beta). 
+The REST API is currently in BETA -- to enable it, use the `--rest` option when starting the beacon node, then access the API from http://localhost:5052/.

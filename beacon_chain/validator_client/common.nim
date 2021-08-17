@@ -1,26 +1,26 @@
 import std/[tables, os, sequtils, strutils]
 import chronos, presto, presto/client as presto_client, chronicles, confutils,
        json_serialization/std/[options, net],
-       stew/[base10, results, byteutils]
+       stew/[base10, results, byteutils],
+       eth/db/[kvstore, kvstore_sqlite3]
+
 # Local modules
-import ".."/networking/[eth2_network, eth2_discovery],
-       ".."/spec/[datatypes, digest, crypto, helpers, signatures],
-       ".."/rpc/[beacon_rest_api, node_rest_api, validator_rest_api,
-                 config_rest_api, rest_utils, eth2_json_rest_serialization],
-       ".."/validators/[attestation_aggregation, keystore_management,
-                        validator_pool, slashing_protection],
-       ".."/[conf, beacon_clock, version, beacon_node_types,
-             nimbus_binary_common],
-       ".."/ssz/merkleization,
-       ./eth/db/[kvstore, kvstore_sqlite3]
+import
+  ../spec/datatypes/[phase0, altair],
+  ../spec/[helpers, signatures],
+  ../spec/eth2_apis/rest_beacon_client,
+  ../validators/[attestation_aggregation, keystore_management,
+                  validator_pool, slashing_protection],
+  ".."/[conf, beacon_clock, version, beacon_node_types,
+        nimbus_binary_common],
+  ".."/ssz/merkleization
 
 export os, tables, sequtils, sequtils, chronos, presto, chronicles, confutils,
        nimbus_binary_common, version, conf, options, tables, results, base10,
-       byteutils, eth2_json_rest_serialization, presto_client
+       byteutils, presto_client
 
-export beacon_rest_api, node_rest_api, validator_rest_api, config_rest_api,
-       rest_utils,
-       datatypes, crypto, digest, signatures, merkleization,
+export rest_beacon_client,
+       phase0, altair, helpers, signatures, merkleization,
        beacon_clock,
        kvstore, kvstore_sqlite3,
        keystore_management, slashing_protection, validator_pool,
@@ -74,9 +74,9 @@ type
   BeaconNodeServer* = object
     client*: RestClientRef
     endpoint*: string
-    config*: Option[RestConfig]
+    config*: Option[RestSpec]
     ident*: Option[string]
-    genesis*: Option[RestBeaconGenesis]
+    genesis*: Option[RestGenesis]
     syncInfo*: Option[RestSyncInfo]
     status*: RestBeaconNodeStatus
 
@@ -107,7 +107,7 @@ type
     fork*: Option[Fork]
     attesters*: AttesterMap
     proposers*: ProposerMap
-    beaconGenesis*: RestBeaconGenesis
+    beaconGenesis*: RestGenesis
     proposerTasks*: Table[Slot, seq[ProposerTask]]
 
   ValidatorClientRef* = ref ValidatorClient

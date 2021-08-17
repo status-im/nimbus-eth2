@@ -8,8 +8,8 @@
 {.push raises: [Defect].}
 
 import
-  chronicles, chronos,
-  ../spec/[crypto, datatypes],
+  chronicles,
+  ../spec/datatypes/base,
   ../consensus_object_pools/[blockchain_dag, attestation_pool]
 
 # TODO: Move to "consensus_object_pools" folder

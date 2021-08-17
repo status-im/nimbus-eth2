@@ -4,6 +4,7 @@ import
   unittest2,
   chronos, stew/shims/net, eth/keys, eth/p2p/discoveryv5/enr,
   ../beacon_chain/spec/datatypes/base,
+  ../beacon_chain/spec/network,
   ../beacon_chain/networking/[eth2_network, eth2_discovery],
   ./testutil
 
@@ -43,8 +44,10 @@ suite "Eth2 specific discovery tests":
 
     let
       node1 = generateNode(rng, Port(5000))
-      node2 = generateNode(rng, Port(5001),
-        {"eth2": SSZ.encode(enrForkId), "attnets": SSZ.encode(attnets)})
+      node2 = generateNode(rng, Port(5001), {
+        enrForkIdField: SSZ.encode(enrForkId),
+        enrAttestationSubnetsField: SSZ.encode(attnets)
+      })
 
     node1.open()
     node2.open()
@@ -73,10 +76,14 @@ suite "Eth2 specific discovery tests":
 
     let
       node1 = generateNode(rng, Port(5000))
-      node2 = generateNode(rng, Port(5001),
-        {"eth2": SSZ.encode(enrForkId), "attnets": SSZ.encode(invalidAttnets)})
-      node3 = generateNode(rng, Port(5002),
-        {"eth2": SSZ.encode(enrForkId), "attnets": SSZ.encode(attnets)})
+      node2 = generateNode(rng, Port(5001), {
+        enrForkIdField: SSZ.encode(enrForkId),
+        enrAttestationSubnetsField: SSZ.encode(invalidAttnets)
+      })
+      node3 = generateNode(rng, Port(5002), {
+        enrForkIdField: SSZ.encode(enrForkId),
+        enrAttestationSubnetsField: SSZ.encode(attnets)
+      })
 
     node1.open()
     node2.open()
@@ -102,8 +109,10 @@ suite "Eth2 specific discovery tests":
 
     let
       node1 = generateNode(rng, Port(5000))
-      node2 = generateNode(rng, Port(5001),
-        {"eth2": SSZ.encode(enrForkId), "attnets": SSZ.encode(attnets)})
+      node2 = generateNode(rng, Port(5001), {
+        enrForkIdField: SSZ.encode(enrForkId),
+        enrAttestationSubnetsField: SSZ.encode(attnets)
+      })
 
     node1.open()
     node2.open()
@@ -119,8 +128,10 @@ suite "Eth2 specific discovery tests":
 
     block:
       attnets.setBit(2)
-      check node2.updateRecord(
-        {"eth2": SSZ.encode(enrForkId), "attnets": SSZ.encode(attnets)}).isOk()
+      check node2.updateRecord({
+        enrForkIdField: SSZ.encode(enrForkId),
+        enrAttestationSubnetsField: SSZ.encode(attnets)
+      }).isOk()
 
       let nodes = await node1.findNode(node2.localNode, @[0'u16])
       check nodes.isOk() and nodes[].len > 0

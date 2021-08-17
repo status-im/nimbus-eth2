@@ -1,135 +1,34 @@
+# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   std/[typetraits],
   stew/[results, base10, byteutils, endians2],
-  chronicles, presto,
-  faststreams/[outputs],
-  serialization, json_serialization,
+  presto,
+  libp2p/peerid,
+  json_serialization, json_serialization/std/[options, net],
   nimcrypto/utils as ncrutils,
-  ../beacon_node_common, ../networking/eth2_network,
-  ../consensus_object_pools/[blockchain_dag, exit_pool],
-  ../spec/[crypto, digest, datatypes/phase0, eth2_apis/callsigs_types],
-  ../ssz/merkleization,
-  rest_utils
-export json_serialization
+  ../datatypes/[phase0, altair, merge],
+  ./rest_types
+
+export results, peerid, presto, json_serialization, options, net, rest_types
 
 Json.createFlavor RestJson
 
+const
+  DecimalSet = {'0' .. '9'}
+    # Base10 (decimal) set of chars
+  ValidatorKeySize = RawPubKeySize * 2
+    # Size of `ValidatorPubKey` hexadecimal value (without 0x)
+  ValidatorSigSize = RawSigSize * 2
+    # Size of `ValidatorSig` hexadecimal value (without 0x)
+  RootHashSize = sizeof(Eth2Digest) * 2
+    # Size of `xxx_root` hexadecimal value (without 0x)
+
 type
-  RestAttesterDuty* = object
-    pubkey*: ValidatorPubKey
-    validator_index*: ValidatorIndex
-    committee_index*: CommitteeIndex
-    committee_length*: uint64
-    committees_at_slot*: uint64
-    validator_committee_index*: ValidatorIndex
-    slot*: Slot
-
-  RestProposerDuty* = object
-    pubkey*: ValidatorPubKey
-    validator_index*: ValidatorIndex
-    slot*: Slot
-
-  RestCommitteeSubscription* = object
-    validator_index*: ValidatorIndex
-    committee_index*: CommitteeIndex
-    committees_at_slot*: uint64
-    slot*: Slot
-    is_aggregator*: bool
-
-  RestBeaconGenesis* = object
-    genesis_time*: uint64
-    genesis_validators_root*: Eth2Digest
-    genesis_fork_version*: Version
-
-  RestValidatorBalance* = object
-    index*: ValidatorIndex
-    balance*: string
-
-  RestBeaconStatesCommittees* = object
-    index*: CommitteeIndex
-    slot*: Slot
-    validators*: seq[ValidatorIndex]
-
-  RestAttestationsFailure* = object
-    index*: uint64
-    message*: string
-
-  RestValidator* = object
-    index*: ValidatorIndex
-    balance*: string
-    status*: string
-    validator*: Validator
-
-  RestVersion* = object
-    version*: string
-
-  RestSyncInfo* = object
-    head_slot*: Slot
-    sync_distance*: uint64
-    is_syncing*: bool
-
-  RestConfig* = object
-    CONFIG_NAME*: string
-    MAX_COMMITTEES_PER_SLOT*: uint64
-    TARGET_COMMITTEE_SIZE*: uint64
-    MAX_VALIDATORS_PER_COMMITTEE*: uint64
-    MIN_PER_EPOCH_CHURN_LIMIT*: uint64
-    CHURN_LIMIT_QUOTIENT*: uint64
-    SHUFFLE_ROUND_COUNT*: uint64
-    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64
-    MIN_GENESIS_TIME*: uint64
-    HYSTERESIS_QUOTIENT*: uint64
-    HYSTERESIS_DOWNWARD_MULTIPLIER*: uint64
-    HYSTERESIS_UPWARD_MULTIPLIER*: uint64
-    SAFE_SLOTS_TO_UPDATE_JUSTIFIED*: uint64
-    ETH1_FOLLOW_DISTANCE*: uint64
-    TARGET_AGGREGATORS_PER_COMMITTEE*: uint64
-    RANDOM_SUBNETS_PER_VALIDATOR*: uint64
-    EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64
-    SECONDS_PER_ETH1_BLOCK*: uint64
-    DEPOSIT_CHAIN_ID*: uint64
-    DEPOSIT_NETWORK_ID*: uint64
-    DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
-    MIN_DEPOSIT_AMOUNT*: uint64
-    MAX_EFFECTIVE_BALANCE*: uint64
-    EJECTION_BALANCE*: uint64
-    EFFECTIVE_BALANCE_INCREMENT*: uint64
-    GENESIS_FORK_VERSION*: Version
-    BLS_WITHDRAWAL_PREFIX*: byte
-    GENESIS_DELAY*: uint64
-    SECONDS_PER_SLOT*: uint64
-    MIN_ATTESTATION_INCLUSION_DELAY*: uint64
-    SLOTS_PER_EPOCH*: uint64
-    MIN_SEED_LOOKAHEAD*: uint64
-    MAX_SEED_LOOKAHEAD*: uint64
-    EPOCHS_PER_ETH1_VOTING_PERIOD*: uint64
-    SLOTS_PER_HISTORICAL_ROOT*: uint64
-    MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
-    SHARD_COMMITTEE_PERIOD*: uint64
-    MIN_EPOCHS_TO_INACTIVITY_PENALTY*: uint64
-    EPOCHS_PER_HISTORICAL_VECTOR*: uint64
-    EPOCHS_PER_SLASHINGS_VECTOR*: uint64
-    HISTORICAL_ROOTS_LIMIT*: uint64
-    VALIDATOR_REGISTRY_LIMIT*: uint64
-    BASE_REWARD_FACTOR*: uint64
-    WHISTLEBLOWER_REWARD_QUOTIENT*: uint64
-    PROPOSER_REWARD_QUOTIENT*: uint64
-    INACTIVITY_PENALTY_QUOTIENT*: uint64
-    MIN_SLASHING_PENALTY_QUOTIENT*: uint64
-    PROPORTIONAL_SLASHING_MULTIPLIER*: uint64
-    MAX_PROPOSER_SLASHINGS*: uint64
-    MAX_ATTESTER_SLASHINGS*: uint64
-    MAX_ATTESTATIONS*: uint64
-    MAX_DEPOSITS*: uint64
-    MAX_VOLUNTARY_EXITS*: uint64
-    DOMAIN_BEACON_PROPOSER*: DomainType
-    DOMAIN_BEACON_ATTESTER*: DomainType
-    DOMAIN_RANDAO*: DomainType
-    DOMAIN_DEPOSIT*: DomainType
-    DOMAIN_VOLUNTARY_EXIT*: DomainType
-    DOMAIN_SELECTION_PROOF*: DomainType
-    DOMAIN_AGGREGATE_AND_PROOF*: DomainType
-
   RestGenericError* = object
     code*: uint64
     message*: string
@@ -140,36 +39,24 @@ type
     message*: string
     failures*: seq[RestAttestationsFailure]
 
-  DataEnclosedObject*[T] = object
-    data*: T
+  EncodeTypes* =
+    AttesterSlashing |
+    ProposerSlashing |
+    phase0.SignedBeaconBlock |
+    SignedVoluntaryExit
 
-  DataRootEnclosedObject*[T] = object
-    dependent_root*: Eth2Digest
-    data*: T
+  EncodeArrays* =
+    seq[ValidatorIndex] |
+    seq[Attestation] |
+    seq[SignedAggregateAndProof] |
+    seq[RestCommitteeSubscription]
 
-  DataRestBeaconGenesis* = DataEnclosedObject[RestBeaconGenesis]
-  DataRestFork* = DataEnclosedObject[Fork]
-  DataRestProposerDuties* = DataRootEnclosedObject[seq[RestProposerDuty]]
-  DataRestAttesterDuties* = DataRootEnclosedObject[seq[RestAttesterDuty]]
-  DataRestBeaconBlock* = DataEnclosedObject[phase0.BeaconBlock]
-  DataRestAttestationData* = DataEnclosedObject[AttestationData]
-  DataRestAttestation* = DataEnclosedObject[Attestation]
-  DataRestSyncInfo* = DataEnclosedObject[RestSyncInfo]
-  DataRestValidator* = DataEnclosedObject[RestValidator]
-  DataRestValidatorList* = DataEnclosedObject[seq[RestValidator]]
-  DataRestVersion* = DataEnclosedObject[RestVersion]
-  DataRestConfig* = DataEnclosedObject[RestConfig]
-
-  EncodeTypes* = phase0.SignedBeaconBlock
-  EncodeArrays* = seq[ValidatorIndex] | seq[Attestation] |
-                  seq[SignedAggregateAndProof] | seq[RestCommitteeSubscription]
-
-  DecodeTypes* = DataRestBeaconGenesis | DataRestFork | DataRestProposerDuties |
-                 DataRestAttesterDuties | DataRestBeaconBlock |
-                 DataRestAttestationData | DataRestAttestation |
-                 DataRestSyncInfo | DataRestValidator |
-                 DataRestValidatorList | DataRestVersion |
-                 DataRestConfig | RestGenericError | RestAttestationError
+  DecodeTypes* =
+    DataEnclosedObject |
+    DataMetaEnclosedObject |
+    DataRootEnclosedObject |
+    RestAttestationError |
+    RestGenericError
 
 proc jsonResponseWRoot*(t: typedesc[RestApiResponse],
                         data: auto,
@@ -568,6 +455,12 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: GraffitiBytes) {.
      raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
+proc parseRoot(value: string): Result[Eth2Digest, cstring] =
+  try:
+    ok(Eth2Digest(data: hexToByteArray[32](value)))
+  except ValueError:
+    err("Unable to decode root value")
+
 proc decodeBody*[T](t: typedesc[T],
                     body: ContentBody): Result[T, cstring] =
   if body.contentType != "application/json":
@@ -620,12 +513,10 @@ proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openarray[byte],
                                   contentType: string): RestResult[T] =
   case contentType
   of "application/json":
-    let res =
-      try:
-        RestJson.decode(value, T)
-      except SerializationError:
-        return err("Serialization error")
-    ok(res)
+    try:
+      ok RestJson.decode(value, T)
+    except SerializationError as exc:
+      err("Serialization error")
   else:
     err("Content-Type not supported")
 
@@ -667,3 +558,252 @@ proc encodeString*(value: StateIdent): RestResult[string] =
       ok("finalized")
     of StateIdentType.Justified:
       ok("justified")
+
+proc encodeString*(value: BlockIdent): RestResult[string] =
+  case value.kind
+  of BlockQueryKind.Slot:
+    ok(Base10.toString(uint64(value.slot)))
+  of BlockQueryKind.Root:
+    ok(hexOriginal(value.root.data))
+  of BlockQueryKind.Named:
+    case value.value
+    of BlockIdentType.Head:
+      ok("head")
+    of BlockIdentType.Genesis:
+      ok("genesis")
+    of BlockIdentType.Finalized:
+      ok("finalized")
+
+proc decodeString*(t: typedesc[PeerStateKind],
+                   value: string): Result[PeerStateKind, cstring] =
+  case value
+  of "disconnected":
+    ok(PeerStateKind.Disconnected)
+  of "connecting":
+    ok(PeerStateKind.Connecting)
+  of "connected":
+    ok(PeerStateKind.Connected)
+  of "disconnecting":
+    ok(PeerStateKind.Disconnecting)
+  else:
+    err("Incorrect peer's state value")
+
+proc encodeString*(value: PeerStateKind): Result[string, cstring] =
+  case value
+  of PeerStateKind.Disconnected:
+    ok("disconnected")
+  of PeerStateKind.Connecting:
+    ok("connecting")
+  of PeerStateKind.Connected:
+    ok("connected")
+  of PeerStateKind.Disconnecting:
+    ok("disconnecting")
+
+proc decodeString*(t: typedesc[PeerDirectKind],
+                   value: string): Result[PeerDirectKind, cstring] =
+  case value
+  of "inbound":
+    ok(PeerDirectKind.Inbound)
+  of "outbound":
+    ok(PeerDirectKind.Outbound)
+  else:
+    err("Incorrect peer's direction value")
+
+proc encodeString*(value: PeerDirectKind): Result[string, cstring] =
+  case value
+  of PeerDirectKind.Inbound:
+    ok("inbound")
+  of PeerDirectKind.Outbound:
+    ok("outbound")
+
+proc encodeString*(peerid: PeerID): Result[string, cstring] =
+  ok($peerid)
+
+proc decodeString*(t: typedesc[EventTopic],
+                   value: string): Result[EventTopic, cstring] =
+  case value
+  of "head":
+    ok(EventTopic.Head)
+  of "block":
+    ok(EventTopic.Block)
+  of "attestation":
+    ok(EventTopic.Attestation)
+  of "voluntary_exit":
+    ok(EventTopic.VoluntaryExit)
+  of "finalized_checkpoint":
+    ok(EventTopic.FinalizedCheckpoint)
+  of "chain_reorg":
+    ok(EventTopic.ChainReorg)
+  else:
+    err("Incorrect event's topic value")
+
+proc decodeString*(t: typedesc[ValidatorSig],
+                   value: string): Result[ValidatorSig, cstring] =
+  if len(value) != ValidatorSigSize + 2:
+    return err("Incorrect validator signature value length")
+  if value[0] != '0' and value[1] != 'x':
+    return err("Incorrect validator signature encoding")
+  ValidatorSig.fromHex(value)
+
+proc decodeString*(t: typedesc[GraffitiBytes],
+                   value: string): Result[GraffitiBytes, cstring] =
+  try:
+    ok(GraffitiBytes.init(value))
+  except ValueError:
+    err("Unable to decode graffiti value")
+
+proc decodeString*(t: typedesc[string],
+                   value: string): Result[string, cstring] =
+  ok(value)
+
+proc decodeString*(t: typedesc[Slot], value: string): Result[Slot, cstring] =
+  let res = ? Base10.decode(uint64, value)
+  ok(Slot(res))
+
+proc decodeString*(t: typedesc[Epoch], value: string): Result[Epoch, cstring] =
+  let res = ? Base10.decode(uint64, value)
+  ok(Epoch(res))
+
+proc decodeString*(t: typedesc[StateIdent],
+                   value: string): Result[StateIdent, cstring] =
+  if len(value) > 2:
+    if (value[0] == '0') and (value[1] == 'x'):
+      if len(value) != RootHashSize + 2:
+        err("Incorrect state root value length")
+      else:
+        let res = ? parseRoot(value)
+        ok(StateIdent(kind: StateQueryKind.Root, root: res))
+    elif (value[0] in DecimalSet) and (value[1] in DecimalSet):
+      let res = ? Base10.decode(uint64, value)
+      ok(StateIdent(kind: StateQueryKind.Slot, slot: Slot(res)))
+    else:
+      case value
+      of "head":
+        ok(StateIdent(kind: StateQueryKind.Named,
+                      value: StateIdentType.Head))
+      of "genesis":
+        ok(StateIdent(kind: StateQueryKind.Named,
+                      value: StateIdentType.Genesis))
+      of "finalized":
+        ok(StateIdent(kind: StateQueryKind.Named,
+                      value: StateIdentType.Finalized))
+      of "justified":
+        ok(StateIdent(kind: StateQueryKind.Named,
+                      value: StateIdentType.Justified))
+      else:
+        err("Incorrect state identifier value")
+  else:
+    let res = ? Base10.decode(uint64, value)
+    ok(StateIdent(kind: StateQueryKind.Slot, slot: Slot(res)))
+
+proc decodeString*(t: typedesc[BlockIdent],
+                   value: string): Result[BlockIdent, cstring] =
+  if len(value) > 2:
+    if (value[0] == '0') and (value[1] == 'x'):
+      if len(value) != RootHashSize + 2:
+        err("Incorrect block root value length")
+      else:
+        let res = ? parseRoot(value)
+        ok(BlockIdent(kind: BlockQueryKind.Root, root: res))
+    elif (value[0] in DecimalSet) and (value[1] in DecimalSet):
+      let res = ? Base10.decode(uint64, value)
+      ok(BlockIdent(kind: BlockQueryKind.Slot, slot: Slot(res)))
+    else:
+      case value
+        of "head":
+          ok(BlockIdent(kind: BlockQueryKind.Named,
+                        value: BlockIdentType.Head))
+        of "genesis":
+          ok(BlockIdent(kind: BlockQueryKind.Named,
+                        value: BlockIdentType.Genesis))
+        of "finalized":
+          ok(BlockIdent(kind: BlockQueryKind.Named,
+                        value: BlockIdentType.Finalized))
+        else:
+          err("Incorrect block identifier value")
+  else:
+    let res = ? Base10.decode(uint64, value)
+    ok(BlockIdent(kind: BlockQueryKind.Slot, slot: Slot(res)))
+
+proc decodeString*(t: typedesc[ValidatorIdent],
+                   value: string): Result[ValidatorIdent, cstring] =
+  if len(value) > 2:
+    if (value[0] == '0') and (value[1] == 'x'):
+      if len(value) != ValidatorKeySize + 2:
+        err("Incorrect validator's key value length")
+      else:
+        let res = ? ValidatorPubKey.fromHex(value)
+        ok(ValidatorIdent(kind: ValidatorQueryKind.Key,
+                          key: res))
+    elif (value[0] in DecimalSet) and (value[1] in DecimalSet):
+      let res = ? Base10.decode(uint64, value)
+      ok(ValidatorIdent(kind: ValidatorQueryKind.Index,
+                        index: RestValidatorIndex(res)))
+    else:
+      err("Incorrect validator identifier value")
+  else:
+    let res = ? Base10.decode(uint64, value)
+    ok(ValidatorIdent(kind: ValidatorQueryKind.Index,
+                      index: RestValidatorIndex(res)))
+
+proc decodeString*(t: typedesc[PeerID],
+                   value: string): Result[PeerID, cstring] =
+  PeerID.init(value)
+
+proc decodeString*(t: typedesc[CommitteeIndex],
+                   value: string): Result[CommitteeIndex, cstring] =
+  let res = ? Base10.decode(uint64, value)
+  ok(CommitteeIndex(res))
+
+proc decodeString*(t: typedesc[Eth2Digest],
+                   value: string): Result[Eth2Digest, cstring] =
+  if len(value) != RootHashSize + 2:
+    return err("Incorrect root value length")
+  if value[0] != '0' and value[1] != 'x':
+    return err("Incorrect root value encoding")
+  parseRoot(value)
+
+proc decodeString*(t: typedesc[ValidatorFilter],
+                   value: string): Result[ValidatorFilter, cstring] =
+  case value
+  of "pending_initialized":
+    ok({ValidatorFilterKind.PendingInitialized})
+  of "pending_queued":
+    ok({ValidatorFilterKind.PendingQueued})
+  of "active_ongoing":
+    ok({ValidatorFilterKind.ActiveOngoing})
+  of "active_exiting":
+    ok({ValidatorFilterKind.ActiveExiting})
+  of "active_slashed":
+    ok({ValidatorFilterKind.ActiveSlashed})
+  of "exited_unslashed":
+    ok({ValidatorFilterKind.ExitedUnslashed})
+  of "exited_slashed":
+    ok({ValidatorFilterKind.ExitedSlashed})
+  of "withdrawal_possible":
+    ok({ValidatorFilterKind.WithdrawalPossible})
+  of "withdrawal_done":
+    ok({ValidatorFilterKind.WithdrawalDone})
+  of "pending":
+    ok({
+      ValidatorFilterKind.PendingInitialized,
+      ValidatorFilterKind.PendingQueued
+    })
+  of "active":
+    ok({
+      ValidatorFilterKind.ActiveOngoing,
+      ValidatorFilterKind.ActiveExiting,
+      ValidatorFilterKind.ActiveSlashed
+    })
+  of "exited":
+    ok({
+      ValidatorFilterKind.ExitedUnslashed,
+      ValidatorFilterKind.ExitedSlashed
+    })
+  of "withdrawal":
+    ok({
+      ValidatorFilterKind.WithdrawalPossible,
+      ValidatorFilterKind.WithdrawalDone
+    })
+  else:
+    err("Incorrect validator state identifier value")

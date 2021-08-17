@@ -14,7 +14,7 @@
 import
   stew/results,
   # Specs
-  ../../beacon_chain/spec/[beaconstate, forkedbeaconstate_helpers, helpers],
+  ../../beacon_chain/spec/[beaconstate, forks, helpers],
   ../../beacon_chain/spec/datatypes/base,
   # Mock helpers
   ../mocking/[mock_genesis, mock_attestations, mock_state],

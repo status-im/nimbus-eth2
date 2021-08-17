@@ -14,8 +14,7 @@ import
   ../version, ../beacon_node_common,
   ../networking/[eth2_network, peer_pool],
   ../spec/datatypes/phase0,
-  ../spec/[digest, presets],
-  ./rpc_utils, ./eth2_json_rpc_serialization
+  ./rpc_utils
 
 logScope: topics = "debugapi"
 

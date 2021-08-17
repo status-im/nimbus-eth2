@@ -27,8 +27,7 @@
 import
   std/[macros, intsets, json, strutils, tables],
   stew/[assign2, byteutils], chronicles,
-  json_serialization/types as jsonTypes,
-  ../../ssz/types as sszTypes, ../crypto, ../digest, ../presets
+  json_serialization/types as jsonTypes
 
 import ./base
 export base

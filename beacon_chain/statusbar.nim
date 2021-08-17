@@ -41,7 +41,7 @@ const
 
 func loadFragmentsLayout(contentLayout: string): ContentFragments {.
     raises: [Defect, ValueError].} =
-  result = toSeq(interpolatedFragments(strip contentLayout))
+  toSeq(interpolatedFragments(strip contentLayout))
 
 func loadCellsLayout(cellsLayout: string): seq[StatusBarCell] {.
     raises: [Defect, ValueError].} =

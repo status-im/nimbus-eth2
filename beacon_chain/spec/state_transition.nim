@@ -44,10 +44,16 @@ import
   std/tables,
   chronicles,
   stew/results,
-  ../extras, ../ssz/merkleization, metrics,
-  ./datatypes/[phase0, altair], ./crypto, ./digest, ./helpers, ./signatures, ./validator, ./beaconstate,
-  ./state_transition_block, ./state_transition_epoch, forkedbeaconstate_helpers,
+  metrics,
+  ../extras,
+  ../ssz/merkleization,
+  ./datatypes/[phase0, altair],
+  "."/[
+    helpers, signatures, validator, beaconstate, state_transition_block,
+    state_transition_epoch, forks],
   ../../nbench/bench_lab
+
+export extras, phase0, altair
 
 # TODO why need anything except the first two?
 type Foo = phase0.SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock | phase0.SignedBeaconBlock | altair.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock
@@ -177,7 +183,7 @@ proc maybeUpgradeStateToAltair*(
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.ALTAIR_FORK_EPOCH and
       state.beaconStateFork == forkPhase0:
-    var newState = upgrade_to_altair(state.hbsPhase0.data)
+    var newState = upgrade_to_altair(cfg, state.hbsPhase0.data)
     state = (ref ForkedHashedBeaconState)(
       beaconStateFork: forkAltair,
       hbsAltair: altair.HashedBeaconState(
@@ -427,7 +433,9 @@ proc makeBeaconBlock*(
       attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits:
-        List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits)))
+        List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits),
+      sync_aggregate: SyncAggregate(sync_committee_signature:
+        default(CookedSig).toValidatorSig)))
 
   # TODO sync committees
 

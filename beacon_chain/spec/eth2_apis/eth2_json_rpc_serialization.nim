@@ -29,10 +29,10 @@ import
   json_rpc/jsonmarshal,
 
   # Local modules
-  ../ssz/types,
-  ../spec/[datatypes, crypto, digest]
+  ../../ssz/types,
+  ../datatypes/base
 
-export jsonmarshal, datatypes, crypto, digest
+export jsonmarshal, base
 
 proc toJsonHex(data: openArray[byte]): string =
   # Per the eth2 API spec, hex arrays are printed with leading 0x

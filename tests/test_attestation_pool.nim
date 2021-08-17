@@ -15,14 +15,14 @@ import
   stew/byteutils,
   eth/keys,
   # Internal
-  ../beacon_chain/[beacon_node_types, extras],
+  ../beacon_chain/[beacon_node_types],
   ../beacon_chain/gossip_processing/[gossip_validation],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool],
   ../beacon_chain/ssz/merkleization,
-  ../beacon_chain/spec/[crypto, datatypes, digest, forkedbeaconstate_helpers,
-                        state_transition, helpers, presets],
+  ../beacon_chain/spec/datatypes/phase0,
+  ../beacon_chain/spec/[forks, state_transition, helpers],
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
 
@@ -379,7 +379,7 @@ suite "Attestation pool processing" & preset():
     let
       b1 = addTestBlock(state.data, dag.tail.root, cache)
       b1Add = dag.addRawBlock(quarantine, b1) do (
-          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -392,7 +392,7 @@ suite "Attestation pool processing" & preset():
     let
       b2 = addTestBlock(state.data, b1.root, cache)
       b2Add = dag.addRawBlock(quarantine, b2) do (
-          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -407,7 +407,7 @@ suite "Attestation pool processing" & preset():
     let
       b10 = makeTestBlock(state.data, dag.tail.root, cache)
       b10Add = dag.addRawBlock(quarantine, b10) do (
-          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -422,7 +422,7 @@ suite "Attestation pool processing" & preset():
         graffiti = GraffitiBytes [1'u8, 0, 0, 0 ,0 ,0 ,0 ,0 ,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
       )
       b11Add = dag.addRawBlock(quarantine, b11) do (
-          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -468,7 +468,7 @@ suite "Attestation pool processing" & preset():
     let
       b10 = makeTestBlock(state.data, dag.tail.root, cache)
       b10Add = dag.addRawBlock(quarantine, b10) do (
-          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -482,7 +482,7 @@ suite "Attestation pool processing" & preset():
     # Add back the old block to ensure we have a duplicate error
     let b10_clone = b10 # Assumes deep copy
     let b10Add_clone = dag.addRawBlock(quarantine, b10_clone) do (
-          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -497,7 +497,7 @@ suite "Attestation pool processing" & preset():
     let
       b10 = addTestBlock(state.data, dag.tail.root, cache)
       b10Add = dag.addRawBlock(quarantine, b10) do (
-          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -525,7 +525,7 @@ suite "Attestation pool processing" & preset():
 
         block_root = new_block.root
         let blockRef = dag.addRawBlock(quarantine, new_block) do (
-            blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
+            blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
             epochRef: EpochRef):
           # Callback add to fork choice if valid
           pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
@@ -567,7 +567,7 @@ suite "Attestation pool processing" & preset():
 
     # Add back the old block to ensure we have a duplicate error
     let b10Add_clone = dag.addRawBlock(quarantine, b10_clone) do (
-          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)

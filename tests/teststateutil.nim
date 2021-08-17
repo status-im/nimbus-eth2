@@ -13,8 +13,7 @@ import
   ./helpers/math_helpers,
   ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[
-    crypto, datatypes, forkedbeaconstate_helpers, helpers,
-    presets, state_transition, state_transition_block]
+    forks, helpers, state_transition, state_transition_block]
 
 proc valid_deposit[T](state: var T) =
   const deposit_amount = MAX_EFFECTIVE_BALANCE

@@ -16,11 +16,10 @@ import
   # Standard library
   std/math,
   # Specs
-  ../../beacon_chain/spec/[crypto, presets, state_transition_block],
+  ../../beacon_chain/spec/[state_transition_block],
   ../../beacon_chain/spec/datatypes/base,
   # Internals
   ../../beacon_chain/ssz,
-  ../../beacon_chain/extras,
   # Mock helpers
   ../mocking/[mock_deposits, mock_genesis],
   ../testutil, ../helpers/math_helpers

@@ -14,10 +14,9 @@ import
   # Status internal
   faststreams, streams,
   # Beacon chain internals
-  ../../../beacon_chain/spec/[
-    crypto, state_transition, presets, forkedbeaconstate_helpers, helpers],
+  ../../../beacon_chain/spec/[state_transition, forks, helpers],
   ../../../beacon_chain/spec/datatypes/[phase0, altair],
-  ../../../beacon_chain/[extras, ssz],
+  ../../../beacon_chain/[ssz],
   # Test utilities
   ../../testutil,
   ../fixtures_utils

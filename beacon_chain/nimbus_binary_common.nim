@@ -19,8 +19,10 @@ import
   stew/io2,
 
   # Local modules
-  ./spec/[crypto, helpers], ./spec/datatypes/base, beacon_clock, filepath,
-  ./beacon_node_status, ./networking/eth2_network
+  ./spec/[helpers],
+  ./spec/datatypes/base,
+  "."/[beacon_clock, filepath, beacon_node_status],
+  ./networking/eth2_network
 
 when defined(posix):
   import termios

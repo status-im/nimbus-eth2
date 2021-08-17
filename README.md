@@ -66,7 +66,6 @@ We provide several tools to interact with ETH2 and the data in the beacon chain:
 
 * [ncli](ncli/ncli.nim) - command line tool with pretty printers, SSZ decoders, state transition helpers to interact with Eth2 data structures and functions
 * [ncli_db](ncli/ncli_db.nim) - command line tool to perform surgery on the Nimbus sqlite database
-* [inspector](ncli/inspector.nim) - command line tool for interacting with the peer to peer protocols in eth2
 * [multinet](https://github.com/status-im/nimbus-eth2/tree/master/multinet) - a set of scripts to build and run several Eth2 clients locally
 
 ## For researchers
@@ -150,25 +149,6 @@ prometheus
 The dashboard you need to import in Grafana is "grafana/beacon\_nodes\_Grafana\_dashboard.json".
 
 ![monitoring dashboard](./media/monitoring.png)
-
-### Network inspection
-
-The [inspector tool](./ncli/inspector.nim) can help monitor the libp2p network and the various channels where blocks and attestations are being transmitted, showing message and connectivity metadata. By default, it will monitor all ethereum 2 gossip traffic.
-
-```bash
-. ./env.sh
-# Build inspector for minimal config:
-./env.sh nim c -d:const_preset=minimal -o:build/inspector_minimal ncli/inspector.nim
-
-# Build inspector for mainnet config:
-./env.sh nim c -d:const_preset=mainnet -o:build/inspector_mainnet ncli/inspector.nim
-
-# See available options
-build/inspector_minimal --help
-
-# Connect to a network from eth2 testnet repo bootstrap file - --decode option attempts to decode the messages as well
-build/inspector_minimal --decode -b:$(curl -s https://raw.githubusercontent.com/eth2-clients/eth2-networks/master/nimbus/testnet0/bootstrap_nodes.txt | head -n1)
-```
 
 ### CI setup
 

@@ -108,11 +108,6 @@
 	url = https://github.com/status-im/news.git
 	ignore = untracked
 	branch = status
-[submodule "vendor/nim-prompt"]
-	path = vendor/nim-prompt
-	url = https://github.com/status-im/nim-prompt.git
-	ignore = untracked
-	branch = master
 [submodule "vendor/nim-unicodedb"]
 	path = vendor/nim-unicodedb
 	url = https://github.com/nitely/nim-unicodedb.git

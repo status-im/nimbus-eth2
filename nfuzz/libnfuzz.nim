@@ -3,38 +3,37 @@
 
 import
   stew/ptrops, stew/ranges/ptr_arith, chronicles,
-  ../beacon_chain/extras,
+  ../beacon_chain/spec/datatypes/phase0,
   ../beacon_chain/spec/[
-    beaconstate, crypto, datatypes, digest, forkedbeaconstate_helpers, presets,
-      validator, state_transition, state_transition_block],
+    beaconstate, forks, validator, state_transition, state_transition_block],
   ../beacon_chain/ssz/[merkleization, ssz_serialization]
 
 type
   AttestationInput = object
-    state: BeaconState
+    state: phase0.BeaconState
     attestation: Attestation
   AttesterSlashingInput = object
-    state: BeaconState
+    state: phase0.BeaconState
     attesterSlashing: AttesterSlashing
   BlockInput = object
-    state: BeaconState
-    beaconBlock: SignedBeaconBlock
+    state: phase0.BeaconState
+    beaconBlock: phase0.SignedBeaconBlock
   BlockHeaderInput = BlockInput
   DepositInput = object
-    state: BeaconState
+    state: phase0.BeaconState
     deposit: Deposit
   ProposerSlashingInput = object
-    state: BeaconState
+    state: phase0.BeaconState
     proposerSlashing: ProposerSlashing
   VoluntaryExitInput = object
-    state: BeaconState
+    state: phase0.BeaconState
     exit: SignedVoluntaryExit
   # This and AssertionError are raised to indicate programming bugs
   # A wrapper to allow exception tracking to identify unexpected exceptions
   FuzzCrashError = object of CatchableError
 
 # TODO: change ptr uint to ptr csize_t when available in newer Nim version.
-proc copyState(state: BeaconState, xoutput: ptr byte,
+proc copyState(state: phase0.BeaconState, xoutput: ptr byte,
     xoutput_size: ptr uint): bool {.raises: [FuzzCrashError, Defect].} =
   var resultState =
     try:
@@ -115,7 +114,7 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
       rollback: RollbackForkedHashedProc): auto =
     var
       fhState = (ref ForkedHashedBeaconState)(
-        hbsPhase0: HashedBeaconState(
+        hbsPhase0: phase0.HashedBeaconState(
           data: data.state, root: hash_tree_root(data.state)),
         beaconStateFork: forkPhase0)
       cache = StateCache()

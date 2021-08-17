@@ -14,7 +14,6 @@ import
   # Third-party
   yaml,
   # Beacon chain internals
-  ../../beacon_chain/spec/[crypto, digest],
   ../../beacon_chain/spec/datatypes/phase0,
   ../../beacon_chain/ssz,
   # Status libraries
@@ -48,7 +47,7 @@ type
 # Note this only tracks HashTreeRoot
 # Checking the values against the yaml file is TODO (require more flexible Yaml parser)
 
-proc checkSSZ(T: type SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeRoot) =
+proc checkSSZ(T: type phase0.SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeRoot) =
   # Deserialize into a ref object to not fill Nim stack
   let encoded = snappy.decode(
     readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
@@ -108,10 +107,10 @@ suite "Official - Phase 0 - SSZ consensus objects " & preset():
           of "Attestation": checkSSZ(Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
           of "AttesterSlashing": checkSSZ(AttesterSlashing, path, hash)
-          of "BeaconBlock": checkSSZ(BeaconBlock, path, hash)
-          of "BeaconBlockBody": checkSSZ(BeaconBlockBody, path, hash)
+          of "BeaconBlock": checkSSZ(phase0.BeaconBlock, path, hash)
+          of "BeaconBlockBody": checkSSZ(phase0.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
-          of "BeaconState": checkSSZ(BeaconState, path, hash)
+          of "BeaconState": checkSSZ(phase0.BeaconState, path, hash)
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
           of "Deposit": checkSSZ(Deposit, path, hash)
           of "DepositData": checkSSZ(DepositData, path, hash)
@@ -126,7 +125,7 @@ suite "Official - Phase 0 - SSZ consensus objects " & preset():
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
             checkSSZ(SignedAggregateAndProof, path, hash)
-          of "SignedBeaconBlock": checkSSZ(SignedBeaconBlock, path, hash)
+          of "SignedBeaconBlock": checkSSZ(phase0.SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":
             checkSSZ(SignedBeaconBlockHeader, path, hash)
           of "SignedVoluntaryExit": checkSSZ(SignedVoluntaryExit, path, hash)

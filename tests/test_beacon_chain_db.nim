@@ -10,10 +10,8 @@
 import
   std/[algorithm, options, sequtils],
   unittest2,
-  ../beacon_chain/[beacon_chain_db, extras, interop, ssz],
-  ../beacon_chain/spec/[
-    beaconstate, crypto, digest, forkedbeaconstate_helpers, presets,
-    state_transition],
+  ../beacon_chain/[beacon_chain_db, interop, ssz],
+  ../beacon_chain/spec/[beaconstate, forks, state_transition],
   ../beacon_chain/spec/datatypes/[phase0, altair],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
   eth/db/kvstore,

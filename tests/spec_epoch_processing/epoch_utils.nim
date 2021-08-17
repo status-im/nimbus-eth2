@@ -8,7 +8,7 @@
 import
   # Specs
   ../../beacon_chain/spec/[
-    forkedbeaconstate_helpers, presets, state_transition, state_transition_epoch],
+    forks, presets, state_transition, state_transition_epoch],
   ../../beacon_chain/spec/datatypes/base
 
 proc processSlotsUntilEndCurrentEpoch(state: var ForkedHashedBeaconState) =

@@ -13,9 +13,8 @@ import
   strformat,
   options, sequtils, random, tables,
   ../tests/testblockutil,
-  ../beacon_chain/spec/[
-   beaconstate, crypto, datatypes, digest, forkedbeaconstate_helpers, helpers],
-  ../beacon_chain/extras,
+  ../beacon_chain/spec/datatypes/phase0,
+  ../beacon_chain/spec/[beaconstate, forks, helpers],
   ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
@@ -56,7 +55,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
-    signedBlock: SignedBeaconBlock
+    signedBlock: phase0.SignedBeaconBlock
     cache = StateCache()
 
   proc maybeWrite(last: bool) =

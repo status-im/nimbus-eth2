@@ -7,15 +7,16 @@
 
 import
   chronicles,
-  ../beacon_chain/[beacon_chain_db, extras],
+  ../beacon_chain/[beacon_chain_db],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
-  ../beacon_chain/spec/[beaconstate, digest],
+  ../beacon_chain/spec/datatypes/phase0,
+  ../beacon_chain/spec/[beaconstate],
   eth/db/[kvstore, kvstore_sqlite3],
   ./testblockutil
 
 export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 
-proc makeTestDB*(tailState: var BeaconState, tailBlock: TrustedSignedBeaconBlock): BeaconChainDB =
+proc makeTestDB*(tailState: var phase0.BeaconState, tailBlock: phase0.TrustedSignedBeaconBlock): BeaconChainDB =
   result = BeaconChainDB.new("", inMemory = true)
   ChainDAGRef.preInit(result, tailState, tailState, tailBlock)
 

@@ -8,6 +8,7 @@
 {.used.}
 
 import
+  std/strutils,
   unittest2,
   ../beacon_chain/spec/crypto,
   ../beacon_chain/spec/datatypes/base,
@@ -19,25 +20,13 @@ import
 # don't blow up.
 
 suite "Zero signature sanity checks":
-  # Using signature directly triggers a bug
-  # in object_serialization/stew: https://github.com/status-im/nimbus-eth2/issues/396
-
-  # test "SSZ serialization round-trip doesn't un-zero the signature":
-
-  #   let zeroSig = BlsValue[Signature](kind: OpaqueBlob)
-  #   check:
-  #     block:
-  #       var allZeros = true
-  #       for val in zeroSig.blob:
-  #         allZeros = allZeros and val == 0
-  #       allZeros
-
-  #   let sszZeroSig = SSZ.encode(zeroSig)
-  #   let deserZeroSig = SSZ.decode(sszZeroSig, ValidatorSig)
-
-  #   check(zeroSIg == deserZeroSig)
+  # See:
+  # - https://github.com/ethereum/eth2.0-specs/issues/1713
+  # - https://github.com/status-im/nimbus-eth2/pull/2733
 
   test "SSZ serialization roundtrip of SignedBeaconBlockHeader":
+    # For the Genesis block only
+    # - https://github.com/status-im/nimbus-eth2/issues/396
 
     let defaultBlockHeader = SignedBeaconBlockHeader()
 
@@ -53,3 +42,22 @@ suite "Zero signature sanity checks":
       SSZ.decode(sszDefaultBlockHeader, SignedBeaconBlockHeader)
 
     check(defaultBlockHeader == deserBlockHeader)
+
+  test "default initialization of signatures":
+    block:
+      let sig = default(CookedSig)
+      doAssert sig.toValidatorSig().toHex() == "c" & '0'.repeat(191)
+
+    block:
+      let sig = AggregateSignature()
+      doAssert sig.toHex() == "c" & '0'.repeat(191)
+
+    block:
+      let sig = ValidatorSig()
+      doAssert sig.toHex() == '0'.repeat(192)
+
+  test "Zero signatures cannot be loaded into a BLS signature object":
+
+    let zeroSig = ValidatorSig()
+    let s = zeroSig.load()
+    check: s.isNone()

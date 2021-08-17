@@ -10,7 +10,7 @@
 
 import
   # Specs
-  ../../beacon_chain/spec/[forkedbeaconstate_helpers, presets, state_transition],
+  ../../beacon_chain/spec/[forks, presets, state_transition],
   ../../beacon_chain/spec/datatypes/base
 
 proc nextEpoch*(state: var ForkedHashedBeaconState) =

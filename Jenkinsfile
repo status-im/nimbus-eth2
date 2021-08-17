@@ -44,17 +44,30 @@ def runStages() {
 			sh "make -j${env.NPROC} DISABLE_TEST_FIXTURES_SCRIPT=1 test"
 		}
 
+		stage("REST test suite") {
+			sh """#!/bin/bash
+			set -e
+			./tests/simulation/restapi.sh --data-dir resttest0_data --base-port \$(( 9100 + EXECUTOR_NUMBER * 100 )) \
+				--base-rest-port \$(( 7100 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \
+				\$(( 8108 + EXECUTOR_NUMBER * 100 )) --sleep-timeout 30 --kill-old-processes
+			"""
+		}
+
 		stage("Testnet finalization") {
 			// EXECUTOR_NUMBER will be 0 or 1, since we have 2 executors per Jenkins node
 			sh """#!/bin/bash
 			set -e
-			./scripts/launch_local_testnet.sh --preset minimal --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --data-dir local_testnet0_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port \$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) --timeout 600 -- --verify-finalization --discv5:no
-			./scripts/launch_local_testnet.sh --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --data-dir local_testnet1_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port \$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) --timeout 2400 -- --verify-finalization --discv5:no
+			./scripts/launch_local_testnet.sh --preset minimal --nodes 4 --stop-at-epoch 5 --disable-htop --enable-logtrace \
+				--data-dir local_testnet0_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port \
+				\$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) --timeout 600 \
+				--kill-old-processes \
+				-- --verify-finalization --discv5:no
+			./scripts/launch_local_testnet.sh --nodes 4 --stop-at-epoch 5 --disable-htop --enable-logtrace \
+				--data-dir local_testnet1_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port \
+				\$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) --timeout 2400 \
+				--kill-old-processes \
+				-- --verify-finalization --discv5:no
 			"""
-		}
-
-		stage("REST test suite") {
-			sh "./tests/simulation/restapi.sh --data-dir resttest0_data --base-port \$(( 9100 + EXECUTOR_NUMBER * 100 )) --base-rest-port \$(( 7100 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8108 + EXECUTOR_NUMBER * 100 )) --sleep-timeout 30"
 		}
 	} catch(e) {
 		// we need to rethrow the exception here

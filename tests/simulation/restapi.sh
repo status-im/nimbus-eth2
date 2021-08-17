@@ -8,6 +8,7 @@ BASE_METRICS_PORT="48008"
 BASE_REST_PORT="47000"
 TIMEOUT_DURATION="30"
 TEST_DIRNAME="resttest0_data"
+KILL_OLD_PROCESSES="0"
 
 ####################
 # argument parsing #
@@ -27,7 +28,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="h"
-LONGOPTS="help,data-dir:,base-port:,base-rest-port:,base-metrics-port:,sleep-timeout:"
+LONGOPTS="help,data-dir:,base-port:,base-rest-port:,base-metrics-port:,sleep-timeout:,kill-old-processes"
 
 print_help() {
   cat <<EOF
@@ -39,6 +40,7 @@ Usage: $(basename "$0") [OPTIONS] -- [BEACON NODE OPTIONS]
   --base-rest-port            bootstrap node's REST port (default: ${BASE_REST_PORT})
   --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
   --sleep-timeout             timeout in seconds (default: ${TIMEOUT_DURATION} seconds)
+  --kill-old-processes        if any process is found listening on a port we use, kill it (default: disabled)
 EOF
 }
 
@@ -76,6 +78,10 @@ while true; do
       TIMEOUT_DURATION="$2"
       shift 2
       ;;
+    --kill-old-processes)
+      KILL_OLD_PROCESSES="1"
+      shift
+      ;;
     --)
       shift
       break
@@ -88,7 +94,6 @@ while true; do
 done
 
 NUM_VALIDATORS=${VALIDATORS:-32}
-TOTAL_NODES=${NODES:-1}
 GIT_ROOT="$(git rev-parse --show-toplevel)"
 TEST_DIR="${TEST_DIRNAME}"
 LOG_NODE_FILE="${TEST_DIR}/node_log.txt"
@@ -110,11 +115,14 @@ MKDIR_SCRIPT="${GIT_ROOT}/scripts/makedir.sh"
 
 $MKDIR_SCRIPT "${TEST_DIR}"
 
+HAVE_LSOF=0
+
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
   MAKE="mingw32-make"
 else
   MAKE="make"
+  which lsof &>/dev/null && HAVE_LSOF=1 || { echo "'lsof' not installed and we need it to check for ports already in use. Aborting."; exit 1; }
 fi
 
 # number of CPU cores
@@ -122,6 +130,22 @@ if uname | grep -qi darwin; then
   NPROC="$(sysctl -n hw.logicalcpu)"
 else
   NPROC="$(nproc)"
+fi
+
+# kill lingering processes from a previous run
+if [[ "${HAVE_LSOF}" == "1" ]]; then
+  for PORT in ${BASE_PORT} ${BASE_METRICS_PORT} ${BASE_REST_PORT}; do
+    for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
+      echo -n "Found old process listening on port ${PORT}, with PID ${PID}. "
+      if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
+	echo "Killing it."
+	kill -9 ${PID} || true
+      else
+	echo "Aborting."
+	exit 1
+      fi
+    done
+  done
 fi
 
 build_if_missing () {
@@ -194,7 +218,8 @@ ${NIMBUS_BEACON_NODE_BIN} \
   --metrics-port=${BASE_METRICS_PORT} \
   --rest \
   --rest-address=${REST_ADDRESS} \
-  --rest-port= ${BASE_REST_PORT} \
+  --rest-port=${BASE_REST_PORT} \
+  --discv5=no \
   ${ADDITIONAL_BEACON_NODE_ARGS} \
   "$@" > ${LOG_NODE_FILE} 2>&1 &
 BEACON_NODE_STATUS=$?

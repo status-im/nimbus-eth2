@@ -15,7 +15,7 @@ import
   stew/results,
   # Internal
   ../../beacon_chain/validators/slashing_protection,
-  ../../beacon_chain/spec/[crypto, digest, helpers, presets],
+  ../../beacon_chain/spec/[helpers],
   ../../beacon_chain/spec/datatypes/base,
   # Test utilies
   ../testutil

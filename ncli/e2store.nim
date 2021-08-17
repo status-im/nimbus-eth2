@@ -3,7 +3,7 @@
 import
   stew/[endians2, results],
   snappy, snappy/framing,
-  ../beacon_chain/spec/datatypes,
+  ../beacon_chain/spec/datatypes/phase0,
   ../beacon_chain/ssz/ssz_serialization
 
 const
@@ -79,7 +79,7 @@ proc toCompressedBytes(item: auto): seq[byte] =
   except CatchableError as exc:
     raiseAssert exc.msg # shouldn't happen
 
-proc appendRecord*(store: var E2Store, v: SomeSignedBeaconBlock): Result[void, string] =
+proc appendRecord*(store: var E2Store, v: phase0.TrustedSignedBeaconBlock): Result[void, string] =
   if v.message.slot < store.slot:
     return err("Blocks must be written in order")
   let start = store.data.appendRecord(SnappyBeaconBlock, toCompressedBytes(v)).get()
@@ -91,6 +91,6 @@ proc appendRecord*(store: var E2Store, v: SomeSignedBeaconBlock): Result[void, s
 
   ok()
 
-proc appendRecord*(store: var E2Store, v: BeaconState): Result[void, string] =
+proc appendRecord*(store: var E2Store, v: phase0.BeaconState): Result[void, string] =
   discard ? store.data.appendRecord(SnappyBeaconState, toCompressedBytes(v))
   ok()

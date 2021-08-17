@@ -1,4 +1,4 @@
-import ../beacon_chain/spec/datatypes
+import ../beacon_chain/spec/datatypes/phase0
 
 import typetraits, strformat, strutils
 

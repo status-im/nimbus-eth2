@@ -13,15 +13,13 @@ import
   stew/[byteutils, results],
   # Internal
   ../ssz/merkleization,
-  "."/[
-    crypto, helpers, presets, beaconstate, digest,
-    forkedbeaconstate_helpers],
+  "."/[helpers, beaconstate, forks],
   "."/datatypes/[altair, phase0]
 
 # Otherwise, error.
 import chronicles
 
-export SignatureSet, BatchedBLSVerifierCache, batchVerify, batchVerifySerial, batchVerifyParallel
+export altair, phase0
 
 func `$`*(s: SignatureSet): string =
   "(pubkey: 0x" & s.pubkey.toHex() &

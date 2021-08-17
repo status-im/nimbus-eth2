@@ -9,7 +9,9 @@
 
 import
   std/[typetraits],
-  ../spec/[crypto, digest]
+  ../spec/datatypes/[phase0, altair]
+
+export phase0, altair, typetraits
 
 # Eth2-spec-specific type handling that is not generic to SSZ
 

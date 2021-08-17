@@ -11,15 +11,13 @@ import
   std/[options, sequtils, tables, sets],
   stew/[assign2, byteutils],
   metrics, snappy, chronicles,
-  ../ssz/[ssz_serialization, merkleization], ../beacon_chain_db, ../extras,
-  ../spec/[
-    crypto, digest, helpers, validator, state_transition,
-    beaconstate, forkedbeaconstate_helpers],
+  ../ssz/[ssz_serialization, merkleization],
+  ../spec/[helpers, validator, state_transition, beaconstate, forks],
   ../spec/datatypes/[phase0, altair],
-  ../beacon_clock,
+  ".."/[beacon_clock, beacon_chain_db],
   "."/[block_pools_types, block_quarantine, forkedbeaconstate_dbhelpers]
 
-export block_pools_types, helpers, phase0
+export block_pools_types
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
@@ -404,6 +402,20 @@ proc init*(T: type ChainDAGRef,
     #      would be a good recovery model?
     raiseAssert "No state found in head history, database corrupt?"
 
+  case tmpState.data.beaconStateFork
+  of forkPhase0:
+    if tmpState.data.hbsPhase0.data.fork != genesisFork(cfg):
+      error "State from database does not match network, check --network parameter",
+        stateFork = tmpState.data.hbsPhase0.data.fork,
+        configFork = genesisFork(cfg)
+      quit 1
+  of forkAltair:
+    if tmpState.data.hbsAltair.data.fork != altairFork(cfg):
+      error "State from database does not match network, check --network parameter",
+        stateFork = tmpState.data.hbsAltair.data.fork,
+        configFork = altairFork(cfg)
+      quit 1
+
   let dag = ChainDAGRef(
     blocks: blocks,
     tail: tailRef,
@@ -446,6 +458,10 @@ proc init*(T: type ChainDAGRef,
   # Pruning metadata
   dag.lastPrunePoint = dag.finalizedHead
 
+  # Fill validator key cache in case we're loading an old database that doesn't
+  # have a cache
+  dag.updateValidatorKeys(getStateField(dag.headState.data, validators).asSeq())
+
   info "Block dag initialized",
     head = shortLog(headRef),
     finalizedHead = shortLog(dag.finalizedHead),
@@ -453,6 +469,9 @@ proc init*(T: type ChainDAGRef,
     totalBlocks = blocks.len
 
   dag
+
+template genesisValidatorsRoot*(dag: ChainDAGRef): Eth2Digest =
+  getStateField(dag.headState.data, genesis_validators_root)
 
 func getEpochRef*(
     dag: ChainDAGRef, state: StateData, cache: var StateCache): EpochRef =
@@ -544,8 +563,11 @@ func stateCheckpoint*(bs: BlockSlot): BlockSlot =
     bs = bs.parentOrSlot
   bs
 
-proc forkDigestAtSlot*(dag: ChainDAGRef, slot: Slot): ForkDigest =
-  if slot.epoch < dag.cfg.ALTAIR_FORK_EPOCH:
+template forkAtEpoch*(dag: ChainDAGRef, epoch: Epoch): Fork =
+  forkAtEpoch(dag.cfg, epoch)
+
+proc forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
+  if epoch < dag.cfg.ALTAIR_FORK_EPOCH:
     dag.forkDigests.phase0
   else:
     dag.forkDigests.altair
@@ -1124,10 +1146,12 @@ proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
     return false
 
   let
-    headBlock = db.getBlock(headBlockRoot.get())
+    headBlockPhase0 = db.getBlock(headBlockRoot.get())
+    headBlockAltair = db.getAltairBlock(headBlockRoot.get())
     tailBlock = db.getBlock(tailBlockRoot.get())
 
-  if not (headBlock.isSome() and tailBlock.isSome()):
+  if not ((headBlockPhase0.isSome() or headBlockAltair.isSome()) and
+          tailBlock.isSome()):
     return false
 
   if not db.containsState(tailBlock.get().message.state_root):

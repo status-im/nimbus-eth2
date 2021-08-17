@@ -15,8 +15,8 @@ import
   web3, web3/ethtypes as web3Types, web3/ethhexstrings, eth/common/eth_types,
   eth/async_utils, stew/byteutils,
   # Local modules:
-  ../spec/[digest, crypto, forkedbeaconstate_helpers, helpers],
-  ../spec/datatypes/base,
+  ../spec/[forks, helpers],
+  ../spec/datatypes/[base, merge],
   ../networking/network_metadata,
   ../consensus_object_pools/block_pools_types,
   ../ssz,

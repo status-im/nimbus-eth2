@@ -13,7 +13,7 @@ import
   stew/bitops2,
   # Specs
   ../../beacon_chain/spec/datatypes/base,
-  ../../beacon_chain/spec/forkedbeaconstate_helpers,
+  ../../beacon_chain/spec/forks,
   # Test helpers
   ../mocking/mock_genesis,
   ./epoch_utils,

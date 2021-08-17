@@ -23,9 +23,11 @@ import
   std/[algorithm, intsets, options, sequtils, sets, tables],
   chronicles,
   ../extras, ../ssz/merkleization, metrics,
-  ./beaconstate, ./crypto, ./datatypes/[phase0, altair], ./digest, ./helpers,
-  ./validator, ./signatures, ./presets,
+  ./datatypes/[phase0, altair],
+  "."/[beaconstate, helpers, validator, signatures],
   ../../nbench/bench_lab
+
+export extras, phase0, altair
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
@@ -424,6 +426,12 @@ proc process_sync_aggregate*(
   for i in 0 ..< committee_pubkeys.len:
     if aggregate.sync_committee_bits[i]:
       participant_pubkeys.add committee_pubkeys[i]
+
+  # p2p-interface message validators check for empty sync committees, so it
+  # shouldn't run except as part of test suite.
+  if  participant_pubkeys.len == 0 and
+      aggregate.sync_committee_signature != default(CookedSig).toValidatorSig():
+    return err("process_sync_aggregate: empty sync aggregates need signature of point at infinity")
 
   # Empty participants allowed
   if participant_pubkeys.len > 0 and not blsFastAggregateVerify(

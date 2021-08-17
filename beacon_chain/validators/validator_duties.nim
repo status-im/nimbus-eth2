@@ -20,20 +20,18 @@ import
   eth/keys, eth/p2p/discoveryv5/[protocol, enr],
 
   # Local modules
-  ../spec/[
-    datatypes/phase0, datatypes/altair, digest, crypto,
-    forkedbeaconstate_helpers, helpers, network, signatures, state_transition],
-  ../conf, ../beacon_clock,
+  ../spec/datatypes/[phase0, altair, merge],
+  ../spec/[forks, helpers, network, signatures, state_transition],
   ../consensus_object_pools/[
-    spec_cache, blockchain_dag, block_clearance,
-    attestation_pool, exit_pool],
+    spec_cache, blockchain_dag, block_clearance, attestation_pool, exit_pool],
   ../eth1/eth1_monitor,
   ../networking/eth2_network,
-  ".."/[beacon_node_common, beacon_node_types, version],
   ../ssz, ../ssz/sszdump, ../sync/sync_manager,
-  ./slashing_protection, ./attestation_aggregation,
-  ./validator_pool, ./keystore_management,
-  ../gossip_processing/consensus_manager
+  ../gossip_processing/consensus_manager,
+  ".."/[conf, beacon_clock, beacon_node_common, beacon_node_types, version],
+  "."/[
+    slashing_protection, attestation_aggregation, validator_pool,
+    keystore_management]
 
 # Metrics for tracking attestation and beacon block loss
 const delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
@@ -580,6 +578,7 @@ proc broadcastAggregatedAttestations(
       notice "Aggregated attestation sent",
         attestation = shortLog(signedAP.message.aggregate),
         validator = shortLog(curr[0].v),
+        signature = shortLog(signedAP.signature),
         aggregationSlot
 
 proc updateValidatorMetrics*(node: BeaconNode) =

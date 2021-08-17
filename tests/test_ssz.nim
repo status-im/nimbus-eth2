@@ -12,9 +12,9 @@ import
   unittest2,
   nimcrypto/hash,
   json_serialization,
-  ../beacon_chain/spec/digest,
   ../beacon_chain/spec/datatypes/base,
-  ../beacon_chain/ssz, ../beacon_chain/ssz/[navigator, dynamic_navigator]
+  ../beacon_chain/ssz,
+  ../beacon_chain/ssz/[navigator, dynamic_navigator]
 
 type
   SomeEnum = enum

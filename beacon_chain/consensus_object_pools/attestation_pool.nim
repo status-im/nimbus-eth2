@@ -14,13 +14,11 @@ import
   metrics,
   chronicles, stew/byteutils, json_serialization/std/sets as jsonSets,
   # Internal
-  ../spec/[
-    beaconstate, crypto, digest, forkedbeaconstate_helpers,
-    validator],
+  ../spec/[beaconstate, forks, helpers, validator],
   ../spec/datatypes/[phase0, altair],
   ../ssz/[merkleization, types],
   "."/[spec_cache, blockchain_dag, block_quarantine],
-  ".."/[beacon_clock, beacon_node_types, extras],
+  ".."/[beacon_clock, beacon_node_types],
   ../fork_choice/fork_choice
 
 export beacon_node_types
@@ -298,7 +296,7 @@ proc addAttestation*(pool: var AttestationPool,
       return
   do:
     if not addAttestation(
-        pool.candidates[candidateIdx.get()].mGetOrPut(
+        pool.candidates[candidateIdx.get()].mgetOrPut(
           attestation_data_root,
           AttestationEntry(
             data: attestation.data,

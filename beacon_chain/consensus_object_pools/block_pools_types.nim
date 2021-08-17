@@ -14,9 +14,9 @@ import
   stew/endians2, chronicles,
   eth/keys,
   # Internals
-  ../spec/[crypto, digest, signatures_batch, forkedbeaconstate_helpers],
+  ../spec/[signatures_batch, forks],
   ../spec/datatypes/[phase0, altair],
-  ".."/[beacon_chain_db, beacon_clock, extras]
+  ".."/[beacon_chain_db, beacon_clock]
 
 export sets, tables
 
@@ -192,7 +192,6 @@ type
     eth1_deposit_index*: uint64
     beacon_proposers*: array[SLOTS_PER_EPOCH, Option[ValidatorIndex]]
     shuffled_active_validator_indices*: seq[ValidatorIndex]
-
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
 

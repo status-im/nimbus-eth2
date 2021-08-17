@@ -12,7 +12,6 @@ import
   chronicles,
   stew/bitops2,
   eth/keys,
-  ../spec/[crypto, digest],
   ../spec/datatypes/[phase0, altair],
   ./block_pools_types
 

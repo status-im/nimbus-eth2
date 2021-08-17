@@ -42,7 +42,6 @@ TOOLS := \
 	nimbus_beacon_node \
 	deposit_contract \
 	resttest \
-	inspector \
 	logtrace \
 	nbench \
 	nbench_spec_scenarios \

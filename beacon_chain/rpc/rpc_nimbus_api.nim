@@ -14,13 +14,12 @@ import
   json_rpc/servers/httpserver,
   libp2p/protocols/pubsub/pubsubpeer,
 
-  "."/[rpc_utils, eth2_json_rpc_serialization],
   ".."/[
     beacon_node_common, nimbus_binary_common, networking/eth2_network,
     eth1/eth1_monitor, validators/validator_duties],
   ../spec/datatypes/base,
-  ../spec/[digest, forkedbeaconstate_helpers, presets]
-
+  ../spec/[forks],
+  ./rpc_utils
 
 logScope: topics = "nimbusapi"
 

@@ -14,8 +14,7 @@ import
   stew/assign2,
   eth/keys,
   ../beacon_chain/spec/datatypes/base,
-  ../beacon_chain/spec/[
-    digest, forkedbeaconstate_helpers, helpers, state_transition, presets],
+  ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
   ../beacon_chain/beacon_node_types,
   ../beacon_chain/[beacon_chain_db, ssz],
   ../beacon_chain/consensus_object_pools/[
@@ -341,13 +340,14 @@ suite "Block pool processing" & preset():
       tmpState.blck == b1Add[].parent
       getStateField(tmpState.data, slot) == bs1.parent.slot
 
+const nilPhase0Callback = OnPhase0BlockAdded(nil)
+
 suite "chain DAG finalization tests" & preset():
   setup:
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
       quarantine = QuarantineRef.init(keys.newRng())
-      nilPhase0Callback: OnPhase0BlockAdded
       cache = StateCache()
       rewards = RewardInfo()
 
@@ -528,3 +528,39 @@ suite "chain DAG finalization tests" & preset():
       dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
       dag2.finalizedHead.slot == dag.finalizedHead.slot
       hash_tree_root(dag2.headState.data) == hash_tree_root(dag.headState.data)
+
+suite "Old database versions" & preset():
+  setup:
+    let
+      genState = initialize_beacon_state_from_eth1(
+        defaultRuntimeConfig,
+        Eth2Digest(),
+        0,
+        makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),
+        {skipBlsValidation})
+      genBlock = get_initial_beacon_block(genState[])
+      quarantine = QuarantineRef.init(keys.newRng())
+
+  test "pre-1.1.0":
+    # only kvstore, no immutable validator keys
+
+    let db = BeaconChainDB.new("", inMemory = true)
+
+    # preInit a database to a v1.0.12 state
+    db.putStateV0(genBlock.message.state_root, genState[])
+    db.putBlockV0(genBlock)
+    db.putTailBlock(genBlock.root)
+    db.putHeadBlock(genBlock.root)
+    db.putStateRoot(genBlock.root, genState.slot, genBlock.message.state_root)
+    db.putGenesisBlockRoot(genBlock.root)
+
+    var
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
+      state = newClone(dag.headState.data)
+      cache = StateCache()
+      att0 = makeFullAttestations(state[], dag.tail.root, 0.Slot, cache)
+      b1 = addTestBlock(state[], dag.tail.root, cache, attestations = att0)
+      b1Add = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
+
+    check:
+      b1Add.isOk()

@@ -9,7 +9,7 @@
 
 import
   # Std lib
-  std/[typetraits, sequtils, os, algorithm, math, sets, strutils],
+  std/[typetraits, sequtils, os, algorithm, math, sets],
   std/options as stdOptions,
 
   # Status libs
@@ -35,13 +35,10 @@ import
   ".."/[
     version, conf,
     ssz/ssz_serialization, beacon_clock],
-  ../spec/datatypes/base,
-  ../spec/[digest, network, helpers, forkedbeaconstate_helpers],
+  ../spec/datatypes/[phase0, altair],
+  ../spec/[network, helpers, forks],
   ../validators/keystore_management,
   ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
-
-from ../spec/datatypes/phase0 import nil
-from ../spec/datatypes/altair import nil
 
 when chronicles.enabledLogLevel == LogLevel.TRACE:
   import std/sequtils
@@ -346,7 +343,7 @@ proc getPeer*(node: Eth2Node, peerId: PeerID): Peer =
     return peer[]
   do:
     let peer = Peer.init(node, PeerInfo.init(peerId))
-    return node.peers.mGetOrPut(peerId, peer)
+    return node.peers.mgetOrPut(peerId, peer)
 
 proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerInfo.peerId)
@@ -908,12 +905,12 @@ proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
   ## (forkId) and matching at least one of the attestation subnets.
 
   let eth2Field = SSZ.encode(forkId)
-  let nodes = await d.queryRandom(("eth2", eth2Field))
+  let nodes = await d.queryRandom((enrForkIdField, eth2Field))
 
   var filtered: seq[(int, Node)]
   for n in nodes:
-    if n.record.contains(("eth2", eth2Field)):
-      let res = n.record.tryGet("attnets", seq[byte])
+    if n.record.contains((enrForkIdField, eth2Field)):
+      let res = n.record.tryGet(enrAttestationSubnetsField, seq[byte])
 
       if res.isSome():
         let attnetsNode =
@@ -1110,15 +1107,16 @@ proc getPersistentNetMetadata*(config: BeaconNodeConf): altair.MetaData
                               {.raises: [Defect, IOError, SerializationError].} =
   let metadataPath = config.dataDir / nodeMetadataFilename
   if not fileExists(metadataPath):
-    result = altair.MetaData()
+    var res: altair.MetaData
     for i in 0 ..< ATTESTATION_SUBNET_COUNT:
       # TODO:
       # Persistent (stability) subnets should be stored with their expiration
       # epochs. For now, indicate that we participate in no persistent subnets.
-      result.attnets[i] = false
-    Json.saveFile(metadataPath, result)
+      res.attnets[i] = false
+    Json.saveFile(metadataPath, res)
+    res
   else:
-    result = Json.loadFile(metadataPath, altair.MetaData)
+    Json.loadFile(metadataPath, altair.MetaData)
 
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
@@ -1283,7 +1281,10 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf,
     forkDigests: forkDigests,
     discovery: Eth2DiscoveryProtocol.new(
       config, ip, tcpPort, udpPort, privKey,
-      {"eth2": SSZ.encode(enrForkId), "attnets": SSZ.encode(metadata.attnets)},
+      {
+        enrForkIdField: SSZ.encode(enrForkId),
+        enrAttestationSubnetsField: SSZ.encode(metadata.attnets)
+      },
     rng),
     discoveryEnabled: discovery,
     rng: rng,
@@ -1703,7 +1704,6 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
       pubKey = privKey.getKey().expect("working public key from random")
     NetKeyPair(seckey: privKey, pubkey: pubKey)
 
-
 func gossipId(data: openArray[byte], topic: string, valid: bool): seq[byte] =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#topics-and-messages
@@ -1763,16 +1763,11 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      netKeys: NetKeyPair,
                      cfg: RuntimeConfig,
                      forkDigests: ForkDigestsRef,
+                     wallEpoch: Epoch,
                      genesisValidatorsRoot: Eth2Digest): Eth2Node
                     {.raises: [Defect, CatchableError].} =
-  var
-    enrForkId = getENRForkID(
-      # TODO altair-transition
-      # This function should gain an extra argument specifying
-      # whether the client head state is already past the Altair
-      # migration point.
-      cfg.GENESIS_FORK_VERSION,
-      genesisValidatorsRoot)
+  let
+    enrForkId = getENRForkID(cfg, wallEpoch, genesisValidatorsRoot)
 
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(
       config.nat, config.listenAddress, config.tcpPort, config.udpPort, clientId)
@@ -1839,7 +1834,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                 maddress = MultiAddress.init(s).tryGet()
                 mpeerId = maddress[multiCodec("p2p")].tryGet()
                 peerId = PeerID.init(mpeerId.protoAddress().tryGet()).tryGet()
-              res.mGetOrPut(peerId, @[]).add(maddress)
+              res.mgetOrPut(peerId, @[]).add(maddress)
               info "Adding priviledged direct peer", peerId, address = maddress
           res
     )
@@ -2004,27 +1999,26 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   except IOError as exc:
     raiseAssert exc.msg # TODO in-memory compression shouldn't fail
 
-proc subscribeAttestationSubnets*(
-    node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT]) {.
-    raises: [Defect, CatchableError].} =
+proc subscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT],
+                                  forkDigest: ForkDigest)
+                                 {.raises: [Defect, CatchableError].} =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # nimbus won't score attestation subnets for now, we just rely on block and aggregate which are more stabe and reliable
 
   for subnet_id, enabled in subnets:
     if enabled:
       node.subscribe(getAttestationTopic(
-        node.forkID.fork_digest, SubnetId(subnet_id)), TopicParams.init()) # don't score attestation subnets for now
+        forkDigest, SubnetId(subnet_id)), TopicParams.init()) # don't score attestation subnets for now
 
-proc unsubscribeAttestationSubnets*(
-    node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT]) {.
-    raises: [Defect, CatchableError].} =
+proc unsubscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT],
+                                    forkDigest: ForkDigest)
+                                   {.raises: [Defect, CatchableError].} =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # nimbus won't score attestation subnets for now, we just rely on block and aggregate which are more stabe and reliable
 
   for subnet_id, enabled in subnets:
     if enabled:
-      node.unsubscribe(getAttestationTopic(
-        node.forkID.fork_digest, SubnetId(subnet_id)))
+      node.unsubscribe(getAttestationTopic(forkDigest, SubnetId(subnet_id)))
 
 proc updateStabilitySubnetMetadata*(
     node: Eth2Node, attnets: BitArray[ATTESTATION_SUBNET_COUNT]) =
@@ -2034,14 +2028,41 @@ proc updateStabilitySubnetMetadata*(
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
-  let res = node.discovery.updateRecord(
-    {"attnets": SSZ.encode(node.metadata.attnets)})
+  let res = node.discovery.updateRecord({
+    enrAttestationSubnetsField: SSZ.encode(node.metadata.attnets)
+  })
   if res.isErr():
     # This should not occur in this scenario as the private key would always
     # be the correct one and the ENR will not increase in size.
-    warn "Failed to update record on subnet cycle", error = res.error
+    warn "Failed to update the ENR attnets field", error = res.error
   else:
     debug "Stability subnets changed; updated ENR attnets", attnets
+
+proc updateSyncnetsMetadata*(
+    node: Eth2Node, syncnets: BitArray[altair.SYNC_COMMITTEE_SUBNET_COUNT]) =
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/validator.md#sync-committee-subnet-stability
+  node.metadata.seq_number += 1
+  node.metadata.syncnets = syncnets
+
+  let res = node.discovery.updateRecord({
+    enrSyncSubnetsField: SSZ.encode(node.metadata.syncnets)
+  })
+  if res.isErr():
+    # This should not occur in this scenario as the private key would always
+    # be the correct one and the ENR will not increase in size.
+    warn "Failed to update the ENR syncnets field", error = res.error
+  else:
+    debug "Sync committees changed; updated ENR syncnets", syncnets
+
+proc updateForkId*(node: Eth2Node, value: ENRForkID) =
+  node.forkId = value
+  let res = node.discovery.updateRecord({enrForkIdField: SSZ.encode value})
+  if res.isErr():
+    # This should not occur in this scenario as the private key would always
+    # be the correct one and the ENR will not increase in size.
+    warn "Failed to update the ENR fork id", value, error = res.error
+  else:
+    debug "ENR fork id changed", value
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 func getStabilitySubnetLength*(node: Eth2Node): uint64 =

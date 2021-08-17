@@ -44,7 +44,7 @@ jobs:
           # - os: windows
           #   cpu: amd64
           #   TEST_KIND: finalization-minimal
-          # # TODO - Bootstrap issue: https://github.com/status-im/nim-beacon-chain/issues/1725
+          # # TODO - Bootstrap issue: https://github.com/status-im/nimbus-eth2/issues/1725
           # # - os: windows
           # #   cpu: i386
           # #   TEST_KIND: finalization-minimal
@@ -62,7 +62,7 @@ jobs:
           # - os: windows
           #   cpu: amd64
           #   TEST_KIND: finalization-mainnet
-          # # TODO - Bootstrap issue: https://github.com/status-im/nim-beacon-chain/issues/1725
+          # # TODO - Bootstrap issue: https://github.com/status-im/nimbus-eth2/issues/1725
           # # - os: windows
           # #   cpu: i386
           # #   TEST_KIND: finalization-mainnet
@@ -102,10 +102,10 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - name: Checkout nim-beacon-chain
+      - name: Checkout nimbus-eth2
         uses: actions/checkout@v2
         with:
-          path: nim-beacon-chain
+          path: nimbus-eth2
 
       - name: Derive environment variables
         shell: bash
@@ -166,7 +166,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: external/mingw-${{ matrix.target.cpu }}
-          key: 'mingw-${{ matrix.target.cpu }}'
+          key: 'mingw-${{ matrix.target.cpu }}-cachekey_v2'
 
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
@@ -183,7 +183,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p external
-          curl -L "https://nim-lang.org/download/mingw$ARCH-6.3.0.7z" -o "external/mingw-${{ matrix.target.cpu }}.7z"
+          curl -L "https://nim-lang.org/download/mingw$ARCH.7z" -o "external/mingw-${{ matrix.target.cpu }}.7z"
           7z x -y "external/mingw-${{ matrix.target.cpu }}.7z" -oexternal/
           mv external/mingw$ARCH external/mingw-${{ matrix.target.cpu }}
 
@@ -226,12 +226,12 @@ jobs:
         id: nim-cache
         uses: actions/cache@v2
         with:
-          path: nim-beacon-chain/NimBinaries
+          path: nimbus-eth2/NimBinaries
           key: 'nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
 
       - name: Build Nim and Nimbus dependencies
         shell: bash
-        working-directory: nim-beacon-chain
+        working-directory: nimbus-eth2
         run: |
           if [[ "${{ runner.os }}" == "macOS" ]]; then
             ulimit -n 1024
@@ -254,7 +254,7 @@ jobs:
         id: fixtures-cache
         uses: actions/cache@v2
         with:
-          path: nim-beacon-chain/fixturesCache
+          path: nimbus-eth2/fixturesCache
           key: 'eth2-scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
 
       # Important: even with a cache hit, this should be run
@@ -262,24 +262,24 @@ jobs:
       - name: Get the Ethereum Foundation fixtures
         if: matrix.target.TEST_KIND == 'unit-tests'
         shell: bash
-        working-directory: nim-beacon-chain
+        working-directory: nimbus-eth2
         run: |
           scripts/setup_official_tests.sh fixturesCache
 
       - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
         if: matrix.target.TEST_KIND == 'unit-tests'
         shell: bash
-        working-directory: nim-beacon-chain
+        working-directory: nimbus-eth2
         run: |
           if [[ "${{ runner.os }}" == "macOS" ]]; then
             ulimit -n 1024
           fi
           make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" nimbus_beacon_node nimbus_validator_client
 
-      - name: Run nim-beacon-chain tests
+      - name: Run nimbus-eth2 tests
         if: matrix.target.TEST_KIND == 'unit-tests'
         shell: bash
-        working-directory: nim-beacon-chain
+        working-directory: nimbus-eth2
         run: |
           if [[ "${{ runner.os }}" == "macOS" ]]; then
             ulimit -n 1024
@@ -292,14 +292,14 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
-          path: nim-beacon-chain/build/*.xml
+          path: nimbus-eth2/build/*.xml
 
       # Linux
       - name: Publish Unit Test Results
         uses: EnricoMi/publish-unit-test-result-action@v1
         if: always() && matrix.target.TEST_KIND == 'unit-tests' && runner.os == 'Linux'
         with:
-          files: nim-beacon-chain/build/*.xml
+          files: nimbus-eth2/build/*.xml
           check_name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
           comment_mode: off
 
@@ -308,21 +308,21 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action/composite@v1
         if: always() && matrix.target.TEST_KIND == 'unit-tests' && runner.os != 'Linux'
         with:
-          files: nim-beacon-chain/build/*.xml
+          files: nimbus-eth2/build/*.xml
           check_name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
           comment_mode: off
 
-      - name: Run nim-beacon-chain testnet0 (minimal)
+      - name: Run nimbus-eth2 testnet0 (minimal)
         if: matrix.target.TEST_KIND == 'finalization-minimal'
         shell: bash
-        working-directory: nim-beacon-chain
+        working-directory: nimbus-eth2
         run: |
           ./scripts/launch_local_testnet.sh --preset minimal --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port 9000 --base-rpc-port 7000  --base-metrics-port 8008 --timeout 600 -- --verify-finalization --discv5:no
 
-      - name: Run nim-beacon-chain testnet1 (mainnet)
+      - name: Run nimbus-eth2 testnet1 (mainnet)
         if: matrix.target.TEST_KIND == 'finalization-mainnet'
         shell: bash
-        working-directory: nim-beacon-chain
+        working-directory: nimbus-eth2
         run: |
           ./scripts/launch_local_testnet.sh --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port 9000 --base-rpc-port 7000 --base-metrics-port 8008 --timeout 2400 -- --verify-finalization --discv5:no
 

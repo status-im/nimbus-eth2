@@ -13,7 +13,7 @@ import
   # Status libraries
   stew/results, chronicles,
   # Internal
-  ../spec/[beaconstate, digest, helpers],
+  ../spec/[beaconstate, helpers],
   ../spec/datatypes/[phase0, altair],
   # Fork choice
   ./fork_choice_types, ./proto_array,

@@ -20,11 +20,10 @@ import
   confutils, chronicles, eth/db/kvstore_sqlite3,
   eth/keys,
   ../tests/testblockutil,
-  ../beacon_chain/spec/[beaconstate, crypto, digest,
-                        forkedbeaconstate_helpers, presets,
-                        helpers, signatures, state_transition],
+  ../beacon_chain/spec/[
+    beaconstate, forks, helpers, signatures, state_transition],
   ../beacon_chain/spec/datatypes/[phase0, altair],
-  ../beacon_chain/[beacon_node_types, beacon_chain_db, extras],
+  ../beacon_chain/[beacon_node_types, beacon_chain_db],
   ../beacon_chain/eth1/eth1_monitor,
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine,
@@ -40,7 +39,7 @@ type Timers = enum
   tAttest = "Have committee attest to block"
   tReplay = "Replay all produced blocks"
 
-proc gauss(r: var Rand; mu = 0.0; sigma = 1.0): float =
+func gauss(r: var Rand; mu = 0.0; sigma = 1.0): float =
   # TODO This is present in Nim 1.4
   const K = sqrt(2 / E)
   var
@@ -50,7 +49,7 @@ proc gauss(r: var Rand; mu = 0.0; sigma = 1.0): float =
     a = rand(r, 1.0)
     b = (2.0 * rand(r, 1.0) - 1.0) * K
     if  b * b <= -4.0 * a * a * ln(a): break
-  result = mu + sigma * (b / a)
+  mu + sigma * (b / a)
 
 # TODO confutils is an impenetrable black box. how can a help text be added here?
 cli do(slots = SLOTS_PER_EPOCH * 6,

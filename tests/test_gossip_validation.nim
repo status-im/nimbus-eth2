@@ -10,17 +10,17 @@
 import
   # Status lib
   unittest2,
-  chronicles, chronos,
+  chronicles,
   eth/keys,
   # Internal
-  ../beacon_chain/[beacon_node_types, extras, beacon_clock],
+  ../beacon_chain/[beacon_node_types, beacon_clock],
   ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool],
   ../beacon_chain/ssz/merkleization,
-  ../beacon_chain/spec/[crypto, datatypes, digest, forkedbeaconstate_helpers,
-                        state_transition, helpers, presets, network],
+  ../beacon_chain/spec/datatypes/phase0,
+  ../beacon_chain/spec/[forks, state_transition, helpers, network],
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
 
@@ -56,7 +56,7 @@ suite "Gossip validation " & preset():
         dag.headState.data, dag.head.root, cache,
         int(SLOTS_PER_EPOCH * 5), false):
       let added = dag.addRawBlock(quarantine, blck) do (
-          blckRef: BlockRef, signedBlock: TrustedSignedBeaconBlock,
+          blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)

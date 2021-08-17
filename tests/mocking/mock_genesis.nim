@@ -10,13 +10,14 @@
 
 import
   # Specs
-  ../../beacon_chain/spec/[datatypes, beaconstate, presets],
+  ../../beacon_chain/spec/datatypes/phase0,
+  ../../beacon_chain/spec/[beaconstate],
   # Internals
   ../../beacon_chain/interop,
   # Mocking procs
   ./mock_deposits
 
-proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): HashedBeaconState =
+proc initGenesisState*(num_validators: uint64, genesis_time: uint64 = 0): phase0.HashedBeaconState =
   let deposits = mockGenesisBalancedDeposits(
       validatorCount = num_validators,
       amountInEth = 32, # We create canonical validators with 32 Eth

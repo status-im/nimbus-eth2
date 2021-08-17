@@ -1,8 +1,8 @@
 import
   strutils,
   json_serialization/std/[sets, net], serialization/errors,
-  ../spec/datatypes/base,
-  ../spec/[crypto, digest, eth2_apis/beacon_rpc_client],
+  ../spec/datatypes/[base, merge],
+  ../spec/eth2_apis/rpc_beacon_client,
   json_rpc/[client, jsonmarshal]
 
 from os import DirSep, AltSep

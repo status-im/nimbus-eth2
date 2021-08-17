@@ -7,14 +7,14 @@
 import validator_client/[common, fallback_service, duties_service,
                          attestation_service, fork_service]
 
-proc initGenesis*(vc: ValidatorClientRef): Future[RestBeaconGenesis] {.async.} =
+proc initGenesis*(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
   info "Initializing genesis", nodes_count = len(vc.beaconNodes)
   var nodes = vc.beaconNodes
   while true:
-    var pending: seq[Future[RestResponse[DataRestBeaconGenesis]]]
+    var pending: seq[Future[RestResponse[GetGenesisResponse]]]
     for node in nodes:
       debug "Requesting genesis information", endpoint = node
-      pending.add(node.client.getBeaconGenesis())
+      pending.add(node.client.getGenesis())
 
     try:
       await allFutures(pending)
@@ -24,7 +24,7 @@ proc initGenesis*(vc: ValidatorClientRef): Future[RestBeaconGenesis] {.async.} =
 
     let (errorNodes, genesisList) =
       block:
-        var gres: seq[RestBeaconGenesis]
+        var gres: seq[RestGenesis]
         var bres: seq[BeaconNodeServerRef]
         for i in 0 ..< len(pending):
           let fut = pending[i]
@@ -60,7 +60,7 @@ proc initGenesis*(vc: ValidatorClientRef): Future[RestBeaconGenesis] {.async.} =
       nodes = errorNodes
     else:
       # Boyer-Moore majority vote algorithm
-      var melem: RestBeaconGenesis
+      var melem: RestGenesis
       var counter = 0
       for item in genesisList:
         if counter == 0:

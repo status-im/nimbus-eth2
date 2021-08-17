@@ -11,10 +11,10 @@ import
   presto,
   libp2p/[multiaddress, multicodec],
   libp2p/protocols/pubsub/pubsubpeer,
-  ./eth2_json_rest_serialization, ./rest_utils,
+  ./rest_utils,
   ../eth1/eth1_monitor,
   ../validators/validator_duties,
-  ../spec/forkedbeaconstate_helpers,
+  ../spec/forks,
   ../beacon_node_common, ../nimbus_binary_common
 
 logScope: topics = "rest_nimbusapi"

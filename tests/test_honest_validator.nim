@@ -3,8 +3,8 @@
 import
   unittest2,
   ./testutil,
-  ../beacon_chain/spec/[crypto, network],
-  ../beacon_chain/spec/datatypes/base,
+  ../beacon_chain/spec/network,
+  ../beacon_chain/spec/datatypes/[base, altair],
   ../beacon_chain/validators/attestation_aggregation
 
 suite "Honest validator":
@@ -17,6 +17,7 @@ suite "Honest validator":
       getProposerSlashingsTopic(forkDigest) == "/eth2/00000000/proposer_slashing/ssz"
       getAttesterSlashingsTopic(forkDigest) == "/eth2/00000000/attester_slashing/ssz"
       getAggregateAndProofsTopic(forkDigest) == "/eth2/00000000/beacon_aggregate_and_proof/ssz"
+      getSyncCommitteeContributionAndProofTopic(forkDigest) == "/eth2/00000000/sync_committee_contribution_and_proof/ssz"
 
   test "Mainnet attestation topics":
     check:
@@ -60,6 +61,12 @@ suite "Honest validator":
         "/eth2/00000000/beacon_attestation_62/ssz"
       getAttestationTopic(forkDigest, SubnetId(63)) ==
         "/eth2/00000000/beacon_attestation_63/ssz"
+      getSyncCommitteeTopic(forkDigest, SyncCommitteeIndex(0)) ==
+        "/eth2/00000000/sync_committee_0/ssz"
+      getSyncCommitteeTopic(forkDigest, SyncCommitteeIndex(1)) ==
+        "/eth2/00000000/sync_committee_1/ssz"
+      getSyncCommitteeTopic(forkDigest, SyncCommitteeIndex(3)) ==
+        "/eth2/00000000/sync_committee_3/ssz"
 
   test "is_aggregator":
     check:

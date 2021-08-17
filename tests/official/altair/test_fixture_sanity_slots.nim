@@ -12,7 +12,7 @@ import
   # Standard library
   os, strutils,
   # Beacon chain internals
-  ../../../beacon_chain/spec/[forkedbeaconstate_helpers, state_transition],
+  ../../../beacon_chain/spec/[forks, state_transition],
   ../../../beacon_chain/spec/datatypes/altair,
   # Test utilities
   ../../testutil,
@@ -29,14 +29,14 @@ proc runTest(identifier: string) =
   proc `testImpl _ slots _ identifier`() =
     test "Slots - " & identifier:
       var
-        preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, BeaconState))
+        preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, altair.BeaconState))
         fhPreState = (ref ForkedHashedBeaconState)(
           hbsAltair: altair.HashedBeaconState(
             data: preState[], root: hash_tree_root(preState[])),
           beaconStateFork: forkAltair)
         cache = StateCache()
         rewards: RewardInfo
-      let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, BeaconState))
+      let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, altair.BeaconState))
 
       check:
         process_slots(

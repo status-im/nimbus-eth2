@@ -1,32 +1,14 @@
 import presto, presto/client as presto_client,
-       libp2p/peerid,
-       stew/[base10, byteutils],
-       faststreams/[outputs],
-       serialization, json_serialization,
        nimcrypto/utils as ncrutils,
-       ../spec/[crypto, datatypes, digest, forkedbeaconstate_helpers],
+       ../spec/[forks],
+       ../spec/eth2_apis/[rest_types, eth2_rest_serialization],
        ../beacon_node_common,
        ../consensus_object_pools/[block_pools_types, blockchain_dag]
-export blockchain_dag, presto, presto_client
+
+export
+  blockchain_dag, presto, presto_client, rest_types, eth2_rest_serialization
 
 const
-  DecimalSet = {'0' .. '9'}
-    # Base10 (decimal) set of chars
-  HexadecimalSet = {'0'..'9', 'A'..'F', 'a'..'f'}
-    # Base16 (hexadecimal) set of chars
-  Base58Set = {'1'..'9', 'A'..'H', 'J'..'N', 'P'..'Z', 'a'..'k', 'm'..'z'}
-    # Base58 set of chars
-  MaxDecimalSize = len($high(uint64))
-    # Maximum size of `uint64` decimal value
-  MaxPeerIdSize = 128
-    # Maximum size of `PeerID` base58 encoded value
-  ValidatorKeySize = RawPubKeySize * 2
-    # Size of `ValidatorPubKey` hexadecimal value (without 0x)
-  ValidatorSigSize = RawSigSize * 2
-    # Size of `ValidatorSig` hexadecimal value (without 0x)
-  RootHashSize = sizeof(Eth2Digest) * 2
-    # Size of `xxx_root` hexadecimal value (without 0x)
-  FarFutureEpochString* = "18446744073709551615"
   MaxEpoch* = compute_epoch_at_slot(not(0'u64))
 
   BlockValidationError* =
@@ -159,68 +141,8 @@ const
     "Not implemented yet"
 
 type
-  ValidatorQueryKind* {.pure.} = enum
-    Index, Key
-
-  RestValidatorIndex* = distinct uint64
-
   ValidatorIndexError* {.pure.} = enum
     UnsupportedValue, TooHighValue
-
-  ValidatorIdent* = object
-    case kind*: ValidatorQueryKind
-    of ValidatorQueryKind.Index:
-      index*: RestValidatorIndex
-    of ValidatorQueryKind.Key:
-      key*: ValidatorPubKey
-
-  ValidatorFilterKind* {.pure.} = enum
-    PendingInitialized, PendingQueued,
-    ActiveOngoing, ActiveExiting, ActiveSlashed,
-    ExitedUnslashed, ExitedSlashed,
-    WithdrawalPossible, WithdrawalDone
-
-  ValidatorFilter* = set[ValidatorFilterKind]
-
-  StateQueryKind* {.pure.} = enum
-    Slot, Root, Named
-
-  StateIdentType* {.pure.} = enum
-    Head, Genesis, Finalized, Justified
-
-  StateIdent* = object
-    case kind*: StateQueryKind
-    of StateQueryKind.Slot:
-      slot*: Slot
-    of StateQueryKind.Root:
-      root*: Eth2Digest
-    of StateQueryKind.Named:
-      value*: StateIdentType
-
-  BlockQueryKind* {.pure.} = enum
-    Slot, Root, Named
-  BlockIdentType* {.pure.} = enum
-    Head, Genesis, Finalized
-
-  BlockIdent* = object
-    case kind*: BlockQueryKind
-    of BlockQueryKind.Slot:
-      slot*: Slot
-    of BlockQueryKind.Root:
-      root*: Eth2Digest
-    of BlockQueryKind.Named:
-      value*: BlockIdentType
-
-  PeerStateKind* {.pure.} = enum
-    Disconnected, Connecting, Connected, Disconnecting
-
-  PeerDirectKind* {.pure.} = enum
-    Inbound, Outbound
-
-  EventTopic* {.pure.} = enum
-    Head, Block, Attestation, VoluntaryExit, FinalizedCheckpoint, ChainReorg
-
-  EventTopics* = set[EventTopic]
 
 func match(data: openarray[char], charset: set[char]): int =
   for ch in data:
@@ -246,228 +168,6 @@ proc validate(key: string, value: string): int =
     0
   else:
     1
-
-proc parseRoot(value: string): Result[Eth2Digest, cstring] =
-  try:
-    ok(Eth2Digest(data: hexToByteArray[32](value)))
-  except ValueError:
-    err("Unable to decode root value")
-
-proc decodeString*(t: typedesc[Slot], value: string): Result[Slot, cstring] =
-  let res = ? Base10.decode(uint64, value)
-  ok(Slot(res))
-
-proc decodeString*(t: typedesc[Epoch], value: string): Result[Epoch, cstring] =
-  let res = ? Base10.decode(uint64, value)
-  ok(Epoch(res))
-
-proc decodeString*(t: typedesc[StateIdent],
-                   value: string): Result[StateIdent, cstring] =
-  if len(value) > 2:
-    if (value[0] == '0') and (value[1] == 'x'):
-      if len(value) != RootHashSize + 2:
-        err("Incorrect state root value length")
-      else:
-        let res = ? parseRoot(value)
-        ok(StateIdent(kind: StateQueryKind.Root, root: res))
-    elif (value[0] in DecimalSet) and (value[1] in DecimalSet):
-      let res = ? Base10.decode(uint64, value)
-      ok(StateIdent(kind: StateQueryKind.Slot, slot: Slot(res)))
-    else:
-      case value
-      of "head":
-        ok(StateIdent(kind: StateQueryKind.Named,
-                      value: StateIdentType.Head))
-      of "genesis":
-        ok(StateIdent(kind: StateQueryKind.Named,
-                      value: StateIdentType.Genesis))
-      of "finalized":
-        ok(StateIdent(kind: StateQueryKind.Named,
-                      value: StateIdentType.Finalized))
-      of "justified":
-        ok(StateIdent(kind: StateQueryKind.Named,
-                      value: StateIdentType.Justified))
-      else:
-        err("Incorrect state identifier value")
-  else:
-    let res = ? Base10.decode(uint64, value)
-    ok(StateIdent(kind: StateQueryKind.Slot, slot: Slot(res)))
-
-proc decodeString*(t: typedesc[BlockIdent],
-                   value: string): Result[BlockIdent, cstring] =
-  if len(value) > 2:
-    if (value[0] == '0') and (value[1] == 'x'):
-      if len(value) != RootHashSize + 2:
-        err("Incorrect block root value length")
-      else:
-        let res = ? parseRoot(value)
-        ok(BlockIdent(kind: BlockQueryKind.Root, root: res))
-    elif (value[0] in DecimalSet) and (value[1] in DecimalSet):
-      let res = ? Base10.decode(uint64, value)
-      ok(BlockIdent(kind: BlockQueryKind.Slot, slot: Slot(res)))
-    else:
-      case value
-        of "head":
-          ok(BlockIdent(kind: BlockQueryKind.Named,
-                        value: BlockIdentType.Head))
-        of "genesis":
-          ok(BlockIdent(kind: BlockQueryKind.Named,
-                        value: BlockIdentType.Genesis))
-        of "finalized":
-          ok(BlockIdent(kind: BlockQueryKind.Named,
-                        value: BlockIdentType.Finalized))
-        else:
-          err("Incorrect block identifier value")
-  else:
-    let res = ? Base10.decode(uint64, value)
-    ok(BlockIdent(kind: BlockQueryKind.Slot, slot: Slot(res)))
-
-proc decodeString*(t: typedesc[ValidatorIdent],
-                   value: string): Result[ValidatorIdent, cstring] =
-  if len(value) > 2:
-    if (value[0] == '0') and (value[1] == 'x'):
-      if len(value) != ValidatorKeySize + 2:
-        err("Incorrect validator's key value length")
-      else:
-        let res = ? ValidatorPubKey.fromHex(value)
-        ok(ValidatorIdent(kind: ValidatorQueryKind.Key,
-                          key: res))
-    elif (value[0] in DecimalSet) and (value[1] in DecimalSet):
-      let res = ? Base10.decode(uint64, value)
-      ok(ValidatorIdent(kind: ValidatorQueryKind.Index,
-                        index: RestValidatorIndex(res)))
-    else:
-      err("Incorrect validator identifier value")
-  else:
-    let res = ? Base10.decode(uint64, value)
-    ok(ValidatorIdent(kind: ValidatorQueryKind.Index,
-                      index: RestValidatorIndex(res)))
-
-proc decodeString*(t: typedesc[PeerID],
-                   value: string): Result[PeerID, cstring] =
-  PeerID.init(value)
-
-proc decodeString*(t: typedesc[CommitteeIndex],
-                   value: string): Result[CommitteeIndex, cstring] =
-  let res = ? Base10.decode(uint64, value)
-  ok(CommitteeIndex(res))
-
-proc decodeString*(t: typedesc[Eth2Digest],
-                   value: string): Result[Eth2Digest, cstring] =
-  if len(value) != RootHashSize + 2:
-    return err("Incorrect root value length")
-  if value[0] != '0' and value[1] != 'x':
-    return err("Incorrect root value encoding")
-  parseRoot(value)
-
-proc decodeString*(t: typedesc[ValidatorFilter],
-                   value: string): Result[ValidatorFilter, cstring] =
-  case value
-  of "pending_initialized":
-    ok({ValidatorFilterKind.PendingInitialized})
-  of "pending_queued":
-    ok({ValidatorFilterKind.PendingQueued})
-  of "active_ongoing":
-    ok({ValidatorFilterKind.ActiveOngoing})
-  of "active_exiting":
-    ok({ValidatorFilterKind.ActiveExiting})
-  of "active_slashed":
-    ok({ValidatorFilterKind.ActiveSlashed})
-  of "exited_unslashed":
-    ok({ValidatorFilterKind.ExitedUnslashed})
-  of "exited_slashed":
-    ok({ValidatorFilterKind.ExitedSlashed})
-  of "withdrawal_possible":
-    ok({ValidatorFilterKind.WithdrawalPossible})
-  of "withdrawal_done":
-    ok({ValidatorFilterKind.WithdrawalDone})
-  of "pending":
-    ok({
-      ValidatorFilterKind.PendingInitialized,
-      ValidatorFilterKind.PendingQueued
-    })
-  of "active":
-    ok({
-      ValidatorFilterKind.ActiveOngoing,
-      ValidatorFilterKind.ActiveExiting,
-      ValidatorFilterKind.ActiveSlashed
-    })
-  of "exited":
-    ok({
-      ValidatorFilterKind.ExitedUnslashed,
-      ValidatorFilterKind.ExitedSlashed
-    })
-  of "withdrawal":
-    ok({
-      ValidatorFilterKind.WithdrawalPossible,
-      ValidatorFilterKind.WithdrawalDone
-    })
-  else:
-    err("Incorrect validator state identifier value")
-
-proc decodeString*(t: typedesc[PeerStateKind],
-                   value: string): Result[PeerStateKind, cstring] =
-  case value
-  of "disconnected":
-    ok(PeerStateKind.Disconnected)
-  of "connecting":
-    ok(PeerStateKind.Connecting)
-  of "connected":
-    ok(PeerStateKind.Connected)
-  of "disconnecting":
-    ok(PeerStateKind.Disconnecting)
-  else:
-    err("Incorrect peer's state value")
-
-proc decodeString*(t: typedesc[PeerDirectKind],
-                   value: string): Result[PeerDirectKind, cstring] =
-  case value
-  of "inbound":
-    ok(PeerDirectKind.Inbound)
-  of "outbound":
-    ok(PeerDirectKind.Outbound)
-  else:
-    err("Incorrect peer's direction value")
-
-proc decodeString*(t: typedesc[EventTopic],
-                   value: string): Result[EventTopic, cstring] =
-  case value
-  of "head":
-    ok(EventTopic.Head)
-  of "block":
-    ok(EventTopic.Block)
-  of "attestation":
-    ok(EventTopic.Attestation)
-  of "voluntary_exit":
-    ok(EventTopic.VoluntaryExit)
-  of "finalized_checkpoint":
-    ok(EventTopic.FinalizedCheckpoint)
-  of "chain_reorg":
-    ok(EventTopic.ChainReorg)
-  else:
-    err("Incorrect event's topic value")
-
-proc decodeString*(t: typedesc[ValidatorSig],
-                   value: string): Result[ValidatorSig, cstring] =
-  if len(value) != ValidatorSigSize + 2:
-    return err("Incorrect validator signature value length")
-  if value[0] != '0' and value[1] != 'x':
-    return err("Incorrect validator signature encoding")
-  ValidatorSig.fromHex(value)
-
-proc decodeString*(t: typedesc[GraffitiBytes],
-                   value: string): Result[GraffitiBytes, cstring] =
-  try:
-    ok(GraffitiBytes.init(value))
-  except ValueError:
-    err("Unable to decode graffiti value")
-
-proc decodeString*(t: typedesc[string],
-                   value: string): Result[string, cstring] =
-  ok(value)
-
-proc getRouter*(): RestRouter =
-  RestRouter.init(validate)
 
 proc getCurrentHead*(node: BeaconNode,
                      slot: Slot): Result[BlockRef, cstring] =
@@ -570,17 +270,5 @@ proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
   else:
     doAssert(false, "ValidatorIndex type size is incorrect")
 
-proc init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
-  StateIdent(kind: StateQueryKind.Named, value: v)
-
-proc init*(t: typedesc[StateIdent], v: Slot): StateIdent =
-  StateIdent(kind: StateQueryKind.Slot, slot: v)
-
-proc init*(t: typedesc[StateIdent], v: Eth2Digest): StateIdent =
-  StateIdent(kind: StateQueryKind.Root, root: v)
-
-proc init*(t: typedesc[ValidatorIdent], v: ValidatorIndex): ValidatorIdent =
-  ValidatorIdent(kind: ValidatorQueryKind.Index, index: RestValidatorIndex(v))
-
-proc init*(t: typedesc[ValidatorIdent], v: ValidatorPubKey): ValidatorIdent =
-  ValidatorIdent(kind: ValidatorQueryKind.Key, key: v)
+proc getRouter*(): RestRouter =
+  RestRouter.init(validate)

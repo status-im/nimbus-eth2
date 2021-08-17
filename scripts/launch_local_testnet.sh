@@ -32,7 +32,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rpc-port:,base-metrics-port:,reuse-existing-data-dir,timeout:"
+LONGOPTS="help,preset:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rpc-port:,base-metrics-port:,reuse-existing-data-dir,timeout:,kill-old-processes"
 
 # default values
 NUM_NODES="10"
@@ -40,7 +40,7 @@ DATA_DIR="local_testnet_data"
 USE_HTOP="1"
 USE_VC="1"
 USE_GANACHE="0"
-LOG_LEVEL="DEBUG"
+LOG_LEVEL="DEBUG; TRACE:networking"
 BASE_PORT="9000"
 BASE_METRICS_PORT="8008"
 BASE_RPC_PORT="7000"
@@ -49,6 +49,7 @@ ENABLE_LOGTRACE="0"
 STOP_AT_EPOCH_FLAG=""
 TIMEOUT_DURATION="0"
 CONST_PRESET="mainnet"
+KILL_OLD_PROCESSES="0"
 
 print_help() {
   cat <<EOF
@@ -68,10 +69,11 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
   --disable-htop              don't use "htop" to see the nimbus_beacon_node processes
   --disable-vc                don't use validator client binaries for validators (by default validators are split 50/50 between beacon nodes and validator clients)
-  --enable-logtrace           display logtrace asr analysis
+  --enable-logtrace           display logtrace aggasr analysis
   --log-level                 set the log level (default: ${LOG_LEVEL})
   --reuse-existing-data-dir   instead of deleting and recreating the data dir, keep it and reuse everything we can from it
   --timeout                   timeout in seconds (default: ${TIMEOUT_DURATION} - no timeout)
+  --kill-old-processes        if any process is found listening on a port we use, kill it (default: disabled)
 EOF
 }
 
@@ -145,6 +147,10 @@ while true; do
       TIMEOUT_DURATION="$2"
       shift 2
       ;;
+    --kill-old-processes)
+      KILL_OLD_PROCESSES="1"
+      shift
+      ;;
     --)
       shift
       break
@@ -181,12 +187,14 @@ mkdir -p "${NETWORK_DIR}"
 
 USER_VALIDATORS=8
 TOTAL_VALIDATORS=128
+HAVE_LSOF=0
 
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
   MAKE="mingw32-make"
 else
   MAKE="make"
+  which lsof &>/dev/null && HAVE_LSOF=1 || { echo "'lsof' not installed and we need it to check for ports already in use. Aborting."; exit 1; }
 fi
 
 # number of CPU cores
@@ -196,14 +204,63 @@ else
   NPROC="$(nproc)"
 fi
 
+# kill lingering processes from a previous run
+if [[ "${HAVE_LSOF}" == "1" ]]; then
+  for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
+    for PORT in $(( BASE_PORT + NUM_NODE )) $(( BASE_METRICS_PORT + NUM_NODE )) $(( BASE_RPC_PORT + NUM_NODE )); do
+      for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
+        echo -n "Found old process listening on port ${PORT}, with PID ${PID}. "
+        if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
+          echo "Killing it."
+          kill -9 ${PID} || true
+        else
+          echo "Aborting."
+          exit 1
+        fi
+      done
+    done
+  done
+fi
+
 # Build the binaries
 BINARIES="nimbus_beacon_node nimbus_signing_process nimbus_validator_client deposit_contract"
 if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
   BINARIES="${BINARIES} logtrace"
 fi
 
-$MAKE -j ${NPROC} LOG_LEVEL="${LOG_LEVEL}" NIMFLAGS="${NIMFLAGS} -d:testnet_servers_image -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
+$MAKE -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:testnet_servers_image -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
 
+# Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
+# instance as the parent and the target process name as a pattern to the
+# "pkill" command.
+cleanup() {
+  pkill -f -P $$ nimbus_beacon_node &>/dev/null || true
+  pkill -f -P $$ nimbus_validator_client &>/dev/null || true
+  sleep 2
+  pkill -f -9 -P $$ nimbus_beacon_node &>/dev/null || true
+  pkill -f -9 -P $$ nimbus_validator_client &>/dev/null || true
+
+  # Delete the binaries we just built, because these are unusable outside this
+  # local testnet.
+  for BINARY in ${BINARIES}; do
+    rm build/${BINARY}
+  done
+}
+trap 'cleanup' SIGINT SIGTERM EXIT
+
+# timeout - implemented with a background job
+timeout_reached() {
+  echo -e "\nTimeout reached. Aborting.\n"
+  cleanup
+}
+trap 'timeout_reached' SIGALRM
+
+if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
+  export PARENT_PID=$$
+  ( sleep ${TIMEOUT_DURATION} && kill -ALRM ${PARENT_PID} ) 2>/dev/null & WATCHER_PID=$!
+fi
+
+# deposit and testnet creation
 PIDS=""
 WEB3_ARG=""
 BOOTSTRAP_TIMEOUT=30 # in seconds
@@ -273,27 +330,15 @@ fi
                                                        # but it can be considered non-critical
 echo Wrote $RUNTIME_CONFIG_FILE:
 
+# TODO the runtime config file should be used during deposit generation as well!
 tee "$RUNTIME_CONFIG_FILE" <<EOF
 PRESET_BASE: ${CONST_PRESET}
 MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${TOTAL_VALIDATORS}
 MIN_GENESIS_TIME: 0
 GENESIS_DELAY: 10
-GENESIS_FORK_VERSION: 0x00000000
 DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
 ETH1_FOLLOW_DISTANCE: 1
 EOF
-
-# Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
-# instance as the parent and the target process name as a pattern to the
-# "pkill" command.
-cleanup() {
-  pkill -f -P $$ nimbus_beacon_node &>/dev/null || true
-  pkill -f -P $$ nimbus_validator_client &>/dev/null || true
-  sleep 2
-  pkill -f -9 -P $$ nimbus_beacon_node &>/dev/null || true
-  pkill -f -9 -P $$ nimbus_validator_client &>/dev/null || true
-}
-trap 'cleanup' SIGINT SIGTERM EXIT
 
 dump_logs() {
   LOG_LINES=20
@@ -306,7 +351,7 @@ dump_logs() {
 
 dump_logtrace() {
   if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
-    find "${DATA_DIR}" -maxdepth 1 -type f -regex '.*/log[0-9]+.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/logtrace asr --log-dir="${DATA_DIR}" || true
+    find "${DATA_DIR}" -maxdepth 1 -type f -regex '.*/log[0-9]+.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/logtrace aggasr --log-dir="${DATA_DIR}" || true
   fi
 }
 
@@ -365,7 +410,10 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
   VALIDATOR_DATA_DIR="${DATA_DIR}/validator${NUM_NODE}"
   if [[ ${NUM_NODE} == ${BOOTSTRAP_NODE} ]]; then
-    BOOTSTRAP_ARG="--netkey-file=${NETWORK_KEYFILE} --insecure-netkey-password=true"
+    # Due to star topology, the bootstrap node must relay all attestations,
+    # even if it itself is not interested. --subscribe-all-subnets could be
+    # removed by switching to a fully-connected topology.
+    BOOTSTRAP_ARG="--netkey-file=${NETWORK_KEYFILE} --insecure-netkey-password=true --subscribe-all-subnets"
   else
     BOOTSTRAP_ARG="--bootstrap-file=${BOOTSTRAP_ENR}"
     # Wait for the master node to write out its address file
@@ -422,23 +470,14 @@ done
 # give the regular nodes time to crash
 sleep 5
 BG_JOBS="$(jobs | wc -l | tr -d ' ')"
+if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
+  BG_JOBS=$(( BG_JOBS - 1 )) # minus the timeout bg job
+fi
 if [[ "$BG_JOBS" != "$NUM_JOBS" ]]; then
   echo "$(( NUM_JOBS - BG_JOBS )) nimbus_beacon_node/nimbus_validator_client instance(s) exited early. Aborting."
   dump_logs
   dump_logtrace
   exit 1
-fi
-
-# timeout - implemented with a background job
-timeout_reached() {
-  echo -e "\nTimeout reached. Aborting.\n"
-  cleanup
-}
-trap 'timeout_reached' SIGALRM
-
-if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
-  export PARENT_PID=$$
-  ( sleep ${TIMEOUT_DURATION} && kill -ALRM ${PARENT_PID} ) 2>/dev/null & WATCHER_PID=$!
 fi
 
 # launch htop or wait for background jobs

@@ -7,13 +7,11 @@
 import
   stew/[endians2, base10],
   presto,
-  rest_utils,
   chronicles,
   nimcrypto/utils as ncrutils,
   ../beacon_node_common, ../eth1/eth1_monitor,
-  ../spec/datatypes/base,
-  ../spec/[digest, forkedbeaconstate_helpers, presets],
-  ./eth2_json_rest_serialization, ./rest_utils
+  ../spec/forks,
+  ./rest_utils
 
 logScope: topics = "rest_config"
 
@@ -180,7 +178,3 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
     "/eth/v1/config/deposit_contract",
     "/api/eth/v1/config/deposit_contract"
   )
-
-proc getConfig*(): RestResponse[DataRestConfig] {.
-     rest, endpoint: "/eth/v1/config/spec", meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Config/getSpec
