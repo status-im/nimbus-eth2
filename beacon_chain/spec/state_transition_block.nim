@@ -166,12 +166,13 @@ proc check_proposer_slashing*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
-    state: var SomeBeaconState, proposer_slashing: SomeProposerSlashing,
-    flags: UpdateFlags, cache: var StateCache):
+    cfg: RuntimeConfig, state: var SomeBeaconState,
+    proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
+    cache: var StateCache):
     Result[void, cstring] {.nbench.} =
   ? check_proposer_slashing(state, proposer_slashing, flags)
   slash_validator(
-    state,
+    cfg, state,
     proposer_slashing.signed_header_1.message.proposer_index.ValidatorIndex,
     cache)
   ok()
@@ -223,11 +224,12 @@ proc check_attester_slashing*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
-       state: var SomeBeaconState,
-       attester_slashing: SomeAttesterSlashing,
-       flags: UpdateFlags,
-       cache: var StateCache
-     ): Result[void, cstring] {.nbench.} =
+    cfg: RuntimeConfig,
+    state: var SomeBeaconState,
+    attester_slashing: SomeAttesterSlashing,
+    flags: UpdateFlags,
+    cache: var StateCache
+    ): Result[void, cstring] {.nbench.} =
   let attester_slashing_validity =
     check_attester_slashing(state, attester_slashing, flags)
 
@@ -235,12 +237,80 @@ proc process_attester_slashing*(
     return err(attester_slashing_validity.error)
 
   for index in attester_slashing_validity.value:
-    slash_validator(state, index, cache)
+    slash_validator(cfg, state, index, cache)
+
+  ok()
+
+proc process_deposit*(cfg: RuntimeConfig,
+                      state: var SomeBeaconState,
+                      deposit: Deposit,
+                      flags: UpdateFlags): Result[void, cstring] {.nbench.} =
+  ## Process an Eth1 deposit, registering a validator or increasing its balance.
+
+  # Verify the Merkle branch
+  if not is_valid_merkle_branch(
+    hash_tree_root(deposit.data),
+    deposit.proof,
+    DEPOSIT_CONTRACT_TREE_DEPTH + 1,  # Add 1 for the `List` length mix-in
+    state.eth1_deposit_index,
+    state.eth1_data.deposit_root,
+  ):
+    return err("process_deposit: deposit Merkle validation failed")
+
+  # Deposits must be processed in order
+  state.eth1_deposit_index += 1
+
+  let
+    pubkey = deposit.data.pubkey
+    amount = deposit.data.amount
+
+  var index = -1
+
+  # This linear scan is unfortunate, but should be fairly fast as we do a simple
+  # byte comparison of the key. The alternative would be to build a Table, but
+  # given that each block can hold no more than 16 deposits, it's slower to
+  # build the table and use it for lookups than to scan it like this.
+  # Once we have a reusable, long-lived cache, this should be revisited
+  for i in 0..<state.validators.len():
+    if state.validators.asSeq()[i].pubkey == pubkey:
+      index = i
+      break
+
+  if index != -1:
+    # Increase balance by deposit amount
+    increase_balance(state, index.ValidatorIndex, amount)
+  else:
+    # Verify the deposit signature (proof of possession) which is not checked
+    # by the deposit contract
+    if skipBLSValidation in flags or verify_deposit_signature(cfg, deposit.data):
+      # New validator! Add validator and balance entries
+      if not state.validators.add(get_validator_from_deposit(deposit.data)):
+        return err("process_deposit: too many validators")
+      if not state.balances.add(amount):
+        static: doAssert state.balances.maxLen == state.validators.maxLen
+        raiseAssert "adding validator succeeded, so should balances"
+
+      when state is altair.BeaconState:
+        if not state.previous_epoch_participation.add(ParticipationFlags(0)):
+          return err("process_deposit: too many validators (previous_epoch_participation)")
+        if not state.current_epoch_participation.add(ParticipationFlags(0)):
+          return err("process_deposit: too many validators (current_epoch_participation)")
+        if not state.inactivity_scores.add(0'u64):
+          return err("process_deposit: too many validators (inactivity_scores)")
+
+      doAssert state.validators.len == state.balances.len
+    else:
+      # Deposits may come with invalid signatures - in that case, they are not
+      # turned into a validator but still get processed to keep the deposit
+      # index correct
+      trace "Skipping deposit with invalid signature",
+        deposit = shortLog(deposit.data)
 
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#voluntary-exits
 proc check_voluntary_exit*(
+    cfg: RuntimeConfig,
     state: SomeBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags): Result[void, cstring] {.nbench.} =
@@ -268,7 +338,7 @@ proc check_voluntary_exit*(
 
   # Verify the validator has been active long enough
   if not (get_current_epoch(state) >= validator[].activation_epoch +
-      SHARD_COMMITTEE_PERIOD):
+      cfg.SHARD_COMMITTEE_PERIOD):
     return err("Exit: not in validator set long enough")
 
   # Verify signature
@@ -293,17 +363,19 @@ proc check_voluntary_exit*(
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
+    cfg: RuntimeConfig,
     state: var SomeBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =
-  ? check_voluntary_exit(state, signed_voluntary_exit, flags)
+  ? check_voluntary_exit(cfg, state, signed_voluntary_exit, flags)
   initiate_validator_exit(
-    state, signed_voluntary_exit.message.validator_index.ValidatorIndex, cache)
+    cfg, state, signed_voluntary_exit.message.validator_index.ValidatorIndex,
+    cache)
   ok()
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#operations
-proc process_operations(preset: RuntimePreset,
+proc process_operations(cfg: RuntimeConfig,
                         state: var SomeBeaconState,
                         body: SomeSomeBeaconBlockBody,
                         flags: UpdateFlags,
@@ -323,27 +395,16 @@ proc process_operations(preset: RuntimePreset,
       body.deposits.lenu64 != req_deposits:
     return err("incorrect number of deposits")
 
-  template do_process_attestation(state, operation, flags, cache: untyped):
-      untyped =
-    process_attestation(
-      state, operation, flags, generalized_base_reward_per_increment, cache)
-
-  template for_ops(operations: auto, fn: auto) =
-    for operation in operations:
-      let res = fn(state, operation, flags, cache)
-      if res.isErr:
-        return res
-
-  for_ops(body.proposer_slashings, process_proposer_slashing)
-  for_ops(body.attester_slashings, process_attester_slashing)
-  for_ops(body.attestations, do_process_attestation)
-
-  for deposit in body.deposits:
-    let res = process_deposit(preset, state, deposit, flags)
-    if res.isErr:
-      return res
-
-  for_ops(body.voluntary_exits, process_voluntary_exit)
+  for op in body.proposer_slashings:
+    ? process_proposer_slashing(cfg, state, op, flags, cache)
+  for op in body.attester_slashings:
+    ? process_attester_slashing(cfg, state, op, flags, cache)
+  for op in body.attestations:
+    ? process_attestation(state, op, flags, generalized_base_reward_per_increment, cache)
+  for op in body.deposits:
+    ? process_deposit(cfg, state, op, flags)
+  for op in body.voluntary_exits:
+    ? process_voluntary_exit(cfg, state, op, flags, cache)
 
   ok()
 
@@ -412,7 +473,7 @@ proc process_sync_aggregate*(
 type SomePhase0Block =
   phase0.BeaconBlock | phase0.SigVerifiedBeaconBlock | phase0.TrustedBeaconBlock
 proc process_block*(
-    preset: RuntimePreset,
+    cfg: RuntimeConfig,
     state: var phase0.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
@@ -422,12 +483,12 @@ proc process_block*(
   ? process_block_header(state, blck, flags, cache)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
-  ? process_operations(preset, state, blck.body, flags, cache)
+  ? process_operations(cfg, state, blck.body, flags, cache)
 
   ok()
 
 proc process_block*(
-    preset: RuntimePreset,
+    cfg: RuntimeConfig,
     state: var altair.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =
   # The transition-triggering block creates, not acts on, an Altair state
@@ -439,7 +500,7 @@ proc process_block*(
 type SomeAltairBlock =
   altair.BeaconBlock | altair.SigVerifiedBeaconBlock | altair.TrustedBeaconBlock
 proc process_block*(
-    preset: RuntimePreset,
+    cfg: RuntimeConfig,
     state: var altair.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
@@ -449,13 +510,13 @@ proc process_block*(
   ? process_block_header(state, blck, flags, cache)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
-  ? process_operations(preset, state, blck.body, flags, cache)
+  ? process_operations(cfg, state, blck.body, flags, cache)
   ? process_sync_aggregate(state, blck.body.sync_aggregate, cache)  # [New in Altair]
 
   ok()
 
 proc process_block*(
-    preset: RuntimePreset,
+    cfg: RuntimeConfig,
     state: var phase0.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.}=
   err("process_block: Phase 0 state with Altair block")

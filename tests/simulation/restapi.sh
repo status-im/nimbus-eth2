@@ -95,14 +95,14 @@ LOG_NODE_FILE="${TEST_DIR}/node_log.txt"
 LOG_TEST_FILE="${TEST_DIR}/client_log.txt"
 VALIDATORS_DIR="${TEST_DIR}/validators"
 SECRETS_DIR="${TEST_DIR}/secrets"
-SNAPSHOT_FILE="${TEST_DIR}/state_snapshot.ssz"
-NETWORK_BOOTSTRAP_FILE="${TEST_DIR}/bootstrap_hidden_nodes.txt"
+SNAPSHOT_FILE="${TEST_DIR}/genesis.ssz"
+NETWORK_BOOTSTRAP_FILE="${TEST_DIR}/bootstrap_nodes.txt"
 RESTTEST_RULES="${GIT_ROOT}/ncli/resttest-rules.json"
 DEPOSIT_CONTRACT_BIN="${GIT_ROOT}/build/deposit_contract"
 RESTTEST_BIN="${GIT_ROOT}/build/resttest"
 NIMBUS_BEACON_NODE_BIN="${GIT_ROOT}/build/nimbus_beacon_node"
 BOOTSTRAP_ENR_FILE="${TEST_DIR}/beacon_node.enr"
-NETWORK_METADATA_FILE="${TEST_DIR}/network.json"
+RUNTIME_CONFIG_FILE="${TEST_DIR}/config.yaml"
 DEPOSITS_FILE="${TEST_DIR}/deposits.json"
 REST_ADDRESS="127.0.0.1"
 METRICS_ADDRESS="127.0.0.1"
@@ -168,34 +168,25 @@ fi
 DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
 
-echo "Writing ${NETWORK_METADATA_FILE}:"
-tee "${NETWORK_METADATA_FILE}" <<EOF
-{
-  "runtimePreset": {
-    "MIN_GENESIS_ACTIVE_VALIDATOR_COUNT": ${NUM_VALIDATORS},
-    "MIN_GENESIS_TIME": 0,
-    "GENESIS_DELAY": 0,
-    "GENESIS_FORK_VERSION": "0x00000000",
-    "ETH1_FOLLOW_DISTANCE": 1,
-  },
-  "depositContractAddress": "${DEPOSIT_CONTRACT_ADDRESS}",
-  "depositContractDeployedAt": "${DEPOSIT_CONTRACT_BLOCK}"
-}
-EOF
+echo Wrote $RUNTIME_CONFIG_FILE:
 
-SNAPSHOT_ARG=""
-if [[ -f "${SNAPSHOT_FILE}" ]]; then
-  SNAPSHOT_ARG="--finalized-checkpoint-state=${SNAPSHOT_FILE}"
-fi
+tee "$RUNTIME_CONFIG_FILE" <<EOF
+PRESET_BASE: "mainnet"
+MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${TOTAL_VALIDATORS}
+MIN_GENESIS_TIME: 0
+GENESIS_DELAY: 10
+GENESIS_FORK_VERSION: 0x00000000
+DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
+ETH1_FOLLOW_DISTANCE: 1
+EOF
 
 ${NIMBUS_BEACON_NODE_BIN} \
   --tcp-port=${BASE_PORT} \
   --udp-port=${BASE_PORT} \
   --log-level=${LOG_LEVEL:-DEBUG} \
-  --network="${NETWORK_METADATA_FILE}" \
+  --network="${TEST_DIR}" \
   --data-dir="${TEST_DIR}" \
   --secrets-dir="${SECRETS_DIR}" \
-  ${SNAPSHOT_ARG} \
   --doppelganger-detection=off \
   --nat=none \
   --metrics \

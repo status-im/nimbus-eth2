@@ -104,7 +104,7 @@ proc loadGenesis*(validators: Natural, validate: bool):
       depositContractState: merkleizer.toDepositContractState)
 
     res.data = initialize_beacon_state_from_eth1(
-      defaultRuntimePreset,
+      defaultRuntimeConfig,
       Eth2Digest(),
       0,
       deposits,

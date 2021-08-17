@@ -44,7 +44,7 @@ func mockDepositData(
       ): DepositData =
   var ret = mockDepositData(pubkey, amount)
   if skipBlsValidation notin flags:
-    ret.signature = defaultRuntimePreset.get_deposit_signature(ret, privkey).toValidatorSig()
+    ret.signature = defaultRuntimeConfig.get_deposit_signature(ret, privkey).toValidatorSig()
   ret
 
 template mockGenesisDepositsImpl(

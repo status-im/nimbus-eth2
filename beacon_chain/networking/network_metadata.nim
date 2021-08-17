@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  tables, strutils, os,
+  std/[sequtils, tables, strutils, os],
   stew/shims/macros, nimcrypto/hash,
   eth/common/eth_types as commonEthTypes,
   web3/[ethtypes, conversions],
@@ -28,18 +28,15 @@ import
 # We can compress the embedded states with snappy before embedding them here.
 
 export
-  ethtypes, conversions, RuntimePreset
+  ethtypes, conversions, RuntimeConfig
 
 type
-  Eth1Address* = ethtypes.Address
   Eth1BlockHash* = ethtypes.BlockHash
 
   Eth1Network* = enum
     mainnet
     rinkeby
     goerli
-
-  PresetIncompatible* = object of CatchableError
 
   Eth2NetworkMetadata* = object
     case incompatible*: bool
@@ -50,12 +47,11 @@ type
       #      in this branch.
       dummy: string
       eth1Network*: Option[Eth1Network]
-      runtimePreset*: RuntimePreset
+      cfg*: RuntimeConfig
 
       # Parsing `enr.Records` is still not possible at compile-time
       bootstrapNodes*: seq[string]
 
-      depositContractAddress*: Eth1Address
       depositContractDeployedAt*: BlockHashOrNumber
 
       # Please note that we are using `string` here because SSZ.decode
@@ -71,67 +67,56 @@ type
       # `genesisData` will have `len == 0` for networks with a still
       # unknown genesis state.
       genesisData*: string
-      genesisDataPath*: string
       genesisDepositsSnapshot*: string
     else:
       incompatibilityDesc*: string
 
 const
-  eth2testnetsDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-testnets"
+  eth2NetworksDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-networks"
 
-const presetValueLoaders = genExpr(nnkBracket):
-  for constName in PresetValue:
-    let
-      constNameIdent = ident $constName
-      constType = ident getType(constName)
+proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError, Defect].} =
+  # Read a list of ENR values from a YAML file containing a flat list of entries
+  if fileExists(path):
+    splitLines(readFile(path)).
+      filterIt(it.startsWith("enr:")).
+      mapIt(it.strip())
+  else:
+    @[]
 
-    yield quote do:
-      (
-        proc (preset: var RuntimePreset, presetValue: string): bool
-             {.gcsafe, noSideEffect, raises: [Defect].} =
-          try:
-            when PresetValue.`constNameIdent` in runtimeValues:
-              preset.`constNameIdent` = parse(`constType`, presetValue)
-              true
-            elif PresetValue.`constNameIdent` in ignoredValues:
-              true
-            else:
-              `constType`(`constNameIdent`) == parse(`constType`, presetValue)
-          except CatchableError:
-            false
-      )
-
-proc extractRuntimePreset*(configPath: string, configData: PresetFile): RuntimePreset
-                          {.raises: [PresetIncompatible, Defect].} =
-  result = RuntimePreset()
-
-  for name, value in configData.values:
-    if not presetValueLoaders[name.int](result, value):
-      let errMsg = "The preset '" & configPath & "'is not compatible with " &
-                   "the current build due to an incompatible value " &
-                   $name & " = " & value.string
-      raise newException(PresetIncompatible, errMsg)
+proc readBootEnr*(path: string): seq[string] {.raises: [IOError, Defect].} =
+  # Read a list of ENR values from a YAML file containing a flat list of entries
+  if fileExists(path):
+    splitLines(readFile(path)).
+      filterIt(it.startsWith("- enr:")).
+      mapIt(it[2..^1].strip())
+  else:
+    @[]
 
 proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
                              {.raises: [CatchableError, Defect].} =
+  # Load data in eth2-networks format
+  # https://github.com/eth2-clients/eth2-networks/
+
   try:
     let
       genesisPath = path & "/genesis.ssz"
       genesisDepositsSnapshotPath = path & "/genesis_deposit_contract_snapshot.ssz"
       configPath = path & "/config.yaml"
-      depositContractPath = path & "/deposit_contract.txt"
       depositContractBlockPath = path & "/deposit_contract_block.txt"
       bootstrapNodesPath = path & "/bootstrap_nodes.txt"
+      bootEnrPath = path & "/boot_enr.yaml"
 
-      runtimePreset = if fileExists(configPath):
-        extractRuntimePreset(configPath, readPresetFile(configPath))
+      runtimeConfig = if fileExists(configPath):
+        let (cfg, unknowns) = readRuntimeConfig(configPath)
+        if unknowns.len > 0:
+          when nimvm:
+            # TODO better printing
+            echo "Unknown constants in file: " & unknowns
+          else:
+            warn "Unknown constants in config file", unknowns
+        cfg
       else:
-        mainnetRuntimePreset
-
-      depositContractAddress = if fileExists(depositContractPath):
-        Eth1Address.fromHex readFile(depositContractPath).strip
-      else:
-        default(Eth1Address)
+        defaultRuntimeConfig
 
       depositContractBlock = if fileExists(depositContractBlockPath):
         readFile(depositContractBlockPath).strip
@@ -143,10 +128,9 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       else:
         BlockHashOrNumber(isHash: false, number: 1)
 
-      bootstrapNodes = if fileExists(bootstrapNodesPath):
-        readFile(bootstrapNodesPath).splitLines()
-      else:
-        @[]
+      bootstrapNodes = deduplicate(
+        readBootstrapNodes(bootstrapNodesPath) &
+        readBootEnr(bootEnrPath))
 
       genesisData = if fileExists(genesisPath):
         readFile(genesisPath)
@@ -161,43 +145,24 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
     Eth2NetworkMetadata(
       incompatible: false,
       eth1Network: some goerli,
-      runtimePreset: runtimePreset,
+      cfg: runtimeConfig,
       bootstrapNodes: bootstrapNodes,
-      depositContractAddress: depositContractAddress,
       depositContractDeployedAt: depositContractDeployedAt,
       genesisData: genesisData,
       genesisDepositsSnapshot: genesisDepositsSnapshot)
 
-  except PresetIncompatible as err:
+  except PresetIncompatibleError as err:
     Eth2NetworkMetadata(incompatible: true,
                         incompatibilityDesc: err.msg)
 
-const
-  mainnetMetadataDir = eth2testnetsDir & "/shared/mainnet"
-
-  mainnetMetadata* = when const_preset == "mainnet":
-    Eth2NetworkMetadata(
-      incompatible: false, # TODO: This can be more accurate if we verify
-                           # that there are no constant overrides
-      eth1Network: some mainnet,
-      runtimePreset: mainnetRuntimePreset,
-      bootstrapNodes: readFile(mainnetMetadataDir & "/bootstrap_nodes.txt").splitLines,
-      depositContractAddress: Eth1Address.fromHex "0x00000000219ab540356cBB839Cbe05303d7705Fa",
-      depositContractDeployedAt: BlockHashOrNumber.init "11052984",
-      genesisData: readFile(mainnetMetadataDir & "/genesis.ssz"),
-      genesisDepositsSnapshot: readFile(mainnetMetadataDir & "/genesis_deposit_contract_snapshot.ssz"))
-  else:
-    Eth2NetworkMetadata(
-      incompatible: true,
-      incompatibilityDesc: "This build is compiled with the " & const_preset & " const preset. " &
-                           "It's not compatible with mainnet")
-
-template eth2testnet(path: string): Eth2NetworkMetadata =
-  loadEth2NetworkMetadata(eth2testnetsDir & "/" & path)
+template eth2Network(path: string): Eth2NetworkMetadata =
+  loadEth2NetworkMetadata(eth2NetworksDir & "/" & path)
 
 const
-  pyrmontMetadata* = eth2testnet "shared/pyrmont"
-  praterMetadata* = eth2testnet "shared/prater"
+  mainnetMetadata* = eth2Network "shared/mainnet"
+  pyrmontMetadata* = eth2Network "shared/pyrmont"
+  praterMetadata* = eth2Network "shared/prater"
+  altairDevnet0Metadata* = eth2Network "shared/altair-devnet-0"
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
   var
@@ -208,30 +173,30 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: 
         pyrmontMetadata
       of "prater":
         praterMetadata
+      of "altair-devnet-0":
+        altairDevnet0Metadata
       else:
-        if fileExists(networkName):
+        if fileExists(networkName / "config.yaml"):
           try:
-            Json.loadFile(networkName, Eth2NetworkMetadata)
-          except SerializationError as err:
-            echo err.formatMsg(networkName)
+            loadEth2NetworkMetadata(networkName)
+          except CatchableError as exc:
+            fatal "Cannot load network", msg = exc.msg, networkName
             quit 1
         else:
-          fatal "Unrecognized network name", networkName
+          fatal "config.yaml not found for network", networkName
           quit 1
 
   if metadata.incompatible:
     fatal "The selected network is not compatible with the current build",
             reason = metadata.incompatibilityDesc
     quit 1
-  if metadata.genesisData.len == 0 and metadata.genesisDataPath.len > 0:
-    metadata.genesisData = readFile(metadata.genesisDataPath)
   return metadata
 
-proc getRuntimePresetForNetwork*(
-    eth2Network: Option[string]): RuntimePreset {.raises: [Defect, IOError].} =
+proc getRuntimeConfig*(
+    eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
   if eth2Network.isSome:
-    return getMetadataForNetwork(eth2Network.get).runtimePreset
-  return defaultRuntimePreset
+    return getMetadataForNetwork(eth2Network.get).cfg
+  return defaultRuntimeConfig
 
 proc extractGenesisValidatorRootFromSnapshop*(
     snapshot: string): Eth2Digest {.raises: [Defect, IOError, SszError].} =

@@ -413,11 +413,6 @@ type
     withdrawable_epoch*: Epoch ##\
     ## When validator can withdraw or transfer funds
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#metadata
-  MetaData* = object
-    seq_number*: uint64
-    attnets*: BitArray[ATTESTATION_SUBNET_COUNT]
-
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#eth2-field
   ENRForkID* = object
     fork_digest*: ForkDigest
@@ -877,14 +872,16 @@ const
   # http://facweb.cs.depaul.edu/sjost/it212/documents/ascii-pr.htm
   PrintableAsciiChars = {' '..'~'}
 
-func `$`*(value: GraffitiBytes): string =
-  result = strip(string.fromBytes(distinctBase value),
+func toPrettyString*(bytes: openArray[byte]): string =
+  result = strip(string.fromBytes(bytes),
                  leading = false,
                  chars = Whitespace + {'\0'})
 
   # TODO: Perhaps handle UTF-8 at some point
   if not allCharsInSet(result, PrintableAsciiChars):
-    result = "0x" & toHex(distinctBase value)
+    result = "0x" & toHex(bytes)
+
+func `$`*(value: GraffitiBytes): string = toPrettyString(distinctBase value)
 
 func init*(T: type GraffitiBytes, input: string): GraffitiBytes
           {.raises: [ValueError, Defect].} =

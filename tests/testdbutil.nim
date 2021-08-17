@@ -16,13 +16,13 @@ import
 export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 
 proc makeTestDB*(tailState: var BeaconState, tailBlock: TrustedSignedBeaconBlock): BeaconChainDB =
-  result = BeaconChainDB.new(defaultRuntimePreset, "", inMemory = true)
+  result = BeaconChainDB.new("", inMemory = true)
   ChainDAGRef.preInit(result, tailState, tailState, tailBlock)
 
 proc makeTestDB*(validators: Natural): BeaconChainDB =
   let
     genState = initialize_beacon_state_from_eth1(
-      defaultRuntimePreset,
+      defaultRuntimeConfig,
       Eth2Digest(),
       0,
       makeInitialDeposits(validators.uint64, flags = {skipBlsValidation}),

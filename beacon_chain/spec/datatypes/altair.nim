@@ -49,8 +49,8 @@ const
   PARTICIPATION_FLAG_WEIGHTS* =
     [TIMELY_SOURCE_WEIGHT, TIMELY_TARGET_WEIGHT, TIMELY_HEAD_WEIGHT]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/validator.md#misc
-  TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 4
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-beta.1/specs/altair/validator.md#misc
+  TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 16
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/setup.py#L473
@@ -65,6 +65,8 @@ const
   # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#inactivity-penalties
   INACTIVITY_SCORE_BIAS* = 4
   INACTIVITY_SCORE_RECOVERY_RATE* = 16
+
+  SYNC_SUBCOMMITTEE_SIZE* = SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_SUBNET_COUNT
 
 # "Note: The sum of the weights equal WEIGHT_DENOMINATOR."
 static: doAssert TIMELY_SOURCE_WEIGHT + TIMELY_TARGET_WEIGHT +
@@ -103,6 +105,9 @@ type
     ## Signature by the validator over the block root of `slot`
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/validator.md#synccommitteecontribution
+  SyncCommitteeAggregationBits* =
+    BitArray[SYNC_SUBCOMMITTEE_SIZE]
+
   SyncCommitteeContribution* = object
     slot*: Slot ##\
     ## Slot to which this contribution pertains
@@ -114,8 +119,7 @@ type
     ## The subcommittee this contribution pertains to out of the broader sync
     ## committee
 
-    aggregation_bits*:
-      BitArray[SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_SUBNET_COUNT] ##\
+    aggregation_bits*: SyncCommitteeAggregationBits ##\
     ## A bit is set if a signature from the validator at the corresponding
     ## index in the subcommittee is present in the aggregate `signature`.
 
@@ -472,3 +476,13 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     blck: shortLog(v.message),
     signature: shortLog(v.signature)
   )
+
+func shortLog*(v: SyncCommitteeMessage): auto =
+  (
+    slot: shortLog(v.slot),
+    beacon_block_root: shortLog(v.beacon_block_root),
+    validator_index: v.validator_index,
+    signature: shortLog(v.signature)
+  )
+
+chronicles.formatIt SyncCommitteeMessage: shortLog(it)

@@ -50,8 +50,6 @@ type
     vcProcess*: Process
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerID]
-    topicBeaconBlocks*: string
-    topicAggregateAndProofs*: string
     genesisSnapshotContent*: string
     attestationSubnets*: AttestationSubnets
     processor*: ref Eth2Processor
@@ -76,6 +74,3 @@ template beaconClock*(node: BeaconNode): BeaconClock =
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
-
-template runtimePreset*(node: BeaconNode): RuntimePreset =
-  node.db.preset

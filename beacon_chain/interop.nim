@@ -44,7 +44,7 @@ const eth1BlockHash* = block:
   x
 
 func makeDeposit*(
-    preset: RuntimePreset,
+    preset: RuntimeConfig,
     pubkey: ValidatorPubKey, privkey: ValidatorPrivKey, epoch = 0.Epoch,
     amount: Gwei = MAX_EFFECTIVE_BALANCE.Gwei,
     flags: UpdateFlags = {}): DepositData =
