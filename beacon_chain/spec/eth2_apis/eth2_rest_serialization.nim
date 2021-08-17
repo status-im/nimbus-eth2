@@ -59,8 +59,9 @@ type
     RestAttestationError |
     RestGenericError
 
-proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] {.
-     raises: [Defect].} =
+{.push raises: [Defect].}
+
+proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
   let res =
     block:
       var default: seq[byte]
@@ -78,8 +79,7 @@ proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] {.
   res
 
 proc jsonResponseWRoot*(t: typedesc[RestApiResponse], data: auto,
-                        dependent_root: Eth2Digest): RestApiResponse {.
-     raises: [Defect].} =
+                        dependent_root: Eth2Digest): RestApiResponse =
   let res =
     block:
       var default: seq[byte]
@@ -97,8 +97,7 @@ proc jsonResponseWRoot*(t: typedesc[RestApiResponse], data: auto,
         default
   RestApiResponse.response(res, Http200, "application/json")
 
-proc jsonResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse {.
-     raises: [Defect].} =
+proc jsonResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
   let res =
     block:
       var default: seq[byte]
@@ -116,8 +115,7 @@ proc jsonResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse {.
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonResponseWMeta*(t: typedesc[RestApiResponse],
-                        data: auto, meta: auto): RestApiResponse {.
-     raises: [Defect].} =
+                        data: auto, meta: auto): RestApiResponse =
   let res =
     block:
       var default: seq[byte]
@@ -136,8 +134,7 @@ proc jsonResponseWMeta*(t: typedesc[RestApiResponse],
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonMsgResponse*(t: typedesc[RestApiResponse],
-                      msg: string = ""): RestApiResponse {.
-     raises: [Defect].} =
+                      msg: string = ""): RestApiResponse =
   let data =
     block:
       var default: seq[byte]
@@ -158,8 +155,7 @@ proc jsonMsgResponse*(t: typedesc[RestApiResponse],
   RestApiResponse.response(data, Http200, "application/json")
 
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
-                msg: string = ""): RestApiResponse {.
-     raises: [Defect].} =
+                msg: string = ""): RestApiResponse =
   let data =
     block:
       var default: string
@@ -180,8 +176,7 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
   RestApiResponse.error(status, data, "application/json")
 
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
-                msg: string = "", stacktrace: string): RestApiResponse {.
-     raises: [Defect].} =
+                msg: string = "", stacktrace: string): RestApiResponse =
   let data =
     block:
       var default: string
@@ -206,8 +201,7 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
 
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
                 msg: string = "",
-                stacktraces: openarray[string]): RestApiResponse {.
-     raises: [Defect].} =
+                stacktraces: openarray[string]): RestApiResponse =
   let data =
     block:
       var default: string
@@ -228,8 +222,7 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
 
 proc jsonErrorList*(t: typedesc[RestApiResponse],
                     status: HttpCode = Http200,
-                    msg: string = "", failures: auto): RestApiResponse {.
-     raises: [Defect].} =
+                    msg: string = "", failures: auto): RestApiResponse =
   let data =
     block:
       var default: string
@@ -252,7 +245,8 @@ template hexOriginal(data: openarray[byte]): string =
   "0x" & ncrutils.toHex(data, true)
 
 ## uint64
-proc writeValue*(w: var JsonWriter[RestJson], value: uint64) =
+proc writeValue*(w: var JsonWriter[RestJson], value: uint64) {.
+     raises: [IOError, Defect].} =
   writeValue(w, Base10.toString(value))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var uint64) {.
@@ -265,7 +259,8 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint64) {.
     reader.raiseUnexpectedValue($res.error())
 
 ## byte
-proc writeValue*(w: var JsonWriter[RestJson], value: byte) =
+proc writeValue*(w: var JsonWriter[RestJson], value: byte) {.
+     raises: [IOError, Defect].} =
   var data: array[1, byte]
   data[0] = value
   writeValue(w, hexOriginal(data))
@@ -281,7 +276,8 @@ proc readValue*(reader: var JsonReader[RestJson], value: var byte) {.
                          "byte value should be a valid hex string")
 
 ## DomainType
-proc writeValue*(w: var JsonWriter[RestJson], value: DomainType) =
+proc writeValue*(w: var JsonWriter[RestJson], value: DomainType) {.
+     raises: [IOError, Defect].} =
   writeValue(w, hexOriginal(uint32(value).toBytesLE()))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var DomainType) {.
@@ -431,11 +427,13 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: BitSeq) {.
   writeValue(writer, hexOriginal(value.bytes()))
 
 ## BitList
-proc readValue*(reader: var JsonReader[RestJson], value: var BitList) =
+proc readValue*(reader: var JsonReader[RestJson], value: var BitList) {.
+     raises: [IOError, SerializationError, Defect].} =
   type T = type(value)
   value = T readValue(reader, BitSeq)
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: BitList) =
+proc writeValue*(writer: var JsonWriter[RestJson], value: BitList) {.
+     raises: [IOError, Defect].} =
   writeValue(writer, BitSeq value)
 
 ## Eth2Digest
@@ -534,16 +532,14 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: GraffitiBytes) {.
      raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
-proc parseRoot(value: string): Result[Eth2Digest, cstring] {.
-     raises: [Defect].} =
+proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:
     ok(Eth2Digest(data: hexToByteArray[32](value)))
   except ValueError:
     err("Unable to decode root value")
 
 proc decodeBody*[T](t: typedesc[T],
-                    body: ContentBody): Result[T, cstring] {.
-     raises: [Defect].} =
+                    body: ContentBody): Result[T, cstring] =
   if body.contentType != "application/json":
     return err("Unsupported content type")
   let data =
@@ -569,8 +565,7 @@ RestJson.useCustomSerialization(phase0.BeaconState.justification_bits):
     writer.writeValue "0x" & toHex([value])
 
 proc encodeBytes*[T: EncodeTypes](value: T,
-                                  contentType: string): RestResult[seq[byte]] {.
-     raises: [Defect].} =
+                                  contentType: string): RestResult[seq[byte]] =
   case contentType
   of "application/json":
     let data =
@@ -589,8 +584,7 @@ proc encodeBytes*[T: EncodeTypes](value: T,
     err("Content-Type not supported")
 
 proc encodeBytes*[T: EncodeArrays](value: T,
-                                  contentType: string): RestResult[seq[byte]] {.
-     raises: [Defect].} =
+                                   contentType: string): RestResult[seq[byte]] =
   case contentType
   of "application/json":
     let data =
@@ -609,8 +603,7 @@ proc encodeBytes*[T: EncodeArrays](value: T,
     err("Content-Type not supported")
 
 proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openarray[byte],
-                                  contentType: string): RestResult[T] {.
-     raises: [Defect].} =
+                                  contentType: string): RestResult[T] =
   case contentType
   of "application/json":
     try:
@@ -620,36 +613,29 @@ proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openarray[byte],
   else:
     err("Content-Type not supported")
 
-proc encodeString*(value: string): RestResult[string] {.
-     raises: [Defect].} =
+proc encodeString*(value: string): RestResult[string] =
   ok(value)
 
-proc encodeString*(value: Epoch|Slot|CommitteeIndex): RestResult[string] {.
-     raises: [Defect].} =
+proc encodeString*(value: Epoch|Slot|CommitteeIndex): RestResult[string] =
   ok(Base10.toString(uint64(value)))
 
-proc encodeString*(value: ValidatorSig): RestResult[string] {.
-     raises: [Defect].} =
+proc encodeString*(value: ValidatorSig): RestResult[string] =
   ok(hexOriginal(toRaw(value)))
 
-proc encodeString*(value: GraffitiBytes): RestResult[string] {.
-     raises: [Defect].} =
+proc encodeString*(value: GraffitiBytes): RestResult[string] =
   ok(hexOriginal(distinctBase(value)))
 
-proc encodeString*(value: Eth2Digest): RestResult[string] {.
-     raises: [Defect].} =
+proc encodeString*(value: Eth2Digest): RestResult[string] =
   ok(hexOriginal(value.data))
 
-proc encodeString*(value: ValidatorIdent): RestResult[string] {.
-     raises: [Defect].} =
+proc encodeString*(value: ValidatorIdent): RestResult[string] =
   case value.kind
   of ValidatorQueryKind.Index:
     ok(Base10.toString(uint64(value.index)))
   of ValidatorQueryKind.Key:
     ok(hexOriginal(toRaw(value.key)))
 
-proc encodeString*(value: StateIdent): RestResult[string] {.
-     raises: [Defect].} =
+proc encodeString*(value: StateIdent): RestResult[string] =
   case value.kind
   of StateQueryKind.Slot:
     ok(Base10.toString(uint64(value.slot)))
@@ -666,8 +652,7 @@ proc encodeString*(value: StateIdent): RestResult[string] {.
     of StateIdentType.Justified:
       ok("justified")
 
-proc encodeString*(value: BlockIdent): RestResult[string] {.
-     raises: [Defect].} =
+proc encodeString*(value: BlockIdent): RestResult[string] =
   case value.kind
   of BlockQueryKind.Slot:
     ok(Base10.toString(uint64(value.slot)))
@@ -683,8 +668,7 @@ proc encodeString*(value: BlockIdent): RestResult[string] {.
       ok("finalized")
 
 proc decodeString*(t: typedesc[PeerStateKind],
-                   value: string): Result[PeerStateKind, cstring] {.
-     raises: [Defect].} =
+                   value: string): Result[PeerStateKind, cstring] =
   case value
   of "disconnected":
     ok(PeerStateKind.Disconnected)
@@ -697,8 +681,7 @@ proc decodeString*(t: typedesc[PeerStateKind],
   else:
     err("Incorrect peer's state value")
 
-proc encodeString*(value: PeerStateKind): Result[string, cstring] {.
-     raises: [Defect].} =
+proc encodeString*(value: PeerStateKind): Result[string, cstring] =
   case value
   of PeerStateKind.Disconnected:
     ok("disconnected")
@@ -710,8 +693,7 @@ proc encodeString*(value: PeerStateKind): Result[string, cstring] {.
     ok("disconnecting")
 
 proc decodeString*(t: typedesc[PeerDirectKind],
-                   value: string): Result[PeerDirectKind, cstring] {.
-     raises: [Defect].} =
+                   value: string): Result[PeerDirectKind, cstring] =
   case value
   of "inbound":
     ok(PeerDirectKind.Inbound)
@@ -720,21 +702,18 @@ proc decodeString*(t: typedesc[PeerDirectKind],
   else:
     err("Incorrect peer's direction value")
 
-proc encodeString*(value: PeerDirectKind): Result[string, cstring] {.
-     raises: [Defect].} =
+proc encodeString*(value: PeerDirectKind): Result[string, cstring] =
   case value
   of PeerDirectKind.Inbound:
     ok("inbound")
   of PeerDirectKind.Outbound:
     ok("outbound")
 
-proc encodeString*(peerid: PeerID): Result[string, cstring] {.
-     raises: [Defect].} =
+proc encodeString*(peerid: PeerID): Result[string, cstring] =
   ok($peerid)
 
 proc decodeString*(t: typedesc[EventTopic],
-                   value: string): Result[EventTopic, cstring] {.
-     raises: [Defect].} =
+                   value: string): Result[EventTopic, cstring] =
   case value
   of "head":
     ok(EventTopic.Head)
@@ -752,8 +731,7 @@ proc decodeString*(t: typedesc[EventTopic],
     err("Incorrect event's topic value")
 
 proc decodeString*(t: typedesc[ValidatorSig],
-                   value: string): Result[ValidatorSig, cstring] {.
-     raises: [Defect].} =
+                   value: string): Result[ValidatorSig, cstring] =
   if len(value) != ValidatorSigSize + 2:
     return err("Incorrect validator signature value length")
   if value[0] != '0' and value[1] != 'x':
@@ -761,31 +739,26 @@ proc decodeString*(t: typedesc[ValidatorSig],
   ValidatorSig.fromHex(value)
 
 proc decodeString*(t: typedesc[GraffitiBytes],
-                   value: string): Result[GraffitiBytes, cstring] {.
-     raises: [Defect].} =
+                   value: string): Result[GraffitiBytes, cstring] =
   try:
     ok(GraffitiBytes.init(value))
   except ValueError:
     err("Unable to decode graffiti value")
 
 proc decodeString*(t: typedesc[string],
-                   value: string): Result[string, cstring] {.
-     raises: [Defect].} =
+                   value: string): Result[string, cstring] =
   ok(value)
 
-proc decodeString*(t: typedesc[Slot], value: string): Result[Slot, cstring] {.
-     raises: [Defect].} =
+proc decodeString*(t: typedesc[Slot], value: string): Result[Slot, cstring] =
   let res = ? Base10.decode(uint64, value)
   ok(Slot(res))
 
-proc decodeString*(t: typedesc[Epoch], value: string): Result[Epoch, cstring] {.
-     raises: [Defect].} =
+proc decodeString*(t: typedesc[Epoch], value: string): Result[Epoch, cstring] =
   let res = ? Base10.decode(uint64, value)
   ok(Epoch(res))
 
 proc decodeString*(t: typedesc[StateIdent],
-                   value: string): Result[StateIdent, cstring] {.
-     raises: [Defect].} =
+                   value: string): Result[StateIdent, cstring] =
   if len(value) > 2:
     if (value[0] == '0') and (value[1] == 'x'):
       if len(value) != RootHashSize + 2:
@@ -817,8 +790,7 @@ proc decodeString*(t: typedesc[StateIdent],
     ok(StateIdent(kind: StateQueryKind.Slot, slot: Slot(res)))
 
 proc decodeString*(t: typedesc[BlockIdent],
-                   value: string): Result[BlockIdent, cstring] {.
-     raises: [Defect].} =
+                   value: string): Result[BlockIdent, cstring] =
   if len(value) > 2:
     if (value[0] == '0') and (value[1] == 'x'):
       if len(value) != RootHashSize + 2:
@@ -847,8 +819,7 @@ proc decodeString*(t: typedesc[BlockIdent],
     ok(BlockIdent(kind: BlockQueryKind.Slot, slot: Slot(res)))
 
 proc decodeString*(t: typedesc[ValidatorIdent],
-                   value: string): Result[ValidatorIdent, cstring] {.
-     raises: [Defect].} =
+                   value: string): Result[ValidatorIdent, cstring] =
   if len(value) > 2:
     if (value[0] == '0') and (value[1] == 'x'):
       if len(value) != ValidatorKeySize + 2:
@@ -869,19 +840,16 @@ proc decodeString*(t: typedesc[ValidatorIdent],
                       index: RestValidatorIndex(res)))
 
 proc decodeString*(t: typedesc[PeerID],
-                   value: string): Result[PeerID, cstring] {.
-     raises: [Defect].} =
+                   value: string): Result[PeerID, cstring] =
   PeerID.init(value)
 
 proc decodeString*(t: typedesc[CommitteeIndex],
-                   value: string): Result[CommitteeIndex, cstring] {.
-     raises: [Defect].} =
+                   value: string): Result[CommitteeIndex, cstring] =
   let res = ? Base10.decode(uint64, value)
   ok(CommitteeIndex(res))
 
 proc decodeString*(t: typedesc[Eth2Digest],
-                   value: string): Result[Eth2Digest, cstring] {.
-     raises: [Defect].} =
+                   value: string): Result[Eth2Digest, cstring] =
   if len(value) != RootHashSize + 2:
     return err("Incorrect root value length")
   if value[0] != '0' and value[1] != 'x':
@@ -889,8 +857,7 @@ proc decodeString*(t: typedesc[Eth2Digest],
   parseRoot(value)
 
 proc decodeString*(t: typedesc[ValidatorFilter],
-                   value: string): Result[ValidatorFilter, cstring] {.
-     raises: [Defect].} =
+                   value: string): Result[ValidatorFilter, cstring] =
   case value
   of "pending_initialized":
     ok({ValidatorFilterKind.PendingInitialized})
