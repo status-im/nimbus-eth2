@@ -996,7 +996,6 @@ proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
 
   for topic, _ in node.pubsub.topics:
     let subNetId = getTopicAttestationSubnet(node.forkId.forkDigest, topic)
-    #info "Topic id", topic, subNetId, count=node.pubsub.mesh.peers(topic), dHigh=node.pubsub.parameters.dHigh
 
     if subNetId < 0: continue
 
@@ -1011,15 +1010,12 @@ proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
       belowDOutSubnets.setBit(subNetId)
 
   if lowSubnets.countOnes() > 0:
-    info "Low topics: ", lowSubnets
     return lowSubnets
 
   if belowDSubnets.countOnes() > 0:
-    info "Below d topics: ", belowDSubnets
     return belowDSubnets
 
   if belowDOutSubnets.countOnes() > 0:
-    info "Below dOut topics: ", belowDOutSubnets
     return belowDOutSubnets
 
 
@@ -1037,7 +1033,6 @@ proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
     if count < 5:
       lowSubnets.setBit(subnet)
 
-  info "isLow topics: ", lowSubnets
   return lowSubnets
 
 
@@ -1063,7 +1058,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
               # We adding to pending connections table here, but going
               # to remove it only in `connectWorker`.
 
-              # If we are full, try to kick a peer (4 max)
+              # If we are full, try to kick a peer (3 max)
               for _ in 0..<3:
                 if node.peerPool.lenSpace({PeerType.Outgoing}) == 0 and newPeers == 0:
                   await node.trimConnections(1)
@@ -1079,7 +1074,6 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
         else:
           debug "Failed to decode discovery's node address",
                 node = discnode, errMsg = res.error
-      info "Discovered nodes", count = discoveredNodes.len, newPeers
 
       debug "Discovery tick", wanted_peers = node.wantedPeers,
             space = node.peerPool.shortLogSpace(),
@@ -1562,7 +1556,6 @@ proc peerPingerHeartbeat(node: Eth2Node) {.async.} =
       if heartbeatStart_m - lastMetadata > 30.seconds:
         debug "no metadata for 30 seconds, kicking peer", peer
         asyncSpawn peer.disconnect(PeerScoreLow)
-      #info "Peer data", id = $peer.info.peerId, metadata = $peer.metadata
 
     await sleepAsync(15.seconds)
 
