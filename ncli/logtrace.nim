@@ -163,7 +163,7 @@ type
     aggSends: seq[AggregatedAttestationSentMessage]
     aggRecvs: TableRef[string, AggregatedAttestationReceivedMessage]
 
-proc readValue*(reader: var JsonReader, value: var DateTime) =
+proc readValue(reader: var JsonReader, value: var DateTime) =
   let s = reader.readValue(string)
   try:
     value = parse(s, "YYYY-MM-dd HH:mm:ss'.'fffzzz", utc())
@@ -178,8 +178,8 @@ proc init(t: typedesc[GossipMessage], kind: GossipDirection, id,
     datetime: parse(datestr, "YYYY-MM-dd HH:mm:ss'.'fffzzz")
   )
 
-proc `$`*(msg: GossipMessage): string =
-  result = msg.id
+func `$`(msg: GossipMessage): string =
+  msg.id
 
 proc readLogFile(file: string): seq[JsonNode] =
   var res = newSeq[JsonNode]()
@@ -351,7 +351,7 @@ proc filterGossipMessages(log: seq[JsonNode]): seq[GossipMessage] =
                                      node["ts"].getStr())
         result.add(msg)
 
-iterator simDirectoryLogFiles*(simdir: string): string =
+iterator simDirectoryLogFiles(simdir: string): string =
   let absPath = absolutePath(simdir)
   let dataPath = absPath & DirSep & "data"
   if not dirExists(dataPath):
@@ -371,8 +371,8 @@ iterator simDirectoryLogFiles*(simdir: string): string =
       break
     inc(index)
 
-proc getDirectoryLogFiles*(builddir: string,
-                           filter: seq[string]): seq[NodeDirectory] =
+proc getDirectoryLogFiles(builddir: string,
+                          filter: seq[string]): seq[NodeDirectory] =
   var res = newSeq[NodeDirectory]()
   let absPath = absolutePath(builddir)
   let dataPath = absPath & DirSep & "data"
@@ -392,8 +392,8 @@ proc getDirectoryLogFiles*(builddir: string,
         res.add(nodeDir)
   return res
 
-proc getLogFiles*(builddir: string,
-                  filter: seq[string]): seq[NodeDirectory] =
+proc getLogFiles(builddir: string,
+                 filter: seq[string]): seq[NodeDirectory] =
   var res = newSeq[NodeDirectory]()
   let dataPath = absolutePath(builddir)
   if not dirExists(dataPath):
@@ -408,7 +408,7 @@ proc getLogFiles*(builddir: string,
       res.add(nodeDir)
   return res
 
-proc getMessage(logs: seq[GossipMessage],
+func getMessage(logs: seq[GossipMessage],
                 msg: GossipMessage): Option[GossipMessage] =
   {.push warning[ProveInit]: off.}
   result = none[GossipMessage]()
@@ -500,8 +500,8 @@ proc runAttSend(logConf: LogTraceConf, logFiles: seq[string]) =
                          slot_messages = slotMessagesCount,
                          late_attestation_messages = lateAttsMessagesCount
 
-proc toSimple*(s: seq[string]): string =
-  result = "[" & s.mapIt("'" & it & "'").join(", ") & "]"
+func toSimple(s: seq[string]): string =
+  "[" & s.mapIt("'" & it & "'").join(", ") & "]"
 
 proc runAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
   info "Check for attestation sent/received messages"

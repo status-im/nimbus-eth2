@@ -173,14 +173,14 @@ proc getShortMap*[T](req: SyncRequest[T],
     else:
       res.add('.')
     slider = slider + req.step
-  result = res
+  res
 
 proc contains*[T](req: SyncRequest[T], slot: Slot): bool {.inline.} =
   slot >= req.slot and slot < req.slot + req.count * req.step and
     ((slot - req.slot) mod req.step == 0)
 
 proc cmp*[T](a, b: SyncRequest[T]): int =
-  result = cmp(uint64(a.slot), uint64(b.slot))
+  cmp(uint64(a.slot), uint64(b.slot))
 
 proc checkResponse*[T](req: SyncRequest[T],
                        data: openArray[ForkedSignedBeaconBlock]): bool =
@@ -215,39 +215,39 @@ proc checkResponse*[T](req: SyncRequest[T],
 proc getFullMap*[T](req: SyncRequest[T],
                     data: openArray[ForkedSignedBeaconBlock]): string =
   # Returns all slot numbers in ``data`` as comma-delimeted string.
-  result = mapIt(data, $it.message.slot).join(", ")
+  mapIt(data, $it.message.slot).join(", ")
 
 proc init*[T](t1: typedesc[SyncRequest], t2: typedesc[T], slot: Slot,
               count: uint64): SyncRequest[T] =
-  result = SyncRequest[T](slot: slot, count: count, step: 1'u64)
+  SyncRequest[T](slot: slot, count: count, step: 1'u64)
 
 proc init*[T](t1: typedesc[SyncRequest], t2: typedesc[T], start: Slot,
               finish: Slot): SyncRequest[T] =
   let count = finish - start + 1'u64
-  result = SyncRequest[T](slot: start, count: count, step: 1'u64)
+  SyncRequest[T](slot: start, count: count, step: 1'u64)
 
 proc init*[T](t1: typedesc[SyncRequest], t2: typedesc[T], slot: Slot,
               count: uint64, item: T): SyncRequest[T] =
-  result = SyncRequest[T](slot: slot, count: count, item: item, step: 1'u64)
+  SyncRequest[T](slot: slot, count: count, item: item, step: 1'u64)
 
 proc init*[T](t1: typedesc[SyncRequest], t2: typedesc[T], start: Slot,
               finish: Slot, item: T): SyncRequest[T] =
   let count = finish - start + 1'u64
-  result = SyncRequest[T](slot: start, count: count, step: 1'u64, item: item)
+  SyncRequest[T](slot: start, count: count, step: 1'u64, item: item)
 
 proc init*[T](t1: typedesc[SyncFailure], kind: SyncFailureKind,
               peer: T): SyncFailure[T] =
-  result = SyncFailure[T](kind: kind, peer: peer, stamp: now(chronos.Moment))
+  SyncFailure[T](kind: kind, peer: peer, stamp: now(chronos.Moment))
 
 proc empty*[T](t: typedesc[SyncRequest],
                t2: typedesc[T]): SyncRequest[T] {.inline.} =
-  result = SyncRequest[T](step: 0'u64, count: 0'u64)
+  SyncRequest[T](step: 0'u64, count: 0'u64)
 
 proc setItem*[T](sr: var SyncRequest[T], item: T) =
   sr.item = item
 
 proc isEmpty*[T](sr: SyncRequest[T]): bool {.inline.} =
-  result = (sr.step == 0'u64) and (sr.count == 0'u64)
+  (sr.step == 0'u64) and (sr.count == 0'u64)
 
 proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               start, last: Slot, chunkSize: uint64,
@@ -322,10 +322,10 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
   )
 
 proc `<`*[T](a, b: SyncRequest[T]): bool {.inline.} =
-  result = (a.slot < b.slot)
+  a.slot < b.slot
 
 proc `<`*[T](a, b: SyncResult[T]): bool {.inline.} =
-  result = (a.request.slot < b.request.slot)
+  a.request.slot < b.request.slot
 
 proc `==`*[T](a, b: SyncRequest[T]): bool {.inline.} =
   result = ((a.slot == b.slot) and (a.count == b.count) and
@@ -333,7 +333,7 @@ proc `==`*[T](a, b: SyncRequest[T]): bool {.inline.} =
 
 proc lastSlot*[T](req: SyncRequest[T]): Slot {.inline.} =
   ## Returns last slot for request ``req``.
-  result = req.slot + req.count - 1'u64
+  req.slot + req.count - 1'u64
 
 proc makePending*[T](sq: SyncQueue[T], req: var SyncRequest[T]) =
   req.index = sq.counter
@@ -698,15 +698,15 @@ proc len*[T](sq: SyncQueue[T]): uint64 {.inline.} =
 
 proc total*[T](sq: SyncQueue[T]): uint64 {.inline.} =
   ## Returns total number of slots in queue ``sq``.
-  result = sq.lastSlot - sq.startSlot + 1'u64
+  sq.lastSlot - sq.startSlot + 1'u64
 
 proc progress*[T](sq: SyncQueue[T]): uint64 =
   ## Returns queue's ``sq`` progress string.
   let curSlot = sq.outSlot - sq.startSlot
-  result = (curSlot * 100'u64) div sq.total()
+  (curSlot * 100'u64) div sq.total()
 
 proc now*(sm: typedesc[SyncMoment], slot: Slot): SyncMoment {.inline.} =
-  result = SyncMoment(stamp: now(chronos.Moment), slot: slot)
+  SyncMoment(stamp: now(chronos.Moment), slot: slot)
 
 proc speed*(start, finish: SyncMoment): float {.inline.} =
   ## Returns number of slots per second.
