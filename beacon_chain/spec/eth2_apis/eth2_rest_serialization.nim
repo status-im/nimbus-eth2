@@ -573,10 +573,18 @@ proc encodeBytes*[T: EncodeTypes](value: T,
      raises: [Defect].} =
   case contentType
   of "application/json":
-    var stream = memoryOutput()
-    var writer = JsonWriter[RestJson].init(stream)
-    writer.writeValue(value)
-    ok(stream.getOutput(seq[byte]))
+    let data =
+      block:
+        try:
+          var stream = memoryOutput()
+          var writer = JsonWriter[RestJson].init(stream)
+          writer.writeValue(value)
+          stream.getOutput(seq[byte])
+        except IOError:
+          return err("Input/output error")
+        except SerializationError:
+          return err("Serialization error")
+    ok(data)
   else:
     err("Content-Type not supported")
 
@@ -585,10 +593,18 @@ proc encodeBytes*[T: EncodeArrays](value: T,
      raises: [Defect].} =
   case contentType
   of "application/json":
-    var stream = memoryOutput()
-    var writer = JsonWriter[RestJson].init(stream)
-    writer.writeArray(value)
-    ok(stream.getOutput(seq[byte]))
+    let data =
+      block:
+        try:
+          var stream = memoryOutput()
+          var writer = JsonWriter[RestJson].init(stream)
+          writer.writeArray(value)
+          stream.getOutput(seq[byte])
+        except IOError:
+          return err("Input/output error")
+        except SerializationError:
+          return err("Serialization error")
+    ok(data)
   else:
     err("Content-Type not supported")
 
