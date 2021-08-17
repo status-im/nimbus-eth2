@@ -10,8 +10,9 @@ import chronos, presto, presto/secureserver, chronicles, confutils,
        json_serialization/std/[options, net]
 
 import "."/[conf, version, nimbus_binary_common, beacon_node_types]
-import "."/spec/[crypto, digest, network, signatures],
-       "."/spec/datatypes/[base, altair, phase0]
+import "."/spec/datatypes/[base, altair, phase0],
+       "."/spec/[crypto, digest, network, signatures],
+       "."/ssz/merkleization
 import "."/rpc/[rest_utils]
 import "."/validators/[keystore_management, validator_pool]
 
@@ -225,6 +226,7 @@ proc init(t: typedesc[SigningNode], config: SigningNodeConf): SigningNode =
   if not(initValidators(sn)):
     fatal "Could not find/initialize local validators"
     quit 1
+
   let
     address = initTAddress(config.bindAddress, config.bindPort)
     serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
@@ -294,7 +296,6 @@ proc installApiHandlers*(node: SigningNode) =
   router.api(MethodPost, "/sign/{validator_key_wo0x}") do (
     validator_key_wo0x: ValidatorPubKey,
     contentBody: Option[ContentBody]) -> RestApiResponse:
-
     let request =
       block:
         if contentBody.isNone():
@@ -303,7 +304,6 @@ proc installApiHandlers*(node: SigningNode) =
         if res.isErr():
           return errorResponse(Http400, $res.error())
         res.get()
-
     let validator =
       block:
         if validator_key_wo0x.isErr():
@@ -313,15 +313,26 @@ proc installApiHandlers*(node: SigningNode) =
         if isNil(validator):
           return errorResponse(Http404, "Validator key not found")
         validator
-
     case request.kind
     of SignRequestKind.Phase0Block:
-      discard
+      let blockRoot = hash_tree_root(request.phase0Block)
+      let cooked = get_block_signature(request.fork,
+                                       request.genesisValidatorsRoot,
+                                       request.phase0Block.slot,
+                                       blockRoot, validator.privKey)
+      let signature = cooked.toValidatorSig().toHex()
+      return signatureResponse(Http200, signature)
     of SignRequestKind.AltairBlock:
-      discard
+      let blockRoot = hash_tree_root(request.altairBlock)
+      let cooked = get_block_signature(request.fork,
+                                       request.genesisValidatorsRoot,
+                                       request.altairBlock.slot,
+                                       blockRoot, validator.privKey)
+      let signature = cooked.toValidatorSig().toHex()
+      return signatureResponse(Http200, signature)
     of SignRequestKind.Attestation:
       let cooked = get_attestation_signature(request.fork,
-                                             request.genesis_validators_root,
+                                             request.genesisValidatorsRoot,
                                              request.attestation,
                                              validator.privKey)
       let signature = cooked.toValidatorSig().toHex()
@@ -347,7 +358,14 @@ programMain:
              cmdParams = commandLineParams(), config,
              validators_count = sn.attachedValidators.count()
       sn.installApiHandlers()
+      sn.start()
+      try:
+        runForever()
+      finally:
+        await sn.stop()
+        await sn.close()
       discard sn.stop()
 
-  #     waitFor asyncInit(vc)
+
+
   #     waitFor asyncRun(vc)
