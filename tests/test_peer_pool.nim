@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019 Status Research & Development GmbH
+# Copyright (c) 2019-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -19,18 +19,18 @@ type
     weight: int
     future: Future[void]
 
-proc getKey*(peer: PeerTest): PeerTestID =
-  result = peer.id
+func getKey*(peer: PeerTest): PeerTestID =
+  peer.id
 
-proc getFuture*(peer: PeerTest): Future[void] =
-  result = peer.future
+func getFuture*(peer: PeerTest): Future[void] =
+  peer.future
 
-proc `<`*(a, b: PeerTest): bool =
-  result = `<`(a.weight, b.weight)
+func `<`*(a, b: PeerTest): bool =
+  `<`(a.weight, b.weight)
 
 proc init*(t: typedesc[PeerTest], id: string = "",
            weight: int = 0): PeerTest =
-  result = PeerTest(id: id, weight: weight, future: newFuture[void]())
+  PeerTest(id: id, weight: weight, future: newFuture[void]())
 
 proc close*(peer: PeerTest) =
   peer.future.complete()

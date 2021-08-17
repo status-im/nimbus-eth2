@@ -390,7 +390,7 @@ proc updateStatus*(peer: Peer): Future[bool] {.async.} =
 
 proc getHeadSlot*(peer: Peer): Slot =
   ## Returns head slot for specific peer ``peer``.
-  result = peer.state(BeaconSync).statusMsg.headSlot
+  peer.state(BeaconSync).statusMsg.headSlot
 
 proc handleStatus(peer: Peer,
                   state: BeaconSyncNetworkState,

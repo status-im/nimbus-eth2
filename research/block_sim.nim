@@ -39,7 +39,7 @@ type Timers = enum
   tAttest = "Have committee attest to block"
   tReplay = "Replay all produced blocks"
 
-proc gauss(r: var Rand; mu = 0.0; sigma = 1.0): float =
+func gauss(r: var Rand; mu = 0.0; sigma = 1.0): float =
   # TODO This is present in Nim 1.4
   const K = sqrt(2 / E)
   var
@@ -49,7 +49,7 @@ proc gauss(r: var Rand; mu = 0.0; sigma = 1.0): float =
     a = rand(r, 1.0)
     b = (2.0 * rand(r, 1.0) - 1.0) * K
     if  b * b <= -4.0 * a * a * ln(a): break
-  result = mu + sigma * (b / a)
+  mu + sigma * (b / a)
 
 # TODO confutils is an impenetrable black box. how can a help text be added here?
 cli do(slots = SLOTS_PER_EPOCH * 6,
