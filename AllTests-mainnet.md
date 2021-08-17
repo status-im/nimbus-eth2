@@ -38,12 +38,13 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Bit fields
 ```diff
++ isZeros                                                                                    OK
 + iterating words                                                                            OK
 + overlaps                                                                                   OK
 + roundtrips BitArray                                                                        OK
 + roundtrips BitSeq                                                                          OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Block pool processing [Preset: mainnet]
 ```diff
 + Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
@@ -114,6 +115,18 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Mocked start private key                                                                   OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Message signatures
+```diff
++ Aggregate and proof signatures                                                             OK
++ Attestation signatures                                                                     OK
++ Deposit signatures                                                                         OK
++ Slot signatures                                                                            OK
++ Sync committee message signatures                                                          OK
++ Sync committee selection proof signatures                                                  OK
++ Sync committee signed contribution and proof signatures                                    OK
++ Voluntary exit signatures                                                                  OK
+```
+OK: 8/8 Fail: 0/8 Skip: 0/8
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -257,4 +270,4 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 131/131 Fail: 0/131 Skip: 0/131
+OK: 140/140 Fail: 0/140 Skip: 0/140

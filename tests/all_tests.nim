@@ -21,6 +21,7 @@ import # Unit test
   ./test_helpers,
   ./test_honest_validator,
   ./test_interop,
+  ./test_message_signatures,
   ./test_peer_pool,
   ./test_ssz,
   ./test_statediff,
