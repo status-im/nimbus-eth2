@@ -6,7 +6,7 @@
 import
   std/[typetraits, strutils, deques, sets, options],
   stew/[results, base10],
-  chronicles,
+  chronicles, json_serialization,
   nimcrypto/utils as ncrutils,
   ../beacon_node_common, ../networking/eth2_network,
   ../consensus_object_pools/[blockchain_dag, spec_cache, attestation_pool],
