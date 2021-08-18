@@ -655,8 +655,7 @@ proc getInitialAggregateSubnets(node: BeaconNode): Table[SubnetId, Slot] =
   mergeAggregateSubnets(wallEpoch + 1)
 
 proc subscribeAttestationSubnetHandlers(node: BeaconNode,
-                                        forkDigest: ForkDigest) {.
-  raises: [Defect, CatchableError].} =
+                                        forkDigest: ForkDigest) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   # TODO:
   # We might want to reuse the previous stability subnet if not expired when:
@@ -755,8 +754,7 @@ static:
   aggregateTopicParams.validateParameters().tryGet()
   basicParams.validateParameters.tryGet()
 
-proc addPhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest)
-                             {.raises: [Defect, CatchableError].} =
+proc addPhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.network.subscribe(getBeaconBlocksTopic(forkDigest), blocksTopicParams, enableTopicMetrics = true)
   node.network.subscribe(getAttesterSlashingsTopic(forkDigest), basicParams)
   node.network.subscribe(getProposerSlashingsTopic(forkDigest), basicParams)
@@ -765,12 +763,10 @@ proc addPhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest)
 
   node.subscribeAttestationSubnetHandlers(forkDigest)
 
-proc addPhase0MessageHandlers(node: BeaconNode)
-                             {.raises: [Defect, CatchableError].} =
+proc addPhase0MessageHandlers(node: BeaconNode) =
   addPhase0MessageHandlers(node, node.dag.forkDigests.phase0)
 
-proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest)
-                                {.raises: [Defect, CatchableError].} =
+proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
   node.network.unsubscribe(getVoluntaryExitsTopic(forkDigest))
   node.network.unsubscribe(getProposerSlashingsTopic(forkDigest))
@@ -781,22 +777,19 @@ proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest)
     node.network.unsubscribe(
       getAttestationTopic(forkDigest, SubnetId(subnet_id)))
 
-proc removePhase0MessageHandlers(node: BeaconNode)
-                                {.raises: [Defect, CatchableError].} =
+proc removePhase0MessageHandlers(node: BeaconNode) =
   removePhase0MessageHandlers(node, node.dag.forkDigests.phase0)
 
-proc addAltairMessageHandlers(node: BeaconNode, slot: Slot)
-                             {.raises: [Defect, CatchableError].} =
+proc addAltairMessageHandlers(node: BeaconNode, slot: Slot) =
   node.addPhase0MessageHandlers(node.dag.forkDigests.altair)
 
-proc removeAltairMessageHandlers(node: BeaconNode)
-                                {.raises: [Defect, CatchableError].} =
+proc removeAltairMessageHandlers(node: BeaconNode) =
   node.removePhase0MessageHandlers(node.dag.forkDigests.altair)
 
 func getTopicSubscriptionEnabled(node: BeaconNode): bool =
   node.attestationSubnets.enabled
 
-proc removeAllMessageHandlers(node: BeaconNode) {.raises: [Defect, CatchableError].} =
+proc removeAllMessageHandlers(node: BeaconNode) =
   node.removePhase0MessageHandlers()
   node.removeAltairMessageHandlers()
 
@@ -817,7 +810,7 @@ proc setupDoppelgangerDetection(node: BeaconNode, slot: Slot) =
     broadcastStartEpoch =
       node.processor.doppelgangerDetection.broadcastStartEpoch
 
-proc updateGossipStatus(node: BeaconNode, slot: Slot) {.raises: [Defect, CatchableError].} =
+proc updateGossipStatus(node: BeaconNode, slot: Slot) =
   # Syncing tends to be ~1 block/s, and allow for an epoch of time for libp2p
   # subscribing to spin up. The faster the sync, the more wallSlot - headSlot
   # lead time is required

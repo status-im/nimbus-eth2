@@ -161,7 +161,7 @@ template errReject(msg: cstring): untyped =
     # This doesn't depend on the wall clock or the exact state of the DAG; it's
     # an internal consistency/correctness check only, and effectively never has
     # false positives. These don't, for example, arise from timeouts.
-    doAssert false
+    raiseAssert $msg
   err((ValidationResult.Reject, msg))
 
 template errReject(error: (ValidationResult, cstring)): untyped =
@@ -170,7 +170,7 @@ template errReject(error: (ValidationResult, cstring)): untyped =
     # This doesn't depend on the wall clock or the exact state of the DAG; it's
     # an internal consistency/correctness check only, and effectively never has
     # false positives. These don't, for example, arise from timeouts.
-    doAssert false
+    raiseAssert $error[1]
   err(error)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
