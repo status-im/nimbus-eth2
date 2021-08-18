@@ -11,7 +11,7 @@ import ../beacon_chain/gossip_processing/block_processor,
 type
   SomeTPeer = ref object
 
-proc `$`*(peer: SomeTPeer): string =
+proc `$`(peer: SomeTPeer): string =
   "SomeTPeer"
 
 proc updateScore(peer: SomeTPeer, score: int) =
