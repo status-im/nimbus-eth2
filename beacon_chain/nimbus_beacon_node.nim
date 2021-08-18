@@ -303,7 +303,7 @@ proc init*(T: type BeaconNode,
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
     network = createEth2Node(
-      rng, config, netKeys, cfg, dag.forkDigests, dag.beaconClock,
+      rng, config, netKeys, cfg, dag.forkDigests, dag.beaconClock, getTime,
       getStateField(dag.headState.data, genesis_validators_root))
     attestationPool = newClone(AttestationPool.init(dag, quarantine))
     exitPool = newClone(ExitPool.init(dag, quarantine))

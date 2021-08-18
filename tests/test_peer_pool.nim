@@ -13,26 +13,26 @@ import ../beacon_chain/networking/peer_pool
 import ./testutil
 
 type
-  PeerTestID* = string
-  PeerTest* = object
+  PeerTestID = string
+  PeerTest = object
     id: PeerTestID
     weight: int
     future: Future[void]
 
-func getKey*(peer: PeerTest): PeerTestID =
+func getKey(peer: PeerTest): PeerTestID =
   peer.id
 
-func getFuture*(peer: PeerTest): Future[void] =
+func getFuture(peer: PeerTest): Future[void] =
   peer.future
 
-func `<`*(a, b: PeerTest): bool =
+func `<`(a, b: PeerTest): bool =
   `<`(a.weight, b.weight)
 
 proc init*(t: typedesc[PeerTest], id: string = "",
            weight: int = 0): PeerTest =
   PeerTest(id: id, weight: weight, future: newFuture[void]())
 
-proc close*(peer: PeerTest) =
+proc close(peer: PeerTest) =
   peer.future.complete()
 
 suite "PeerPool testing suite":
