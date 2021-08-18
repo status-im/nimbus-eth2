@@ -353,21 +353,38 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $dres.error())
         dres.get()
 
-    for item in proofs:
+    proc processAggregateAndProof(sap: SignedAggregateAndProof) {.async.} =
       let wallTime = node.processor.getCurrentBeaconTime()
       let res = await node.attestationPool.validateAggregate(
-        node.processor.batchCrypto, item, wallTime
+        node.processor.batchCrypto, sap, wallTime
       )
       if res.isErr():
+        raise newException(ValueError, $res.error())
+      node.network.broadcast(
+        getAggregateAndProofsTopic(node.dag.forkDigests.phase0), sap
+      )
+      notice "Aggregated attestation sent",
+        attestation = shortLog(sap.message.aggregate),
+        signature = shortLog(sap.signature)
+
+    # Since our validation logic supports batch processing, we will submit all
+    # aggregated attestations for validation.
+    var pending =
+      block:
+        var res: seq[Future[void]]
+        for item in proofs:
+          res.add(processAggregateAndProof(item))
+        res
+    await allFutures(pending)
+    for future in pending:
+      if future.failed():
+        let exc = future.readError()
         return RestApiResponse.jsonError(Http400,
                                          AggregateAndProofValidationError,
-                                         $res.error())
-      node.network.broadcast(
-        getAggregateAndProofsTopic(node.dag.forkDigests.phase0), item)
-      notice "Aggregated attestation sent",
-        attestation = shortLog(item.message.aggregate),
-        signature = shortLog(item.signature)
-
+                                         exc.msg)
+      elif future.cancelled():
+        return RestApiResponse.jsonError(Http500,
+                                         AggregateAndProofValidationError)
     return RestApiResponse.jsonMsgResponse(AggregateAndProofValidationSuccess)
 
   # https://ethereum.github.io/eth2.0-APIs/#/Validator/prepareBeaconCommitteeSubnet

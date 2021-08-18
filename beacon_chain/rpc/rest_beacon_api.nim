@@ -9,7 +9,7 @@ import
   chronicles,
   nimcrypto/utils as ncrutils,
   ../beacon_node_common, ../networking/eth2_network,
-  ../consensus_object_pools/[blockchain_dag, exit_pool],
+  ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
   ../gossip_processing/gossip_validation,
   ../validators/validator_duties,
   ../spec/[eth2_merkleization, forks, network],
@@ -788,13 +788,63 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $dres.error())
         dres.get()
 
-    var failures: seq[RestAttestationsFailure]
-    for atindex, attestation in attestations.pairs():
-      debug "Attestation for pool", attestation = attestation,
-            signature = $attestation.signature
-      if not await node.sendAttestation(attestation):
-        failures.add(RestAttestationsFailure(
-          index: uint64(atindex), message: "Attestation failed validation"))
+    proc processAttestation(a: Attestation) {.async.} =
+      let
+        wallTime = node.processor.getCurrentBeaconTime()
+        deadline = a.data.slot.toBeaconTime() +
+                     seconds(int(SECONDS_PER_SLOT div 3))
+        attestationBlck =
+          block:
+            let res = node.dag.getRef(a.data.beacon_block_root)
+            if isNil(res):
+              debug "Attempt to send attestation without corresponding block"
+              raise newException(ValueError, "Attempt to send attestation " &
+                                             "without corresponding block")
+            res
+        epochRef = node.dag.getEpochRef(attestationBlck, a.data.target.epoch)
+        subnet_id = compute_subnet_for_attestation(
+          get_committee_count_per_slot(epochRef), a.data.slot,
+          CommitteeIndex(a.data.index)
+        )
+
+      let res = await node.attestationPool.validateAttestation(
+        node.processor.batchCrypto, a, wallTime, subnet_id, true
+      )
+      if res.isErr():
+        raise newException(ValueError, $res.error())
+
+
+      node.network.broadcast(
+        getAttestationTopic(node.dag.forkDigests.phase0, subnet_id), a
+      )
+
+      let (delayStr, delaySecs) =
+        if wallTime < deadline:
+          ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
+        else:
+          ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
+
+      notice "Attestation sent", attestation = shortLog(a), delay = delayStr
+
+    # Since our validation logic supports batch processing, we will submit all
+    # attestations for validation.
+    let pending =
+      block:
+        var res: seq[Future[void]]
+        for attestation in attestations:
+          res.add(processAttestation(attestation))
+        res
+    let failures =
+      block:
+        var res: seq[RestAttestationsFailure]
+        await allFutures(pending)
+        for index, future in pending.pairs():
+          if future.failed() or future.cancelled():
+            let exc = future.readError()
+            let failure = RestAttestationsFailure(index: uint64(index),
+                                                  message: exc.msg)
+            res.add(failure)
+        res
 
     if len(failures) > 0:
       return RestApiResponse.jsonErrorList(Http400, AttestationValidationError,
