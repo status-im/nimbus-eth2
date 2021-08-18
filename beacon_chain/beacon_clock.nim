@@ -16,6 +16,11 @@ from times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
 export chronos.Duration, Moment, now
 
 type
+  GenesisTime* = object
+    ## The genesis time represents time relative to the first slot of the
+    ## beacon chain.
+    genesis: Time
+
   BeaconClock* = object
     ## The beacon clock represents time as it passes on a beacon chain. Beacon
     ## time is locked to unix time, starting at a particular offset set during
@@ -47,6 +52,9 @@ proc init*(T: type BeaconClock, genesis_time: uint64): T =
 
   T(genesis: unixGenesis - unixGenesisOffset)
 
+func toGenesisTime*(c: BeaconClock): GenesisTime =
+  GenesisTime(genesis: c.genesis)
+
 template `<`*(a, b: BeaconTime): bool =
   Duration(a) < Duration(b)
 
@@ -74,7 +82,7 @@ func slotOrZero*(time: BeaconTime): Slot =
   if exSlot.afterGenesis: exSlot.slot
   else: Slot(0)
 
-func toBeaconTime*(c: BeaconClock, t: Time): BeaconTime =
+func toBeaconTime*(c: GenesisTime | BeaconClock, t: Time): BeaconTime =
   BeaconTime(nanoseconds(inNanoseconds(t - c.genesis)))
 
 func toSlot*(c: BeaconClock, t: Time): tuple[afterGenesis: bool, slot: Slot] =

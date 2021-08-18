@@ -88,7 +88,7 @@ type
     peers*: Table[PeerID, Peer]
     validTopics: HashSet[string]
     cfg: RuntimeConfig
-    beaconClock: BeaconClock
+    genesisTime: GenesisTime
     getTime: GetTimeFn
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
@@ -1129,7 +1129,7 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
 
 proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
           enrForkId: ENRForkID, forkDigests: ForkDigestsRef,
-          beaconClock: BeaconClock, getTime: GetTimeFn, switch: Switch,
+          genesisTime: GenesisTime, getTime: GetTimeFn, switch: Switch,
           pubsub: GossipSub, ip: Option[ValidIpAddress], tcpPort,
           udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
           rng: ref BrHmacDrbgContext): T {.raises: [Defect, CatchableError].} =
@@ -1158,7 +1158,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
     metadata: metadata,
     forkId: enrForkId,
     forkDigests: forkDigests,
-    beaconClock: beaconClock,
+    genesisTime: genesisTime,
     getTime: getTime,
     discovery: Eth2DiscoveryProtocol.new(
       config, ip, tcpPort, udpPort, privKey,
@@ -1591,13 +1591,13 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      netKeys: NetKeyPair,
                      cfg: RuntimeConfig,
                      forkDigests: ForkDigestsRef,
-                     beaconClock: BeaconClock,
+                     genesisTime: GenesisTime,
                      getTime: GetTimeFn,
                      genesisValidatorsRoot: Eth2Digest): Eth2Node
                     {.raises: [Defect, CatchableError].} =
   let
     enrForkId = getENRForkID(
-      cfg, beaconClock.toBeaconTime(getTime()).slotOrZero.epoch,
+      cfg, genesisTime.toBeaconTime(getTime()).slotOrZero.epoch,
       genesisValidatorsRoot)
 
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(
@@ -1682,7 +1682,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
   switch.mount(pubsub)
 
   Eth2Node.new(config, cfg, enrForkId,
-               forkDigests, beaconClock, getTime,
+               forkDigests, genesisTime, getTime,
                switch, pubsub,
                extIp, extTcpPort, extUdpPort,
                netKeys.seckey.asEthKey,
@@ -1909,6 +1909,9 @@ func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
   else:
     node.forkDigests.altair
 
+proc getWallEpoch(node: Eth2Node): Epoch =
+  node.genesisTime.toBeaconTime(node.getTime()).slotOrZero.epoch
+
 proc sendAttestation*(
     node: Eth2Node, subnet_id: SubnetId, attestation: Attestation) =
   # Regardless of the contents of the attestation,
@@ -1917,23 +1920,22 @@ proc sendAttestation*(
   # ignored, whilst post-fork, there is effectively a seen_ttl-based
   # timer unsubscription point that means no new pre-fork-forkdigest
   # should be sent.
-  let forkPrefix = node.forkDigestAtEpoch(
-    node.beaconClock.now.slotOrZero.epoch)
+  let forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)
   node.broadcast(
     getAttestationTopic(forkPrefix, subnet_id),
     attestation)
 
 proc sendVoluntaryExit*(node: Eth2Node, exit: SignedVoluntaryExit) =
   let exitsTopic = getVoluntaryExitsTopic(
-    node.forkDigestAtEpoch(node.beaconClock.now.slotOrZero.epoch))
+    node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(exitsTopic, exit)
 
 proc sendAttesterSlashing*(node: Eth2Node, slashing: AttesterSlashing) =
   let attesterSlashingsTopic = getAttesterSlashingsTopic(
-    node.forkDigestAtEpoch(node.beaconClock.now.slotOrZero.epoch))
+    node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(attesterSlashingsTopic, slashing)
 
 proc sendProposerSlashing*(node: Eth2Node, slashing: ProposerSlashing) =
   let proposerSlashingsTopic = getProposerSlashingsTopic(
-    node.forkDigestAtEpoch(node.beaconClock.now.slotOrZero.epoch))
+    node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(proposerSlashingsTopic, slashing)
