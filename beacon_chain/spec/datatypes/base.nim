@@ -25,16 +25,21 @@
 {.push raises: [Defect].}
 
 import
+  json_serialization
+
+export
+  json_serialization
+
+import
   std/[macros, hashes, intsets, strutils, tables, typetraits],
   stew/[assign2, byteutils],
   chronicles,
   chronos/timer,
-  json_serialization,
   ../../version, ../../ssz/types as sszTypes,
   ".."/[crypto, digest, presets]
 
 export
-  timer, crypto, digest, sszTypes, presets, json_serialization
+  timer, crypto, digest, sszTypes, presets
 
 # Presently, we're reusing the data types from the serialization (uint64) in the
 # objects we pass around to the beacon chain logic, thus keeping the two
