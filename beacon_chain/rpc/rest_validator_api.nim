@@ -201,7 +201,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         case message.kind
         of BeaconBlockFork.Phase0:
-          RestApiResponse.jsonResponse(message.phase0Block)
+          RestApiResponse.jsonResponse(message.phase0Block.message)
         of BeaconBlockFork.Altair:
           return RestApiResponse.jsonError(Http400, BlockProduceError)
 
@@ -265,11 +265,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         case message.kind
         of BeaconBlockFork.Phase0:
           RestApiResponse.jsonResponse(
-            (version: "phase0", data: message.phase0Block)
+            (version: "phase0", data: message.phase0Block.message)
           )
         of BeaconBlockFork.Altair:
           RestApiResponse.jsonResponse(
-            (version: "altair", data: message.altairBlock)
+            (version: "altair", data: message.altairBlock.message)
           )
 
   # https://ethereum.github.io/eth2.0-APIs/#/Validator/produceAttestationData
