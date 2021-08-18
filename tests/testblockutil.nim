@@ -220,7 +220,7 @@ func makeAttestation*(
     signature: sig
   )
 
-func find_beacon_committee*(
+func find_beacon_committee(
     state: ForkedHashedBeaconState, validator_index: ValidatorIndex,
     cache: var StateCache): auto =
   let epoch = compute_epoch_at_slot(getStateField(state, slot))
@@ -285,18 +285,7 @@ func makeFullAttestations*(
     attestation.signature = agg.finish().toValidatorSig()
     result.add attestation
 
-func makeFullAttestations*(
-    state: phase0.HashedBeaconState, beacon_block_root: Eth2Digest, slot: Slot,
-    cache: var StateCache,
-    flags: UpdateFlags = {}): seq[Attestation] =
-  # TODO this only supports phase 0 currently. Either expand that to
-  # Altair here or use the ForkedHashedBeaconState version only
-  makeFullAttestations(
-    (ref ForkedHashedBeaconState)(
-      beaconStateFork: forkPhase0, hbsPhase0: state)[],
-    beacon_block_root, slot, cache, flags)
-
-iterator makeTestBlocks*(
+iterator makeTestBlocks(
   state: phase0.HashedBeaconState,
   parent_root: Eth2Digest,
   cache: var StateCache,
@@ -323,7 +312,7 @@ iterator makeTestBlocks*(state: ForkedHashedBeaconState; parent_root: Eth2Digest
   for blck in makeTestBlocks(state.hbsPhase0, parent_root, cache, blocks, attested):
     yield blck
 
-proc getAttestationsforTestBlock*(
+proc getAttestationsForTestBlock*(
     pool: var AttestationPool, stateData: StateData, cache: var StateCache):
     seq[Attestation] =
   case stateData.data.beaconStateFork:

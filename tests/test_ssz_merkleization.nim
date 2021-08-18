@@ -20,7 +20,7 @@ type SparseMerkleTree[Depth: static int] = object
   # There is an extra "depth" layer to store leaf nodes
   # This stores leaves at depth = 0
   # and the root hash at the last depth
-  nnznodes*: array[Depth+1, seq[Eth2Digest]]  # nodes that leads to non-zero leaves
+  nnznodes: array[Depth+1, seq[Eth2Digest]]  # nodes that leads to non-zero leaves
 
 func merkleTreeFromLeaves(
         values: openArray[Eth2Digest],
@@ -77,7 +77,7 @@ func getMerkleProof[Depth: static int](tree: SparseMerkleTree[Depth],
     # in the next Merkle tree layer calculated
     depthLen = (depthLen + 1) div 2
 
-proc testMerkleMinimal*(): bool =
+proc testMerkleMinimal(): bool =
   proc toDigest[N: static int](x: array[N, byte]): Eth2Digest =
     result.data[0 .. N-1] = x
 

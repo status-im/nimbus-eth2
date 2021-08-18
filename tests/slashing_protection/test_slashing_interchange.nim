@@ -26,11 +26,6 @@ func fakeRoot(index: SomeInteger): Eth2Digest =
   ## We prevent zero hash special case via a power of 2 prefix
   result.data[0 ..< 8] = (1'u64 shl 32 + index.uint64).toBytesBE()
 
-func fakeValidator(index: SomeInteger): ValidatorPubKey =
-  ## Create fake validator public key
-  result = ValidatorPubKey()
-  result.blob[0 ..< 8] = (1'u64 shl 48 + index.uint64).toBytesBE()
-
 func hexToDigest(hex: string): Eth2Digest =
   result = Eth2Digest.fromHex(hex)
 
