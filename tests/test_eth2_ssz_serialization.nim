@@ -42,6 +42,11 @@ suite "Specific field types":
         t.message == decoded.message
         t.root == decoded.root
 
+      t = default(type t)
+      readSszBytes(encoded, t, false)
+      check:
+        t.root == Eth2Digest()
+
     testit(phase0.SignedBeaconBlock)
     testit(phase0.TrustedSignedBeaconBlock)
     testit(altair.SignedBeaconBlock)

@@ -23,7 +23,6 @@ export
 type
   SszReader* = object
     stream: InputStream
-    updateRoot: bool
 
   SszWriter* = object
     stream: OutputStream
@@ -47,9 +46,8 @@ template sizePrefixed*[TT](x: TT): untyped =
   SizePrefixed[T](x)
 
 proc init*(T: type SszReader,
-           stream: InputStream,
-           updateRoot: bool = true): T =
-  T(stream: stream, updateRoot: updateRoot)
+           stream: InputStream): T =
+  T(stream: stream)
 
 proc writeFixedSized(s: var (OutputStream|WriteCursor), x: auto) {.raises: [Defect, IOError].} =
   mixin toSszType
@@ -222,21 +220,22 @@ proc writeValue*[T](w: var SszWriter, x: SizePrefixed[T]) {.raises: [Defect, IOE
   let length = toBytes(uint64(w.stream.pos - initPos), Leb128)
   cursor.finalWrite length.toOpenArray()
 
-proc readValue*(r: var SszReader, val: var auto) {.raises: [Defect, MalformedSszError, SszSizeMismatchError, IOError].} =
+proc readValue*(r: var SszReader, val: var auto) {.
+    raises: [Defect, MalformedSszError, SszSizeMismatchError, IOError].} =
   mixin readSszBytes
   type T = type val
   when isFixedSize(T):
     const minimalSize = fixedPortionSize(T)
     if r.stream.readable(minimalSize):
-      readSszBytes(r.stream.read(minimalSize), val, r.updateRoot)
+      readSszBytes(r.stream.read(minimalSize), val)
     else:
       raise newException(MalformedSszError, "SSZ input of insufficient size")
   else:
     # TODO(zah) Read the fixed portion first and precisely measure the
     # size of the dynamic portion to consume the right number of bytes.
-    readSszBytes(r.stream.read(r.stream.len.get), val, r.updateRoot)
+    readSszBytes(r.stream.read(r.stream.len.get), val)
 
-proc readSszBytes*[T](data: openArray[byte], val: var T, updateRoot = true) {.
+proc readSszBytes*[T](data: openArray[byte], val: var T) {.
     raises: [Defect, MalformedSszError, SszSizeMismatchError].} =
   # Overload `readSszBytes` to perform custom operations on T after
   # deserialization

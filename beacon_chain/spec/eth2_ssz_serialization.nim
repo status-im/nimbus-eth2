@@ -7,8 +7,9 @@
 
 {.push raises: [Defect].}
 
-# Import this module to get access to `SSZ.encode` and `SSZ.decode` for spec types
-
+# This module exports SSZ.encode and SSZ.decode for spec types - don't use
+# ssz_serialization directly! To bypass root updates, use `readSszBytes`
+# without involving SSZ!
 import
   ./ssz_codec,
   ../ssz/ssz_serialization,
@@ -38,3 +39,13 @@ template readSszBytes*(
 template readSszBytes*(
     data: openArray[byte], val: var altair.TrustedSignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
+
+template readSszBytes*(
+    data: openArray[byte], val: var auto, updateRoot: bool) =
+  readSszValue(data, val)
+
+func readSszBytes(T: type, data: openArray[byte], updateRoot = true): T {.
+    raises: [Defect, MalformedSszError, SszSizeMismatchError].} =
+  var res: T
+  readSszBytes(data, res, updateRoot)
+  res
