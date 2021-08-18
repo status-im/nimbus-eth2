@@ -19,28 +19,28 @@ import
   ./fixtures_utils
 
 type
-  BLSPrivToPub* = object
-    input*: ValidatorPrivKey
-    output*: ValidatorPubKey
+  BLSPrivToPub = object
+    input: ValidatorPrivKey
+    output: ValidatorPubKey
 
   BLSSignMsgInput = object
-    privkey*: ValidatorPrivKey
-    message*: seq[byte]
-    domain*: Eth2Domain
+    privkey: ValidatorPrivKey
+    message: seq[byte]
+    domain: Eth2Domain
 
-  BLSSignMsg* = object
-    input*: BLSSignMsgInput
-    output*: Signature
+  BLSSignMsg = object
+    input: BLSSignMsgInput
+    output: Signature
 
-  BLSAggSig* = object
-    input*: seq[Signature]
-    output*: Signature
+  BLSAggSig = object
+    input: seq[Signature]
+    output: Signature
 
-  BLSAggPubKey* = object
-    input*: seq[ValidatorPubKey]
-    output*: ValidatorPubKey
+  BLSAggPubKey = object
+    input: seq[ValidatorPubKey]
+    output: ValidatorPubKey
 
-proc readValue*(r: var JsonReader, a: var Eth2Domain) =
+proc readValue(r: var JsonReader, a: var Eth2Domain) =
   ## Custom deserializer for Eth2Domain
   # Furthermore Nim parseHex doesn't support uint
   # until https://github.com/nim-lang/Nim/pull/11067

@@ -8,12 +8,12 @@ import
   ../beacon_chain/networking/[eth2_network, eth2_discovery],
   ./testutil
 
-template asyncTest*(name, body: untyped) =
+template asyncTest(name, body: untyped) =
   test name:
     proc scenario {.async.} = {.gcsafe.}: body
     waitFor scenario()
 
-proc new*(T: type Eth2DiscoveryProtocol,
+proc new(T: type Eth2DiscoveryProtocol,
     pk: keys.PrivateKey,
     enrIp: Option[ValidIpAddress], enrTcpPort, enrUdpPort: Option[Port],
     bindPort: Port, bindIp: ValidIpAddress,

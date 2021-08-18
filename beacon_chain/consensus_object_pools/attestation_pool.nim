@@ -390,10 +390,6 @@ func init(
   let
     prev_epoch = state.data.get_previous_epoch()
     cur_epoch = state.data.get_current_epoch()
-    prev_epoch_committees_per_slot = get_committee_count_per_slot(
-      state.data, prev_epoch, cache)
-    cur_epoch_committees_per_slot = get_committee_count_per_slot(
-      state.data, cur_epoch, cache)
 
   template update_attestation_pool_cache(
       epoch: Epoch, slot: Slot, participation_bitmap: untyped) =
