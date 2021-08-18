@@ -16,9 +16,12 @@ import
   stew/[byteutils, endians2],
   # Internal
   ./datatypes/[phase0, altair],
-  ../ssz/merkleization
+  ./eth2_merkleization, ./ssz_codec
 
-export phase0, altair
+# TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
+# fails to compile if the export is not done here also
+export
+  phase0, altair, eth2_merkleization, ssz_codec
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =

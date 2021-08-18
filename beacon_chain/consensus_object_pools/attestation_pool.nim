@@ -14,9 +14,8 @@ import
   metrics,
   chronicles, stew/byteutils, json_serialization/std/sets as jsonSets,
   # Internal
-  ../spec/[beaconstate, forks, helpers, validator],
+  ../spec/[beaconstate, eth2_merkleization, forks, helpers, validator],
   ../spec/datatypes/[phase0, altair],
-  ../ssz/[merkleization, types],
   "."/[spec_cache, blockchain_dag, block_quarantine],
   ".."/[beacon_clock, beacon_node_types],
   ../fork_choice/fork_choice

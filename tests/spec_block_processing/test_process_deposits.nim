@@ -19,7 +19,6 @@ import
   ../../beacon_chain/spec/[state_transition_block],
   ../../beacon_chain/spec/datatypes/base,
   # Internals
-  ../../beacon_chain/ssz,
   # Mock helpers
   ../mocking/[mock_deposits, mock_genesis],
   ../testutil, ../helpers/math_helpers

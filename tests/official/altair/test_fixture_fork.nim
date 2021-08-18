@@ -13,7 +13,6 @@ import
   # Beacon chain internals
   ../../../beacon_chain/spec/[beaconstate, helpers],
   ../../../beacon_chain/spec/datatypes/[phase0, altair],
-  ../../../beacon_chain/ssz,
   # Test utilities
   ../../testutil,
   ../fixtures_utils,

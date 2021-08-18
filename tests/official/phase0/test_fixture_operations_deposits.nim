@@ -15,7 +15,6 @@ import
   # Beacon chain internals
   ../../../beacon_chain/spec/[state_transition_block, presets],
   ../../../beacon_chain/spec/datatypes/phase0,
-  ../../../beacon_chain/ssz,
   # Test utilities
   ../../testutil,
   ../fixtures_utils,

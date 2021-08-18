@@ -10,7 +10,7 @@
 import
   # Status lib
   unittest2,
-  chronicles,
+  chronicles, chronos,
   eth/keys,
   # Internal
   ../beacon_chain/[beacon_node_types, beacon_clock],
@@ -18,7 +18,6 @@ import
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool],
-  ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/datatypes/phase0,
   ../beacon_chain/spec/[forks, state_transition, helpers, network],
   # Test utilities

@@ -4,7 +4,7 @@ import
   stew/[endians2, results],
   snappy, snappy/framing,
   ../beacon_chain/spec/datatypes/phase0,
-  ../beacon_chain/ssz/ssz_serialization
+  ../beacon_chain/spec/eth2_ssz_serialization
 
 const
   E2Version = [byte 0x65, 0x32]

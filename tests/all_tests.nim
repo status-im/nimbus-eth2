@@ -8,6 +8,7 @@
 import ./testutil
 
 import # Unit test
+  ./ssz/all_tests,
   ./test_attestation_pool,
   ./test_beacon_chain_db,
   ./test_beaconstate,
@@ -16,6 +17,7 @@ import # Unit test
   ./test_datatypes,
   ./test_discovery,
   ./test_eth1_monitor,
+  ./test_eth2_ssz_serialization,
   ./test_exit_pool,
   ./test_gossip_validation,
   ./test_helpers,
@@ -23,7 +25,6 @@ import # Unit test
   ./test_interop,
   ./test_message_signatures,
   ./test_peer_pool,
-  ./test_ssz,
   ./test_statediff,
   ./test_sync_manager,
   ./test_zero_signature,

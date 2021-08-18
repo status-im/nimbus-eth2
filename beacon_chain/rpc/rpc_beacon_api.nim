@@ -18,9 +18,8 @@ import
   ../validators/validator_duties,
   ../gossip_processing/gossip_validation,
   ../consensus_object_pools/blockchain_dag,
-  ../spec/[forks, network],
+  ../spec/[eth2_merkleization, forks, network],
   ../spec/datatypes/[phase0],
-  ../ssz/merkleization,
   ./rpc_utils
 
 logScope: topics = "beaconapi"

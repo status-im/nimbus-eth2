@@ -10,8 +10,6 @@ import
   # Specs
   ../../beacon_chain/spec/datatypes/phase0,
   ../../beacon_chain/spec/[helpers, signatures, validator],
-  # Internals
-  ../../beacon_chain/ssz,
   # Mock helpers
   ./mock_validator_keys
 

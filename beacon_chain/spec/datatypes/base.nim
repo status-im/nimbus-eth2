@@ -25,14 +25,21 @@
 {.push raises: [Defect].}
 
 import
+  json_serialization
+
+export
+  json_serialization
+
+import
   std/[macros, hashes, intsets, strutils, tables, typetraits],
-  stew/[assign2, byteutils], chronicles,
-  json_serialization,
+  stew/[assign2, byteutils],
+  chronicles,
+  chronos/timer,
   ../../version, ../../ssz/types as sszTypes,
   ".."/[crypto, digest, presets]
 
 export
-  crypto, digest, sszTypes, presets, json_serialization
+  timer, crypto, digest, sszTypes, presets
 
 # Presently, we're reusing the data types from the serialization (uint64) in the
 # objects we pass around to the beacon chain logic, thus keeping the two
@@ -627,15 +634,6 @@ proc readValue*(reader: var JsonReader, value: var SubnetId)
       reader, "Subnet id must be <= " & $ATTESTATION_SUBNET_COUNT)
   value = SubnetId(v)
 
-proc writeValue*(writer: var JsonWriter, value: HashList)
-                {.raises: [IOError, SerializationError, Defect].} =
-  writeValue(writer, value.data)
-
-proc readValue*(reader: var JsonReader, value: var HashList)
-               {.raises: [IOError, SerializationError, Defect].} =
-  value.resetCache()
-  readValue(reader, value.data)
-
 template writeValue*(writer: var JsonWriter, value: Version | ForkDigest) =
   writeValue(writer, $value)
 
@@ -730,29 +728,6 @@ func `as`*(d: DepositData, T: type DepositMessage): T =
 
 ethTimeUnit Slot
 ethTimeUnit Epoch
-
-Json.useCustomSerialization(BitSeq):
-  read:
-    try:
-      BitSeq reader.readValue(string).hexToSeqByte
-    except ValueError:
-      raiseUnexpectedValue(reader, "A BitSeq value should be a valid hex string")
-
-  write:
-    writer.writeValue "0x" & seq[byte](value).toHex
-
-template readValue*(reader: var JsonReader, value: var List) =
-  value = type(value)(readValue(reader, seq[type value[0]]))
-
-template writeValue*(writer: var JsonWriter, value: List) =
-  writeValue(writer, asSeq value)
-
-template readValue*(reader: var JsonReader, value: var BitList) =
-  type T = type(value)
-  value = T readValue(reader, BitSeq)
-
-template writeValue*(writer: var JsonWriter, value: BitList) =
-  writeValue(writer, BitSeq value)
 
 template newClone*[T: not ref](x: T): ref T =
   # TODO not nil in return type: https://github.com/nim-lang/Nim/issues/14146

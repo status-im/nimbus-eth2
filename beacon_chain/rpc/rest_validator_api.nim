@@ -8,13 +8,12 @@ import
   stew/[results, base10],
   chronicles,
   nimcrypto/utils as ncrutils,
+  ../spec/datatypes/[phase0],
   ../beacon_node_common, ../networking/eth2_network,
   ../consensus_object_pools/[blockchain_dag, spec_cache, attestation_pool],
   ../gossip_processing/gossip_validation,
   ../validators/validator_duties,
   ../spec/[forks, network],
-  ../spec/datatypes/[phase0],
-  ../ssz/merkleization,
   ./rest_utils
 
 logScope: topics = "rest_validatorapi"

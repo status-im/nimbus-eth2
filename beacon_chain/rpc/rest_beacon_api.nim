@@ -12,9 +12,8 @@ import
   ../consensus_object_pools/[blockchain_dag, exit_pool],
   ../gossip_processing/gossip_validation,
   ../validators/validator_duties,
-  ../spec/[forks, network],
+  ../spec/[eth2_merkleization, forks, network],
   ../spec/datatypes/[phase0, altair],
-  ../ssz/merkleization,
   ./rest_utils
 
 logScope: topics = "rest_beaconapi"

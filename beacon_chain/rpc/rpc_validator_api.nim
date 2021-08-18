@@ -20,7 +20,7 @@ import
   ../spec/[forks, helpers, network, signatures],
   ../spec/datatypes/phase0,
   ../spec/eth2_apis/rpc_types,
-  ../consensus_object_pools/[blockchain_dag, spec_cache, attestation_pool], ../ssz/merkleization,
+  ../consensus_object_pools/[blockchain_dag, spec_cache, attestation_pool],
   ../beacon_node_common, ../beacon_node_types,
   ../validators/validator_duties,
   ../networking/eth2_network,

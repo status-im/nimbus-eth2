@@ -32,11 +32,9 @@ import
   libp2p/utils/semaphore,
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
-  ".."/[
-    version, conf,
-    ssz/ssz_serialization, beacon_clock],
+  ".."/[version, conf, beacon_clock],
   ../spec/datatypes/[phase0, altair],
-  ../spec/[network, helpers, forks],
+  ../spec/[eth2_ssz_serialization, network, helpers, forks],
   ../validators/keystore_management,
   ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
 
@@ -45,7 +43,7 @@ when chronicles.enabledLogLevel == LogLevel.TRACE:
 
 export
   version, multiaddress, peer_pool, peerinfo, p2pProtocol, connection,
-  libp2p_json_serialization, ssz_serialization, results, eth2_discovery
+  libp2p_json_serialization, eth2_ssz_serialization, results, eth2_discovery
 
 logScope:
   topics = "networking"

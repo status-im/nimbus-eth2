@@ -10,7 +10,6 @@ import
   options, stew/endians2,
   ../beacon_chain/[beacon_node_types],
   ../beacon_chain/validators/validator_pool,
-  ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/datatypes/[phase0, altair, merge],
   ../beacon_chain/spec/[helpers, signatures, state_transition, forks],
   ../beacon_chain/consensus_object_pools/attestation_pool

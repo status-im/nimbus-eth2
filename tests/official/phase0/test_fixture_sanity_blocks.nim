@@ -13,7 +13,6 @@ import
   # Beacon chain internals
   ../../../beacon_chain/spec/[forks, state_transition],
   ../../../beacon_chain/spec/datatypes/phase0,
-  ../../../beacon_chain/ssz,
   # Test utilities
   ../../testutil,
   ../fixtures_utils

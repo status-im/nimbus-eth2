@@ -10,9 +10,8 @@
 import
   std/strutils,
   unittest2,
-  ../beacon_chain/spec/crypto,
-  ../beacon_chain/spec/datatypes/base,
-  ../beacon_chain/ssz
+  ../beacon_chain/spec/[eth2_ssz_serialization, crypto],
+  ../beacon_chain/spec/datatypes/base
 
 # Sanity checks to make sure all the workarounds introduced
 # to deal with https://github.com/status-im/nimbus-eth2/issues/374

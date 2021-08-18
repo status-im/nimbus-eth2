@@ -14,7 +14,8 @@ import
   ../networking/network_metadata,
   web3, web3/confutils_defs, eth/keys, eth/p2p/discoveryv5/random2,
   stew/io2,
-  ../spec/datatypes/base, ../ssz/merkleization,
+  ../spec/eth2_merkleization,
+  ../spec/datatypes/base,
   ../validators/keystore_management
 
 # Compiled version of /scripts/depositContract.v.py in this repo

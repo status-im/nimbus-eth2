@@ -14,7 +14,8 @@ import
   ../datatypes/[phase0, altair, merge],
   ./rest_types
 
-export results, peerid, presto, json_serialization, options, net, rest_types
+export
+  results, peerid, presto, json_serialization, options, net, rest_types
 
 Json.createFlavor RestJson
 

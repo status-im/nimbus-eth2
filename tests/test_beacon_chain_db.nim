@@ -10,7 +10,7 @@
 import
   std/[algorithm, options, sequtils],
   unittest2,
-  ../beacon_chain/[beacon_chain_db, interop, ssz],
+  ../beacon_chain/[beacon_chain_db, interop],
   ../beacon_chain/spec/[beaconstate, forks, state_transition],
   ../beacon_chain/spec/datatypes/[phase0, altair],
   ../beacon_chain/consensus_object_pools/blockchain_dag,

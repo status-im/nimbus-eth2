@@ -36,7 +36,6 @@ import
   ./spec/datatypes/[altair, phase0],
   ./spec/eth2_apis/rpc_beacon_client,
   ./spec/[beaconstate, forks, helpers, network, weak_subjectivity, signatures],
-  ./ssz/merkleization,
   ./consensus_object_pools/[
     blockchain_dag, block_quarantine, block_clearance, block_pools_types,
     attestation_pool, exit_pool, spec_cache],

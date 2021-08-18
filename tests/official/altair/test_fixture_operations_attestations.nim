@@ -16,7 +16,6 @@ import
   # Beacon chain internals
   ../../../beacon_chain/spec/beaconstate,
   ../../../beacon_chain/spec/datatypes/altair,
-  ../../../beacon_chain/ssz,
   # Test utilities
   ../../testutil,
   ../fixtures_utils,

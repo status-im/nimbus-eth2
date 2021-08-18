@@ -18,7 +18,6 @@ import
   # Internal
   ../spec/datatypes/base,
   ../spec/helpers,
-  ../ssz,
   ./slashing_protection_common
 
 # Requirements

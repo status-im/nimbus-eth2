@@ -12,10 +12,10 @@ import
   std/[strutils, parseutils],
   stew/objects, faststreams/outputs, json_serialization/writer,
   ../spec/datatypes/base,
-  ./bytes_reader, ./types, ./navigator, ./spec_types
+  ./codec, ./types, ./navigator
 
 export
-  bytes_reader, navigator, types
+  codec, navigator, types
 
 type
   ObjKind = enum

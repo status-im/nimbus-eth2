@@ -13,10 +13,9 @@ import
   eth/common/eth_types as commonEthTypes,
   web3/[ethtypes, conversions],
   chronicles,
-  json_serialization,
-  json_serialization/std/[options, sets, net], serialization/errors,
-  ../ssz/[navigator, spec_types],
   eth/common/eth_types_json_serialization,
+  ../ssz/[navigator],
+  ../spec/eth2_ssz_serialization,
   ../spec/datatypes/phase0
 
 # ATTENTION! This file will produce a large C file, because we are inlining

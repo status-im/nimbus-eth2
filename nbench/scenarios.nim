@@ -14,7 +14,6 @@ import
   ../beacon_chain/spec/datatypes/[phase0],
   ../beacon_chain/spec/[
       beaconstate, forks, helpers, state_transition, state_transition_block],
-  ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ../tests/official/fixtures_utils
 
 # Nimbus Bench - Scenario configuration

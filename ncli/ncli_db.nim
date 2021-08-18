@@ -8,7 +8,7 @@ import
   ../beacon_chain/spec/datatypes/phase0,
   ../beacon_chain/spec/[
     forks, helpers, state_transition, state_transition_epoch],
-  ../beacon_chain/ssz, ../beacon_chain/ssz/sszdump,
+  ../beacon_chain/sszdump,
   ../research/simutils, ./e2store
 
 type Timers = enum
