@@ -86,7 +86,7 @@ type
     quarantine*: QuarantineRef
 
     # Application-provided current time provider (to facilitate testing)
-    getTime*: GetTimeFn
+    getCurrentBeaconTime*: GetBeaconTimeFn
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -100,7 +100,7 @@ proc new*(T: type Eth2Processor,
           validatorPool: ref ValidatorPool,
           quarantine: QuarantineRef,
           rng: ref BrHmacDrbgContext,
-          getTime: GetTimeFn): ref Eth2Processor =
+          getBeaconTime: GetBeaconTimeFn): ref Eth2Processor =
   (ref Eth2Processor)(
     doppelGangerDetectionEnabled: doppelGangerDetectionEnabled,
     doppelgangerDetection: DoppelgangerProtection(
@@ -111,16 +111,13 @@ proc new*(T: type Eth2Processor,
     exitPool: exitPool,
     validatorPool: validatorPool,
     quarantine: quarantine,
-    getTime: getTime,
+    getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
       rng = rng,
       # Only run eager attestation signature verification if we're not
       # processing blocks in order to give priority to block processing
       eager = proc(): bool = not blockProcessor[].hasBlocks())
   )
-
-proc getCurrentBeaconTime*(self: Eth2Processor|ref Eth2Processor): BeaconTime =
-  self.dag.beaconClock.toBeaconTime(self.getTime())
 
 # Gossip Management
 # -----------------------------------------------------------------------------------
