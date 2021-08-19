@@ -16,7 +16,7 @@ import
   # Internals
   ../spec/[signatures_batch, forks],
   ../spec/datatypes/[phase0, altair],
-  ".."/[beacon_chain_db, beacon_clock]
+  ".."/beacon_chain_db
 
 export sets, tables
 
@@ -113,8 +113,6 @@ type
 
     db*: BeaconChainDB ##\
       ## ColdDB - Stores the canonical chain
-
-    beaconClock*: BeaconClock
 
     # -----------------------------------
     # ChainDAGRef - DAG of candidate chains

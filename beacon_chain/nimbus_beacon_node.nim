@@ -252,9 +252,12 @@ proc init*(T: type BeaconNode,
             dataDir = config.dataDir
       quit 1
 
+  let beaconClock = BeaconClock.init(
+    getStateField(dag.headState.data, genesis_time))
+
   if config.weakSubjectivityCheckpoint.isSome:
     let
-      currentSlot = dag.beaconClock.now.slotOrZero
+      currentSlot = beaconClock.now.slotOrZero
       isCheckpointStale = not is_within_weak_subjectivity_period(
         cfg,
         currentSlot,
@@ -304,7 +307,7 @@ proc init*(T: type BeaconNode,
     netKeys = getPersistentNetKeys(rng[], config)
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
-    getBeaconTime = dag.beaconClock.getBeaconTimeFn()
+    getBeaconTime = beaconClock.getBeaconTimeFn()
     network = createEth2Node(
       rng, config, netKeys, cfg, dag.forkDigests, getBeaconTime,
       getStateField(dag.headState.data, genesis_validators_root))
@@ -361,7 +364,8 @@ proc init*(T: type BeaconNode,
     processor: processor,
     blockProcessor: blockProcessor,
     consensusManager: consensusManager,
-    requestManager: RequestManager.init(network, blockProcessor)
+    requestManager: RequestManager.init(network, blockProcessor),
+    beaconClock: beaconClock
   )
 
   # set topic validation routine
@@ -633,7 +637,7 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) {.async.} =
 
 proc getInitialAggregateSubnets(node: BeaconNode): Table[SubnetId, Slot] =
   let
-    wallEpoch = node.dag.beaconClock.now.slotOrZero.epoch
+    wallEpoch = node.beaconClock.now.slotOrZero.epoch
     validatorIndices = toIntSet(toSeq(node.getAttachedValidators().keys()))
 
   template mergeAggregateSubnets(epoch: Epoch) =
@@ -672,7 +676,7 @@ proc subscribeAttestationSubnetHandlers(node: BeaconNode,
       ss.subnet_id = SubnetId(i)
       ss.expiration = FAR_FUTURE_EPOCH
   else:
-    let wallEpoch = node.dag.beaconClock.now.slotOrZero.epoch
+    let wallEpoch = node.beaconClock.now.slotOrZero.epoch
 
     # TODO make length dynamic when validator-client-based validators join and leave
     # In normal mode, there's one subnet subscription per validator, changing
@@ -992,7 +996,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       node.attestationSubnets.proposingSlots,
       node.attestationSubnets.lastCalculatedEpoch, slot)
     nextActionWaitTime = saturate(fromNow(
-      node.dag.beaconClock, min(nextAttestationSlot, nextProposalSlot)))
+      node.beaconClock, min(nextAttestationSlot, nextProposalSlot)))
 
   info "Slot end",
     slot = shortLog(slot),
@@ -1019,7 +1023,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # state in anticipation of receiving the next block - we do it after logging
   # slot end since the nextActionWaitTime can be short
   let
-    advanceCutoff = node.dag.beaconClock.fromNow(
+    advanceCutoff = node.beaconClock.fromNow(
       slot.toBeaconTime(chronos.seconds(int(SECONDS_PER_SLOT - 1))))
   if advanceCutoff.inFuture:
     # We wait until there's only a second left before the next slot begins, then
@@ -1108,7 +1112,7 @@ proc startSyncManager(node: BeaconNode) =
     node.dag.head.slot
 
   proc getLocalWallSlot(): Slot =
-    node.dag.beaconClock.now.slotOrZero
+    node.beaconClock.now.slotOrZero
 
   func getFirstSlotAtFinalizedEpoch(): Slot =
     node.dag.finalizedHead.slot
@@ -1274,7 +1278,7 @@ proc run*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
 
     node.installMessageValidators()
 
-    let startTime = node.dag.beaconClock.now()
+    let startTime = node.beaconClock.now()
     asyncSpawn runSlotLoop(node, startTime, onSlotStart)
     asyncSpawn runOnSecondLoop(node)
     asyncSpawn runQueueProcessingLoop(node.blockProcessor)
@@ -1335,14 +1339,14 @@ proc start(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   let
     head = node.dag.head
     finalizedHead = node.dag.finalizedHead
-    genesisTime = node.dag.beaconClock.fromNow(toBeaconTime(Slot 0))
+    genesisTime = node.beaconClock.fromNow(toBeaconTime(Slot 0))
 
   notice "Starting beacon node",
     version = fullVersionStr,
     enr = node.network.announcedENR.toURI,
     peerId = $node.network.switch.peerInfo.peerId,
     timeSinceFinalization =
-      node.dag.beaconClock.now() - finalizedHead.slot.toBeaconTime(),
+      node.beaconClock.now() - finalizedHead.slot.toBeaconTime(),
     head = shortLog(head),
     finalizedHead = shortLog(finalizedHead),
     SLOTS_PER_EPOCH,
