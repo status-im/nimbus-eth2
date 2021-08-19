@@ -909,34 +909,38 @@ proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
 
   var filtered: seq[(int, Node)]
   for n in nodes:
-    if n.record.contains((enrForkIdField, eth2Field)):
-      let res = n.record.tryGet(enrAttestationSubnetsField, seq[byte])
+    let res = n.record.tryGet(enrAttestationSubnetsField, seq[byte])
 
-      if res.isSome():
-        let attnetsNode =
-          try:
-            SSZ.decode(res.get(), BitArray[ATTESTATION_SUBNET_COUNT])
-          except SszError as e:
-            debug "Could not decode attestation subnet bitfield of peer",
-              peer = n.record.toURI(), exception = e.name, msg = e.msg
-            continue
+    if res.isSome():
+      let attnetsNode =
+        try:
+          SSZ.decode(res.get(), BitArray[ATTESTATION_SUBNET_COUNT])
+        except SszError as e:
+          debug "Could not decode attestation subnet bitfield of peer",
+            peer = n.record.toURI(), exception = e.name, msg = e.msg
+          continue
 
-        var score: int = 0
-        for i in 0..<attnetsNode.bytes.len:
-          if (attnets.bytes[i] and attnetsNode.bytes[i]) > 0:
-            inc score
+      var score: int = 0
+      for i in 0..<ATTESTATION_SUBNET_COUNT:
+        if attnets[i] and attnetsNode[i]:
+          inc score
 
-        if score > 0:
-          filtered.add((score, n))
+      if score > 0:
+        filtered.add((score, n))
 
   d.rng[].shuffle(filtered)
   return filtered.sortedByIt(it[0]).mapIt(it[1])
 
 proc trimConnections(node: Eth2Node, count: int) {.async.} =
+  # Kill `count` peers, scoring them to remove the least useful ones
+
   var scores = initOrderedTable[PeerID, int]()
 
   # Take into account the stabilitySubnets
   # During sync, only this will be used to score peers
+  #
+  # A peer subscribed to all stabilitySubnets will
+  # have 640 points
   for peer in node.peers.values:
     if peer.connectionState != Connected: continue
     if peer.metadata.isNone: continue
@@ -949,6 +953,9 @@ proc trimConnections(node: Eth2Node, count: int) {.async.} =
     scores[peer.info.peerId] = thisPeersScore
 
   # Split a 1000 points for each topic's peers
+  # This gives priority to peers in topics with few peers
+  # For instance, a topic with `dHigh` peers will give 80 points to each peer
+  # Whereas a topic with `dLow` peers will give 250 points to each peer
   for topic, _ in node.pubsub.topics:
     let
       peerCount = node.pubsub.mesh.peers(topic)
@@ -959,6 +966,8 @@ proc trimConnections(node: Eth2Node, count: int) {.async.} =
     for peer in node.pubsub.mesh[topic]:
       if peer.peerId notin scores: continue
 
+      # Divide by the number of connections
+      # A peer using multiple connections is wasteful
       let
         connCount = node.switch.connmanager.connCount(peer.peerId)
         thisPeersScore = scorePerPeer div max(1, connCount)
@@ -981,17 +990,17 @@ proc trimConnections(node: Eth2Node, count: int) {.async.} =
     if toKick <= 0: return
 
 proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
-  # 3 priorities:
-  # - Have 0 subscribed subnet below dLow
-  # - Have 0 subscribed subnet below d
-  # - Have 0 subscribed subnet below dOut
+  # Returns the subnets required to have a better mesh
+  # The subnets are computed, to, in order:
+  # - Have 0 subscribed subnet below `dLow`
+  # - Have 0 subscribed subnet below `d`
+  # - Have 0 subscribed subnet below `dOut`
+  # - Have 0 subnet with < `d` peers from topic subscription
   # - Have 0 stability subnet with < 5 peers
 
   var
     lowSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
-
     belowDSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
-
     belowDOutSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
 
   for topic, _ in node.pubsub.topics:
@@ -1011,13 +1020,20 @@ proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
 
   if lowSubnets.countOnes() > 0:
     return lowSubnets
-
-  if belowDSubnets.countOnes() > 0:
+  elif belowDSubnets.countOnes() > 0:
     return belowDSubnets
-
-  if belowDOutSubnets.countOnes() > 0:
+  elif belowDOutSubnets.countOnes() > 0:
     return belowDOutSubnets
 
+  for subNetId in 0..<ATTESTATION_SUBNET_COUNT:
+    let subNetTopic =
+      getAttestationTopic(node.forkId.forkDigest, SubnetId(subNetId))
+
+    if node.pubsub.gossipsub.peers(subNetTopic) < node.pubsub.parameters.d:
+      lowSubnets.setBit(subNetId)
+
+  if lowSubnets.countOnes() > 0:
+    return lowSubnets
 
   var peerPerStabilitySubnet: array[ATTESTATION_SUBNET_COUNT, int]
   for peer in node.peers.values:
@@ -1517,11 +1533,8 @@ import ../sync/sync_protocol
 proc updatePeerMetadata(node: Eth2Node, peerId: PeerID) {.async.} =
   trace "updating peer metadata", peerId
 
-  const emptyBytes = newSeq[byte](0)
   var peer = node.getPeer(peerId)
-  let
-    oldMetadata = peer.metadata
-    response = await peer.getMetaData()
+  let response = await peer.getMetaData()
 
   if response.isErr:
     debug "Failed to retrieve metadata from peer!", peerId
@@ -1557,7 +1570,7 @@ proc peerPingerHeartbeat(node: Eth2Node) {.async.} =
         debug "no metadata for 30 seconds, kicking peer", peer
         asyncSpawn peer.disconnect(PeerScoreLow)
 
-    await sleepAsync(15.seconds)
+    await sleepAsync(8.seconds)
 
 func asLibp2pKey*(key: keys.PublicKey): PublicKey =
   PublicKey(scheme: Secp256k1, skkey: secp.SkPublicKey(key))
