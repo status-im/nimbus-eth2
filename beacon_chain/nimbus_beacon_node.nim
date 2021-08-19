@@ -96,6 +96,9 @@ logScope: topics = "beacnde"
 const SlashingDbName = "slashing_protection"
   # changing this requires physical file rename as well or history is lost.
 
+func getBeaconTimeFn(clock: BeaconClock): GetBeaconTimeFn =
+  return proc(): BeaconTime = clock.now()
+
 proc init*(T: type BeaconNode,
            cfg: RuntimeConfig,
            rng: ref BrHmacDrbgContext,
@@ -302,9 +305,9 @@ proc init*(T: type BeaconNode,
     netKeys = getPersistentNetKeys(rng[], config)
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
+    getBeaconTime = dag.beaconClock.getBeaconTimeFn()
     network = createEth2Node(
-      rng, config, netKeys, cfg, dag.forkDigests,
-      dag.beaconClock.toGenesisTime, getTime,
+      rng, config, netKeys, cfg, dag.forkDigests, getBeaconTime,
       getStateField(dag.headState.data, genesis_validators_root))
     attestationPool = newClone(AttestationPool.init(dag, quarantine))
     exitPool = newClone(ExitPool.init(dag, quarantine))
@@ -333,11 +336,11 @@ proc init*(T: type BeaconNode,
     )
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      consensusManager, getTime)
+      consensusManager, getBeaconTime)
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, dag, attestationPool, exitPool, validatorPool,
-      quarantine, rng, getTime)
+      quarantine, rng, getBeaconTime)
 
   var node = BeaconNode(
     nickname: nickname,
@@ -395,7 +398,7 @@ proc init*(T: type BeaconNode,
     except Exception as exc: raiseAssert exc.msg
     node.addRemoteValidators()
 
-  network.initBeaconSync(dag, getTime)
+  network.initBeaconSync(dag, getBeaconTime)
 
   node.updateValidatorMetrics()
 

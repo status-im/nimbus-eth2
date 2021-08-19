@@ -47,7 +47,7 @@ type
 
   BeaconSyncNetworkState* = ref object
     dag*: ChainDAGRef
-    getTime*: GetTimeFn
+    getBeaconTime*: GetBeaconTimeFn
 
   BeaconSyncPeerState* = ref object
     statusLastTime*: chronos.Moment
@@ -121,8 +121,7 @@ proc getCurrentStatus*(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
   let
     dag = state.dag
     headBlock = dag.head
-    wallTime = state.getTime()
-    wallTimeSlot = dag.beaconClock.toBeaconTime(wallTime).slotOrZero
+    wallTimeSlot = state.getBeaconTime().slotOrZero
 
   StatusMsg(
     forkDigest: state.dag.forkDigestAtEpoch(wallTimeSlot.epoch),
@@ -358,8 +357,7 @@ p2pProtocol BeaconSync(version = 1,
 
 proc useSyncV2*(state: BeaconSyncNetworkState): bool =
   let
-    wallTime = state.getTime()
-    wallTimeSlot = state.dag.beaconClock.toBeaconTime(wallTime).slotOrZero
+    wallTimeSlot = state.getBeaconTime().slotOrZero
 
   wallTimeSlot.epoch >= state.dag.cfg.ALTAIR_FORK_EPOCH
 
@@ -407,7 +405,7 @@ proc handleStatus(peer: Peer,
       await peer.handlePeer()
 
 proc initBeaconSync*(network: Eth2Node, dag: ChainDAGRef,
-                     getTime: GetTimeFn) =
+                     getBeaconTime: GetBeaconTimeFn) =
   var networkState = network.protocolState(BeaconSync)
   networkState.dag = dag
-  networkState.getTime = getTime
+  networkState.getBeaconTime = getBeaconTime

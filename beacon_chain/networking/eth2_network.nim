@@ -88,8 +88,7 @@ type
     peers*: Table[PeerID, Peer]
     validTopics: HashSet[string]
     cfg: RuntimeConfig
-    genesisTime: GenesisTime
-    getTime: GetTimeFn
+    getBeaconTime: GetBeaconTimeFn
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -1129,7 +1128,7 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
 
 proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
           enrForkId: ENRForkID, forkDigests: ForkDigestsRef,
-          genesisTime: GenesisTime, getTime: GetTimeFn, switch: Switch,
+          getBeaconTime: GetBeaconTimeFn, switch: Switch,
           pubsub: GossipSub, ip: Option[ValidIpAddress], tcpPort,
           udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
           rng: ref BrHmacDrbgContext): T {.raises: [Defect, CatchableError].} =
@@ -1158,8 +1157,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
     metadata: metadata,
     forkId: enrForkId,
     forkDigests: forkDigests,
-    genesisTime: genesisTime,
-    getTime: getTime,
+    getBeaconTime: getBeaconTime,
     discovery: Eth2DiscoveryProtocol.new(
       config, ip, tcpPort, udpPort, privKey,
       {
@@ -1591,14 +1589,12 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      netKeys: NetKeyPair,
                      cfg: RuntimeConfig,
                      forkDigests: ForkDigestsRef,
-                     genesisTime: GenesisTime,
-                     getTime: GetTimeFn,
+                     getBeaconTime: GetBeaconTimeFn,
                      genesisValidatorsRoot: Eth2Digest): Eth2Node
                     {.raises: [Defect, CatchableError].} =
   let
     enrForkId = getENRForkID(
-      cfg, genesisTime.toBeaconTime(getTime()).slotOrZero.epoch,
-      genesisValidatorsRoot)
+      cfg, getBeaconTime().slotOrZero.epoch, genesisValidatorsRoot)
 
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(
       config.nat, config.listenAddress, config.tcpPort, config.udpPort, clientId)
@@ -1681,13 +1677,10 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
     except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
   switch.mount(pubsub)
 
-  Eth2Node.new(config, cfg, enrForkId,
-               forkDigests, genesisTime, getTime,
-               switch, pubsub,
-               extIp, extTcpPort, extUdpPort,
-               netKeys.seckey.asEthKey,
-               discovery = config.discv5Enabled,
-               rng = rng)
+  Eth2Node.new(
+    config, cfg, enrForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
+    extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
+    discovery = config.discv5Enabled, rng = rng)
 
 proc announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
@@ -1910,7 +1903,7 @@ func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
     node.forkDigests.altair
 
 proc getWallEpoch(node: Eth2Node): Epoch =
-  node.genesisTime.toBeaconTime(node.getTime()).slotOrZero.epoch
+  node.getBeaconTime().slotOrZero.epoch
 
 proc sendAttestation*(
     node: Eth2Node, subnet_id: SubnetId, attestation: Attestation) =
