@@ -564,13 +564,13 @@ func get_attestation_deltas(state: phase0.BeaconState, rewards: var RewardInfo) 
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment(
-    state: altair.BeaconState, total_active_balance_sqrt: Gwei): Gwei =
+    state: altair.BeaconState, total_active_balance_sqrt: uint64): Gwei =
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div total_active_balance_sqrt
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
-    state: altair.BeaconState, index: ValidatorIndex, total_active_balance_sqrt: Gwei):
-    Gwei =
+    state: altair.BeaconState, index: ValidatorIndex,
+    total_active_balance_sqrt: uint64): Gwei =
   ## Return the base reward for the validator defined by ``index`` with respect
   ## to the current ``state``.
   let increments =
@@ -579,8 +579,8 @@ func get_base_reward(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#get_flag_index_deltas
 iterator get_flag_index_deltas(
-    state: altair.BeaconState, flag_index: int, total_active_balance,
-    total_active_balance_sqrt: Gwei): (ValidatorIndex, Gwei, Gwei) =
+    state: altair.BeaconState, flag_index: int, total_active_balance: Gwei,
+    total_active_balance_sqrt: uint64): (ValidatorIndex, Gwei, Gwei) =
   ## Return the deltas for a given ``flag_index`` by scanning through the
   ## participation flags.
   let
