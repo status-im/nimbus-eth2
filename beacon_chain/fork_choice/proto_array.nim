@@ -23,7 +23,7 @@ logScope:
 
 export results
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.11.1/specs/phase0/fork-choice.md
+# https://github.com/ethereum/consensus-specs/blob/v0.11.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
 # See also:
@@ -253,7 +253,7 @@ func findHead*(self: var ProtoArray,
                justifiedRoot: Eth2Digest): FcResult[void] =
   ## Follows the best-descendant links to find the best-block (i.e. head-block)
   ##
-  ## ⚠️ Warning
+  ## ️ Warning
   ## The result may not be accurate if `onBlock` is not followed by
   ## `applyScoreChanges` as `onBlock` does not update the whole tree.
 
@@ -451,7 +451,7 @@ func nodeLeadsToViableHead(self: ProtoArray, node: ProtoNode): FcResult[bool] =
 
 func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool =
   ## This is the equivalent of `filter_block_tree` function in eth2 spec
-  ## https://github.com/ethereum/eth2.0-specs/blob/v0.10.0/specs/phase0/fork-choice.md#filter_block_tree
+  ## https://github.com/ethereum/consensus-specs/blob/v0.10.0/specs/phase0/fork-choice.md#filter_block_tree
   ##
   ## Any node that has a different finalized or justified epoch
   ## should not be viable for the head.

@@ -22,7 +22,7 @@ import
   nimcrypto/utils
 
 const
-  # https://github.com/ethereum/eth2.0-specs/blob/e895c29f3f42382a0c913f3d0fd33522d7db9e87/specs/merge/beacon-chain.md#execution
+  # https://github.com/ethereum/consensus-specs/blob/e895c29f3f42382a0c913f3d0fd33522d7db9e87/specs/merge/beacon-chain.md#execution
   MAX_BYTES_PER_OPAQUE_TRANSACTION* = 1048576
   MAX_EXECUTION_TRANSACTIONS* = 16384
   BYTES_PER_LOGS_BLOOM* = 256
@@ -30,7 +30,7 @@ const
   EVM_BLOCK_ROOTS_SIZE* = 8
 
 type
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/merge/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/merge/beacon-chain.md#custom-types
   OpaqueTransaction* = List[byte, Limit MAX_BYTES_PER_OPAQUE_TRANSACTION]
 
   EthAddress* = object
@@ -39,7 +39,7 @@ type
   BloomLogs* = object
     data*: array[BYTES_PER_LOGS_BLOOM, byte]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/merge/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/merge/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     block_hash*: Eth2Digest # Hash of execution block
     parent_hash*: Eth2Digest
@@ -53,7 +53,7 @@ type
     logs_bloom*: BloomLogs
     transactions*: List[OpaqueTransaction, MAX_EXECUTION_TRANSACTIONS]
 
-  # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/merge/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/merge/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     block_hash*: Eth2Digest  # Hash of execution block
     parent_hash*: Eth2Digest
@@ -111,7 +111,7 @@ proc readValue*(r: var JsonReader, a: var EthAddress) {.raises: [Defect, IOError
   except ValueError:
     raiseUnexpectedValue(r, "Hex string expected")
 
-# https://github.com/ethereum/eth2.0-specs/blob/dev/specs/merge/beacon-chain.md#is_transition_completed
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/merge/beacon-chain.md#is_transition_completed
 func is_transition_completed*(state: auto): bool =
   # Rayonism starts post-merge
   true
