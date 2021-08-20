@@ -63,6 +63,7 @@ type
     consensusManager*: ref ConsensusManager
     attachedValidatorBalanceTotal*: uint64
     gossipState*: GossipState
+    beaconClock*: BeaconClock
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
@@ -75,9 +76,6 @@ template findIt*(s: openArray, predicate: untyped): int =
       res = i
       break
   res
-
-template beaconClock*(node: BeaconNode): BeaconClock =
-  node.dag.beaconClock
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero

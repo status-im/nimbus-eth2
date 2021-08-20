@@ -104,7 +104,7 @@ proc new*(T: type Eth2Processor,
   (ref Eth2Processor)(
     doppelGangerDetectionEnabled: doppelGangerDetectionEnabled,
     doppelgangerDetection: DoppelgangerProtection(
-      nodeLaunchSlot: dag.beaconClock.now.slotOrZero),
+      nodeLaunchSlot: getBeaconTime().slotOrZero),
     blockProcessor: blockProcessor,
     dag: dag,
     attestationPool: attestationPool,
