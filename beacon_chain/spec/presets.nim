@@ -78,6 +78,8 @@ type
   PresetIncompatibleError* = object of CatchableError
 
 const
+  FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
+
   const_preset* {.strdefine.} = "mainnet"
 
   # These constants cannot really be overriden in a preset.
@@ -177,7 +179,7 @@ when const_preset == "mainnet":
 
     # Altair
     ALTAIR_FORK_VERSION: Version [byte 0x01, 0x00, 0x00, 0x00],
-    ALTAIR_FORK_EPOCH: Epoch(uint64.high),
+    ALTAIR_FORK_EPOCH: FAR_FUTURE_EPOCH,
     # Merge
     MERGE_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x00],
     MERGE_FORK_EPOCH: Epoch(uint64.high),
