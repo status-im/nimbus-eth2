@@ -230,7 +230,7 @@ p2pProtocol BeaconSync(version = 1,
         of BeaconBlockFork.Altair:
           # Skipping all subsequent blocks should be OK because the spec says:
           # "Clients MAY limit the number of blocks in the response."
-          # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyrange
+          # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyrange
           #
           # Also, our response would be indistinguishable from a node
           # that have been synced exactly to the altair transition slot.
@@ -270,7 +270,7 @@ p2pProtocol BeaconSync(version = 1,
         of BeaconBlockFork.Altair:
           # Skipping this block should be fine because the spec says:
           # "Clients MAY limit the number of blocks in the response."
-          # https://github.com/ethereum/eth2.0-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyroot
+          # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyroot
           #
           # Also, our response would be indistinguishable from a node
           # that have been synced exactly to the altair transition slot.

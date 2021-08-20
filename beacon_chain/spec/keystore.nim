@@ -748,13 +748,13 @@ proc createWallet*(kdfKind: KdfKind,
     crypto: crypto,
     nextAccount: nextAccount.get(0))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/deposit-contract.md#withdrawal-credentials
+# https://github.com/ethereum/consensus-specs/blob/v0.12.2/specs/phase0/deposit-contract.md#withdrawal-credentials
 func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   var bytes = eth2digest(k.toRaw())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8
   bytes
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.2/specs/phase0/deposit-contract.md#withdrawal-credentials
+# https://github.com/ethereum/consensus-specs/blob/v0.12.2/specs/phase0/deposit-contract.md#withdrawal-credentials
 proc makeWithdrawalCredentials*(k: CookedPubKey): Eth2Digest =
   makeWithdrawalCredentials(k.toPubKey())
 

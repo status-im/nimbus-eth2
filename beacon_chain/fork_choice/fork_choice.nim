@@ -22,7 +22,7 @@ import
 export results, fork_choice_types
 export proto_array.len
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md
+# https://github.com/ethereum/consensus-specs/blob/v0.12.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
 # See also:
@@ -169,7 +169,7 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## In particular, before adding a block, its parent must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md#on_attestation
+# https://github.com/ethereum/consensus-specs/blob/v0.12.1/specs/phase0/fork-choice.md#on_attestation
 proc on_attestation*(
        self: var ForkChoice,
        dag: ChainDAGRef,
@@ -198,7 +198,7 @@ proc on_attestation*(
       block_root: beacon_block_root))
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md#should_update_justified_checkpoint
+# https://github.com/ethereum/consensus-specs/blob/v0.12.1/specs/phase0/fork-choice.md#should_update_justified_checkpoint
 proc should_update_justified_checkpoint(
         self: var Checkpoints,
         dag: ChainDAGRef,
@@ -368,7 +368,7 @@ proc find_head*(
 
   return ok(new_head)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v0.12.1/specs/phase0/fork-choice.md#get_head
+# https://github.com/ethereum/consensus-specs/blob/v0.12.1/specs/phase0/fork-choice.md#get_head
 proc get_head*(self: var ForkChoice,
                dag: ChainDAGRef,
                wallSlot: Slot): FcResult[Eth2Digest] =

@@ -33,7 +33,7 @@ func compute_slot_root*(
       fork, DOMAIN_SELECTION_PROOF, epoch, genesis_validators_root)
   compute_signing_root(slot, domain)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#aggregation-selection
 func get_slot_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     privkey: ValidatorPrivKey): CookedSig =
@@ -57,7 +57,7 @@ func compute_epoch_root*(
   let domain = get_domain(fork, DOMAIN_RANDAO, epoch, genesis_validators_root)
   compute_signing_root(epoch, domain)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#randao-reveal
 func get_epoch_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
     privkey: ValidatorPrivKey): CookedSig =
@@ -82,7 +82,7 @@ func compute_block_root*(
       fork, DOMAIN_BEACON_PROPOSER, epoch, genesis_validators_root)
   compute_signing_root(root, domain)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#signature
 func get_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     root: Eth2Digest, privkey: ValidatorPrivKey): CookedSig =
@@ -110,7 +110,7 @@ func compute_aggregate_and_proof_root*(fork: Fork, genesis_validators_root: Eth2
       fork, DOMAIN_AGGREGATE_AND_PROOF, epoch, genesis_validators_root)
   compute_signing_root(aggregate_and_proof, domain)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-aggregate
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-aggregate
 func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
                                         aggregate_and_proof: AggregateAndProof,
                                         privKey: ValidatorPrivKey): CookedSig =
@@ -140,7 +140,7 @@ func compute_attestation_root*(
       fork, DOMAIN_BEACON_ATTESTER, epoch, genesis_validators_root)
   compute_signing_root(attestation_data, domain)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#prepare-sync-committee-message
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#prepare-sync-committee-message
 func sync_committee_msg_signing_root*(
     fork: Fork, epoch: Epoch,
     genesis_validators_root: Eth2Digest,
@@ -148,7 +148,7 @@ func sync_committee_msg_signing_root*(
   let domain = get_domain(fork, DOMAIN_SYNC_COMMITTEE, epoch, genesis_validators_root)
   compute_signing_root(block_root, domain)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#signature
 func contribution_and_proof_signing_root*(
     fork: Fork,
     genesis_validators_root: Eth2Digest,
@@ -158,7 +158,7 @@ func contribution_and_proof_signing_root*(
                           genesis_validators_root)
   compute_signing_root(msg, domain)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#aggregation-selection
 proc sync_committee_selection_proof_signing_root*(
     fork: Fork,
     genesis_validators_root: Eth2Digest,
@@ -172,7 +172,7 @@ proc sync_committee_selection_proof_signing_root*(
       subcommittee_index: subcommittee_index)
   compute_signing_root(signing_data, domain)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#aggregate-signature
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#aggregate-signature
 func get_attestation_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     attestation_data: AttestationData,
@@ -194,7 +194,7 @@ proc verify_attestation_signature*(
 
     blsFastAggregateVerify(pubkeys, signing_root.data, signature)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#deposits
 func get_deposit_signature*(preset: RuntimeConfig,
                             deposit: DepositData,
                             privkey: ValidatorPrivKey): CookedSig =
@@ -256,7 +256,7 @@ proc verify_sync_committee_message_signature*(
 
   blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#aggregation-selection
 proc is_sync_committee_aggregator*(signature: ValidatorSig): bool =
   let
     signatureDigest = eth2digest(signature.blob)

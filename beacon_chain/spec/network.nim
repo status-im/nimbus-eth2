@@ -14,14 +14,14 @@ import
 export base
 
 const
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix* = "beacon_block/ssz"
   topicVoluntaryExitsSuffix* = "voluntary_exit/ssz"
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz"
   topicAttesterSlashingsSuffix* = "attester_slashing/ssz"
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz"
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#eth2-network-interaction-domains
+  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#eth2-network-interaction-domains
   MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
   GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
   TTFB_TIMEOUT* = 5.seconds
@@ -57,7 +57,7 @@ func getAttesterSlashingsTopic*(forkDigest: ForkDigest): string =
 func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicAggregateAndProofsSuffix
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
     committees_per_slot: uint64, slot: Slot, committee_index: CommitteeIndex):
     SubnetId =
@@ -73,19 +73,19 @@ func compute_subnet_for_attestation*(
     (committees_since_epoch_start + committee_index.uint64) mod
     ATTESTATION_SUBNET_COUNT)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-attestation
 func getAttestationTopic*(forkDigest: ForkDigest,
                           subnetId: SubnetId): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "beacon_attestation_" & $(subnetId) & "/ssz"
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeTopic*(forkDigest: ForkDigest,
                             committeeIdx: SyncCommitteeIndex): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_" & $(committeeIdx.asUInt8) & "/ssz"
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof" & "/ssz"

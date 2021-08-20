@@ -154,7 +154,7 @@ when const_preset == "mainnet":
   # TODO Move this to RuntimeConfig
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/configs/mainnet.yaml
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.8/configs/mainnet.yaml
   # TODO Read these from yaml file
   const defaultRuntimeConfig* = RuntimeConfig(
     PRESET_BASE: "mainnet",
@@ -233,7 +233,7 @@ elif const_preset == "minimal":
 
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/configs/minimal.yaml
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.8/configs/minimal.yaml
   const defaultRuntimeConfig* = RuntimeConfig(
     # Minimal config
 

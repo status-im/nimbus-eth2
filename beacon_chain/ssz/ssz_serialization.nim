@@ -9,7 +9,7 @@
 {.pragma: raisesssz, raises: [Defect, MalformedSszError, SszSizeMismatchError].}
 
 ## SSZ serialization for core SSZ types, as specified in:
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/ssz/simple-serialize.md#serialization
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/ssz/simple-serialize.md#serialization
 
 import
   std/typetraits,

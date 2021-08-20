@@ -13,7 +13,7 @@ import
 const
   SAFETY_DECAY* = 10'u64
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/weak-subjectivity.md#calculating-the-weak-subjectivity-period
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/weak-subjectivity.md#calculating-the-weak-subjectivity-period
 func compute_weak_subjectivity_period(
     cfg: RuntimeConfig, state: ForkedHashedBeaconState): uint64 =
   var weak_subjectivity_period = cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
@@ -26,7 +26,7 @@ func compute_weak_subjectivity_period(
       SAFETY_DECAY * validator_count div (2 * 100 * cfg.MIN_PER_EPOCH_CHURN_LIMIT)
   return weak_subjectivity_period
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/weak-subjectivity.md#checking-for-stale-weak-subjectivity-checkpoint
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/weak-subjectivity.md#checking-for-stale-weak-subjectivity-checkpoint
 func is_within_weak_subjectivity_period*(cfg: RuntimeConfig, current_slot: Slot,
                                          ws_state: ForkedHashedBeaconState,
                                          ws_checkpoint: Checkpoint): bool =
