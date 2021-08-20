@@ -416,6 +416,14 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     BOOTSTRAP_ARG="--netkey-file=${NETWORK_KEYFILE} --insecure-netkey-password=true --subscribe-all-subnets"
   else
     BOOTSTRAP_ARG="--bootstrap-file=${BOOTSTRAP_ENR}"
+
+    if [[ "${CONST_PRESET}" == "minimal" ]]; then
+      # The fast epoch and slot times in the minimal config might cause the
+      # mesh to break down due to re-subscriptions happening within the prune
+      # backoff time
+      BOOTSTRAP_ARG="${BOOTSTRAP_ARG} --subscribe-all-subnets"
+    fi
+
     # Wait for the master node to write out its address file
     START_TIMESTAMP=$(date +%s)
     while [[ ! -f "${BOOTSTRAP_ENR}" ]]; do
