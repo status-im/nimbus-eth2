@@ -54,6 +54,10 @@ declarePublicGauge(attached_validator_balance_total,
 
 logScope: topics = "beacval"
 
+type
+  SendResult* = Result[void, cstring]
+  SendBlockResult* = Result[bool, cstring]
+
 proc findValidator(validators: auto, pubKey: ValidatorPubKey):
     Option[ValidatorIndex] =
   let idx = validators.findIt(it.pubKey == pubKey)
@@ -170,7 +174,7 @@ proc sendAttestation*(
 
   return case ok
     of ValidationResult.Accept:
-      node.network.sendAttestation(subnet_id, attestation)
+      node.network.broadcastAttestation(subnet_id, attestation)
       beacon_attestations_sent.inc()
       true
     else:
@@ -178,22 +182,6 @@ proc sendAttestation*(
         attestation = shortLog(attestation),
         result = $ok
       false
-
-proc sendAttestation*(node: BeaconNode, attestation: Attestation): Future[bool] =
-  # For the validator API, which doesn't supply the subnet id.
-  let attestationBlck =
-    node.dag.getRef(attestation.data.beacon_block_root)
-  if attestationBlck.isNil:
-    debug "Attempt to send attestation without corresponding block"
-    return
-  let
-    epochRef = node.dag.getEpochRef(
-      attestationBlck, attestation.data.target.epoch)
-    subnet_id = compute_subnet_for_attestation(
-      get_committee_count_per_slot(epochRef), attestation.data.slot,
-      attestation.data.index.CommitteeIndex)
-
-  node.sendAttestation(attestation, subnet_id, checkSignature = true)
 
 proc createAndSendAttestation(node: BeaconNode,
                               fork: Fork,
@@ -731,3 +719,105 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     let finalizedEpochRef = node.dag.getFinalizedEpochRef()
     discard node.eth1Monitor.trackFinalizedState(
       finalizedEpochRef.eth1_data, finalizedEpochRef.eth1_deposit_index)
+
+proc sendAttestation*(node: BeaconNode,
+                      attestation: Attestation): Future[SendResult] {.async.} =
+  # REST/JSON-RPC API helper procedure.
+  let attestationBlock =
+    block:
+      let res = node.dag.getRef(attestation.data.beacon_block_root)
+      if isNil(res):
+        debug "Attempt to send attestation without corresponding block",
+              attestation = shortLog(attestation)
+        return SendResult.err(
+          "Attempt to send attestation without corresponding block")
+      res
+  let
+    epochRef = node.dag.getEpochRef(
+      attestationBlock, attestation.data.target.epoch)
+    subnet_id = compute_subnet_for_attestation(
+      get_committee_count_per_slot(epochRef), attestation.data.slot,
+      attestation.data.index.CommitteeIndex)
+    res = await node.sendAttestation(attestation, subnet_id,
+                                     checkSignature = true)
+  if not(res):
+    return SendResult.err("Attestation failed validation")
+  return SendResult.ok()
+
+proc sendAggregateAndProof*(node: BeaconNode,
+                          proof: SignedAggregateAndProof): Future[SendResult] {.
+     async.} =
+  # REST/JSON-RPC API helper procedure.
+  let res = await node.processor.aggregateValidator(proof)
+  case res
+  of ValidationResult.Accept:
+    node.network.broadcastAggregateAndProof(proof)
+    return SendResult.ok()
+  else:
+    notice "Aggregate and proof failed validation",
+           proof = shortLog(proof.message.aggregate), result = $res
+    return SendResult.err("Aggregate and proof failed validation")
+
+proc sendVoluntaryExit*(node: BeaconNode,
+                        exit: SignedVoluntaryExit): SendResult =
+  # REST/JSON-RPC API helper procedure.
+  let res = node.processor[].voluntaryExitValidator(exit)
+  case res
+  of ValidationResult.Accept:
+    node.network.broadcastVoluntaryExit(exit)
+    ok()
+  else:
+    notice "Voluntary exit request failed validation",
+           exit = shortLog(exit.message), result = $res
+    err("Voluntary exit request failed validation")
+
+proc sendAttesterSlashing*(node: BeaconNode,
+                           slashing: AttesterSlashing): SendResult =
+  # REST/JSON-RPC API helper procedure.
+  let res = node.processor[].attesterSlashingValidator(slashing)
+  case res
+  of ValidationResult.Accept:
+    node.network.broadcastAttesterSlashing(slashing)
+    ok()
+  else:
+    notice "Attester slashing request failed validation",
+           slashing = shortLog(slashing), result = $res
+    err("Attester slashing request failed validation")
+
+proc sendProposerSlashing*(node: BeaconNode,
+                           slashing: ProposerSlashing): SendResult =
+  # REST/JSON-RPC API helper procedure.
+  let res = node.processor[].proposerSlashingValidator(slashing)
+  case res
+  of ValidationResult.Accept:
+    node.network.broadcastProposerSlashing(slashing)
+  else:
+    notice "Proposer slashing request failed validation",
+           slashing = shortLog(slashing), result = $res
+    return SendResult.err("Proposer slashing request failed validation")
+
+proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
+                     ): Future[SendBlockResult] {.async.} =
+  # REST/JSON-RPC API helper procedure.
+  let head = node.dag.head
+  if not(node.isSynced(head)):
+    return SendBlockResult.err("Beacon node is currently syncing")
+  if head.slot >= forked.slot():
+    node.network.broadcastBeaconBlock(forked)
+    return SendBlockResult.ok(false)
+  let res =
+    case forked.kind
+    of BeaconBlockFork.Phase0:
+      await node.proposeSignedBlock(head, AttachedValidator(),
+                                    forked.phase0Block)
+    of BeaconBlockFork.Altair:
+      # TODO altair-transition
+      # await node.proposeSignedBlock(head, AttachedValidator(),
+      #                               forked.altairBlock)
+      head
+  if res == head:
+    # `res == head` means failure, in such case we need to broadcast block
+    # manually because of the specification.
+    node.network.broadcastBeaconBlock(forked)
+    return SendBlockResult.ok(false)
+  return SendBlockResult.ok(true)

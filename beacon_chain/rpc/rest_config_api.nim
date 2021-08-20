@@ -150,14 +150,19 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
         )
       )
 
+  # https://ethereum.github.io/beacon-APIs/#/Config/getForkSchedule
   router.api(MethodGet,
              "/api/eth/v1/config/fork_schedule") do () -> RestApiResponse:
     return RestApiResponse.response(cachedForkSchedule, Http200,
                                     "application/json")
+
+  # https://ethereum.github.io/beacon-APIs/#/Config/getSpec
   router.api(MethodGet,
              "/api/eth/v1/config/spec") do () -> RestApiResponse:
     return RestApiResponse.response(cachedConfigSpec, Http200,
                                     "application/json")
+
+  # https://ethereum.github.io/beacon-APIs/#/Config/getDepositContract
   router.api(MethodGet,
              "/api/eth/v1/config/deposit_contract") do () -> RestApiResponse:
     return RestApiResponse.response(cachedDepositContract, Http200,

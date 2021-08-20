@@ -126,6 +126,7 @@ proc getP2PAddresses(node: BeaconNode): Option[seq[string]] =
   return some(addresses)
 
 proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
+  # https://ethereum.github.io/beacon-APIs/#/Node/getNetworkIdentity
   router.api(MethodGet, "/api/eth/v1/node/identity") do () -> RestApiResponse:
     let discoveryAddresses =
       block:
@@ -156,6 +157,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
       )
     )
 
+  # https://ethereum.github.io/beacon-APIs/#/Node/getPeers
   router.api(MethodGet, "/api/eth/v1/node/peers") do (
     state: seq[PeerStateKind],
     direction: seq[PeerDirectKind]) -> RestApiResponse:
@@ -198,6 +200,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.add(peer)
     return RestApiResponse.jsonResponseWMeta(res, (count: uint64(len(res))))
 
+  # https://ethereum.github.io/beacon-APIs/#/Node/getPeerCount
   router.api(MethodGet, "/api/eth/v1/node/peer_count") do () -> RestApiResponse:
     var res: RestNodePeerCount
     for item in node.network.peers.values():
@@ -214,6 +217,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         discard
     return RestApiResponse.jsonResponse(res)
 
+  # https://ethereum.github.io/beacon-APIs/#/Node/getPeer
   router.api(MethodGet, "/api/eth/v1/node/peers/{peer_id}") do (
     peer_id: PeerID) -> RestApiResponse:
     let peer =
@@ -237,14 +241,17 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
       )
     )
 
+  # https://ethereum.github.io/beacon-APIs/#/Node/getNodeVersion
   router.api(MethodGet, "/api/eth/v1/node/version") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(
       (version: "Nimbus/" & fullVersionStr)
     )
 
+  # https://ethereum.github.io/beacon-APIs/#/Node/getSyncingStatus
   router.api(MethodGet, "/api/eth/v1/node/syncing") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(node.syncManager.getInfo())
 
+  # https://ethereum.github.io/beacon-APIs/#/Node/getHealth
   router.api(MethodGet, "/api/eth/v1/node/health") do () -> RestApiResponse:
     # TODO: Add ability to detect node's issues and return 503 error according
     # to specification.
