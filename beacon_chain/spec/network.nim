@@ -8,8 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  parseutils,
-  "."/[digest, helpers, forks],
+  "."/[helpers, forks],
   "."/datatypes/base
 
 export base
@@ -85,15 +84,6 @@ func getSyncCommitteeTopic*(forkDigest: ForkDigest,
                             committeeIdx: SyncCommitteeIndex): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_" & $(committeeIdx.asUInt8) & "/ssz"
-
-func getTopicAttestationSubnet*(forkDigest: ForkDigest, topic: string): int =
-  #Can't return subnetid because of -1
-  let prefix = eth2Prefix(forkDigest) & "beacon_attestation_"
-  if topic.len > prefix.len and topic[0..<prefix.len] == prefix:
-    var parsed: int
-    if parseSaturatedNatural(topic, parsed, prefix.len) > 0:
-      return parsed
-  return -1
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string =

@@ -594,7 +594,10 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                                 deadline): return neterr StreamOpenTimeout
   try:
     # Send the request
-    await stream.writeChunk(none ResponseCode, requestBytes)
+    # Some clients don't want a length sent for empty requests
+    # So don't send anything on empty requests
+    if requestBytes.len > 0:
+      await stream.writeChunk(none ResponseCode, requestBytes)
     # Half-close the stream to mark the end of the request - if this is not
     # done, the other peer might never send us the response.
     await stream.close()
@@ -994,66 +997,41 @@ proc trimConnections(node: Eth2Node, count: int) {.async.} =
     if toKick <= 0: return
 
 proc getLowAttnets(node: Eth2Node): BitArray[ATTESTATION_SUBNET_COUNT] =
-  # Returns the subnets required to have a better mesh
+  # Returns the subnets required to have a healthy mesh
   # The subnets are computed, to, in order:
   # - Have 0 subscribed subnet below `dLow`
-  # - Have 0 subscribed subnet below `d`
-  # - Have 0 subscribed subnet below `dOut`
   # - Have 0 subnet with < `d` peers from topic subscription
-  # - Have 0 stability subnet with < 5 peers
+  # - Have 0 subscribed subnet below `dOut` outgoing peers
 
   var
-    lowSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
-    belowDSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
+    lowOutgoingSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
+    belowDLowSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
     belowDOutSubnets: BitArray[ATTESTATION_SUBNET_COUNT]
 
-  for topic, _ in node.pubsub.topics:
-    let subNetId = getTopicAttestationSubnet(node.forkId.forkDigest, topic)
+  for subNetId in 0..<ATTESTATION_SUBNET_COUNT:
+    let topic =
+      getAttestationTopic(node.forkId.forkDigest, SubnetId(subNetId)) & "_snappy"
 
-    if subNetId < 0: continue
+    if node.pubsub.gossipsub.peers(topic) < node.pubsub.parameters.d:
+      lowOutgoingSubnets.setBit(subNetId)
+
+    # Not subscribed
+    if topic notin node.pubsub.mesh: continue
 
     if node.pubsub.mesh.peers(topic) < node.pubsub.parameters.dLow:
-      lowSubnets.setBit(subNetId)
-
-    if node.pubsub.mesh.peers(topic) < node.pubsub.parameters.d:
-      belowDSubnets.setBit(subNetId)
+      belowDlowSubnets.setBit(subNetId)
 
     let outPeers = node.pubsub.mesh.getOrDefault(topic).toSeq().filterIt(it.outbound)
     if outPeers.len() < node.pubsub.parameters.dOut:
       belowDOutSubnets.setBit(subNetId)
 
-  if lowSubnets.countOnes() > 0:
-    return lowSubnets
-  elif belowDSubnets.countOnes() > 0:
-    return belowDSubnets
-  elif belowDOutSubnets.countOnes() > 0:
-    return belowDOutSubnets
+  if belowDLowSubnets.countOnes() > 0:
+    return belowDLowSubnets
 
-  for subNetId in 0..<ATTESTATION_SUBNET_COUNT:
-    let subNetTopic =
-      getAttestationTopic(node.forkId.forkDigest, SubnetId(subNetId))
+  if lowOutgoingSubnets.countOnes() > 0:
+    return lowOutgoingSubnets
 
-    if node.pubsub.gossipsub.peers(subNetTopic) < node.pubsub.parameters.d:
-      lowSubnets.setBit(subNetId)
-
-  if lowSubnets.countOnes() > 0:
-    return lowSubnets
-
-  var peerPerStabilitySubnet: array[ATTESTATION_SUBNET_COUNT, int]
-  for peer in node.peers.values:
-    if peer.connectionState != Connected: continue
-    if peer.metadata.isNone: continue
-
-    let stabilitySubnets = peer.metadata.get().attnets
-    for subnet, subscribed in stabilitySubnets:
-      if subscribed:
-        peerPerStabilitySubnet[subnet].inc()
-
-  for subnet, count in peerPerStabilitySubnet:
-    if count < 5:
-      lowSubnets.setBit(subnet)
-
-  return lowSubnets
+  return belowDOutSubnets
 
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
