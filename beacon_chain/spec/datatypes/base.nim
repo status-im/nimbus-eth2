@@ -64,8 +64,6 @@ const
   GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
   ## compute_epoch_at_slot(GENESIS_SLOT)
 
-  FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
-
   # Not part of spec. Still useful, pending removing usage if appropriate.
   ZERO_HASH* = Eth2Digest()
   MAX_GRAFFITI_SIZE* = 32
