@@ -13,7 +13,7 @@ import
   stew/[assign2, results],
   eth/keys,
   ".."/[beacon_clock],
-  ../spec/[forks, helpers, signatures, signatures_batch, state_transition],
+  ../spec/[eth2_merkleization, forks, helpers, signatures, signatures_batch, state_transition],
   ../spec/datatypes/[phase0, altair],
   "."/[block_pools_types, blockchain_dag, block_quarantine]
 

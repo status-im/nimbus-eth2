@@ -24,13 +24,13 @@
 
 {.push raises: [Defect].}
 
+import ./base
+export base
+
 import
   std/[macros, intsets, json, strutils, tables],
   stew/[assign2, byteutils], chronicles,
   json_serialization/types as jsonTypes
-
-import ./base
-export base
 
 type
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconstate

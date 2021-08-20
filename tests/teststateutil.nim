@@ -11,7 +11,6 @@ import
   options, stew/endians2,
   ./mocking/mock_deposits,
   ./helpers/math_helpers,
-  ../beacon_chain/ssz/merkleization,
   ../beacon_chain/spec/[
     forks, helpers, state_transition, state_transition_block]
 

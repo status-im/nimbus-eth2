@@ -1,6 +1,5 @@
 import
   testutils/fuzzing, faststreams/inputs, serialization/testing/tracing,
-  ../../beacon_chain/ssz,
   ../../beacon_chain/spec/datatypes/base
 
 export

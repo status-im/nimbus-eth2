@@ -139,8 +139,6 @@ proc runTest(identifier: string) =
   # The tests produce a lot of log noise
   echo "\n\n===========================================\n\n"
 
-
-  let testCase = InterchangeTestsDir / identifier
   test "Slashing test: " & identifier:
     let t = parseTest(InterchangeTestsDir/identifier, Json, TestInterchange)
 

@@ -7,22 +7,17 @@
 
 import
   # Standard library
-  os, strutils, typetraits,
+  std/[os, strutils, typetraits],
   # Internals
-  ../../beacon_chain/ssz,
   ../../beacon_chain/spec/datatypes/[phase0, altair],
-  ../../beacon_chain/spec/[state_transition_epoch],
+  ../../beacon_chain/spec/[
+    eth2_merkleization, eth2_ssz_serialization, state_transition_epoch],
   # Status libs,
   snappy,
-  stew/byteutils,
-  serialization, json_serialization
+  stew/byteutils
 
-export  # Workaround:
-  #   - https://github.com/status-im/nim-serialization/issues/4
-  #   - https://github.com/status-im/nim-serialization/issues/5
-  #   - https://github.com/nim-lang/Nim/issues/11225
-  serialization.readValue,
-  Json, ssz, phase0, altair
+export
+  eth2_merkleization, eth2_ssz_serialization
 
 # Process current EF test format
 # ---------------------------------------------

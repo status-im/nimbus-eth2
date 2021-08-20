@@ -16,7 +16,6 @@ import
   # Beacon chain internals
   ../../../beacon_chain/spec/[state_transition, forks, helpers],
   ../../../beacon_chain/spec/datatypes/[phase0, altair],
-  ../../../beacon_chain/[ssz],
   # Test utilities
   ../../testutil,
   ../fixtures_utils

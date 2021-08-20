@@ -12,9 +12,9 @@ import
   stew/assign2,
   json_serialization/std/sets,
   chronicles,
-  ../extras, ../ssz/merkleization,
+  ../extras,
   ./datatypes/[phase0, altair, merge],
-  "."/[helpers, signatures, validator],
+  "."/[eth2_merkleization, helpers, signatures, validator],
   ../../nbench/bench_lab
 
 export extras, phase0, altair, merge

@@ -16,10 +16,10 @@ import
   stew/ranges/ptr_arith,
   serialization/testing/tracing,
   ../spec/digest,
-  "."/[bitseqs, spec_types, types]
+  "."/[bitseqs, codec, types]
 
 export
-  spec_types, types
+  codec, bitseqs, digest, types
 
 when hasSerializationTracing:
   import stew/byteutils, typetraits
@@ -676,7 +676,7 @@ func hashTreeRootCached*(x: HashList): Eth2Digest =
 
     x.hashes[0]
 
-func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect].} =
+func hash_tree_root*(x: auto): Eth2Digest =
   trs "STARTING HASH TREE ROOT FOR TYPE ", name(type(x))
   mixin toSszType
 
@@ -689,4 +689,3 @@ func hash_tree_root*(x: auto): Eth2Digest {.raises: [Defect].} =
       hashTreeRootAux toSszType(x)
 
   trs "HASH TREE ROOT FOR ", name(type x), " = ", "0x", $result
-

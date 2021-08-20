@@ -28,7 +28,6 @@ import
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine,
                                           block_clearance, attestation_pool],
-  ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
 type Timers = enum

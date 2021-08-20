@@ -16,7 +16,7 @@ import
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
   ../beacon_chain/beacon_node_types,
-  ../beacon_chain/[beacon_chain_db, ssz],
+  ../beacon_chain/[beacon_chain_db],
   ../beacon_chain/consensus_object_pools/[
     blockchain_dag, block_quarantine, block_clearance],
   ./testutil, ./testdbutil, ./testblockutil

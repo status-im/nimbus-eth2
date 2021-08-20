@@ -16,9 +16,8 @@ import
   sequtils,
   stew/endians2,
   # Specs
-  ../../beacon_chain/spec/digest,
-  ../../beacon_chain/spec/datatypes/base,
-  ../../beacon_chain/ssz/merkleization
+  ../spec/[eth2_merkleization, digest],
+  ../spec/datatypes/base
 
 const depositContractLimit* = Limit(1'u64 shl DEPOSIT_CONTRACT_TREE_DEPTH)
 

@@ -15,7 +15,6 @@ import
   ../tests/testblockutil,
   ../beacon_chain/spec/datatypes/phase0,
   ../beacon_chain/spec/[beaconstate, forks, helpers],
-  ../beacon_chain/ssz/[merkleization, ssz_serialization],
   ./simutils
 
 type Timers = enum

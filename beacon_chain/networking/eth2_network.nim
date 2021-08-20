@@ -32,11 +32,9 @@ import
   libp2p/utils/semaphore,
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
-  ".."/[
-    version, conf,
-    ssz/ssz_serialization, beacon_clock],
+  ".."/[version, conf, beacon_clock],
   ../spec/datatypes/[phase0, altair],
-  ../spec/[network, helpers, forks],
+  ../spec/[eth2_ssz_serialization, network, helpers, forks],
   ../validators/keystore_management,
   ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
 
@@ -45,7 +43,7 @@ when chronicles.enabledLogLevel == LogLevel.TRACE:
 
 export
   version, multiaddress, peer_pool, peerinfo, p2pProtocol, connection,
-  libp2p_json_serialization, ssz_serialization, results, eth2_discovery
+  libp2p_json_serialization, eth2_ssz_serialization, results, eth2_discovery
 
 logScope:
   topics = "networking"
@@ -88,6 +86,8 @@ type
     peers*: Table[PeerID, Peer]
     validTopics: HashSet[string]
     peerPingerHeartbeatFut: Future[void]
+    cfg: RuntimeConfig
+    getBeaconTime: GetBeaconTimeFn
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -262,6 +262,12 @@ declareCounter nbc_gossip_messages_sent,
 
 declareCounter nbc_gossip_messages_received,
   "Number of gossip messages received by this peer"
+
+declareCounter nbc_gossip_failed_snappy,
+  "Number of gossip messages that failed snappy decompression"
+
+declareCounter nbc_gossip_failed_ssz,
+  "Number of gossip messages that failed SSZ parsing"
 
 declareCounter nbc_successful_dials,
   "Number of successfully dialed peers"
@@ -787,9 +793,7 @@ proc handleIncomingStream(network: Eth2Node,
     discard network.peerPool.checkPeerScore(peer)
 
 proc toPeerAddr*(r: enr.TypedRecord,
-                 proto: IpTransportProtocol): Result[PeerAddr, cstring] {.
-     raises: [Defect].} =
-
+                 proto: IpTransportProtocol): Result[PeerAddr, cstring] =
   if not r.secp256k1.isSome:
     return err("enr: no secp256k1 key in record")
 
@@ -893,14 +897,14 @@ proc connectWorker(node: Eth2Node, index: int) {.async.} =
     # excluding peer here after processing.
     node.connTable.excl(remotePeerAddr.peerId)
 
-proc toPeerAddr(node: Node): Result[PeerAddr, cstring] {.raises: [Defect].} =
+proc toPeerAddr(node: Node): Result[PeerAddr, cstring] =
   let nodeRecord = ? node.record.toTypedRecord()
   let peerAddr = ? nodeRecord.toPeerAddr(tcpProtocol)
   ok(peerAddr)
 
 proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
     attnets: BitArray[ATTESTATION_SUBNET_COUNT]):
-    Future[seq[Node]] {.async, raises: [Defect].} =
+    Future[seq[Node]] {.async.} =
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
 
@@ -1260,10 +1264,11 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
               peer = peerId, peer_state = peer.connectionState
       peer.connectionState = Disconnected
 
-proc new*(T: type Eth2Node, config: BeaconNodeConf,
+proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
           enrForkId: ENRForkID, forkDigests: ForkDigestsRef,
-          switch: Switch, pubsub: GossipSub, ip: Option[ValidIpAddress],
-          tcpPort, udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
+          getBeaconTime: GetBeaconTimeFn, switch: Switch,
+          pubsub: GossipSub, ip: Option[ValidIpAddress], tcpPort,
+          udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
           rng: ref BrHmacDrbgContext): T {.raises: [Defect, CatchableError].} =
   let
     metadata = getPersistentNetMetadata(config)
@@ -1280,6 +1285,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf,
     switch: switch,
     pubsub: pubsub,
     wantedPeers: config.maxPeers,
+    cfg: runtimeCfg,
     peerPool: newPeerPool[Peer, PeerID](maxPeers = config.maxPeers),
     # Its important here to create AsyncQueue with limited size, otherwise
     # it could produce HIGH cpu usage.
@@ -1289,6 +1295,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf,
     metadata: metadata,
     forkId: enrForkId,
     forkDigests: forkDigests,
+    getBeaconTime: getBeaconTime,
     discovery: Eth2DiscoveryProtocol.new(
       config, ip, tcpPort, udpPort, privKey,
       {
@@ -1769,11 +1776,12 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      netKeys: NetKeyPair,
                      cfg: RuntimeConfig,
                      forkDigests: ForkDigestsRef,
-                     wallEpoch: Epoch,
+                     getBeaconTime: GetBeaconTimeFn,
                      genesisValidatorsRoot: Eth2Digest): Eth2Node
                     {.raises: [Defect, CatchableError].} =
   let
-    enrForkId = getENRForkID(cfg, wallEpoch, genesisValidatorsRoot)
+    enrForkId = getENRForkID(
+      cfg, getBeaconTime().slotOrZero.epoch, genesisValidatorsRoot)
 
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(
       config.nat, config.listenAddress, config.tcpPort, config.udpPort, clientId)
@@ -1856,13 +1864,10 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
     except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
   switch.mount(pubsub)
 
-  Eth2Node.new(config, enrForkId,
-               forkDigests,
-               switch, pubsub,
-               extIp, extTcpPort, extUdpPort,
-               netKeys.seckey.asEthKey,
-               discovery = config.discv5Enabled,
-               rng = rng)
+  Eth2Node.new(
+    config, cfg, enrForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
+    extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
+    discovery = config.discv5Enabled, rng = rng)
 
 proc announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
@@ -1873,7 +1878,7 @@ proc shortForm*(id: NetKeyPair): string =
 
 proc subscribe*(
     node: Eth2Node, topic: string, topicParams: TopicParams,
-    enableTopicMetrics: bool = false) {.raises: [Defect, CatchableError].} =
+    enableTopicMetrics: bool = false) =
   proc dummyMsgHandler(topic: string, data: seq[byte]): Future[void] =
     # Avoid closure environment with `{.async.}`
     var res = newFuture[void]("eth2_network.dummyMsgHandler")
@@ -1887,10 +1892,7 @@ proc subscribe*(
     node.pubsub.knownTopics.incl(topicName)
 
   node.pubsub.topicParams[topicName] = topicParams
-  try:
-    node.pubsub.subscribe(topicName, dummyMsgHandler)
-  except CatchableError as exc: raise exc # TODO fix libp2p
-  except Exception as exc: raiseAssert exc.msg
+  node.pubsub.subscribe(topicName, dummyMsgHandler)
 
 proc setValidTopics*(node: Eth2Node, topics: openArray[string]) =
   let topicsSnappy = topics.mapIt(it & "_snappy")
@@ -1909,70 +1911,66 @@ proc addValidator*[MsgType](node: Eth2Node,
                             topic: string,
                             msgValidator: proc(msg: MsgType):
                             ValidationResult {.gcsafe, raises: [Defect].} ) =
-  # Validate messages as soon as subscribed
-  proc execValidator(
-      topic: string, message: GossipMsg): Future[ValidationResult] {.raises: [Defect].} =
+  # Message validators run when subscriptions are enabled - they validate the
+  # data and return an indication of whether the message should be broadcast
+  # or not - validation is `async` but implemented without the macro because
+  # this is a performance hotspot.
+  proc execValidator(topic: string, message: GossipMsg):
+      Future[ValidationResult] {.raises: [Defect].} =
     inc nbc_gossip_messages_received
-    trace "Validating incoming gossip message",
-      len = message.data.len, topic
+    trace "Validating incoming gossip message", len = message.data.len, topic
 
-    let res =
+    var decompressed = snappy.decode(message.data, GOSSIP_MAX_SIZE)
+    let res = if decompressed.len > 0:
       try:
-        var decompressed = snappy.decode(message.data, GOSSIP_MAX_SIZE)
-        if decompressed.len > 0:
-          let decoded = SSZ.decode(decompressed, MsgType)
-          decompressed = newSeq[byte](0) # release memory before validating
-          msgValidator(decoded)
-        else:
-          debug "Empty gossip data after decompression",
-            topic, len = message.data.len
-          ValidationResult.Ignore
-      except CatchableError as err:
-        debug "Gossip validation error",
-          msg = err.msg, topic, len = message.data.len
-        ValidationResult.Ignore
-    return newValidationResultFuture(res)
+        let decoded = SSZ.decode(decompressed, MsgType)
+        decompressed = newSeq[byte](0) # release memory before validating
+        msgValidator(decoded) # doesn't raise!
+      except SszError as e:
+        inc nbc_gossip_failed_ssz
+        debug "Error decoding gossip",
+          topic, len = message.data.len, decompressed = decompressed.len,
+          error = e.msg
+        ValidationResult.Reject
+    else: # snappy returns empty seq on failed decompression
+      inc nbc_gossip_failed_snappy
+      debug "Error decompressing gossip", topic, len = message.data.len
+      ValidationResult.Reject
 
-  try:
-    node.pubsub.addValidator(topic & "_snappy", execValidator)
-  except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
+    newValidationResultFuture(res)
+
+  node.pubsub.addValidator(topic & "_snappy", execValidator)
 
 proc addAsyncValidator*[MsgType](node: Eth2Node,
                             topic: string,
                             msgValidator: proc(msg: MsgType):
                             Future[ValidationResult] {.gcsafe, raises: [Defect].} ) =
-  proc execValidator(
-      topic: string, message: GossipMsg): Future[ValidationResult] {.raises: [Defect].} =
+  proc execValidator(topic: string, message: GossipMsg):
+      Future[ValidationResult] {.raises: [Defect].} =
     inc nbc_gossip_messages_received
-    trace "Validating incoming gossip message",
-      len = message.data.len, topic
+    trace "Validating incoming gossip message", len = message.data.len, topic
 
-    let res =
+    var decompressed = snappy.decode(message.data, GOSSIP_MAX_SIZE)
+    if decompressed.len > 0:
       try:
-        var decompressed = snappy.decode(message.data, GOSSIP_MAX_SIZE)
-        if decompressed.len > 0:
-          let decoded = SSZ.decode(decompressed, MsgType)
-          decompressed = newSeq[byte](0) # release memory before validating
-          return msgValidator(decoded) # Reuses future from msgValidator
-        else:
-          debug "Empty gossip data after decompression",
-            topic, len = message.data.len
-          ValidationResult.Ignore
-      except CatchableError as err:
-        debug "Gossip validation error",
-          msg = err.msg, topic, len = message.data.len
-        ValidationResult.Ignore
-    return newValidationResultFuture(res)
+        let decoded = SSZ.decode(decompressed, MsgType)
+        decompressed = newSeq[byte](0) # release memory before validating
+        msgValidator(decoded) # doesn't raise!
+      except SszError as e:
+        inc nbc_gossip_failed_ssz
+        debug "Error decoding gossip",
+          topic, len = message.data.len, decompressed = decompressed.len,
+          error = e.msg
+        newValidationResultFuture(ValidationResult.Reject)
+    else: # snappy returns empty seq on failed decompression
+      inc nbc_gossip_failed_snappy
+      debug "Error decompressing gossip", topic, len = message.data.len
+      newValidationResultFuture(ValidationResult.Reject)
 
-  try:
-    node.pubsub.addValidator(topic & "_snappy", execValidator)
-  except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
+  node.pubsub.addValidator(topic & "_snappy", execValidator)
 
-proc unsubscribe*(node: Eth2Node, topic: string) {.raises: [Defect, CatchableError].} =
-  try:
-    node.pubsub.unsubscribeAll(topic & "_snappy")
-  except CatchableError as exc: raise exc
-  except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
+proc unsubscribe*(node: Eth2Node, topic: string) =
+  node.pubsub.unsubscribeAll(topic & "_snappy")
 
 proc traceMessage(fut: FutureBase, msgId: seq[byte]) =
   fut.addCallback do (arg: pointer):
@@ -2006,8 +2004,7 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
     raiseAssert exc.msg # TODO in-memory compression shouldn't fail
 
 proc subscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT],
-                                  forkDigest: ForkDigest)
-                                 {.raises: [Defect, CatchableError].} =
+                                  forkDigest: ForkDigest) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # nimbus won't score attestation subnets for now, we just rely on block and aggregate which are more stabe and reliable
 
@@ -2017,8 +2014,7 @@ proc subscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATION_
         forkDigest, SubnetId(subnet_id)), TopicParams.init()) # don't score attestation subnets for now
 
 proc unsubscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT],
-                                    forkDigest: ForkDigest)
-                                   {.raises: [Defect, CatchableError].} =
+                                    forkDigest: ForkDigest) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # nimbus won't score attestation subnets for now, we just rely on block and aggregate which are more stabe and reliable
 
@@ -2077,3 +2073,40 @@ func getStabilitySubnetLength*(node: Eth2Node): uint64 =
 
 func getRandomSubnetId*(node: Eth2Node): SubnetId =
   node.rng[].rand(ATTESTATION_SUBNET_COUNT - 1).SubnetId
+
+func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
+  if epoch < node.cfg.ALTAIR_FORK_EPOCH:
+    node.forkDigests.phase0
+  else:
+    node.forkDigests.altair
+
+proc getWallEpoch(node: Eth2Node): Epoch =
+  node.getBeaconTime().slotOrZero.epoch
+
+proc sendAttestation*(
+    node: Eth2Node, subnet_id: SubnetId, attestation: Attestation) =
+  # Regardless of the contents of the attestation,
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-beta.2/specs/altair/p2p-interface.md#transitioning-the-gossip
+  # implies that pre-fork, messages using post-fork digests might be
+  # ignored, whilst post-fork, there is effectively a seen_ttl-based
+  # timer unsubscription point that means no new pre-fork-forkdigest
+  # should be sent.
+  let forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)
+  node.broadcast(
+    getAttestationTopic(forkPrefix, subnet_id),
+    attestation)
+
+proc sendVoluntaryExit*(node: Eth2Node, exit: SignedVoluntaryExit) =
+  let exitsTopic = getVoluntaryExitsTopic(
+    node.forkDigestAtEpoch(node.getWallEpoch))
+  node.broadcast(exitsTopic, exit)
+
+proc sendAttesterSlashing*(node: Eth2Node, slashing: AttesterSlashing) =
+  let attesterSlashingsTopic = getAttesterSlashingsTopic(
+    node.forkDigestAtEpoch(node.getWallEpoch))
+  node.broadcast(attesterSlashingsTopic, slashing)
+
+proc sendProposerSlashing*(node: Eth2Node, slashing: ProposerSlashing) =
+  let proposerSlashingsTopic = getProposerSlashingsTopic(
+    node.forkDigestAtEpoch(node.getWallEpoch))
+  node.broadcast(proposerSlashingsTopic, slashing)

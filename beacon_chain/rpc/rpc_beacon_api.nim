@@ -18,9 +18,8 @@ import
   ../validators/validator_duties,
   ../gossip_processing/gossip_validation,
   ../consensus_object_pools/blockchain_dag,
-  ../spec/[forks, network],
+  ../spec/[eth2_merkleization, forks, network],
   ../spec/datatypes/[phase0],
-  ../ssz/merkleization,
   ./rpc_utils
 
 logScope: topics = "beaconapi"
@@ -490,7 +489,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       raise newException(CatchableError, "Exit pool is not yet available!")
     let validity = node.exitPool[].validateAttesterSlashing(slashing)
     if validity.isOk:
-      node.sendAttesterSlashing(slashing)
+      node.network.sendAttesterSlashing(slashing)
     else:
       raise newException(CatchableError, $(validity.error[1]))
     return true
@@ -512,7 +511,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       raise newException(CatchableError, "Exit pool is not yet available!")
     let validity = node.exitPool[].validateProposerSlashing(slashing)
     if validity.isOk:
-      node.sendProposerSlashing(slashing)
+      node.network.sendProposerSlashing(slashing)
     else:
       raise newException(CatchableError, $(validity.error[1]))
     return true
@@ -534,7 +533,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       raise newException(CatchableError, "Exit pool is not yet available!")
     let validity = node.exitPool[].validateVoluntaryExit(exit)
     if validity.isOk:
-      node.sendVoluntaryExit(exit)
+      node.network.sendVoluntaryExit(exit)
     else:
       raise newException(CatchableError, $(validity.error[1]))
     return true

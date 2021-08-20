@@ -153,6 +153,17 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + navigating fields                                                                          OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## SSZ generic roundtrip tests
+```diff
++ case objects                                                                               OK
++ lists                                                                                      OK
++ objects                                                                                    OK
++ sets                                                                                       OK
++ simple values                                                                              OK
++ tables                                                                                     OK
++ tuple                                                                                      OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## SSZ navigator
 ```diff
 + basictype                                                                                  OK
@@ -197,6 +208,12 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + integer_squareroot                                                                         OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## Specific field types
+```diff
++ root update                                                                                OK
++ roundtrip                                                                                  OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## SyncManager test suite
 ```diff
 + [SyncQueue] Async pending and resetWait() test                                             OK
@@ -268,6 +285,58 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + random slot differences [Preset: mainnet]                                                  OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## underlong values
+```diff
+  Overlong SSZ.decode: BitArray[32]                                                          Skip
+  Overlong SSZ.decode: BitList[32]                                                           Skip
+  Overlong SSZ.decode: HashArray[32, system.uint8]                                           Skip
++ Overlong SSZ.decode: HashList[system.uint64, 32]                                           OK
++ Overlong SSZ.decode: List[system.uint64, 32]                                               OK
+  Overlong SSZ.decode: Simple                                                                Skip
+  Overlong SSZ.decode: array[0..31, byte]                                                    Skip
+  Overlong SSZ.decode: bool                                                                  Skip
+  Overlong SSZ.decode: limb_t                                                                Skip
+  Overlong SSZ.decode: uint16                                                                Skip
+  Overlong SSZ.decode: uint32                                                                Skip
+  Overlong SSZ.decode: uint8                                                                 Skip
++ Overlong readSszBytes: BitArray[32]                                                        OK
+  Overlong readSszBytes: BitList[32]                                                         Skip
++ Overlong readSszBytes: HashArray[32, system.uint8]                                         OK
++ Overlong readSszBytes: HashList[system.uint64, 32]                                         OK
++ Overlong readSszBytes: List[system.uint64, 32]                                             OK
+  Overlong readSszBytes: Simple                                                              Skip
++ Overlong readSszBytes: array[0..31, byte]                                                  OK
++ Overlong readSszBytes: bool                                                                OK
++ Overlong readSszBytes: limb_t                                                              OK
++ Overlong readSszBytes: uint16                                                              OK
++ Overlong readSszBytes: uint32                                                              OK
++ Overlong readSszBytes: uint8                                                               OK
++ Underlong SSZ.decode: BitArray[32]                                                         OK
++ Underlong SSZ.decode: BitList[32]                                                          OK
++ Underlong SSZ.decode: HashArray[32, system.uint8]                                          OK
++ Underlong SSZ.decode: HashList[system.uint64, 32]                                          OK
++ Underlong SSZ.decode: List[system.uint64, 32]                                              OK
++ Underlong SSZ.decode: Simple                                                               OK
++ Underlong SSZ.decode: array[0..31, byte]                                                   OK
++ Underlong SSZ.decode: bool                                                                 OK
++ Underlong SSZ.decode: limb_t                                                               OK
++ Underlong SSZ.decode: uint16                                                               OK
++ Underlong SSZ.decode: uint32                                                               OK
++ Underlong SSZ.decode: uint8                                                                OK
++ Underlong readSszBytes: BitArray[32]                                                       OK
++ Underlong readSszBytes: BitList[32]                                                        OK
++ Underlong readSszBytes: HashArray[32, system.uint8]                                        OK
++ Underlong readSszBytes: HashList[system.uint64, 32]                                        OK
++ Underlong readSszBytes: List[system.uint64, 32]                                            OK
++ Underlong readSszBytes: Simple                                                             OK
++ Underlong readSszBytes: array[0..31, byte]                                                 OK
++ Underlong readSszBytes: bool                                                               OK
++ Underlong readSszBytes: limb_t                                                             OK
++ Underlong readSszBytes: uint16                                                             OK
++ Underlong readSszBytes: uint32                                                             OK
++ Underlong readSszBytes: uint8                                                              OK
+```
+OK: 36/48 Fail: 0/48 Skip: 12/48
 
 ---TOTAL---
-OK: 140/140 Fail: 0/140 Skip: 0/140
+OK: 185/197 Fail: 0/197 Skip: 12/197

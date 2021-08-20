@@ -9,9 +9,8 @@
 
 import
   stew/endians2, stint,
-  ./ssz/merkleization,
   ./extras,
-  spec/[keystore, signatures],
+  spec/[eth2_merkleization, keystore, signatures],
   spec/datatypes/base
 
 func get_eth1data_stub*(deposit_count: uint64, current_epoch: Epoch): Eth1Data =

@@ -11,10 +11,11 @@ import
   std/[options, sequtils, tables, sets],
   stew/[assign2, byteutils],
   metrics, snappy, chronicles,
-  ../ssz/[ssz_serialization, merkleization],
-  ../spec/[helpers, validator, state_transition, beaconstate, forks],
+  ../spec/[
+    beaconstate, eth2_merkleization, eth2_ssz_serialization, forks, helpers,
+    state_transition, validator],
   ../spec/datatypes/[phase0, altair],
-  ".."/[beacon_clock, beacon_chain_db],
+  ".."/beacon_chain_db,
   "."/[block_pools_types, block_quarantine, forkedbeaconstate_dbhelpers]
 
 export block_pools_types
@@ -421,8 +422,6 @@ proc init*(T: type ChainDAGRef,
     tail: tailRef,
     genesis: genesisRef,
     db: db,
-    beaconClock: BeaconClock.init(
-      getStateField(tmpState.data, genesis_time)),
     forkDigests: newClone ForkDigests.init(
       cfg,
       getStateField(tmpState.data, genesis_validators_root)),

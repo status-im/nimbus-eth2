@@ -3,8 +3,7 @@
 import
   stint, ./testutil, stew/byteutils,
   ../beacon_chain/interop,
-  ../beacon_chain/ssz,
-  ../beacon_chain/spec/[beaconstate],
+  ../beacon_chain/spec/[eth2_merkleization, beaconstate],
   ../beacon_chain/spec/datatypes/base
 
 # Interop test yaml, found here:

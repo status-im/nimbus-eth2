@@ -23,9 +23,8 @@ import
   std/[math, sequtils, sets, tables, algorithm],
   stew/[bitops2], chronicles,
   ../extras,
-  ../ssz/merkleization,
   ./datatypes/[phase0, altair],
-  "."/[beaconstate, helpers, validator],
+  "."/[beaconstate, eth2_merkleization, helpers, validator],
   ../../nbench/bench_lab
 
 export extras, phase0, altair

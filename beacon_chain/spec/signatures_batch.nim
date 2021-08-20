@@ -12,7 +12,6 @@ import
   blscurve,
   stew/[byteutils, results],
   # Internal
-  ../ssz/merkleization,
   "."/[helpers, beaconstate, forks],
   "."/datatypes/[altair, phase0]
 

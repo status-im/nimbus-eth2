@@ -15,7 +15,6 @@ import
   yaml,
   # Beacon chain internals
   ../../beacon_chain/spec/datatypes/altair,
-  ../../beacon_chain/ssz,
   # Status libraries
   snappy,
   # Test utilities
@@ -38,10 +37,10 @@ type
     signing_root {.defaultVal: "".}: string
 
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/altair/validator.md#eth1block
-  Eth1Block* = object
-    timestamp*: uint64
-    deposit_root*: Eth2Digest
-    deposit_count*: uint64
+  Eth1Block = object
+    timestamp: uint64
+    deposit_root: Eth2Digest
+    deposit_count: uint64
     # All other eth1 block fields
 
 # Note this only tracks HashTreeRoot

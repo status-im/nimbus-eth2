@@ -15,11 +15,10 @@ import
   web3, web3/ethtypes as web3Types, web3/ethhexstrings, eth/common/eth_types,
   eth/async_utils, stew/byteutils,
   # Local modules:
-  ../spec/[forks, helpers],
+  ../spec/[eth2_merkleization, forks, helpers],
   ../spec/datatypes/[base, merge],
   ../networking/network_metadata,
   ../consensus_object_pools/block_pools_types,
-  ../ssz,
   ../rpc/eth_merge_web3,
   ".."/[beacon_chain_db, beacon_node_status],
   ./merkle_minimal

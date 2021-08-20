@@ -13,12 +13,11 @@ import
   math,
 
   # Specs
-  ../../beacon_chain/spec/[keystore, signatures],
+  ../../beacon_chain/spec/[eth2_merkleization, keystore, signatures],
   ../../beacon_chain/spec/datatypes/base,
 
   # Internals
   ../../beacon_chain/extras,
-  ../../beacon_chain/ssz,
   ../../beacon_chain/eth1/merkle_minimal,
 
   # Mocking procs

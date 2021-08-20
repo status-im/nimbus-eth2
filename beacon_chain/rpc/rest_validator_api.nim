@@ -8,13 +8,12 @@ import
   stew/[results, base10],
   chronicles,
   nimcrypto/utils as ncrutils,
+  ../spec/datatypes/[phase0],
   ../beacon_node_common, ../networking/eth2_network,
   ../consensus_object_pools/[blockchain_dag, spec_cache, attestation_pool],
   ../gossip_processing/gossip_validation,
   ../validators/validator_duties,
   ../spec/[forks, network],
-  ../spec/datatypes/[phase0],
-  ../ssz/merkleization,
   ./rest_utils
 
 logScope: topics = "rest_validatorapi"
@@ -201,7 +200,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         case message.kind
         of BeaconBlockFork.Phase0:
-          RestApiResponse.jsonResponse(message.phase0Block)
+          RestApiResponse.jsonResponse(message.phase0Block.message)
         of BeaconBlockFork.Altair:
           return RestApiResponse.jsonError(Http400, BlockProduceError)
 
@@ -265,11 +264,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         case message.kind
         of BeaconBlockFork.Phase0:
           RestApiResponse.jsonResponse(
-            (version: "phase0", data: message.phase0Block)
+            (version: "phase0", data: message.phase0Block.message)
           )
         of BeaconBlockFork.Altair:
           RestApiResponse.jsonResponse(
-            (version: "altair", data: message.altairBlock)
+            (version: "altair", data: message.altairBlock.message)
           )
 
   # https://ethereum.github.io/eth2.0-APIs/#/Validator/produceAttestationData

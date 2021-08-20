@@ -16,7 +16,7 @@ import
   ../consensus_object_pools/[block_clearance, blockchain_dag, attestation_pool],
   ./consensus_manager,
   ".."/[beacon_clock, beacon_node_types],
-  ../ssz/sszdump
+  ../sszdump
 
 export sszdump
 
@@ -63,7 +63,7 @@ type
     # ----------------------------------------------------------------
     consensusManager: ref ConsensusManager
       ## Blockchain DAG, AttestationPool and Quarantine
-    getTime: GetTimeFn
+    getBeaconTime: GetBeaconTimeFn
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -72,17 +72,14 @@ proc new*(T: type BlockProcessor,
           dumpEnabled: bool,
           dumpDirInvalid, dumpDirIncoming: string,
           consensusManager: ref ConsensusManager,
-          getTime: GetTimeFn): ref BlockProcessor =
+          getBeaconTime: GetBeaconTimeFn): ref BlockProcessor =
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
     dumpDirInvalid: dumpDirInvalid,
     dumpDirIncoming: dumpDirIncoming,
     blocksQueue: newAsyncQueue[BlockEntry](),
     consensusManager: consensusManager,
-    getTime: getTime)
-
-proc getCurrentBeaconTime*(self: BlockProcessor): BeaconTime =
-  self.consensusManager.dag.beaconClock.toBeaconTime(self.getTime())
+    getBeaconTime: getBeaconTime)
 
 # Sync callbacks
 # ------------------------------------------------------------------------------
@@ -178,7 +175,7 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
     blockRoot = shortLog(entry.blck.root)
 
   let
-    wallTime = self.getCurrentBeaconTime()
+    wallTime = self.getBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot()
 
   if not afterGenesis:

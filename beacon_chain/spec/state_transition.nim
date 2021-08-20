@@ -46,11 +46,10 @@ import
   stew/results,
   metrics,
   ../extras,
-  ../ssz/merkleization,
   ./datatypes/[phase0, altair],
   "."/[
-    helpers, signatures, validator, beaconstate, state_transition_block,
-    state_transition_epoch, forks],
+    beaconstate, eth2_merkleization, forks, helpers, signatures,
+    state_transition_block, state_transition_epoch, validator],
   ../../nbench/bench_lab
 
 export extras, phase0, altair

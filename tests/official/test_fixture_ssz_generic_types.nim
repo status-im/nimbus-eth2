@@ -16,7 +16,6 @@ import
   # Beacon chain internals
   ../../beacon_chain/spec/digest,
   ../../beacon_chain/spec/datatypes/base,
-  ../../beacon_chain/ssz,
   # Test utilities
   ./fixtures_utils
 
