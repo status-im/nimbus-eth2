@@ -75,7 +75,7 @@ event logs. This could be a locally running Eth1 client such as Geth
 or a cloud service such as Infura. For more information please see
 our setup guides:
 
-https://status-im.github.io/nimbus-eth2/eth1.html
+https://nimbus.guide/eth1.html
 
 WEB3_HELP
 
