@@ -308,8 +308,10 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
             err_name = exc.name, err_msg = exc.msg
       return
 
-  if aggregateTime != ZeroDuration:
-    await sleepAsync(aggregateTime)
+  let currentTime = Moment.now()
+  let timeToWait = aggregateTime - currentTime
+  if timeToWait != ZeroDuration:
+    await sleepAsync(timeToWait)
 
   block:
     let delay = vc.getDelay(seconds((int64(SECONDS_PER_SLOT) div 3) * 2))
