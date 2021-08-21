@@ -343,7 +343,7 @@ template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
                        RestBeaconNodeStatus.NotSynced,
                        RestBeaconNodeStatus.Uninitalized}
     let offlineNodes = vc.beaconNodes.filterIt(it.status in offlineMask)
-    let onlineNodesCount = len(vc.beaconNodes) - offlineNodes
+    let onlineNodesCount = len(vc.beaconNodes) - len(offlineNodes)
 
     warn "No working beacon nodes available, refreshing nodes status",
          online_nodes = onlineNodesCount, offline_nodes = len(offlineNodes)

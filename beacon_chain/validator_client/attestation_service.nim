@@ -277,24 +277,22 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
                                       committee_index: CommitteeIndex,
                                       duties: seq[DutyAndProof]) {.async.} =
   let vc = service.client
-  let aggregateTime =
-    # chronos.Duration substraction could not return negative value, in such
-    # case it will return `ZeroDuration`.
-    vc.beaconClock.durationToNextSlot() - seconds(int64(SECONDS_PER_SLOT) div 3)
-
   # Waiting for blocks to be published before attesting.
-  # TODO (cheatfate): Here should be present timeout.
   let startTime = Moment.now()
-  await vc.waitForBlockPublished(slot)
-  let dur = Moment.now() - startTime
-  debug "Block proposal awaited", slot = slot, duration = dur
+  try:
+    let timeout = seconds(int64(SECONDS_PER_SLOT) div 3) # 4.seconds in mainnet
+    await vc.waitForBlockPublished(slot).wait(timeout)
+    let dur = Moment.now() - startTime
+    debug "Block proposal awaited", slot = slot, duration = dur
+  except AsyncTimeoutError:
+    let dur = Moment.now() - startTime
+    debug "Block was not produced in time", slot = slot, duration = dur
 
   block:
     let delay = vc.getDelay(seconds(int64(SECONDS_PER_SLOT) div 3))
     debug "Producing attestations", delay = delay, slot = slot,
                                     committee_index = committee_index,
                                     duties_count = len(duties)
-
   let ad =
     try:
       await service.produceAndPublishAttestations(slot, committee_index, duties)
@@ -308,10 +306,12 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
             err_name = exc.name, err_msg = exc.msg
       return
 
-  let currentTime = Moment.now()
-  let timeToWait = aggregateTime - currentTime
-  if timeToWait != ZeroDuration:
-    await sleepAsync(timeToWait)
+  let aggregateTime =
+    # chronos.Duration substraction could not return negative value, in such
+    # case it will return `ZeroDuration`.
+    vc.beaconClock.durationToNextSlot() - seconds(int64(SECONDS_PER_SLOT) div 3)
+  if aggregateTime != ZeroDuration:
+    await sleepAsync(aggregateTime)
 
   block:
     let delay = vc.getDelay(seconds((int64(SECONDS_PER_SLOT) div 3) * 2))
