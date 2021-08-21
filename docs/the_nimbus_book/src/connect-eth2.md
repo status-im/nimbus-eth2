@@ -22,7 +22,7 @@ In both cases, you'll be asked to enter your [Web3 provider URL](./start-syncing
 
 To ensure your Validator is correctly monitoring the eth1 chain, it's important you enter a valid web3 provider.
 
-Your beacon node will launch and connect your validator the eth2 network. To check that this has happened correctly, check your logs for the following:
+Your beacon node will launch and connect your validator to the eth2 network. To check that this has happened correctly, check your logs for the following:
 
 ```
 INF 2020-11-18 11:20:00.181+01:00 Launching beacon node 
