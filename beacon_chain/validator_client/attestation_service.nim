@@ -27,6 +27,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
   let signingRoot =
     compute_attestation_root(fork, vc.beaconGenesis.genesis_validators_root,
                              adata)
+  let attestationRoot = adata.hash_tree_root()
 
   let vindex = validator.index.get()
   let notSlashable = vc.attachedValidators.slashingProtection
@@ -69,7 +70,8 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
                                     validator = shortLog(validator),
                                     validator_index = vindex,
                                     delay = delay,
-                                    indexInCommittee = indexInCommittee
+                                    indexInCommittee = indexInCommittee,
+                                    attestation_root = attestationRoot
   else:
     warn "Attestation was not accepted by beacon node",
          attestation = shortLog(attestation),
