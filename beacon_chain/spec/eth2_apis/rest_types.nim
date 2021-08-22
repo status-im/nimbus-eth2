@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # Types used by both client and server in the common REST API:
-# https://ethereum.github.io/eth2.0-APIs/#/
+# https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/
 # Be mindful that changing these changes the serialization and deserialization
 # in the API which may lead to incompatibilities between clients - tread
 # carefully!

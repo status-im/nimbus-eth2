@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 # The serializations in this file are approximations of
-# https://ethereum.github.io/eth2.0-APIs/#/ but where written before the standard
+# https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/ but where written before the standard
 # had materialized - they've now made it out to releases which means the easiest
 # thing to do is to maintain them as-is, even if there are mismatches. In
 # particular, numbers are serialized as strings in the eth2 API - here, they

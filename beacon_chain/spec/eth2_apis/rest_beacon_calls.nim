@@ -16,17 +16,17 @@ export client, rest_types, eth2_rest_serialization
 proc getGenesis*(): RestResponse[GetGenesisResponse] {.
      rest, endpoint: "/eth/v1/beacon/genesis",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getGenesis
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getGenesis
 
 proc getStateRoot*(state_id: StateIdent): RestResponse[GetStateRootResponse] {.
      rest, endpoint: "/eth/v1/beacon/states/{state_id}/root",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateRoot
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateRoot
 
 proc getStateFork*(state_id: StateIdent): RestResponse[GetStateForkResponse] {.
      rest, endpoint: "/eth/v1/beacon/states/{state_id}/fork",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateFork
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateFork
 
 proc getStateFinalityCheckpoints*(state_id: StateIdent
           ): RestResponse[GetStateFinalityCheckpointsResponse] {.
@@ -38,7 +38,7 @@ proc getStateValidators*(state_id: StateIdent,
                         ): RestResponse[GetStateValidatorsResponse] {.
      rest, endpoint: "/eth/v1/beacon/states/{state_id}/validators",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidators
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateValidators
 
 proc getStateValidator*(state_id: StateIdent,
                         validator_id: ValidatorIdent
@@ -46,64 +46,64 @@ proc getStateValidator*(state_id: StateIdent,
      rest,
      endpoint: "/eth/v1/beacon/states/{state_id}/validators/{validator_id}",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidator
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateValidator
 
 proc getStateValidatorBalances*(state_id: StateIdent
                         ): RestResponse[GetStateValidatorBalancesResponse] {.
      rest, endpoint: "/eth/v1/beacon/states/{state_id}/validator_balances",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidators
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateValidators
 
 proc getEpochCommittees*(state_id: StateIdent
                         ): RestResponse[GetEpochCommitteesResponse] {.
      rest, endpoint: "/eth/v1/beacon/states/{state_id}/committees",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getEpochCommittees
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getEpochCommittees
 
 # TODO altair
 # proc getEpochSyncCommittees*(state_id: StateIdent
 #                         ): RestResponse[GetEpochSyncCommitteesResponse] {.
 #      rest, endpoint: "/eth/v1/beacon/states/{state_id}/sync_committees",
 #      meth: MethodGet.}
-#   ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getEpochSyncCommittees
+#   ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getEpochSyncCommittees
 
 proc getBlockHeaders*(slot: Option[Slot], parent_root: Option[Eth2Digest]
                         ): RestResponse[GetBlockHeadersResponse] {.
      rest, endpoint: "/api/eth/v1/beacon/headers",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockHeaders
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockHeaders
 
 proc getBlockHeader*(block_id: BlockIdent): RestResponse[GetBlockHeaderResponse] {.
      rest, endpoint: "/api/eth/v1/beacon/headers/{block_id}",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockHeader
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockHeader
 
 proc publishBlock*(body: phase0.SignedBeaconBlock): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/blocks",
      meth: MethodPost.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/publishBlock
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishBlock
 
 proc getBlock*(block_id: BlockIdent): RestResponse[GetBlockResponse] {.
      rest, endpoint: "/api/eth/v1/beacon/blocks/{block_id}",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlock
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlock
 
 # TODO altair
 # proc getBlockV2*(block_id: BlockIdent): RestResponse[GetBlockV2Response] {.
 #      rest, endpoint: "/api/eth/v2/beacon/blocks/{block_id}",
 #      meth: MethodGet.}
-#   ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockV2
+#   ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockV2
 
 proc getBlockRoot*(block_id: BlockIdent): RestResponse[GetBlockRootResponse] {.
      rest, endpoint: "/eth/v1/beacon/blocks/{block_id}/root",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockRoot
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockRoot
 
 proc getBlockAttestations*(block_id: BlockIdent
                         ): RestResponse[GetBlockAttestationsResponse] {.
      rest, endpoint: "/eth/v1/beacon/blocks/{block_id}/attestations",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockAttestations
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockAttestations
 
 proc getPoolAttestations*(
     slot: Option[Slot],
@@ -111,45 +111,45 @@ proc getPoolAttestations*(
               ): RestResponse[GetPoolAttestationsResponse] {.
      rest, endpoint: "/api/eth/v1/beacon/pool/attestations",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolAttestations
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttestations
 
 proc submitPoolAttestations*(body: seq[Attestation]): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/pool/attestations",
      meth: MethodPost.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolAttestations
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttestations
 
 proc getPoolAttesterSlashings*(): RestResponse[GetPoolAttesterSlashingsResponse] {.
      rest, endpoint: "/api/eth/v1/beacon/pool/attester_slashings",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolAttesterSlashings
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttesterSlashings
 
 proc submitPoolAttesterSlashings*(body: AttesterSlashing): RestPlainResponse {.
      rest, endpoint: "/api/eth/v1/beacon/pool/attester_slashings",
      meth: MethodPost.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolAttesterSlashings
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttesterSlashings
 
 proc getPoolProposerSlashings*(): RestResponse[GetPoolProposerSlashingsResponse] {.
      rest, endpoint: "/api/eth/v1/beacon/pool/proposer_slashings",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolProposerSlashings
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolProposerSlashings
 
 proc submitPoolProposerSlashings*(body: ProposerSlashing): RestPlainResponse {.
      rest, endpoint: "/api/eth/v1/beacon/pool/proposer_slashings",
      meth: MethodPost.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolProposerSlashings
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolProposerSlashings
 
 # TODO Altair
 # proc submitPoolSyncCommitteeSignatures*(body: seq[RestSyncCommitteeSignature]): RestPlainResponse {.
 #      rest, endpoint: "/eth/v1/beacon/pool/sync_committees",
 #      meth: MethodPost.}
-#   ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolSyncCommitteeSignatures
+#   ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolSyncCommitteeSignatures
 
 proc getPoolVoluntaryExits*(): RestResponse[GetPoolVoluntaryExitsResponse] {.
      rest, endpoint: "/api/eth/v1/beacon/pool/voluntary_exits",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolVoluntaryExits
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolVoluntaryExits
 
 proc submitPoolVoluntaryExit*(body: SignedVoluntaryExit): RestPlainResponse {.
      rest, endpoint: "/api/eth/v1/beacon/pool/voluntary_exits",
      meth: MethodPost.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolVoluntaryExit
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolVoluntaryExit

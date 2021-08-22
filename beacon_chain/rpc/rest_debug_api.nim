@@ -45,4 +45,4 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
 proc getDebugChainHeads*(): RestResponse[GetDebugChainHeadsResponse] {.
      rest, endpoint: "/eth/v1/debug/beacon/heads",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getDebugChainHeads
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getDebugChainHeads

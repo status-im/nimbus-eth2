@@ -14,12 +14,12 @@ export client, rest_types, eth2_rest_serialization
 
 proc getForkSchedule*(): RestResponse[GetForkScheduleResponse] {.
      rest, endpoint: "/eth/v1/config/fork_schedule", meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Config/getForkSchedule
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Config/getForkSchedule
 
 proc getSpec*(): RestResponse[GetSpecResponse] {.
      rest, endpoint: "/eth/v1/config/spec", meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Config/getSpec
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Config/getSpec
 
 proc getDepositContract*(): RestResponse[GetDepositContractResponse] {.
      rest, endpoint: "/eth/v1/config/deposit_contract", meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Config/getDepositContract
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Config/getDepositContract

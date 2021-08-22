@@ -15,36 +15,36 @@ export client, rest_types, eth2_rest_serialization
 proc getNetworkIdentity*(): RestResponse[GetNetworkIdentityResponse] {.
      rest, endpoint: "/eth/v1/node/identity",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Node/getNetworkIdentity
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Node/getNetworkIdentity
 
 proc getPeers*(
     state: seq[PeerStateKind],
     direction: seq[PeerDirectKind]): RestResponse[GetPeersResponse] {.
      rest, endpoint: "/eth/v1/node/peers",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Node/getPeers
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Node/getPeers
 
 proc getPeer*(peer_id: PeerId): RestResponse[GetPeerResponse] {.
      rest, endpoint: "/eth/v1/node/peers/{peer_id}",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Node/getPeer
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Node/getPeer
 
 proc getPeerCount*(): RestResponse[GetPeerCountResponse] {.
      rest, endpoint: "/eth/v1/node/peer_count",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Node/getPeerCount
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Node/getPeerCount
 
 proc getNodeVersion*(): RestResponse[GetVersionResponse] {.
      rest, endpoint: "/eth/v1/node/version",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Node/getNodeVersion
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Node/getNodeVersion
 
 proc getSyncingStatus*(): RestResponse[GetSyncingStatusResponse] {.
      rest, endpoint: "/eth/v1/node/syncing",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Node/getSyncingStatus
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Node/getSyncingStatus
 
 proc getHealth*(): RestPlainResponse {.
      rest, endpoint: "/eth/v1/node/health",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Node/getHealth
+  ## https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Node/getHealth

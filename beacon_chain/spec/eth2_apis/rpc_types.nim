@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # Types used in the JSON-RPC (legacy) API - these are generally derived from
-# the common REST API, https://ethereum.github.io/eth2.0-APIs/#/
+# the common REST API, https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/
 
 {.push raises: [Defect].}
 

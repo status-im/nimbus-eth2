@@ -19,7 +19,7 @@ import
 logScope: topics = "rest_validatorapi"
 
 proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
-  # https://ethereum.github.io/eth2.0-APIs/#/Validator/getAttesterDuties
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/getAttesterDuties
   router.api(MethodPost, "/api/eth/v1/validator/duties/attester/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
     let indexList =
@@ -98,7 +98,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     return RestApiResponse.jsonResponseWRoot(duties, droot)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Validator/getProposerDuties
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/getProposerDuties
   router.api(MethodGet, "/api/eth/v1/validator/duties/proposer/{epoch}") do (
     epoch: Epoch) -> RestApiResponse:
     let qepoch =
@@ -142,7 +142,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     return RestApiResponse.jsonResponseWRoot(duties, droot)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Validator/produceBlock
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/produceBlock
   router.api(MethodGet, "/api/eth/v1/validator/blocks/{slot}") do (
     slot: Slot, randao_reveal: Option[ValidatorSig],
     graffiti: Option[GraffitiBytes]) -> RestApiResponse:
@@ -271,7 +271,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             (version: "altair", data: message.altairBlock.message)
           )
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Validator/produceAttestationData
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/produceAttestationData
   router.api(MethodGet, "/api/eth/v1/validator/attestation_data") do (
     slot: Option[Slot],
     committee_index: Option[CommitteeIndex]) -> RestApiResponse:
@@ -307,7 +307,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
     return RestApiResponse.jsonResponse(adata)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Validator/getAggregatedAttestation
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/getAggregatedAttestation
   router.api(MethodGet, "/api/eth/v1/validator/aggregate_attestation") do (
     attestation_data_root: Option[Eth2Digest],
     slot: Option[Slot]) -> RestApiResponse:
@@ -339,7 +339,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
     return RestApiResponse.jsonResponse(attestation)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Validator/publishAggregateAndProofs
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/publishAggregateAndProofs
   router.api(MethodPost, "/api/eth/v1/validator/aggregate_and_proofs") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let proofs =
@@ -370,7 +370,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return RestApiResponse.jsonMsgResponse(AggregateAndProofValidationSuccess)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Validator/prepareBeaconCommitteeSubnet
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Validator/prepareBeaconCommitteeSubnet
   router.api(MethodPost,
              "/api/eth/v1/validator/beacon_committee_subscriptions") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:

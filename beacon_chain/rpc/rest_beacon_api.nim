@@ -105,7 +105,7 @@ proc getBeaconBlocksTopic(node: BeaconNode, kind: BeaconBlockFork): string =
     getBeaconBlocksTopic(node.dag.forkDigests.altair)
 
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getGenesis
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getGenesis
   router.api(MethodGet, "/api/eth/v1/beacon/genesis") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(
       (
@@ -116,7 +116,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       )
     )
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateRoot
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateRoot
   router.api(MethodGet, "/api/eth/v1/beacon/states/{state_id}/root") do (
     state_id: StateIdent) -> RestApiResponse:
     let bslot =
@@ -133,7 +133,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonResponse((root: stateRoot))
     return RestApiResponse.jsonError(Http500, InternalServerError)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateFork
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateFork
   router.api(MethodGet, "/api/eth/v1/beacon/states/{state_id}/fork") do (
     state_id: StateIdent) -> RestApiResponse:
     let bslot =
@@ -159,7 +159,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       )
     return RestApiResponse.jsonError(Http500, InternalServerError)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateFinalityCheckpoints
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateFinalityCheckpoints
   router.api(MethodGet,
              "/api/eth/v1/beacon/states/{state_id}/finality_checkpoints") do (
     state_id: StateIdent) -> RestApiResponse:
@@ -185,7 +185,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       )
     return RestApiResponse.jsonError(Http500, InternalServerError)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidators
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateValidators
   router.api(MethodGet, "/api/eth/v1/beacon/states/{state_id}/validators") do (
     state_id: StateIdent, id: seq[ValidatorIdent],
     status: seq[ValidatorFilter]) -> RestApiResponse:
@@ -276,7 +276,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return RestApiResponse.jsonError(Http500, InternalServerError)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidator
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateValidator
   router.api(MethodGet,
           "/api/eth/v1/beacon/states/{state_id}/validators/{validator_id}") do (
     state_id: StateIdent, validator_id: ValidatorIdent) -> RestApiResponse:
@@ -353,7 +353,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            ValidatorStatusNotFoundError)
     return RestApiResponse.jsonError(Http500, InternalServerError)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidatorBalances
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateValidatorBalances
   router.api(MethodGet,
              "/api/eth/v1/beacon/states/{state_id}/validator_balances") do (
     state_id: StateIdent, id: seq[ValidatorIdent]) -> RestApiResponse:
@@ -427,7 +427,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return RestApiResponse.jsonError(Http500, InternalServerError)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getEpochCommittees
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getEpochCommittees
   router.api(MethodGet,
              "/api/eth/v1/beacon/states/{state_id}/committees") do (
     state_id: StateIdent, epoch: Option[Epoch], index: Option[CommitteeIndex],
@@ -511,7 +511,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return RestApiResponse.jsonError(Http500, InternalServerError)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockHeaders
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockHeaders
   router.api(MethodGet, "/api/eth/v1/beacon/headers") do (
     slot: Option[Slot], parent_root: Option[Eth2Digest]) -> RestApiResponse:
     # TODO (cheatfate): This call is incomplete, because structure
@@ -568,7 +568,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           ]
         )
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockHeader
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockHeader
   router.api(MethodGet, "/api/eth/v1/beacon/headers/{block_id}") do (
     block_id: BlockIdent) -> RestApiResponse:
     let bdata =
@@ -600,7 +600,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           )
         )
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/publishBlock
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/publishBlock
   router.api(MethodPost, "/api/eth/v1/beacon/blocks") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let blockData =
@@ -671,7 +671,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlock
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlock
   router.api(MethodGet, "/api/eth/v1/beacon/blocks/{block_id}") do (
     block_id: BlockIdent) -> RestApiResponse:
     let bdata =
@@ -690,7 +690,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       of BeaconBlockFork.Altair:
         RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockV2
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockV2
   router.api(MethodGet, "/api/eth/v2/beacon/blocks/{block_id}") do (
     block_id: BlockIdent) -> RestApiResponse:
     let bdata =
@@ -713,7 +713,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           (version: "altair", data: bdata.data.altairBlock)
         )
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockRoot
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockRoot
   router.api(MethodGet, "/api/eth/v1/beacon/blocks/{block_id}/root") do (
     block_id: BlockIdent) -> RestApiResponse:
     let bdata =
@@ -729,7 +729,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       withBlck(bdata.data):
         RestApiResponse.jsonResponse((root: blck.root))
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockAttestations
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlockAttestations
   router.api(MethodGet,
              "/api/eth/v1/beacon/blocks/{block_id}/attestations") do (
     block_id: BlockIdent) -> RestApiResponse:
@@ -746,7 +746,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       withBlck(bdata.data):
         RestApiResponse.jsonResponse(blck.message.body.attestations.asSeq())
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolAttestations
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttestations
   router.api(MethodGet, "/api/eth/v1/beacon/pool/attestations") do (
     slot: Option[Slot],
     committee_index: Option[CommitteeIndex]) -> RestApiResponse:
@@ -774,7 +774,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       res.add(item)
     return RestApiResponse.jsonResponse(res)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolAttestations
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttestations
   router.api(MethodPost, "/api/eth/v1/beacon/pool/attestations") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let attestations =
@@ -802,7 +802,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     else:
       return RestApiResponse.jsonMsgResponse(AttestationValidationSuccess)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolAttesterSlashings
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolAttesterSlashings
   router.api(MethodGet, "/api/eth/v1/beacon/pool/attester_slashings") do (
     ) -> RestApiResponse:
     var res: seq[AttesterSlashing]
@@ -814,7 +814,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       res.add(item)
     return RestApiResponse.jsonResponse(res)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolAttesterSlashings
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolAttesterSlashings
   router.api(MethodPost, "/api/eth/v1/beacon/pool/attester_slashings") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let slashing =
@@ -836,7 +836,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.network.sendAttesterSlashing(slashing)
     return RestApiResponse.jsonMsgResponse(AttesterSlashingValidationSuccess)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolProposerSlashings
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolProposerSlashings
   router.api(MethodGet, "/api/eth/v1/beacon/pool/proposer_slashings") do (
     ) -> RestApiResponse:
     var res: seq[ProposerSlashing]
@@ -848,7 +848,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       res.add(item)
     return RestApiResponse.jsonResponse(res)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolProposerSlashings
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolProposerSlashings
   router.api(MethodPost, "/api/eth/v1/beacon/pool/proposer_slashings") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let slashing =
@@ -870,7 +870,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.network.sendProposerSlashing(slashing)
     return RestApiResponse.jsonMsgResponse(ProposerSlashingValidationSuccess)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolVoluntaryExits
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getPoolVoluntaryExits
   router.api(MethodGet, "/api/eth/v1/beacon/pool/voluntary_exits") do (
     ) -> RestApiResponse:
     var res: seq[SignedVoluntaryExit]
@@ -882,7 +882,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       res.add(item)
     return RestApiResponse.jsonResponse(res)
 
-  # https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolVoluntaryExit
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolVoluntaryExit
   router.api(MethodPost, "/api/eth/v1/beacon/pool/voluntary_exits") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let exit =
