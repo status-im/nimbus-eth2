@@ -203,6 +203,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         of BeaconBlockFork.Altair:
           return RestApiResponse.jsonError(Http400, BlockProduceError)
 
+  # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV2
   router.api(MethodGet, "/api/eth/v2/validator/blocks/{slot}") do (
     slot: Slot, randao_reveal: Option[ValidatorSig],
     graffiti: Option[GraffitiBytes]) -> RestApiResponse:

@@ -10,7 +10,6 @@ import
   nimcrypto/utils as ncrutils,
   ../beacon_node_common, ../networking/eth2_network,
   ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
-  ../gossip_processing/gossip_validation,
   ../validators/validator_duties,
   ../spec/[eth2_merkleization, forks, network],
   ../spec/datatypes/[phase0, altair],
@@ -765,49 +764,26 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $dres.error())
         dres.get()
 
-    proc processAttestation(a: Attestation) {.async.} =
+    proc processAttestation(a: Attestation): Future[SendResult] {.async.} =
+      let res = await node.sendAttestation(a)
+      if res.isErr():
+        return res
       let
         wallTime = node.processor.getCurrentBeaconTime()
         deadline = a.data.slot.toBeaconTime() +
-                     seconds(int(SECONDS_PER_SLOT div 3))
-        attestationBlck =
-          block:
-            let res = node.dag.getRef(a.data.beacon_block_root)
-            if isNil(res):
-              debug "Attempt to send attestation without corresponding block"
-              raise newException(ValueError, "Attempt to send attestation " &
-                                             "without corresponding block")
-            res
-        epochRef = node.dag.getEpochRef(attestationBlck, a.data.target.epoch)
-        subnet_id = compute_subnet_for_attestation(
-          get_committee_count_per_slot(epochRef), a.data.slot,
-          CommitteeIndex(a.data.index)
-        )
-
-      let res = await node.attestationPool.validateAttestation(
-        node.processor.batchCrypto, a, wallTime, subnet_id, true
-      )
-      if res.isErr():
-        raise newException(ValueError, $res.error())
-
-
-      node.network.broadcast(
-        getAttestationTopic(node.dag.forkDigests.phase0, subnet_id), a
-      )
-
-      let (delayStr, delaySecs) =
-        if wallTime < deadline:
-          ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
-        else:
-          ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
-
+                   seconds(int(SECONDS_PER_SLOT div 3))
+        (delayStr, delaySecs) =
+          if wallTime < deadline:
+            ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
+          else:
+            ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
       notice "Attestation sent", attestation = shortLog(a), delay = delayStr
 
     # Since our validation logic supports batch processing, we will submit all
     # attestations for validation.
     let pending =
       block:
-        var res: seq[Future[void]]
+        var res: seq[Future[SendResult]]
         for attestation in attestations:
           res.add(processAttestation(attestation))
         res
@@ -816,10 +792,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         var res: seq[RestAttestationsFailure]
         await allFutures(pending)
         for index, future in pending.pairs():
-          if future.failed() or future.cancelled():
+          if future.done():
+            let fres = future.read()
+            if fres.isErr():
+              let failure = RestAttestationsFailure(index: uint64(index),
+                                                    message: $fres.error())
+              res.add(failure)
+          elif future.failed() or future.cancelled():
+            # This is unexpected failure, so we log the error message.
             let exc = future.readError()
             let failure = RestAttestationsFailure(index: uint64(index),
-                                                  message: exc.msg)
+                                                  message: $exc.msg)
             res.add(failure)
         res
 
