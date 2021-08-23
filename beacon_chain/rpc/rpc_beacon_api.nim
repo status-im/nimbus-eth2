@@ -16,7 +16,6 @@ import
   ../beacon_node_common,
   ../networking/eth2_network,
   ../validators/validator_duties,
-  ../gossip_processing/gossip_validation,
   ../consensus_object_pools/blockchain_dag,
   ../spec/[eth2_merkleization, forks, network],
   ../spec/datatypes/[phase0],
@@ -470,7 +469,8 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("post_v1_beacon_pool_attestations") do (
       attestation: Attestation) -> bool:
-    return await node.sendAttestation(attestation)
+    let res = await node.sendAttestation(attestation)
+    return res.isOk()
 
   rpcServer.rpc("get_v1_beacon_pool_attester_slashings") do (
       ) -> seq[AttesterSlashing]:
@@ -485,14 +485,8 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("post_v1_beacon_pool_attester_slashings") do (
       slashing: AttesterSlashing) -> bool:
-    if isNil(node.exitPool):
-      raise newException(CatchableError, "Exit pool is not yet available!")
-    let validity = node.exitPool[].validateAttesterSlashing(slashing)
-    if validity.isOk:
-      node.network.sendAttesterSlashing(slashing)
-    else:
-      raise newException(CatchableError, $(validity.error[1]))
-    return true
+    let res = node.sendAttesterSlashing(slashing)
+    return res.isOk()
 
   rpcServer.rpc("get_v1_beacon_pool_proposer_slashings") do (
       ) -> seq[ProposerSlashing]:
@@ -507,14 +501,8 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("post_v1_beacon_pool_proposer_slashings") do (
       slashing: ProposerSlashing) -> bool:
-    if isNil(node.exitPool):
-      raise newException(CatchableError, "Exit pool is not yet available!")
-    let validity = node.exitPool[].validateProposerSlashing(slashing)
-    if validity.isOk:
-      node.network.sendProposerSlashing(slashing)
-    else:
-      raise newException(CatchableError, $(validity.error[1]))
-    return true
+    let res = node.sendProposerSlashing(slashing)
+    return res.isOk()
 
   rpcServer.rpc("get_v1_beacon_pool_voluntary_exits") do (
       ) -> seq[SignedVoluntaryExit]:
@@ -529,11 +517,5 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("post_v1_beacon_pool_voluntary_exits") do (
       exit: SignedVoluntaryExit) -> bool:
-    if isNil(node.exitPool):
-      raise newException(CatchableError, "Exit pool is not yet available!")
-    let validity = node.exitPool[].validateVoluntaryExit(exit)
-    if validity.isOk:
-      node.network.sendVoluntaryExit(exit)
-    else:
-      raise newException(CatchableError, $(validity.error[1]))
-    return true
+    let res = node.sendVoluntaryExit(exit)
+    return res.isOk()

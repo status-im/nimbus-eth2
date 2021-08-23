@@ -27,6 +27,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
   let signingRoot =
     compute_attestation_root(fork, vc.beaconGenesis.genesis_validators_root,
                              adata)
+  let attestationRoot = adata.hash_tree_root()
 
   let vindex = validator.index.get()
   let notSlashable = vc.attachedValidators.slashingProtection
@@ -44,6 +45,11 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
     int(duty.data.committee_length),
     Natural(duty.data.validator_committee_index),
     fork, vc.beaconGenesis.genesis_validators_root)
+
+  debug "Sending attestation", attestation = shortLog(attestation),
+        validator = shortLog(validator), validator_index = vindex,
+        attestation_root = shortLog(attestationRoot),
+        delay = vc.getDelay(seconds(int64(SECONDS_PER_SLOT) div 3))
 
   let res =
     try:
@@ -63,19 +69,17 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
       return false
 
   let delay = vc.getDelay(seconds(int64(SECONDS_PER_SLOT) div 3))
-  let indexInCommittee = duty.data.validator_committee_index
   if res:
     notice "Attestation published", attestation = shortLog(attestation),
                                     validator = shortLog(validator),
                                     validator_index = vindex,
                                     delay = delay,
-                                    indexInCommittee = indexInCommittee
+                                    attestation_root = attestationRoot
   else:
     warn "Attestation was not accepted by beacon node",
          attestation = shortLog(attestation),
          validator = shortLog(validator),
-         validator_index = vindex, delay = delay,
-         indexInCommittee = indexInCommittee
+         validator_index = vindex, delay = delay
   return res
 
 proc serveAggregateAndProof*(service: AttestationServiceRef,
@@ -94,6 +98,13 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
 
   let aggregationSlot = proof.aggregate.data.slot
   let vindex = validator.index.get()
+
+  debug "Sending aggregated attestation",
+        attestation = shortLog(signedProof.message.aggregate),
+        validator = shortLog(validator), validator_index = vindex,
+        aggregationSlot = aggregationSlot,
+        delay = vc.getDelay(seconds((int64(SECONDS_PER_SLOT) div 3) * 2))
+
   let res =
     try:
       await vc.publishAggregateAndProofs(@[signedProof])
@@ -277,24 +288,22 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
                                       committee_index: CommitteeIndex,
                                       duties: seq[DutyAndProof]) {.async.} =
   let vc = service.client
-  let aggregateTime =
-    # chronos.Duration substraction could not return negative value, in such
-    # case it will return `ZeroDuration`.
-    vc.beaconClock.durationToNextSlot() - seconds(int64(SECONDS_PER_SLOT) div 3)
-
   # Waiting for blocks to be published before attesting.
-  # TODO (cheatfate): Here should be present timeout.
   let startTime = Moment.now()
-  await vc.waitForBlockPublished(slot)
-  let dur = Moment.now() - startTime
-  debug "Block proposal awaited", slot = slot, duration = dur
+  try:
+    let timeout = seconds(int64(SECONDS_PER_SLOT) div 3) # 4.seconds in mainnet
+    await vc.waitForBlockPublished(slot).wait(timeout)
+    let dur = Moment.now() - startTime
+    debug "Block proposal awaited", slot = slot, duration = dur
+  except AsyncTimeoutError:
+    let dur = Moment.now() - startTime
+    debug "Block was not produced in time", slot = slot, duration = dur
 
   block:
     let delay = vc.getDelay(seconds(int64(SECONDS_PER_SLOT) div 3))
     debug "Producing attestations", delay = delay, slot = slot,
                                     committee_index = committee_index,
                                     duties_count = len(duties)
-
   let ad =
     try:
       await service.produceAndPublishAttestations(slot, committee_index, duties)
@@ -308,6 +317,10 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
             err_name = exc.name, err_msg = exc.msg
       return
 
+  let aggregateTime =
+    # chronos.Duration substraction could not return negative value, in such
+    # case it will return `ZeroDuration`.
+    vc.beaconClock.durationToNextSlot() - seconds(int64(SECONDS_PER_SLOT) div 3)
   if aggregateTime != ZeroDuration:
     await sleepAsync(aggregateTime)
 

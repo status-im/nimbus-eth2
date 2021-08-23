@@ -49,6 +49,7 @@ proc validateEventTopics(events: seq[EventTopic]): Result[EventTopics,
     ok(res)
 
 proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
+  # https://ethereum.github.io/beacon-APIs/#/Events/eventstream
   router.api(MethodGet, "/api/eth/v1/events") do (
     topics: seq[EventTopic]) -> RestApiResponse:
     # TODO (cheatfate): This call is not fully implemented yet, because there

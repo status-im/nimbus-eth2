@@ -277,7 +277,7 @@ type
   GetDebugChainHeadsResponse* = DataEnclosedObject[seq[RestChainHead]]
   GetDepositContractResponse* = DataEnclosedObject[RestDepositContract]
   GetEpochCommitteesResponse* = DataEnclosedObject[RestGenesis]
-  GetForkScheduleResponse* = DataEnclosedObject[Fork]
+  GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]

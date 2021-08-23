@@ -2061,8 +2061,8 @@ func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
 proc getWallEpoch(node: Eth2Node): Epoch =
   node.getBeaconTime().slotOrZero.epoch
 
-proc sendAttestation*(
-    node: Eth2Node, subnet_id: SubnetId, attestation: Attestation) =
+proc broadcastAttestation*(node: Eth2Node, subnet_id: SubnetId,
+                           attestation: Attestation) =
   # Regardless of the contents of the attestation,
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/p2p-interface.md#transitioning-the-gossip
   # implies that pre-fork, messages using post-fork digests might be
@@ -2070,21 +2070,35 @@ proc sendAttestation*(
   # timer unsubscription point that means no new pre-fork-forkdigest
   # should be sent.
   let forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)
-  node.broadcast(
-    getAttestationTopic(forkPrefix, subnet_id),
-    attestation)
+  let topic = getAttestationTopic(forkPrefix, subnet_id)
+  node.broadcast(topic, attestation)
 
-proc sendVoluntaryExit*(node: Eth2Node, exit: SignedVoluntaryExit) =
+proc broadcastVoluntaryExit*(node: Eth2Node, exit: SignedVoluntaryExit) =
   let exitsTopic = getVoluntaryExitsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(exitsTopic, exit)
 
-proc sendAttesterSlashing*(node: Eth2Node, slashing: AttesterSlashing) =
+proc broadcastAttesterSlashing*(node: Eth2Node, slashing: AttesterSlashing) =
   let attesterSlashingsTopic = getAttesterSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(attesterSlashingsTopic, slashing)
 
-proc sendProposerSlashing*(node: Eth2Node, slashing: ProposerSlashing) =
+proc broadcastProposerSlashing*(node: Eth2Node, slashing: ProposerSlashing) =
   let proposerSlashingsTopic = getProposerSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(proposerSlashingsTopic, slashing)
+
+proc broadcastAggregateAndProof*(node: Eth2Node,
+                                 proof: SignedAggregateAndProof) =
+  let proofTopic = getAggregateAndProofsTopic(
+    node.forkDigestAtEpoch(node.getWallEpoch))
+  node.broadcast(proofTopic, proof)
+
+proc broadcastBeaconBlock*(node: Eth2Node, forked: ForkedSignedBeaconBlock) =
+  case forked.kind
+  of BeaconBlockFork.Phase0:
+    let topic = getBeaconBlocksTopic(node.forkDigests.phase0)
+    node.broadcast(topic, forked.phase0Block)
+  of BeaconBlockFork.Altair:
+    let topic = getBeaconBlocksTopic(node.forkDigests.altair)
+    node.broadcast(topic, forked.altairBlock)

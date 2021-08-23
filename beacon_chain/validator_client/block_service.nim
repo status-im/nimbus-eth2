@@ -53,6 +53,11 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
       let signedBlock =
         phase0.SignedBeaconBlock(message: beaconBlock, root: blockRoot,
                                           signature: signature)
+
+      debug "Sending block", blck = shortLog(signedBlock.message),
+            signature = shortLog(signature), blockRoot = shortLog(blockRoot),
+            validator = shortLog(validator)
+
       let res =
         try:
           await vc.publishBlock(signedBlock)
@@ -69,15 +74,15 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
           return
       if res:
         notice "Block published", blck = shortLog(signedBlock.message),
-          blockRoot = shortLog(blockRoot), validator = shortLog(validator),
-          validator_index = validator.index.get()
+               blockRoot = shortLog(blockRoot), validator = shortLog(validator),
+               validator_index = validator.index.get()
       else:
         warn "Block was not accepted by beacon node",
-          blck = shortLog(signedBlock.message),
-          blockRoot = shortLog(blockRoot),
-          validator = shortLog(validator),
-          validator_index = validator.index.get(),
-          wall_slot = currentSlot
+             blck = shortLog(signedBlock.message),
+             blockRoot = shortLog(blockRoot),
+             validator = shortLog(validator),
+             validator_index = validator.index.get(),
+             wall_slot = currentSlot
     else:
       warn "Slashing protection activated for block proposal",
            blck = shortLog(beaconBlock), blockRoot = shortLog(blockRoot),

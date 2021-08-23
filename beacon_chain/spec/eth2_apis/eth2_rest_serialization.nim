@@ -59,85 +59,144 @@ type
     RestAttestationError |
     RestGenericError
 
-proc jsonResponseWRoot*(t: typedesc[RestApiResponse],
-                        data: auto,
-                        dependent_root: Eth2Digest): RestApiResponse =
-  var stream = memoryOutput()
-  var writer = JsonWriter[RestJson].init(stream)
-  writer.beginRecord()
-  writer.writeField("dependent_root", dependent_root)
-  writer.writeField("data", data)
-  writer.endRecord()
-  RestApiResponse.response(stream.getOutput(seq[byte]), Http200,
-                           "application/json")
+{.push raises: [Defect].}
 
-proc jsonResponse*(t: typedesc[RestApiResponse],
-                   data: auto): RestApiResponse =
-  var stream = memoryOutput()
-  var writer = JsonWriter[RestJson].init(stream)
-  writer.beginRecord()
-  writer.writeField("data", data)
-  writer.endRecord()
-  RestApiResponse.response(stream.getOutput(seq[byte]), Http200,
-                           "application/json")
+proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("data", d)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  res
+
+proc jsonResponseWRoot*(t: typedesc[RestApiResponse], data: auto,
+                        dependent_root: Eth2Digest): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("dependent_root", dependent_root)
+        writer.writeField("data", data)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/json")
+
+proc jsonResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("data", data)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonResponseWMeta*(t: typedesc[RestApiResponse],
                         data: auto, meta: auto): RestApiResponse =
-  var stream = memoryOutput()
-  var writer = JsonWriter[RestJson].init(stream)
-  writer.beginRecord()
-  writer.writeField("data", data)
-  writer.writeField("meta", meta)
-  writer.endRecord()
-  RestApiResponse.response(stream.getOutput(seq[byte]), Http200,
-                           "application/json")
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("data", data)
+        writer.writeField("meta", meta)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonMsgResponse*(t: typedesc[RestApiResponse],
                       msg: string = ""): RestApiResponse =
   let data =
     block:
-      var default: seq[string]
-      var stream = memoryOutput()
-      var writer = JsonWriter[RestJson].init(stream)
-      writer.beginRecord()
-      writer.writeField("code", "200")
-      writer.writeField("message", msg)
-      writer.writeField("stacktrace", default)
-      writer.endRecord()
-      stream.getOutput(seq[byte])
+      var default: seq[byte]
+      try:
+        var defstrings: seq[string]
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("code", "200")
+        writer.writeField("message", msg)
+        writer.writeField("stacktrace", defstrings)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
   RestApiResponse.response(data, Http200, "application/json")
 
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
                 msg: string = ""): RestApiResponse =
   let data =
     block:
-      var default: seq[string]
-      var stream = memoryOutput()
-      var writer = JsonWriter[RestJson].init(stream)
-      writer.beginRecord()
-      writer.writeField("code", Base10.toString(uint64(status.toInt())))
-      writer.writeField("message", msg)
-      writer.writeField("stacktrace", default)
-      writer.endRecord()
-      stream.getOutput(string)
+      var default: string
+      try:
+        var defstrings: seq[string]
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("code", Base10.toString(uint64(status.toInt())))
+        writer.writeField("message", msg)
+        writer.writeField("stacktrace", defstrings)
+        writer.endRecord()
+        stream.getOutput(string)
+      except SerializationError:
+        default
+      except IOError:
+        default
   RestApiResponse.error(status, data, "application/json")
 
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
                 msg: string = "", stacktrace: string): RestApiResponse =
   let data =
     block:
-      var default: seq[string]
-      var stream = memoryOutput()
-      var writer = JsonWriter[RestJson].init(stream)
-      writer.beginRecord()
-      writer.writeField("code", Base10.toString(uint64(status.toInt())))
-      writer.writeField("message", msg)
-      if len(stacktrace) > 0:
-        writer.writeField("stacktrace", [stacktrace])
-      else:
-        writer.writeField("stacktrace", default)
-      writer.endRecord()
-      stream.getOutput(string)
+      var default: string
+      try:
+        var defstrings: seq[string]
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("code", Base10.toString(uint64(status.toInt())))
+        writer.writeField("message", msg)
+        if len(stacktrace) > 0:
+          writer.writeField("stacktrace", [stacktrace])
+        else:
+          writer.writeField("stacktrace", defstrings)
+        writer.endRecord()
+        stream.getOutput(string)
+      except SerializationError:
+        default
+      except IOError:
+        default
   RestApiResponse.error(status, data, "application/json")
 
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
@@ -145,14 +204,20 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
                 stacktraces: openarray[string]): RestApiResponse =
   let data =
     block:
-      var stream = memoryOutput()
-      var writer = JsonWriter[RestJson].init(stream)
-      writer.beginRecord()
-      writer.writeField("code", Base10.toString(uint64(status.toInt())))
-      writer.writeField("message", msg)
-      writer.writeField("stacktrace", stacktraces)
-      writer.endRecord()
-      stream.getOutput(string)
+      var default: string
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("code", Base10.toString(uint64(status.toInt())))
+        writer.writeField("message", msg)
+        writer.writeField("stacktrace", stacktraces)
+        writer.endRecord()
+        stream.getOutput(string)
+      except SerializationError:
+        default
+      except IOError:
+        default
   RestApiResponse.error(status, data, "application/json")
 
 proc jsonErrorList*(t: typedesc[RestApiResponse],
@@ -160,21 +225,28 @@ proc jsonErrorList*(t: typedesc[RestApiResponse],
                     msg: string = "", failures: auto): RestApiResponse =
   let data =
     block:
-      var stream = memoryOutput()
-      var writer = JsonWriter[RestJson].init(stream)
-      writer.beginRecord()
-      writer.writeField("code", Base10.toString(uint64(status.toInt())))
-      writer.writeField("message", msg)
-      writer.writeField("failures", failures)
-      writer.endRecord()
-      stream.getOutput(string)
+      var default: string
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("code", Base10.toString(uint64(status.toInt())))
+        writer.writeField("message", msg)
+        writer.writeField("failures", failures)
+        writer.endRecord()
+        stream.getOutput(string)
+      except SerializationError:
+        default
+      except IOError:
+        default
   RestApiResponse.error(status, data, "application/json")
 
 template hexOriginal(data: openarray[byte]): string =
   "0x" & ncrutils.toHex(data, true)
 
 ## uint64
-proc writeValue*(w: var JsonWriter[RestJson], value: uint64) =
+proc writeValue*(w: var JsonWriter[RestJson], value: uint64) {.
+     raises: [IOError, Defect].} =
   writeValue(w, Base10.toString(value))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var uint64) {.
@@ -187,7 +259,8 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint64) {.
     reader.raiseUnexpectedValue($res.error())
 
 ## byte
-proc writeValue*(w: var JsonWriter[RestJson], value: byte) =
+proc writeValue*(w: var JsonWriter[RestJson], value: byte) {.
+     raises: [IOError, Defect].} =
   var data: array[1, byte]
   data[0] = value
   writeValue(w, hexOriginal(data))
@@ -203,7 +276,8 @@ proc readValue*(reader: var JsonReader[RestJson], value: var byte) {.
                          "byte value should be a valid hex string")
 
 ## DomainType
-proc writeValue*(w: var JsonWriter[RestJson], value: DomainType) =
+proc writeValue*(w: var JsonWriter[RestJson], value: DomainType) {.
+     raises: [IOError, Defect].} =
   writeValue(w, hexOriginal(uint32(value).toBytesLE()))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var DomainType) {.
@@ -353,11 +427,13 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: BitSeq) {.
   writeValue(writer, hexOriginal(value.bytes()))
 
 ## BitList
-proc readValue*(reader: var JsonReader[RestJson], value: var BitList) =
+proc readValue*(reader: var JsonReader[RestJson], value: var BitList) {.
+     raises: [IOError, SerializationError, Defect].} =
   type T = type(value)
   value = T readValue(reader, BitSeq)
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: BitList) =
+proc writeValue*(writer: var JsonWriter[RestJson], value: BitList) {.
+     raises: [IOError, Defect].} =
   writeValue(writer, BitSeq value)
 
 ## Eth2Digest
@@ -489,13 +565,21 @@ RestJson.useCustomSerialization(phase0.BeaconState.justification_bits):
     writer.writeValue "0x" & toHex([value])
 
 proc encodeBytes*[T: EncodeTypes](value: T,
-                                   contentType: string): RestResult[seq[byte]] =
+                                  contentType: string): RestResult[seq[byte]] =
   case contentType
   of "application/json":
-    var stream = memoryOutput()
-    var writer = JsonWriter[RestJson].init(stream)
-    writer.writeValue(value)
-    ok(stream.getOutput(seq[byte]))
+    let data =
+      block:
+        try:
+          var stream = memoryOutput()
+          var writer = JsonWriter[RestJson].init(stream)
+          writer.writeValue(value)
+          stream.getOutput(seq[byte])
+        except IOError:
+          return err("Input/output error")
+        except SerializationError:
+          return err("Serialization error")
+    ok(data)
   else:
     err("Content-Type not supported")
 
@@ -503,10 +587,18 @@ proc encodeBytes*[T: EncodeArrays](value: T,
                                    contentType: string): RestResult[seq[byte]] =
   case contentType
   of "application/json":
-    var stream = memoryOutput()
-    var writer = JsonWriter[RestJson].init(stream)
-    writer.writeArray(value)
-    ok(stream.getOutput(seq[byte]))
+    let data =
+      block:
+        try:
+          var stream = memoryOutput()
+          var writer = JsonWriter[RestJson].init(stream)
+          writer.writeArray(value)
+          stream.getOutput(seq[byte])
+        except IOError:
+          return err("Input/output error")
+        except SerializationError:
+          return err("Serialization error")
+    ok(data)
   else:
     err("Content-Type not supported")
 

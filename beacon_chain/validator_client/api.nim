@@ -343,9 +343,10 @@ template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
                        RestBeaconNodeStatus.NotSynced,
                        RestBeaconNodeStatus.Uninitalized}
     let offlineNodes = vc.beaconNodes.filterIt(it.status in offlineMask)
+    let onlineNodesCount = len(vc.beaconNodes) - len(offlineNodes)
 
     warn "No working beacon nodes available, refreshing nodes status",
-         online_nodes = len(onlineNodes), offline_nodes = len(offlineNodes)
+         online_nodes = onlineNodesCount, offline_nodes = len(offlineNodes)
 
     var checkFut = vc.checkNodes(offlineMask)
 
@@ -474,6 +475,30 @@ proc getAttesterDuties*(vc: ValidatorClientRef, epoch: Epoch,
         RestBeaconNodeStatus.Offline
 
   raise newException(ValidatorApiError, "Unable to retrieve attester duties")
+
+proc getForkSchedule*(vc: ValidatorClientRef): Future[seq[Fork]] {.async.} =
+  logScope: request = "getForkSchedule"
+  vc.firstSuccessTimeout(RestResponse[GetForkScheduleResponse], SlotDuration,
+                         getForkSchedule(it)):
+    if apiResponse.isErr():
+      debug "Unable to retrieve head state's fork", endpoint = node,
+            error = apiResponse.error()
+      RestBeaconNodeStatus.Offline
+    else:
+      let response = apiResponse.get()
+      case response.status
+      of 200:
+        debug "Received successfull response", endpoint = node
+        return response.data.data
+      of 500:
+        debug "Received internal error response",
+              response_code = response.status, endpoint = node
+        RestBeaconNodeStatus.Offline
+      else:
+        debug "Received unexpected error response",
+              response_code = response.status, endpoint = node
+        RestBeaconNodeStatus.Offline
+  raise newException(ValidatorApiError, "Unable to retrieve fork schedule")
 
 proc getHeadStateFork*(vc: ValidatorClientRef): Future[Fork] {.async.} =
   logScope: request = "getHeadStateFork"
