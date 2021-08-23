@@ -18,11 +18,8 @@ import
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],
   ../consensus_object_pools/[
-    spec_cache, blockchain_dag, block_quarantine, spec_cache,
-    attestation_pool, exit_pool
-  ],
+    blockchain_dag, block_quarantine, spec_cache, attestation_pool, exit_pool],
   ".."/[beacon_node_types, beacon_clock],
-  ../validators/attestation_aggregation,
   ./batch_validation
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
@@ -428,7 +425,7 @@ proc validateAggregate*(
   if not is_aggregator(
       epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex,
       aggregate_and_proof.selection_proof):
-    return errReject(cstring("Incorrect aggregator"))
+    return errReject("validateAggregate: Incorrect aggregator")
 
   # [REJECT] The aggregator's validator index is within the committee -- i.e.
   # aggregate_and_proof.aggregator_index in get_beacon_committee(state,
@@ -436,8 +433,7 @@ proc validateAggregate*(
   if aggregate_and_proof.aggregator_index.ValidatorIndex notin
       get_beacon_committee(
         epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex):
-    return errReject(cstring(
-      "Aggregator's validator index not in committee"))
+    return errReject("validateAggregate: Aggregator's validator index not in committee")
 
   # 1. [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
   #    aggregate.data.slot by the validator with index
@@ -467,10 +463,10 @@ proc validateAggregate*(
     var x = await cryptoFuts.slotCheck
     case x
     of BatchResult.Invalid:
-      return errReject(cstring("validateAggregate: invalid slot signature"))
+      return errReject("validateAggregate: validateAggregate: invalid slot signature")
     of BatchResult.Timeout:
       beacon_aggregates_dropped_queue_full.inc()
-      return err((ValidationResult.Reject, cstring("validateAggregate: timeout checking slot signature")))
+      return errReject("validateAggregate: timeout checking slot signature")
     of BatchResult.Valid:
       discard
 
@@ -482,7 +478,7 @@ proc validateAggregate*(
       return errReject("validateAggregate: invalid aggregator signature")
     of BatchResult.Timeout:
       beacon_aggregates_dropped_queue_full.inc()
-      return err((ValidationResult.Reject, cstring("validateAggregate: timeout checking aggregator signature")))
+      return errReject("validateAggregate: timeout checking aggregator signature")
     of BatchResult.Valid:
       discard
 
@@ -494,7 +490,7 @@ proc validateAggregate*(
       return errReject("validateAggregate: invalid aggregate signature")
     of BatchResult.Timeout:
       beacon_aggregates_dropped_queue_full.inc()
-      return err((ValidationResult.Reject, cstring("validateAggregate: timeout checking aggregate signature")))
+      return errReject("validateAggregate: timeout checking aggregate signature")
     of BatchResult.Valid:
       discard
 

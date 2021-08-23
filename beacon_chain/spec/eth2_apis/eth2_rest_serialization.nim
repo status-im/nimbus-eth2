@@ -9,6 +9,7 @@ import
   stew/[results, base10, byteutils, endians2],
   presto,
   libp2p/peerid,
+  serialization,
   json_serialization, json_serialization/std/[options, net],
   nimcrypto/utils as ncrutils,
   ../datatypes/[phase0, altair, merge],

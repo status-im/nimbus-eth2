@@ -29,13 +29,15 @@ import
   ./networking/[eth2_discovery, eth2_network, network_metadata],
   ./gossip_processing/[eth2_processor, block_processor, consensus_manager],
   ./validators/[
-    attestation_aggregation, validator_duties, validator_pool,
+    validator_duties, validator_pool,
     slashing_protection, keystore_management],
   ./sync/[sync_manager, sync_protocol, request_manager],
   ./rpc/[rest_api, rpc_api],
   ./spec/datatypes/[altair, phase0],
   ./spec/eth2_apis/rpc_beacon_client,
-  ./spec/[beaconstate, forks, helpers, network, weak_subjectivity, signatures],
+  ./spec/[
+    beaconstate, forks, helpers, network, weak_subjectivity, signatures,
+    validator],
   ./consensus_object_pools/[
     blockchain_dag, block_quarantine, block_clearance, block_pools_types,
     attestation_pool, exit_pool, spec_cache],
@@ -1016,6 +1018,11 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   if nextAttestationSlot != FAR_FUTURE_SLOT:
     next_action_wait.set(nextActionWaitTime.toFloatSeconds)
+
+  let epoch = slot.epoch
+  if epoch >= node.network.forkId.next_fork_epoch:
+    node.network.updateForkId(
+      node.dag.cfg.getENRForkID(epoch, node.dag.genesisValidatorsRoot))
 
   node.updateGossipStatus(slot)
 

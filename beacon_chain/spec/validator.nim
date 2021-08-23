@@ -374,3 +374,10 @@ func get_beacon_proposer_index*(
 func get_beacon_proposer_index*(state: SomeBeaconState, cache: var StateCache):
     Option[ValidatorIndex] =
   get_beacon_proposer_index(state, cache, state.slot)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#aggregation-selection
+func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =
+  let
+    modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
+  bytes_to_uint64(eth2digest(
+    slot_signature.toRaw()).data.toOpenArray(0, 7)) mod modulo == 0

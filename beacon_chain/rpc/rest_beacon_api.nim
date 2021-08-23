@@ -4,9 +4,10 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 import
-  std/[typetraits, sequtils, strutils, deques, sets, options],
+  std/[typetraits, sequtils, strutils, deques, sets],
   stew/[results, base10],
   chronicles,
+  json_serialization, json_serialization/std/[options, net],
   nimcrypto/utils as ncrutils,
   ../beacon_node_common, ../networking/eth2_network,
   ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
@@ -95,13 +96,6 @@ proc toString*(kind: ValidatorFilterKind): string =
     "withdrawal_possible"
   of ValidatorFilterKind.WithdrawalDone:
     "withdrawal_done"
-
-proc getBeaconBlocksTopic(node: BeaconNode, kind: BeaconBlockFork): string =
-  case kind
-  of BeaconBlockFork.Phase0:
-    getBeaconBlocksTopic(node.dag.forkDigests.phase0)
-  of BeaconBlockFork.Altair:
-    getBeaconBlocksTopic(node.dag.forkDigests.altair)
 
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis

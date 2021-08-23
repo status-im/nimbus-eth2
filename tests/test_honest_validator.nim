@@ -3,9 +3,8 @@
 import
   unittest2,
   ./testutil,
-  ../beacon_chain/spec/network,
-  ../beacon_chain/spec/datatypes/[base, altair],
-  ../beacon_chain/validators/attestation_aggregation
+  ../beacon_chain/spec/[network, validator],
+  ../beacon_chain/spec/datatypes/[base, altair]
 
 suite "Honest validator":
   var forkDigest: ForkDigest
