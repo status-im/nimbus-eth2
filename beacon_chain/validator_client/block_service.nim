@@ -55,8 +55,8 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                                           signature: signature)
 
       debug "Sending block", blck = shortLog(signedBlock.message),
-            blockRoot = shortLog(blockRoot), validator = shortLog(validator),
-            validator_index = validator_index.get()
+            signature = shortLog(signature), blockRoot = shortLog(blockRoot),
+            validator = shortLog(validator)
 
       let res =
         try:

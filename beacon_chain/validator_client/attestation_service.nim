@@ -48,7 +48,6 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
 
   debug "Sending attestation", attestation = shortLog(attestation),
         validator = shortLog(validator), validator_index = vindex,
-        indexInCommittee = duty.data.validator_committee_index,
         attestation_root = shortLog(attestationRoot),
         delay = vc.getDelay(seconds(int64(SECONDS_PER_SLOT) div 3))
 
@@ -70,20 +69,17 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
       return false
 
   let delay = vc.getDelay(seconds(int64(SECONDS_PER_SLOT) div 3))
-  let indexInCommittee = duty.data.validator_committee_index
   if res:
     notice "Attestation published", attestation = shortLog(attestation),
                                     validator = shortLog(validator),
                                     validator_index = vindex,
                                     delay = delay,
-                                    indexInCommittee = indexInCommittee,
                                     attestation_root = attestationRoot
   else:
     warn "Attestation was not accepted by beacon node",
          attestation = shortLog(attestation),
          validator = shortLog(validator),
-         validator_index = vindex, delay = delay,
-         indexInCommittee = indexInCommittee
+         validator_index = vindex, delay = delay
   return res
 
 proc serveAggregateAndProof*(service: AttestationServiceRef,

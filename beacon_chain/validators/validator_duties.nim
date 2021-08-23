@@ -216,9 +216,9 @@ proc createAndSendAttestation(node: BeaconNode,
       else:
         ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
 
-    notice "Attestation sent", attestation = shortLog(attestation),
-                              validator = shortLog(validator), delay = delayStr,
-                              indexInCommittee = indexInCommittee
+    notice "Attestation sent",
+      attestation = shortLog(attestation), validator = shortLog(validator),
+      delay = delayStr
 
     beacon_attestation_sent_delay.observe(delaySecs)
   except CatchableError as exc:
