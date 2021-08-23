@@ -162,7 +162,7 @@ template errReject(msg: cstring): untyped =
     # an internal consistency/correctness check only, and effectively never has
     # false positives. These don't, for example, arise from timeouts.
     raiseAssert $msg
-  err((ValidationResult.Reject, msg))
+  err((ValidationResult.Reject, cstring msg))
 
 template errReject(error: (ValidationResult, cstring)): untyped =
   doAssert error[0] == ValidationResult.Reject
@@ -172,6 +172,9 @@ template errReject(error: (ValidationResult, cstring)): untyped =
     # false positives. These don't, for example, arise from timeouts.
     raiseAssert $error[1]
   err(error)
+
+template errIgnore(msg: cstring): untyped =
+  err((ValidationResult.Ignore, cstring msg))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc validateAttestation*(
@@ -314,7 +317,7 @@ proc validateAttestation*(
       var x = (await cryptoFut)
       case x
       of BatchResult.Invalid:
-        return errReject(cstring("validateAttestation: invalid signature"))
+        return errReject("validateAttestation: invalid signature")
       of BatchResult.Timeout:
         beacon_attestations_dropped_queue_full.inc()
         return err((ValidationResult.Ignore, cstring("validateAttestation: timeout checking signature")))
@@ -387,8 +390,7 @@ proc validateAggregate*(
       pool.nextAttestationEpoch[
           aggregate_and_proof.aggregator_index].aggregate >
         aggregate.data.target.epoch:
-    return err((ValidationResult.Ignore, cstring(
-      "Validator has already aggregated in epoch")))
+    return errIgnore("validateAggregate: Validator has already aggregated in epoch")
 
   # [REJECT] The attestation has participants -- that is,
   # len(get_attesting_indices(state, aggregate.data, aggregate.aggregation_bits)) >= 1.
@@ -477,8 +479,7 @@ proc validateAggregate*(
     var x = await cryptoFuts.aggregatorCheck
     case x
     of BatchResult.Invalid:
-      return errReject(cstring(
-        "validateAggregate: invalid aggregator signature"))
+      return errReject("validateAggregate: invalid aggregator signature")
     of BatchResult.Timeout:
       beacon_aggregates_dropped_queue_full.inc()
       return err((ValidationResult.Reject, cstring("validateAggregate: timeout checking aggregator signature")))
@@ -490,8 +491,7 @@ proc validateAggregate*(
     var x = await cryptoFuts.aggregateCheck
     case x
     of BatchResult.Invalid:
-      return errReject(cstring(
-        "validateAggregate: invalid aggregate signature"))
+      return errReject("validateAggregate: invalid aggregate signature")
     of BatchResult.Timeout:
       beacon_aggregates_dropped_queue_full.inc()
       return err((ValidationResult.Reject, cstring("validateAggregate: timeout checking aggregate signature")))
