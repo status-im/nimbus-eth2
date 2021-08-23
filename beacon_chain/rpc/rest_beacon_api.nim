@@ -778,6 +778,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           else:
             ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
       notice "Attestation sent", attestation = shortLog(a), delay = delayStr
+      return res
 
     # Since our validation logic supports batch processing, we will submit all
     # attestations for validation.

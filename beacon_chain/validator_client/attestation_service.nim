@@ -46,6 +46,12 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
     Natural(duty.data.validator_committee_index),
     fork, vc.beaconGenesis.genesis_validators_root)
 
+  debug "Sending attestation", attestation = shortLog(attestation),
+        validator = shortLog(validator), validator_index = vindex,
+        indexInCommittee = duty.data.validator_committee_index,
+        attestation_root = shortLog(attestationRoot),
+        delay = vc.getDelay(seconds(int64(SECONDS_PER_SLOT) div 3))
+
   let res =
     try:
       await vc.submitPoolAttestations(@[attestation])
@@ -96,6 +102,13 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
 
   let aggregationSlot = proof.aggregate.data.slot
   let vindex = validator.index.get()
+
+  debug "Sending aggregated attestation",
+        attestation = shortLog(signedProof.message.aggregate),
+        validator = shortLog(validator), validator_index = vindex,
+        aggregationSlot = aggregationSlot,
+        delay = vc.getDelay(seconds((int64(SECONDS_PER_SLOT) div 3) * 2))
+
   let res =
     try:
       await vc.publishAggregateAndProofs(@[signedProof])
