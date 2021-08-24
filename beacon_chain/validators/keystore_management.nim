@@ -307,12 +307,21 @@ iterator validatorKeys*(config: BeaconNodeConf|ValidatorClientConf): ValidatorPr
     quit 1
 
 type
-  KeystoreGenerationError = enum
-    RandomSourceDepleted,
+  KeystoreGenerationErrorKind = enum
     FailedToCreateValidatorDir
     FailedToCreateSecretsDir
     FailedToCreateSecretFile
     FailedToCreateKeystoreFile
+  KeystoreGenerationError* = object
+    case kind*: KeystoreGenerationErrorKind
+    of FailedToCreateValidatorDir, FailedToCreateSecretsDir,
+        FailedToCreateSecretFile, FailedToCreateKeystoreFile:
+      error*: string
+
+proc mapErrTo[T, E](r: Result[T, E], v: static KeystoreGenerationErrorKind):
+    Result[T, KeystoreGenerationError] =
+  r.mapErr(proc (e: E): KeystoreGenerationError =
+    KeystoreGenerationError(kind: v, error: $e))
 
 proc loadNetKeystore*(keyStorePath: string,
                       insecurePwd: Option[string]): Option[lcrypto.PrivateKey] =
@@ -366,19 +375,18 @@ proc saveNetKeystore*(rng: var BrHmacDrbgContext, keyStorePath: string,
     else:
       let prompt = "Please enter NEW password to lock network key storage: "
       let confirm = "Please confirm, network key storage password: "
-      let res = keyboardCreatePassword(prompt, confirm)
-      if res.isErr():
-        return err(FailedToCreateKeystoreFile)
-      res.get()
+      ? keyboardCreatePassword(prompt, confirm).mapErrTo(
+        FailedToCreateKeystoreFile)
 
   let keyStore = createNetKeystore(kdfScrypt, rng, netKey,
                                    KeystorePass.init password)
   var encodedStorage: string
   try:
     encodedStorage = Json.encode(keyStore)
-  except SerializationError:
+  except SerializationError as exc:
     error "Could not serialize network key storage", key_path = keyStorePath
-    return err(FailedToCreateKeystoreFile)
+    return err(KeystoreGenerationError(
+      kind: FailedToCreateKeystoreFile, error: exc.msg))
 
   let res = secureWriteFile(keyStorePath, encodedStorage)
   if res.isOk():
@@ -386,7 +394,7 @@ proc saveNetKeystore*(rng: var BrHmacDrbgContext, keyStorePath: string,
   else:
     error "Could not write to network key storage file",
           key_path = keyStorePath
-    err(FailedToCreateKeystoreFile)
+    res.mapErrTo(FailedToCreateKeystoreFile)
 
 proc saveKeystore(rng: var BrHmacDrbgContext,
                   validatorsDir, secretsDir: string,
@@ -408,25 +416,17 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
     var encodedStorage: string
     try:
       encodedStorage = Json.encode(keyStore)
-    except SerializationError:
+    except SerializationError as e:
       error "Could not serialize keystorage", key_path = keystoreFile
-      return err(FailedToCreateKeystoreFile)
+      return err(KeystoreGenerationError(
+        kind: FailedToCreateKeystoreFile, error: e.msg))
 
-    let vres = secureCreatePath(validatorDir)
-    if vres.isErr():
-      return err(FailedToCreateValidatorDir)
-
-    let sres = secureCreatePath(secretsDir)
-    if sres.isErr():
-      return err(FailedToCreateSecretsDir)
-
-    let swres = secureWriteFile(secretsDir / keyName, password.str)
-    if swres.isErr():
-      return err(FailedToCreateSecretFile)
-
-    let kwres = secureWriteFile(keystoreFile, encodedStorage)
-    if kwres.isErr():
-      return err(FailedToCreateKeystoreFile)
+    ? secureCreatePath(validatorDir).mapErrTo(FailedToCreateValidatorDir)
+    ? secureCreatePath(secretsDir).mapErrTo(FailedToCreateSecretsDir)
+    ? secureWriteFile(secretsDir / keyName, password.str).mapErrTo(
+      FailedToCreateSecretFile)
+    ? secureWriteFile(keystoreFile, encodedStorage).mapErrTo(
+      FailedToCreateKeystoreFile)
 
   ok()
 
@@ -476,12 +476,11 @@ proc saveWallet*(wallet: Wallet, outWalletPath: string): Result[void, string] =
   except SerializationError:
     return err("Could not serialize wallet")
 
-  let pres = secureCreatePath(walletDir)
-  if pres.isErr():
-    return err("Could not create wallet directory [" & walletDir & "]")
-  let wres = secureWriteFile(outWalletPath, encodedWallet)
-  if wres.isErr():
-    return err("Could not write wallet to file [" & outWalletPath & "]")
+  ? secureCreatePath(walletDir).mapErr(proc(e: auto): string =
+    "Could not create wallet directory [" & walletDir & "]: " & $e)
+
+  ? secureWriteFile(outWalletPath, encodedWallet).mapErr(proc(e: auto): string =
+    "Could not write wallet to file [" & outWalletPath & "]: " & $e)
 
   ok()
 
@@ -570,7 +569,8 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
             if status.isOk:
               notice "Keystore imported", file
             else:
-              error "Failed to import keystore", file, err = status.error
+              error "Failed to import keystore",
+                file, validatorsDir, secretsDir, err = status.error
           else:
             error "Imported keystore holds invalid key", file, err = privKey.error
           break
@@ -618,10 +618,7 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
     block:
       let prompt = "Please enter a password: "
       let confirm = "Please repeat the password: "
-      let res = keyboardCreatePassword(prompt, confirm)
-      if res.isErr():
-        return err($res.error)
-      res.get()
+      ? keyboardCreatePassword(prompt, confirm).mapErr(proc(e: auto): string = $e)
   defer: burnMem(password)
 
   var name: WalletName
@@ -771,7 +768,7 @@ proc createWalletInteractively*(
       burnMem(recoveryPassword.get)
 
   if recoveryPassword.isErr:
-    fatal "Failed to read password from stdin"
+    fatal "Failed to read password from stdin: "
     quit 1
 
   var keystorePass = KeystorePass.init recoveryPassword.get
