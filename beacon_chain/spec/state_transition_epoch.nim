@@ -734,9 +734,12 @@ func process_rewards_and_penalties(
   for validator_index, penalty in get_inactivity_penalty_deltas(cfg, state):
     penalties[validator_index] += penalty
 
+  state.balances.clearCache()
   for index in 0 ..< len(state.validators):
-    increase_balance(state, ValidatorIndex(index), rewards[index])
-    decrease_balance(state, ValidatorIndex(index), penalties[index])
+    var balance = state.balances.asSeq()[index]
+    increase_balance(balance, rewards[index])
+    decrease_balance(balance, penalties[index])
+    state.balances.asSeq()[index] = balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#slashings
