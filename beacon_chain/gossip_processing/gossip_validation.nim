@@ -18,7 +18,7 @@ import
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],
   ../consensus_object_pools/[
-    blockchain_dag, block_quarantine, spec_cache, attestation_pool, exit_pool],
+    attestation_pool, blockchain_dag, block_quarantine, exit_pool, spec_cache],
   ".."/[beacon_node_types, beacon_clock],
   ./batch_validation
 
@@ -239,8 +239,7 @@ proc validateAttestation*(
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
   if not (attestation.data.index < get_committee_count_per_slot(epochRef)):
-    return errReject(cstring(
-      "validateAttestation: committee index not within expected range"))
+    return errReject("Attestation: committee index not within expected range")
 
   # [REJECT] The attestation is for the correct subnet -- i.e.
   # compute_subnet_for_attestation(committees_per_slot,
@@ -262,8 +261,8 @@ proc validateAttestation*(
   # attestation.data.beacon_block_root.
   if not (attestation.aggregation_bits.lenu64 == get_beacon_committee_len(
       epochRef, attestation.data.slot, attestation.data.index.CommitteeIndex)):
-    return errReject(cstring(
-      "validateAttestation: number of aggregation bits and committee size mismatch"))
+    return errReject(
+      "Attestation: number of aggregation bits and committee size mismatch")
 
   let
     fork = pool.dag.forkAtEpoch(attestation.data.slot.epoch)
@@ -285,8 +284,7 @@ proc validateAttestation*(
   if (pool.nextAttestationEpoch.lenu64 > validator_index.uint64) and
       pool.nextAttestationEpoch[validator_index].subnet >
         attestation.data.target.epoch:
-    return err((ValidationResult.Ignore, cstring(
-      "Validator has already voted in epoch")))
+    return errIgnore("Attestation: Validator has already voted in epoch")
 
   block:
     # First pass - without cryptography
@@ -314,18 +312,16 @@ proc validateAttestation*(
       var x = (await cryptoFut)
       case x
       of BatchResult.Invalid:
-        return errReject("validateAttestation: invalid signature")
+        return errReject("Attestation: invalid signature")
       of BatchResult.Timeout:
         beacon_attestations_dropped_queue_full.inc()
-        return err((ValidationResult.Ignore, cstring("validateAttestation: timeout checking signature")))
+        return errIgnore("Attestation: timeout checking signature")
       of BatchResult.Valid:
         sig # keep going only in this case
     else:
       let sig = attestation.signature.load()
       if not sig.isSome():
-        return err((
-          ValidationResult.Ignore,
-          cstring("validateAttestation: unable to load signature")))
+        return errReject("Attestation: unable to load signature")
       sig.get()
 
   # Only valid attestations go in the list, which keeps validator_index
@@ -387,7 +383,7 @@ proc validateAggregate*(
       pool.nextAttestationEpoch[
           aggregate_and_proof.aggregator_index].aggregate >
         aggregate.data.target.epoch:
-    return errIgnore("validateAggregate: Validator has already aggregated in epoch")
+    return errIgnore("Aggregate: validator has already aggregated in epoch")
 
   # [REJECT] The attestation has participants -- that is,
   # len(get_attesting_indices(state, aggregate.data, aggregate.aggregation_bits)) >= 1.
@@ -425,7 +421,7 @@ proc validateAggregate*(
   if not is_aggregator(
       epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex,
       aggregate_and_proof.selection_proof):
-    return errReject("validateAggregate: Incorrect aggregator")
+    return errReject("Aggregate: incorrect aggregator")
 
   # [REJECT] The aggregator's validator index is within the committee -- i.e.
   # aggregate_and_proof.aggregator_index in get_beacon_committee(state,
@@ -433,7 +429,7 @@ proc validateAggregate*(
   if aggregate_and_proof.aggregator_index.ValidatorIndex notin
       get_beacon_committee(
         epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex):
-    return errReject("validateAggregate: Aggregator's validator index not in committee")
+    return errReject("Aggregate: aggregator's validator index not in committee")
 
   # 1. [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
   #    aggregate.data.slot by the validator with index
@@ -463,10 +459,10 @@ proc validateAggregate*(
     var x = await cryptoFuts.slotCheck
     case x
     of BatchResult.Invalid:
-      return errReject("validateAggregate: validateAggregate: invalid slot signature")
+      return errReject("Aggregate: invalid slot signature")
     of BatchResult.Timeout:
       beacon_aggregates_dropped_queue_full.inc()
-      return errReject("validateAggregate: timeout checking slot signature")
+      return errIgnore("Aggregate: timeout checking slot signature")
     of BatchResult.Valid:
       discard
 
@@ -475,10 +471,10 @@ proc validateAggregate*(
     var x = await cryptoFuts.aggregatorCheck
     case x
     of BatchResult.Invalid:
-      return errReject("validateAggregate: invalid aggregator signature")
+      return errReject("Aggregate: invalid aggregator signature")
     of BatchResult.Timeout:
       beacon_aggregates_dropped_queue_full.inc()
-      return errReject("validateAggregate: timeout checking aggregator signature")
+      return errIgnore("Aggregate: timeout checking aggregator signature")
     of BatchResult.Valid:
       discard
 
@@ -487,10 +483,10 @@ proc validateAggregate*(
     var x = await cryptoFuts.aggregateCheck
     case x
     of BatchResult.Invalid:
-      return errReject("validateAggregate: invalid aggregate signature")
+      return errReject("Aggregate: invalid aggregate signature")
     of BatchResult.Timeout:
       beacon_aggregates_dropped_queue_full.inc()
-      return errReject("validateAggregate: timeout checking aggregate signature")
+      return errIgnore("Aggregate: timeout checking aggregate signature")
     of BatchResult.Valid:
       discard
 
@@ -677,8 +673,8 @@ proc validateAttesterSlashing*(
 
   if not disjoint(
       attester_slashed_indices, pool.prior_seen_attester_slashed_indices):
-    return err((ValidationResult.Ignore, cstring(
-      "validateAttesterSlashing: attester-slashed index already attester-slashed")))
+    return errIgnore(
+      "AttesterSlashing: attester-slashed index already attester-slashed")
 
   # [REJECT] All of the conditions within process_attester_slashing pass
   # validation.
@@ -699,16 +695,15 @@ proc validateProposerSlashing*(
     Result[bool, (ValidationResult, cstring)] =
   # Not from spec; the rest of NBC wouldn't have correctly processed it either.
   if proposer_slashing.signed_header_1.message.proposer_index > high(int).uint64:
-    return err((ValidationResult.Ignore, cstring(
-      "validateProposerSlashing: proposer-slashed index too high")))
+    return errIgnore("ProposerSlashing: proposer-slashed index too high")
 
   # [IGNORE] The proposer slashing is the first valid proposer slashing
   # received for the proposer with index
   # proposer_slashing.signed_header_1.message.proposer_index.
   if proposer_slashing.signed_header_1.message.proposer_index.int in
       pool.prior_seen_proposer_slashed_indices:
-    return err((ValidationResult.Ignore, cstring(
-      "validateProposerSlashing: proposer-slashed index already proposer-slashed")))
+    return errIgnore(
+      "ProposerSlashing: proposer-slashed index already proposer-slashed")
 
   # [REJECT] All of the conditions within process_proposer_slashing pass validation.
   let proposer_slashing_validity =
@@ -731,16 +726,14 @@ proc validateVoluntaryExit*(
   # the validator with index signed_voluntary_exit.message.validator_index.
   if signed_voluntary_exit.message.validator_index >=
       getStateField(pool.dag.headState.data, validators).lenu64:
-    return err((ValidationResult.Ignore, cstring(
-      "validateVoluntaryExit: validator index too high")))
+    return errIgnore("VoluntaryExit: validator index too high")
 
   # Given that getStateField(pool.dag.headState, validators) is a seq,
   # signed_voluntary_exit.message.validator_index.int is already valid, but
   # check explicitly if one changes that data structure.
   if signed_voluntary_exit.message.validator_index.int in
       pool.prior_seen_voluntary_exit_indices:
-    return err((ValidationResult.Ignore, cstring(
-      "validateVoluntaryExit: validator index already voluntarily exited")))
+    return errIgnore("VoluntaryExit: validator index already voluntarily exited")
 
   # [REJECT] All of the conditions within process_voluntary_exit pass
   # validation.
