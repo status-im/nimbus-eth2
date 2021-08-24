@@ -165,10 +165,12 @@ proc signSyncCommitteeMessage*(v: AttachedValidator,
     signing_root = sync_committee_msg_signing_root(
       fork, slot.epoch, genesis_validators_root, block_root)
 
-  let signature = if v.kind == inProcess:
-    blsSign(v.privkey, signing_root.data).toValidatorSig
-  else:
-    await signWithRemoteValidator(v, signing_root)
+  let signature =
+    case v.kind
+    of ValidatorKind.Local:
+      blsSign(v.data.privateKey, signing_root.data).toValidatorSig
+    of ValidatorKind.Remote:
+      await signWithRemoteValidator(v, signing_root)
 
   return SyncCommitteeMessage(
     slot: slot,
@@ -187,10 +189,12 @@ proc getSyncCommitteeSelectionProof*(
     signing_root = sync_committee_selection_proof_signing_root(
       fork, genesis_validators_root, slot, subcommittee_index)
 
-  return if v.kind == inProcess:
-    blsSign(v.privkey, signing_root.data).toValidatorSig
-  else:
-    await signWithRemoteValidator(v, signing_root)
+  return
+    case v.kind
+    of ValidatorKind.Local:
+      blsSign(v.data.privateKey, signing_root.data).toValidatorSig
+    of ValidatorKind.Remote:
+      await signWithRemoteValidator(v, signing_root)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/validator.md#signature
 proc sign*(
@@ -202,10 +206,12 @@ proc sign*(
     signing_root = contribution_and_proof_signing_root(
       fork, genesis_validators_root, msg.message)
 
-  msg.signature = if v.kind == inProcess:
-    blsSign(v.privkey, signing_root.data).toValidatorSig
-  else:
-    await signWithRemoteValidator(v, signing_root)
+  msg.signature =
+    case v.kind
+    of ValidatorKind.Local:
+      blsSign(v.data.privateKey, signing_root.data).toValidatorSig
+    of ValidatorKind.Remote:
+      await signWithRemoteValidator(v, signing_root)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/validator.md#randao-reveal
 func genRandaoReveal*(k: ValidatorPrivKey, fork: Fork,

@@ -18,6 +18,11 @@ import
 
 logScope: topics = "rest_beaconapi"
 
+type
+  RestAttestationsFailure* = object
+    index*: uint64
+    message*: string
+
 proc validateFilter(filters: seq[ValidatorFilter]): Result[ValidatorFilter,
                                                            cstring] =
   var res: ValidatorFilter

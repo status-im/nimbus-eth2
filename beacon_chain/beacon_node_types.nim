@@ -11,6 +11,7 @@ import
   std/[deques, intsets, streams, tables, hashes, options],
   stew/endians2,
   ./spec/datatypes/[phase0, altair],
+  ./spec/keystore,
   ./consensus_object_pools/block_pools_types,
   ./fork_choice/fork_choice_types,
   ./validators/slashing_protection
