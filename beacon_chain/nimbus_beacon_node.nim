@@ -314,7 +314,7 @@ proc init*(T: type BeaconNode,
       rng, config, netKeys, cfg, dag.forkDigests, getBeaconTime,
       getStateField(dag.headState.data, genesis_validators_root))
     attestationPool = newClone(AttestationPool.init(dag, quarantine))
-    exitPool = newClone(ExitPool.init(dag, quarantine))
+    exitPool = newClone(ExitPool.init(dag))
 
   case config.slashingDbKind
   of SlashingDbKind.v2:

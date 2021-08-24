@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[intsets, deques],
+  std/[intsets],
   # Status
   chronicles, chronos, metrics,
   stew/results,
@@ -35,6 +35,11 @@ declareCounter beacon_attestations_dropped_queue_full,
 declareCounter beacon_aggregates_dropped_queue_full,
   "Number of aggregates dropped because queue is full"
 
+template errIgnore(msg: cstring): untyped =
+  err((ValidationResult.Ignore, cstring msg))
+template errReject(msg: cstring): untyped =
+  err((ValidationResult.Reject, cstring msg))
+
 # Internal checks
 # ----------------------------------------------------------------
 
@@ -47,20 +52,18 @@ func check_attestation_block(
   # useless - other blocks that are not rooted in the finalized chain will be
   # pruned by the chain dag, and thus we can no longer get a BlockRef for them
   if not (blck.slot > pool.dag.finalizedHead.slot):
-    return err((ValidationResult.Ignore, cstring(
-      "Voting for already-finalized block")))
+    return errIgnore("Voting for already-finalized block")
 
   # The attestation shouldn't be voting for a block that didn't exist at the
   # time - not in spec, but hard to reason about
   if not (attestationSlot >= blck.slot):
-    return err((ValidationResult.Ignore, cstring(
-      "Voting for block that didn't exist at the time")))
+    return errIgnore("Voting for block that didn't exist at the time")
 
   # We'll also cap it at 4 epochs which is somewhat arbitrary, but puts an
   # upper bound on the processing done to validate the attestation
   # TODO revisit with less arbitrary approach
   if not ((attestationSlot - blck.slot) <= uint64(4 * SLOTS_PER_EPOCH)):
-    return err((ValidationResult.Ignore, cstring("Voting for very old block")))
+    return errIgnore("Voting for very old block")
 
   ok()
 
@@ -71,8 +74,7 @@ func check_propagation_slot_range(
     futureSlot = (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
   if not futureSlot.afterGenesis or msgSlot > futureSlot.slot:
-    return err((ValidationResult.Ignore, cstring(
-      "Attestation slot in the future")))
+    return errIgnore("Attestation slot in the future")
 
   let
     pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
@@ -85,8 +87,7 @@ func check_propagation_slot_range(
 
   if pastSlot.afterGenesis and
       msgSlot + ATTESTATION_PROPAGATION_SLOT_RANGE < pastSlot.slot:
-    return err((ValidationResult.Ignore, cstring(
-      "Attestation slot in the past")))
+    return errIgnore("Attestation slot in the past")
 
   ok()
 
@@ -101,7 +102,7 @@ func check_beacon_and_target_block(
   let blck = pool.dag.getRef(data.beacon_block_root)
   if blck.isNil:
     pool.quarantine.addMissing(data.beacon_block_root)
-    return err((ValidationResult.Ignore, cstring("Attestation block unknown")))
+    return errIgnore("Attestation block unknown")
 
   # Not in spec - check that rewinding to the state is sane
   ? check_attestation_block(pool, data.slot, blck)
@@ -116,8 +117,8 @@ func check_beacon_and_target_block(
       blck, compute_start_slot_at_epoch(data.target.epoch), SLOTS_PER_EPOCH.int)
 
   if not (target.root == data.target.root):
-    return err((ValidationResult.Reject, cstring(
-      "attestation's target block not an ancestor of LMD vote block")))
+    return errIgnore(
+      "Attestation's target block not an ancestor of LMD vote block")
 
   ok(target)
 
@@ -127,11 +128,9 @@ func check_aggregation_count(
 
   let ones = attestation.aggregation_bits.countOnes()
   if singular and ones != 1:
-    return err((ValidationResult.Reject, cstring(
-      "Attestation must have a single attestation bit set")))
+    return errReject("Attestation must have a single attestation bit set")
   elif not singular and ones < 1:
-    return err((ValidationResult.Reject, cstring(
-      "Attestation must have at least one attestation bit set")))
+    return errReject("Attestation must have at least one attestation bit set")
 
   ok()
 
@@ -145,15 +144,14 @@ func check_attestation_subnet(
         attestation.data.slot, attestation.data.index.CommitteeIndex)
 
   if expectedSubnet != subnet_id:
-    return err((ValidationResult.Reject, cstring(
-      "Attestation not on the correct subnet")))
+    return errReject("Attestation not on the correct subnet")
 
   ok()
 
 # Gossip Validation
 # ----------------------------------------------------------------
 
-template errReject(msg: cstring): untyped =
+template checkedReject(msg: cstring): untyped =
   if verifyFinalization in pool.dag.updateFlags:
     # This doesn't depend on the wall clock or the exact state of the DAG; it's
     # an internal consistency/correctness check only, and effectively never has
@@ -161,7 +159,7 @@ template errReject(msg: cstring): untyped =
     raiseAssert $msg
   err((ValidationResult.Reject, cstring msg))
 
-template errReject(error: (ValidationResult, cstring)): untyped =
+template checkedReject(error: (ValidationResult, cstring)): untyped =
   doAssert error[0] == ValidationResult.Reject
   if verifyFinalization in pool.dag.updateFlags:
     # This doesn't depend on the wall clock or the exact state of the DAG; it's
@@ -169,9 +167,6 @@ template errReject(error: (ValidationResult, cstring)): untyped =
     # false positives. These don't, for example, arise from timeouts.
     raiseAssert $error[1]
   err(error)
-
-template errIgnore(msg: cstring): untyped =
-  err((ValidationResult.Ignore, cstring msg))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc validateAttestation*(
@@ -193,7 +188,7 @@ proc validateAttestation*(
   block:
     let v = check_attestation_slot_target(attestation.data)
     if v.isErr():
-      return errReject(v.error)
+      return checkedReject(v.error)
 
   # attestation.data.slot is within the last ATTESTATION_PROPAGATION_SLOT_RANGE
   # slots (within a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
@@ -211,7 +206,7 @@ proc validateAttestation*(
   block:
     let v = check_aggregation_count(attestation, singular = true) # [REJECT]
     if v.isErr():
-      return errReject(v.error)
+      return checkedReject(v.error)
 
   # The block being voted for (attestation.data.beacon_block_root) has been seen
   # (via both gossip and non-gossip sources) (a client MAY queue attestations for
@@ -239,7 +234,7 @@ proc validateAttestation*(
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
   if not (attestation.data.index < get_committee_count_per_slot(epochRef)):
-    return errReject("Attestation: committee index not within expected range")
+    return checkedReject("Attestation: committee index not within expected range")
 
   # [REJECT] The attestation is for the correct subnet -- i.e.
   # compute_subnet_for_attestation(committees_per_slot,
@@ -261,7 +256,7 @@ proc validateAttestation*(
   # attestation.data.beacon_block_root.
   if not (attestation.aggregation_bits.lenu64 == get_beacon_committee_len(
       epochRef, attestation.data.slot, attestation.data.index.CommitteeIndex)):
-    return errReject(
+    return checkedReject(
       "Attestation: number of aggregation bits and committee size mismatch")
 
   let
@@ -292,7 +287,7 @@ proc validateAttestation*(
         fork, genesis_validators_root, epochRef, attestation,
         {skipBLSValidation})
     if v.isErr():
-      return errReject(v.error)
+      return checkedReject(v.error)
 
   let sig =
     if checkSignature:
@@ -303,7 +298,7 @@ proc validateAttestation*(
                               attestation
                             )
       if deferredCrypto.isErr():
-        return errReject(deferredCrypto.error)
+        return checkedReject(deferredCrypto.error)
 
       # Await the crypto check
       let
@@ -312,7 +307,7 @@ proc validateAttestation*(
       var x = (await cryptoFut)
       case x
       of BatchResult.Invalid:
-        return errReject("Attestation: invalid signature")
+        return checkedReject("Attestation: invalid signature")
       of BatchResult.Timeout:
         beacon_attestations_dropped_queue_full.inc()
         return errIgnore("Attestation: timeout checking signature")
@@ -321,7 +316,7 @@ proc validateAttestation*(
     else:
       let sig = attestation.signature.load()
       if not sig.isSome():
-        return errReject("Attestation: unable to load signature")
+        return checkedReject("Attestation: unable to load signature")
       sig.get()
 
   # Only valid attestations go in the list, which keeps validator_index
@@ -354,7 +349,7 @@ proc validateAggregate*(
   block:
     let v = check_attestation_slot_target(aggregate.data)
     if v.isErr():
-      return errReject(v.error)
+      return checkedReject(v.error)
 
   # [IGNORE] aggregate.data.slot is within the last
   # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
@@ -418,10 +413,15 @@ proc validateAggregate*(
   let
     epochRef = pool.dag.getEpochRef(target, aggregate.data.target.epoch)
 
+  # [REJECT] The committee index is within the expected range -- i.e.
+  # data.index < get_committee_count_per_slot(state, data.target.epoch).
+  if not (aggregate.data.index < get_committee_count_per_slot(epochRef)):
+    return checkedReject("Aggregate: committee index not within expected range")
+
   if not is_aggregator(
       epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex,
       aggregate_and_proof.selection_proof):
-    return errReject("Aggregate: incorrect aggregator")
+    return checkedReject("Aggregate: incorrect aggregator")
 
   # [REJECT] The aggregator's validator index is within the committee -- i.e.
   # aggregate_and_proof.aggregator_index in get_beacon_committee(state,
@@ -429,7 +429,7 @@ proc validateAggregate*(
   if aggregate_and_proof.aggregator_index.ValidatorIndex notin
       get_beacon_committee(
         epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex):
-    return errReject("Aggregate: aggregator's validator index not in committee")
+    return checkedReject("Aggregate: aggregator's validator index not in committee")
 
   # 1. [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
   #    aggregate.data.slot by the validator with index
@@ -449,7 +449,7 @@ proc validateAggregate*(
                   signed_aggregate_and_proof
                 )
   if deferredCrypto.isErr():
-    return errReject(deferredCrypto.error)
+    return checkedReject(deferredCrypto.error)
 
   let
     (cryptoFuts, sig) = deferredCrypto.get()
@@ -459,7 +459,7 @@ proc validateAggregate*(
     var x = await cryptoFuts.slotCheck
     case x
     of BatchResult.Invalid:
-      return errReject("Aggregate: invalid slot signature")
+      return checkedReject("Aggregate: invalid slot signature")
     of BatchResult.Timeout:
       beacon_aggregates_dropped_queue_full.inc()
       return errIgnore("Aggregate: timeout checking slot signature")
@@ -471,7 +471,7 @@ proc validateAggregate*(
     var x = await cryptoFuts.aggregatorCheck
     case x
     of BatchResult.Invalid:
-      return errReject("Aggregate: invalid aggregator signature")
+      return checkedReject("Aggregate: invalid aggregator signature")
     of BatchResult.Timeout:
       beacon_aggregates_dropped_queue_full.inc()
       return errIgnore("Aggregate: timeout checking aggregator signature")
@@ -483,7 +483,7 @@ proc validateAggregate*(
     var x = await cryptoFuts.aggregateCheck
     case x
     of BatchResult.Invalid:
-      return errReject("Aggregate: invalid aggregate signature")
+      return checkedReject("Aggregate: invalid aggregate signature")
     of BatchResult.Timeout:
       beacon_aggregates_dropped_queue_full.inc()
       return errIgnore("Aggregate: timeout checking aggregate signature")
@@ -651,7 +651,6 @@ proc isValidBeaconBlock*(
     return err((ValidationResult.Reject, Invalid))
 
   ok()
-
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
