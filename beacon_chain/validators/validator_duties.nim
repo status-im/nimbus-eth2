@@ -30,9 +30,7 @@ import
   ../sszdump, ../sync/sync_manager,
   ../gossip_processing/consensus_manager,
   ".."/[conf, beacon_clock, beacon_node_common, beacon_node_types, version],
-  "."/[
-    slashing_protection, attestation_aggregation, validator_pool,
-    keystore_management]
+  "."/[slashing_protection, validator_pool, keystore_management]
 
 # Metrics for tracking attestation and beacon block loss
 const delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
@@ -432,7 +430,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     epochRef = node.dag.getEpochRef(
       attestationHead.blck, slot.compute_epoch_at_slot())
     committees_per_slot = get_committee_count_per_slot(epochRef)
-    fork = getStateField(node.dag.headState.data, fork)
+    fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root =
       getStateField(node.dag.headState.data, genesis_validators_root)
 
@@ -493,6 +491,29 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
 
   return head
 
+proc makeAggregateAndProof*(
+    pool: var AttestationPool, epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
+    validatorIndex: ValidatorIndex, slot_signature: ValidatorSig): Option[AggregateAndProof] =
+  doAssert validatorIndex in get_beacon_committee(epochRef, slot, index)
+  doAssert index.uint64 < get_committee_count_per_slot(epochRef)
+
+  # TODO for testing purposes, refactor this into the condition check
+  # and just calculation
+  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#aggregation-selection
+  if not is_aggregator(epochRef, slot, index, slot_signature):
+    return none(AggregateAndProof)
+
+  let maybe_slot_attestation = getAggregatedAttestation(pool, slot, index)
+  if maybe_slot_attestation.isNone:
+    return none(AggregateAndProof)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#construct-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#aggregateandproof
+  some(AggregateAndProof(
+    aggregator_index: validatorIndex.uint64,
+    aggregate: maybe_slot_attestation.get,
+    selection_proof: slot_signature))
+
 proc sendAggregatedAttestations(
     node: BeaconNode, aggregationHead: BlockRef, aggregationSlot: Slot) {.async.} =
   # The index is via a
@@ -505,7 +526,7 @@ proc sendAggregatedAttestations(
 
   let
     epochRef = node.dag.getEpochRef(aggregationHead, aggregationSlot.epoch)
-    fork = getStateField(node.dag.headState.data, fork)
+    fork = node.dag.forkAtEpoch(aggregationSlot.epoch)
     genesis_validators_root =
       getStateField(node.dag.headState.data, genesis_validators_root)
     committees_per_slot = get_committee_count_per_slot(epochRef)
@@ -532,8 +553,8 @@ proc sendAggregatedAttestations(
 
   for curr in zip(slotSigsData, slotSigs):
     let aggregateAndProof =
-      aggregate_attestations(node.attestationPool[], epochRef, aggregationSlot,
-                             curr[0].committee_index.CommitteeIndex,
+      makeAggregateAndProof(node.attestationPool[], epochRef, aggregationSlot,
+                            curr[0].committee_index.CommitteeIndex,
                              curr[0].validator_idx,
                              curr[1].read)
 
@@ -544,8 +565,7 @@ proc sendAggregatedAttestations(
       var signedAP = SignedAggregateAndProof(
         message: aggregateAndProof.get,
         signature: sig)
-      node.network.broadcast(
-        getAggregateAndProofsTopic(node.dag.forkDigests.phase0), signedAP)
+      node.network.broadcastAggregateAndProof(signedAP)
       notice "Aggregated attestation sent",
         attestation = shortLog(signedAP.message.aggregate),
         validator = shortLog(curr[0].v),

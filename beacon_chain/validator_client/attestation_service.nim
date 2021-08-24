@@ -1,6 +1,6 @@
 import std/[sets, sequtils]
 import chronicles
-import common, api, block_service
+import "."/[common, api, block_service]
 
 logScope: service = "attestation_service"
 

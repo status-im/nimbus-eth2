@@ -28,8 +28,8 @@
 #  stew/byteutils,
 
 import
+  std/[macros, typetraits],
   chronicles,
-  std/macros,
   stew/[assign2, bitops2],
   json_serialization/types as jsonTypes
 

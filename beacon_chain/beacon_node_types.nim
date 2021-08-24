@@ -98,7 +98,6 @@ type
     ## Records voluntary exit indices seen.
 
     dag*: ChainDAGRef
-    quarantine*: QuarantineRef
 
   # #############################################
   #

@@ -193,3 +193,9 @@ iterator get_committee_assignments*(
           includedIndices, idx,
           compute_subnet_for_attestation(committees_per_slot, slot, idx),
           slot)
+
+func is_aggregator*(epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
+    slot_signature: ValidatorSig): bool =
+  let
+    committee_len = get_beacon_committee_len(epochRef, slot, index)
+  return is_aggregator(committee_len, slot_signature)

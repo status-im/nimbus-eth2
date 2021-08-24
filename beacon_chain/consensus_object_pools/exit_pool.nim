@@ -15,10 +15,10 @@ import
   # Internal
   ../spec/[forks, helpers],
   ../spec/datatypes/base,
-  "."/[blockchain_dag, block_quarantine],
+  "."/[blockchain_dag],
   ../beacon_node_types
 
-export beacon_node_types, intsets
+export beacon_node_types, base, intsets, deques
 
 logScope: topics = "exitpool"
 
@@ -28,7 +28,7 @@ const
   VOLUNTARY_EXITS_BOUND* = MAX_VOLUNTARY_EXITS * 2
 
 proc init*(
-    T: type ExitPool, dag: ChainDAGRef, quarantine: QuarantineRef): T =
+    T: type ExitPool, dag: ChainDAGRef): T =
   ## Initialize an ExitPool from the dag `headState`
   T(
     # Allow for filtering out some exit messages during block production
@@ -39,7 +39,6 @@ proc init*(
     voluntary_exits:
       initDeque[SignedVoluntaryExit](initialSize = VOLUNTARY_EXITS_BOUND.int),
     dag: dag,
-    quarantine: quarantine
    )
 
 func addExitMessage*(subpool: var auto, exitMessage, bound: auto) =

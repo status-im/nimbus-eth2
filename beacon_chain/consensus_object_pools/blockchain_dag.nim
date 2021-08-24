@@ -132,7 +132,7 @@ func validatorKey*(
   ## at any point in time - this function may return pubkeys for indicies that
   ## are not (yet) part of the head state (if the key has been observed on a
   ## non-head branch)!
-  epochRef.dag.validatorKey(index)
+  validatorKey(epochRef.dag, index)
 
 func init*(
     T: type EpochRef, dag: ChainDAGRef, state: StateData,
@@ -148,7 +148,9 @@ func init*(
         getStateField(state.data, current_justified_checkpoint),
       finalized_checkpoint: getStateField(state.data, finalized_checkpoint),
       shuffled_active_validator_indices:
-        cache.get_shuffled_active_validator_indices(state.data, epoch))
+        cache.get_shuffled_active_validator_indices(state.data, epoch)
+      )
+
   for i in 0'u64..<SLOTS_PER_EPOCH:
     epochRef.beacon_proposers[i] = get_beacon_proposer_index(
       state.data, cache, epoch.compute_start_slot_at_epoch() + i)
@@ -683,13 +685,11 @@ proc getForkedBlock*(dag: ChainDAGRef, blck: BlockRef): ForkedTrustedSignedBeaco
   # TODO implement this properly
   let phase0Block = dag.db.getBlock(blck.root)
   if phase0Block.isOk:
-    return ForkedTrustedSignedBeaconBlock(kind: BeaconBlockFork.Phase0,
-                                          phase0Block: phase0Block.get)
+    return ForkedTrustedSignedBeaconBlock.init(phase0Block.get)
 
   let altairBlock = dag.db.getAltairBlock(blck.root)
   if altairBlock.isOk:
-    return ForkedTrustedSignedBeaconBlock(kind: BeaconBlockFork.Altair,
-                                          altairBlock: altairBlock.get)
+    return ForkedTrustedSignedBeaconBlock.init(altairBlock.get)
 
   raiseAssert "BlockRef without backing data, database corrupt?"
 

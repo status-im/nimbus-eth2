@@ -405,8 +405,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     if head.slot >= blck.message.slot:
       # TODO altair-transition, but not immediate testnet-priority to detect
       # Altair and fail, since /v1/ doesn't support Altair
-      let blocksTopic = getBeaconBlocksTopic(node.dag.forkDigests.phase0)
-      node.network.broadcast(blocksTopic, blck)
+      node.network.broadcastBeaconBlock(ForkedSignedBeaconBlock.init(blck))
       # The block failed validation, but was successfully broadcast anyway.
       # It was not integrated into the beacon node's database.
       return 202
@@ -414,8 +413,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       let res = await proposeSignedBlock(node, head, AttachedValidator(), blck)
       if res == head:
         # TODO altair-transition, but not immediate testnet-priority
-        let blocksTopic = getBeaconBlocksTopic(node.dag.forkDigests.phase0)
-        node.network.broadcast(blocksTopic, blck)
+        node.network.broadcastBeaconBlock(ForkedSignedBeaconBlock.init(blck))
         # The block failed validation, but was successfully broadcast anyway.
         # It was not integrated into the beacon node''s database.
         return 202

@@ -70,17 +70,13 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
   if contextBytes == peer.network.forkDigests.phase0:
     let res = await readChunkPayload(conn, peer, phase0.SignedBeaconBlock)
     if res.isOk:
-      return ok ForkedSignedBeaconBlock(
-        kind: BeaconBlockFork.Phase0,
-        phase0Block: res.get)
+      return ok ForkedSignedBeaconBlock.init(res.get)
     else:
       return err(res.error)
   elif contextBytes == peer.network.forkDigests.altair:
     let res = await readChunkPayload(conn, peer, altair.SignedBeaconBlock)
     if res.isOk:
-      return ok ForkedSignedBeaconBlock(
-        kind: BeaconBlockFork.Altair,
-        altairBlock: res.get)
+      return ok ForkedSignedBeaconBlock.init(res.get)
     else:
       return err(res.error)
   else:
