@@ -705,7 +705,7 @@ func process_rewards_and_penalties(
     var balance = state.balances.asSeq()[idx]
     increase_balance(balance, v.delta.rewards)
     decrease_balance(balance, v.delta.penalties)
-    state.balances[idx] = balance
+    state.balances.asSeq()[idx] = balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#rewards-and-penalties
 func process_rewards_and_penalties(
