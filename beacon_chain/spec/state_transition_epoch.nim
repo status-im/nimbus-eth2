@@ -21,8 +21,8 @@
 {.push raises: [Defect].}
 
 import
-  std/[math, sets, tables, algorithm],
-  stew/[bitops2], chronicles,
+  std/math,
+  stew/bitops2, chronicles,
   ../extras,
   ./datatypes/[phase0, altair],
   "."/[beaconstate, eth2_merkleization, helpers, validator],
@@ -159,65 +159,66 @@ func is_eligible_validator*(validator: RewardStatus): bool =
 # Spec
 # --------------------------------------------------------
 
+type
+  UnslashedParticipatingBalances = object
+    previous_epoch: array[PARTICIPATION_FLAG_WEIGHTS.len, Gwei]
+    current_epoch_TIMELY_TARGET: Gwei
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#get_unslashed_participating_indices
-iterator get_unslashed_participating_indices(
-    state: altair.BeaconState, flag_index: int, epoch: Epoch):
-    ValidatorIndex =
-  ## Return the set of validator indices that are both active and unslashed for
-  ## the given ``flag_index`` and ``epoch``.
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/phase0/beacon-chain.md#get_total_balance
+func get_unslashed_participating_balances*(state: altair.BeaconState):
+    UnslashedParticipatingBalances =
+  let
+    previous_epoch = get_previous_epoch(state)
+    current_epoch = get_current_epoch(state)
+  var res: UnslashedParticipatingBalances
+
+  for validator_index in 0'u64 ..< state.validators.lenu64:
+    if state.validators[validator_index].slashed:
+      continue
+    let
+      is_active_previous_epoch = is_active_validator(
+        state.validators[validator_index], previous_epoch)
+      is_active_current_epoch = is_active_validator(
+        state.validators[validator_index], current_epoch)
+      previous_epoch_participation =
+        state.previous_epoch_participation[validator_index]
+      validator_effective_balance =
+        state.validators[validator_index].effective_balance
+    if is_active_previous_epoch:
+      for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
+        if has_flag(previous_epoch_participation, flag_index):
+          res.previous_epoch[flag_index] += validator_effective_balance
+
+    # Only TIMELY_TARGET_FLAG_INDEX is used with the current epoch in Altair
+    if is_active_current_epoch and has_flag(
+        state.current_epoch_participation[validator_index],
+        TIMELY_TARGET_FLAG_INDEX):
+      res.current_epoch_TIMELY_TARGET += validator_effective_balance
+
+  for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
+    res.previous_epoch[flag_index] =
+      max(EFFECTIVE_BALANCE_INCREMENT, res.previous_epoch[flag_index])
+
+  res.current_epoch_TIMELY_TARGET =
+    max(EFFECTIVE_BALANCE_INCREMENT, res.current_epoch_TIMELY_TARGET)
+
+  res
+
+func is_unslashed_participating_index(
+    state: altair.BeaconState, flag_index: int, epoch: Epoch,
+    validator_index: ValidatorIndex): bool =
   doAssert epoch in [get_previous_epoch(state), get_current_epoch(state)]
+  # TODO hoist this conditional
   let epoch_participation =
     if epoch == get_current_epoch(state):
       unsafeAddr state.current_epoch_participation
     else:
       unsafeAddr state.previous_epoch_participation
 
-  for validator_index in get_active_validator_indices(state, epoch):
-    if  has_flag(epoch_participation[][validator_index], flag_index) and
-        not state.validators[validator_index].slashed:
-      yield validator_index
-
-func get_unslashed_participating_indices(
-    state: altair.BeaconState, flag_index: int, epoch: Epoch):
-    HashSet[ValidatorIndex] =
-  ## Return the set of validator indices that are both active and unslashed for
-  ## the given ``flag_index`` and ``epoch``.
-  var res: HashSet[ValidatorIndex]
-  for validator_index in get_unslashed_participating_indices(
-      state, flag_index, epoch):
-    res.incl validator_index
-  res
-
-# For the first couple of beacon chain years there are likely to be more
-# active validators than any other sort. As Ethereum matures, this won't
-# continue to hold, and alternative optimization can be pursued.
-iterator get_slashed_or_nonparticipating_indices(
-    state: altair.BeaconState, flag_index: int, epoch: Epoch):
-    ValidatorIndex =
-  ## Return the set of validator indices that are both active and unslashed for
-  ## the given ``flag_index`` and ``epoch``.
-  doAssert epoch in [get_previous_epoch(state), get_current_epoch(state)]
-  let epoch_participation =
-    if epoch == get_current_epoch(state):
-      unsafeAddr state.current_epoch_participation
-    else:
-      unsafeAddr state.previous_epoch_participation
-
-  for validator_index in get_active_validator_indices(state, epoch):
-    if  not has_flag(epoch_participation[][validator_index], flag_index) or
-        state.validators[validator_index].slashed:
-      yield validator_index
-
-func get_slashed_or_nonparticipating_indices(
-    state: altair.BeaconState, flag_index: int, epoch: Epoch):
-    HashSet[ValidatorIndex] =
-  ## Return the set of validator indices that are both active and unslashed for
-  ## the given ``flag_index`` and ``epoch``.
-  var res: HashSet[ValidatorIndex]
-  for validator_index in get_slashed_or_nonparticipating_indices(
-      state, flag_index, epoch):
-    res.incl validator_index
-  res
+  is_active_validator(state.validators[validator_index], epoch) and
+    has_flag(epoch_participation[].asSeq()[validator_index], flag_index) and
+    not state.validators[validator_index].slashed
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization*(state: var phase0.BeaconState,
@@ -413,7 +414,9 @@ proc weigh_justification_and_finalization(state: var altair.BeaconState,
       checkpoint = shortLog(state.finalized_checkpoint)
 
 proc process_justification_and_finalization*(state: var altair.BeaconState,
-    total_active_balance: Gwei, flags: UpdateFlags = {}) {.nbench.} =
+    total_active_balance: Gwei,
+    unslashed_participating_balances: UnslashedParticipatingBalances,
+    flags: UpdateFlags = {}) {.nbench.} =
   # Initial FFG checkpoint values have a `0x00` stub for `root`.
   # Skip FFG updates in the first two epochs to avoid corner cases that might
   # result in modifying this stub.
@@ -424,17 +427,10 @@ proc process_justification_and_finalization*(state: var altair.BeaconState,
   # version effectively embedding weigh_justification_and_finalization(), for
   # historical reasons.
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/phase0/beacon-chain.md#justification-and-finalization
-  let
-    previous_target_balance = get_total_balance(state,
-      get_unslashed_participating_indices(
-        state, TIMELY_TARGET_FLAG_INDEX, get_previous_epoch(state)))
-    current_target_balance = get_total_balance(state,
-      get_unslashed_participating_indices(
-        state, TIMELY_TARGET_FLAG_INDEX, get_current_epoch(state)))
-
   weigh_justification_and_finalization(
-    state, total_active_balance, previous_target_balance,
-    current_target_balance, flags)
+    state, total_active_balance,
+    unslashed_participating_balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
+    unslashed_participating_balances.current_epoch_TIMELY_TARGET, flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#helpers
 func get_base_reward_sqrt*(state: phase0.BeaconState, index: ValidatorIndex,
@@ -620,16 +616,16 @@ func get_base_reward(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#get_flag_index_deltas
 iterator get_flag_index_deltas(
     state: altair.BeaconState, flag_index: int, total_active_balance: Gwei,
-    total_active_balance_sqrt: uint64): (ValidatorIndex, Gwei, Gwei) =
+    total_active_balance_sqrt: uint64,
+    unslashed_participating_balances: UnslashedParticipatingBalances):
+    (ValidatorIndex, Gwei, Gwei) =
   ## Return the deltas for a given ``flag_index`` by scanning through the
   ## participation flags.
   let
     previous_epoch = get_previous_epoch(state)
-    unslashed_participating_indices =
-      get_unslashed_participating_indices(state, flag_index, previous_epoch)
     weight = PARTICIPATION_FLAG_WEIGHTS[flag_index].uint64 # safe
     unslashed_participating_balance =
-      get_total_balance(state, unslashed_participating_indices)
+      unslashed_participating_balances.previous_epoch[flag_index]
     unslashed_participating_increments =
       unslashed_participating_balance div EFFECTIVE_BALANCE_INCREMENT
     active_increments = total_active_balance div EFFECTIVE_BALANCE_INCREMENT
@@ -644,7 +640,8 @@ iterator get_flag_index_deltas(
     template vidx: ValidatorIndex = index.ValidatorIndex
     let base_reward = get_base_reward(state, vidx, total_active_balance_sqrt)
     yield
-      if vidx in unslashed_participating_indices:
+      if is_unslashed_participating_index(
+          state, flag_index, previous_epoch, vidx):
         if not is_in_inactivity_leak(state):
           let reward_numerator =
             base_reward * weight * unslashed_participating_increments
@@ -666,10 +663,6 @@ iterator get_inactivity_penalty_deltas(cfg: RuntimeConfig, state: altair.BeaconS
       cfg.INACTIVITY_SCORE_BIAS * INACTIVITY_PENALTY_QUOTIENT_ALTAIR
     previous_epoch = get_previous_epoch(state)
 
-    # This is the set-complement of what the spec calls matching_target_indices
-    nontarget_indices = get_slashed_or_nonparticipating_indices(
-      state, TIMELY_TARGET_FLAG_INDEX, previous_epoch)
-
   for index in 0 ..< state.validators.len:
     # get_eligible_validator_indices()
     let v = state.validators[index]
@@ -678,7 +671,8 @@ iterator get_inactivity_penalty_deltas(cfg: RuntimeConfig, state: altair.BeaconS
       continue
 
     template vidx: untyped = index.ValidatorIndex
-    if vidx in nontarget_indices:
+    if not is_unslashed_participating_index(
+        state, TIMELY_TARGET_FLAG_INDEX, previous_epoch, vidx):
       let
         penalty_numerator = state.validators[index].effective_balance *
           state.inactivity_scores[index]
@@ -709,7 +703,10 @@ func process_rewards_and_penalties(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#rewards-and-penalties
 func process_rewards_and_penalties(
-    cfg: RuntimeConfig, state: var altair.BeaconState, total_active_balance: Gwei) {.nbench.} =
+    cfg: RuntimeConfig, state: var altair.BeaconState,
+    total_active_balance: Gwei,
+    unslashed_participating_balances: UnslashedParticipatingBalances)
+    {.nbench.} =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
 
@@ -727,7 +724,8 @@ func process_rewards_and_penalties(
 
   for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
     for validator_index, reward, penalty in get_flag_index_deltas(
-        state, flag_index, total_active_balance, total_active_balance_sqrt):
+        state, flag_index, total_active_balance, total_active_balance_sqrt,
+        unslashed_participating_balances):
       rewards[validator_index] += reward
       penalties[validator_index] += penalty
 
@@ -743,7 +741,7 @@ func process_rewards_and_penalties(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#slashings
-func process_slashings*(state: var SomeBeaconState, total_balance: Gwei) {.nbench.}=
+func process_slashings*(state: var SomeBeaconState, total_balance: Gwei) {.nbench.} =
   let
     epoch = get_current_epoch(state)
     multiplier =
@@ -762,8 +760,8 @@ func process_slashings*(state: var SomeBeaconState, total_balance: Gwei) {.nbenc
     let validator = unsafeAddr state.validators.asSeq()[index]
     if validator[].slashed and epoch + EPOCHS_PER_SLASHINGS_VECTOR div 2 ==
         validator[].withdrawable_epoch:
-      let increment = EFFECTIVE_BALANCE_INCREMENT # Factored out from penalty
-                                                  # numerator to avoid uint64 overflow
+      const increment = EFFECTIVE_BALANCE_INCREMENT # Factored out from penalty
+                                                    # numerator to avoid uint64 overflow
       let penalty_numerator =
         validator[].effective_balance div increment *
         adjusted_total_slashing_balance
@@ -865,10 +863,9 @@ func process_inactivity_updates*(cfg: RuntimeConfig, state: var altair.BeaconSta
   # TODO actually implement get_eligible_validator_indices() as an iterator
   let
     previous_epoch = get_previous_epoch(state)  # get_eligible_validator_indices()
-    slashed_or_nonparticipating_indices =
-      get_slashed_or_nonparticipating_indices(
-        state, TIMELY_TARGET_FLAG_INDEX, get_previous_epoch(state))
-  let not_in_inactivity_leak = not is_in_inactivity_leak(state)
+    not_in_inactivity_leak = not is_in_inactivity_leak(state)
+
+  state.inactivity_scores.clearCache()
   for index in 0'u64 ..< state.validators.lenu64:
     # get_eligible_validator_indices()
     let v = state.validators.asSeq()[index]
@@ -876,8 +873,11 @@ func process_inactivity_updates*(cfg: RuntimeConfig, state: var altair.BeaconSta
       continue
 
     # Increase the inactivity score of inactive validators
-    var inactivity_score = state.inactivity_scores[index]
-    if index.ValidatorIndex notin slashed_or_nonparticipating_indices:
+    var inactivity_score = state.inactivity_scores.asSeq()[index]
+    # TODO activeness already checked; remove redundant checks between
+    # is_active_validator and is_unslashed_participating_index
+    if is_unslashed_participating_index(
+        state, TIMELY_TARGET_FLAG_INDEX, previous_epoch, index.ValidatorIndex):
       inactivity_score -= min(1'u64, inactivity_score)
     else:
       inactivity_score += cfg.INACTIVITY_SCORE_BIAS
@@ -885,7 +885,7 @@ func process_inactivity_updates*(cfg: RuntimeConfig, state: var altair.BeaconSta
     # leak-free epoch
     if not_in_inactivity_leak:
       inactivity_score -= min(INACTIVITY_SCORE_RECOVERY_RATE.uint64, inactivity_score)
-    state.inactivity_scores[index] = inactivity_score
+    state.inactivity_scores.asSeq()[index] = inactivity_score
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(
@@ -939,10 +939,14 @@ proc process_epoch*(
   when false:
     rewards.process_attestations(state, cache)
 
-  let total_active_balance = state.get_total_active_balance(cache)
+  let
+    total_active_balance = state.get_total_active_balance(cache)
+    unslashed_participating_balances =
+      state.get_unslashed_participating_balances()
 
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#justification-and-finalization
-  process_justification_and_finalization(state, total_active_balance, flags)
+  process_justification_and_finalization(
+    state, total_active_balance, unslashed_participating_balances, flags)
 
   # state.slot hasn't been incremented yet.
   if verifyFinalization in flags and currentEpoch >= 2:
@@ -957,7 +961,8 @@ proc process_epoch*(
   process_inactivity_updates(cfg, state)  # [New in Altair]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#rewards-and-penalties-1
-  process_rewards_and_penalties(cfg, state, total_active_balance)
+  process_rewards_and_penalties(
+    cfg, state, total_active_balance, unslashed_participating_balances)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#registry-updates
   process_registry_updates(cfg, state, cache)
