@@ -345,7 +345,7 @@ func get_block_root*(state: SomeBeaconState, epoch: Epoch): Eth2Digest =
   get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_total_balance
-template get_total_balance*(
+template get_total_balance(
     state: SomeBeaconState, validator_indices: untyped): Gwei =
   ## Return the combined effective balance of the ``indices``.
   ## ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.

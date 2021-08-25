@@ -24,7 +24,7 @@ from ../../../beacon_chain/spec/beaconstate import process_registry_updates
 
 template runSuite(
     suiteDir, testName: string, transitionProc: untyped{ident},
-    useCache, useTAB: static bool = false): untyped =
+    useCache, useTAB, useUPB: static bool = false): untyped =
   suite "Official - Altair - Epoch Processing - " & testName & preset():
     doAssert dirExists(suiteDir)
     for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}, checkDir = true):
@@ -43,10 +43,18 @@ template runSuite(
             transitionProc(defaultRuntimeConfig, preState[], cache)
           else:
             transitionProc(preState[], cache)
-        elif useTAB:
+        elif useTAB and not useUPB:
           var cache = StateCache()
           let total_active_balance = preState[].get_total_active_balance(cache)
           transitionProc(preState[], total_active_balance)
+        elif useTAB and useUPB:
+          var cache = StateCache()
+          let
+            total_active_balance = preState[].get_total_active_balance(cache)
+            unslashed_participating_balances =
+              preState[].get_unslashed_participating_balances()
+          transitionProc(
+            preState[], total_active_balance, unslashed_participating_balances)
         else:
           when compiles(transitionProc(preState[])):
             transitionProc(preState[])
@@ -59,7 +67,7 @@ template runSuite(
 # ---------------------------------------------------------------
 
 const JustificationFinalizationDir = SszTestsDir/const_preset/"altair"/"epoch_processing"/"justification_and_finalization"/"pyspec_tests"
-runSuite(JustificationFinalizationDir, "Justification & Finalization",  process_justification_and_finalization, useCache = false, useTAB = true)
+runSuite(JustificationFinalizationDir, "Justification & Finalization",  process_justification_and_finalization, useCache = false, useTAB = true, useUPB = true)
 
 # Inactivity updates
 # ---------------------------------------------------------------
