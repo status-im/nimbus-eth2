@@ -221,7 +221,7 @@ func is_unslashed_participating_index(
     not state.validators[validator_index].slashed
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#justification-and-finalization
-proc process_justification_and_finalization*(state: var phase0.BeaconState,
+func process_justification_and_finalization*(state: var phase0.BeaconState,
     total_balances: TotalBalances, flags: UpdateFlags = {}) {.nbench.} =
   # Initial FFG checkpoint values have a `0x00` stub for `root`.
   # Skip FFG updates in the first two epochs to avoid corner cases that might
