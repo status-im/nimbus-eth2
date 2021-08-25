@@ -121,7 +121,7 @@ proc printTimers*[Timers: enum](
   validate: bool,
   timers: array[Timers, RunningStat]
 ) =
-  proc fmtTime(t: float): string = &"{t * 1000 :>12.3f}, "
+  func fmtTime(t: float): string = &"{t * 1000 :>12.3f}, "
 
   echo "All time are ms"
   echo &"{\"Average\" :>12}, {\"StdDev\" :>12}, {\"Min\" :>12}, " &

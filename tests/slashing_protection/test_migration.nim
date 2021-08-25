@@ -26,7 +26,7 @@ import
   ../testutil
 
 func hexToDigest(hex: string): Eth2Digest =
-  result = Eth2Digest.fromHex(hex)
+  Eth2Digest.fromHex(hex)
 
 proc sqlite3db_delete(basepath, dbname: string) =
   removeFile(basepath / dbname&".sqlite3-shm")

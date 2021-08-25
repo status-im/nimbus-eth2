@@ -40,7 +40,7 @@ type
     input: seq[ValidatorPubKey]
     output: ValidatorPubKey
 
-proc readValue(r: var JsonReader, a: var Eth2Domain) =
+func readValue(r: var JsonReader, a: var Eth2Domain) =
   ## Custom deserializer for Eth2Domain
   # Furthermore Nim parseHex doesn't support uint
   # until https://github.com/nim-lang/Nim/pull/11067

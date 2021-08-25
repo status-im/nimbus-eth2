@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 # import ../interpreter # included to be able to use "suite"
 
-proc setup_finality_01(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
+func setup_finality_01(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   var balances = @[Gwei(1), Gwei(1)]
   let GenesisRoot = fakeHash(0)
 

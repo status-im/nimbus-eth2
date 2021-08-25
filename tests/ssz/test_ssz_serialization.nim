@@ -68,7 +68,7 @@ type
   Baz = object
     i: uint64
 
-proc toDigest[N: static int](x: array[N, byte]): Eth2Digest =
+func toDigest[N: static int](x: array[N, byte]): Eth2Digest =
   result.data[0 .. N-1] = x
 
 suite "SSZ navigator":

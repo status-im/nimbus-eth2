@@ -67,7 +67,7 @@ proc open*(T: type E2Store, path: string, name: string, firstSlot: Slot): Result
 
   ok(E2Store(data: data, index: index, slot: firstSlot))
 
-proc close*(store: var E2Store) =
+func close*(store: var E2Store) =
   store.data.close()
   store.index.close()
 
