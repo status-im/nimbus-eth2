@@ -589,7 +589,7 @@ suite "PeerPool testing suite":
 
   test "Score check test":
     var pool = newPeerPool[PeerTest, PeerTestID]()
-    proc scoreCheck(peer: PeerTest): bool =
+    func scoreCheck(peer: PeerTest): bool =
       if peer.weight >= 0:
         result = true
       else:
@@ -651,7 +651,7 @@ suite "PeerPool testing suite":
 
   test "Delete peer on release text":
     proc testDeleteOnRelease(): Future[bool] {.async.} =
-      proc scoreCheck(peer: PeerTest): bool =
+      func scoreCheck(peer: PeerTest): bool =
         if peer.weight >= 0:
           result = true
         else:

@@ -27,7 +27,7 @@ func fakeRoot(index: SomeInteger): Eth2Digest =
   result.data[0 ..< 8] = (1'u64 shl 32 + index.uint64).toBytesBE()
 
 func hexToDigest(hex: string): Eth2Digest =
-  result = Eth2Digest.fromHex(hex)
+  Eth2Digest.fromHex(hex)
 
 proc sqlite3db_delete(basepath, dbname: string) =
   removeFile(basepath / dbname&".sqlite3-shm")

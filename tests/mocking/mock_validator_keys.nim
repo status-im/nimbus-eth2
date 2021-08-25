@@ -13,7 +13,7 @@ import
   blscurve,
   ../../beacon_chain/spec/datatypes/base
 
-proc newKeyPair(rng: var BrHmacDrbgContext): BlsResult[tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey]] =
+func newKeyPair(rng: var BrHmacDrbgContext): BlsResult[tuple[pub: ValidatorPubKey, priv: ValidatorPrivKey]] =
   ## Generates a new public-private keypair
   ## This requires entropy on the system
   # The input-keying-material requires 32 bytes at least for security

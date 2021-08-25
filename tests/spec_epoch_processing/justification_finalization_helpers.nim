@@ -17,7 +17,7 @@ import
 # Justification and finalization utils
 # ---------------------------------------------------------------
 
-proc addMockAttestations*(
+func addMockAttestations*(
        state: var phase0.BeaconState, epoch: Epoch,
        source, target: Checkpoint,
        sufficient_support = false
@@ -78,14 +78,14 @@ proc addMockAttestations*(
         inclusion_delay: 1
       )
 
-proc getCheckpoints*(epoch: Epoch): tuple[c1, c2, c3, c4, c5: Checkpoint] =
+func getCheckpoints*(epoch: Epoch): tuple[c1, c2, c3, c4, c5: Checkpoint] =
   if epoch >= 1: result.c1 = Checkpoint(epoch: epoch - 1, root: [byte 0xAA] * 32)
   if epoch >= 2: result.c2 = Checkpoint(epoch: epoch - 2, root: [byte 0xBB] * 32)
   if epoch >= 3: result.c3 = Checkpoint(epoch: epoch - 3, root: [byte 0xCC] * 32)
   if epoch >= 4: result.c4 = Checkpoint(epoch: epoch - 4, root: [byte 0xDD] * 32)
   if epoch >= 5: result.c5 = Checkpoint(epoch: epoch - 5, root: [byte 0xEE] * 32)
 
-proc putCheckpointsInBlockRoots*(
+func putCheckpointsInBlockRoots*(
        state: var phase0.BeaconState,
        checkpoints: openArray[Checkpoint]) =
   for c in checkpoints:

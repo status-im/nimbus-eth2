@@ -21,7 +21,7 @@ import
     blockchain_dag, block_quarantine, block_clearance],
   ./testutil, ./testdbutil, ./testblockutil
 
-proc `$`(x: BlockRef): string =
+func `$`(x: BlockRef): string =
   $x.root
 
 proc pruneAtFinalization(dag: ChainDAGRef) =

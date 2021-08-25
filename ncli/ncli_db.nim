@@ -128,7 +128,7 @@ type
         name: "perfect"
         desc: "Include perfect records (full rewards)".}: bool
 
-proc getSlotRange(dag: ChainDAGRef, startSlot: int64, count: uint64): (Slot, Slot) =
+func getSlotRange(dag: ChainDAGRef, startSlot: int64, count: uint64): (Slot, Slot) =
   let
     start =
       if startSlot >= 0: Slot(startSlot)
@@ -139,7 +139,7 @@ proc getSlotRange(dag: ChainDAGRef, startSlot: int64, count: uint64): (Slot, Slo
       else: start + count
   (start, ends)
 
-proc getBlockRange(dag: ChainDAGRef, start, ends: Slot): seq[BlockRef] =
+func getBlockRange(dag: ChainDAGRef, start, ends: Slot): seq[BlockRef] =
   # Range of block in reverse order
   var
      blockRefs: seq[BlockRef]
@@ -372,7 +372,7 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
     echo "Writing state..."
     dump("./", stateData.data.hbsPhase0, blck)
 
-proc atCanonicalSlot(blck: BlockRef, slot: Slot): BlockSlot =
+func atCanonicalSlot(blck: BlockRef, slot: Slot): BlockSlot =
   if slot == 0:
     blck.atSlot(slot)
   else:
@@ -470,7 +470,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   dag.updateStateData(
     state[], blockRefs[^1].atSlot(blockRefs[^1].slot - 1), false, cache)
 
-  proc processEpoch() =
+  func processEpoch() =
     let
       prev_epoch_target_slot =
         state[].data.get_previous_epoch().compute_start_slot_at_epoch()

@@ -24,7 +24,7 @@ type Timers = enum
   tShuffle = "Retrieve committee once using get_beacon_committee"
   tAttest = "Combine committee attestations"
 
-proc jsonName(prefix, slot: auto): string =
+func jsonName(prefix, slot: auto): string =
   fmt"{prefix:04}-{shortLog(slot):08}.json"
 
 proc writeJson*(fn, v: auto) =
