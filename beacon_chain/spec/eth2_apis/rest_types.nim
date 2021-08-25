@@ -87,20 +87,20 @@ type
 
   RestAttesterDuty* = object
     pubkey*: ValidatorPubKey
-    validator_index*: ValidatorIndex
+    validator_index*: RestValidatorIndex
     committee_index*: CommitteeIndex
     committee_length*: uint64
     committees_at_slot*: uint64
-    validator_committee_index*: ValidatorIndex
+    validator_committee_index*: RestValidatorIndex
     slot*: Slot
 
   RestProposerDuty* = object
     pubkey*: ValidatorPubKey
-    validator_index*: ValidatorIndex
+    validator_index*: RestValidatorIndex
     slot*: Slot
 
   RestCommitteeSubscription* = object
-    validator_index*: ValidatorIndex
+    validator_index*: RestValidatorIndex
     committee_index*: CommitteeIndex
     committees_at_slot*: uint64
     slot*: Slot
@@ -117,27 +117,27 @@ type
     genesis_fork_version*: Version
 
   RestValidatorBalance* = object
-    index*: ValidatorIndex
+    index*: RestValidatorIndex
     balance*: string
 
   RestBeaconStatesCommittees* = object
     index*: CommitteeIndex
     slot*: Slot
-    validators*: seq[ValidatorIndex]
+    validators*: seq[RestValidatorIndex]
 
   RestAttestationsFailure* = object
     index*: uint64
     message*: string
 
   RestValidator* = object
-    index*: ValidatorIndex
+    index*: RestValidatorIndex
     balance*: string
     status*: string
     validator*: Validator
 
   RestBlockHeader* = object
     slot*: Slot
-    proposer_index*: ValidatorIndex
+    proposer_index*: RestValidatorIndex
     parent_root*: Eth2Digest
     state_root*: Eth2Digest
     body_root*: Eth2Digest
@@ -300,6 +300,9 @@ type
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
   ProduceBlockResponse* = DataEnclosedObject[phase0.BeaconBlock]
+
+template `$`*(x: RestValidatorIndex): auto =
+  $ distinctBase(x)
 
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)

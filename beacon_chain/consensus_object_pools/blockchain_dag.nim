@@ -119,15 +119,15 @@ proc updateValidatorKeys*(dag: ChainDAGRef, validators: openArray[Validator]) =
   dag.db.updateImmutableValidators(validators)
 
 func validatorKey*(
-    dag: ChainDAGRef, index: ValidatorIndex or uint64): Option[CookedPubKey] =
+    dag: ChainDAGRef, index: ValidatorIndex): CookedPubKey =
   ## Returns the validator pubkey for the index, assuming it's been observed
   ## at any point in time - this function may return pubkeys for indicies that
   ## are not (yet) part of the head state (if the key has been observed on a
   ## non-head branch)!
-  dag.db.immutableValidators.load(index)
+  dag.db.immutableValidators.byIndex.load(index).get # all validator keys are valid
 
-func validatorKey*(
-    epochRef: EpochRef, index: ValidatorIndex or uint64): Option[CookedPubKey] =
+template validatorKey*(
+    epochRef: EpochRef, index: ValidatorIndex): CookedPubKey =
   ## Returns the validator pubkey for the index, assuming it's been observed
   ## at any point in time - this function may return pubkeys for indicies that
   ## are not (yet) part of the head state (if the key has been observed on a
@@ -1220,3 +1220,21 @@ proc getProposer*(
       return none(ValidatorIndex)
 
   proposer
+
+template validateValidatorIndexOr*(idxParam: uint64, dag: ChainDAGRef,
+                                   failureCase: untyped): ValidatorIndex =
+  let idx = idxParam
+  if idx < uint64(len(dag.db.immutableValidators)):
+    ValidatorIndex.verifiedValue(idx)
+  else:
+    failureCase
+
+template validateCommitteeIndexOr*(idxParam: uint64,
+                                   epochRef: EpochRef,
+                                   failureCase: untyped): CommitteeIndex =
+  let committeesCount = get_committee_count_per_slot(epochRef)
+  let idx = idxParam
+  if idx < committeesCount:
+    CommitteeIndex.verifiedValue(idx)
+  else:
+    failureCase

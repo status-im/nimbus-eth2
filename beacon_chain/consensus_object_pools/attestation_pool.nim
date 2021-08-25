@@ -392,22 +392,21 @@ func init(
 
   template update_attestation_pool_cache(
       epoch: Epoch, slot: Slot, participation_bitmap: untyped) =
-    for slot_committee_index in 0'u64 ..< get_committee_count_per_slot(
-        state.data, epoch, cache):
+    for slot_committee_index in committee_indices_per_slot(state.data, epoch, cache):
       var
         validator_bits =
           CommitteeValidatorsBits.init(
             get_beacon_committee_len(
-              state.data, slot, slot_committee_index.CommitteeIndex, cache).int)
+              state.data, slot, slot_committee_index, cache).int)
         i = 0
       for index in get_beacon_committee(
-          state.data, slot, slot_committee_index.CommitteeIndex, cache):
+          state.data, slot, slot_committee_index, cache):
         if participation_bitmap[index] != 0:
           # If any flag got set, there was an attestation from this validator.
           validator_bits[i] = true
         i += 1
       result.add(
-        (slot, slot_committee_index),
+        (slot, slot_committee_index.uint64),
         validator_bits)
 
   # This treats all types of rewards as equivalent, which isn't ideal

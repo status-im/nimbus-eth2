@@ -65,16 +65,14 @@ func get_beacon_committee_len*(
 
   compute_committee_len(
     count_active_validators(epochRef),
-    (slot mod SLOTS_PER_EPOCH) * committees_per_slot +
-      index.uint64,
+    (slot mod SLOTS_PER_EPOCH) * committees_per_slot + index.uint64,
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_attesting_indices
 iterator get_attesting_indices*(epochRef: EpochRef,
                                 data: AttestationData,
-                                bits: CommitteeValidatorsBits):
-                                  ValidatorIndex =
+                                bits: CommitteeValidatorsBits): ValidatorIndex =
   if bits.lenu64 != get_beacon_committee_len(epochRef, data.slot, data.index.CommitteeIndex):
     trace "get_attesting_indices: inconsistent aggregation and committee length"
   else:
@@ -86,8 +84,7 @@ iterator get_attesting_indices*(epochRef: EpochRef,
 
 func get_attesting_indices_one*(epochRef: EpochRef,
                                 data: AttestationData,
-                                bits: CommitteeValidatorsBits):
-                                  Option[ValidatorIndex] =
+                                bits: CommitteeValidatorsBits): Option[ValidatorIndex] =
   # A variation on get_attesting_indices that returns the validator index only
   # if only one validator index is set
   if bits.lenu64 != get_beacon_committee_len(epochRef, data.slot, data.index.CommitteeIndex):
@@ -108,9 +105,7 @@ func get_attesting_indices_one*(epochRef: EpochRef,
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(epochRef: EpochRef,
                             data: AttestationData,
-                            bits: CommitteeValidatorsBits):
-                              seq[ValidatorIndex] =
-  # TODO sequtils2 mapIt
+                            bits: CommitteeValidatorsBits): seq[ValidatorIndex] =
   for idx in get_attesting_indices(epochRef, data, bits):
     result.add(idx)
 
@@ -134,7 +129,7 @@ proc is_valid_indexed_attestation*(
       pubkeys = newSeqOfCap[CookedPubKey](sigs)
     for index in get_attesting_indices(
         epochRef, attestation.data, attestation.aggregation_bits):
-      pubkeys.add(epochRef.validatorKey(index).get())
+      pubkeys.add epochRef.validatorKey(index)
 
     if not verify_attestation_signature(
         fork, genesis_validators_root, attestation.data,

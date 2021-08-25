@@ -262,7 +262,7 @@ proc initialize_beacon_state_from_eth1*(
                                              deposits.len)
   state.eth1_deposit_index = deposits.lenu64
 
-  var pubkeyToIndex = initTable[ValidatorPubKey, int]()
+  var pubkeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
   for idx, deposit in deposits:
     let
       pubkey = deposit.pubkey
@@ -270,16 +270,16 @@ proc initialize_beacon_state_from_eth1*(
 
     pubkeyToIndex.withValue(pubkey, foundIdx) do:
       # Increase balance by deposit amount
-      increase_balance(state[], ValidatorIndex foundIdx[], amount)
+      increase_balance(state[], foundIdx[], amount)
     do:
       if skipBlsValidation in flags or
          verify_deposit_signature(cfg, deposit):
-        pubkeyToIndex[pubkey] = state.validators.len
+        let nextValidatorIdx = state.validators.len
         if not state.validators.add(get_validator_from_deposit(deposit)):
           raiseAssert "too many validators"
         if not state.balances.add(amount):
           raiseAssert "same as validators"
-
+        pubkeyToIndex[pubkey] = ValidatorIndex.verifiedValue(nextValidatorIdx)
       else:
         # Invalid deposits are perfectly possible
         trace "Skipping deposit with invalid signature",
@@ -371,6 +371,10 @@ func is_eligible_for_activation(state: SomeBeaconState, validator: Validator):
   # Has not yet been activated
     validator.activation_epoch == FAR_FUTURE_EPOCH
 
+iterator validatorIndices*(state: SomeBeaconState): ValidatorIndex =
+  for i in 0 ..< state.validators.len:
+    yield ValidatorIndex.verifiedValue(i)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#registry-updates
 proc process_registry_updates*(
     cfg: RuntimeConfig, state: var SomeBeaconState, cache: var StateCache) {.nbench.} =
@@ -391,14 +395,14 @@ proc process_registry_updates*(
   # the current epoch, 1 + MAX_SEED_LOOKAHEAD epochs ahead. Thus caches
   # remain valid for this epoch through though this function along with
   # the rest of the epoch transition.
-  for index in 0..<state.validators.len():
+  for index in state.validatorIndices:
     if is_eligible_for_activation_queue(state.validators.asSeq()[index]):
       state.validators[index].activation_eligibility_epoch =
         get_current_epoch(state) + 1
 
     if is_active_validator(state.validators.asSeq()[index], get_current_epoch(state)) and
         state.validators.asSeq()[index].effective_balance <= cfg.EJECTION_BALANCE:
-      initiate_validator_exit(cfg, state, index.ValidatorIndex, cache)
+      initiate_validator_exit(cfg, state, index, cache)
 
   ## Queue validators eligible for activation and not dequeued for activation
   var activation_queue : seq[tuple[a: Epoch, b: int]] = @[]

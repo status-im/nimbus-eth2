@@ -150,6 +150,11 @@ func match(data: openarray[char], charset: set[char]): int =
       return 1
   0
 
+proc `==`*(lhs, rhs: RestValidatorIndex): bool {.borrow, noSideEffect.}
+
+template toRestType*(x: ValidatorIndex): RestValidatorIndex =
+  RestValidatorIndex(asUInt64(x))
+
 proc validate(key: string, value: string): int =
   ## This is rough validation procedure which should be simple and fast,
   ## because it will be used for query routing.
@@ -250,21 +255,21 @@ template withStateForBlockSlot*(node: BeaconNode,
     node.dag.withState(rpcState[], blockSlot):
       body
 
-proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
+proc toValidatorIndex*(value: RestValidatorIndex): Result[RestValidatorIndex,
                                                           ValidatorIndexError] =
   when sizeof(ValidatorIndex) == 4:
     if uint64(value) < VALIDATOR_REGISTRY_LIMIT:
       # On x86 platform Nim allows only `int32` indexes, so all the indexes in
       # range `2^31 <= x < 2^32` are not supported.
       if uint64(value) <= uint64(high(int32)):
-        ok(ValidatorIndex(value))
+        ok(value)
       else:
         err(ValidatorIndexError.UnsupportedValue)
     else:
       err(ValidatorIndexError.TooHighValue)
   elif sizeof(ValidatorIndex) == 8:
     if uint64(value) < VALIDATOR_REGISTRY_LIMIT:
-      ok(ValidatorIndex(value))
+      ok(value)
     else:
       err(ValidatorIndexError.TooHighValue)
   else:

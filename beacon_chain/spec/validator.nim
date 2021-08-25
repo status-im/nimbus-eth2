@@ -171,6 +171,12 @@ func get_committee_count_per_slot*(state: SomeBeaconState,
   # Otherwise, get_beacon_committee(...) cannot access some committees.
   doAssert (SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT) >= uint64(result)
 
+iterator committee_indices_per_slot*(state: SomeBeaconState,
+                                     epoch: Epoch,
+                                     cache: var StateCache): CommitteeIndex =
+  for idx in 0'u64 ..< get_committee_count_per_slot(state, epoch, cache):
+    yield CommitteeIndex.verifiedValue(idx)
+
 func get_committee_count_per_slot*(state: SomeBeaconState,
                                    slot: Slot,
                                    cache: var StateCache): uint64 =

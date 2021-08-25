@@ -68,8 +68,11 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
     else:
       debug "Local validator updated with index",
             pubKey = item.validator.pubkey, index = item.index
-      vc.attachedValidators.updateValidator(item.validator.pubkey,
-                                            item.index)
+      let idx = ValidatorIndex.verifiedValue(item.index.uint64)
+        # We are operating under the assumption that our beacon node is not
+        # lying to us. If we had a trusted BeaconState instead, we could have
+        # found the indices of the attached validators by ourselves.
+      vc.attachedValidators.updateValidator(item.validator.pubkey, idx)
 
 proc pollForAttesterDuties*(vc: ValidatorClientRef,
                             epoch: Epoch): Future[int] {.async.} =

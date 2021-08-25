@@ -215,11 +215,11 @@ when hasGenesisDetection:
     if verify_deposit_signature(m.cfg, deposit):
       let pubkey = deposit.pubkey
       if pubkey notin m.genesisValidatorKeyToIndex:
-        let idx = ValidatorIndex m.genesisValidators.len
+        let idx = m.genesisValidators.len
         m.genesisValidators.add ImmutableValidatorData(
           pubkey: pubkey,
           withdrawal_credentials: deposit.withdrawal_credentials)
-        m.genesisValidatorKeyToIndex[pubkey] = idx
+        m.genesisValidatorKeyToIndex[pubkey] = ValidatorIndex.verifiedValue(idx)
 
   proc processGenesisDeposit*(m: Eth1Monitor, newDeposit: DepositData) =
     m.db.genesisDeposits.add newDeposit

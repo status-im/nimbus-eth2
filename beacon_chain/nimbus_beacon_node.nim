@@ -436,12 +436,11 @@ proc getAttachedValidators(node: BeaconNode):
     Table[ValidatorIndex, AttachedValidator] =
   for validatorIndex in 0 ..<
       getStateField(node.dag.headState.data, validators).len:
-    let attachedValidator = node.getAttachedValidator(
-      getStateField(node.dag.headState.data, validators),
-      validatorIndex.ValidatorIndex)
-    if attachedValidator.isNil:
-      continue
-    result[validatorIndex.ValidatorIndex] = attachedValidator
+    let
+      validatorIndex = ValidatorIndex.verifiedValue(validatorIndex)
+      attachedValidator = node.getAttachedValidator(validatorIndex)
+    if not attachedValidator.isNil:
+      result[validatorIndex] = attachedValidator
 
 proc updateSubscriptionSchedule(node: BeaconNode, epoch: Epoch) {.async.} =
   doAssert epoch >= 1

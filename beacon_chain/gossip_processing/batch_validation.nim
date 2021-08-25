@@ -285,16 +285,18 @@ proc scheduleAggregateChecks*(
 
   # Enqueue in the buffer
   # ------------------------------------------------------
-  let aggregator = epochRef.validatorKey(aggregate_and_proof.aggregator_index)
-  if not aggregator.isSome():
-    return err("scheduleAggregateChecks: invalid aggregator index")
+  let aggregatorIdx = aggregate_and_proof.aggregator_index
+    .validateValidatorIndexOr(epochRef.dag):
+      return err("scheduleAggregateChecks: aggregator index out of range")
+
+  let aggregator = epochRef.validatorKey(aggregatorIdx)
   block:
     if (let v = batch
             .pendingBuffer
             .addSlotSignature(
               fork, genesis_validators_root,
               aggregate.data.slot,
-              aggregator.get(),
+              aggregator,
               aggregate_and_proof.selection_proof
             ); v.isErr()):
       return err(v.error())
@@ -310,7 +312,7 @@ proc scheduleAggregateChecks*(
             .addAggregateAndProofSignature(
               fork, genesis_validators_root,
               aggregate_and_proof,
-              aggregator.get(),
+              aggregator,
               signed_aggregate_and_proof.signature
             ); v.isErr()):
       batchCrypto.scheduleBatch(fresh)

@@ -101,36 +101,20 @@ proc getAttachedValidator*(node: BeaconNode,
                            pubkey: ValidatorPubKey): AttachedValidator =
   node.attachedValidators[].getValidator(pubkey)
 
-proc getAttachedValidator*(node: BeaconNode,
-                           state_validators: auto,
-                           idx: ValidatorIndex): AttachedValidator =
-  if idx < state_validators.len.ValidatorIndex:
-    let validator = node.getAttachedValidator(state_validators[idx].pubkey)
-    if validator != nil and validator.index != some(idx):
-      # Update index, in case the validator was activated!
-      notice "Validator activated", pubkey = validator.pubkey, index = idx
-      validator.index  = some(idx)
-    validator
-  else:
-    warn "Validator index out of bounds",
-      idx, validators = state_validators.len
-    nil
+template isActivated(v: AttachedValidator): bool =
+  v.index.isSome
 
 proc getAttachedValidator*(node: BeaconNode,
-                           epochRef: EpochRef,
                            idx: ValidatorIndex): AttachedValidator =
-  let key = epochRef.validatorKey(idx)
-  if key.isSome():
-    let validator = node.getAttachedValidator(key.get().toPubKey())
-    if validator != nil and validator.index != some(idx.ValidatorIndex):
-      # Update index, in case the validator was activated!
-      notice "Validator activated", pubkey = validator.pubkey, index = idx
-      validator.index  = some(idx.ValidatorIndex)
-    validator
-  else:
-    warn "Validator key not found",
-      idx, epoch = epochRef.epoch
-    nil
+  # TODO Make this more optimal by adding a search by id operation
+  #      in the validator pool
+  let key = node.dag.validatorKey(idx)
+  let validator = node.getAttachedValidator(key.toPubKey)
+  if validator != nil and validator.index != some(idx):
+    # Update index, in case the validator was activated!
+    notice "Validator activated", pubkey = validator.pubkey, index = idx
+    validator.index = some(idx)
+  validator
 
 proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   ## TODO This function is here as a placeholder for some better heurestics to
@@ -438,7 +422,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     let committee = get_beacon_committee(epochRef, slot, committee_index)
 
     for index_in_committee, validator_index in committee:
-      let validator = node.getAttachedValidator(epochRef, validator_index)
+      let validator = node.getAttachedValidator(validator_index)
       if validator == nil:
         continue
 
@@ -477,7 +461,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     return head
 
   let
-    proposerKey = node.dag.validatorKey(proposer.get()).get().toPubKey()
+    proposerKey = node.dag.validatorKey(proposer.get).toPubKey
     validator = node.attachedValidators[].getValidator(proposerKey)
 
   if validator != nil:
@@ -542,7 +526,7 @@ proc sendAggregatedAttestations(
       epochRef, aggregationSlot, committee_index.CommitteeIndex)
 
     for index_in_committee, validatorIdx in committee:
-      let validator = node.getAttachedValidator(epochRef, validatorIdx)
+      let validator = node.getAttachedValidator(validatorIdx)
       if validator != nil:
         # the validator index and private key pair.
         slotSigs.add getSlotSig(validator, fork,

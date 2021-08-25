@@ -135,13 +135,12 @@ func check_aggregation_count(
   ok()
 
 func check_attestation_subnet(
-    epochRef: EpochRef, attestation: Attestation,
+    epochRef: EpochRef, slot: Slot, committeeIdx: CommitteeIndex,
     subnet_id: SubnetId): Result[void, (ValidationResult, cstring)] =
   let
     expectedSubnet =
       compute_subnet_for_attestation(
-        get_committee_count_per_slot(epochRef),
-        attestation.data.slot, attestation.data.index.CommitteeIndex)
+        get_committee_count_per_slot(epochRef), slot, committeeIdx)
 
   if expectedSubnet != subnet_id:
     return errReject("Attestation not on the correct subnet")
@@ -233,7 +232,7 @@ proc validateAttestation*(
 
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
-  if not (attestation.data.index < get_committee_count_per_slot(epochRef)):
+  let committeeIdx = attestation.data.index.validateCommitteeIndexOr(epochRef):
     return checkedReject("Attestation: committee index not within expected range")
 
   # [REJECT] The attestation is for the correct subnet -- i.e.
@@ -243,7 +242,8 @@ proc validateAttestation*(
   # attestation.data.target.epoch), which may be pre-computed along with the
   # committee information for the signature check.
   block:
-    let v = check_attestation_subnet(epochRef, attestation, subnet_id) # [REJECT]
+    let v = check_attestation_subnet(epochRef, attestation.data.slot,
+                                     committeeIdx, subnet_id) # [REJECT]
     if v.isErr():
       return err(v.error)
 
@@ -255,7 +255,7 @@ proc validateAttestation*(
   # epoch matches its target and attestation.data.target.root is an ancestor of
   # attestation.data.beacon_block_root.
   if not (attestation.aggregation_bits.lenu64 == get_beacon_committee_len(
-      epochRef, attestation.data.slot, attestation.data.index.CommitteeIndex)):
+      epochRef, attestation.data.slot, committeeIdx)):
     return checkedReject(
       "Attestation: number of aggregation bits and committee size mismatch")
 
@@ -360,6 +360,10 @@ proc validateAggregate*(
     if v.isErr():
       return err(v.error)
 
+  let aggregatorIdx = aggregate_and_proof.aggregator_index
+    .validateValidatorIndexOr(pool.dag):
+      return errReject("validateAggregate: Invalid aggregator index")
+
   # [IGNORE] The valid aggregate attestation defined by
   # hash_tree_root(aggregate) has not already been seen (via aggregate gossip,
   # within a verified block, or through the creation of an equivalent aggregate
@@ -415,20 +419,19 @@ proc validateAggregate*(
 
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
-  if not (aggregate.data.index < get_committee_count_per_slot(epochRef)):
-    return checkedReject("Aggregate: committee index not within expected range")
+  let committeeIdx = aggregate.data.index.validateCommitteeIndexOr(epochRef):
+    return checkedReject("Aggregate: Invalid committee index")
 
   if not is_aggregator(
-      epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex,
+      epochRef, aggregate.data.slot, committeeIdx,
       aggregate_and_proof.selection_proof):
     return checkedReject("Aggregate: incorrect aggregator")
 
   # [REJECT] The aggregator's validator index is within the committee -- i.e.
   # aggregate_and_proof.aggregator_index in get_beacon_committee(state,
   # aggregate.data.slot, aggregate.data.index).
-  if aggregate_and_proof.aggregator_index.ValidatorIndex notin
-      get_beacon_committee(
-        epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex):
+  if aggregatorIdx notin get_beacon_committee(
+      epochRef, aggregate.data.slot, committeeIdx):
     return checkedReject("Aggregate: aggregator's validator index not in committee")
 
   # 1. [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
@@ -643,7 +646,7 @@ proc isValidBeaconBlock*(
       getStateField(dag.headState.data, genesis_validators_root),
       signed_beacon_block.message.slot,
       signed_beacon_block.message,
-      dag.validatorKey(proposer.get()).get(),
+      dag.validatorKey(proposer.get()),
       signed_beacon_block.signature):
     debug "block failed signature verification",
       signature = shortLog(signed_beacon_block.signature)

@@ -183,10 +183,10 @@ proc addAttestation*(
                     attestation.data,
                     attestation.aggregation_bits):
     if not inited: # first iteration
-      attestersAgg.init(epochRef.validatorKey(valIndex).get())
+      attestersAgg.init(epochRef.validatorKey(valIndex))
       inited = true
     else:
-      attestersAgg.aggregate(epochRef.validatorKey(valIndex).get())
+      attestersAgg.aggregate(epochRef.validatorKey(valIndex))
 
   if not inited:
     # There were no attesters

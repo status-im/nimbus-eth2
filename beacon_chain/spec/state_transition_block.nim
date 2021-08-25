@@ -46,7 +46,7 @@ func process_block_header*(
   if proposer_index.isNone:
     return err("process_block_header: proposer missing")
 
-  if not (blck.proposer_index.ValidatorIndex == proposer_index.get):
+  if not (blck.proposer_index == proposer_index.get):
     return err("process_block_header: proposer index incorrect")
 
   # Verify that the parent matches

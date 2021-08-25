@@ -284,7 +284,7 @@ proc addRawBlockKnownParent(
     # TODO: remove skipBLSValidation
     var sigs: seq[SignatureSet]
     if (let e = sigs.collectSignatureSets(
-        signedBlock, dag.db.immutableValidators,
+        signedBlock, dag.db.immutableValidators.byIndex,
         dag.clearanceState.data, cache); e.isErr()):
       info "Unable to load signature sets",
         err = e.error()
