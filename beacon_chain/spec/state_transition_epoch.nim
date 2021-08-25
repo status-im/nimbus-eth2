@@ -221,7 +221,7 @@ func is_unslashed_participating_index(
     not state.validators[validator_index].slashed
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#justification-and-finalization
-func process_justification_and_finalization*(state: var phase0.BeaconState,
+proc process_justification_and_finalization*(state: var phase0.BeaconState,
     total_balances: TotalBalances, flags: UpdateFlags = {}) {.nbench.} =
   # Initial FFG checkpoint values have a `0x00` stub for `root`.
   # Skip FFG updates in the first two epochs to avoid corner cases that might
@@ -702,7 +702,7 @@ func process_rewards_and_penalties(
     state.balances.asSeq()[idx] = balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#rewards-and-penalties
-proc process_rewards_and_penalties(
+func process_rewards_and_penalties(
     cfg: RuntimeConfig, state: var altair.BeaconState,
     total_active_balance: Gwei,
     unslashed_participating_balances: UnslashedParticipatingBalances)
