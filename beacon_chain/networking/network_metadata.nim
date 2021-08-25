@@ -143,7 +143,8 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
 
     Eth2NetworkMetadata(
       incompatible: false,
-      eth1Network: some goerli,
+      eth1Network: some(
+        if "mainnet" in path: Eth1Network.mainnet else: Eth1Network.goerli),
       cfg: runtimeConfig,
       bootstrapNodes: bootstrapNodes,
       depositContractDeployedAt: depositContractDeployedAt,
