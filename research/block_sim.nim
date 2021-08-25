@@ -63,7 +63,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   var cfg = defaultRuntimeConfig
 
-  cfg.ALTAIR_FORK_EPOCH = 96.Slot.epoch
+  cfg.ALTAIR_FORK_EPOCH = 0.Slot.epoch
 
   echo "Starting simulation..."
 
