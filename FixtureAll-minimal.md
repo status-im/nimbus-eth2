@@ -181,6 +181,10 @@ FixtureAll-minimal
 + [Valid]   Official - Altair - Sanity - Blocks - empty_epoch_transition [Preset: minimal]   OK
 + [Valid]   Official - Altair - Sanity - Blocks - empty_epoch_transition_large_validator_set OK
 + [Valid]   Official - Altair - Sanity - Blocks - empty_epoch_transition_not_finalizing [Pre OK
++ [Valid]   Official - Altair - Sanity - Blocks - full_random_operations_0 [Preset: minimal] OK
++ [Valid]   Official - Altair - Sanity - Blocks - full_random_operations_1 [Preset: minimal] OK
++ [Valid]   Official - Altair - Sanity - Blocks - full_random_operations_2 [Preset: minimal] OK
++ [Valid]   Official - Altair - Sanity - Blocks - full_random_operations_3 [Preset: minimal] OK
 + [Valid]   Official - Altair - Sanity - Blocks - high_proposer_index [Preset: minimal]      OK
 + [Valid]   Official - Altair - Sanity - Blocks - historical_batch [Preset: minimal]         OK
 + [Valid]   Official - Altair - Sanity - Blocks - multiple_attester_slashings_no_overlap [Pr OK
@@ -239,11 +243,6 @@ FixtureAll-minimal
 + [Valid]   incorrect_target_sqrt_epoch_delay                                                OK
 + [Valid]   proposer_in_committee_with_participation                                         OK
 + [Valid]   proposer_in_committee_without_participation                                      OK
-+ [Valid]   random_all_but_one_participating_without_duplicates                              OK
-+ [Valid]   random_high_participation_without_duplicates                                     OK
-+ [Valid]   random_low_participation_without_duplicates                                      OK
-+ [Valid]   random_misc_balances_and_half_participation_without_duplicates                   OK
-+ [Valid]   random_only_one_participant_without_duplicates                                   OK
 + [Valid]   success                                                                          OK
 + [Valid]   success_already_exited_long_ago                                                  OK
 + [Valid]   success_already_exited_recent                                                    OK
@@ -265,7 +264,7 @@ FixtureAll-minimal
 + [Valid]   sync_committee_rewards_not_full_participants                                     OK
 + [Valid]   valid_signature_future_committee                                                 OK
 ```
-OK: 262/262 Fail: 0/262 Skip: 0/262
+OK: 261/261 Fail: 0/261 Skip: 0/261
 ## Official - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -298,12 +297,13 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
 + Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
 + Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
 + Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
 + Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
-OK: 18/18 Fail: 0/18 Skip: 0/18
+OK: 19/19 Fail: 0/19 Skip: 0/19
 ## Official - Altair - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
