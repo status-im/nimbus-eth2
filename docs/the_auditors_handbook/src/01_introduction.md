@@ -1,6 +1,6 @@
 # Introduction
 
-The Nimbus Nim-Beacon-Chain (NBC) project is an implementation of the [Ethereum 2 Beacon Chain specification](https://github.com/ethereum/eth2.0-specs) in the [Nim programming language](https://nim-lang.org/).
+The Nimbus Nim-Beacon-Chain (NBC) project is an implementation of the [Ethereum 2 Beacon Chain specification](https://github.com/ethereum/consensus-specs) in the [Nim programming language](https://nim-lang.org/).
 
 The Auditors' Handbook aims to be provide a comprehensive introduction to:
 - The Nim programming language, as used in the project.
