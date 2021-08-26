@@ -15,12 +15,12 @@ import
 
 # Sanity checks to make sure all the workarounds introduced
 # to deal with https://github.com/status-im/nimbus-eth2/issues/374
-# and https://github.com/ethereum/eth2.0-specs/issues/1396
+# and https://github.com/ethereum/consensus-specs/issues/1396
 # don't blow up.
 
 suite "Zero signature sanity checks":
   # See:
-  # - https://github.com/ethereum/eth2.0-specs/issues/1713
+  # - https://github.com/ethereum/consensus-specs/issues/1713
   # - https://github.com/status-im/nimbus-eth2/pull/2733
 
   test "SSZ serialization roundtrip of SignedBeaconBlockHeader":

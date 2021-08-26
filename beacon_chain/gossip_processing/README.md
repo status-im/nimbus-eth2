@@ -9,12 +9,12 @@ This folders hold a collection of modules to:
 
 Gossip Validation is different from consensus verification in particular for blocks.
 
-- Blocks: https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
-- Attestations (aggregate): https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-- Attestations (single): https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestation-subnets
-- Exits: https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#voluntary_exit
-- Proposer slashings: https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#proposer_slashing
-- Attester slashing: https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attester_slashing
+- Blocks: https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
+- Attestations (aggregate): https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+- Attestations (single): https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestation-subnets
+- Exits: https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#voluntary_exit
+- Proposer slashings: https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#proposer_slashing
+- Attester slashing: https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attester_slashing
 
 There are 2 consumers of validated consensus objects:
 - a `ValidationResult.Accept` output triggers rebroadcasting in libp2p

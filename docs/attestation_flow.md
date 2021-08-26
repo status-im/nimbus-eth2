@@ -6,11 +6,11 @@ This is a WIP document to explain the attestation flows.
 
 Important distinction:
 - We distinguish attestation `validation` which is defined in the P2P specs:
-  - single: https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
-  - aggregated: https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+  - single: https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+  - aggregated: https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
   A validated attestation or aggregate can be forwarded on gossipsub.
 - and we distinguish `verification` which is defined in consensus specs:
-  https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#attestations
+  https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#attestations
   An attestation needs to be verified to enter fork choice, or be included in a block.
 
 To be clarified: from the specs it seems like gossip attestation validation is a superset of consensus attestation verification.
@@ -57,10 +57,10 @@ Attestatios are listened to via the gossipsub topics
 They are then
 - validated by `validateAttestation()` or `validateAggregate()` in either `attestationValidator()` or `aggregateValidator()`
   according to spec
-  - https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-  - https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestation-subnets
+  - https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+  - https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestation-subnets
 - It seems like P2P validation is a superset of consensus verification as in `process_attestation()`:
-  - https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#attestations
+  - https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#attestations
 - Enqueued in
   - `attestationsQueue: AsyncQueue[AttestationEntry]`
   - `aggregatesQueue: AsyncQueue[AggregateEntry]`
