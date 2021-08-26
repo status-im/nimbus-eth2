@@ -185,6 +185,10 @@ FixtureAll-mainnet
 + [Valid]   Official - Altair - Sanity - Blocks - deposit_top_up [Preset: mainnet]           OK
 + [Valid]   Official - Altair - Sanity - Blocks - empty_block_transition [Preset: mainnet]   OK
 + [Valid]   Official - Altair - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]   OK
++ [Valid]   Official - Altair - Sanity - Blocks - full_random_operations_0 [Preset: mainnet] OK
++ [Valid]   Official - Altair - Sanity - Blocks - full_random_operations_1 [Preset: mainnet] OK
++ [Valid]   Official - Altair - Sanity - Blocks - full_random_operations_2 [Preset: mainnet] OK
++ [Valid]   Official - Altair - Sanity - Blocks - full_random_operations_3 [Preset: mainnet] OK
 + [Valid]   Official - Altair - Sanity - Blocks - high_proposer_index [Preset: mainnet]      OK
 + [Valid]   Official - Altair - Sanity - Blocks - historical_batch [Preset: mainnet]         OK
 + [Valid]   Official - Altair - Sanity - Blocks - multiple_attester_slashings_no_overlap [Pr OK
@@ -238,11 +242,6 @@ FixtureAll-mainnet
 + [Valid]   incorrect_target_epoch_delay                                                     OK
 + [Valid]   incorrect_target_min_inclusion_delay                                             OK
 + [Valid]   incorrect_target_sqrt_epoch_delay                                                OK
-+ [Valid]   random_all_but_one_participating_with_duplicates                                 OK
-+ [Valid]   random_high_participation_with_duplicates                                        OK
-+ [Valid]   random_low_participation_with_duplicates                                         OK
-+ [Valid]   random_misc_balances_and_half_participation_with_duplicates                      OK
-+ [Valid]   random_only_one_participant_with_duplicates                                      OK
 + [Valid]   success                                                                          OK
 + [Valid]   success_already_exited_long_ago                                                  OK
 + [Valid]   success_already_exited_recent                                                    OK
@@ -279,7 +278,7 @@ FixtureAll-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 276/276 Fail: 0/276 Skip: 0/276
+OK: 275/275 Fail: 0/275 Skip: 0/275
 ## Official - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -312,12 +311,13 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
 + Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
 + Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
++ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
 + Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
 + Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
 + Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
 ```
-OK: 18/18 Fail: 0/18 Skip: 0/18
+OK: 19/19 Fail: 0/19 Skip: 0/19
 ## Official - Altair - Epoch Processing - Justification & Finalization [Preset: mainnet]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
