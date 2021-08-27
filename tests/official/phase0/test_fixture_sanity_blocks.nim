@@ -19,6 +19,7 @@ import
 
 const
   FinalityDir = SszTestsDir/const_preset/"phase0"/"finality"/"finality"/"pyspec_tests"
+  RandomDir = SszTestsDir/const_preset/"phase0"/"random"/"random"/"pyspec_tests"
   SanityBlocksDir = SszTestsDir/const_preset/"phase0"/"sanity"/"blocks"/"pyspec_tests"
 
 proc runTest(testName, testDir, unitTestName: string) =
@@ -68,10 +69,14 @@ proc runTest(testName, testDir, unitTestName: string) =
 
   `testImpl _ blck _ testName`()
 
-suite "Official - Phase 0 - Sanity - Blocks " & preset():
+suite "Ethereum Foundation - Phase 0 - Sanity - Blocks " & preset():
   for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
-    runTest("Official - Phase 0 - Sanity - Blocks", SanityBlocksDir, path)
+    runTest("Ethereum Foundation - Phase 0 - Sanity - Blocks", SanityBlocksDir, path)
 
-suite "Official - Phase 0 - Finality " & preset():
+suite "Ethereum Foundation - Phase 0 - Finality " & preset():
   for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
-    runTest("Official - Phase 0 - Finality", FinalityDir, path)
+    runTest("Ethereum Foundation - Phase 0 - Finality", FinalityDir, path)
+
+suite "Ethereum Foundation - Phase 0 - Random " & preset():
+  for kind, path in walkDir(RandomDir, relative = true, checkDir = true):
+    runTest("Ethereum Foundation - Phase 0 - Random", RandomDir, path)

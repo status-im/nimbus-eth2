@@ -62,7 +62,7 @@ proc runTest(identifier: string) =
 
   `testImpl _ voluntary_exit _ identifier`()
 
-suite "Official - Altair - Operations - Voluntary exit " & preset():
+suite "Ethereum Foundation - Altair - Operations - Voluntary exit " & preset():
   for kind, path in walkDir(
       OpVoluntaryExitDir, relative = true, checkDir = true):
     runTest(path)

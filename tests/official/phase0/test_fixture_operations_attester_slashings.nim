@@ -62,6 +62,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ operations_attester_slashing _ identifier`()
 
-suite "Official - Phase 0 - Operations - Attester slashing " & preset():
+suite "Ethereum Foundation - Phase 0 - Operations - Attester slashing " & preset():
   for kind, path in walkDir(OpAttSlashingDir, relative = true, checkDir = true):
     runTest(path)

@@ -65,7 +65,7 @@ proc runTest(identifier: string) =
 
   `testImpl_proposer_slashing _ identifier`()
 
-suite "Official - Phase 0 - Operations - Proposer slashing " & preset():
+suite "Ethereum Foundation - Phase 0 - Operations - Proposer slashing " & preset():
   for kind, path in walkDir(
       OpProposerSlashingDir, relative = true, checkDir = true):
     runTest(path)

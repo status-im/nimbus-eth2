@@ -50,7 +50,7 @@ func readValue(r: var JsonReader, a: var Eth2Domain) =
 # TODO: json tests were removed
 const BLSDir = JsonTestsDir/"general"/"phase0"/"bls"
 
-suite "Official - BLS tests":
+suite "Ethereum Foundation - BLS tests":
   test "Private to public key conversion":
     for file in walkDirRec(BLSDir/"priv_to_pub", checkDir = true):
       let t = parseTest(file, Json, BLSPrivToPub)

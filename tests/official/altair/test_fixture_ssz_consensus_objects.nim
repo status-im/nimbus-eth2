@@ -85,7 +85,7 @@ proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
 # Test runner
 # ----------------------------------------------------------------
 
-suite "Official - Altair - SSZ consensus objects " & preset():
+suite "Ethereum Foundation - Altair - SSZ consensus objects " & preset():
   doAssert existsDir(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the official test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir

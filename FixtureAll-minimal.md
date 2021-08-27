@@ -55,35 +55,35 @@ FixtureAll-minimal
 + Slots - slots_2                                                                            OK
 + [Invalid]  bad_merkle_proof                                                                OK
 + [Invalid]  wrong_deposit_for_deposit_count                                                 OK
-+ [Invalid] Official - Altair - Sanity - Blocks - double_same_proposer_slashings_same_block  OK
-+ [Invalid] Official - Altair - Sanity - Blocks - double_similar_proposer_slashings_same_blo OK
-+ [Invalid] Official - Altair - Sanity - Blocks - double_validator_exit_same_block [Preset:  OK
-+ [Invalid] Official - Altair - Sanity - Blocks - duplicate_attester_slashing [Preset: minim OK
-+ [Invalid] Official - Altair - Sanity - Blocks - expected_deposit_in_block [Preset: minimal OK
-+ [Invalid] Official - Altair - Sanity - Blocks - invalid_block_sig [Preset: minimal]        OK
-+ [Invalid] Official - Altair - Sanity - Blocks - invalid_proposer_index_sig_from_expected_p OK
-+ [Invalid] Official - Altair - Sanity - Blocks - invalid_proposer_index_sig_from_proposer_i OK
-+ [Invalid] Official - Altair - Sanity - Blocks - invalid_state_root [Preset: minimal]       OK
-+ [Invalid] Official - Altair - Sanity - Blocks - parent_from_same_slot [Preset: minimal]    OK
-+ [Invalid] Official - Altair - Sanity - Blocks - prev_slot_block_transition [Preset: minima OK
-+ [Invalid] Official - Altair - Sanity - Blocks - same_slot_block_transition [Preset: minima OK
-+ [Invalid] Official - Altair - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal OK
-+ [Invalid] Official - Altair - Sanity - Blocks - zero_block_sig [Preset: minimal]           OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - double_same_proposer_slashings_same_block OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - double_similar_proposer_slashings_same_bl OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - double_validator_exit_same_block [Preset: OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - duplicate_attester_slashing [Preset: mini OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - expected_deposit_in_block [Preset: minima OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - invalid_block_sig [Preset: minimal]       OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - invalid_proposer_index_sig_from_expected_ OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - invalid_proposer_index_sig_from_proposer_ OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - invalid_state_root [Preset: minimal]      OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - parent_from_same_slot [Preset: minimal]   OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - prev_slot_block_transition [Preset: minim OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - proposal_for_genesis_slot [Preset: minima OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - same_slot_block_transition [Preset: minim OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - slash_and_exit_same_index [Preset: minima OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - zero_block_sig [Preset: minimal]          OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - double_same_proposer_slashings_ OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - double_similar_proposer_slashin OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - double_validator_exit_same_bloc OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - duplicate_attester_slashing [Pr OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - expected_deposit_in_block [Pres OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - invalid_block_sig [Preset: mini OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - invalid_proposer_index_sig_from OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - invalid_proposer_index_sig_from OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - invalid_state_root [Preset: min OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - parent_from_same_slot [Preset:  OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - prev_slot_block_transition [Pre OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - same_slot_block_transition [Pre OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - slash_and_exit_same_index [Pres OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - zero_block_sig [Preset: minimal OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_same_proposer_slashings OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_similar_proposer_slashi OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_validator_exit_same_blo OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - duplicate_attester_slashing [P OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - expected_deposit_in_block [Pre OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - invalid_block_sig [Preset: min OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - invalid_proposer_index_sig_fro OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - invalid_proposer_index_sig_fro OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - invalid_state_root [Preset: mi OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - parent_from_same_slot [Preset: OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - prev_slot_block_transition [Pr OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - proposal_for_genesis_slot [Pre OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - same_slot_block_transition [Pr OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - slash_and_exit_same_index [Pre OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - zero_block_sig [Preset: minima OK
 + [Invalid] after_epoch_slots                                                                OK
 + [Invalid] all_empty_indices                                                                OK
 + [Invalid] att1_bad_extra_index                                                             OK
@@ -166,68 +166,100 @@ FixtureAll-minimal
 + [Valid]    new_deposit_under_max                                                           OK
 + [Valid]    success_top_up                                                                  OK
 + [Valid]    valid_sig_but_forked_state                                                      OK
-+ [Valid]   Official - Altair - Finality - finality_no_updates_at_genesis [Preset: minimal]  OK
-+ [Valid]   Official - Altair - Finality - finality_rule_1 [Preset: minimal]                 OK
-+ [Valid]   Official - Altair - Finality - finality_rule_2 [Preset: minimal]                 OK
-+ [Valid]   Official - Altair - Finality - finality_rule_3 [Preset: minimal]                 OK
-+ [Valid]   Official - Altair - Finality - finality_rule_4 [Preset: minimal]                 OK
-+ [Valid]   Official - Altair - Sanity - Blocks - attestation [Preset: minimal]              OK
-+ [Valid]   Official - Altair - Sanity - Blocks - attester_slashing [Preset: minimal]        OK
-+ [Valid]   Official - Altair - Sanity - Blocks - balance_driven_status_transitions [Preset: OK
-+ [Valid]   Official - Altair - Sanity - Blocks - deposit_in_block [Preset: minimal]         OK
-+ [Valid]   Official - Altair - Sanity - Blocks - deposit_top_up [Preset: minimal]           OK
-+ [Valid]   Official - Altair - Sanity - Blocks - empty_block_transition [Preset: minimal]   OK
-+ [Valid]   Official - Altair - Sanity - Blocks - empty_block_transition_large_validator_set OK
-+ [Valid]   Official - Altair - Sanity - Blocks - empty_epoch_transition [Preset: minimal]   OK
-+ [Valid]   Official - Altair - Sanity - Blocks - empty_epoch_transition_large_validator_set OK
-+ [Valid]   Official - Altair - Sanity - Blocks - empty_epoch_transition_not_finalizing [Pre OK
-+ [Valid]   Official - Altair - Sanity - Blocks - full_random_operations_0 [Preset: minimal] OK
-+ [Valid]   Official - Altair - Sanity - Blocks - full_random_operations_1 [Preset: minimal] OK
-+ [Valid]   Official - Altair - Sanity - Blocks - full_random_operations_2 [Preset: minimal] OK
-+ [Valid]   Official - Altair - Sanity - Blocks - full_random_operations_3 [Preset: minimal] OK
-+ [Valid]   Official - Altair - Sanity - Blocks - high_proposer_index [Preset: minimal]      OK
-+ [Valid]   Official - Altair - Sanity - Blocks - historical_batch [Preset: minimal]         OK
-+ [Valid]   Official - Altair - Sanity - Blocks - multiple_attester_slashings_no_overlap [Pr OK
-+ [Valid]   Official - Altair - Sanity - Blocks - multiple_attester_slashings_partial_overla OK
-+ [Valid]   Official - Altair - Sanity - Blocks - multiple_different_proposer_slashings_same OK
-+ [Valid]   Official - Altair - Sanity - Blocks - multiple_different_validator_exits_same_bl OK
-+ [Valid]   Official - Altair - Sanity - Blocks - proposer_after_inactive_index [Preset: min OK
-+ [Valid]   Official - Altair - Sanity - Blocks - proposer_self_slashing [Preset: minimal]   OK
-+ [Valid]   Official - Altair - Sanity - Blocks - proposer_slashing [Preset: minimal]        OK
-+ [Valid]   Official - Altair - Sanity - Blocks - skipped_slots [Preset: minimal]            OK
-+ [Valid]   Official - Altair - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal OK
-+ [Valid]   Official - Altair - Sanity - Blocks - voluntary_exit [Preset: minimal]           OK
-+ [Valid]   Official - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: minimal] OK
-+ [Valid]   Official - Phase 0 - Finality - finality_rule_1 [Preset: minimal]                OK
-+ [Valid]   Official - Phase 0 - Finality - finality_rule_2 [Preset: minimal]                OK
-+ [Valid]   Official - Phase 0 - Finality - finality_rule_3 [Preset: minimal]                OK
-+ [Valid]   Official - Phase 0 - Finality - finality_rule_4 [Preset: minimal]                OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - attestation [Preset: minimal]             OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - attester_slashing [Preset: minimal]       OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - balance_driven_status_transitions [Preset OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - deposit_in_block [Preset: minimal]        OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - deposit_top_up [Preset: minimal]          OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - empty_block_transition [Preset: minimal]  OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - empty_block_transition_large_validator_se OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - empty_epoch_transition [Preset: minimal]  OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - empty_epoch_transition_large_validator_se OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - empty_epoch_transition_not_finalizing [Pr OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - full_random_operations_0 [Preset: minimal OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - full_random_operations_1 [Preset: minimal OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - full_random_operations_2 [Preset: minimal OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - full_random_operations_3 [Preset: minimal OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - high_proposer_index [Preset: minimal]     OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - historical_batch [Preset: minimal]        OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - multiple_attester_slashings_no_overlap [P OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - multiple_attester_slashings_partial_overl OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - multiple_different_proposer_slashings_sam OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - multiple_different_validator_exits_same_b OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - proposer_after_inactive_index [Preset: mi OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - proposer_self_slashing [Preset: minimal]  OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - proposer_slashing [Preset: minimal]       OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - skipped_slots [Preset: minimal]           OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minima OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Altair - Finality - finality_no_updates_at_genesis [Preset OK
++ [Valid]   Ethereum Foundation - Altair - Finality - finality_rule_1 [Preset: minimal]      OK
++ [Valid]   Ethereum Foundation - Altair - Finality - finality_rule_2 [Preset: minimal]      OK
++ [Valid]   Ethereum Foundation - Altair - Finality - finality_rule_3 [Preset: minimal]      OK
++ [Valid]   Ethereum Foundation - Altair - Finality - finality_rule_4 [Preset: minimal]      OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_0 [Preset: minimal]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_1 [Preset: minimal]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_10 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_11 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_12 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_13 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_14 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_15 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_2 [Preset: minimal]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_3 [Preset: minimal]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_4 [Preset: minimal]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_5 [Preset: minimal]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_6 [Preset: minimal]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_7 [Preset: minimal]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_8 [Preset: minimal]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_9 [Preset: minimal]           OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - attestation [Preset: minimal]   OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - attester_slashing [Preset: mini OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - balance_driven_status_transitio OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - deposit_in_block [Preset: minim OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - deposit_top_up [Preset: minimal OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - empty_block_transition [Preset: OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - empty_block_transition_large_va OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - empty_epoch_transition [Preset: OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - empty_epoch_transition_large_va OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - empty_epoch_transition_not_fina OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_random_operations_0 [Prese OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_random_operations_1 [Prese OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_random_operations_2 [Prese OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_random_operations_3 [Prese OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - high_proposer_index [Preset: mi OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - historical_batch [Preset: minim OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - multiple_attester_slashings_no_ OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - multiple_attester_slashings_par OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - multiple_different_proposer_sla OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - multiple_different_validator_ex OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - proposer_after_inactive_index [ OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - proposer_self_slashing [Preset: OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - proposer_slashing [Preset: mini OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - skipped_slots [Preset: minimal] OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - slash_and_exit_diff_index [Pres OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - voluntary_exit [Preset: minimal OK
++ [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_no_updates_at_genesis [Prese OK
++ [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_1 [Preset: minimal]     OK
++ [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_2 [Preset: minimal]     OK
++ [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_3 [Preset: minimal]     OK
++ [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_4 [Preset: minimal]     OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_0 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_1 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_10 [Preset: minimal]         OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_11 [Preset: minimal]         OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_12 [Preset: minimal]         OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_13 [Preset: minimal]         OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_14 [Preset: minimal]         OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_15 [Preset: minimal]         OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_2 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_3 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_4 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_5 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_6 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_7 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_8 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_9 [Preset: minimal]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - attestation [Preset: minimal]  OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - attester_slashing [Preset: min OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - balance_driven_status_transiti OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - deposit_in_block [Preset: mini OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - deposit_top_up [Preset: minima OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - empty_block_transition [Preset OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - empty_block_transition_large_v OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - empty_epoch_transition [Preset OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - empty_epoch_transition_large_v OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - empty_epoch_transition_not_fin OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - full_random_operations_0 [Pres OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - full_random_operations_1 [Pres OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - full_random_operations_2 [Pres OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - full_random_operations_3 [Pres OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - high_proposer_index [Preset: m OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - historical_batch [Preset: mini OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - multiple_attester_slashings_no OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - multiple_attester_slashings_pa OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - multiple_different_proposer_sl OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - multiple_different_validator_e OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - proposer_after_inactive_index  OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - proposer_self_slashing [Preset OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - proposer_slashing [Preset: min OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - skipped_slots [Preset: minimal OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Pre OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minima OK
 + [Valid]   correct_epoch_delay                                                              OK
 + [Valid]   correct_min_inclusion_delay                                                      OK
 + [Valid]   correct_sqrt_epoch_delay                                                         OK
@@ -264,24 +296,24 @@ FixtureAll-minimal
 + [Valid]   sync_committee_rewards_not_full_participants                                     OK
 + [Valid]   valid_signature_future_committee                                                 OK
 ```
-OK: 261/261 Fail: 0/261 Skip: 0/261
-## Official - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
+OK: 293/293 Fail: 0/293 Skip: 0/293
+## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Altair - Epoch Processing - Eth1 data reset [Preset: minimal]
+## Ethereum Foundation - Altair - Epoch Processing - Eth1 data reset [Preset: minimal]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Official - Altair - Epoch Processing - Historical roots update [Preset: minimal]
+## Ethereum Foundation - Altair - Epoch Processing - Historical roots update [Preset: minimal]
 ```diff
 + Historical roots update - historical_root_accumulator [Preset: minimal]                    OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Altair - Epoch Processing - Inactivity [Preset: minimal]
+## Ethereum Foundation - Altair - Epoch Processing - Inactivity [Preset: minimal]
 ```diff
 + Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
 + Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
@@ -304,7 +336,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
 ```
 OK: 19/19 Fail: 0/19 Skip: 0/19
-## Official - Altair - Epoch Processing - Justification & Finalization [Preset: minimal]
+## Ethereum Foundation - Altair - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
 + Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
@@ -317,7 +349,7 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
 ```
 OK: 9/9 Fail: 0/9 Skip: 0/9
-## Official - Altair - Epoch Processing - Participation flag updates [Preset: minimal]
+## Ethereum Foundation - Altair - Epoch Processing - Participation flag updates [Preset: minimal]
 ```diff
 + Participation flag updates - all_zeroed [Preset: minimal]                                  OK
 + Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
@@ -333,12 +365,12 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
 ```
 OK: 12/12 Fail: 0/12 Skip: 0/12
-## Official - Altair - Epoch Processing - RANDAO mixes reset [Preset: minimal]
+## Ethereum Foundation - Altair - Epoch Processing - RANDAO mixes reset [Preset: minimal]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Altair - Epoch Processing - Registry updates [Preset: minimal]
+## Ethereum Foundation - Altair - Epoch Processing - Registry updates [Preset: minimal]
 ```diff
 + Registry updates - activation_queue_activation_and_ejection [Preset: minimal]              OK
 + Registry updates - activation_queue_efficiency [Preset: minimal]                           OK
@@ -350,7 +382,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit [Preset: minimal]                             OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
-## Official - Altair - Epoch Processing - Slashings [Preset: minimal]
+## Ethereum Foundation - Altair - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
 + Slashings - max_penalties [Preset: minimal]                                                OK
@@ -358,12 +390,12 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + Slashings - scaled_penalties [Preset: minimal]                                             OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
-## Official - Altair - Epoch Processing - Slashings reset [Preset: minimal]
+## Ethereum Foundation - Altair - Epoch Processing - Slashings reset [Preset: minimal]
 ```diff
 + Slashings reset - flush_slashings [Preset: minimal]                                        OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Altair - Epoch Processing - Sync committee updates [Preset: minimal]
+## Ethereum Foundation - Altair - Epoch Processing - Sync committee updates [Preset: minimal]
 ```diff
 + Sync committee updates - sync_committees_no_progress_not_boundary [Preset: minimal]        OK
 + Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
@@ -372,7 +404,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
-## Official - Altair - SSZ consensus objects  [Preset: minimal]
+## Ethereum Foundation - Altair - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
 +   Testing    Attestation                                                                   OK
@@ -412,23 +444,23 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 36/36 Fail: 0/36 Skip: 0/36
-## Official - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Phase 0 - Epoch Processing - Eth1 data reset [Preset: minimal]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Eth1 data reset [Preset: minimal]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Official - Phase 0 - Epoch Processing - Historical roots update [Preset: minimal]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Historical roots update [Preset: minimal]
 ```diff
 + Historical roots update - historical_root_accumulator [Preset: minimal]                    OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Phase 0 - Epoch Processing - Justification & Finalization [Preset: minimal]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Justification & Finalization [Preset: minimal]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
 + Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
@@ -441,17 +473,17 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
 ```
 OK: 9/9 Fail: 0/9 Skip: 0/9
-## Official - Phase 0 - Epoch Processing - Participation record updates [Preset: minimal]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Participation record updates [Preset: minimal]
 ```diff
 + Participation record updates - updated_participation_record [Preset: minimal]              OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Phase 0 - Epoch Processing - RANDAO mixes reset [Preset: minimal]
+## Ethereum Foundation - Phase 0 - Epoch Processing - RANDAO mixes reset [Preset: minimal]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Phase 0 - Epoch Processing - Registry updates [Preset: minimal]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Registry updates [Preset: minimal]
 ```diff
 + Registry updates - activation_queue_activation_and_ejection [Preset: minimal]              OK
 + Registry updates - activation_queue_efficiency [Preset: minimal]                           OK
@@ -463,7 +495,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit [Preset: minimal]                             OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
-## Official - Phase 0 - Epoch Processing - Slashings [Preset: minimal]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
 + Slashings - max_penalties [Preset: minimal]                                                OK
@@ -471,12 +503,12 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + Slashings - scaled_penalties [Preset: minimal]                                             OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
-## Official - Phase 0 - Epoch Processing - Slashings reset [Preset: minimal]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Slashings reset [Preset: minimal]
 ```diff
 + Slashings reset - flush_slashings [Preset: minimal]                                        OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Phase 0 - SSZ consensus objects  [Preset: minimal]
+## Ethereum Foundation - Phase 0 - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
 +   Testing    Attestation                                                                   OK
@@ -509,4 +541,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 415/415 Fail: 0/415 Skip: 0/415
+OK: 447/447 Fail: 0/447 Skip: 0/447

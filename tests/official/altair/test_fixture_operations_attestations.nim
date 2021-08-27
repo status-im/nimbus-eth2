@@ -64,7 +64,7 @@ proc runTest(identifier: string) =
 
   `testImpl _ operations_attestations _ identifier`()
 
-suite "Official - Altair - Operations - Attestations " & preset():
+suite "Ethereum Foundation - Altair - Operations - Attestations " & preset():
   for kind, path in walkDir(
       OperationsAttestationsDir, relative = true, checkDir = true):
     runTest(path)

@@ -1,6 +1,6 @@
 FixtureSSZGeneric-mainnet
 ===
-## Official - SSZ generic types
+## Ethereum Foundation - SSZ generic types
 ```diff
   Testing basic_vector inputs - invalid - skipping Vector[uint128, N] and Vector[uint256, N] Skip
 + Testing basic_vector inputs - valid - skipping Vector[uint128, N] and Vector[uint256, N]   OK

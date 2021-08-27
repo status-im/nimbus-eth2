@@ -46,7 +46,7 @@ proc runTest(identifier: string) =
 
   `testImpl _ fork _ identifier`()
 
-suite "Official - Altair - Fork " & preset():
+suite "Ethereum Foundation - Altair - Fork " & preset():
   # TODO investigate and fix in miminal presets
   when const_preset == "mainnet":
     for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
