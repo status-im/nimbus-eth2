@@ -7,23 +7,23 @@
 {.push raises: [Defect].}
 
 import
-  presto/client,
+  chronos, presto/client,
   "."/[rest_types, eth2_rest_serialization]
 
-export client, rest_types, eth2_rest_serialization
+export chronos, client, rest_types, eth2_rest_serialization
 
 proc getState*(state_id: StateIdent): RestResponse[GetStateResponse] {.
      rest, endpoint: "/eth/v1/debug/beacon/states/{state_id}",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getState
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getState
 
 # TODO altair
 # proc getStateV2*(state_id: StateIdent): RestResponse[GetStateV2Response] {.
 #      rest, endpoint: "/eth/v2/debug/beacon/states/{state_id}",
 #      meth: MethodGet.}
-#   ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getState
+#   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getState
 
 proc getDebugChainHeads*(): RestResponse[GetDebugChainHeadsResponse] {.
      rest, endpoint: "/eth/v1/debug/beacon/heads",
      meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getDebugChainHeads
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getDebugChainHeads

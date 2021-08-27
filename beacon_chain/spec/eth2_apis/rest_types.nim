@@ -15,9 +15,10 @@
 
 import
   std/[json, typetraits],
+  ".."/forks,
   ".."/datatypes/[phase0, altair]
 
-export phase0, altair
+export forks, phase0, altair
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -273,6 +274,7 @@ type
   GetBlockHeaderResponse* = DataEnclosedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
   GetBlockResponse* = DataEnclosedObject[phase0.SignedBeaconBlock]
+  GetBlockV2Response* = ForkedSignedBeaconBlock
   GetBlockRootResponse* = DataEnclosedObject[Eth2Digest]
   GetDebugChainHeadsResponse* = DataEnclosedObject[seq[RestChainHead]]
   GetDepositContractResponse* = DataEnclosedObject[RestDepositContract]
@@ -300,6 +302,7 @@ type
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
   ProduceBlockResponse* = DataEnclosedObject[phase0.BeaconBlock]
+  ProduceBlockResponseV2* = ForkedBeaconBlock
 
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)

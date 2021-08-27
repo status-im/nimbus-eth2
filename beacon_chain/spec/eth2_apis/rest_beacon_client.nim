@@ -7,13 +7,13 @@
 {.push raises: [Defect].}
 
 import
-  presto/client,
+  chronos, presto/client,
   "."/[
     rest_beacon_calls, rest_config_calls, rest_debug_calls,
     rest_node_calls, rest_validator_calls
   ]
 
 export
-  client,
+  chronos, client,
   rest_beacon_calls, rest_config_calls, rest_debug_calls,
   rest_node_calls, rest_validator_calls

@@ -21,8 +21,7 @@ import
   # Local modules
   ./spec/[helpers],
   ./spec/datatypes/base,
-  "."/[beacon_clock, filepath, beacon_node_status],
-  ./networking/eth2_network
+  "."/[beacon_clock, filepath, beacon_node_status]
 
 when defined(posix):
   import termios

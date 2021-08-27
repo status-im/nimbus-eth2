@@ -7,16 +7,17 @@
 import
   std/[typetraits],
   stew/[results, base10, byteutils, endians2],
-  presto,
+  presto/common,
   libp2p/peerid,
   serialization,
   json_serialization, json_serialization/std/[options, net],
   nimcrypto/utils as ncrutils,
-  ../datatypes/[phase0, altair, merge],
-  ./rest_types
+  ".."/forks, ".."/datatypes/[phase0, altair, merge],
+  "."/rest_types
 
 export
-  results, peerid, presto, json_serialization, options, net, rest_types
+  results, peerid, common, serialization, json_serialization, options, net,
+  rest_types
 
 Json.createFlavor RestJson
 
@@ -45,6 +46,7 @@ type
     AttesterSlashing |
     ProposerSlashing |
     phase0.SignedBeaconBlock |
+    altair.SignedBeaconBlock |
     SignedVoluntaryExit
 
   EncodeArrays* =
@@ -55,6 +57,8 @@ type
 
   DecodeTypes* =
     DataEnclosedObject |
+    GetBlockV2Response |
+    ProduceBlockResponseV2 |
     DataMetaEnclosedObject |
     DataRootEnclosedObject |
     RestAttestationError |
@@ -108,6 +112,22 @@ proc jsonResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
         writer.beginRecord()
         writer.writeField("data", data)
         writer.endRecord()
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/json")
+
+proc jsonResponsePlain*(t: typedesc[RestApiResponse],
+                        data: auto): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.writeValue(data)
         stream.getOutput(seq[byte])
       except SerializationError:
         default
@@ -532,6 +552,145 @@ proc readValue*(reader: var JsonReader[RestJson], value: var GraffitiBytes) {.
 proc writeValue*(writer: var JsonWriter[RestJson], value: GraffitiBytes) {.
      raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
+
+## ForkedBeaconBlock
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var ForkedBeaconBlock) {.
+     raises: [IOError, SerializationError, Defect].} =
+  var
+    version: Option[BeaconBlockFork]
+    data: Option[JsonString]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "version":
+      if version.isSome():
+        reader.raiseUnexpectedField("Multiple version fields found",
+                                    "ForkedBeaconBlock")
+      let vres = reader.readValue(string)
+      case vres
+      of "phase0":
+        version = some(BeaconBlockFork.Phase0)
+      of "altair":
+        version = some(BeaconBlockFork.Altair)
+      else:
+        reader.raiseUnexpectedValue("Incorrect version field value")
+    of "data":
+      if data.isSome():
+        reader.raiseUnexpectedField("Multiple data fields found",
+                                    "ForkedBeaconBlock")
+      data = some(reader.readValue(JsonString))
+    else:
+      reader.raiseUnexpectedField(fieldName, "ForkedBeaconBlock")
+
+  if version.isNone():
+    reader.raiseUnexpectedValue("Field version is missing")
+  if data.isNone():
+    reader.raiseUnexpectedValue("Field data is missing")
+
+  case version.get():
+  of BeaconBlockFork.Phase0:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()), phase0.BeaconBlock,
+                             requireAllFields = true))
+      except SerializationError:
+        none[phase0.BeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect phase0 block format")
+    value = ForkedBeaconBlock.init(res.get())
+  of BeaconBlockFork.Altair:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()), altair.BeaconBlock,
+                             requireAllFields = true))
+      except SerializationError:
+        none[altair.BeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect altair block format")
+    value = ForkedBeaconBlock.init(res.get())
+
+proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconBlock) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  case value.kind
+  of BeaconBlockFork.Phase0:
+    writer.writeField("version", "phase0")
+    writer.writeField("data", value.phase0Block)
+  of BeaconBlockFork.Altair:
+    writer.writeField("version", "altair")
+    writer.writeField("data", value.altairBlock)
+  writer.endRecord()
+
+## ForkedSignedBeaconBlock
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var ForkedSignedBeaconBlock) {.
+     raises: [IOError, SerializationError, Defect].} =
+  var
+    version: Option[BeaconBlockFork]
+    data: Option[JsonString]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "version":
+      if version.isSome():
+        reader.raiseUnexpectedField("Multiple version fields found",
+                                    "ForkedSignedBeaconBlock")
+      let vres = reader.readValue(string)
+      case vres
+      of "phase0":
+        version = some(BeaconBlockFork.Phase0)
+      of "altair":
+        version = some(BeaconBlockFork.Altair)
+      else:
+        reader.raiseUnexpectedValue("Incorrect version field value")
+    of "data":
+      if data.isSome():
+        reader.raiseUnexpectedField("Multiple data fields found",
+                                    "ForkedSignedBeaconBlock")
+      data = some(reader.readValue(JsonString))
+    else:
+      reader.raiseUnexpectedField(fieldName, "ForkedSignedBeaconBlock")
+
+  if version.isNone():
+    reader.raiseUnexpectedValue("Field version is missing")
+  if data.isNone():
+    reader.raiseUnexpectedValue("Field data is missing")
+
+  case version.get():
+  of BeaconBlockFork.Phase0:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()), phase0.SignedBeaconBlock,
+                             requireAllFields = true))
+      except SerializationError:
+        none[phase0.SignedBeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect phase0 block format")
+    value = ForkedSignedBeaconBlock.init(res.get())
+  of BeaconBlockFork.Altair:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()), altair.SignedBeaconBlock,
+                             requireAllFields = true))
+      except SerializationError:
+        none[altair.SignedBeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect altair block format")
+    value = ForkedSignedBeaconBlock.init(res.get())
+
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: ForkedSignedBeaconBlock) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  case value.kind
+  of BeaconBlockFork.Phase0:
+    writer.writeField("version", "phase0")
+    writer.writeField("data", value.phase0Block)
+  of BeaconBlockFork.Altair:
+    writer.writeField("version", "altair")
+    writer.writeField("data", value.altairBlock)
+  writer.endRecord()
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:

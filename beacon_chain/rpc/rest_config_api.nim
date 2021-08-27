@@ -4,7 +4,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import stew/[endians2, base10], presto, chronicles,
+import stew/[endians2, base10], chronicles,
        nimcrypto/utils as ncrutils
 import ".."/beacon_node_common,
        ".."/eth1/eth1_monitor,

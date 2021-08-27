@@ -149,7 +149,7 @@ proc getP2PAddresses(node: BeaconNode): Option[seq[string]] =
   return some(addresses)
 
 proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
-    raises: [Exception].} = # TODO fix json-rpc
+    raises: [Defect, CatchableError].} =
   rpcServer.rpc("get_v1_node_identity") do () -> RpcNodeIdentity:
     let discoveryAddresses =
       block:

@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import std/[
-  options, deques, heapqueue, tables, strutils, sequtils, math, algorithm]
+  options, heapqueue, tables, strutils, sequtils, math, algorithm]
 import stew/results, chronos, chronicles
 
 import

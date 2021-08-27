@@ -5,10 +5,9 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[deques, sequtils],
+  std/[sequtils],
   stew/results,
   chronicles,
-  presto,
   libp2p/[multiaddress, multicodec],
   libp2p/protocols/pubsub/pubsubpeer,
   ./rest_utils,

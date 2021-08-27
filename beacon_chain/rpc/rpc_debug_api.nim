@@ -22,7 +22,7 @@ type
   RpcServer = RpcHttpServer
 
 proc installDebugApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
-    raises: [Exception].} = # TODO fix json-rpc
+    raises: [Defect, CatchableError].} =
   rpcServer.rpc("get_v1_debug_beacon_states_stateId") do (
       stateId: string) -> phase0.BeaconState:
     withStateForStateId(stateId):

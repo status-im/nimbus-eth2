@@ -8,14 +8,14 @@
 {.push raises: [Defect].}
 
 import
-  std/[deques, intsets, streams, tables],
+  std/[deques, intsets, streams, tables, hashes],
   stew/endians2,
   ./spec/datatypes/[phase0, altair],
   ./consensus_object_pools/block_pools_types,
   ./fork_choice/fork_choice_types,
   ./validators/slashing_protection
 
-export tables, block_pools_types
+export deques, tables, hashes, block_pools_types
 
 const
   ATTESTATION_LOOKBACK* =

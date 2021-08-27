@@ -21,6 +21,6 @@ template unimplemented() =
   raise (ref CatchableError)(msg: "Unimplemented")
 
 proc installEventApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
-    raises: [Exception].} = # TODO fix json-rpc
+    raises: [Defect, CatchableError].} =
   rpcServer.rpc("get_v1_events") do () -> JsonNode:
     unimplemented()

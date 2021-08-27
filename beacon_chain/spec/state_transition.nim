@@ -351,7 +351,7 @@ proc makeBeaconBlock*(
     voluntaryExits: seq[SignedVoluntaryExit],
     executionPayload: ExecutionPayload,
     rollback: RollbackHashedProc,
-    cache: var StateCache): Option[phase0.BeaconBlock] =
+    cache: var StateCache): Result[phase0.BeaconBlock, string] =
   ## Create a block for the given state. The last block applied to it must be
   ## the one identified by parent_root and process_slots must be called up to
   ## the slot for which a block is to be created.
@@ -386,12 +386,11 @@ proc makeBeaconBlock*(
       deposit_root = shortLog(state.data.eth1_data.deposit_root),
       error = res.error
     rollback(state)
-    return
+    return err("Unable to apply new block to state: " & $res.error())
 
   state.root = hash_tree_root(state.data)
   blck.state_root = state.root
-
-  return some(blck)
+  ok(blck)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#preparing-a-beaconblock
 proc makeBeaconBlock*(
@@ -409,7 +408,7 @@ proc makeBeaconBlock*(
     voluntaryExits: seq[SignedVoluntaryExit],
     executionPayload: ExecutionPayload,
     rollback: RollbackAltairHashedProc,
-    cache: var StateCache): Option[altair.BeaconBlock] =
+    cache: var StateCache): Result[altair.BeaconBlock, string] =
   ## Create a block for the given state. The last block applied to it must be
   ## the one identified by parent_root and process_slots must be called up to
   ## the slot for which a block is to be created.
@@ -448,9 +447,8 @@ proc makeBeaconBlock*(
       deposit_root = shortLog(state.data.eth1_data.deposit_root),
       error = res.error
     rollback(state)
-    return
+    return err("Unable to apply new block to state: " & $res.error())
 
   state.root = hash_tree_root(state.data)
   blck.state_root = state.root
-
-  return some(blck)
+  ok(blck)

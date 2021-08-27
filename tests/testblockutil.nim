@@ -126,7 +126,7 @@ proc addTestBlock*(
       noRollback,
       cache)
 
-  doAssert message.isSome(), "Should have created a valid block!"
+  doAssert message.isOk(), "Should have created a valid block!"
 
   let
     new_block = signBlock(

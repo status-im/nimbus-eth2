@@ -1,6 +1,5 @@
 import
   stew/results,
-  presto,
   chronicles,
   eth/p2p/discoveryv5/enr,
   libp2p/[multiaddress, multicodec],
