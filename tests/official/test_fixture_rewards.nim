@@ -126,7 +126,7 @@ proc runTest(rewardsDir, identifier: string) =
 
   `testImpl _ rewards _ identifier`()
 
-suite "Official - Rewards " & preset():
+suite "Ethereum Foundation - Rewards " & preset():
   for rewardsDir in [RewardsDirBasic, RewardsDirLeak, RewardsDirRandom]:
     for kind, path in walkDir(rewardsDir, relative = true, checkDir = true):
       runTest(rewardsDir, path)

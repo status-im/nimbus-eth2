@@ -59,6 +59,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ blockheader _ identifier`()
 
-suite "Official - Phase 0 - Operations - Block header " & preset():
+suite "Ethereum Foundation - Phase 0 - Operations - Block header " & preset():
   for kind, path in walkDir(OpBlockHeaderDir, relative = true, checkDir = true):
     runTest(path)

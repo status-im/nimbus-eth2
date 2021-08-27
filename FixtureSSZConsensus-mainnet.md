@@ -55,21 +55,21 @@ FixtureSSZConsensus-mainnet
 + Slots - slots_2                                                                            OK
 + [Invalid]  bad_merkle_proof                                                                OK
 + [Invalid]  wrong_deposit_for_deposit_count                                                 OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - double_same_proposer_slashings_same_block OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - double_similar_proposer_slashings_same_bl OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - double_validator_exit_same_block [Preset: OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - duplicate_attester_slashing [Preset: main OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - expected_deposit_in_block [Preset: mainne OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - invalid_block_sig [Preset: mainnet]       OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - invalid_proposer_index_sig_from_expected_ OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - invalid_proposer_index_sig_from_proposer_ OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - invalid_state_root [Preset: mainnet]      OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - parent_from_same_slot [Preset: mainnet]   OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - prev_slot_block_transition [Preset: mainn OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - proposal_for_genesis_slot [Preset: mainne OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - same_slot_block_transition [Preset: mainn OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - slash_and_exit_same_index [Preset: mainne OK
-+ [Invalid] Official - Phase 0 - Sanity - Blocks - zero_block_sig [Preset: mainnet]          OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_same_proposer_slashings OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_similar_proposer_slashi OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_validator_exit_same_blo OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - duplicate_attester_slashing [P OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - expected_deposit_in_block [Pre OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - invalid_block_sig [Preset: mai OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - invalid_proposer_index_sig_fro OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - invalid_proposer_index_sig_fro OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - invalid_state_root [Preset: ma OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - parent_from_same_slot [Preset: OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - prev_slot_block_transition [Pr OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - proposal_for_genesis_slot [Pre OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - same_slot_block_transition [Pr OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - slash_and_exit_same_index [Pre OK
++ [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - zero_block_sig [Preset: mainne OK
 + [Invalid] after_epoch_slots                                                                OK
 + [Invalid] all_empty_indices                                                                OK
 + [Invalid] att1_bad_extra_index                                                             OK
@@ -144,34 +144,50 @@ FixtureSSZConsensus-mainnet
 + [Valid]    new_deposit_under_max                                                           OK
 + [Valid]    success_top_up                                                                  OK
 + [Valid]    valid_sig_but_forked_state                                                      OK
-+ [Valid]   Official - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: mainnet] OK
-+ [Valid]   Official - Phase 0 - Finality - finality_rule_1 [Preset: mainnet]                OK
-+ [Valid]   Official - Phase 0 - Finality - finality_rule_2 [Preset: mainnet]                OK
-+ [Valid]   Official - Phase 0 - Finality - finality_rule_3 [Preset: mainnet]                OK
-+ [Valid]   Official - Phase 0 - Finality - finality_rule_4 [Preset: mainnet]                OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - attestation [Preset: mainnet]             OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - attester_slashing [Preset: mainnet]       OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - balance_driven_status_transitions [Preset OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - deposit_in_block [Preset: mainnet]        OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - deposit_top_up [Preset: mainnet]          OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - empty_block_transition [Preset: mainnet]  OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]  OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - full_random_operations_0 [Preset: mainnet OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - full_random_operations_1 [Preset: mainnet OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - full_random_operations_2 [Preset: mainnet OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - full_random_operations_3 [Preset: mainnet OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - high_proposer_index [Preset: mainnet]     OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - historical_batch [Preset: mainnet]        OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - multiple_attester_slashings_no_overlap [P OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - multiple_attester_slashings_partial_overl OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - multiple_different_proposer_slashings_sam OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - multiple_different_validator_exits_same_b OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - proposer_after_inactive_index [Preset: ma OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]  OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - proposer_slashing [Preset: mainnet]       OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - skipped_slots [Preset: mainnet]           OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainne OK
-+ [Valid]   Official - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_no_updates_at_genesis [Prese OK
++ [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_1 [Preset: mainnet]     OK
++ [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_2 [Preset: mainnet]     OK
++ [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_3 [Preset: mainnet]     OK
++ [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_4 [Preset: mainnet]     OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_0 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_1 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_10 [Preset: mainnet]         OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_11 [Preset: mainnet]         OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_12 [Preset: mainnet]         OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_13 [Preset: mainnet]         OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_14 [Preset: mainnet]         OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_15 [Preset: mainnet]         OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_2 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_3 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_4 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_5 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_6 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_7 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_8 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Random - randomized_9 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - attestation [Preset: mainnet]  OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - attester_slashing [Preset: mai OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - balance_driven_status_transiti OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - deposit_in_block [Preset: main OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - deposit_top_up [Preset: mainne OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - empty_block_transition [Preset OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - empty_epoch_transition [Preset OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - full_random_operations_0 [Pres OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - full_random_operations_1 [Pres OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - full_random_operations_2 [Pres OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - full_random_operations_3 [Pres OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - high_proposer_index [Preset: m OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - historical_batch [Preset: main OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - multiple_attester_slashings_no OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - multiple_attester_slashings_pa OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - multiple_different_proposer_sl OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - multiple_different_validator_e OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - proposer_after_inactive_index  OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - proposer_self_slashing [Preset OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - proposer_slashing [Preset: mai OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - skipped_slots [Preset: mainnet OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Pre OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: mainne OK
 + [Valid]   correct_epoch_delay                                                              OK
 + [Valid]   correct_min_inclusion_delay                                                      OK
 + [Valid]   correct_sqrt_epoch_delay                                                         OK
@@ -202,8 +218,8 @@ FixtureSSZConsensus-mainnet
 + [Valid]   success_surround                                                                 OK
 + [Valid]   success_with_effective_balance_disparity                                         OK
 ```
-OK: 199/199 Fail: 0/199 Skip: 0/199
-## Official - Altair - SSZ consensus objects  [Preset: mainnet]
+OK: 215/215 Fail: 0/215 Skip: 0/215
+## Ethereum Foundation - Altair - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
 +   Testing    Attestation                                                                   OK
@@ -243,23 +259,23 @@ OK: 199/199 Fail: 0/199 Skip: 0/199
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 36/36 Fail: 0/36 Skip: 0/36
-## Official - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Phase 0 - Epoch Processing - Eth1 data reset [Preset: mainnet]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Eth1 data reset [Preset: mainnet]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Official - Phase 0 - Epoch Processing - Historical roots update [Preset: mainnet]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Historical roots update [Preset: mainnet]
 ```diff
 + Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Phase 0 - Epoch Processing - Justification & Finalization [Preset: mainnet]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Justification & Finalization [Preset: mainnet]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
 + Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
@@ -272,17 +288,17 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
 ```
 OK: 9/9 Fail: 0/9 Skip: 0/9
-## Official - Phase 0 - Epoch Processing - Participation record updates [Preset: mainnet]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Participation record updates [Preset: mainnet]
 ```diff
 + Participation record updates - updated_participation_record [Preset: mainnet]              OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Phase 0 - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+## Ethereum Foundation - Phase 0 - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Phase 0 - Epoch Processing - Registry updates [Preset: mainnet]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Registry updates [Preset: mainnet]
 ```diff
 + Registry updates - activation_queue_activation_and_ejection [Preset: mainnet]              OK
 + Registry updates - activation_queue_efficiency [Preset: mainnet]                           OK
@@ -294,7 +310,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit [Preset: mainnet]                             OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
-## Official - Phase 0 - Epoch Processing - Slashings [Preset: mainnet]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
 + Slashings - max_penalties [Preset: mainnet]                                                OK
@@ -302,12 +318,12 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + Slashings - scaled_penalties [Preset: mainnet]                                             OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
-## Official - Phase 0 - Epoch Processing - Slashings reset [Preset: mainnet]
+## Ethereum Foundation - Phase 0 - Epoch Processing - Slashings reset [Preset: mainnet]
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Official - Phase 0 - SSZ consensus objects  [Preset: mainnet]
+## Ethereum Foundation - Phase 0 - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
 +   Testing    Attestation                                                                   OK
@@ -340,4 +356,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 290/290 Fail: 0/290 Skip: 0/290
+OK: 306/306 Fail: 0/306 Skip: 0/306

@@ -25,7 +25,7 @@ from ../../../beacon_chain/spec/beaconstate import process_registry_updates
 template runSuite(
     suiteDir, testName: string, transitionProc: untyped{ident},
     useCache, useTAB, useUPB: static bool = false): untyped =
-  suite "Official - Altair - Epoch Processing - " & testName & preset():
+  suite "Ethereum Foundation - Altair - Epoch Processing - " & testName & preset():
     doAssert dirExists(suiteDir)
     for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}, checkDir = true):
 

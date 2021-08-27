@@ -49,6 +49,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ slots _ identifier`()
 
-suite "Official - Altair - Sanity - Slots " & preset():
+suite "Ethereum Foundation - Altair - Sanity - Slots " & preset():
   for kind, path in walkDir(SanitySlotsDir, relative = true, checkDir = true):
     runTest(path)
