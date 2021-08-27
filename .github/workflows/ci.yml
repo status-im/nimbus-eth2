@@ -264,7 +264,7 @@ jobs:
         shell: bash
         working-directory: nimbus-eth2
         run: |
-          scripts/setup_official_tests.sh
+          scripts/setup_official_tests.sh fixturesCache
 
       - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
         if: matrix.target.TEST_KIND == 'unit-tests'
