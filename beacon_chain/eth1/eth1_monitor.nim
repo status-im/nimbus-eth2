@@ -24,7 +24,7 @@ import
   ./merkle_minimal
 
 export
-  web3Types
+  web3Types, deques
 
 logScope:
   topics = "eth1"

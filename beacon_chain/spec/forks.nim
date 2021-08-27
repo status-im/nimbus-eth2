@@ -31,6 +31,13 @@ type
     Phase0
     Altair
 
+  ForkedBeaconBlock* = object
+    case kind*: BeaconBlockFork
+    of BeaconBlockFork.Phase0:
+      phase0Block*: phase0.BeaconBlock
+    of BeaconBlockFork.Altair:
+      altairBlock*: altair.BeaconBlock
+
   ForkedSignedBeaconBlock* = object
     case kind*: BeaconBlockFork
     of BeaconBlockFork.Phase0:
@@ -52,10 +59,29 @@ type
 
   ForkDigestsRef* = ref ForkDigests
 
+template init*(T: type ForkedBeaconBlock, blck: phase0.BeaconBlock): T =
+  T(kind: BeaconBlockFork.Phase0, phase0Block: blck)
+template init*(T: type ForkedBeaconBlock, blck: altair.BeaconBlock): T =
+  T(kind: BeaconBlockFork.Altair, altairBlock: blck)
+
 template init*(T: type ForkedSignedBeaconBlock, blck: phase0.SignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Block: blck)
 template init*(T: type ForkedSignedBeaconBlock, blck: altair.SignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Altair, altairBlock: blck)
+
+template init*(T: type ForkedSignedBeaconBlock, forked: ForkedBeaconBlock,
+               blockRoot: Eth2Digest, signature: ValidatorSig): T =
+  case forked.kind
+  of BeaconBlockFork.Phase0:
+    T(kind: BeaconBlockFork.Phase0,
+      phase0Block: phase0.SignedBeaconBlock(message: forked.phase0Block,
+                                            root: blockRoot,
+                                            signature: signature))
+  of BeaconBlockFork.Altair:
+    T(kind: BeaconBlockFork.Altair,
+      altairBlock: altair.SignedBeaconBlock(message: forked.altairBlock,
+                                            root: blockRoot,
+                                            signature: signature))
 
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: phase0.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Block: blck)
@@ -99,6 +125,20 @@ template hash_tree_root*(x: ForkedHashedBeaconState): Eth2Digest =
   of forkPhase0: hash_tree_root(x.hbsPhase0.data)
   of forkAltair: hash_tree_root(x.hbsAltair.data)
 
+template hash_tree_root*(blk: ForkedBeaconBlock): Eth2Digest =
+  case blk.kind
+  of BeaconBlockFork.Phase0:
+    hash_tree_root(blk.phase0Block)
+  of BeaconBlockFork.Altair:
+    hash_tree_root(blk.altairBlock)
+
+template proposer_index*(blk: ForkedBeaconBlock): uint64 =
+  case blk.kind
+  of BeaconBlockFork.Phase0:
+    blk.phase0Block.proposer_index
+  of BeaconBlockFork.Altair:
+    blk.altairBlock.proposer_index
+
 func get_active_validator_indices_len*(
     state: ForkedHashedBeaconState; epoch: Epoch): uint64 =
   case state.beaconStateFork:
@@ -118,6 +158,14 @@ func get_beacon_committee*(
   case state.beaconStateFork:
   of forkPhase0: get_beacon_committee(state.hbsPhase0.data, slot, index, cache)
   of forkAltair: get_beacon_committee(state.hbsAltair.data, slot, index, cache)
+
+func get_beacon_committee_len*(
+    state: ForkedHashedBeaconState, slot: Slot, index: CommitteeIndex,
+    cache: var StateCache): uint64 =
+  # This one is used by tests
+  case state.beaconStateFork:
+  of forkPhase0: get_beacon_committee_len(state.hbsPhase0.data, slot, index, cache)
+  of forkAltair: get_beacon_committee_len(state.hbsAltair.data, slot, index, cache)
 
 func get_committee_count_per_slot*(state: ForkedHashedBeaconState,
                                    epoch: Epoch,
@@ -250,13 +298,13 @@ template asTrusted*(x: altair.SignedBeaconBlock or altair.SigVerifiedBeaconBlock
 template asTrusted*(x: ForkedSignedBeaconBlock): ForkedSignedBeaconBlock =
   isomorphicCast[ForkedTrustedSignedBeaconBlock](x)
 
-template withBlck*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock, body: untyped): untyped =
+template withBlck*(x: ForkedBeaconBlock | ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock, body: untyped): untyped =
   case x.kind
   of BeaconBlockFork.Phase0:
-    template blck: untyped = x.phase0Block
+    template blck: untyped {.inject.} = x.phase0Block
     body
   of BeaconBlockFork.Altair:
-    template blck: untyped = x.altairBlock
+    template blck: untyped {.inject.} = x.altairBlock
     body
 
 template getForkedBlockField*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock, y: untyped): untyped =
@@ -274,9 +322,16 @@ template root*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): Eth
 template slot*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): Slot =
   getForkedBlockField(x, slot)
 
-func shortLog*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): auto =
-  withBlck(x): shortLog(blck.message)
+template message*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): auto =
+  withBlck(x): blck.message
 
+template shortLog*(x: ForkedBeaconBlock): auto =
+  withBlck(x): shortLog(blck)
+
+template shortLog*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): auto =
+  withBlck(x): shortLog(blck)
+
+chronicles.formatIt ForkedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedSignedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedTrustedSignedBeaconBlock: it.shortLog
 

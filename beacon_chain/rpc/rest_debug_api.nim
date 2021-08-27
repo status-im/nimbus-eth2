@@ -1,5 +1,5 @@
 import std/sequtils
-import presto, chronicles
+import chronicles
 import ".."/[version, beacon_node_common],
        ".."/spec/forks,
        "."/rest_utils
@@ -77,8 +77,3 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     "/eth/v2/debug/beacon/heads",
     "/api/eth/v2/debug/beacon/heads"
   )
-
-proc getDebugChainHeads*(): RestResponse[GetDebugChainHeadsResponse] {.
-     rest, endpoint: "/eth/v1/debug/beacon/heads",
-     meth: MethodGet.}
-  ## https://ethereum.github.io/eth2.0-APIs/#/Beacon/getDebugChainHeads

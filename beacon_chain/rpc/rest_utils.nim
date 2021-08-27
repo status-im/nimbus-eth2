@@ -1,4 +1,4 @@
-import presto, presto/client as presto_client,
+import presto,
        nimcrypto/utils as ncrutils,
        ../spec/[forks],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization],
@@ -6,7 +6,7 @@ import presto, presto/client as presto_client,
        ../consensus_object_pools/[block_pools_types, blockchain_dag]
 
 export
-  blockchain_dag, presto, presto_client, rest_types, eth2_rest_serialization
+  eth2_rest_serialization, blockchain_dag, presto, rest_types
 
 const
   MaxEpoch* = compute_epoch_at_slot(not(0'u64))

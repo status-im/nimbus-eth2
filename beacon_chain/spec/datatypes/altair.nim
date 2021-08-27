@@ -441,6 +441,7 @@ when false:
   proc `==`*(x, y: ParticipationFlags) : bool {.borrow, noSideEffect.}
 
 chronicles.formatIt BeaconBlock: it.shortLog
+chronicles.formatIt SyncCommitteeIndex: uint8(it)
 
 template asUInt8*(x: SyncCommitteeIndex): uint8 = uint8(x)
 
@@ -472,12 +473,21 @@ func shortLog*(v: SomeBeaconBlock): auto =
     attestations_len: v.body.attestations.len(),
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
+    sync_committee_participants: countOnes(v.body.sync_aggregate.sync_committee_bits)
   )
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
   (
     blck: shortLog(v.message),
     signature: shortLog(v.signature)
+  )
+
+func shortLog*(v: SyncCommitteeContribution): auto =
+  (
+    slot: shortLog(v.slot),
+    blk: shortLog(v.beacon_block_root),
+    subnetId: v.subcommittee_index,
+    aggregation_bits: $v.aggregation_bits
   )
 
 func shortLog*(v: SyncCommitteeMessage): auto =
@@ -487,5 +497,8 @@ func shortLog*(v: SyncCommitteeMessage): auto =
     validator_index: v.validator_index,
     signature: shortLog(v.signature)
   )
+
+func shortLog*(v: SyncAggregate): auto =
+  $(v.sync_committee_bits)
 
 chronicles.formatIt SyncCommitteeMessage: shortLog(it)

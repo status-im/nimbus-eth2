@@ -4,9 +4,10 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 import
-  std/[typetraits, strutils, deques, sets, options],
+  std/[typetraits, strutils],
   stew/[results, base10],
   chronicles,
+  json_serialization, json_serialization/std/[options, net],
   nimcrypto/utils as ncrutils,
   ".."/[beacon_chain_db, beacon_node_common],
   ../networking/eth2_network,
@@ -189,7 +190,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
         let res = await makeBeaconBlockForHeadAndSlot(
           node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
-        if res.isNone():
+        if res.isErr():
           return RestApiResponse.jsonError(Http400, BlockProduceError)
         res.get()
     return
@@ -251,7 +252,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
         let res = await makeBeaconBlockForHeadAndSlot(
           node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
-        if res.isNone():
+        if res.isErr():
           return RestApiResponse.jsonError(Http400, BlockProduceError)
         res.get()
     return

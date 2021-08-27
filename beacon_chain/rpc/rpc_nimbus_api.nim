@@ -34,7 +34,7 @@ type
     state*: string
 
 proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
-    raises: [Exception].} = # TODO fix json-rpc
+    raises: [Defect, CatchableError].} =
   ## Install non-standard api handlers - some of these are used by 3rd-parties
   ## such as eth2stats, pending a full REST api
   rpcServer.rpc("getBeaconHead") do () -> Slot:

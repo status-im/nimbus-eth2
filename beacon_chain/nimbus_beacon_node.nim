@@ -1158,16 +1158,15 @@ proc startSyncManager(node: BeaconNode) =
 func connectedPeersCount(node: BeaconNode): int =
   len(node.network.peerPool)
 
-proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) =
-  try:
-    rpcServer.installBeaconApiHandlers(node)
-    rpcServer.installConfigApiHandlers(node)
-    rpcServer.installDebugApiHandlers(node)
-    rpcServer.installEventApiHandlers(node)
-    rpcServer.installNimbusApiHandlers(node)
-    rpcServer.installNodeApiHandlers(node)
-    rpcServer.installValidatorApiHandlers(node)
-  except Exception as exc: raiseAssert exc.msg # TODO fix json-rpc
+proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) {.
+    raises: [Defect, CatchableError].} =
+  rpcServer.installBeaconApiHandlers(node)
+  rpcServer.installConfigApiHandlers(node)
+  rpcServer.installDebugApiHandlers(node)
+  rpcServer.installEventApiHandlers(node)
+  rpcServer.installNimbusApiHandlers(node)
+  rpcServer.installNodeApiHandlers(node)
+  rpcServer.installValidatorApiHandlers(node)
 
 proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installBeaconApiHandlers(node)

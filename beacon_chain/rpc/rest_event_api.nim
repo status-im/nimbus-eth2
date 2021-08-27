@@ -7,7 +7,6 @@
 import
   stew/results,
   chronicles,
-  presto,
   ./rest_utils,
   ../beacon_node_common
 

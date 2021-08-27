@@ -32,18 +32,20 @@ type
   RpcServer* = RpcHttpServer
 
 proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
-    raises: [Exception].} = # TODO fix json-rpc
+    raises: [Defect, CatchableError].} =
   rpcServer.rpc("get_v1_validator_block") do (
       slot: Slot, graffiti: GraffitiBytes, randao_reveal: ValidatorSig) -> phase0.BeaconBlock:
     debug "get_v1_validator_block", slot = slot
     let head = node.doChecksAndGetCurrentHead(slot)
     let proposer = node.dag.getProposer(head, slot)
     if proposer.isNone():
-      raise newException(CatchableError, "could not retrieve block for slot: " & $slot)
+      raise newException(CatchableError,
+                         "could not retrieve block for slot: " & $slot)
     let message = await makeBeaconBlockForHeadAndSlot(
       node, randao_reveal, proposer.get(), graffiti, head, slot)
-    if message.isNone():
-      raise newException(CatchableError, "could not retrieve block for slot: " & $slot)
+    if message.isErr():
+      raise newException(CatchableError,
+                         "could not retrieve block for slot: " & $slot)
     return message.get()
 
   rpcServer.rpc("post_v1_validator_block") do (body: phase0.SignedBeaconBlock) -> bool:
@@ -114,7 +116,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       epochRef = node.dag.getEpochRef(head, epoch)
     for i, bp in epochRef.beacon_proposers:
       if bp.isSome():
-        result.add((public_key: epochRef.validatorKey(bp.get()).get().toPubKey(),
+        result.add((public_key: epochRef.validatorKey(bp.get).get().toPubKey,
                     validator_index: bp.get(),
                     slot: compute_start_slot_at_epoch(epoch) + i))
 

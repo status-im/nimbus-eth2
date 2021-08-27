@@ -264,8 +264,8 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     randao_reveal: ValidatorSig,
                                     validator_index: ValidatorIndex,
                                     graffiti: GraffitiBytes,
-                                    head: BlockRef,
-                                    slot: Slot): Future[Option[phase0.BeaconBlock]] {.async.} =
+                                    head: BlockRef, slot: Slot
+                                   ): Future[Result[phase0.BeaconBlock, string]] {.async.} =
   # Advance state to the slot that we're proposing for
 
   let
@@ -279,7 +279,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 
     if eth1Proposal.hasMissingDeposits:
       error "Eth1 deposits not available. Skipping block proposal", slot
-      return none(phase0.BeaconBlock)
+      return Result[phase0.BeaconBlock, string].err("Eth1 deposits not available")
 
     func restore(v: var phase0.HashedBeaconState) =
       # TODO address this ugly workaround - there should probably be a
@@ -356,7 +356,7 @@ proc proposeBlock(node: BeaconNode,
     return head
 
   let
-    fork = getStateField(node.dag.headState.data, fork)
+    fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root =
       getStateField(node.dag.headState.data, genesis_validators_root)
     randao = await validator.genRandaoReveal(
@@ -364,7 +364,7 @@ proc proposeBlock(node: BeaconNode,
     message = await makeBeaconBlockForHeadAndSlot(
       node, randao, validator_index, node.graffitiBytes, head, slot)
 
-  if not message.isSome():
+  if not message.isOk():
     return head # already logged elsewhere!
 
   var
@@ -477,7 +477,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     return head
 
   let
-    proposerKey = node.dag.validatorKey(proposer.get()).get().toPubKey()
+    proposerKey = node.dag.validatorKey(proposer.get).get().toPubKey
     validator = node.attachedValidators[].getValidator(proposerKey)
 
   if validator != nil:

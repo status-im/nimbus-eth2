@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[parseutils, sequtils, strutils, deques, sets],
+  std/[parseutils, sequtils, strutils, sets],
   stew/results,
   json_rpc/servers/httpserver,
   chronicles,
@@ -155,7 +155,8 @@ proc getStatus(validator: Validator,
   else:
     err("Invalid validator status")
 
-proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData {.raises: [Defect, CatchableError].} =
+proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData {.
+    raises: [Defect, CatchableError].} =
   result = case blockId:
     of "head":
       node.dag.get(node.dag.head)
@@ -177,7 +178,7 @@ proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData {.rai
         node.dag.get(blockSlot.blck)
 
 proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
-    raises: [Exception].} = # TODO fix json-rpc
+    raises: [Defect, CatchableError].} =
   rpcServer.rpc("get_v1_beacon_genesis") do () -> RpcBeaconGenesis:
     return (
       genesis_time: getStateField(node.dag.headState.data, genesis_time),

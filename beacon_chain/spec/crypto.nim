@@ -77,7 +77,9 @@ type
     ## Cooked signatures are those that have been loaded successfully from a
     ## ValidatorSig and are used to avoid expensive reloading as well as error
     ## checking
-export AggregateSignature
+
+export
+  AggregateSignature
 
 # API
 # ----------------------------------------------------------------------
@@ -94,6 +96,7 @@ func toPubKey*(privkey: ValidatorPrivKey): CookedPubKey =
 
 template toRaw*(x: CookedPubKey): auto =
   PublicKey(x).exportRaw()
+
 template toUncompressed*(x: CookedPubKey): auto =
   UncompressedPubKey(blob: PublicKey(x).exportUncompressed())
 
