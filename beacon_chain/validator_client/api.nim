@@ -724,13 +724,14 @@ proc publishAggregateAndProofs*(vc: ValidatorClientRef,
   raise newException(ValidatorApiError,
                      "Unable to publish aggregate and proofs")
 
-proc produceBlock*(vc: ValidatorClientRef, slot: Slot,
-                   randao_reveal: ValidatorSig,
-                   graffiti: GraffitiBytes): Future[phase0.BeaconBlock] {.async.} =
-  logScope: request = "produceBlock"
-  vc.firstSuccessTimeout(RestResponse[ProduceBlockResponse],
+proc produceBlockV2*(vc: ValidatorClientRef, slot: Slot,
+                    randao_reveal: ValidatorSig,
+                    graffiti: GraffitiBytes): Future[ProduceBlockResponseV2] {.
+     async.} =
+  logScope: request = "produceBlockV2"
+  vc.firstSuccessTimeout(RestResponse[ProduceBlockResponseV2],
                          SlotDuration,
-                         produceBlock(it, slot, randao_reveal, graffiti)):
+                         produceBlockV2(it, slot, randao_reveal, graffiti)):
     if apiResponse.isErr():
       debug "Unable to retrieve block data", endpoint = node,
             error = apiResponse.error()
@@ -740,7 +741,7 @@ proc produceBlock*(vc: ValidatorClientRef, slot: Slot,
       case response.status:
       of 200:
         debug "Received successfull response", endpoint = node
-        return response.data.data
+        return response.data
       of 400:
         debug "Received invalid request response",
               response_code = response.status, endpoint = node
@@ -761,10 +762,15 @@ proc produceBlock*(vc: ValidatorClientRef, slot: Slot,
   raise newException(ValidatorApiError, "Unable to retrieve block data")
 
 proc publishBlock*(vc: ValidatorClientRef,
-                   data: phase0.SignedBeaconBlock): Future[bool] {.async.} =
+                   data: ForkedSignedBeaconBlock): Future[bool] {.async.} =
   logScope: request = "publishBlock"
-  vc.firstSuccessTimeout(RestPlainResponse,
-                         SlotDuration, publishBlock(it, data)):
+  vc.firstSuccessTimeout(RestPlainResponse, SlotDuration):
+    case data.kind
+    of BeaconBlockFork.Phase0:
+      publishBlock(it, data.phase0Block)
+    of BeaconBlockFork.Altair:
+      publishBlock(it, data.altairBlock)
+  do:
     if apiResponse.isErr():
       debug "Unable to publish block", endpoint = node,
             error = apiResponse.error()

@@ -1,4 +1,4 @@
-import ../spec/datatypes/[phase0, altair]
+import ".."/spec/forks
 import common, api
 import chronicles
 
@@ -25,7 +25,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     let randaoReveal = await validator.genRandaoReveal(fork, genesisRoot, slot)
     let beaconBlock =
       try:
-        await vc.produceBlock(slot, randaoReveal, graffiti)
+        await vc.produceBlockV2(slot, randaoReveal, graffiti)
       except ValidatorApiError:
         error "Unable to retrieve block data", slot = slot,
               wall_slot = currentSlot, validator = shortLog(validator)
@@ -36,25 +36,20 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
         return
 
     let blockRoot = hash_tree_root(beaconBlock)
-    var signedBlock = phase0.SignedBeaconBlock(message: beaconBlock,
-                                        root: hash_tree_root(beaconBlock))
-
     # TODO: signing_root is recomputed in signBlockProposal just after
     let signing_root = compute_block_root(fork, genesisRoot, slot,
-                                          signedBlock.root)
+                                          blockRoot)
     let notSlashable = vc.attachedValidators
       .slashingProtection
-      .registerBlock(ValidatorIndex(signedBlock.message.proposer_index),
+      .registerBlock(ValidatorIndex(beaconBlock.proposer_index),
                      validator.pubKey, slot, signing_root)
 
     if notSlashable.isOk():
       let signature = await validator.signBlockProposal(fork, genesisRoot, slot,
                                                         blockRoot)
-      let signedBlock =
-        phase0.SignedBeaconBlock(message: beaconBlock, root: blockRoot,
-                                          signature: signature)
-
-      debug "Sending block", blck = shortLog(signedBlock.message),
+      let signedBlock = ForkedSignedBeaconBlock.init(beaconBlock, blockRoot,
+                                                     signature)
+      debug "Sending block", blck = shortLog(signedBlock),
             signature = shortLog(signature), blockRoot = shortLog(blockRoot),
             validator = shortLog(validator)
 
@@ -62,7 +57,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
         try:
           await vc.publishBlock(signedBlock)
         except ValidatorApiError:
-          error "Unable to publish block", blck = shortLog(signedBlock.message),
+          error "Unable to publish block", blck = shortLog(signedBlock),
                 blockRoot = shortLog(blockRoot),
                 validator = shortLog(validator),
                 validator_index = validator.index.get(),
@@ -73,12 +68,12 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                 err_name = exc.name, err_msg = exc.msg
           return
       if res:
-        notice "Block published", blck = shortLog(signedBlock.message),
+        notice "Block published", blck = shortLog(signedBlock),
                blockRoot = shortLog(blockRoot), validator = shortLog(validator),
                validator_index = validator.index.get()
       else:
         warn "Block was not accepted by beacon node",
-             blck = shortLog(signedBlock.message),
+             blck = shortLog(signedBlock),
              blockRoot = shortLog(blockRoot),
              validator = shortLog(validator),
              validator_index = validator.index.get(),
