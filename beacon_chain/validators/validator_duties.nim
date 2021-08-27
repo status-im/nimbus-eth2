@@ -584,6 +584,147 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           validator = validator.pubkey,
           badVoteDetails = $registered.error()
 
+proc createAndSendSyncCommitteeMessage(node: BeaconNode,
+                                       slot: Slot,
+                                       validator: AttachedValidator,
+                                       committeeIdx: SyncCommitteeIndex,
+                                       head: BlockRef) {.async.} =
+  try:
+    let
+      fork = node.dag.forkAtEpoch(slot.epoch)
+      genesisValidatorsRoot = node.dag.genesisValidatorsRoot
+      msg = await signSyncCommitteeMessage(validator, slot, fork,
+                                           genesisValidatorsRoot, head.root)
+
+    let ok = await node.sendSyncCommitteeMessage(
+      msg, committeeIdx, checkSignature = false)
+    if not ok: # Logged in sendSyncCommitteeMessage
+      return
+
+    if node.config.dumpEnabled:
+      dump(node.config.dumpDirOutgoing, msg, validator.pubKey)
+
+    let
+      wallTime = node.beaconClock.now()
+      deadline = msg.slot.toBeaconTime() +
+                 seconds(int(SECONDS_PER_SLOT div 3))
+
+    let (delayStr, delaySecs) =
+      if wallTime < deadline:
+        ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
+      else:
+        ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
+
+    notice "Sync committee message sent",
+            message = shortLog(msg),
+            validator = shortLog(validator),
+            delay = delayStr
+
+    beacon_sync_committee_message_sent_delay.observe(delaySecs)
+  except CatchableError as exc:
+    # An error could happen here when the signature task fails - we must
+    # not leak the exception because this is an asyncSpawn task
+    notice "Error sending sync committee message", err = exc.msg
+
+proc handleSyncCommitteeMessages(node: BeaconNode, head: BlockRef, slot: Slot) =
+  # TODO Use a view type to avoid the copy
+  var syncCommittee = @(node.dag.syncCommitteeParticipants(slot + 1))
+
+  for committeeIdx in allSyncCommittees():
+    for valKey in syncSubcommittee(syncCommittee, committeeIdx):
+      let validator = node.getAttachedValidator(valKey)
+      if validator == nil or not validator.index.isSome():
+        continue
+      asyncSpawn createAndSendSyncCommitteeMessage(node, slot, validator,
+                                                   committeeIdx, head)
+
+proc signAndSendContribution(node: BeaconNode,
+                             validator: AttachedValidator,
+                             contribution: SyncCommitteeContribution,
+                             selectionProof: ValidatorSig) {.async.} =
+  try:
+    let msg = (ref SignedContributionAndProof)(
+      message: ContributionAndProof(
+        aggregator_index: uint64 validator.index.get,
+        contribution: contribution,
+        selection_proof: selectionProof))
+
+    await validator.sign(msg,
+                         node.dag.forkAtEpoch(contribution.slot.epoch),
+                         node.dag.genesisValidatorsRoot)
+
+    # Failures logged in sendSyncCommitteeContribution
+    discard await node.sendSyncCommitteeContribution(msg[], false)
+  except CatchableError as exc:
+    # An error could happen here when the signature task fails - we must
+    # not leak the exception because this is an asyncSpawn task
+    notice "Error sending sync committee contribution", err = exc.msg
+
+proc handleSyncCommitteeContributions(node: BeaconNode,
+                                      head: BlockRef, slot: Slot) {.async.} =
+  # TODO Use a view type to avoid the copy
+  let
+    fork = node.dag.forkAtEpoch(slot.epoch)
+    genesisValidatorsRoot = node.dag.genesisValidatorsRoot
+    syncCommittee = @(node.dag.syncCommitteeParticipants(slot + 1))
+
+  type
+    AggregatorCandidate = object
+      validator: AttachedValidator
+      committeeIdx: SyncCommitteeIndex
+
+  var candidateAggregators: seq[AggregatorCandidate]
+  var selectionProofs: seq[Future[ValidatorSig]]
+
+  var time = timeIt:
+    for committeeIdx in allSyncCommittees():
+      # TODO Hoist outside of the loop with a view type
+      #      to avoid the repeated offset calculations
+      for valKey in syncSubcommittee(syncCommittee, committeeIdx):
+        let validator = node.getAttachedValidator(valKey)
+        if validator == nil:
+          continue
+
+        candidateAggregators.add AggregatorCandidate(
+          validator: validator,
+          committeeIdx: committeeIdx)
+
+        selectionProofs.add validator.getSyncCommitteeSelectionProof(
+          fork, genesisValidatorsRoot, slot, committeeIdx.asUInt64)
+
+    await allFutures(selectionProofs)
+
+  debug "Prepared contributions selection proofs",
+        count = selectionProofs.len, time
+
+  var contributionsSent = 0
+  time = timeIt:
+    for i in 0 ..< selectionProofs.len:
+      if not selectionProofs[i].completed:
+        continue
+
+      let selectionProof = selectionProofs[i].read
+      if not is_sync_committee_aggregator(selectionProof):
+        continue
+
+      var contribution: SyncCommitteeContribution
+      let contributionWasProduced = node.syncCommitteeMsgPool[].produceContribution(
+        slot, head, candidateAggregators[i].committeeIdx, contribution)
+
+      if contributionWasProduced:
+        asyncSpawn signAndSendContribution(
+          node,
+          candidateAggregators[i].validator,
+          contribution,
+          selectionProof)
+        debug "Contribution sent", contribution = shortLog(contribution)
+        inc contributionsSent
+      else:
+        debug "Failure to produce contribution",
+              slot, head, subnet = candidateAggregators[i].committeeIdx
+
+  notice "Contributions sent", count = contributionsSent, time
+
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async.} =
   ## Perform the proposal for the given slot, iff we have a validator attached
@@ -827,6 +968,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     head = node.dag.head
 
   handleAttestations(node, head, slot)
+  handleSyncCommitteeMessages(node, head, slot)
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
@@ -848,6 +990,10 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     let sendAggregatedAttestationsFut =
       sendAggregatedAttestations(node, head, slot)
 
+    let handleSyncCommitteeContributionsFut =
+      handleSyncCommitteeContributions(node, head, slot)
+
+    await handleSyncCommitteeContributionsFut
     await sendAggregatedAttestationsFut
 
   if node.eth1Monitor != nil and (slot mod SLOTS_PER_EPOCH) == 0:
