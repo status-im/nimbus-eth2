@@ -160,7 +160,6 @@ template eth2Network(path: string): Eth2NetworkMetadata =
 
 const
   mainnetMetadata* = eth2Network "shared/mainnet"
-  pyrmontMetadata* = eth2Network "shared/pyrmont"
   praterMetadata* = eth2Network "shared/prater"
   altairDevnet3Metadata* = eth2Network "shared/altair-devnet-3"
 
@@ -169,8 +168,6 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: 
     metadata = case toLowerAscii(networkName)
       of "mainnet":
         mainnetMetadata
-      of "pyrmont":
-        pyrmontMetadata
       of "prater":
         praterMetadata
       of "altair-devnet-3":
