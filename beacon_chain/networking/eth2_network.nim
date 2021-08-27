@@ -9,25 +9,19 @@
 
 import
   # Std lib
-  std/[typetraits, sequtils, os, algorithm, math, sets],
-  std/options as stdOptions,
+  std/[typetraits, os, sequtils, algorithm, math, tables],
 
   # Status libs
-  stew/[leb128, base58, endians2, results, byteutils, io2, bitops2], bearssl,
+  stew/[leb128, endians2, results, byteutils, io2, bitops2], bearssl,
   stew/shims/net as stewNet,
-  stew/shims/[macros, tables],
+  stew/shims/[macros],
   faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
-  json_serialization, json_serialization/std/[net, options],
+  json_serialization, json_serialization/std/[net, sets, options],
   chronos, chronicles, metrics,
-  libp2p/[switch, peerinfo, multicodec,
-          multiaddress, crypto/crypto, crypto/secp,
-          protocols/identify, protocols/protocol,
-          builders],
-  libp2p/muxers/muxer, libp2p/muxers/mplex/mplex,
-  libp2p/transports/[transport, tcptransport],
-  libp2p/protocols/secure/[secure, noise],
-  libp2p/protocols/pubsub/[pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
-  libp2p/transports/tcptransport,
+  libp2p/[switch, peerinfo, multiaddress, multicodec, crypto/crypto,
+    crypto/secp, builders],
+  libp2p/protocols/pubsub/[
+      pubsub, gossipsub, rpc/message, rpc/messages, peertable, pubsubpeer],
   libp2p/stream/connection,
   libp2p/utils/semaphore,
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
@@ -42,7 +36,7 @@ when chronicles.enabledLogLevel == LogLevel.TRACE:
   import std/sequtils
 
 export
-  version, multiaddress, peer_pool, peerinfo, p2pProtocol, connection,
+  tables, version, multiaddress, peer_pool, peerinfo, p2pProtocol, connection,
   libp2p_json_serialization, eth2_ssz_serialization, results, eth2_discovery
 
 logScope:
