@@ -28,18 +28,18 @@ make dist
 
 No `-march=native`.
 
-## Running a Pyrmont node
+## Running a Prater node
 
 With default options:
 
 ```bash
-./run-pyrmont-beacon-node.sh
+./run-prater-beacon-node.sh
 ```
 
 The script will forward all supplied options to the beacon node executable:
 
 ```bash
-./run-pyrmont-beacon-node.sh --log-level=DEBUG --tcp-port=9050
+./run-prater-beacon-node.sh --log-level=DEBUG --tcp-port=9050
 ```
 
 To monitor the Eth1 validator deposit contract, you'll need to pair
@@ -48,13 +48,13 @@ event logs. This could be a locally running Eth1 client such as Geth
 or a cloud service such as Infura. For more information please see
 our setup guides:
 
-https://status-im.github.io/nimbus-eth2/eth1.html
+https://nimbus.guide/eth1.html
 
 By default, the script will ask you to enter a web3 provider URL interactively,
 but this can be bypassed by specifying a websocket `WEB3_URL` environment variable:
 
 ```bash
-WEB3_URL="<YOUR_WEB3_URL>" ./run-pyrmont-beacon-node.sh
+WEB3_URL="<YOUR_WEB3_URL>" ./run-prater-beacon-node.sh
 ```
 
 ## Running a mainnet node
@@ -66,14 +66,3 @@ All the same conventions apply:
 # using a local Geth instance
 WEB3_URL="ws://localhost:8545" ./run-mainnet-node.sh --max-peers=150
 ```
-
-## Running a Prater node
-
-`run-prater-beacon-node.sh` is a similar script intended for connecting to the Prater
-testnet. All the same conventions apply:
-
-```bash
-# using a local Geth instance
-WEB3_URL="ws://localhost:8545" ./run-prater-node.sh --max-peers=150
-```
-
