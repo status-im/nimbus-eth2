@@ -81,27 +81,27 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "min without (node) (rate(process_cpu_seconds_total{instance=\"${instance}\"}[$__rate_interval])) * 100",
+          "expr": "rate(process_cpu_seconds_total{instance=\"${instance}\"}[$__rate_interval]) * 100",
           "legendFormat": "CPU usage %",
           "refId": "A"
         },
         {
-          "expr": "min without (node) (process_open_fds{instance=\"${instance}\"})",
+          "expr": "process_open_fds{instance=\"${instance}\"}",
           "legendFormat": "open file descriptors",
           "refId": "C"
         },
         {
-          "expr": "min without (node) (process_resident_memory_bytes{instance=\"${instance}\"})",
+          "expr": "process_resident_memory_bytes{instance=\"${instance}\"}",
           "legendFormat": "RSS",
           "refId": "D"
         },
         {
-          "expr": "min without (node) (nim_gc_mem_bytes{instance=\"${instance}\"})",
+          "expr": "nim_gc_mem_bytes{instance=\"${instance}\"}",
           "legendFormat": "Nim GC mem total",
           "refId": "F"
         },
         {
-          "expr": "min without (node) (nim_gc_mem_occupied_bytes{instance=\"${instance}\"})",
+          "expr": "nim_gc_mem_occupied_bytes{instance=\"${instance}\"}",
           "legendFormat": "Nim GC mem used",
           "refId": "G"
         }
@@ -198,7 +198,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "min without (node) (libp2p_open_streams{instance=\"${instance}\"})",
+          "expr": "libp2p_open_streams{instance=\"${instance}\"}",
           "interval": "",
           "legendFormat": "{{type}} ({{dir}})",
           "refId": "A"
@@ -296,19 +296,19 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "min without (node) (libp2p_peers{instance=\"${instance}\"})",
+          "expr": "libp2p_peers{instance=\"${instance}\"}",
           "interval": "",
           "legendFormat": "libp2p peers",
           "refId": "A"
         },
         {
-          "expr": "min without (node) (libp2p_pubsub_peers{instance=\"${instance}\"})",
+          "expr": "libp2p_pubsub_peers{instance=\"${instance}\"}",
           "interval": "",
           "legendFormat": "libp2p pubsub peers",
           "refId": "C"
         },
         {
-          "expr": "min without (node) (nbc_peers{instance=\"${instance}\"})",
+          "expr": "nbc_peers{instance=\"${instance}\"}",
           "interval": "",
           "legendFormat": "beacon_node peers",
           "refId": "B"
@@ -411,7 +411,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "min without (node) (nim_gc_heap_instance_occupied_bytes{instance=\"${instance}\"})",
+          "expr": "nim_gc_heap_instance_occupied_bytes{instance=\"${instance}\"}",
           "interval": "",
           "legendFormat": "{{type_name}}",
           "refId": "A"
@@ -509,7 +509,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "min without (node) (beacon_active_validators{instance=\"${instance}\"})",
+          "expr": "beacon_active_validators{instance=\"${instance}\"}",
           "interval": "",
           "legendFormat": "current validators",
           "refId": "A"
@@ -613,13 +613,13 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "min without (node) (rate(beacon_blocks_received_total{instance=\"${instance}\"}[$__rate_interval])) * 12",
+          "expr": "rate(beacon_blocks_received_total{instance=\"${instance}\"}[$__rate_interval]) * 12",
           "interval": "",
           "legendFormat": "received",
           "refId": "B"
         },
         {
-          "expr": "min without (node) (rate(beacon_blocks_proposed_total{instance=\"${instance}\"}[$__rate_interval])) * 12",
+          "expr": "rate(beacon_blocks_proposed_total{instance=\"${instance}\"}[$__rate_interval]) * 12",
           "interval": "",
           "legendFormat": "proposed",
           "refId": "A"
@@ -715,7 +715,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "min without (node) (beacon_state_data_cache_hits_total{instance=\"${instance}\"}) * 100 / (min without (node) (beacon_state_data_cache_hits_total{instance=\"${instance}\"}) + min without (node) (beacon_state_data_cache_misses_total{instance=\"${instance}\"}))",
+          "expr": "beacon_state_data_cache_hits_total{instance=\"${instance}\"} * 100 / (beacon_state_data_cache_hits_total{instance=\"${instance}\"} + beacon_state_data_cache_misses_total{instance=\"${instance}\"})",
           "interval": "",
           "legendFormat": "cache hit rate",
           "refId": "A"
@@ -817,13 +817,13 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "min without (node) (rate(beacon_attestations_received_total{instance=\"${instance}\"}[$__rate_interval])) * 12",
+          "expr": "rate(beacon_attestations_received_total{instance=\"${instance}\"}[$__rate_interval]) * 12",
           "interval": "",
           "legendFormat": "received",
           "refId": "A"
         },
         {
-          "expr": "min without (node) (rate(beacon_attestations_sent_total{instance=\"${instance}\"}[$__rate_interval])) * 12",
+          "expr": "rate(beacon_attestations_sent_total{instance=\"${instance}\"}[$__rate_interval]) * 12",
           "interval": "",
           "legendFormat": "sent",
           "refId": "B"
@@ -941,7 +941,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "min without (node) (process_resident_memory_bytes{instance=\"${instance}\"})",
+          "expr": "process_resident_memory_bytes{instance=\"${instance}\"}",
           "refId": "A"
         }
       ],
@@ -1031,7 +1031,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "min without (node) (rate(process_cpu_seconds_total{instance=\"${instance}\"}[$__rate_interval])) * 100",
+          "expr": "rate(process_cpu_seconds_total{instance=\"${instance}\"}[$__rate_interval]) * 100",
           "refId": "A"
         }
       ],
@@ -1121,7 +1121,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "min without (node) (beacon_slot{instance=\"${instance}\"})",
+          "expr": "beacon_slot{instance=\"${instance}\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1212,7 +1212,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(min without (node) (beacon_attestations_sent_total))",
+          "expr": "sum(beacon_attestations_sent_total)",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1304,7 +1304,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "min without (node) (beacon_attestations_received_total{instance=\"${instance}\"})",
+          "expr": "beacon_attestations_received_total{instance=\"${instance}\"}",
           "refId": "A"
         }
       ],
@@ -1362,7 +1362,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "min without (node) (rate(beacon_attestation_delay_bucket{instance=\"${instance}\"}[$__rate_interval]))",
+          "expr": "rate(beacon_attestation_delay_bucket{instance=\"${instance}\"}[$__rate_interval])",
           "format": "heatmap",
           "instant": false,
           "interval": "",
@@ -1467,7 +1467,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "min without (node) (beacon_current_epoch{instance=\"${instance}\"})",
+          "expr": "beacon_current_epoch{instance=\"${instance}\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1558,7 +1558,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "min without (node) (beacon_current_justified_epoch{instance=\"${instance}\"})",
+          "expr": "beacon_current_justified_epoch{instance=\"${instance}\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1650,7 +1650,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "time() - min without (node) (process_start_time_seconds{instance=\"${instance}\"})",
+          "expr": "time() - process_start_time_seconds{instance=\"${instance}\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1742,7 +1742,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "min without (node) (nbc_peers{instance=\"${instance}\"})",
+          "expr": "nbc_peers{instance=\"${instance}\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1833,7 +1833,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "min without (node) (beacon_finalized_epoch{instance=\"${instance}\"})",
+          "expr": "beacon_finalized_epoch{instance=\"${instance}\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1894,7 +1894,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "min without (node) (rate(beacon_aggregate_delay_bucket{instance=\"${instance}\"}[$__rate_interval]))",
+          "expr": "rate(beacon_aggregate_delay_bucket{instance=\"${instance}\"}[$__rate_interval])",
           "format": "heatmap",
           "instant": false,
           "interval": "",
@@ -1969,7 +1969,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "min without (node) (rate(beacon_block_delay_bucket{instance=\"${instance}\"}[$__rate_interval]))",
+          "expr": "rate(beacon_block_delay_bucket{instance=\"${instance}\"}[$__rate_interval])",
           "format": "heatmap",
           "instant": false,
           "interval": "",
@@ -2043,7 +2043,7 @@
       "reverseYBuckets": false,
       "targets": [
         {
-          "expr": "min without (node) (rate(beacon_store_block_duration_seconds_bucket{instance=\"${instance}\"}[$__rate_interval]))",
+          "expr": "rate(beacon_store_block_duration_seconds_bucket{instance=\"${instance}\"}[$__rate_interval])",
           "format": "heatmap",
           "instant": false,
           "interval": "",
@@ -2131,7 +2131,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "min without (node) (rate(attached_validator_balance_total{instance=\"${instance}\"}[$__rate_interval]) * 384 / 1000000000)",
+          "expr": "rate(attached_validator_balance_total{instance=\"${instance}\"}[$__rate_interval]) * 384 / 1000000000",
           "interval": "",
           "legendFormat": "GWei",
           "refId": "A"
@@ -2232,7 +2232,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "min without (node) (sqlite3_memory_used_bytes{instance=\"${instance}\"})",
+          "expr": "sqlite3_memory_used_bytes{instance=\"${instance}\"}",
           "interval": "",
           "legendFormat": "Memory used",
           "refId": "A"
