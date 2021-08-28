@@ -977,6 +977,105 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
 
+func syncSubcommittee*(syncCommittee: openarray[ValidatorPubKey],
+                       committeeIdx: SyncCommitteeIndex): seq[ValidatorPubKey] =
+  ## TODO Return a view type
+  ## Unfortunately, this doesn't work as a template right now.
+  if syncCommittee.len == 0:
+    return @[]
+
+  let
+    startIdx = committeeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
+    onePastEndIdx = startIdx + SYNC_SUBCOMMITTEE_SIZE
+  doAssert startIdx < syncCommittee.len
+
+  @(toOpenArray(syncCommittee, startIdx, onePastEndIdx - 1))
+
+func syncCommitteeParticipants*(dagParam: ChainDAGRef,
+                                slotParam: Slot): seq[ValidatorPubKey] =
+  # TODO:
+  # Use view types in Nim 1.6
+  # Right now, the compiler is not able to handle turning this into a
+  # template and returning an openarray
+  let
+    dag = dagParam
+    slot = slotParam
+
+  if dag.headState.data.beaconStateFork == forkAltair:
+    let
+      headSlot = dag.headState.data.hbsAltair.data.slot
+      headCommitteePeriod = syncCommitteePeriod(headSlot)
+      periodStart = syncCommitteePeriodStartSlot(headCommitteePeriod)
+      nextPeriodStart = periodStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
+
+    if slot >= nextPeriodStart:
+      @(dag.headState.data.hbsAltair.data.next_sync_committee.pubkeys.data)
+    elif slot >= periodStart:
+      @(dag.headState.data.hbsAltair.data.current_sync_committee.pubkeys.data)
+    else:
+      @[]
+  else:
+    @[]
+
+func getSubcommitteePositionAux*(
+    dag: ChainDAGRef,
+    syncCommittee: openarray[ValidatorPubKey],
+    committeeIdx: SyncCommitteeIndex,
+    validatorIdx: uint64): Option[uint64] =
+  # TODO Can we avoid the key conversions by getting a compressed key
+  #      out of ImmutableValidatorData2? If we had this, we can define
+  #      the function `dag.validatorKeyBytes` and use it here.
+  let validatorKey = dag.validatorKey(validatorIdx)
+  if validatorKey.isNone():
+    return
+  let validatorPubKey = validatorKey.get().toPubKey
+
+  for pos, key in syncCommittee.syncSubcommittee(committeeIdx):
+    if validatorPubKey == key:
+      return some uint64(pos)
+
+func getSubcommitteePosition*(dag: ChainDAGRef,
+                              slot: Slot,
+                              committeeIdx: SyncCommitteeIndex,
+                              validatorIdx: uint64): Option[uint64] =
+  if dag.headState.data.beaconStateFork == forkPhase0:
+    return
+
+  let
+    headSlot = dag.headState.data.hbsAltair.data.slot
+    headCommitteePeriod = syncCommitteePeriod(headSlot)
+    periodStart = syncCommitteePeriodStartSlot(headCommitteePeriod)
+    nextPeriodStart = periodStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
+
+  template search(syncCommittee: openarray[ValidatorPubKey]): Option[uint64] =
+    dag.getSubcommitteePositionAux(syncCommittee, committeeIdx, validatorIdx)
+
+  if slot < periodStart:
+    return
+  elif slot >= nextPeriodStart:
+    return search(dag.headState.data.hbsAltair.data.next_sync_committee.pubkeys.data)
+  else:
+    return search(dag.headState.data.hbsAltair.data.current_sync_committee.pubkeys.data)
+
+template syncCommitteeParticipants*(
+    dag: ChainDAGRef,
+    slot: Slot,
+    committeeIdx: SyncCommitteeIndex): seq[ValidatorPubKey] =
+  let
+    startIdx = committeeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
+    onePastEndIdx = startIdx + SYNC_SUBCOMMITTEE_SIZE
+  # TODO Nim is not happy with returning an openarray here
+  @(toOpenArray(dag.syncCommitteeParticipants(slot), startIdx, onePastEndIdx - 1))
+
+iterator syncCommitteeParticipants*(
+    dag: ChainDAGRef,
+    slot: Slot,
+    committeeIdx: SyncCommitteeIndex,
+    aggregationBits: SyncCommitteeAggregationBits): ValidatorPubKey =
+  for pos, valIdx in pairs(dag.syncCommitteeParticipants(slot, committeeIdx)):
+    if aggregationBits[pos]:
+      yield valIdx
+
 func needStateCachesAndForkChoicePruning*(dag: ChainDAGRef): bool =
   dag.lastPrunePoint != dag.finalizedHead
 
