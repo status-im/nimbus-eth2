@@ -18,7 +18,8 @@ import
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],
   ../consensus_object_pools/[
-    attestation_pool, blockchain_dag, block_quarantine, exit_pool, spec_cache],
+    attestation_pool, blockchain_dag, block_quarantine, exit_pool, spec_cache,
+    sync_committee_msg_pool],
   ".."/[beacon_node_types, beacon_clock],
   ./batch_validation
 
@@ -746,5 +747,207 @@ proc validateVoluntaryExit*(
     signed_voluntary_exit.message.validator_index.int)
   pool.voluntary_exits.addExitMessage(
     signed_voluntary_exit, VOLUNTARY_EXITS_BOUND)
+
+  ok()
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#sync_committee_subnet_id
+proc validateSyncCommitteeMessage*(
+    dag: ChainDAGRef,
+    syncCommitteeMsgPool: SyncCommitteeMsgPoolRef,
+    msg: SyncCommitteeMessage,
+    syncCommitteeIdx: SyncCommitteeIndex,
+    wallTime: BeaconTime,
+    checkSignature: bool):
+    Result[void, (ValidationResult, cstring)] =
+  block:
+    # [IGNORE] The signature's slot is for the current slot
+    # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance)
+    # i.e. sync_committee_message.slot == current_slot.
+    let res = check_propagation_slot_range(msg.slot, wallTime)
+    if res.isErr:
+      return res
+
+  # [REJECT] The subnet_id is valid for the given validator
+  # i.e. subnet_id in compute_subnets_for_sync_committee(state, sync_committee_message.validator_index).
+  # Note this validation implies the validator is part of the broader
+  # current sync committee along with the correct subcommittee.
+  # This check also ensures that the validator index is in range
+  let positionInSubcommittee = dag.getSubcommitteePosition(
+    msg.slot + 1, syncCommitteeIdx, msg.validator_index)
+
+  if positionInSubcommittee.isNone:
+    return errReject(
+      "SyncCommitteeMessage: originator not part of sync committee")
+
+  block:
+    # [IGNORE] There has been no other valid sync committee signature for the
+    # declared slot for the validator referenced by sync_committee_message.validator_index
+    # (this requires maintaining a cache of size SYNC_COMMITTEE_SIZE // SYNC_COMMITTEE_SUBNET_COUNT
+    # for each subnet that can be flushed after each slot).
+    #
+    # Note this validation is per topic so that for a given slot, multiple
+    # messages could be forwarded with the same validator_index as long as
+    # the subnet_ids are distinct.
+    let msgKey = SyncCommitteeMsgKey(
+      originator: msg.validator_index.ValidatorIndex,
+      slot: msg.slot,
+      committeeIdx: syncCommitteeIdx)
+
+    if msgKey in syncCommitteeMsgPool.seenByAuthor:
+      return errReject("SyncCommitteeMessage: duplicate message")
+    else:
+      syncCommitteeMsgPool.seenByAuthor.incl msgKey
+
+  block:
+    # [REJECT] The signature is valid for the message beacon_block_root for the
+    # validator referenced by validator_index.
+    let
+      epoch = msg.slot.epoch
+      fork = dag.forkAtEpoch(epoch)
+      genesisValidatorsRoot = dag.genesisValidatorsRoot
+      senderPubKey = dag.validatorKey(msg.validator_index)
+
+    if senderPubKey.isNone():
+      return errReject("SyncCommitteeMessage: invalid validator index")
+
+    var cookedSignature = msg.signature.load
+    if cookedSignature.isNone:
+      return errReject("SyncCommitteeMessage: signature fails to load")
+
+    if checkSignature and
+       not verify_sync_committee_message_signature(epoch,
+                                                   msg.beacon_block_root,
+                                                   fork, genesisValidatorsRoot,
+                                                   senderPubKey.get(),
+                                                   cookedSignature.get):
+      return errReject("SyncCommitteeMessage: signature fails to verify")
+
+    syncCommitteeMsgPool[].addSyncCommitteeMsg(
+      msg.slot,
+      msg.beacon_block_root,
+      cookedSignature.get,
+      syncCommitteeIdx,
+      positionInSubcommittee.get)
+
+  ok()
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+proc validateSignedContributionAndProof*(
+    dag: ChainDAGRef,
+    syncCommitteeMsgPool: SyncCommitteeMsgPoolRef,
+    msg: SignedContributionAndProof,
+    wallTime: BeaconTime,
+    checkSignature: bool):
+    Result[void, (ValidationResult, cstring)] =
+
+  # [IGNORE] The contribution's slot is for the current slot
+  # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance)
+  # i.e. contribution.slot == current_slot.
+  ? check_propagation_slot_range(msg.message.contribution.slot, wallTime)
+  let
+    aggregatorPubKey = dag.validatorKey(msg.message.aggregator_index)
+  if aggregatorPubKey.isNone():
+    return errReject("SignedContributionAndProof: invalid aggregator index")
+
+  # [REJECT] The subcommittee index is in the allowed range
+  # i.e. contribution.subcommittee_index < SYNC_COMMITTEE_SUBNET_COUNT.
+  let committeeIdx = msg.message.contribution.subcommittee_index.validateSyncCommitteeIndexOr:
+    return errReject("SignedContributionAndProof: subcommittee index too high")
+
+  # [REJECT] contribution_and_proof.selection_proof selects the validator as an aggregator for the slot
+  # i.e. is_sync_committee_aggregator(contribution_and_proof.selection_proof) returns True.
+  if not is_sync_committee_aggregator(msg.message.selection_proof):
+    return err((ValidationResult.Reject, cstring(
+      "SignedContributionAndProof: invalid selection_proof")))
+
+  block:
+    # [IGNORE] The sync committee contribution is the first valid contribution
+    # received for the aggregator with index contribution_and_proof.aggregator_index
+    # for the slot contribution.slot and subcommittee index contribution.subcommittee_index
+    # (this requires maintaining a cache of size SYNC_COMMITTEE_SIZE for this
+    #  topic that can be flushed after each slot).
+    let msgKey = SyncCommitteeMsgKey(
+      originator: msg.message.aggregator_index.ValidatorIndex,
+      slot: msg.message.contribution.slot,
+      committeeIdx: committeeIdx)
+
+    if msgKey in syncCommitteeMsgPool.seenAggregateByAuthor:
+      return errIgnore("SignedContributionAndProof: duplicate aggregation")
+
+    syncCommitteeMsgPool.seenAggregateByAuthor.incl msgKey
+
+  block:
+    # [REJECT] The aggregator's validator index is in the declared subcommittee
+    # of the current sync committee.
+    # i.e. state.validators[contribution_and_proof.aggregator_index].pubkey in
+    #      get_sync_subcommittee_pubkeys(state, contribution.subcommittee_index).
+    let
+      epoch = msg.message.contribution.slot.epoch
+      fork = dag.forkAtEpoch(epoch)
+      genesisValidatorsRoot = dag.genesisValidatorsRoot
+
+    # [REJECT] The aggregator signature, signed_contribution_and_proof.signature, is valid
+    if not verify_signed_contribution_and_proof_signature(msg, fork,
+                                                          genesisValidatorsRoot,
+                                                          aggregatorPubKey.get()):
+      return errReject(
+        "SignedContributionAndProof: aggregator signature fails to verify")
+
+    # [REJECT] The contribution_and_proof.selection_proof is a valid signature of the
+    # SyncAggregatorSelectionData derived from the contribution by the validator with
+    # index contribution_and_proof.aggregator_index.
+    if not verify_selection_proof_signature(msg.message, fork,
+                                            genesisValidatorsRoot,
+                                            aggregatorPubKey.get()):
+      return errReject(
+        "SignedContributionAndProof: selection proof signature fails to verify")
+
+    # [REJECT] The aggregate signature is valid for the message beacon_block_root
+    # and aggregate pubkey derived from the participation info in aggregation_bits
+    # for the subcommittee specified by the contribution.subcommittee_index.
+    var
+      committeeAggKey {.noInit.}: AggregatePublicKey
+      initialized = false
+      mixedKeys = 0
+
+    for validatorPubKey in dag.syncCommitteeParticipants(
+        msg.message.contribution.slot + 1,
+        committeeIdx,
+        msg.message.contribution.aggregation_bits):
+      let validatorPubKey = validatorPubKey.loadWithCache.get
+      if not initialized:
+        initialized = true
+        committeeAggKey.init(validatorPubKey)
+        inc mixedKeys
+      else:
+        inc mixedKeys
+        committeeAggKey.aggregate(validatorPubKey)
+
+    if not initialized:
+      # [REJECT] The contribution has participants
+      # that is, any(contribution.aggregation_bits).
+      return errReject("SignedContributionAndProof: aggregation bits empty")
+
+    let cookedSignature = msg.message.contribution.signature.load
+    if cookedSignature.isNone:
+      return errReject(
+        "SignedContributionAndProof: aggregate signature fails to load")
+
+    if checkSignature and
+       not verify_sync_committee_message_signature(
+         epoch, msg.message.contribution.beacon_block_root, fork,
+         genesisValidatorsRoot, committeeAggKey.finish, cookedSignature.get):
+      debug "failing_sync_contribution",
+        slot = msg.message.contribution.slot + 1,
+        subnet = committeeIdx,
+        participants = $(msg.message.contribution.aggregation_bits),
+        mixedKeys
+
+      return errReject(
+        "SignedContributionAndProof: aggregate signature fails to verify")
+
+    syncCommitteeMsgPool[].addSyncContribution(
+      msg.message.contribution,
+      cookedSignature.get)
 
   ok()
