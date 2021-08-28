@@ -464,5 +464,8 @@ func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noInit
     raise (ref ValueError)(msg: $v.error)
   v[]
 
+func infinity*(T: type ValidatorSig): T =
+  result.blob[0] = byte 0xC0
+
 proc burnMem*(key: var ValidatorPrivKey) =
   ncrutils.burnMem(addr key, sizeof(ValidatorPrivKey))

@@ -75,6 +75,33 @@ type
     nextAttestationEpoch*: seq[tuple[subnet: Epoch, aggregate: Epoch]] ## \
     ## sequence based on validator indices
 
+  SyncCommitteeMsgKey* = object
+    originator*: ValidatorIndex
+    slot*: Slot
+    committeeIdx*: SyncCommitteeIndex
+
+  TrustedSyncCommitteeMsg* = object
+    slot*: Slot
+    committeeIdx*: SyncCommitteeIndex
+    positionInCommittee*: uint64
+    signature*: CookedSig
+
+  BestSyncSubcommitteeContribution* = object
+    totalParticipants*: int
+    participationBits*: SyncCommitteeAggregationBits
+    signature*: CookedSig
+
+  BestSyncSubcommitteeContributions* = array[SYNC_COMMITTEE_SUBNET_COUNT,
+                                             BestSyncSubcommitteeContribution]
+
+  SyncCommitteeMsgPool* = object
+    seenByAuthor*: HashSet[SyncCommitteeMsgKey]
+    seenAggregateByAuthor*: HashSet[SyncCommitteeMsgKey]
+    blockVotes*: Table[Eth2Digest, seq[TrustedSyncCommitteeMsg]]
+    bestAggregates*: Table[Eth2Digest, BestSyncSubcommitteeContributions]
+
+  SyncCommitteeMsgPoolRef* = ref SyncCommitteeMsgPool
+
   ExitPool* = object
     ## The exit pool tracks attester slashings, proposer slashings, and
     ## voluntary exits that could be added to a proposed block.
@@ -153,3 +180,6 @@ type
     lastCalculatedEpoch*: Epoch
 
 func shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
+
+func hash*(x: SyncCommitteeMsgKey): Hash =
+  hashData(unsafeAddr x, sizeof(x))

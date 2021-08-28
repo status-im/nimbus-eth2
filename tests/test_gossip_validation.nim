@@ -45,6 +45,25 @@ suite "Gossip validation " & preset():
         defaultRuntimeConfig, state.data, getStateField(state.data, slot) + 1,
         cache, rewards, {})
 
+  test "Any committee index is valid":
+    template committee(idx: uint64): untyped =
+      get_beacon_committee(
+        dag.headState.data, dag.head.slot, idx.CommitteeIndex, cache)
+
+    template committeeLen(idx: uint64): untyped =
+      get_beacon_committee_len(
+        dag.headState.data, dag.head.slot, idx.CommitteeIndex, cache)
+
+    check:
+      committee(0).len > 0
+      committee(10000).len == 0
+      committee(uint64.high).len == 0
+
+    check:
+      committeeLen(2) > 0
+      committeeLen(10000) == 0
+      committeeLen(uint64.high) == 0
+
   test "Validation sanity":
     # TODO: refactor tests to avoid skipping BLS validation
     dag.updateFlags.incl {skipBLSValidation}
