@@ -49,6 +49,7 @@ type
     dag*: ChainDAGRef
     quarantine*: QuarantineRef
     attestationPool*: ref AttestationPool
+    syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     exitPool*: ref ExitPool
     eth1Monitor*: Eth1Monitor
     rpcServer*: RpcServer

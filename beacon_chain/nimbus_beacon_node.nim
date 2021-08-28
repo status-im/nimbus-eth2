@@ -40,7 +40,7 @@ import
     validator],
   ./consensus_object_pools/[
     blockchain_dag, block_quarantine, block_clearance, block_pools_types,
-    attestation_pool, exit_pool, spec_cache],
+    attestation_pool, sync_committee_msg_pool, exit_pool, spec_cache],
   ./eth1/eth1_monitor
 
 from eth/common/eth_types import BlockHashOrNumber
@@ -314,6 +314,7 @@ proc init*(T: type BeaconNode,
       rng, config, netKeys, cfg, dag.forkDigests, getBeaconTime,
       getStateField(dag.headState.data, genesis_validators_root))
     attestationPool = newClone(AttestationPool.init(dag, quarantine))
+    syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init())
     exitPool = newClone(ExitPool.init(dag))
 
   case config.slashingDbKind
@@ -344,7 +345,7 @@ proc init*(T: type BeaconNode,
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, dag, attestationPool, exitPool, validatorPool,
-      quarantine, rng, getBeaconTime)
+      syncCommitteeMsgPool, quarantine, rng, getBeaconTime)
 
   var node = BeaconNode(
     nickname: nickname,
@@ -358,6 +359,7 @@ proc init*(T: type BeaconNode,
     gossipState: GossipState.Disconnected,
     quarantine: quarantine,
     attestationPool: attestationPool,
+    syncCommitteeMsgPool: syncCommitteeMsgPool,
     attachedValidators: validatorPool,
     exitPool: exitPool,
     eth1Monitor: eth1Monitor,
@@ -981,6 +983,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Checkpoint the database to clear the WAL file and make sure changes in
   # the database are synced with the filesystem.
   node.db.checkpoint()
+
+  node.syncCommitteeMsgPool[].clearPerSlotData()
 
   # -1 is a more useful output than 18446744073709551615 as an indicator of
   # no future attestation/proposal known.

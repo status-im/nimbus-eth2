@@ -14,7 +14,7 @@ import
   # Nimble packages
   stew/[assign2, byteutils, objects],
   chronos, metrics,
-  chronicles,
+  chronicles, chronicles/timings,
   json_serialization/std/[options, sets, net], serialization/errors,
   eth/db/kvstore,
   eth/keys, eth/p2p/discoveryv5/[protocol, enr],
@@ -24,7 +24,8 @@ import
   ../spec/[
     eth2_merkleization, forks, helpers, network, signatures, state_transition],
   ../consensus_object_pools/[
-    spec_cache, blockchain_dag, block_clearance, attestation_pool, exit_pool],
+    spec_cache, blockchain_dag, block_clearance, attestation_pool, exit_pool,
+    sync_committee_msg_pool],
   ../eth1/eth1_monitor,
   ../networking/eth2_network,
   ../sszdump, ../sync/sync_manager,
@@ -38,15 +39,28 @@ const delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
 
 declareCounter beacon_attestations_sent,
   "Number of beacon chain attestations sent by this peer"
+
 declareHistogram beacon_attestation_sent_delay,
   "Time(s) between slot start and attestation sent moment",
   buckets = delayBuckets
+
+declareCounter beacon_sync_committee_messages_sent,
+  "Number of sync committee messages sent by this peer"
+
+declareCounter beacon_sync_committee_contributions_sent,
+  "Number of sync committee contributions sent by this peer"
+
+declareHistogram beacon_sync_committee_message_sent_delay,
+  "Time(s) between slot start and sync committee message sent moment",
+  buckets = delayBuckets
+
 declareCounter beacon_blocks_proposed,
   "Number of beacon chain blocks sent by this peer"
 
 declareGauge(attached_validator_balance,
   "Validator balance at slot end of the first 64 validators, in Gwei",
   labels = ["pubkey"])
+
 declarePublicGauge(attached_validator_balance_total,
   "Validator balance of all attached validators, in Gwei")
 
@@ -179,6 +193,43 @@ proc sendAttestation*(
       notice "Produced attestation failed validation",
         attestation = shortLog(attestation),
         result = $ok
+      false
+
+proc sendSyncCommitteeMessage*(
+    node: BeaconNode, msg: SyncCommitteeMessage,
+    committeeIdx: SyncCommitteeIndex, checkSignature: bool): Future[bool] {.async.} =
+  # Validate sync committee message before sending it via gossip
+  # validation will also register the message with the sync committee
+  # message pool. Notably, although libp2p calls the data handler for
+  # any subscription on the subnet topic, it does not perform validation.
+  let ok = node.processor.syncCommitteeMsgValidator(
+    msg, committeeIdx, checkSignature)
+
+  return case ok
+    of ValidationResult.Accept:
+      node.network.broadcastSyncCommitteeMessage(msg, committeeIdx)
+      beacon_sync_committee_messages_sent.inc()
+      true
+    else:
+      notice "Produced sync committee message failed validation",
+              msg, result = $ok
+      false
+
+proc sendSyncCommitteeContribution*(
+    node: BeaconNode,
+    msg: SignedContributionAndProof,
+    checkSignature: bool): Future[bool] {.async.} =
+  let ok = node.processor.syncCommitteeContributionValidator(
+    msg, checkSignature)
+
+  return case ok
+    of ValidationResult.Accept:
+      node.network.broadcastSignedContributionAndProof(msg)
+      beacon_sync_committee_contributions_sent.inc()
+      true
+    else:
+      notice "Produced sync committee contribution failed validation",
+              msg, result = $ok
       false
 
 proc createAndSendAttestation(node: BeaconNode,
@@ -573,41 +624,38 @@ proc sendAggregatedAttestations(
         aggregationSlot
 
 proc updateValidatorMetrics*(node: BeaconNode) =
-  when defined(metrics):
-    # Technically, this only needs to be done on epoch transitions and if there's
-    # a reorg that spans an epoch transition, but it's easier to implement this
-    # way for now.
+  # Technically, this only needs to be done on epoch transitions and if there's
+  # a reorg that spans an epoch transition, but it's easier to implement this
+  # way for now.
 
-    # We'll limit labelled metrics to the first 64, so that we don't overload
-    # Prometheus.
+  # We'll limit labelled metrics to the first 64, so that we don't overload
+  # Prometheus.
 
-    var total: Gwei
-    var i = 0
-    for _, v in node.attachedValidators[].validators:
-      let balance =
-        if v.index.isNone():
-          0.Gwei
-        elif v.index.get().uint64 >=
-            getStateField(node.dag.headState.data, balances).lenu64:
-          debug "Cannot get validator balance, index out of bounds",
-            pubkey = shortLog(v.pubkey), index = v.index.get(),
-            balances = getStateField(node.dag.headState.data, balances).len,
-            stateRoot = getStateRoot(node.dag.headState.data)
-          0.Gwei
-        else:
-          getStateField(node.dag.headState.data, balances)[v.index.get()]
+  var total: Gwei
+  var i = 0
+  for _, v in node.attachedValidators[].validators:
+    let balance =
+      if v.index.isNone():
+        0.Gwei
+      elif v.index.get().uint64 >=
+          getStateField(node.dag.headState.data, balances).lenu64:
+        debug "Cannot get validator balance, index out of bounds",
+          pubkey = shortLog(v.pubkey), index = v.index.get(),
+          balances = getStateField(node.dag.headState.data, balances).len,
+          stateRoot = getStateRoot(node.dag.headState.data)
+        0.Gwei
+      else:
+        getStateField(node.dag.headState.data, balances)[v.index.get()]
 
-      if i < 64:
-        attached_validator_balance.set(
-          balance.toGaugeValue, labelValues = [shortLog(v.pubkey)])
+    if i < 64:
+      attached_validator_balance.set(
+        balance.toGaugeValue, labelValues = [shortLog(v.pubkey)])
 
-      inc i
-      total += balance
+    inc i
+    total += balance
 
-    node.attachedValidatorBalanceTotal = total
-    attached_validator_balance_total.set(total.toGaugeValue)
-  else:
-    discard
+  node.attachedValidatorBalanceTotal = total
+  attached_validator_balance_total.set(total.toGaugeValue)
 
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
