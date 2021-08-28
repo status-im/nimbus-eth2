@@ -2096,3 +2096,13 @@ proc broadcastBeaconBlock*(node: Eth2Node, forked: ForkedSignedBeaconBlock) =
   of BeaconBlockFork.Altair:
     let topic = getBeaconBlocksTopic(node.forkDigests.altair)
     node.broadcast(topic, forked.altairBlock)
+
+proc broadcastSyncCommitteeMessage*(
+    node: Eth2Node, msg: SyncCommitteeMessage, committeeIdx: SyncCommitteeIndex) =
+  let topic = getSyncCommitteeTopic(node.forkDigests.altair, committeeIdx)
+  node.broadcast(topic, msg)
+
+proc broadcastSignedContributionAndProof*(
+    node: Eth2Node, msg: SignedContributionAndProof) =
+  let topic = getSyncCommitteeContributionAndProofTopic(node.forkDigests.altair)
+  node.broadcast(topic, msg)

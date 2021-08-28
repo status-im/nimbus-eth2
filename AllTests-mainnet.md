@@ -98,9 +98,10 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Gossip validation  [Preset: mainnet]
 ```diff
++ Any committee index is valid                                                               OK
 + Validation sanity                                                                          OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Honest validator
 ```diff
 + General pubsub topics                                                                      OK
@@ -339,4 +340,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 36/48 Fail: 0/48 Skip: 12/48
 
 ---TOTAL---
-OK: 185/197 Fail: 0/197 Skip: 12/197
+OK: 186/198 Fail: 0/198 Skip: 12/198
