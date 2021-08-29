@@ -672,16 +672,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
         res.get()
-    return
-      case bdata.data.kind
-      of BeaconBlockFork.Phase0:
-        RestApiResponse.jsonResponse(
-          (version: "phase0", data: bdata.data.phase0Block)
-        )
-      of BeaconBlockFork.Altair:
-        RestApiResponse.jsonResponse(
-          (version: "altair", data: bdata.data.altairBlock)
-        )
+    return RestApiResponse.jsonResponsePlain(bdata.data.asSigned())
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
   router.api(MethodGet, "/api/eth/v1/beacon/blocks/{block_id}/root") do (
