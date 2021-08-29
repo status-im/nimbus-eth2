@@ -16,18 +16,20 @@
 
 import
   math, stats, times, strformat,
-  options, random, tables, os,
+  tables, options, random, tables, os,
   confutils, chronicles, eth/db/kvstore_sqlite3,
-  eth/keys,
+  chronos/timer, eth/keys,
   ../tests/testblockutil,
   ../beacon_chain/spec/[
     beaconstate, forks, helpers, signatures, state_transition],
   ../beacon_chain/spec/datatypes/[phase0, altair],
-  ../beacon_chain/[beacon_node_types, beacon_chain_db],
+  ../beacon_chain/[beacon_node_types, beacon_chain_db, beacon_clock],
   ../beacon_chain/eth1/eth1_monitor,
   ../beacon_chain/validators/validator_pool,
+  ../beacon_chain/gossip_processing/gossip_validation,
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine,
-                                          block_clearance, attestation_pool],
+                                          block_clearance, attestation_pool,
+                                          sync_committee_msg_pool],
   ./simutils
 
 type Timers = enum
@@ -36,7 +38,11 @@ type Timers = enum
   tHashBlock = "Tree-hash block"
   tSignBlock = "Sign block"
   tAttest = "Have committee attest to block"
+  tSyncCommittees = "Produce sync committee actions"
   tReplay = "Replay all produced blocks"
+
+template seconds(x: uint64): timer.Duration =
+  timer.seconds(int(x))
 
 func gauss(r: var Rand; mu = 0.0; sigma = 1.0): float =
   # TODO This is present in Nim 1.4
@@ -54,6 +60,7 @@ func gauss(r: var Rand; mu = 0.0; sigma = 1.0): float =
 cli do(slots = SLOTS_PER_EPOCH * 6,
        validators = SLOTS_PER_EPOCH * 400, # One per shard is minimum
        attesterRatio {.desc: "ratio of validators that attest in each round"} = 0.82,
+       syncCommitteeRatio {.desc: "ratio of validators that perform sync committee actions in each round"} = 0.75,
        blockRatio {.desc: "ratio of slots with blocks"} = 1.0,
        replay = true):
   let
@@ -61,7 +68,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     genesisBlock = get_initial_beacon_block(state[].data)
     genesisTime = float state[].data.genesis_time
 
-  var cfg = defaultRuntimeConfig
+  var
+    validatorKeyToIndex = initTable[ValidatorPubKey, int]()
+    cfg = defaultRuntimeConfig
 
   cfg.ALTAIR_FORK_EPOCH = 96.Slot.epoch
 
@@ -73,12 +82,16 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   ChainDAGRef.preInit(db, state[].data, state[].data, genesisBlock)
   putInitialDepositContractSnapshot(db, depositContractSnapshot)
 
+  for i in 0 ..< state.data.validators.len:
+    validatorKeyToIndex[state.data.validators[i].pubkey] = i
+
   var
     dag = ChainDAGRef.init(cfg, db, {})
     eth1Chain = Eth1Chain.init(cfg, db)
     merkleizer = depositContractSnapshot.createMerkleizer
     quarantine = QuarantineRef.init(keys.newRng())
     attPool = AttestationPool.init(dag, quarantine)
+    syncCommitteePool = newClone SyncCommitteeMsgPool.init()
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
@@ -125,6 +138,90 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
                 signature: sig.toValidatorSig()
               ), [validatorIdx], sig, data.slot)
 
+  proc handleSyncCommitteeActions(slot: Slot) =
+    type
+      Aggregator = object
+        committeeIdx: SyncCommitteeIndex
+        validatorIdx: int
+        selectionProof: ValidatorSig
+
+    let
+      syncCommittee = @(dag.syncCommitteeParticipants(slot + 1))
+      genesisValidatorsRoot = dag.genesisValidatorsRoot
+      fork = dag.forkAtEpoch(slot.epoch)
+      signingRoot = sync_committee_msg_signing_root(
+        fork, slot.epoch, genesisValidatorsRoot, dag.head.root)
+      messagesTime = slot.toBeaconTime(seconds(SECONDS_PER_SLOT div 3))
+      contributionsTime = slot.toBeaconTime(seconds(2 * SECONDS_PER_SLOT div 3))
+
+    var aggregators: seq[Aggregator]
+
+    for committeeIdx in allSyncCommittees():
+      for valKey in syncSubcommittee(syncCommittee, committeeIdx):
+        if rand(r, 1.0) > syncCommitteeRatio:
+          continue
+
+        let
+          validatorIdx = validatorKeyToIndex[valKey]
+          validarorPrivKey = makeFakeValidatorPrivKey(validatorIdx)
+          signature = blsSign(validarorPrivKey, signingRoot.data)
+          msg = SyncCommitteeMessage(
+            slot: slot,
+            beacon_block_root: dag.head.root,
+            validator_index: uint64 validatorIdx,
+            signature: signature.toValidatorSig)
+
+        let res = dag.validateSyncCommitteeMessage(
+          syncCommitteePool,
+          msg,
+          committeeIdx,
+          messagesTime,
+          false)
+
+        doAssert res.isOk
+
+        let
+          selectionProofSigningRoot =
+            sync_committee_selection_proof_signing_root(
+              fork, genesisValidatorsRoot, slot, uint64 committeeIdx)
+          selectionProofSig = blsSign(
+            validarorPrivKey, selectionProofSigningRoot.data).toValidatorSig
+
+        if is_sync_committee_aggregator(selectionProofSig):
+          aggregators.add Aggregator(
+            committeeIdx: committeeIdx,
+            validatorIdx: validatorIdx,
+            selectionProof: selectionProofSig)
+
+    for aggregator in aggregators:
+      var contribution: SyncCommitteeContribution
+      let contributionWasProduced = syncCommitteePool[].produceContribution(
+        slot, dag.head, aggregator.committeeIdx, contribution)
+
+      if contributionWasProduced:
+        let
+          contributionAndProof = ContributionAndProof(
+            aggregator_index: uint64 aggregator.validatorIdx,
+            contribution: contribution,
+            selection_proof: aggregator.selectionProof)
+
+          signingRoot = contribution_and_proof_signing_root(
+            fork, genesisValidatorsRoot, contributionAndProof)
+
+          validarorPrivKey = makeFakeValidatorPrivKey(aggregator.validatorIdx)
+
+          signedContributionAndProof = SignedContributionAndProof(
+            message: contributionAndProof,
+            signature: blsSign(validarorPrivKey, signingRoot.data).toValidatorSig)
+
+          res = dag.validateSignedContributionAndProof(
+            syncCommitteePool,
+            signedContributionAndProof,
+            contributionsTime,
+            false)
+
+        doAssert res.isOk
+
   proc getNewBlock[T](
       stateData: var StateData, slot: Slot, cache: var StateCache): T =
     let
@@ -144,25 +241,56 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           addr stateData.data.hbsAltair
         else:
           static: doAssert false
-      message = makeBeaconBlock(
-        cfg,
-        hashedState[],
-        proposerIdx,
-        dag.head.root,
-        privKey.genRandaoReveal(
-          getStateField(stateData.data, fork),
-          getStateField(stateData.data, genesis_validators_root),
-          slot).toValidatorSig(),
-        eth1ProposalData.vote,
-        default(GraffitiBytes),
-        attPool.getAttestationsForTestBlock(stateData, cache),
-        eth1ProposalData.deposits,
-        @[],
-        @[],
-        @[],
-        ExecutionPayload(),
-        noRollback,
-        cache)
+
+      # TODO this is ugly, to need to almost-but-not-quite-identical calls to
+      # makeBeaconBlock. Add a quasi-dummy SyncAggregate param to the phase 0
+      # makeBeaconBlock, to avoid code duplication.
+      #
+      # One could combine these "when"s, but this "when" should disappear.
+      message =
+        when T is phase0.SignedBeaconBlock:
+          makeBeaconBlock(
+            cfg,
+            hashedState[],
+            proposerIdx,
+            dag.head.root,
+            privKey.genRandaoReveal(
+              getStateField(stateData.data, fork),
+              getStateField(stateData.data, genesis_validators_root),
+              slot).toValidatorSig(),
+            eth1ProposalData.vote,
+            default(GraffitiBytes),
+            attPool.getAttestationsForTestBlock(stateData, cache),
+            eth1ProposalData.deposits,
+            @[],
+            @[],
+            @[],
+            ExecutionPayload(),
+            noRollback,
+            cache)
+        elif T is altair.SignedBeaconBlock:
+          makeBeaconBlock(
+            cfg,
+            hashedState[],
+            proposerIdx,
+            dag.head.root,
+            privKey.genRandaoReveal(
+              getStateField(stateData.data, fork),
+              getStateField(stateData.data, genesis_validators_root),
+              slot).toValidatorSig(),
+            eth1ProposalData.vote,
+            default(GraffitiBytes),
+            attPool.getAttestationsForTestBlock(stateData, cache),
+            eth1ProposalData.deposits,
+            @[],
+            @[],
+            @[],
+            syncCommitteePool[].produceSyncAggregate(dag.head),
+            ExecutionPayload(),
+            noRollback,
+            cache)
+        else:
+          static: doAssert false
 
     var
       newBlock = T(
@@ -249,7 +377,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
       let newDeposits = int clamp(gauss(r, 5.0, 8.0), 0.0, 1000.0)
       for i in 0 ..< newDeposits:
-        let d = makeDeposit(merkleizer.getChunkCount.int, {skipBLSValidation})
+        let validatorIdx = merkleizer.getChunkCount.int
+        let d = makeDeposit(validatorIdx, {skipBLSValidation})
+        validatorKeyToIndex[d.pubkey] = validatorIdx
         eth1Block.deposits.add d
         merkleizer.addChunk hash_tree_root(d).data
 
@@ -268,6 +398,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     if attesterRatio > 0.0:
       withTimer(timers[tAttest]):
         handleAttestations(slot)
+    if syncCommitteeRatio > 0.0:
+      withTimer(timers[tSyncCommittees]):
+        handleSyncCommitteeActions(slot)
+
+    syncCommitteePool[].clearPerSlotData()
 
     # TODO if attestation pool was smarter, it would include older attestations
     #      too!

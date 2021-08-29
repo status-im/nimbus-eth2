@@ -14,7 +14,7 @@ import
   ../beacon_chain/spec/[helpers, signatures, state_transition, forks],
   ../beacon_chain/consensus_object_pools/attestation_pool
 
-func makeFakeValidatorPrivKey(i: int): ValidatorPrivKey =
+func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
   # lighthouse.
   # TODO: switch to https://github.com/ethereum/eth2.0-pm/issues/60
