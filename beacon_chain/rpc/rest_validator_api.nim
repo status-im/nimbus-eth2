@@ -191,19 +191,15 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let res = await makeBeaconBlockForHeadAndSlot(
           node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
         if res.isErr():
-          return RestApiResponse.jsonError(Http400, BlockProduceError)
+          return RestApiResponse.jsonError(Http400, res.error())
         res.get()
     return
-      when message is phase0.BeaconBlock:
-        # TODO (cheatfate): This could be removed when `altair` branch will be
-        # merged.
-        RestApiResponse.jsonResponse(message)
+      case message.kind
+      of BeaconBlockFork.Phase0:
+        RestApiResponse.jsonResponse(message.phase0Block)
       else:
-        case message.kind
-        of BeaconBlockFork.Phase0:
-          RestApiResponse.jsonResponse(message.phase0Block.message)
-        of BeaconBlockFork.Altair:
-          return RestApiResponse.jsonError(Http400, BlockProduceError)
+        RestApiResponse.jsonError(Http400,
+                                  "Unable to produce block for altair fork")
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV2
   router.api(MethodGet, "/api/eth/v2/validator/blocks/{slot}") do (
@@ -253,25 +249,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let res = await makeBeaconBlockForHeadAndSlot(
           node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
         if res.isErr():
-          return RestApiResponse.jsonError(Http400, BlockProduceError)
+          return RestApiResponse.jsonError(Http400, res.error())
         res.get()
-    return
-      when message is phase0.BeaconBlock:
-        # TODO (cheatfate): This could be removed when `altair` branch will be
-        # merged.
-        RestApiResponse.jsonResponse(
-            (version: "phase0", data: message)
-        )
-      else:
-        case message.kind
-        of BeaconBlockFork.Phase0:
-          RestApiResponse.jsonResponse(
-            (version: "phase0", data: message.phase0Block.message)
-          )
-        of BeaconBlockFork.Altair:
-          RestApiResponse.jsonResponse(
-            (version: "altair", data: message.altairBlock.message)
-          )
+    return RestApiResponse.jsonResponsePlain(message)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
   router.api(MethodGet, "/api/eth/v1/validator/attestation_data") do (
