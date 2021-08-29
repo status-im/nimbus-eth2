@@ -411,7 +411,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       # It was not integrated into the beacon node's database.
       return 202
     else:
-      let res = await proposeSignedBlock(node, head, AttachedValidator(), blck)
+      let res = await proposeSignedBlock(
+        node, head, AttachedValidator(),
+        ForkedSignedBeaconBlock.init(blck))
       if res == head:
         # TODO altair-transition, but not immediate testnet-priority
         node.network.broadcastBeaconBlock(ForkedSignedBeaconBlock.init(blck))

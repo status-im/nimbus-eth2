@@ -69,6 +69,7 @@ logScope: topics = "beacval"
 type
   SendResult* = Result[void, cstring]
   SendBlockResult* = Result[bool, cstring]
+  ForkedBlockResult* = Result[ForkedBeaconBlock, string]
 
 proc findValidator(validators: auto, pubKey: ValidatorPubKey):
     Option[ValidatorIndex] =
@@ -316,7 +317,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     validator_index: ValidatorIndex,
                                     graffiti: GraffitiBytes,
                                     head: BlockRef, slot: Slot
-                                   ): Future[Result[phase0.BeaconBlock, string]] {.async.} =
+                                   ): Future[ForkedBlockResult] {.async.} =
   # Advance state to the slot that we're proposing for
 
   let
@@ -330,63 +331,100 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
 
     if eth1Proposal.hasMissingDeposits:
       error "Eth1 deposits not available. Skipping block proposal", slot
-      return Result[phase0.BeaconBlock, string].err("Eth1 deposits not available")
+      return ForkedBlockResult.err("Eth1 deposits not available")
 
-    func restore(v: var phase0.HashedBeaconState) =
-      # TODO address this ugly workaround - there should probably be a
-      #      `state_transition` that takes a `StateData` instead and updates
-      #      the block as well
-      doAssert v.addr == addr proposalStateAddr.data.hbsPhase0
-      assign(proposalStateAddr[], poolPtr.headState)
+    let doPhase0 = slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH
+    return if doPhase0:
+      func restore(v: var phase0.HashedBeaconState) =
+        # TODO address this ugly workaround - there should probably be a
+        #      `state_transition` that takes a `StateData` instead and updates
+        #      the block as well
+        doAssert v.addr == addr proposalStateAddr.data.hbsPhase0
+        assign(proposalStateAddr[], poolPtr.headState)
 
-    return makeBeaconBlock(
-      node.dag.cfg,
-      stateData.data.hbsPhase0,
-      validator_index,
-      head.root,
-      randao_reveal,
-      eth1Proposal.vote,
-      graffiti,
-      node.attestationPool[].getAttestationsForBlock(
-        stateData.data.hbsPhase0, cache),
-      eth1Proposal.deposits,
-      node.exitPool[].getProposerSlashingsForBlock(),
-      node.exitPool[].getAttesterSlashingsForBlock(),
-      node.exitPool[].getVoluntaryExitsForBlock(),
-      default(ExecutionPayload),
-      restore,
-      cache)
+      makeBeaconBlock(
+        node.dag.cfg,
+        stateData.data.hbsPhase0,
+        validator_index,
+        head.root,
+        randao_reveal,
+        eth1Proposal.vote,
+        graffiti,
+        node.attestationPool[].getAttestationsForBlock(
+          stateData.data.hbsPhase0, cache),
+        eth1Proposal.deposits,
+        node.exitPool[].getProposerSlashingsForBlock(),
+        node.exitPool[].getAttesterSlashingsForBlock(),
+        node.exitPool[].getVoluntaryExitsForBlock(),
+        default(ExecutionPayload),
+        restore,
+        cache).map(proc (t: auto): auto = ForkedBeaconBlock.init(t))
+    else:
+      func restore(v: var altair.HashedBeaconState) =
+        # TODO address this ugly workaround - there should probably be a
+        #      `state_transition` that takes a `StateData` instead and updates
+        #      the block as well
+        doAssert v.addr == addr proposalStateAddr.data.hbsAltair
+        assign(proposalStateAddr[], poolPtr.headState)
+
+      makeBeaconBlock(
+        node.dag.cfg,
+        stateData.data.hbsAltair,
+        validator_index,
+        head.root,
+        randao_reveal,
+        eth1Proposal.vote,
+        graffiti,
+        node.attestationPool[].getAttestationsForBlock(
+          stateData.data.hbsAltair, cache),
+        eth1Proposal.deposits,
+        node.exitPool[].getProposerSlashingsForBlock(),
+        node.exitPool[].getAttesterSlashingsForBlock(),
+        node.exitPool[].getVoluntaryExitsForBlock(),
+        node.sync_committee_msg_pool[].produceSyncAggregate(head),
+        default(ExecutionPayload),
+        restore,
+        cache).map(proc (t: auto): auto = ForkedBeaconBlock.init(t))
 
 proc proposeSignedBlock*(node: BeaconNode,
                          head: BlockRef,
                          validator: AttachedValidator,
-                         newBlock: phase0.SignedBeaconBlock):
+                         newBlock: ForkedSignedBeaconBlock):
                          Future[BlockRef] {.async.} =
-  let newBlockRef = node.dag.addRawBlock(node.quarantine, newBlock) do (
-      blckRef: BlockRef, trustedBlock: phase0.TrustedSignedBeaconBlock,
-      epochRef: EpochRef):
-    # Callback add to fork choice if signed block valid (and becomes trusted)
-    node.attestationPool[].addForkChoice(
-      epochRef, blckRef, trustedBlock.message,
-      node.beaconClock.now().slotOrZero())
+  let newBlockRef =
+    case newBlock.kind:
+    of BeaconBlockFork.Phase0:
+      node.dag.addRawBlock(node.quarantine, newBlock.phase0Block) do (
+          blckRef: BlockRef, trustedBlock: phase0.TrustedSignedBeaconBlock,
+          epochRef: EpochRef):
+        # Callback add to fork choice if signed block valid (and becomes trusted)
+        node.attestationPool[].addForkChoice(
+          epochRef, blckRef, trustedBlock.message,
+          node.beaconClock.now().slotOrZero())
+    of BeaconBlockFork.Altair:
+      node.dag.addRawBlock(node.quarantine, newBlock.altairBlock) do (
+          blckRef: BlockRef, trustedBlock: altair.TrustedSignedBeaconBlock,
+          epochRef: EpochRef):
+        # Callback add to fork choice if signed block valid (and becomes trusted)
+        node.attestationPool[].addForkChoice(
+          epochRef, blckRef, trustedBlock.message,
+          node.beaconClock.now().slotOrZero())
 
   if newBlockRef.isErr:
-    warn "Unable to add proposed block to block pool",
-      newBlock = shortLog(newBlock.message),
-      blockRoot = shortLog(newBlock.root)
-
+    withBlck(newBlock):
+      warn "Unable to add proposed block to block pool",
+            newBlock = blck.message, root = blck.root
     return head
 
-  notice "Block proposed",
-    blck = shortLog(newBlock.message),
-    blockRoot = shortLog(newBlockRef[].root),
-    validator = shortLog(validator)
+  withBlck(newBlock):
+    notice "Block proposed",
+           blck = shortLog(blck.message), root = blck.root,
+           validator = shortLog(validator)
 
-  if node.config.dumpEnabled:
-    dump(node.config.dumpDirOutgoing, newBlock)
+    if node.config.dumpEnabled:
+      dump(node.config.dumpDirOutgoing, blck)
 
-  node.network.broadcast(
-    getBeaconBlocksTopic(node.dag.forkDigests.phase0), newBlock)
+  node.network.broadcastBeaconBlock(newBlock)
 
   beacon_blocks_proposed.inc()
 
@@ -412,37 +450,66 @@ proc proposeBlock(node: BeaconNode,
       getStateField(node.dag.headState.data, genesis_validators_root)
     randao = await validator.genRandaoReveal(
       fork, genesis_validators_root, slot)
-    message = await makeBeaconBlockForHeadAndSlot(
-      node, randao, validator_index, node.graffitiBytes, head, slot)
+  var newBlock = await makeBeaconBlockForHeadAndSlot(
+    node, randao, validator_index, node.graffitiBytes, head, slot)
 
-  if not message.isOk():
+  if newBlock.isErr():
     return head # already logged elsewhere!
 
-  var
-    newBlock = phase0.SignedBeaconBlock(
-      message: message.get()
+  let blck = newBlock.get()
+
+  # TODO abstract this, or move it into makeBeaconBlockForHeadAndSlot, and in
+  # general this is far too much copy/paste
+  let forked = case blck.kind:
+  of BeaconBlockFork.Phase0:
+    let root = hash_tree_root(blck.phase0Block)
+
+    # TODO: recomputed in block proposal
+    let signing_root = compute_block_root(
+      fork, genesis_validators_root, slot, root)
+    let notSlashable = node.attachedValidators
+      .slashingProtection
+      .registerBlock(validator_index, validator.pubkey, slot, signing_root)
+
+    if notSlashable.isErr:
+      warn "Slashing protection activated",
+        validator = validator.pubkey,
+        slot = slot,
+        existingProposal = notSlashable.error
+      return head
+
+    let signature = await validator.signBlockProposal(
+      fork, genesis_validators_root, slot, root)
+    ForkedSignedBeaconBlock.init(
+      phase0.SignedBeaconBlock(
+        message: blck.phase0Block, root: root, signature: signature)
+    )
+  of BeaconBlockFork.Altair:
+    let root = hash_tree_root(blck.altairBlock)
+
+    # TODO: recomputed in block proposal
+    let signing_root = compute_block_root(
+      fork, genesis_validators_root, slot, root)
+    let notSlashable = node.attachedValidators
+      .slashingProtection
+      .registerBlock(validator_index, validator.pubkey, slot, signing_root)
+
+    if notSlashable.isErr:
+      warn "Slashing protection activated",
+        validator = validator.pubkey,
+        slot = slot,
+        existingProposal = notSlashable.error
+      return head
+
+    let signature = await validator.signBlockProposal(
+      fork, genesis_validators_root, slot, root)
+
+    ForkedSignedBeaconBlock.init(
+      altair.SignedBeaconBlock(
+        message: blck.altairBlock, root: root, signature: signature)
     )
 
-  newBlock.root = hash_tree_root(newBlock.message)
-
-  # TODO: recomputed in block proposal
-  let signing_root = compute_block_root(
-    fork, genesis_validators_root, slot, newBlock.root)
-  let notSlashable = node.attachedValidators
-    .slashingProtection
-    .registerBlock(validator_index, validator.pubkey, slot, signing_root)
-
-  if notSlashable.isErr:
-    warn "Slashing protection activated",
-      validator = validator.pubkey,
-      slot = slot,
-      existingProposal = notSlashable.error
-    return head
-
-  newBlock.signature = await validator.signBlockProposal(
-    fork, genesis_validators_root, slot, newBlock.root)
-
-  return await node.proposeSignedBlock(head, validator, newBlock)
+  return await node.proposeSignedBlock(head, validator, forked)
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
@@ -873,16 +940,8 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
   if head.slot >= forked.slot():
     node.network.broadcastBeaconBlock(forked)
     return SendBlockResult.ok(false)
-  let res =
-    case forked.kind
-    of BeaconBlockFork.Phase0:
-      await node.proposeSignedBlock(head, AttachedValidator(),
-                                    forked.phase0Block)
-    of BeaconBlockFork.Altair:
-      # TODO altair-transition
-      # await node.proposeSignedBlock(head, AttachedValidator(),
-      #                               forked.altairBlock)
-      head
+
+  let res = await node.proposeSignedBlock(head, AttachedValidator(), forked)
   if res == head:
     # `res == head` means failure, in such case we need to broadcast block
     # manually because of the specification.
