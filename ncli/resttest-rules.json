@@ -1951,6 +1951,166 @@
     "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/head",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/genesis",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/finalized",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"version": "", "data": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [{"signed_header_1": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}, "signed_header_2": {"message": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body_root": ""},"signature": ""}}], "attester_slashings": [{"attestation_1": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}, "attestation_2": {"attesting_indices": [""], "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}}], "attestations": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}], "deposits": [{"proof": [""], "data": {"pubkey": "", "withdrawal_credentials": "", "amount": "", "signature": ""}}], "voluntary_exits": [{"message": {"epoch": "", "validator_index": ""}, "signature": ""}]}}, "signature": ""}}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/0x0000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "404"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/heat",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/geneziz",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/finalised",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/foobar",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/0x",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/0x0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/0x00",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_blocks_blockid"],
+    "request": {
+      "url": "/eth/v2/beacon/blocks/0x000000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
     "topics": ["beacon", "beacon_block_root_blockid"],
     "request": {
       "url": "/eth/v1/beacon/blocks/head/root",
