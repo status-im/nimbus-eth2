@@ -282,7 +282,7 @@ jobs:
 
       - name: Create prerelease
         run: |
-          gh release create altair-beta --prerelease --target altair \
+          gh release create altair-beta --prerelease --target unstable \
             --title 'Altair beta build (rolling release, experimental)' --notes-file release_notes.md \
             Linux_amd64_archive/* \
             Linux_arm64_archive/* \
