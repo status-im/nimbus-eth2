@@ -793,10 +793,10 @@ proc validateSyncCommitteeMessage*(
       slot: msg.slot,
       committeeIdx: syncCommitteeIdx)
 
-    if msgKey in syncCommitteeMsgPool.seenByAuthor:
+    if msgKey in syncCommitteeMsgPool.seenSyncMsgByAuthor:
       return errReject("SyncCommitteeMessage: duplicate message")
     else:
-      syncCommitteeMsgPool.seenByAuthor.incl msgKey
+      syncCommitteeMsgPool.seenSyncMsgByAuthor.incl msgKey
 
   block:
     # [REJECT] The signature is valid for the message beacon_block_root for the
@@ -871,10 +871,10 @@ proc validateSignedContributionAndProof*(
       slot: msg.message.contribution.slot,
       committeeIdx: committeeIdx)
 
-    if msgKey in syncCommitteeMsgPool.seenAggregateByAuthor:
-      return errIgnore("SignedContributionAndProof: duplicate aggregation")
+    if msgKey in syncCommitteeMsgPool.seenContributionByAuthor:
+      return errIgnore("SignedContributionAndProof: duplicate contribution")
 
-    syncCommitteeMsgPool.seenAggregateByAuthor.incl msgKey
+    syncCommitteeMsgPool.seenContributionByAuthor.incl msgKey
 
   block:
     # [REJECT] The aggregator's validator index is in the declared subcommittee

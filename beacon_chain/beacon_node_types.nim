@@ -91,14 +91,16 @@ type
     participationBits*: SyncCommitteeAggregationBits
     signature*: CookedSig
 
-  BestSyncSubcommitteeContributions* = array[SYNC_COMMITTEE_SUBNET_COUNT,
-                                             BestSyncSubcommitteeContribution]
+  BestSyncSubcommitteeContributions* = object
+    slot*: Slot
+    subnets*: array[SYNC_COMMITTEE_SUBNET_COUNT,
+                    BestSyncSubcommitteeContribution]
 
   SyncCommitteeMsgPool* = object
-    seenByAuthor*: HashSet[SyncCommitteeMsgKey]
-    seenAggregateByAuthor*: HashSet[SyncCommitteeMsgKey]
-    blockVotes*: Table[Eth2Digest, seq[TrustedSyncCommitteeMsg]]
-    bestAggregates*: Table[Eth2Digest, BestSyncSubcommitteeContributions]
+    seenSyncMsgByAuthor*: HashSet[SyncCommitteeMsgKey]
+    seenContributionByAuthor*: HashSet[SyncCommitteeMsgKey]
+    syncMessages*: Table[Eth2Digest, seq[TrustedSyncCommitteeMsg]]
+    bestContributions*: Table[Eth2Digest, BestSyncSubcommitteeContributions]
 
   SyncCommitteeMsgPoolRef* = ref SyncCommitteeMsgPool
 
@@ -115,10 +117,10 @@ type
     voluntary_exits*: Deque[SignedVoluntaryExit]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
-    prior_seen_attester_slashed_indices*: IntSet ##\
+    prior_seen_attester_slashed_indices*: IntSet ## \
     ## Records attester-slashed indices seen.
 
-    prior_seen_proposer_slashed_indices*: IntSet ##\
+    prior_seen_proposer_slashed_indices*: IntSet ## \
     ## Records proposer-slashed indices seen.
 
     prior_seen_voluntary_exit_indices*: IntSet ##\

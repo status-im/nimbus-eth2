@@ -215,6 +215,14 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + roundtrip                                                                                  OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Sync committee pool
+```diff
++ Aggregating votes                                                                          OK
++ An empty pool is safe to prune                                                             OK
++ An empty pool is safe to prune 2                                                           OK
++ An empty pool is safe to use                                                               OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## SyncManager test suite
 ```diff
 + [SyncQueue] Async pending and resetWait() test                                             OK
@@ -340,4 +348,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 36/48 Fail: 0/48 Skip: 12/48
 
 ---TOTAL---
-OK: 186/198 Fail: 0/198 Skip: 12/198
+OK: 190/202 Fail: 0/202 Skip: 12/202

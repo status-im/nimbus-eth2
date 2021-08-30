@@ -381,7 +381,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
         node.exitPool[].getProposerSlashingsForBlock(),
         node.exitPool[].getAttesterSlashingsForBlock(),
         node.exitPool[].getVoluntaryExitsForBlock(),
-        node.sync_committee_msg_pool[].produceSyncAggregate(head),
+        node.sync_committee_msg_pool[].produceSyncAggregate(head.root),
         default(ExecutionPayload),
         restore,
         cache).map(proc (t: auto): auto = ForkedBeaconBlock.init(t))
@@ -709,7 +709,7 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
 
       var contribution: SyncCommitteeContribution
       let contributionWasProduced = node.syncCommitteeMsgPool[].produceContribution(
-        slot, head, candidateAggregators[i].committeeIdx, contribution)
+        slot, head.root, candidateAggregators[i].committeeIdx, contribution)
 
       if contributionWasProduced:
         asyncSpawn signAndSendContribution(
@@ -723,7 +723,8 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
         debug "Failure to produce contribution",
               slot, head, subnet = candidateAggregators[i].committeeIdx
 
-  notice "Contributions sent", count = contributionsSent, time
+  if contributionsSent > 0:
+    notice "Contributions sent", count = contributionsSent, time
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async.} =

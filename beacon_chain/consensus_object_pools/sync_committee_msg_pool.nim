@@ -15,30 +15,60 @@ import
   ../beacon_node_types,
   ./block_pools_types
 
+export
+  BestSyncSubcommitteeContributions,
+  Slot,
+  SyncCommitteeContribution,
+  SyncCommitteeIndex,
+  SyncCommitteeMsgPool,
+  SyncAggregate,
+  TrustedSyncCommitteeMsg
+
+const
+  syncCommitteeMsgsRetentionSlots = 3
+    ## How many slots to retain sync committee
+    ## messsages before discarding them.
+
 func init*(T: type SyncCommitteeMsgPool): SyncCommitteeMsgPool =
   discard
 
 func init(T: type SyncAggregate): SyncAggregate =
   SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
 
-func clearPerSlotData*(pool: var SyncCommitteeMsgPool) =
-  clear pool.seenAggregateByAuthor
-  clear pool.seenByAuthor
-  # TODO The previously implemened pruning has proven to be too
-  # aggressive. We can consider a scheme where the data is pruned
-  # with several slots of delay to allow for late sync committee
-  # messages.
-  # clear pool.bestAggregates
-  # clear pool.blockVotes
+func pruneData*(pool: var SyncCommitteeMsgPool, slot: Slot) =
+  ## This should be called at the end of slot.
+  clear pool.seenContributionByAuthor
+  clear pool.seenSyncMsgByAuthor
+
+  if slot < syncCommitteeMsgsRetentionSlots:
+    return
+
+  let minSlotToRetain = slot - syncCommitteeMsgsRetentionSlots
+  var syncMsgsToDelete: seq[Eth2Digest]
+  var contributionsToDelete: seq[Eth2Digest]
+
+  for blockRoot, msgs in pool.syncMessages:
+    if msgs[0].slot < minSlotToRetain:
+      syncMsgsToDelete.add blockRoot
+
+  for blockRoot in syncMsgsToDelete:
+    pool.syncMessages.del blockRoot
+
+  for blockRoot, bestContributions in pool.bestContributions:
+    if bestContributions.slot < minSlotToRetain:
+      contributionsToDelete.add blockRoot
+
+  for blockRoot in contributionsToDelete:
+    pool.bestContributions.del blockRoot
 
 func addSyncCommitteeMsg*(
     pool: var SyncCommitteeMsgPool,
     slot: Slot,
-    beaconBlockRoot: Eth2Digest,
+    blockRoot: Eth2Digest,
     signature: CookedSig,
     committeeIdx: SyncCommitteeIndex,
     positionInCommittee: uint64) =
-  pool.blockVotes.mgetOrPut(beaconBlockRoot, @[]).add TrustedSyncCommitteeMsg(
+  pool.syncMessages.mgetOrPut(blockRoot, @[]).add TrustedSyncCommitteeMsg(
     slot: slot,
     committeeIdx: committeeIdx,
     positionInCommittee: positionInCommittee,
@@ -71,15 +101,15 @@ func computeAggregateSig(votes: seq[TrustedSyncCommitteeMsg],
 func produceContribution*(
     pool: SyncCommitteeMsgPool,
     slot: Slot,
-    head: BlockRef,
+    headRoot: Eth2Digest,
     committeeIdx: SyncCommitteeIndex,
     outContribution: var SyncCommitteeContribution): bool =
-  if head.root in pool.blockVotes:
+  if headRoot in pool.syncMessages:
     outContribution.slot = slot
-    outContribution.beacon_block_root = head.root
+    outContribution.beacon_block_root = headRoot
     outContribution.subcommittee_index = committeeIdx.asUInt64
     try:
-      return computeAggregateSig(pool.blockVotes[head.root],
+      return computeAggregateSig(pool.syncMessages[headRoot],
                                  committeeIdx,
                                  outContribution)
     except KeyError:
@@ -89,11 +119,15 @@ func produceContribution*(
 
 func addAggregateAux(bestVotes: var BestSyncSubcommitteeContributions,
                      contribution: SyncCommitteeContribution) =
-  let totalParticipants = countOnes(contribution.aggregation_bits)
-  if totalParticipants > bestVotes[contribution.subcommittee_index].totalParticipants:
-    bestVotes[contribution.subcommittee_index] =
+  let
+    currentBestTotalParticipants =
+      bestVotes.subnets[contribution.subcommittee_index].totalParticipants
+    newBestTotalParticipants = countOnes(contribution.aggregation_bits)
+
+  if newBestTotalParticipants > currentBestTotalParticipants:
+    bestVotes.subnets[contribution.subcommittee_index] =
       BestSyncSubcommitteeContribution(
-        totalParticipants: totalParticipants,
+        totalParticipants: newBestTotalParticipants,
         participationBits: contribution.aggregation_bits,
         signature: contribution.signature.load.get)
 
@@ -104,44 +138,45 @@ func addSyncContribution*(
 
   template blockRoot: auto = contribution.beacon_block_root
 
-  if blockRoot notin pool.bestAggregates:
-    var bestContributions: BestSyncSubcommitteeContributions
-
+  if blockRoot notin pool.bestContributions:
     let totalParticipants = countOnes(contribution.aggregation_bits)
+    var initialBestContributions = BestSyncSubcommitteeContributions(
+      slot: contribution.slot)
 
-    bestContributions[contribution.subcommittee_index] =
+    initialBestContributions.subnets[contribution.subcommittee_index] =
       BestSyncSubcommitteeContribution(
         totalParticipants: totalParticipants,
         participationBits: contribution.aggregation_bits,
         signature: signature)
 
-    pool.bestAggregates[blockRoot] = bestContributions
+    pool.bestContributions[blockRoot] = initialBestContributions
   else:
     try:
-      addAggregateAux(pool.bestAggregates[blockRoot], contribution)
+      addAggregateAux(pool.bestContributions[blockRoot], contribution)
     except KeyError:
       raiseAssert "We have checked for the key upfront"
 
-proc produceSyncAggregateAux(votes: BestSyncSubcommitteeContributions): SyncAggregate =
+proc produceSyncAggregateAux(
+    bestContributions: BestSyncSubcommitteeContributions): SyncAggregate =
   var
     aggregateSig {.noInit.}: AggregateSignature
     initialized = false
     startTime = Moment.now
 
   for subnetId in 0 ..< SYNC_COMMITTEE_SUBNET_COUNT:
-    if votes[subnetId].totalParticipants == 0:
+    if bestContributions.subnets[subnetId].totalParticipants == 0:
       continue
 
-    for pos, value in votes[subnetId].participationBits:
+    for pos, value in bestContributions.subnets[subnetId].participationBits:
       if value:
         let globalPos = subnetId * SYNC_SUBCOMMITTEE_SIZE + pos
         result.sync_committee_bits.setBit globalPos
 
     if not initialized:
       initialized = true
-      aggregateSig.init(votes[subnetId].signature)
+      aggregateSig.init(bestContributions.subnets[subnetId].signature)
     else:
-      aggregateSig.aggregate(votes[subnetId].signature)
+      aggregateSig.aggregate(bestContributions.subnets[subnetId].signature)
 
   if initialized:
     result.sync_committee_signature = aggregateSig.finish.toValidatorSig
@@ -154,10 +189,10 @@ proc produceSyncAggregateAux(votes: BestSyncSubcommitteeContributions): SyncAggr
 
 proc produceSyncAggregate*(
     pool: SyncCommitteeMsgPool,
-    target: BlockRef): SyncAggregate =
-  if target.root in pool.bestAggregates:
+    targetRoot: Eth2Digest): SyncAggregate =
+  if targetRoot in pool.bestContributions:
     try:
-      produceSyncAggregateAux(pool.bestAggregates[target.root])
+      produceSyncAggregateAux(pool.bestContributions[targetRoot])
     except KeyError:
       raiseAssert "We have checked for the key upfront"
   else:

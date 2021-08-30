@@ -1009,7 +1009,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # the database are synced with the filesystem.
   node.db.checkpoint()
 
-  node.syncCommitteeMsgPool[].clearPerSlotData()
+  node.syncCommitteeMsgPool[].pruneData(slot)
 
   # -1 is a more useful output than 18446744073709551615 as an indicator of
   # no future attestation/proposal known.
