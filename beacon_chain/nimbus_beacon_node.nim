@@ -1099,6 +1099,10 @@ proc onSlotStart(
       if node.syncManager.inProgress: node.syncManager.syncStatus
       else: "synced"
 
+  # Desperate attempt to connect different parts of the code base that cannot
+  # access the same global state.
+  node.network.syncInProgress = node.syncManager.inProgress
+
   # Check before any re-scheduling of onSlotStart()
   checkIfShouldStopAtEpoch(wallSlot, node.config.stopAtEpoch)
 

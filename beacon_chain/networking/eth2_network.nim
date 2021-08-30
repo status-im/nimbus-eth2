@@ -82,6 +82,7 @@ type
     peerPingerHeartbeatFut: Future[void]
     cfg: RuntimeConfig
     getBeaconTime: GetBeaconTimeFn
+    syncInProgress*: bool
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -900,7 +901,7 @@ proc toPeerAddr(node: Node): Result[PeerAddr, cstring] =
   ok(peerAddr)
 
 proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
-    attnets: BitArray[ATTESTATION_SUBNET_COUNT]):
+    attnets: BitArray[ATTESTATION_SUBNET_COUNT], syncInProgress = false):
     Future[seq[Node]] {.async.} =
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
@@ -908,29 +909,32 @@ proc queryRandom*(d: Eth2DiscoveryProtocol, forkId: ENRForkID,
   let eth2Field = SSZ.encode(forkId)
   let nodes = await d.queryRandom((enrForkIdField, eth2Field))
 
-  var filtered: seq[(int, Node)]
-  for n in nodes:
-    let res = n.record.tryGet(enrAttestationSubnetsField, seq[byte])
+  if syncInProgress:
+    return nodes
+  else:
+    var filtered: seq[(int, Node)]
+    for n in nodes:
+      let res = n.record.tryGet(enrAttestationSubnetsField, seq[byte])
 
-    if res.isSome():
-      let attnetsNode =
-        try:
-          SSZ.decode(res.get(), BitArray[ATTESTATION_SUBNET_COUNT])
-        except SszError as e:
-          debug "Could not decode attestation subnet bitfield of peer",
-            peer = n.record.toURI(), exception = e.name, msg = e.msg
-          continue
+      if res.isSome():
+        let attnetsNode =
+          try:
+            SSZ.decode(res.get(), BitArray[ATTESTATION_SUBNET_COUNT])
+          except SszError as e:
+            debug "Could not decode attestation subnet bitfield of peer",
+              peer = n.record.toURI(), exception = e.name, msg = e.msg
+            continue
 
-      var score: int = 0
-      for i in 0..<ATTESTATION_SUBNET_COUNT:
-        if attnets[i] and attnetsNode[i]:
-          inc score
+        var score: int = 0
+        for i in 0..<ATTESTATION_SUBNET_COUNT:
+          if attnets[i] and attnetsNode[i]:
+            inc score
 
-      if score > 0:
-        filtered.add((score, n))
+        if score > 0:
+          filtered.add((score, n))
 
-  d.rng[].shuffle(filtered)
-  return filtered.sortedByIt(it[0]).mapIt(it[1])
+    d.rng[].shuffle(filtered)
+    return filtered.sortedByIt(it[0]).mapIt(it[1])
 
 proc trimConnections(node: Eth2Node, count: int) {.async.} =
   # Kill `count` peers, scoring them to remove the least useful ones
@@ -1037,7 +1041,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
       wantedAttnetsCount = wantedAttnets.countOnes()
 
     if wantedAttnetsCount > 0:
-      let discoveredNodes = await node.discovery.queryRandom(node.forkId, wantedAttnets)
+      let discoveredNodes = await node.discovery.queryRandom(node.forkId, wantedAttnets, node.syncInProgress)
 
       var newPeers = 0
       for discNode in discoveredNodes:
