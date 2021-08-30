@@ -196,7 +196,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     for aggregator in aggregators:
       var contribution: SyncCommitteeContribution
       let contributionWasProduced = syncCommitteePool[].produceContribution(
-        slot, dag.head, aggregator.committeeIdx, contribution)
+        slot, dag.head.root, aggregator.committeeIdx, contribution)
 
       if contributionWasProduced:
         let
@@ -285,7 +285,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             @[],
             @[],
             @[],
-            syncCommitteePool[].produceSyncAggregate(dag.head),
+            syncCommitteePool[].produceSyncAggregate(dag.head.root),
             ExecutionPayload(),
             noRollback,
             cache)
@@ -402,7 +402,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       withTimer(timers[tSyncCommittees]):
         handleSyncCommitteeActions(slot)
 
-    syncCommitteePool[].clearPerSlotData()
+    syncCommitteePool[].pruneData(slot)
 
     # TODO if attestation pool was smarter, it would include older attestations
     #      too!

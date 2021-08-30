@@ -26,6 +26,7 @@ import # Unit test
   ./test_message_signatures,
   ./test_peer_pool,
   ./test_statediff,
+  ./test_sync_committee_pool,
   ./test_sync_manager,
   ./test_zero_signature,
   ./fork_choice/tests_fork_choice,
