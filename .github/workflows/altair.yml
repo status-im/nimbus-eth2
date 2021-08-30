@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
-          ref: altair
+          ref: unstable
 
       - name: Build project
         id: make_dist
@@ -57,7 +57,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
-          ref: altair
+          ref: unstable
 
       - name: Build project
         id: make_dist
@@ -101,7 +101,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
-          ref: altair
+          ref: unstable
 
       - name: Build project
         id: make_dist
@@ -137,7 +137,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
-          ref: altair
+          ref: unstable
 
       - name: Build project
         id: make_dist
@@ -173,7 +173,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
-          ref: altair
+          ref: unstable
 
       - name: Build project
         id: make_dist
@@ -209,7 +209,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
-          ref: altair
+          ref: unstable
 
       - name: Build project
         id: make_dist
@@ -246,7 +246,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
-          ref: altair
+          ref: unstable
 
       - name: Download artefacts
         uses: actions/download-artifact@v2
