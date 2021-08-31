@@ -256,7 +256,7 @@ proc verify_sync_committee_message_signature*(
 
   blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/validator.md#aggregation-selection
 proc is_sync_committee_aggregator*(signature: ValidatorSig): bool =
   let
     signatureDigest = eth2digest(signature.blob)

@@ -36,7 +36,7 @@ type
     # Some have a signing_root field
     signing_root {.defaultVal: "".}: string
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/altair/validator.md#eth1block
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/phase0/validator.md#eth1block
   Eth1Block = object
     timestamp: uint64
     deposit_root: Eth2Digest
