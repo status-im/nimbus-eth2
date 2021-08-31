@@ -1,3 +1,5 @@
+{.used.}
+
 import
   unittest2,
   ../beacon_chain/ssz/bitseqs,
