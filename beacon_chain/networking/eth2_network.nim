@@ -276,7 +276,7 @@ declareGauge nbc_peers,
   "Number of active libp2p peers"
 
 declareCounter nbc_successful_discoveries,
-  "Number of successfull discoveries"
+  "Number of successful discoveries"
 
 declareCounter nbc_failed_discoveries,
   "Number of failed discoveries"
