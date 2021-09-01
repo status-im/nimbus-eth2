@@ -518,7 +518,7 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
 
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               data: seq[ForkedSignedBeaconBlock]) {.async, gcsafe.} =
-  ## Push successfull result to queue ``sq``.
+  ## Push successful result to queue ``sq``.
   mixin updateScore
 
   if sr.index notin sq.pending:

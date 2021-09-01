@@ -37,7 +37,7 @@ proc initGenesis*(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
                     genesis_root = resp.data.data.genesis_validators_root
               gres.add(resp.data.data)
             else:
-              debug "Received unsuccessfull response code", endpoint = nodes[i],
+              debug "Received unsuccessful response code", endpoint = nodes[i],
                     response_code = resp.status
               bres.add(nodes[i])
           elif fut.failed():

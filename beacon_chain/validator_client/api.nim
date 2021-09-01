@@ -420,7 +420,7 @@ proc getProposerDuties*(vc: ValidatorClientRef,
       let response = apiResponse.get()
       case response.status
       of 200:
-        debug "Received successfull response", endpoint = node
+        debug "Received successful response", endpoint = node
         return response.data
       of 400:
         debug "Received invalid request response",
@@ -455,7 +455,7 @@ proc getAttesterDuties*(vc: ValidatorClientRef, epoch: Epoch,
       let response = apiResponse.get()
       case response.status
       of 200:
-        debug "Received successfull response", endpoint = node
+        debug "Received successful response", endpoint = node
         return response.data
       of 400:
         debug "Received invalid request response",
@@ -488,7 +488,7 @@ proc getForkSchedule*(vc: ValidatorClientRef): Future[seq[Fork]] {.async.} =
       let response = apiResponse.get()
       case response.status
       of 200:
-        debug "Received successfull response", endpoint = node
+        debug "Received successful response", endpoint = node
         return response.data.data
       of 500:
         debug "Received internal error response",
@@ -513,7 +513,7 @@ proc getHeadStateFork*(vc: ValidatorClientRef): Future[Fork] {.async.} =
       let response = apiResponse.get()
       case response.status
       of 200:
-        debug "Received successfull response", endpoint = node
+        debug "Received successful response", endpoint = node
         return response.data.data
       of 400, 404:
         debug "Received invalid request response",
@@ -545,7 +545,7 @@ proc getValidators*(vc: ValidatorClientRef,
       let response = apiResponse.get()
       case response.status
       of 200:
-        debug "Received successfull response", endpoint = node
+        debug "Received successful response", endpoint = node
         return response.data.data
       of 400, 404:
         debug "Received invalid request response",
@@ -578,7 +578,7 @@ proc produceAttestationData*(vc: ValidatorClientRef,  slot: Slot,
       let response = apiResponse.get()
       case response.status
       of 200:
-        debug "Received successfull response", endpoint = node
+        debug "Received successful response", endpoint = node
         return response.data.data
       of 400:
         debug "Received invalid request response",
@@ -671,7 +671,7 @@ proc getAggregatedAttestation*(vc: ValidatorClientRef, slot: Slot,
       let response = apiResponse.get()
       case response.status:
       of 200:
-        debug "Received successfull response", endpoint = node
+        debug "Received successful response", endpoint = node
         return response.data.data
       of 400:
         debug "Received invalid request response",
@@ -740,7 +740,7 @@ proc produceBlockV2*(vc: ValidatorClientRef, slot: Slot,
       let response = apiResponse.get()
       case response.status:
       of 200:
-        debug "Received successfull response", endpoint = node
+        debug "Received successful response", endpoint = node
         return response.data
       of 400:
         debug "Received invalid request response",
