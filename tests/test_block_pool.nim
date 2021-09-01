@@ -542,7 +542,8 @@ suite "Old database versions" & preset():
         makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),
         {skipBlsValidation})
       genBlock = get_initial_beacon_block(genState[])
-      quarantine = QuarantineRef.init(keys.newRng())
+      taskpool = Taskpool.new()
+      quarantine = QuarantineRef.init(keys.newRng(), taskpool)
 
   test "pre-1.1.0":
     # only kvstore, no immutable validator keys

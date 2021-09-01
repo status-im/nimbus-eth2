@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  stew/[assign2, objects, results],
+  stew/[assign2, results],
   serialization,
   eth/db/kvstore,
   ./spec/datatypes/[base, altair],
