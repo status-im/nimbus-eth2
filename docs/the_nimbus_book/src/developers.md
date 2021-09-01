@@ -69,7 +69,7 @@ Nimbus comes with a build environment similar to Python venv - this helps ensure
 ```bash
 ./env.sh bash # start a new interactive shell with the right env vars set
 which nim
-nim --version # Nimbus is tested and supported on 1.0.2 at the moment
+nim --version # Nimbus is tested and supported on 1.2.12 at the moment
 
 # or without starting a new interactive shell:
 ./env.sh which nim
