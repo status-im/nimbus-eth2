@@ -3,19 +3,18 @@
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
-import
-  std/[typetraits, strutils],
-  stew/[results, base10],
-  chronicles,
-  json_serialization, json_serialization/std/[options, net],
-  nimcrypto/utils as ncrutils,
-  ".."/[beacon_chain_db, beacon_node_common],
-  ../networking/eth2_network,
-  ../consensus_object_pools/[blockchain_dag, spec_cache, attestation_pool],
-  ../validators/validator_duties,
-  ../spec/[forks, network],
-  ../spec/datatypes/[phase0, altair],
-  ./rest_utils
+import std/[typetraits, strutils]
+import stew/[results, base10], chronicles, json_serialization,
+       json_serialization/std/[options, net],
+       nimcrypto/utils as ncrutils
+import ".."/[beacon_chain_db, beacon_node_common],
+       ".."/networking/eth2_network,
+       ".."/consensus_object_pools/[blockchain_dag, spec_cache,
+                                    attestation_pool, sync_committee_msg_pool],
+       ".."/validators/validator_duties,
+       ".."/spec/[forks, network],
+       ".."/spec/datatypes/[phase0, altair],
+       "."/rest_utils
 
 logScope: topics = "rest_validatorapi"
 
@@ -383,7 +382,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         block:
           let idx = request.validator_index
           if uint64(idx) >=
-                           lenu64(getStateField(node.dag.headState.data, validators)):
+                     lenu64(getStateField(node.dag.headState.data, validators)):
             return RestApiResponse.jsonError(Http400,
                                              InvalidValidatorIndexValueError)
           getStateField(node.dag.headState.data, validators)[idx].pubkey
@@ -409,6 +408,137 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       )
     warn "Beacon committee subscription request served, but not implemented"
     return RestApiResponse.jsonMsgResponse(BeaconCommitteeSubscriptionSuccess)
+
+  # https://ethereum.github.io/beacon-APIs/#/Validator/prepareSyncCommitteeSubnets
+  router.api(MethodPost,
+             "/eth/v1/validator/sync_committee_subscriptions") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let subscriptions =
+      block:
+        if contentBody.isNone():
+          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+        let dres = decodeBody(seq[RestSyncCommitteeSubscription],
+                              contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                   InvalidSyncCommitteeSubscriptionRequestError)
+        let subs = dres.get()
+        for item in subs:
+          if item.until_epoch > MaxEpoch:
+            return RestApiResponse.jsonError(Http400, EpochOverflowValueError)
+          if item.until_epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
+            return RestApiResponse.jsonError(Http400,
+                                             EpochFromTheIncorrectForkError)
+          if uint64(item.validator_index) >=
+             lenu64(getStateField(node.dag.headState.data, validators)):
+            return RestApiResponse.jsonError(Http400,
+                                             InvalidValidatorIndexValueError)
+        subs
+
+    warn "Sync committee subscription request served, but not implemented"
+    return RestApiResponse.jsonMsgResponse(SyncCommitteeSubscriptionSuccess)
+
+  # https://ethereum.github.io/beacon-APIs/#/Validator/produceSyncCommitteeContribution
+  router.api(MethodGet,
+             "/eth/v1/validator/sync_committee_contribution") do (
+    slot: Option[Slot], subcommittee_index: Option[uint64],
+    beacon_block_root: Option[Eth2Digest]) -> RestApiResponse:
+    let qslot =
+      if slot.isNone():
+        return RestApiResponse.jsonError(Http400, MissingSlotValueError)
+      else:
+        let res = slot.get()
+        if res.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                           $res.error())
+        let rslot = res.get()
+        if epoch(rslot) < node.dag.cfg.ALTAIR_FORK_EPOCH:
+          return RestApiResponse.jsonError(Http400,
+                                           SlotFromTheIncorrectForkError)
+        rslot
+
+    let qindex =
+      if subcommittee_index.isNone():
+        return RestApiResponse.jsonError(Http400,
+                                         MissingSubCommitteeIndexValueError)
+      else:
+        let res = subcommittee_index.get()
+        if res.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidSubCommitteeIndexValueError,
+                                           $res.error())
+        let value = res.get()
+        if value >= SYNC_COMMITTEE_SUBNET_COUNT:
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidSubCommitteeIndexValueError,
+                                           "subcommittee_index exceeds " &
+                                           "maximum allowed value")
+        value
+
+    let qroot =
+      if beacon_block_root.isNone():
+        return RestApiResponse.jsonError(Http400,
+                                         MissingBeaconBlockRootValueError)
+      else:
+        let res = beacon_block_root.get()
+        if res.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidBeaconBlockRootValueError,
+                                           $res.error())
+        res.get()
+
+    # let res = await node.syncCommitteeMsgPool.produceContribution(
+    #                                                        qslot, qroot, qindex)
+
+  # https://ethereum.github.io/beacon-APIs/#/Validator/publishContributionAndProofs
+  router.api(MethodPost,
+             "/eth/v1/validator/contribution_and_proofs") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let proofs =
+      block:
+        if contentBody.isNone():
+          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+        let dres = decodeBody(seq[SignedContributionAndProof],
+                              contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                        InvalidContributionAndProofMessageError)
+        dres.get()
+
+    let pending =
+      block:
+        var res: seq[Future[SendResult]]
+        for proof in proofs:
+          res.add(node.sendSyncCommitteeContribution(proof, true))
+        res
+
+    let failures =
+      block:
+        var res: seq[RestAttestationsFailure]
+        await allFutures(pending)
+        for index, future in pending.pairs():
+          if future.done():
+            let fres = future.read()
+            if fres.isErr():
+              let failure = RestAttestationsFailure(index: uint64(index),
+                                                    message: $fres.error())
+              res.add(failure)
+          elif future.failed() or future.cancelled():
+            # This is unexpected failure, so we log the error message.
+            let exc = future.readError()
+            let failure = RestAttestationsFailure(index: uint64(index),
+                                                  message: $exc.msg)
+            res.add(failure)
+        res
+
+    if len(failures) > 0:
+      return RestApiResponse.jsonErrorList(Http400,
+                                           ContributionAndProofValidationError,
+                                           failures)
+    else:
+      return RestApiResponse.jsonMsgResponse(
+        ContributionAndProofValidationSuccess
+      )
 
   router.redirect(
     MethodPost,
@@ -449,4 +579,19 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     MethodPost,
     "/eth/v1/validator/beacon_committee_subscriptions",
     "/api/eth/v1/validator/beacon_committee_subscriptions"
+  )
+  router.redirect(
+    MethodPost,
+    "/eth/v1/validator/sync_committee_subscriptions",
+    "/api/eth/v1/validator/sync_committee_subscriptions"
+  )
+  router.redirect(
+    MethodGet,
+    "/eth/v1/validator/sync_committee_contribution",
+    "/api/eth/v1/validator/sync_committee_contribution"
+  )
+  router.redirect(
+    MethodPost,
+    "/eth/v1/validator/contribution_and_proofs",
+    "/api/eth/v1/validator/contribution_and_proofs"
   )

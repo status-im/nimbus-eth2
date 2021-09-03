@@ -803,6 +803,22 @@ template toSszType*(v: BeaconStateFork): auto =
   of BeaconStateFork.forkPhase0: Phase0Version
   of BeaconStateFork.forkAltair: AltairVersion
 
+# SyncCommitteeIndex
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: SyncCommitteeIndex) {.
+     raises: [IOError, Defect].} =
+  writeValue(writer, Base10.toString(uint8(value)))
+
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var SyncCommitteeIndex) {.
+     raises: [IOError, SerializationError, Defect].} =
+  let res = Base10.decode(uint8, reader.readValue(string))
+  if res.isOk():
+    # TODO (cheatfate): Here should be present check for maximum value.
+    value = SyncCommitteeIndex(res.get())
+  else:
+    reader.raiseUnexpectedValue($res.error())
+
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:
     ok(Eth2Digest(data: hexToByteArray[32](value)))
@@ -1029,6 +1045,10 @@ proc decodeString*(t: typedesc[Slot], value: string): Result[Slot, cstring] =
 proc decodeString*(t: typedesc[Epoch], value: string): Result[Epoch, cstring] =
   let res = ? Base10.decode(uint64, value)
   ok(Epoch(res))
+
+proc decodeString*(t: typedesc[uint64],
+                   value: string): Result[uint64, cstring] =
+  Base10.decode(uint64, value)
 
 proc decodeString*(t: typedesc[StateIdent],
                    value: string): Result[StateIdent, cstring] =

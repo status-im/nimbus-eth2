@@ -9,7 +9,7 @@
 
 import
   std/[options, sequtils, tables, sets],
-  stew/[assign2, byteutils],
+  stew/[assign2, byteutils, results],
   metrics, snappy, chronicles,
   ../spec/[
     beaconstate, eth2_merkleization, eth2_ssz_serialization, forks, helpers,
@@ -18,7 +18,7 @@ import
   ".."/beacon_chain_db,
   "."/[block_pools_types, block_quarantine, forkedbeaconstate_dbhelpers]
 
-export block_pools_types
+export block_pools_types, results
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
@@ -1042,6 +1042,24 @@ func syncCommitteeParticipants*(dagParam: ChainDAGRef,
       @[]
   else:
     @[]
+
+func syncCommitteeParticipants*(
+  dag: ChainDAGRef, epoch: Epoch): Result[seq[ValidatorPubKey], cstring] =
+  if dag.headState.data.beaconStateFork == BeaconStateFork.forkPhase0:
+    return err("State's fork do not support sync committees")
+
+  let
+    headSlot = dag.headState.data.hbsAltair.data.slot
+    epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())
+    currentPeriod = syncCommitteePeriod(headSlot)
+    nextPeriod = currentPeriod + 1'u64
+
+  if epochPeriod == currentPeriod:
+    ok(@(dag.headState.data.hbsAltair.data.current_sync_committee.pubkeys.data))
+  elif epochPeriod == nextPeriod:
+    ok(@(dag.headState.data.hbsAltair.data.next_sync_committee.pubkeys.data))
+  else:
+    err("Epoch is outside the sync committee period of the state")
 
 func getSubcommitteePositionAux*(
     dag: ChainDAGRef,
