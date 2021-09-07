@@ -135,6 +135,10 @@ const
     "Peer not found"
   InvalidLogLevelValueError* =
     "Invalid log level value error"
+  ContentNotAcceptableError* =
+    "Could not find out accepted content type"
+  InvalidAcceptError* =
+    "Incorrect accept response type"
   InternalServerError* =
     "Internal server error"
   NoImplementationError* =

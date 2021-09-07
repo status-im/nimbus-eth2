@@ -4,16 +4,14 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import
-  std/[typetraits],
-  stew/[results, base10, byteutils, endians2],
-  presto/common,
-  libp2p/peerid,
-  serialization,
-  json_serialization, json_serialization/std/[options, net],
-  nimcrypto/utils as ncrutils,
-  ".."/forks, ".."/datatypes/[phase0, altair, merge],
-  "."/rest_types
+import std/typetraits
+import stew/[results, base10, byteutils, endians2], presto/common,
+       libp2p/peerid, serialization,
+       json_serialization, json_serialization/std/[options, net],
+       nimcrypto/utils as ncrutils
+import ".."/forks, ".."/datatypes/[phase0, altair, merge],
+       ".."/".."/ssz/ssz_serialization,
+       "."/rest_types
 
 export
   results, peerid, common, serialization, json_serialization, options, net,
@@ -261,6 +259,21 @@ proc jsonErrorList*(t: typedesc[RestApiResponse],
       except IOError:
         default
   RestApiResponse.error(status, data, "application/json")
+
+proc sszResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = SszWriter.init(stream)
+        writer.writeValue(data)
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/octet-stream")
 
 template hexOriginal(data: openarray[byte]): string =
   "0x" & ncrutils.toHex(data, true)
@@ -691,6 +704,20 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("version", "altair")
     writer.writeField("data", value.altairBlock)
   writer.endRecord()
+
+proc toSszType*(v: BeaconBlockFork): auto =
+  case v
+  of BeaconBlockFork.Phase0:
+    [byte('p'), byte('h'), byte('a'), byte('s'), byte('e'), byte('0')]
+  of BeaconBlockFork.Altair:
+    [byte('a'), byte('l'), byte('t'), byte('a'), byte('i'), byte('r')]
+
+template toSszType*(v: BeaconStateFork): auto =
+  case v
+  of BeaconStateFork.forkPhase0:
+    [byte('p'), byte('h'), byte('a'), byte('s'), byte('e'), byte('0')]
+  of BeaconStateFork.forkAltair:
+    [byte('a'), byte('l'), byte('t'), byte('a'), byte('i'), byte('r')]
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:

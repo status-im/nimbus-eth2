@@ -21,13 +21,27 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                            $bres.error())
         bres.get()
+    let contentType =
+      block:
+        let res = preferredContentType("application/octet-stream",
+                                       "application/json")
+        if res.isErr():
+          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+        res.get()
     node.withStateForBlockSlot(bslot):
-      case stateData.data.beaconStateFork
-      of BeaconStateFork.forkPhase0:
-        return RestApiResponse.jsonResponse(stateData.data.hbsPhase0.data)
-      of BeaconStateFork.forkAltair:
-        return RestApiResponse.jsonError(Http404, StateNotFoundError)
-    return RestApiResponse.jsonError(Http500, InternalServerError)
+      return
+        case stateData.data.beaconStateFork
+        of BeaconStateFork.forkPhase0:
+          case contentType
+            of "application/octet-stream":
+              RestApiResponse.sszResponse(stateData.data.hbsPhase0.data)
+            of "application/json":
+              RestApiResponse.jsonResponsePlain(stateData.data.hbsPhase0.data)
+            else:
+              RestApiResponse.jsonError(Http500, InvalidAcceptError)
+        of BeaconStateFork.forkAltair:
+          RestApiResponse.jsonError(Http404, StateNotFoundError)
+    return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2
   router.api(MethodGet,
@@ -43,17 +57,53 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                            $bres.error())
         bres.get()
+    let contentType =
+      block:
+        let res = preferredContentType("application/octet-stream",
+                                       "application/json")
+        if res.isErr():
+          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+        res.get()
     node.withStateForBlockSlot(bslot):
-      case stateData.data.beaconStateFork
-      of BeaconStateFork.forkPhase0:
-        return RestApiResponse.jsonResponse(
-          (version: "phase0", data: stateData.data.hbsPhase0.data)
-        )
-      of BeaconStateFork.forkAltair:
-        return RestApiResponse.jsonResponse(
-          (version: "altair", data: stateData.data.hbsAltair.data)
-        )
-    return RestApiResponse.jsonError(Http500, InternalServerError)
+      return
+        case stateData.data.beaconStateFork
+        of BeaconStateFork.forkPhase0:
+          case contentType
+          of "application/json":
+            RestApiResponse.jsonResponse(
+              (
+                version: BeaconBlockFork.Phase0,
+                data: stateData.data.hbsPhase0.data
+              )
+            )
+          of "application/octet-stream":
+            RestApiResponse.sszResponse(
+              (
+                version: BeaconBlockFork.Phase0,
+                data: stateData.data.hbsPhase0.data
+              )
+            )
+          else:
+            RestApiResponse.jsonError(Http500, InvalidAcceptError)
+        of BeaconStateFork.forkAltair:
+          case contentType
+          of "application/json":
+            RestApiResponse.jsonResponse(
+              (
+                version: BeaconBlockFork.Altair,
+                data: stateData.data.hbsAltair.data
+              )
+            )
+          of "application/octet-stream":
+            RestApiResponse.sszResponse(
+              (
+                version: BeaconBlockFork.Altair,
+                data: stateData.data.hbsAltair.data
+              )
+            )
+          else:
+            RestApiResponse.jsonError(Http500, InvalidAcceptError)
+    return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeads
   router.api(MethodGet,

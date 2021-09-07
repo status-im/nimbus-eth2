@@ -653,10 +653,23 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
         res.get()
+    let contentType =
+      block:
+        let res = preferredContentType("application/octet-stream",
+                                       "application/json")
+        if res.isErr():
+          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+        res.get()
     return
       case bdata.data.kind
       of BeaconBlockFork.Phase0:
-        RestApiResponse.jsonResponse(bdata.data.phase0Block)
+        case contentType
+        of "application/octet-stream":
+          RestApiResponse.sszResponse(bdata.data.phase0Block)
+        of "application/json":
+          RestApiResponse.jsonResponse(bdata.data.phase0Block)
+        else:
+          RestApiResponse.jsonError(Http500, InvalidAcceptError)
       of BeaconBlockFork.Altair:
         RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
@@ -672,7 +685,21 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
         res.get()
-    return RestApiResponse.jsonResponsePlain(bdata.data.asSigned())
+    let contentType =
+      block:
+        let res = preferredContentType("application/octet-stream",
+                                       "application/json")
+        if res.isErr():
+          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+        res.get()
+    return
+      case contentType
+      of "application/octet-stream":
+        RestApiResponse.sszResponse(bdata.data.asSigned())
+      of "application/json":
+        RestApiResponse.jsonResponsePlain(bdata.data.asSigned())
+      else:
+        RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
   router.api(MethodGet, "/api/eth/v1/beacon/blocks/{block_id}/root") do (
