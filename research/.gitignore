@@ -1,3 +1,5 @@
+*.dSYM/
 *.json
+block_sim
+stack_sizes
 state_sim
-serialized_sizes
