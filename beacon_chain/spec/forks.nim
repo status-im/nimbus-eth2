@@ -27,6 +27,11 @@ type
     of forkPhase0: hbsPhase0*: phase0.HashedBeaconState
     of forkAltair: hbsAltair*: altair.HashedBeaconState
 
+  ForkedBeaconState* = object
+    case beaconStateFork*: BeaconStateFork
+    of forkPhase0: bsPhase0*: phase0.BeaconState
+    of forkAltair: bsAltair*: altair.BeaconState
+
   BeaconBlockFork* {.pure.} = enum
     Phase0
     Altair
@@ -68,6 +73,19 @@ template init*(T: type ForkedSignedBeaconBlock, blck: phase0.SignedBeaconBlock):
   T(kind: BeaconBlockFork.Phase0, phase0Block: blck)
 template init*(T: type ForkedSignedBeaconBlock, blck: altair.SignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Altair, altairBlock: blck)
+
+template init*(T: type ForkedBeaconState, state: phase0.BeaconState): T =
+  T(beaconStateFork: BeaconStateFork.forkPhase0, bsPhase0: state)
+template init*(T: type ForkedBeaconState, state: altair.BeaconState): T =
+  T(beaconStateFork: BeaconStateFork.forkAltair, bsAltair: state)
+template init*(T: type ForkedBeaconState, state: ForkedHashedBeaconState): T =
+  case state.beaconStateFork
+  of BeaconStateFork.forkPhase0:
+    T(beaconStateFork: BeaconStateFork.forkPhase0,
+      bsPhase0: state.hbsPhase0.data)
+  of BeaconStateFork.forkAltair:
+    T(beaconStateFork: BeaconStateFork.forkAltair,
+      bsAltair: state.hbsAltair.data)
 
 template init*(T: type ForkedSignedBeaconBlock, forked: ForkedBeaconBlock,
                blockRoot: Eth2Digest, signature: ValidatorSig): T =

@@ -705,6 +705,75 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("data", value.altairBlock)
   writer.endRecord()
 
+# ForkedBeaconState
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var ForkedBeaconState) {.
+     raises: [IOError, SerializationError, Defect].} =
+  var
+    version: Option[BeaconStateFork]
+    data: Option[JsonString]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "version":
+      if version.isSome():
+        reader.raiseUnexpectedField("Multiple version fields found",
+                                    "ForkedBeaconState")
+      let vres = reader.readValue(string)
+      case vres
+      of "phase0":
+        version = some(BeaconStateFork.forkPhase0)
+      of "altair":
+        version = some(BeaconStateFork.forkAltair)
+      else:
+        reader.raiseUnexpectedValue("Incorrect version field value")
+    of "data":
+      if data.isSome():
+        reader.raiseUnexpectedField("Multiple data fields found",
+                                    "ForkedBeaconState")
+      data = some(reader.readValue(JsonString))
+    else:
+      reader.raiseUnexpectedField(fieldName, "ForkedBeaconState")
+
+  if version.isNone():
+    reader.raiseUnexpectedValue("Field version is missing")
+  if data.isNone():
+    reader.raiseUnexpectedValue("Field data is missing")
+
+  case version.get():
+  of BeaconStateFork.forkPhase0:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()), phase0.BeaconState,
+                             requireAllFields = true))
+      except SerializationError:
+        none[phase0.BeaconState]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect phase0 beacon state format")
+    value = ForkedBeaconState.init(res.get())
+  of BeaconStateFork.forkAltair:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()), altair.BeaconState,
+                             requireAllFields = true))
+      except SerializationError:
+        none[altair.BeaconState]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect altair beacon state format")
+    value = ForkedBeaconState.init(res.get())
+
+proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconState) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  case value.beaconStateFork
+  of BeaconStateFork.forkPhase0:
+    writer.writeField("version", "phase0")
+    writer.writeField("data", value.bsPhase0)
+  of BeaconStateFork.forkAltair:
+    writer.writeField("version", "altair")
+    writer.writeField("data", value.bsAltair)
+  writer.endRecord()
+
 proc toSszType*(v: BeaconBlockFork): auto =
   case v
   of BeaconBlockFork.Phase0:

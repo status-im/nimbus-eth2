@@ -36,7 +36,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
             of "application/octet-stream":
               RestApiResponse.sszResponse(stateData.data.hbsPhase0.data)
             of "application/json":
-              RestApiResponse.jsonResponsePlain(stateData.data.hbsPhase0.data)
+              RestApiResponse.jsonResponse(stateData.data.hbsPhase0.data)
             else:
               RestApiResponse.jsonError(Http500, InvalidAcceptError)
         of BeaconStateFork.forkAltair:
@@ -66,43 +66,14 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
     node.withStateForBlockSlot(bslot):
       return
-        case stateData.data.beaconStateFork
-        of BeaconStateFork.forkPhase0:
-          case contentType
-          of "application/json":
-            RestApiResponse.jsonResponse(
-              (
-                version: BeaconBlockFork.Phase0,
-                data: stateData.data.hbsPhase0.data
-              )
-            )
-          of "application/octet-stream":
-            RestApiResponse.sszResponse(
-              (
-                version: BeaconBlockFork.Phase0,
-                data: stateData.data.hbsPhase0.data
-              )
-            )
-          else:
-            RestApiResponse.jsonError(Http500, InvalidAcceptError)
-        of BeaconStateFork.forkAltair:
-          case contentType
-          of "application/json":
-            RestApiResponse.jsonResponse(
-              (
-                version: BeaconBlockFork.Altair,
-                data: stateData.data.hbsAltair.data
-              )
-            )
-          of "application/octet-stream":
-            RestApiResponse.sszResponse(
-              (
-                version: BeaconBlockFork.Altair,
-                data: stateData.data.hbsAltair.data
-              )
-            )
-          else:
-            RestApiResponse.jsonError(Http500, InvalidAcceptError)
+        case contentType
+        of "application/json":
+          RestApiResponse.jsonResponsePlain(
+            ForkedBeaconState.init(stateData.data))
+        of "application/octet-stream":
+          RestApiResponse.sszResponse(ForkedBeaconState.init(stateData.data))
+        else:
+          RestApiResponse.jsonError(Http500, InvalidAcceptError)
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeads
