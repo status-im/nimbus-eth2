@@ -505,7 +505,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonError(Http500, InternalServerError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochSyncCommittees
-  router.api(MethodGet, "/eth/v1/beacon/states/{state_id}/sync_committees") do (
+  router.api(MethodGet,
+             "/api/eth/v1/beacon/states/{state_id}/sync_committees") do (
     state_id: StateIdent, epoch: Option[Epoch]) -> RestApiResponse:
     let bslot =
       block:
