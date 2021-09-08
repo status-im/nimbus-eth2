@@ -19,26 +19,6 @@ import
 
 export extras, phase0, altair, merge
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_valid_merkle_branch
-func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openArray[Eth2Digest],
-                             depth: int, index: uint64,
-                             root: Eth2Digest): bool {.nbench.}=
-  ## Check if ``leaf`` at ``index`` verifies against the Merkle ``root`` and
-  ## ``branch``.
-  var
-    value = leaf
-    buf: array[64, byte]
-
-  for i in 0 ..< depth:
-    if (index div (1'u64 shl i)) mod 2 != 0:
-      buf[0..31] = branch[i].data
-      buf[32..63] = value.data
-    else:
-      buf[0..31] = value.data
-      buf[32..63] = branch[i].data
-    value = eth2digest(buf)
-  value == root
-
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#increase_balance
 func increase_balance*(balance: var Gwei, delta: Gwei) =
   balance += delta
