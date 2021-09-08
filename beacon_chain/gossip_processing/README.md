@@ -1,13 +1,13 @@
 # Gossip Processing
 
-This folders hold a collection of modules to:
+This folder holds a collection of modules to:
 - validate raw gossip data before
-  - rebroadcasting them (potentially aggregated)
-  - sending it to one of the consensus object pool
+  - rebroadcasting it (potentially aggregated)
+  - sending it to one of the consensus object pools
 
 ## Validation
 
-Gossip Validation is different from consensus verification in particular for blocks.
+Gossip validation is different from consensus verification in particular for blocks.
 
 - Blocks: https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
 - Attestations (aggregate): https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
@@ -18,17 +18,15 @@ Gossip Validation is different from consensus verification in particular for blo
 
 There are 2 consumers of validated consensus objects:
 - a `ValidationResult.Accept` output triggers rebroadcasting in libp2p
-  - method `validate(PubSub, message)` in libp2p/protocols/pubsub/pubsub.nim in the
+  - method `validate(PubSub, Message)` in libp2p/protocols/pubsub/pubsub.nim
   - which was called by `rpcHandler(GossipSub, PubSubPeer, RPCMsg)`
-- a `xyzValidator` message enqueues the validated object in one of the processing queue in eth2_processor
-  - `blocksQueue: AsyncQueue[BlockEntry]`, (shared with request_manager and sync_manager)
-  - `attestationsQueue: AsyncQueue[AttestationEntry]`
-  - `aggregatesQueue: AsyncQueue[AggregateEntry]`
+- a `blockValidator` message enqueues the validated object to the processing queue in block_processor
+  - `blocksQueue: AsyncQueue[BlockEntry]` (shared with request_manager and sync_manager)
 
 Those queues are then regularly processed to be made available to the consensus object pools.
 
 ## Security concerns
 
-As the first line of defense in Nimbus, modules must be able to handle burst of data that may come:
+As the first line of defense in Nimbus, modules must be able to handle bursts of data that may come:
 - from malicious nodes trying to DOS us
-- from long periods of non-finality, creating lots of forks, attestations, forks
+- from long periods of non-finality, creating lots of forks, attestations
