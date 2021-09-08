@@ -45,6 +45,10 @@ type
       #      branch is not active and thus it will override the first variable
       #      in this branch.
       dummy: string
+      # If the eth1Network is specified, the Eth1Monitor will perform some
+      # additional checks to ensure we are connecting to a web3 provider
+      # serving data for the same network. The value can be set to `None`
+      # for custom networks and testing purposes.
       eth1Network*: Option[Eth1Network]
       cfg*: RuntimeConfig
 
