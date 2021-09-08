@@ -303,6 +303,13 @@ func init*(T: type BlockRef, root: Eth2Digest, blck: SomeSomeBeaconBlock):
 func contains*(dag: ChainDAGRef, root: Eth2Digest): bool =
   KeyedBlockRef.asLookupKey(root) in dag.blocks
 
+proc containsBlock(
+    cfg: RuntimeConfig, db: BeaconChainDB, blck: BlockRef): bool =
+  if blck.slot.epoch < cfg.ALTAIR_FORK_EPOCH:
+    db.containsBlockPhase0(blck.root)
+  else:
+    db.containsBlockAltair(blck.root)
+
 func isStateCheckpoint(bs: BlockSlot): bool =
   ## State checkpoints are the points in time for which we store full state
   ## snapshots, which later serve as rewind starting points when replaying state
@@ -370,16 +377,25 @@ proc init*(T: type ChainDAGRef,
       let newRef = BlockRef.init(blck.root, blck.summary.slot)
       if curRef == nil:
         curRef = newRef
-        headRef = newRef
       else:
         link(newRef, curRef)
         curRef = curRef.parent
+
+      # Don't include blocks on incorrect hardforks
+      if headRef == nil and cfg.containsBlock(db, newRef):
+        headRef = newRef
+
       blocks.incl(KeyedBlockRef.init(curRef))
       trace "Populating block dag", key = curRef.root, val = curRef
 
     doAssert curRef == tailRef,
       "head block does not lead to tail, database corrupt?"
   else:
+    headRef = tailRef
+
+  # Because of incorrect hardfork check, there might be no head block, in which
+  # case it's equivalent to the tail block
+  if headRef == nil:
     headRef = tailRef
 
   var

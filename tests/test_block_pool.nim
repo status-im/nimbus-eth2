@@ -18,7 +18,7 @@ import
   ../beacon_chain/beacon_node_types,
   ../beacon_chain/[beacon_chain_db],
   ../beacon_chain/consensus_object_pools/[
-    blockchain_dag, block_quarantine, block_clearance],
+    attestation_pool, blockchain_dag, block_quarantine, block_clearance],
   ./testutil, ./testdbutil, ./testblockutil
 
 func `$`(x: BlockRef): string =
@@ -564,3 +564,71 @@ suite "Old database versions" & preset():
 
     check:
       b1Add.isOk()
+
+suite "Diverging hardforks":
+  setup:
+    var
+      phase0RuntimeConfig = defaultRuntimeConfig
+      altairRuntimeConfig = defaultRuntimeConfig
+
+    phase0RuntimeConfig.ALTAIR_FORK_EPOCH = FAR_FUTURE_EPOCH
+    altairRuntimeConfig.ALTAIR_FORK_EPOCH = 2.Epoch
+
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      dag = init(ChainDAGRef, phase0RuntimeConfig, db, {})
+      quarantine = QuarantineRef.init(keys.newRng())
+      nilPhase0Callback: OnPhase0BlockAdded
+      state = newClone(dag.headState.data)
+      cache = StateCache()
+      rewards = RewardInfo()
+      blck = makeTestBlock(dag.headState.data, dag.head.root, cache)
+      tmpState = assignClone(dag.headState.data)
+
+  test "Tail block only in common":
+    check:
+      process_slots(
+        phase0RuntimeConfig, tmpState[],
+        getStateField(tmpState[], slot) + (3 * SLOTS_PER_EPOCH).uint64,
+        cache, rewards, {})
+
+    # Because the first block is after the Altair transition, the only block in
+    # common is the tail block
+    var
+      b1 = addTestBlock(tmpState[], dag.tail.root, cache)
+      b1Add = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
+
+    check b1Add.isOk()
+    dag.updateHead(b1Add[], quarantine)
+
+    var dagAltair = init(ChainDAGRef, altairRuntimeConfig, db, {})
+    discard AttestationPool.init(dagAltair, quarantine)
+
+  test "Non-tail block in common":
+    check:
+      process_slots(
+        phase0RuntimeConfig, tmpState[],
+        getStateField(tmpState[], slot) + SLOTS_PER_EPOCH.uint64,
+        cache, rewards, {})
+
+    # There's a block in the shared-correct phase0 hardfork, before epoch 2
+    var
+      b1 = addTestBlock(tmpState[], dag.tail.root, cache)
+      b1Add = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
+
+    check:
+      b1Add.isOk()
+      process_slots(
+        phase0RuntimeConfig, tmpState[],
+        getStateField(tmpState[], slot) + (3 * SLOTS_PER_EPOCH).uint64,
+        cache, rewards, {})
+
+    var
+      b2 = addTestBlock(tmpState[], b1.root, cache)
+      b2Add = dag.addRawBlock(quarantine, b2, nilPhase0Callback)
+
+    check b2Add.isOk()
+    dag.updateHead(b2Add[], quarantine)
+
+    var dagAltair = init(ChainDAGRef, altairRuntimeConfig, db, {})
+    discard AttestationPool.init(dagAltair, quarantine)
