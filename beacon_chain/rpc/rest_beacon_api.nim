@@ -971,6 +971,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                        $res.error())
     return RestApiResponse.jsonMsgResponse(ProposerSlashingValidationSuccess)
 
+  # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolSyncCommitteeSignatures
   router.api(MethodPost, "/api/eth/v1/beacon/pool/sync_committees") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let messages =
