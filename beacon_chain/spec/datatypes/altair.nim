@@ -75,7 +75,7 @@ static: doAssert TIMELY_SOURCE_WEIGHT + TIMELY_TARGET_WEIGHT +
 type
   ### New types
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/beacon-chain.md#custom-types
   ParticipationFlags* = uint8
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/beacon-chain.md#syncaggregate
@@ -124,13 +124,13 @@ type
     signature*: ValidatorSig  ##\
     ## Signature by the validator(s) over the block root of `slot`
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/validator.md#contributionandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/validator.md#contributionandproof
   ContributionAndProof* = object
     aggregator_index*: uint64
     contribution*: SyncCommitteeContribution
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/validator.md#signedcontributionandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/validator.md#signedcontributionandproof
   SignedContributionAndProof* = object
     message*: ContributionAndProof
     signature*: ValidatorSig
@@ -174,7 +174,7 @@ type
     fork_version*: Version ##\
     ## Fork version for the aggregate signature
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64

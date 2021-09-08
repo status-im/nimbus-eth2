@@ -69,7 +69,7 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.8/specs/altair/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to an Altair BeaconState for in-place SSZ
   # reading and writing
   AltairBeaconStateNoImmutableValidators* = object

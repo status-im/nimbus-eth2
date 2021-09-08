@@ -551,7 +551,7 @@ func check_attestation_index(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(state: altair.BeaconState,
                                                 data: AttestationData,
                                                 inclusion_delay: uint64): seq[int] =

@@ -126,7 +126,7 @@ type
     DOMAIN_SELECTION_PROOF = 5
     DOMAIN_AGGREGATE_AND_PROOF = 6
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#domain-types
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/beacon-chain.md#domain-types
     DOMAIN_SYNC_COMMITTEE = 7
     DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF = 8
     DOMAIN_CONTRIBUTION_AND_PROOF = 9

@@ -317,7 +317,7 @@ proc process_justification_and_finalization*(state: var phase0.BeaconState,
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#justification-and-finalization
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/beacon-chain.md#justification-and-finalization
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/phase0/beacon-chain.md#justification-and-finalization
 # TODO merge these things -- effectively, the phase0 process_justification_and_finalization is mostly a stub in this world
 proc weigh_justification_and_finalization(state: var altair.BeaconState,
@@ -598,7 +598,7 @@ func get_attestation_deltas(state: phase0.BeaconState, rewards: var RewardInfo) 
         rewards.statuses[proposer_index].delta.add(
           proposer_delta.get()[1])
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#get_base_reward_per_increment
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment(
     state: altair.BeaconState, total_active_balance_sqrt: uint64): Gwei =
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div total_active_balance_sqrt
@@ -653,7 +653,7 @@ iterator get_flag_index_deltas(
       else:
         (vidx, 0.Gwei, 0.Gwei)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
 iterator get_inactivity_penalty_deltas(cfg: RuntimeConfig, state: altair.BeaconState):
     (ValidatorIndex, Gwei) =
   ## Return the inactivity penalty deltas by considering timely target
@@ -701,7 +701,7 @@ func process_rewards_and_penalties(
     decrease_balance(balance, v.delta.penalties)
     state.balances.asSeq()[idx] = balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#rewards-and-penalties
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/beacon-chain.md#rewards-and-penalties
 func process_rewards_and_penalties(
     cfg: RuntimeConfig, state: var altair.BeaconState,
     total_active_balance: Gwei,
