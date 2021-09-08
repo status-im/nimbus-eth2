@@ -443,6 +443,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v1/validator/sync_committee_contribution") do (
     slot: Option[Slot], subcommittee_index: Option[uint64],
     beacon_block_root: Option[Eth2Digest]) -> RestApiResponse:
+    # We doing this check to avoid any confusion in future.
+    static: doAssert(SYNC_COMMITTEE_SUBNET_COUNT <= high(uint8))
     let qslot =
       if slot.isNone():
         return RestApiResponse.jsonError(Http400, MissingSlotValueError)
@@ -456,7 +458,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400,
                                            SlotFromTheIncorrectForkError)
         rslot
-
     let qindex =
       if subcommittee_index.isNone():
         return RestApiResponse.jsonError(Http400,
@@ -474,7 +475,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            "subcommittee_index exceeds " &
                                            "maximum allowed value")
         value
-
     let qroot =
       if beacon_block_root.isNone():
         return RestApiResponse.jsonError(Http400,
@@ -487,8 +487,17 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $res.error())
         res.get()
 
-    # let res = await node.syncCommitteeMsgPool.produceContribution(
-    #                                                        qslot, qroot, qindex)
+    # Check if node is fully synced.
+    let sres = node.getCurrentHead(qslot)
+    if sres.isErr():
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
+    var contribution = SyncCommitteeContribution()
+    let res = node.syncCommitteeMsgPool[].produceContribution(
+      qslot, qroot, SyncCommitteeIndex(qindex), contribution)
+    if not(res):
+      return RestApiResponse.jsonError(Http400, ProduceContributionError)
+    return RestApiResponse.jsonResponse(contribution)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/publishContributionAndProofs
   router.api(MethodPost,
