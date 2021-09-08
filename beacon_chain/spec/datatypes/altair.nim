@@ -28,7 +28,7 @@
 #  stew/byteutils,
 
 import
-  std/[macros, typetraits],
+  std/[macros, typetraits, sets, hashes],
   chronicles,
   stew/[assign2, bitops2],
   json_serialization/types as jsonTypes
@@ -173,6 +173,12 @@ type
 
     fork_version*: Version ##\
     ## Fork version for the aggregate signature
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/sync-protocol.md#lightclientstore
+  LightClientStore* = object
+    snapshot*: LightClientSnapshot
+    valid_updates*: HashSet[LightClientUpdate]
+      ## TODO: This will benefit from being an ordered set
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#beaconstate
   BeaconState* = object
@@ -518,3 +524,7 @@ func shortLog*(v: SyncAggregate): auto =
   $(v.sync_committee_bits)
 
 chronicles.formatIt SyncCommitteeMessage: shortLog(it)
+
+func hash*(x: LightClientUpdate): Hash =
+  hash(x.header.state_root.data)
+

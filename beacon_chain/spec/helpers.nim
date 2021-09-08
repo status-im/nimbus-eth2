@@ -13,7 +13,7 @@ import
   # Standard lib
   std/[math, tables],
   # Third-party
-  stew/[byteutils, endians2],
+  stew/[byteutils, endians2, bitops2],
   # Internal
   ./datatypes/[phase0, altair, merge],
   ./eth2_merkleization, ./ssz_codec
@@ -46,6 +46,26 @@ template epoch*(slot: Slot): Epoch =
 
 template isEpoch*(slot: Slot): bool =
   (slot mod SLOTS_PER_EPOCH) == 0
+
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_valid_merkle_branch
+func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openArray[Eth2Digest],
+                             depth: int, index: uint64,
+                             root: Eth2Digest): bool =
+  ## Check if ``leaf`` at ``index`` verifies against the Merkle ``root`` and
+  ## ``branch``.
+  var
+    value = leaf
+    buf: array[64, byte]
+
+  for i in 0 ..< depth:
+    if (index div (1'u64 shl i)) mod 2 != 0:
+      buf[0..31] = branch[i].data
+      buf[32..63] = value.data
+    else:
+      buf[0..31] = value.data
+      buf[32..63] = branch[i].data
+    value = eth2digest(buf)
+  value == root
 
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   EPOCHS_PER_SYNC_COMMITTEE_PERIOD * SLOTS_PER_EPOCH
@@ -213,3 +233,8 @@ func add_flag*(flags: ParticipationFlags, flag_index: int): ParticipationFlags =
 func has_flag*(flags: ParticipationFlags, flag_index: int): bool =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   (flags and flag) == flag
+
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-beta.3/specs/altair/sync-protocol.md#get_subtree_index
+func get_subtree_index*(idx: GeneralizedIndex): uint64 =
+  uint64(idx mod (type(idx)(1) shl log2trunc(idx)))
+

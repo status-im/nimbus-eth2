@@ -22,4 +22,4 @@ const
   # Sync protocol
   # ---------------------------------------------------------------
   # 1
-  MIN_SYNC_COMMITTEE_PARTICIPANTS*: uint64 = 1
+  MIN_SYNC_COMMITTEE_PARTICIPANTS* = 1

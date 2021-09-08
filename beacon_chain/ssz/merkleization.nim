@@ -32,6 +32,8 @@ func binaryTreeHeight*(totalElements: Limit): int =
   bitWidth nextPow2(uint64 totalElements)
 
 type
+  GeneralizedIndex* = uint32
+
   SszMerkleizerImpl = object
     combinedChunks: ptr UncheckedArray[Eth2Digest]
     totalChunks: uint64
