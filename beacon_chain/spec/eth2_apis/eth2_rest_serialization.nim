@@ -28,6 +28,10 @@ const
     # Size of `ValidatorSig` hexadecimal value (without 0x)
   RootHashSize = sizeof(Eth2Digest) * 2
     # Size of `xxx_root` hexadecimal value (without 0x)
+  Phase0Version =
+    [byte('p'), byte('h'), byte('a'), byte('s'), byte('e'), byte('0')]
+  AltairVersion =
+    [byte('a'), byte('l'), byte('t'), byte('a'), byte('i'), byte('r')]
 
 type
   RestGenericError* = object
@@ -774,19 +778,15 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconState) {.
     writer.writeField("data", value.bsAltair)
   writer.endRecord()
 
-proc toSszType*(v: BeaconBlockFork): auto =
+template toSszType*(v: BeaconBlockFork): auto =
   case v
-  of BeaconBlockFork.Phase0:
-    [byte('p'), byte('h'), byte('a'), byte('s'), byte('e'), byte('0')]
-  of BeaconBlockFork.Altair:
-    [byte('a'), byte('l'), byte('t'), byte('a'), byte('i'), byte('r')]
+  of BeaconBlockFork.Phase0: Phase0Version
+  of BeaconBlockFork.Altair: AltairVersion
 
 template toSszType*(v: BeaconStateFork): auto =
   case v
-  of BeaconStateFork.forkPhase0:
-    [byte('p'), byte('h'), byte('a'), byte('s'), byte('e'), byte('0')]
-  of BeaconStateFork.forkAltair:
-    [byte('a'), byte('l'), byte('t'), byte('a'), byte('i'), byte('r')]
+  of BeaconStateFork.forkPhase0: Phase0Version
+  of BeaconStateFork.forkAltair: AltairVersion
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:

@@ -695,7 +695,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return
       case contentType
       of "application/octet-stream":
-        RestApiResponse.sszResponse(bdata.data.asSigned())
+        case bdata.data.kind
+        of BeaconBlockFork.Phase0:
+          RestApiResponse.sszResponse(bdata.data.phase0Block)
+        of BeaconBlockFork.Altair:
+          RestApiResponse.sszResponse(bdata.data.altairBlock)
       of "application/json":
         RestApiResponse.jsonResponsePlain(bdata.data.asSigned())
       else:

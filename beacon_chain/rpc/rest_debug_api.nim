@@ -71,7 +71,11 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
           RestApiResponse.jsonResponsePlain(
             ForkedBeaconState.init(stateData.data))
         of "application/octet-stream":
-          RestApiResponse.sszResponse(ForkedBeaconState.init(stateData.data))
+          case stateData.data.beaconStateFork
+          of BeaconStateFork.forkPhase0:
+            RestApiResponse.sszResponse(stateData.data.hbsPhase0.data)
+          of BeaconStateFork.forkAltair:
+            RestApiResponse.sszResponse(stateData.data.hbsAltair.data)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
@@ -90,11 +94,11 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
   )
   router.redirect(
     MethodGet,
-    "/eth/v1/debug/beacon/heads",
-    "/api/eth/v1/debug/beacon/heads"
+    "/eth/v2/debug/beacon/states/{state_id}",
+    "/api/eth/v2/debug/beacon/states/{state_id}"
   )
   router.redirect(
     MethodGet,
-    "/eth/v2/debug/beacon/heads",
-    "/api/eth/v2/debug/beacon/heads"
+    "/eth/v1/debug/beacon/heads",
+    "/api/eth/v1/debug/beacon/heads"
   )
