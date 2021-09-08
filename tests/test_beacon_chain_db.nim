@@ -68,11 +68,15 @@ suite "Beacon chain DB" & preset():
 
     check:
       db.containsBlock(root)
+      db.containsBlockPhase0(root)
+      not db.containsBlockAltair(root)
       db.getBlock(root).get() == signedBlock
 
     db.delBlock(root)
     check:
       not db.containsBlock(root)
+      not db.containsBlockPhase0(root)
+      not db.containsBlockAltair(root)
       db.getBlock(root).isErr()
 
     db.putStateRoot(root, signedBlock.message.slot, root)
@@ -97,11 +101,15 @@ suite "Beacon chain DB" & preset():
 
     check:
       db.containsBlock(root)
+      not db.containsBlockPhase0(root)
+      db.containsBlockAltair(root)
       db.getAltairBlock(root).get() == signedBlock
 
     db.delBlock(root)
     check:
       not db.containsBlock(root)
+      not db.containsBlockPhase0(root)
+      not db.containsBlockAltair(root)
       db.getAltairBlock(root).isErr()
 
     db.putStateRoot(root, signedBlock.message.slot, root)

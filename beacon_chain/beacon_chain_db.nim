@@ -789,10 +789,15 @@ proc getEth2FinalizedTo*(db: BeaconChainDB): Opt[DepositContractSnapshot] =
 proc containsBlock*(db: BeaconChainDBV0, key: Eth2Digest): bool =
   db.backend.contains(subkey(phase0.SignedBeaconBlock, key)).expectDb()
 
-proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.altairBlocks.contains(key.data).expectDb() or
-    db.blocks.contains(key.data).expectDb() or
+proc containsBlockPhase0*(db: BeaconChainDB, key: Eth2Digest): bool =
+  db.blocks.contains(key.data).expectDb() or
     db.v0.containsBlock(key)
+
+proc containsBlockAltair*(db: BeaconChainDB, key: Eth2Digest): bool =
+  db.altairBlocks.contains(key.data).expectDb()
+
+proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
+  db.containsBlockPhase0(key) or db.containsBlockAltair(key)
 
 proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
   let sk = subkey(BeaconStateNoImmutableValidators, key)
