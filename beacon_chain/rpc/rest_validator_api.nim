@@ -411,7 +411,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/prepareSyncCommitteeSubnets
   router.api(MethodPost,
-             "/eth/v1/validator/sync_committee_subscriptions") do (
+             "/api/eth/v1/validator/sync_committee_subscriptions") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let subscriptions =
       block:
@@ -440,7 +440,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceSyncCommitteeContribution
   router.api(MethodGet,
-             "/eth/v1/validator/sync_committee_contribution") do (
+             "/api/eth/v1/validator/sync_committee_contribution") do (
     slot: Option[Slot], subcommittee_index: Option[uint64],
     beacon_block_root: Option[Eth2Digest]) -> RestApiResponse:
     # We doing this check to avoid any confusion in future.
@@ -501,7 +501,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/publishContributionAndProofs
   router.api(MethodPost,
-             "/eth/v1/validator/contribution_and_proofs") do (
+             "/api/eth/v1/validator/contribution_and_proofs") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let proofs =
       block:
