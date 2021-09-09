@@ -85,6 +85,10 @@ type
   List*[T; maxLen: static Limit] = distinct seq[T]
   BitList*[maxLen: static Limit] = distinct BitSeq
 
+  SingleMemberUnion*[T] = object
+    selector*: uint8
+    value*: T
+
   HashArray*[maxLen: static Limit; T] = object
     ## Array implementation that caches the hash of each chunk of data - see
     ## also HashList for more details.

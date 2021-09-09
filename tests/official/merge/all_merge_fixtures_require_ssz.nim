@@ -9,11 +9,7 @@
 # to ignore invalid BLS signature in EF test vectors
 # https://github.com/status-im/nimbus-eth2/issues/374
 
-import ../testutil
+{.used.}
 
 import
-  ./phase0/all_phase0_fixtures_require_ssz,
-  ./altair/all_altair_fixtures_require_ssz,
-  ./merge/all_merge_fixtures_require_ssz
-
-summarizeLongTests("FixtureAll")
+  ./test_fixture_ssz_consensus_objects

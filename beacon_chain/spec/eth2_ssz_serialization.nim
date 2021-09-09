@@ -13,7 +13,7 @@
 import
   ./ssz_codec,
   ../ssz/ssz_serialization,
-  ./datatypes/[phase0, altair],
+  ./datatypes/[phase0, altair, merge],
   ./eth2_merkleization
 
 export phase0, altair, ssz_codec, ssz_serialization, eth2_merkleization
@@ -38,6 +38,12 @@ template readSszBytes*(
   readAndUpdateRoot(data, val, updateRoot)
 template readSszBytes*(
     data: openArray[byte], val: var altair.TrustedSignedBeaconBlock, updateRoot = true) =
+  readAndUpdateRoot(data, val, updateRoot)
+template readSszBytes*(
+    data: openArray[byte], val: var merge.SignedBeaconBlock, updateRoot = true) =
+  readAndUpdateRoot(data, val, updateRoot)
+template readSszBytes*(
+    data: openArray[byte], val: var merge.TrustedSignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
 
 template readSszBytes*(

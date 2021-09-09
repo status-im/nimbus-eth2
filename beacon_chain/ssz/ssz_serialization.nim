@@ -150,6 +150,10 @@ proc writeVarSizeType(w: var SszWriter, value: auto) {.raises: [Defect, IOError]
 
   when value is HashArray|HashList:
     writeVarSizeType(w, value.data)
+  elif value is SingleMemberUnion:
+    doAssert value.selector == 0'u8
+    w.writeValue 0'u8
+    w.writeValue value.value
   elif value is List:
     # We reduce code bloat by forwarding all `List` types to a general `seq[T]` proc.
     writeSeq(w, asSeq value)
@@ -202,6 +206,9 @@ func sszSize*(value: auto): int {.gcsafe, raises: [Defect].} =
 
   elif T is BitList:
     return len(bytes(value))
+
+  elif T is SingleMemberUnion:
+    sszSize(toSszType value.value) + 1
 
   elif T is object|tuple:
     result = anonConst fixedPortionSize(T)

@@ -169,6 +169,11 @@ func readSszValue*[T](input: openArray[byte],
 
       readSszValue(input.toOpenArray(offset, input.len - 1), val[resultLen - 1])
 
+  elif val is SingleMemberUnion:
+    readSszValue(input.toOpenArray(0, 0), val.selector)
+    doAssert val.selector == 0'u8
+    readSszValue(input.toOpenArray(1, input.len - 1), val.value)
+
   elif val is UintN|bool:
     val = fromSszBytes(T, input)
 

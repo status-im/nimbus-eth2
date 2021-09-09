@@ -2,6 +2,14 @@ FixtureSSZConsensus-mainnet
 ===
 ## 
 ```diff
++ Ethereum Foundation - Altair - Transition - normal_transition [Preset: mainnet]            OK
++ Ethereum Foundation - Altair - Transition - transition_missing_first_post_block [Preset: m OK
++ Ethereum Foundation - Altair - Transition - transition_missing_last_pre_fork_block [Preset OK
++ Ethereum Foundation - Altair - Transition - transition_only_blocks_post_fork [Preset: main OK
++ Ethereum Foundation - Altair - Transition - transition_with_finality [Preset: mainnet]     OK
++ Ethereum Foundation - Altair - Transition - transition_with_no_attestations_until_after_fo OK
++ Ethereum Foundation - Altair - Transition - transition_with_random_half_participation [Pre OK
++ Ethereum Foundation - Altair - Transition - transition_with_random_three_quarters_particip OK
 + Rewards - all_balances_too_low_for_reward [Preset: mainnet]                                OK
 + Rewards - duplicate_attestations_at_later_slots [Preset: mainnet]                          OK
 + Rewards - empty [Preset: mainnet]                                                          OK
@@ -58,6 +66,20 @@ FixtureSSZConsensus-mainnet
 + Slots - slots_2                                                                            OK
 + [Invalid]  bad_merkle_proof                                                                OK
 + [Invalid]  wrong_deposit_for_deposit_count                                                 OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - double_same_proposer_slashings_ OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - double_similar_proposer_slashin OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - double_validator_exit_same_bloc OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - duplicate_attester_slashing [Pr OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - expected_deposit_in_block [Pres OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - invalid_block_sig [Preset: main OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - invalid_proposer_index_sig_from OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - invalid_proposer_index_sig_from OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - invalid_state_root [Preset: mai OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - parent_from_same_slot [Preset:  OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - prev_slot_block_transition [Pre OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - same_slot_block_transition [Pre OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - slash_and_exit_same_index [Pres OK
++ [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - zero_block_sig [Preset: mainnet OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_same_proposer_slashings OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_similar_proposer_slashi OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_validator_exit_same_blo OK
@@ -111,6 +133,13 @@ FixtureSSZConsensus-mainnet
 + [Invalid] invalid_sig_1_and_2_swap                                                         OK
 + [Invalid] invalid_sig_2                                                                    OK
 + [Invalid] invalid_signature                                                                OK
++ [Invalid] invalid_signature_bad_domain                                                     OK
++ [Invalid] invalid_signature_extra_participant                                              OK
++ [Invalid] invalid_signature_infinite_signature_with_all_participants                       OK
++ [Invalid] invalid_signature_infinite_signature_with_single_participant                     OK
++ [Invalid] invalid_signature_missing_participant                                            OK
++ [Invalid] invalid_signature_no_participants                                                OK
++ [Invalid] invalid_signature_past_block                                                     OK
 + [Invalid] invalid_slot_block_header                                                        OK
 + [Invalid] mismatched_target_and_slot                                                       OK
 + [Invalid] new_source_epoch                                                                 OK
@@ -147,6 +176,50 @@ FixtureSSZConsensus-mainnet
 + [Valid]    new_deposit_under_max                                                           OK
 + [Valid]    success_top_up                                                                  OK
 + [Valid]    valid_sig_but_forked_state                                                      OK
++ [Valid]   Ethereum Foundation - Altair - Finality - finality_no_updates_at_genesis [Preset OK
++ [Valid]   Ethereum Foundation - Altair - Finality - finality_rule_1 [Preset: mainnet]      OK
++ [Valid]   Ethereum Foundation - Altair - Finality - finality_rule_2 [Preset: mainnet]      OK
++ [Valid]   Ethereum Foundation - Altair - Finality - finality_rule_3 [Preset: mainnet]      OK
++ [Valid]   Ethereum Foundation - Altair - Finality - finality_rule_4 [Preset: mainnet]      OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_0 [Preset: mainnet]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_1 [Preset: mainnet]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_10 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_11 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_12 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_13 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_14 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_15 [Preset: mainnet]          OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_2 [Preset: mainnet]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_3 [Preset: mainnet]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_4 [Preset: mainnet]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_5 [Preset: mainnet]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_6 [Preset: mainnet]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_7 [Preset: mainnet]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_8 [Preset: mainnet]           OK
++ [Valid]   Ethereum Foundation - Altair - Random - randomized_9 [Preset: mainnet]           OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - attestation [Preset: mainnet]   OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - attester_slashing [Preset: main OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - balance_driven_status_transitio OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - deposit_in_block [Preset: mainn OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - deposit_top_up [Preset: mainnet OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - empty_block_transition [Preset: OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - empty_epoch_transition [Preset: OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_random_operations_0 [Prese OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_random_operations_1 [Prese OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_random_operations_2 [Prese OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_random_operations_3 [Prese OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - high_proposer_index [Preset: ma OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - historical_batch [Preset: mainn OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - multiple_attester_slashings_no_ OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - multiple_attester_slashings_par OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - multiple_different_proposer_sla OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - multiple_different_validator_ex OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - proposer_after_inactive_index [ OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - proposer_self_slashing [Preset: OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - proposer_slashing [Preset: main OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - skipped_slots [Preset: mainnet] OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - slash_and_exit_diff_index [Pres OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - voluntary_exit [Preset: mainnet OK
 + [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_no_updates_at_genesis [Prese OK
 + [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_1 [Preset: mainnet]     OK
 + [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_2 [Preset: mainnet]     OK
@@ -220,6 +293,25 @@ FixtureSSZConsensus-mainnet
 + [Valid]   success_slashed_and_proposer_index_the_same                                      OK
 + [Valid]   success_surround                                                                 OK
 + [Valid]   success_with_effective_balance_disparity                                         OK
++ [Valid]   sync_committee_rewards_duplicate_committee_full_participation                    OK
++ [Valid]   sync_committee_rewards_duplicate_committee_half_participation                    OK
++ [Valid]   sync_committee_rewards_duplicate_committee_no_participation                      OK
++ [Valid]   sync_committee_rewards_empty_participants                                        OK
++ [Valid]   sync_committee_rewards_not_full_participants                                     OK
++ altair_fork_random_0                                                                       OK
++ altair_fork_random_1                                                                       OK
++ altair_fork_random_2                                                                       OK
++ altair_fork_random_3                                                                       OK
++ altair_fork_random_duplicate_attestations                                                  OK
++ altair_fork_random_low_balances                                                            OK
++ altair_fork_random_misc_balances                                                           OK
++ altair_fork_random_mismatched_attestations                                                 OK
++ fork_base_state                                                                            OK
++ fork_many_next_epoch                                                                       OK
++ fork_next_epoch                                                                            OK
++ fork_next_epoch_with_block                                                                 OK
++ fork_random_low_balances                                                                   OK
++ fork_random_misc_balances                                                                  OK
 ```
 OK: 218/218 Fail: 0/218 Skip: 0/218
 ## Ethereum Foundation - Altair - SSZ consensus objects  [Preset: mainnet]
@@ -262,6 +354,48 @@ OK: 218/218 Fail: 0/218 Skip: 0/218
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 36/36 Fail: 0/36 Skip: 0/36
+## Ethereum Foundation - Merge - SSZ consensus objects  [Preset: mainnet]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientSnapshot                                                           OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    PendingAttestation                                                            OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
+```
+OK: 38/38 Fail: 0/38 Skip: 0/38
 ## Ethereum Foundation - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
