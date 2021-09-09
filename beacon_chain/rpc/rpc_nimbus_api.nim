@@ -74,7 +74,8 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     for id, peer in node.network.peerPool:
       peers.add(
         %(
-          info: shortLog(peer.info),
+          #TODO add back more data
+          id: shortLog(peer.peerId),
           connectionState: $peer.connectionState,
           score: peer.score,
         )

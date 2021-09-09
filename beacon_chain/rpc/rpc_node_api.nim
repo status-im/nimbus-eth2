@@ -7,11 +7,11 @@
 
 {.push raises: [Defect].}
 
-import std/options,
+import std/[options, sequtils],
   chronicles,
   json_rpc/servers/httpserver,
   eth/p2p/discoveryv5/enr,
-  libp2p/[multiaddress, multicodec],
+  libp2p/[multiaddress, multicodec, peerstore],
   nimcrypto/utils as ncrutils,
   ../beacon_node_common, ../version,
   ../networking/[eth2_network, peer_pool],
@@ -109,12 +109,13 @@ proc toString(direction: PeerType): string =
   of PeerType.Outgoing:
     "outbound"
 
-proc getLastSeenAddress(info: PeerInfo): string =
+proc getLastSeenAddress(node: BeaconNode, id: PeerId): string =
   # TODO (cheatfate): We need to provide filter here, which will be able to
   # filter such multiaddresses like `/ip4/0.0.0.0` or local addresses or
   # addresses with peer ids.
-  if len(info.addrs) > 0:
-    $info.addrs[len(info.addrs) - 1]
+  let addrs = node.network.switch.peerStore.addressBook.get(id).toSeq()
+  if len(addrs) > 0:
+    $addrs[len(addrs) - 1]
   else:
     ""
 
@@ -187,18 +188,18 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       raise newException(CatchableError, "Incorrect direction parameter")
     let states = rstates.get()
     let dirs = rdirs.get()
-    for item in node.network.peers.values():
-      if (item.connectionState in states) and (item.direction in dirs):
-        let peer = (
-          peer_id: $item.info.peerId,
-          enr: if item.enr.isSome(): item.enr.get().toUri() else: "",
-          last_seen_p2p_address: item.info.getLastSeenAddress(),
-          state: item.connectionState.toString(),
-          direction: item.direction.toString(),
-          agent: item.info.agentVersion, # Fields `agent` and `proto` are not
-          proto: item.info.protoVersion  # part of specification.
+    for peer in node.network.peers.values():
+      if (peer.connectionState in states) and (peer.direction in dirs):
+        let resPeer = (
+          peer_id: $peer.peerId,
+          enr: if peer.enr.isSome(): peer.enr.get().toUri() else: "",
+          last_seen_p2p_address: getLastSeenAddress(node, peer.peerId),
+          state: peer.connectionState.toString(),
+          direction: peer.direction.toString(),
+          agent: node.network.switch.peerStore.agentBook.get(peer.peerId),       # Fields `agent` and `proto` are not
+          proto: node.network.switch.peerStore.protoVersionBook.get(peer.peerId) # part of specification
         )
-        res.add(peer)
+        res.add(resPeer)
     return res
 
   rpcServer.rpc("get_v1_node_peer_count") do () -> RpcNodePeerCount:
@@ -229,13 +230,13 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       raise newException(CatchableError, "Peer not found")
 
     return (
-      peer_id: $peer.info.peerId,
+      peer_id: $peer.peerId,
       enr: if peer.enr.isSome(): peer.enr.get().toUri() else: "",
-      last_seen_p2p_address: peer.info.getLastSeenAddress(),
+      last_seen_p2p_address: getLastSeenAddress(node, peer.peerId),
       state: peer.connectionState.toString(),
       direction: peer.direction.toString(),
-      agent: peer.info.agentVersion, # Fields `agent` and `proto` are not part
-      proto: peer.info.protoVersion  # of specification
+      agent: node.network.switch.peerStore.agentBook.get(peer.peerId),       # Fields `agent` and `proto` are not
+      proto: node.network.switch.peerStore.protoVersionBook.get(peer.peerId) # part of specification
     )
 
   rpcServer.rpc("get_v1_node_version") do () -> JsonNode:

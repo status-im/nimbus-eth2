@@ -8,7 +8,7 @@ import
   std/[sequtils],
   stew/results,
   chronicles,
-  libp2p/[multiaddress, multicodec],
+  libp2p/[multiaddress, multicodec, peerstore],
   libp2p/protocols/pubsub/pubsubpeer,
   ./rest_utils,
   ../eth1/eth1_monitor,
@@ -71,13 +71,13 @@ type
     peerId*: PeerID
     connected*: bool
 
-proc toInfo(info: RestPeerInfoTuple): RestPeerInfo =
+proc toInfo(node: BeaconNode, peerId: PeerId): RestPeerInfo =
   RestPeerInfo(
-    peerId: info.peerId,
-    addrs: info.addrs,
-    protocols: info.protocols,
-    protoVersion: info.protoVersion,
-    agentVersion: info.agentVersion
+    peerId: $peerId,
+    addrs: node.network.switch.peerStore.addressBook.get(peerId).toSeq().mapIt($it),
+    protocols: node.network.switch.peerStore.protoBook.get(peerId).toSeq(),
+    protoVersion: node.network.switch.peerStore.protoVersionBook.get(peerId),
+    agentVersion: node.network.switch.peerStore.agentBook.get(peerId)
   )
 
 proc toNode(v: PubSubPeer, backoff: Moment): RestPubSubPeer =
@@ -151,7 +151,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     for id, peer in node.network.peerPool:
       res.add(
         RestSimplePeer(
-          info: shortLog(peer.info).toInfo(),
+          info: toInfo(node, id),
           connectionState: $peer.connectionState,
           score: peer.score
         )

@@ -143,7 +143,7 @@ p2pProtocol BeaconSync(version = 1,
 
   onPeerConnected do (peer: Peer, incoming: bool) {.async.}:
     debug "Peer connected",
-      peer, peerInfo = shortLog(peer.info), incoming
+      peer, peerId = shortLog(peer.peerId), incoming
     # Per the eth2 protocol, whoever dials must send a status message when
     # connected for the first time, but because of how libp2p works, there may
     # be a race between incoming and outgoing connections and disconnects that
