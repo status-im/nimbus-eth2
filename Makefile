@@ -28,7 +28,7 @@ BASE_METRICS_PORT := 8008
 WEB3_URL := "wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 VALIDATORS := 1
 CPU_LIMIT := 0
-BUILD_END_MSG := "\\e[92mBuild completed successfully:\\e[39m"
+BUILD_END_MSG := "\\x1B[92mBuild completed successfully:\\x1B[39m"
 
 ifeq ($(CPU_LIMIT), 0)
 	CPU_LIMIT_CMD :=
