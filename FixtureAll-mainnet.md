@@ -607,4 +607,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 475/475 Fail: 0/475 Skip: 0/475
+OK: 513/513 Fail: 0/513 Skip: 0/513

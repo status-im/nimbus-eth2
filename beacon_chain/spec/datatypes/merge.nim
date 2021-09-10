@@ -18,7 +18,7 @@ import
   nimcrypto/utils
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/merge/beacon-chain.md#execution
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#execution
   MAX_BYTES_PER_OPAQUE_TRANSACTION* = 1048576
   MAX_TRANSACTIONS_PER_PAYLOAD* = 16384
   BYTES_PER_LOGS_BLOOM = 256
@@ -26,7 +26,7 @@ const
   MIN_GAS_LIMIT = 5000
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/merge/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#custom-types
   OpaqueTransaction* = List[byte, Limit MAX_BYTES_PER_OPAQUE_TRANSACTION]
   Transaction* = SingleMemberUnion[OpaqueTransaction]
 
@@ -36,7 +36,7 @@ type
   BloomLogs* = object
     data*: array[BYTES_PER_LOGS_BLOOM, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/merge/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
     coinbase*: EthAddress  # 'beneficiary' in the yellow paper
@@ -54,7 +54,7 @@ type
     block_hash*: Eth2Digest # Hash of execution block
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/merge/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     parent_hash*: Eth2Digest
     coinbase*: EthAddress
@@ -72,7 +72,7 @@ type
     block_hash*: Eth2Digest  # Hash of execution block
     transactions_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/merge/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -193,7 +193,7 @@ type
     state_root*: Eth2Digest ##\
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/merge/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data ##\
@@ -263,7 +263,7 @@ type
     # Execution
     execution_payload*: ExecutionPayload  # [New in Merge]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
@@ -343,6 +343,6 @@ proc readValue*(r: var JsonReader, a: var EthAddress) {.raises: [Defect, IOError
   except ValueError:
     raiseUnexpectedValue(r, "Hex string expected")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/merge/beacon-chain.md#is_merge_complete
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_merge_complete
 func is_merge_complete(state: merge.BeaconState): bool =
   state.latest_execution_payload_header != default(ExecutionPayloadHeader)
