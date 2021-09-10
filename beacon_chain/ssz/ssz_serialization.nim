@@ -151,8 +151,7 @@ proc writeVarSizeType(w: var SszWriter, value: auto) {.raises: [Defect, IOError]
   when value is HashArray|HashList:
     writeVarSizeType(w, value.data)
   elif value is SingleMemberUnion:
-    if value.selector != 0'u8:
-      raise newException(MalformedSszError, "SingleMemberUnion selector must be 0")
+    doAssert value.selector == 0'u8
     w.writeValue 0'u8
     w.writeValue value.value
   elif value is List:
