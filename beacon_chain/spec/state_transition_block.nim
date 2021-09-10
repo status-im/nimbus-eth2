@@ -502,7 +502,7 @@ proc process_block*(
   # The transition-triggering block creates, not acts on, an Altair state
   err("process_block: Altair state with Phase 0 block")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/altair.nim
 type SomeAltairBlock =

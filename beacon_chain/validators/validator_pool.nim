@@ -189,7 +189,7 @@ proc getSyncCommitteeSelectionProof*(
   else:
     await signWithRemoteValidator(v, signing_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/validator.md#signature
 proc sign*(
     v: AttachedValidator,
     msg: ref SignedContributionAndProof,
