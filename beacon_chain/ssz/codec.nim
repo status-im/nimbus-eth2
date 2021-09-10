@@ -171,7 +171,8 @@ func readSszValue*[T](input: openArray[byte],
 
   elif val is SingleMemberUnion:
     readSszValue(input.toOpenArray(0, 0), val.selector)
-    doAssert val.selector == 0'u8
+    if val.selector != 0'u8:
+      raise newException(MalformedSszError, "SingleMemberUnion selector must be 0")
     readSszValue(input.toOpenArray(1, input.len - 1), val.value)
 
   elif val is UintN|bool:

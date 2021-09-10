@@ -546,7 +546,8 @@ func hashTreeRootAux[T](x: T): Eth2Digest =
   elif T is BitArray:
     hashTreeRootAux(x.bytes)
   elif T is SingleMemberUnion:
-    doAssert x.selector == 0'u8
+    if x.selector != 0'u8:
+      raise newException(MalformedSszError, "SingleMemberUnion selector must be 0")
     merkleizeFields(Limit 2):
       addField hashTreeRoot(toSszType(x.value))
   elif T is array|object|tuple:
