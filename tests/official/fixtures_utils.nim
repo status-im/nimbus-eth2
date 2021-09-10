@@ -39,7 +39,7 @@ type
 const
   FixturesDir* =
     currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
-  SszTestsDir* = FixturesDir / "tests-v1.1.0-beta.3"
+  SszTestsDir* = FixturesDir / "tests-v1.1.0-beta.4"
   MaxObjectSize* = 3_000_000
 
 proc parseTest*(path: string, Format: typedesc[Json], T: typedesc): T =

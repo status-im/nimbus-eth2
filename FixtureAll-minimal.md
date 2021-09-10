@@ -25,12 +25,15 @@ FixtureAll-minimal
 + Rewards - full_random_1 [Preset: minimal]                                                  OK
 + Rewards - full_random_2 [Preset: minimal]                                                  OK
 + Rewards - full_random_3 [Preset: minimal]                                                  OK
++ Rewards - full_random_4 [Preset: minimal]                                                  OK
 + Rewards - full_random_leak [Preset: minimal]                                               OK
 + Rewards - full_random_low_balances_0 [Preset: minimal]                                     OK
 + Rewards - full_random_low_balances_1 [Preset: minimal]                                     OK
 + Rewards - full_random_misc_balances [Preset: minimal]                                      OK
 + Rewards - full_random_seven_epoch_leak [Preset: minimal]                                   OK
 + Rewards - full_random_ten_epoch_leak [Preset: minimal]                                     OK
++ Rewards - full_random_without_leak_0 [Preset: minimal]                                     OK
++ Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]                    OK
 + Rewards - half_full [Preset: minimal]                                                      OK
 + Rewards - half_full_leak [Preset: minimal]                                                 OK
 + Rewards - one_attestation_one_correct [Preset: minimal]                                    OK
@@ -197,6 +200,8 @@ FixtureAll-minimal
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - empty_epoch_transition [Preset: OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - empty_epoch_transition_large_va OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - empty_epoch_transition_not_fina OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - eth1_data_votes_consensus [Pres OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - eth1_data_votes_no_consensus [P OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_random_operations_0 [Prese OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_random_operations_1 [Prese OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_random_operations_2 [Prese OK
@@ -244,6 +249,8 @@ FixtureAll-minimal
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - empty_epoch_transition [Preset OK
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - empty_epoch_transition_large_v OK
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - empty_epoch_transition_not_fin OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - eth1_data_votes_consensus [Pre OK
++ [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - eth1_data_votes_no_consensus [ OK
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - full_random_operations_0 [Pres OK
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - full_random_operations_1 [Pres OK
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - full_random_operations_2 [Pres OK
@@ -275,6 +282,12 @@ FixtureAll-minimal
 + [Valid]   incorrect_target_sqrt_epoch_delay                                                OK
 + [Valid]   proposer_in_committee_with_participation                                         OK
 + [Valid]   proposer_in_committee_without_participation                                      OK
++ [Valid]   random_all_but_one_participating_without_duplicates                              OK
++ [Valid]   random_high_participation_without_duplicates                                     OK
++ [Valid]   random_low_participation_without_duplicates                                      OK
++ [Valid]   random_misc_balances_and_half_participation_without_duplicates                   OK
++ [Valid]   random_only_one_participant_without_duplicates                                   OK
++ [Valid]   random_with_exits_without_duplicates                                             OK
 + [Valid]   success                                                                          OK
 + [Valid]   success_already_exited_long_ago                                                  OK
 + [Valid]   success_already_exited_recent                                                    OK
@@ -282,7 +295,8 @@ FixtureAll-minimal
 + [Valid]   success_block_header                                                             OK
 + [Valid]   success_block_header_from_future                                                 OK
 + [Valid]   success_double                                                                   OK
-+ [Valid]   success_exit_queue                                                               OK
++ [Valid]   success_exit_queue__min_churn                                                    OK
++ [Valid]   success_exit_queue__scaled_churn                                                 OK
 + [Valid]   success_low_balances                                                             OK
 + [Valid]   success_misc_balances                                                            OK
 + [Valid]   success_multi_proposer_index_iterations                                          OK
@@ -294,9 +308,13 @@ FixtureAll-minimal
 + [Valid]   sync_committee_rewards_empty_participants                                        OK
 + [Valid]   sync_committee_rewards_nonduplicate_committee                                    OK
 + [Valid]   sync_committee_rewards_not_full_participants                                     OK
++ [Valid]   sync_committee_with_nonparticipating_exited_member                               OK
++ [Valid]   sync_committee_with_nonparticipating_withdrawable_member                         OK
++ [Valid]   sync_committee_with_participating_exited_member                                  OK
++ [Valid]   sync_committee_with_participating_withdrawable_member                            OK
 + [Valid]   valid_signature_future_committee                                                 OK
 ```
-OK: 293/293 Fail: 0/293 Skip: 0/293
+OK: 311/311 Fail: 0/311 Skip: 0/311
 ## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -347,8 +365,9 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
 + Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
 + Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 10/10 Fail: 0/10 Skip: 0/10
 ## Ethereum Foundation - Altair - Epoch Processing - Participation flag updates [Preset: minimal]
 ```diff
 + Participation flag updates - all_zeroed [Preset: minimal]                                  OK
@@ -372,24 +391,31 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Ethereum Foundation - Altair - Epoch Processing - Registry updates [Preset: minimal]
 ```diff
-+ Registry updates - activation_queue_activation_and_ejection [Preset: minimal]              OK
-+ Registry updates - activation_queue_efficiency [Preset: minimal]                           OK
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
++ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
++ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
 + Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
 + Registry updates - activation_queue_sorting [Preset: minimal]                              OK
 + Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
 + Registry updates - add_to_activation_queue [Preset: minimal]                               OK
 + Registry updates - ejection [Preset: minimal]                                              OK
-+ Registry updates - ejection_past_churn_limit [Preset: minimal]                             OK
++ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
++ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
+OK: 14/14 Fail: 0/14 Skip: 0/14
 ## Ethereum Foundation - Altair - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
 + Slashings - max_penalties [Preset: minimal]                                                OK
 + Slashings - minimal_penalty [Preset: minimal]                                              OK
 + Slashings - scaled_penalties [Preset: minimal]                                             OK
++ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Ethereum Foundation - Altair - Epoch Processing - Slashings reset [Preset: minimal]
 ```diff
 + Slashings reset - flush_slashings [Preset: minimal]                                        OK
@@ -471,8 +497,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
 + Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
 + Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 10/10 Fail: 0/10 Skip: 0/10
 ## Ethereum Foundation - Phase 0 - Epoch Processing - Participation record updates [Preset: minimal]
 ```diff
 + Participation record updates - updated_participation_record [Preset: minimal]              OK
@@ -485,24 +512,31 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Ethereum Foundation - Phase 0 - Epoch Processing - Registry updates [Preset: minimal]
 ```diff
-+ Registry updates - activation_queue_activation_and_ejection [Preset: minimal]              OK
-+ Registry updates - activation_queue_efficiency [Preset: minimal]                           OK
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
++ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
++ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
 + Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
 + Registry updates - activation_queue_sorting [Preset: minimal]                              OK
 + Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
 + Registry updates - add_to_activation_queue [Preset: minimal]                               OK
 + Registry updates - ejection [Preset: minimal]                                              OK
-+ Registry updates - ejection_past_churn_limit [Preset: minimal]                             OK
++ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
++ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
+OK: 14/14 Fail: 0/14 Skip: 0/14
 ## Ethereum Foundation - Phase 0 - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
 + Slashings - max_penalties [Preset: minimal]                                                OK
 + Slashings - minimal_penalty [Preset: minimal]                                              OK
 + Slashings - scaled_penalties [Preset: minimal]                                             OK
++ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Ethereum Foundation - Phase 0 - Epoch Processing - Slashings reset [Preset: minimal]
 ```diff
 + Slashings reset - flush_slashings [Preset: minimal]                                        OK
@@ -541,4 +575,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 447/447 Fail: 0/447 Skip: 0/447
+OK: 481/481 Fail: 0/481 Skip: 0/481

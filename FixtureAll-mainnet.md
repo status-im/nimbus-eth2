@@ -33,12 +33,15 @@ FixtureAll-mainnet
 + Rewards - full_random_1 [Preset: mainnet]                                                  OK
 + Rewards - full_random_2 [Preset: mainnet]                                                  OK
 + Rewards - full_random_3 [Preset: mainnet]                                                  OK
++ Rewards - full_random_4 [Preset: mainnet]                                                  OK
 + Rewards - full_random_leak [Preset: mainnet]                                               OK
 + Rewards - full_random_low_balances_0 [Preset: mainnet]                                     OK
 + Rewards - full_random_low_balances_1 [Preset: mainnet]                                     OK
 + Rewards - full_random_misc_balances [Preset: mainnet]                                      OK
 + Rewards - full_random_seven_epoch_leak [Preset: mainnet]                                   OK
 + Rewards - full_random_ten_epoch_leak [Preset: mainnet]                                     OK
++ Rewards - full_random_without_leak_0 [Preset: mainnet]                                     OK
++ Rewards - full_random_without_leak_and_current_exit_0 [Preset: mainnet]                    OK
 + Rewards - half_full [Preset: mainnet]                                                      OK
 + Rewards - half_full_leak [Preset: mainnet]                                                 OK
 + Rewards - one_attestation_one_correct [Preset: mainnet]                                    OK
@@ -274,6 +277,12 @@ FixtureAll-mainnet
 + [Valid]   incorrect_target_epoch_delay                                                     OK
 + [Valid]   incorrect_target_min_inclusion_delay                                             OK
 + [Valid]   incorrect_target_sqrt_epoch_delay                                                OK
++ [Valid]   random_all_but_one_participating_with_duplicates                                 OK
++ [Valid]   random_high_participation_with_duplicates                                        OK
++ [Valid]   random_low_participation_with_duplicates                                         OK
++ [Valid]   random_misc_balances_and_half_participation_with_duplicates                      OK
++ [Valid]   random_only_one_participant_with_duplicates                                      OK
++ [Valid]   random_with_exits_with_duplicates                                                OK
 + [Valid]   success                                                                          OK
 + [Valid]   success_already_exited_long_ago                                                  OK
 + [Valid]   success_already_exited_recent                                                    OK
@@ -281,7 +290,7 @@ FixtureAll-mainnet
 + [Valid]   success_block_header                                                             OK
 + [Valid]   success_block_header_from_future                                                 OK
 + [Valid]   success_double                                                                   OK
-+ [Valid]   success_exit_queue                                                               OK
++ [Valid]   success_exit_queue__min_churn                                                    OK
 + [Valid]   success_low_balances                                                             OK
 + [Valid]   success_misc_balances                                                            OK
 + [Valid]   success_multi_proposer_index_iterations                                          OK
@@ -295,6 +304,10 @@ FixtureAll-mainnet
 + [Valid]   sync_committee_rewards_duplicate_committee_no_participation                      OK
 + [Valid]   sync_committee_rewards_empty_participants                                        OK
 + [Valid]   sync_committee_rewards_not_full_participants                                     OK
++ [Valid]   sync_committee_with_nonparticipating_exited_member                               OK
++ [Valid]   sync_committee_with_nonparticipating_withdrawable_member                         OK
++ [Valid]   sync_committee_with_participating_exited_member                                  OK
++ [Valid]   sync_committee_with_participating_withdrawable_member                            OK
 + altair_fork_random_0                                                                       OK
 + altair_fork_random_1                                                                       OK
 + altair_fork_random_2                                                                       OK
@@ -310,7 +323,7 @@ FixtureAll-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 307/307 Fail: 0/307 Skip: 0/307
+OK: 320/320 Fail: 0/320 Skip: 0/320
 ## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -361,8 +374,9 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
 + Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
 + Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 10/10 Fail: 0/10 Skip: 0/10
 ## Ethereum Foundation - Altair - Epoch Processing - Participation flag updates [Preset: mainnet]
 ```diff
 + Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
@@ -384,24 +398,27 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Ethereum Foundation - Altair - Epoch Processing - Registry updates [Preset: mainnet]
 ```diff
-+ Registry updates - activation_queue_activation_and_ejection [Preset: mainnet]              OK
-+ Registry updates - activation_queue_efficiency [Preset: mainnet]                           OK
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
 + Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
 + Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
 + Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
 + Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
 + Registry updates - ejection [Preset: mainnet]                                              OK
-+ Registry updates - ejection_past_churn_limit [Preset: mainnet]                             OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
+OK: 10/10 Fail: 0/10 Skip: 0/10
 ## Ethereum Foundation - Altair - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
 + Slashings - max_penalties [Preset: mainnet]                                                OK
 + Slashings - minimal_penalty [Preset: mainnet]                                              OK
 + Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Ethereum Foundation - Altair - Epoch Processing - Slashings reset [Preset: mainnet]
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
@@ -474,8 +491,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
 + Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
 + Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 10/10 Fail: 0/10 Skip: 0/10
 ## Ethereum Foundation - Phase 0 - Epoch Processing - Participation record updates [Preset: mainnet]
 ```diff
 + Participation record updates - updated_participation_record [Preset: mainnet]              OK
@@ -488,24 +506,27 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Ethereum Foundation - Phase 0 - Epoch Processing - Registry updates [Preset: mainnet]
 ```diff
-+ Registry updates - activation_queue_activation_and_ejection [Preset: mainnet]              OK
-+ Registry updates - activation_queue_efficiency [Preset: mainnet]                           OK
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
 + Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
 + Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
 + Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
 + Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
 + Registry updates - ejection [Preset: mainnet]                                              OK
-+ Registry updates - ejection_past_churn_limit [Preset: mainnet]                             OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
 ```
-OK: 8/8 Fail: 0/8 Skip: 0/8
+OK: 10/10 Fail: 0/10 Skip: 0/10
 ## Ethereum Foundation - Phase 0 - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
 + Slashings - max_penalties [Preset: mainnet]                                                OK
 + Slashings - minimal_penalty [Preset: mainnet]                                              OK
 + Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Ethereum Foundation - Phase 0 - Epoch Processing - Slashings reset [Preset: mainnet]
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
@@ -544,4 +565,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 454/454 Fail: 0/454 Skip: 0/454
+OK: 475/475 Fail: 0/475 Skip: 0/475
