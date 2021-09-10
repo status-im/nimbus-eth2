@@ -10,7 +10,7 @@
 
 import
   std/[options, math, tables],
-  ./datatypes/[phase0, altair],
+  ./datatypes/[phase0, altair, merge],
   ./helpers
 
 export phase0, altair

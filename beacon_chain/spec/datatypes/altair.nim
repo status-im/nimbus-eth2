@@ -244,14 +244,13 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # HF1 implies knowledge of phase 0, and this saves creating some other
+  # Altair implies phase 0 knowledge, and this saves creating some other
   # module to merge such knowledge. Another approach is to have imported
   # set of phase 0/HF1 symbols be independently combined by each module,
   # when necessary, but that spreads such detailed abstraction knowledge
   # more widely through codebase than strictly required. Do not export a
   # phase 0 version of symbols; anywhere which specially handles it will
   # have to do so itself.
-  SomeBeaconState* = BeaconState | phase0.BeaconState
   SomeHashedBeaconState* = HashedBeaconState | phase0.HashedBeaconState
 
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblock

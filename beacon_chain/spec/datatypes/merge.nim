@@ -13,7 +13,7 @@ import
   json_serialization,
   json_serialization/types as jsonTypes,
   ../../ssz/types as sszTypes, ../digest,
-  ./altair,
+  ./phase0, ./altair,
   #web3/ethtypes,
   nimcrypto/utils
 
@@ -134,6 +134,8 @@ type
 
     # Execution
     latest_execution_payload_header*: ExecutionPayloadHeader  # [New in Merge]
+
+  SomeBeaconState* = BeaconState | altair.BeaconState | phase0.BeaconState
 
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object

@@ -23,7 +23,7 @@ import
   std/[algorithm, intsets, options, sequtils, sets, tables],
   chronicles, metrics,
   ../extras,
-  ./datatypes/[phase0, altair],
+  ./datatypes/[phase0, altair, merge],
   "."/[beaconstate, eth2_merkleization, helpers, validator, signatures],
   ../../nbench/bench_lab
 

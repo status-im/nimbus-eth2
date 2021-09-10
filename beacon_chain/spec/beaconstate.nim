@@ -169,7 +169,7 @@ proc slash_validator*(
   when state is phase0.BeaconState:
     decrease_balance(state, slashed_index,
       validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
-  elif state is altair.BeaconState:
+  elif state is altair.BeaconState or state is merge.BeaconState:
     decrease_balance(state, slashed_index,
       validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR)
   else:
@@ -190,7 +190,7 @@ proc slash_validator*(
     proposer_reward =
       when state is phase0.BeaconState:
         whistleblower_reward div PROPOSER_REWARD_QUOTIENT
-      elif state is altair.BeaconState:
+      elif state is altair.BeaconState or state is merge.BeaconState:
         whistleblower_reward * PROPOSER_WEIGHT div WEIGHT_DENOMINATOR
       else:
         raiseAssert "invalid BeaconState type"
@@ -552,7 +552,7 @@ func check_attestation_index(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
-func get_attestation_participation_flag_indices(state: altair.BeaconState,
+func get_attestation_participation_flag_indices(state: altair.BeaconState | merge.BeaconState,
                                                 data: AttestationData,
                                                 inclusion_delay: uint64): seq[int] =
   ## Return the flag indices that are satisfied by an attestation.
@@ -598,13 +598,13 @@ func get_total_active_balance*(state: SomeBeaconState, cache: var StateCache): G
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment*(
-    state: altair.BeaconState, cache: var StateCache): Gwei =
+    state: altair.BeaconState | merge.BeaconState, cache: var StateCache): Gwei =
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div
     integer_squareroot(get_total_active_balance(state, cache))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
-    state: altair.BeaconState, index: ValidatorIndex,
+    state: altair.BeaconState | merge.BeaconState, index: ValidatorIndex,
     base_reward_per_increment: Gwei): Gwei =
   ## Return the base reward for the validator defined by ``index`` with respect
   ## to the current ``state``.
@@ -708,7 +708,7 @@ proc process_attestation*(
       addPendingAttestation(state.current_epoch_attestations)
     else:
       addPendingAttestation(state.previous_epoch_attestations)
-  elif state is altair.BeaconState:
+  elif state is altair.BeaconState or state is merge.BeaconState:
     doAssert base_reward_per_increment > 0.Gwei
     if attestation.data.target.epoch == get_current_epoch(state):
       updateParticipationFlags(state.current_epoch_participation)
