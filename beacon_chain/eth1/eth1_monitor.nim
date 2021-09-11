@@ -425,15 +425,15 @@ proc newBlock*(p: Web3DataProviderRef,
     parentHash: executableData.parent_hash.data.encodeQuantityHex,
     miner: executableData.coinbase.data.encodeQuantityHex,
     stateRoot: executableData.state_root.data.encodeQuantityHex,
-    number: executableData.number.encodeQuantity,
+    number: executableData.block_number.encodeQuantity,
     gasLimit: executableData.gas_limit.encodeQuantity,
     gasUsed: executableData.gas_used.encodeQuantity,
     timestamp: executableData.timestamp.encodeQuantity,
     receiptsRoot: executableData.receipt_root.data.encodeQuantityHex,
     logsBloom: executableData.logs_bloom.data.encodeQuantityHex,
     blockHash: executableData.block_hash.data.encodeQuantityHex,
-    transactions: List[string, MAX_EXECUTION_TRANSACTIONS].init(
-      mapIt(executableData.transactions, it.encodeOpaqueTransaction))))
+    transactions: List[string, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+      mapIt(executableData.transactions, it.value.encodeOpaqueTransaction))))
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
   var res: ValueType

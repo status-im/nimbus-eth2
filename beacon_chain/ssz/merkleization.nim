@@ -545,6 +545,10 @@ func hashTreeRootAux[T](x: T): Eth2Digest =
       chunkedHashTreeRootForBasicTypes(markleizer, x)
   elif T is BitArray:
     hashTreeRootAux(x.bytes)
+  elif T is SingleMemberUnion:
+    doAssert x.selector == 0'u8
+    merkleizeFields(Limit 2):
+      addField hashTreeRoot(toSszType(x.value))
   elif T is array|object|tuple:
     trs "MERKLEIZING FIELDS"
     const totalFields = when T is array: len(x)

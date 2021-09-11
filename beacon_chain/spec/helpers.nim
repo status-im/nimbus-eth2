@@ -15,7 +15,7 @@ import
   # Third-party
   stew/[byteutils, endians2],
   # Internal
-  ./datatypes/[phase0, altair],
+  ./datatypes/[phase0, altair, merge],
   ./eth2_merkleization, ./ssz_codec
 
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
