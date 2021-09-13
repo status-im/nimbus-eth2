@@ -10,22 +10,33 @@
 
 import
   # Specs
-  ../../beacon_chain/spec/datatypes/phase0,
-  ../../beacon_chain/spec/[beaconstate],
+  ../../beacon_chain/spec/[beaconstate, forks, state_transition],
   # Internals
   ../../beacon_chain/interop,
   # Mocking procs
   ./mock_deposits
 
-proc initGenesisState*(num_validators: uint64): phase0.HashedBeaconState =
+proc initGenesisState*(
+    num_validators: uint64 = 8'u64 * SLOTS_PER_EPOCH,
+    beaconStateFork: BeaconStateFork = forkPhase0): ref ForkedHashedBeaconState =
   let deposits = mockGenesisBalancedDeposits(
       validatorCount = num_validators,
       amountInEth = 32, # We create canonical validators with 32 Eth
       flags = {}
     )
 
-  initialize_hashed_beacon_state_from_eth1(
-    defaultRuntimeConfig, eth1BlockHash, 0, deposits, {})
+  var cfg = defaultRuntimeConfig
+  if beaconStateFork >= forkAltair:
+    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+
+  result = (ref ForkedHashedBeaconState)(
+    beaconStateFork: forkPhase0,
+    hbsPhase0: initialize_hashed_beacon_state_from_eth1(
+      cfg, eth1BlockHash, 0, deposits, {}))
+
+  maybeUpgradeStateToAltair(cfg, result[])
+
+  doAssert result.beaconStateFork == beaconStateFork
 
 when isMainModule:
   # Smoke test

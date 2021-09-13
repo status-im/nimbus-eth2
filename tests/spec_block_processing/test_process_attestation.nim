@@ -23,8 +23,7 @@ import
 suite "[Unit - Spec - Block processing] Attestations " & preset():
 
   const NumValidators = uint64(8) * SLOTS_PER_EPOCH
-  let genesisState = (ref ForkedHashedBeaconState)(
-    hbsPhase0: initGenesisState(NumValidators), beaconStateFork: forkPhase0)
+  let genesisState = initGenesisState(NumValidators)
 
   doAssert getStateField(genesisState[], validators).lenu64 == NumValidators
 
