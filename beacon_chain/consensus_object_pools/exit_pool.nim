@@ -27,8 +27,8 @@ const
   PROPOSER_SLASHINGS_BOUND* = MAX_PROPOSER_SLASHINGS * 2
   VOLUNTARY_EXITS_BOUND* = MAX_VOLUNTARY_EXITS * 2
 
-proc init*(
-    T: type ExitPool, dag: ChainDAGRef): T =
+proc init*(T: type ExitPool, dag: ChainDAGRef,
+           onVoluntaryExit: OnVoluntaryExitCallback = nil): T =
   ## Initialize an ExitPool from the dag `headState`
   T(
     # Allow for filtering out some exit messages during block production
@@ -39,6 +39,7 @@ proc init*(
     voluntary_exits:
       initDeque[SignedVoluntaryExit](initialSize = VOLUNTARY_EXITS_BOUND.int),
     dag: dag,
+    onVoluntaryExitReceived: onVoluntaryExit
    )
 
 func addExitMessage*(subpool: var auto, exitMessage, bound: auto) =

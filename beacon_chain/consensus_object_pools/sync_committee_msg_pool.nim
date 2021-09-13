@@ -29,8 +29,10 @@ const
     ## How many slots to retain sync committee
     ## messsages before discarding them.
 
-func init*(T: type SyncCommitteeMsgPool): SyncCommitteeMsgPool =
-  discard
+func init*(T: type SyncCommitteeMsgPool,
+           onSyncContribution: OnSyncContributionCallback = nil
+          ): SyncCommitteeMsgPool =
+  T(onContributionReceived: onSyncContribution)
 
 func init(T: type SyncAggregate): SyncAggregate =
   SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
@@ -131,30 +133,39 @@ func addAggregateAux(bestVotes: var BestSyncSubcommitteeContributions,
         participationBits: contribution.aggregation_bits,
         signature: contribution.signature.load.get)
 
-func addSyncContribution*(
+proc addSyncContribution*(
     pool: var SyncCommitteeMsgPool,
-    contribution: SyncCommitteeContribution,
+    scproof: SignedContributionAndProof,
     signature: CookedSig) =
 
-  template blockRoot: auto = contribution.beacon_block_root
+  template blockRoot: auto =
+    scproof.message.contribution.beacon_block_root
+  template subcommitteeIndex: auto =
+    scproof.message.contribution.subcommittee_index
+  template aggregationBits: auto =
+    scproof.message.contribution.aggregation_bits
 
   if blockRoot notin pool.bestContributions:
-    let totalParticipants = countOnes(contribution.aggregation_bits)
+    let totalParticipants = countOnes(aggregationBits)
     var initialBestContributions = BestSyncSubcommitteeContributions(
-      slot: contribution.slot)
+      slot: scproof.message.contribution.slot)
 
-    initialBestContributions.subnets[contribution.subcommittee_index] =
+    initialBestContributions.subnets[subcommitteeIndex] =
       BestSyncSubcommitteeContribution(
         totalParticipants: totalParticipants,
-        participationBits: contribution.aggregation_bits,
+        participationBits: aggregationBits,
         signature: signature)
 
     pool.bestContributions[blockRoot] = initialBestContributions
   else:
     try:
-      addAggregateAux(pool.bestContributions[blockRoot], contribution)
+      addAggregateAux(pool.bestContributions[blockRoot],
+                      scproof.message.contribution)
     except KeyError:
       raiseAssert "We have checked for the key upfront"
+
+  if not(isNil(pool.onContributionReceived)):
+    pool.onContributionReceived(scproof)
 
 proc produceSyncAggregateAux(
     bestContributions: BestSyncSubcommitteeContributions): SyncAggregate =

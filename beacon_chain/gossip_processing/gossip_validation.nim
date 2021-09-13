@@ -686,7 +686,6 @@ proc validateAttesterSlashing*(
   pool.prior_seen_attester_slashed_indices.incl attester_slashed_indices
   pool.attester_slashings.addExitMessage(
     attester_slashing, ATTESTER_SLASHINGS_BOUND)
-
   ok(true)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#proposer_slashing
@@ -715,7 +714,6 @@ proc validateProposerSlashing*(
     proposer_slashing.signed_header_1.message.proposer_index.int)
   pool.proposer_slashings.addExitMessage(
     proposer_slashing, PROPOSER_SLASHINGS_BOUND)
-
   ok(true)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#voluntary_exit
@@ -747,6 +745,10 @@ proc validateVoluntaryExit*(
     signed_voluntary_exit.message.validator_index.int)
   pool.voluntary_exits.addExitMessage(
     signed_voluntary_exit, VOLUNTARY_EXITS_BOUND)
+
+  # Send notification about new voluntary exit via callback
+  if not(isNil(pool.onVoluntaryExitReceived)):
+    pool.onVoluntaryExitReceived(signed_voluntary_exit)
 
   ok()
 
@@ -946,8 +948,6 @@ proc validateSignedContributionAndProof*(
       return errReject(
         "SignedContributionAndProof: aggregate signature fails to verify")
 
-    syncCommitteeMsgPool[].addSyncContribution(
-      msg.message.contribution,
-      cookedSignature.get)
+    syncCommitteeMsgPool[].addSyncContribution(msg, cookedSignature.get)
 
   ok()

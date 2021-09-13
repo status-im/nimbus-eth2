@@ -56,6 +56,7 @@ type
     eth1Monitor*: Eth1Monitor
     rpcServer*: RpcServer
     restServer*: RestServerRef
+    eventBus*: AsyncEventBus
     vcProcess*: Process
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerID]

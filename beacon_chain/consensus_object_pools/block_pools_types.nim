@@ -48,6 +48,20 @@ type
     Old
     Duplicate
 
+  OnBlockCallback* =
+    proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [Defect].}
+  OnHeadCallback* =
+    proc(slot: Slot, blockRoot: Eth2Digest, stateRoot: Eth2Digest,
+         epochTransition: bool, previousDutyDepRoot: Eth2Digest,
+         currentDutyDepRoot: Eth2Digest) {.gcsafe, raises: [Defect].}
+  OnReorgCallback* =
+    proc(slot: Slot, depth: uint64, oldHeadBlockRoot: Eth2Digest,
+         newHeadBlockRoot: Eth2Digest, oldHeadStateRoot: Eth2Digest,
+         newHeadStateRoot: Eth2Digest) {.gcsafe, raises: [Defect].}
+  OnFinalizedCallback* =
+    proc(blockRoot: Eth2Digest, stateRoot: Eth2Digest,
+         epoch: Epoch) {.gcsafe, raises: [Defect].}
+
   QuarantineRef* = ref object
     ## Keeps track of unsafe blocks coming from the network
     ## and that cannot be added to the chain
@@ -174,6 +188,15 @@ type
       ## database. We use a ref type to facilitate sharing this small
       ## value with other components which don't have access to the
       ## full ChainDAG.
+
+    onBlockAdded*: OnBlockCallback
+      ## On block added callback
+    onHeadChanged*: OnHeadCallback
+      ## On head changed callback
+    onReorgHappened*: OnReorgCallback
+      ## On beacon chain reorganization
+    onFinHappened*: OnFinalizedCallback
+      ## On finalization callback
 
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and

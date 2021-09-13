@@ -180,6 +180,8 @@ proc addResolvedBlock(
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
     onBlockAdded(blockRef, trustedBlock, epochRef)
+  if not(isNil(dag.onBlockAdded)):
+    dag.onBlockAdded(ForkedTrustedSignedBeaconBlock.init(trustedBlock))
 
   resolveQuarantinedBlocks(dag, quarantine, onBlockAdded)
 
