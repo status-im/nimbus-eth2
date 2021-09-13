@@ -921,6 +921,9 @@ proc load*(
   else:
     some(validators[index.int].pubkey.loadValid())
 
+template hash*(header: BeaconBlockHeader): Hash =
+  hash(header.state_root)
+
 static:
   # Sanity checks - these types should be trivial enough to copy with memcpy
   doAssert supportsCopyMem(Validator)
