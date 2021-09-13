@@ -531,6 +531,13 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 36/36 Fail: 0/36 Skip: 0/36
+## Ethereum Foundation - Altair - Unittests - Sync protocol [Preset: mainnet]
+```diff
++ process_light_client_update_finality_updated                                               OK
++ process_light_client_update_not_updated                                                    OK
++ process_light_client_update_timeout                                                        OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Ethereum Foundation - Merge - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -675,4 +682,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 581/581 Fail: 0/581 Skip: 0/581
+OK: 584/584 Fail: 0/584 Skip: 0/584
