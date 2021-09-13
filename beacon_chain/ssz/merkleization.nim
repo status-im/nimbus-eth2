@@ -32,6 +32,8 @@ func binaryTreeHeight*(totalElements: Limit): int =
   bitWidth nextPow2(uint64 totalElements)
 
 type
+  # TODO Figure out what would be the right type for this.
+  #      It probably fits in uint16 for all practical purposes.
   GeneralizedIndex* = uint32
 
   SszMerkleizerImpl = object
