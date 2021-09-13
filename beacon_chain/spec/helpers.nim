@@ -237,4 +237,3 @@ func has_flag*(flags: ParticipationFlags, flag_index: int): bool =
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-beta.3/specs/altair/sync-protocol.md#get_subtree_index
 func get_subtree_index*(idx: GeneralizedIndex): uint64 =
   uint64(idx mod (type(idx)(1) shl log2trunc(idx)))
-

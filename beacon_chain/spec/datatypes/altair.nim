@@ -527,4 +527,3 @@ chronicles.formatIt SyncCommitteeMessage: shortLog(it)
 
 func hash*(x: LightClientUpdate): Hash =
   hash(x.header.state_root.data)
-
