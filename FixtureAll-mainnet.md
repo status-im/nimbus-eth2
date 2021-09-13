@@ -531,6 +531,13 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 36/36 Fail: 0/36 Skip: 0/36
+## Ethereum Foundation - Altair - Unittests - Sync protocol [Preset: mainnet]
+```diff
++ process_light_client_update_finality_updated                                               OK
++ process_light_client_update_not_updated                                                    OK
++ process_light_client_update_timeout                                                        OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Ethereum Foundation - Merge - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -775,4 +782,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 641/641 Fail: 0/641 Skip: 0/641
+OK: 644/644 Fail: 0/644 Skip: 0/644

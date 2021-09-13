@@ -75,10 +75,10 @@ proc apply_light_client_update(snapshot: var LightClientSnapshot, update: LightC
   snapshot.header = update.header
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/sync-protocol.md#process_light_client_update
-proc process_light_client_update(store: var LightClientStore,
-                                 update: LightClientUpdate,
-                                 current_slot: Slot,
-                                 genesis_validators_root: Eth2Digest): bool =
+proc process_light_client_update*(store: var LightClientStore,
+                                  update: LightClientUpdate,
+                                  current_slot: Slot,
+                                  genesis_validators_root: Eth2Digest): bool =
   if not validate_light_client_update(store.snapshot, update, genesis_validators_root):
     return false
   store.valid_updates.incl(update)
