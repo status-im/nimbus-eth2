@@ -16,7 +16,7 @@ import
   # Standard library
   std/math,
   # Specs
-  ../../beacon_chain/spec/[state_transition_block],
+  ../../beacon_chain/spec/[forks, state_transition_block],
   ../../beacon_chain/spec/datatypes/base,
   # Internals
   # Mock helpers
@@ -26,7 +26,7 @@ import
 suite "[Unit - Spec - Block processing] Deposits " & preset():
 
   const NumValidators = uint64 5 * SLOTS_PER_EPOCH
-  let genesisState = newClone(initGenesisState(NumValidators))
+  let genesisState = newClone(initGenesisState(NumValidators).hbsPhase0)
   doAssert genesisState.data.validators.lenu64 == NumValidators
 
   template valid_deposit(deposit_amount: uint64, name: string): untyped =

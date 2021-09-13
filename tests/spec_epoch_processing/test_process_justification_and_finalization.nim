@@ -218,8 +218,7 @@ proc payload =
     echo "   Finalization rules are detailed at https://github.com/protolambda/eth2-docs#justification-and-finalization"
 
     const NumValidators = uint64(8) * SLOTS_PER_EPOCH
-    let genesisState = (ref ForkedHashedBeaconState)(
-      hbsPhase0: initGenesisState(NumValidators), beaconStateFork: forkPhase0)
+    let genesisState = initGenesisState(NumValidators)
     doAssert getStateField(genesisState[], validators).lenu64 == NumValidators
 
     setup:
