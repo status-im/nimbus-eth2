@@ -104,11 +104,36 @@ func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
     # with nimOldCaseObjects. This is infrequent.
     tgt = src
 
-macro getStateField*(s, y: untyped): untyped =
-  result = quote do:
-    (if `s`.beaconStateFork == forkPhase0:
-       unsafeAddr (`s`.hbsPhase0.data.`y`) else:
-         unsafeAddr (`s`.hbsAltair.data.`y`))[]
+macro getStateField*(s, field: untyped): untyped =
+  let fieldName = field.strVal
+
+  var isInPhase0 = false
+  for name, value in fieldPairs(default(phase0.BeaconState)):
+    if eqIdent(name, fieldName): isInPhase0 = true; break
+  
+  var isInAltair = false
+  for name, value in fieldPairs(default(altair.BeaconState)):
+    if eqIdent(name, fieldName): isInAltair = true; break
+  
+  if isInAltair:
+    if isInPhase0:
+      result = quote do: 
+        (if `s`.beaconStateFork == forkPhase0:
+          unsafeAddr (`s`.hbsPhase0.data.`field`) else:
+            unsafeAddr (`s`.hbsAltair.data.`field`))[]
+    else:
+      result = quote do:
+        (if `s`.beaconStateFork == forkPhase0:
+          raiseAssert $`s`.beaconStateFork & " does not support " & `fieldName` else:
+            unsafeAddr (`s`.hbsAltair.data.`field`))[]
+  else:
+    if isInPhase0:
+      result = quote do: 
+        (if `s`.beaconStateFork == forkPhase0:
+          unsafeAddr (`s`.hbsPhase0.data.`field`) else:
+            raiseAssert $`s`.beaconStateFork & " does not support " & `fieldName`)[]
+    else:
+      raiseAssert "No BeaconStateFork supports " & fieldName
 
 template getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
   case x.beaconStateFork:
