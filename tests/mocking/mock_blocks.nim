@@ -43,7 +43,7 @@ proc mockBlock(
   ## Mock a BeaconBlock for the specific slot
 
   var emptyCache = StateCache()
-  let proposer_index = get_beacon_proposer_index(state, emptyCache)
+  let proposer_index = get_beacon_proposer_index(state, emptyCache, slot)
   result.message.slot = slot
   result.message.proposer_index = proposer_index.get.uint64
   result.message.body.eth1_data.deposit_count = state.eth1_deposit_index
