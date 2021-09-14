@@ -15,7 +15,7 @@ import
   chronicles,
   # Specs
   ../../beacon_chain/spec/datatypes/phase0,
-  ../../beacon_chain/spec/[beaconstate, helpers, validator, signatures],
+  ../../beacon_chain/spec/[beaconstate, forks, helpers, validator, signatures],
   # Mocking procs
   ./mock_blocks,
   ./mock_validator_keys
@@ -27,7 +27,9 @@ proc mockAttestationData(
   doAssert state.slot >= slot
 
   if slot == state.slot:
-    result.beacon_block_root = mockBlockForNextSlot(state).message.parent_root
+    let forkedState = (ref ForkedHashedBeaconState)(beaconStateFork: forkPhase0,
+      hbsPhase0: phase0.HashedBeaconState(root: hash_tree_root(state), data: state))[]
+    result.beacon_block_root = mockBlockForNextSlot(forkedState).phase0Block.message.parent_root
   else:
     result.beacon_block_root = get_block_root_at_slot(state, slot)
 

@@ -6,54 +6,74 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  options,
-  # Specs
-  ../../beacon_chain/spec/datatypes/phase0,
-  ../../beacon_chain/spec/[helpers, signatures, validator],
+  # Beacon chain internals
+  ../../beacon_chain/spec/[forks, helpers, signatures, state_transition],
   # Mock helpers
   ./mock_validator_keys
 
 # Routines for mocking blocks
 # ---------------------------------------------------------------
 
-proc signMockBlockImpl(
-      state: phase0.BeaconState,
-      signedBlock: var phase0.SignedBeaconBlock
-    ) =
-  let block_slot = signedBlock.message.slot
-  doAssert state.slot <= block_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/tests/core/pyspec/eth2spec/test/helpers/block.py#L26-L35
+proc applyRandaoReveal(state: ForkedHashedBeaconState, b: var ForkedSignedBeaconBlock) =
+  withBlck(b):
+    doAssert getStateField(state, slot) <= blck.message.slot
 
-  let privkey = MockPrivKeys[signedBlock.message.proposer_index]
+    let proposer_index = blck.message.proposer_index
+    let privkey = MockPrivKeys[proposer_index]
 
-  signedBlock.message.body.randao_reveal = get_epoch_signature(
-    state.fork, state.genesis_validators_root, block_slot.compute_epoch_at_slot,
-    privkey).toValidatorSig()
-  signedBlock.root = hash_tree_root(signedBlock.message)
-  signedBlock.signature = get_block_signature(
-    state.fork, state.genesis_validators_root, block_slot,
-    signedBlock.root, privkey).toValidatorSig()
+    blck.message.body.randao_reveal = 
+      get_epoch_signature(
+        getStateField(state, fork), 
+        getStateField(state, genesis_validators_root),
+        blck.message.slot.compute_epoch_at_slot,
+        privkey).toValidatorSig()
 
-proc signMockBlock*(state: phase0.BeaconState, signedBlock: var phase0.SignedBeaconBlock) =
-  signMockBlockImpl(state, signedBlock)
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/tests/core/pyspec/eth2spec/test/helpers/block.py#L38-L54
+proc signMockBlock*(state: ForkedHashedBeaconState, b: var ForkedSignedBeaconBlock) =
+  withBlck(b):
+    let proposer_index = blck.message.proposer_index
+    let privkey = MockPrivKeys[proposer_index]
 
-proc mockBlock*(
-    state: phase0.BeaconState,
-    slot: Slot): phase0.SignedBeaconBlock =
+    blck.root = blck.message.hash_tree_root()
+    blck.signature = 
+      get_block_signature(
+        getStateField(state, fork), 
+        getStateField(state, genesis_validators_root),
+        blck.message.slot,
+        blck.root,
+        privkey).toValidatorSig()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/tests/core/pyspec/eth2spec/test/helpers/block.py#L75-L105
+proc mockBlock*(state: ForkedHashedBeaconState, slot: Slot): ForkedSignedBeaconBlock =
   ## TODO don't do this gradual construction, for exception safety
   ## Mock a BeaconBlock for the specific slot
 
-  var emptyCache = StateCache()
-  let proposer_index = get_beacon_proposer_index(state, emptyCache, slot)
-  result.message.slot = slot
-  result.message.proposer_index = proposer_index.get.uint64
-  result.message.body.eth1_data.deposit_count = state.eth1_deposit_index
-
-  var previous_block_header = state.latest_block_header
+  var cache = StateCache()
+  var rewards = RewardInfo()
+  var tmpState = assignClone(state)
+  doAssert process_slots(defaultRuntimeConfig, tmpState[], slot, cache, rewards, flags = {})
+  
+  var previous_block_header = getStateField(tmpState[], latest_block_header)
   if previous_block_header.state_root == ZERO_HASH:
-    previous_block_header.state_root = state.hash_tree_root()
-  result.message.parent_root = previous_block_header.hash_tree_root()
+    previous_block_header.state_root = tmpState[].hash_tree_root()
 
-  signMockBlock(state, result)
+  result.kind = case tmpState[].beaconStateFork
+                of forkPhase0: BeaconBlockFork.Phase0
+                of forkAltair: BeaconBlockFork.Altair
+  withBlck(result):
+    blck.message.slot = slot
+    blck.message.proposer_index = get_beacon_proposer_index(tmpState[], cache, slot).get.uint64
+    blck.message.body.eth1_data.deposit_count = getStateField(tmpState[], eth1_deposit_index)
+    blck.message.parent_root = previous_block_header.hash_tree_root()
+    
+  applyRandaoReveal(tmpState[], result)
 
-proc mockBlockForNextSlot*(state: phase0.BeaconState): phase0.SignedBeaconBlock =
-  mockBlock(state, state.slot + 1)
+  if result.kind >= BeaconBlockFork.Altair:
+    result.altairBlock.message.body.sync_aggregate.sync_committee_signature = ValidatorSig.infinity
+
+  signMockBlock(tmpState[], result)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/tests/core/pyspec/eth2spec/test/helpers/block.py#L108-L109
+proc mockBlockForNextSlot*(state: ForkedHashedBeaconState): ForkedSignedBeaconBlock =
+  mockBlock(state, getStateField(state, slot) + 1)
