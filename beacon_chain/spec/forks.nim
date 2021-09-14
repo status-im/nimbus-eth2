@@ -322,9 +322,6 @@ template root*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): Eth
 template slot*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): Slot =
   getForkedBlockField(x, slot)
 
-template message*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): auto =
-  withBlck(x): blck.message
-
 template shortLog*(x: ForkedBeaconBlock): auto =
   withBlck(x): shortLog(blck)
 
