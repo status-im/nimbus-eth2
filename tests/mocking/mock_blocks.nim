@@ -45,14 +45,17 @@ proc signMockBlock*(state: ForkedHashedBeaconState, b: var ForkedSignedBeaconBlo
         privkey).toValidatorSig()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/tests/core/pyspec/eth2spec/test/helpers/block.py#L75-L105
-proc mockBlock*(state: ForkedHashedBeaconState, slot: Slot): ForkedSignedBeaconBlock =
+proc mockBlock*(
+    state: ForkedHashedBeaconState, 
+    slot: Slot, 
+    cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
   ## TODO don't do this gradual construction, for exception safety
   ## Mock a BeaconBlock for the specific slot
 
   var cache = StateCache()
   var rewards = RewardInfo()
   var tmpState = assignClone(state)
-  doAssert process_slots(defaultRuntimeConfig, tmpState[], slot, cache, rewards, flags = {})
+  doAssert process_slots(cfg, tmpState[], slot, cache, rewards, flags = {})
   
   var previous_block_header = getStateField(tmpState[], latest_block_header)
   if previous_block_header.state_root == ZERO_HASH:
