@@ -143,6 +143,8 @@ const
     "Internal server error"
   NoImplementationError* =
     "Not implemented yet"
+  ContentNotAcceptableError* = ""
+  InvalidAcceptError* = ""
 
 type
   ValidatorIndexError* {.pure.} = enum

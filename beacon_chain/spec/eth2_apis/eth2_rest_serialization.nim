@@ -85,6 +85,21 @@ proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
         default
   res
 
+proc prepareJsonStringResponse*(t: typedesc[RestApiResponse], d: auto): string =
+  let res =
+    block:
+      var default: string
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.writeValue(d)
+        stream.getOutput(string)
+      except SerializationError:
+        default
+      except IOError:
+        default
+  res
+
 proc jsonResponseWRoot*(t: typedesc[RestApiResponse], data: auto,
                         dependent_root: Eth2Digest): RestApiResponse =
   let res =
@@ -983,6 +998,8 @@ proc decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.FinalizedCheckpoint)
   of "chain_reorg":
     ok(EventTopic.ChainReorg)
+  of "contribution_and_proof":
+    ok(EventTopic.ContributionAndProof)
   else:
     err("Incorrect event's topic value")
 
