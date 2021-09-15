@@ -73,7 +73,7 @@ suite "Gossip validation " & preset():
     for blck in makeTestBlocks(
         dag.headState.data, dag.head.root, cache,
         int(SLOTS_PER_EPOCH * 5), false):
-      let added = dag.addRawBlock(quarantine, blck) do (
+      let added = dag.addRawBlock(quarantine, blck.phase0Block) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
