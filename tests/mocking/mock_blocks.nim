@@ -36,7 +36,7 @@ proc signMockBlockImpl(
 proc signMockBlock*(state: phase0.BeaconState, signedBlock: var phase0.SignedBeaconBlock) =
   signMockBlockImpl(state, signedBlock)
 
-proc mockBlock(
+proc mockBlock*(
     state: phase0.BeaconState,
     slot: Slot): phase0.SignedBeaconBlock =
   ## TODO don't do this gradual construction, for exception safety
