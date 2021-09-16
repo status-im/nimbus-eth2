@@ -4,16 +4,14 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import
-  std/[typetraits],
-  stew/[results, base10, byteutils, endians2],
-  presto/common,
-  libp2p/peerid,
-  serialization,
-  json_serialization, json_serialization/std/[options, net],
-  nimcrypto/utils as ncrutils,
-  ".."/forks, ".."/datatypes/[phase0, altair, merge],
-  "."/rest_types
+import std/typetraits
+import stew/[results, base10, byteutils, endians2], presto/common,
+       libp2p/peerid, serialization,
+       json_serialization, json_serialization/std/[options, net],
+       nimcrypto/utils as ncrutils
+import ".."/forks, ".."/datatypes/[phase0, altair, merge],
+       ".."/".."/ssz/ssz_serialization,
+       "."/rest_types
 
 export
   results, peerid, common, serialization, json_serialization, options, net,
@@ -30,6 +28,10 @@ const
     # Size of `ValidatorSig` hexadecimal value (without 0x)
   RootHashSize = sizeof(Eth2Digest) * 2
     # Size of `xxx_root` hexadecimal value (without 0x)
+  Phase0Version =
+    [byte('p'), byte('h'), byte('a'), byte('s'), byte('e'), byte('0')]
+  AltairVersion =
+    [byte('a'), byte('l'), byte('t'), byte('a'), byte('i'), byte('r')]
 
 type
   RestGenericError* = object
@@ -261,6 +263,21 @@ proc jsonErrorList*(t: typedesc[RestApiResponse],
       except IOError:
         default
   RestApiResponse.error(status, data, "application/json")
+
+proc sszResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = SszWriter.init(stream)
+        writer.writeValue(data)
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/octet-stream")
 
 template hexOriginal(data: openarray[byte]): string =
   "0x" & ncrutils.toHex(data, true)
@@ -691,6 +708,85 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("version", "altair")
     writer.writeField("data", value.altairBlock)
   writer.endRecord()
+
+# ForkedBeaconState
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var ForkedBeaconState) {.
+     raises: [IOError, SerializationError, Defect].} =
+  var
+    version: Option[BeaconStateFork]
+    data: Option[JsonString]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "version":
+      if version.isSome():
+        reader.raiseUnexpectedField("Multiple version fields found",
+                                    "ForkedBeaconState")
+      let vres = reader.readValue(string)
+      case vres
+      of "phase0":
+        version = some(BeaconStateFork.forkPhase0)
+      of "altair":
+        version = some(BeaconStateFork.forkAltair)
+      else:
+        reader.raiseUnexpectedValue("Incorrect version field value")
+    of "data":
+      if data.isSome():
+        reader.raiseUnexpectedField("Multiple data fields found",
+                                    "ForkedBeaconState")
+      data = some(reader.readValue(JsonString))
+    else:
+      reader.raiseUnexpectedField(fieldName, "ForkedBeaconState")
+
+  if version.isNone():
+    reader.raiseUnexpectedValue("Field version is missing")
+  if data.isNone():
+    reader.raiseUnexpectedValue("Field data is missing")
+
+  case version.get():
+  of BeaconStateFork.forkPhase0:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()), phase0.BeaconState,
+                             requireAllFields = true))
+      except SerializationError:
+        none[phase0.BeaconState]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect phase0 beacon state format")
+    value = ForkedBeaconState.init(res.get())
+  of BeaconStateFork.forkAltair:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()), altair.BeaconState,
+                             requireAllFields = true))
+      except SerializationError:
+        none[altair.BeaconState]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect altair beacon state format")
+    value = ForkedBeaconState.init(res.get())
+
+proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconState) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  case value.beaconStateFork
+  of BeaconStateFork.forkPhase0:
+    writer.writeField("version", "phase0")
+    writer.writeField("data", value.bsPhase0)
+  of BeaconStateFork.forkAltair:
+    writer.writeField("version", "altair")
+    writer.writeField("data", value.bsAltair)
+  writer.endRecord()
+
+template toSszType*(v: BeaconBlockFork): auto =
+  case v
+  of BeaconBlockFork.Phase0: Phase0Version
+  of BeaconBlockFork.Altair: AltairVersion
+
+template toSszType*(v: BeaconStateFork): auto =
+  case v
+  of BeaconStateFork.forkPhase0: Phase0Version
+  of BeaconStateFork.forkAltair: AltairVersion
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:
