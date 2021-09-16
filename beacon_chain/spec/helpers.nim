@@ -67,6 +67,59 @@ func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openArray[Eth2Digest],
     value = eth2digest(buf)
   value == root
 
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/tests/core/pyspec/eth2spec/test/helpers/merkle.py#L4-L21
+func build_proof_impl(anchor: object, leaf_index: uint64, 
+                      proof: var openArray[Eth2Digest]) =
+  let
+    bottom_length = nextPow2(typeof(anchor).totalSerializedFields.uint64)
+    tree_depth = log2trunc(bottom_length)
+    parent_index = 
+      if leaf_index < bottom_length shl 1:
+        0'u64
+      else:
+        var i = leaf_index
+        while i >= bottom_length shl 1:
+          i = i shr 1
+        i
+
+  var 
+    prefix_len = 0
+    proof_len = log2trunc(leaf_index)
+    cache = newSeq[Eth2Digest](bottom_length shl 1)
+  block:
+    var i = bottom_length
+    anchor.enumInstanceSerializedFields(fieldNameVar, fieldVar):
+      if i == parent_index:
+        when fieldVar is object:
+          prefix_len = log2trunc(leaf_index) - tree_depth
+          proof_len -= prefix_len
+          let 
+            bottom_bits = leaf_index and not (uint64.high shl prefix_len)
+            prefix_leaf_index = (1'u64 shl prefix_len) + bottom_bits
+          build_proof_impl(fieldVar, prefix_leaf_index, proof)
+        else: raiseAssert "Invalid leaf_index"
+      cache[i] = hash_tree_root(fieldVar)
+      i += 1
+    for i in countdown(bottom_length - 1, 1):
+      cache[i] = withEth2Hash:
+        h.update cache[i shl 1].data
+        h.update cache[i shl 1 + 1].data
+
+  var i = if parent_index != 0: parent_index
+          else: leaf_index
+  doAssert i > 0 and i < bottom_length shl 1
+  for proof_index in prefix_len ..< prefix_len + proof_len:
+    let b = (i and 1) != 0
+    i = i shr 1
+    proof[proof_index] = if b: cache[i shl 1]
+                         else: cache[i shl 1 + 1]
+
+func build_proof*(anchor: object, leaf_index: uint64, 
+                  proof: var openArray[Eth2Digest]) =
+  doAssert leaf_index > 0
+  doAssert proof.len == log2trunc(leaf_index)
+  build_proof_impl(anchor, leaf_index, proof)
+  
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   EPOCHS_PER_SYNC_COMMITTEE_PERIOD * SLOTS_PER_EPOCH
 

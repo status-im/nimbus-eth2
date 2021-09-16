@@ -217,9 +217,10 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Spec helpers
 ```diff
++ build_proof - BeaconState                                                                  OK
 + integer_squareroot                                                                         OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Specific field types
 ```diff
 + root update                                                                                OK
@@ -359,4 +360,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 36/48 Fail: 0/48 Skip: 12/48
 
 ---TOTAL---
-OK: 193/205 Fail: 0/205 Skip: 12/205
+OK: 194/206 Fail: 0/206 Skip: 12/206
