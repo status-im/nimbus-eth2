@@ -1513,13 +1513,21 @@ proc updatePeerMetadata(node: Eth2Node, peerId: PeerID) {.async.} =
   trace "updating peer metadata", peerId
 
   var peer = node.getPeer(peerId)
-  let response = await peer.getMetaData()
 
-  if response.isErr:
-    debug "Failed to retrieve metadata from peer!", peerId
-    return
+  #getMetaData can fail with an exception
+  let newMetadata =
+    try:
+      tryGet(await peer.getMetaData())
+    except CatchableError:
+      let metadataV2 =
+        try: tryGet(await peer.getMetadata_v2())
+        except CatchableError as exc:
+          debug "Failed to retrieve metadata from peer!", peerId, msg=exc.msg
+          return
 
-  let newMetadata = response.get()
+      phase0.MetaData(seq_number: metadataV2.seq_number,
+                      attnets: metadataV2.attnets)
+
   peer.metadata = some(newMetadata)
   peer.lastMetadataTime = Moment.now()
 
