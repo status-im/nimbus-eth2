@@ -133,37 +133,34 @@ func addAggregateAux(bestVotes: var BestSyncSubcommitteeContributions,
         participationBits: contribution.aggregation_bits,
         signature: contribution.signature.load.get)
 
-proc addSyncContribution*(
-    pool: var SyncCommitteeMsgPool,
-    scproof: SignedContributionAndProof,
-    signature: CookedSig) =
+proc addSyncContribution*(pool: var SyncCommitteeMsgPool,
+                          contribution: SyncCommitteeContribution,
+                          signature: CookedSig) =
 
-  template blockRoot: auto =
-    scproof.message.contribution.beacon_block_root
-  template subcommitteeIndex: auto =
-    scproof.message.contribution.subcommittee_index
-  template aggregationBits: auto =
-    scproof.message.contribution.aggregation_bits
+  template blockRoot: auto = contribution.beacon_block_root
 
   if blockRoot notin pool.bestContributions:
-    let totalParticipants = countOnes(aggregationBits)
+    let totalParticipants = countOnes(contribution.aggregation_bits)
     var initialBestContributions = BestSyncSubcommitteeContributions(
-      slot: scproof.message.contribution.slot)
+      slot: contribution.slot)
 
-    initialBestContributions.subnets[subcommitteeIndex] =
+    initialBestContributions.subnets[contribution.subcommittee_index] =
       BestSyncSubcommitteeContribution(
         totalParticipants: totalParticipants,
-        participationBits: aggregationBits,
+        participationBits: contribution.aggregation_bits,
         signature: signature)
 
     pool.bestContributions[blockRoot] = initialBestContributions
   else:
     try:
-      addAggregateAux(pool.bestContributions[blockRoot],
-                      scproof.message.contribution)
+      addAggregateAux(pool.bestContributions[blockRoot], contribution)
     except KeyError:
       raiseAssert "We have checked for the key upfront"
 
+proc addSyncContribution*(pool: var SyncCommitteeMsgPool,
+                          scproof: SignedContributionAndProof,
+                          signature: CookedSig) =
+  pool.addSyncContribution(scproof.message.contribution, signature)
   if not(isNil(pool.onContributionReceived)):
     pool.onContributionReceived(scproof)
 
