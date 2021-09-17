@@ -581,7 +581,8 @@ suite "Diverging hardforks":
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, phase0RuntimeConfig, db, {})
-      quarantine = QuarantineRef.init(keys.newRng())
+      taskpool = Taskpool.new()
+      quarantine = QuarantineRef.init(keys.newRng(), taskpool)
       nilPhase0Callback: OnPhase0BlockAdded
       state = newClone(dag.headState.data)
       cache = StateCache()
