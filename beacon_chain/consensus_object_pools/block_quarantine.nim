@@ -20,9 +20,8 @@ export options, block_pools_types
 logScope:
   topics = "quarant"
 
-func init*(T: type QuarantineRef, rng: ref BrHmacDrbgContext): T =
-  result = T()
-  result.rng = rng
+func init*(T: type QuarantineRef, rng: ref BrHmacDrbgContext, taskpool: TaskpoolPtr): T =
+  T(rng: rng, taskpool: taskpool)
 
 func checkMissing*(quarantine: QuarantineRef): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -

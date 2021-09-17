@@ -11,7 +11,7 @@ import
   # Status lib
   unittest2,
   chronicles, chronos,
-  eth/keys,
+  eth/keys, taskpools,
   # Internal
   ../beacon_chain/[beacon_node_types, beacon_clock],
   ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
@@ -33,12 +33,13 @@ suite "Gossip validation " & preset():
     # Genesis state that results in 3 members per committee
     var
       dag = init(ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3), {})
-      quarantine = QuarantineRef.init(keys.newRng())
+      taskpool = Taskpool.new()
+      quarantine = QuarantineRef.init(keys.newRng(), taskpool)
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()
       rewards = RewardInfo()
-      batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false)
+      batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false, taskpool)
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
       process_slots(

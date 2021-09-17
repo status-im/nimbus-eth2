@@ -156,6 +156,11 @@ type
       desc: "The slashing DB flavour to use"
       name: "slashing-db-kind" }: SlashingDbKind
 
+    numThreads* {.
+      defaultValue: 1,
+      desc: "Number of threads used (0 to use all logical threads)"
+      name: "num-threads" }: int
+
     case cmd* {.
       command
       defaultValue: noCommand }: BNStartUpCmd
