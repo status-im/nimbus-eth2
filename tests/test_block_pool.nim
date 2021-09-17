@@ -127,8 +127,8 @@ suite "Block pool processing" & preset():
       cache = StateCache()
       rewards = RewardInfo()
       att0 = makeFullAttestations(state[], dag.tail.root, 0.Slot, cache)
-      b1 = addTestBlock(state[], dag.tail.root, cache, attestations = att0)
-      b2 = addTestBlock(state[], b1.root, cache)
+      b1 = addTestBlock(state[], dag.tail.root, cache, attestations = att0).phase0Block
+      b2 = addTestBlock(state[], b1.root, cache).phase0Block
   test "getRef returns nil for missing blocks":
     check:
       dag.getRef(default Eth2Digest) == nil
@@ -181,7 +181,7 @@ suite "Block pool processing" & preset():
         rewards, {})
 
     let
-      b4 = addTestBlock(state[], b2.root, cache)
+      b4 = addTestBlock(state[], b2.root, cache).phase0Block
       b4Add = dag.addRawBlock(quarantine, b4, nilPhase0Callback)
 
     check:
@@ -357,7 +357,7 @@ suite "chain DAG finalization tests" & preset():
   test "prune heads on finalization" & preset():
     # Create a fork that will not be taken
     var
-      blck = makeTestBlock(dag.headState.data, dag.head.root, cache)
+      blck = makeTestBlock(dag.headState.data, dag.head.root, cache).phase0Block
       tmpState = assignClone(dag.headState.data)
     check:
       process_slots(
@@ -365,7 +365,7 @@ suite "chain DAG finalization tests" & preset():
         getStateField(tmpState[], slot) + (5 * SLOTS_PER_EPOCH).uint64,
         cache, rewards, {})
 
-    let lateBlock = addTestBlock(tmpState[], dag.head.root, cache)
+    let lateBlock = addTestBlock(tmpState[], dag.head.root, cache).phase0Block
     block:
       let status = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
       check: status.isOk()
@@ -381,7 +381,7 @@ suite "chain DAG finalization tests" & preset():
       blck = addTestBlock(
         tmpState[], dag.head.root, cache,
         attestations = makeFullAttestations(
-          tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {}))
+          tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {})).phase0Block
       let added = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
@@ -452,7 +452,7 @@ suite "chain DAG finalization tests" & preset():
       if i == SLOTS_PER_EPOCH - 1:
         assign(prestate[], dag.headState.data)
 
-      let blck = makeTestBlock(dag.headState.data, dag.head.root, cache)
+      let blck = makeTestBlock(dag.headState.data, dag.head.root, cache).phase0Block
       let added = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
@@ -469,7 +469,7 @@ suite "chain DAG finalization tests" & preset():
       cache, rewards, {})
 
     # create another block, orphaning the head
-    let blck = makeTestBlock(prestate[], dag.head.parent.root, cache)
+    let blck = makeTestBlock(prestate[], dag.head.parent.root, cache).phase0Block
 
     # Add block, but don't update head
     let added = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
@@ -486,7 +486,7 @@ suite "chain DAG finalization tests" & preset():
     for blck in makeTestBlocks(
         dag.headState.data, dag.head.root, cache, int(SLOTS_PER_EPOCH * 6 - 2),
         true):
-      let added = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
+      let added = dag.addRawBlock(quarantine, blck.phase0Block, nilPhase0Callback)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
       dag.pruneAtFinalization()
@@ -501,7 +501,7 @@ suite "chain DAG finalization tests" & preset():
       dag.headState.data, dag.head.root, cache,
       attestations = makeFullAttestations(
         dag.headState.data, dag.head.root, getStateField(dag.headState.data, slot),
-        cache, {}))
+        cache, {})).phase0Block
 
     let added = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
     check: added.isOk()
@@ -563,7 +563,7 @@ suite "Old database versions" & preset():
       state = newClone(dag.headState.data)
       cache = StateCache()
       att0 = makeFullAttestations(state[], dag.tail.root, 0.Slot, cache)
-      b1 = addTestBlock(state[], dag.tail.root, cache, attestations = att0)
+      b1 = addTestBlock(state[], dag.tail.root, cache, attestations = att0).phase0Block
       b1Add = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
 
     check:
@@ -600,7 +600,7 @@ suite "Diverging hardforks":
     # Because the first block is after the Altair transition, the only block in
     # common is the tail block
     var
-      b1 = addTestBlock(tmpState[], dag.tail.root, cache)
+      b1 = addTestBlock(tmpState[], dag.tail.root, cache).phase0Block
       b1Add = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
 
     check b1Add.isOk()
@@ -618,7 +618,7 @@ suite "Diverging hardforks":
 
     # There's a block in the shared-correct phase0 hardfork, before epoch 2
     var
-      b1 = addTestBlock(tmpState[], dag.tail.root, cache)
+      b1 = addTestBlock(tmpState[], dag.tail.root, cache).phase0Block
       b1Add = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
 
     check:
@@ -629,7 +629,7 @@ suite "Diverging hardforks":
         cache, rewards, {})
 
     var
-      b2 = addTestBlock(tmpState[], b1.root, cache)
+      b2 = addTestBlock(tmpState[], b1.root, cache).phase0Block
       b2Add = dag.addRawBlock(quarantine, b2, nilPhase0Callback)
 
     check b2Add.isOk()
