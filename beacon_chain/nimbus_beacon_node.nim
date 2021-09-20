@@ -142,23 +142,11 @@ proc init*(T: type BeaconNode,
     eventBus.emit("voluntary-exit", data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     eventBus.emit("signed-beacon-block", data)
-  proc onHeadChanged(slot: Slot, blockRoot: Eth2Digest, stateRoot: Eth2Digest,
-                     epochTransition: bool, previousDutyDepRoot: Eth2Digest,
-                     currentDutyDepRoot: Eth2Digest) =
-    let data = HeadChangeInfoObject.init(slot, blockRoot, stateRoot,
-                                         epochTransition, previousDutyDepRoot,
-                                         currentDutyDepRoot)
+  proc onHeadChanged(data: HeadChangeInfoObject) =
     eventBus.emit("head-change", data)
-  proc onChainReorg(slot: Slot, depth: uint64, oldHeadBlockRoot: Eth2Digest,
-                    newHeadBlockRoot: Eth2Digest, oldHeadStateRoot: Eth2Digest,
-                    newHeadStateRoot: Eth2Digest) =
-    let data = ReorgInfoObject.init(slot, depth, oldHeadBlockRoot,
-                                    newHeadBlockRoot, oldHeadStateRoot,
-                                    newHeadStateRoot)
+  proc onChainReorg(data: ReorgInfoObject) =
     eventBus.emit("chain-reorg", data)
-  proc onFinalization(blockRoot: Eth2Digest, stateRoot: Eth2Digest,
-                      epoch: Epoch) =
-    let data = FinalizationInfoObject.init(blockRoot, stateRoot, epoch)
+  proc onFinalization(data: FinalizationInfoObject) =
     eventBus.emit("finalization", data)
   proc onSyncContribution(data: SignedContributionAndProof) =
     eventBus.emit("sync-contribution-and-proof", data)

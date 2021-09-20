@@ -1201,9 +1201,11 @@ proc updateHead*(
         dag.headState.data, finalized_checkpoint))
 
     if not(isNil(dag.onReorgHappened)):
-      dag.onReorgHappened(dag.head.slot, uint64(ancestorDepth), lastHead.root,
-                          newHead.root, lastHeadStateRoot,
-                          getStateRoot(dag.headState.data))
+      let data = ReorgInfoObject.init(dag.head.slot, uint64(ancestorDepth),
+                                      lastHead.root, newHead.root,
+                                      lastHeadStateRoot,
+                                      getStateRoot(dag.headState.data))
+      dag.onReorgHappened(data)
 
     # A reasonable criterion for "reorganizations of the chain"
     quarantine.clearQuarantine()
@@ -1234,9 +1236,11 @@ proc updateHead*(
           else:
             dag.genesis.root
         epochTransition = (finalizedHead != dag.finalizedHead)
-      dag.onHeadChanged(dag.head.slot, dag.head.root,
-                        getStateRoot(dag.headState.data), epochTransition,
-                        previousDutyDepRoot, currentDutyDepRoot)
+      let data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
+                                           getStateRoot(dag.headState.data),
+                                           epochTransition, previousDutyDepRoot,
+                                           currentDutyDepRoot)
+      dag.onHeadChanged(data)
 
   # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
   # both non-negative, so difference can't overflow or underflow int64
@@ -1293,7 +1297,10 @@ proc updateHead*(
         dag.headState.data, finalized_checkpoint).epoch
       let blckRoot = getStateField(
         dag.headState.data, finalized_checkpoint).root
-      dag.onFinHappened(blckRoot, getStateRoot(dag.headState.data), epoch)
+      let data = FinalizationInfoObject.init(blckRoot,
+                                             getStateRoot(dag.headState.data),
+                                             epoch)
+      dag.onFinHappened(data)
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
   let
