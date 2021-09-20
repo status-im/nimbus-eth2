@@ -306,13 +306,13 @@ proc addAttestation*(pool: var AttestationPool,
         attestation, signature):
       return
 
-  # Send notification about new attestation via callback.
-  if not(isNil(pool.onAttestationAdded)):
-    pool.onAttestationAdded(attestation)
-
   pool.addForkChoiceVotes(
     attestation.data.slot, attesting_indices,
     attestation.data.beacon_block_root, wallSlot)
+
+  # Send notification about new attestation via callback.
+  if not(isNil(pool.onAttestationAdded)):
+    pool.onAttestationAdded(attestation)
 
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,

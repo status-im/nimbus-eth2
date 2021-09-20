@@ -135,7 +135,8 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           res.add(handler)
         if EventTopic.Attestation in eventTopics:
           let handler = response.eventHandler(node, Attestation,
-                                              "attestation", "attestation")
+                                              "attestation-received",
+                                              "attestation")
           res.add(handler)
         if EventTopic.VoluntaryExit in eventTopics:
           let handler = response.eventHandler(node, SignedVoluntaryExit,

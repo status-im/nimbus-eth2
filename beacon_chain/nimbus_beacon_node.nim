@@ -134,37 +134,33 @@ proc init*(T: type BeaconNode,
     genesisState, checkpointState: ref phase0.BeaconState
     checkpointBlock: phase0.TrustedSignedBeaconBlock
 
-  proc onAttestationAdded(data: Attestation) {.
-       gcsafe, raises: [Defect].} =
-    eventBus.emit("attestation", data)
-  proc onVoluntaryExitAdded(data: SignedVoluntaryExit) {.
-       gcsafe, raises: [Defect].} =
+  proc onAttestationReceived(data: Attestation) =
+    eventBus.emit("attestation-received", data)
+  proc onAttestationSent(data: Attestation) =
+    eventBus.emit("attestation-sent", data)
+  proc onVoluntaryExitAdded(data: SignedVoluntaryExit) =
     eventBus.emit("voluntary-exit", data)
-  proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) {.
-       gcsafe, raises: [Defect].} =
+  proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
     eventBus.emit("signed-beacon-block", data)
   proc onHeadChanged(slot: Slot, blockRoot: Eth2Digest, stateRoot: Eth2Digest,
                      epochTransition: bool, previousDutyDepRoot: Eth2Digest,
-                     currentDutyDepRoot: Eth2Digest) {.
-       gcsafe, raises: [Defect].} =
+                     currentDutyDepRoot: Eth2Digest) =
     let data = HeadChangeInfoObject.init(slot, blockRoot, stateRoot,
                                          epochTransition, previousDutyDepRoot,
                                          currentDutyDepRoot)
     eventBus.emit("head-change", data)
   proc onChainReorg(slot: Slot, depth: uint64, oldHeadBlockRoot: Eth2Digest,
                     newHeadBlockRoot: Eth2Digest, oldHeadStateRoot: Eth2Digest,
-                    newHeadStateRoot: Eth2Digest) {.
-       gcsafe, raises: [Defect].} =
+                    newHeadStateRoot: Eth2Digest) =
     let data = ReorgInfoObject.init(slot, depth, oldHeadBlockRoot,
                                     newHeadBlockRoot, oldHeadStateRoot,
                                     newHeadStateRoot)
     eventBus.emit("chain-reorg", data)
   proc onFinalization(blockRoot: Eth2Digest, stateRoot: Eth2Digest,
-                      epoch: Epoch) {.gcsafe, raises: [Defect].} =
+                      epoch: Epoch) =
     let data = FinalizationInfoObject.init(blockRoot, stateRoot, epoch)
     eventBus.emit("finalization", data)
-  proc onSyncContribution(data: SignedContributionAndProof) {.
-       gcsafe, raises: [Defect].} =
+  proc onSyncContribution(data: SignedContributionAndProof) =
     eventBus.emit("sync-contribution-and-proof", data)
 
   if config.finalizedCheckpointState.isSome:
@@ -366,7 +362,7 @@ proc init*(T: type BeaconNode,
       rng, config, netKeys, cfg, dag.forkDigests, getBeaconTime,
       getStateField(dag.headState.data, genesis_validators_root))
     attestationPool = newClone(
-      AttestationPool.init(dag, quarantine, onAttestationAdded)
+      AttestationPool.init(dag, quarantine, onAttestationReceived)
     )
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(onSyncContribution)
@@ -427,7 +423,8 @@ proc init*(T: type BeaconNode,
     consensusManager: consensusManager,
     requestManager: RequestManager.init(network, blockProcessor),
     beaconClock: beaconClock,
-    taskpool: taskpool
+    taskpool: taskpool,
+    onAttestationSent: onAttestationSent
   )
 
   # set topic validation routine

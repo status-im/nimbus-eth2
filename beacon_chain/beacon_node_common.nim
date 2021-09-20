@@ -69,6 +69,7 @@ type
     gossipState*: GossipState
     beaconClock*: BeaconClock
     taskpool*: TaskPoolPtr
+    onAttestationSent*: OnAttestationCallback
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

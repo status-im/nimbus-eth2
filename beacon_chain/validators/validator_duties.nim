@@ -189,6 +189,8 @@ proc sendAttestation*(
     of ValidationResult.Accept:
       node.network.broadcastAttestation(subnet_id, attestation)
       beacon_attestations_sent.inc()
+      if not(isNil(node.onAttestationSent)):
+        node.onAttestationSent(attestation)
       true
     else:
       notice "Produced attestation failed validation",
