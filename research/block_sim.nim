@@ -235,6 +235,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         stateData.data,
         finalizedEpochRef.eth1_data,
         finalizedEpochRef.eth1_deposit_index)
+      sync_aggregate =
+        when T is phase0.SignedBeaconBlock:
+          SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
+        elif T is altair.SignedBeaconBlock:
+          syncCommitteePool[].produceSyncAggregate(dag.head.root)
+        else:
+          static: doAssert false
       hashedState =
         when T is phase0.SignedBeaconBlock:
           addr stateData.data.hbsPhase0
@@ -242,56 +249,26 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           addr stateData.data.hbsAltair
         else:
           static: doAssert false
-
-      # TODO this is ugly, to need to almost-but-not-quite-identical calls to
-      # makeBeaconBlock. Add a quasi-dummy SyncAggregate param to the phase 0
-      # makeBeaconBlock, to avoid code duplication.
-      #
-      # One could combine these "when"s, but this "when" should disappear.
-      message =
-        when T is phase0.SignedBeaconBlock:
-          makeBeaconBlock(
-            cfg,
-            hashedState[],
-            proposerIdx,
-            dag.head.root,
-            privKey.genRandaoReveal(
-              getStateField(stateData.data, fork),
-              getStateField(stateData.data, genesis_validators_root),
-              slot).toValidatorSig(),
-            eth1ProposalData.vote,
-            default(GraffitiBytes),
-            attPool.getAttestationsForTestBlock(stateData, cache),
-            eth1ProposalData.deposits,
-            @[],
-            @[],
-            @[],
-            ExecutionPayload(),
-            noRollback,
-            cache)
-        elif T is altair.SignedBeaconBlock:
-          makeBeaconBlock(
-            cfg,
-            hashedState[],
-            proposerIdx,
-            dag.head.root,
-            privKey.genRandaoReveal(
-              getStateField(stateData.data, fork),
-              getStateField(stateData.data, genesis_validators_root),
-              slot).toValidatorSig(),
-            eth1ProposalData.vote,
-            default(GraffitiBytes),
-            attPool.getAttestationsForTestBlock(stateData, cache),
-            eth1ProposalData.deposits,
-            @[],
-            @[],
-            @[],
-            syncCommitteePool[].produceSyncAggregate(dag.head.root),
-            ExecutionPayload(),
-            noRollback,
-            cache)
-        else:
-          static: doAssert false
+      message = makeBeaconBlock(
+        cfg,
+        hashedState[],
+        proposerIdx,
+        dag.head.root,
+        privKey.genRandaoReveal(
+          getStateField(stateData.data, fork),
+          getStateField(stateData.data, genesis_validators_root),
+          slot).toValidatorSig(),
+        eth1ProposalData.vote,
+        default(GraffitiBytes),
+        attPool.getAttestationsForTestBlock(stateData, cache),
+        eth1ProposalData.deposits,
+        @[],
+        @[],
+        @[],
+        sync_aggregate,
+        default(ExecutionPayload),
+        noRollback,
+        cache)
 
     var
       newBlock = T(

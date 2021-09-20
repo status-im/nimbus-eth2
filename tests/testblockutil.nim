@@ -102,61 +102,35 @@ proc addTestBlock*(
       else:
         ValidatorSig()
 
-  let message =
-    case state.beaconStateFork
-    of forkPhase0:
-      let res = makeBeaconBlock(
-        cfg,
-        state.hbsPhase0,
-        proposer_index.get(),
-        parent_root,
-        randao_reveal,
-        # Keep deposit counts internally consistent.
-        Eth1Data(
-          deposit_root: eth1_data.deposit_root,
-          deposit_count: getStateField(state, eth1_deposit_index) + deposits.lenu64,
-          block_hash: eth1_data.block_hash),
-        graffiti,
-        attestations,
-        deposits,
-        @[],
-        @[],
-        @[],
-        default(ExecutionPayload),
-        noRollback,
-        cache)
-      doAssert res.isOk(), "Should have created a valid block!"
-      ForkedBeaconBlock.init(res.get())
-    of forkAltair, forkMerge:
-      let res = makeBeaconBlock(
-        cfg,
-        state.hbsAltair,
-        proposer_index.get(),
-        parent_root,
-        randao_reveal,
-        # Keep deposit counts internally consistent.
-        Eth1Data(
-          deposit_root: eth1_data.deposit_root,
-          deposit_count: getStateField(state, eth1_deposit_index) + deposits.lenu64,
-          block_hash: eth1_data.block_hash),
-        graffiti,
-        attestations,
-        deposits,
-        @[],
-        @[],
-        @[],
-        SyncAggregate(
-          sync_committee_signature: ValidatorSig.infinity),
-        default(ExecutionPayload),
-        noRollback,
-        cache)
-      doAssert res.isOk(), "Should have created a valid block!"
-      ForkedBeaconBlock.init(res.get())
+  let 
+    message = makeBeaconBlock(
+      cfg,
+      state,
+      proposer_index.get(),
+      parent_root,
+      randao_reveal,
+      # Keep deposit counts internally consistent.
+      Eth1Data(
+        deposit_root: eth1_data.deposit_root,
+        deposit_count: getStateField(state, eth1_deposit_index) + deposits.lenu64,
+        block_hash: eth1_data.block_hash),
+      graffiti,
+      attestations,
+      deposits,
+      @[],
+      @[],
+      @[],
+      SyncAggregate(sync_committee_signature: ValidatorSig.infinity),
+      default(ExecutionPayload),
+      noRollback,
+      cache)
+
+  doAssert message.isOk(), "Should have created a valid block!"
 
   let
     new_block = signBlock(
       getStateField(state, fork),
-      getStateField(state, genesis_validators_root), message, privKey,
+      getStateField(state, genesis_validators_root), message.get(), privKey,
       flags)
 
   new_block
