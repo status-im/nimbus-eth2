@@ -30,6 +30,9 @@ proc generateNode(rng: ref BrHmacDrbgContext, port: Port,
   Eth2DiscoveryProtocol.new(keys.PrivateKey.random(rng[]),
         some(ip), some(port), some(port), port, ip, enrFields, rng = rng)
 
+# TODO: Add tests with a syncnets preference
+const noSyncnetsPreference = BitArray[SYNC_COMMITTEE_SUBNET_COUNT]()
+
 suite "Eth2 specific discovery tests":
   let
     rng = keys.newRng()
@@ -59,7 +62,8 @@ suite "Eth2 specific discovery tests":
     attnetsSelected.setBit(42)
     attnetsSelected.setBit(34)
 
-    let discovered = await node1.queryRandom(enrForkId, attnetsSelected)
+    let discovered = await node1.queryRandom(
+      enrForkId, attnetsSelected, noSyncnetsPreference)
     check discovered.len == 1
 
     await node1.closeWait()
@@ -96,7 +100,8 @@ suite "Eth2 specific discovery tests":
     attnetsSelected.setBit(15)
     attnetsSelected.setBit(42)
 
-    let discovered = await node1.queryRandom(enrForkId, attnetsSelected)
+    let discovered = await node1.queryRandom(
+      enrForkId, attnetsSelected, noSyncnetsPreference)
     check discovered.len == 1
 
     await node1.closeWait()
@@ -123,7 +128,8 @@ suite "Eth2 specific discovery tests":
     attnetsSelected.setBit(2)
 
     block:
-      let discovered = await node1.queryRandom(enrForkId, attnetsSelected)
+      let discovered = await node1.queryRandom(
+        enrForkId, attnetsSelected, noSyncnetsPreference)
       check discovered.len == 0
 
     block:
@@ -137,7 +143,8 @@ suite "Eth2 specific discovery tests":
       check nodes.isOk() and nodes[].len > 0
       discard node1.addNode(nodes[][0])
 
-      let discovered = await node1.queryRandom(enrForkId, attnetsSelected)
+      let discovered = await node1.queryRandom(
+        enrForkId, attnetsSelected, noSyncnetsPreference)
       check discovered.len == 1
 
     await node1.closeWait()
