@@ -1574,6 +1574,14 @@ proc updatePeerMetadata(node: Eth2Node, peerId: PeerID) {.async.} =
   peer.metadata = some(newMetadata)
   peer.lastMetadataTime = Moment.now()
 
+const
+  # For Phase0, metadata change every +27 hours
+  MetadataRequestFrequency = 30.minutes
+
+  # Metadata request has 10 seconds timeout, and the loop sleeps for 5 seconds
+  # 50 seconds = 3 attempts
+  MetadataRequestMaxFailureTime = 50.seconds
+
 proc peerPingerHeartbeat(node: Eth2Node) {.async.} =
   while true:
     let heartbeatStart_m = Moment.now()
@@ -1583,7 +1591,7 @@ proc peerPingerHeartbeat(node: Eth2Node) {.async.} =
       if peer.connectionState != Connected: continue
 
       if peer.metadata.isNone or
-        heartbeatStart_m - peer.lastMetadataTime > 30.minutes:
+        heartbeatStart_m - peer.lastMetadataTime > MetadataRequestFrequency:
         updateFutures.add(node.updatePeerMetadata(peer.info.peerId))
 
     discard await allFinished(updateFutures)
@@ -1594,13 +1602,13 @@ proc peerPingerHeartbeat(node: Eth2Node) {.async.} =
         if peer.metadata.isNone:
           peer.lastMetadataTime
         else:
-          peer.lastMetadataTime + 30.minutes
+          peer.lastMetadataTime + MetadataRequestFrequency
 
-      if heartbeatStart_m - lastMetadata > 30.seconds:
-        debug "no metadata for 30 seconds, kicking peer", peer
+      if heartbeatStart_m - lastMetadata > MetadataRequestMaxFailureTime:
+        debug "no metadata from peer, kicking it", peer
         asyncSpawn peer.disconnect(PeerScoreLow)
 
-    await sleepAsync(8.seconds)
+    await sleepAsync(5.seconds)
 
 func asLibp2pKey*(key: keys.PublicKey): PublicKey =
   PublicKey(scheme: Secp256k1, skkey: secp.SkPublicKey(key))
