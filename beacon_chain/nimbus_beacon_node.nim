@@ -1110,6 +1110,7 @@ proc onSlotStart(
     delay = shortLog(delay),
     peers = len(node.network.peerPool),
     head = shortLog(node.dag.head),
+    unhealthySubnetCount = node.network.unhealthySubnetsCount,
     headEpoch = shortLog(node.dag.head.slot.compute_epoch_at_slot()),
     finalized = shortLog(node.dag.finalizedHead.blck),
     finalizedEpoch = shortLog(finalizedEpoch),

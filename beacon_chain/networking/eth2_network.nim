@@ -82,6 +82,7 @@ type
     peerPingerHeartbeatFut: Future[void]
     cfg: RuntimeConfig
     getBeaconTime: GetBeaconTimeFn
+    unhealthySubnetsCount*: int
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -280,6 +281,9 @@ declareCounter nbc_successful_discoveries,
 
 declareCounter nbc_failed_discoveries,
   "Number of failed discoveries"
+
+declareCounter nbc_cycling_kicked_peers,
+  "Number of peers kicked for peer cycling"
 
 const delayBuckets = [1.0, 5.0, 10.0, 20.0, 40.0, 60.0]
 
@@ -946,7 +950,7 @@ proc queryRandom*(
       filtered.add((score, n))
 
   d.rng[].shuffle(filtered)
-  return filtered.sortedByIt(it[0]).mapIt(it[1])
+  return filtered.sortedByIt(-it[0]).mapIt(it[1])
 
 proc trimConnections(node: Eth2Node, count: int) {.async.} =
   # Kill `count` peers, scoring them to remove the least useful ones
@@ -1004,6 +1008,7 @@ proc trimConnections(node: Eth2Node, count: int) {.async.} =
     debug "kicking peer", peerId
     await node.switch.disconnect(peerId)
     dec toKick
+    inc(nbc_cycling_kicked_peers)
     if toKick <= 0: return
 
 proc getLowSubnets(node: Eth2Node):
@@ -1061,37 +1066,48 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
 
+    # Just take attnets into account for UX simplicity
+    node.unhealthySubnetsCount = wantedAttnetsCount
+
     if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0:
       let discoveredNodes = await node.discovery.queryRandom(
         node.forkId, wantedAttnets, wantedSyncnets)
 
-      var newPeers = 0
-      for discNode in discoveredNodes:
-        let res = discNode.toPeerAddr()
-        if res.isOk():
+      let newPeers = block:
+        var np = newSeq[PeerAddr]()
+        for discNode in discoveredNodes:
+          let res = discNode.toPeerAddr()
+          if res.isErr():
+            debug "Failed to decode discovery's node address",
+                  node = discnode, errMsg = res.error
+            continue
+
           let peerAddr = res.get()
-          # Check if peer present in SeenTable or PeerPool.
-          if node.checkPeer(peerAddr):
-            if peerAddr.peerId notin node.connTable:
-              # We adding to pending connections table here, but going
-              # to remove it only in `connectWorker`.
+          if node.checkPeer(peerAddr) and
+            peerAddr.peerId notin node.connTable:
+            np.add(peerAddr)
+        np
 
-              # If we are full, try to kick a peer (3 max)
-              for _ in 0..<3:
-                if node.peerPool.lenSpace({PeerType.Outgoing}) == 0 and newPeers == 0:
-                  await node.trimConnections(1)
-                else: break
+      # We have to be careful to kick enough peers to make room for new ones
+      # (If we are here, we have an unhealthy mesh, so if we're full, we have bad peers)
+      # But no kick too many peers because with low max-peers, that can cause disruption
+      # Also keep in mind that a lot of dial fails, and that we can have incoming peers waiting
+      let
+        roomRequired = 1 + newPeers.len()
+        roomCurrent = node.peerPool.lenSpace({PeerType.Outgoing})
+        roomDelta = roomRequired - roomCurrent
 
-              if node.peerPool.lenSpace({PeerType.Outgoing}) == 0:
-                # No room anymore
-                break
+        maxPeersToKick = len(node.peerPool) div 5
+        peersToKick = min(roomDelta, maxPeersToKick)
 
-              node.connTable.incl(peerAddr.peerId)
-              await node.connQueue.addLast(peerAddr)
-              inc(newPeers)
-        else:
-          debug "Failed to decode discovery's node address",
-                node = discnode, errMsg = res.error
+      if peersToKick > 0 and newPeers.len() > 0:
+        await node.trimConnections(peersToKick)
+
+      for peerAddr in newPeers:
+          # We adding to pending connections table here, but going
+          # to remove it only in `connectWorker`.
+          node.connTable.incl(peerAddr.peerId)
+          await node.connQueue.addLast(peerAddr)
 
       debug "Discovery tick", wanted_peers = node.wantedPeers,
             space = node.peerPool.shortLogSpace(),
@@ -1100,9 +1116,10 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
             current = node.peerPool.shortLogCurrent(),
             length = len(node.peerPool),
             discovered_nodes = len(discoveredNodes),
-            new_peers = newPeers
+            kicked_peers = max(0, peersToKick),
+            new_peers = len(newPeers)
 
-      if newPeers == 0:
+      if len(newPeers) == 0:
         let currentPeers = node.peerPool.lenCurrent()
         if currentPeers <= node.wantedPeers shr 2: #  25%
           warn "Peer count low, no new peers discovered",
