@@ -12,7 +12,7 @@ import
   chronicles,
   stew/bitops2,
   eth/keys,
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0, altair, merge],
   ./block_pools_types
 
 export options, block_pools_types
@@ -61,6 +61,10 @@ func containsOrphan*(
     quarantine: QuarantineRef, signedBlock: altair.SignedBeaconBlock): bool =
   (signedBlock.root, signedBlock.signature) in quarantine.orphansAltair
 
+func containsOrphan*(
+    quarantine: QuarantineRef, signedBlock: merge.SignedBeaconBlock): bool =
+  (signedBlock.root, signedBlock.signature) in quarantine.orphansMerge
+
 func addMissing*(quarantine: QuarantineRef, root: Eth2Digest) =
   ## Schedule the download a the given block
   # Can only request by root, not by signature, so partial match suffices
@@ -87,9 +91,18 @@ func removeOrphan*(
     quarantine: QuarantineRef, signedBlock: SomeSignedAltairBlock) =
   quarantine.orphansAltair.del((signedBlock.root, signedBlock.signature))
 
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+# copy of merge.SomeSignedBeaconBlock from datatypes/merge.nim
+type SomeSignedMergeBlock =
+  merge.SignedBeaconBlock | merge.SigVerifiedSignedBeaconBlock |
+  merge.TrustedSignedBeaconBlock
+func removeOrphan*(
+    quarantine: QuarantineRef, signedBlock: SomeSignedMergeBlock) =
+  quarantine.orphansMerge.del((signedBlock.root, signedBlock.signature))
+
 func isViableOrphan(
     dag: ChainDAGRef,
-    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock): bool =
+    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock | merge.SignedBeaconBlock): bool =
   # The orphan must be newer than the finalization point so that its parent
   # either is the finalized block or more recent
   signedBlock.message.slot > dag.finalizedHead.slot
@@ -107,10 +120,12 @@ func removeOldBlocks(quarantine: QuarantineRef, dag: ChainDAGRef) =
 
   removeNonviableOrphans(quarantine.orphansPhase0)
   removeNonviableOrphans(quarantine.orphansAltair)
+  removeNonviableOrphans(quarantine.orphansMerge)
 
 func clearQuarantine*(quarantine: QuarantineRef) =
   quarantine.orphansPhase0.clear()
   quarantine.orphansAltair.clear()
+  quarantine.orphansMerge.clear()
   quarantine.missing.clear()
 
 # Typically, blocks will arrive in mostly topological order, with some
@@ -168,6 +183,27 @@ func add*(quarantine: QuarantineRef, dag: ChainDAGRef,
     return false
 
   quarantine.orphansAltair[(signedBlock.root, signedBlock.signature)] =
+    signedBlock
+  quarantine.missing.del(signedBlock.root)
+
+  true
+
+func add*(quarantine: QuarantineRef, dag: ChainDAGRef,
+          signedBlock: merge.SignedBeaconBlock): bool =
+  ## Adds block to quarantine's `orphans` and `missing` lists.
+  if not isViableOrphan(dag, signedBlock):
+    return false
+
+  quarantine.removeOldBlocks(dag)
+
+  # Even if the quarantine is full, we need to schedule its parent for
+  # downloading or we'll never get to the bottom of things
+  quarantine.addMissing(signedBlock.message.parent_root)
+
+  if quarantine.orphansMerge.lenu64 >= MAX_QUARANTINE_ORPHANS:
+    return false
+
+  quarantine.orphansMerge[(signedBlock.root, signedBlock.signature)] =
     signedBlock
   quarantine.missing.del(signedBlock.root)
 

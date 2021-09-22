@@ -50,9 +50,9 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     case blck.kind
     of BeaconBlockFork.Phase0:
       return blck.phase0Block
-    of BeaconBlockFork.Altair:
+    of BeaconBlockFork.Altair, BeaconBlockFork.Merge:
       raise newException(CatchableError,
-                         "could not retrieve block for altair blocks")
+                         "could not retrieve block for altair or merge blocks")
 
   rpcServer.rpc("post_v1_validator_block") do (body: phase0.SignedBeaconBlock) -> bool:
     debug "post_v1_validator_block",

@@ -14,7 +14,7 @@ import
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./beacon_chain_db_immutable,
   ./spec/[eth2_ssz_serialization, eth2_merkleization, state_transition],
-  ./spec/datatypes/[phase0, altair],
+  ./spec/datatypes/[phase0, altair, merge],
   ./filepath
 
 export
@@ -484,6 +484,9 @@ proc putBlock*(db: BeaconChainDB, value: phase0.TrustedSignedBeaconBlock) =
 proc putBlock*(db: BeaconChainDB, value: altair.TrustedSignedBeaconBlock) =
   db.altairBlocks.putSnappySSZ(value.root.data, value)
   db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
+
+proc putBlock*(db: BeaconChainDB, value: merge.TrustedSignedBeaconBlock) =
+  doAssert false # TODO Deliberate -- put impl in separately
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =

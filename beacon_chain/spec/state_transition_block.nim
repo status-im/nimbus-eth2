@@ -385,7 +385,7 @@ proc process_operations(cfg: RuntimeConfig,
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
   template base_reward_per_increment(state: phase0.BeaconState): Gwei = 0.Gwei
-  template base_reward_per_increment(state: altair.BeaconState): Gwei =
+  template base_reward_per_increment(state: altair.BeaconState | merge.BeaconState): Gwei =
     get_base_reward_per_increment(state, cache)
 
   let
@@ -412,7 +412,7 @@ proc process_operations(cfg: RuntimeConfig,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-processing
 proc process_sync_aggregate*(
-    state: var altair.BeaconState, aggregate: SyncAggregate, cache: var StateCache):
+    state: var (altair.BeaconState | merge.BeaconState), aggregate: SyncAggregate, cache: var StateCache):
     Result[void, cstring] {.nbench.} =
   # Verify sync committee aggregate signature signing over the previous slot
   # block root
@@ -502,6 +502,13 @@ proc process_block*(
   # The transition-triggering block creates, not acts on, an Altair state
   err("process_block: Altair state with Phase 0 block")
 
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var merge.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.} =
+  # The transition-triggering block creates, not acts on, an Altair state
+  err("process_block: Merge state with Phase 0 block")
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/altair.nim
@@ -523,8 +530,47 @@ proc process_block*(
 
   ok()
 
+# Identical contents as altair/altair, but for merge; enables consistency
+# typechecking
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+type SomeMergeBlock =
+  merge.BeaconBlock | merge.SigVerifiedBeaconBlock | merge.TrustedBeaconBlock
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var merge.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.}=
+  ## When there's a new block, we need to verify that the block is sane and
+  ## update the state accordingly - the state is left in an unknown state when
+  ## block application fails (!)
+
+  ? process_block_header(state, blck, flags, cache)
+  ? process_randao(state, blck.body, flags, cache)
+  ? process_eth1_data(state, blck.body)
+  ? process_operations(cfg, state, blck.body, flags, cache)
+  ? process_sync_aggregate(state, blck.body.sync_aggregate, cache)
+
+  ok()
+
 proc process_block*(
     cfg: RuntimeConfig,
     state: var phase0.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.}=
   err("process_block: Phase 0 state with Altair block")
+
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var phase0.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.}=
+  err("process_block: Phase 0 state with Merge block")
+
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var altair.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.}=
+  err("process_block: Altair state with Merge block")
+
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var merge.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.}=
+  err("process_block: Merge state with Altair block")

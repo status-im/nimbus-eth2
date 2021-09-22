@@ -767,7 +767,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           RestApiResponse.jsonResponse(bdata.data.phase0Block)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
-      of BeaconBlockFork.Altair:
+      of BeaconBlockFork.Altair, BeaconBlockFork.Merge:
         RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
@@ -797,6 +797,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           RestApiResponse.sszResponse(bdata.data.phase0Block)
         of BeaconBlockFork.Altair:
           RestApiResponse.sszResponse(bdata.data.altairBlock)
+        of BeaconBlockFork.Merge:
+          RestApiResponse.sszResponse(bdata.data.mergeBlock)
       of "application/json":
         RestApiResponse.jsonResponsePlain(bdata.data.asSigned())
       else:

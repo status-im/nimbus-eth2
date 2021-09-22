@@ -14,7 +14,7 @@ import
   stew/results, chronicles,
   # Internal
   ../spec/[beaconstate, helpers],
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0, altair, merge],
   # Fork choice
   ./fork_choice_types, ./proto_array,
   ../consensus_object_pools/[spec_cache, blockchain_dag]
@@ -289,8 +289,9 @@ proc process_block*(self: var ForkChoiceBackend,
 # blck: SomeSomeBeaconBlock
 # as comes up. Other types can be added as needed.
 type ReallyAnyBeaconBlock =
-  phase0.BeaconBlock | altair.BeaconBlock |
-  phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock
+  phase0.BeaconBlock | altair.BeaconBlock | merge.BeaconBlock |
+  phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock |
+  merge.TrustedBeaconBlock
 proc process_block*(self: var ForkChoice,
                     dag: ChainDAGRef,
                     epochRef: EpochRef,

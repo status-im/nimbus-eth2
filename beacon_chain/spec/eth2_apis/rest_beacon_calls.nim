@@ -8,7 +8,7 @@
 
 import
   chronos, presto/client,
-  ../datatypes/[phase0, altair],
+  ../datatypes/[phase0, altair, merge],
   "."/[rest_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization

@@ -15,7 +15,7 @@ import
   eth/keys, taskpools,
   # Internals
   ../spec/[signatures_batch, forks],
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0, altair, merge],
   ".."/beacon_chain_db
 
 export sets, tables
@@ -73,6 +73,11 @@ type
 
     orphansAltair*: Table[(Eth2Digest, ValidatorSig), altair.SignedBeaconBlock] ##\
     ## Altair Blocks that have passed validation, but that we lack a link back
+    ## to tail for - when we receive a "missing link", we can use this data to
+    ## build an entire branch
+
+    orphansMerge*:  Table[(Eth2Digest, ValidatorSig), merge.SignedBeaconBlock] ##\
+    ## Merge Blocks which have passed validation, but that we lack a link back
     ## to tail for - when we receive a "missing link", we can use this data to
     ## build an entire branch
 
@@ -258,6 +263,11 @@ type
   OnAltairBlockAdded* = proc(
     blckRef: BlockRef,
     blck: altair.TrustedSignedBeaconBlock,
+    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+
+  OnMergeBlockAdded* = proc(
+    blckRef: BlockRef,
+    blck: merge.TrustedSignedBeaconBlock,
     epochRef: EpochRef) {.gcsafe, raises: [Defect].}
 
   HeadChangeInfoObject* = object

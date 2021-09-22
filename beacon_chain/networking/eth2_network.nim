@@ -2130,6 +2130,9 @@ proc broadcastBeaconBlock*(node: Eth2Node, forked: ForkedSignedBeaconBlock) =
   of BeaconBlockFork.Altair:
     let topic = getBeaconBlocksTopic(node.forkDigests.altair)
     node.broadcast(topic, forked.altairBlock)
+  of BeaconBlockFork.Merge:
+    let topic = getBeaconBlocksTopic(node.forkDigests.merge)
+    node.broadcast(topic, forked.mergeBlock)
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage, committeeIdx: SyncCommitteeIndex) =

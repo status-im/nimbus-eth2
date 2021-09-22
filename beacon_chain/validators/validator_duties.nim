@@ -501,6 +501,14 @@ proc proposeSignedBlock*(node: BeaconNode,
         node.attestationPool[].addForkChoice(
           epochRef, blckRef, trustedBlock.message,
           node.beaconClock.now().slotOrZero())
+    of BeaconBlockFork.Merge:
+      node.dag.addRawBlock(node.quarantine, newBlock.mergeBlock) do (
+          blckRef: BlockRef, trustedBlock: merge.TrustedSignedBeaconBlock,
+          epochRef: EpochRef):
+        # Callback add to fork choice if signed block valid (and becomes trusted)
+        node.attestationPool[].addForkChoice(
+          epochRef, blckRef, trustedBlock.message,
+          node.beaconClock.now().slotOrZero())
 
   if newBlockRef.isErr:
     withBlck(newBlock):
@@ -599,6 +607,30 @@ proc proposeBlock(node: BeaconNode,
     ForkedSignedBeaconBlock.init(
       altair.SignedBeaconBlock(
         message: blck.altairBlock, root: root, signature: signature)
+    )
+  of BeaconBlockFork.Merge:
+    let root = hash_tree_root(blck.mergeBlock)
+
+    # TODO: recomputed in block proposal
+    let signing_root = compute_block_root(
+      fork, genesis_validators_root, slot, root)
+    let notSlashable = node.attachedValidators
+      .slashingProtection
+      .registerBlock(validator_index, validator.pubkey, slot, signing_root)
+
+    if notSlashable.isErr:
+      warn "Slashing protection activated",
+        validator = validator.pubkey,
+        slot = slot,
+        existingProposal = notSlashable.error
+      return head
+
+    let signature = await validator.signBlockProposal(
+      fork, genesis_validators_root, slot, root)
+
+    ForkedSignedBeaconBlock.init(
+      merge.SignedBeaconBlock(
+        message: blck.mergeBlock, root: root, signature: signature)
     )
 
   return await node.proposeSignedBlock(head, validator, forked)

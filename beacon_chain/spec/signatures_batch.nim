@@ -13,7 +13,7 @@ import
   stew/[byteutils, results],
   # Internal
   "."/[helpers, beaconstate, forks],
-  "."/datatypes/[altair, phase0]
+  "."/datatypes/[altair, merge, phase0]
 
 # Otherwise, error.
 import chronicles
@@ -250,7 +250,7 @@ proc addAggregateAndProofSignature*(
 
 proc collectSignatureSets*(
        sigs: var seq[SignatureSet],
-       signed_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+       signed_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock | merge.SignedBeaconBlock,
        validatorKeys: auto,
        state: ForkedHashedBeaconState,
        cache: var StateCache): Result[void, cstring] =

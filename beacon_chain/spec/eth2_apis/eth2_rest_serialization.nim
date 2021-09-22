@@ -655,9 +655,19 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect altair block format")
     value = ForkedBeaconBlock.init(res.get())
+  of BeaconBlockFork.Merge:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()), merge.BeaconBlock,
+                             requireAllFields = true))
+      except SerializationError:
+        none[merge.BeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect merge block format")
+    value = ForkedBeaconBlock.init(res.get())
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconBlock) {.
-     raises: [IOError, Defect].} =
+     raises: [IOError, SerializationError, Defect].} =
   writer.beginRecord()
   case value.kind
   of BeaconBlockFork.Phase0:
@@ -666,6 +676,9 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconBlock) {.
   of BeaconBlockFork.Altair:
     writer.writeField("version", "altair")
     writer.writeField("data", value.altairBlock)
+  of BeaconBlockFork.Merge:
+    writer.writeField("version", "merge")
+    writer.writeField("data", value.mergeBlock)
   writer.endRecord()
 
 ## ForkedSignedBeaconBlock
@@ -724,10 +737,20 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect altair block format")
     value = ForkedSignedBeaconBlock.init(res.get())
+  of BeaconBlockFork.Merge:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()), merge.SignedBeaconBlock,
+                             requireAllFields = true))
+      except SerializationError:
+        none[merge.SignedBeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect merge block format")
+    value = ForkedSignedBeaconBlock.init(res.get())
 
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: ForkedSignedBeaconBlock) {.
-     raises: [IOError, Defect].} =
+     raises: [IOError, SerializationError, Defect].} =
   writer.beginRecord()
   case value.kind
   of BeaconBlockFork.Phase0:
@@ -736,6 +759,9 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   of BeaconBlockFork.Altair:
     writer.writeField("version", "altair")
     writer.writeField("data", value.altairBlock)
+  of BeaconBlockFork.Merge:
+    writer.writeField("version", "merge")
+    writer.writeField("data", value.mergeBlock)
   writer.endRecord()
 
 # ForkedBeaconState
@@ -794,9 +820,19 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect altair beacon state format")
     value = ForkedBeaconState.init(res.get())
+  of BeaconStateFork.forkMerge:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()), merge.BeaconState,
+                             requireAllFields = true))
+      except SerializationError:
+        none[merge.BeaconState]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect merge beacon state format")
+    value = ForkedBeaconState.init(res.get())
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconState) {.
-     raises: [IOError, Defect].} =
+     raises: [IOError, SerializationError, Defect].} =
   writer.beginRecord()
   case value.beaconStateFork
   of BeaconStateFork.forkPhase0:
@@ -805,6 +841,9 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconState) {.
   of BeaconStateFork.forkAltair:
     writer.writeField("version", "altair")
     writer.writeField("data", value.bsAltair)
+  of BeaconStateFork.forkMerge:
+    writer.writeField("version", "merge")
+    writer.writeField("data", value.bsMerge)
   writer.endRecord()
 
 template toSszType*(v: BeaconBlockFork): auto =

@@ -14,7 +14,7 @@ import
   ../spec/[
     beaconstate, eth2_merkleization, eth2_ssz_serialization, forks, helpers,
     state_transition, validator],
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0, altair, merge],
   ".."/beacon_chain_db,
   "."/[block_pools_types, block_quarantine, forkedbeaconstate_dbhelpers]
 
@@ -45,7 +45,7 @@ logScope: topics = "chaindag"
 
 proc putBlock*(
     dag: ChainDAGRef, signedBlock:
-      phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock) =
+      phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock | merge.TrustedSignedBeaconBlock) =
   dag.db.putBlock(signedBlock)
 
 proc updateStateData*(
@@ -439,6 +439,12 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         stateFork = tmpState.data.hbsAltair.data.fork,
         configFork = altairFork(cfg)
       quit 1
+  of forkMerge:
+    if tmpState.data.hbsMerge.data.fork != mergeFork(cfg):
+      error "State from database does not match network, check --network parameter",
+        stateFork = tmpState.data.hbsMerge.data.fork,
+        configFork = mergeFork(cfg)
+      quit 1
 
   let dag = ChainDAGRef(
     blocks: blocks,
@@ -778,6 +784,10 @@ proc applyBlock(
     of BeaconBlockFork.Altair:
       state_transition(
         dag.cfg, state.data, blck.data.altairBlock,
+        cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
+    of BeaconBlockFork.Merge:
+      state_transition(
+        dag.cfg, state.data, blck.data.mergeBlock,
         cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
   if ok:
     state.blck = blck.refs

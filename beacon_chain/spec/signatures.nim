@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  ./datatypes/[phase0, altair], ./helpers, ./eth2_merkleization
+  ./datatypes/[phase0, altair, merge], ./helpers, ./eth2_merkleization
 
 export phase0, altair
 
