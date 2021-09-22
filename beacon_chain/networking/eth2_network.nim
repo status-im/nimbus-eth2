@@ -946,7 +946,7 @@ proc queryRandom*(
       filtered.add((score, n))
 
   d.rng[].shuffle(filtered)
-  return filtered.sortedByIt(it[0]).mapIt(it[1])
+  return filtered.sortedByIt(-it[0]).mapIt(it[1])
 
 proc trimConnections(node: Eth2Node, count: int) {.async.} =
   # Kill `count` peers, scoring them to remove the least useful ones
