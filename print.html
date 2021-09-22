@@ -200,12 +200,6 @@
 <p><a href="https://notes.ethereum.org/@djrtwo/Bkn3zpwxB">Danny Ryan's annotated spec</a></p>
 </li>
 </ul>
-<h3><a class="header" href="#why-eth2" id="why-eth2">Why eth2?</a></h3>
-<p>Eth2 is a multi-year plan to improve the scalability, security, and programmability of Ethereum, without compromising on decentralisation.</p>
-<p>In contrast to the Ethereum chain, as it currently stands, eth2 uses proof-of-stake (PoS) to secure its network. And while Ethereum as you know and love it will continue to exist as its own independent proof-of-work chain for a little while to come, the transition towards PoS starts now.</p>
-<blockquote>
-<p>In traditional PoW, block proposers are called <strong><em>miners</em></strong>, whereas in PoS, they are called <strong><em>validators</em></strong>. In essence, <em>miners</em> rely on actual hardware (such as some specifically manufactured mining machines), while <em>validators</em> rely on software (such as Nimbus) and a good network connection.</p>
-</blockquote>
 <h3><a class="header" href="#get-in-touch" id="get-in-touch">Get in touch</a></h3>
 <p>Need help with anything? Join us on <a href="https://join.status.im/nimbus-general">Status</a> and <a href="https://discord.gg/9dWwPnG">Discord</a>.</p>
 <h3><a class="header" href="#donate" id="donate">Donate</a></h3>
@@ -472,7 +466,7 @@ INF 2020-12-01 11:26:36.285+00:00 Slot end                                   top
 <p><strong>Note:</strong> If your beacon node is already running, you'll need to shut it down gracefully (<code>Ctrl+c</code>) and re-run the above command.</p>
 </blockquote>
 <p>To ensure your Validator is correctly monitoring the eth1 chain, it's important you enter a valid web3 provider.</p>
-<p>Your beacon node will launch and connect your validator the eth2 network. To check that this has happened correctly, check your logs for the following:</p>
+<p>Your beacon node will launch and connect your validator to the eth2 network. To check that this has happened correctly, check your logs for the following:</p>
 <pre><code>INF 2020-11-18 11:20:00.181+01:00 Launching beacon node 
 ...
 NOT 2020-11-18 11:20:02.091+01:00 Local validator attached
@@ -1669,7 +1663,7 @@ docker-compose -f docker-compose-example1.yml up --quiet-pull --no-color --detac
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;get_v1_validator_duties_proposer&quot;,&quot;params&quot;:[1] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisvalidatorrequiredapiproduceblockget_v1_validator_blocka" id="a-hrefhttpsethereumgithubioeth20-apisvalidatorrequiredapiproduceblockget_v1_validator_blocka"><a href="https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/produceBlock"><code>get_v1_validator_block</code></a></a></h3>
-<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_block&quot;,&quot;params&quot;:[&quot;1&quot;,&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;0x4e696d6275732f76312e302e322d64333032633164382d73746174656f667573&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_block&quot;,&quot;params&quot;:[1,&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;0x4e696d6275732f76312e302e322d64333032633164382d73746174656f667573&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisvalidatorproduceattestationdataget_v1_validator_attestation_dataa" id="a-hrefhttpsethereumgithubioeth20-apisvalidatorproduceattestationdataget_v1_validator_attestation_dataa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Validator/produceAttestationData"><code>get_v1_validator_attestation_data</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_attestation_data&quot;,&quot;params&quot;:[1, 1],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
@@ -1706,26 +1700,23 @@ docker-compose -f docker-compose-example1.yml up --quiet-pull --no-color --detac
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getChainHead&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#getnodeversion" id="getnodeversion">getNodeVersion</a></h3>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNodeVersion&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
-</code></pre>
-<h3><a class="header" href="#getspecpreset" id="getspecpreset">getSpecPreset</a></h3>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getSpecPreset&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNodeVersion&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#peers" id="peers">peers</a></h3>
 <p>Show a list of peers in PeerPool.</p>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;peers&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;peers&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#getsyncing" id="getsyncing">getSyncing</a></h3>
 <p>Shows current state of forward syncing manager.</p>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getSyncing&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getSyncing&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#getnetworkpeerid" id="getnetworkpeerid">getNetworkPeerId</a></h3>
 <p>Shows current node's libp2p peer identifier (PeerID).</p>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNetworkPeerId&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNetworkPeerId&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#getnetworkpeers" id="getnetworkpeers">getNetworkPeers</a></h3>
 <p>Shows list of available PeerIDs in PeerPool.</p>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNetworkPeers&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNetworkPeers&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#getnetworkenr" id="getnetworkenr">getNetworkEnr</a></h3>
 <h3><a class="header" href="#setloglevel" id="setloglevel">setLogLevel</a></h3>
@@ -1745,17 +1736,26 @@ specified as an UTF-8 encoded string or as an 0x-prefixed hex string specifying 
 <p>Inspect the eth1 data that the beacon node would produce if it was tasked to produce a block for the current slot.</p>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getEth1ProposalData&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
 </code></pre>
-<h3><a class="header" href="#getchronosfutures" id="getchronosfutures">getChronosFutures</a></h3>
+<h3><a class="header" href="#debug_getchronosfutures" id="debug_getchronosfutures">debug_getChronosFutures</a></h3>
 <p>Get the current list of live async futures in the process - compile with <code>-d:chronosFutureTracking</code> to enable.</p>
-<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getChronosFutures&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result | (.[0] | keys_unsorted) as $keys | $keys, map([.[ $keys[] ]])[] | @csv'
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;debug_getChronosFutures&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result | (.[0] | keys_unsorted) as $keys | $keys, map([.[ $keys[] ]])[] | @csv'
 </code></pre>
-<h3><a class="header" href="#getgossipsubpeers" id="getgossipsubpeers">getGossipSubPeers</a></h3>
+<h3><a class="header" href="#debug_getgossipsubpeers" id="debug_getgossipsubpeers">debug_getGossipSubPeers</a></h3>
 <p>Get the current list of live async futures in the process - compile with <code>-d:chronosFutureTracking</code> to enable.</p>
-<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getGossipSubPeers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;debug_getGossipSubPeers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
 </code></pre>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/api.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#rest-api" id="rest-api">REST API</a></h1>
-<p>Nimbus supports the <a href="https://ethereum.github.io/eth2.0-APIs/#/">common REST API</a> for runtime communication with the application. For historical reasons, a <a href="./api.html">JSON-RPC-based API</a> is also supported.</p>
+<p>Nimbus supports the <a href="https://ethereum.github.io/beacon-APIs/">common REST API</a> for runtime communication.</p>
+<blockquote>
 <p>The REST API is currently in BETA -- to enable it, use the <code>--rest</code> option when starting the beacon node, then access the API from http://localhost:5052/.</p>
+</blockquote>
+<p>The API is a REST interface, accessed via HTTP. The API should not, unless protected by additional security layers, be exposed to the public Internet as the API includes multiple endpoints which could open your node to denial-of-service (DoS) attacks through endpoints triggering heavy processing. Currently, the only supported return data type is JSON.</p>
+<p>The beacon node (BN) maintains the state of the beacon chain by communicating with other beacon nodes in the Ethereum network. Conceptually, it does not maintain keypairs that participate with the beacon chain.</p>
+<p>The validator client (VC) is a conceptually separate entity which utilizes private keys to perform validator related tasks, called &quot;duties&quot;, on the beacon chain. These duties include the production of beacon blocks and signing of attestations.</p>
+<p>The goal of this specification is to promote interoperability between various beacon node implementations.</p>
+<h2><a class="header" href="#specification" id="specification">Specification</a></h2>
+<p>The specification is documented <a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis">here</a>.</p>
+<p>See the Readme <a href="https://github.com/ethereum/beacon-apis">here</a>.</p>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/rest-api.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#command-line-options-1" id="command-line-options-1">Command line options</a></h1>
 <p>You can pass any <code>nimbus_beacon_node</code> options to the <code>prater</code> and <code>mainnet</code> scripts. For example, if you want to launch Nimbus on mainnet with different base ports than the default <code>9000/udp</code> and <code>9000/tcp</code>, say <code>9100/udp</code> and <code>9100/tcp</code>, run:</p>
 <pre><code>./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
@@ -2012,7 +2012,7 @@ make update
 <p>Nimbus comes with a build environment similar to Python venv - this helps ensure that the correct version of Nim is used and that all dependencies can be found.</p>
 <pre><code class="language-bash">./env.sh bash # start a new interactive shell with the right env vars set
 which nim
-nim --version # Nimbus is tested and supported on 1.0.2 at the moment
+nim --version # Nimbus is tested and supported on 1.2.12 at the moment
 
 # or without starting a new interactive shell:
 ./env.sh which nim

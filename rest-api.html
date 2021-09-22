@@ -170,8 +170,17 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#rest-api" id="rest-api">REST API</a></h1>
-<p>Nimbus supports the <a href="https://ethereum.github.io/eth2.0-APIs/#/">common REST API</a> for runtime communication with the application. For historical reasons, a <a href="./api.html">JSON-RPC-based API</a> is also supported.</p>
+<p>Nimbus supports the <a href="https://ethereum.github.io/beacon-APIs/">common REST API</a> for runtime communication.</p>
+<blockquote>
 <p>The REST API is currently in BETA -- to enable it, use the <code>--rest</code> option when starting the beacon node, then access the API from http://localhost:5052/.</p>
+</blockquote>
+<p>The API is a REST interface, accessed via HTTP. The API should not, unless protected by additional security layers, be exposed to the public Internet as the API includes multiple endpoints which could open your node to denial-of-service (DoS) attacks through endpoints triggering heavy processing. Currently, the only supported return data type is JSON.</p>
+<p>The beacon node (BN) maintains the state of the beacon chain by communicating with other beacon nodes in the Ethereum network. Conceptually, it does not maintain keypairs that participate with the beacon chain.</p>
+<p>The validator client (VC) is a conceptually separate entity which utilizes private keys to perform validator related tasks, called &quot;duties&quot;, on the beacon chain. These duties include the production of beacon blocks and signing of attestations.</p>
+<p>The goal of this specification is to promote interoperability between various beacon node implementations.</p>
+<h2><a class="header" href="#specification" id="specification">Specification</a></h2>
+<p>The specification is documented <a href="https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis">here</a>.</p>
+<p>See the Readme <a href="https://github.com/ethereum/beacon-apis">here</a>.</p>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/rest-api.md">Edit this file on GitHub.</a></footer>
                     </main>
 

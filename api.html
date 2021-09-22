@@ -275,7 +275,7 @@
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;get_v1_validator_duties_proposer&quot;,&quot;params&quot;:[1] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisvalidatorrequiredapiproduceblockget_v1_validator_blocka" id="a-hrefhttpsethereumgithubioeth20-apisvalidatorrequiredapiproduceblockget_v1_validator_blocka"><a href="https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/produceBlock"><code>get_v1_validator_block</code></a></a></h3>
-<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_block&quot;,&quot;params&quot;:[&quot;1&quot;,&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;0x4e696d6275732f76312e302e322d64333032633164382d73746174656f667573&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_block&quot;,&quot;params&quot;:[1,&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;0x4e696d6275732f76312e302e322d64333032633164382d73746174656f667573&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisvalidatorproduceattestationdataget_v1_validator_attestation_dataa" id="a-hrefhttpsethereumgithubioeth20-apisvalidatorproduceattestationdataget_v1_validator_attestation_dataa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Validator/produceAttestationData"><code>get_v1_validator_attestation_data</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_attestation_data&quot;,&quot;params&quot;:[1, 1],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
@@ -312,26 +312,23 @@
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getChainHead&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#getnodeversion" id="getnodeversion">getNodeVersion</a></h3>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNodeVersion&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
-</code></pre>
-<h3><a class="header" href="#getspecpreset" id="getspecpreset">getSpecPreset</a></h3>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getSpecPreset&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNodeVersion&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#peers" id="peers">peers</a></h3>
 <p>Show a list of peers in PeerPool.</p>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;peers&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;peers&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#getsyncing" id="getsyncing">getSyncing</a></h3>
 <p>Shows current state of forward syncing manager.</p>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getSyncing&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getSyncing&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#getnetworkpeerid" id="getnetworkpeerid">getNetworkPeerId</a></h3>
 <p>Shows current node's libp2p peer identifier (PeerID).</p>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNetworkPeerId&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNetworkPeerId&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#getnetworkpeers" id="getnetworkpeers">getNetworkPeers</a></h3>
 <p>Shows list of available PeerIDs in PeerPool.</p>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNetworkPeers&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:7001 -s | jq
+<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNetworkPeers&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3><a class="header" href="#getnetworkenr" id="getnetworkenr">getNetworkEnr</a></h3>
 <h3><a class="header" href="#setloglevel" id="setloglevel">setLogLevel</a></h3>
@@ -351,13 +348,13 @@ specified as an UTF-8 encoded string or as an 0x-prefixed hex string specifying 
 <p>Inspect the eth1 data that the beacon node would produce if it was tasked to produce a block for the current slot.</p>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getEth1ProposalData&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
 </code></pre>
-<h3><a class="header" href="#getchronosfutures" id="getchronosfutures">getChronosFutures</a></h3>
+<h3><a class="header" href="#debug_getchronosfutures" id="debug_getchronosfutures">debug_getChronosFutures</a></h3>
 <p>Get the current list of live async futures in the process - compile with <code>-d:chronosFutureTracking</code> to enable.</p>
-<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getChronosFutures&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result | (.[0] | keys_unsorted) as $keys | $keys, map([.[ $keys[] ]])[] | @csv'
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;debug_getChronosFutures&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result | (.[0] | keys_unsorted) as $keys | $keys, map([.[ $keys[] ]])[] | @csv'
 </code></pre>
-<h3><a class="header" href="#getgossipsubpeers" id="getgossipsubpeers">getGossipSubPeers</a></h3>
+<h3><a class="header" href="#debug_getgossipsubpeers" id="debug_getgossipsubpeers">debug_getGossipSubPeers</a></h3>
 <p>Get the current list of live async futures in the process - compile with <code>-d:chronosFutureTracking</code> to enable.</p>
-<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getGossipSubPeers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;debug_getGossipSubPeers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
 </code></pre>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/api.md">Edit this file on GitHub.</a></footer>
                     </main>
