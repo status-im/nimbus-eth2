@@ -17,17 +17,13 @@ import
   ./mock_deposits
 
 proc initGenesisState*(
-    num_validators: uint64 = 8'u64 * SLOTS_PER_EPOCH,
-    beaconStateFork: BeaconStateFork = forkPhase0): ref ForkedHashedBeaconState =
+    num_validators = 8'u64 * SLOTS_PER_EPOCH,
+    cfg = defaultRuntimeConfig): ref ForkedHashedBeaconState =
   let deposits = mockGenesisBalancedDeposits(
       validatorCount = num_validators,
       amountInEth = 32, # We create canonical validators with 32 Eth
       flags = {}
     )
-
-  var cfg = defaultRuntimeConfig
-  if beaconStateFork >= forkAltair:
-    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
 
   result = (ref ForkedHashedBeaconState)(
     beaconStateFork: forkPhase0,
@@ -35,8 +31,6 @@ proc initGenesisState*(
       cfg, eth1BlockHash, 0, deposits, {}))
 
   maybeUpgradeStateToAltair(cfg, result[])
-
-  doAssert result.beaconStateFork == beaconStateFork
 
 when isMainModule:
   # Smoke test

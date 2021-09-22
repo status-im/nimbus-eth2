@@ -36,7 +36,7 @@ func hackPrivKey*(v: Validator): ValidatorPrivKey =
   let i = int(uint64.fromBytesLE(bytes))
   makeFakeValidatorPrivKey(i)
 
-func makeDeposit*(i: int, flags: UpdateFlags = {}): DepositData =
+func makeDeposit*(i: int, flags: UpdateFlags = {}, cfg = defaultRuntimeConfig): DepositData =
   ## Ugly hack for now: we stick the private key in withdrawal_credentials
   ## which means we can repro private key and randao reveal from this data,
   ## for testing :)
@@ -51,13 +51,12 @@ func makeDeposit*(i: int, flags: UpdateFlags = {}): DepositData =
     amount: MAX_EFFECTIVE_BALANCE)
 
   if skipBLSValidation notin flags:
-    result.signature = get_deposit_signature(
-      defaultRuntimeConfig, result, privkey).toValidatorSig()
+    result.signature = get_deposit_signature(cfg, result, privkey).toValidatorSig()
 
 func makeInitialDeposits*(
-    n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}): seq[DepositData] =
+    n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}, cfg = defaultRuntimeConfig): seq[DepositData] =
   for i in 0..<n.int:
-    result.add makeDeposit(i, flags)
+    result.add makeDeposit(i, flags, cfg = cfg)
 
 func signBlock(
     fork: Fork, genesis_validators_root: Eth2Digest, forked: ForkedBeaconBlock,
@@ -82,13 +81,13 @@ proc addTestBlock*(
     deposits = newSeq[Deposit](),
     graffiti = default(GraffitiBytes),
     flags: set[UpdateFlag] = {},
-    nextSlot = true): ForkedSignedBeaconBlock =
+    nextSlot = true,
+    cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
   if nextSlot:
     var rewards: RewardInfo
     doAssert process_slots(
-      defaultRuntimeConfig, state, getStateField(state, slot) + 1, cache,
-      rewards, flags)
+      cfg, state, getStateField(state, slot) + 1, cache, rewards, flags)
 
   let
     proposer_index = get_beacon_proposer_index(
@@ -107,7 +106,7 @@ proc addTestBlock*(
     case state.beaconStateFork
     of forkPhase0:
       let res = makeBeaconBlock(
-        defaultRuntimeConfig,
+        cfg,
         state.hbsPhase0,
         proposer_index.get(),
         parent_root,
@@ -130,7 +129,7 @@ proc addTestBlock*(
       ForkedBeaconBlock.init(res.get())
     of forkAltair:
       let res = makeBeaconBlock(
-        defaultRuntimeConfig,
+        cfg,
         state.hbsAltair,
         proposer_index.get(),
         parent_root,
@@ -169,7 +168,8 @@ proc makeTestBlock*(
     eth1_data = Eth1Data(),
     attestations = newSeq[Attestation](),
     deposits = newSeq[Deposit](),
-    graffiti = default(GraffitiBytes)): ForkedSignedBeaconBlock =
+    graffiti = default(GraffitiBytes),
+    cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
   # Create a block for `state.slot + 1` - like a block proposer would do!
   # It's a bit awkward - in order to produce a block for N+1, we need to
   # calculate what the state will look like after that block has been applied,
@@ -177,7 +177,7 @@ proc makeTestBlock*(
   var tmpState = assignClone(state)
   addTestBlock(
     tmpState[], parent_root, cache, eth1_data, attestations, deposits,
-    graffiti)
+    graffiti, cfg = cfg)
 
 func makeAttestationData*(
     state: ForkedHashedBeaconState, slot: Slot, committee_index: CommitteeIndex,
@@ -315,7 +315,8 @@ iterator makeTestBlocks*(
   parent_root: Eth2Digest,
   cache: var StateCache,
   blocks: int,
-  attested: bool): ForkedSignedBeaconBlock =
+  attested: bool,
+  cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
   var
     state = assignClone(state)[]
     parent_root = parent_root
@@ -326,7 +327,7 @@ iterator makeTestBlocks*(
       @[]
 
     let blck = addTestBlock(
-      state, parent_root, cache, attestations = attestations)
+      state, parent_root, cache, attestations = attestations, cfg = cfg)
     yield blck
     parent_root = blck.root
 
