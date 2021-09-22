@@ -122,11 +122,15 @@ func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
     # with nimOldCaseObjects. This is infrequent.
     tgt = src
 
-macro getStateField*(s, y: untyped): untyped =
-  result = quote do:
-    (if `s`.beaconStateFork == forkPhase0:
-       unsafeAddr (`s`.hbsPhase0.data.`y`) else:
-         unsafeAddr (`s`.hbsAltair.data.`y`))[]
+template getStateField*(x, y: untyped): untyped =
+  # The use of `unsafeAddr` avoids excessive copying in certain situations, e.g.,
+  # ```
+  #   for index, validator in getStateField(stateData.data, validators).pairs():
+  # ```
+  # Without `unsafeAddr`, the `validators` list would be copied to a temporary variable.
+  (case x.beaconStateFork
+   of forkPhase0: unsafeAddr (x.hbsPhase0.data.y)
+   of forkAltair: unsafeAddr (x.hbsAltair.data.y))[]
 
 template getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
   case x.beaconStateFork:
