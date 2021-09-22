@@ -23,7 +23,6 @@ Nimbus-eth2 is a extremely efficient Beacon Chain client for participating in th
   - [State transition simulation](#state-transition-simulation)
   - [Local network simulation](#local-network-simulation)
   - [Visualising simulation metrics](#visualising-simulation-metrics)
-  - [Network inspection](#network-inspection)
   - [CI setup](#ci-setup)
 - [License](#license)
 
