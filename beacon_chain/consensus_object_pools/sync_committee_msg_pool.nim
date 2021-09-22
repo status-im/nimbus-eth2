@@ -29,8 +29,10 @@ const
     ## How many slots to retain sync committee
     ## messsages before discarding them.
 
-func init*(T: type SyncCommitteeMsgPool): SyncCommitteeMsgPool =
-  discard
+func init*(T: type SyncCommitteeMsgPool,
+           onSyncContribution: OnSyncContributionCallback = nil
+          ): SyncCommitteeMsgPool =
+  T(onContributionReceived: onSyncContribution)
 
 func init(T: type SyncAggregate): SyncAggregate =
   SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
@@ -131,10 +133,9 @@ func addAggregateAux(bestVotes: var BestSyncSubcommitteeContributions,
         participationBits: contribution.aggregation_bits,
         signature: contribution.signature.load.get)
 
-func addSyncContribution*(
-    pool: var SyncCommitteeMsgPool,
-    contribution: SyncCommitteeContribution,
-    signature: CookedSig) =
+proc addSyncContribution*(pool: var SyncCommitteeMsgPool,
+                          contribution: SyncCommitteeContribution,
+                          signature: CookedSig) =
 
   template blockRoot: auto = contribution.beacon_block_root
 
@@ -155,6 +156,13 @@ func addSyncContribution*(
       addAggregateAux(pool.bestContributions[blockRoot], contribution)
     except KeyError:
       raiseAssert "We have checked for the key upfront"
+
+proc addSyncContribution*(pool: var SyncCommitteeMsgPool,
+                          scproof: SignedContributionAndProof,
+                          signature: CookedSig) =
+  pool.addSyncContribution(scproof.message.contribution, signature)
+  if not(isNil(pool.onContributionReceived)):
+    pool.onContributionReceived(scproof)
 
 proc produceSyncAggregateAux(
     bestContributions: BestSyncSubcommitteeContributions): SyncAggregate =

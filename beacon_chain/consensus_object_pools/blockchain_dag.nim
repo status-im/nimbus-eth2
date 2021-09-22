@@ -187,12 +187,13 @@ func link*(parent, child: BlockRef) =
 
   child.parent = parent
 
-func isAncestorOf*(a, b: BlockRef): bool =
+func getDepth*(a, b: BlockRef): tuple[ancestor: bool, depth: int] =
   var b = b
   var depth = 0
   const maxDepth = (100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int)
   while true:
-    if a == b: return true
+    if a == b:
+      return (true, depth)
 
     # for now, use an assert for block chain length since a chain this long
     # indicates a circular reference here..
@@ -200,10 +201,14 @@ func isAncestorOf*(a, b: BlockRef): bool =
     depth += 1
 
     if a.slot >= b.slot or b.parent.isNil:
-      return false
+      return (false, depth)
 
     doAssert b.slot > b.parent.slot
     b = b.parent
+
+func isAncestorOf*(a, b: BlockRef): bool =
+  let (isAncestor, _) = getDepth(a, b)
+  isAncestor
 
 func get_ancestor*(blck: BlockRef, slot: Slot,
     maxDepth = 100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int):
@@ -325,10 +330,10 @@ func isStateCheckpoint(bs: BlockSlot): bool =
   (bs.slot == bs.blck.slot and bs.blck.parent == nil) or
   (bs.slot.isEpoch and bs.slot.epoch == (bs.blck.slot.epoch + 1))
 
-proc init*(T: type ChainDAGRef,
-           cfg: RuntimeConfig,
-           db: BeaconChainDB,
-           updateFlags: UpdateFlags): ChainDAGRef =
+proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
+           updateFlags: UpdateFlags, onBlockCb: OnBlockCallback = nil,
+           onHeadCb: OnHeadCallback = nil, onReorgCb: OnReorgCallback = nil,
+           onFinCb: OnFinalizedCallback = nil): ChainDAGRef =
   # TODO we require that the db contains both a head and a tail block -
   #      asserting here doesn't seem like the right way to go about it however..
 
@@ -452,6 +457,11 @@ proc init*(T: type ChainDAGRef,
     # allow skipping some validation.
     updateFlags: {verifyFinalization} * updateFlags,
     cfg: cfg,
+
+    onBlockAdded: onBlockCb,
+    onHeadChanged: onHeadCb,
+    onReorgHappened: onReorgCb,
+    onFinHappened: onFinCb
   )
 
   doAssert cfg.GENESIS_FORK_VERSION != cfg.ALTAIR_FORK_VERSION
@@ -1156,11 +1166,11 @@ proc updateHead*(
 
   if dag.head == newHead:
     trace "No head block update"
-
     return
 
   let
     lastHead = dag.head
+    lastHeadStateRoot = getStateRoot(dag.headState.data)
 
   # Start off by making sure we have the right state - updateStateData will try
   # to use existing in-memory states to make this smooth
@@ -1177,7 +1187,8 @@ proc updateHead*(
   doAssert (not finalizedHead.blck.isNil),
     "Block graph should always lead to a finalized block"
 
-  if not lastHead.isAncestorOf(newHead):
+  let (isAncestor, ancestorDepth) = lastHead.getDepth(newHead)
+  if not(isAncestor):
     notice "Updated head block with chain reorg",
       lastHead = shortLog(lastHead),
       headParent = shortLog(newHead.parent),
@@ -1188,6 +1199,13 @@ proc updateHead*(
         dag.headState.data, current_justified_checkpoint)),
       finalized = shortLog(getStateField(
         dag.headState.data, finalized_checkpoint))
+
+    if not(isNil(dag.onReorgHappened)):
+      let data = ReorgInfoObject.init(dag.head.slot, uint64(ancestorDepth),
+                                      lastHead.root, newHead.root,
+                                      lastHeadStateRoot,
+                                      getStateRoot(dag.headState.data))
+      dag.onReorgHappened(data)
 
     # A reasonable criterion for "reorganizations of the chain"
     quarantine.clearQuarantine()
@@ -1201,6 +1219,28 @@ proc updateHead*(
         dag.headState.data, current_justified_checkpoint)),
       finalized = shortLog(getStateField(
         dag.headState.data, finalized_checkpoint))
+
+    if not(isNil(dag.onHeadChanged)):
+      let currentEpoch = epoch(newHead.slot)
+      let
+        currentDutyDepRoot =
+          if currentEpoch > Epoch(0):
+            dag.head.atSlot(
+              compute_start_slot_at_epoch(currentEpoch) - 1).blck.root
+          else:
+            dag.genesis.root
+        previousDutyDepRoot =
+          if currentEpoch > Epoch(1):
+            dag.head.atSlot(
+              compute_start_slot_at_epoch(currentEpoch - 1) - 1).blck.root
+          else:
+            dag.genesis.root
+        epochTransition = (finalizedHead != dag.finalizedHead)
+      let data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
+                                           getStateRoot(dag.headState.data),
+                                           epochTransition, previousDutyDepRoot,
+                                           currentDutyDepRoot)
+      dag.onHeadChanged(data)
 
   # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
   # both non-negative, so difference can't overflow or underflow int64
@@ -1250,6 +1290,17 @@ proc updateHead*(
     # in order to clear out blocks that are no longer viable and should
     # therefore no longer be considered as part of the chain we're following
     dag.pruneBlocksDAG()
+
+    # Send notification about new finalization point via callback.
+    if not(isNil(dag.onFinHappened)):
+      let epoch = getStateField(
+        dag.headState.data, finalized_checkpoint).epoch
+      let blckRoot = getStateField(
+        dag.headState.data, finalized_checkpoint).root
+      let data = FinalizationInfoObject.init(blckRoot,
+                                             getStateRoot(dag.headState.data),
+                                             epoch)
+      dag.onFinHappened(data)
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
   let

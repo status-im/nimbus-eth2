@@ -127,11 +127,29 @@ proc init*(T: type BeaconNode,
     raise newException(Defect, "Failure in taskpool initialization.")
 
   let
+    eventBus = newAsyncEventBus()
     db = BeaconChainDB.new(config.databaseDir, inMemory = false)
 
   var
     genesisState, checkpointState: ref phase0.BeaconState
     checkpointBlock: phase0.TrustedSignedBeaconBlock
+
+  proc onAttestationReceived(data: Attestation) =
+    eventBus.emit("attestation-received", data)
+  proc onAttestationSent(data: Attestation) =
+    eventBus.emit("attestation-sent", data)
+  proc onVoluntaryExitAdded(data: SignedVoluntaryExit) =
+    eventBus.emit("voluntary-exit", data)
+  proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
+    eventBus.emit("signed-beacon-block", data)
+  proc onHeadChanged(data: HeadChangeInfoObject) =
+    eventBus.emit("head-change", data)
+  proc onChainReorg(data: ReorgInfoObject) =
+    eventBus.emit("chain-reorg", data)
+  proc onFinalization(data: FinalizationInfoObject) =
+    eventBus.emit("finalization", data)
+  proc onSyncContribution(data: SignedContributionAndProof) =
+    eventBus.emit("sync-contribution-and-proof", data)
 
   if config.finalizedCheckpointState.isSome:
     let checkpointStatePath = config.finalizedCheckpointState.get.string
@@ -255,7 +273,8 @@ proc init*(T: type BeaconNode,
   let
     chainDagFlags = if config.verifyFinalization: {verifyFinalization}
                      else: {}
-    dag = ChainDAGRef.init(cfg, db, chainDagFlags)
+    dag = ChainDAGRef.init(cfg, db, chainDagFlags, onBlockAdded, onHeadChanged,
+                           onChainReorg, onFinalization)
     quarantine = QuarantineRef.init(rng, taskpool)
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState.data, genesis_validators_root)
@@ -330,9 +349,13 @@ proc init*(T: type BeaconNode,
     network = createEth2Node(
       rng, config, netKeys, cfg, dag.forkDigests, getBeaconTime,
       getStateField(dag.headState.data, genesis_validators_root))
-    attestationPool = newClone(AttestationPool.init(dag, quarantine))
-    syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init())
-    exitPool = newClone(ExitPool.init(dag))
+    attestationPool = newClone(
+      AttestationPool.init(dag, quarantine, onAttestationReceived)
+    )
+    syncCommitteeMsgPool = newClone(
+      SyncCommitteeMsgPool.init(onSyncContribution)
+    )
+    exitPool = newClone(ExitPool.init(dag, onVoluntaryExitAdded))
 
   case config.slashingDbKind
   of SlashingDbKind.v2:
@@ -382,12 +405,14 @@ proc init*(T: type BeaconNode,
     eth1Monitor: eth1Monitor,
     rpcServer: rpcServer,
     restServer: restServer,
+    eventBus: eventBus,
     processor: processor,
     blockProcessor: blockProcessor,
     consensusManager: consensusManager,
     requestManager: RequestManager.init(network, blockProcessor),
     beaconClock: beaconClock,
-    taskpool: taskpool
+    taskpool: taskpool,
+    onAttestationSent: onAttestationSent
   )
 
   # set topic validation routine

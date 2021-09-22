@@ -27,7 +27,9 @@ logScope: topics = "attpool"
 declareGauge attestation_pool_block_attestation_packing_time,
   "Time it took to create list of attestations for block"
 
-proc init*(T: type AttestationPool, dag: ChainDAGRef, quarantine: QuarantineRef): T =
+proc init*(T: type AttestationPool, dag: ChainDAGRef,
+           quarantine: QuarantineRef,
+           onAttestation: OnAttestationCallback = nil): T =
   ## Initialize an AttestationPool from the dag `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
   ## holding a zero_root.
@@ -92,7 +94,8 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef, quarantine: QuarantineRef)
   T(
     dag: dag,
     quarantine: quarantine,
-    forkChoice: forkChoice
+    forkChoice: forkChoice,
+    onAttestationAdded: onAttestation
   )
 
 proc addForkChoiceVotes(
@@ -306,6 +309,10 @@ proc addAttestation*(pool: var AttestationPool,
   pool.addForkChoiceVotes(
     attestation.data.slot, attesting_indices,
     attestation.data.beacon_block_root, wallSlot)
+
+  # Send notification about new attestation via callback.
+  if not(isNil(pool.onAttestationAdded)):
+    pool.onAttestationAdded(attestation)
 
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,

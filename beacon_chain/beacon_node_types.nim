@@ -29,6 +29,8 @@ type
   #             Attestation Pool
   #
   # #############################################
+  OnAttestationCallback* = proc(data: Attestation) {.gcsafe, raises: [Defect].}
+
   Validation* = object
     ## Validations collect a set of signatures for a distict attestation - in
     ## eth2, a single bit is used to keep track of which signatures have been
@@ -75,6 +77,8 @@ type
     nextAttestationEpoch*: seq[tuple[subnet: Epoch, aggregate: Epoch]] ## \
     ## sequence based on validator indices
 
+    onAttestationAdded*: OnAttestationCallback
+
   SyncCommitteeMsgKey* = object
     originator*: ValidatorIndex
     slot*: Slot
@@ -96,13 +100,20 @@ type
     subnets*: array[SYNC_COMMITTEE_SUBNET_COUNT,
                     BestSyncSubcommitteeContribution]
 
+  OnSyncContributionCallback* =
+    proc(data: SignedContributionAndProof) {.gcsafe, raises: [Defect].}
+
   SyncCommitteeMsgPool* = object
     seenSyncMsgByAuthor*: HashSet[SyncCommitteeMsgKey]
     seenContributionByAuthor*: HashSet[SyncCommitteeMsgKey]
     syncMessages*: Table[Eth2Digest, seq[TrustedSyncCommitteeMsg]]
     bestContributions*: Table[Eth2Digest, BestSyncSubcommitteeContributions]
+    onContributionReceived*: OnSyncContributionCallback
 
   SyncCommitteeMsgPoolRef* = ref SyncCommitteeMsgPool
+
+  OnVoluntaryExitCallback* =
+    proc(data: SignedVoluntaryExit) {.gcsafe, raises: [Defect].}
 
   ExitPool* = object
     ## The exit pool tracks attester slashings, proposer slashings, and
@@ -127,6 +138,8 @@ type
     ## Records voluntary exit indices seen.
 
     dag*: ChainDAGRef
+
+    onVoluntaryExitReceived*: OnVoluntaryExitCallback
 
   # #############################################
   #

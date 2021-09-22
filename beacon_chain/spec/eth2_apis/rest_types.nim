@@ -27,7 +27,8 @@ const
 
 type
   EventTopic* {.pure.} = enum
-    Head, Block, Attestation, VoluntaryExit, FinalizedCheckpoint, ChainReorg
+    Head, Block, Attestation, VoluntaryExit, FinalizedCheckpoint, ChainReorg,
+    ContributionAndProof
 
   EventTopics* = set[EventTopic]
 
@@ -256,6 +257,10 @@ type
     chain_id*: string
     address*: string
 
+  RestBlockInfo* = object
+    slot*: Slot
+    blck* {.serializedFieldName: "block".}: Eth2Digest
+
   DataEnclosedObject*[T] = object
     data*: T
 
@@ -327,3 +332,7 @@ func init*(t: typedesc[ValidatorIdent], v: ValidatorIndex): ValidatorIdent =
 
 func init*(t: typedesc[ValidatorIdent], v: ValidatorPubKey): ValidatorIdent =
   ValidatorIdent(kind: ValidatorQueryKind.Key, key: v)
+
+func init*(t: typedesc[RestBlockInfo],
+           v: ForkedTrustedSignedBeaconBlock): RestBlockInfo =
+  RestBlockInfo(slot: v.slot(), blck: v.root())

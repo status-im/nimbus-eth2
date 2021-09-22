@@ -42,17 +42,59 @@ proc validateEventTopics(events: seq[EventTopic]): Result[EventTopics,
       if EventTopic.ChainReorg in res:
         return err(NonUniqueError)
       res.incl(EventTopic.ChainReorg)
+    of EventTopic.ContributionAndProof:
+      if EventTopic.ContributionAndProof in res:
+        return err(NonUniqueError)
+      res.incl(EventTopic.ContributionAndProof)
   if res == {}:
     err("Empty topics list")
   else:
     ok(res)
 
+proc eventHandler*(response: HttpResponseRef, node: BeaconNode,
+                   T: typedesc, event: string,
+                   serverEvent: string) {.async.} =
+  var fut = node.eventBus.waitEvent(T, event)
+  while true:
+    let jsonRes =
+      try:
+        let res = await fut
+        when T is ForkedTrustedSignedBeaconBlock:
+          let blockInfo = RestBlockInfo.init(res)
+          some(RestApiResponse.prepareJsonStringResponse(blockInfo))
+        else:
+          some(RestApiResponse.prepareJsonStringResponse(res))
+      except CancelledError:
+        none[string]()
+    if jsonRes.isNone() or (response.state != HttpResponseState.Sending):
+      # Cancellation happened or connection with remote peer has been lost.
+      break
+    # Initiating new event waiting to avoid race conditions and event misses.
+    fut = node.eventBus.waitEvent(T, event)
+    # Sending event and payload over wire.
+    let exitLoop =
+      try:
+        await response.sendEvent(serverEvent, jsonRes.get())
+        false
+      except CancelledError:
+        true
+      except HttpError as exc:
+        debug "Unable to deliver event to remote peer", error_name = $exc.name,
+              error_msg = $exc.msg
+        true
+      except CatchableError as exc:
+        debug "Unexpected error encountered", error_name = $exc.name,
+              error_msg = $exc.msg
+        true
+    if exitLoop:
+      if not(fut.finished()):
+        await fut.cancelAndWait()
+      break
+
 proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Events/eventstream
   router.api(MethodGet, "/api/eth/v1/events") do (
     topics: seq[EventTopic]) -> RestApiResponse:
-    # TODO (cheatfate): This call is not fully implemented yet, because there
-    # missing infrastructure to raise/catch global events (eventbus).
     let eventTopics =
       block:
         if topics.isErr():
@@ -64,7 +106,72 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $res.error())
         res.get()
 
-    return RestApiResponse.jsonError(Http500, "Not implemented yet")
+    let res = preferredContentType("text/event-stream")
+    if res.isErr():
+      return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+    if res.get() != "text/event-stream":
+      return RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
+    var response = request.getResponse()
+    response.keepAlive = false
+    try:
+      await response.prepareSSE()
+    except HttpError:
+      # It means that server failed to send HTTP response to the remote client
+      # so there no need to respond with HTTP error response.
+      return
+
+    let handlers =
+      block:
+        var res: seq[Future[void]]
+        if EventTopic.Head in eventTopics:
+          let handler = response.eventHandler(node, HeadChangeInfoObject,
+                                              "head-change", "head")
+          res.add(handler)
+        if EventTopic.Block in eventTopics:
+          let handler = response.eventHandler(node,
+                                              ForkedTrustedSignedBeaconBlock,
+                                              "signed-beacon-block", "block")
+          res.add(handler)
+        if EventTopic.Attestation in eventTopics:
+          let handler = response.eventHandler(node, Attestation,
+                                              "attestation-received",
+                                              "attestation")
+          res.add(handler)
+        if EventTopic.VoluntaryExit in eventTopics:
+          let handler = response.eventHandler(node, SignedVoluntaryExit,
+                                              "voluntary-exit",
+                                              "voluntary_exit")
+          res.add(handler)
+        if EventTopic.FinalizedCheckpoint in eventTopics:
+          let handler = response.eventHandler(node, FinalizationInfoObject,
+                                              "finalization",
+                                              "finalized_checkpoint")
+          res.add(handler)
+        if EventTopic.ChainReorg in eventTopics:
+          let handler = response.eventHandler(node, ReorgInfoObject,
+                                              "chain-reorg", "chain_reorg")
+          res.add(handler)
+        if EventTopic.ContributionAndProof in eventTopics:
+          let handler = response.eventHandler(node, SignedContributionAndProof,
+                                              "sync-contribution-and-proof",
+                                              "contribution_and_proof")
+          res.add(handler)
+        res
+
+    discard await one(handlers)
+    # One of the handlers finished, it means that connection has been droped, so
+    # we cancelling all other handlers.
+    let pending =
+      block:
+        var res: seq[Future[void]]
+        for fut in handlers:
+          if not(fut.finished()):
+            fut.cancel()
+            res.add(fut)
+        res
+    await allFutures(pending)
+    return
 
   router.redirect(
     MethodGet,

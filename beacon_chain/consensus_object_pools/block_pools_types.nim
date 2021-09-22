@@ -48,6 +48,15 @@ type
     Old
     Duplicate
 
+  OnBlockCallback* =
+    proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [Defect].}
+  OnHeadCallback* =
+    proc(data: HeadChangeInfoObject) {.gcsafe, raises: [Defect].}
+  OnReorgCallback* =
+    proc(data: ReorgInfoObject) {.gcsafe, raises: [Defect].}
+  OnFinalizedCallback* =
+    proc(data: FinalizationInfoObject) {.gcsafe, raises: [Defect].}
+
   QuarantineRef* = ref object
     ## Keeps track of unsafe blocks coming from the network
     ## and that cannot be added to the chain
@@ -175,6 +184,15 @@ type
       ## value with other components which don't have access to the
       ## full ChainDAG.
 
+    onBlockAdded*: OnBlockCallback
+      ## On block added callback
+    onHeadChanged*: OnHeadCallback
+      ## On head changed callback
+    onReorgHappened*: OnReorgCallback
+      ## On beacon chain reorganization
+    onFinHappened*: OnFinalizedCallback
+      ## On finalization callback
+
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and
     ## committees in a beacon state - the epoch level information in the state
@@ -242,6 +260,27 @@ type
     blck: altair.TrustedSignedBeaconBlock,
     epochRef: EpochRef) {.gcsafe, raises: [Defect].}
 
+  HeadChangeInfoObject* = object
+    slot*: Slot
+    block_root*: Eth2Digest
+    state_root*: Eth2Digest
+    epoch_transition*: bool
+    previous_duty_dependent_root*: Eth2Digest
+    current_duty_depenedent_root*: Eth2Digest
+
+  ReorgInfoObject* = object
+    slot*: Slot
+    depth*: uint64
+    old_head_block_root*: Eth2Digest
+    new_head_block_root*: Eth2Digest
+    old_head_state_root*: Eth2Digest
+    new_head_state_root*: Eth2Digest
+
+  FinalizationInfoObject* = object
+    block_root*: Eth2Digest
+    state_root*: Eth2Digest
+    epoch*: Epoch
+
 template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 
 template epoch*(e: EpochRef): Epoch = e.key.epoch
@@ -293,3 +332,37 @@ func init*(T: type KeyedBlockRef, blck: BlockRef): KeyedBlockRef =
 
 func blockRef*(key: KeyedBlockRef): BlockRef =
   key.data
+
+func init*(t: typedesc[HeadChangeInfoObject], slot: Slot, blockRoot: Eth2Digest,
+           stateRoot: Eth2Digest, epochTransition: bool,
+           previousDutyDepRoot: Eth2Digest,
+           currentDutyDepRoot: Eth2Digest): HeadChangeInfoObject =
+  HeadChangeInfoObject(
+    slot: slot,
+    block_root: blockRoot,
+    state_root: stateRoot,
+    epoch_transition: epochTransition,
+    previous_duty_dependent_root: previousDutyDepRoot,
+    current_duty_depenedent_root: currentDutyDepRoot
+  )
+
+func init*(t: typedesc[ReorgInfoObject], slot: Slot, depth: uint64,
+           oldHeadBlockRoot: Eth2Digest, newHeadBlockRoot: Eth2Digest,
+           oldHeadStateRoot: Eth2Digest,
+           newHeadStateRoot: Eth2Digest): ReorgInfoObject =
+  ReorgInfoObject(
+    slot: slot,
+    depth: depth,
+    old_head_block_root: oldHeadBlockRoot,
+    new_head_block_root: newHeadBlockRoot,
+    old_head_state_root: oldHeadStateRoot,
+    new_head_state_root: newHeadStateRoot
+  )
+
+func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
+           stateRoot: Eth2Digest, epoch: Epoch): FinalizationInfoObject =
+  FinalizationInfoObject(
+    block_root: blockRoot,
+    state_root: stateRoot,
+    epoch: epoch
+  )

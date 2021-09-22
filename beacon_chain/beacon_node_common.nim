@@ -56,6 +56,7 @@ type
     eth1Monitor*: Eth1Monitor
     rpcServer*: RpcServer
     restServer*: RestServerRef
+    eventBus*: AsyncEventBus
     vcProcess*: Process
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerID]
@@ -68,6 +69,7 @@ type
     gossipState*: GossipState
     beaconClock*: BeaconClock
     taskpool*: TaskPoolPtr
+    onAttestationSent*: OnAttestationCallback
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
