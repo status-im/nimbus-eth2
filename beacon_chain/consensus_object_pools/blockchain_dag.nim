@@ -9,7 +9,7 @@
 
 import
   std/[options, sequtils, tables, sets],
-  stew/[assign2, byteutils],
+  stew/[assign2, byteutils, results],
   metrics, snappy, chronicles,
   ../spec/[
     beaconstate, eth2_merkleization, eth2_ssz_serialization, forks, helpers,
@@ -18,7 +18,7 @@ import
   ".."/beacon_chain_db,
   "."/[block_pools_types, block_quarantine, forkedbeaconstate_dbhelpers]
 
-export block_pools_types
+export block_pools_types, results
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"

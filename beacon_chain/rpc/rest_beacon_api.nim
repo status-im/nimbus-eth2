@@ -97,6 +97,24 @@ proc toString*(kind: ValidatorFilterKind): string =
   of ValidatorFilterKind.WithdrawalDone:
     "withdrawal_done"
 
+func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
+  epoch: Epoch): Result[seq[ValidatorPubKey], cstring] =
+  case forkedState.beaconStateFork
+  of BeaconStateFork.forkPhase0:
+    err("State's fork do not support sync committees")
+  of BeaconStateFork.forkAltair:
+    let
+      headSlot = forkedState.hbsAltair.data.slot
+      epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())
+      currentPeriod = syncCommitteePeriod(headSlot)
+      nextPeriod = currentPeriod + 1'u64
+    if epochPeriod == currentPeriod:
+      ok(@(forkedState.hbsAltair.data.current_sync_committee.pubkeys.data))
+    elif epochPeriod == nextPeriod:
+      ok(@(forkedState.hbsAltair.data.next_sync_committee.pubkeys.data))
+    else:
+      err("Epoch is outside the sync committee period of the state")
+
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
   router.api(MethodGet, "/api/eth/v1/beacon/genesis") do () -> RestApiResponse:
@@ -468,7 +486,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         none[Slot]()
     node.withStateForBlockSlot(bslot):
       proc getCommittee(slot: Slot,
-                       index: CommitteeIndex): RestBeaconStatesCommittees =
+                        index: CommitteeIndex): RestBeaconStatesCommittees =
         let validators = get_beacon_committee(stateData.data, slot, index,
                                               cache).mapIt(it)
         RestBeaconStatesCommittees(index: index, slot: slot,
@@ -503,6 +521,85 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonResponse(res)
 
     return RestApiResponse.jsonError(Http500, InternalServerError)
+
+  # https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochSyncCommittees
+  router.api(MethodGet,
+             "/api/eth/v1/beacon/states/{state_id}/sync_committees") do (
+    state_id: StateIdent, epoch: Option[Epoch]) -> RestApiResponse:
+    let bslot =
+      block:
+        if state_id.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                           $state_id.error())
+        let bres = node.getBlockSlot(state_id.get())
+        if bres.isErr():
+          return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                           $bres.error())
+        bres.get()
+
+    let qepoch =
+      if epoch.isSome():
+        let repoch = epoch.get()
+        if repoch.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                           $repoch.error())
+        let res = repoch.get()
+        if res > MaxEpoch:
+          return RestApiResponse.jsonError(Http400, EpochOverflowValueError)
+        if res < node.dag.cfg.ALTAIR_FORK_EPOCH:
+          return RestApiResponse.jsonError(Http400,
+                                           EpochFromTheIncorrectForkError)
+        res
+      else:
+        # If ``epoch`` not present then the sync committees for the epoch of
+        # the state will be obtained.
+        bslot.slot.epoch()
+
+    node.withStateForBlockSlot(bslot):
+      let keys =
+        block:
+          let res = syncCommitteeParticipants(stateData().data, qepoch)
+          if res.isErr():
+            return RestApiResponse.jsonError(Http400,
+                                             $res.error())
+          let kres = res.get()
+          if len(kres) == 0:
+            return RestApiResponse.jsonError(Http500, InternalServerError,
+                                 "List of sync committee participants is empty")
+          kres
+
+      let indices =
+        block:
+          var res: seq[ValidatorIndex]
+          let keyset = keys.toHashSet()
+          for index, validator in getStateField(stateData.data,
+                                                validators).pairs():
+            if validator.pubkey in keyset:
+              res.add(ValidatorIndex(uint64(index)))
+          res
+
+      if len(indices) != len(keys):
+        return RestApiResponse.jsonError(Http500, InternalServerError,
+                                         "Could not get validator indices")
+      let aggregates =
+        block:
+          var
+            res: seq[seq[ValidatorIndex]]
+            offset = 0
+          while true:
+            let length = min(SYNC_SUBCOMMITTEE_SIZE, len(indices) - offset)
+            if length == 0:
+              break
+            res.add(@(indices.toOpenArray(offset, offset + length - 1)))
+            offset.inc(length)
+          res
+
+      return RestApiResponse.jsonResponse(GetEpochSyncCommitteesResponse(
+        data: RestEpochSyncCommittee(validators: indices,
+                                     validator_aggregates: aggregates)
+      ))
+
+    return RestApiResponse.jsonError(Http400, "Could not get requested state")
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeaders
   router.api(MethodGet, "/api/eth/v1/beacon/headers") do (
@@ -893,6 +990,37 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                        $res.error())
     return RestApiResponse.jsonMsgResponse(ProposerSlashingValidationSuccess)
 
+  # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolSyncCommitteeSignatures
+  router.api(MethodPost, "/api/eth/v1/beacon/pool/sync_committees") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let messages =
+      block:
+        if contentBody.isNone():
+          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+        let dres = decodeBody(seq[SyncCommitteeMessage], contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                      InvalidSyncCommitteeSignatureMessageError)
+        dres.get()
+
+    let results = await node.sendSyncCommitteeMessages(messages)
+
+    let failures =
+      block:
+        var res: seq[RestAttestationsFailure]
+        for index, item in results.pairs():
+          if item.isErr():
+            res.add(RestAttestationsFailure(index: uint64(index),
+                                            message: $item.error()))
+        res
+    if len(failures) > 0:
+      return RestApiResponse.jsonErrorList(Http400,
+                                           SyncCommitteeMessageValidationError,
+                                           failures)
+    else:
+      return RestApiResponse.jsonMsgResponse(
+        SyncCommitteeMessageValidationSuccess)
+
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolVoluntaryExits
   router.api(MethodGet, "/api/eth/v1/beacon/pool/voluntary_exits") do (
     ) -> RestApiResponse:
@@ -967,6 +1095,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   )
   router.redirect(
     MethodGet,
+    "/eth/v1/beacon/states/{state_id}/sync_committees",
+    "/api/eth/v1/beacon/states/{state_id}/sync_committees"
+  )
+  router.redirect(
+    MethodGet,
     "/eth/v1/beacon/headers",
     "/api/eth/v1/beacon/headers"
   )
@@ -1029,6 +1162,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     MethodGet,
     "/eth/v1/beacon/pool/proposer_slashings",
     "/api/eth/v1/beacon/pool/proposer_slashings"
+  )
+  router.redirect(
+    MethodPost,
+    "/eth/v1/beacon/pool/sync_committees",
+    "/api/eth/v1/beacon/pool/sync_committees"
   )
   router.redirect(
     MethodPost,

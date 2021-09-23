@@ -108,6 +108,11 @@ type
     slot*: Slot
     is_aggregator*: bool
 
+  RestSyncCommitteeSubscription* = object
+    validator_index*: ValidatorIndex
+    sync_committee_indices*: seq[SyncCommitteeIndex]
+    until_epoch*: Epoch
+
   RestBeaconStatesFinalityCheckpoints* = object
     previous_justified*: Checkpoint
     current_justified*: Checkpoint
@@ -260,6 +265,10 @@ type
   RestBlockInfo* = object
     slot*: Slot
     blck* {.serializedFieldName: "block".}: Eth2Digest
+    
+  RestEpochSyncCommittee* = object
+    validators*: seq[ValidatorIndex]
+    validator_aggregates*: seq[seq[ValidatorIndex]]
 
   DataEnclosedObject*[T] = object
     data*: T
@@ -305,6 +314,7 @@ type
   GetStateValidatorsResponse* = DataEnclosedObject[seq[RestValidator]]
   GetSyncingStatusResponse* = DataEnclosedObject[RestSyncInfo]
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]
+  GetEpochSyncCommitteesResponse* = DataEnclosedObject[RestEpochSyncCommittee]
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
   ProduceBlockResponse* = DataEnclosedObject[phase0.BeaconBlock]
   ProduceBlockResponseV2* = ForkedBeaconBlock

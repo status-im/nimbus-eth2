@@ -58,7 +58,9 @@ const
   AggregateAndProofValidationSuccess* =
     "Aggregate and proof object(s) was broadcasted"
   BeaconCommitteeSubscriptionSuccess* =
-    "Beacon node processed committee subscription request"
+    "Beacon node processed committee subscription request(s)"
+  SyncCommitteeSubscriptionSuccess* =
+    "Beacon node processed sync committee subscription request(s)"
   InvalidParentRootValueError* =
     "Invalid parent root value"
   MissingSlotValueError* =
@@ -119,6 +121,10 @@ const
     "Requested slot not in next wall-slot epoch"
   SlotFromThePastError* =
     "Requested slot from the past"
+  SlotFromTheIncorrectForkError* =
+    "Requested slot is from incorrect fork"
+  EpochFromTheIncorrectForkError* =
+    "Requested epoch is from incorrect fork"
   ProposerNotFoundError* =
     "Could not find proposer for the head and slot"
   NoHeadForSlotError* =
@@ -139,6 +145,32 @@ const
     "Could not find out accepted content type"
   InvalidAcceptError* =
     "Incorrect accept response type"
+  MissingSubCommitteeIndexValueError* =
+    "Missing `subcommittee_index` value"
+  InvalidSubCommitteeIndexValueError* =
+    "Invalid `subcommittee_index` value"
+  MissingBeaconBlockRootValueError* =
+    "Missing `beacon_block_root` value"
+  InvalidBeaconBlockRootValueError* =
+    "Invalid `beacon_block_root` value"
+  EpochOutsideSyncCommitteePeriodError* =
+    "Epoch is outside the sync committee period of the state"
+  InvalidSyncCommitteeSignatureMessageError* =
+    "Unable to decode sync committee message(s)"
+  InvalidSyncCommitteeSubscriptionRequestError* =
+    "Unable to decode sync committee subscription request(s)"
+  InvalidContributionAndProofMessageError* =
+    "Unable to decode contribute and proof message(s)"
+  SyncCommitteeMessageValidationError* =
+    "Some errors happened while validating sync committee message(s)"
+  SyncCommitteeMessageValidationSuccess* =
+    "Sync committee message(s) was broadcasted"
+  ContributionAndProofValidationError* =
+    "Some errors happened while validating contribution and proof(s)"
+  ContributionAndProofValidationSuccess* =
+    "Contribution and proof(s) was broadcasted"
+  ProduceContributionError* =
+    "Unable to produce contribution using the passed parameters"
   InternalServerError* =
     "Internal server error"
   NoImplementationError* =

@@ -200,28 +200,118 @@ proc sendAttestation*(
 
 proc sendSyncCommitteeMessage*(
     node: BeaconNode, msg: SyncCommitteeMessage,
-    committeeIdx: SyncCommitteeIndex, checkSignature: bool): Future[bool] {.async.} =
+    committeeIdx: SyncCommitteeIndex,
+    checkSignature: bool): Future[SendResult] {.async.} =
   # Validate sync committee message before sending it via gossip
   # validation will also register the message with the sync committee
   # message pool. Notably, although libp2p calls the data handler for
   # any subscription on the subnet topic, it does not perform validation.
-  let ok = node.processor.syncCommitteeMsgValidator(
-    msg, committeeIdx, checkSignature)
-
-  return case ok
+  let res = node.processor.syncCommitteeMsgValidator(msg, committeeIdx,
+                                                     checkSignature)
+  return
+    case res
     of ValidationResult.Accept:
       node.network.broadcastSyncCommitteeMessage(msg, committeeIdx)
       beacon_sync_committee_messages_sent.inc()
-      true
+      SendResult.ok()
     else:
-      notice "Produced sync committee message failed validation",
-              msg, result = $ok
-      false
+      notice "Sync committee message failed validation",
+             msg, result = $res
+      SendResult.err("Sync committee message failed validation")
+
+proc sendSyncCommitteeMessages*(node: BeaconNode,
+                                msgs: seq[SyncCommitteeMessage]
+                               ): Future[seq[SendResult]] {.async.} =
+  let validators = getStateField(node.dag.headState.data, validators)
+  var statuses = newSeq[Option[SendResult]](len(msgs))
+
+  let ranges =
+    block:
+      let
+        headSlot = getStateField(node.dag.headState.data, slot)
+        headCommitteePeriod = syncCommitteePeriod(headSlot)
+        currentStart = syncCommitteePeriodStartSlot(headCommitteePeriod)
+        currentFinish = currentStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
+        nextStart = currentFinish
+        nextFinish = nextStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
+      (curStart: Slot(currentStart), curFinish: Slot(currentFinish),
+        nxtStart: Slot(nextStart), nxtFinish: Slot(nextFinish))
+
+  let (keysCur, keysNxt) =
+    block:
+      var resCur: Table[ValidatorPubKey, int]
+      var resNxt: Table[ValidatorPubKey, int]
+      for index, msg in msgs.pairs():
+        if msg.validator_index < lenu64(validators):
+          if (msg.slot >= ranges.curStart) and (msg.slot < ranges.curFinish):
+            resCur[validators[msg.validator_index].pubkey] = index
+          elif (msg.slot >= ranges.nxtStart) and (msg.slot < ranges.nxtFinish):
+            resNxt[validators[msg.validator_index].pubkey] = index
+          else:
+            statuses[index] =
+              some(SendResult.err("Message's slot out of state's head range"))
+        else:
+          statuses[index] = some(SendResult.err("Incorrect validator's index"))
+      if (len(resCur) == 0) and (len(resNxt) == 0):
+        return statuses.mapIt(it.get())
+      (resCur, resNxt)
+
+  template curParticipants(): untyped =
+    node.dag.headState.data.hbsAltair.data.current_sync_committee.pubkeys.data
+  template nxtParticipants(): untyped =
+    node.dag.headState.data.hbsAltair.data.next_sync_committee.pubkeys.data
+
+  let (pending, indices) =
+    block:
+      var resFutures: seq[Future[SendResult]]
+      var resIndices: seq[int]
+      for committeeIdx in allSyncCommittees():
+        for valKey in syncSubcommittee(curParticipants(), committeeIdx):
+          let index = keysCur.getOrDefault(valKey, -1)
+          if index >= 0:
+            resIndices.add(index)
+            resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
+                                                         committeeIdx, true))
+      for committeeIdx in allSyncCommittees():
+        for valKey in syncSubcommittee(nxtParticipants(), committeeIdx):
+          let index = keysNxt.getOrDefault(valKey, -1)
+          if index >= 0:
+            resIndices.add(index)
+            resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
+                                                         committeeIdx, true))
+      (resFutures, resIndices)
+
+  await allFutures(pending)
+
+  for index, future in pending.pairs():
+    if future.done():
+      let fres = future.read()
+      if fres.isErr():
+        statuses[indices[index]] = some(SendResult.err(fres.error()))
+      else:
+        statuses[indices[index]] = some(SendResult.ok())
+    elif future.failed() or future.cancelled():
+      let exc = future.readError()
+      debug "Unexpected failure while sending committee message",
+        message = msgs[indices[index]], error = $exc.msg
+      statuses[indices[index]] = some(SendResult.err(
+        "Unexpected failure while sending committee message"))
+
+  let results =
+    block:
+      var res: seq[SendResult]
+      for item in statuses:
+        if item.isSome():
+          res.add(item.get())
+        else:
+          res.add(SendResult.err("Message validator not in sync committee"))
+      res
+  return results
 
 proc sendSyncCommitteeContribution*(
     node: BeaconNode,
     msg: SignedContributionAndProof,
-    checkSignature: bool): Future[bool] {.async.} =
+    checkSignature: bool): Future[SendResult] {.async.} =
   let ok = node.processor.syncCommitteeContributionValidator(
     msg, checkSignature)
 
@@ -229,11 +319,11 @@ proc sendSyncCommitteeContribution*(
     of ValidationResult.Accept:
       node.network.broadcastSignedContributionAndProof(msg)
       beacon_sync_committee_contributions_sent.inc()
-      true
+      SendResult.ok()
     else:
-      notice "Produced sync committee contribution failed validation",
+      notice "Sync committee contribution failed validation",
               msg, result = $ok
-      false
+      SendResult.err("Sync committee contribution failed validation")
 
 proc createAndSendAttestation(node: BeaconNode,
                               fork: Fork,
@@ -598,9 +688,10 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
       msg = await signSyncCommitteeMessage(validator, slot, fork,
                                            genesisValidatorsRoot, head.root)
 
-    let ok = await node.sendSyncCommitteeMessage(
+    let res = await node.sendSyncCommitteeMessage(
       msg, committeeIdx, checkSignature = false)
-    if not ok: # Logged in sendSyncCommitteeMessage
+    if res.isErr():
+      # Logged in sendSyncCommitteeMessage
       return
 
     if node.config.dumpEnabled:
@@ -635,7 +726,7 @@ proc handleSyncCommitteeMessages(node: BeaconNode, head: BlockRef, slot: Slot) =
   for committeeIdx in allSyncCommittees():
     for valKey in syncSubcommittee(syncCommittee, committeeIdx):
       let validator = node.getAttachedValidator(valKey)
-      if validator == nil or not validator.index.isSome():
+      if isNil(validator) or validator.index.isNone():
         continue
       asyncSpawn createAndSendSyncCommitteeMessage(node, slot, validator,
                                                    committeeIdx, head)
