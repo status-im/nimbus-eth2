@@ -13,7 +13,6 @@ import
   # Beacon chain internals
   ../../../beacon_chain/spec/[forks, state_transition],
   ../../../beacon_chain/spec/datatypes/merge,
-  ../../../beacon_chain/spec/eth2_ssz_serialization,
   # Test utilities
   ../../testutil,
   ../../helpers/debug_state,
@@ -56,8 +55,6 @@ proc runTest(testName, testDir, unitTestName: string) =
           let success = state_transition(
             defaultRuntimeConfig, fhPreState[], blck, cache, rewards, flags = {},
             noRollback)
-          SSZ.saveFile("/home/user/ante.ssz", fhPreState.hbsMerge.data)
-          SSZ.saveFile("/home/user/post.ssz", parseTest(testPath/"post.ssz_snappy", SSZ, merge.BeaconState))
           doAssert success, "Failure when applying block " & $i
         else:
           let success = state_transition(
@@ -68,7 +65,8 @@ proc runTest(testName, testDir, unitTestName: string) =
 
       if hasPostState:
         let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, merge.BeaconState))
-        #reportDiff(fhPreState.hbsMerge.data, postState)
+        when false:
+          reportDiff(fhPreState.hbsMerge.data, postState)
         doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()
 
   `testImpl _ blck _ testName`()
