@@ -157,13 +157,14 @@ template getStateField*(x, y: untyped): untyped =
   # Without `unsafeAddr`, the `validators` list would be copied to a temporary variable.
   (case x.beaconStateFork
    of forkPhase0: unsafeAddr (x.hbsPhase0.data.y)
-   of forkAltair: unsafeAddr (x.hbsAltair.data.y))[]
+   of forkAltair: unsafeAddr (x.hbsAltair.data.y)
+   of forkMerge:  unsafeAddr (x.hbsMerge.data.y))[]
 
 template getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
   case x.beaconStateFork:
   of forkPhase0: x.hbsPhase0.root
   of forkAltair: x.hbsAltair.root
-  of forkMerge:  x.hbsAltair.root
+  of forkMerge:  x.hbsMerge.root
 
 func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
   case x.beaconStateFork:
