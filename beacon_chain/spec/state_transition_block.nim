@@ -502,24 +502,30 @@ func is_valid_gas_limit(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#process_execution_payload
 func process_execution_payload(
     state: var merge.BeaconState, payload: ExecutionPayload,
-    execution_engine: ExecutionEngine) =
+    execution_engine: ExecutionEngine): Result[void, cstring] {.nbench.} =
   # Verify consistency of the parent hash, block number, random, base fee per
   # gas and gas limit
   if is_merge_complete(state):
-    doAssert payload.parent_hash ==
-      state.latest_execution_payload_header.block_hash
-    doAssert payload.block_number ==
-      state.latest_execution_payload_header.block_number + 1
-    doAssert payload.random == get_randao_mix(state, get_current_epoch(state))
-    doAssert is_valid_gas_limit(payload, state.latest_execution_payload_header)
+    if not (payload.parent_hash ==
+        state.latest_execution_payload_header.block_hash):
+      return err("process_execution_payload: payload and state parent hash mismatch")
+    if not (payload.block_number ==
+        state.latest_execution_payload_header.block_number + 1):
+      return err("process_execution_payload: payload and state block number mismatch")
+    if not (payload.random == get_randao_mix(state, get_current_epoch(state))):
+      return err("process_execution_payload: payload and state randomness mismatch")
+    if not is_valid_gas_limit(payload, state.latest_execution_payload_header):
+      return err("process_execution_payload: invalid gas limit")
 
   # Verify timestamp
-  doAssert payload.timestamp == compute_timestamp_at_slot(state, state.slot)
+  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+    return err("process_execution_payload: invalid timestamp")
 
   # Verify the execution payload is valid
   when false:
     # TODO
-    doAssert execution_engine.on_payload(payload)
+    if not execution_engine.on_payload(payload):
+      return err("process_execution_payload: execution payload invalid")
 
   # Cache execution payload header
   state.latest_execution_payload_header = ExecutionPayloadHeader(
@@ -535,8 +541,9 @@ func process_execution_payload(
     timestamp: payload.timestamp,
     base_fee_per_gas: payload.base_fee_per_gas,
     block_hash: payload.block_hash,
-    transactions_root: hash_tree_root(payload.transactions),
-  )
+    transactions_root: hash_tree_root(payload.transactions))
+
+  ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
@@ -562,14 +569,12 @@ proc process_block*(
     cfg: RuntimeConfig,
     state: var altair.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =
-  # The transition-triggering block creates, not acts on, an Altair state
   err("process_block: Altair state with Phase 0 block")
 
 proc process_block*(
     cfg: RuntimeConfig,
     state: var merge.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =
-  # The transition-triggering block creates, not acts on, an Altair state
   err("process_block: Merge state with Phase 0 block")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#block-processing
@@ -593,8 +598,6 @@ proc process_block*(
 
   ok()
 
-# Identical contents as altair/altair, but for merge; enables consistency
-# typechecking
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeMergeBlock =
   merge.BeaconBlock | merge.SigVerifiedBeaconBlock | merge.TrustedBeaconBlock
@@ -611,6 +614,9 @@ proc process_block*(
   ? process_eth1_data(state, blck.body)
   ? process_operations(cfg, state, blck.body, flags, cache)
   ? process_sync_aggregate(state, blck.body.sync_aggregate, cache)
+  if is_execution_enabled(state, blck.body):
+    ? process_execution_payload(
+        state, blck.body.execution_payload, default(ExecutionEngine))
 
   ok()
 

@@ -72,6 +72,20 @@ FixtureSSZConsensus-minimal
 + [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - same_slot_block_transition [Pre OK
 + [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - slash_and_exit_same_index [Pres OK
 + [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - zero_block_sig [Preset: minimal OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - double_same_proposer_slashings_s OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - double_similar_proposer_slashing OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - double_validator_exit_same_block OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - duplicate_attester_slashing [Pre OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - expected_deposit_in_block [Prese OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - invalid_block_sig [Preset: minim OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - invalid_proposer_index_sig_from_ OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - invalid_proposer_index_sig_from_ OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - invalid_state_root [Preset: mini OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - parent_from_same_slot [Preset: m OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - prev_slot_block_transition [Pres OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - same_slot_block_transition [Pres OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - slash_and_exit_same_index [Prese OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - zero_block_sig [Preset: minimal] OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_same_proposer_slashings OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_similar_proposer_slashi OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_validator_exit_same_blo OK
@@ -218,6 +232,39 @@ FixtureSSZConsensus-minimal
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - skipped_slots [Preset: minimal] OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - slash_and_exit_diff_index [Pres OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - voluntary_exit [Preset: minimal OK
++ [Valid]   Ethereum Foundation - Merge - Finality - finality_no_updates_at_genesis [Preset: OK
++ [Valid]   Ethereum Foundation - Merge - Finality - finality_rule_1 [Preset: minimal]       OK
++ [Valid]   Ethereum Foundation - Merge - Finality - finality_rule_2 [Preset: minimal]       OK
++ [Valid]   Ethereum Foundation - Merge - Finality - finality_rule_3 [Preset: minimal]       OK
++ [Valid]   Ethereum Foundation - Merge - Finality - finality_rule_4 [Preset: minimal]       OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - attestation [Preset: minimal]    OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - attester_slashing [Preset: minim OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - balance_driven_status_transition OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - deposit_in_block [Preset: minima OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - deposit_top_up [Preset: minimal] OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_block_transition [Preset:  OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_block_transition_large_val OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_epoch_transition [Preset:  OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_epoch_transition_large_val OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_epoch_transition_not_final OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - eth1_data_votes_consensus [Prese OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - eth1_data_votes_no_consensus [Pr OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_0 [Preset OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_1 [Preset OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_2 [Preset OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_3 [Preset OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - high_proposer_index [Preset: min OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - historical_batch [Preset: minima OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_attester_slashings_no_o OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_attester_slashings_part OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_different_proposer_slas OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_different_validator_exi OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - proposer_after_inactive_index [P OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - proposer_self_slashing [Preset:  OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - proposer_slashing [Preset: minim OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - skipped_slots [Preset: minimal]  OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - slash_and_exit_diff_index [Prese OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - voluntary_exit [Preset: minimal] OK
 + [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_no_updates_at_genesis [Prese OK
 + [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_1 [Preset: minimal]     OK
 + [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_2 [Preset: minimal]     OK
@@ -314,7 +361,7 @@ FixtureSSZConsensus-minimal
 + [Valid]   sync_committee_with_participating_withdrawable_member                            OK
 + [Valid]   valid_signature_future_committee                                                 OK
 ```
-OK: 311/311 Fail: 0/311 Skip: 0/311
+OK: 358/358 Fail: 0/358 Skip: 0/358
 ## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -617,4 +664,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 519/519 Fail: 0/519 Skip: 0/519
+OK: 566/566 Fail: 0/566 Skip: 0/566

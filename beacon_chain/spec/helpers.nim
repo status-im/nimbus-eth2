@@ -245,12 +245,16 @@ func is_merge_complete*(state: merge.BeaconState): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_merge_block
 func is_merge_block(
-    state: merge.BeaconState, body: merge.BeaconBlockBody): bool =
+    state: merge.BeaconState,
+    body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |
+          merge.SigVerifiedBeaconBlockBody): bool =
   not is_merge_complete(state) and body.execution_payload != ExecutionPayload()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_execution_enabled
-func is_execution_enabled(
-    state: merge.BeaconState, body: merge.BeaconBlockBody): bool =
+func is_execution_enabled*(
+    state: merge.BeaconState,
+    body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |
+          merge.SigVerifiedBeaconBlockBody): bool =
   is_merge_block(state, body) or is_merge_complete(state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#compute_timestamp_at_slot
