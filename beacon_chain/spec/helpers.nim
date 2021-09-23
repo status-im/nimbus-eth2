@@ -240,7 +240,7 @@ func get_subtree_index*(idx: GeneralizedIndex): uint64 =
   uint64(idx mod (type(idx)(1) shl log2trunc(idx)))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_merge_complete
-func is_merge_complete(state: merge.BeaconState): bool =
+func is_merge_complete*(state: merge.BeaconState): bool =
   state.latest_execution_payload_header != default(ExecutionPayloadHeader)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_merge_block
@@ -254,7 +254,7 @@ func is_execution_enabled(
   is_merge_block(state, body) or is_merge_complete(state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#compute_timestamp_at_slot
-func compute_timestamp_at_slot(state: SomeBeaconState, slot: Slot): uint64 =
+func compute_timestamp_at_slot*(state: SomeBeaconState, slot: Slot): uint64 =
   # Note: This function is unsafe with respect to overflows and underflows.
   let slots_since_genesis = slot - GENESIS_SLOT
   state.genesis_time + slots_since_genesis * SECONDS_PER_SLOT

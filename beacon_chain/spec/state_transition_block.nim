@@ -292,7 +292,7 @@ proc process_deposit*(cfg: RuntimeConfig,
         static: doAssert state.balances.maxLen == state.validators.maxLen
         raiseAssert "adding validator succeeded, so should balances"
 
-      when state is altair.BeaconState:
+      when state is altair.BeaconState or state is merge.BeaconState:
         if not state.previous_epoch_participation.add(ParticipationFlags(0)):
           return err("process_deposit: too many validators (previous_epoch_participation)")
         if not state.current_epoch_participation.add(ParticipationFlags(0)):
@@ -498,6 +498,45 @@ func is_valid_gas_limit(
     return false
 
   true
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#process_execution_payload
+func process_execution_payload(
+    state: var merge.BeaconState, payload: ExecutionPayload,
+    execution_engine: ExecutionEngine) =
+  # Verify consistency of the parent hash, block number, random, base fee per
+  # gas and gas limit
+  if is_merge_complete(state):
+    doAssert payload.parent_hash ==
+      state.latest_execution_payload_header.block_hash
+    doAssert payload.block_number ==
+      state.latest_execution_payload_header.block_number + 1
+    doAssert payload.random == get_randao_mix(state, get_current_epoch(state))
+    doAssert is_valid_gas_limit(payload, state.latest_execution_payload_header)
+
+  # Verify timestamp
+  doAssert payload.timestamp == compute_timestamp_at_slot(state, state.slot)
+
+  # Verify the execution payload is valid
+  when false:
+    # TODO
+    doAssert execution_engine.on_payload(payload)
+
+  # Cache execution payload header
+  state.latest_execution_payload_header = ExecutionPayloadHeader(
+    parent_hash: payload.parent_hash,
+    coinbase: payload.coinbase,
+    state_root: payload.state_root,
+    receipt_root: payload.receipt_root,
+    logs_bloom: payload.logs_bloom,
+    random: payload.random,
+    block_number: payload.block_number,
+    gas_limit: payload.gas_limit,
+    gas_used: payload.gas_used,
+    timestamp: payload.timestamp,
+    base_fee_per_gas: payload.base_fee_per_gas,
+    block_hash: payload.block_hash,
+    transactions_root: hash_tree_root(payload.transactions),
+  )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
