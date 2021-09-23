@@ -464,6 +464,106 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 36/36 Fail: 0/36 Skip: 0/36
+## Ethereum Foundation - Merge - Epoch Processing - Effective balance updates [Preset: mainnet]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## Ethereum Foundation - Merge - Epoch Processing - Eth1 data reset [Preset: mainnet]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
+## Ethereum Foundation - Merge - Epoch Processing - Historical roots update [Preset: mainnet]
+```diff
++ Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## Ethereum Foundation - Merge - Epoch Processing - Inactivity [Preset: mainnet]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
++ Inactivity - genesis [Preset: mainnet]                                                     OK
++ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
++ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
++ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
+```
+OK: 19/19 Fail: 0/19 Skip: 0/19
+## Ethereum Foundation - Merge - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
+```
+OK: 10/10 Fail: 0/10 Skip: 0/10
+## Ethereum Foundation - Merge - Epoch Processing - Participation flag updates [Preset: mainnet]
+```diff
++ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
++ Participation flag updates - current_filled [Preset: mainnet]                              OK
++ Participation flag updates - filled [Preset: mainnet]                                      OK
++ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
++ Participation flag updates - previous_filled [Preset: mainnet]                             OK
++ Participation flag updates - random_0 [Preset: mainnet]                                    OK
++ Participation flag updates - random_1 [Preset: mainnet]                                    OK
++ Participation flag updates - random_2 [Preset: mainnet]                                    OK
++ Participation flag updates - random_genesis [Preset: mainnet]                              OK
+```
+OK: 10/10 Fail: 0/10 Skip: 0/10
+## Ethereum Foundation - Merge - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## Ethereum Foundation - Merge - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
+```
+OK: 10/10 Fail: 0/10 Skip: 0/10
+## Ethereum Foundation - Merge - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
+## Ethereum Foundation - Merge - Epoch Processing - Slashings reset [Preset: mainnet]
+```diff
++ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Ethereum Foundation - Merge - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -607,4 +707,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 513/513 Fail: 0/513 Skip: 0/513
+OK: 573/573 Fail: 0/573 Skip: 0/573

@@ -476,6 +476,29 @@ proc process_sync_aggregate*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_valid_gas_limit
+func is_valid_gas_limit(
+    payload: ExecutionPayload, parent: ExecutionPayloadHeader): bool =
+  let parent_gas_limit = parent.gas_limit
+
+  # Check if the payload used too much gas
+  if payload.gas_used > payload.gas_limit:
+    return false
+
+  # Check if the payload changed the gas limit too much
+  if payload.gas_limit >=
+      parent_gas_limit + parent_gas_limit div GAS_LIMIT_DENOMINATOR:
+    return false
+  if payload.gas_limit <=
+      parent_gas_limit - parent_gas_limit div GAS_LIMIT_DENOMINATOR:
+    return false
+
+  # Check if the gas limit is at least the minimum gas limit
+  if payload.gas_limit < MIN_GAS_LIMIT:
+    return false
+
+  true
+
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/phase0.nim

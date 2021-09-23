@@ -22,8 +22,8 @@ const
   MAX_BYTES_PER_OPAQUE_TRANSACTION* = 1048576
   MAX_TRANSACTIONS_PER_PAYLOAD* = 16384
   BYTES_PER_LOGS_BLOOM = 256
-  GAS_LIMIT_DENOMINATOR = 1024
-  MIN_GAS_LIMIT = 5000
+  GAS_LIMIT_DENOMINATOR* = 1024
+  MIN_GAS_LIMIT* = 5000
   MAX_EXTRA_DATA_BYTES = 32
 
 type
@@ -366,10 +366,6 @@ proc readValue*(r: var JsonReader, a: var EthAddress) {.raises: [Defect, IOError
     a = fromHex(type(a), r.readValue(string))
   except ValueError:
     raiseUnexpectedValue(r, "Hex string expected")
-
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_merge_complete
-func is_merge_complete(state: merge.BeaconState): bool =
-  state.latest_execution_payload_header != default(ExecutionPayloadHeader)
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (

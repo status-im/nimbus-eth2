@@ -18,4 +18,5 @@ import
   ./test_fixture_operations_proposer_slashings,
   ./test_fixture_operations_voluntary_exit,
   ./test_fixture_sanity_slots,
-  ./test_fixture_ssz_consensus_objects
+  ./test_fixture_ssz_consensus_objects,
+  ./test_fixture_state_transition_epoch
