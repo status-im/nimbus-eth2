@@ -97,6 +97,24 @@ proc toString*(kind: ValidatorFilterKind): string =
   of ValidatorFilterKind.WithdrawalDone:
     "withdrawal_done"
 
+func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
+  epoch: Epoch): Result[seq[ValidatorPubKey], cstring] =
+  case forkedState.beaconStateFork
+  of BeaconStateFork.forkPhase0:
+    err("State's fork do not support sync committees")
+  of BeaconStateFork.forkAltair:
+    let
+      headSlot = forkedState.hbsAltair.data.slot
+      epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())
+      currentPeriod = syncCommitteePeriod(headSlot)
+      nextPeriod = currentPeriod + 1'u64
+    if epochPeriod == currentPeriod:
+      ok(@(forkedState.hbsAltair.data.current_sync_committee.pubkeys.data))
+    elif epochPeriod == nextPeriod:
+      ok(@(forkedState.hbsAltair.data.next_sync_committee.pubkeys.data))
+    else:
+      err("Epoch is outside the sync committee period of the state")
+
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
   router.api(MethodGet, "/api/eth/v1/beacon/genesis") do () -> RestApiResponse:
@@ -540,7 +558,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlot(bslot):
       let keys =
         block:
-          let res = node.dag.syncCommitteeParticipants(qepoch)
+          let res = syncCommitteeParticipants(stateData().data, qepoch)
           if res.isErr():
             return RestApiResponse.jsonError(Http400,
                                              $res.error())

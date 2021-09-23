@@ -1043,24 +1043,6 @@ func syncCommitteeParticipants*(dagParam: ChainDAGRef,
   else:
     @[]
 
-func syncCommitteeParticipants*(
-  dag: ChainDAGRef, epoch: Epoch): Result[seq[ValidatorPubKey], cstring] =
-  if dag.headState.data.beaconStateFork == BeaconStateFork.forkPhase0:
-    return err("State's fork do not support sync committees")
-
-  let
-    headSlot = dag.headState.data.hbsAltair.data.slot
-    epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())
-    currentPeriod = syncCommitteePeriod(headSlot)
-    nextPeriod = currentPeriod + 1'u64
-
-  if epochPeriod == currentPeriod:
-    ok(@(dag.headState.data.hbsAltair.data.current_sync_committee.pubkeys.data))
-  elif epochPeriod == nextPeriod:
-    ok(@(dag.headState.data.hbsAltair.data.next_sync_committee.pubkeys.data))
-  else:
-    err("Epoch is outside the sync committee period of the state")
-
 func getSubcommitteePositionAux*(
     dag: ChainDAGRef,
     syncCommittee: openarray[ValidatorPubKey],
