@@ -317,7 +317,8 @@ proc addAttestation*(pool: var AttestationPool,
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
-                    blck: phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock | merge.TrustedBeaconBlock,
+                    blck: phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock |
+                          merge.TrustedBeaconBlock,
                     wallSlot: Slot) =
   ## Add a verified block to the fork choice context
   let state = pool.forkChoice.process_block(
@@ -390,7 +391,8 @@ func init(T: type AttestationCache, state: phase0.HashedBeaconState): T =
       state.data.current_epoch_attestations[i].aggregation_bits)
 
 func init(
-    T: type AttestationCache, state: altair.HashedBeaconState | merge.HashedBeaconState,
+    T: type AttestationCache,
+    state: altair.HashedBeaconState | merge.HashedBeaconState,
     cache: var StateCache): T =
   # Load attestations that are scheduled for being given rewards for
   let

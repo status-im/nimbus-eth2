@@ -130,7 +130,8 @@ proc addBlock*(
 
 proc dumpBlock*[T](
     self: BlockProcessor,
-    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock | merge.SignedBeaconBlock,
+    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                 merge.SignedBeaconBlock,
     res: Result[T, (ValidationResult, BlockError)]) =
   if self.dumpEnabled and res.isErr:
     case res.error[1]

@@ -68,8 +68,9 @@ func containsOrphan*(
 func addMissing*(quarantine: QuarantineRef, root: Eth2Digest) =
   ## Schedule the download a the given block
   # Can only request by root, not by signature, so partial match suffices
-  if (not anyIt(quarantine.orphansPhase0.keys, it[0] == root)) and
-     (not anyIt(quarantine.orphansAltair.keys, it[0] == root)):
+  if (not anyIt(quarantine.orphansMerge.keys,  it[0] == root)) and
+     (not anyIt(quarantine.orphansAltair.keys, it[0] == root)) and
+     (not anyIt(quarantine.orphansPhase0.keys, it[0] == root)):
     # If the block is in orphans, we no longer need it
     discard quarantine.missing.hasKeyOrPut(root, MissingBlock())
 
@@ -102,7 +103,8 @@ func removeOrphan*(
 
 func isViableOrphan(
     dag: ChainDAGRef,
-    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock | merge.SignedBeaconBlock): bool =
+    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                 merge.SignedBeaconBlock): bool =
   # The orphan must be newer than the finalization point so that its parent
   # either is the finalized block or more recent
   signedBlock.message.slot > dag.finalizedHead.slot

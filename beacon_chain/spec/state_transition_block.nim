@@ -385,7 +385,8 @@ proc process_operations(cfg: RuntimeConfig,
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
   template base_reward_per_increment(state: phase0.BeaconState): Gwei = 0.Gwei
-  template base_reward_per_increment(state: altair.BeaconState | merge.BeaconState): Gwei =
+  template base_reward_per_increment(
+      state: altair.BeaconState | merge.BeaconState): Gwei =
     get_base_reward_per_increment(state, cache)
 
   let

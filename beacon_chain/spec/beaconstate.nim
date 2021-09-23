@@ -740,7 +740,8 @@ func get_next_sync_committee_indices(state: altair.BeaconState | merge.BeaconSta
   sync_committee_indices
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_next_sync_committee
-proc get_next_sync_committee*(state: altair.BeaconState | merge.BeaconState): SyncCommittee =
+proc get_next_sync_committee*(state: altair.BeaconState | merge.BeaconState):
+    SyncCommittee =
   ## Return the *next* sync committee for a given ``state``.
   let indices = get_next_sync_committee_indices(state)
   # TODO not robust
