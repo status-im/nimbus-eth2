@@ -797,7 +797,7 @@ proc containsBlockAltair*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.altairBlocks.contains(key.data).expectDb()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.containsBlockPhase0(key) or db.containsBlockAltair(key)
+  db.containsBlockAltair(key) or db.containsBlockPhase0(key)
 
 proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
   let sk = subkey(BeaconStateNoImmutableValidators, key)
