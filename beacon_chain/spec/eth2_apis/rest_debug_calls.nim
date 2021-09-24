@@ -27,3 +27,18 @@ proc getDebugChainHeads*(): RestResponse[GetDebugChainHeadsResponse] {.
      rest, endpoint: "/eth/v1/debug/beacon/heads",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getDebugChainHeads
+
+proc getStateV2*(state_id: StateIdent): RestResponse[GetStateV2Response] {.
+     rest, endpoint: "/eth/v2/debug/beacon/states/{state_id}",
+     accept: "application/json", meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2
+
+proc getSszPhase0StateV2*(state_id: StateIdent): RestResponse[GetPhase0StateSszResponse] {.
+     rest, endpoint: "/eth/v2/debug/beacon/states/{state_id}",
+     accept: "application/octet-stream", meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2
+
+proc getSszAltairStateV2*(state_id: StateIdent): RestResponse[GetAltairStateSszResponse] {.
+     rest, endpoint: "/eth/v2/debug/beacon/states/{state_id}",
+     accept: "application/octet-stream", meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2

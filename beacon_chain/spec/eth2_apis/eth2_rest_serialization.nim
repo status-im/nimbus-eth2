@@ -9,13 +9,14 @@ import stew/[results, base10, byteutils, endians2], presto/common,
        libp2p/peerid, serialization,
        json_serialization, json_serialization/std/[options, net],
        nimcrypto/utils as ncrutils
-import ".."/forks, ".."/datatypes/[phase0, altair, merge],
+import ".."/[forks, ssz_codec], ".."/datatypes/[phase0, altair, merge],
+       ".."/eth2_ssz_serialization,
        ".."/".."/ssz/ssz_serialization,
        "."/rest_types
 
 export
   results, peerid, common, serialization, json_serialization, options, net,
-  rest_types
+  rest_types, ssz_codec, ssz_serialization
 
 Json.createFlavor RestJson
 
@@ -59,12 +60,19 @@ type
 
   DecodeTypes* =
     DataEnclosedObject |
-    GetBlockV2Response |
     ProduceBlockResponseV2 |
     DataMetaEnclosedObject |
     DataRootEnclosedObject |
     RestAttestationError |
-    RestGenericError
+    RestGenericError |
+    GetBlockV2Response |
+    GetStateV2Response
+
+  SszDecodeTypes* =
+    GetPhase0StateSszResponse |
+    GetAltairStateSszResponse |
+    GetPhase0BlockSszResponse |
+    GetAltairBlockSszResponse
 
 {.push raises: [Defect].}
 
@@ -960,6 +968,17 @@ proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openarray[byte],
   of "application/json":
     try:
       ok RestJson.decode(value, T)
+    except SerializationError as exc:
+      err("Serialization error")
+  else:
+    err("Content-Type not supported")
+
+proc decodeBytes*[T: SszDecodeTypes](t: typedesc[T], value: openarray[byte],
+                                     contentType: string): RestResult[T] =
+  case contentType
+  of "application/octet-stream":
+    try:
+      ok(SSZ.decode(value, T))
     except SerializationError as exc:
       err("Serialization error")
   else:
