@@ -425,7 +425,6 @@ proc init*(T: type BeaconNode,
             getProposerSlashingsTopic(network.forkDigests.phase0),
             getVoluntaryExitsTopic(network.forkDigests.phase0),
             getAggregateAndProofsTopic(network.forkDigests.phase0),
-            getSyncCommitteeContributionAndProofTopic(network.forkDigests.phase0),
 
             getBeaconBlocksTopic(dag.forkDigests.altair),
             getAttesterSlashingsTopic(network.forkDigests.altair),
@@ -437,9 +436,6 @@ proc init*(T: type BeaconNode,
       for subnet_id in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
         topics &= getAttestationTopic(network.forkDigests.phase0, SubnetId(subnet_id))
         topics &= getAttestationTopic(network.forkDigests.altair, SubnetId(subnet_id))
-      for subnet_id in 0'u64 ..< SYNC_COMMITTEE_SUBNET_COUNT:
-        topics &= getSyncCommitteeTopic(network.forkDigests.phase0, SyncCommitteeIndex(subnet_id))
-        topics &= getSyncCommitteeTopic(network.forkDigests.altair, SyncCommitteeIndex(subnet_id))
       topics)
 
   if node.config.inProcessValidators:
