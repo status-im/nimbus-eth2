@@ -796,7 +796,7 @@ proc validateSyncCommitteeMessage*(
       committeeIdx: syncCommitteeIdx)
 
     if msgKey in syncCommitteeMsgPool.seenSyncMsgByAuthor:
-      return errReject("SyncCommitteeMessage: duplicate message")
+      return errIgnore("SyncCommitteeMessage: duplicate message")
     else:
       syncCommitteeMsgPool.seenSyncMsgByAuthor.incl msgKey
 
@@ -859,8 +859,7 @@ proc validateSignedContributionAndProof*(
   # [REJECT] contribution_and_proof.selection_proof selects the validator as an aggregator for the slot
   # i.e. is_sync_committee_aggregator(contribution_and_proof.selection_proof) returns True.
   if not is_sync_committee_aggregator(msg.message.selection_proof):
-    return err((ValidationResult.Reject, cstring(
-      "SignedContributionAndProof: invalid selection_proof")))
+    return errReject("SignedContributionAndProof: invalid selection_proof")
 
   block:
     # [IGNORE] The sync committee contribution is the first valid contribution
