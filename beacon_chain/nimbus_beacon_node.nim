@@ -431,8 +431,9 @@ proc init*(T: type BeaconNode,
             getProposerSlashingsTopic(network.forkDigests.altair),
             getVoluntaryExitsTopic(network.forkDigests.altair),
             getAggregateAndProofsTopic(network.forkDigests.altair),
-            getSyncCommitteeContributionAndProofTopic(network.forkDigests.altair)
           ]
+      if not config.verifyFinalization:
+        topics &= getSyncCommitteeContributionAndProofTopic(network.forkDigests.altair)
       for subnet_id in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
         topics &= getAttestationTopic(network.forkDigests.phase0, SubnetId(subnet_id))
         topics &= getAttestationTopic(network.forkDigests.altair, SubnetId(subnet_id))
