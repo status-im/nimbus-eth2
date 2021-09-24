@@ -114,6 +114,18 @@ func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
       ok(@(forkedState.hbsAltair.data.next_sync_committee.pubkeys.data))
     else:
       err("Epoch is outside the sync committee period of the state")
+  of BeaconStateFork.forkMerge:
+    let
+      headSlot = forkedState.hbsMerge.data.slot
+      epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())
+      currentPeriod = syncCommitteePeriod(headSlot)
+      nextPeriod = currentPeriod + 1'u64
+    if epochPeriod == currentPeriod:
+      ok(@(forkedState.hbsMerge.data.current_sync_committee.pubkeys.data))
+    elif epochPeriod == nextPeriod:
+      ok(@(forkedState.hbsMerge.data.next_sync_committee.pubkeys.data))
+    else:
+      err("Epoch is outside the sync committee period of the state")
 
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
