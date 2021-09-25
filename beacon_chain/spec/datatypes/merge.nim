@@ -24,6 +24,7 @@ const
   BYTES_PER_LOGS_BLOOM = 256
   GAS_LIMIT_DENOMINATOR = 1024
   MIN_GAS_LIMIT = 5000
+  MAX_EXTRA_DATA_BYTES = 32
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#custom-types
@@ -48,6 +49,7 @@ type
     gas_limit*: uint64
     gas_used*: uint64
     timestamp*: uint64
+    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
     base_fee_per_gas*: Eth2Digest  # base fee introduced in EIP-1559, little-endian serialized
 
     # Extra payload fields
@@ -66,6 +68,7 @@ type
     gas_limit*: uint64
     gas_used*: uint64
     timestamp*: uint64
+    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
     base_fee_per_gas*: Eth2Digest  # base fee introduced in EIP-1559, little-endian serialized
 
     # Extra payload fields
