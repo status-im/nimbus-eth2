@@ -619,6 +619,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         version = some(BeaconBlockFork.Phase0)
       of "altair":
         version = some(BeaconBlockFork.Altair)
+      of "merge":
+        version = some(BeaconBlockFork.Merge)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
@@ -667,7 +669,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     value = ForkedBeaconBlock.init(res.get())
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconBlock) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, Defect].} =
   writer.beginRecord()
   case value.kind
   of BeaconBlockFork.Phase0:
@@ -678,7 +680,9 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconBlock) {.
     writer.writeField("data", value.altairBlock)
   of BeaconBlockFork.Merge:
     writer.writeField("version", "merge")
-    writer.writeField("data", value.mergeBlock)
+    when false:
+      # TODO SerializationError
+      writer.writeField("data", value.mergeBlock)
   writer.endRecord()
 
 ## ForkedSignedBeaconBlock
@@ -701,6 +705,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         version = some(BeaconBlockFork.Phase0)
       of "altair":
         version = some(BeaconBlockFork.Altair)
+      of "merge":
+        version = some(BeaconBlockFork.Merge)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
@@ -750,7 +756,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: ForkedSignedBeaconBlock) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, Defect].} =
   writer.beginRecord()
   case value.kind
   of BeaconBlockFork.Phase0:
@@ -761,7 +767,9 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("data", value.altairBlock)
   of BeaconBlockFork.Merge:
     writer.writeField("version", "merge")
-    writer.writeField("data", value.mergeBlock)
+    when false:
+      # TODO SerializationError
+      writer.writeField("data", value.mergeBlock)
   writer.endRecord()
 
 # ForkedBeaconState
@@ -784,6 +792,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         version = some(BeaconStateFork.forkPhase0)
       of "altair":
         version = some(BeaconStateFork.forkAltair)
+      of "merge":
+        version = some(BeaconStateFork.forkMerge)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
@@ -832,7 +842,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     value = ForkedBeaconState.init(res.get())
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconState) {.
-     raises: [IOError, SerializationError, Defect].} =
+     raises: [IOError, Defect].} =
   writer.beginRecord()
   case value.beaconStateFork
   of BeaconStateFork.forkPhase0:
@@ -843,7 +853,9 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconState) {.
     writer.writeField("data", value.bsAltair)
   of BeaconStateFork.forkMerge:
     writer.writeField("version", "merge")
-    writer.writeField("data", value.bsMerge)
+    when false:
+      # TODO SerializationError
+      writer.writeField("data", value.bsMerge)
   writer.endRecord()
 
 template toSszType*(v: BeaconBlockFork): auto =
