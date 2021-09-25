@@ -90,12 +90,27 @@ proc publishBlock*(body: altair.SignedBeaconBlock): RestPlainResponse {.
 
 proc getBlock*(block_id: BlockIdent): RestResponse[GetBlockResponse] {.
      rest, endpoint: "/api/eth/v1/beacon/blocks/{block_id}",
-     meth: MethodGet.}
+     accept: "application/json", meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
+
+proc getSszBlock*(block_id: BlockIdent): RestResponse[GetPhase0BlockSszResponse] {.
+     rest, endpoint: "/api/eth/v1/beacon/blocks/{block_id}",
+     accept: "application/octet-stream", meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
 
 proc getBlockV2*(block_id: BlockIdent): RestResponse[GetBlockV2Response] {.
      rest, endpoint: "/api/eth/v2/beacon/blocks/{block_id}",
-     meth: MethodGet.}
+     accept: "application/json", meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
+
+proc getSszPhase0BlockV2*(block_id: BlockIdent): RestResponse[GetPhase0BlockSszResponse] {.
+     rest, endpoint: "/api/eth/v2/beacon/blocks/{block_id}",
+     accept: "application/octet-stream", meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
+
+proc getSszAltairBlockV2*(block_id: BlockIdent): RestResponse[GetAltairBlockSszResponse] {.
+     rest, endpoint: "/api/eth/v2/beacon/blocks/{block_id}",
+     accept: "application/octet-stream", meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
 
 proc getBlockRoot*(block_id: BlockIdent): RestResponse[GetBlockRootResponse] {.
