@@ -503,8 +503,8 @@ func is_valid_gas_limit(
 func process_execution_payload(
     state: var merge.BeaconState, payload: ExecutionPayload,
     execution_engine: ExecutionEngine): Result[void, cstring] {.nbench.} =
-  # Verify consistency of the parent hash, block number, random, base fee per
-  # gas and gas limit
+  # Verify consistency of the parent hash, block number, base fee per gas and
+  # gas limit with respect to the previous execution payload header
   if is_merge_complete(state):
     if not (payload.parent_hash ==
         state.latest_execution_payload_header.block_hash):
@@ -512,10 +512,12 @@ func process_execution_payload(
     if not (payload.block_number ==
         state.latest_execution_payload_header.block_number + 1):
       return err("process_execution_payload: payload and state block number mismatch")
-    if not (payload.random == get_randao_mix(state, get_current_epoch(state))):
-      return err("process_execution_payload: payload and state randomness mismatch")
     if not is_valid_gas_limit(payload, state.latest_execution_payload_header):
       return err("process_execution_payload: invalid gas limit")
+
+  # Verify random
+  if not (payload.random == get_randao_mix(state, get_current_epoch(state))):
+    return err("process_execution_payload: payload and state randomness mismatch")
 
   # Verify timestamp
   if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
@@ -610,13 +612,13 @@ proc process_block*(
   ## block application fails (!)
 
   ? process_block_header(state, blck, flags, cache)
+  if is_execution_enabled(state, blck.body):
+    ? process_execution_payload(
+        state, blck.body.execution_payload, default(ExecutionEngine))
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
   ? process_operations(cfg, state, blck.body, flags, cache)
   ? process_sync_aggregate(state, blck.body.sync_aggregate, cache)
-  if is_execution_enabled(state, blck.body):
-    ? process_execution_payload(
-        state, blck.body.execution_payload, default(ExecutionEngine))
 
   ok()
 
