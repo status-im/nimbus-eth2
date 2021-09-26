@@ -9,9 +9,8 @@
 
 import
   # Standard library
-  std/os,
+  std/os, std/strutils,
   # Utilities
-  chronicles,
   stew/results,
   # Beacon chain internals
   ../../../beacon_chain/spec/state_transition_block,
@@ -21,7 +20,7 @@ import
   ../fixtures_utils,
   ../../helpers/debug_state
 
-const OpVoluntaryExitDir = SszTestsDir/const_preset/"merge"/"operations"/"voluntary_exit"/"pyspec_tests"
+const OpExecutionPayloadDir = SszTestsDir/const_preset/"merge"/"operations"/"execution_payload"/"pyspec_tests"
 
 proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
@@ -29,41 +28,45 @@ proc runTest(identifier: string) =
   # but unittest with the macro/templates put everything as globals
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
 
-  let testDir = OpVoluntaryExitDir / identifier
+  let testDir = OpExecutionPayloadDir / identifier
 
   proc `testImpl _ voluntary_exit _ identifier`() =
 
-    let prefix =
-      if existsFile(testDir/"post.ssz_snappy"):
-        "[Valid]   "
-      else:
-        "[Invalid] "
+    let
+      prefix =
+        if existsFile(testDir/"post.ssz_snappy"):
+          "[Valid]   "
+        else:
+          "[Invalid] "
+      payloadValid = readFile(
+        testDir/"execution.yaml").contains("execution_valid: true")
+
+    func executePayload(_: ExecutionPayload): bool = payloadValid
 
     test prefix & identifier:
-      let voluntaryExit = parseTest(
-        testDir/"voluntary_exit.ssz_snappy", SSZ, SignedVoluntaryExit)
-      var
-        preState =
-          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, merge.BeaconState))
-        cache = StateCache()
+      let
+        executionPayload = parseTest(
+          testDir/"execution_payload.ssz_snappy", SSZ, ExecutionPayload)
+      var preState = newClone(
+        parseTest(testDir/"pre.ssz_snappy", SSZ, merge.BeaconState))
 
       if existsFile(testDir/"post.ssz_snappy"):
         let
-          postState =
-            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, merge.BeaconState))
-          done =
-            process_voluntary_exit(defaultRuntimeConfig, preState[], voluntaryExit, {}, cache).isOk
-        doAssert done, "Valid voluntary exit not processed"
+          postState = newClone(
+            parseTest(testDir/"post.ssz_snappy", SSZ, merge.BeaconState))
+          done = process_execution_payload(
+            preState[], executionPayload, executePayload).isOk
+        doAssert done, "Valid execution payload not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
-        let done =
-          process_voluntary_exit(defaultRuntimeConfig, preState[], voluntaryExit, {}, cache).isOk
-        doAssert done == false, "We didn't expect this invalid voluntary exit to be processed."
+        let done = process_execution_payload(
+          preState[], executionPayload, executePayload).isOk
+        doAssert done == false, "We didn't expect this invalid execution payload to be processed."
 
   `testImpl _ voluntary_exit _ identifier`()
 
-suite "Ethereum Foundation - Merge - Operations - Voluntary exit " & preset():
+suite "Ethereum Foundation - Merge - Operations - Execution Payload " & preset():
   for kind, path in walkDir(
-      OpVoluntaryExitDir, relative = true, checkDir = true):
+      OpExecutionPayloadDir, relative = true, checkDir = true):
     runTest(path)

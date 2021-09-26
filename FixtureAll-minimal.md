@@ -115,7 +115,16 @@ FixtureAll-minimal
 + [Invalid] att2_duplicate_index_normal_signed                                               OK
 + [Invalid] att2_empty_indices                                                               OK
 + [Invalid] att2_high_index                                                                  OK
++ [Invalid] bad_everything_regular_payload                                                   OK
++ [Invalid] bad_execution_first_payload                                                      OK
++ [Invalid] bad_execution_regular_payload                                                    OK
++ [Invalid] bad_number_regular_payload                                                       OK
++ [Invalid] bad_parent_hash_regular_payload                                                  OK
++ [Invalid] bad_random_first_payload                                                         OK
++ [Invalid] bad_random_regular_payload                                                       OK
 + [Invalid] bad_source_root                                                                  OK
++ [Invalid] bad_timestamp_first_payload                                                      OK
++ [Invalid] bad_timestamp_regular_payload                                                    OK
 + [Invalid] before_inclusion_delay                                                           OK
 + [Invalid] correct_after_epoch_delay                                                        OK
 + [Invalid] empty_participants_seemingly_valid_sig                                           OK
@@ -344,11 +353,15 @@ FixtureAll-minimal
 + [Valid]   success_double                                                                   OK
 + [Valid]   success_exit_queue__min_churn                                                    OK
 + [Valid]   success_exit_queue__scaled_churn                                                 OK
++ [Valid]   success_first_payload                                                            OK
++ [Valid]   success_first_payload_with_gap_slot                                              OK
 + [Valid]   success_low_balances                                                             OK
 + [Valid]   success_misc_balances                                                            OK
 + [Valid]   success_multi_proposer_index_iterations                                          OK
 + [Valid]   success_previous_epoch                                                           OK
 + [Valid]   success_proposer_index_slashed                                                   OK
++ [Valid]   success_regular_payload                                                          OK
++ [Valid]   success_regular_payload_with_gap_slot                                            OK
 + [Valid]   success_slashed_and_proposer_index_the_same                                      OK
 + [Valid]   success_surround                                                                 OK
 + [Valid]   success_with_effective_balance_disparity                                         OK
@@ -361,7 +374,7 @@ FixtureAll-minimal
 + [Valid]   sync_committee_with_participating_withdrawable_member                            OK
 + [Valid]   valid_signature_future_committee                                                 OK
 ```
-OK: 358/358 Fail: 0/358 Skip: 0/358
+OK: 371/371 Fail: 0/371 Skip: 0/371
 ## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -779,4 +792,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 637/637 Fail: 0/637 Skip: 0/637
+OK: 650/650 Fail: 0/650 Skip: 0/650

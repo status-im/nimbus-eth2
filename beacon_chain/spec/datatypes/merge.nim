@@ -76,9 +76,8 @@ type
     transactions_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#execution-engine
-  ExecutionEngine* = object
-    # TODO
-    discard
+  ExecutePayload* = proc(
+    execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#beaconstate
   BeaconState* = object

@@ -500,9 +500,9 @@ func is_valid_gas_limit(
   true
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#process_execution_payload
-func process_execution_payload(
+proc process_execution_payload*(
     state: var merge.BeaconState, payload: ExecutionPayload,
-    execution_engine: ExecutionEngine): Result[void, cstring] {.nbench.} =
+    execute_payload: ExecutePayload): Result[void, cstring] {.nbench.} =
   # Verify consistency of the parent hash, block number, base fee per gas and
   # gas limit with respect to the previous execution payload header
   if is_merge_complete(state):
@@ -524,10 +524,8 @@ func process_execution_payload(
     return err("process_execution_payload: invalid timestamp")
 
   # Verify the execution payload is valid
-  when false:
-    # TODO
-    if not execution_engine.on_payload(payload):
-      return err("process_execution_payload: execution payload invalid")
+  if not execute_payload(payload):
+    return err("process_execution_payload: execution payload invalid")
 
   # Cache execution payload header
   state.latest_execution_payload_header = ExecutionPayloadHeader(
@@ -614,7 +612,9 @@ proc process_block*(
   ? process_block_header(state, blck, flags, cache)
   if is_execution_enabled(state, blck.body):
     ? process_execution_payload(
-        state, blck.body.execution_payload, default(ExecutionEngine))
+        state, blck.body.execution_payload,
+        # TODO this is enough to pass consensus spec tests
+        func(_: ExecutionPayload): bool = true)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
   ? process_operations(cfg, state, blck.body, flags, cache)

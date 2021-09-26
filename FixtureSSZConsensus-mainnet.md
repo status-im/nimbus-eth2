@@ -123,7 +123,16 @@ FixtureSSZConsensus-mainnet
 + [Invalid] att2_duplicate_index_normal_signed                                               OK
 + [Invalid] att2_empty_indices                                                               OK
 + [Invalid] att2_high_index                                                                  OK
++ [Invalid] bad_everything_regular_payload                                                   OK
++ [Invalid] bad_execution_first_payload                                                      OK
++ [Invalid] bad_execution_regular_payload                                                    OK
++ [Invalid] bad_number_regular_payload                                                       OK
++ [Invalid] bad_parent_hash_regular_payload                                                  OK
++ [Invalid] bad_random_first_payload                                                         OK
++ [Invalid] bad_random_regular_payload                                                       OK
 + [Invalid] bad_source_root                                                                  OK
++ [Invalid] bad_timestamp_first_payload                                                      OK
++ [Invalid] bad_timestamp_regular_payload                                                    OK
 + [Invalid] before_inclusion_delay                                                           OK
 + [Invalid] correct_after_epoch_delay                                                        OK
 + [Invalid] empty_participants_seemingly_valid_sig                                           OK
@@ -333,11 +342,15 @@ FixtureSSZConsensus-mainnet
 + [Valid]   success_block_header_from_future                                                 OK
 + [Valid]   success_double                                                                   OK
 + [Valid]   success_exit_queue__min_churn                                                    OK
++ [Valid]   success_first_payload                                                            OK
++ [Valid]   success_first_payload_with_gap_slot                                              OK
 + [Valid]   success_low_balances                                                             OK
 + [Valid]   success_misc_balances                                                            OK
 + [Valid]   success_multi_proposer_index_iterations                                          OK
 + [Valid]   success_previous_epoch                                                           OK
 + [Valid]   success_proposer_index_slashed                                                   OK
++ [Valid]   success_regular_payload                                                          OK
++ [Valid]   success_regular_payload_with_gap_slot                                            OK
 + [Valid]   success_slashed_and_proposer_index_the_same                                      OK
 + [Valid]   success_surround                                                                 OK
 + [Valid]   success_with_effective_balance_disparity                                         OK
@@ -365,7 +378,7 @@ FixtureSSZConsensus-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 362/362 Fail: 0/362 Skip: 0/362
+OK: 375/375 Fail: 0/375 Skip: 0/375
 ## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -649,4 +662,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 555/555 Fail: 0/555 Skip: 0/555
+OK: 568/568 Fail: 0/568 Skip: 0/568

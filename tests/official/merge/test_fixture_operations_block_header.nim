@@ -32,11 +32,11 @@ proc runTest(identifier: string) =
 
   proc `testImpl _ blockheader _ identifier`() =
 
-    var prefix: string
-    if existsFile(testDir/"post.ssz_snappy"):
-      prefix = "[Valid]   "
-    else:
-      prefix = "[Invalid] "
+    let prefix =
+      if existsFile(testDir/"post.ssz_snappy"):
+        "[Valid]   "
+      else:
+        "[Invalid] "
 
     test prefix & identifier:
       let blck = parseTest(testDir/"block.ssz_snappy", SSZ, merge.BeaconBlock)

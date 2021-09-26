@@ -35,11 +35,11 @@ proc runTest(identifier: string) =
 
   proc `testImpl_proposer_slashing _ identifier`() =
 
-    var prefix: string
-    if existsFile(testDir/"post.ssz_snappy"):
-      prefix = "[Valid]   "
-    else:
-      prefix = "[Invalid] "
+    let prefix =
+      if existsFile(testDir/"post.ssz_snappy"):
+        "[Valid]   "
+      else:
+        "[Invalid] "
 
     test prefix & identifier:
       let proposerSlashing = parseTest(
