@@ -158,7 +158,7 @@ template checkedReject(msg: cstring): untyped =
     # an internal consistency/correctness check only, and effectively never has
     # false positives. These don't, for example, arise from timeouts.
     raiseAssert $msg
-  err((ValidationResult.Reject, cstring msg))
+  errReject(msg)
 
 template checkedReject(error: (ValidationResult, cstring)): untyped =
   doAssert error[0] == ValidationResult.Reject
@@ -859,8 +859,7 @@ proc validateSignedContributionAndProof*(
   # [REJECT] contribution_and_proof.selection_proof selects the validator as an aggregator for the slot
   # i.e. is_sync_committee_aggregator(contribution_and_proof.selection_proof) returns True.
   if not is_sync_committee_aggregator(msg.message.selection_proof):
-    return err((ValidationResult.Reject, cstring(
-      "SignedContributionAndProof: invalid selection_proof")))
+    return errReject("SignedContributionAndProof: invalid selection_proof")
 
   block:
     # [IGNORE] The sync committee contribution is the first valid contribution
