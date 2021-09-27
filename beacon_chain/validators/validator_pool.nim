@@ -11,7 +11,6 @@ import
   std/[tables, json, streams],
   chronos, chronicles, metrics,
   json_serialization/std/[sets, net],
-  eth/db/[kvstore, kvstore_sqlite3],
   ../spec/[signatures, helpers],
   ../spec/datatypes/[phase0, altair],
   ../beacon_node_types,

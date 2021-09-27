@@ -15,7 +15,7 @@ import
   ".."/[beacon_clock],
   ../spec/[eth2_merkleization, forks, helpers, signatures, signatures_batch, state_transition],
   ../spec/datatypes/[phase0, altair],
-  "."/[block_pools_types, blockchain_dag, block_quarantine]
+  "."/[blockchain_dag, block_quarantine]
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
 

@@ -541,6 +541,7 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: HashArray) {.
 proc readValue*(reader: var JsonReader[RestJson], value: var HashList) {.
      raises: [IOError, SerializationError, Defect].} =
   readValue(reader, value.data)
+  value.resetCache()
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: HashList) {.
      raises: [IOError, Defect].} =
