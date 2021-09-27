@@ -11,9 +11,7 @@ import
   # Stdlib
   std/[typetraits, strutils, algorithm],
   # Status
-  eth/db/[kvstore, kvstore_sqlite3],
-  stew/results,
-  stew/byteutils,
+  stew/[byteutils, results],
   serialization,
   json_serialization,
   chronicles,

@@ -317,7 +317,7 @@ template asTrusted*(x: altair.SignedBeaconBlock or altair.SigVerifiedBeaconBlock
     altair.TrustedSignedBeaconBlock =
   isomorphicCast[altair.TrustedSignedBeaconBlock](x)
 
-template asTrusted*(x: ForkedSignedBeaconBlock): ForkedSignedBeaconBlock =
+template asTrusted*(x: ForkedSignedBeaconBlock): ForkedTrustedSignedBeaconBlock =
   isomorphicCast[ForkedTrustedSignedBeaconBlock](x)
 
 template withBlck*(x: ForkedBeaconBlock | ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock, body: untyped): untyped =
