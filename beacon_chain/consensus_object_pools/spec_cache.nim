@@ -16,7 +16,7 @@ import
   ./block_pools_types, blockchain_dag
 
 export
-  base, extras, block_pools_types
+  base, extras
 
 # Spec functions implemented based on cached values instead of the full state
 func count_active_validators*(epochInfo: EpochRef): uint64 =

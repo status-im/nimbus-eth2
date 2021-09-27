@@ -20,7 +20,7 @@ import
   ./slashing_protection_v1,
   ./slashing_protection_v2
 
-export slashing_protection_common, kvstore, kvstore_sqlite3
+export slashing_protection_common
 
 # Generic sandwich
 export chronicles

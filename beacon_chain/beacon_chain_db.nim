@@ -17,9 +17,7 @@ import
   ./spec/datatypes/[phase0, altair],
   ./filepath
 
-export
-  phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
-  kvstore_sqlite3
+export phase0, altair, eth2_ssz_serialization, eth2_merkleization
 
 logScope: topics = "bc_db"
 

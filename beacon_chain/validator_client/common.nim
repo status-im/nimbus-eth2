@@ -1,7 +1,8 @@
 import std/[tables, os, sequtils, strutils]
 import chronos, presto, presto/client as presto_client, chronicles, confutils,
        json_serialization/std/[options, net],
-       stew/[base10, results, byteutils]
+       stew/[base10, results, byteutils],
+       eth/db/[kvstore, kvstore_sqlite3]
 
 # Local modules
 import
@@ -20,6 +21,7 @@ export os, tables, sequtils, sequtils, chronos, presto, chronicles, confutils,
 export rest_beacon_client,
        phase0, altair, helpers, signatures, validator, eth2_merkleization,
        beacon_clock,
+       kvstore, kvstore_sqlite3,
        keystore_management, slashing_protection, validator_pool,
        beacon_node_types
 
