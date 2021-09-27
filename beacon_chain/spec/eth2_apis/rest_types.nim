@@ -281,10 +281,20 @@ type
     dependent_root*: Eth2Digest
     data*: T
 
+  ForkedSignedBlockHeader* = object
+    slot*: Slot
+
+  ForkedBeaconStateHeader* = object
+    genesis_time*: uint64
+    genesis_validators_root*: Eth2Digest
+    slot*: Slot
+
   GetBlockResponse* = DataEnclosedObject[phase0.SignedBeaconBlock]
   GetStateResponse* = DataEnclosedObject[phase0.BeaconState]
   GetBlockV2Response* = ForkedSignedBeaconBlock
+  GetBlockV2Header* = ForkedSignedBlockHeader
   GetStateV2Response* = ForkedBeaconState
+  GetStateV2Header* = ForkedBeaconStateHeader
   GetPhase0StateSszResponse* = phase0.BeaconState
   GetAltairStateSszResponse* = altair.BeaconState
   GetPhase0BlockSszResponse* = phase0.SignedBeaconBlock

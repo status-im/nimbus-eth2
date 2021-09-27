@@ -11,12 +11,12 @@ import stew/[results, base10, byteutils, endians2], presto/common,
        nimcrypto/utils as ncrutils
 import ".."/[forks, ssz_codec], ".."/datatypes/[phase0, altair, merge],
        ".."/eth2_ssz_serialization,
-       ".."/".."/ssz/ssz_serialization,
+       ".."/".."/ssz/[ssz_serialization, codec, types],
        "."/rest_types
 
 export
   results, peerid, common, serialization, json_serialization, options, net,
-  rest_types, ssz_codec, ssz_serialization
+  rest_types, ssz_codec, ssz_serialization, codec, types
 
 Json.createFlavor RestJson
 
@@ -72,7 +72,9 @@ type
     GetPhase0StateSszResponse |
     GetAltairStateSszResponse |
     GetPhase0BlockSszResponse |
-    GetAltairBlockSszResponse
+    GetAltairBlockSszResponse |
+    GetBlockV2Header |
+    GetStateV2Header
 
 {.push raises: [Defect].}
 
@@ -865,16 +867,6 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconState) {.
       # TODO SerializationError
       writer.writeField("data", value.bsMerge)
   writer.endRecord()
-
-template toSszType*(v: BeaconBlockFork): auto =
-  case v
-  of BeaconBlockFork.Phase0: Phase0Version
-  of BeaconBlockFork.Altair: AltairVersion
-
-template toSszType*(v: BeaconStateFork): auto =
-  case v
-  of BeaconStateFork.forkPhase0: Phase0Version
-  of BeaconStateFork.forkAltair: AltairVersion
 
 # SyncCommitteeIndex
 proc writeValue*(writer: var JsonWriter[RestJson],
