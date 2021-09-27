@@ -82,7 +82,6 @@ type
     peerPingerHeartbeatFut: Future[void]
     cfg: RuntimeConfig
     getBeaconTime: GetBeaconTimeFn
-    unhealthySubnetsCount*: int
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -1065,9 +1064,6 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
       (wantedAttnets, wantedSyncnets) = node.getLowSubnets()
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
-
-    # Just take attnets into account for UX simplicity
-    node.unhealthySubnetsCount = wantedAttnetsCount
 
     if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0:
       let discoveredNodes = await node.discovery.queryRandom(
