@@ -19,7 +19,6 @@ import
   taskpools,
 
   eth/[keys, async_utils], eth/net/nat,
-  eth/db/[kvstore, kvstore_sqlite3],
   eth/p2p/discoveryv5/[protocol, enr, random2],
 
   # Local modules
@@ -40,8 +39,8 @@ import
     beaconstate, forks, helpers, network, weak_subjectivity, signatures,
     validator],
   ./consensus_object_pools/[
-    blockchain_dag, block_quarantine, block_clearance, block_pools_types,
-    attestation_pool, sync_committee_msg_pool, exit_pool, spec_cache],
+    blockchain_dag, block_quarantine, block_clearance, attestation_pool,
+    sync_committee_msg_pool, exit_pool, spec_cache],
   ./eth1/eth1_monitor
 
 from eth/common/eth_types import BlockHashOrNumber
@@ -431,13 +430,15 @@ proc init*(T: type BeaconNode,
             getProposerSlashingsTopic(network.forkDigests.altair),
             getVoluntaryExitsTopic(network.forkDigests.altair),
             getAggregateAndProofsTopic(network.forkDigests.altair),
-            getSyncCommitteeContributionAndProofTopic(network.forkDigests.altair)
           ]
+      if not config.verifyFinalization:
+        topics &= getSyncCommitteeContributionAndProofTopic(network.forkDigests.altair)
       for subnet_id in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
         topics &= getAttestationTopic(network.forkDigests.phase0, SubnetId(subnet_id))
         topics &= getAttestationTopic(network.forkDigests.altair, SubnetId(subnet_id))
-      for subnet_id in 0'u64 ..< SYNC_COMMITTEE_SUBNET_COUNT:
-        topics &= getSyncCommitteeTopic(network.forkDigests.altair, SyncCommitteeIndex(subnet_id))
+      if not config.verifyFinalization:
+        for subnet_id in 0'u64 ..< SYNC_COMMITTEE_SUBNET_COUNT:
+          topics &= getSyncCommitteeTopic(network.forkDigests.altair, SyncCommitteeIndex(subnet_id))
       topics)
 
   if node.config.inProcessValidators:
