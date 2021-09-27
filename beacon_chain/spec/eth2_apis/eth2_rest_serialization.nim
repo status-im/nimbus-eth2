@@ -489,6 +489,19 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: BitList) {.
      raises: [IOError, Defect].} =
   writeValue(writer, BitSeq value)
 
+## BitArray
+proc readValue*(reader: var JsonReader[RestJson], value: var BitArray) {.
+     raises: [IOError, SerializationError, Defect].} =
+  try:
+    hexToByteArray(readValue(reader, string), value.bytes)
+  except ValueError:
+    raiseUnexpectedValue(reader,
+                         "A BitArray value should be a valid hex string")
+
+proc writeValue*(writer: var JsonWriter[RestJson], value: BitArray) {.
+     raises: [IOError, Defect].} =
+  writeValue(writer, hexOriginal(value.bytes))
+
 ## Eth2Digest
 proc readValue*(reader: var JsonReader[RestJson], value: var Eth2Digest) {.
      raises: [IOError, SerializationError, Defect].} =
