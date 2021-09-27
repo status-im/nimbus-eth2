@@ -796,7 +796,7 @@ proc validateSyncCommitteeMessage*(
       committeeIdx: syncCommitteeIdx)
 
     if msgKey in syncCommitteeMsgPool.seenSyncMsgByAuthor:
-      return errReject("SyncCommitteeMessage: duplicate message")
+      return errIgnore("SyncCommitteeMessage: duplicate message")
     else:
       syncCommitteeMsgPool.seenSyncMsgByAuthor.incl msgKey
 
