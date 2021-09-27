@@ -50,7 +50,7 @@ proc checkSSZ(T: type phase0.SignedBeaconBlock, dir: string, expectedHash: SSZHa
   # Deserialize into a ref object to not fill Nim stack
   let encoded = snappy.decode(
     readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
-  var deserialized = newClone(sszDecodeEntireInput(encoded, T))
+  let deserialized = newClone(sszDecodeEntireInput(encoded, T))
 
   # SignedBeaconBlocks usually not hashed because they're identified by
   # htr(BeaconBlock), so do it manually
@@ -68,7 +68,7 @@ proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
   # Deserialize into a ref object to not fill Nim stack
   let encoded = snappy.decode(
     readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
-  var deserialized = newClone(sszDecodeEntireInput(encoded, T))
+  let deserialized = newClone(sszDecodeEntireInput(encoded, T))
 
   check: expectedHash.root == "0x" & toLowerASCII($hash_tree_root(deserialized[]))
 

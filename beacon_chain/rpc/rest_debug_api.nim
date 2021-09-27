@@ -39,7 +39,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
               RestApiResponse.jsonResponse(stateData.data.hbsPhase0.data)
             else:
               RestApiResponse.jsonError(Http500, InvalidAcceptError)
-        of BeaconStateFork.forkAltair:
+        of BeaconStateFork.forkAltair, BeaconStateFork.forkMerge:
           RestApiResponse.jsonError(Http404, StateNotFoundError)
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
@@ -76,6 +76,8 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
             RestApiResponse.sszResponse(stateData.data.hbsPhase0.data)
           of BeaconStateFork.forkAltair:
             RestApiResponse.sszResponse(stateData.data.hbsAltair.data)
+          of BeaconStateFork.forkMerge:
+            RestApiResponse.sszResponse(stateData.data.hbsMerge.data)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
     return RestApiResponse.jsonError(Http404, StateNotFoundError)

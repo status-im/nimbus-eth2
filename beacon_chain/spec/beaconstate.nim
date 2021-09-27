@@ -196,6 +196,14 @@ func altairFork*(cfg: RuntimeConfig): Fork =
     current_version: cfg.ALTAIR_FORK_VERSION,
     epoch: cfg.ALTAIR_FORK_EPOCH)
 
+func mergeFork*(cfg: RuntimeConfig): Fork =
+  # TODO in theory, the altair + merge forks could be in same epoch, so the
+  # previous fork version would be the GENESIS_FORK_VERSION
+  Fork(
+    previous_version: cfg.ALTAIR_FORK_VERSION,
+    current_version: cfg.MERGE_FORK_VERSION,
+    epoch: cfg.MERGE_FORK_EPOCH)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1*(
     cfg: RuntimeConfig,
@@ -700,7 +708,7 @@ proc process_attestation*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#get_next_sync_committee_indices
-func get_next_sync_committee_indices(state: altair.BeaconState):
+func get_next_sync_committee_indices(state: altair.BeaconState | merge.BeaconState):
     seq[ValidatorIndex] =
   ## Return the sequence of sync committee indices (which may include
   ## duplicate indices) for the next sync committee, given a ``state`` at a
@@ -732,7 +740,8 @@ func get_next_sync_committee_indices(state: altair.BeaconState):
   sync_committee_indices
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_next_sync_committee
-proc get_next_sync_committee*(state: altair.BeaconState): SyncCommittee =
+proc get_next_sync_committee*(state: altair.BeaconState | merge.BeaconState):
+    SyncCommittee =
   ## Return the *next* sync committee for a given ``state``.
   let indices = get_next_sync_committee_indices(state)
   # TODO not robust

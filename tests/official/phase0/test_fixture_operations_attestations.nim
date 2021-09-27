@@ -33,11 +33,11 @@ proc runTest(identifier: string) =
 
   proc `testImpl _ operations_attestations _ identifier`() =
 
-    var prefix: string
-    if existsFile(testDir/"post.ssz_snappy"):
-      prefix = "[Valid]   "
-    else:
-      prefix = "[Invalid] "
+    let prefix =
+      if existsFile(testDir/"post.ssz_snappy"):
+        "[Valid]   "
+      else:
+        "[Invalid] "
 
     test prefix & identifier:
       var cache = StateCache()

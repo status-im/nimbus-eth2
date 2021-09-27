@@ -14,7 +14,7 @@ import
   eth/keys,
   ".."/[beacon_clock],
   ../spec/[eth2_merkleization, forks, helpers, signatures, signatures_batch, state_transition],
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0, altair, merge],
   "."/[blockchain_dag, block_quarantine]
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
@@ -40,25 +40,32 @@ logScope:
 template asSigVerified(x: phase0.SignedBeaconBlock):
     phase0.SigVerifiedSignedBeaconBlock =
   ## This converts a signed beacon block to a sig verified beacon clock.
-  ## This assumes that their bytes representation is the same.
+  ## This verifies that their bytes representation is the same.
   isomorphicCast[phase0.SigVerifiedSignedBeaconBlock](x)
 
 template asSigVerified(x: altair.SignedBeaconBlock):
     altair.SigVerifiedSignedBeaconBlock =
   ## This converts a signed beacon block to a sig verified beacon clock.
-  ## This assumes that their bytes representation is the same.
+  ## This verifies that their bytes representation is the same.
   isomorphicCast[altair.SigVerifiedSignedBeaconBlock](x)
 
+template asSigVerified(x: merge.SignedBeaconBlock):
+    merge.SigVerifiedSignedBeaconBlock =
+  ## This converts a signed beacon block to a sig verified beacon clock.
+  ## This verifies that their bytes representation is the same.
+  isomorphicCast[merge.SigVerifiedSignedBeaconBlock](x)
+
+# TODO aren't these in forks.nim?
 template asTrusted(x: phase0.SignedBeaconBlock or phase0.SigVerifiedBeaconBlock):
     phase0.TrustedSignedBeaconBlock =
   ## This converts a sigverified beacon block to a trusted beacon clock.
-  ## This assumes that their bytes representation is the same.
+  ## This verifies that their bytes representation is the same.
   isomorphicCast[phase0.TrustedSignedBeaconBlock](x)
 
 template asTrusted(x: altair.SignedBeaconBlock or altair.SigVerifiedBeaconBlock):
     altair.TrustedSignedBeaconBlock =
   ## This converts a sigverified beacon block to a trusted beacon clock.
-  ## This assumes that their bytes representation is the same.
+  ## This verifies that their bytes representation is the same.
   isomorphicCast[altair.TrustedSignedBeaconBlock](x)
 
 proc batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool =
@@ -71,8 +78,9 @@ proc batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool
 
 proc addRawBlock*(
       dag: ChainDAGRef, quarantine: QuarantineRef,
-      signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
-      onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded
+      signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                   merge.SignedBeaconBlock,
+      onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnMergeBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] {.gcsafe.}
 
 # Now that we have the new block, we should see if any of the previously
@@ -116,12 +124,30 @@ proc resolveQuarantinedBlocks(
       for v in resolved:
         discard addRawBlock(dag, quarantine, v, onBlockAdded)
 
+proc resolveQuarantinedBlocks(
+    dag: ChainDAGRef, quarantine: QuarantineRef,
+    onBlockAdded: OnMergeBlockAdded) =
+  if not quarantine.inAdd:
+    quarantine.inAdd = true
+    defer: quarantine.inAdd = false
+    var entries = 0
+    while entries != quarantine.orphansMerge.len:
+      entries = quarantine.orphansMerge.len # keep going while quarantine is shrinking
+      var resolved: seq[merge.SignedBeaconBlock]
+      for _, v in quarantine.orphansMerge:
+        if v.message.parent_root in dag:
+          resolved.add(v)
+
+      for v in resolved:
+        discard addRawBlock(dag, quarantine, v, onBlockAdded)
+
 proc addResolvedBlock(
        dag: ChainDAGRef, quarantine: QuarantineRef,
        state: var StateData,
-       trustedBlock: phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock,
+       trustedBlock: phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock |
+                     merge.TrustedSignedBeaconBlock,
        parent: BlockRef, cache: var StateCache,
-       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded,
+       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnMergeBlockAdded,
        stateDataDur, sigVerifyDur,
        stateVerifyDur: Duration
      ) =
@@ -190,7 +216,9 @@ type SomeSignedBlock =
   phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
   phase0.TrustedSignedBeaconBlock |
   altair.SignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock |
-  altair.TrustedSignedBeaconBlock
+  altair.TrustedSignedBeaconBlock |
+  merge.SignedBeaconBlock | merge.SigVerifiedSignedBeaconBlock |
+  merge.TrustedSignedBeaconBlock
 proc checkStateTransition(
        dag: ChainDAGRef, signedBlock: SomeSignedBlock,
        cache: var StateCache): (ValidationResult, BlockError) =
@@ -234,9 +262,10 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
 
 proc addRawBlockKnownParent(
        dag: ChainDAGRef, quarantine: QuarantineRef,
-       signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+       signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                    merge.SignedBeaconBlock,
        parent: BlockRef,
-       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded
+       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnMergeBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## Add a block whose parent is known, after performing validity checks
   logScope:
@@ -321,7 +350,8 @@ proc addRawBlockKnownParent(
 proc addRawBlockUnresolved(
        dag: ChainDAGRef,
        quarantine: QuarantineRef,
-       signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+       signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                    merge.SignedBeaconBlock,
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## addRawBlock - Block is unresolved / has no parent
 
@@ -361,8 +391,9 @@ proc addRawBlockUnresolved(
 
 proc addRawBlock(
        dag: ChainDAGRef, quarantine: QuarantineRef,
-       signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
-       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded
+       signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                    merge.SignedBeaconBlock,
+       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnMergeBlockAdded
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## Try adding a block to the chain, verifying first that it passes the state
   ## transition function and contains correct cryptographic signature.

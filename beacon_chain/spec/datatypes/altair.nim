@@ -250,15 +250,6 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # Altair implies phase 0 knowledge, and this saves creating some other
-  # module to merge such knowledge. Another approach is to have imported
-  # set of phase 0/HF1 symbols be independently combined by each module,
-  # when necessary, but that spreads such detailed abstraction knowledge
-  # more widely through codebase than strictly required. Do not export a
-  # phase 0 version of symbols; anywhere which specially handles it will
-  # have to do so itself.
-  SomeHashedBeaconState* = HashedBeaconState | phase0.HashedBeaconState
-
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
@@ -417,22 +408,6 @@ type
   SomeSignedBeaconBlock* = SignedBeaconBlock | SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock
   SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
   SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
-
-  # TODO rename
-
-  # TODO why does this fail?
-  #SomeSomeBeaconBlock* = SomeBeaconBlock | phase0.SomeBeaconBlock
-  SomeSomeBeaconBlock* =
-    BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock |
-    phase0.BeaconBlock | phase0.SigVerifiedBeaconBlock | phase0.TrustedBeaconBlock
-
-  # TODO see above, re why does it fail
-  SomeSomeBeaconBlockBody* =
-    BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody |
-    phase0.BeaconBlockBody | phase0.SigVerifiedBeaconBlockBody | phase0.TrustedBeaconBlockBody
-  #SomeSomeBeaconBlockBody* = SomeBeaconBlockBody | phase0.SomeBeaconBlockBody
-
-  SomeSomeSignedBeaconBlock* = SomeSignedBeaconBlock | phase0.SomeSignedBeaconBlock
 
   SyncCommitteeIndex* = distinct uint8
 

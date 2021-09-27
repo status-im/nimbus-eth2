@@ -22,8 +22,8 @@ const
   MAX_BYTES_PER_OPAQUE_TRANSACTION* = 1048576
   MAX_TRANSACTIONS_PER_PAYLOAD* = 16384
   BYTES_PER_LOGS_BLOOM = 256
-  GAS_LIMIT_DENOMINATOR = 1024
-  MIN_GAS_LIMIT = 5000
+  GAS_LIMIT_DENOMINATOR* = 1024
+  MIN_GAS_LIMIT* = 5000
   MAX_EXTRA_DATA_BYTES = 32
 
 type
@@ -74,6 +74,10 @@ type
     # Extra payload fields
     block_hash*: Eth2Digest  # Hash of execution block
     transactions_root*: Eth2Digest
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#execution-engine
+  ExecutePayload* = proc(
+    execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#beaconstate
   BeaconState* = object
@@ -138,7 +142,12 @@ type
     # Execution
     latest_execution_payload_header*: ExecutionPayloadHeader  # [New in Merge]
 
+  HashedBeaconState* = object
+    data*: BeaconState
+    root*: Eth2Digest # hash_tree_root(data)
+
   SomeBeaconState* = BeaconState | altair.BeaconState | phase0.BeaconState
+  SomeHashedBeaconState* = HashedBeaconState | altair.HashedBeaconState | phase0.HashedBeaconState
 
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
@@ -302,6 +311,22 @@ type
   SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
   SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
 
+  # TODO why does this fail?
+  #SomeSomeBeaconBlock* = SomeBeaconBlock | phase0.SomeBeaconBlock
+  SomeSomeBeaconBlock* =
+    BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock |
+    altair.BeaconBlock | altair.SigVerifiedBeaconBlock | altair.TrustedBeaconBlock |
+    phase0.BeaconBlock | phase0.SigVerifiedBeaconBlock | phase0.TrustedBeaconBlock
+
+  # TODO see above, re why does it fail
+  SomeSomeBeaconBlockBody* =
+    BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody |
+    altair.BeaconBlockBody | altair.SigVerifiedBeaconBlockBody | altair.TrustedBeaconBlockBody |
+    phase0.BeaconBlockBody | phase0.SigVerifiedBeaconBlockBody | phase0.TrustedBeaconBlockBody
+  #SomeSomeBeaconBlockBody* = SomeBeaconBlockBody | phase0.SomeBeaconBlockBody
+
+  SomeSomeSignedBeaconBlock* = SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock | phase0.SomeSignedBeaconBlock
+
   # Empirically derived from Catalyst responses; doesn't seem to match merge
   # spec per commit 1fb9a6dd32b581c912d672634882d7e2eb2775cd from 2021-04-22
   # {"jsonrpc":"2.0","id":1,"result":{"blockHash":"0x35139e42d930c640eee446944f7f8b345771b69dfa10120895057f48680ea27d","parentHash":"0x3a3fdfc9ab6e17ff530b57bc21494da3848ebbeaf9343545fded7a18d221ffec","miner":"0x1000000000000000000000000000000000000000","stateRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","number":"0x1","gasLimit":"0x2fefd8","gasUsed":"0x0","timestamp":"0x6087e796","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","transactions":[]}}
@@ -346,6 +371,24 @@ proc readValue*(r: var JsonReader, a: var EthAddress) {.raises: [Defect, IOError
   except ValueError:
     raiseUnexpectedValue(r, "Hex string expected")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_merge_complete
-func is_merge_complete(state: merge.BeaconState): bool =
-  state.latest_execution_payload_header != default(ExecutionPayloadHeader)
+func shortLog*(v: SomeBeaconBlock): auto =
+  (
+    slot: shortLog(v.slot),
+    proposer_index: v.proposer_index,
+    parent_root: shortLog(v.parent_root),
+    state_root: shortLog(v.state_root),
+    eth1data: v.body.eth1_data,
+    graffiti: $v.body.graffiti,
+    proposer_slashings_len: v.body.proposer_slashings.len(),
+    attester_slashings_len: v.body.attester_slashings.len(),
+    attestations_len: v.body.attestations.len(),
+    deposits_len: v.body.deposits.len(),
+    voluntary_exits_len: v.body.voluntary_exits.len(),
+    sync_committee_participants: countOnes(v.body.sync_aggregate.sync_committee_bits)
+  )
+
+func shortLog*(v: SomeSignedBeaconBlock): auto =
+  (
+    blck: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )
