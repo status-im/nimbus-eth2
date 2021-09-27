@@ -970,7 +970,9 @@ proc decodeBytes*[T: SszDecodeTypes](t: typedesc[T], value: openarray[byte],
   case contentType
   of "application/octet-stream":
     try:
-      ok(SSZ.decode(value, T))
+      var v: T
+      readSszBytes(value, v)
+      ok(v)
     except SerializationError as exc:
       err("Serialization error")
   else:
