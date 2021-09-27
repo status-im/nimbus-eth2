@@ -693,7 +693,7 @@ proc createNetKeystore*(kdfKind: KdfKind,
   let
     secret = privKey.getBytes().get()
     cryptoField = createCryptoField(kdfKind, rng, secret, password, salt, iv)
-    pubKey = privKey.getKey().get()
+    pubKey = privKey.getPublicKey().get()
     uuid = uuidGenerate().expect("Random bytes should be available")
 
   NetKeystore(

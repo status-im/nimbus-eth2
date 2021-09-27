@@ -1608,7 +1608,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
         quit QuitFailure
       let
         privKey = res.get()
-        pubKey = privKey.getKey().expect("working public key from random")
+        pubKey = privKey.getPublicKey().expect("working public key from random")
         pres = PeerID.init(pubKey)
       if pres.isErr():
         fatal "Could not obtain PeerID from network key"
@@ -1639,7 +1639,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
           quit QuitFailure
         let
           privKey = res.get()
-          pubKey = privKey.getKey().expect("working public key from file")
+          pubKey = privKey.getPublicKey().expect("working public key from file")
         info "Network key storage was successfully unlocked",
              key_path = keyPath, network_public_key = pubKey
         NetKeyPair(seckey: privKey, pubkey: pubKey)
@@ -1653,7 +1653,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 
         let
           privKey = rres.get()
-          pubKey = privKey.getKey().expect("working public key from random")
+          pubKey = privKey.getPublicKey().expect("working public key from random")
 
         # Insecure password used only for automated testing.
         let insecurePassword =
@@ -1689,7 +1689,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 
     let
       privKey = rres.get()
-      pubKey = privKey.getKey().expect("working public key from random")
+      pubKey = privKey.getPublicKey().expect("working public key from random")
 
     # Insecure password used only for automated testing.
     let insecurePassword =
@@ -1715,7 +1715,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 
     let
       privKey = res.get()
-      pubKey = privKey.getKey().expect("working public key from random")
+      pubKey = privKey.getPublicKey().expect("working public key from random")
     NetKeyPair(seckey: privKey, pubkey: pubKey)
 
 func gossipId(data: openArray[byte], topic: string, valid: bool): seq[byte] =
