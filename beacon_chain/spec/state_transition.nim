@@ -46,7 +46,7 @@ import
   stew/results,
   metrics,
   ../extras,
-  ./datatypes/[phase0, altair],
+  ./datatypes/[phase0, altair, merge],
   "."/[
     beaconstate, eth2_merkleization, forks, helpers, signatures,
     state_transition_block, state_transition_epoch, validator],
@@ -54,8 +54,7 @@ import
 
 export extras, phase0, altair
 
-# TODO why need anything except the first two?
-type Foo = phase0.SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock | phase0.SignedBeaconBlock | altair.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock
+type Foo = phase0.SignedBeaconBlock | altair.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock | merge.TrustedSignedBeaconBlock | merge.SigVerifiedSignedBeaconBlock | merge.SignedBeaconBlock
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
@@ -80,7 +79,7 @@ proc verify_block_signature(
   true
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc verifyStateRoot(state: SomeBeaconState, blck: phase0.BeaconBlock or phase0.SigVerifiedBeaconBlock or altair.BeaconBlock or altair.SigVerifiedBeaconBlock): bool =
+proc verifyStateRoot(state: SomeBeaconState, blck: phase0.BeaconBlock or phase0.SigVerifiedBeaconBlock or altair.BeaconBlock or altair.SigVerifiedBeaconBlock or merge.BeaconBlock or merge.SigVerifiedBeaconBlock or merge.TrustedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:
@@ -98,9 +97,21 @@ func verifyStateRoot(state: altair.BeaconState, blck: altair.TrustedBeaconBlock)
   # This is inlined in state_transition(...) in spec.
   true
 
+func verifyStateRoot(state: merge.BeaconState, blck: merge.TrustedBeaconBlock): bool =
+  # This is inlined in state_transition(...) in spec.
+  true
+
 # one of these can happen on the fork block itself (it's a phase 0 block which
 # creates an Altair state)
 func verifyStateRoot(state: altair.BeaconState, blck: phase0.TrustedBeaconBlock): bool =
+  # This is inlined in state_transition(...) in spec.
+  true
+
+func verifyStateRoot(state: merge.BeaconState, blck: phase0.TrustedBeaconBlock): bool =
+  # This is inlined in state_transition(...) in spec.
+  true
+
+func verifyStateRoot(state: merge.BeaconState, blck: altair.TrustedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   true
 
@@ -220,6 +231,15 @@ proc process_slots*(
         # Don't update state root for the slot of the block if going to process
         # block after
         state.hbsAltair.root = hash_tree_root(state)
+    of forkMerge:
+      advance_slot(
+        cfg, state.hbsMerge.data, state.hbsMerge.root, flags, cache, rewards)
+
+      if skipLastStateRootCalculation notin flags or
+          getStateField(state, slot) < slot:
+        # Don't update state root for the slot of the block if going to process
+        # block after
+        state.hbsMerge.root = hash_tree_root(state)
 
     maybeUpgradeStateToAltair(cfg, state)
 
@@ -230,7 +250,9 @@ proc state_transition_block_aux(
     state: var SomeHashedBeaconState,
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
                  phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock |
-                 altair.SigVerifiedSignedBeaconBlock | altair.TrustedSignedBeaconBlock,
+                 altair.SigVerifiedSignedBeaconBlock | altair.TrustedSignedBeaconBlock |
+                 merge.TrustedSignedBeaconBlock | merge.SigVerifiedSignedBeaconBlock |
+                 merge.SignedBeaconBlock,
     cache: var StateCache, flags: UpdateFlags): bool {.nbench.} =
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
@@ -280,7 +302,8 @@ proc state_transition_block*(
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
                  phase0.TrustedSignedBeaconBlock |
                  altair.SignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock |
-                 altair.TrustedSignedBeaconBlock,
+                 altair.TrustedSignedBeaconBlock | merge.TrustedSignedBeaconBlock |
+                 merge.SigVerifiedSignedBeaconBlock | merge.SignedBeaconBlock,
     cache: var StateCache, flags: UpdateFlags,
     rollback: RollbackForkedHashedProc): bool {.nbench.} =
   ## `rollback` is called if the transition fails and the given state has been
@@ -298,6 +321,8 @@ proc state_transition_block*(
       cfg, state.hbsPhase0, signedBlock, cache, flags)
     of forkAltair: state_transition_block_aux(
       cfg, state.hbsAltair, signedBlock, cache, flags)
+    of forkMerge:  state_transition_block_aux(
+      cfg, state.hbsMerge, signedBlock, cache, flags)
 
   if not success:
     rollback(state)
@@ -310,7 +335,8 @@ proc state_transition*(
     state: var ForkedHashedBeaconState,
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
                  phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock |
-                 altair.TrustedSignedBeaconBlock,
+                 altair.TrustedSignedBeaconBlock | merge.TrustedSignedBeaconBlock |
+                 merge.SignedBeaconBlock,
     cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
     rollback: RollbackForkedHashedProc): bool {.nbench.} =
   ## Apply a block to the state, advancing the slot counter as necessary. The

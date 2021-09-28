@@ -14,7 +14,7 @@ import
   ../spec/[
     beaconstate, eth2_merkleization, eth2_ssz_serialization, forks, helpers,
     state_transition, validator],
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0, altair, merge],
   ".."/beacon_chain_db,
   "."/[block_pools_types, block_quarantine, forkedbeaconstate_dbhelpers]
 
@@ -44,8 +44,9 @@ declareGauge beacon_processed_deposits_total, "Number of total deposits included
 logScope: topics = "chaindag"
 
 proc putBlock*(
-    dag: ChainDAGRef, signedBlock:
-      phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock) =
+    dag: ChainDAGRef,
+    signedBlock: phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock |
+                 merge.TrustedSignedBeaconBlock) =
   dag.db.putBlock(signedBlock)
 
 proc updateStateData*(
@@ -439,6 +440,12 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         stateFork = tmpState.data.hbsAltair.data.fork,
         configFork = altairFork(cfg)
       quit 1
+  of forkMerge:
+    if tmpState.data.hbsMerge.data.fork != mergeFork(cfg):
+      error "State from database does not match network, check --network parameter",
+        stateFork = tmpState.data.hbsMerge.data.fork,
+        configFork = mergeFork(cfg)
+      quit 1
 
   let dag = ChainDAGRef(
     blocks: blocks,
@@ -779,6 +786,10 @@ proc applyBlock(
       state_transition(
         dag.cfg, state.data, blck.data.altairBlock,
         cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
+    of BeaconBlockFork.Merge:
+      state_transition(
+        dag.cfg, state.data, blck.data.mergeBlock,
+        cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
   if ok:
     state.blck = blck.refs
 
@@ -1043,29 +1054,29 @@ func syncCommitteeParticipants*(dagParam: ChainDAGRef,
   else:
     @[]
 
-func getSubcommitteePositionAux*(
+func getSubcommitteePositionsAux(
     dag: ChainDAGRef,
     syncCommittee: openarray[ValidatorPubKey],
     committeeIdx: SyncCommitteeIndex,
-    validatorIdx: uint64): Option[uint64] =
+    validatorIdx: uint64): seq[uint64] =
   # TODO Can we avoid the key conversions by getting a compressed key
   #      out of ImmutableValidatorData2? If we had this, we can define
   #      the function `dag.validatorKeyBytes` and use it here.
   let validatorKey = dag.validatorKey(validatorIdx)
   if validatorKey.isNone():
-    return
+    return @[]
   let validatorPubKey = validatorKey.get().toPubKey
 
   for pos, key in syncCommittee.syncSubcommittee(committeeIdx):
     if validatorPubKey == key:
-      return some uint64(pos)
+      result.add uint64(pos)
 
-func getSubcommitteePosition*(dag: ChainDAGRef,
-                              slot: Slot,
-                              committeeIdx: SyncCommitteeIndex,
-                              validatorIdx: uint64): Option[uint64] =
+func getSubcommitteePositions*(dag: ChainDAGRef,
+                               slot: Slot,
+                               committeeIdx: SyncCommitteeIndex,
+                               validatorIdx: uint64): seq[uint64] =
   if dag.headState.data.beaconStateFork == forkPhase0:
-    return
+    return @[]
 
   let
     headSlot = dag.headState.data.hbsAltair.data.slot
@@ -1073,11 +1084,11 @@ func getSubcommitteePosition*(dag: ChainDAGRef,
     periodStart = syncCommitteePeriodStartSlot(headCommitteePeriod)
     nextPeriodStart = periodStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
 
-  template search(syncCommittee: openarray[ValidatorPubKey]): Option[uint64] =
-    dag.getSubcommitteePositionAux(syncCommittee, committeeIdx, validatorIdx)
+  template search(syncCommittee: openarray[ValidatorPubKey]): seq[uint64] =
+    dag.getSubcommitteePositionsAux(syncCommittee, committeeIdx, validatorIdx)
 
   if slot < periodStart:
-    return
+    return @[]
   elif slot >= nextPeriodStart:
     return search(dag.headState.data.hbsAltair.data.next_sync_committee.pubkeys.data)
   else:

@@ -50,7 +50,7 @@ proc checkSSZ(T: type merge.SignedBeaconBlock, dir: string, expectedHash: SSZHas
    # Deserialize into a ref object to not fill Nim stack
    let encoded = snappy.decode(
      readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
-   var deserialized = newClone(sszDecodeEntireInput(encoded, T))
+   let deserialized = newClone(sszDecodeEntireInput(encoded, T))
 
    # SignedBeaconBlocks usually not hashed because they're identified by
    # htr(BeaconBlock), so do it manually
@@ -68,7 +68,7 @@ proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
   # Deserialize into a ref object to not fill Nim stack
   let encoded = snappy.decode(
     readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
-  var deserialized = newClone(sszDecodeEntireInput(encoded, T))
+  let deserialized = newClone(sszDecodeEntireInput(encoded, T))
 
   check: expectedHash.root == "0x" & toLowerASCII($hash_tree_root(deserialized[]))
 
@@ -127,6 +127,7 @@ suite "Ethereum Foundation - Merge - SSZ consensus objects " & preset():
           of "LightClientSnapshot": checkSSZ(LightClientSnapshot, path, hash)
           of "LightClientUpdate": checkSSZ(LightClientUpdate, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
+          of "PowBlock": checkSSZ(PowBlock, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
             checkSSZ(SignedAggregateAndProof, path, hash)

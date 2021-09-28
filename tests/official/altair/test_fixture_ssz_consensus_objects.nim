@@ -36,7 +36,7 @@ type
     # Some have a signing_root field
     signing_root {.defaultVal: "".}: string
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/phase0/validator.md#eth1block
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/validator.md#eth1block
   Eth1Block = object
     timestamp: uint64
     deposit_root: Eth2Digest
@@ -50,7 +50,7 @@ proc checkSSZ(T: type altair.SignedBeaconBlock, dir: string, expectedHash: SSZHa
   # Deserialize into a ref object to not fill Nim stack
   let encoded = snappy.decode(
     readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
-  var deserialized = newClone(sszDecodeEntireInput(encoded, T))
+  let deserialized = newClone(sszDecodeEntireInput(encoded, T))
 
   # SignedBeaconBlocks usually not hashed because they're identified by
   # htr(BeaconBlock), so do it manually
@@ -68,7 +68,7 @@ proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
   # Deserialize into a ref object to not fill Nim stack
   let encoded = snappy.decode(
     readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
-  var deserialized = newClone(sszDecodeEntireInput(encoded, T))
+  let deserialized = newClone(sszDecodeEntireInput(encoded, T))
 
   check: expectedHash.root == "0x" & toLowerASCII($hash_tree_root(deserialized[]))
 

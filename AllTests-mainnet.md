@@ -108,6 +108,11 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Validation sanity                                                                          OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Gossip validation - Extra
+```diff
++ validateSyncCommitteeMessage                                                               OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Honest validator
 ```diff
 + General pubsub topics                                                                      OK
@@ -354,4 +359,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 36/48 Fail: 0/48 Skip: 12/48
 
 ---TOTAL---
-OK: 192/204 Fail: 0/204 Skip: 12/204
+OK: 193/205 Fail: 0/205 Skip: 12/205

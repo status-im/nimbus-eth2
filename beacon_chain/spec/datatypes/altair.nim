@@ -75,7 +75,7 @@ static: doAssert TIMELY_SOURCE_WEIGHT + TIMELY_TARGET_WEIGHT +
 type
   ### New types
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#custom-types
   ParticipationFlags* = uint8
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#syncaggregate
@@ -83,7 +83,7 @@ type
     sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
     sync_committee_signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#synccommittee
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#synccommittee
   SyncCommittee* = object
     pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
     aggregate_pubkey*: ValidatorPubKey
@@ -102,7 +102,7 @@ type
     signature*: ValidatorSig ##\
     ## Signature by the validator over the block root of `slot`
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/validator.md#synccommitteecontribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/validator.md#synccommitteecontribution
   SyncCommitteeAggregationBits* =
     BitArray[SYNC_SUBCOMMITTEE_SIZE]
 
@@ -142,7 +142,7 @@ type
 
   ### Modified/overloaded
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/sync-protocol.md#lightclientsnapshot
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/sync-protocol.md#lightclientsnapshot
   LightClientSnapshot* = object
     header*: BeaconBlockHeader ##\
     ## Beacon block header
@@ -174,7 +174,7 @@ type
     fork_version*: Version ##\
     ## Fork version for the aggregate signature
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/sync-protocol.md#lightclientstore
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/sync-protocol.md#lightclientstore
   LightClientStore* = object
     snapshot*: LightClientSnapshot
     valid_updates*: HashSet[LightClientUpdate]
@@ -250,15 +250,6 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # Altair implies phase 0 knowledge, and this saves creating some other
-  # module to merge such knowledge. Another approach is to have imported
-  # set of phase 0/HF1 symbols be independently combined by each module,
-  # when necessary, but that spreads such detailed abstraction knowledge
-  # more widely through codebase than strictly required. Do not export a
-  # phase 0 version of symbols; anywhere which specially handles it will
-  # have to do so itself.
-  SomeHashedBeaconState* = HashedBeaconState | phase0.HashedBeaconState
-
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
@@ -315,7 +306,7 @@ type
     state_root*: Eth2Digest ##\
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data ##\
@@ -360,7 +351,7 @@ type
     # [New in Altair]
     sync_aggregate*: SyncAggregate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
     attnets*: BitArray[ATTESTATION_SUBNET_COUNT]
@@ -417,22 +408,6 @@ type
   SomeSignedBeaconBlock* = SignedBeaconBlock | SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock
   SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
   SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
-
-  # TODO rename
-
-  # TODO why does this fail?
-  #SomeSomeBeaconBlock* = SomeBeaconBlock | phase0.SomeBeaconBlock
-  SomeSomeBeaconBlock* =
-    BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock |
-    phase0.BeaconBlock | phase0.SigVerifiedBeaconBlock | phase0.TrustedBeaconBlock
-
-  # TODO see above, re why does it fail
-  SomeSomeBeaconBlockBody* =
-    BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody |
-    phase0.BeaconBlockBody | phase0.SigVerifiedBeaconBlockBody | phase0.TrustedBeaconBlockBody
-  #SomeSomeBeaconBlockBody* = SomeBeaconBlockBody | phase0.SomeBeaconBlockBody
-
-  SomeSomeSignedBeaconBlock* = SomeSignedBeaconBlock | phase0.SomeSignedBeaconBlock
 
   SyncCommitteeIndex* = distinct uint8
 

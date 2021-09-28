@@ -7,8 +7,9 @@
 {.push raises: [Defect].}
 
 import
-  chronos, presto/client,
-  ../datatypes/[phase0, altair],
+  chronos, presto/client, chronicles,
+  ".."/[helpers, forks], ".."/datatypes/[phase0, altair, merge],
+  ".."/eth2_ssz_serialization,
   "."/[rest_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization
@@ -88,15 +89,128 @@ proc publishBlock*(body: altair.SignedBeaconBlock): RestPlainResponse {.
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
 
-proc getBlock*(block_id: BlockIdent): RestResponse[GetBlockResponse] {.
+proc getBlockPlain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/api/eth/v1/beacon/blocks/{block_id}",
+     accept: "application/octet-stream,application-json;q=0.9",
      meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
 
-proc getBlockV2*(block_id: BlockIdent): RestResponse[GetBlockV2Response] {.
+proc getBlock*(client: RestClientRef, block_id: BlockIdent,
+               restAccept = ""): Future[ForkedSignedBeaconBlock] {.async.} =
+  let resp =
+    if len(restAccept) > 0:
+      await client.getBlockPlain(block_id, restAcceptType = restAccept)
+    else:
+      await client.getBlockPlain(block_id)
+  let data =
+    case resp.status
+    of 200:
+      case resp.contentType
+      of "application/json":
+        let blck =
+          block:
+            let res = decodeBytes(GetBlockResponse, resp.data,
+                                  resp.contentType)
+            if res.isErr():
+              raise newException(RestError, $res.error())
+            res.get()
+        ForkedSignedBeaconBlock.init(blck.data)
+      of "application/octet-stream":
+        let blck =
+          block:
+            let res = decodeBytes(GetPhase0BlockSszResponse, resp.data,
+                                  resp.contentType)
+            if res.isErr():
+              raise newException(RestError, $res.error())
+            res.get()
+        ForkedSignedBeaconBlock.init(blck)
+      else:
+        raise newException(RestError, "Unsupported content-type")
+    of 400, 404, 500:
+      let error =
+        block:
+          let res = decodeBytes(RestGenericError, resp.data, resp.contentType)
+          if res.isErr():
+            let msg = "Incorrect response error format (" & $resp.status &
+                      ") [" & $res.error() & "]"
+            raise newException(RestError, msg)
+          res.get()
+      let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
+      raise newException(RestError, msg)
+    else:
+      let msg = "Unknown response status error (" & $resp.status & ")"
+      raise newException(RestError, msg)
+  return data
+
+proc getBlockV2Plain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/api/eth/v2/beacon/blocks/{block_id}",
+     accept: "application/octet-stream,application-json;q=0.9",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
+
+proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
+                 forks: array[2, Fork],
+                 restAccept = ""): Future[ForkedSignedBeaconBlock] {.
+     async.} =
+  let resp =
+    if len(restAccept) > 0:
+      await client.getBlockV2Plain(block_id, restAcceptType = restAccept)
+    else:
+      await client.getBlockV2Plain(block_id)
+  let data =
+    case resp.status
+    of 200:
+      case resp.contentType
+      of "application/json":
+        let blck =
+          block:
+            let res = decodeBytes(GetBlockV2Response, resp.data,
+                                  resp.contentType)
+            if res.isErr():
+              raise newException(RestError, $res.error())
+            res.get()
+        blck
+      of "application/octet-stream":
+        let header =
+          block:
+            let res = decodeBytes(GetBlockV2Header, resp.data, resp.contentType)
+            if res.isErr():
+              raise newException(RestError, $res.error())
+            res.get()
+        if header.slot.epoch() < forks[1].epoch:
+          let blck =
+            block:
+              let res = decodeBytes(GetPhase0BlockSszResponse, resp.data,
+                                    resp.contentType)
+              if res.isErr():
+                raise newException(RestError, $res.error())
+              res.get()
+          ForkedSignedBeaconBlock.init(blck)
+        else:
+          let blck =
+            block:
+              let res = decodeBytes(GetAltairBlockSszResponse, resp.data,
+                                    resp.contentType)
+              if res.isErr():
+                raise newException(RestError, $res.error())
+              res.get()
+          ForkedSignedBeaconBlock.init(blck)
+      else:
+        raise newException(RestError, "Unsupported content-type")
+    of 400, 404, 500:
+      let error =
+        block:
+          let res = decodeBytes(RestGenericError, resp.data, resp.contentType)
+          if res.isErr():
+            let msg = "Incorrect response error format (" & $resp.status &
+                      ") [" & $res.error() & "]"
+            raise newException(RestError, msg)
+          res.get()
+      let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
+      raise newException(RestError, msg)
+    else:
+      let msg = "Unknown response status error (" & $resp.status & ")"
+      raise newException(RestError, msg)
+  return data
 
 proc getBlockRoot*(block_id: BlockIdent): RestResponse[GetBlockRootResponse] {.
      rest, endpoint: "/eth/v1/beacon/blocks/{block_id}/root",

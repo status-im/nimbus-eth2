@@ -95,6 +95,10 @@ proc sendResponseChunk*(response: UntypedResponse,
     response.stream.writeChunk(some ResponseCode.Success,
                                SSZ.encode(val.altairBlock),
                                response.peer.network.forkDigests.altair.bytes)
+  of BeaconBlockFork.Merge:
+    response.stream.writeChunk(some ResponseCode.Success,
+                               SSZ.encode(val.mergeBlock),
+                               response.peer.network.forkDigests.merge.bytes)
 
 func shortLog*(s: StatusMsg): auto =
   (
@@ -223,7 +227,7 @@ p2pProtocol BeaconSync(version = 1,
         case blk.kind
         of BeaconBlockFork.Phase0:
           await response.write(blk.phase0Block.asSigned)
-        of BeaconBlockFork.Altair:
+        of BeaconBlockFork.Altair, BeaconBlockFork.Merge:
           # Skipping all subsequent blocks should be OK because the spec says:
           # "Clients MAY limit the number of blocks in the response."
           # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyrange
@@ -263,7 +267,7 @@ p2pProtocol BeaconSync(version = 1,
         of BeaconBlockFork.Phase0:
           await response.write(blk.phase0Block.asSigned)
           inc found
-        of BeaconBlockFork.Altair:
+        of BeaconBlockFork.Altair, BeaconBlockFork.Merge:
           # Skipping this block should be fine because the spec says:
           # "Clients MAY limit the number of blocks in the response."
           # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyroot

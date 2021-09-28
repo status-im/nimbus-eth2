@@ -64,6 +64,7 @@ proc mockBlock*(
   result.kind = case tmpState[].beaconStateFork
                 of forkPhase0: BeaconBlockFork.Phase0
                 of forkAltair: BeaconBlockFork.Altair
+                of forkMerge:  BeaconBlockFork.Merge
   withBlck(result):
     blck.message.slot = slot
     blck.message.proposer_index = get_beacon_proposer_index(tmpState[], cache, slot).get.uint64
@@ -77,6 +78,6 @@ proc mockBlock*(
 
   signMockBlock(tmpState[], result)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/tests/core/pyspec/eth2spec/test/helpers/block.py#L108-L109
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/tests/core/pyspec/eth2spec/test/helpers/block.py#L107-L108
 proc mockBlockForNextSlot*(state: ForkedHashedBeaconState): ForkedSignedBeaconBlock =
   mockBlock(state, getStateField(state, slot) + 1)

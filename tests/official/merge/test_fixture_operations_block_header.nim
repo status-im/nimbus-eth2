@@ -13,14 +13,14 @@ import
   # Utilities
   stew/results,
   # Beacon chain internals
-  ../../../beacon_chain/spec/state_transition_block,
-  ../../../beacon_chain/spec/datatypes/phase0,
+  ../../../beacon_chain/spec/[state_transition_block],
+  ../../../beacon_chain/spec/datatypes/merge,
   # Test utilities
   ../../testutil,
   ../fixtures_utils,
   ../../helpers/debug_state
 
-const OpAttSlashingDir = SszTestsDir/const_preset/"phase0"/"operations"/"attester_slashing"/"pyspec_tests"
+const OpBlockHeaderDir = SszTestsDir/const_preset/"merge"/"operations"/"block_header"/"pyspec_tests"
 
 proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
@@ -28,9 +28,9 @@ proc runTest(identifier: string) =
   # but unittest with the macro/templates put everything as globals
   # https://github.com/nim-lang/Nim/issues/12084#issue-486866402
 
-  let testDir = OpAttSlashingDir / identifier
+  let testDir = OpBlockHeaderDir / identifier
 
-  proc `testImpl _ operations_attester_slashing _ identifier`() =
+  proc `testImpl _ blockheader _ identifier`() =
 
     let prefix =
       if existsFile(testDir/"post.ssz_snappy"):
@@ -39,29 +39,26 @@ proc runTest(identifier: string) =
         "[Invalid] "
 
     test prefix & identifier:
-      let attesterSlashing =
-        parseTest(testDir/"attester_slashing.ssz_snappy", SSZ, AttesterSlashing)
+      let blck = parseTest(testDir/"block.ssz_snappy", SSZ, merge.BeaconBlock)
       var
         cache = StateCache()
         preState =
-          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, phase0.BeaconState))
+          newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, merge.BeaconState))
 
       if existsFile(testDir/"post.ssz_snappy"):
         let
           postState =
-            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, phase0.BeaconState))
-          done = process_attester_slashing(
-            defaultRuntimeConfig, preState[], attesterSlashing, {}, cache).isOk
-        doAssert done, "Valid attestater slashing not processed"
+            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, merge.BeaconState))
+          done = process_block_header(preState[], blck, {}, cache).isOk
+        doAssert done, "Valid block header not processed"
         check: preState[].hash_tree_root() == postState[].hash_tree_root()
         reportDiff(preState, postState)
       else:
-        let done = process_attester_slashing(
-          defaultRuntimeConfig, preState[], attesterSlashing, {}, cache).isOk
-        doAssert done == false, "We didn't expect this invalid attester slashing to be processed."
+        let done = process_block_header(preState[], blck, {}, cache).isOk
+        doAssert done == false, "We didn't expect this invalid block header to be processed."
 
-  `testImpl _ operations_attester_slashing _ identifier`()
+  `testImpl _ blockheader _ identifier`()
 
-suite "Ethereum Foundation - Phase 0 - Operations - Attester slashing " & preset():
-  for kind, path in walkDir(OpAttSlashingDir, relative = true, checkDir = true):
+suite "Ethereum Foundation - Merge - Operations - Block header " & preset():
+  for kind, path in walkDir(OpBlockHeaderDir, relative = true, checkDir = true):
     runTest(path)

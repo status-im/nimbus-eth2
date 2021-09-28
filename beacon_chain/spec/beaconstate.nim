@@ -119,7 +119,7 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var SomeBeaconState,
   validator.withdrawable_epoch =
     validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
     cfg: RuntimeConfig, state: var SomeBeaconState,
@@ -195,6 +195,14 @@ func altairFork*(cfg: RuntimeConfig): Fork =
     previous_version: cfg.GENESIS_FORK_VERSION,
     current_version: cfg.ALTAIR_FORK_VERSION,
     epoch: cfg.ALTAIR_FORK_EPOCH)
+
+func mergeFork*(cfg: RuntimeConfig): Fork =
+  # TODO in theory, the altair + merge forks could be in same epoch, so the
+  # previous fork version would be the GENESIS_FORK_VERSION
+  Fork(
+    previous_version: cfg.ALTAIR_FORK_VERSION,
+    current_version: cfg.MERGE_FORK_VERSION,
+    epoch: cfg.MERGE_FORK_EPOCH)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1*(
@@ -401,7 +409,7 @@ proc process_registry_updates*(
     state.validators[index].activation_epoch =
       compute_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     state: SomeBeaconState, indexed_attestation: SomeIndexedAttestation,
     flags: UpdateFlags): Result[void, cstring] =
@@ -565,7 +573,7 @@ func get_attestation_participation_flag_indices(state: altair.BeaconState | merg
 # TODO these duplicate some stuff in state_transition_epoch which uses TotalBalances
 # better to centralize around that if feasible
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_total_active_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_total_active_balance
 func get_total_active_balance*(state: SomeBeaconState, cache: var StateCache): Gwei =
   ## Return the combined effective balance of the active validators.
   # Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei
@@ -576,13 +584,13 @@ func get_total_active_balance*(state: SomeBeaconState, cache: var StateCache): G
   get_total_balance(
     state, cache.get_shuffled_active_validator_indices(state, epoch))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#get_base_reward_per_increment
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment*(
     state: altair.BeaconState | merge.BeaconState, cache: var StateCache): Gwei =
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div
     integer_squareroot(get_total_active_balance(state, cache))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#get_base_reward
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
     state: altair.BeaconState | merge.BeaconState, index: ValidatorIndex,
     base_reward_per_increment: Gwei): Gwei =
@@ -700,7 +708,7 @@ proc process_attestation*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#get_next_sync_committee_indices
-func get_next_sync_committee_indices(state: altair.BeaconState):
+func get_next_sync_committee_indices(state: altair.BeaconState | merge.BeaconState):
     seq[ValidatorIndex] =
   ## Return the sequence of sync committee indices (which may include
   ## duplicate indices) for the next sync committee, given a ``state`` at a
@@ -732,7 +740,8 @@ func get_next_sync_committee_indices(state: altair.BeaconState):
   sync_committee_indices
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_next_sync_committee
-proc get_next_sync_committee*(state: altair.BeaconState): SyncCommittee =
+proc get_next_sync_committee*(state: altair.BeaconState | merge.BeaconState):
+    SyncCommittee =
   ## Return the *next* sync committee for a given ``state``.
   let indices = get_next_sync_committee_indices(state)
   # TODO not robust
@@ -753,7 +762,7 @@ proc get_next_sync_committee*(state: altair.BeaconState): SyncCommittee =
   res.aggregate_pubkey = finish(attestersAgg).toPubKey()
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/fork.md#upgrading-the-state
 func translate_participation(
     state: var altair.BeaconState,
     pending_attestations: openArray[phase0.PendingAttestation]) =

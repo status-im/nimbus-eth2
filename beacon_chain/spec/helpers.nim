@@ -116,7 +116,7 @@ func get_current_epoch*(state: SomeBeaconState): Epoch =
   doAssert state.slot >= GENESIS_SLOT, $state.slot
   compute_epoch_at_slot(state.slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_randao_mix
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: SomeBeaconState, epoch: Epoch): Eth2Digest =
   ## Returns the randao mix at a recent ``epoch``.
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
@@ -175,7 +175,7 @@ func compute_domain*(
   result[0..3] = uint_to_bytes4(domain_type.uint64)
   result[4..31] = fork_data_root.data.toOpenArray(0, 27)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_domain
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_domain
 func get_domain*(
     fork: Fork,
     domain_type: DomainType,
@@ -229,12 +229,36 @@ func add_flag*(flags: ParticipationFlags, flag_index: int): ParticipationFlags =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   flags or flag
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#has_flag
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#has_flag
 func has_flag*(flags: ParticipationFlags, flag_index: int): bool =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   (flags and flag) == flag
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-beta.3/specs/altair/sync-protocol.md#get_subtree_index
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/sync-protocol.md#get_subtree_index
 func get_subtree_index*(idx: GeneralizedIndex): uint64 =
   doAssert idx > 0
   uint64(idx mod (type(idx)(1) shl log2trunc(idx)))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_merge_complete
+func is_merge_complete*(state: merge.BeaconState): bool =
+  state.latest_execution_payload_header != default(ExecutionPayloadHeader)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_merge_block
+func is_merge_block(
+    state: merge.BeaconState,
+    body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |
+          merge.SigVerifiedBeaconBlockBody): bool =
+  not is_merge_complete(state) and body.execution_payload != ExecutionPayload()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_execution_enabled
+func is_execution_enabled*(
+    state: merge.BeaconState,
+    body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |
+          merge.SigVerifiedBeaconBlockBody): bool =
+  is_merge_block(state, body) or is_merge_complete(state)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#compute_timestamp_at_slot
+func compute_timestamp_at_slot*(state: SomeBeaconState, slot: Slot): uint64 =
+  # Note: This function is unsafe with respect to overflows and underflows.
+  let slots_since_genesis = slot - GENESIS_SLOT
+  state.genesis_time + slots_since_genesis * SECONDS_PER_SLOT

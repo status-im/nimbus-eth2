@@ -80,6 +80,20 @@ FixtureAll-mainnet
 + [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - same_slot_block_transition [Pre OK
 + [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - slash_and_exit_same_index [Pres OK
 + [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - zero_block_sig [Preset: mainnet OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - double_same_proposer_slashings_s OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - double_similar_proposer_slashing OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - double_validator_exit_same_block OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - duplicate_attester_slashing [Pre OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - expected_deposit_in_block [Prese OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - invalid_block_sig [Preset: mainn OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - invalid_proposer_index_sig_from_ OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - invalid_proposer_index_sig_from_ OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - invalid_state_root [Preset: main OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - parent_from_same_slot [Preset: m OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - prev_slot_block_transition [Pres OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - same_slot_block_transition [Pres OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - slash_and_exit_same_index [Prese OK
++ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - zero_block_sig [Preset: mainnet] OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_same_proposer_slashings OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_similar_proposer_slashi OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_validator_exit_same_blo OK
@@ -109,13 +123,26 @@ FixtureAll-mainnet
 + [Invalid] att2_duplicate_index_normal_signed                                               OK
 + [Invalid] att2_empty_indices                                                               OK
 + [Invalid] att2_high_index                                                                  OK
++ [Invalid] bad_everything_regular_payload                                                   OK
++ [Invalid] bad_execution_first_payload                                                      OK
++ [Invalid] bad_execution_regular_payload                                                    OK
++ [Invalid] bad_number_regular_payload                                                       OK
++ [Invalid] bad_parent_hash_regular_payload                                                  OK
++ [Invalid] bad_random_first_payload                                                         OK
++ [Invalid] bad_random_regular_payload                                                       OK
 + [Invalid] bad_source_root                                                                  OK
++ [Invalid] bad_timestamp_first_payload                                                      OK
++ [Invalid] bad_timestamp_regular_payload                                                    OK
 + [Invalid] before_inclusion_delay                                                           OK
 + [Invalid] correct_after_epoch_delay                                                        OK
 + [Invalid] empty_participants_seemingly_valid_sig                                           OK
 + [Invalid] empty_participants_zeroes_sig                                                    OK
 + [Invalid] epochs_are_different                                                             OK
 + [Invalid] future_target_epoch                                                              OK
++ [Invalid] gaslimit_lower_minus_regular_payload                                             OK
++ [Invalid] gaslimit_minimum_minus_regular_payload                                           OK
++ [Invalid] gaslimit_upper_plus_regular_payload                                              OK
++ [Invalid] gasused_gaslimit_plus_regular_payload                                            OK
 + [Invalid] headers_are_same_sigs_are_different                                              OK
 + [Invalid] headers_are_same_sigs_are_same                                                   OK
 + [Invalid] incorrect_head_after_epoch_delay                                                 OK
@@ -220,6 +247,34 @@ FixtureAll-mainnet
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - skipped_slots [Preset: mainnet] OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - slash_and_exit_diff_index [Pres OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - voluntary_exit [Preset: mainnet OK
++ [Valid]   Ethereum Foundation - Merge - Finality - finality_no_updates_at_genesis [Preset: OK
++ [Valid]   Ethereum Foundation - Merge - Finality - finality_rule_1 [Preset: mainnet]       OK
++ [Valid]   Ethereum Foundation - Merge - Finality - finality_rule_2 [Preset: mainnet]       OK
++ [Valid]   Ethereum Foundation - Merge - Finality - finality_rule_3 [Preset: mainnet]       OK
++ [Valid]   Ethereum Foundation - Merge - Finality - finality_rule_4 [Preset: mainnet]       OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - attestation [Preset: mainnet]    OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - attester_slashing [Preset: mainn OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - balance_driven_status_transition OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - deposit_in_block [Preset: mainne OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - deposit_top_up [Preset: mainnet] OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_block_transition [Preset:  OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_epoch_transition [Preset:  OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_0 [Preset OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_1 [Preset OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_2 [Preset OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_3 [Preset OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - high_proposer_index [Preset: mai OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - historical_batch [Preset: mainne OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_attester_slashings_no_o OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_attester_slashings_part OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_different_proposer_slas OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_different_validator_exi OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - proposer_after_inactive_index [P OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - proposer_self_slashing [Preset:  OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - proposer_slashing [Preset: mainn OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - skipped_slots [Preset: mainnet]  OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - slash_and_exit_diff_index [Prese OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - voluntary_exit [Preset: mainnet] OK
 + [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_no_updates_at_genesis [Prese OK
 + [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_1 [Preset: mainnet]     OK
 + [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_2 [Preset: mainnet]     OK
@@ -268,6 +323,12 @@ FixtureAll-mainnet
 + [Valid]   correct_min_inclusion_delay                                                      OK
 + [Valid]   correct_sqrt_epoch_delay                                                         OK
 + [Valid]   default_exit_epoch_subsequent_exit                                               OK
++ [Valid]   gaslimit_lower_regular_payload                                                   OK
++ [Valid]   gaslimit_max_first_payload                                                       OK
++ [Valid]   gaslimit_minimum_regular_payload                                                 OK
++ [Valid]   gaslimit_upper_regular_payload                                                   OK
++ [Valid]   gaslimit_zero_first_payload                                                      OK
++ [Valid]   gasused_gaslimit_regular_payload                                                 OK
 + [Valid]   incorrect_head_and_target_epoch_delay                                            OK
 + [Valid]   incorrect_head_and_target_min_inclusion_delay                                    OK
 + [Valid]   incorrect_head_and_target_sqrt_epoch_delay                                       OK
@@ -291,11 +352,15 @@ FixtureAll-mainnet
 + [Valid]   success_block_header_from_future                                                 OK
 + [Valid]   success_double                                                                   OK
 + [Valid]   success_exit_queue__min_churn                                                    OK
++ [Valid]   success_first_payload                                                            OK
++ [Valid]   success_first_payload_with_gap_slot                                              OK
 + [Valid]   success_low_balances                                                             OK
 + [Valid]   success_misc_balances                                                            OK
 + [Valid]   success_multi_proposer_index_iterations                                          OK
 + [Valid]   success_previous_epoch                                                           OK
 + [Valid]   success_proposer_index_slashed                                                   OK
++ [Valid]   success_regular_payload                                                          OK
++ [Valid]   success_regular_payload_with_gap_slot                                            OK
 + [Valid]   success_slashed_and_proposer_index_the_same                                      OK
 + [Valid]   success_surround                                                                 OK
 + [Valid]   success_with_effective_balance_disparity                                         OK
@@ -323,7 +388,7 @@ FixtureAll-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 320/320 Fail: 0/320 Skip: 0/320
+OK: 385/385 Fail: 0/385 Skip: 0/385
 ## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -464,6 +529,106 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 36/36 Fail: 0/36 Skip: 0/36
+## Ethereum Foundation - Merge - Epoch Processing - Effective balance updates [Preset: mainnet]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## Ethereum Foundation - Merge - Epoch Processing - Eth1 data reset [Preset: mainnet]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
+## Ethereum Foundation - Merge - Epoch Processing - Historical roots update [Preset: mainnet]
+```diff
++ Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## Ethereum Foundation - Merge - Epoch Processing - Inactivity [Preset: mainnet]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
++ Inactivity - genesis [Preset: mainnet]                                                     OK
++ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
++ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
++ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
+```
+OK: 19/19 Fail: 0/19 Skip: 0/19
+## Ethereum Foundation - Merge - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
+```
+OK: 10/10 Fail: 0/10 Skip: 0/10
+## Ethereum Foundation - Merge - Epoch Processing - Participation flag updates [Preset: mainnet]
+```diff
++ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
++ Participation flag updates - current_filled [Preset: mainnet]                              OK
++ Participation flag updates - filled [Preset: mainnet]                                      OK
++ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
++ Participation flag updates - previous_filled [Preset: mainnet]                             OK
++ Participation flag updates - random_0 [Preset: mainnet]                                    OK
++ Participation flag updates - random_1 [Preset: mainnet]                                    OK
++ Participation flag updates - random_2 [Preset: mainnet]                                    OK
++ Participation flag updates - random_genesis [Preset: mainnet]                              OK
+```
+OK: 10/10 Fail: 0/10 Skip: 0/10
+## Ethereum Foundation - Merge - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## Ethereum Foundation - Merge - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
+```
+OK: 10/10 Fail: 0/10 Skip: 0/10
+## Ethereum Foundation - Merge - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
+## Ethereum Foundation - Merge - Epoch Processing - Slashings reset [Preset: mainnet]
+```diff
++ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Ethereum Foundation - Merge - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -490,6 +655,7 @@ OK: 36/36 Fail: 0/36 Skip: 0/36
 +   Testing    LightClientSnapshot                                                           OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    PendingAttestation                                                            OK
++   Testing    PowBlock                                                                      OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
 +   Testing    SignedBeaconBlock                                                             OK
@@ -505,7 +671,7 @@ OK: 36/36 Fail: 0/36 Skip: 0/36
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 38/38 Fail: 0/38 Skip: 0/38
+OK: 39/39 Fail: 0/39 Skip: 0/39
 ## Ethereum Foundation - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -607,4 +773,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 513/513 Fail: 0/513 Skip: 0/513
+OK: 639/639 Fail: 0/639 Skip: 0/639

@@ -11,16 +11,17 @@ import
   # Standard library
   os,
   # Utilities
+  chronicles,
   stew/results,
   # Beacon chain internals
   ../../../beacon_chain/spec/[beaconstate, presets, state_transition_block],
-  ../../../beacon_chain/spec/datatypes/altair,
+  ../../../beacon_chain/spec/datatypes/merge,
   # Test utilities
   ../../testutil,
   ../fixtures_utils,
   ../../helpers/debug_state
 
-const OperationsDepositsDir = SszTestsDir/const_preset/"altair"/"operations"/"deposit"/"pyspec_tests"
+const OperationsDepositsDir = SszTestsDir/const_preset/"merge"/"operations"/"deposit"/"pyspec_tests"
 
 proc runTest(identifier: string) =
   # We wrap the tests in a proc to avoid running out of globals
@@ -41,11 +42,11 @@ proc runTest(identifier: string) =
     test prefix & " " & identifier:
       let deposit = parseTest(testDir/"deposit.ssz_snappy", SSZ, Deposit)
       var preState =
-        newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, altair.BeaconState))
+        newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, merge.BeaconState))
 
       if existsFile(testDir/"post.ssz_snappy"):
         let postState =
-          newClone(parseTest(testDir/"post.ssz_snappy", SSZ, altair.BeaconState))
+          newClone(parseTest(testDir/"post.ssz_snappy", SSZ, merge.BeaconState))
         discard process_deposit(defaultRuntimeConfig, preState[], deposit, {})
         reportDiff(preState, postState)
       else:
@@ -53,7 +54,7 @@ proc runTest(identifier: string) =
 
   `testImpl _ operations_deposits _ identifier`()
 
-suite "Ethereum Foundation - Altair - Operations - Deposits " & preset():
+suite "Ethereum Foundation - Merge - Operations - Deposits " & preset():
   for kind, path in walkDir(
       OperationsDepositsDir, relative = true, checkDir = true):
     runTest(path)

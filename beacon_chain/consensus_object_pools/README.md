@@ -5,8 +5,8 @@ This folder holds the various consensus object pools needed for a blockchain cli
 Object in those pools have passed the "gossip validation" filter according
 to specs:
 - blocks: https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
-- aggregate attestations: https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-- unaggregate attestation: https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+- aggregate attestations: https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+- unaggregated attestation: https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 - voluntary exits https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#voluntary_exit
 - Attester slashings https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attester_slashing
 - Proposer slashins https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#proposer_slashing

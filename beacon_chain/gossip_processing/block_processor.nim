@@ -11,7 +11,7 @@ import
   std/math,
   stew/results,
   chronicles, chronos, metrics,
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0, altair, merge],
   ../spec/[forks],
   ../consensus_object_pools/[block_clearance, blockchain_dag, attestation_pool],
   ./consensus_manager,
@@ -130,7 +130,8 @@ proc addBlock*(
 
 proc dumpBlock*[T](
     self: BlockProcessor,
-    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                 merge.SignedBeaconBlock,
     res: Result[T, (ValidationResult, BlockError)]) =
   if self.dumpEnabled and res.isErr:
     case res.error[1]
@@ -145,7 +146,8 @@ proc dumpBlock*[T](
 
 proc storeBlock(
     self: var BlockProcessor,
-    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                 merge.SignedBeaconBlock,
     wallSlot: Slot): Result[void, BlockError] =
   let
     attestationPool = self.consensusManager.attestationPool

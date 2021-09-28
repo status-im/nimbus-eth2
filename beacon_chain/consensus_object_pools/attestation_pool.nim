@@ -15,7 +15,7 @@ import
   chronicles, stew/byteutils, json_serialization/std/sets as jsonSets,
   # Internal
   ../spec/[beaconstate, eth2_merkleization, forks, helpers, validator],
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0, altair, merge],
   "."/[spec_cache, blockchain_dag, block_quarantine],
   ".."/[beacon_clock, beacon_node_types],
   ../fork_choice/fork_choice
@@ -317,7 +317,8 @@ proc addAttestation*(pool: var AttestationPool,
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
-                    blck: phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock,
+                    blck: phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock |
+                          merge.TrustedBeaconBlock,
                     wallSlot: Slot) =
   ## Add a verified block to the fork choice context
   let state = pool.forkChoice.process_block(
@@ -390,7 +391,8 @@ func init(T: type AttestationCache, state: phase0.HashedBeaconState): T =
       state.data.current_epoch_attestations[i].aggregation_bits)
 
 func init(
-    T: type AttestationCache, state: altair.HashedBeaconState,
+    T: type AttestationCache,
+    state: altair.HashedBeaconState | merge.HashedBeaconState,
     cache: var StateCache): T =
   # Load attestations that are scheduled for being given rewards for
   let
@@ -473,7 +475,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
     attCache =
       when state is phase0.HashedBeaconState:
         AttestationCache.init(state)
-      elif state is altair.HashedBeaconState:
+      elif state is altair.HashedBeaconState or state is merge.HashedBeaconState:
         AttestationCache.init(state, cache)
       else:
         static: doAssert false
@@ -528,11 +530,13 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   var
     prevEpoch = state.data.get_previous_epoch()
     prevEpochSpace =
-      when state is altair.HashedBeaconState:
+      when state is altair.HashedBeaconState or state is merge.HashedBeaconState:
         MAX_ATTESTATIONS
-      else:
+      elif state is phase0.HashedBeaconState:
         state.data.previous_epoch_attestations.maxLen -
           state.data.previous_epoch_attestations.len()
+      else:
+        raiseAssert "invalid HashedBeaconState fork"
 
   var res: seq[Attestation]
   let totalCandidates = candidates.len()

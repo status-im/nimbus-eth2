@@ -8,6 +8,8 @@
 {.used.}
 
 import
+  # Standard library
+  std/sequtils,
   # Status lib
   unittest2,
   chronicles, chronos,
@@ -17,9 +19,11 @@ import
   ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/consensus_object_pools/[
-    block_quarantine, blockchain_dag, block_clearance, attestation_pool],
-  ../beacon_chain/spec/datatypes/phase0,
+    block_quarantine, blockchain_dag, block_clearance, attestation_pool,
+    sync_committee_msg_pool],
+  ../beacon_chain/spec/datatypes/[phase0, altair],
   ../beacon_chain/spec/[forks, state_transition, helpers, network],
+  ../beacon_chain/validators/validator_pool,
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
 
@@ -170,3 +174,71 @@ suite "Gossip validation " & preset():
       check:
         fut_1_0.waitFor().error()[0] == ValidationResult.Reject
         fut_1_1.waitFor().isOk()
+
+suite "Gossip validation - Extra": # Not based on preset config
+  test "validateSyncCommitteeMessage":
+    const num_validators = SLOTS_PER_EPOCH
+    let 
+      cfg = block:
+        var cfg = defaultRuntimeConfig
+        cfg.ALTAIR_FORK_EPOCH = (GENESIS_EPOCH + 1).Epoch
+        cfg
+      dag = block:
+        let 
+          dag = ChainDAGRef.init(cfg, makeTestDB(num_validators), {})
+          taskpool = Taskpool.new()
+          quarantine = QuarantineRef.init(keys.newRng(), taskpool)
+        var cache = StateCache()
+        for blck in makeTestBlocks(
+            dag.headState.data, dag.head.root, cache,
+            int(SLOTS_PER_EPOCH), false, cfg = cfg):
+          let added = 
+            case blck.kind
+            of BeaconBlockFork.Phase0:
+              const nilCallback = OnPhase0BlockAdded(nil)
+              dag.addRawBlock(quarantine, blck.phase0Block, nilCallback)
+            of BeaconBlockFork.Altair:
+              const nilCallback = OnAltairBlockAdded(nil)
+              dag.addRawBlock(quarantine, blck.altairBlock, nilCallback)
+            of BeaconBlockFork.Merge:
+              const nilCallback = OnMergeBlockAdded(nil)
+              dag.addRawBlock(quarantine, blck.mergeBlock, nilCallback)
+          check: added.isOk()
+          dag.updateHead(added[], quarantine)
+        dag
+      state = newClone(dag.headState.data.hbsAltair)
+
+      syncCommitteeIdx = 0.SyncCommitteeIndex
+      syncCommittee = @(dag.syncCommitteeParticipants(state[].data.slot))
+      subcommittee = syncCommittee.syncSubcommittee(syncCommitteeIdx)
+
+      pubkey = subcommittee[0]
+      expectedCount = subcommittee.count(pubkey)
+      index = ValidatorIndex(
+        state[].data.validators.mapIt(it.pubkey).find(pubKey))
+      validator = AttachedValidator(
+        pubKey: pubkey,
+        kind: inProcess, privKey: hackPrivKey(state[].data.validators[index]),
+        index: some(index))
+      msg = waitFor signSyncCommitteeMessage(
+        validator, state[].data.slot,
+        state[].data.fork, state[].data.genesis_validators_root, state[].root)
+
+      syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init())
+      res = validateSyncCommitteeMessage(
+        dag, syncCommitteeMsgPool, msg, syncCommitteeIdx, 
+        state[].data.slot.toBeaconTime(), true)
+      contribution = block:
+        var contribution: SyncCommitteeContribution
+        check: syncCommitteeMsgPool[].produceContribution(
+          state[].data.slot, state[].root, syncCommitteeIdx, contribution)
+        syncCommitteeMsgPool[].addSyncContribution(
+          contribution, contribution.signature.load.get)
+        contribution
+      aggregate = syncCommitteeMsgPool[].produceSyncAggregate(state[].root)
+
+    check:
+      expectedCount > 1 # Cover edge case
+      res.isOk
+      contribution.aggregation_bits.countOnes == expectedCount
+      aggregate.sync_committee_bits.countOnes == expectedCount

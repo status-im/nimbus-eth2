@@ -49,13 +49,13 @@ proc getTestStates*(
     0, 1,
 
     # Around minimal wraparound SLOTS_PER_HISTORICAL_ROOT wraparound
-    5, 6, 7, 8, 9,
+    7, 8, 9,
 
-    39, 40, 97, 98, 99, 113, 114, 115, 116, 130, 131, 145, 146, 192, 193,
-    232, 233, 237, 238,
+    # Unexceptional cases, with 2 and 3-long runs
+    39, 40, 114, 115, 116, 130, 131,
 
-    # Approaching and passing SLOTS_PER_HISTORICAL_ROOT wraparound
-    254, 255, 256, 257, 258]
+    # Approaching and passing mainnet SLOTS_PER_HISTORICAL_ROOT wraparound
+    255, 256, 257]
 
   var
     tmpState = assignClone(initialState)

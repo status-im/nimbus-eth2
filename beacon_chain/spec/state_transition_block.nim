@@ -72,7 +72,7 @@ func `xor`[T: array](a, b: T): T =
   for i in 0..<result.len:
     result[i] = a[i] xor b[i]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#randao
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#randao
 proc process_randao(
     state: var SomeBeaconState, body: SomeSomeBeaconBlockBody, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =
@@ -224,7 +224,7 @@ proc check_attester_slashing*(
 
   ok slashed_indices
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
     cfg: RuntimeConfig,
     state: var SomeBeaconState,
@@ -292,7 +292,7 @@ proc process_deposit*(cfg: RuntimeConfig,
         static: doAssert state.balances.maxLen == state.validators.maxLen
         raiseAssert "adding validator succeeded, so should balances"
 
-      when state is altair.BeaconState:
+      when state is altair.BeaconState or state is merge.BeaconState:
         if not state.previous_epoch_participation.add(ParticipationFlags(0)):
           return err("process_deposit: too many validators (previous_epoch_participation)")
         if not state.current_epoch_participation.add(ParticipationFlags(0)):
@@ -385,7 +385,8 @@ proc process_operations(cfg: RuntimeConfig,
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
   template base_reward_per_increment(state: phase0.BeaconState): Gwei = 0.Gwei
-  template base_reward_per_increment(state: altair.BeaconState): Gwei =
+  template base_reward_per_increment(
+      state: altair.BeaconState | merge.BeaconState): Gwei =
     get_base_reward_per_increment(state, cache)
 
   let
@@ -412,7 +413,7 @@ proc process_operations(cfg: RuntimeConfig,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-processing
 proc process_sync_aggregate*(
-    state: var altair.BeaconState, aggregate: SyncAggregate, cache: var StateCache):
+    state: var (altair.BeaconState | merge.BeaconState), aggregate: SyncAggregate, cache: var StateCache):
     Result[void, cstring] {.nbench.} =
   # Verify sync committee aggregate signature signing over the previous slot
   # block root
@@ -475,6 +476,75 @@ proc process_sync_aggregate*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_valid_gas_limit
+func is_valid_gas_limit(
+    payload: ExecutionPayload, parent: ExecutionPayloadHeader): bool =
+  let parent_gas_limit = parent.gas_limit
+
+  # Check if the payload used too much gas
+  if payload.gas_used > payload.gas_limit:
+    return false
+
+  # Check if the payload changed the gas limit too much
+  if payload.gas_limit >=
+      parent_gas_limit + parent_gas_limit div GAS_LIMIT_DENOMINATOR:
+    return false
+  if payload.gas_limit <=
+      parent_gas_limit - parent_gas_limit div GAS_LIMIT_DENOMINATOR:
+    return false
+
+  # Check if the gas limit is at least the minimum gas limit
+  if payload.gas_limit < MIN_GAS_LIMIT:
+    return false
+
+  true
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#process_execution_payload
+proc process_execution_payload*(
+    state: var merge.BeaconState, payload: ExecutionPayload,
+    execute_payload: ExecutePayload): Result[void, cstring] {.nbench.} =
+  # Verify consistency of the parent hash, block number, base fee per gas and
+  # gas limit with respect to the previous execution payload header
+  if is_merge_complete(state):
+    if not (payload.parent_hash ==
+        state.latest_execution_payload_header.block_hash):
+      return err("process_execution_payload: payload and state parent hash mismatch")
+    if not (payload.block_number ==
+        state.latest_execution_payload_header.block_number + 1):
+      return err("process_execution_payload: payload and state block number mismatch")
+    if not is_valid_gas_limit(payload, state.latest_execution_payload_header):
+      return err("process_execution_payload: invalid gas limit")
+
+  # Verify random
+  if not (payload.random == get_randao_mix(state, get_current_epoch(state))):
+    return err("process_execution_payload: payload and state randomness mismatch")
+
+  # Verify timestamp
+  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+    return err("process_execution_payload: invalid timestamp")
+
+  # Verify the execution payload is valid
+  if not execute_payload(payload):
+    return err("process_execution_payload: execution payload invalid")
+
+  # Cache execution payload header
+  state.latest_execution_payload_header = ExecutionPayloadHeader(
+    parent_hash: payload.parent_hash,
+    coinbase: payload.coinbase,
+    state_root: payload.state_root,
+    receipt_root: payload.receipt_root,
+    logs_bloom: payload.logs_bloom,
+    random: payload.random,
+    block_number: payload.block_number,
+    gas_limit: payload.gas_limit,
+    gas_used: payload.gas_used,
+    timestamp: payload.timestamp,
+    base_fee_per_gas: payload.base_fee_per_gas,
+    block_hash: payload.block_hash,
+    transactions_root: hash_tree_root(payload.transactions))
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/phase0.nim
@@ -499,8 +569,13 @@ proc process_block*(
     cfg: RuntimeConfig,
     state: var altair.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =
-  # The transition-triggering block creates, not acts on, an Altair state
   err("process_block: Altair state with Phase 0 block")
+
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var merge.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.} =
+  err("process_block: Merge state with Phase 0 block")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
@@ -523,8 +598,50 @@ proc process_block*(
 
   ok()
 
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+type SomeMergeBlock =
+  merge.BeaconBlock | merge.SigVerifiedBeaconBlock | merge.TrustedBeaconBlock
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var merge.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.}=
+  ## When there's a new block, we need to verify that the block is sane and
+  ## update the state accordingly - the state is left in an unknown state when
+  ## block application fails (!)
+
+  ? process_block_header(state, blck, flags, cache)
+  if is_execution_enabled(state, blck.body):
+    ? process_execution_payload(
+        state, blck.body.execution_payload,
+        # TODO this is enough to pass consensus spec tests
+        func(_: ExecutionPayload): bool = true)
+  ? process_randao(state, blck.body, flags, cache)
+  ? process_eth1_data(state, blck.body)
+  ? process_operations(cfg, state, blck.body, flags, cache)
+  ? process_sync_aggregate(state, blck.body.sync_aggregate, cache)
+
+  ok()
+
 proc process_block*(
     cfg: RuntimeConfig,
     state: var phase0.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.}=
   err("process_block: Phase 0 state with Altair block")
+
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var phase0.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.}=
+  err("process_block: Phase 0 state with Merge block")
+
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var altair.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.}=
+  err("process_block: Altair state with Merge block")
+
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var merge.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] {.nbench.}=
+  err("process_block: Merge state with Altair block")

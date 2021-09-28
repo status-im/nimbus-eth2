@@ -9,13 +9,14 @@ import stew/[results, base10, byteutils, endians2], presto/common,
        libp2p/peerid, serialization,
        json_serialization, json_serialization/std/[options, net],
        nimcrypto/utils as ncrutils
-import ".."/forks, ".."/datatypes/[phase0, altair, merge],
-       ".."/".."/ssz/ssz_serialization,
+import ".."/[forks, ssz_codec], ".."/datatypes/[phase0, altair, merge],
+       ".."/eth2_ssz_serialization,
+       ".."/".."/ssz/[ssz_serialization, codec, types],
        "."/rest_types
 
 export
   results, peerid, common, serialization, json_serialization, options, net,
-  rest_types
+  rest_types, ssz_codec, ssz_serialization, codec, types
 
 Json.createFlavor RestJson
 
@@ -59,12 +60,21 @@ type
 
   DecodeTypes* =
     DataEnclosedObject |
-    GetBlockV2Response |
     ProduceBlockResponseV2 |
     DataMetaEnclosedObject |
     DataRootEnclosedObject |
     RestAttestationError |
-    RestGenericError
+    RestGenericError |
+    GetBlockV2Response |
+    GetStateV2Response
+
+  SszDecodeTypes* =
+    GetPhase0StateSszResponse |
+    GetAltairStateSszResponse |
+    GetPhase0BlockSszResponse |
+    GetAltairBlockSszResponse |
+    GetBlockV2Header |
+    GetStateV2Header
 
 {.push raises: [Defect].}
 
@@ -619,6 +629,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         version = some(BeaconBlockFork.Phase0)
       of "altair":
         version = some(BeaconBlockFork.Altair)
+      of "merge":
+        version = some(BeaconBlockFork.Merge)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
@@ -655,6 +667,16 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect altair block format")
     value = ForkedBeaconBlock.init(res.get())
+  of BeaconBlockFork.Merge:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()), merge.BeaconBlock,
+                             requireAllFields = true))
+      except SerializationError:
+        none[merge.BeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect merge block format")
+    value = ForkedBeaconBlock.init(res.get())
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconBlock) {.
      raises: [IOError, Defect].} =
@@ -666,6 +688,11 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconBlock) {.
   of BeaconBlockFork.Altair:
     writer.writeField("version", "altair")
     writer.writeField("data", value.altairBlock)
+  of BeaconBlockFork.Merge:
+    writer.writeField("version", "merge")
+    when false:
+      # TODO SerializationError
+      writer.writeField("data", value.mergeBlock)
   writer.endRecord()
 
 ## ForkedSignedBeaconBlock
@@ -688,6 +715,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         version = some(BeaconBlockFork.Phase0)
       of "altair":
         version = some(BeaconBlockFork.Altair)
+      of "merge":
+        version = some(BeaconBlockFork.Merge)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
@@ -724,6 +753,16 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect altair block format")
     value = ForkedSignedBeaconBlock.init(res.get())
+  of BeaconBlockFork.Merge:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()), merge.SignedBeaconBlock,
+                             requireAllFields = true))
+      except SerializationError:
+        none[merge.SignedBeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect merge block format")
+    value = ForkedSignedBeaconBlock.init(res.get())
 
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: ForkedSignedBeaconBlock) {.
@@ -736,6 +775,11 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   of BeaconBlockFork.Altair:
     writer.writeField("version", "altair")
     writer.writeField("data", value.altairBlock)
+  of BeaconBlockFork.Merge:
+    writer.writeField("version", "merge")
+    when false:
+      # TODO SerializationError
+      writer.writeField("data", value.mergeBlock)
   writer.endRecord()
 
 # ForkedBeaconState
@@ -758,6 +802,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         version = some(BeaconStateFork.forkPhase0)
       of "altair":
         version = some(BeaconStateFork.forkAltair)
+      of "merge":
+        version = some(BeaconStateFork.forkMerge)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
@@ -794,6 +840,16 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect altair beacon state format")
     value = ForkedBeaconState.init(res.get())
+  of BeaconStateFork.forkMerge:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()), merge.BeaconState,
+                             requireAllFields = true))
+      except SerializationError:
+        none[merge.BeaconState]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect merge beacon state format")
+    value = ForkedBeaconState.init(res.get())
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconState) {.
      raises: [IOError, Defect].} =
@@ -805,17 +861,12 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconState) {.
   of BeaconStateFork.forkAltair:
     writer.writeField("version", "altair")
     writer.writeField("data", value.bsAltair)
+  of BeaconStateFork.forkMerge:
+    writer.writeField("version", "merge")
+    when false:
+      # TODO SerializationError
+      writer.writeField("data", value.bsMerge)
   writer.endRecord()
-
-template toSszType*(v: BeaconBlockFork): auto =
-  case v
-  of BeaconBlockFork.Phase0: Phase0Version
-  of BeaconBlockFork.Altair: AltairVersion
-
-template toSszType*(v: BeaconStateFork): auto =
-  case v
-  of BeaconStateFork.forkPhase0: Phase0Version
-  of BeaconStateFork.forkAltair: AltairVersion
 
 # SyncCommitteeIndex
 proc writeValue*(writer: var JsonWriter[RestJson],
@@ -909,6 +960,19 @@ proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openarray[byte],
   of "application/json":
     try:
       ok RestJson.decode(value, T)
+    except SerializationError as exc:
+      err("Serialization error")
+  else:
+    err("Content-Type not supported")
+
+proc decodeBytes*[T: SszDecodeTypes](t: typedesc[T], value: openarray[byte],
+                                     contentType: string): RestResult[T] =
+  case contentType
+  of "application/octet-stream":
+    try:
+      var v: T
+      readSszBytes(value, v)
+      ok(v)
     except SerializationError as exc:
       err("Serialization error")
   else:

@@ -127,7 +127,7 @@ proc addTestBlock*(
         cache)
       doAssert res.isOk(), "Should have created a valid block!"
       ForkedBeaconBlock.init(res.get())
-    of forkAltair:
+    of forkAltair, forkMerge:
       let res = makeBeaconBlock(
         cfg,
         state.hbsAltair,
@@ -337,3 +337,4 @@ proc getAttestationsForTestBlock*(
   case stateData.data.beaconStateFork:
   of forkPhase0: pool.getAttestationsForBlock(stateData.data.hbsPhase0, cache)
   of forkAltair: pool.getAttestationsForBlock(stateData.data.hbsAltair, cache)
+  of forkMerge:  pool.getAttestationsForBlock(stateData.data.hbsMerge,  cache)

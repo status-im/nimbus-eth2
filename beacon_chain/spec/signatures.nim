@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  ./datatypes/[phase0, altair], ./helpers, ./eth2_merkleization
+  ./datatypes/[phase0, altair, merge], ./helpers, ./eth2_merkleization
 
 export phase0, altair
 
@@ -110,7 +110,7 @@ func compute_aggregate_and_proof_root*(fork: Fork, genesis_validators_root: Eth2
       fork, DOMAIN_AGGREGATE_AND_PROOF, epoch, genesis_validators_root)
   compute_signing_root(aggregate_and_proof, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-aggregate
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/validator.md#broadcast-aggregate
 func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
                                         aggregate_and_proof: AggregateAndProof,
                                         privKey: ValidatorPrivKey): CookedSig =

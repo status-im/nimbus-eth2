@@ -15,3 +15,4 @@ proc putState*(db: BeaconChainDB, state: ForkedHashedBeaconState) =
   case state.beaconStateFork:
   of forkPhase0: db.putState(getStateRoot(state), state.hbsPhase0.data)
   of forkAltair: db.putState(getStateRoot(state), state.hbsAltair.data)
+  of forkMerge:  raiseAssert "TODO implement this"

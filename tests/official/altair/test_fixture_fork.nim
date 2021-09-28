@@ -39,8 +39,7 @@ proc runTest(identifier: string) =
       var cfg = defaultRuntimeConfig
       cfg.ALTAIR_FORK_EPOCH = preState[].slot.epoch
 
-      let
-        upgradedState = upgrade_to_altair(cfg, preState[])
+      let upgradedState = upgrade_to_altair(cfg, preState[])
       check: upgradedState[].hash_tree_root() == postState[].hash_tree_root()
       reportDiff(upgradedState, postState)
 
