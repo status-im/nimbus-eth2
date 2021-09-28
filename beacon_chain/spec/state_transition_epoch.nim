@@ -36,7 +36,7 @@ export extras, phase0, altair
 logScope: topics = "consens"
 
 # Accessors that implement the max condition in `get_total_balance`:
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_total_balance
 template current_epoch*(v: TotalBalances): Gwei =
   max(EFFECTIVE_BALANCE_INCREMENT, v.current_epoch_raw)
 template previous_epoch*(v: TotalBalances): Gwei =
@@ -432,7 +432,7 @@ proc process_justification_and_finalization*(state: var (altair.BeaconState | me
     unslashed_participating_balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
     unslashed_participating_balances.current_epoch_TIMELY_TARGET, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#helpers
 func get_base_reward_sqrt*(state: phase0.BeaconState, index: ValidatorIndex,
     total_balance_sqrt: auto): Gwei =
   # Spec function recalculates total_balance every time, which creates an
@@ -603,7 +603,7 @@ func get_base_reward_per_increment(
     state: altair.BeaconState | merge.BeaconState, total_active_balance_sqrt: uint64): Gwei =
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div total_active_balance_sqrt
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#get_base_reward
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
     state: altair.BeaconState | merge.BeaconState, index: ValidatorIndex,
     total_active_balance_sqrt: uint64): Gwei =
@@ -653,7 +653,7 @@ iterator get_flag_index_deltas(
       else:
         (vidx, 0.Gwei, 0.Gwei)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
 iterator get_inactivity_penalty_deltas(cfg: RuntimeConfig, state: altair.BeaconState | merge.BeaconState):
     (ValidatorIndex, Gwei) =
   ## Return the inactivity penalty deltas by considering timely target
@@ -833,7 +833,7 @@ func process_participation_record_updates*(state: var phase0.BeaconState) {.nben
   state.previous_epoch_attestations.clear()
   swap(state.previous_epoch_attestations, state.current_epoch_attestations)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#participation-flags-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#participation-flags-updates
 func process_participation_flag_updates*(state: var (altair.BeaconState | merge.BeaconState)) =
   state.previous_epoch_participation = state.current_epoch_participation
 
@@ -847,7 +847,7 @@ func process_participation_flag_updates*(state: var (altair.BeaconState | merge.
 
   state.current_epoch_participation.resetCache()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#sync-committee-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#sync-committee-updates
 proc process_sync_committee_updates*(state: var (altair.BeaconState | merge.BeaconState)) =
   let next_epoch = get_current_epoch(state) + 1
   if next_epoch mod EPOCHS_PER_SYNC_COMMITTEE_PERIOD == 0:

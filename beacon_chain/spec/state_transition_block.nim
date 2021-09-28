@@ -191,7 +191,7 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#attester-slashings
 proc check_attester_slashing*(
        state: var SomeBeaconState,
        attester_slashing: SomeAttesterSlashing,
@@ -376,7 +376,7 @@ proc process_voluntary_exit*(
     cache)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#operations
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#operations
 proc process_operations(cfg: RuntimeConfig,
                         state: var SomeBeaconState,
                         body: SomeSomeBeaconBlockBody,

@@ -48,15 +48,15 @@ const
   PARTICIPATION_FLAG_WEIGHTS* =
     [TIMELY_SOURCE_WEIGHT, TIMELY_TARGET_WEIGHT, TIMELY_HEAD_WEIGHT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/validator.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/validator.md#misc
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 16
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/setup.py#L473
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/setup.py#L478-L479
   FINALIZED_ROOT_INDEX* = 105'u16
   NEXT_SYNC_COMMITTEE_INDEX* = 55'u16
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#participation-flag-indices
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#participation-flag-indices
   TIMELY_SOURCE_FLAG_INDEX* = 0
   TIMELY_TARGET_FLAG_INDEX* = 1
   TIMELY_HEAD_FLAG_INDEX* = 2
