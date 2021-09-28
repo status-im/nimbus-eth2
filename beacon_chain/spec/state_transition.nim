@@ -212,34 +212,15 @@ proc process_slots*(
 
   # Update the state so its slot matches that of the block
   while getStateField(state, slot) < slot:
-    case state.beaconStateFork:
-    of forkPhase0:
+    withState(state):
       advance_slot(
-        cfg,state.hbsPhase0.data, getStateRoot(state), flags, cache, rewards)
+        cfg, state.data, state.root, flags, cache, rewards)
 
       if skipLastStateRootCalculation notin flags or
-          getStateField(state, slot) < slot:
+          state.data.slot < slot:
         # Don't update state root for the slot of the block if going to process
         # block after
-        state.hbsPhase0.root = hash_tree_root(state)
-    of forkAltair:
-      advance_slot(
-        cfg, state.hbsAltair.data, state.hbsAltair.root, flags, cache, rewards)
-
-      if skipLastStateRootCalculation notin flags or
-          getStateField(state, slot) < slot:
-        # Don't update state root for the slot of the block if going to process
-        # block after
-        state.hbsAltair.root = hash_tree_root(state)
-    of forkMerge:
-      advance_slot(
-        cfg, state.hbsMerge.data, state.hbsMerge.root, flags, cache, rewards)
-
-      if skipLastStateRootCalculation notin flags or
-          getStateField(state, slot) < slot:
-        # Don't update state root for the slot of the block if going to process
-        # block after
-        state.hbsMerge.root = hash_tree_root(state)
+        state.root = hash_tree_root(state.data)
 
     maybeUpgradeStateToAltair(cfg, state)
 
@@ -316,13 +297,8 @@ proc state_transition_block*(
   # Ensure state_transition_block()-only callers trigger this
   maybeUpgradeStateToAltair(cfg, state)
 
-  let success = case state.beaconStateFork:
-    of forkPhase0: state_transition_block_aux(
-      cfg, state.hbsPhase0, signedBlock, cache, flags)
-    of forkAltair: state_transition_block_aux(
-      cfg, state.hbsAltair, signedBlock, cache, flags)
-    of forkMerge:  state_transition_block_aux(
-      cfg, state.hbsMerge, signedBlock, cache, flags)
+  let success = withState(state):
+    state_transition_block_aux(cfg, state, signedBlock, cache, flags)
 
   if not success:
     rollback(state)
