@@ -75,6 +75,7 @@ type
     connWorkers: seq[Future[void]]
     connTable: HashSet[PeerID]
     forkId*: ENRForkID
+    discoveryForkId*: ENRForkID
     forkDigests*: ForkDigestsRef
     rng*: ref BrHmacDrbgContext
     peers*: Table[PeerID, Peer]
@@ -899,6 +900,22 @@ proc toPeerAddr(node: Node): Result[PeerAddr, cstring] =
   let peerAddr = ? nodeRecord.toPeerAddr(tcpProtocol)
   ok(peerAddr)
 
+proc isCompatibleForkId*(discoveryForkId: ENRForkID, peerForkId: ENRForkID): bool =
+  if discoveryForkId.fork_digest == peerForkId.fork_digest:
+    if discoveryForkId.next_fork_version < peerForkId.next_fork_version:
+      # Peer knows about a fork and we don't
+      true
+    elif discoveryForkId.next_fork_version == peerForkId.next_fork_version:
+      # We should have the same next_fork_epoch
+      discoveryForkId.next_fork_epoch == peerForkId.next_fork_epoch
+
+    else:
+      # Our next fork version is bigger than the peer's one
+      false
+  else:
+    # Wrong fork digest
+    false
+
 proc queryRandom*(
     d: Eth2DiscoveryProtocol,
     forkId: ENRForkID,
@@ -907,12 +924,25 @@ proc queryRandom*(
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
 
-  let eth2Field = SSZ.encode(forkId)
-  let nodes = await d.queryRandom((enrForkIdField, eth2Field))
+  let nodes = await d.queryRandom()
 
   var filtered: seq[(int, Node)]
   for n in nodes:
     var score: int = 0
+
+    let eth2FieldBytes = n.record.tryGet(enrForkIdField, seq[byte])
+    if eth2FieldBytes.isNone():
+      continue
+    let peerForkId =
+      try:
+        SSZ.decode(eth2FieldBytes.get(), ENRForkID)
+      except SszError as e:
+        debug "Could not decode the eth2 field of peer",
+          peer = n.record.toURI(), exception = e.name, msg = e.msg
+        continue
+
+    if not forkId.isCompatibleForkId(peerForkId):
+      continue
 
     let attnetsBytes = n.record.tryGet(enrAttestationSubnetsField, seq[byte])
     if attnetsBytes.isSome():
@@ -1063,7 +1093,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
 
     if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0:
       let discoveredNodes = await node.discovery.queryRandom(
-        node.forkId, wantedAttnets, wantedSyncnets)
+        node.discoveryForkId, wantedAttnets, wantedSyncnets)
 
       var newPeers = 0
       for discNode in discoveredNodes:
@@ -1263,7 +1293,7 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       peer.connectionState = Disconnected
 
 proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
-          enrForkId: ENRForkID, forkDigests: ForkDigestsRef,
+          enrForkId: ENRForkID, discoveryForkId: ENRForkId, forkDigests: ForkDigestsRef,
           getBeaconTime: GetBeaconTimeFn, switch: Switch,
           pubsub: GossipSub, ip: Option[ValidIpAddress], tcpPort,
           udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
@@ -1292,6 +1322,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
     # the previous netkey.
     metadata: metadata,
     forkId: enrForkId,
+    discoveryForkId: discoveryForkId,
     forkDigests: forkDigests,
     getBeaconTime: getBeaconTime,
     discovery: Eth2DiscoveryProtocol.new(
@@ -1789,6 +1820,9 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
     enrForkId = getENRForkID(
       cfg, getBeaconTime().slotOrZero.epoch, genesisValidatorsRoot)
 
+    discoveryForkId = getDiscoveryForkID(
+      cfg, getBeaconTime().slotOrZero.epoch, genesisValidatorsRoot)
+
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(
       config.nat, config.listenAddress, config.tcpPort, config.udpPort, clientId)
     except CatchableError as exc: raise exc
@@ -1871,7 +1905,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
   switch.mount(pubsub)
 
   Eth2Node.new(
-    config, cfg, enrForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
+    config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
     extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
     discovery = config.discv5Enabled, rng = rng)
 
@@ -2062,7 +2096,7 @@ proc updateSyncnetsMetadata*(
   else:
     debug "Sync committees changed; updated ENR syncnets", syncnets
 
-proc updateForkId*(node: Eth2Node, value: ENRForkID) =
+proc updateForkId(node: Eth2Node, value: ENRForkID) =
   node.forkId = value
   let res = node.discovery.updateRecord({enrForkIdField: SSZ.encode value})
   if res.isErr():
@@ -2071,6 +2105,10 @@ proc updateForkId*(node: Eth2Node, value: ENRForkID) =
     warn "Failed to update the ENR fork id", value, error = res.error
   else:
     debug "ENR fork id changed", value
+
+proc updateForkId*(node: Eth2Node, epoch: Epoch, genesisValidatorsRoot: Eth2Digest) =
+  node.updateForkId(getENRForkId(node.cfg, epoch, genesisValidatorsRoot))
+  node.discoveryForkId = getDiscoveryForkID(node.cfg, epoch, genesisValidatorsRoot)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 func getStabilitySubnetLength*(node: Eth2Node): uint64 =

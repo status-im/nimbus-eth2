@@ -105,3 +105,19 @@ func getENRForkID*(cfg: RuntimeConfig,
     fork_digest: fork_digest,
     next_fork_version: next_fork_version,
     next_fork_epoch: cfg.nextForkEpochAtEpoch(epoch))
+
+func getDiscoveryForkID*(cfg: RuntimeConfig,
+                   epoch: Epoch,
+                   genesis_validators_root: Eth2Digest): ENRForkID =
+  # Until 1 epoch from fork, returns pre-fork value
+  if epoch + 1 >= cfg.ALTAIR_FORK_EPOCH:
+    getENRForkID(cfg, epoch, genesis_validators_root)
+  else:
+    let
+      current_fork_version = cfg.forkVersionAtEpoch(epoch)
+      fork_digest = compute_fork_digest(current_fork_version,
+                                        genesis_validators_root)
+    ENRForkID(
+      fork_digest: fork_digest,
+      next_fork_version: current_fork_version,
+      next_fork_epoch: FAR_FUTURE_EPOCH)
