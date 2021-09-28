@@ -155,6 +155,8 @@ func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
       assign(tgt.hbsPhase0, src.hbsPhase0):
     elif tgt.beaconStateFork == forkAltair:
       assign(tgt.hbsAltair, src.hbsAltair):
+    elif tgt.beaconStateFork == forkMerge:
+      assign(tgt.hbsMerge,  src.hbsMerge):
     else:
       doAssert false
   else:
@@ -246,6 +248,9 @@ proc get_attesting_indices*(state: ForkedHashedBeaconState;
       idxBuf.add vidx
   elif state.beaconStateFork == forkAltair:
     for vidx in state.hbsAltair.data.get_attesting_indices(data, bits, cache):
+      idxBuf.add vidx
+  elif state.beaconStateFork == forkMerge:
+    for vidx in state.hbsMerge.data.get_attesting_indices(data, bits, cache):
       idxBuf.add vidx
   else:
     doAssert false
@@ -374,23 +379,29 @@ chronicles.formatIt ForkedSignedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedTrustedSignedBeaconBlock: it.shortLog
 
 proc forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
-  # TODO MERGE_FORK_EPOCH
+  doAssert cfg.ALTAIR_FORK_EPOCH <= cfg.MERGE_FORK_EPOCH
   if epoch < cfg.ALTAIR_FORK_EPOCH:
     genesisFork(cfg)
-  else:
+  elif epoch < cfg.MERGE_FORK_EPOCH:
     altairFork(cfg)
+  else:
+    mergeFork(cfg)
 
 proc forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
-  # TODO MERGE_FORK_EPOCH
+  doAssert cfg.ALTAIR_FORK_EPOCH <= cfg.MERGE_FORK_EPOCH
   if epoch < cfg.ALTAIR_FORK_EPOCH:
     cfg.GENESIS_FORK_VERSION
-  else:
+  elif epoch < cfg.MERGE_FORK_EPOCH:
     cfg.ALTAIR_FORK_VERSION
+  else:
+    cfg.MERGE_FORK_VERSION
 
 proc nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
-  # TODO MERGE_FORK_EPOCH
+  doAssert cfg.ALTAIR_FORK_EPOCH <= cfg.MERGE_FORK_EPOCH
   if epoch < cfg.ALTAIR_FORK_EPOCH:
     cfg.ALTAIR_FORK_EPOCH
+  elif epoch < cfg.MERGE_FORK_EPOCH:
+    cfg.MERGE_FORK_EPOCH
   else:
     FAR_FUTURE_EPOCH
 

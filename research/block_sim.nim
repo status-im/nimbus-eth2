@@ -22,7 +22,7 @@ import
   ../tests/testblockutil,
   ../beacon_chain/spec/[
     beaconstate, forks, helpers, signatures, state_transition],
-  ../beacon_chain/spec/datatypes/[phase0, altair],
+  ../beacon_chain/spec/datatypes/[phase0, altair, merge],
   ../beacon_chain/[beacon_node_types, beacon_chain_db, beacon_clock],
   ../beacon_chain/eth1/eth1_monitor,
   ../beacon_chain/validators/validator_pool,
@@ -73,6 +73,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     cfg = defaultRuntimeConfig
 
   cfg.ALTAIR_FORK_EPOCH = 96.Slot.epoch
+  cfg.MERGE_FORK_EPOCH = 160.Slot.epoch
 
   echo "Starting simulation..."
 
@@ -238,7 +239,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       sync_aggregate =
         when T is phase0.SignedBeaconBlock:
           SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
-        elif T is altair.SignedBeaconBlock:
+        elif T is altair.SignedBeaconBlock or T is merge.SignedBeaconBlock:
           syncCommitteePool[].produceSyncAggregate(dag.head.root)
         else:
           static: doAssert false
@@ -247,6 +248,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           addr stateData.data.hbsPhase0
         elif T is altair.SignedBeaconBlock:
           addr stateData.data.hbsAltair
+        elif T is merge.SignedBeaconBlock:
+          addr stateData.data.hbsMerge
         else:
           static: doAssert false
       message = makeBeaconBlock(
@@ -328,6 +331,26 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         dag.pruneStateCachesDAG()
         attPool.prune()
 
+  proc proposeMergeBlock(slot: Slot) =
+    if rand(r, 1.0) > blockRatio:
+      return
+
+    dag.withState(tmpState[], dag.head.atSlot(slot)):
+      let
+        newBlock = getNewBlock[merge.SignedBeaconBlock](stateData, slot, cache)
+        added = dag.addRawBlock(quarantine, newBlock) do (
+            blckRef: BlockRef, signedBlock: merge.TrustedSignedBeaconBlock,
+            epochRef: EpochRef):
+          # Callback add to fork choice if valid
+          attPool.addForkChoice(
+            epochRef, blckRef, signedBlock.message, blckRef.slot)
+
+      blck() = added[]
+      dag.updateHead(added[], quarantine)
+      if dag.needStateCachesAndForkChoicePruning():
+        dag.pruneStateCachesDAG()
+        attPool.prune()
+
   var
     lastEth1BlockAt = genesisTime
     eth1BlockNum = 1000
@@ -371,8 +394,10 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       withTimer(timers[t]):
         if slot.epoch < dag.cfg.ALTAIR_FORK_EPOCH:
           proposePhase0Block(slot)
-        else:
+        elif slot.epoch < dag.cfg.MERGE_FORK_EPOCH:
           proposeAltairBlock(slot)
+        else:
+          proposeMergeBlock(slot)
     if attesterRatio > 0.0:
       withTimer(timers[tAttest]):
         handleAttestations(slot)

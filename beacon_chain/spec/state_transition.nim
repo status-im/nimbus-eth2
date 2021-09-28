@@ -126,8 +126,9 @@ func noRollback*() =
   trace "Skipping rollback of broken state"
 
 type
-  RollbackHashedProc* = proc(state: var phase0.HashedBeaconState) {.gcsafe, raises: [Defect].}
+  RollbackHashedProc* =       proc(state: var phase0.HashedBeaconState) {.gcsafe, raises: [Defect].}
   RollbackAltairHashedProc* = proc(state: var altair.HashedBeaconState) {.gcsafe, raises: [Defect].}
+  RollbackMergeHashedProc* =  proc(state: var merge.HashedBeaconState)  {.gcsafe, raises: [Defect].}
 
 # Hashed-state transition functions
 # ---------------------------------------------------------------
@@ -186,6 +187,9 @@ func noRollback*(state: var phase0.HashedBeaconState) =
 
 func noRollback*(state: var altair.HashedBeaconState) =
   trace "Skipping rollback of broken Altair state"
+
+func noRollback*(state: var merge.HashedBeaconState) =
+  trace "Skipping rollback of broken Merge state"
 
 proc maybeUpgradeStateToAltair(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =

@@ -2142,8 +2142,10 @@ func getRandomSubnetId*(node: Eth2Node): SubnetId =
 func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
   if epoch < node.cfg.ALTAIR_FORK_EPOCH:
     node.forkDigests.phase0
-  else:
+  elif epoch < node.cfg.MERGE_FORK_EPOCH:
     node.forkDigests.altair
+  else:
+    node.forkDigests.merge
 
 proc getWallEpoch(node: Eth2Node): Epoch =
   node.getBeaconTime().slotOrZero.epoch
