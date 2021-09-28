@@ -149,3 +149,60 @@ suite "Eth2 specific discovery tests":
 
     await node1.closeWait()
     await node2.closeWait()
+
+suite "Fork id compatibility test":
+  test "Digest check":
+    check false == isCompatibleForkId(
+      ENRForkID(
+        fork_digest: ForkDigest([byte 0, 1, 2, 3]),
+        next_fork_version: Version([byte 0, 0, 0, 0]),
+        next_fork_epoch: Epoch(0)),
+      ENRForkID(
+        fork_digest: ForkDigest([byte 9, 9, 9, 9]),
+        next_fork_version: Version([byte 0, 0, 0, 0]),
+        next_fork_epoch: Epoch(0)))
+
+    check true == isCompatibleForkId(
+      ENRForkID(
+        fork_digest: ForkDigest([byte 0, 1, 2, 3]),
+        next_fork_version: Version([byte 0, 0, 0, 0]),
+        next_fork_epoch: Epoch(0)),
+      ENRForkID(
+        fork_digest: ForkDigest([byte 0, 1, 2, 3]),
+        next_fork_version: Version([byte 0, 0, 0, 0]),
+        next_fork_epoch: Epoch(0)))
+
+  test "Fork check":
+    # Future fork should work
+    check true == isCompatibleForkId(
+      ENRForkID(
+        fork_digest: ForkDigest([byte 0, 1, 2, 3]),
+        next_fork_version: Version([byte 0, 0, 0, 0]),
+        next_fork_epoch: Epoch(0)),
+      ENRForkID(
+        fork_digest: ForkDigest([byte 0, 1, 2, 3]),
+        next_fork_version: Version([byte 2, 2, 2, 2]),
+        next_fork_epoch: Epoch(2)))
+
+    # Past fork should fail
+    check false == isCompatibleForkId(
+      ENRForkID(
+        fork_digest: ForkDigest([byte 0, 1, 2, 3]),
+        next_fork_version: Version([byte 0, 0, 0, 1]),
+        next_fork_epoch: Epoch(0)),
+      ENRForkID(
+        fork_digest: ForkDigest([byte 0, 1, 2, 3]),
+        next_fork_version: Version([byte 0, 0, 0, 0]),
+        next_fork_epoch: Epoch(0)))
+
+  test "Next fork epoch check":
+    # Same fork should check next_fork_epoch
+    check false == isCompatibleForkId(
+      ENRForkID(
+        fork_digest: ForkDigest([byte 0, 1, 2, 3]),
+        next_fork_version: Version([byte 0, 0, 0, 0]),
+        next_fork_epoch: Epoch(0)),
+      ENRForkID(
+        fork_digest: ForkDigest([byte 0, 1, 2, 3]),
+        next_fork_version: Version([byte 0, 0, 0, 0]),
+        next_fork_epoch: Epoch(2)))
