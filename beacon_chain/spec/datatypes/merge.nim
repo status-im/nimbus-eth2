@@ -79,6 +79,13 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/merge/fork-choice.md#powblock
+  PowBlock* = object
+    block_hash*: Eth2Digest
+    parent_hash*: Eth2Digest
+    total_difficulty*: Eth2Digest   # uint256
+    difficulty*: Eth2Digest         # uint256
+
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning

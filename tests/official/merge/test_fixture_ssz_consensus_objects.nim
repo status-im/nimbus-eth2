@@ -127,6 +127,7 @@ suite "Ethereum Foundation - Merge - SSZ consensus objects " & preset():
           of "LightClientSnapshot": checkSSZ(LightClientSnapshot, path, hash)
           of "LightClientUpdate": checkSSZ(LightClientUpdate, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
+          of "PowBlock": checkSSZ(PowBlock, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
             checkSSZ(SignedAggregateAndProof, path, hash)
