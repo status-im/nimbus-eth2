@@ -52,10 +52,12 @@ proc mockBlock*(
   ## TODO don't do this gradual construction, for exception safety
   ## Mock a BeaconBlock for the specific slot
 
-  var cache = StateCache()
-  var rewards = RewardInfo()
-  var tmpState = assignClone(state)
-  doAssert process_slots(cfg, tmpState[], slot, cache, rewards, flags = {})
+  var 
+    cache = StateCache()
+    tmpState = assignClone(state)
+  if getStateField(state, slot) != slot:
+    var rewards = RewardInfo()
+    doAssert process_slots(cfg, tmpState[], slot, cache, rewards, flags = {})
   
   var previous_block_header = getStateField(tmpState[], latest_block_header)
   if previous_block_header.state_root == ZERO_HASH:
