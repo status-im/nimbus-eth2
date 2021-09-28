@@ -268,7 +268,7 @@ func get_beacon_committee*(
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee_len*(
     state: SomeBeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): uint64 =
