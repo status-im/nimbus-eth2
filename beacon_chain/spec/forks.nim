@@ -135,16 +135,16 @@ template init*(T: type ForkedTrustedSignedBeaconBlock, blck: merge.TrustedSigned
 
 # State-related functionality based on ForkedHashedBeaconState instead of HashedBeaconState
 
-template withState*(fhbs: ForkedHashedBeaconState, body: untyped): untyped =
-  case fhbs.beaconStateFork
+template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
+  case x.beaconStateFork
   of forkPhase0:
-    template state: untyped {.inject.} = fhbs.hbsPhase0
+    template state: untyped {.inject.} = x.hbsPhase0
     body
   of forkAltair:
-    template state: untyped {.inject.} = fhbs.hbsAltair
+    template state: untyped {.inject.} = x.hbsAltair
     body
   of forkMerge:
-    template state: untyped {.inject.} = fhbs.hbsMerge
+    template state: untyped {.inject.} = x.hbsMerge
     body
 
 # Dispatch functions
@@ -167,20 +167,16 @@ template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
   #   for index, validator in getStateField(stateData.data, validators).pairs():
   # ```
   # Without `unsafeAddr`, the `validators` list would be copied to a temporary variable.
-  withState(x):
-    (unsafeAddr state.data.y)[]
+  (case x.beaconStateFork
+  of forkPhase0: unsafeAddr x.hbsPhase0.data.y
+  of forkAltair: unsafeAddr x.hbsAltair.data.y
+  of forkMerge: unsafeAddr x.hbsMerge.data.y)[]
 
 func getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
-  withState(x):
-    state.root
+  withState(x): state.root
 
 func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
-  withState(x):
-    state.root = root
-
-func hash_tree_root*(x: ForkedHashedBeaconState): Eth2Digest =
-  withState(x):
-    hash_tree_root(state)
+  withState(x): state.root = root
 
 func get_active_validator_indices_len*(
     state: ForkedHashedBeaconState; epoch: Epoch): uint64 =
@@ -273,9 +269,9 @@ proc check_voluntary_exit*(
 # Derived utilities
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_current_epoch
-func get_current_epoch*(stateData: ForkedHashedBeaconState): Epoch =
+func get_current_epoch*(x: ForkedHashedBeaconState): Epoch =
   ## Return the current epoch.
-  getStateField(stateData, slot).epoch
+  withState(x): state.data.slot.epoch
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(stateData: ForkedHashedBeaconState): Epoch =
@@ -337,16 +333,15 @@ template withBlck*(x: ForkedBeaconBlock | ForkedSignedBeaconBlock | ForkedTruste
     template blck: untyped {.inject.} = x.mergeBlock
     body
 
-func hash_tree_root*(x: ForkedBeaconBlock): Eth2Digest =
-  withBlck(x):
-    hash_tree_root(blck)
-
 func proposer_index*(x: ForkedBeaconBlock): uint64 =
-  withBlck(x):
-    blck.proposer_index
+  withBlck(x): blck.proposer_index
 
 template getForkedBlockField*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock, y: untyped): untyped =
-  withBlck(x): (unsafeAddr blck.message.y)[] # unsafeAddr avoids copy
+  # unsafeAddr avoids a copy of the field in some cases
+  (case x.kind
+  of BeaconBlockFork.Phase0: unsafeAddr x.phase0Block.message.y
+  of BeaconBlockFork.Altair: unsafeAddr x.altairBlock.message.y
+  of BeaconBlockFork.Merge: unsafeAddr x.mergeBlock.message.y)[]
 
 template signature*(x: ForkedSignedBeaconBlock): ValidatorSig =
   withBlck(x): blck.signature
@@ -358,7 +353,7 @@ template root*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): Eth
   withBlck(x): blck.root
 
 template slot*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): Slot =
-  getForkedBlockField(x, slot)
+  withBlck(x): blck.message.slot
 
 template shortLog*(x: ForkedBeaconBlock): auto =
   withBlck(x): shortLog(blck)
