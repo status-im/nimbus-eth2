@@ -35,7 +35,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
               err_name = exc.name, err_msg = exc.msg
         return
 
-    let blockRoot = hash_tree_root(beaconBlock)
+    let blockRoot = withBlck(beaconBlock): hash_tree_root(blck)
     # TODO: signing_root is recomputed in signBlockProposal just after
     let signing_root = compute_block_root(fork, genesisRoot, slot,
                                           blockRoot)
