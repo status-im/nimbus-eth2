@@ -12,10 +12,11 @@ import
   chronicles,
   stew/[assign2, results],
   ../extras,
-  ../spec/[beaconstate, helpers, state_transition_block, validator],
+  ../spec/[
+    beaconstate, eth2_merkleization, helpers, state_transition_block, validator],
   ./datatypes/[phase0, altair, merge]
 
-export extras, phase0, altair
+export extras, phase0, altair, eth2_merkleization
 
 type
   BeaconStateFork* = enum
@@ -335,6 +336,9 @@ template withBlck*(x: ForkedBeaconBlock | ForkedSignedBeaconBlock | ForkedTruste
 
 func proposer_index*(x: ForkedBeaconBlock): uint64 =
   withBlck(x): blck.proposer_index
+
+func hash_tree_root*(x: ForkedBeaconBlock): Eth2Digest =
+  withBlck(x): hash_tree_root(blck)
 
 template getForkedBlockField*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock, y: untyped): untyped =
   # unsafeAddr avoids a copy of the field in some cases
