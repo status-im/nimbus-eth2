@@ -941,7 +941,7 @@ proc queryRandom*(
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
 
-      for i in 0..<SYNC_COMMITTEE_SUBNET_COUNT:
+      for i in allSyncCommittees():
         if wantedSyncnets[i] and syncnetsNode[i]:
           score += 10 # connecting to the right syncnet is urgent
 

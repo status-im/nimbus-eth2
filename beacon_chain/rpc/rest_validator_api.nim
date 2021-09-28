@@ -468,8 +468,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400,
                                            InvalidSubCommitteeIndexValueError,
                                            $res.error())
-        let value = res.get()
-        if value >= SYNC_COMMITTEE_SUBNET_COUNT:
+        let value = res.get().validateSyncCommitteeIndexOr:
           return RestApiResponse.jsonError(Http400,
                                            InvalidSubCommitteeIndexValueError,
                                            "subcommittee_index exceeds " &
@@ -494,7 +493,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     var contribution = SyncCommitteeContribution()
     let res = node.syncCommitteeMsgPool[].produceContribution(
-      qslot, qroot, SyncCommitteeIndex(qindex), contribution)
+      qslot, qroot, qindex, contribution)
     if not(res):
       return RestApiResponse.jsonError(Http400, ProduceContributionError)
     return RestApiResponse.jsonResponse(contribution)

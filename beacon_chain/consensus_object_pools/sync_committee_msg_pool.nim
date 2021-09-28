@@ -171,13 +171,13 @@ proc produceSyncAggregateAux(
     initialized = false
     startTime = Moment.now
 
-  for subnetId in 0 ..< SYNC_COMMITTEE_SUBNET_COUNT:
+  for subnetId in allSyncCommittees():
     if bestContributions.subnets[subnetId].totalParticipants == 0:
       continue
 
     for pos, value in bestContributions.subnets[subnetId].participationBits:
       if value:
-        let globalPos = subnetId * SYNC_SUBCOMMITTEE_SIZE + pos
+        let globalPos = subnetId.asInt * SYNC_SUBCOMMITTEE_SIZE + pos
         result.sync_committee_bits.setBit globalPos
 
     if not initialized:
