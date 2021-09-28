@@ -91,9 +91,11 @@ type
     keyValues: KvStoreRef # Random stuff using DbKeyKind - suitable for small values mainly!
     blocks: KvStoreRef # BlockRoot -> phase0.TrustedBeaconBlock
     altairBlocks: KvStoreRef # BlockRoot -> altair.TrustedBeaconBlock
+    mergeBlocks: KvStoreRef # BlockRoot -> merge.TrustedBeaconBlock
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
     statesNoVal: KvStoreRef # StateRoot -> BeaconStateNoImmutableValidators
     altairStatesNoVal: KvStoreRef # StateRoot -> AltairBeaconStateNoImmutableValidators
+    mergeStatesNoVal: KvStoreRef # StateRoot -> MergeBeaconStateNoImmutableValidators
     stateDiffs: KvStoreRef ##\
       ## StateRoot -> BeaconStateDiff
       ## Instead of storing full BeaconStates, one can store only the diff from
@@ -303,9 +305,11 @@ proc new*(T: type BeaconChainDB,
     keyValues = kvStore db.openKvStore("key_values", true).expectDb()
     blocks = kvStore db.openKvStore("blocks").expectDb()
     altairBlocks = kvStore db.openKvStore("altair_blocks").expectDb()
+    mergeBlocks = kvStore db.openKvStore("merge_blocks").expectDb()
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
     statesNoVal = kvStore db.openKvStore("state_no_validators2").expectDb()
     altairStatesNoVal = kvStore db.openKvStore("altair_state_no_validators").expectDb()
+    mergeStatesNoVal = kvStore db.openKvStore("merge_state_no_validators").expectDb()
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
 
@@ -340,9 +344,11 @@ proc new*(T: type BeaconChainDB,
     keyValues: keyValues,
     blocks: blocks,
     altair_blocks: altair_blocks,
+    merge_blocks: merge_blocks,
     stateRoots: stateRoots,
     statesNoVal: statesNoVal,
     altairStatesNoVal: altairStatesNoVal,
+    mergeStatesNoVal: mergeStatesNoVal,
     stateDiffs: stateDiffs,
     summaries: summaries,
   )
@@ -453,9 +459,11 @@ proc close*(db: BeaconchainDB) =
   # Close things in reverse order
   discard db.summaries.close()
   discard db.stateDiffs.close()
+  discard db.mergeStatesNoVal.close()
   discard db.altairStatesNoVal.close()
   discard db.statesNoVal.close()
   discard db.stateRoots.close()
+  discard db.mergeBlocks.close()
   discard db.altairBlocks.close()
   discard db.blocks.close()
   discard db.keyValues.close()
@@ -486,7 +494,8 @@ proc putBlock*(db: BeaconChainDB, value: altair.TrustedSignedBeaconBlock) =
   db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
 proc putBlock*(db: BeaconChainDB, value: merge.TrustedSignedBeaconBlock) =
-  doAssert false # TODO Deliberate -- put impl in separately
+  db.mergeBlocks.putSnappySSZ(value.root.data, value)
+  db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
@@ -511,8 +520,15 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: altair.BeaconState) =
     key.data,
     isomorphicCast[AltairBeaconStateNoImmutableValidators](value))
 
+proc putState*(db: BeaconChainDB, key: Eth2Digest, value: merge.BeaconState) =
+  db.updateImmutableValidators(value.validators.asSeq())
+  db.mergeStatesNoVal.putSnappySSZ(
+    key.data,
+    isomorphicCast[MergeBeaconStateNoImmutableValidators](value))
+
 proc putState*(
-    db: BeaconChainDB, value: phase0.BeaconState | altair.BeaconState) =
+    db: BeaconChainDB,
+    value: phase0.BeaconState | altair.BeaconState | merge.BeaconState) =
   db.putState(hash_tree_root(value), value)
 
 # For testing rollback
@@ -521,6 +537,9 @@ proc putCorruptPhase0State*(db: BeaconChainDB, key: Eth2Digest) =
 
 proc putCorruptAltairState*(db: BeaconChainDB, key: Eth2Digest) =
   db.altairStatesNoVal.putSnappySSZ(key.data, Validator())
+
+proc putCorruptMergeState*(db: BeaconChainDB, key: Eth2Digest) =
+  db.mergeStatesNoVal.putSnappySSZ(key.data, Validator())
 
 func stateRootKey(root: Eth2Digest, slot: Slot): array[40, byte] =
   var ret: array[40, byte]
@@ -540,11 +559,13 @@ proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) 
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.blocks.del(key.data).expectDb()
   db.altairBlocks.del(key.data).expectDb()
+  db.mergeBlocks.del(key.data).expectDb()
   db.summaries.del(key.data).expectDb()
 
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
   db.statesNoVal.del(key.data).expectDb()
   db.altairStatesNoVal.del(key.data).expectDb()
+  db.mergeStatesNoVal.del(key.data).expectDb()
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   db.stateRoots.del(stateRootKey(root, slot)).expectDb()
@@ -590,6 +611,16 @@ proc getAltairBlock*(db: BeaconChainDB, key: Eth2Digest):
   # We only store blocks that we trust in the database
   result.ok(default(altair.TrustedSignedBeaconBlock))
   if db.altairBlocks.getSnappySSZ(key.data, result.get) == GetResult.found:
+    # set root after deserializing (so it doesn't get zeroed)
+    result.get().root = key
+  else:
+    result.err()
+
+proc getMergeBlock*(db: BeaconChainDB, key: Eth2Digest):
+    Opt[merge.TrustedSignedBeaconBlock] =
+  # We only store blocks that we trust in the database
+  result.ok(default(merge.TrustedSignedBeaconBlock))
+  if db.mergeBlocks.getSnappySSZ(key.data, result.get) == GetResult.found:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
   else:
@@ -679,6 +710,48 @@ proc getAltairStateOnlyMutableValidators(
     rollback()
     false
 
+proc getMergeStateOnlyMutableValidators(
+    immutableValidators: openArray[ImmutableValidatorData2],
+    store: KvStoreRef, key: openArray[byte], output: var merge.BeaconState,
+    rollback: RollbackProc): bool =
+  ## Load state into `output` - BeaconState is large so we want to avoid
+  ## re-allocating it if possible
+  ## Return `true` iff the entry was found in the database and `output` was
+  ## overwritten.
+  ## Rollback will be called only if output was partially written - if it was
+  ## not found at all, rollback will not be called
+  # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
+  #      https://github.com/nim-lang/Nim/issues/14126
+  # TODO RVO is inefficient for large objects:
+  #      https://github.com/nim-lang/Nim/issues/13879
+
+  case store.getSnappySSZ(
+    key, isomorphicCast[MergeBeaconStateNoImmutableValidators](output))
+  of GetResult.found:
+    let numValidators = output.validators.len
+    doAssert immutableValidators.len >= numValidators
+
+    for i in 0 ..< numValidators:
+      let
+        # Bypass hash cache invalidation
+        dstValidator = addr output.validators.data[i]
+
+      assign(
+        dstValidator.pubkey,
+        immutableValidators[i].pubkey.loadValid().toPubKey())
+      assign(
+        dstValidator.withdrawal_credentials,
+        immutableValidators[i].withdrawal_credentials)
+
+    output.validators.resetCache()
+
+    true
+  of GetResult.notFound:
+    false
+  of GetResult.corrupted:
+    rollback()
+    false
+
 proc getState(
     db: BeaconChainDBV0,
     immutableValidators: openArray[ImmutableValidatorData2],
@@ -743,6 +816,22 @@ proc getAltairState*(
   getAltairStateOnlyMutableValidators(
     db.immutableValidators, db.altairStatesNoVal, key.data, output, rollback)
 
+proc getMergeState*(
+    db: BeaconChainDB, key: Eth2Digest, output: var merge.BeaconState,
+    rollback: RollbackProc): bool =
+  ## Load state into `output` - BeaconState is large so we want to avoid
+  ## re-allocating it if possible
+  ## Return `true` iff the entry was found in the database and `output` was
+  ## overwritten.
+  ## Rollback will be called only if output was partially written - if it was
+  ## not found at all, rollback will not be called
+  # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
+  #      https://github.com/nim-lang/Nim/issues/14126
+  # TODO RVO is inefficient for large objects:
+  #      https://github.com/nim-lang/Nim/issues/13879
+  getMergeStateOnlyMutableValidators(
+    db.immutableValidators, db.mergeStatesNoVal, key.data, output, rollback)
+
 proc getStateRoot(db: BeaconChainDBV0,
                    root: Eth2Digest,
                    slot: Slot): Opt[Eth2Digest] =
@@ -801,8 +890,12 @@ proc containsBlockPhase0*(db: BeaconChainDB, key: Eth2Digest): bool =
 proc containsBlockAltair*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.altairBlocks.contains(key.data).expectDb()
 
+proc containsBlockMerge*(db: BeaconChainDB, key: Eth2Digest): bool =
+  db.mergeBlocks.contains(key.data).expectDb()
+
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.containsBlockAltair(key) or db.containsBlockPhase0(key)
+  db.containsBlockMerge(key) or db.containsBlockAltair(key) or
+    db.containsBlockPhase0(key)
 
 proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
   let sk = subkey(BeaconStateNoImmutableValidators, key)
@@ -811,6 +904,7 @@ proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
     db.backend.contains(subkey(phase0.BeaconState, key)).expectDb()
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest, legacy: bool = true): bool =
+  db.mergeStatesNoVal.contains(key.data).expectDb or
   db.altairStatesNoVal.contains(key.data).expectDb or
   db.statesNoVal.contains(key.data).expectDb or
     (legacy and db.v0.containsState(key))

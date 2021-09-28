@@ -187,7 +187,7 @@ func noRollback*(state: var phase0.HashedBeaconState) =
 func noRollback*(state: var altair.HashedBeaconState) =
   trace "Skipping rollback of broken Altair state"
 
-proc maybeUpgradeStateToAltair*(
+proc maybeUpgradeStateToAltair(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
@@ -198,6 +198,23 @@ proc maybeUpgradeStateToAltair*(
       beaconStateFork: forkAltair,
       hbsAltair: altair.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
+
+func maybeUpgradeStateToMerge(
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
+  # Both process_slots() and state_transition_block() call this, so only run it
+  # once by checking for existing fork.
+  if getStateField(state, slot).epoch == cfg.MERGE_FORK_EPOCH and
+      state.beaconStateFork == forkAltair:
+    var newState = upgrade_to_merge(cfg, state.hbsAltair.data)
+    state = (ref ForkedHashedBeaconState)(
+      beaconStateFork: forkMerge,
+      hbsMerge: merge.HashedBeaconState(
+        root: hash_tree_root(newState[]), data: newState[]))[]
+
+proc maybeUpgradeState*(
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
+  cfg.maybeUpgradeStateToAltair(state)
+  cfg.maybeUpgradeStateToMerge(state)
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
@@ -222,7 +239,7 @@ proc process_slots*(
         # block after
         state.root = hash_tree_root(state.data)
 
-    maybeUpgradeStateToAltair(cfg, state)
+    maybeUpgradeState(cfg, state)
 
   true
 

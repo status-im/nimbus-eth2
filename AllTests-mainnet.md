@@ -23,6 +23,10 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + sanity check Altair blocks [Preset: mainnet]                                               OK
 + sanity check Altair states [Preset: mainnet]                                               OK
 + sanity check Altair states, reusing buffers [Preset: mainnet]                              OK
++ sanity check Merge and cross-fork getState rollback [Preset: mainnet]                      OK
++ sanity check Merge blocks [Preset: mainnet]                                                OK
++ sanity check Merge states [Preset: mainnet]                                                OK
++ sanity check Merge states, reusing buffers [Preset: mainnet]                               OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
 + sanity check phase 0 getState rollback [Preset: mainnet]                                   OK
@@ -30,7 +34,7 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
+OK: 16/16 Fail: 0/16 Skip: 0/16
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
@@ -102,6 +106,13 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + fork_choice - testing with votes                                                           OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
+## Fork id compatibility test
+```diff
++ Digest check                                                                               OK
++ Fork check                                                                                 OK
++ Next fork epoch check                                                                      OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Gossip validation  [Preset: mainnet]
 ```diff
 + Any committee index is valid                                                               OK
@@ -360,4 +371,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 36/48 Fail: 0/48 Skip: 12/48
 
 ---TOTAL---
-OK: 194/206 Fail: 0/206 Skip: 12/206
+OK: 201/213 Fail: 0/213 Skip: 12/213
