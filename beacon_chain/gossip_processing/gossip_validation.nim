@@ -774,10 +774,10 @@ proc validateSyncCommitteeMessage*(
   # Note this validation implies the validator is part of the broader
   # current sync committee along with the correct subcommittee.
   # This check also ensures that the validator index is in range
-  let positionInSubcommittee = dag.getSubcommitteePosition(
+  let positionsInSubcommittee = dag.getSubcommitteePositions(
     msg.slot + 1, syncCommitteeIdx, msg.validator_index)
 
-  if positionInSubcommittee.isNone:
+  if positionsInSubcommittee.len == 0:
     return errReject(
       "SyncCommitteeMessage: originator not part of sync committee")
 
@@ -824,12 +824,13 @@ proc validateSyncCommitteeMessage*(
                                                    cookedSignature.get):
       return errReject("SyncCommitteeMessage: signature fails to verify")
 
-    syncCommitteeMsgPool[].addSyncCommitteeMsg(
-      msg.slot,
-      msg.beacon_block_root,
-      cookedSignature.get,
-      syncCommitteeIdx,
-      positionInSubcommittee.get)
+    for positionInSubcommittee in positionsInSubcommittee:
+      syncCommitteeMsgPool[].addSyncCommitteeMsg(
+        msg.slot,
+        msg.beacon_block_root,
+        cookedSignature.get,
+        syncCommitteeIdx,
+        positionInSubcommittee)
 
   ok()
 
