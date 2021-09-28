@@ -179,6 +179,10 @@ func getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
 func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
   withState(x): state.root = root
 
+func hash_tree_root*(x: ForkedHashedBeaconState): Eth2Digest =
+  # This is a bit of a hack because we drill into data here, unlike other places
+  withState(x): hash_tree_root(state.data)
+
 func get_active_validator_indices_len*(
     state: ForkedHashedBeaconState; epoch: Epoch): uint64 =
   withState(state):
