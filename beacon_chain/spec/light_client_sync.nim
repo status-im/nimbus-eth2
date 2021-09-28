@@ -4,7 +4,7 @@ import
   datatypes/altair,
   helpers
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/sync-protocol.md#validate_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/sync-protocol.md#validate_light_client_update
 proc validate_light_client_update*(snapshot: LightClientSnapshot,
                                    update: LightClientUpdate,
                                    genesis_validators_root: Eth2Digest): bool =
