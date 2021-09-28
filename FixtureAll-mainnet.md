@@ -139,6 +139,10 @@ FixtureAll-mainnet
 + [Invalid] empty_participants_zeroes_sig                                                    OK
 + [Invalid] epochs_are_different                                                             OK
 + [Invalid] future_target_epoch                                                              OK
++ [Invalid] gaslimit_lower_minus_regular_payload                                             OK
++ [Invalid] gaslimit_minimum_minus_regular_payload                                           OK
++ [Invalid] gaslimit_upper_plus_regular_payload                                              OK
++ [Invalid] gasused_gaslimit_plus_regular_payload                                            OK
 + [Invalid] headers_are_same_sigs_are_different                                              OK
 + [Invalid] headers_are_same_sigs_are_same                                                   OK
 + [Invalid] incorrect_head_after_epoch_delay                                                 OK
@@ -319,6 +323,12 @@ FixtureAll-mainnet
 + [Valid]   correct_min_inclusion_delay                                                      OK
 + [Valid]   correct_sqrt_epoch_delay                                                         OK
 + [Valid]   default_exit_epoch_subsequent_exit                                               OK
++ [Valid]   gaslimit_lower_regular_payload                                                   OK
++ [Valid]   gaslimit_max_first_payload                                                       OK
++ [Valid]   gaslimit_minimum_regular_payload                                                 OK
++ [Valid]   gaslimit_upper_regular_payload                                                   OK
++ [Valid]   gaslimit_zero_first_payload                                                      OK
++ [Valid]   gasused_gaslimit_regular_payload                                                 OK
 + [Valid]   incorrect_head_and_target_epoch_delay                                            OK
 + [Valid]   incorrect_head_and_target_min_inclusion_delay                                    OK
 + [Valid]   incorrect_head_and_target_sqrt_epoch_delay                                       OK
@@ -378,7 +388,7 @@ FixtureAll-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 375/375 Fail: 0/375 Skip: 0/375
+OK: 385/385 Fail: 0/385 Skip: 0/385
 ## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -645,6 +655,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    LightClientSnapshot                                                           OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    PendingAttestation                                                            OK
++   Testing    PowBlock                                                                      OK
 +   Testing    ProposerSlashing                                                              OK
 +   Testing    SignedAggregateAndProof                                                       OK
 +   Testing    SignedBeaconBlock                                                             OK
@@ -660,7 +671,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 38/38 Fail: 0/38 Skip: 0/38
+OK: 39/39 Fail: 0/39 Skip: 0/39
 ## Ethereum Foundation - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -762,4 +773,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 628/628 Fail: 0/628 Skip: 0/628
+OK: 639/639 Fail: 0/639 Skip: 0/639
