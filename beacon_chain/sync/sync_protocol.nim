@@ -10,7 +10,7 @@
 import
   options, tables, sets, macros,
   chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0, altair, merge],
   ../spec/[helpers, forks, network],
   ".."/[beacon_node_types, beacon_clock],
   ../networking/eth2_network,
@@ -75,6 +75,12 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
       return err(res.error)
   elif contextBytes == peer.network.forkDigests.altair:
     let res = await readChunkPayload(conn, peer, altair.SignedBeaconBlock)
+    if res.isOk:
+      return ok ForkedSignedBeaconBlock.init(res.get)
+    else:
+      return err(res.error)
+  elif contextBytes == peer.network.forkDigests.merge:
+    let res = await readChunkPayload(conn, peer, merge.SignedBeaconBlock)
     if res.isOk:
       return ok ForkedSignedBeaconBlock.init(res.get)
     else:
