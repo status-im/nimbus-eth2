@@ -763,6 +763,8 @@ func toGaugeValue*(x: uint64 | Epoch | Slot): int64 =
 # TODO where's borrow support when you need it
 func `==`*(a, b: ForkDigest | Version): bool =
   array[4, byte](a) == array[4, byte](b)
+func `<`*(a, b: ForkDigest | Version): bool =
+  uint32.fromBytesBE(array[4, byte](a)) < uint32.fromBytesBE(array[4, byte](b))
 func len*(v: ForkDigest | Version): int = sizeof(v)
 func low*(v: ForkDigest | Version): int = 0
 func high*(v: ForkDigest | Version): int = len(v) - 1

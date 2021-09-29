@@ -1096,9 +1096,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     next_action_wait.set(nextActionWaitTime.toFloatSeconds)
 
   let epoch = slot.epoch
-  if epoch >= node.network.forkId.next_fork_epoch:
-    node.network.updateForkId(
-      node.dag.cfg.getENRForkID(epoch, node.dag.genesisValidatorsRoot))
+  if epoch + 1 >= node.network.forkId.next_fork_epoch:
+    # Update 1 epoch early to block non-fork-ready peers
+    node.network.updateForkId(epoch, node.dag.genesisValidatorsRoot)
 
   node.updateGossipStatus(slot)
 
