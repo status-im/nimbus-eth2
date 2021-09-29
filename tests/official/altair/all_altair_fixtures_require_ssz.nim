@@ -12,6 +12,7 @@
 {.used.}
 
 import
+  ./test_fixture_merkle_single_proof,
   ./test_fixture_ssz_consensus_objects,
   ./test_fixture_sanity_slots,
   ./test_fixture_sanity_blocks,

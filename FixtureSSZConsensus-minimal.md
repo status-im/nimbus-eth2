@@ -383,8 +383,10 @@ FixtureSSZConsensus-minimal
 + [Valid]   sync_committee_with_participating_exited_member                                  OK
 + [Valid]   sync_committee_with_participating_withdrawable_member                            OK
 + [Valid]   valid_signature_future_committee                                                 OK
++ finality_root_merkle_proof                                                                 OK
++ next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 381/381 Fail: 0/381 Skip: 0/381
+OK: 383/383 Fail: 0/383 Skip: 0/383
 ## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -688,4 +690,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 590/590 Fail: 0/590 Skip: 0/590
+OK: 592/592 Fail: 0/592 Skip: 0/592

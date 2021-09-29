@@ -381,14 +381,16 @@ FixtureSSZConsensus-mainnet
 + altair_fork_random_low_balances                                                            OK
 + altair_fork_random_misc_balances                                                           OK
 + altair_fork_random_mismatched_attestations                                                 OK
++ finality_root_merkle_proof                                                                 OK
 + fork_base_state                                                                            OK
 + fork_many_next_epoch                                                                       OK
 + fork_next_epoch                                                                            OK
 + fork_next_epoch_with_block                                                                 OK
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
++ next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 385/385 Fail: 0/385 Skip: 0/385
+OK: 387/387 Fail: 0/387 Skip: 0/387
 ## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -673,4 +675,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 579/579 Fail: 0/579 Skip: 0/579
+OK: 581/581 Fail: 0/581 Skip: 0/581
