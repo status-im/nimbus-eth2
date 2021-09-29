@@ -302,7 +302,7 @@ proc initialize_hashed_beacon_state_from_eth1*(
   phase0.HashedBeaconState(
     data: genesisState[], root: hash_tree_root(genesisState[]))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#genesis-block
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#genesis-block
 func get_initial_beacon_block*(state: phase0.BeaconState):
     phase0.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
@@ -314,7 +314,7 @@ func get_initial_beacon_block*(state: phase0.BeaconState):
   phase0.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_block_root_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: SomeBeaconState,
                              slot: Slot): Eth2Digest =
   ## Return the block root at a recent ``slot``.
@@ -332,7 +332,7 @@ func get_block_root*(state: SomeBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_total_balance
 template get_total_balance(
     state: SomeBeaconState, validator_indices: untyped): Gwei =
   ## Return the combined effective balance of the ``indices``.

@@ -203,7 +203,7 @@ proc sign*(
   else:
     await signWithRemoteValidator(v, signing_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/validator.md#randao-reveal
 func genRandaoReveal*(k: ValidatorPrivKey, fork: Fork,
                       genesis_validators_root: Eth2Digest,
                       slot: Slot): CookedSig =

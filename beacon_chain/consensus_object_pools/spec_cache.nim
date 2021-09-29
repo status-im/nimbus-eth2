@@ -114,7 +114,7 @@ func get_attesting_indices*(epochRef: EpochRef,
   for idx in get_attesting_indices(epochRef, data, bits):
     result.add(idx)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     epochRef: EpochRef,
