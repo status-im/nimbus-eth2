@@ -33,6 +33,7 @@ proc getStateFinalityCheckpoints*(state_id: StateIdent
           ): RestResponse[GetStateFinalityCheckpointsResponse] {.
      rest, endpoint: "/api/eth/v1/beacon/states/{state_id}/finality_checkpoints",
      meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateFinalityCheckpoints
 
 proc getStateValidators*(state_id: StateIdent,
                          id: seq[ValidatorIdent]
@@ -93,6 +94,7 @@ proc getBlockPlain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/api/eth/v1/beacon/blocks/{block_id}",
      accept: "application/octet-stream,application-json;q=0.9",
      meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
 
 proc getBlock*(client: RestClientRef, block_id: BlockIdent,
                restAccept = ""): Future[ForkedSignedBeaconBlock] {.async.} =
