@@ -425,58 +425,40 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       error "Eth1 deposits not available. Skipping block proposal", slot
       return ForkedBlockResult.err("Eth1 deposits not available")
 
+    func restore(v: var ForkedHashedBeaconState) =
+      # TODO address this ugly workaround - there should probably be a
+      #      `state_transition` that takes a `StateData` instead and updates
+      #      the block as well
+      doAssert v.addr == addr proposalStateAddr.data
+      assign(proposalStateAddr[], poolPtr.headState)
+
+    template makeBeaconBlock(kind: untyped): untyped =
+      makeBeaconBlock(
+        node.dag.cfg,
+        stateData.data,
+        validator_index,
+        head.root,
+        randao_reveal,
+        eth1Proposal.vote,
+        graffiti,
+        node.attestationPool[].getAttestationsForBlock(
+          stateData.data.`hbs kind`, cache),
+        eth1Proposal.deposits,
+        node.exitPool[].getProposerSlashingsForBlock(),
+        node.exitPool[].getAttesterSlashingsForBlock(),
+        node.exitPool[].getVoluntaryExitsForBlock(),
+        sync_aggregate,
+        default(ExecutionPayload),
+        restore,
+        cache)
+
     let doPhase0 = slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH
     return if doPhase0:
-      func restore(v: var phase0.HashedBeaconState) =
-        # TODO address this ugly workaround - there should probably be a
-        #      `state_transition` that takes a `StateData` instead and updates
-        #      the block as well
-        doAssert v.addr == addr proposalStateAddr.data.hbsPhase0
-        assign(proposalStateAddr[], poolPtr.headState)
-
-      makeBeaconBlock(
-        node.dag.cfg,
-        stateData.data.hbsPhase0,
-        validator_index,
-        head.root,
-        randao_reveal,
-        eth1Proposal.vote,
-        graffiti,
-        node.attestationPool[].getAttestationsForBlock(
-          stateData.data.hbsPhase0, cache),
-        eth1Proposal.deposits,
-        node.exitPool[].getProposerSlashingsForBlock(),
-        node.exitPool[].getAttesterSlashingsForBlock(),
-        node.exitPool[].getVoluntaryExitsForBlock(),
-        default(ExecutionPayload),
-        restore,
-        cache).map(proc (t: auto): auto = ForkedBeaconBlock.init(t))
+      let sync_aggregate = SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
+      makeBeaconBlock(phase0)
     else:
-      func restore(v: var altair.HashedBeaconState) =
-        # TODO address this ugly workaround - there should probably be a
-        #      `state_transition` that takes a `StateData` instead and updates
-        #      the block as well
-        doAssert v.addr == addr proposalStateAddr.data.hbsAltair
-        assign(proposalStateAddr[], poolPtr.headState)
-
-      makeBeaconBlock(
-        node.dag.cfg,
-        stateData.data.hbsAltair,
-        validator_index,
-        head.root,
-        randao_reveal,
-        eth1Proposal.vote,
-        graffiti,
-        node.attestationPool[].getAttestationsForBlock(
-          stateData.data.hbsAltair, cache),
-        eth1Proposal.deposits,
-        node.exitPool[].getProposerSlashingsForBlock(),
-        node.exitPool[].getAttesterSlashingsForBlock(),
-        node.exitPool[].getVoluntaryExitsForBlock(),
-        node.sync_committee_msg_pool[].produceSyncAggregate(head.root),
-        default(ExecutionPayload),
-        restore,
-        cache).map(proc (t: auto): auto = ForkedBeaconBlock.init(t))
+      let sync_aggregate = node.sync_committee_msg_pool[].produceSyncAggregate(head.root)
+      makeBeaconBlock(altair)
 
 proc proposeSignedBlock*(node: BeaconNode,
                          head: BlockRef,

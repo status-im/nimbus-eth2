@@ -338,7 +338,7 @@ proc state_transition*(
     cfg, state, signedBlock, cache, flags, rollback)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#preparing-for-a-beaconblock
-proc makeBeaconBlock*(
+template partialBeaconBlock(
     cfg: RuntimeConfig,
     state: var phase0.HashedBeaconState,
     proposer_index: ValidatorIndex,
@@ -351,17 +351,9 @@ proc makeBeaconBlock*(
     proposerSlashings: seq[ProposerSlashing],
     attesterSlashings: seq[AttesterSlashing],
     voluntaryExits: seq[SignedVoluntaryExit],
-    executionPayload: ExecutionPayload,
-    rollback: RollbackHashedProc,
-    cache: var StateCache): Result[phase0.BeaconBlock, string] =
-  ## Create a block for the given state. The last block applied to it must be
-  ## the one identified by parent_root and process_slots must be called up to
-  ## the slot for which a block is to be created.
-
-  # To create a block, we'll first apply a partial block to the state, skipping
-  # some validations.
-
-  var blck = phase0.BeaconBlock(
+    sync_aggregate: SyncAggregate,
+    executionPayload: ExecutionPayload): phase0.BeaconBlock =
+  phase0.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
     parent_root: parent_root,
@@ -377,6 +369,35 @@ proc makeBeaconBlock*(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits:
         List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits)))
+
+proc makeBeaconBlock*(
+    cfg: RuntimeConfig,
+    state: var phase0.HashedBeaconState,
+    proposer_index: ValidatorIndex,
+    parent_root: Eth2Digest,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit],
+    proposerSlashings: seq[ProposerSlashing],
+    attesterSlashings: seq[AttesterSlashing],
+    voluntaryExits: seq[SignedVoluntaryExit],
+    sync_aggregate: SyncAggregate,
+    executionPayload: ExecutionPayload,
+    rollback: RollbackHashedProc,
+    cache: var StateCache): Result[phase0.BeaconBlock, string] =
+  ## Create a block for the given state. The last block applied to it must be
+  ## the one identified by parent_root and process_slots must be called up to
+  ## the slot for which a block is to be created.
+
+  # To create a block, we'll first apply a partial block to the state, skipping
+  # some validations.
+
+  var blck = partialBeaconBlock(cfg, state, proposer_index, parent_root, 
+                                randao_reveal, eth1_data, graffiti, attestations, deposits, 
+                                proposerSlashings, attesterSlashings, voluntaryExits,
+                                sync_aggregate, executionPayload)
 
   let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
 
@@ -395,6 +416,39 @@ proc makeBeaconBlock*(
   ok(blck)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#preparing-a-beaconblock
+template partialBeaconBlock(
+    cfg: RuntimeConfig,
+    state: var altair.HashedBeaconState,
+    proposer_index: ValidatorIndex,
+    parent_root: Eth2Digest,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit],
+    proposerSlashings: seq[ProposerSlashing],
+    attesterSlashings: seq[AttesterSlashing],
+    voluntaryExits: seq[SignedVoluntaryExit],
+    sync_aggregate: SyncAggregate,
+    executionPayload: ExecutionPayload): altair.BeaconBlock =
+  altair.BeaconBlock(
+    slot: state.data.slot,
+    proposer_index: proposer_index.uint64,
+    parent_root: parent_root,
+    body: altair.BeaconBlockBody(
+      randao_reveal: randao_reveal,
+      eth1_data: eth1data,
+      graffiti: graffiti,
+      proposer_slashings: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS](
+        proposerSlashings),
+      attester_slashings: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS](
+        attesterSlashings),
+      attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
+      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
+      voluntary_exits:
+        List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits),
+      sync_aggregate: sync_aggregate))
+
 proc makeBeaconBlock*(
     cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,
@@ -419,23 +473,10 @@ proc makeBeaconBlock*(
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.
 
-  var blck = altair.BeaconBlock(
-    slot: state.data.slot,
-    proposer_index: proposer_index.uint64,
-    parent_root: parent_root,
-    body: altair.BeaconBlockBody(
-      randao_reveal: randao_reveal,
-      eth1_data: eth1data,
-      graffiti: graffiti,
-      proposer_slashings: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS](
-        proposerSlashings),
-      attester_slashings: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS](
-        attesterSlashings),
-      attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
-      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits:
-        List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits),
-      sync_aggregate: sync_aggregate))
+  var blck = partialBeaconBlock(cfg, state, proposer_index, parent_root, 
+                                randao_reveal, eth1_data, graffiti, attestations, deposits, 
+                                proposerSlashings, attesterSlashings, voluntaryExits,
+                                sync_aggregate, executionPayload)
 
   let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
 
@@ -452,3 +493,56 @@ proc makeBeaconBlock*(
   state.root = hash_tree_root(state.data)
   blck.state_root = state.root
   ok(blck)
+
+proc makeBeaconBlock*(
+    cfg: RuntimeConfig,
+    state: var ForkedHashedBeaconState,
+    proposer_index: ValidatorIndex,
+    parent_root: Eth2Digest,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit],
+    proposerSlashings: seq[ProposerSlashing],
+    attesterSlashings: seq[AttesterSlashing],
+    voluntaryExits: seq[SignedVoluntaryExit],
+    sync_aggregate: SyncAggregate,
+    executionPayload: ExecutionPayload,
+    rollback: RollbackForkedHashedProc,
+    cache: var StateCache): Result[ForkedBeaconBlock, string] =
+  ## Create a block for the given state. The last block applied to it must be
+  ## the one identified by parent_root and process_slots must be called up to
+  ## the slot for which a block is to be created.
+
+  template makeBeaconBlock(kind: untyped): Result[ForkedBeaconBlock, string] =
+    # To create a block, we'll first apply a partial block to the state, skipping
+    # some validations.
+  
+    var blck = 
+      ForkedBeaconBlock.init(
+        partialBeaconBlock(cfg, state.`hbs kind`, proposer_index, parent_root, 
+                           randao_reveal, eth1_data, graffiti, attestations, deposits, 
+                           proposerSlashings, attesterSlashings, voluntaryExits,
+                           sync_aggregate, executionPayload))
+
+    let res = process_block(cfg, state.`hbs kind`.data, blck.`kind Block`,
+                            {skipBlsValidation}, cache)
+
+    if res.isErr:
+      warn "Unable to apply new block to state",
+        blck = shortLog(blck),
+        slot = state.`hbs kind`.data.slot,
+        eth1_deposit_index = state.`hbs kind`.data.eth1_deposit_index,
+        deposit_root = shortLog(state.`hbs kind`.data.eth1_data.deposit_root),
+        error = res.error
+      rollback(state)
+      return err("Unable to apply new block to state: " & $res.error())
+
+    state.`hbs kind`.root = hash_tree_root(state.`hbs kind`.data)
+    blck.`kind Block`.state_root = state.`hbs kind`.root
+    ok(blck)
+
+  case state.beaconStateFork
+  of forkPhase0: makeBeaconBlock(phase0)
+  of forkAltair, forkMerge: makeBeaconBlock(altair)
