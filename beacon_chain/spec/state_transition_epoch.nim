@@ -971,7 +971,7 @@ proc process_epoch*(
 
   process_inactivity_updates(cfg, state)  # [New in Altair]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#rewards-and-penalties-1
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(
     cfg, state, total_active_balance, unslashed_participating_balances)
 

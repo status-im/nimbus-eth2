@@ -319,7 +319,7 @@ func compute_shuffled_index*(
 
   cur_idx_permuted
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#compute_proposer_index
 func compute_proposer_index(state: SomeBeaconState,
     indices: seq[ValidatorIndex], seed: Eth2Digest): Option[ValidatorIndex] =
   ## Return from ``indices`` a random index sampled by effective balance.
