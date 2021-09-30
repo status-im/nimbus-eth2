@@ -33,7 +33,7 @@ import
     slashing_protection, keystore_management],
   ./sync/[sync_manager, sync_protocol, request_manager],
   ./rpc/[rest_api, rpc_api],
-  ./spec/datatypes/[altair, phase0],
+  ./spec/datatypes/[altair, phase0, merge],
   ./spec/eth2_apis/rpc_beacon_client,
   ./spec/[
     beaconstate, forks, helpers, network, weak_subjectivity, signatures,
@@ -430,15 +430,24 @@ proc init*(T: type BeaconNode,
             getProposerSlashingsTopic(network.forkDigests.altair),
             getVoluntaryExitsTopic(network.forkDigests.altair),
             getAggregateAndProofsTopic(network.forkDigests.altair),
+
+            getBeaconBlocksTopic(dag.forkDigests.merge),
+            getAttesterSlashingsTopic(network.forkDigests.merge),
+            getProposerSlashingsTopic(network.forkDigests.merge),
+            getVoluntaryExitsTopic(network.forkDigests.merge),
+            getAggregateAndProofsTopic(network.forkDigests.merge),
           ]
       if not config.verifyFinalization:
         topics &= getSyncCommitteeContributionAndProofTopic(network.forkDigests.altair)
+        topics &= getSyncCommitteeContributionAndProofTopic(network.forkDigests.merge)
       for subnet_id in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
         topics &= getAttestationTopic(network.forkDigests.phase0, SubnetId(subnet_id))
         topics &= getAttestationTopic(network.forkDigests.altair, SubnetId(subnet_id))
+        topics &= getAttestationTopic(network.forkDigests.merge,  SubnetId(subnet_id))
       if not config.verifyFinalization:
         for subnet_id in allSyncCommittees():
           topics &= getSyncCommitteeTopic(network.forkDigests.altair, subnet_id)
+          topics &= getSyncCommitteeTopic(network.forkDigests.merge,  subnet_id)
       topics)
 
   if node.config.inProcessValidators:
@@ -670,11 +679,15 @@ proc cycleAttestationSubnets(node: BeaconNode, wallSlot: Slot) {.async.} =
   of GossipState.InTransitionToAltair:
     node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, node.dag.forkDigests.phase0)
     node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, node.dag.forkDigests.altair)
+    node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, node.dag.forkDigests.merge)
     node.network.subscribeAttestationSubnets(subscribeSubnets, node.dag.forkDigests.phase0)
     node.network.subscribeAttestationSubnets(subscribeSubnets, node.dag.forkDigests.altair)
+    node.network.subscribeAttestationSubnets(subscribeSubnets, node.dag.forkDigests.merge)
   of GossipState.ConnectedToAltair:
     node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, node.dag.forkDigests.altair)
     node.network.subscribeAttestationSubnets(subscribeSubnets, node.dag.forkDigests.altair)
+    node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, node.dag.forkDigests.merge)
+    node.network.subscribeAttestationSubnets(subscribeSubnets, node.dag.forkDigests.merge)
 
   debug "Attestation subnets",
     wallSlot,
@@ -837,8 +850,8 @@ proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 proc removePhase0MessageHandlers(node: BeaconNode) =
   removePhase0MessageHandlers(node, node.dag.forkDigests.phase0)
 
-proc addAltairMessageHandlers(node: BeaconNode, slot: Slot) =
-  node.addPhase0MessageHandlers(node.dag.forkDigests.altair)
+proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.addPhase0MessageHandlers(forkDigest)
 
   var syncnets: BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
 
@@ -847,22 +860,40 @@ proc addAltairMessageHandlers(node: BeaconNode, slot: Slot) =
     closureScope:
       let idx = committeeIdx
       # TODO This should be done in dynamic way in trackSyncCommitteeTopics
-      node.network.subscribe(getSyncCommitteeTopic(node.dag.forkDigests.altair, idx), basicParams)
+      node.network.subscribe(getSyncCommitteeTopic(forkDigest, idx), basicParams)
       syncnets.setBit(idx.asInt)
 
-  node.network.subscribe(getSyncCommitteeContributionAndProofTopic(node.dag.forkDigests.altair), basicParams)
+  node.network.subscribe(
+    getSyncCommitteeContributionAndProofTopic(forkDigest), basicParams)
   node.network.updateSyncnetsMetadata(syncnets)
 
-proc removeAltairMessageHandlers(node: BeaconNode) =
-  node.removePhase0MessageHandlers(node.dag.forkDigests.altair)
+# TODO currently there's a strange inversion, where while merge should call
+# altair, as long as they're twinned, to avoid simultaneously invasive, but
+# temporary, changes elsewhere, have merge be subsidiary to altair topics.
+proc addMergeMessageHandlers(node: BeaconNode) =
+  node.addAltairMessageHandlers(node.dag.forkDigests.merge)
+
+proc addAltairMessageHandlers(node: BeaconNode) =
+  addAltairMessageHandlers(node, node.dag.forkDigests.altair)
+  addMergeMessageHandlers(node)
+
+proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.removePhase0MessageHandlers(forkDigest)
 
   for committeeIdx in allSyncCommittees():
     closureScope:
       let idx = committeeIdx
       # TODO This should be done in dynamic way in trackSyncCommitteeTopics
-      node.network.unsubscribe(getSyncCommitteeTopic(node.dag.forkDigests.altair, idx))
+      node.network.unsubscribe(getSyncCommitteeTopic(forkDigest, idx))
 
-  node.network.unsubscribe(getSyncCommitteeContributionAndProofTopic(node.dag.forkDigests.altair))
+  node.network.unsubscribe(getSyncCommitteeContributionAndProofTopic(forkDigest))
+
+proc removeMergeMessageHandlers(node: BeaconNode) =
+  node.removeAltairMessageHandlers(node.dag.forkDigests.merge)
+
+proc removeAltairMessageHandlers(node: BeaconNode) =
+  removeMergeMessageHandlers(node)
+  removeAltairMessageHandlers(node, node.dag.forkDigests.altair)
 
 func getTopicSubscriptionEnabled(node: BeaconNode): bool =
   node.attestationSubnets.enabled
@@ -870,6 +901,9 @@ func getTopicSubscriptionEnabled(node: BeaconNode): bool =
 proc removeAllMessageHandlers(node: BeaconNode) =
   node.removePhase0MessageHandlers()
   node.removeAltairMessageHandlers()
+  when false:
+    # TODO when done properly, this will be necessary
+    node.removeMergeMessageHandlers()
 
 proc setupDoppelgangerDetection(node: BeaconNode, slot: Slot) =
   # When another client's already running, this is very likely to detect
@@ -967,9 +1001,9 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.raises: [Defect, Catchab
       of GossipState.InTransitionToAltair: break
       of GossipState.Disconnected:
         node.addPhase0MessageHandlers()
-        node.addAltairMessageHandlers(slot)
+        node.addAltairMessageHandlers()
       of GossipState.ConnectedToPhase0:
-        node.addAltairMessageHandlers(slot)
+        node.addAltairMessageHandlers()
       of GossipState.ConnectedToAltair:
         warn "Unexpected clock regression during altair transition"
         node.addPhase0MessageHandlers()
@@ -978,10 +1012,10 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.raises: [Defect, Catchab
       case node.gossipState:
       of GossipState.ConnectedToAltair: break
       of GossipState.Disconnected:
-        node.addAltairMessageHandlers(slot)
+        node.addAltairMessageHandlers()
       of GossipState.ConnectedToPhase0:
         node.removePhase0MessageHandlers()
-        node.addAltairMessageHandlers(slot)
+        node.addAltairMessageHandlers()
       of GossipState.InTransitionToAltair:
         node.removePhase0MessageHandlers()
 
@@ -1260,6 +1294,7 @@ proc installMessageValidators(node: BeaconNode) =
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
 
+  # Phase 0
   # TODO altair-transition, well, without massive copy/pasting (extract to template or etc)
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
     closureScope:
@@ -1295,6 +1330,7 @@ proc installMessageValidators(node: BeaconNode) =
     proc (signedVoluntaryExit: SignedVoluntaryExit): ValidationResult =
       node.processor[].voluntaryExitValidator(signedVoluntaryExit))
 
+  # Altair
   # TODO copy/paste starts here; templatize whole thing
   for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
     closureScope:
@@ -1341,6 +1377,56 @@ proc installMessageValidators(node: BeaconNode) =
 
   node.network.addValidator(
     getSyncCommitteeContributionAndProofTopic(node.dag.forkDigests.altair),
+    proc(msg: SignedContributionAndProof): ValidationResult =
+      node.processor.syncCommitteeContributionValidator(msg))
+
+  # Merge
+  # TODO copy/paste starts here; templatize whole thing
+  for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
+    closureScope:
+      let subnet_id = SubnetId(it)
+      node.network.addAsyncValidator(
+        getAttestationTopic(node.dag.forkDigests.merge, subnet_id),
+        # This proc needs to be within closureScope; don't lift out of loop.
+        proc(attestation: Attestation): Future[ValidationResult] =
+          node.processor.attestationValidator(attestation, subnet_id))
+
+  node.network.addAsyncValidator(
+    getAggregateAndProofsTopic(node.dag.forkDigests.merge),
+    proc(signedAggregateAndProof: SignedAggregateAndProof): Future[ValidationResult] =
+      node.processor.aggregateValidator(signedAggregateAndProof))
+
+  node.network.addValidator(
+    getBeaconBlocksTopic(node.dag.forkDigests.merge),
+    proc (signedBlock: merge.SignedBeaconBlock): ValidationResult =
+      node.processor[].blockValidator(signedBlock))
+
+  node.network.addValidator(
+    getAttesterSlashingsTopic(node.dag.forkDigests.merge),
+    proc (attesterSlashing: AttesterSlashing): ValidationResult =
+      node.processor[].attesterSlashingValidator(attesterSlashing))
+
+  node.network.addValidator(
+    getProposerSlashingsTopic(node.dag.forkDigests.merge),
+    proc (proposerSlashing: ProposerSlashing): ValidationResult =
+      node.processor[].proposerSlashingValidator(proposerSlashing))
+
+  node.network.addValidator(
+    getVoluntaryExitsTopic(node.dag.forkDigests.merge),
+    proc (signedVoluntaryExit: SignedVoluntaryExit): ValidationResult =
+      node.processor[].voluntaryExitValidator(signedVoluntaryExit))
+
+  for committeeIdx in allSyncCommittees():
+    closureScope:
+      let idx = committeeIdx
+      node.network.addValidator(
+        getSyncCommitteeTopic(node.dag.forkDigests.merge, idx),
+        # This proc needs to be within closureScope; don't lift out of loop.
+        proc(msg: SyncCommitteeMessage): ValidationResult =
+          node.processor.syncCommitteeMsgValidator(msg, idx))
+
+  node.network.addValidator(
+    getSyncCommitteeContributionAndProofTopic(node.dag.forkDigests.merge),
     proc(msg: SignedContributionAndProof): ValidationResult =
       node.processor.syncCommitteeContributionValidator(msg))
 

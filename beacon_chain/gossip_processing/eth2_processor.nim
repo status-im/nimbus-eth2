@@ -12,7 +12,7 @@ import
   stew/results,
   chronicles, chronos, metrics,
   ../spec/[helpers, forks],
-  ../spec/datatypes/[altair, phase0],
+  ../spec/datatypes/[altair, merge, phase0],
   ../consensus_object_pools/[block_clearance, blockchain_dag, exit_pool, attestation_pool],
   ./gossip_validation, ./block_processor,
   ./batch_validation,
@@ -130,7 +130,8 @@ proc new*(T: type Eth2Processor,
 
 proc blockValidator*(
     self: var Eth2Processor,
-    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock): ValidationResult =
+    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                 merge.SignedBeaconBlock): ValidationResult =
   logScope:
     signedBlock = shortLog(signedBlock.message)
     blockRoot = shortLog(signedBlock.root)

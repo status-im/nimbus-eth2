@@ -14,7 +14,7 @@ import
   chronicles, chronos, metrics,
   stew/results,
   # Internals
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0, altair, merge],
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],
   ../consensus_object_pools/[
@@ -513,9 +513,10 @@ proc validateAggregate*(
   return ok((attesting_indices, sig))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
-proc isValidBeaconBlock*(
+proc isValidBeaconBlockAux(
        dag: ChainDAGRef, quarantine: QuarantineRef,
-       signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+       signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                            merge.SignedBeaconBlock,
        wallTime: BeaconTime,
        flags: UpdateFlags):
        Result[void, (ValidationResult, BlockError)] =
@@ -570,8 +571,7 @@ proc isValidBeaconBlock*(
   # TODO might check unresolved/orphaned blocks too, and this might not see all
   # blocks at a given slot (though, in theory, those get checked elsewhere), or
   # adding metrics that count how often these conditions occur.
-  let
-    slotBlockRef = getBlockBySlot(dag, signed_beacon_block.message.slot)
+  let slotBlockRef = getBlockBySlot(dag, signed_beacon_block.message.slot)
 
   if not slotBlockRef.isNil:
     let blck = dag.get(slotBlockRef).data
@@ -652,6 +652,60 @@ proc isValidBeaconBlock*(
     return err((ValidationResult.Reject, Invalid))
 
   ok()
+
+proc isValidBeaconBlock*(
+       dag: ChainDAGRef, quarantine: QuarantineRef,
+       signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+       wallTime: BeaconTime,
+       flags: UpdateFlags):
+       Result[void, (ValidationResult, BlockError)] =
+  dag.isValidBeaconBlockAux(quarantine, signed_beacon_block, wallTime, flags)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/merge/p2p-interface.md#beacon_block
+proc isValidBeaconBlock*(
+       dag: ChainDAGRef, quarantine: QuarantineRef,
+       signed_beacon_block: merge.SignedBeaconBlock,
+       wallTime: BeaconTime,
+       flags: UpdateFlags):
+       Result[void, (ValidationResult, BlockError)] =
+
+  template blck = signed_beacon_block.message
+  template execution_payload = blck.body.execution_payload
+
+  # If the execution is enabled for the block -- i.e.
+  # is_execution_enabled(state, block.body) then validate the following:
+  when false:
+    if is_execution_enabled(state, blck.body):
+      # TODO needs to be a merge.BeaconState specifically
+      let state = dag.head.data
+
+      # [REJECT] The block's execution payload timestamp is correct with respect
+      # to the slot -- i.e. execution_payload.timestamp ==
+      # compute_timestamp_at_slot(state, block.slot).
+      if not (execution_payload.timestamp ==
+          compute_timestamp_at_slot(state, blck.slot)):
+        return err((ValidationResult.Reject, Invalid))
+
+      # [REJECT] Gas used is less than the gas limit -- i.e.
+      # execution_payload.gas_used <= execution_payload.gas_limit.
+      if not (execution_payload.timestamp ==
+          compute_timestamp_at_slot(state, blck.slot)):
+        return err((ValidationResult.Reject, Invalid))
+
+      # [REJECT] The execution payload block hash is not equal to the parent
+      # hash -- i.e. execution_payload.block_hash != execution_payload.parent_hash.
+      if not (execution_payload.timestamp ==
+          compute_timestamp_at_slot(state, blck.slot)):
+        return err((ValidationResult.Reject, Invalid))
+
+      # [REJECT] The execution payload transaction list data is within expected
+      # size limits, the data MUST NOT be larger than the SSZ list-limit, and a
+      # client MAY be more strict.
+      if not (execution_payload.timestamp ==
+          compute_timestamp_at_slot(state, blck.slot)):
+        return err((ValidationResult.Reject, Invalid))
+
+  dag.isValidBeaconBlockAux(quarantine, signed_beacon_block, wallTime, flags)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
