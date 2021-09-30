@@ -523,9 +523,13 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   for bi in 0..<blockRefs.len:
     blck = db.getBlock(blockRefs[blockRefs.len - bi - 1].root).get()
     while getStateField(state[].data, slot) < blck.message.slot:
+      let
+        nextSlot = getStateField(state[].data, slot) + 1
+        flags =
+          if nextSlot == blck.message.slot: {skipLastStateRootCalculation}
+          else: {}
       let ok = process_slots(
-        dag.cfg, state[].data, getStateField(state[].data, slot) + 1, cache,
-        rewards, {})
+        dag.cfg, state[].data, nextSlot, cache, rewards, flags)
       doAssert ok, "Slot processing can't fail with correct inputs"
 
       if getStateField(state[].data, slot).isEpoch():
@@ -703,9 +707,12 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
     state[], blockRefs[^1].atSlot(if start > 0: start - 1 else: 0.Slot),
     false, cache)
 
+  var inTxn = false
   proc processEpoch() =
     echo getStateField(state[].data, slot).epoch
-    outDb.exec("BEGIN TRANSACTION;").expect("DB")
+    if not inTxn:
+      outDb.exec("BEGIN TRANSACTION;").expect("DB")
+      inTxn = true
     insertEpochInfo.exec(
       (getStateField(state[].data, slot).epoch.int64,
       rewards.total_balances.current_epoch_raw.int64,
@@ -746,14 +753,20 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
           int64(target_attester), # Target delta
           int64(head_attester), # Head delta
           delay)).expect("DB")
-    outDb.exec("COMMIT;").expect("DB")
+    if getStateField(state[].data, slot).epoch.int64 mod 16 == 0:
+      inTxn = false
+      outDb.exec("COMMIT;").expect("DB")
 
   for bi in 0..<blockRefs.len:
     blck = db.getBlock(blockRefs[blockRefs.len - bi - 1].root).get()
     while getStateField(state[].data, slot) < blck.message.slot:
-      let ok = process_slots(
-        cfg, state[].data, getStateField(state[].data, slot) + 1, cache, rewards,
-        {})
+      let
+        nextSlot = getStateField(state[].data, slot) + 1
+        flags =
+          if nextSlot == blck.message.slot: {skipLastStateRootCalculation}
+          else: {}
+
+      let ok = process_slots(cfg, state[].data, nextSlot, cache, rewards, flags)
       doAssert ok, "Slot processing can't fail with correct inputs"
 
       if getStateField(state[].data, slot).isEpoch():
@@ -774,6 +787,10 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
     if getStateField(state[].data, slot).isEpoch():
       processEpoch()
+
+  if inTxn:
+    inTxn = false
+    outDb.exec("COMMIT;").expect("DB")
 
 when isMainModule:
   var
