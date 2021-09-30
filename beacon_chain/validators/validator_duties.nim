@@ -452,13 +452,15 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
         restore,
         cache)
 
-    let doPhase0 = slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH
-    return if doPhase0:
+    return if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
       let sync_aggregate = SyncAggregate.init()
       makeBeaconBlock(phase0)
-    else:
+    elif slot.epoch < node.dag.cfg.MERGE_FORK_EPOCH:
       let sync_aggregate = node.sync_committee_msg_pool[].produceSyncAggregate(head.root)
       makeBeaconBlock(altair)
+    else:
+      let sync_aggregate = node.sync_committee_msg_pool[].produceSyncAggregate(head.root)
+      makeBeaconBlock(merge)
 
 proc proposeSignedBlock*(node: BeaconNode,
                          head: BlockRef,
