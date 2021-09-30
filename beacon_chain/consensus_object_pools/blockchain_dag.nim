@@ -313,8 +313,10 @@ proc containsBlock(
     cfg: RuntimeConfig, db: BeaconChainDB, blck: BlockRef): bool =
   if blck.slot.epoch < cfg.ALTAIR_FORK_EPOCH:
     db.containsBlockPhase0(blck.root)
-  else:
+  elif blck.slot.epoch < cfg.MERGE_FORK_EPOCH:
     db.containsBlockAltair(blck.root)
+  else:
+    db.containsBlockMerge(blck.root)
 
 func isStateCheckpoint(bs: BlockSlot): bool =
   ## State checkpoints are the points in time for which we store full state
@@ -472,6 +474,10 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   )
 
   doAssert cfg.GENESIS_FORK_VERSION != cfg.ALTAIR_FORK_VERSION
+  when true:
+    doAssert cfg.GENESIS_FORK_VERSION != cfg.MERGE_FORK_VERSION
+    doAssert cfg.ALTAIR_FORK_VERSION != cfg.MERGE_FORK_VERSION
+  doAssert cfg.ALTAIR_FORK_EPOCH <= cfg.MERGE_FORK_EPOCH
   doAssert dag.updateFlags in [{}, {verifyFinalization}]
 
   var cache: StateCache
@@ -578,11 +584,17 @@ proc getState(
 
     if not dag.db.getState(stateRoot, state.data.hbsPhase0.data, restore):
       return false
-  else:
+  elif blck.slot.epoch < dag.cfg.MERGE_FORK_EPOCH:
     if state.data.beaconStateFork != forkAltair:
       state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkAltair)[]
 
     if not dag.db.getAltairState(stateRoot, state.data.hbsAltair.data, restore):
+      return false
+  else:
+    if state.data.beaconStateFork != forkMerge:
+      state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkMerge)[]
+
+    if not dag.db.getMergeState(stateRoot, state.data.hbsMerge.data, restore):
       return false
 
   state.blck = blck
@@ -603,8 +615,10 @@ template forkAtEpoch*(dag: ChainDAGRef, epoch: Epoch): Fork =
 proc forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
   if epoch < dag.cfg.ALTAIR_FORK_EPOCH:
     dag.forkDigests.phase0
-  else:
+  elif epoch < dag.cfg.MERGE_FORK_EPOCH:
     dag.forkDigests.altair
+  else:
+    dag.forkDigests.merge
 
 proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
   ## Load a state from the database given a block and a slot - this will first

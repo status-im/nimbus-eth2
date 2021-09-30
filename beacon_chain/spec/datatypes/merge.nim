@@ -5,6 +5,11 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+# TODO Careful, not nil analysis is broken / incomplete and the semantics will
+#      likely change in future versions of the language:
+#      https://github.com/nim-lang/RFCs/issues/250
+{.experimental: "notnil".}
+
 {.push raises: [Defect].}
 
 import
@@ -148,6 +153,12 @@ type
 
     # Execution
     latest_execution_payload_header*: ExecutionPayloadHeader  # [New in Merge]
+
+  # TODO Careful, not nil analysis is broken / incomplete and the semantics will
+  #      likely change in future versions of the language:
+  #      https://github.com/nim-lang/RFCs/issues/250
+  BeaconStateRef* = ref BeaconState not nil
+  NilableBeaconStateRef* = ref BeaconState
 
   HashedBeaconState* = object
     data*: BeaconState

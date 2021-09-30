@@ -95,10 +95,10 @@ func getENRForkID*(cfg: RuntimeConfig,
                    genesis_validators_root: Eth2Digest): ENRForkID =
   let
     current_fork_version = cfg.forkVersionAtEpoch(epoch)
-    next_fork_version = if cfg.ALTAIR_FORK_EPOCH == FAR_FUTURE_EPOCH:
+    next_fork_version = if cfg.nextForkEpochAtEpoch(epoch) == FAR_FUTURE_EPOCH:
       current_fork_version
     else:
-      cfg.ALTAIR_FORK_VERSION
+      cfg.forkVersionAtEpoch(cfg.nextForkEpochAtEpoch(epoch))
     fork_digest = compute_fork_digest(current_fork_version,
                                       genesis_validators_root)
   ENRForkID(

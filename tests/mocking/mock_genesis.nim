@@ -30,7 +30,7 @@ proc initGenesisState*(
     hbsPhase0: initialize_hashed_beacon_state_from_eth1(
       cfg, eth1BlockHash, 0, deposits, {}))
 
-  maybeUpgradeStateToAltair(cfg, result[])
+  maybeUpgradeState(cfg, result[])
 
 when isMainModule:
   # Smoke test

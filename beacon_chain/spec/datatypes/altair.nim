@@ -411,14 +411,6 @@ type
 
   SyncCommitteeIndex* = distinct uint8
 
-# TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
-# switch proc {.noSideEffect.} to func.
-when false:
-  # TODO if ParticipationFlags is distinct
-  proc `or`*(x, y: ParticipationFlags) : ParticipationFlags {.borrow, noSideEffect.}
-  proc `and`*(x, y: ParticipationFlags) : ParticipationFlags {.borrow, noSideEffect.}
-  proc `==`*(x, y: ParticipationFlags) : bool {.borrow, noSideEffect.}
-
 chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt SyncCommitteeIndex: uint8(it)
 
