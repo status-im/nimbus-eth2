@@ -238,7 +238,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         finalizedEpochRef.eth1_deposit_index)
       sync_aggregate =
         when T is phase0.SignedBeaconBlock:
-          SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
+          SyncAggregate.init()
         elif T is altair.SignedBeaconBlock or T is merge.SignedBeaconBlock:
           syncCommitteePool[].produceSyncAggregate(dag.head.root)
         else:

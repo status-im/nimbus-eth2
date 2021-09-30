@@ -491,6 +491,9 @@ func shortLog*(v: SyncCommitteeMessage): auto =
     signature: shortLog(v.signature)
   )
 
+func init*(T: type SyncAggregate): SyncAggregate =
+  SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
+
 func shortLog*(v: SyncAggregate): auto =
   $(v.sync_committee_bits)
 

@@ -120,7 +120,7 @@ proc addTestBlock*(
       @[],
       @[],
       @[],
-      SyncAggregate(sync_committee_signature: ValidatorSig.infinity),
+      SyncAggregate.init(),
       default(ExecutionPayload),
       noRollback,
       cache)
