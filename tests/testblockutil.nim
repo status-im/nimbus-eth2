@@ -8,11 +8,9 @@
 import
   chronicles,
   options, stew/endians2,
-  ../beacon_chain/[beacon_node_types],
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/spec/datatypes/merge,
-  ../beacon_chain/spec/[helpers, signatures, state_transition, forks],
-  ../beacon_chain/consensus_object_pools/attestation_pool
+  ../beacon_chain/spec/[helpers, signatures, state_transition, forks]
 
 type
   MockPrivKeysT = object
@@ -318,11 +316,3 @@ iterator makeTestBlocks*(
       state, parent_root, cache, attestations = attestations, cfg = cfg)
     yield blck
     parent_root = blck.root
-
-proc getAttestationsForTestBlock*(
-    pool: var AttestationPool, stateData: StateData, cache: var StateCache):
-    seq[Attestation] =
-  case stateData.data.beaconStateFork:
-  of forkPhase0: pool.getAttestationsForBlock(stateData.data.hbsPhase0, cache)
-  of forkAltair: pool.getAttestationsForBlock(stateData.data.hbsAltair, cache)
-  of forkMerge:  pool.getAttestationsForBlock(stateData.data.hbsMerge,  cache)
