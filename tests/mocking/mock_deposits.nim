@@ -20,8 +20,8 @@ import
   ../../beacon_chain/extras,
   ../../beacon_chain/eth1/merkle_minimal,
 
-  # Mocking procs
-  ./mock_validator_keys
+  # Test utilities
+  ../testblockutil
 
 func mockDepositData(
         pubkey: ValidatorPubKey,
@@ -66,7 +66,8 @@ template mockGenesisDepositsImpl(
       updateAmount
 
       # DepositData
-      result[valIdx] = mockDepositData(MockPubKeys[valIdx], amount)
+      result[valIdx] = 
+        mockDepositData(MockPubKeys[valIdx.ValidatorIndex], amount)
   else: # With signing
     var depositsDataHash: seq[Eth2Digest]
     var depositsData: seq[DepositData]
@@ -79,8 +80,11 @@ template mockGenesisDepositsImpl(
       updateAmount
 
       # DepositData
-      result[valIdx] = mockDepositData(
-        MockPubKeys[valIdx], MockPrivKeys[valIdx], amount, flags)
+      result[valIdx] = 
+        mockDepositData(
+          MockPubKeys[valIdx.ValidatorIndex], 
+          MockPrivKeys[valIdx.ValidatorIndex], 
+          amount, flags)
 
       depositsData.add result[valIdx]
       depositsDataHash.add hash_tree_root(result[valIdx])
@@ -114,8 +118,8 @@ proc mockUpdateStateForNewDeposit*[T](
   # TODO withdrawal credentials
 
   result.data = mockDepositData(
-    MockPubKeys[validator_index],
-    MockPrivKeys[validator_index],
+    MockPubKeys[validator_index.ValidatorIndex],
+    MockPrivKeys[validator_index.ValidatorIndex],
     amount,
     # withdrawal_credentials: Eth2Digest
     flags

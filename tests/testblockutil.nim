@@ -14,12 +14,26 @@ import
   ../beacon_chain/spec/[helpers, signatures, state_transition, forks],
   ../beacon_chain/consensus_object_pools/attestation_pool
 
-func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
+type
+  MockPrivKeysT = object
+  MockPubKeysT = object
+const 
+  MockPrivKeys* = MockPrivKeysT()
+  MockPubKeys* = MockPubKeysT()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/tests/core/pyspec/eth2spec/test/helpers/keys.py
+func `[]`*(_: MockPrivKeysT, index: ValidatorIndex): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
-  # lighthouse.
-  # TODO: switch to https://github.com/ethereum/eth2.0-pm/issues/60
-  var bytes = uint64(i + 1000).toBytesLE()
-  copyMem(addr result, addr bytes[0], sizeof(bytes))
+  # lighthouse. EF tests use 1 instead of 1000.
+  var bytes = (index.uint64 + 1000'u64).toBytesLE()
+  static: doAssert sizeof(bytes) <= sizeof(result)
+  copyMem(addr result, addr bytes, sizeof(bytes))
+
+func `[]`*(_: MockPubKeysT, index: ValidatorIndex): ValidatorPubKey =
+  MockPrivKeys[index].toPubKey().toPubKey()
+
+func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
+  MockPrivKeys[i.ValidatorIndex]
 
 func makeFakeHash*(i: int): Eth2Digest =
   var bytes = uint64(i).toBytesLE()
