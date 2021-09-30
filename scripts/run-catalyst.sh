@@ -1,36 +1,52 @@
 #!/usr/bin/env bash
 # set -Eeuo pipefail
-# https://github.com/prysmaticlabs/bazel-go-ethereum/blob/catalyst/run-catalyst.sh
+
+# https://notes.ethereum.org/@9AeMAlpyQYaAAyuj47BzRw/rkwW3ceVY
 
 # To increase verbosity: debug.verbosity(4)
 # MetaMask seed phrase for address with balance is:
 # lecture manual soon title cloth uncle gesture cereal common fruit tooth crater
 
-echo \{ \
-  \"config\": \{ \
-    \"chainId\": 220720, \
-    \"homesteadBlock\": 0, \
-    \"eip150Block\": 0, \
-    \"eip155Block\": 0, \
-    \"eip158Block\": 0, \
-    \"byzantiumBlock\": 0, \
-    \"constantinopleBlock\": 0, \
-    \"petersburgBlock\": 0, \
-    \"istanbulBlock\": 0, \
-    \"catalystBlock\": 0 \
-  \}, \
-  \"alloc\": \{\"0x4A55eF8869af149aea4E07874cd8598044Eea2cb\": \{\"balance\": \"1000000000000000000\"\}\}, \
-  \"coinbase\": \"0x0000000000000000000000000000000000000000\", \
-  \"difficulty\": \"0x20000\", \
-  \"extraData\": \"\", \
-  \"gasLimit\": \"0x2fefd8\", \
-  \"nonce\": \"0x0000000000220720\", \
-  \"mixhash\": \"0x0000000000000000000000000000000000000000000000000000000000000000\", \
-  \"parentHash\": \"0x0000000000000000000000000000000000000000000000000000000000000000\", \
-  \"timestamp\": \"0x00\" \
-\} > /tmp/catalystgenesis.json
+GENESISJSON=$(mktemp)
+GETHDATADIR=$(mktemp -d)
 
-# TODO these paths need to be generalized
-rm /tmp/catalystchaindata -rvf
-~/clients/catalyst/build/bin/catalyst --catalyst --datadir /tmp/catalystchaindata init /tmp/catalystgenesis.json
-~/clients/catalyst/build/bin/catalyst --catalyst --rpc --rpcapi net,eth,eth2,consensus,catalyst --nodiscover --miner.etherbase 0x1000000000000000000000000000000000000000 --datadir /tmp/catalystchaindata console
+echo \{\
+	\"config\": \{\
+		\"chainId\":1,\
+		\"homesteadBlock\":0,\
+		\"daoForkBlock\":0,\
+		\"daoForkSupport\":true,\
+		\"eip150Block\":0,\
+		\"eip155Block\":0,\
+		\"eip158Block\":0,\
+		\"byzantiumBlock\":0,\
+		\"constantinopleBlock\":0,\
+		\"petersburgBlock\":0,\
+		\"istanbulBlock\":0,\
+		\"muirGlacierBlock\":0,\
+		\"berlinBlock\":0,\
+		\"londonBlock\":0,\
+		\"clique\": \{\
+			\"period\": 5,\
+			\"epoch\": 30000\
+		\},\
+		\"terminalTotalDifficulty\":0\
+	\},\
+	\"nonce\":\"0x42\",\
+	\"timestamp\":\"0x0\",\
+	\"extraData\":\"0x0000000000000000000000000000000000000000000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\
+	\"gasLimit\":\"0x989680\",\
+	\"difficulty\":\"0x400000000\",\
+	\"mixHash\":\"0x0000000000000000000000000000000000000000000000000000000000000000\",\
+	\"coinbase\":\"0x0000000000000000000000000000000000000000\",\
+	\"alloc\":\{\
+		\"0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b\":\{\"balance\":\"0x6d6172697573766477000000\"\} \
+	\},\
+	\"number\":\"0x0\",\
+	\"gasUsed\":\"0x0\",\
+	\"parentHash\":\"0x0000000000000000000000000000000000000000000000000000000000000000\",\
+	\"baseFeePerGas\":\"0x7\"\
+\} > ${GENESISJSON}
+
+~/execution_clients/go-ethereum/build/bin/geth --catalyst --http --ws -http.api "engine" --datadir ${GETHDATADIR} init ${GENESISJSON}
+~/execution_clients/go-ethereum/build/bin/geth --catalyst --http --ws -http.api "engine" --nodiscover --miner.etherbase 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b --datadir ${GETHDATADIR} console
