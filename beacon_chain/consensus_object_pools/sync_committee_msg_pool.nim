@@ -34,9 +34,6 @@ func init*(T: type SyncCommitteeMsgPool,
           ): SyncCommitteeMsgPool =
   T(onContributionReceived: onSyncContribution)
 
-func init(T: type SyncAggregate): SyncAggregate =
-  SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
-
 func pruneData*(pool: var SyncCommitteeMsgPool, slot: Slot) =
   ## This should be called at the end of slot.
   clear pool.seenContributionByAuthor
