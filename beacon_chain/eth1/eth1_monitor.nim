@@ -302,7 +302,7 @@ func is_candidate_block(cfg: RuntimeConfig,
 func asEth2Digest*(x: BlockHash): Eth2Digest =
   Eth2Digest(data: array[32, byte](x))
 
-template asBlockHash(x: Eth2Digest): BlockHash =
+template asBlockHash*(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
 
 func shortLog*(b: Eth1Block): string =
@@ -777,6 +777,11 @@ proc new*(T: type Web3DataProvider,
     ns = web3.contractSender(DepositContract, depositContractAddress)
 
   return ok Web3DataProviderRef(url: web3Url, web3: web3, ns: ns)
+
+# route around eth1 monitor initialization gating; intentionally a bit clunky
+proc newWeb3DataProvider*(depositContractAddress: Eth1Address, web3Url: string):
+    Future[Result[Web3DataProviderRef, string]] =
+  Web3DataProvider.new(depositContractAddress, web3Url)
 
 proc putInitialDepositContractSnapshot*(db: BeaconChainDB,
                                         s: DepositContractSnapshot) =

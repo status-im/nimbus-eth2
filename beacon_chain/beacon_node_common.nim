@@ -70,6 +70,7 @@ type
     beaconClock*: BeaconClock
     taskpool*: TaskPoolPtr
     onAttestationSent*: OnAttestationCallback
+    web3Provider*: Web3DataProviderRef
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

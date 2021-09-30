@@ -16,7 +16,8 @@ import
   ../consensus_object_pools/[block_clearance, blockchain_dag, attestation_pool],
   ./consensus_manager,
   ".."/[beacon_clock, beacon_node_types],
-  ../sszdump
+  ../sszdump,
+  ../eth1/eth1_monitor
 
 export sszdump
 
@@ -62,7 +63,7 @@ type
     # Consumer
     # ----------------------------------------------------------------
     consensusManager: ref ConsensusManager
-      ## Blockchain DAG, AttestationPool and Quarantine
+      ## Blockchain DAG, AttestationPool, Quarantine, and Eth1Manager
     getBeaconTime: GetBeaconTimeFn
 
 # Initialization
@@ -172,7 +173,7 @@ proc storeBlock(
 # Event Loop
 # ------------------------------------------------------------------------------
 
-proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
+proc processBlock(self: var BlockProcessor, entry: BlockEntry): bool =
   logScope:
     blockRoot = shortLog(entry.blck.root)
 
@@ -208,12 +209,15 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
       queueDur, storeBlockDur, updateHeadDur
 
     entry.done()
+    true
   elif res.error() in {BlockError.Duplicate, BlockError.Old}:
     # Duplicate and old blocks are ok from a sync point of view, so we mark
     # them as successful
     entry.done()
+    false
   else:
     entry.fail(res.error())
+    false
 
 proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
   while true:
@@ -230,4 +234,12 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
 
     discard await idleAsync().withTimeout(idleTimeout)
 
-    self[].processBlock(await self[].blocksQueue.popFirst())
+    let blck = await self[].blocksQueue.popFirst()
+    if  self[].processBlock(blck) and blck.blck.kind != Phase0 and
+          blck.blck.kind != Altair and
+        # wasn't necessary before, but not incorrect either; helps it run san
+        # execution client for local testnets
+        blck.blck.mergeBlock.message.body.execution_payload !=
+          default(merge.ExecutionPayload):
+      await self.consensusManager.dag.executionPayloadSync(
+        self.consensusManager.web3Provider, blck.blck.mergeBlock.message)
