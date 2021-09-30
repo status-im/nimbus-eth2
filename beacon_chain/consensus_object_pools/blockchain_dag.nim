@@ -736,6 +736,10 @@ proc getForkedBlock*(dag: ChainDAGRef, blck: BlockRef): ForkedTrustedSignedBeaco
   if altairBlock.isOk:
     return ForkedTrustedSignedBeaconBlock.init(altairBlock.get)
 
+  let mergeBlock = dag.db.getMergeBlock(blck.root)
+  if mergeBlock.isOk:
+    return ForkedTrustedSignedBeaconBlock.init(mergeBlock.get)
+
   raiseAssert "BlockRef without backing data, database corrupt?"
 
 proc get*(dag: ChainDAGRef, blck: BlockRef): BlockData =
