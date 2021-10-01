@@ -430,10 +430,12 @@ func get_terminal_pow_block(pow_chain: openArray[PowBlock]): Opt[PowBlock] =
   get_pow_block_at_terminal_total_difficulty(pow_chain)
 
 proc prepare_execution_payload(state: merge.BeaconState,
-                               pow_chain: openArray[PowBlock],
+                               pow_chain: seq[PowBlock],
                                fee_recipient: Address,
                                execution_engine: Web3DataProviderRef):
                                Future[Opt[PayloadId]] {.async.} =
+  # If pow_chain is openArray:
+  # Error: 'pow_chain' is of type <openArray[PowBlock]> which cannot be captured as it would violate memory safety
   var parent_hash: Eth2Digest
   if not is_merge_complete(state):
     let terminal_pow_block = get_terminal_pow_block(pow_chain)
@@ -443,6 +445,9 @@ proc prepare_execution_payload(state: merge.BeaconState,
 
     # Signify merge via producing on top of the terminal PoW block
     parent_hash = terminal_pow_block.get.block_hash
+    # hardcode merge test vector initially; TODO remove hardcoding
+    parent_hash =
+      Eth2Digest.fromHex("0xa0513a503d5bd6e89a144c3268e5b7e9da9dbf63df125a360e3950a7d0d67131")
   else:
     # Post-merge, normal payload
     parent_hash = state.latest_execution_payload_header.block_hash
@@ -463,6 +468,9 @@ proc get_execution_payload(
   else:
     let rpcExecutionPayload =
       await execution_engine.get_payload(payload_id.get.Quantity)
+    when false:
+      debug "get_execution_payload: execution_engine.get_payload",
+        rpcExecutionPayload
     merge.ExecutionPayload(
       parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
       coinbase: EthAddress(data: rpcExecutionPayload.coinbase.distinctBase),
@@ -527,7 +535,14 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
         SyncAggregate.init()
       else:
         node.sync_committee_msg_pool[].produceSyncAggregate(head.root),
-      default(merge.ExecutionPayload),
+      if slot.epoch < node.dag.cfg.MERGE_FORK_EPOCH:
+        default(merge.ExecutionPayload)
+      else:
+        let payload_id = await prepare_execution_payload(
+          proposalState.data.hbsMerge.data, @[], default(Address),
+          node.consensusManager.web3Provider)
+        # execution_payload = await get_execution_payload(stateData.data.data)
+        default(merge.ExecutionPayload),
       restore,
       cache)
 

@@ -44,15 +44,6 @@ def runStages() {
 			sh "make -j${env.NPROC} DISABLE_TEST_FIXTURES_SCRIPT=1 test"
 		}
 
-		stage("REST test suite") {
-			sh """#!/bin/bash
-			set -e
-			./tests/simulation/restapi.sh --data-dir resttest0_data --base-port \$(( 9100 + EXECUTOR_NUMBER * 100 )) \
-				--base-rest-port \$(( 7100 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \
-				\$(( 8108 + EXECUTOR_NUMBER * 100 )) --sleep-timeout 30 --kill-old-processes
-			"""
-		}
-
 		stage("Testnet finalization") {
 			// EXECUTOR_NUMBER will be 0 or 1, since we have 2 executors per Jenkins node
 			sh """#!/bin/bash
