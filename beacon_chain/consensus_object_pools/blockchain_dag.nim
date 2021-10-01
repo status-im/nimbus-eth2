@@ -1052,7 +1052,21 @@ func syncCommitteeParticipants*(dagParam: ChainDAGRef,
     dag = dagParam
     slot = slotParam
 
-  if dag.headState.data.beaconStateFork == forkAltair:
+  case dag.headState.data.beaconStateFork
+  of forkMerge:
+    let
+      headSlot = dag.headState.data.hbsMerge.data.slot
+      headCommitteePeriod = syncCommitteePeriod(headSlot)
+      periodStart = syncCommitteePeriodStartSlot(headCommitteePeriod)
+      nextPeriodStart = periodStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
+
+    if slot >= nextPeriodStart:
+      @(dag.headState.data.hbsMerge.data.next_sync_committee.pubkeys.data)
+    elif slot >= periodStart:
+      @(dag.headState.data.hbsMerge.data.current_sync_committee.pubkeys.data)
+    else:
+      @[]
+  of forkAltair:
     let
       headSlot = dag.headState.data.hbsAltair.data.slot
       headCommitteePeriod = syncCommitteePeriod(headSlot)
@@ -1065,7 +1079,7 @@ func syncCommitteeParticipants*(dagParam: ChainDAGRef,
       @(dag.headState.data.hbsAltair.data.current_sync_committee.pubkeys.data)
     else:
       @[]
-  else:
+  of forkPhase0:
     @[]
 
 func getSubcommitteePositionsAux(
