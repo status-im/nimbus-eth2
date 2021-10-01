@@ -432,35 +432,26 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       doAssert v.addr == addr proposalStateAddr.data
       assign(proposalStateAddr[], poolPtr.headState)
 
-    template makeBeaconBlock(kind: untyped): untyped =
-      makeBeaconBlock(
-        node.dag.cfg,
-        stateData.data,
-        validator_index,
-        head.root,
-        randao_reveal,
-        eth1Proposal.vote,
-        graffiti,
-        node.attestationPool[].getAttestationsForBlock(
-          stateData.data.`hbs kind`, cache),
-        eth1Proposal.deposits,
-        node.exitPool[].getProposerSlashingsForBlock(),
-        node.exitPool[].getAttesterSlashingsForBlock(),
-        node.exitPool[].getVoluntaryExitsForBlock(),
-        sync_aggregate,
-        default(ExecutionPayload),
-        restore,
-        cache)
-
-    return if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
-      let sync_aggregate = SyncAggregate.init()
-      makeBeaconBlock(phase0)
-    elif slot.epoch < node.dag.cfg.MERGE_FORK_EPOCH:
-      let sync_aggregate = node.sync_committee_msg_pool[].produceSyncAggregate(head.root)
-      makeBeaconBlock(altair)
-    else:
-      let sync_aggregate = node.sync_committee_msg_pool[].produceSyncAggregate(head.root)
-      makeBeaconBlock(merge)
+    return makeBeaconBlock(
+      node.dag.cfg,
+      stateData.data,
+      validator_index,
+      head.root,
+      randao_reveal,
+      eth1Proposal.vote,
+      graffiti,
+      node.attestationPool[].getAttestationsForBlock(stateData.data, cache),
+      eth1Proposal.deposits,
+      node.exitPool[].getProposerSlashingsForBlock(),
+      node.exitPool[].getAttesterSlashingsForBlock(),
+      node.exitPool[].getVoluntaryExitsForBlock(),
+      if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH: 
+        SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
+      else:
+        node.sync_committee_msg_pool[].produceSyncAggregate(head.root),
+      default(merge.ExecutionPayload),
+      restore,
+      cache)
 
 proc proposeSignedBlock*(node: BeaconNode,
                          head: BlockRef,

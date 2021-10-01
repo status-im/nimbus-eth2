@@ -104,7 +104,7 @@ suite "Attestation pool processing" & preset():
         getStateField(state.data, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
         rewards, {})
 
-    let attestations = pool[].getAttestationsForTestBlock(state[], cache)
+    let attestations = pool[].getAttestationsForBlock(state.data, cache)
 
     check:
       attestations.len == 1
@@ -126,14 +126,14 @@ suite "Attestation pool processing" & preset():
 
     check:
       # shouldn't include already-included attestations
-      pool[].getAttestationsForTestBlock(state[], cache) == []
+      pool[].getAttestationsForBlock(state.data, cache) == []
 
     pool[].addAttestation(
       att1, @[bc1[0]], att1.loadSig, att1.data.slot)
 
     check:
       # but new ones should go in
-      pool[].getAttestationsForTestBlock(state[], cache).len() == 1
+      pool[].getAttestationsForBlock(state.data, cache).len() == 1
 
     let
       att2 = makeAttestation(state[].data, root1, bc1[1], cache)
@@ -141,7 +141,7 @@ suite "Attestation pool processing" & preset():
       att2, @[bc1[1]], att2.loadSig, att2.data.slot)
 
     let
-      combined = pool[].getAttestationsForTestBlock(state[], cache)
+      combined = pool[].getAttestationsForBlock(state.data, cache)
 
     check:
       # New attestations should be combined with old attestations
@@ -153,7 +153,7 @@ suite "Attestation pool processing" & preset():
 
     check:
       # readding the combined attestation shouldn't have an effect
-      pool[].getAttestationsForTestBlock(state[], cache).len() == 1
+      pool[].getAttestationsForBlock(state.data, cache).len() == 1
 
     let
       # Someone votes for a different root
@@ -164,7 +164,7 @@ suite "Attestation pool processing" & preset():
     check:
       # We should now get both attestations for the block, but the aggregate
       # should be the one with the most votes
-      pool[].getAttestationsForTestBlock(state[], cache).len() == 2
+      pool[].getAttestationsForBlock(state.data, cache).len() == 2
       pool[].getAggregatedAttestation(2.Slot, 0.CommitteeIndex).
         get().aggregation_bits.countOnes() == 2
       pool[].getAggregatedAttestation(2.Slot, hash_tree_root(att2.data)).
@@ -203,7 +203,7 @@ suite "Attestation pool processing" & preset():
         rewards, {})
 
     check:
-      pool[].getAttestationsForTestBlock(state[], cache).len() == 2
+      pool[].getAttestationsForBlock(state.data, cache).len() == 2
       # Can get either aggregate here, random!
       pool[].getAggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
 
@@ -211,7 +211,7 @@ suite "Attestation pool processing" & preset():
     pool[].addAttestation(att3, @[bc0[3]], att3.loadSig, att3.data.slot)
 
     block:
-      let attestations = pool[].getAttestationsForTestBlock(state[], cache)
+      let attestations = pool[].getAttestationsForBlock(state.data, cache)
       check:
         attestations.len() == 2
         attestations[0].aggregation_bits.countOnes() == 3
@@ -223,7 +223,7 @@ suite "Attestation pool processing" & preset():
     pool[].addAttestation(att0x, @[bc0[0]], att0x.loadSig, att0x.data.slot)
 
     block:
-      let attestations = pool[].getAttestationsForTestBlock(state[], cache)
+      let attestations = pool[].getAttestationsForBlock(state.data, cache)
       check:
         attestations.len() == 1
         attestations[0].aggregation_bits.countOnes() == 4
@@ -253,7 +253,7 @@ suite "Attestation pool processing" & preset():
       "6*SLOTS_PER_EPOCH validators > 128 mainnet MAX_ATTESTATIONS"
     check:
       # Fill block with attestations
-      pool[].getAttestationsForTestBlock(state[], cache).lenu64() ==
+      pool[].getAttestationsForBlock(state.data, cache).lenu64() ==
         MAX_ATTESTATIONS
       pool[].getAggregatedAttestation(
         getStateField(state.data, slot) - 1, 0.CommitteeIndex).isSome()
@@ -286,7 +286,7 @@ suite "Attestation pool processing" & preset():
       defaultRuntimeConfig, state.data,
       MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards, {})
 
-    let attestations = pool[].getAttestationsForTestBlock(state[], cache)
+    let attestations = pool[].getAttestationsForBlock(state.data, cache)
 
     check:
       attestations.len == 1
@@ -312,7 +312,7 @@ suite "Attestation pool processing" & preset():
         defaultRuntimeConfig, state.data,
         MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards, {})
 
-    let attestations = pool[].getAttestationsForTestBlock(state[], cache)
+    let attestations = pool[].getAttestationsForBlock(state.data, cache)
 
     check:
       attestations.len == 1
@@ -341,7 +341,7 @@ suite "Attestation pool processing" & preset():
         defaultRuntimeConfig, state.data,
         MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards, {})
 
-    let attestations = pool[].getAttestationsForTestBlock(state[], cache)
+    let attestations = pool[].getAttestationsForBlock(state.data, cache)
 
     check:
       attestations.len == 1
@@ -369,7 +369,7 @@ suite "Attestation pool processing" & preset():
         defaultRuntimeConfig, state.data,
         MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, rewards, {})
 
-    let attestations = pool[].getAttestationsForTestBlock(state[], cache)
+    let attestations = pool[].getAttestationsForBlock(state.data, cache)
 
     check:
       attestations.len == 1
