@@ -128,8 +128,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
               sig =
                 get_attestation_signature(getStateField(stateData.data, fork),
                   getStateField(stateData.data, genesis_validators_root),
-                  data, hackPrivKey(
-                    getStateField(stateData.data, validators)[validatorIdx]))
+                  data, MockPrivKeys[validatorIdx])
             var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
             aggregation_bits.setBit index_in_committee
 
@@ -165,7 +164,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
         let
           validatorIdx = validatorKeyToIndex[valKey]
-          validarorPrivKey = makeFakeValidatorPrivKey(validatorIdx)
+          validarorPrivKey = MockPrivKeys[validatorIdx.ValidatorIndex]
           signature = blsSign(validarorPrivKey, signingRoot.data)
           msg = SyncCommitteeMessage(
             slot: slot,
@@ -210,7 +209,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           signingRoot = contribution_and_proof_signing_root(
             fork, genesisValidatorsRoot, contributionAndProof)
 
-          validarorPrivKey = makeFakeValidatorPrivKey(aggregator.validatorIdx)
+          validarorPrivKey = 
+            MockPrivKeys[aggregator.validatorIdx.ValidatorIndex]
 
           signedContributionAndProof = SignedContributionAndProof(
             message: contributionAndProof,
@@ -230,8 +230,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       finalizedEpochRef = dag.getFinalizedEpochRef()
       proposerIdx = get_beacon_proposer_index(
         stateData.data, cache, getStateField(stateData.data, slot)).get()
-      privKey = hackPrivKey(
-        getStateField(stateData.data, validators)[proposerIdx])
+      privKey = MockPrivKeys[proposerIdx]
       eth1ProposalData = eth1Chain.getBlockProposalData(
         stateData.data,
         finalizedEpochRef.eth1_data,

@@ -47,10 +47,10 @@ suite "Sync committee pool":
       fork = altairFork(defaultRuntimeConfig)
       genesisValidatorsRoot = eth2digest(@[5.byte, 6, 7])
 
-      privkey1 = makeFakeValidatorPrivKey(1)
-      privkey2 = makeFakeValidatorPrivKey(2)
-      privkey3 = makeFakeValidatorPrivKey(3)
-      privkey4 = makeFakeValidatorPrivKey(4)
+      privkey1 = MockPrivKeys[1.ValidatorIndex]
+      privkey2 = MockPrivKeys[2.ValidatorIndex]
+      privkey3 = MockPrivKeys[3.ValidatorIndex]
+      privkey4 = MockPrivKeys[4.ValidatorIndex]
 
       root1 = eth2digest(@[1.byte])
       root2 = eth2digest(@[1.byte, 2])

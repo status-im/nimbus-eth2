@@ -10,7 +10,7 @@ import
   options, stew/endians2,
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/spec/datatypes/merge,
-  ../beacon_chain/spec/[helpers, signatures, state_transition, forks]
+  ../beacon_chain/spec/[helpers, keystore, signatures, state_transition, forks]
 
 type
   MockPrivKeysT = object
@@ -30,35 +30,22 @@ func `[]`*(_: MockPrivKeysT, index: ValidatorIndex): ValidatorPrivKey =
 func `[]`*(_: MockPubKeysT, index: ValidatorIndex): ValidatorPubKey =
   MockPrivKeys[index].toPubKey().toPubKey()
 
-func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
-  MockPrivKeys[i.ValidatorIndex]
-
 func makeFakeHash*(i: int): Eth2Digest =
   var bytes = uint64(i).toBytesLE()
   static: doAssert sizeof(bytes) <= sizeof(result.data)
   copyMem(addr result.data[0], addr bytes[0], sizeof(bytes))
 
-func hackPrivKey*(v: Validator): ValidatorPrivKey =
-  ## Extract private key, per above hack
-  var bytes: array[8, byte]
-  static: doAssert sizeof(bytes) <= sizeof(v.withdrawal_credentials.data)
-
-  copyMem(
-    addr bytes, unsafeAddr v.withdrawal_credentials.data[0], sizeof(bytes))
-  let i = int(uint64.fromBytesLE(bytes))
-  makeFakeValidatorPrivKey(i)
-
-func makeDeposit*(i: int, flags: UpdateFlags = {}, cfg = defaultRuntimeConfig): DepositData =
-  ## Ugly hack for now: we stick the private key in withdrawal_credentials
-  ## which means we can repro private key and randao reveal from this data,
-  ## for testing :)
+func makeDeposit*(
+    i: int, 
+    flags: UpdateFlags = {}, 
+    cfg = defaultRuntimeConfig): DepositData =
   let
-    privkey = makeFakeValidatorPrivKey(i)
-    pubkey = privkey.toPubKey()
-    withdrawal_credentials = makeFakeHash(i)
+    privkey = MockPrivKeys[i.ValidatorIndex]
+    pubkey = MockPubKeys[i.ValidatorIndex]
+    withdrawal_credentials = makeWithdrawalCredentials(pubkey)
 
   result = DepositData(
-    pubkey: pubkey.toPubKey(),
+    pubkey: pubkey,
     withdrawal_credentials: withdrawal_credentials,
     amount: MAX_EFFECTIVE_BALANCE)
 
@@ -104,7 +91,7 @@ proc addTestBlock*(
   let
     proposer_index = get_beacon_proposer_index(
       state, cache, getStateField(state, slot))
-    privKey = hackPrivKey(getStateField(state, validators)[proposer_index.get])
+    privKey = MockPrivKeys[proposer_index.get]
     randao_reveal =
       if skipBlsValidation notin flags:
         privKey.genRandaoReveal(
@@ -221,7 +208,7 @@ func makeAttestation*(
         get_attestation_signature(
           getStateField(state, fork),
           getStateField(state, genesis_validators_root),
-          data, hackPrivKey(validator)).toValidatorSig()
+          data, MockPrivKeys[validator_index]).toValidatorSig()
       else:
         ValidatorSig()
 
@@ -280,7 +267,7 @@ func makeFullAttestations*(
     agg.init(get_attestation_signature(
         getStateField(state, fork),
         getStateField(state, genesis_validators_root), data,
-        hackPrivKey(getStateField(state, validators)[committee[0]])))
+        MockPrivKeys[committee[0]]))
 
     # Aggregate the remainder
     attestation.aggregation_bits.setBit 0
@@ -290,7 +277,7 @@ func makeFullAttestations*(
         agg.aggregate(get_attestation_signature(
           getStateField(state, fork),
           getStateField(state, genesis_validators_root), data,
-          hackPrivKey(getStateField(state, validators)[committee[j]])
+          MockPrivKeys[committee[j]]
         ))
 
     attestation.signature = agg.finish().toValidatorSig()
