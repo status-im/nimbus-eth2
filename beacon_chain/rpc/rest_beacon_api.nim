@@ -1,8 +1,10 @@
+# beacon_chain
 # Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   std/[typetraits, sequtils, strutils, sets],
   stew/[results, base10],
@@ -99,33 +101,21 @@ proc toString*(kind: ValidatorFilterKind): string =
 
 func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
   epoch: Epoch): Result[seq[ValidatorPubKey], cstring] =
-  case forkedState.beaconStateFork
-  of BeaconStateFork.forkPhase0:
-    err("State's fork do not support sync committees")
-  of BeaconStateFork.forkAltair:
-    let
-      headSlot = forkedState.hbsAltair.data.slot
-      epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())
-      currentPeriod = syncCommitteePeriod(headSlot)
-      nextPeriod = currentPeriod + 1'u64
-    if epochPeriod == currentPeriod:
-      ok(@(forkedState.hbsAltair.data.current_sync_committee.pubkeys.data))
-    elif epochPeriod == nextPeriod:
-      ok(@(forkedState.hbsAltair.data.next_sync_committee.pubkeys.data))
+  withState(forkedState):
+    when stateFork >= forkAltair:
+      let
+        headSlot = state.data.slot
+        epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())
+        currentPeriod = syncCommitteePeriod(headSlot)
+        nextPeriod = currentPeriod + 1'u64
+      if epochPeriod == currentPeriod:
+        ok(@(state.data.current_sync_committee.pubkeys.data))
+      elif epochPeriod == nextPeriod:
+        ok(@(state.data.next_sync_committee.pubkeys.data))
+      else:
+        err("Epoch is outside the sync committee period of the state")
     else:
-      err("Epoch is outside the sync committee period of the state")
-  of BeaconStateFork.forkMerge:
-    let
-      headSlot = forkedState.hbsMerge.data.slot
-      epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())
-      currentPeriod = syncCommitteePeriod(headSlot)
-      nextPeriod = currentPeriod + 1'u64
-    if epochPeriod == currentPeriod:
-      ok(@(forkedState.hbsMerge.data.current_sync_committee.pubkeys.data))
-    elif epochPeriod == nextPeriod:
-      ok(@(forkedState.hbsMerge.data.next_sync_committee.pubkeys.data))
-    else:
-      err("Epoch is outside the sync committee period of the state")
+      err("State's fork do not support sync committees")
 
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
