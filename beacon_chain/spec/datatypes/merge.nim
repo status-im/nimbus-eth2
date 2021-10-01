@@ -36,6 +36,7 @@ type
   OpaqueTransaction* = List[byte, Limit MAX_BYTES_PER_OPAQUE_TRANSACTION]
   Transaction* = SingleMemberUnion[OpaqueTransaction]
 
+  # TODO rename ExecutionAddress
   EthAddress* = object
     data*: array[20, byte]  # TODO there's a network_metadata type, but the import hierarchy's inconvenient
 

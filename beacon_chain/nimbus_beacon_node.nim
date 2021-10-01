@@ -382,7 +382,7 @@ proc init*(T: type BeaconNode,
 
     # TODO waitFor etc. This is temporary init code, so fine for now
     web3Provider = waitFor newWeb3DataProvider(
-      default(Eth1Address), config.web3Urls[0])
+      default(Eth1Address), if config.web3Urls.len > 0: config.web3Urls[0] else: "")
 
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, web3Provider.get

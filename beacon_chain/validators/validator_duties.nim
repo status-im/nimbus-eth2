@@ -384,6 +384,104 @@ proc getBlockProposalEth1Data*(node: BeaconNode,
       state, finalizedEpochRef.eth1_data,
       finalizedEpochRef.eth1_deposit_index)
 
+func get_pow_block(pow_chain: openArray[PowBlock], parent_hash: Eth2Digest):
+    Opt[PoWBlock] =
+  # Placeholder, pending performance importance. This whole thing is pretty
+  # literal
+  for pow_block in pow_chain:
+    if parent_hash == pow_block.block_hash:
+      return ok(pow_block)
+
+  err()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/merge/validator.md#executionpayload
+func get_pow_block_at_terminal_total_difficulty(pow_chain: openArray[PowBlock]):
+    Opt[PowBlock] =
+  # `pow_chain` abstractly represents all blocks in the PoW chain
+
+  const TERMINAL_TOTAL_DIFFICULTY = 0   # just first block
+
+  for blck in pow_chain:
+    # TODO oh, actually do need something like Uint256
+    when false:
+      let
+        parent = get_pow_block(pow_chain, blck.parent_hash)
+        block_reached_ttd = blck.total_difficulty >= TERMINAL_TOTAL_DIFFICULTY
+        parent_reached_ttd = parent.total_difficulty >= TERMINAL_TOTAL_DIFFICULTY
+      if block_reached_ttd and not parent_reached_ttd:
+        return blck
+    else:
+      return ok(blck)
+
+  err()
+
+func get_terminal_pow_block(pow_chain: openArray[PowBlock]): Opt[PowBlock] =
+  # supposedly part of mainnet config, maybe others
+  const TERMINAL_BLOCK_HASH = Eth2Digest()
+
+  if TERMINAL_BLOCK_HASH != Eth2Digest():
+    # Terminal block hash override takes precedence over terminal total
+    # difficulty
+    let pow_block_overrides = filterIt(pow_chain, it.block_hash == TERMINAL_BLOCK_HASH)
+    if pow_block_overrides.len == 0:
+      return err()
+    return ok(pow_block_overrides[0])
+
+  get_pow_block_at_terminal_total_difficulty(pow_chain)
+
+proc prepare_execution_payload(state: merge.BeaconState,
+                               pow_chain: openArray[PowBlock],
+                               fee_recipient: Address,
+                               execution_engine: Web3DataProviderRef):
+                               Future[Opt[PayloadId]] {.async.} =
+  var parent_hash: Eth2Digest
+  if not is_merge_complete(state):
+    let terminal_pow_block = get_terminal_pow_block(pow_chain)
+    if terminal_pow_block.isErr():
+      # Pre-merge, no prepare payload call is needed
+      return err()
+
+    # Signify merge via producing on top of the terminal PoW block
+    parent_hash = terminal_pow_block.get.block_hash
+  else:
+    # Post-merge, normal payload
+    parent_hash = state.latest_execution_payload_header.block_hash
+
+  let
+    timestamp = compute_timestamp_at_slot(state, state.slot)
+    random = get_randao_mix(state, get_current_epoch(state))
+  return ok((await execution_engine.prepare_payload(
+    parent_hash, timestamp, random.data, fee_recipient)).payloadId.PayloadId)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/merge/validator.md#executionpayload
+proc get_execution_payload(
+    payload_id: Opt[PayloadId], execution_engine: Web3DataProviderRef):
+    Future[merge.ExecutionPayload] {.async.} =
+  return if payload_id.isErr():
+    # Pre-merge, empty payload
+    default(merge.ExecutionPayload)
+  else:
+    let rpcExecutionPayload =
+      await execution_engine.get_payload(payload_id.get.Quantity)
+    merge.ExecutionPayload(
+      parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
+      coinbase: EthAddress(data: rpcExecutionPayload.coinbase.distinctBase),
+      state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
+      receipt_root: rpcExecutionPayload.receiptRoot.asEth2Digest,
+      logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
+      random: rpcExecutionPayload.random.asEth2Digest,
+      block_number: rpcExecutionPayload.blockNumber.uint64,
+      gas_limit: rpcExecutionPayload.gasLimit.uint64,
+      gas_used: rpcExecutionPayload.gasUsed.uint64,
+      timestamp: rpcExecutionPayload.timestamp.uint64,
+      extra_data: List[byte, 32].init(rpcExecutionPayload.extraData.distinctBase),
+      #base_fee_per_gas: rpcExecutionPayload.baseFeePerGas, TODO
+      block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
+
+      # TODO
+      # transactions: rpcExecutionPayload.transactions
+    )
+
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     randao_reveal: ValidatorSig,
                                     validator_index: ValidatorIndex,
