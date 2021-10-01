@@ -299,7 +299,7 @@ else
   ganache-cli --blockTime 17 --gasLimit 100000000 -e 100000 --verbose > "${DATA_DIR}/log_ganache.txt" 2>&1 &
   PIDS="${PIDS},$!"
 
-  WEB3_ARG="--web3-url=ws://localhost:8545"
+  WEB3_ARG="--web3-url=http://127.0.0.1:8545"
 
   echo "Deploying deposit contract"
   DEPLOY_CMD_OUTPUT=$(./build/deposit_contract deploy $WEB3_ARG)
