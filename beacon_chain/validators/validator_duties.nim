@@ -33,6 +33,9 @@ import
   ".."/[conf, beacon_clock, beacon_node_common, beacon_node_types, version],
   "."/[slashing_protection, validator_pool, keystore_management]
 
+import stint/endians2
+import stint/private/datatypes
+
 # Metrics for tracking attestation and beacon block loss
 const delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
                       0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
@@ -402,7 +405,6 @@ func get_pow_block_at_terminal_total_difficulty(pow_chain: openArray[PowBlock]):
   const TERMINAL_TOTAL_DIFFICULTY = 0   # just first block
 
   for blck in pow_chain:
-    # TODO oh, actually do need something like Uint256
     when false:
       let
         parent = get_pow_block(pow_chain, blck.parent_hash)
@@ -471,6 +473,7 @@ proc get_execution_payload(
     when false:
       debug "get_execution_payload: execution_engine.get_payload",
         rpcExecutionPayload
+    # TODO split these conversions out and enable round-trip testing
     merge.ExecutionPayload(
       parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
       coinbase: EthAddress(data: rpcExecutionPayload.coinbase.distinctBase),
@@ -483,10 +486,9 @@ proc get_execution_payload(
       gas_used: rpcExecutionPayload.gasUsed.uint64,
       timestamp: rpcExecutionPayload.timestamp.uint64,
       extra_data: List[byte, 32].init(rpcExecutionPayload.extraData.distinctBase),
-      #base_fee_per_gas: rpcExecutionPayload.baseFeePerGas, TODO
+      base_fee_per_gas:
+        Eth2Digest(data: rpcExecutionPayload.baseFeePerGas.toBytesLE),
       block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
-
-      # TODO
       # transactions: rpcExecutionPayload.transactions
     )
 

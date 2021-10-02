@@ -19,7 +19,9 @@ import
   ".."/beacon_chain_db,
   "."/[block_pools_types, block_quarantine, forkedbeaconstate_dbhelpers]
 
-import stint, stint/endians2  # literally only place in nimbus-eth2
+import stint
+import stint/endians2
+
 import web3/[engine_api, ethtypes]
 import ../eth1/eth1_monitor   # for asBlockHash only
 
@@ -1427,25 +1429,27 @@ proc newExecutionPayload(
   debug "newBlock: inserting block into execution engine",
     parent_hash = executionPayload.parent_hash,
     block_hash = executionPayload.block_hash
-  when true:
-    let rpcExecutionPayload = (ref engine_api.ExecutionPayload)(
-      parentHash: executionPayload.parent_hash.asBlockHash,
-      coinbase: Address(executionPayload.coinbase.data),
-      stateRoot: executionPayload.state_root.asBlockHash,
-      receiptRoot: executionPayload.receipt_root.asBlockHash,
-      logsBloom: FixedBytes[256](executionPayload.logs_bloom.data),
-      random: executionPayload.random.asBlockHash,
-      blockNumber: Quantity(executionPayload.block_number),
-      gasLimit: Quantity(executionPayload.gas_limit),
-      gasUsed: Quantity(executionPayload.gas_used),
-      timestamp: Quantity(executionPayload.timestamp),
-      extraData: DynamicBytes[32](executionPayload.extra_data),
-      baseFeePerGas:
-        #Uint256.fromBytesLE(executionPayload.base_fee_per_gas.data),
-        Uint256(),
-      blockHash: executionPayload.block_hash.asBlockHash,
-      #transactions: executionPayload.transactions TODO intially no transactions
-      )
+  let rpcExecutionPayload = (ref engine_api.ExecutionPayload)(
+    parentHash: executionPayload.parent_hash.asBlockHash,
+    coinbase: Address(executionPayload.coinbase.data),
+    stateRoot: executionPayload.state_root.asBlockHash,
+    receiptRoot: executionPayload.receipt_root.asBlockHash,
+    logsBloom: FixedBytes[256](executionPayload.logs_bloom.data),
+    random: executionPayload.random.asBlockHash,
+    blockNumber: Quantity(executionPayload.block_number),
+    gasLimit: Quantity(executionPayload.gas_limit),
+    gasUsed: Quantity(executionPayload.gas_used),
+    timestamp: Quantity(executionPayload.timestamp),
+    extraData: DynamicBytes[32](executionPayload.extra_data),
+
+    # TODO x86 and the usual ARM ABIs are all little-endian, so this matches
+    # the spec coincidentally, but it's unportable
+    baseFeePerGas:
+      UInt256.fromBytes(executionPayload.base_fee_per_gas.data),
+
+    blockHash: executionPayload.block_hash.asBlockHash,
+    #transactions: executionPayload.transactions TODO intially no transactions
+    )
   try:
     return await(web3Provider.executePayload(rpcExecutionPayload[])).status ==
       # PayloadExecutionStatus.valid?
