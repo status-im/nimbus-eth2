@@ -21,6 +21,8 @@ import
 
 export sszdump
 
+import web3/engine_api_types
+
 # Block Processor
 # ------------------------------------------------------------------------------
 # The block processor moves blocks from "Incoming" to "Consensus verified"
@@ -243,3 +245,19 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
           default(merge.ExecutionPayload):
       await self.consensusManager.dag.executionPayloadSync(
         self.consensusManager.web3Provider, blck.blck.mergeBlock.message)
+      # if it got here, it should be enough to satisfy from
+      # https://eips.ethereum.org/EIPS/eip-3675#specification the
+      # POS_CONSENSUS_VALIDATED event triggering engine_consensusValidated
+      #
+      # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.2/src/engine/interop/specification.md#engine_consensusvalidated
+      # states "result of the payload validation with respect to the proof-of-stake consensus rules".
+      # but EIP-3675 says "POS_CONSENSUS_VALIDATED An event occurring when the
+      # PoS block is validated with respect to the proof-of-stake consensus
+      # rules.", i.e. just normal block validation which got code flow here
+      #
+      # not immediately clear why would mark as invalid? because once PoS controls
+      # block gossip, they're just basically invisible/don't exist from execution
+      # layer
+      discard await self.consensusManager.web3Provider.consensusValidated(
+        blck.blck.mergeBlock.message.body.execution_payload.block_hash.asBlockHash,
+        BlockValidationStatus.valid)

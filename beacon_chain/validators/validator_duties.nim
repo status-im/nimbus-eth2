@@ -436,25 +436,31 @@ proc prepare_execution_payload(state: merge.BeaconState,
                                fee_recipient: Address,
                                execution_engine: Web3DataProviderRef):
                                Future[Opt[PayloadId]] {.async.} =
-  # If pow_chain is openArray:
-  # Error: 'pow_chain' is of type <openArray[PowBlock]> which cannot be captured as it would violate memory safety
-  var parent_hash: Eth2Digest
-  if not is_merge_complete(state):
-    let terminal_pow_block = get_terminal_pow_block(pow_chain)
-    if terminal_pow_block.isErr():
-      # Pre-merge, no prepare payload call is needed
-      return err()
+  when false:
+    # If pow_chain is openArray:
+    # Error: 'pow_chain' is of type <openArray[PowBlock]> which cannot be captured as it would violate memory safety
+    var parent_hash: Eth2Digest
+    if not is_merge_complete(state):
+      let terminal_pow_block = get_terminal_pow_block(pow_chain)
+      if terminal_pow_block.isErr():
+        # Pre-merge, no prepare payload call is needed
+        return err()
 
-    # Signify merge via producing on top of the terminal PoW block
-    parent_hash = terminal_pow_block.get.block_hash
-    # hardcode merge test vector initially; TODO remove hardcoding
-    parent_hash =
-      Eth2Digest.fromHex("0xa0513a503d5bd6e89a144c3268e5b7e9da9dbf63df125a360e3950a7d0d67131")
-  else:
-    # Post-merge, normal payload
-    parent_hash = state.latest_execution_payload_header.block_hash
+      # Signify merge via producing on top of the terminal PoW block
+      parent_hash = terminal_pow_block.get.block_hash
+      # hardcode merge test vector initially; TODO remove hardcoding
+      parent_hash =
+        Eth2Digest.fromHex("0xa0513a503d5bd6e89a144c3268e5b7e9da9dbf63df125a360e3950a7d0d67131")
+    else:
+      # Post-merge, normal payload
+      parent_hash = state.latest_execution_payload_header.block_hash
 
   let
+    parent_hash =
+      if is_merge_complete(state):
+        state.latest_execution_payload_header.block_hash
+      else:
+        Eth2Digest.fromHex("0xa0513a503d5bd6e89a144c3268e5b7e9da9dbf63df125a360e3950a7d0d67131")
     timestamp = compute_timestamp_at_slot(state, state.slot)
     random = get_randao_mix(state, get_current_epoch(state))
   return ok((await execution_engine.prepare_payload(
@@ -540,11 +546,12 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       if slot.epoch < node.dag.cfg.MERGE_FORK_EPOCH:
         default(merge.ExecutionPayload)
       else:
-        let payload_id = await prepare_execution_payload(
-          proposalState.data.hbsMerge.data, @[], default(Address),
-          node.consensusManager.web3Provider)
-        # execution_payload = await get_execution_payload(stateData.data.data)
-        default(merge.ExecutionPayload),
+        let
+          payload_id = await prepare_execution_payload(
+            proposalState.data.hbsMerge.data, @[], default(Address),
+            node.consensusManager.web3Provider)
+          payload = await get_execution_payload(payload_id, node.consensusManager.web3Provider)
+        payload,
       restore,
       cache)
 

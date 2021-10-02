@@ -223,7 +223,7 @@ if [[ "${HAVE_LSOF}" == "1" ]]; then
 fi
 
 # Build the binaries
-BINARIES="nimbus_beacon_node nimbus_signing_process nimbus_validator_client deposit_contract"
+BINARIES="nimbus_beacon_node nimbus_signing_process deposit_contract"
 if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
   BINARIES="${BINARIES} logtrace"
 fi
