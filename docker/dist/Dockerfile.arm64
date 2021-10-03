@@ -1,5 +1,5 @@
 # The build is reproducible only if this base image stays the same.
-FROM statusteam/nimbus_beacon_node:dist_base_20210525175232_arm64_v3@sha256:42d4c07aad4630c36123cab0283e8a5372515a0c1eec2bc9b7ac21c483e560c9
+FROM statusteam/nimbus_beacon_node:dist_base_20211001175744_arm64_v4@sha256:558c34dcac4beaa6ca5256c6301b4768f206afeb9dea44d185e42295d5123e61
 
 SHELL ["/bin/bash", "-c"]
 
