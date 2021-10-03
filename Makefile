@@ -47,7 +47,6 @@ TOOLS := \
 	nbench_spec_scenarios \
 	ncli \
 	ncli_db \
-	process_dashboard \
 	stack_sizes \
 	nimbus_validator_client \
 	nimbus_signing_process
