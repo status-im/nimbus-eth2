@@ -8,7 +8,7 @@
 [![Discord: Nimbus](https://img.shields.io/badge/discord-nimbus-orange.svg)](https://discord.gg/XRxWahP)
 [![Status: #nimbus-general](https://img.shields.io/badge/status-nimbus--general-orange.svg)](https://join.status.im/nimbus-general)
 
-Nimbus-eth2 an extremely efficient consensus layer (eth2) client implementation. It performs well on embedded systems and resource-restricted devices -- including Raspberry Pis and mobile devices. It's low resource usage also makes it an excellet choice for running together with an Ethereum client on a server or a desktop (where it simply takes up less resources). 
+Nimbus-eth2 is an extremely efficient consensus layer (eth2) client implementation. It performs well on embedded systems and resource-restricted devices -- including Raspberry Pis and mobile devices. It's low resource usage also makes it an excellent choice for running together with an Ethereum client on a server or a desktop (where it simply takes up fewer resources). 
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -44,7 +44,7 @@ The [Quickstart](https://nimbus.guide/quick-start.html) in particular will help 
 * http://unstable.prater.beacon-api.nimbus.team/
 
 
-Note that right now these are very much unstable testing instances. They may be unresponsive at times - so **please do not rely on them for validation**. We may also disable them at any time.
+Note that right now these are very much unstable testing instances. They may be unresponsive at times - so **please do not rely on them for validating**. We may also disable them at any time.
 
 ## Related projects
 
