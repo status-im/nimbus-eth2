@@ -218,7 +218,7 @@ suite "Gossip validation - Extra": # Not based on preset config
         state[].data.validators.mapIt(it.pubkey).find(pubKey))
       validator = AttachedValidator(
         pubKey: pubkey,
-        kind: inProcess, privKey: MockPrivKeys[index],
+        kind: ValidatorKind.Local, privKey: MockPrivKeys[index],
         index: some(index))
       msg = waitFor signSyncCommitteeMessage(
         validator, state[].data.slot,
