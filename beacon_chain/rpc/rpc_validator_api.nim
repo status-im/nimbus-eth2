@@ -162,18 +162,8 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       subnet_id = compute_subnet_for_attestation(
         get_committee_count_per_slot(epochRef), slot, committee_index)
 
-    # Either subnet already subscribed or not. If not, subscribe. If it is,
-    # extend subscription. All one knows from the API combined with how far
-    # ahead one can check for attestation schedule is that it might be used
-    # for up to the end of next epoch. Therefore, arrange for subscriptions
-    # to last at least that long.
-    if not node.attestationSubnets.aggregateSubnets[subnet_id.uint64]:
-      # When to subscribe. Since it's not clear when from the API it's first
-      # needed, do so immediately.
-      node.attestationSubnets.subscribeSlot[subnet_id.uint64] =
-        min(node.attestationSubnets.subscribeSlot[subnet_id.uint64], wallSlot)
-
-    node.attestationSubnets.unsubscribeSlot[subnet_id.uint64] =
-      max(
-        compute_start_slot_at_epoch(epoch + 2),
-        node.attestationSubnets.unsubscribeSlot[subnet_id.uint64])
+    # The validator index here is invalid, but since JSON-RPC is on its way
+    # to deprecation, this is fine
+    node.registerDuty(
+      slot, subnet_id, 0.ValidatorIndex,
+       is_aggregator(epochRef, slot, committee_index, slot_signature))

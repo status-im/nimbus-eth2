@@ -173,12 +173,13 @@ func makeAttestationData*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#validator-assignments
 iterator get_committee_assignments*(
-    epochRef: EpochRef, epoch: Epoch, validator_indices: IntSet):
+    epochRef: EpochRef, validator_indices: IntSet):
     tuple[validatorIndices: IntSet,
       committeeIndex: CommitteeIndex,
       subnet_id: SubnetId, slot: Slot] =
   let
     committees_per_slot = get_committee_count_per_slot(epochRef)
+    epoch = epochRef.epoch
     start_slot = compute_start_slot_at_epoch(epoch)
 
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:

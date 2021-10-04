@@ -236,11 +236,16 @@ proc genRandaoReveal*(v: AttachedValidator, fork: Fork,
 proc getSlotSig*(v: AttachedValidator, fork: Fork,
                  genesis_validators_root: Eth2Digest, slot: Slot
                  ): Future[ValidatorSig] {.async.} =
-  return
+  if v.slotSignature.isSome() and v.slotSignature.get().slot == slot:
+    return v.slotSignature.get().signature
+
+  let signature =
     case v.kind
     of ValidatorKind.Local:
       get_slot_signature(fork, genesis_validators_root, slot,
-                         v.data.privateKey).toValidatorSig()
+                        v.data.privateKey).toValidatorSig()
     of ValidatorKind.Remote:
       let root = compute_slot_root(fork, genesis_validators_root, slot)
       await signWithRemoteValidator(v, root)
+  v.slotSignature = some((slot, signature))
+  return signature

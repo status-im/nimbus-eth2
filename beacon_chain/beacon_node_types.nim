@@ -176,29 +176,44 @@ type
     # assumed that a valid index is stored here!
     index*: Option[ValidatorIndex]
 
+    # Cache the latest slot signature - the slot signature is used to determine
+    # if the validator will be aggregating (in the near future)
+    slotSignature*: Option[tuple[slot: Slot, signature: ValidatorSig]]
+
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
     slashingProtection*: SlashingProtectionDB
 
+  AttesterDuty* = object
+    subnet*: SubnetId
+    slot*: Slot
+    isAggregator*: bool
+
   AttestationSubnets* = object
     enabled*: bool
+
+    subscribedSubnets*: BitArray[ATTESTATION_SUBNET_COUNT] ##\
+      ## All subnets we're current subscribed to
+
     stabilitySubnets*: seq[tuple[subnet_id: SubnetId, expiration: Epoch]] ##\
       ## The subnets on which we listen and broadcast gossip traffic to maintain
       ## the health of the network - these are advertised in the ENR
     nextCycleEpoch*: Epoch
-
-    # These encode states in per-subnet state machines
-    aggregateSubnets*: BitArray[ATTESTATION_SUBNET_COUNT] ##\
-      ## The subnets on which we listen for attestations in order to produce
-      ## aggregates
-    subscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
-    unsubscribeSlot*: array[ATTESTATION_SUBNET_COUNT, Slot]
 
     # Used to track the next attestation and proposal slots using an
     # epoch-relative coordinate system. Doesn't need initialization.
     attestingSlots*: array[2, uint32]
     proposingSlots*: array[2, uint32]
     lastCalculatedEpoch*: Epoch
+
+    knownValidators*: Table[ValidatorIndex, Slot]
+      ## Validators that we've recently seen - we'll subscribe to one stability
+      ## subnet for each such validator - the slot is used to expire validators
+      ## that no longer are posting duties
+
+    duties*: seq[AttesterDuty] ##\
+      ## Known aggregation duties in the near future - before each such
+      ## duty, we'll subscribe to the corresponding subnet to collect
 
 func shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
 

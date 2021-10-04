@@ -2080,6 +2080,9 @@ proc unsubscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATIO
 proc updateStabilitySubnetMetadata*(
     node: Eth2Node, attnets: BitArray[ATTESTATION_SUBNET_COUNT]) =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/p2p-interface.md#metadata
+  if node.metadata.attnets == attnets:
+    return
+
   node.metadata.seq_number += 1
   node.metadata.attnets = attnets
 
@@ -2124,14 +2127,6 @@ proc updateForkId(node: Eth2Node, value: ENRForkID) =
 proc updateForkId*(node: Eth2Node, epoch: Epoch, genesisValidatorsRoot: Eth2Digest) =
   node.updateForkId(getENRForkId(node.cfg, epoch, genesisValidatorsRoot))
   node.discoveryForkId = getDiscoveryForkID(node.cfg, epoch, genesisValidatorsRoot)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
-func getStabilitySubnetLength*(node: Eth2Node): uint64 =
-  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION +
-    node.rng[].rand(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION.int).uint64
-
-func getRandomSubnetId*(node: Eth2Node): SubnetId =
-  node.rng[].rand(ATTESTATION_SUBNET_COUNT - 1).SubnetId
 
 func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
   case node.cfg.stateForkAtEpoch(epoch)
