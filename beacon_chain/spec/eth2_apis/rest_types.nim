@@ -136,6 +136,10 @@ type
     index*: uint64
     message*: string
 
+  RestAttestationsFailure* = object
+    index*: uint64
+    message*: string
+
   RestValidator* = object
     index*: ValidatorIndex
     balance*: string
