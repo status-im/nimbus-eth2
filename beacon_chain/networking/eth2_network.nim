@@ -517,10 +517,7 @@ proc writeChunk*(conn: Connection,
     framingFormatCompress(output, payload)
   except IOError as exc:
     raiseAssert exc.msg # memoryOutput shouldn't raise
-  try:
-    conn.write(output.getOutput)
-  except Exception as exc: # TODO fix libp2p
-    raiseAssert exc.msg
+  conn.write(output.getOutput)
 
 template errorMsgLit(x: static string): ErrorMsg =
   const val = ErrorMsg toBytes(x)
@@ -1370,11 +1367,9 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
   proc peerHook(peerInfo: PeerInfo, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(node, peerInfo.peerId, event)
 
-  try:
-    switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
-    switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
-  except Exception as exc: # TODO fix libp2p, shouldn't happen
-    raiseAssert exc.msg
+  switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
+  switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
+
   node
 
 template publicKey*(node: Eth2Node): keys.PublicKey =
@@ -1818,22 +1813,17 @@ func getAltairTopic(m: messages.Message, altairPrefix: string): string =
 proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
                       address: MultiAddress,
                       rng: ref BrHmacDrbgContext): Switch {.raises: [Defect, CatchableError].} =
-  try:
-    SwitchBuilder
-      .new()
-      .withPrivateKey(seckey)
-      .withAddress(address)
-      .withRng(rng)
-      .withNoise()
-      .withMplex(5.minutes, 5.minutes)
-      .withMaxConnections(config.maxPeers)
-      .withAgentVersion(config.agentString)
-      .withTcpTransport({ServerFlags.ReuseAddr})
-      .build()
-  except CatchableError as exc: raise exc
-  except Exception as exc: # TODO fix libp2p
-    if exc is Defect: raise (ref Defect)exc
-    raiseAssert exc.msg
+  SwitchBuilder
+    .new()
+    .withPrivateKey(seckey)
+    .withAddress(address)
+    .withRng(rng)
+    .withNoise()
+    .withMplex(5.minutes, 5.minutes)
+    .withMaxConnections(config.maxPeers)
+    .withAgentVersion(config.agentString)
+    .withTcpTransport({ServerFlags.ReuseAddr})
+    .build()
 
 proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      config: BeaconNodeConf,
@@ -1919,7 +1909,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
               info "Adding priviledged direct peer", peerId, address = maddress
           res
     )
-    pubsub = try: GossipSub.init(
+    pubsub = GossipSub.init(
       switch = switch,
       msgIdProvider = msgIdProvider,
       triggerSelf = true,
@@ -1927,8 +1917,6 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       verifySignature = false,
       anonymize = true,
       parameters = params)
-    except CatchableError as exc: raise exc
-    except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
   switch.mount(pubsub)
 
   Eth2Node.new(
@@ -2063,9 +2051,7 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
     doAssert uncompressed.len <= GOSSIP_MAX_SIZE
     inc nbc_gossip_messages_sent
 
-    var futSnappy = try: node.pubsub.publish(topic & "_snappy", compressed)
-    except Exception as exc:
-      raiseAssert exc.msg # TODO fix libp2p
+    var futSnappy = node.pubsub.publish(topic & "_snappy", compressed)
     traceMessage(futSnappy, gossipId(uncompressed, topic & "_snappy", true))
   except IOError as exc:
     raiseAssert exc.msg # TODO in-memory compression shouldn't fail
