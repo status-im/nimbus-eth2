@@ -8,7 +8,7 @@
 [![Discord: Nimbus](https://img.shields.io/badge/discord-nimbus-orange.svg)](https://discord.gg/XRxWahP)
 [![Status: #nimbus-general](https://img.shields.io/badge/status-nimbus--general-orange.svg)](https://join.status.im/nimbus-general)
 
-Nimbus-eth2 is a extremely efficient Beacon Chain client for participating in the Ethereum Proof of Stake protocol. It performs well on embedded systems, resource-restricted devices -- including Raspberry Pis and mobile devices -- the low resource usage also makes it an excellet choice for running together with an Ethereum client on a server or a desktop where it simply takes up less resources.
+Nimbus-eth2 is an extremely efficient Beacon Chain client for participating in the Ethereum Proof of Stake protocol. It performs well on embedded systems, resource-restricted devices -- including Raspberry Pis and mobile devices -- the low resource usage also makes it an excellent choice for running together with an Ethereum client on a server or a desktop where it simply takes up less resources.
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -39,7 +39,7 @@ The [Quickstart](https://nimbus.guide/quick-start.html) in particular will help 
 * [status-im/nimbus-eth1](https://github.com/status-im/nimbus-eth1/): Nimbus for Ethereum 1
 * [ethereum/consensus-specs](https://github.com/ethereum/consensus-specs/tree/v1.0.1#phase-0): Serenity specification that this project implements
 
-You can check where the beacon chain fits in the Ethereum ecosystem our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
+You can check where the beacon chain fits in the Ethereum ecosystem in our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 
 ## Donations
 
@@ -127,7 +127,7 @@ make eth2_network_simulation USE_MULTITAIL="yes"
 
 You can find out more about it in the [development update](https://our.status.im/nimbus-development-update-2018-12-2/).
 
-_Alternatively, fire up our [experimental Vagrant instance with Nim pre-installed](https://our.status.im/setting-up-a-local-vagrant-environment-for-nim-development/) and give us yout feedback about the process!_
+_Alternatively, fire up our [experimental Vagrant instance with Nim pre-installed](https://our.status.im/setting-up-a-local-vagrant-environment-for-nim-development/) and give us your feedback about the process!_
 
 ### Visualising simulation metrics
 
