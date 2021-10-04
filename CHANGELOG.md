@@ -1,3 +1,45 @@
+2021-10-04 v1.5.0
+=================
+
+Nimbus `v1.5.0` is a `medium-urgency` but  *mandatory* upgrade which adds support for the upcoming beacon chain Altair hard-fork.
+
+Please upgrade at your earliest convenience - **before the 27th of October**.
+
+> **N.B** You must upgrade before October 27th in order to follow the mainnet beacon chain. Failure to do so will result in downtime penalties.
+
+This is the first hard fork for the beacon chain, and while a significant amount of testing has been conducted in the run up to this release, we recommend users regularly monitor our announcement channels ([discord]() and/or the [newsletter]()) for potential updates.
+
+To celebrate the feature complete release candidate of our REST API, we've opened up the ports on some of our fleet nodes - don't do this at home ;)
+
+In order to interact with these, you should point your apps and tools to:
+
+* http://unstable.mainnet.beacon-api.nimbus.team/ - `mainnet` data, the latest `unstable` [branch](https://github.com/status-im/nimbus-eth2/tree/unstable)
+* http://unstable.prater.beacon-api.nimbus.team/ - `prater` testnet data, the [latest](http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/node/version) `unstable` [branch](https://github.com/status-im/nimbus-eth2/tree/unstable)
+
+Note that right now these are very much unstable testing instances. They may be unresponsive at times - so **please do not rely on them for validation**. We may also disable them at any time.
+
+--------------
+
+### Notable changes
+
+* Support for the Altair hard fork and the [latest Ethereum consensus spec](https://github.com/ethereum/consensus-specs/releases/tag/v1.1.1) (`v1.1.1`)
+
+* Our [REST API](https://nimbus.guide/rest-api.html) is now feature complete, supporting the full [Beacon API](https://ethereum.github.io/beacon-APIs/) specification. This API should not be exposed to the public Internet as it includes multiple endpoints which could open your node to denial-of-service (DoS) attacks.
+    * Known limitations: To use the REST API with a validator client, you need to enable the `--subscribe-all-subnets` option. This requirement will be removed in future versions.
+
+* A new experimental `--num-threads=X` option allows Nimbus to take advantage of multiple CPU cores when verifying attestations. Set it to `1` to use one worker thread, `2` for two worker threads, etc. The default value  is set to `1` in this release, but future versions will set it to `0` (this tells the client to use as many worker threads as there are CPU cores available). N.B .**enabling anything other than `1` is considered experimental** at this stage.
+
+* Improved peer discovery logic that ensures good connectivity to all gossip subnets.
+
+* A new `version` metric that makes it easy to keep track of client upgrades within Grafana dashboards.
+
+* New metrics `libp2p_peers_identity`, `libp2p_peers_traffic_read_total`, `libp2p_peers_traffic_write_total`, subdivided through Prometheus labels by the client type of the peer (i.e. nimbus, prysm, teku, lodestar or lighthouse).
+
+* BLST has been upgraded to the latest version (`v0.3.5`).
+
+* The `--network` option now accepts a directory with custom network metadata in the format of the [eth2-testnets](https://github.com/eth2-clients/eth2-networks) repository. The `SECONDS_PER_SLOT` configuration value remains the only setting that must be supplied at compile-time through the `-d:SECONDS_PER_SLOT=X` nim compilation flag.
+
+
 2021-07-10 v1.4.2
 =================
 
