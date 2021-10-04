@@ -278,6 +278,17 @@ proc check_voluntary_exit*(
 
 # Derived utilities
 
+func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconStateFork =
+  ## Return the current fork for the given epoch.
+  static:
+    doAssert forkMerge  > forkAltair
+    doAssert forkAltair > forkPhase0
+    doAssert GENESIS_EPOCH == 0
+
+  if   epoch >= cfg.MERGE_FORK_EPOCH:  forkMerge
+  elif epoch >= cfg.ALTAIR_FORK_EPOCH: forkAltair
+  else:                                forkPhase0
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(x: ForkedHashedBeaconState): Epoch =
   ## Return the current epoch.
@@ -379,31 +390,22 @@ chronicles.formatIt ForkedSignedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedTrustedSignedBeaconBlock: it.shortLog
 
 proc forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
-  doAssert cfg.ALTAIR_FORK_EPOCH <= cfg.MERGE_FORK_EPOCH
-  if epoch < cfg.ALTAIR_FORK_EPOCH:
-    genesisFork(cfg)
-  elif epoch < cfg.MERGE_FORK_EPOCH:
-    altairFork(cfg)
-  else:
-    mergeFork(cfg)
+  case cfg.stateForkAtEpoch(epoch)
+  of forkMerge:  cfg.mergeFork
+  of forkAltair: cfg.altairFork
+  of forkPhase0: cfg.genesisFork
 
 proc forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
-  doAssert cfg.ALTAIR_FORK_EPOCH <= cfg.MERGE_FORK_EPOCH
-  if epoch < cfg.ALTAIR_FORK_EPOCH:
-    cfg.GENESIS_FORK_VERSION
-  elif epoch < cfg.MERGE_FORK_EPOCH:
-    cfg.ALTAIR_FORK_VERSION
-  else:
-    cfg.MERGE_FORK_VERSION
+  case cfg.stateForkAtEpoch(epoch)
+  of forkMerge:  cfg.MERGE_FORK_VERSION
+  of forkAltair: cfg.ALTAIR_FORK_VERSION
+  of forkPhase0: cfg.GENESIS_FORK_VERSION
 
 proc nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
-  doAssert cfg.ALTAIR_FORK_EPOCH <= cfg.MERGE_FORK_EPOCH
-  if epoch < cfg.ALTAIR_FORK_EPOCH:
-    cfg.ALTAIR_FORK_EPOCH
-  elif epoch < cfg.MERGE_FORK_EPOCH:
-    cfg.MERGE_FORK_EPOCH
-  else:
-    FAR_FUTURE_EPOCH
+  case cfg.stateForkAtEpoch(epoch)
+  of forkMerge:  FAR_FUTURE_EPOCH
+  of forkAltair: cfg.MERGE_FORK_EPOCH
+  of forkPhase0: cfg.ALTAIR_FORK_EPOCH
 
 func getForkSchedule*(cfg: RuntimeConfig): array[2, Fork] =
   ## This procedure returns list of known and/or scheduled forks.

@@ -391,12 +391,10 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     if blockRatio > 0.0:
       withTimer(timers[t]):
-        if slot.epoch < dag.cfg.ALTAIR_FORK_EPOCH:
-          proposePhase0Block(slot)
-        elif slot.epoch < dag.cfg.MERGE_FORK_EPOCH:
-          proposeAltairBlock(slot)
-        else:
-          proposeMergeBlock(slot)
+        case dag.cfg.stateForkAtEpoch(slot.epoch)
+        of forkMerge:  proposeMergeBlock(slot)
+        of forkAltair: proposeAltairBlock(slot)
+        of forkPhase0: proposePhase0Block(slot)
     if attesterRatio > 0.0:
       withTimer(timers[tAttest]):
         handleAttestations(slot)
