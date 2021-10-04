@@ -1040,7 +1040,7 @@ proc trimConnections(node: Eth2Node, count: int) {.async.} =
     inc(nbc_cycling_kicked_peers)
     if toKick <= 0: return
 
-proc getLowSubnets(node: Eth2Node):
+proc getLowSubnets(node: Eth2Node, epoch: Epoch):
                   (BitArray[ATTESTATION_SUBNET_COUNT],
                    BitArray[SYNC_COMMITTEE_SUBNET_COUNT]) =
   # Returns the subnets required to have a healthy mesh
@@ -1083,7 +1083,12 @@ proc getLowSubnets(node: Eth2Node):
 
   return (
     findLowSubnets(getAttestationTopic, SubnetId, ATTESTATION_SUBNET_COUNT),
-    findLowSubnets(getSyncCommitteeTopic, SyncCommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
+    # We start looking one epoch before the transition in order to allow
+    # some time for the gossip meshes to get healthy:
+    if epoch + 1 >= node.cfg.ALTAIR_FORK_EPOCH:
+      findLowSubnets(getSyncCommitteeTopic, SyncCommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
+    else:
+      default(BitArray[SYNC_COMMITTEE_SUBNET_COUNT])
   )
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
@@ -1091,7 +1096,8 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
 
   while true:
     let
-      (wantedAttnets, wantedSyncnets) = node.getLowSubnets()
+      currentEpoch = node.getBeaconTime().slotOrZero.epoch
+      (wantedAttnets, wantedSyncnets) = node.getLowSubnets(currentEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
 
