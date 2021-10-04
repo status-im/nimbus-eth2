@@ -82,13 +82,12 @@ proc findValidator(validators: auto, pubKey: ValidatorPubKey):
   else:
     some(idx.ValidatorIndex)
 
-proc addLocalValidator(node: BeaconNode,
-                       privKey: ValidatorPrivKey) =
-  node.attachedValidators[].addLocalValidator(privKey)
+proc addLocalValidator(node: BeaconNode, item: ValidatorPrivateItem) =
+  node.attachedValidators[].addLocalValidator(item)
 
 proc addLocalValidators*(node: BeaconNode) =
-  for validatorKey in node.config.validatorKeys:
-    node.addLocalValidator(validatorKey)
+  for validatorItem in node.config.validatorItems():
+    node.addLocalValidator(validatorItem)
 
 proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError].} =
   # load all the validators from the child process - loop until `end`
@@ -103,7 +102,7 @@ proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError]
       if pk.isSome():
         let v = AttachedValidator(pubKey: key,
                                   index: index,
-                                  kind: ValidatorKind.remote,
+                                  kind: ValidatorKind.Remote,
                                   connection: ValidatorConnection(
                                     inStream: node.vcProcess.inputStream,
                                     outStream: node.vcProcess.outputStream,

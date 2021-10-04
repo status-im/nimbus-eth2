@@ -11,12 +11,12 @@ import
   std/[os, strutils, terminal, wordwrap, unicode],
   chronicles, chronos, json_serialization, zxcvbn,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
-  ../spec/[eth2_merkleization, keystore],
-  ../spec/datatypes/base,
+  ".."/spec/[eth2_merkleization, keystore],
+  ".."/spec/datatypes/base,
   stew/io2, libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
-  ".."/[conf, filepath],
-  ../networking/network_metadata
+  ".."/[conf, filepath, beacon_node_types],
+  ".."/networking/network_metadata
 
 export
   keystore
@@ -27,8 +27,11 @@ when defined(windows):
 {.localPassC: "-fno-lto".} # no LTO for crypto
 
 const
-  keystoreFileName* = "keystore.json"
-  netKeystoreFileName* = "network_keystore.json"
+  KeystoreFileName* = "keystore.json"
+  NetKeystoreFileName* = "network_keystore.json"
+  DisableFileName* = ".disable"
+  DisableFileContent* = "Please do not remove this file manually. " &
+                        "This can lead to slashing of this validator's key."
 
 type
   WalletPathPair* = object
@@ -38,6 +41,8 @@ type
   CreatedWallet* = object
     walletPath*: WalletPathPair
     seed*: KeySeed
+
+  AnyConf* = BeaconNodeConf | ValidatorClientConf
 
 const
   minPasswordLen = 12
@@ -52,6 +57,16 @@ proc echoP*(msg: string) =
   ## Prints a paragraph aligned to 80 columns
   echo ""
   echo wrapWords(msg, 80)
+
+proc init*(t: typedesc[ValidatorPrivateItem], privateKey: ValidatorPrivKey,
+           keystore: Keystore): ValidatorPrivateItem =
+  ValidatorPrivateItem(
+    privateKey: privateKey,
+    description: some(keystore.description[]),
+    path: some(keystore.path),
+    uuid: some(keystore.uuid),
+    version: some(uint64(keystore.version))
+  )
 
 proc checkAndCreateDataDir*(dataDir: string): bool =
   when defined(posix):
@@ -109,6 +124,44 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
     return false
 
   return true
+
+proc checkSensitivePathPermissions*(dirFilePath: string): bool =
+  ## If ``dirFilePath`` is file, then check if file has only
+  ##
+  ##   - "(600) rwx------" permissions on Posix (Linux, MacOS, BSD)
+  ##   - current user only ACL on Windows
+  ##
+  ## If ``dirFilePath`` is directory, then check if directory has only
+  ##
+  ##   - "(700) rwx------" permissions on Posix (Linux, MacOS, BSD)
+  ##   - current user only ACL on Windows
+  ##
+  ## Procedure returns ``true`` if directory/file is present and all required
+  ## permissions are set.
+  let r1 = isDir(dirFilePath)
+  let r2 = isFile(dirFilePath)
+  if r1 or r2:
+    when defined(windows):
+      let res = checkCurrentUserOnlyACL(dirFilePath)
+      if res.isErr():
+        false
+      else:
+        if res.get() == false:
+          false
+        else:
+          true
+    else:
+      let requiredPermissions = if r1: 0o700 else: 0o600
+      let res = getPermissions(dirFilePath)
+      if res.isErr():
+        false
+      else:
+        if res.get() != requiredPermissions:
+          false
+        else:
+          true
+  else:
+    false
 
 proc checkSensitiveFilePermissions*(filePath: string): bool =
   ## Check if ``filePath`` has only "(600) rw-------" permissions.
@@ -202,7 +255,8 @@ proc keyboardCreatePassword(prompt: string,
     return ok(password)
 
 proc keyboardGetPassword[T](prompt: string, attempts: int,
-                            pred: proc(p: string): KsResult[T] {.gcsafe, raises: [Defect].}): KsResult[T] =
+                            pred: proc(p: string): KsResult[T] {.
+     gcsafe, raises: [Defect].}): KsResult[T] =
   var
     remainingAttempts = attempts
     counter = 1
@@ -223,18 +277,51 @@ proc keyboardGetPassword[T](prompt: string, attempts: int,
       dec(remainingAttempts)
   err("Failed to decrypt keystore")
 
-proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
-                   nonInteractive: bool): Option[ValidatorPrivKey] =
+proc loadKeystoreFile*(path: string): KsResult[Keystore] {.
+     raises: [Defect].} =
+  try:
+    ok(Json.loadFile(path, Keystore))
+  except IOError as err:
+    return err("Could not read keystore file")
+  except SerializationError as err:
+    return err("Could not decode keystore file")
+
+proc loadSecretFile*(path: string): KsResult[KeystorePass] {.
+     raises: [Defect].} =
+  try:
+    ok(KeystorePass.init(readFile(path)))
+  except IOError:
+    return err("Could not read password file")
+
+proc loadKeystoreUnsafe*(validatorsDir, secretsDir,
+                         keyName: string): KsResult[ValidatorPrivateItem] =
+  ## Load keystore without any checks on keystore/secret permissions.
   let
-    keystorePath = validatorsDir / keyName / keystoreFileName
+    keystorePath = validatorsDir / keyName / KeystoreFileName
+    keystore = ? loadKeystoreFile(keystorePath)
+
+  let
+    passphrasePath = secretsDir / keyName
+    passphrase = ? loadSecretFile(passphrasePath)
+
+  let res = decryptKeystore(keystore, passphrase)
+  if res.isOk():
+    ok(ValidatorPrivateItem.init(res.get(), keystore))
+  else:
+    err("Failed to decrypt keystore")
+
+proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
+                   nonInteractive: bool): Option[ValidatorPrivateItem] =
+  let
+    keystorePath = validatorsDir / keyName / KeystoreFileName
     keystore =
-      try: Json.loadFile(keystorePath, Keystore)
-      except IOError as err:
-        error "Failed to read keystore", err = err.msg, path = keystorePath
-        return
-      except SerializationError as err:
-        error "Invalid keystore", err = err.formatMsg(keystorePath)
-        return
+      block:
+        let res = loadKeystoreFile(keystorePath)
+        if res.isErr():
+          error "Failed to read keystore file", error = res.error(),
+                path = keystorePath
+          return
+        res.get()
 
   let passphrasePath = secretsDir / keyName
   if fileExists(passphrasePath):
@@ -242,17 +329,18 @@ proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
       error "Password file has insecure permissions", key_path = keyStorePath
       return
 
-    let passphrase = KeystorePass.init:
-      try:
-        readFile(passphrasePath)
-      except IOError as err:
-        error "Failed to read passphrase file", err = err.msg,
-              path = passphrasePath
-        return
+    let passphrase =
+      block:
+        let res = loadSecretFile(passphrasePath)
+        if res.isErr():
+          error "Failed to read passphrase file", err = res.error(),
+                path = passphrasePath
+          return
+        res.get()
 
     let res = decryptKeystore(keystore, passphrase)
-    if res.isOk:
-      return res.get.some
+    if res.isOk():
+      return some(ValidatorPrivateItem.init(res.get(), keystore))
     else:
       error "Failed to decrypt keystore", keystorePath, passphrasePath
       return
@@ -273,34 +361,65 @@ proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
   )
 
   if res.isOk():
-    some(res.get())
+    some(ValidatorPrivateItem.init(res.get(), keystore))
   else:
     return
 
-iterator validatorKeysFromDirs*(validatorsDir, secretsDir: string): ValidatorPrivKey =
+proc isEnabled*(validatorsDir, keyName: string): bool {.
+     raises: [Defect].} =
+  ## Returns ``true`` if specific validator with key ``keyName`` in validators
+  ## directory ``validatorsDir`` is not disabled.
+  let keystorePath = validatorsDir / keyName
+  let disableFile = keystorePath / DisableFileName
+  if dirExists(keystorePath):
+    if fileExists(disableFile):
+      false
+    else:
+      true
+  else:
+    false
+
+proc isEnabled*(conf: AnyConf, keyName: string): bool {.
+     raises: [Defect].} =
+  ## Returns ``true`` if specific validator with key ``keyName`` is not
+  ## disabled.
+  isEnabled(conf.validatorsDir(), keyName)
+
+proc isEnabled*(conf: AnyConf, publicKey: ValidatorPubKey): bool {.
+     raises:[Defect].} =
+  ## Returns ``true`` if specific validator with public key ``publicKey`` is
+  ## not disabled.
+  isEnabled(conf, publicKey.toHex())
+
+iterator validatorKeysFromDirs*(validatorsDir,
+                                secretsDir: string): ValidatorPrivateItem =
   try:
     for kind, file in walkDir(validatorsDir):
       if kind == pcDir:
         let keyName = splitFile(file).name
-        let key = loadKeystore(validatorsDir, secretsDir, keyName, true)
-        if key.isSome:
-          yield key.get
-        else:
-          quit 1
+        if isEnabled(validatorsDir, keyName):
+          let item = loadKeystore(validatorsDir, secretsDir, keyName, true)
+          if item.isSome():
+            yield item.get()
+          else:
+            quit 1
   except OSError:
     quit 1
 
-iterator validatorKeys*(config: BeaconNodeConf|ValidatorClientConf): ValidatorPrivKey =
-  let validatorsDir = config.validatorsDir
+iterator validatorItems*(config: AnyConf): ValidatorPrivateItem =
+  let validatorsDir = config.validatorsDir()
+  let secretsDir = config.secretsDir()
   try:
     for kind, file in walkDir(validatorsDir):
       if kind == pcDir:
         let keyName = splitFile(file).name
-        let key = loadKeystore(validatorsDir, config.secretsDir, keyName, config.nonInteractive)
-        if key.isSome:
-          yield key.get
-        else:
-          quit 1
+        if isEnabled(config, keyName):
+          let item = loadKeystore(validatorsDir, secretsDir, keyName,
+                                  config.nonInteractive)
+          if item.isSome():
+            yield item.get()
+          else:
+            quit 1
   except OSError as err:
     error "Validator keystores directory not accessible",
           path = validatorsDir, err = err.msg
@@ -411,7 +530,7 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
     let
       keyStore = createKeystore(kdfPbkdf2, rng, signingKey,
                                 password, signingKeyPath)
-      keystoreFile = validatorDir / keystoreFileName
+      keystoreFile = validatorDir / KeystoreFileName
 
     var encodedStorage: string
     try:

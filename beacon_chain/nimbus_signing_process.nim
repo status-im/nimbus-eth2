@@ -7,23 +7,20 @@
 
 {.push raises: [Defect].}
 
-import
-  # Standard library
-  std/[os, strutils, tables],
-
-  # Local modules
-  ./spec/[digest, crypto],
-  ./validators/keystore_management
+import std/[os, strutils, tables]
+import "."/spec/[digest, crypto],
+       "."/validators/keystore_management,
+       "."/beacon_node_types
 
 {.pop.} # TODO moduletests exceptions
 
 programMain:
-  var validators: Table[ValidatorPubKey, ValidatorPrivKey]
+  var validators: Table[ValidatorPubKey, ValidatorPrivateItem]
   # load and send all public keys so the BN knows for which ones to ping us
   doAssert paramCount() == 2
   for curr in validatorKeysFromDirs(paramStr(1), paramStr(2)):
-    validators[curr.toPubKey.toPubKey()] = curr
-    echo curr.toPubKey
+    validators[curr.privateKey.toPubKey().toPubKey()] = curr
+    echo curr.privateKey.toPubKey
   echo "end"
 
   # simple format: `<pubkey> <eth2digest_to_sign>` => `<signature>`
@@ -31,6 +28,7 @@ programMain:
     let args = stdin.readLine.split(" ")
     doAssert args.len == 2
 
-    let privKey = validators[ValidatorPubKey.fromHex(args[0]).get()]
+    let item = validators[ValidatorPubKey.fromHex(args[0]).get()]
 
-    echo blsSign(privKey, Eth2Digest.fromHex(args[1]).data).toValidatorSig()
+    echo blsSign(item.privateKey,
+                 Eth2Digest.fromHex(args[1]).data).toValidatorSig()
