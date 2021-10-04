@@ -158,7 +158,7 @@ type
 
     numThreads* {.
       defaultValue: 1,
-      desc: "Number of worker threads (0 to start as many as logical CPU cores)"
+      desc: "Number of worker threads (set this to 0 to use as many threads as there are CPU cores available)"
       name: "num-threads" }: int
 
     case cmd* {.
