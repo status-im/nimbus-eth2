@@ -216,10 +216,9 @@ suite "Gossip validation - Extra": # Not based on preset config
       expectedCount = subcommittee.count(pubkey)
       index = ValidatorIndex(
         state[].data.validators.mapIt(it.pubkey).find(pubKey))
-      validator = AttachedValidator(
-        pubKey: pubkey,
-        kind: ValidatorKind.Local, privKey: MockPrivKeys[index],
-        index: some(index))
+      privateItem = ValidatorPrivateItem(privateKey: MockPrivKeys[index])
+      validator = AttachedValidator(pubKey: pubkey,
+        kind: ValidatorKind.Local, data: privateItem, index: some(index))
       msg = waitFor signSyncCommitteeMessage(
         validator, state[].data.slot,
         state[].data.fork, state[].data.genesis_validators_root, state[].root)
