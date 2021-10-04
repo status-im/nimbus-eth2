@@ -207,6 +207,7 @@ proc init*(T: type BeaconNode,
         let eth1MonitorRes = waitFor Eth1Monitor.init(
           cfg,
           db,
+          nil,
           config.web3Urls,
           depositContractDeployedAt,
           eth1Network)
@@ -289,8 +290,9 @@ proc init*(T: type BeaconNode,
             dataDir = config.dataDir
       quit 1
 
-  let beaconClock = BeaconClock.init(
-    getStateField(dag.headState.data, genesis_time))
+  let
+    beaconClock = BeaconClock.init(getStateField(dag.headState.data, genesis_time))
+    getBeaconTime = beaconClock.getBeaconTimeFn()
 
   if config.weakSubjectivityCheckpoint.isSome:
     let
@@ -326,6 +328,7 @@ proc init*(T: type BeaconNode,
     eth1Monitor = Eth1Monitor.init(
       cfg,
       db,
+      getBeaconTime,
       config.web3Urls,
       genesisDepositsSnapshot,
       eth1Network)
@@ -349,7 +352,6 @@ proc init*(T: type BeaconNode,
     netKeys = getPersistentNetKeys(rng[], config)
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
-    getBeaconTime = beaconClock.getBeaconTimeFn()
     network = createEth2Node(
       rng, config, netKeys, cfg, dag.forkDigests, getBeaconTime,
       getStateField(dag.headState.data, genesis_validators_root))

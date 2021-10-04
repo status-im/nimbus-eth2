@@ -166,7 +166,6 @@ const
   mainnetMetadata* = eth2Network "shared/mainnet"
   pyrmontMetadata* = eth2Network "shared/pyrmont"
   praterMetadata* = eth2Network "shared/prater"
-  altairDevnet3Metadata* = eth2Network "shared/altair-devnet-3"
 
 proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
   var
@@ -177,8 +176,6 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: 
         pyrmontMetadata
       of "prater":
         praterMetadata
-      of "altair-devnet-3":
-        altairDevnet3Metadata
       else:
         if fileExists(networkName / "config.yaml"):
           try:

@@ -20,7 +20,7 @@ import
   ../spec/datatypes/[base, merge],
   ../networking/network_metadata,
   ../consensus_object_pools/block_pools_types,
-  ".."/[beacon_chain_db, beacon_node_status],
+  ".."/[beacon_chain_db, beacon_node_status, beacon_clock],
   ./merkle_minimal
 
 export
@@ -94,11 +94,14 @@ type
     dataProvider: Web3DataProviderRef
 
     eth1Chain: Eth1Chain
-    latestEth1BlockNumber: Eth1BlockNumber
+    latestEth1BlockHeader: Option[Eth1BlockHeader]
     eth1Progress: AsyncEvent
+
+    terminalBlockHash*: Option[BlockHash]
 
     runFut: Future[void]
     stopFut: Future[void]
+    getBeaconTime: GetBeaconTimeFn
 
     when hasGenesisDetection:
       genesisValidators: seq[ImmutableValidatorData]
@@ -154,6 +157,12 @@ func depositCountU64(s: DepositContractState): uint64 =
     doAssert s.deposit_count[i] == 0
 
   uint64.fromBytesBE s.deposit_count[24..31]
+
+func latestEth1BlockNumber(m: Eth1Monitor): Eth1BlockNumber =
+  if m.latestEth1BlockHeader.isSome:
+    Eth1BlockNumber m.latestEth1BlockHeader.get.number
+  else:
+    Eth1BlockNumber 0
 
 when hasGenesisDetection:
   import spec/[beaconstate, signatures]
@@ -802,9 +811,16 @@ proc init*(T: type Eth1Chain, cfg: RuntimeConfig, db: BeaconChainDB): T =
     finalizedBlockHash: finalizedDeposits.eth1Block,
     finalizedDepositsMerkleizer: finalizedDeposits.createMerkleizer)
 
+proc currentEpoch*(m: Eth1Monitor): Epoch =
+  if m.getBeaconTime != nil:
+    m.getBeaconTime().slotOrZero.epoch
+  else:
+    Epoch 0
+
 proc init*(T: type Eth1Monitor,
            cfg: RuntimeConfig,
            db: BeaconChainDB,
+           getBeaconTime: GetBeaconTimeFn,
            web3Urls: seq[string],
            depositContractSnapshot: DepositContractSnapshot,
            eth1Network: Option[Eth1Network]): T =
@@ -819,6 +835,7 @@ proc init*(T: type Eth1Monitor,
   T(state: Initialized,
     eth1Chain: Eth1Chain.init(cfg, db),
     depositContractAddress: cfg.DEPOSIT_CONTRACT_ADDRESS,
+    getBeaconTime: getBeaconTime,
     web3Urls: web3Urls,
     eth1Network: eth1Network,
     eth1Progress: newAsyncEvent())
@@ -837,7 +854,7 @@ proc resetState(m: Eth1Monitor) {.async.} =
   safeCancel m.runFut
 
   m.eth1Chain.clear()
-  m.latestEth1BlockNumber = 0
+  m.latestEth1BlockHeader = none(Eth1BlockHeader)
 
   if m.dataProvider != nil:
     await m.dataProvider.close()
@@ -857,8 +874,6 @@ const
 
 proc earliestBlockOfInterest(m: Eth1Monitor): Eth1BlockNumber =
   m.latestEth1BlockNumber - (2 * m.cfg.ETH1_FOLLOW_DISTANCE) - votedBlocksSafetyMargin
-
-
 
 proc syncBlockRange(m: Eth1Monitor,
                     merkleizer: ref DepositsMerkleizer,
@@ -1069,7 +1084,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     try:
       if blk.number.uint64 > m.latestEth1BlockNumber:
         eth1_latest_head.set blk.number.toGaugeValue
-        m.latestEth1BlockNumber = Eth1BlockNumber blk.number
+        m.latestEth1BlockHeader = some blk
         m.eth1Progress.fire()
     except Exception:
       # TODO Investigate why this exception is being raised
@@ -1114,6 +1129,17 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       raise newException(CorruptDataProvider, "No eth1 chain progress for too long")
 
     m.eth1Progress.clear()
+    if m.currentEpoch > m.cfg.MERGE_FORK_EPOCH and m.terminalBlockHash.isNone:
+      var terminalBlockCandidate = await m.dataProvider.getBlockByHash(
+        m.latestEth1BlockHeader.get.hash)
+
+      if terminalBlockCandidate.totalDifficulty > m.cfg.TERMINAL_TOTAL_DIFFICULTY:
+        while true:
+          var parentBlock = await m.dataProvider.getBlockByHash(terminalBlockCandidate.parentHash)
+          while parentBlock.totalDifficulty < m.cfg.TERMINAL_TOTAL_DIFFICULTY:
+            break
+          terminalBlockCandidate = parentBlock
+        m.terminalBlockHash = some terminalBlockCandidate.hash
 
     if m.latestEth1BlockNumber <= m.cfg.ETH1_FOLLOW_DISTANCE:
       continue

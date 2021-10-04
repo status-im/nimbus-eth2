@@ -73,6 +73,9 @@ type
     DEPOSIT_NETWORK_ID*: uint64
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
 
+    TERMINAL_TOTAL_DIFFICULTY*: UInt256
+    TERMINAL_BLOCK_HASH*: BlockHash
+
   PresetFile* = object
     values*: Table[TaintedString, TaintedString]
     missingValues*: seq[string]
