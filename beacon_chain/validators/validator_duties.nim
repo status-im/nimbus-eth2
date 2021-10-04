@@ -448,9 +448,6 @@ proc prepare_execution_payload(state: merge.BeaconState,
 
       # Signify merge via producing on top of the terminal PoW block
       parent_hash = terminal_pow_block.get.block_hash
-      # hardcode merge test vector initially; TODO remove hardcoding
-      parent_hash =
-        Eth2Digest.fromHex("0xa0513a503d5bd6e89a144c3268e5b7e9da9dbf63df125a360e3950a7d0d67131")
     else:
       # Post-merge, normal payload
       parent_hash = state.latest_execution_payload_header.block_hash
@@ -460,7 +457,7 @@ proc prepare_execution_payload(state: merge.BeaconState,
       if is_merge_complete(state):
         state.latest_execution_payload_header.block_hash
       else:
-        Eth2Digest.fromHex("0xa0513a503d5bd6e89a144c3268e5b7e9da9dbf63df125a360e3950a7d0d67131")
+        Eth2Digest.fromHex("0x3b8fb240d288781d4aac94d3fd16809ee413bc99294a085798a589dae51ddd4a")
     timestamp = compute_timestamp_at_slot(state, state.slot)
     random = get_randao_mix(state, get_current_epoch(state))
   return ok((await execution_engine.prepare_payload(

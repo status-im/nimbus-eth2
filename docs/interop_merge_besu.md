@@ -36,6 +36,7 @@ DBG 2021-10-01 14:56:56.129+00:00 Message sent to RPC server                 top
 {"code":5,"message":"unknown payload"}
   [OK] getPayload unknown payload
 DBG 2021-10-01 14:56:56.129+00:00 Message sent to RPC server                 topics="JSONRPC-HTTP-CLIENT" tid=354460 file=httpclient.nim:191 address=127.0.0.1:8545 msg_len=172
+  [OK] consensusValidated unknown header
 ```
 
 # How to run Nimbus local testnet with Catalyst
