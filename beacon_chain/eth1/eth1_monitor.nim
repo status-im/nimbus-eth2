@@ -280,6 +280,9 @@ proc fixupWeb3Urls*(web3Url: var string) =
     else:
       false
 
+  if web3Url.startsWith("http://"):
+    return
+
   if not (skip("https://") or skip("http://")):
     if not (skip("ws://") or skip("wss://")):
       web3Url = "ws://" & web3Url
@@ -978,6 +981,7 @@ proc syncBlockRange(m: Eth1Monitor,
 
     let blocksWithDeposits = depositEventsToBlocks(depositLogs)
 
+    m.eth1Progress.fire()
     for i in 0 ..< blocksWithDeposits.len:
       let blk = blocksWithDeposits[i]
 
@@ -1124,7 +1128,6 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     if expectedNetwork != providerNetwork:
       fatal "The specified web3 provider serves data for a different network",
              expectedNetwork, providerNetwork
-      quit 1
 
   m.state = Started
   var subscriptionFailed = false
@@ -1188,17 +1191,23 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       raise newException(CorruptDataProvider, "No eth1 chain progress for too long")
 
     m.eth1Progress.clear()
+    notice "FOO2"
     if m.currentEpoch > m.cfg.MERGE_FORK_EPOCH and m.terminalBlockHash.isNone:
+      # TODO why would latestEth1BlockHeader be isNone?
       var terminalBlockCandidate = awaitWithRetries(
         m.dataProvider.getBlockByHash(m.depositsChain.latestEth1BlockHeader.get.hash))
 
+      notice "FOO1",
+        tBC_tD = terminalBlockCandidate.totalDifficulty,
+        TTD = m.cfg.TERMINAL_TOTAL_DIFFICULTY,
+        condition = terminalBlockCandidate.totalDifficulty > m.cfg.TERMINAL_TOTAL_DIFFICULTY
+
       if terminalBlockCandidate.totalDifficulty > m.cfg.TERMINAL_TOTAL_DIFFICULTY:
-        while true:
-          var parentBlock = awaitWithRetries(
-            m.dataProvider.getBlockByHash(terminalBlockCandidate.parentHash))
-          while parentBlock.totalDifficulty < m.cfg.TERMINAL_TOTAL_DIFFICULTY:
-            break
-          terminalBlockCandidate = parentBlock
+        #while true:
+        #  var parentBlock = await m.dataProvider.getBlockByHash(terminalBlockCandidate.parentHash)
+        #  while parentBlock.totalDifficulty < m.cfg.TERMINAL_TOTAL_DIFFICULTY:
+        #    break
+        #  terminalBlockCandidate = parentBlock
         m.terminalBlockHash = some terminalBlockCandidate.hash
 
     if shouldProcessDeposits:

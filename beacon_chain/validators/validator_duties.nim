@@ -387,42 +387,25 @@ proc getBlockProposalEth1Data*(node: BeaconNode,
       state, finalizedEpochRef.eth1_data,
       finalizedEpochRef.eth1_deposit_index)
 
-func get_pow_block(pow_chain: openArray[PowBlock], parent_hash: Eth2Digest):
-    Opt[PoWBlock] =
-  # Placeholder, pending performance importance. This whole thing is pretty
-  # literal
-  for pow_block in pow_chain:
-    if parent_hash == pow_block.block_hash:
-      return ok(pow_block)
-
-  err()
-
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/merge/validator.md#executionpayload
 proc prepare_execution_payload(state: merge.BeaconState,
-                               pow_chain: seq[PowBlock],
+                               terminal_block_candidate: Option[BlockHash],
                                fee_recipient: Address,
                                execution_engine: Web3DataProviderRef):
                                Future[Opt[PayloadId]] {.async.} =
-  when false:
-    var parent_hash: Eth2Digest
-    if not is_merge_complete(state):
-      let terminal_pow_block = get_terminal_pow_block(pow_chain)
-      if terminal_pow_block.isErr():
-        # Pre-merge, no prepare payload call is needed
-        return err()
+  var parent_hash: Eth2Digest
+  if not is_merge_complete(state):
+    if terminal_block_candidate.isNone():
+      # Pre-merge, no prepare payload call is needed
+      return err()
 
-      # Signify merge via producing on top of the terminal PoW block
-      parent_hash = terminal_pow_block.get.block_hash
-    else:
-      # Post-merge, normal payload
-      parent_hash = state.latest_execution_payload_header.block_hash
+    # Signify merge via producing on top of the terminal PoW block
+    parent_hash = terminal_block_candidate.get.asEth2Digest
+  else:
+    # Post-merge, normal payload
+    parent_hash = state.latest_execution_payload_header.block_hash
 
   let
-    parent_hash =
-      if is_merge_complete(state):
-        state.latest_execution_payload_header.block_hash
-      else:
-        Eth2Digest.fromHex("0x3b8fb240d288781d4aac94d3fd16809ee413bc99294a085798a589dae51ddd4a")
     timestamp = compute_timestamp_at_slot(state, state.slot)
     random = get_randao_mix(state, get_current_epoch(state))
   return ok((await execution_engine.prepare_payload(
@@ -508,9 +491,13 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       if slot.epoch < node.dag.cfg.MERGE_FORK_EPOCH:
         default(merge.ExecutionPayload)
       else:
+        # Loudly fail for now. Needs a more reasonable fallback.
+        doAssert not node.eth1Monitor.isNil
+
         let
           payload_id = await prepare_execution_payload(
-            proposalState.data.hbsMerge.data, @[], default(Address),
+            proposalState.data.hbsMerge.data,
+            node.eth1Monitor.terminalBlockHash, default(Address),
             node.consensusManager.web3Provider)
           payload = await get_execution_payload(payload_id, node.consensusManager.web3Provider)
         payload,
