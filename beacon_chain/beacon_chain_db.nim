@@ -31,10 +31,6 @@ type
 
   DepositsSeq = DbSeq[DepositData]
 
-  DepositContractSnapshot* = object
-    eth1Block*: Eth2Digest
-    depositContractState*: DepositContractState
-
   BeaconChainDBV0* = ref object
     ## BeaconChainDBV0 based on old kvstore table that sets the WITHOUT ROWID
     ## option which becomes unbearably slow with large blobs. It is used as a
