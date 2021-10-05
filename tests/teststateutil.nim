@@ -40,7 +40,7 @@ proc valid_deposit[T](state: var T) =
     )
 
 proc getTestStates*(
-    initialState: ForkedHashedBeaconState, useAltair: bool = false):
+    initialState: ForkedHashedBeaconState, stateFork: BeaconStateFork):
     seq[ref ForkedHashedBeaconState] =
   # Randomly generated slot numbers, with a jump to around
   # SLOTS_PER_HISTORICAL_ROOT to force wraparound of those
@@ -63,8 +63,11 @@ proc getTestStates*(
     rewards = RewardInfo()
     cfg = defaultRuntimeConfig
 
-  if useAltair:
+  if stateFork in [forkAltair, forkMerge]:
     cfg.ALTAIR_FORK_EPOCH = 1.Epoch
+
+  if stateFork == forkMerge:
+    cfg.MERGE_FORK_EPOCH = 1.Epoch
 
   for i, epoch in stateEpochs:
     let slot = epoch.Epoch.compute_start_slot_at_epoch
@@ -72,15 +75,14 @@ proc getTestStates*(
       doAssert process_slots(
         cfg, tmpState[], slot, cache, rewards, {})
 
-    if useAltair and epoch == 1:
-      maybeUpgradeStateToAltair(cfg, tmpState[])
-
     if i mod 3 == 0:
       if tmpState[].beaconStateFork == forkPhase0:
         valid_deposit(tmpState[].hbsPhase0.data)
-      else:
+      elif tmpState[].beaconStateFork == forkAltair:
         valid_deposit(tmpState[].hbsAltair.data)
+      else:
+        valid_deposit(tmpState[].hbsMerge.data)
     doAssert getStateField(tmpState[], slot) == slot
 
-    if useAltair == (tmpState[].beaconStateFork == forkAltair):
+    if tmpState[].beaconStateFork == stateFork:
       result.add assignClone(tmpState[])

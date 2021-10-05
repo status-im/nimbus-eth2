@@ -5,6 +5,11 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+# TODO Careful, not nil analysis is broken / incomplete and the semantics will
+#      likely change in future versions of the language:
+#      https://github.com/nim-lang/RFCs/issues/250
+{.experimental: "notnil".}
+
 {.push raises: [Defect].}
 
 import
@@ -148,6 +153,12 @@ type
 
     # Execution
     latest_execution_payload_header*: ExecutionPayloadHeader  # [New in Merge]
+
+  # TODO Careful, not nil analysis is broken / incomplete and the semantics will
+  #      likely change in future versions of the language:
+  #      https://github.com/nim-lang/RFCs/issues/250
+  BeaconStateRef* = ref BeaconState not nil
+  NilableBeaconStateRef* = ref BeaconState
 
   HashedBeaconState* = object
     data*: BeaconState
@@ -333,22 +344,6 @@ type
   #SomeSomeBeaconBlockBody* = SomeBeaconBlockBody | phase0.SomeBeaconBlockBody
 
   SomeSomeSignedBeaconBlock* = SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock | phase0.SomeSignedBeaconBlock
-
-  # Empirically derived from Catalyst responses; doesn't seem to match merge
-  # spec per commit 1fb9a6dd32b581c912d672634882d7e2eb2775cd from 2021-04-22
-  # {"jsonrpc":"2.0","id":1,"result":{"blockHash":"0x35139e42d930c640eee446944f7f8b345771b69dfa10120895057f48680ea27d","parentHash":"0x3a3fdfc9ab6e17ff530b57bc21494da3848ebbeaf9343545fded7a18d221ffec","miner":"0x1000000000000000000000000000000000000000","stateRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","number":"0x1","gasLimit":"0x2fefd8","gasUsed":"0x0","timestamp":"0x6087e796","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","transactions":[]}}
-  ExecutionPayloadRPC* = object
-    blockHash*: string  # Hash of execution block
-    parentHash*: string
-    miner*: string
-    stateRoot*: string
-    number*: string
-    gasLimit*: string
-    gasUsed*: string
-    timestamp*: string
-    receiptsRoot*: string
-    logsBloom*: string
-    transactions*: List[string, MAX_TRANSACTIONS_PER_PAYLOAD]
 
   BlockParams* = object
     parentHash*: string

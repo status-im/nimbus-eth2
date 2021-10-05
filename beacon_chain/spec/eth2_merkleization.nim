@@ -11,6 +11,13 @@
 
 import
   ./ssz_codec,
-  ../ssz/merkleization
+  ../ssz/merkleization,
+  ./datatypes/[phase0, altair]
 
 export ssz_codec, merkleization
+
+func hash_tree_root*(x: phase0.HashedBeaconState | altair.HashedBeaconState) {.
+  error: "HashedBeaconState should not be hashed".}
+
+func hash_tree_root*(x: phase0.SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock) {.
+  error: "SignedBeaconBlock should not be hashed".}

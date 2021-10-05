@@ -175,6 +175,22 @@ const
     "Internal server error"
   NoImplementationError* =
     "Not implemented yet"
+  KeystoreAdditionFailure* =
+    "Could not add some keystores"
+  InvalidKeystoreObjects* =
+    "Invalid keystore objects found"
+  KeystoreAdditionSuccess* =
+    "All keystores has been added"
+  KeystoreModificationFailure* =
+    "Could not change keystore(s) state"
+  KeystoreModificationSuccess* =
+    "Keystore(s) state was successfully modified"
+  KeystoreRemovalSuccess* =
+    "Keystore(s) was successfully removed"
+  KeystoreRemovalFailure* =
+    "Could not remove keystore(s)"
+  InvalidValidatorPublicKey* =
+    "Invalid validator's public key(s) found"
 
 type
   ValidatorIndexError* {.pure.} = enum

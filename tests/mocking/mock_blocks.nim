@@ -8,8 +8,8 @@
 import
   # Beacon chain internals
   ../../beacon_chain/spec/[forks, helpers, signatures, state_transition],
-  # Mock helpers
-  ./mock_validator_keys
+  # Test utilities
+  ../testblockutil
 
 # Routines for mocking blocks
 # ---------------------------------------------------------------
@@ -19,7 +19,7 @@ proc applyRandaoReveal(state: ForkedHashedBeaconState, b: var ForkedSignedBeacon
   withBlck(b):
     doAssert getStateField(state, slot) <= blck.message.slot
 
-    let proposer_index = blck.message.proposer_index
+    let proposer_index = blck.message.proposer_index.ValidatorIndex
     let privkey = MockPrivKeys[proposer_index]
 
     blck.message.body.randao_reveal = 
@@ -32,7 +32,7 @@ proc applyRandaoReveal(state: ForkedHashedBeaconState, b: var ForkedSignedBeacon
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/tests/core/pyspec/eth2spec/test/helpers/block.py#L38-L54
 proc signMockBlock*(state: ForkedHashedBeaconState, b: var ForkedSignedBeaconBlock) =
   withBlck(b):
-    let proposer_index = blck.message.proposer_index
+    let proposer_index = blck.message.proposer_index.ValidatorIndex
     let privkey = MockPrivKeys[proposer_index]
 
     blck.root = blck.message.hash_tree_root()
@@ -52,10 +52,12 @@ proc mockBlock*(
   ## TODO don't do this gradual construction, for exception safety
   ## Mock a BeaconBlock for the specific slot
 
-  var cache = StateCache()
-  var rewards = RewardInfo()
-  var tmpState = assignClone(state)
-  doAssert process_slots(cfg, tmpState[], slot, cache, rewards, flags = {})
+  var 
+    cache = StateCache()
+    tmpState = assignClone(state)
+  if getStateField(state, slot) != slot:
+    var rewards = RewardInfo()
+    doAssert process_slots(cfg, tmpState[], slot, cache, rewards, flags = {})
   
   var previous_block_header = getStateField(tmpState[], latest_block_header)
   if previous_block_header.state_root == ZERO_HASH:

@@ -75,6 +75,7 @@ type
     connWorkers: seq[Future[void]]
     connTable: HashSet[PeerID]
     forkId*: ENRForkID
+    discoveryForkId*: ENRForkID
     forkDigests*: ForkDigestsRef
     rng*: ref BrHmacDrbgContext
     peers*: Table[PeerID, Peer]
@@ -511,10 +512,7 @@ proc writeChunk*(conn: Connection,
     framingFormatCompress(output, payload)
   except IOError as exc:
     raiseAssert exc.msg # memoryOutput shouldn't raise
-  try:
-    conn.write(output.getOutput)
-  except Exception as exc: # TODO fix libp2p
-    raiseAssert exc.msg
+  conn.write(output.getOutput)
 
 template errorMsgLit(x: static string): ErrorMsg =
   const val = ErrorMsg toBytes(x)
@@ -897,6 +895,22 @@ proc toPeerAddr(node: Node): Result[PeerAddr, cstring] =
   let peerAddr = ? nodeRecord.toPeerAddr(tcpProtocol)
   ok(peerAddr)
 
+proc isCompatibleForkId*(discoveryForkId: ENRForkID, peerForkId: ENRForkID): bool =
+  if discoveryForkId.fork_digest == peerForkId.fork_digest:
+    if discoveryForkId.next_fork_version < peerForkId.next_fork_version:
+      # Peer knows about a fork and we don't
+      true
+    elif discoveryForkId.next_fork_version == peerForkId.next_fork_version:
+      # We should have the same next_fork_epoch
+      discoveryForkId.next_fork_epoch == peerForkId.next_fork_epoch
+
+    else:
+      # Our next fork version is bigger than the peer's one
+      false
+  else:
+    # Wrong fork digest
+    false
+
 proc queryRandom*(
     d: Eth2DiscoveryProtocol,
     forkId: ENRForkID,
@@ -905,12 +919,25 @@ proc queryRandom*(
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
 
-  let eth2Field = SSZ.encode(forkId)
-  let nodes = await d.queryRandom((enrForkIdField, eth2Field))
+  let nodes = await d.queryRandom()
 
   var filtered: seq[(int, Node)]
   for n in nodes:
     var score: int = 0
+
+    let eth2FieldBytes = n.record.tryGet(enrForkIdField, seq[byte])
+    if eth2FieldBytes.isNone():
+      continue
+    let peerForkId =
+      try:
+        SSZ.decode(eth2FieldBytes.get(), ENRForkID)
+      except SszError as e:
+        debug "Could not decode the eth2 field of peer",
+          peer = n.record.toURI(), exception = e.name, msg = e.msg
+        continue
+
+    if not forkId.isCompatibleForkId(peerForkId):
+      continue
 
     let attnetsBytes = n.record.tryGet(enrAttestationSubnetsField, seq[byte])
     if attnetsBytes.isSome():
@@ -936,7 +963,7 @@ proc queryRandom*(
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
 
-      for i in 0..<SYNC_COMMITTEE_SUBNET_COUNT:
+      for i in allSyncCommittees():
         if wantedSyncnets[i] and syncnetsNode[i]:
           score += 10 # connecting to the right syncnet is urgent
 
@@ -1005,7 +1032,7 @@ proc trimConnections(node: Eth2Node, count: int) {.async.} =
     inc(nbc_cycling_kicked_peers)
     if toKick <= 0: return
 
-proc getLowSubnets(node: Eth2Node):
+proc getLowSubnets(node: Eth2Node, epoch: Epoch):
                   (BitArray[ATTESTATION_SUBNET_COUNT],
                    BitArray[SYNC_COMMITTEE_SUBNET_COUNT]) =
   # Returns the subnets required to have a healthy mesh
@@ -1048,7 +1075,12 @@ proc getLowSubnets(node: Eth2Node):
 
   return (
     findLowSubnets(getAttestationTopic, SubnetId, ATTESTATION_SUBNET_COUNT),
-    findLowSubnets(getSyncCommitteeTopic, SyncCommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
+    # We start looking one epoch before the transition in order to allow
+    # some time for the gossip meshes to get healthy:
+    if epoch + 1 >= node.cfg.ALTAIR_FORK_EPOCH:
+      findLowSubnets(getSyncCommitteeTopic, SyncCommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
+    else:
+      default(BitArray[SYNC_COMMITTEE_SUBNET_COUNT])
   )
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
@@ -1056,13 +1088,14 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
 
   while true:
     let
-      (wantedAttnets, wantedSyncnets) = node.getLowSubnets()
+      currentEpoch = node.getBeaconTime().slotOrZero.epoch
+      (wantedAttnets, wantedSyncnets) = node.getLowSubnets(currentEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
 
     if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0:
       let discoveredNodes = await node.discovery.queryRandom(
-        node.forkId, wantedAttnets, wantedSyncnets)
+        node.discoveryForkId, wantedAttnets, wantedSyncnets)
 
       let newPeers = block:
         var np = newSeq[PeerAddr]()
@@ -1271,7 +1304,7 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       peer.connectionState = Disconnected
 
 proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
-          enrForkId: ENRForkID, forkDigests: ForkDigestsRef,
+          enrForkId: ENRForkID, discoveryForkId: ENRForkId, forkDigests: ForkDigestsRef,
           getBeaconTime: GetBeaconTimeFn, switch: Switch,
           pubsub: GossipSub, ip: Option[ValidIpAddress], tcpPort,
           udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
@@ -1300,6 +1333,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
     # the previous netkey.
     metadata: metadata,
     forkId: enrForkId,
+    discoveryForkId: discoveryForkId,
     forkDigests: forkDigests,
     getBeaconTime: getBeaconTime,
     discovery: Eth2DiscoveryProtocol.new(
@@ -1328,11 +1362,9 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
   proc peerHook(peerId: PeerId, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(node, peerId, event)
 
-  try:
-    switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
-    switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
-  except Exception as exc: # TODO fix libp2p, shouldn't happen
-    raiseAssert exc.msg
+  switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
+  switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
+
   node
 
 template publicKey*(node: Eth2Node): keys.PublicKey =
@@ -1776,22 +1808,17 @@ func getAltairTopic(m: messages.Message, altairPrefix: string): string =
 proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
                       address: MultiAddress,
                       rng: ref BrHmacDrbgContext): Switch {.raises: [Defect, CatchableError].} =
-  try:
-    SwitchBuilder
-      .new()
-      .withPrivateKey(seckey)
-      .withAddress(address)
-      .withRng(rng)
-      .withNoise()
-      .withMplex(5.minutes, 5.minutes)
-      .withMaxConnections(config.maxPeers)
-      .withAgentVersion(config.agentString)
-      .withTcpTransport({ServerFlags.ReuseAddr})
-      .build()
-  except CatchableError as exc: raise exc
-  except Exception as exc: # TODO fix libp2p
-    if exc is Defect: raise (ref Defect)exc
-    raiseAssert exc.msg
+  SwitchBuilder
+    .new()
+    .withPrivateKey(seckey)
+    .withAddress(address)
+    .withRng(rng)
+    .withNoise()
+    .withMplex(5.minutes, 5.minutes)
+    .withMaxConnections(config.maxPeers)
+    .withAgentVersion(config.agentString)
+    .withTcpTransport({ServerFlags.ReuseAddr})
+    .build()
 
 proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      config: BeaconNodeConf,
@@ -1803,6 +1830,9 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                     {.raises: [Defect, CatchableError].} =
   let
     enrForkId = getENRForkID(
+      cfg, getBeaconTime().slotOrZero.epoch, genesisValidatorsRoot)
+
+    discoveryForkId = getDiscoveryForkID(
       cfg, getBeaconTime().slotOrZero.epoch, genesisValidatorsRoot)
 
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(
@@ -1874,7 +1904,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
               info "Adding priviledged direct peer", peerId, address = maddress
           res
     )
-    pubsub = try: GossipSub.init(
+    pubsub = GossipSub.init(
       switch = switch,
       msgIdProvider = msgIdProvider,
       triggerSelf = true,
@@ -1882,12 +1912,10 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       verifySignature = false,
       anonymize = true,
       parameters = params)
-    except CatchableError as exc: raise exc
-    except Exception as exc: raiseAssert exc.msg # TODO fix libp2p
   switch.mount(pubsub)
 
   Eth2Node.new(
-    config, cfg, enrForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
+    config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
     extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
     discovery = config.discv5Enabled, rng = rng)
 
@@ -2018,9 +2046,7 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
     doAssert uncompressed.len <= GOSSIP_MAX_SIZE
     inc nbc_gossip_messages_sent
 
-    var futSnappy = try: node.pubsub.publish(topic & "_snappy", compressed)
-    except Exception as exc:
-      raiseAssert exc.msg # TODO fix libp2p
+    var futSnappy = node.pubsub.publish(topic & "_snappy", compressed)
     traceMessage(futSnappy, gossipId(uncompressed, topic & "_snappy", true))
   except IOError as exc:
     raiseAssert exc.msg # TODO in-memory compression shouldn't fail
@@ -2078,7 +2104,7 @@ proc updateSyncnetsMetadata*(
   else:
     debug "Sync committees changed; updated ENR syncnets", syncnets
 
-proc updateForkId*(node: Eth2Node, value: ENRForkID) =
+proc updateForkId(node: Eth2Node, value: ENRForkID) =
   node.forkId = value
   let res = node.discovery.updateRecord({enrForkIdField: SSZ.encode value})
   if res.isErr():
@@ -2087,6 +2113,10 @@ proc updateForkId*(node: Eth2Node, value: ENRForkID) =
     warn "Failed to update the ENR fork id", value, error = res.error
   else:
     debug "ENR fork id changed", value
+
+proc updateForkId*(node: Eth2Node, epoch: Epoch, genesisValidatorsRoot: Eth2Digest) =
+  node.updateForkId(getENRForkId(node.cfg, epoch, genesisValidatorsRoot))
+  node.discoveryForkId = getDiscoveryForkID(node.cfg, epoch, genesisValidatorsRoot)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 func getStabilitySubnetLength*(node: Eth2Node): uint64 =
@@ -2097,10 +2127,10 @@ func getRandomSubnetId*(node: Eth2Node): SubnetId =
   node.rng[].rand(ATTESTATION_SUBNET_COUNT - 1).SubnetId
 
 func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
-  if epoch < node.cfg.ALTAIR_FORK_EPOCH:
-    node.forkDigests.phase0
-  else:
-    node.forkDigests.altair
+  case node.cfg.stateForkAtEpoch(epoch)
+  of forkMerge:  node.forkDigests.merge
+  of forkAltair: node.forkDigests.altair
+  of forkPhase0: node.forkDigests.phase0
 
 proc getWallEpoch(node: Eth2Node): Epoch =
   node.getBeaconTime().slotOrZero.epoch

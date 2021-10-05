@@ -311,10 +311,10 @@ func contains*(dag: ChainDAGRef, root: Eth2Digest): bool =
 
 proc containsBlock(
     cfg: RuntimeConfig, db: BeaconChainDB, blck: BlockRef): bool =
-  if blck.slot.epoch < cfg.ALTAIR_FORK_EPOCH:
-    db.containsBlockPhase0(blck.root)
-  else:
-    db.containsBlockAltair(blck.root)
+  case cfg.stateForkAtEpoch(blck.slot.epoch)
+  of forkMerge:  db.containsBlockMerge(blck.root)
+  of forkAltair: db.containsBlockAltair(blck.root)
+  of forkPhase0: db.containsBlockPhase0(blck.root)
 
 func isStateCheckpoint(bs: BlockSlot): bool =
   ## State checkpoints are the points in time for which we store full state
@@ -472,6 +472,10 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   )
 
   doAssert cfg.GENESIS_FORK_VERSION != cfg.ALTAIR_FORK_VERSION
+  when true:
+    doAssert cfg.GENESIS_FORK_VERSION != cfg.MERGE_FORK_VERSION
+    doAssert cfg.ALTAIR_FORK_VERSION != cfg.MERGE_FORK_VERSION
+  doAssert cfg.ALTAIR_FORK_EPOCH <= cfg.MERGE_FORK_EPOCH
   doAssert dag.updateFlags in [{}, {verifyFinalization}]
 
   var cache: StateCache
@@ -572,17 +576,24 @@ proc getState(
   func restore() =
     assign(v[], restoreAddr[].data)
 
-  if blck.slot.epoch < dag.cfg.ALTAIR_FORK_EPOCH:
-    if state.data.beaconStateFork != forkPhase0:
-      state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkPhase0)[]
+  case dag.cfg.stateForkAtEpoch(blck.slot.epoch)
+  of forkMerge:
+    if state.data.beaconStateFork != forkMerge:
+      state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkMerge)[]
 
-    if not dag.db.getState(stateRoot, state.data.hbsPhase0.data, restore):
+    if not dag.db.getMergeState(stateRoot, state.data.hbsMerge.data, restore):
       return false
-  else:
+  of forkAltair:
     if state.data.beaconStateFork != forkAltair:
       state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkAltair)[]
 
     if not dag.db.getAltairState(stateRoot, state.data.hbsAltair.data, restore):
+      return false
+  of forkPhase0:
+    if state.data.beaconStateFork != forkPhase0:
+      state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkPhase0)[]
+
+    if not dag.db.getState(stateRoot, state.data.hbsPhase0.data, restore):
       return false
 
   state.blck = blck
@@ -601,10 +612,10 @@ template forkAtEpoch*(dag: ChainDAGRef, epoch: Epoch): Fork =
   forkAtEpoch(dag.cfg, epoch)
 
 proc forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
-  if epoch < dag.cfg.ALTAIR_FORK_EPOCH:
-    dag.forkDigests.phase0
-  else:
-    dag.forkDigests.altair
+  case dag.cfg.stateForkAtEpoch(epoch)
+  of forkMerge:  dag.forkDigests.merge
+  of forkAltair: dag.forkDigests.altair
+  of forkPhase0: dag.forkDigests.phase0
 
 proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
   ## Load a state from the database given a block and a slot - this will first

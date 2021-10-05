@@ -437,8 +437,8 @@ proc init*(T: type BeaconNode,
         topics &= getAttestationTopic(network.forkDigests.phase0, SubnetId(subnet_id))
         topics &= getAttestationTopic(network.forkDigests.altair, SubnetId(subnet_id))
       if not config.verifyFinalization:
-        for subnet_id in 0'u64 ..< SYNC_COMMITTEE_SUBNET_COUNT:
-          topics &= getSyncCommitteeTopic(network.forkDigests.altair, SyncCommitteeIndex(subnet_id))
+        for subnet_id in allSyncCommittees():
+          topics &= getSyncCommitteeTopic(network.forkDigests.altair, subnet_id)
       topics)
 
   if node.config.inProcessValidators:
@@ -1096,9 +1096,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     next_action_wait.set(nextActionWaitTime.toFloatSeconds)
 
   let epoch = slot.epoch
-  if epoch >= node.network.forkId.next_fork_epoch:
-    node.network.updateForkId(
-      node.dag.cfg.getENRForkID(epoch, node.dag.genesisValidatorsRoot))
+  if epoch + 1 >= node.network.forkId.next_fork_epoch:
+    # Update 1 epoch early to block non-fork-ready peers
+    node.network.updateForkId(epoch, node.dag.genesisValidatorsRoot)
 
   node.updateGossipStatus(slot)
 
@@ -1252,6 +1252,8 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installNimbusApiHandlers(node)
   restServer.router.installNodeApiHandlers(node)
   restServer.router.installValidatorApiHandlers(node)
+  if node.config.validatorApiEnabled:
+    restServer.router.installValidatorManagementHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =
   # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
@@ -1641,13 +1643,13 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
          "key '" & validatorKeyAsStr & "'."
     quit 1
 
-  let signingKey = loadKeystore(
+  let signingItem = loadKeystore(
     validatorsDir,
     config.secretsDir,
     validatorKeyAsStr,
     config.nonInteractive)
 
-  if signingKey.isNone:
+  if signingItem.isNone:
     fatal "Unable to continue without decrypted signing key"
     quit 1
 
@@ -1669,8 +1671,11 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
       epoch: exitAtEpoch,
       validator_index: validatorIdx))
 
-  signedExit.signature = get_voluntary_exit_signature(
-    fork, genesisValidatorsRoot, signedExit.message, signingKey.get).toValidatorSig()
+  signedExit.signature =
+    block:
+      let key = signingItem.get().privateKey
+      get_voluntary_exit_signature(fork, genesisValidatorsRoot,
+                                   signedExit.message, key).toValidatorSig()
 
   template ask(prompt: string): string =
     try:

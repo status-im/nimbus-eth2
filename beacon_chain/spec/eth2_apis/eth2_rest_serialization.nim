@@ -43,7 +43,7 @@ type
   RestAttestationError* = object
     code*: uint64
     message*: string
-    failures*: seq[RestAttestationsFailure]
+    failures*: seq[RestFailureItem]
 
   EncodeTypes* =
     AttesterSlashing |

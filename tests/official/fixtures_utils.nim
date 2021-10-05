@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-Present Status Research & Development GmbH
+# Copyright (c) 2018-2021 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -39,7 +39,7 @@ type
 const
   FixturesDir* =
     currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
-  SszTestsDir* = FixturesDir / "tests-v1.1.0"
+  SszTestsDir* = FixturesDir / "tests-v1.1.1"
   MaxObjectSize* = 3_000_000
 
 proc parseTest*(path: string, Format: typedesc[Json], T: typedesc): T =

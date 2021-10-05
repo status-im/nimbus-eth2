@@ -144,6 +144,10 @@ const
 
     "CONFIG_NAME",
 
+    # Merge-related settings that are already part of the mainnet config:
+    "TERMINAL_TOTAL_DIFFICULTY",
+    "TERMINAL_BLOCK_HASH",
+
     "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
   ]
 
@@ -386,7 +390,8 @@ proc readRuntimeConfig*(
   for line in splitLines(readFile(path)):
     inc lineNum
     if line.len == 0 or line[0] == '#': continue
-
+    # remove any trailing comments
+    let line = line.split("#")[0]
     var lineParts = line.split(":")
     if lineParts.len != 2:
       fail "Invalid syntax: A preset file should include only assignments in the form 'ConstName: Value'"

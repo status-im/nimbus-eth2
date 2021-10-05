@@ -606,10 +606,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             offset.inc(length)
           res
 
-      return RestApiResponse.jsonResponse(GetEpochSyncCommitteesResponse(
-        data: RestEpochSyncCommittee(validators: indices,
-                                     validator_aggregates: aggregates)
-      ))
+      return RestApiResponse.jsonResponse(RestEpochSyncCommittee(
+        validators: indices, validator_aggregates: aggregates)
+      )
 
     return RestApiResponse.jsonError(Http400, "Could not get requested state")
 

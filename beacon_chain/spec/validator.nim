@@ -153,7 +153,7 @@ func count_active_validators*(state: SomeBeaconState,
                               cache: var StateCache): uint64 =
   cache.get_shuffled_active_validator_indices(state, epoch).lenu64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_committee_count_per_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_committee_count_per_slot
 func get_committee_count_per_slot*(num_active_validators: uint64): uint64 =
   clamp(
     num_active_validators div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
@@ -182,7 +182,7 @@ func get_committee_count_per_slot*(state: SomeBeaconState,
                                    cache: var StateCache): uint64 =
   get_committee_count_per_slot(state, slot.compute_epoch_at_slot, cache)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_previous_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(current_epoch: Epoch): Epoch =
   ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   if current_epoch == GENESIS_EPOCH:
@@ -239,7 +239,7 @@ func compute_committee_len*(
 
   (slice.b - slice.a + 1).uint64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_beacon_committee
 iterator get_beacon_committee*(
     state: SomeBeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): ValidatorIndex =
@@ -319,7 +319,7 @@ func compute_shuffled_index*(
 
   cur_idx_permuted
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#compute_proposer_index
 func compute_proposer_index(state: SomeBeaconState,
     indices: seq[ValidatorIndex], seed: Eth2Digest): Option[ValidatorIndex] =
   ## Return from ``indices`` a random index sampled by effective balance.
@@ -346,7 +346,7 @@ func compute_proposer_index(state: SomeBeaconState,
       return some(candidate_index)
     i += 1
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(
     state: SomeBeaconState, cache: var StateCache, slot: Slot):
     Option[ValidatorIndex] =

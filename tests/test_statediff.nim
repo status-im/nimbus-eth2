@@ -26,7 +26,7 @@ suite "state diff tests" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
 
   test "random slot differences" & preset():
-    let testStates = getTestStates(dag.headState.data)
+    let testStates = getTestStates(dag.headState.data, forkPhase0)
 
     for i in 0 ..< testStates.len:
       for j in (i+1) ..< testStates.len:

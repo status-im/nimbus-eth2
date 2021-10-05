@@ -8,11 +8,13 @@
 {.used.}
 
 import
+  std/random,
   unittest2,
   ../beacon_chain/spec/[crypto, signatures],
-  ./mocking/mock_validator_keys
+  ./testblockutil
 
 suite "Message signatures":
+  var rnd = initRand(123)
   let
     fork0 = Fork(current_version: Version [byte 0x40, 0x21, 0x8c, 0xe8])
     fork1 = Fork(current_version: Version [byte 0x3b, 0x4e, 0xf6, 0x1d])
@@ -20,9 +22,11 @@ suite "Message signatures":
       "0x8fbd3b999e4873fb182569b20fb090400332849240da5ceb925db7ff7a8d984b")
     genesis_validators_root1 = Eth2Digest.fromHex(
       "0x78fb3f89983b990a841b98bab7951dccc73a757d2394f496e318db3c4826654e")
-    pubkey0 = MockPubKeys[0]
-    privkey0 = MockPrivKeys[0]
-    privkey1 = MockPrivKeys[1]
+    index0 = cast[ValidatorIndex](rnd.next)
+    index1 = cast[ValidatorIndex](rnd.next)
+    pubkey0 = MockPubKeys[index0]
+    privkey0 = MockPrivKeys[index0]
+    privkey1 = MockPrivKeys[index1]
 
   test "Slot signatures":
     let

@@ -12,10 +12,11 @@ import
   chronicles,
   stew/[assign2, results],
   ../extras,
-  ../spec/[beaconstate, helpers, state_transition_block, validator],
+  ../spec/[
+    beaconstate, eth2_merkleization, helpers, state_transition_block, validator],
   ./datatypes/[phase0, altair, merge]
 
-export extras, phase0, altair
+export extras, phase0, altair, eth2_merkleization
 
 type
   BeaconStateFork* = enum
@@ -133,7 +134,19 @@ template init*(T: type ForkedTrustedSignedBeaconBlock, blck: altair.TrustedSigne
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: merge.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Merge,  mergeBlock: blck)
 
-# State-related functionality based on ForkedHashedBeaconState instead of BeaconState
+# State-related functionality based on ForkedHashedBeaconState instead of HashedBeaconState
+
+template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
+  case x.beaconStateFork
+  of forkPhase0:
+    template state: untyped {.inject.} = x.hbsPhase0
+    body
+  of forkAltair:
+    template state: untyped {.inject.} = x.hbsAltair
+    body
+  of forkMerge:
+    template state: untyped {.inject.} = x.hbsMerge
+    body
 
 # Dispatch functions
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
@@ -142,6 +155,8 @@ func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
       assign(tgt.hbsPhase0, src.hbsPhase0):
     elif tgt.beaconStateFork == forkAltair:
       assign(tgt.hbsAltair, src.hbsAltair):
+    elif tgt.beaconStateFork == forkMerge:
+      assign(tgt.hbsMerge,  src.hbsMerge):
     else:
       doAssert false
   else:
@@ -149,62 +164,31 @@ func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
     # with nimOldCaseObjects. This is infrequent.
     tgt = src
 
-template getStateField*(x, y: untyped): untyped =
+template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
   # The use of `unsafeAddr` avoids excessive copying in certain situations, e.g.,
   # ```
   #   for index, validator in getStateField(stateData.data, validators).pairs():
   # ```
   # Without `unsafeAddr`, the `validators` list would be copied to a temporary variable.
   (case x.beaconStateFork
-   of forkPhase0: unsafeAddr (x.hbsPhase0.data.y)
-   of forkAltair: unsafeAddr (x.hbsAltair.data.y)
-   of forkMerge:  unsafeAddr (x.hbsMerge.data.y))[]
+  of forkPhase0: unsafeAddr x.hbsPhase0.data.y
+  of forkAltair: unsafeAddr x.hbsAltair.data.y
+  of forkMerge: unsafeAddr x.hbsMerge.data.y)[]
 
-template getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
-  case x.beaconStateFork:
-  of forkPhase0: x.hbsPhase0.root
-  of forkAltair: x.hbsAltair.root
-  of forkMerge:  x.hbsMerge.root
+func getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
+  withState(x): state.root
 
 func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
-  case x.beaconStateFork:
-  of forkPhase0: x.hbsPhase0.root = root
-  of forkAltair: x.hbsAltair.root = root
-  of forkMerge:  x.hbsMerge.root  = root
+  withState(x): state.root = root
 
-template hash_tree_root*(x: ForkedHashedBeaconState): Eth2Digest =
-  case x.beaconStateFork:
-  of forkPhase0: hash_tree_root(x.hbsPhase0.data)
-  of forkAltair: hash_tree_root(x.hbsAltair.data)
-  of forkMerge:  hash_tree_root(x.hbsMerge.data)
-
-template hash_tree_root*(blk: ForkedBeaconBlock): Eth2Digest =
-  case blk.kind
-  of BeaconBlockFork.Phase0:
-    hash_tree_root(blk.phase0Block)
-  of BeaconBlockFork.Altair:
-    hash_tree_root(blk.altairBlock)
-  of BeaconBlockFork.Merge:
-    hash_tree_root(blk.mergeBlock)
-
-template proposer_index*(blk: ForkedBeaconBlock): uint64 =
-  case blk.kind
-  of BeaconBlockFork.Phase0:
-    blk.phase0Block.proposer_index
-  of BeaconBlockFork.Altair:
-    blk.altairBlock.proposer_index
-  of BeaconBlockFork.Merge:
-    blk.mergeBlock.proposer_index
+func hash_tree_root*(x: ForkedHashedBeaconState): Eth2Digest =
+  # This is a bit of a hack because we drill into data here, unlike other places
+  withState(x): hash_tree_root(state.data)
 
 func get_active_validator_indices_len*(
     state: ForkedHashedBeaconState; epoch: Epoch): uint64 =
-  case state.beaconStateFork:
-  of forkPhase0:
-    get_active_validator_indices_len(state.hbsPhase0.data, epoch)
-  of forkAltair:
-    get_active_validator_indices_len(state.hbsAltair.data, epoch)
-  of forkMerge:
-    get_active_validator_indices_len(state.hbsMerge.data, epoch)
+  withState(state):
+    get_active_validator_indices_len(state.data, epoch)
 
 func get_beacon_committee*(
     state: ForkedHashedBeaconState, slot: Slot, index: CommitteeIndex,
@@ -214,56 +198,41 @@ func get_beacon_committee*(
   # diverging get_beacon_committee() in tests and beacon_chain/ by a
   # wrapper approach (e.g., toSeq). This is a perf tradeoff for test
   # correctness/consistency.
-  case state.beaconStateFork:
-  of forkPhase0: get_beacon_committee(state.hbsPhase0.data, slot, index, cache)
-  of forkAltair: get_beacon_committee(state.hbsAltair.data, slot, index, cache)
-  of forkMerge:  get_beacon_committee(state.hbsMerge.data,  slot, index, cache)
+  withState(state):
+    get_beacon_committee(state.data, slot, index, cache)
 
 func get_beacon_committee_len*(
     state: ForkedHashedBeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): uint64 =
   # This one is used by tests
-  case state.beaconStateFork:
-  of forkPhase0: get_beacon_committee_len(state.hbsPhase0.data, slot, index, cache)
-  of forkAltair: get_beacon_committee_len(state.hbsAltair.data, slot, index, cache)
-  of forkMerge:  get_beacon_committee_len(state.hbsMerge.data,  slot, index, cache)
+  withState(state):
+    get_beacon_committee_len(state.data, slot, index, cache)
 
 func get_committee_count_per_slot*(state: ForkedHashedBeaconState,
                                    epoch: Epoch,
                                    cache: var StateCache): uint64 =
   ## Return the number of committees at ``epoch``.
-  case state.beaconStateFork:
-  of forkPhase0: get_committee_count_per_slot(state.hbsPhase0.data, epoch, cache)
-  of forkAltair: get_committee_count_per_slot(state.hbsAltair.data, epoch, cache)
-  of forkMerge:  get_committee_count_per_slot(state.hbsMerge.data,  epoch, cache)
+  withState(state):
+    get_committee_count_per_slot(state.data, epoch, cache)
 
 func get_beacon_proposer_index*(state: ForkedHashedBeaconState,
                                 cache: var StateCache, slot: Slot):
                                 Option[ValidatorIndex] =
-  case state.beaconStateFork:
-  of forkPhase0: get_beacon_proposer_index(state.hbsPhase0.data, cache, slot)
-  of forkAltair: get_beacon_proposer_index(state.hbsAltair.data, cache, slot)
-  of forkMerge:  get_beacon_proposer_index(state.hbsMerge.data,  cache, slot)
+  withState(state):
+    get_beacon_proposer_index(state.data, cache, slot)
 
 func get_shuffled_active_validator_indices*(
     cache: var StateCache, state: ForkedHashedBeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
-  case state.beaconStateFork:
-  of forkPhase0:
-    cache.get_shuffled_active_validator_indices(state.hbsPhase0.data, epoch)
-  of forkAltair:
-    cache.get_shuffled_active_validator_indices(state.hbsAltair.data, epoch)
-  of forkMerge:
-    cache.get_shuffled_active_validator_indices(state.hbsMerge.data,  epoch)
+  withState(state):
+    cache.get_shuffled_active_validator_indices(state.data, epoch)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: ForkedHashedBeaconState,
                              slot: Slot): Eth2Digest =
   ## Return the block root at a recent ``slot``.
-  case state.beaconStateFork:
-  of forkPhase0: get_block_root_at_slot(state.hbsPhase0.data, slot)
-  of forkAltair: get_block_root_at_slot(state.hbsAltair.data, slot)
-  of forkMerge:  get_block_root_at_slot(state.hbsMerge.data,  slot)
+  withState(state):
+    get_block_root_at_slot(state.data, slot)
 
 proc get_attesting_indices*(state: ForkedHashedBeaconState;
                             data: AttestationData;
@@ -280,6 +249,9 @@ proc get_attesting_indices*(state: ForkedHashedBeaconState;
   elif state.beaconStateFork == forkAltair:
     for vidx in state.hbsAltair.data.get_attesting_indices(data, bits, cache):
       idxBuf.add vidx
+  elif state.beaconStateFork == forkMerge:
+    for vidx in state.hbsMerge.data.get_attesting_indices(data, bits, cache):
+      idxBuf.add vidx
   else:
     doAssert false
 
@@ -288,43 +260,39 @@ proc get_attesting_indices*(state: ForkedHashedBeaconState;
 proc check_attester_slashing*(
     state: var ForkedHashedBeaconState; attester_slashing: SomeAttesterSlashing;
     flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
-  case state.beaconStateFork:
-  of forkPhase0:
-    check_attester_slashing(state.hbsPhase0.data, attester_slashing, flags)
-  of forkAltair:
-    check_attester_slashing(state.hbsAltair.data, attester_slashing, flags)
-  of forkMerge:
-    check_attester_slashing(state.hbsMerge.data,  attester_slashing, flags)
+  withState(state):
+    check_attester_slashing(state.data, attester_slashing, flags)
 
 proc check_proposer_slashing*(
     state: var ForkedHashedBeaconState; proposer_slashing: SomeProposerSlashing;
     flags: UpdateFlags): Result[void, cstring] =
-  case state.beaconStateFork:
-  of forkPhase0:
-    check_proposer_slashing(state.hbsPhase0.data, proposer_slashing, flags)
-  of forkAltair:
-    check_proposer_slashing(state.hbsAltair.data, proposer_slashing, flags)
-  of forkMerge:
-    check_proposer_slashing(state.hbsMerge.data,  proposer_slashing, flags)
+  withState(state):
+    check_proposer_slashing(state.data, proposer_slashing, flags)
 
 proc check_voluntary_exit*(
     cfg: RuntimeConfig, state: ForkedHashedBeaconState;
     signed_voluntary_exit: SomeSignedVoluntaryExit;
     flags: UpdateFlags): Result[void, cstring] =
-  case state.beaconStateFork:
-  of forkPhase0:
-    check_voluntary_exit(cfg, state.hbsPhase0.data, signed_voluntary_exit, flags)
-  of forkAltair:
-    check_voluntary_exit(cfg, state.hbsAltair.data, signed_voluntary_exit, flags)
-  of forkMerge:
-    check_voluntary_exit(cfg, state.hbsMerge.data,  signed_voluntary_exit, flags)
+  withState(state):
+    check_voluntary_exit(cfg, state.data, signed_voluntary_exit, flags)
 
 # Derived utilities
 
+func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconStateFork =
+  ## Return the current fork for the given epoch.
+  static:
+    doAssert forkMerge  > forkAltair
+    doAssert forkAltair > forkPhase0
+    doAssert GENESIS_EPOCH == 0
+
+  if   epoch >= cfg.MERGE_FORK_EPOCH:  forkMerge
+  elif epoch >= cfg.ALTAIR_FORK_EPOCH: forkAltair
+  else:                                forkPhase0
+
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_current_epoch
-func get_current_epoch*(stateData: ForkedHashedBeaconState): Epoch =
+func get_current_epoch*(x: ForkedHashedBeaconState): Epoch =
   ## Return the current epoch.
-  getStateField(stateData, slot).epoch
+  withState(x): state.data.slot.epoch
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(stateData: ForkedHashedBeaconState): Epoch =
@@ -386,8 +354,18 @@ template withBlck*(x: ForkedBeaconBlock | ForkedSignedBeaconBlock | ForkedTruste
     template blck: untyped {.inject.} = x.mergeBlock
     body
 
+func proposer_index*(x: ForkedBeaconBlock): uint64 =
+  withBlck(x): blck.proposer_index
+
+func hash_tree_root*(x: ForkedBeaconBlock): Eth2Digest =
+  withBlck(x): hash_tree_root(blck)
+
 template getForkedBlockField*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock, y: untyped): untyped =
-  withBlck(x): blck.message.y
+  # unsafeAddr avoids a copy of the field in some cases
+  (case x.kind
+  of BeaconBlockFork.Phase0: unsafeAddr x.phase0Block.message.y
+  of BeaconBlockFork.Altair: unsafeAddr x.altairBlock.message.y
+  of BeaconBlockFork.Merge: unsafeAddr x.mergeBlock.message.y)[]
 
 template signature*(x: ForkedSignedBeaconBlock): ValidatorSig =
   withBlck(x): blck.signature
@@ -399,7 +377,7 @@ template root*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): Eth
   withBlck(x): blck.root
 
 template slot*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): Slot =
-  getForkedBlockField(x, slot)
+  withBlck(x): blck.message.slot
 
 template shortLog*(x: ForkedBeaconBlock): auto =
   withBlck(x): shortLog(blck)
@@ -412,25 +390,22 @@ chronicles.formatIt ForkedSignedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedTrustedSignedBeaconBlock: it.shortLog
 
 proc forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
-  # TODO MERGE_FORK_EPOCH
-  if epoch < cfg.ALTAIR_FORK_EPOCH:
-    genesisFork(cfg)
-  else:
-    altairFork(cfg)
+  case cfg.stateForkAtEpoch(epoch)
+  of forkMerge:  cfg.mergeFork
+  of forkAltair: cfg.altairFork
+  of forkPhase0: cfg.genesisFork
 
 proc forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
-  # TODO MERGE_FORK_EPOCH
-  if epoch < cfg.ALTAIR_FORK_EPOCH:
-    cfg.GENESIS_FORK_VERSION
-  else:
-    cfg.ALTAIR_FORK_VERSION
+  case cfg.stateForkAtEpoch(epoch)
+  of forkMerge:  cfg.MERGE_FORK_VERSION
+  of forkAltair: cfg.ALTAIR_FORK_VERSION
+  of forkPhase0: cfg.GENESIS_FORK_VERSION
 
 proc nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
-  # TODO MERGE_FORK_EPOCH
-  if epoch < cfg.ALTAIR_FORK_EPOCH:
-    cfg.ALTAIR_FORK_EPOCH
-  else:
-    FAR_FUTURE_EPOCH
+  case cfg.stateForkAtEpoch(epoch)
+  of forkMerge:  FAR_FUTURE_EPOCH
+  of forkAltair: cfg.MERGE_FORK_EPOCH
+  of forkPhase0: cfg.ALTAIR_FORK_EPOCH
 
 func getForkSchedule*(cfg: RuntimeConfig): array[2, Fork] =
   ## This procedure returns list of known and/or scheduled forks.

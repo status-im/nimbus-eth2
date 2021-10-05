@@ -158,7 +158,7 @@ type
 
     numThreads* {.
       defaultValue: 1,
-      desc: "Number of threads used (0 to use all logical threads)"
+      desc: "Number of worker threads (set this to 0 to use as many threads as there are CPU cores available)"
       name: "num-threads" }: int
 
     case cmd* {.
@@ -311,6 +311,12 @@ type
         defaultValue: defaultAdminListenAddress
         defaultValueDesc: "127.0.0.1"
         name: "rest-address" }: ValidIpAddress
+
+      validatorApiEnabled* {.
+        desc: "Enable the REST (BETA version) validator keystore management " &
+              "API",
+        defaultValue: false,
+        name: "validator-api"}: bool
 
       inProcessValidators* {.
         desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"
@@ -545,6 +551,12 @@ type
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
       name: "secrets-dir" }: Option[InputDir]
+
+    validatorApiEnabled* {.
+      desc: "Enable the REST (BETA version) validator keystore management " &
+            "API",
+      defaultValue: false,
+      name: "validator-api"}: bool
 
     case cmd* {.
       command

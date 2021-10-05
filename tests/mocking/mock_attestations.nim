@@ -16,9 +16,9 @@ import
   # Specs
   ../../beacon_chain/spec/datatypes/phase0,
   ../../beacon_chain/spec/[beaconstate, forks, helpers, validator, signatures],
-  # Mocking procs
+  # Test utilities
   ./mock_blocks,
-  ./mock_validator_keys
+  ../testblockutil
 
 proc mockAttestationData(
        state: phase0.BeaconState,

@@ -8,45 +8,44 @@
 import
   chronicles,
   options, stew/endians2,
-  ../beacon_chain/[beacon_node_types],
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/spec/datatypes/merge,
-  ../beacon_chain/spec/[helpers, signatures, state_transition, forks],
-  ../beacon_chain/consensus_object_pools/attestation_pool
+  ../beacon_chain/spec/[helpers, keystore, signatures, state_transition, forks]
 
-func makeFakeValidatorPrivKey*(i: int): ValidatorPrivKey =
+type
+  MockPrivKeysT = object
+  MockPubKeysT = object
+const 
+  MockPrivKeys* = MockPrivKeysT()
+  MockPubKeys* = MockPubKeysT()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0/tests/core/pyspec/eth2spec/test/helpers/keys.py
+func `[]`*(_: MockPrivKeysT, index: ValidatorIndex): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
-  # lighthouse.
-  # TODO: switch to https://github.com/ethereum/eth2.0-pm/issues/60
-  var bytes = uint64(i + 1000).toBytesLE()
-  copyMem(addr result, addr bytes[0], sizeof(bytes))
+  # lighthouse. EF tests use 1 instead of 1000.
+  var bytes = (index.uint64 + 1000'u64).toBytesLE()
+  static: doAssert sizeof(bytes) <= sizeof(result)
+  copyMem(addr result, addr bytes, sizeof(bytes))
+
+func `[]`*(_: MockPubKeysT, index: ValidatorIndex): ValidatorPubKey =
+  MockPrivKeys[index].toPubKey().toPubKey()
 
 func makeFakeHash*(i: int): Eth2Digest =
   var bytes = uint64(i).toBytesLE()
   static: doAssert sizeof(bytes) <= sizeof(result.data)
   copyMem(addr result.data[0], addr bytes[0], sizeof(bytes))
 
-func hackPrivKey*(v: Validator): ValidatorPrivKey =
-  ## Extract private key, per above hack
-  var bytes: array[8, byte]
-  static: doAssert sizeof(bytes) <= sizeof(v.withdrawal_credentials.data)
-
-  copyMem(
-    addr bytes, unsafeAddr v.withdrawal_credentials.data[0], sizeof(bytes))
-  let i = int(uint64.fromBytesLE(bytes))
-  makeFakeValidatorPrivKey(i)
-
-func makeDeposit*(i: int, flags: UpdateFlags = {}, cfg = defaultRuntimeConfig): DepositData =
-  ## Ugly hack for now: we stick the private key in withdrawal_credentials
-  ## which means we can repro private key and randao reveal from this data,
-  ## for testing :)
+func makeDeposit*(
+    i: int, 
+    flags: UpdateFlags = {}, 
+    cfg = defaultRuntimeConfig): DepositData =
   let
-    privkey = makeFakeValidatorPrivKey(i)
-    pubkey = privkey.toPubKey()
-    withdrawal_credentials = makeFakeHash(i)
+    privkey = MockPrivKeys[i.ValidatorIndex]
+    pubkey = MockPubKeys[i.ValidatorIndex]
+    withdrawal_credentials = makeWithdrawalCredentials(pubkey)
 
   result = DepositData(
-    pubkey: pubkey.toPubKey(),
+    pubkey: pubkey,
     withdrawal_credentials: withdrawal_credentials,
     amount: MAX_EFFECTIVE_BALANCE)
 
@@ -92,7 +91,7 @@ proc addTestBlock*(
   let
     proposer_index = get_beacon_proposer_index(
       state, cache, getStateField(state, slot))
-    privKey = hackPrivKey(getStateField(state, validators)[proposer_index.get])
+    privKey = MockPrivKeys[proposer_index.get]
     randao_reveal =
       if skipBlsValidation notin flags:
         privKey.genRandaoReveal(
@@ -102,61 +101,35 @@ proc addTestBlock*(
       else:
         ValidatorSig()
 
-  let message =
-    case state.beaconStateFork
-    of forkPhase0:
-      let res = makeBeaconBlock(
-        cfg,
-        state.hbsPhase0,
-        proposer_index.get(),
-        parent_root,
-        randao_reveal,
-        # Keep deposit counts internally consistent.
-        Eth1Data(
-          deposit_root: eth1_data.deposit_root,
-          deposit_count: getStateField(state, eth1_deposit_index) + deposits.lenu64,
-          block_hash: eth1_data.block_hash),
-        graffiti,
-        attestations,
-        deposits,
-        @[],
-        @[],
-        @[],
-        default(ExecutionPayload),
-        noRollback,
-        cache)
-      doAssert res.isOk(), "Should have created a valid block!"
-      ForkedBeaconBlock.init(res.get())
-    of forkAltair, forkMerge:
-      let res = makeBeaconBlock(
-        cfg,
-        state.hbsAltair,
-        proposer_index.get(),
-        parent_root,
-        randao_reveal,
-        # Keep deposit counts internally consistent.
-        Eth1Data(
-          deposit_root: eth1_data.deposit_root,
-          deposit_count: getStateField(state, eth1_deposit_index) + deposits.lenu64,
-          block_hash: eth1_data.block_hash),
-        graffiti,
-        attestations,
-        deposits,
-        @[],
-        @[],
-        @[],
-        SyncAggregate(
-          sync_committee_signature: ValidatorSig.infinity),
-        default(ExecutionPayload),
-        noRollback,
-        cache)
-      doAssert res.isOk(), "Should have created a valid block!"
-      ForkedBeaconBlock.init(res.get())
+  let 
+    message = makeBeaconBlock(
+      cfg,
+      state,
+      proposer_index.get(),
+      parent_root,
+      randao_reveal,
+      # Keep deposit counts internally consistent.
+      Eth1Data(
+        deposit_root: eth1_data.deposit_root,
+        deposit_count: getStateField(state, eth1_deposit_index) + deposits.lenu64,
+        block_hash: eth1_data.block_hash),
+      graffiti,
+      attestations,
+      deposits,
+      @[],
+      @[],
+      @[],
+      SyncAggregate.init(),
+      default(ExecutionPayload),
+      noRollback,
+      cache)
+
+  doAssert message.isOk(), "Should have created a valid block!"
 
   let
     new_block = signBlock(
       getStateField(state, fork),
-      getStateField(state, genesis_validators_root), message, privKey,
+      getStateField(state, genesis_validators_root), message.get(), privKey,
       flags)
 
   new_block
@@ -235,7 +208,7 @@ func makeAttestation*(
         get_attestation_signature(
           getStateField(state, fork),
           getStateField(state, genesis_validators_root),
-          data, hackPrivKey(validator)).toValidatorSig()
+          data, MockPrivKeys[validator_index]).toValidatorSig()
       else:
         ValidatorSig()
 
@@ -294,7 +267,7 @@ func makeFullAttestations*(
     agg.init(get_attestation_signature(
         getStateField(state, fork),
         getStateField(state, genesis_validators_root), data,
-        hackPrivKey(getStateField(state, validators)[committee[0]])))
+        MockPrivKeys[committee[0]]))
 
     # Aggregate the remainder
     attestation.aggregation_bits.setBit 0
@@ -304,7 +277,7 @@ func makeFullAttestations*(
         agg.aggregate(get_attestation_signature(
           getStateField(state, fork),
           getStateField(state, genesis_validators_root), data,
-          hackPrivKey(getStateField(state, validators)[committee[j]])
+          MockPrivKeys[committee[j]]
         ))
 
     attestation.signature = agg.finish().toValidatorSig()
@@ -330,11 +303,3 @@ iterator makeTestBlocks*(
       state, parent_root, cache, attestations = attestations, cfg = cfg)
     yield blck
     parent_root = blck.root
-
-proc getAttestationsForTestBlock*(
-    pool: var AttestationPool, stateData: StateData, cache: var StateCache):
-    seq[Attestation] =
-  case stateData.data.beaconStateFork:
-  of forkPhase0: pool.getAttestationsForBlock(stateData.data.hbsPhase0, cache)
-  of forkAltair: pool.getAttestationsForBlock(stateData.data.hbsAltair, cache)
-  of forkMerge:  pool.getAttestationsForBlock(stateData.data.hbsMerge,  cache)

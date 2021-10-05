@@ -34,9 +34,6 @@ func init*(T: type SyncCommitteeMsgPool,
           ): SyncCommitteeMsgPool =
   T(onContributionReceived: onSyncContribution)
 
-func init(T: type SyncAggregate): SyncAggregate =
-  SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
-
 func pruneData*(pool: var SyncCommitteeMsgPool, slot: Slot) =
   ## This should be called at the end of slot.
   clear pool.seenContributionByAuthor
@@ -171,13 +168,13 @@ proc produceSyncAggregateAux(
     initialized = false
     startTime = Moment.now
 
-  for subnetId in 0 ..< SYNC_COMMITTEE_SUBNET_COUNT:
+  for subnetId in allSyncCommittees():
     if bestContributions.subnets[subnetId].totalParticipants == 0:
       continue
 
     for pos, value in bestContributions.subnets[subnetId].participationBits:
       if value:
-        let globalPos = subnetId * SYNC_SUBCOMMITTEE_SIZE + pos
+        let globalPos = subnetId.asInt * SYNC_SUBCOMMITTEE_SIZE + pos
         result.sync_committee_bits.setBit globalPos
 
     if not initialized:

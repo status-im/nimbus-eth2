@@ -6,9 +6,9 @@
 # it once, upload it to Docker Hub and make sure it's being pulled regularly so
 # it's not deleted after 6 months of inactivity.
 
-# We use an older Ubuntu version so we can support Raspbian's glibc-2.28:
+# We use an older Debian version so we can support Raspbian's glibc-2.28:
 # https://github.com/status-im/nimbus-eth2/issues/2583
-FROM ubuntu:18.04
+FROM debian:10.10
 
 SHELL ["/bin/bash", "-c"]
 

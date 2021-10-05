@@ -383,8 +383,10 @@ FixtureSSZConsensus-minimal
 + [Valid]   sync_committee_with_participating_exited_member                                  OK
 + [Valid]   sync_committee_with_participating_withdrawable_member                            OK
 + [Valid]   valid_signature_future_committee                                                 OK
++ finality_root_merkle_proof                                                                 OK
++ next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 381/381 Fail: 0/381 Skip: 0/381
+OK: 383/383 Fail: 0/383 Skip: 0/383
 ## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -540,6 +542,13 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 36/36 Fail: 0/36 Skip: 0/36
+## Ethereum Foundation - Altair - Unittests - Sync protocol [Preset: minimal]
+```diff
++ process_light_client_update_finality_updated                                               OK
++ process_light_client_update_not_updated                                                    OK
++ process_light_client_update_timeout                                                        OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Ethereum Foundation - Merge - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -688,4 +697,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 590/590 Fail: 0/590 Skip: 0/590
+OK: 595/595 Fail: 0/595 Skip: 0/595

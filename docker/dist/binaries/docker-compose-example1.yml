@@ -16,12 +16,13 @@ services:
       - 9000:9000/tcp
       - 9000:9000/udp
       - 127.0.0.1:9190:9190/tcp
+      - 127.0.0.1:8008:8008/tcp
     volumes:
       - ./data:/home/user/nimbus-eth2/build/data
     # you need to make sure that port 9000 is accesible from outside; no automagic port forwarding here
     command: >-
-      --network=pyrmont
-      --data-dir=/home/user/nimbus-eth2/build/data/shared_pyrmont_0
+      --network=prater
+      --data-dir=/home/user/nimbus-eth2/build/data/shared_prater_0
       --web3-url=wss://goerli.infura.io/ws/v3/YOUR_TOKEN
       --nat=extip:YOUR_EXTERNAL_IP
       --log-level=info
@@ -30,4 +31,7 @@ services:
       --rpc
       --rpc-address=0.0.0.0
       --rpc-port=9190
+      --metrics
+      --metrics-address=0.0.0.0
+      --metrics-port=8008
 

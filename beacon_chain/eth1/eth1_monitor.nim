@@ -9,17 +9,17 @@
 
 import
   std/[deques, hashes, options, strformat, strutils, sequtils, tables,
-       typetraits, uri],
+       typetraits, uri, json],
   # Nimble packages:
   chronos, json, metrics, chronicles/timings,
-  web3, web3/ethtypes as web3Types, web3/ethhexstrings, eth/common/eth_types,
+  web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
+  eth/common/eth_types,
   eth/async_utils, stew/byteutils,
   # Local modules:
   ../spec/[eth2_merkleization, forks, helpers],
   ../spec/datatypes/[base, merge],
   ../networking/network_metadata,
   ../consensus_object_pools/block_pools_types,
-  ../rpc/eth_merge_web3,
   ".."/[beacon_chain_db, beacon_node_status],
   ./merkle_minimal
 
@@ -403,37 +403,37 @@ proc getBlockByNumber*(p: Web3DataProviderRef,
   except ValueError as exc: raiseAssert exc.msg # Never fails
   p.web3.provider.eth_getBlockByNumber(hexNumber, false)
 
-proc setHead*(p: Web3DataProviderRef, hash: Eth2Digest):
-    Future[BoolReturnSuccessRPC] =
-  p.web3.provider.consensus_setHead(hash.data.encodeQuantityHex)
+proc preparePayload*(p: Web3DataProviderRef,
+                     parentHash: Eth2Digest,
+                     timestamp: uint64,
+                     randomData: array[32, byte],
+                     feeRecipient: Eth1Address): Future[PreparePayloadResponse] =
+  p.web3.provider.engine_preparePayload(PayloadAttributes(
+    parentHash: parentHash.asBlockHash,
+    timestamp: Quantity timestamp,
+    random: FixedBytes[32] randomData,
+    feeRecipient: feeRecipient))
 
-proc assembleBlock*(p: Web3DataProviderRef, parentHash: Eth2Digest,
-                    timestamp: uint64): Future[ExecutionPayloadRPC] =
-  p.web3.provider.consensus_assembleBlock(BlockParams(
-    parentHash: parentHash.data.encodeQuantityHex,
-    timestamp: encodeQuantity(timestamp)))
+proc getPayload*(p: Web3DataProviderRef,
+                 payloadId: Quantity): Future[engine_api.ExecutionPayload] =
+  p.web3.provider.engine_getPayload(payloadId)
 
-func encodeOpaqueTransaction(ot: OpaqueTransaction): string =
-  var res = "0x"
-  for b in ot:
-    res &= b.toHex
-  res
+proc executePayload*(p: Web3DataProviderRef,
+                     payload: engine_api.ExecutionPayload): Future[ExecutePayloadResponse] =
+  p.web3.provider.engine_executePayload(payload)
 
-proc newBlock*(p: Web3DataProviderRef,
-               executableData: ExecutionPayload): Future[BoolReturnValidRPC] =
-  p.web3.provider.consensus_newBlock(ExecutionPayloadRPC(
-    parentHash: executableData.parent_hash.data.encodeQuantityHex,
-    miner: executableData.coinbase.data.encodeQuantityHex,
-    stateRoot: executableData.state_root.data.encodeQuantityHex,
-    number: executableData.block_number.encodeQuantity,
-    gasLimit: executableData.gas_limit.encodeQuantity,
-    gasUsed: executableData.gas_used.encodeQuantity,
-    timestamp: executableData.timestamp.encodeQuantity,
-    receiptsRoot: executableData.receipt_root.data.encodeQuantityHex,
-    logsBloom: executableData.logs_bloom.data.encodeQuantityHex,
-    blockHash: executableData.block_hash.data.encodeQuantityHex,
-    transactions: List[string, MAX_TRANSACTIONS_PER_PAYLOAD].init(
-      mapIt(executableData.transactions, it.value.encodeOpaqueTransaction))))
+proc consensusValidated*(p: Web3DataProviderRef,
+                         blockHash: BlockHash,
+                         status: BlockValidationStatus): Future[JsonNode] =
+  p.web3.provider.engine_consensusValidated(BlockValidationResult(
+    blockHash: blockHash,
+    status: $status))
+
+proc forkchoiceUpdated*(p: Web3DataProviderRef,
+                        headBlock, finalizedBlock: Eth2Digest): Future[JsonNode] =
+  p.web3.provider.engine_forkchoiceUpdated(ForkChoiceUpdate(
+    headBlockHash: headBlock.asBlockHash,
+    finalizedBlockHash: finalizedBlock.asBlockHash))
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
   var res: ValueType

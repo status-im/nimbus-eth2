@@ -22,7 +22,7 @@ import
   ../tests/testblockutil,
   ../beacon_chain/spec/[
     beaconstate, forks, helpers, signatures, state_transition],
-  ../beacon_chain/spec/datatypes/[phase0, altair],
+  ../beacon_chain/spec/datatypes/[phase0, altair, merge],
   ../beacon_chain/[beacon_node_types, beacon_chain_db, beacon_clock],
   ../beacon_chain/eth1/eth1_monitor,
   ../beacon_chain/validators/validator_pool,
@@ -73,6 +73,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     cfg = defaultRuntimeConfig
 
   cfg.ALTAIR_FORK_EPOCH = 96.Slot.epoch
+  cfg.MERGE_FORK_EPOCH = 160.Slot.epoch
 
   echo "Starting simulation..."
 
@@ -127,8 +128,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
               sig =
                 get_attestation_signature(getStateField(stateData.data, fork),
                   getStateField(stateData.data, genesis_validators_root),
-                  data, hackPrivKey(
-                    getStateField(stateData.data, validators)[validatorIdx]))
+                  data, MockPrivKeys[validatorIdx])
             var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
             aggregation_bits.setBit index_in_committee
 
@@ -164,7 +164,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
         let
           validatorIdx = validatorKeyToIndex[valKey]
-          validarorPrivKey = makeFakeValidatorPrivKey(validatorIdx)
+          validarorPrivKey = MockPrivKeys[validatorIdx.ValidatorIndex]
           signature = blsSign(validarorPrivKey, signingRoot.data)
           msg = SyncCommitteeMessage(
             slot: slot,
@@ -209,7 +209,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           signingRoot = contribution_and_proof_signing_root(
             fork, genesisValidatorsRoot, contributionAndProof)
 
-          validarorPrivKey = makeFakeValidatorPrivKey(aggregator.validatorIdx)
+          validarorPrivKey = 
+            MockPrivKeys[aggregator.validatorIdx.ValidatorIndex]
 
           signedContributionAndProof = SignedContributionAndProof(
             message: contributionAndProof,
@@ -229,69 +230,47 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       finalizedEpochRef = dag.getFinalizedEpochRef()
       proposerIdx = get_beacon_proposer_index(
         stateData.data, cache, getStateField(stateData.data, slot)).get()
-      privKey = hackPrivKey(
-        getStateField(stateData.data, validators)[proposerIdx])
+      privKey = MockPrivKeys[proposerIdx]
       eth1ProposalData = eth1Chain.getBlockProposalData(
         stateData.data,
         finalizedEpochRef.eth1_data,
         finalizedEpochRef.eth1_deposit_index)
+      sync_aggregate =
+        when T is phase0.SignedBeaconBlock:
+          SyncAggregate.init()
+        elif T is altair.SignedBeaconBlock or T is merge.SignedBeaconBlock:
+          syncCommitteePool[].produceSyncAggregate(dag.head.root)
+        else:
+          static: doAssert false
       hashedState =
         when T is phase0.SignedBeaconBlock:
           addr stateData.data.hbsPhase0
         elif T is altair.SignedBeaconBlock:
           addr stateData.data.hbsAltair
+        elif T is merge.SignedBeaconBlock:
+          addr stateData.data.hbsMerge
         else:
           static: doAssert false
-
-      # TODO this is ugly, to need to almost-but-not-quite-identical calls to
-      # makeBeaconBlock. Add a quasi-dummy SyncAggregate param to the phase 0
-      # makeBeaconBlock, to avoid code duplication.
-      #
-      # One could combine these "when"s, but this "when" should disappear.
-      message =
-        when T is phase0.SignedBeaconBlock:
-          makeBeaconBlock(
-            cfg,
-            hashedState[],
-            proposerIdx,
-            dag.head.root,
-            privKey.genRandaoReveal(
-              getStateField(stateData.data, fork),
-              getStateField(stateData.data, genesis_validators_root),
-              slot).toValidatorSig(),
-            eth1ProposalData.vote,
-            default(GraffitiBytes),
-            attPool.getAttestationsForTestBlock(stateData, cache),
-            eth1ProposalData.deposits,
-            @[],
-            @[],
-            @[],
-            ExecutionPayload(),
-            noRollback,
-            cache)
-        elif T is altair.SignedBeaconBlock:
-          makeBeaconBlock(
-            cfg,
-            hashedState[],
-            proposerIdx,
-            dag.head.root,
-            privKey.genRandaoReveal(
-              getStateField(stateData.data, fork),
-              getStateField(stateData.data, genesis_validators_root),
-              slot).toValidatorSig(),
-            eth1ProposalData.vote,
-            default(GraffitiBytes),
-            attPool.getAttestationsForTestBlock(stateData, cache),
-            eth1ProposalData.deposits,
-            @[],
-            @[],
-            @[],
-            syncCommitteePool[].produceSyncAggregate(dag.head.root),
-            ExecutionPayload(),
-            noRollback,
-            cache)
-        else:
-          static: doAssert false
+      message = makeBeaconBlock(
+        cfg,
+        hashedState[],
+        proposerIdx,
+        dag.head.root,
+        privKey.genRandaoReveal(
+          getStateField(stateData.data, fork),
+          getStateField(stateData.data, genesis_validators_root),
+          slot).toValidatorSig(),
+        eth1ProposalData.vote,
+        default(GraffitiBytes),
+        attPool.getAttestationsForBlock(stateData.data, cache),
+        eth1ProposalData.deposits,
+        @[],
+        @[],
+        @[],
+        sync_aggregate,
+        default(ExecutionPayload),
+        noRollback,
+        cache)
 
     var
       newBlock = T(
@@ -351,6 +330,26 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         dag.pruneStateCachesDAG()
         attPool.prune()
 
+  proc proposeMergeBlock(slot: Slot) =
+    if rand(r, 1.0) > blockRatio:
+      return
+
+    dag.withState(tmpState[], dag.head.atSlot(slot)):
+      let
+        newBlock = getNewBlock[merge.SignedBeaconBlock](stateData, slot, cache)
+        added = dag.addRawBlock(quarantine, newBlock) do (
+            blckRef: BlockRef, signedBlock: merge.TrustedSignedBeaconBlock,
+            epochRef: EpochRef):
+          # Callback add to fork choice if valid
+          attPool.addForkChoice(
+            epochRef, blckRef, signedBlock.message, blckRef.slot)
+
+      blck() = added[]
+      dag.updateHead(added[], quarantine)
+      if dag.needStateCachesAndForkChoicePruning():
+        dag.pruneStateCachesDAG()
+        attPool.prune()
+
   var
     lastEth1BlockAt = genesisTime
     eth1BlockNum = 1000
@@ -392,10 +391,10 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     if blockRatio > 0.0:
       withTimer(timers[t]):
-        if slot.epoch < dag.cfg.ALTAIR_FORK_EPOCH:
-          proposePhase0Block(slot)
-        else:
-          proposeAltairBlock(slot)
+        case dag.cfg.stateForkAtEpoch(slot.epoch)
+        of forkMerge:  proposeMergeBlock(slot)
+        of forkAltair: proposeAltairBlock(slot)
+        of forkPhase0: proposePhase0Block(slot)
     if attesterRatio > 0.0:
       withTimer(timers[tAttest]):
         handleAttestations(slot)

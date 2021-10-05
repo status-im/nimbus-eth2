@@ -8,7 +8,7 @@
 [![Discord: Nimbus](https://img.shields.io/badge/discord-nimbus-orange.svg)](https://discord.gg/XRxWahP)
 [![Status: #nimbus-general](https://img.shields.io/badge/status-nimbus--general-orange.svg)](https://join.status.im/nimbus-general)
 
-Nimbus-eth2 is a extremely efficient Beacon Chain client for participating in the Ethereum Proof of Stake protocol. It performs well on embedded systems, resource-restricted devices -- including Raspberry Pis and mobile devices -- the low resource usage also makes it an excellet choice for running together with an Ethereum client on a server or a desktop where it simply takes up less resources.
+Nimbus-eth2 is an extremely efficient consensus layer (eth2) client implementation. It performs well on embedded systems and resource-restricted devices -- including Raspberry Pis and mobile devices. It's low resource usage also makes it an excellent choice for running together with an Ethereum client on a server or a desktop (where it simply takes up fewer resources).
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -32,14 +32,25 @@ Nimbus-eth2 is a extremely efficient Beacon Chain client for participating in th
 
 You can find the information you need to run a beacon node and operate as a validator in [The Book](https://nimbus.guide/).
 
-The [Quickstart](https://nimbus.guide/quick-start.html) in particular will help you get connected to the Pyrmont Testnet and eth2 Mainnet quickly!
+The [Quickstart](https://nimbus.guide/quick-start.html) in particular will help you quickly connect to either mainnet or the Prater testnet.
+
+## Quickly test your tooling against Nimbus
+
+ The [Nimbus REST api](https://nimbus.guide/rest-api.html) is now available from:
+
+* http://testing.mainnet.beacon-api.nimbus.team/
+* http://unstable.mainnet.beacon-api.nimbus.team/
+* http://unstable.prater.beacon-api.nimbus.team/
+
+
+Note that right now these are very much unstable testing instances. They may be unresponsive at times - so **please do not rely on them for validating**. We may also disable them at any time.
 
 ## Related projects
 
 * [status-im/nimbus-eth1](https://github.com/status-im/nimbus-eth1/): Nimbus for Ethereum 1
 * [ethereum/consensus-specs](https://github.com/ethereum/consensus-specs/tree/v1.0.1#phase-0): Serenity specification that this project implements
 
-You can check where the beacon chain fits in the Ethereum ecosystem our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
+You can check where the beacon chain fits in the Ethereum ecosystem in our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 
 ## Donations
 
@@ -127,7 +138,7 @@ make eth2_network_simulation USE_MULTITAIL="yes"
 
 You can find out more about it in the [development update](https://our.status.im/nimbus-development-update-2018-12-2/).
 
-_Alternatively, fire up our [experimental Vagrant instance with Nim pre-installed](https://our.status.im/setting-up-a-local-vagrant-environment-for-nim-development/) and give us yout feedback about the process!_
+_Alternatively, fire up our [experimental Vagrant instance with Nim pre-installed](https://our.status.im/setting-up-a-local-vagrant-environment-for-nim-development/) and give us your feedback about the process!_
 
 ### Visualising simulation metrics
 

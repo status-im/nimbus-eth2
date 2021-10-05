@@ -82,13 +82,12 @@ proc findValidator(validators: auto, pubKey: ValidatorPubKey):
   else:
     some(idx.ValidatorIndex)
 
-proc addLocalValidator(node: BeaconNode,
-                       privKey: ValidatorPrivKey) =
-  node.attachedValidators[].addLocalValidator(privKey)
+proc addLocalValidator(node: BeaconNode, item: ValidatorPrivateItem) =
+  node.attachedValidators[].addLocalValidator(item)
 
 proc addLocalValidators*(node: BeaconNode) =
-  for validatorKey in node.config.validatorKeys:
-    node.addLocalValidator(validatorKey)
+  for validatorItem in node.config.validatorItems():
+    node.addLocalValidator(validatorItem)
 
 proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError].} =
   # load all the validators from the child process - loop until `end`
@@ -103,7 +102,7 @@ proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError]
       if pk.isSome():
         let v = AttachedValidator(pubKey: key,
                                   index: index,
-                                  kind: ValidatorKind.remote,
+                                  kind: ValidatorKind.Remote,
                                   connection: ValidatorConnection(
                                     inStream: node.vcProcess.inputStream,
                                     outStream: node.vcProcess.outputStream,
@@ -425,58 +424,33 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       error "Eth1 deposits not available. Skipping block proposal", slot
       return ForkedBlockResult.err("Eth1 deposits not available")
 
-    let doPhase0 = slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH
-    return if doPhase0:
-      func restore(v: var phase0.HashedBeaconState) =
-        # TODO address this ugly workaround - there should probably be a
-        #      `state_transition` that takes a `StateData` instead and updates
-        #      the block as well
-        doAssert v.addr == addr proposalStateAddr.data.hbsPhase0
-        assign(proposalStateAddr[], poolPtr.headState)
+    func restore(v: var ForkedHashedBeaconState) =
+      # TODO address this ugly workaround - there should probably be a
+      #      `state_transition` that takes a `StateData` instead and updates
+      #      the block as well
+      doAssert v.addr == addr proposalStateAddr.data
+      assign(proposalStateAddr[], poolPtr.headState)
 
-      makeBeaconBlock(
-        node.dag.cfg,
-        stateData.data.hbsPhase0,
-        validator_index,
-        head.root,
-        randao_reveal,
-        eth1Proposal.vote,
-        graffiti,
-        node.attestationPool[].getAttestationsForBlock(
-          stateData.data.hbsPhase0, cache),
-        eth1Proposal.deposits,
-        node.exitPool[].getProposerSlashingsForBlock(),
-        node.exitPool[].getAttesterSlashingsForBlock(),
-        node.exitPool[].getVoluntaryExitsForBlock(),
-        default(ExecutionPayload),
-        restore,
-        cache).map(proc (t: auto): auto = ForkedBeaconBlock.init(t))
-    else:
-      func restore(v: var altair.HashedBeaconState) =
-        # TODO address this ugly workaround - there should probably be a
-        #      `state_transition` that takes a `StateData` instead and updates
-        #      the block as well
-        doAssert v.addr == addr proposalStateAddr.data.hbsAltair
-        assign(proposalStateAddr[], poolPtr.headState)
-
-      makeBeaconBlock(
-        node.dag.cfg,
-        stateData.data.hbsAltair,
-        validator_index,
-        head.root,
-        randao_reveal,
-        eth1Proposal.vote,
-        graffiti,
-        node.attestationPool[].getAttestationsForBlock(
-          stateData.data.hbsAltair, cache),
-        eth1Proposal.deposits,
-        node.exitPool[].getProposerSlashingsForBlock(),
-        node.exitPool[].getAttesterSlashingsForBlock(),
-        node.exitPool[].getVoluntaryExitsForBlock(),
+    return makeBeaconBlock(
+      node.dag.cfg,
+      stateData.data,
+      validator_index,
+      head.root,
+      randao_reveal,
+      eth1Proposal.vote,
+      graffiti,
+      node.attestationPool[].getAttestationsForBlock(stateData.data, cache),
+      eth1Proposal.deposits,
+      node.exitPool[].getProposerSlashingsForBlock(),
+      node.exitPool[].getAttesterSlashingsForBlock(),
+      node.exitPool[].getVoluntaryExitsForBlock(),
+      if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH: 
+        SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
+      else:
         node.sync_committee_msg_pool[].produceSyncAggregate(head.root),
-        default(ExecutionPayload),
-        restore,
-        cache).map(proc (t: auto): auto = ForkedBeaconBlock.init(t))
+      default(merge.ExecutionPayload),
+      restore,
+      cache)
 
 proc proposeSignedBlock*(node: BeaconNode,
                          head: BlockRef,

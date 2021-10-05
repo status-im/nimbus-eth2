@@ -47,7 +47,6 @@ TOOLS := \
 	nbench_spec_scenarios \
 	ncli \
 	ncli_db \
-	process_dashboard \
 	stack_sizes \
 	nimbus_validator_client \
 	nimbus_signing_process
@@ -124,7 +123,8 @@ DEPOSITS_DELAY := 0
 
 #- "--define:release" cannot be added to "config.nims"
 #- disable Nim's default parallelisation because it starts too many processes for too little gain
-NIM_PARAMS += -d:release --parallelBuild:1
+#- https://github.com/status-im/nim-libp2p#use-identify-metrics
+NIM_PARAMS += -d:release --parallelBuild:1 -d:libp2p_agents_metrics -d:KnownLibP2PAgents=nimbus,lighthouse,prysm,teku
 
 ifeq ($(USE_LIBBACKTRACE), 0)
 # Blame Jacek for the lack of line numbers in your stack traces ;-)
@@ -568,15 +568,6 @@ dist:
 	+ $(MAKE) dist-win64
 	+ $(MAKE) dist-macos
 	+ $(MAKE) dist-macos-arm64
-
-#- this simple test will show any missing dynamically-linked Glibc symbols in the target distro
-dist-test:
-	docker rm nimbus-eth2-dist-test $(HANDLE_OUTPUT) || true
-	cd docker/dist && \
-		for DISTRO in debian-bullseye; do \
-			DOCKER_BUILDKIT=1 docker build -f Dockerfile.$${DISTRO} -t nimbus-eth2-dist-test --progress=plain --build-arg USER_ID=$$(id -u) --build-arg GROUP_ID=$$(id -g) . && \
-			docker run --rm --name nimbus-eth2-dist-test -v $(CURDIR):/home/user/nimbus-eth2 nimbus-eth2-dist-test; \
-		done
 
 #- Build and run benchmarks using an external repo (which can be used easily on
 #  older commits, before this Make target was added).

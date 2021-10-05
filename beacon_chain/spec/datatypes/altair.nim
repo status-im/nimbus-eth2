@@ -48,15 +48,15 @@ const
   PARTICIPATION_FLAG_WEIGHTS* =
     [TIMELY_SOURCE_WEIGHT, TIMELY_TARGET_WEIGHT, TIMELY_HEAD_WEIGHT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/validator.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/validator.md#misc
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 16
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/setup.py#L473
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/setup.py#L478-L479
   FINALIZED_ROOT_INDEX* = 105'u16
   NEXT_SYNC_COMMITTEE_INDEX* = 55'u16
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/altair/beacon-chain.md#participation-flag-indices
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#participation-flag-indices
   TIMELY_SOURCE_FLAG_INDEX* = 0
   TIMELY_TARGET_FLAG_INDEX* = 1
   TIMELY_HEAD_FLAG_INDEX* = 2
@@ -411,20 +411,14 @@ type
 
   SyncCommitteeIndex* = distinct uint8
 
-# TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
-# switch proc {.noSideEffect.} to func.
-when false:
-  # TODO if ParticipationFlags is distinct
-  proc `or`*(x, y: ParticipationFlags) : ParticipationFlags {.borrow, noSideEffect.}
-  proc `and`*(x, y: ParticipationFlags) : ParticipationFlags {.borrow, noSideEffect.}
-  proc `==`*(x, y: ParticipationFlags) : bool {.borrow, noSideEffect.}
-
 chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt SyncCommitteeIndex: uint8(it)
 
 template asInt*(x: SyncCommitteeIndex): int = int(x)
 template asUInt8*(x: SyncCommitteeIndex): uint8 = uint8(x)
 template asUInt64*(x: SyncCommitteeIndex): uint64 = uint64(x)
+
+template `[]`*(a: auto; i: SyncCommitteeIndex): auto = a[i.asInt]
 
 template `==`*(x, y: SyncCommitteeIndex): bool =
   distinctBase(x) == distinctBase(y)
@@ -433,7 +427,9 @@ iterator allSyncCommittees*: SyncCommitteeIndex =
   for committeeIdx in 0 ..< SYNC_COMMITTEE_SUBNET_COUNT:
     yield SyncCommitteeIndex(committeeIdx)
 
-template validateSyncCommitteeIndexOr*(networkValParam: uint64, elseBody: untyped) =
+template validateSyncCommitteeIndexOr*(
+    networkValParam: uint64, 
+    elseBody: untyped): SyncCommitteeIndex =
   let networkVal = networkValParam
   if networkVal < SYNC_COMMITTEE_SUBNET_COUNT:
     SyncCommitteeIndex(networkVal)
@@ -494,6 +490,9 @@ func shortLog*(v: SyncCommitteeMessage): auto =
     validator_index: v.validator_index,
     signature: shortLog(v.signature)
   )
+
+func init*(T: type SyncAggregate): SyncAggregate =
+  SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
 
 func shortLog*(v: SyncAggregate): auto =
   $(v.sync_committee_bits)
