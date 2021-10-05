@@ -31,6 +31,9 @@ proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("get_v1_config_spec") do () -> JsonNode:
     return %*{
+      # Note: This is intentionally only returning v1.0 config values.
+      # Please use the REST API /eth/v1/config/spec to retrieve the full config.
+      # https://github.com/ethereum/consensus-specs/blob/v1.0.1/configs/mainnet/phase0.yaml
       "MAX_COMMITTEES_PER_SLOT": $MAX_COMMITTEES_PER_SLOT,
       "TARGET_COMMITTEE_SIZE": $TARGET_COMMITTEE_SIZE,
       "MAX_VALIDATORS_PER_COMMITTEE": $MAX_VALIDATORS_PER_COMMITTEE,

@@ -10,12 +10,12 @@ import
   stew/[results, base10],
   chronicles,
   nimcrypto/utils as ncrutils,
+  ./rest_utils,
   ../beacon_node, ../networking/eth2_network,
   ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
   ../validators/validator_duties,
   ../spec/[eth2_merkleization, forks, network],
-  ../spec/datatypes/[phase0, altair],
-  ./rest_utils
+  ../spec/datatypes/[phase0, altair]
 
 export rest_utils
 

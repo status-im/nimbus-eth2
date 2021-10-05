@@ -15,7 +15,9 @@ export
   toBytesBE
 
 const
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#withdrawal-prefixes
   BLS_WITHDRAWAL_PREFIX*: byte = 0
+  ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte = 1
 
   # Constants from `validator.md` not covered by config/presets in the spec
   TARGET_AGGREGATORS_PER_COMMITTEE*: uint64 = 16
@@ -29,7 +31,7 @@ type
   Eth1Address* = ethtypes.Address
 
   RuntimeConfig* = object
-    ## https://github.com/ethereum/consensus-specs/tree/v1.1.1/configs
+    ## https://github.com/ethereum/consensus-specs/tree/v1.1.3/configs
 
     PRESET_BASE*: string
 

@@ -15,7 +15,7 @@
 
 import
   std/[json, typetraits],
-  stew/base10,
+  stew/base10, web3/ethtypes,
   ".."/forks,
   ".."/datatypes/[phase0, altair]
 
@@ -229,72 +229,90 @@ type
    metadata*: RestMetadata
 
   RestSpec* = object
+    # https://github.com/ethereum/consensus-specs/blob/v1.0.1/configs/mainnet/phase0.yaml
     CONFIG_NAME*: string
-    PRESET_BASE*: string
-    ALTAIR_FORK_EPOCH*: Epoch
-    ALTAIR_FORK_VERSION*: Version
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.3/presets/mainnet/phase0.yaml
     MAX_COMMITTEES_PER_SLOT*: uint64
     TARGET_COMMITTEE_SIZE*: uint64
     MAX_VALIDATORS_PER_COMMITTEE*: uint64
-    MIN_PER_EPOCH_CHURN_LIMIT*: uint64
-    CHURN_LIMIT_QUOTIENT*: uint64
     SHUFFLE_ROUND_COUNT*: uint64
-    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64
-    MIN_GENESIS_TIME*: uint64
     HYSTERESIS_QUOTIENT*: uint64
     HYSTERESIS_DOWNWARD_MULTIPLIER*: uint64
     HYSTERESIS_UPWARD_MULTIPLIER*: uint64
     SAFE_SLOTS_TO_UPDATE_JUSTIFIED*: uint64
-    ETH1_FOLLOW_DISTANCE*: uint64
-    TARGET_AGGREGATORS_PER_COMMITTEE*: uint64
-    TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE*: uint64
-    RANDOM_SUBNETS_PER_VALIDATOR*: uint64
-    EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64
-    SECONDS_PER_ETH1_BLOCK*: uint64
-    DEPOSIT_CHAIN_ID*: uint64
-    DEPOSIT_NETWORK_ID*: uint64
-    DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
     MIN_DEPOSIT_AMOUNT*: uint64
     MAX_EFFECTIVE_BALANCE*: uint64
-    EJECTION_BALANCE*: uint64
     EFFECTIVE_BALANCE_INCREMENT*: uint64
-    GENESIS_FORK_VERSION*: Version
-    BLS_WITHDRAWAL_PREFIX*: byte
-    GENESIS_DELAY*: uint64
-    SECONDS_PER_SLOT*: uint64
     MIN_ATTESTATION_INCLUSION_DELAY*: uint64
     SLOTS_PER_EPOCH*: uint64
     MIN_SEED_LOOKAHEAD*: uint64
     MAX_SEED_LOOKAHEAD*: uint64
     EPOCHS_PER_ETH1_VOTING_PERIOD*: uint64
     SLOTS_PER_HISTORICAL_ROOT*: uint64
-    SYNC_COMMITTEE_SIZE*: uint64
-    SYNC_COMMITTEE_SUBNET_COUNT*: uint64
-    MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
-    SHARD_COMMITTEE_PERIOD*: uint64
     MIN_EPOCHS_TO_INACTIVITY_PENALTY*: uint64
     EPOCHS_PER_HISTORICAL_VECTOR*: uint64
     EPOCHS_PER_SLASHINGS_VECTOR*: uint64
-    EPOCHS_PER_SYNC_COMMITTEE_PERIOD*: uint64
     HISTORICAL_ROOTS_LIMIT*: uint64
     VALIDATOR_REGISTRY_LIMIT*: uint64
     BASE_REWARD_FACTOR*: uint64
     WHISTLEBLOWER_REWARD_QUOTIENT*: uint64
     PROPOSER_REWARD_QUOTIENT*: uint64
     INACTIVITY_PENALTY_QUOTIENT*: uint64
-    INACTIVITY_PENALTY_QUOTIENT_ALTAIR*: uint64
-    INACTIVITY_SCORE_BIAS*: uint64
-    INACTIVITY_SCORE_RECOVERY_RATE*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT*: uint64
-    MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR*: uint64
-    MIN_SYNC_COMMITTEE_PARTICIPANTS*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER*: uint64
-    PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR*: uint64
     MAX_PROPOSER_SLASHINGS*: uint64
     MAX_ATTESTER_SLASHINGS*: uint64
     MAX_ATTESTATIONS*: uint64
     MAX_DEPOSITS*: uint64
     MAX_VOLUNTARY_EXITS*: uint64
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.3/presets/mainnet/altair.yaml
+    INACTIVITY_PENALTY_QUOTIENT_ALTAIR*: uint64
+    MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR*: uint64
+    PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR*: uint64
+    SYNC_COMMITTEE_SIZE*: uint64
+    EPOCHS_PER_SYNC_COMMITTEE_PERIOD*: uint64
+    MIN_SYNC_COMMITTEE_PARTICIPANTS*: uint64
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.3/configs/mainnet.yaml
+    PRESET_BASE*: string
+    TERMINAL_TOTAL_DIFFICULTY*: UInt256
+    TERMINAL_BLOCK_HASH*: BlockHash
+    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64
+    MIN_GENESIS_TIME*: uint64
+    GENESIS_FORK_VERSION*: Version
+    GENESIS_DELAY*: uint64
+    ALTAIR_FORK_VERSION*: Version
+    ALTAIR_FORK_EPOCH*: uint64
+    MERGE_FORK_VERSION*: Version
+    MERGE_FORK_EPOCH*: uint64
+    SHARDING_FORK_VERSION*: Version
+    SHARDING_FORK_EPOCH*: uint64
+    SECONDS_PER_SLOT*: uint64
+    SECONDS_PER_ETH1_BLOCK*: uint64
+    MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
+    SHARD_COMMITTEE_PERIOD*: uint64
+    ETH1_FOLLOW_DISTANCE*: uint64
+    INACTIVITY_SCORE_BIAS*: uint64
+    INACTIVITY_SCORE_RECOVERY_RATE*: uint64
+    EJECTION_BALANCE*: uint64
+    MIN_PER_EPOCH_CHURN_LIMIT*: uint64
+    CHURN_LIMIT_QUOTIENT*: uint64
+    DEPOSIT_CHAIN_ID*: uint64
+    DEPOSIT_NETWORK_ID*: uint64
+    DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#constants
+    # GENESIS_SLOT
+    # GENESIS_EPOCH
+    # FAR_FUTURE_EPOCH
+    # BASE_REWARDS_PER_EPOCH
+    # DEPOSIT_CONTRACT_TREE_DEPTH
+    # JUSTIFICATION_BITS_LENGTH
+    # ENDIANNESS
+    BLS_WITHDRAWAL_PREFIX*: byte
+    ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte
     DOMAIN_BEACON_PROPOSER*: DomainType
     DOMAIN_BEACON_ATTESTER*: DomainType
     DOMAIN_RANDAO*: DomainType
@@ -302,9 +320,31 @@ type
     DOMAIN_VOLUNTARY_EXIT*: DomainType
     DOMAIN_SELECTION_PROOF*: DomainType
     DOMAIN_AGGREGATE_AND_PROOF*: DomainType
-    DOMAIN_CONTRIBUTION_AND_PROOF*: DomainType
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/beacon-chain.md#constants
+    TIMELY_SOURCE_FLAG_INDEX*: byte
+    TIMELY_TARGET_FLAG_INDEX*: byte
+    TIMELY_HEAD_FLAG_INDEX*: byte
+    TIMELY_SOURCE_WEIGHT*: uint64
+    TIMELY_TARGET_WEIGHT*: uint64
+    TIMELY_HEAD_WEIGHT*: uint64
+    SYNC_REWARD_WEIGHT*: uint64
+    PROPOSER_WEIGHT*: uint64
+    WEIGHT_DENOMINATOR*: uint64
     DOMAIN_SYNC_COMMITTEE*: DomainType
     DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF*: DomainType
+    DOMAIN_CONTRIBUTION_AND_PROOF*: DomainType
+    # PARTICIPATION_FLAG_WEIGHTS
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/validator.md#constants
+    TARGET_AGGREGATORS_PER_COMMITTEE*: uint64
+    RANDOM_SUBNETS_PER_VALIDATOR*: uint64
+    EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64
+    ATTESTATION_SUBNET_COUNT*: uint64
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/validator.md#constants
+    TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE*: uint64
+    SYNC_COMMITTEE_SUBNET_COUNT*: uint64
 
   # The `RestSpec` is a dynamic dictionary that includes version-specific spec
   # constants. New versions may introduce new constants, and remove old ones.
