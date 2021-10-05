@@ -276,7 +276,7 @@ type
     state_root*: Eth2Digest
     epoch_transition*: bool
     previous_duty_dependent_root*: Eth2Digest
-    current_duty_depenedent_root*: Eth2Digest
+    current_duty_dependent_root*: Eth2Digest
 
   ReorgInfoObject* = object
     slot*: Slot
@@ -353,7 +353,7 @@ func init*(t: typedesc[HeadChangeInfoObject], slot: Slot, blockRoot: Eth2Digest,
     state_root: stateRoot,
     epoch_transition: epochTransition,
     previous_duty_dependent_root: previousDutyDepRoot,
-    current_duty_depenedent_root: currentDutyDepRoot
+    current_duty_dependent_root: currentDutyDepRoot
   )
 
 func init*(t: typedesc[ReorgInfoObject], slot: Slot, depth: uint64,
