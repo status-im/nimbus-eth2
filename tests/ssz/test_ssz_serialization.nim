@@ -343,6 +343,8 @@ suite "underlong values":
   testit(default(uint16))
   testit(default(uint32))
   testit(default(uint64))
+  testit(default(UInt128))
+  testit(default(UInt256))
   testit(default(array[32, uint8]))
   testit(default(HashArray[32, uint8]))
   testit(List[uint64, 32].init(@[42'u64]))

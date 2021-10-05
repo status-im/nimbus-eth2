@@ -325,6 +325,8 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Overlong SSZ.decode: HashList[system.uint64, 32]                                           OK
 + Overlong SSZ.decode: List[system.uint64, 32]                                               OK
   Overlong SSZ.decode: Simple                                                                Skip
+  Overlong SSZ.decode: UInt128                                                               Skip
+  Overlong SSZ.decode: UInt256                                                               Skip
   Overlong SSZ.decode: array[0..31, byte]                                                    Skip
   Overlong SSZ.decode: bool                                                                  Skip
   Overlong SSZ.decode: limb_t                                                                Skip
@@ -337,6 +339,8 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Overlong readSszBytes: HashList[system.uint64, 32]                                         OK
 + Overlong readSszBytes: List[system.uint64, 32]                                             OK
   Overlong readSszBytes: Simple                                                              Skip
++ Overlong readSszBytes: UInt128                                                             OK
++ Overlong readSszBytes: UInt256                                                             OK
 + Overlong readSszBytes: array[0..31, byte]                                                  OK
 + Overlong readSszBytes: bool                                                                OK
 + Overlong readSszBytes: limb_t                                                              OK
@@ -349,6 +353,8 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Underlong SSZ.decode: HashList[system.uint64, 32]                                          OK
 + Underlong SSZ.decode: List[system.uint64, 32]                                              OK
 + Underlong SSZ.decode: Simple                                                               OK
++ Underlong SSZ.decode: UInt128                                                              OK
++ Underlong SSZ.decode: UInt256                                                              OK
 + Underlong SSZ.decode: array[0..31, byte]                                                   OK
 + Underlong SSZ.decode: bool                                                                 OK
 + Underlong SSZ.decode: limb_t                                                               OK
@@ -361,6 +367,8 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Underlong readSszBytes: HashList[system.uint64, 32]                                        OK
 + Underlong readSszBytes: List[system.uint64, 32]                                            OK
 + Underlong readSszBytes: Simple                                                             OK
++ Underlong readSszBytes: UInt128                                                            OK
++ Underlong readSszBytes: UInt256                                                            OK
 + Underlong readSszBytes: array[0..31, byte]                                                 OK
 + Underlong readSszBytes: bool                                                               OK
 + Underlong readSszBytes: limb_t                                                             OK
@@ -368,7 +376,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Underlong readSszBytes: uint32                                                             OK
 + Underlong readSszBytes: uint8                                                              OK
 ```
-OK: 36/48 Fail: 0/48 Skip: 12/48
+OK: 42/56 Fail: 0/56 Skip: 14/56
 
 ---TOTAL---
-OK: 201/213 Fail: 0/213 Skip: 12/213
+OK: 207/221 Fail: 0/221 Skip: 14/221
