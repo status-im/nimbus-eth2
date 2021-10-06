@@ -272,23 +272,23 @@ type
 
   HeadChangeInfoObject* = object
     slot*: Slot
-    block_root*: Eth2Digest
-    state_root*: Eth2Digest
+    block_root* {.serializedFieldName: "block".}: Eth2Digest
+    state_root* {.serializedFieldName: "state".}: Eth2Digest
     epoch_transition*: bool
     previous_duty_dependent_root*: Eth2Digest
-    current_duty_depenedent_root*: Eth2Digest
+    current_duty_dependent_root*: Eth2Digest
 
   ReorgInfoObject* = object
     slot*: Slot
     depth*: uint64
-    old_head_block_root*: Eth2Digest
-    new_head_block_root*: Eth2Digest
-    old_head_state_root*: Eth2Digest
-    new_head_state_root*: Eth2Digest
+    old_head_block*: Eth2Digest
+    new_head_block*: Eth2Digest
+    old_head_state*: Eth2Digest
+    new_head_state*: Eth2Digest
 
   FinalizationInfoObject* = object
-    block_root*: Eth2Digest
-    state_root*: Eth2Digest
+    block_root* {.serializedFieldName: "block".}: Eth2Digest
+    state_root* {.serializedFieldName: "state".}: Eth2Digest
     epoch*: Epoch
 
 template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
@@ -353,7 +353,7 @@ func init*(t: typedesc[HeadChangeInfoObject], slot: Slot, blockRoot: Eth2Digest,
     state_root: stateRoot,
     epoch_transition: epochTransition,
     previous_duty_dependent_root: previousDutyDepRoot,
-    current_duty_depenedent_root: currentDutyDepRoot
+    current_duty_dependent_root: currentDutyDepRoot
   )
 
 func init*(t: typedesc[ReorgInfoObject], slot: Slot, depth: uint64,
@@ -363,10 +363,10 @@ func init*(t: typedesc[ReorgInfoObject], slot: Slot, depth: uint64,
   ReorgInfoObject(
     slot: slot,
     depth: depth,
-    old_head_block_root: oldHeadBlockRoot,
-    new_head_block_root: newHeadBlockRoot,
-    old_head_state_root: oldHeadStateRoot,
-    new_head_state_root: newHeadStateRoot
+    old_head_block: oldHeadBlockRoot,
+    new_head_block: newHeadBlockRoot,
+    old_head_state: oldHeadStateRoot,
+    new_head_state: newHeadStateRoot
   )
 
 func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
