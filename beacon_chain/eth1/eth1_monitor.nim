@@ -455,10 +455,10 @@ proc executePayload*(p: Web3DataProviderRef,
   p.web3.provider.engine_executePayload(payload)
 
 proc forkchoiceUpdated*(p: Web3DataProviderRef,
-                        headBlock, finalizedBlock: Eth2Digest): Future[JsonNode] =
+                        headBlock, finalizedBlock: BlockHash): Future[JsonNode] =
   p.web3.provider.engine_forkchoiceUpdated(ForkChoiceUpdate(
-    headBlockHash: headBlock.asBlockHash,
-    finalizedBlockHash: finalizedBlock.asBlockHash))
+    headBlockHash: headBlock,
+    finalizedBlockHash: finalizedBlock))
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
   var res: ValueType
