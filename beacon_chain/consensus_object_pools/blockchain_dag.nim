@@ -1452,10 +1452,11 @@ proc newExecutionPayload(
     blockHash: executionPayload.block_hash.asBlockHash,
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction))
   try:
-    return await(web3Provider.executePayload(rpcExecutionPayload[])).status ==
-      # PayloadExecutionStatus.valid?
-      # TODO SYNCING
-      "VALID"
+    let payloadStatus = await(web3Provider.executePayload(rpcExecutionPayload[])).status
+    # Be liberal in what you accept
+    if payloadStatus == "SYNCING":
+      debug "newExecutionPayload: attempting to insert block into syncing EL. CL should be syncing too."
+    return payloadStatus in ["SYNCING", "VALID"]
   except CatchableError:
     return false
 
