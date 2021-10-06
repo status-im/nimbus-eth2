@@ -146,9 +146,9 @@
       "url": "/eth/v1/beacon/states/0x0000000000000000000000000000000000000000000000000000000000000000/root",
       "headers": {"Accept": "application/json"}
     },
-    "comment": "Hexadecimal state root tests",
+    "comment": "Hexadecimal state root tests (TODO (cheatfate))",
     "response": {
-      "status": {"operator": "equals", "value": "404"},
+      "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
       "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
     }
@@ -159,9 +159,9 @@
       "url": "/eth/v1/beacon/states/0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF/root",
       "headers": {"Accept": "application/json"}
     },
-    "comment": "Hexadecimal state root tests",
+    "comment": "Hexadecimal state root tests (TODO (cheatfate))",
     "response": {
-      "status": {"operator": "equals", "value": "404"},
+      "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
       "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
     }
@@ -304,9 +304,9 @@
       "url": "/eth/v1/beacon/states/0x0000000000000000000000000000000000000000000000000000000000000000/fork",
       "headers": {"Accept": "application/json"}
     },
-    "comment": "Hexadecimal state root tests",
+    "comment": "Hexadecimal state root tests (TODO (cheatfate))",
     "response": {
-      "status": {"operator": "equals", "value": "404"},
+      "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
       "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
     }
@@ -317,9 +317,9 @@
       "url": "/eth/v1/beacon/states/0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF/fork",
       "headers": {"Accept": "application/json"}
     },
-    "comment": "Hexadecimal state root tests",
+    "comment": "Hexadecimal state root tests (TODO (cheatfate))",
     "response": {
-      "status": {"operator": "equals", "value": "404"},
+      "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
       "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
     }
@@ -466,9 +466,9 @@
       "url": "/eth/v1/beacon/states/0x0000000000000000000000000000000000000000000000000000000000000000/finality_checkpoints",
       "headers": {"Accept": "application/json"}
     },
-    "comment": "Hexadecimal state root tests",
+    "comment": "Hexadecimal state root tests (TODO (cheatfate))",
     "response": {
-      "status": {"operator": "equals", "value": "404"},
+      "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
       "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
     }
@@ -479,9 +479,9 @@
       "url": "/eth/v1/beacon/states/0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF/finality_checkpoints",
       "headers": {"Accept": "application/json"}
     },
-    "comment": "Hexadecimal state root tests",
+    "comment": "Hexadecimal state root tests (TODO (cheatfate))",
     "response": {
-      "status": {"operator": "equals", "value": "404"},
+      "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
       "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
     }
