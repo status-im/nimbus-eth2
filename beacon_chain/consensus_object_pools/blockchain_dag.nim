@@ -1429,6 +1429,8 @@ proc newExecutionPayload(
   debug "newBlock: inserting block into execution engine",
     parent_hash = executionPayload.parent_hash,
     block_hash = executionPayload.block_hash
+  template getTypedTransaction(t: Transaction): TypedTransaction =
+    TypedTransaction(t.value.distinctBase)
   let rpcExecutionPayload = (ref engine_api.ExecutionPayload)(
     parentHash: executionPayload.parent_hash.asBlockHash,
     coinbase: Address(executionPayload.coinbase.data),
@@ -1448,8 +1450,7 @@ proc newExecutionPayload(
       UInt256.fromBytes(executionPayload.base_fee_per_gas.data),
 
     blockHash: executionPayload.block_hash.asBlockHash,
-    #transactions: executionPayload.transactions TODO intially no transactions
-    )
+    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction))
   try:
     return await(web3Provider.executePayload(rpcExecutionPayload[])).status ==
       # PayloadExecutionStatus.valid?

@@ -419,6 +419,9 @@ proc get_execution_payload(
     # Pre-merge, empty payload
     default(merge.ExecutionPayload)
   else:
+    template getTransaction(t: TypedTransaction): Transaction =
+      Transaction(value: OpaqueTransaction.init(t.distinctBase))
+
     let rpcExecutionPayload =
       await execution_engine.get_payload(payload_id.get.Quantity)
     when false:
@@ -440,8 +443,8 @@ proc get_execution_payload(
       base_fee_per_gas:
         Eth2Digest(data: rpcExecutionPayload.baseFeePerGas.toBytesLE),
       block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
-      # transactions: rpcExecutionPayload.transactions
-    )
+      transactions: List[merge.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+        mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
 
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     randao_reveal: ValidatorSig,
