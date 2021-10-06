@@ -22,6 +22,12 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
         (
           CONFIG_NAME:
             const_preset,
+          PRESET_BASE:
+            node.dag.cfg.PRESET_BASE,
+          ALTAIR_FORK_EPOCH:
+            Base10.toString(uint64(node.dag.cfg.ALTAIR_FORK_EPOCH)),
+          ALTAIR_FORK_VERSION:
+            "0x" & $node.dag.cfg.ALTAIR_FORK_VERSION,
           MAX_COMMITTEES_PER_SLOT:
             Base10.toString(MAX_COMMITTEES_PER_SLOT),
           TARGET_COMMITTEE_SIZE:
@@ -50,6 +56,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(node.dag.cfg.ETH1_FOLLOW_DISTANCE),
           TARGET_AGGREGATORS_PER_COMMITTEE:
             Base10.toString(TARGET_AGGREGATORS_PER_COMMITTEE),
+          TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE:
+            Base10.toString(uint64(TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE)),
           RANDOM_SUBNETS_PER_VALIDATOR:
             Base10.toString(RANDOM_SUBNETS_PER_VALIDATOR),
           EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION:
@@ -90,6 +98,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(EPOCHS_PER_ETH1_VOTING_PERIOD),
           SLOTS_PER_HISTORICAL_ROOT:
             Base10.toString(SLOTS_PER_HISTORICAL_ROOT),
+          SYNC_COMMITTEE_SIZE:
+            Base10.toString(uint64(SYNC_COMMITTEE_SIZE)),
+          SYNC_COMMITTEE_SUBNET_COUNT:
+            Base10.toString(uint64(SYNC_COMMITTEE_SUBNET_COUNT)),
           MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
             Base10.toString(node.dag.cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY),
           SHARD_COMMITTEE_PERIOD:
@@ -100,6 +112,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(EPOCHS_PER_HISTORICAL_VECTOR),
           EPOCHS_PER_SLASHINGS_VECTOR:
             Base10.toString(EPOCHS_PER_SLASHINGS_VECTOR),
+          EPOCHS_PER_SYNC_COMMITTEE_PERIOD:
+            Base10.toString(EPOCHS_PER_SYNC_COMMITTEE_PERIOD),
           HISTORICAL_ROOTS_LIMIT:
             Base10.toString(HISTORICAL_ROOTS_LIMIT),
           VALIDATOR_REGISTRY_LIMIT:
@@ -112,10 +126,22 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(PROPOSER_REWARD_QUOTIENT),
           INACTIVITY_PENALTY_QUOTIENT:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT),
+          INACTIVITY_PENALTY_QUOTIENT_ALTAIR:
+            Base10.toString(INACTIVITY_PENALTY_QUOTIENT_ALTAIR),
+          INACTIVITY_SCORE_BIAS:
+            Base10.toString(node.dag.cfg.INACTIVITY_SCORE_BIAS),
+          INACTIVITY_SCORE_RECOVERY_RATE:
+            Base10.toString(node.dag.cfg.INACTIVITY_SCORE_RECOVERY_RATE),
           MIN_SLASHING_PENALTY_QUOTIENT:
             Base10.toString(MIN_SLASHING_PENALTY_QUOTIENT),
+          MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR:
+            Base10.toString(MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR),
+          MIN_SYNC_COMMITTEE_PARTICIPANTS:
+            Base10.toString(uint64(MIN_SYNC_COMMITTEE_PARTICIPANTS)),
           PROPORTIONAL_SLASHING_MULTIPLIER:
             Base10.toString(PROPORTIONAL_SLASHING_MULTIPLIER),
+          PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR:
+            Base10.toString(PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR),
           MAX_PROPOSER_SLASHINGS:
             Base10.toString(MAX_PROPOSER_SLASHINGS),
           MAX_ATTESTER_SLASHINGS:
@@ -127,19 +153,35 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_VOLUNTARY_EXITS:
             Base10.toString(MAX_VOLUNTARY_EXITS),
           DOMAIN_BEACON_PROPOSER:
-            "0x" & ncrutils.toHex(uint32(DOMAIN_BEACON_PROPOSER).toBytesLE()),
+            "0x" & ncrutils.toHex(
+              uint32(DOMAIN_BEACON_PROPOSER).toBytesLE()),
           DOMAIN_BEACON_ATTESTER:
-            "0x" & ncrutils.toHex(uint32(DOMAIN_BEACON_ATTESTER).toBytesLE()),
+            "0x" & ncrutils.toHex(
+              uint32(DOMAIN_BEACON_ATTESTER).toBytesLE()),
           DOMAIN_RANDAO:
-            "0x" & ncrutils.toHex(uint32(DOMAIN_RANDAO).toBytesLE()),
+            "0x" & ncrutils.toHex(
+              uint32(DOMAIN_RANDAO).toBytesLE()),
           DOMAIN_DEPOSIT:
-            "0x" & ncrutils.toHex(uint32(DOMAIN_DEPOSIT).toBytesLE()),
+            "0x" & ncrutils.toHex(
+              uint32(DOMAIN_DEPOSIT).toBytesLE()),
           DOMAIN_VOLUNTARY_EXIT:
-            "0x" & ncrutils.toHex(uint32(DOMAIN_VOLUNTARY_EXIT).toBytesLE()),
+            "0x" & ncrutils.toHex(
+              uint32(DOMAIN_VOLUNTARY_EXIT).toBytesLE()),
           DOMAIN_SELECTION_PROOF:
-            "0x" & ncrutils.toHex(uint32(DOMAIN_SELECTION_PROOF).toBytesLE()),
+            "0x" & ncrutils.toHex(
+              uint32(DOMAIN_SELECTION_PROOF).toBytesLE()),
           DOMAIN_AGGREGATE_AND_PROOF:
-            "0x" & ncrutils.toHex(uint32(DOMAIN_AGGREGATE_AND_PROOF).toBytesLE())
+            "0x" & ncrutils.toHex(
+              uint32(DOMAIN_AGGREGATE_AND_PROOF).toBytesLE()),
+          DOMAIN_CONTRIBUTION_AND_PROOF:
+            "0x" & ncrutils.toHex(
+              uint32(DOMAIN_CONTRIBUTION_AND_PROOF).toBytesLE()),
+          DOMAIN_SYNC_COMMITTEE:
+            "0x" & ncrutils.toHex(
+              uint32(DOMAIN_SYNC_COMMITTEE).toBytesLE()),
+          DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF:
+            "0x" & ncrutils.toHex(
+              uint32(DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF).toBytesLE())
         )
       )
     cachedDepositContract =
