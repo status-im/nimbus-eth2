@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2021 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import std/sequtils
 import chronicles
 import ".."/[version, beacon_node_common],
@@ -71,13 +78,8 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
           RestApiResponse.jsonResponsePlain(
             ForkedBeaconState.init(stateData.data))
         of "application/octet-stream":
-          case stateData.data.beaconStateFork
-          of BeaconStateFork.forkPhase0:
-            RestApiResponse.sszResponse(stateData.data.hbsPhase0.data)
-          of BeaconStateFork.forkAltair:
-            RestApiResponse.sszResponse(stateData.data.hbsAltair.data)
-          of BeaconStateFork.forkMerge:
-            RestApiResponse.sszResponse(stateData.data.hbsMerge.data)
+          withState(stateData.data):
+            RestApiResponse.sszResponse(state.data)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
     return RestApiResponse.jsonError(Http404, StateNotFoundError)

@@ -1049,21 +1049,22 @@ func syncCommitteeParticipants*(dagParam: ChainDAGRef,
     dag = dagParam
     slot = slotParam
 
-  if dag.headState.data.beaconStateFork == forkAltair:
-    let
-      headSlot = dag.headState.data.hbsAltair.data.slot
-      headCommitteePeriod = syncCommitteePeriod(headSlot)
-      periodStart = syncCommitteePeriodStartSlot(headCommitteePeriod)
-      nextPeriodStart = periodStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
+  withState(dag.headState.data):
+    when stateFork >= forkAltair:
+      let
+        headSlot = state.data.slot
+        headCommitteePeriod = syncCommitteePeriod(headSlot)
+        periodStart = syncCommitteePeriodStartSlot(headCommitteePeriod)
+        nextPeriodStart = periodStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
 
-    if slot >= nextPeriodStart:
-      @(dag.headState.data.hbsAltair.data.next_sync_committee.pubkeys.data)
-    elif slot >= periodStart:
-      @(dag.headState.data.hbsAltair.data.current_sync_committee.pubkeys.data)
+      if slot >= nextPeriodStart:
+        @(state.data.next_sync_committee.pubkeys.data)
+      elif slot >= periodStart:
+        @(state.data.current_sync_committee.pubkeys.data)
+      else:
+        @[]
     else:
       @[]
-  else:
-    @[]
 
 func getSubcommitteePositionsAux(
     dag: ChainDAGRef,
@@ -1086,24 +1087,25 @@ func getSubcommitteePositions*(dag: ChainDAGRef,
                                slot: Slot,
                                committeeIdx: SyncCommitteeIndex,
                                validatorIdx: uint64): seq[uint64] =
-  if dag.headState.data.beaconStateFork == forkPhase0:
-    return @[]
+  withState(dag.headState.data):
+    when stateFork >= forkAltair:
+      let
+        headSlot = state.data.slot
+        headCommitteePeriod = syncCommitteePeriod(headSlot)
+        periodStart = syncCommitteePeriodStartSlot(headCommitteePeriod)
+        nextPeriodStart = periodStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
 
-  let
-    headSlot = dag.headState.data.hbsAltair.data.slot
-    headCommitteePeriod = syncCommitteePeriod(headSlot)
-    periodStart = syncCommitteePeriodStartSlot(headCommitteePeriod)
-    nextPeriodStart = periodStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
+      template search(syncCommittee: openarray[ValidatorPubKey]): seq[uint64] =
+        dag.getSubcommitteePositionsAux(syncCommittee, committeeIdx, validatorIdx)
 
-  template search(syncCommittee: openarray[ValidatorPubKey]): seq[uint64] =
-    dag.getSubcommitteePositionsAux(syncCommittee, committeeIdx, validatorIdx)
-
-  if slot < periodStart:
-    return @[]
-  elif slot >= nextPeriodStart:
-    return search(dag.headState.data.hbsAltair.data.next_sync_committee.pubkeys.data)
-  else:
-    return search(dag.headState.data.hbsAltair.data.current_sync_committee.pubkeys.data)
+      if slot < periodStart:
+        @[]
+      elif slot >= nextPeriodStart:
+        search(state.data.next_sync_committee.pubkeys.data)
+      else:
+        search(state.data.current_sync_committee.pubkeys.data)
+    else:
+      @[]
 
 template syncCommitteeParticipants*(
     dag: ChainDAGRef,

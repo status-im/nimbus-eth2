@@ -76,12 +76,8 @@ proc getTestStates*(
         cfg, tmpState[], slot, cache, rewards, {})
 
     if i mod 3 == 0:
-      if tmpState[].beaconStateFork == forkPhase0:
-        valid_deposit(tmpState[].hbsPhase0.data)
-      elif tmpState[].beaconStateFork == forkAltair:
-        valid_deposit(tmpState[].hbsAltair.data)
-      else:
-        valid_deposit(tmpState[].hbsMerge.data)
+      withState(tmpState[]):
+        valid_deposit(state.data)
     doAssert getStateField(tmpState[], slot) == slot
 
     if tmpState[].beaconStateFork == stateFork:

@@ -137,27 +137,29 @@ template init*(T: type ForkedTrustedSignedBeaconBlock, blck: merge.TrustedSigned
 
 template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
   case x.beaconStateFork
-  of forkPhase0:
-    template state: untyped {.inject.} = x.hbsPhase0
+  of forkMerge:
+    const stateFork {.inject.} = forkMerge
+    template state: untyped {.inject.} = x.hbsMerge
     body
   of forkAltair:
+    const stateFork {.inject.} = forkAltair
     template state: untyped {.inject.} = x.hbsAltair
     body
-  of forkMerge:
-    template state: untyped {.inject.} = x.hbsMerge
+  of forkPhase0:
+    const stateFork {.inject.} = forkPhase0
+    template state: untyped {.inject.} = x.hbsPhase0
     body
 
 # Dispatch functions
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
   if tgt.beaconStateFork == src.beaconStateFork:
-    if tgt.beaconStateFork == forkPhase0:
-      assign(tgt.hbsPhase0, src.hbsPhase0):
-    elif tgt.beaconStateFork == forkAltair:
-      assign(tgt.hbsAltair, src.hbsAltair):
-    elif tgt.beaconStateFork == forkMerge:
+    case tgt.beaconStateFork
+    of forkMerge:
       assign(tgt.hbsMerge,  src.hbsMerge):
-    else:
-      doAssert false
+    of forkAltair:
+      assign(tgt.hbsAltair, src.hbsAltair):
+    of forkPhase0:
+      assign(tgt.hbsPhase0, src.hbsPhase0):
   else:
     # Ensure case object and discriminator get updated simultaneously, even
     # with nimOldCaseObjects. This is infrequent.
@@ -170,9 +172,9 @@ template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
   # ```
   # Without `unsafeAddr`, the `validators` list would be copied to a temporary variable.
   (case x.beaconStateFork
-  of forkPhase0: unsafeAddr x.hbsPhase0.data.y
+  of forkMerge: unsafeAddr x.hbsMerge.data.y
   of forkAltair: unsafeAddr x.hbsAltair.data.y
-  of forkMerge: unsafeAddr x.hbsMerge.data.y)[]
+  of forkPhase0: unsafeAddr x.hbsPhase0.data.y)[]
 
 func getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
   withState(x): state.root
@@ -241,19 +243,9 @@ proc get_attesting_indices*(state: ForkedHashedBeaconState;
   # iterator
 
   var idxBuf: seq[ValidatorIndex]
-
-  if state.beaconStateFork == forkPhase0:
-    for vidx in state.hbsPhase0.data.get_attesting_indices(data, bits, cache):
+  withState(state):
+    for vidx in state.data.get_attesting_indices(data, bits, cache):
       idxBuf.add vidx
-  elif state.beaconStateFork == forkAltair:
-    for vidx in state.hbsAltair.data.get_attesting_indices(data, bits, cache):
-      idxBuf.add vidx
-  elif state.beaconStateFork == forkMerge:
-    for vidx in state.hbsMerge.data.get_attesting_indices(data, bits, cache):
-      idxBuf.add vidx
-  else:
-    doAssert false
-
   idxBuf
 
 proc check_attester_slashing*(
@@ -340,15 +332,21 @@ template asTrusted*(x: merge.SignedBeaconBlock or merge.SigVerifiedBeaconBlock):
 template asTrusted*(x: ForkedSignedBeaconBlock): ForkedTrustedSignedBeaconBlock =
   isomorphicCast[ForkedTrustedSignedBeaconBlock](x)
 
-template withBlck*(x: ForkedBeaconBlock | ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock, body: untyped): untyped =
+template withBlck*(
+    x: ForkedBeaconBlock | ForkedSignedBeaconBlock |
+       ForkedTrustedSignedBeaconBlock,
+    body: untyped): untyped =
   case x.kind
   of BeaconBlockFork.Phase0:
+    const stateFork {.inject.} = forkPhase0
     template blck: untyped {.inject.} = x.phase0Block
     body
   of BeaconBlockFork.Altair:
+    const stateFork {.inject.} = forkAltair
     template blck: untyped {.inject.} = x.altairBlock
     body
   of BeaconBlockFork.Merge:
+    const stateFork {.inject.} = forkMerge
     template blck: untyped {.inject.} = x.mergeBlock
     body
 
@@ -386,6 +384,28 @@ template shortLog*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock):
 chronicles.formatIt ForkedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedSignedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedTrustedSignedBeaconBlock: it.shortLog
+
+template withStateAndBlck*(
+    s: ForkedHashedBeaconState,
+    b: ForkedBeaconBlock | ForkedSignedBeaconBlock |
+       ForkedTrustedSignedBeaconBlock,
+    body: untyped): untyped =
+  case s.beaconStateFork
+  of forkMerge:
+    const stateFork {.inject.} = forkMerge
+    template state: untyped {.inject.} = s.hbsMerge
+    template blck: untyped {.inject.} = b.mergeBlock
+    body
+  of forkAltair:
+    const stateFork {.inject.} = forkAltair
+    template state: untyped {.inject.} = s.hbsAltair
+    template blck: untyped {.inject.} = b.altairBlock
+    body
+  of forkPhase0:
+    const stateFork {.inject.} = forkPhase0
+    template state: untyped {.inject.} = s.hbsPhase0
+    template blck: untyped {.inject.} = b.phase0Block
+    body
 
 proc forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
   case cfg.stateForkAtEpoch(epoch)

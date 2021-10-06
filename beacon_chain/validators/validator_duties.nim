@@ -255,30 +255,30 @@ proc sendSyncCommitteeMessages*(node: BeaconNode,
         return statuses.mapIt(it.get())
       (resCur, resNxt)
 
-  template curParticipants(): untyped =
-    node.dag.headState.data.hbsAltair.data.current_sync_committee.pubkeys.data
-  template nxtParticipants(): untyped =
-    node.dag.headState.data.hbsAltair.data.next_sync_committee.pubkeys.data
-
   let (pending, indices) =
-    block:
-      var resFutures: seq[Future[SendResult]]
-      var resIndices: seq[int]
-      for committeeIdx in allSyncCommittees():
-        for valKey in syncSubcommittee(curParticipants(), committeeIdx):
-          let index = keysCur.getOrDefault(valKey, -1)
-          if index >= 0:
-            resIndices.add(index)
-            resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
-                                                         committeeIdx, true))
-      for committeeIdx in allSyncCommittees():
-        for valKey in syncSubcommittee(nxtParticipants(), committeeIdx):
-          let index = keysNxt.getOrDefault(valKey, -1)
-          if index >= 0:
-            resIndices.add(index)
-            resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
-                                                         committeeIdx, true))
-      (resFutures, resIndices)
+    withState(node.dag.headState.data):
+      when stateFork >= forkAltair:
+        var resFutures: seq[Future[SendResult]]
+        var resIndices: seq[int]
+        for committeeIdx in allSyncCommittees():
+          for valKey in syncSubcommittee(
+              state.data.current_sync_committee.pubkeys.data, committeeIdx):
+            let index = keysCur.getOrDefault(valKey, -1)
+            if index >= 0:
+              resIndices.add(index)
+              resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
+                                                           committeeIdx, true))
+        for committeeIdx in allSyncCommittees():
+          for valKey in syncSubcommittee(
+              state.data.next_sync_committee.pubkeys.data, committeeIdx):
+            let index = keysNxt.getOrDefault(valKey, -1)
+            if index >= 0:
+              resIndices.add(index)
+              resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
+                                                           committeeIdx, true))
+        (resFutures, resIndices)
+      else:
+        raiseAssert "Sync committee not available in Phase0"
 
   await allFutures(pending)
 
@@ -444,8 +444,8 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       node.exitPool[].getProposerSlashingsForBlock(),
       node.exitPool[].getAttesterSlashingsForBlock(),
       node.exitPool[].getVoluntaryExitsForBlock(),
-      if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH: 
-        SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
+      if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
+        SyncAggregate.init()
       else:
         node.sync_committee_msg_pool[].produceSyncAggregate(head.root),
       default(merge.ExecutionPayload),
