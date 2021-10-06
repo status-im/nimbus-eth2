@@ -280,9 +280,6 @@ proc fixupWeb3Urls*(web3Url: var string) =
     else:
       false
 
-  if web3Url.startsWith("http://"):
-    return
-
   if not (skip("https://") or skip("http://")):
     if not (skip("ws://") or skip("wss://")):
       web3Url = "ws://" & web3Url
