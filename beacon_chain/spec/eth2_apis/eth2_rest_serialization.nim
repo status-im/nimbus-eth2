@@ -9,14 +9,13 @@ import stew/[results, base10, byteutils, endians2], presto/common,
        libp2p/peerid, serialization,
        json_serialization, json_serialization/std/[options, net],
        nimcrypto/utils as ncrutils
-import ".."/[forks, ssz_codec], ".."/datatypes/[phase0, altair, merge],
-       ".."/eth2_ssz_serialization,
-       ".."/".."/ssz/[ssz_serialization, codec, types],
+import ".."/[eth2_ssz_serialization, forks],
+       ".."/datatypes/[phase0, altair, merge],
        "."/rest_types
 
 export
   results, peerid, common, serialization, json_serialization, options, net,
-  rest_types, ssz_codec, ssz_serialization, codec, types
+  eth2_ssz_serialization, rest_types
 
 Json.createFlavor RestJson
 

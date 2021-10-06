@@ -10,7 +10,7 @@ import
   os, strutils, streams, strformat, strscans,
   macros, typetraits,
   # Status libraries
-  faststreams, snappy, ../testutil,
+  faststreams, snappy, stint, ../testutil,
   # Third-party
   yaml,
   # Beacon chain internals
@@ -101,7 +101,7 @@ macro testVector(typeIdent: string, size: int): untyped =
   # sizes: 1, 2, 3, 4, 5, 8, 16, 31, 512, 513
   #
   # We allocate in a ref array to not run out of stack space
-  let types = ["bool", "uint8", "uint16", "uint32", "uint64"] # "uint128", "uint256"]
+  let types = ["bool", "uint8", "uint16", "uint32", "uint64", "uint128", "uint256"]
   let sizes = [1, 2, 3, 4, 5, 8, 16, 31, 512, 513]
 
   var dispatcher = nnkIfStmt.newTree()
@@ -111,7 +111,11 @@ macro testVector(typeIdent: string, size: int): untyped =
     for s in sizes:
       # if size == s // elif size == s
       let T = nnkBracketExpr.newTree(
-        ident"array", newLit(s), ident(t)
+        ident"array", newLit(s),
+        case t
+        of "uint128": ident("UInt128")
+        of "uint256": ident("UInt256")
+        else: ident(t)
       )
       var testStmt = quote do:
         checkBasic(`T`, dir, expectedHash)
@@ -128,11 +132,9 @@ macro testVector(typeIdent: string, size: int): untyped =
       sizeDispatch
     )
   dispatcher.add nnkElse.newTree quote do:
-    # TODO: support uint128 and uint256
-    if `typeIdent` != "uint128" and `typeIdent` != "uint256":
-      raise newException(ValueError,
-        "Unsupported **type** in type/size combination: array[" &
-        $`size` & ", " & `typeIdent` & ']')
+    raise newException(ValueError,
+      "Unsupported **type** in type/size combination: array[" &
+      $`size` & ", " & `typeIdent` & ']')
 
   result = dispatcher
   # echo result.toStrLit() # view the generated code
@@ -204,16 +206,12 @@ proc sszCheck(baseDir, sszType, sszSubType: string) =
     let wasMatched = scanf(sszSubType, "uint_$i", bitsize)
     doAssert wasMatched
     case bitsize
-    of 8:  checkBasic(uint8, dir, expectedHash)
-    of 16: checkBasic(uint16, dir, expectedHash)
-    of 32: checkBasic(uint32, dir, expectedHash)
-    of 64: checkBasic(uint64, dir, expectedHash)
-    of 128:
-      # Compile-time issues
-      discard # checkBasic(Stuint[128], dir, expectedHash)
-    of 256:
-      # Compile-time issues
-      discard # checkBasic(Stuint[256], dir, expectedHash)
+    of 8:   checkBasic(uint8, dir, expectedHash)
+    of 16:  checkBasic(uint16, dir, expectedHash)
+    of 32:  checkBasic(uint32, dir, expectedHash)
+    of 64:  checkBasic(uint64, dir, expectedHash)
+    of 128: checkBasic(UInt128, dir, expectedHash)
+    of 256: checkBasic(UInt256, dir, expectedHash)
     else:
       raise newException(ValueError, "unknown uint in test: " & sszSubType)
   of "basic_vector": checkVector(sszSubType, dir, expectedHash)
@@ -252,10 +250,6 @@ suite "Ethereum Foundation - SSZ generic types":
 
     var skipped: string
     case sszType
-    of "uints":
-      skipped = " - skipping uint128 and uint256"
-    of "basic_vector":
-      skipped = " - skipping Vector[uint128, N] and Vector[uint256, N]"
     of "containers":
       skipped = " - skipping BitsStruct"
 
