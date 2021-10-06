@@ -68,11 +68,10 @@ type
     of BeaconBlockFork.Merge:
       mergeBlock*:  merge.TrustedSignedBeaconBlock
 
-  ForkDigests* = object
+  ForkDigests* {.requiresInit.} = object
     phase0*: ForkDigest
     altair*: ForkDigest
-    merge*:  ForkDigest  # TODO where does this get filled
-    altairTopicPrefix*: string # Used by isAltairTopic
+    merge*:  ForkDigest
 
   ForkDigestsRef* = ref ForkDigests
 
@@ -306,15 +305,14 @@ func get_previous_epoch*(stateData: ForkedHashedBeaconState): Epoch =
 func init*(T: type ForkDigests,
            cfg: RuntimeConfig,
            genesisValidatorsRoot: Eth2Digest): T =
-  let altairForkDigest = compute_fork_digest(
-    cfg.ALTAIR_FORK_VERSION,
-    genesisValidatorsRoot)
-
-  T(phase0: compute_fork_digest(
-      cfg.GENESIS_FORK_VERSION,
-      genesisValidatorsRoot),
-    altair: altairForkDigest,
-    altairTopicPrefix: $altairForkDigest)
+  T(
+    phase0:
+      compute_fork_digest(cfg.GENESIS_FORK_VERSION, genesisValidatorsRoot),
+    altair:
+      compute_fork_digest(cfg.ALTAIR_FORK_VERSION, genesisValidatorsRoot),
+    merge:
+      compute_fork_digest(cfg.MERGE_FORK_VERSION, genesisValidatorsRoot),
+  )
 
 template asSigned*(x: phase0.TrustedSignedBeaconBlock or phase0.SigVerifiedBeaconBlock):
     phase0.SignedBeaconBlock =

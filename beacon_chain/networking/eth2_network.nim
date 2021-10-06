@@ -1857,9 +1857,9 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
   # that are different from the host address (this is relevant when we
   # are running behind a NAT).
   var switch = newBeaconSwitch(config, netKeys.seckey, hostAddress, rng)
-
+  let altairPrefix = $forkDigests.altair
   func msgIdProvider(m: messages.Message): seq[byte] =
-    let topic = getAltairTopic(m, forkDigests.altairTopicPrefix)
+    let topic = getAltairTopic(m, altairPrefix)
     try:
       let decoded = snappy.decode(m.data, GOSSIP_MAX_SIZE)
       gossipId(decoded, topic, true)
