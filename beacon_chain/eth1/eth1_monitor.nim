@@ -85,7 +85,6 @@ type
       ## A non-forkable chain of blocks ending at the block with
       ## ## ETH1_FOLLOW_DISTANCE offset from the head.
 
-    latestEth1BlockHeader: Option[Eth1BlockHeader]
     blocksByHash: Table[BlockHash, Eth1Block]
 
     hasConsensusViolation: bool
@@ -104,8 +103,10 @@ type
     web3Urls: seq[string]
     eth1Network: Option[Eth1Network]
     depositContractAddress*: Eth1Address
+    mustUsePolling: bool
 
     dataProvider: Web3DataProviderRef
+    latestEth1Block: Option[FullBlockId]
 
     depositsChain: Eth1Chain
     eth1Progress: AsyncEvent
@@ -129,6 +130,10 @@ type
     blockHeadersSubscription: Subscription
 
   Web3DataProviderRef* = ref Web3DataProvider
+
+  FullBlockId* = object
+    number: Eth1BlockNumber
+    hash: BlockHash
 
   DataProviderFailure* = object of CatchableError
   CorruptDataProvider* = object of DataProviderFailure
@@ -172,8 +177,8 @@ func depositCountU64(s: DepositContractState): uint64 =
   uint64.fromBytesBE s.deposit_count[24..31]
 
 func latestEth1BlockNumber(m: Eth1Monitor): Eth1BlockNumber =
-  if m.depositsChain.latestEth1BlockHeader.isSome:
-    Eth1BlockNumber m.depositsChain.latestEth1BlockHeader.get.number
+  if m.latestEth1Block.isSome:
+    Eth1BlockNumber m.latestEth1Block.get.number
   else:
     Eth1BlockNumber 0
 
@@ -887,7 +892,8 @@ proc init*(T: type Eth1Monitor,
     getBeaconTime: getBeaconTime,
     web3Urls: web3Urls,
     eth1Network: eth1Network,
-    eth1Progress: newAsyncEvent())
+    eth1Progress: newAsyncEvent(),
+    mustUsePolling: true)
 
 proc safeCancel(fut: var Future[void]) =
   if not fut.isNil and not fut.finished:
@@ -898,12 +904,12 @@ proc clear(chain: var Eth1Chain) =
   chain.blocks.clear()
   chain.blocksByHash.clear()
   chain.hasConsensusViolation = false
-  chain.latestEth1BlockHeader = none(Eth1BlockHeader)
 
 proc resetState(m: Eth1Monitor) {.async.} =
   safeCancel m.runFut
 
   m.depositsChain.clear()
+  m.latestEth1Block = none(FullBlockId)
 
   if m.dataProvider != nil:
     await m.dataProvider.close()
@@ -1093,6 +1099,9 @@ proc syncBlockRange(m: Eth1Monitor,
 
           m.signalGenesis m.createGenesisState(genesisBlock)
 
+func init(T: type FullBlockId, blk: Eth1BlockHeader|BlockObject): T =
+  FullBlockId(number: Eth1BlockNumber blk.number, hash: blk.hash)
+
 proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   if m.state == Failed:
     await m.resetState()
@@ -1129,22 +1138,25 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   m.state = Started
   var subscriptionFailed = false
 
-  await m.dataProvider.onBlockHeaders do (blk: Eth1BlockHeader)
-                                         {.raises: [Defect], gcsafe.}:
-    try:
-      if blk.number.uint64 > m.latestEth1BlockNumber:
-        eth1_latest_head.set blk.number.toGaugeValue
-        m.depositsChain.latestEth1BlockHeader = some blk
-        m.eth1Progress.fire()
-    except Exception:
-      # TODO Investigate why this exception is being raised
-      raiseAssert "AsyncEvent.fire should not raise exceptions"
-  do (err: CatchableError):
-    subscriptionFailed = true
-    debug "Error while processing Eth1 block headers subscription", err = err.msg
+  if not m.mustUsePolling:
+    proc newBlockHeadersHandler(blk: Eth1BlockHeader)
+                               {.raises: [Defect], gcsafe.} =
+      try:
+        if blk.number.uint64 > m.latestEth1BlockNumber:
+          eth1_latest_head.set blk.number.toGaugeValue
+          m.latestEth1Block = some FullBlockId.init(blk)
+          m.eth1Progress.fire()
+      except Exception:
+        # TODO Investigate why this exception is being raised
+        raiseAssert "AsyncEvent.fire should not raise exceptions"
 
-  if not subscriptionFailed:
-    debug "Starting Eth1 head following"
+    proc subscriptionErrorHandler(err: CatchableError)
+                                 {.raises: [Defect], gcsafe.} =
+      subscriptionFailed = true
+      debug "Error while processing Eth1 block headers subscription", err = err.msg
+
+    await m.dataProvider.onBlockHeaders(newBlockHeadersHandler,
+                                        subscriptionErrorHandler)
 
   let shouldProcessDeposits = not m.depositContractAddress.isZeroMemory
   var scratchMerkleizer: ref DepositsMerkleizer
@@ -1184,15 +1196,31 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     if m.depositsChain.hasConsensusViolation:
       raise newException(CorruptDataProvider, "Eth1 chain contradicts Eth2 consensus")
 
-    awaitWithTimeout(m.eth1Progress.wait(), 5.minutes):
-      raise newException(CorruptDataProvider, "No eth1 chain progress for too long")
+    let nextBlock = if m.mustUsePolling:
+      let blk = awaitWithRetries(
+        m.dataProvider.web3.provider.eth_getBlockByNumber(blockId("latest"), false))
 
-    m.eth1Progress.clear()
+      let fullBlockId = FullBlockId.init(blk)
+
+      if m.latestEth1Block.isSome and
+         m.latestEth1Block.get == fullBlockId:
+        await sleepAsync(m.cfg.SECONDS_PER_ETH1_BLOCK.int.seconds)
+        continue
+
+      m.latestEth1Block = some fullBlockId
+      blk
+    else:
+      awaitWithTimeout(m.eth1Progress.wait(), 5.minutes):
+        raise newException(CorruptDataProvider, "No eth1 chain progress for too long")
+      m.eth1Progress.clear()
+
+      awaitWithRetries(
+        m.dataProvider.getBlockByHash(m.latestEth1Block.get.hash))
+
     notice "FOO2"
     if m.currentEpoch > m.cfg.MERGE_FORK_EPOCH and m.terminalBlockHash.isNone:
-      # TODO why would latestEth1BlockHeader be isNone?
-      var terminalBlockCandidate = awaitWithRetries(
-        m.dataProvider.getBlockByHash(m.depositsChain.latestEth1BlockHeader.get.hash))
+      # TODO why would latestEth1Block be isNone?
+      var terminalBlockCandidate = nextBlock
 
       notice "FOO1",
         tBC_tD = terminalBlockCandidate.totalDifficulty,
@@ -1200,11 +1228,12 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
         condition = terminalBlockCandidate.totalDifficulty > m.cfg.TERMINAL_TOTAL_DIFFICULTY
 
       if terminalBlockCandidate.totalDifficulty > m.cfg.TERMINAL_TOTAL_DIFFICULTY:
-        #while true:
-        #  var parentBlock = await m.dataProvider.getBlockByHash(terminalBlockCandidate.parentHash)
-        #  while parentBlock.totalDifficulty < m.cfg.TERMINAL_TOTAL_DIFFICULTY:
-        #    break
-        #  terminalBlockCandidate = parentBlock
+        while not terminalBlockCandidate.parentHash.isZeroMemory:
+          var parentBlock = awaitWithRetries(
+            m.dataProvider.getBlockByHash(terminalBlockCandidate.parentHash))
+          if parentBlock.totalDifficulty < m.cfg.TERMINAL_TOTAL_DIFFICULTY:
+            break
+          terminalBlockCandidate = parentBlock
         m.terminalBlockHash = some terminalBlockCandidate.hash
 
     if shouldProcessDeposits:
