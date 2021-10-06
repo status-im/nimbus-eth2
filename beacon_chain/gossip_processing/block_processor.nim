@@ -258,6 +258,9 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       # not immediately clear why would mark as invalid? because once PoS controls
       # block gossip, they're just basically invisible/don't exist from execution
       # layer
-      discard await self.consensusManager.web3Provider.consensusValidated(
-        blck.blck.mergeBlock.message.body.execution_payload.block_hash.asBlockHash,
-        BlockValidationStatus.valid)
+      try:
+        discard await self.consensusManager.web3Provider.consensusValidated(
+          blck.blck.mergeBlock.message.body.execution_payload.block_hash.asBlockHash,
+          BlockValidationStatus.valid)
+      except ValueError:
+        discard
