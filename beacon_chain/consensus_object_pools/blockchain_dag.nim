@@ -32,12 +32,14 @@ declareGauge beacon_current_justified_root, "Current justified root" # On epoch 
 declareGauge beacon_previous_justified_epoch, "Current previously justified epoch" # On epoch transition
 declareGauge beacon_previous_justified_root, "Current previously justified root" # On epoch transition
 
-declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
+declareGauge beacon_reorgs_total_total, "Total occurrences of reorganizations of the chain" # On fork choice; backwards-compat name (used to be a counter)
+declareGauge beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # Interop copy
 declareCounter beacon_state_data_cache_hits, "EpochRef hits"
 declareCounter beacon_state_data_cache_misses, "EpochRef misses"
 declareCounter beacon_state_rewinds, "State database rewinds"
 
 declareGauge beacon_active_validators, "Number of validators in the active validator set"
+declareGauge beacon_current_active_validators, "Number of validators in the active validator set" # Interop copy
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
@@ -1233,6 +1235,7 @@ proc updateHead*(
 
     # A reasonable criterion for "reorganizations of the chain"
     quarantine.clearQuarantine()
+    beacon_reorgs_total_total.inc()
     beacon_reorgs_total.inc()
   else:
     debug "Updated head block",
@@ -1294,9 +1297,11 @@ proc updateHead*(
       getStateField(
         dag.headState.data, previous_justified_checkpoint).root.toGaugeValue)
 
-    let epochRef = getEpochRef(dag, newHead, newHead.slot.epoch)
-    beacon_active_validators.set(
-      epochRef.shuffled_active_validator_indices.lenu64().toGaugeValue)
+    let
+      epochRef = getEpochRef(dag, newHead, newHead.slot.epoch)
+      number_of_active_validators = epochRef.shuffled_active_validator_indices.lenu64().toGaugeValue
+    beacon_active_validators.set(number_of_active_validators)
+    beacon_current_active_validators.set(number_of_active_validators)
 
   if finalizedHead != dag.finalizedHead:
     notice "Reached new finalization checkpoint",
