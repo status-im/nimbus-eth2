@@ -1457,7 +1457,8 @@ proc newExecutionPayload(
     if payloadStatus == "SYNCING":
       debug "newExecutionPayload: attempting to insert block into syncing EL. CL should be syncing too."
     return payloadStatus in ["SYNCING", "VALID"]
-  except CatchableError:
+  except CatchableError as err:
+    debug "newExecutionPayload failed", msg = err.msg
     return false
 
 proc executionPayloadSync*(
@@ -1488,14 +1489,12 @@ proc executionPayloadSync*(
   #
   # This loop enqueues execution payloads which don't yet apply, until it
   # finds one which does, at which point all those queued payloads apply.
+
   while true:
     let blockData = chainDag.get(root)
 
-    if blockData.isNone:
+    if blockData.isNone or blockData.get.data.kind < BeaconBlockFork.Merge:
       discard
-
-    # TODO break if not merge -- going backwards so there can't be any more
-    # execution payloads to sync
 
     let executionPayload = blockData.get.data.mergeBlock.message.body.execution_payload
 
@@ -1508,6 +1507,12 @@ proc executionPayloadSync*(
 
     # This payload didn't apply either, so queue it up to be applied once the
     # newest applicable execution payload is found.
+    # TODO per latest sync discussions, we should simply let the EL do its sync
+    #      and retry - also, this approach is obviously not sustainable once
+    #      there are lots of blocks - we should _perhaps_ retry the latest
+    #      block we have however!
+    if executionPayloads.len > 10: break
+
     executionPayloads.add executionPayload
 
     # Might run out of execution-layer chain...

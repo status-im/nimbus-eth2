@@ -237,8 +237,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
     discard await idleAsync().withTimeout(idleTimeout)
 
     let blck = await self[].blocksQueue.popFirst()
-    if  self[].processBlock(blck) and blck.blck.kind != Phase0 and
-          blck.blck.kind != Altair and
+    if  self[].processBlock(blck) and blck.blck.kind >= BeaconBlockFork.Merge and
         # wasn't necessary before, but not incorrect either; helps it run san
         # execution client for local testnets
         blck.blck.mergeBlock.message.body.execution_payload !=
