@@ -228,7 +228,8 @@ if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
   BINARIES="${BINARIES} logtrace"
 fi
 
-$MAKE -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:testnet_servers_image -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
+#$MAKE -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:testnet_servers_image -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
+#make -j4 LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image -d:local_testnet -d:const_preset=minimal" nimbus_beacon_node nimbus_signing_process deposit_contract
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
 # instance as the parent and the target process name as a pattern to the
@@ -239,12 +240,6 @@ cleanup() {
   sleep 2
   pkill -f -9 -P $$ nimbus_beacon_node &>/dev/null || true
   pkill -f -9 -P $$ nimbus_validator_client &>/dev/null || true
-
-  # Delete the binaries we just built, because these are unusable outside this
-  # local testnet.
-  for BINARY in ${BINARIES}; do
-    rm build/${BINARY}
-  done
 }
 trap 'cleanup' SIGINT SIGTERM EXIT
 
@@ -262,7 +257,7 @@ fi
 
 # deposit and testnet creation
 PIDS=""
-WEB3_ARG="--web3-url=ws://127.0.0.1:8546"
+WEB3_ARG="--web3-url=ws://127.0.0.1:8551"
 BOOTSTRAP_TIMEOUT=30 # in seconds
 DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -341,7 +336,7 @@ DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
 ETH1_FOLLOW_DISTANCE: 1
 ALTAIR_FORK_EPOCH: 1
 MERGE_FORK_EPOCH: 2
-TERMINAL_TOTAL_DIFFICULTY: 10
+TERMINAL_TOTAL_DIFFICULTY: 50
 EOF
 
 dump_logs() {

@@ -1205,7 +1205,6 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       if m.latestEth1Block.isSome and
          m.latestEth1Block.get == fullBlockId:
         await sleepAsync(m.cfg.SECONDS_PER_ETH1_BLOCK.int.seconds)
-        continue
 
       m.latestEth1Block = some fullBlockId
       blk
@@ -1217,17 +1216,20 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       awaitWithRetries(
         m.dataProvider.getBlockByHash(m.latestEth1Block.get.hash))
 
-    notice "FOO2"
-    if m.currentEpoch > m.cfg.MERGE_FORK_EPOCH and m.terminalBlockHash.isNone:
+    notice "FOO2",
+      mCurrentEpoch = m.currentEpoch,
+      mMERGEFORKEPOCH = m.cfg.MERGE_FORK_EPOCH,
+      isNoTermBlock = m.terminalBlockHash.isNone
+    if m.currentEpoch >= m.cfg.MERGE_FORK_EPOCH and m.terminalBlockHash.isNone:
       # TODO why would latestEth1Block be isNone?
       var terminalBlockCandidate = nextBlock
 
       notice "FOO1",
         tBC_tD = terminalBlockCandidate.totalDifficulty,
         TTD = m.cfg.TERMINAL_TOTAL_DIFFICULTY,
-        condition = terminalBlockCandidate.totalDifficulty > m.cfg.TERMINAL_TOTAL_DIFFICULTY
+        condition = terminalBlockCandidate.totalDifficulty >= m.cfg.TERMINAL_TOTAL_DIFFICULTY
 
-      if terminalBlockCandidate.totalDifficulty > m.cfg.TERMINAL_TOTAL_DIFFICULTY:
+      if terminalBlockCandidate.totalDifficulty >= m.cfg.TERMINAL_TOTAL_DIFFICULTY:
         while not terminalBlockCandidate.parentHash.isZeroMemory:
           var parentBlock = awaitWithRetries(
             m.dataProvider.getBlockByHash(terminalBlockCandidate.parentHash))
