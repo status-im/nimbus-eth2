@@ -1497,7 +1497,7 @@ proc executionPayloadSync*(
     let blockData = chainDag.get(root)
 
     if blockData.isNone or blockData.get.data.kind < BeaconBlockFork.Merge:
-      discard
+      break
 
     let executionPayload = blockData.get.data.mergeBlock.message.body.execution_payload
 
