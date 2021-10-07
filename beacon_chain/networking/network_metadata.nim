@@ -95,8 +95,10 @@ proc readBootEnr*(path: string): seq[string] {.raises: [IOError, Defect].} =
   else:
     @[]
 
-proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
-                             {.raises: [CatchableError, Defect].} =
+proc loadEth2NetworkMetadata*(
+    path: string,
+    eth1Network: Option[Eth1Network]): Eth2NetworkMetadata
+    {.raises: [CatchableError, Defect].} =
   # Load data in eth2-networks format
   # https://github.com/eth2-clients/eth2-networks/
 
@@ -147,8 +149,7 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
 
     Eth2NetworkMetadata(
       incompatible: false,
-      eth1Network: some(
-        if "mainnet" in path: Eth1Network.mainnet else: Eth1Network.goerli),
+      eth1Network: eth1Network,
       cfg: runtimeConfig,
       bootstrapNodes: bootstrapNodes,
       depositContractDeployedAt: depositContractDeployedAt,
@@ -160,7 +161,9 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
                         incompatibilityDesc: err.msg)
 
 template eth2Network(path: string): Eth2NetworkMetadata =
-  loadEth2NetworkMetadata(eth2NetworksDir & "/" & path)
+  loadEth2NetworkMetadata(
+    eth2NetworksDir & "/" & path,
+    some(if "mainnet" in path: Eth1Network.mainnet else: Eth1Network.goerli))
 
 const
   mainnetMetadata* = eth2Network "shared/mainnet"
@@ -179,7 +182,7 @@ proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: 
       else:
         if fileExists(networkName / "config.yaml"):
           try:
-            loadEth2NetworkMetadata(networkName)
+            loadEth2NetworkMetadata(networkName, none(Eth1Network))
           except CatchableError as exc:
             fatal "Cannot load network", msg = exc.msg, networkName
             quit 1
