@@ -68,7 +68,7 @@ type
     of BeaconBlockFork.Merge:
       mergeBlock*:  merge.TrustedSignedBeaconBlock
 
-  ForkDigests* {.requiresInit.} = object
+  ForkDigests* = object
     phase0*: ForkDigest
     altair*: ForkDigest
     merge*:  ForkDigest
