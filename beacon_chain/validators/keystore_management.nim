@@ -62,7 +62,8 @@ proc init*(t: typedesc[ValidatorPrivateItem], privateKey: ValidatorPrivKey,
            keystore: Keystore): ValidatorPrivateItem =
   ValidatorPrivateItem(
     privateKey: privateKey,
-    description: some(keystore.description[]),
+    description: if keystore.description == nil: none(string)
+                 else: some(keystore.description[]),
     path: some(keystore.path),
     uuid: some(keystore.uuid),
     version: some(uint64(keystore.version))
@@ -284,7 +285,7 @@ proc loadKeystoreFile*(path: string): KsResult[Keystore] {.
   except IOError as err:
     return err("Could not read keystore file")
   except SerializationError as err:
-    return err("Could not decode keystore file")
+    return err("Could not decode keystore file: " & err.formatMsg(path))
 
 proc loadSecretFile*(path: string): KsResult[KeystorePass] {.
      raises: [Defect].} =
