@@ -1027,19 +1027,16 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
 
-func syncSubcommittee*(syncCommittee: openarray[ValidatorPubKey],
-                       committeeIdx: SyncCommitteeIndex): seq[ValidatorPubKey] =
-  ## TODO Return a view type
-  ## Unfortunately, this doesn't work as a template right now.
-  if syncCommittee.len == 0:
-    return @[]
+iterator syncSubcommittee*(
+    syncCommittee: openarray[ValidatorPubKey],
+    committeeIdx: SyncCommitteeIndex): ValidatorPubKey =
+  var
+    i = committeeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
+    onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
 
-  let
-    startIdx = committeeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
-    onePastEndIdx = startIdx + SYNC_SUBCOMMITTEE_SIZE
-  doAssert startIdx < syncCommittee.len
-
-  @(toOpenArray(syncCommittee, startIdx, onePastEndIdx - 1))
+  while i < onePastEndIdx:
+    yield syncCommittee[i]
+    inc i
 
 func syncCommitteeParticipants*(dagParam: ChainDAGRef,
                                 slotParam: Slot): seq[ValidatorPubKey] =
@@ -1081,7 +1078,7 @@ func getSubcommitteePositionsAux(
     return @[]
   let validatorPubKey = validatorKey.get().toPubKey
 
-  for pos, key in syncCommittee.syncSubcommittee(committeeIdx):
+  for pos, key in toSeq(syncCommittee.syncSubcommittee(committeeIdx)):
     if validatorPubKey == key:
       result.add uint64(pos)
 
