@@ -178,13 +178,13 @@ suite "Gossip validation " & preset():
 suite "Gossip validation - Extra": # Not based on preset config
   test "validateSyncCommitteeMessage":
     const num_validators = SLOTS_PER_EPOCH
-    let 
+    let
       cfg = block:
         var cfg = defaultRuntimeConfig
         cfg.ALTAIR_FORK_EPOCH = (GENESIS_EPOCH + 1).Epoch
         cfg
       dag = block:
-        let 
+        let
           dag = ChainDAGRef.init(cfg, makeTestDB(num_validators), {})
           taskpool = Taskpool.new()
           quarantine = QuarantineRef.init(keys.newRng(), taskpool)
@@ -192,7 +192,7 @@ suite "Gossip validation - Extra": # Not based on preset config
         for blck in makeTestBlocks(
             dag.headState.data, dag.head.root, cache,
             int(SLOTS_PER_EPOCH), false, cfg = cfg):
-          let added = 
+          let added =
             case blck.kind
             of BeaconBlockFork.Phase0:
               const nilCallback = OnPhase0BlockAdded(nil)
@@ -210,7 +210,7 @@ suite "Gossip validation - Extra": # Not based on preset config
 
       syncCommitteeIdx = 0.SyncCommitteeIndex
       syncCommittee = @(dag.syncCommitteeParticipants(state[].data.slot))
-      subcommittee = syncCommittee.syncSubcommittee(syncCommitteeIdx)
+      subcommittee = toSeq(syncCommittee.syncSubcommittee(syncCommitteeIdx))
 
       pubkey = subcommittee[0]
       expectedCount = subcommittee.count(pubkey)
@@ -225,7 +225,7 @@ suite "Gossip validation - Extra": # Not based on preset config
 
       syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init())
       res = validateSyncCommitteeMessage(
-        dag, syncCommitteeMsgPool, msg, syncCommitteeIdx, 
+        dag, syncCommitteeMsgPool, msg, syncCommitteeIdx,
         state[].data.slot.toBeaconTime(), true)
       contribution = block:
         var contribution: SyncCommitteeContribution
