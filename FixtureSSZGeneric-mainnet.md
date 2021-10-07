@@ -231,9 +231,13 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Spec helpers
 ```diff
 + build_proof - BeaconState                                                                  OK
++ get_branch_indices                                                                         OK
++ get_helper_indices                                                                         OK
++ get_path_indices                                                                           OK
 + integer_squareroot                                                                         OK
++ verify_merkle_multiproof                                                                   OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Specific field types
 ```diff
 + root update                                                                                OK
@@ -360,4 +364,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 42/56 Fail: 0/56 Skip: 14/56
 
 ---TOTAL---
-OK: 198/214 Fail: 0/214 Skip: 16/214
+OK: 202/218 Fail: 0/218 Skip: 16/218
