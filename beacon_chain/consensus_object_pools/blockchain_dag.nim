@@ -1456,6 +1456,9 @@ proc newExecutionPayload(
     # Be liberal in what you accept
     if payloadStatus == "SYNCING":
       debug "newExecutionPayload: attempting to insert block into syncing EL. CL should be syncing too."
+    elif payloadStatus != "VALID":
+      debug "newExecutionPayload failed", payloadStatus
+
     return payloadStatus in ["SYNCING", "VALID"]
   except CatchableError as err:
     debug "newExecutionPayload failed", msg = err.msg
