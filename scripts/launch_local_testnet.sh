@@ -228,7 +228,7 @@ if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
   BINARIES="${BINARIES} logtrace"
 fi
 
-#$MAKE -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:testnet_servers_image -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
+$MAKE -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:testnet_servers_image -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
 #make -j4 LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image -d:local_testnet -d:const_preset=minimal" nimbus_beacon_node nimbus_signing_process deposit_contract
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
