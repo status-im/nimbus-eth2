@@ -231,12 +231,20 @@ FixtureAll-mainnet
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - deposit_top_up [Preset: mainnet OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - empty_block_transition [Preset: OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - empty_epoch_transition [Preset: OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - empty_sync_committee_committee  OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - empty_sync_committee_committee_ OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_random_operations_0 [Prese OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_random_operations_1 [Prese OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_random_operations_2 [Prese OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_random_operations_3 [Prese OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_sync_committee_committee [ OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - full_sync_committee_committee_g OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - half_sync_committee_committee [ OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - half_sync_committee_committee_g OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - high_proposer_index [Preset: ma OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - historical_batch [Preset: mainn OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - inactivity_scores_full_particip OK
++ [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - inactivity_scores_leaking [Pres OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - multiple_attester_slashings_no_ OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - multiple_attester_slashings_par OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - multiple_different_proposer_sla OK
@@ -258,13 +266,22 @@ FixtureAll-mainnet
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - deposit_in_block [Preset: mainne OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - deposit_top_up [Preset: mainnet] OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_block_transition [Preset:  OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_block_transition_no_tx [Pr OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_epoch_transition [Preset:  OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_sync_committee_committee [ OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_sync_committee_committee_g OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_0 [Preset OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_1 [Preset OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_2 [Preset OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_3 [Preset OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_sync_committee_committee [P OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_sync_committee_committee_ge OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - half_sync_committee_committee [P OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - half_sync_committee_committee_ge OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - high_proposer_index [Preset: mai OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - historical_batch [Preset: mainne OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - inactivity_scores_full_participa OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - inactivity_scores_leaking [Prese OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_attester_slashings_no_o OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_attester_slashings_part OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_different_proposer_slas OK
@@ -390,7 +407,7 @@ FixtureAll-mainnet
 + fork_random_misc_balances                                                                  OK
 + next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 387/387 Fail: 0/387 Skip: 0/387
+OK: 404/404 Fail: 0/404 Skip: 0/404
 ## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -782,4 +799,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 644/644 Fail: 0/644 Skip: 0/644
+OK: 661/661 Fail: 0/661 Skip: 0/661
