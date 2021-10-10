@@ -1,3 +1,11 @@
+2021-10-04 v1.5.1
+=================
+
+Nimbus `v1.5.1` is a `high-urgency` release for all users who have already upgraded to `v1.5.0`. It fixes a deposit contract syncing issue manifesting as the warning message "Eth1 chain not synced". Under specific circumstances, such a failure to sync the Eth1 chain may result in missed Eth2 block proposals, so affected users are advised to upgrade as soon as possible.
+
+For anyone still running Nimbus v1.4.x or earlier, migrating to v1.5.1 continues to be a `medium-urgency` but *mandatory* upgrade that must be installed **before October 27th**.
+
+
 2021-10-04 v1.5.0
 =================
 
