@@ -12,7 +12,7 @@ import
        typetraits, uri, json],
   # Nimble packages:
   chronos, json, metrics, chronicles/timings,
-  web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
+  web3, web3/ethtypes as web3Types, web3/ethhexstrings,
   eth/common/eth_types,
   eth/async_utils, stew/byteutils,
   # Local modules:
@@ -402,38 +402,6 @@ proc getBlockByNumber*(p: Web3DataProviderRef,
   let hexNumber = try: &"0x{number:X}" # No leading 0's!
   except ValueError as exc: raiseAssert exc.msg # Never fails
   p.web3.provider.eth_getBlockByNumber(hexNumber, false)
-
-proc preparePayload*(p: Web3DataProviderRef,
-                     parentHash: Eth2Digest,
-                     timestamp: uint64,
-                     randomData: array[32, byte],
-                     feeRecipient: Eth1Address): Future[PreparePayloadResponse] =
-  p.web3.provider.engine_preparePayload(PayloadAttributes(
-    parentHash: parentHash.asBlockHash,
-    timestamp: Quantity timestamp,
-    random: FixedBytes[32] randomData,
-    feeRecipient: feeRecipient))
-
-proc getPayload*(p: Web3DataProviderRef,
-                 payloadId: Quantity): Future[engine_api.ExecutionPayload] =
-  p.web3.provider.engine_getPayload(payloadId)
-
-proc executePayload*(p: Web3DataProviderRef,
-                     payload: engine_api.ExecutionPayload): Future[ExecutePayloadResponse] =
-  p.web3.provider.engine_executePayload(payload)
-
-proc consensusValidated*(p: Web3DataProviderRef,
-                         blockHash: BlockHash,
-                         status: BlockValidationStatus): Future[JsonNode] =
-  p.web3.provider.engine_consensusValidated(BlockValidationResult(
-    blockHash: blockHash,
-    status: $status))
-
-proc forkchoiceUpdated*(p: Web3DataProviderRef,
-                        headBlock, finalizedBlock: Eth2Digest): Future[JsonNode] =
-  p.web3.provider.engine_forkchoiceUpdated(ForkChoiceUpdate(
-    headBlockHash: headBlock.asBlockHash,
-    finalizedBlockHash: finalizedBlock.asBlockHash))
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
   var res: ValueType
