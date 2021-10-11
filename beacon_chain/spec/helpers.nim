@@ -301,7 +301,8 @@ func is_merge_block(
     state: merge.BeaconState,
     body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |
           merge.SigVerifiedBeaconBlockBody): bool =
-  not is_merge_complete(state) and body.execution_payload != ExecutionPayload()
+  not is_merge_complete(state) and
+    body.execution_payload != default(merge.ExecutionPayload)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(

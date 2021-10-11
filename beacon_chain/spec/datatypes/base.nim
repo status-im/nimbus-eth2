@@ -392,6 +392,10 @@ type
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
 
+  DepositContractSnapshot* = object
+    eth1Block*: Eth2Digest
+    depositContractState*: DepositContractState
+
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object
     # This is a validator without the expensive, immutable, append-only parts
