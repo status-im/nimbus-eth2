@@ -226,7 +226,7 @@ const
   PeerScoreInvalidRequest* = -500
     ## This peer is sending malformed or nonsensical data
 
-  ConcurrentConnections = 10
+  ConcurrentConnections = 20
     ## Maximum number of active concurrent connection requests.
 
   SeenTableTimeTimeout =
