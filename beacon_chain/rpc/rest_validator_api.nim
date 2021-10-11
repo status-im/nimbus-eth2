@@ -142,7 +142,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     return RestApiResponse.jsonResponseWRoot(duties, droot)
 
-  router.api(MethodPost, "/eth/v1/validator/duties/sync/{epoch}") do (
+  router.api(MethodPost, "/api/eth/v1/validator/duties/sync/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
     let indexList =
       block:
