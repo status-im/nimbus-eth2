@@ -1,4 +1,5 @@
-import presto,
+import std/options,
+       presto,
        nimcrypto/utils as ncrutils,
        ../spec/[forks],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization],
@@ -6,7 +7,7 @@ import presto,
        ../consensus_object_pools/[block_pools_types, blockchain_dag]
 
 export
-  eth2_rest_serialization, blockchain_dag, presto, rest_types
+  options, eth2_rest_serialization, blockchain_dag, presto, rest_types
 
 const
   MaxEpoch* = compute_epoch_at_slot(not(0'u64))
@@ -85,6 +86,8 @@ const
     "Invalid graffiti bytes value"
   InvalidEpochValueError* =
     "Invalid epoch value"
+  EpochFromFutureError* =
+    "Epoch value is far from the future"
   InvalidStateIdValueError* =
     "Invalid state identifier value"
   InvalidBlockIdValueError* =
@@ -321,6 +324,53 @@ proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
       err(ValidatorIndexError.TooHighValue)
   else:
     doAssert(false, "ValidatorIndex type size is incorrect")
+
+func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
+  epoch: Epoch): Result[seq[ValidatorPubKey], cstring] =
+  case forkedState.beaconStateFork
+  of BeaconStateFork.forkPhase0:
+    err("State's fork do not support sync committees")
+  of BeaconStateFork.forkAltair:
+    let
+      headSlot = forkedState.hbsAltair.data.slot
+      epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())
+      currentPeriod = syncCommitteePeriod(headSlot)
+      nextPeriod = currentPeriod + 1'u64
+    if epochPeriod == currentPeriod:
+      ok(@(forkedState.hbsAltair.data.current_sync_committee.pubkeys.data))
+    elif epochPeriod == nextPeriod:
+      ok(@(forkedState.hbsAltair.data.next_sync_committee.pubkeys.data))
+    else:
+      err("Epoch is outside the sync committee period of the state")
+  of BeaconStateFork.forkMerge:
+    let
+      headSlot = forkedState.hbsMerge.data.slot
+      epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())
+      currentPeriod = syncCommitteePeriod(headSlot)
+      nextPeriod = currentPeriod + 1'u64
+    if epochPeriod == currentPeriod:
+      ok(@(forkedState.hbsMerge.data.current_sync_committee.pubkeys.data))
+    elif epochPeriod == nextPeriod:
+      ok(@(forkedState.hbsMerge.data.next_sync_committee.pubkeys.data))
+    else:
+      err("Epoch is outside the sync committee period of the state")
+
+func keysToIndices*(forkedState: ForkedHashedBeaconState,
+                keys: openArray[ValidatorPubKey]): seq[Option[ValidatorIndex]] =
+  var indices: seq[Option[ValidatorIndex]]
+  indices.setLen(len(keys))
+  let keyset =
+    block:
+      var res: Table[ValidatorPubKey, int]
+      for inputIndex, item in keys.pairs():
+        res[item] = inputIndex
+      res
+  for validatorIndex, validator in getStateField(forkedState,
+                                                 validators).pairs():
+    let inputIndex = keyset.getOrDefault(validator.pubkey, -1)
+    if inputIndex >= 0:
+      indices[inputIndex] = some(ValidatorIndex(validatorIndex))
+  indices
 
 proc getRouter*(): RestRouter =
   RestRouter.init(validate)

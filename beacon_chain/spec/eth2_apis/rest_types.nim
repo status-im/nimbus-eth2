@@ -101,6 +101,11 @@ type
     validator_index*: ValidatorIndex
     slot*: Slot
 
+  RestSyncCommitteeDuty* = object
+    pubkey*: ValidatorPubKey
+    validator_index*: ValidatorIndex
+    validator_sync_committee_indices*: seq[SyncCommitteeIndex]
+
   RestCommitteeSubscription* = object
     validator_index*: ValidatorIndex
     committee_index*: CommitteeIndex
