@@ -32,7 +32,6 @@ additional Nim arguments, e.g.:
 ```bash
 make libnfuzz.a NIMFLAGS="--cc:clang --passC:'-fsanitize=fuzzer-no-link' --passL='-fsanitize=fuzzer'"
 ```
-To disable BLS verification on deserialization of SSZ objects add `-d:ssz_testing` to the NIMFLAGS.
 
 Other useful options might include: `--clang.path:<path>`, `--clang.exe:<exe>`, `--clang.linkerexe:<exe>`, `-d:const_preset=mainnet`
 

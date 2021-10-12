@@ -14,7 +14,7 @@ import
 # Nimbus Bench Batch
 # --------------------------------------------------
 # This script calls Nimbus bench in parallel batch
-# to run a series of benchmarks from the official SSZ tests
+# to run a series of benchmarks from the spec SSZ tests
 
 type
   CmdLists = seq[string]
