@@ -99,24 +99,6 @@ proc toString*(kind: ValidatorFilterKind): string =
   of ValidatorFilterKind.WithdrawalDone:
     "withdrawal_done"
 
-func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
-  epoch: Epoch): Result[seq[ValidatorPubKey], cstring] =
-  withState(forkedState):
-    when stateFork >= forkAltair:
-      let
-        headSlot = state.data.slot
-        epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())
-        currentPeriod = syncCommitteePeriod(headSlot)
-        nextPeriod = currentPeriod + 1'u64
-      if epochPeriod == currentPeriod:
-        ok(@(state.data.current_sync_committee.pubkeys.data))
-      elif epochPeriod == nextPeriod:
-        ok(@(state.data.next_sync_committee.pubkeys.data))
-      else:
-        err("Epoch is outside the sync committee period of the state")
-    else:
-      err("State's fork do not support sync committees")
-
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
   router.api(MethodGet, "/api/eth/v1/beacon/genesis") do () -> RestApiResponse:

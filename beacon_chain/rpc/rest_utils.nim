@@ -11,6 +11,7 @@ export
 
 const
   MaxEpoch* = compute_epoch_at_slot(not(0'u64))
+  InvalidValidatorIndex* = RestValidatorIndex(VALIDATOR_REGISTRY_LIMIT + 1'u64)
 
   BlockValidationError* =
     "The block failed validation, but was successfully broadcast anyway. It " &
@@ -327,49 +328,50 @@ proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
 
 func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
   epoch: Epoch): Result[seq[ValidatorPubKey], cstring] =
-  case forkedState.beaconStateFork
-  of BeaconStateFork.forkPhase0:
-    err("State's fork do not support sync committees")
-  of BeaconStateFork.forkAltair:
-    let
-      headSlot = forkedState.hbsAltair.data.slot
-      epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())
-      currentPeriod = syncCommitteePeriod(headSlot)
-      nextPeriod = currentPeriod + 1'u64
-    if epochPeriod == currentPeriod:
-      ok(@(forkedState.hbsAltair.data.current_sync_committee.pubkeys.data))
-    elif epochPeriod == nextPeriod:
-      ok(@(forkedState.hbsAltair.data.next_sync_committee.pubkeys.data))
+  withState(forkedState):
+    when stateFork >= forkAltair:
+      let
+        headSlot = state.data.slot
+        epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())
+        currentPeriod = syncCommitteePeriod(headSlot)
+        nextPeriod = currentPeriod + 1'u64
+      if epochPeriod == currentPeriod:
+        ok(@(state.data.current_sync_committee.pubkeys.data))
+      elif epochPeriod == nextPeriod:
+        ok(@(state.data.next_sync_committee.pubkeys.data))
+      else:
+        err("Epoch is outside the sync committee period of the state")
     else:
-      err("Epoch is outside the sync committee period of the state")
-  of BeaconStateFork.forkMerge:
-    let
-      headSlot = forkedState.hbsMerge.data.slot
-      epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())
-      currentPeriod = syncCommitteePeriod(headSlot)
-      nextPeriod = currentPeriod + 1'u64
-    if epochPeriod == currentPeriod:
-      ok(@(forkedState.hbsMerge.data.current_sync_committee.pubkeys.data))
-    elif epochPeriod == nextPeriod:
-      ok(@(forkedState.hbsMerge.data.next_sync_committee.pubkeys.data))
-    else:
-      err("Epoch is outside the sync committee period of the state")
+      err("State's fork do not support sync committees")
 
-func keysToIndices*(forkedState: ForkedHashedBeaconState,
-                keys: openArray[ValidatorPubKey]): seq[Option[ValidatorIndex]] =
-  var indices: seq[Option[ValidatorIndex]]
-  indices.setLen(len(keys))
+func keysToIndices*(cacheTable: var Table[ValidatorPubKey, RestValidatorIndex],
+                    forkedState: ForkedHashedBeaconState,
+                    keys: openArray[ValidatorPubKey]
+                   ): seq[Option[RestValidatorIndex]] =
+  var indices = newSeq[Option[RestValidatorIndex]](len(keys))
   let keyset =
     block:
       var res: Table[ValidatorPubKey, int]
-      for inputIndex, item in keys.pairs():
-        res[item] = inputIndex
+      for inputIndex, pubkey in keys.pairs():
+        # Try to search in cache first.
+        let validatorIndex = cacheTable.getOrDefault(pubkey,
+                                                     InvalidValidatorIndex)
+        if validatorIndex == InvalidValidatorIndex:
+          # Prepare value for linear search.
+          res[pubkey] = inputIndex
+        else:
+          # Use cached value instead.
+          indices[inputIndex] = some(validatorIndex)
       res
-  for validatorIndex, validator in getStateField(forkedState,
-                                                 validators).pairs():
-    let inputIndex = keyset.getOrDefault(validator.pubkey, -1)
-    if inputIndex >= 0:
-      indices[inputIndex] = some(ValidatorIndex(validatorIndex))
+  if len(keyset) > 0:
+    for validatorIndex, validator in getStateField(forkedState,
+                                                   validators).pairs():
+      let inputIndex = keyset.getOrDefault(validator.pubkey, -1)
+      if inputIndex >= 0:
+        # Store pair (pubkey, index) into cache table.
+        cacheTable[validator.pubkey] = RestValidatorIndex(validatorIndex)
+        # Fill result sequence.
+        indices[inputIndex] = some(RestValidatorIndex(validatorIndex))
   indices
 
 proc getRouter*(): RestRouter =

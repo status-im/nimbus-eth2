@@ -411,8 +411,12 @@ proc init*(T: type BeaconNode,
     requestManager: RequestManager.init(network, blockProcessor),
     beaconClock: beaconClock,
     taskpool: taskpool,
-    onAttestationSent: onAttestationSent
+    onAttestationSent: onAttestationSent,
   )
+
+  # initialize REST server cache tables.
+  if config.restEnabled:
+    node.restKeysCache = initTable[ValidatorPubKey, RestValidatorIndex](256)
 
   # set topic validation routine
   network.setValidTopics(

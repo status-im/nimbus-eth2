@@ -201,15 +201,19 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                  "List of sync committee participants is empty")
           kres
 
+      # TODO: We doing this because `participants` are stored as array of
+      # validator keys, so we need to convert it to indices.
       let participantIndices =
         block:
           var res: seq[ValidatorIndex]
-          let ores = keysToIndices(stateData().data, participants)
+          let ores = keysToIndices(node.restKeysCache, stateData().data,
+                                   participants)
           for item in ores:
             if item.isNone():
               return RestApiResponse.jsonError(Http500, InternalServerError,
                                               "Could not get validator indices")
-            res.add(item.get())
+            # TODO: Unsafe conversion from 64bit to 32bit
+            res.add(ValidatorIndex(item.get()))
           res
 
       let validatorsSet =
@@ -231,14 +235,17 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               let listIndex = validatorsSet.getOrDefault(valIndex, -1)
               if listIndex >= 0:
                 if res[listIndex].isEmpty():
+                  let key =
+                    getStateField(stateData().data, validators)[valIndex].pubkey
                   res[listIndex] = RestSyncCommitteeDuty(
                     validator_index: valIndex,
-                    pubkey: participants[arrIndex],
+                    pubkey: key
                   )
                 res[listIndex].validator_sync_committee_indices.add(
                   committeeIdx)
           res.keepItIf(not(isEmpty(it)))
           res
+
       return RestApiResponse.jsonResponse(duties)
 
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
