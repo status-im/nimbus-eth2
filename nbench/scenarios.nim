@@ -13,8 +13,9 @@ import
   # Beacon-chain
   ../beacon_chain/spec/datatypes/[phase0],
   ../beacon_chain/spec/[
-      beaconstate, forks, helpers, state_transition, state_transition_block],
-  ../tests/official/fixtures_utils
+      beaconstate, forks, helpers, state_transition, state_transition_block,
+      state_transition_epoch],
+  ../tests/consensus_spec/fixtures_utils
 
 # Nimbus Bench - Scenario configuration
 # --------------------------------------------------

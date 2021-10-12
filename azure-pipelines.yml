@@ -20,7 +20,7 @@ jobs:
           path: NimBinaries
 
       - task: CacheBeta@1
-        displayName: 'cache official test fixtures'
+        displayName: 'cache scenario test fixtures'
         inputs:
           key: jsonTestsCacheV1
           path: jsonTestsCache
@@ -71,7 +71,7 @@ jobs:
           file build/nimbus_beacon_node
           # fail fast
           export NIMTEST_ABORT_ON_ERROR=1
-          scripts/setup_official_tests.sh jsonTestsCache
+          scripts/setup_scenarios.sh jsonTestsCache
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} DISABLE_TEST_FIXTURES_SCRIPT=1 test
         displayName: 'build and test'
 

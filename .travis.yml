@@ -48,8 +48,8 @@ matrix:
 
 
 install:
-  # official test fixtures
-  - scripts/setup_official_tests.sh jsonTestsCache
+  # spec test fixtures
+  - scripts/setup_scenarios.sh jsonTestsCache
 
 script:
   - set -e # fail fast

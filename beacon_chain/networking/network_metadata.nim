@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[sequtils, tables, strutils, os],
+  std/[sequtils, strutils, os],
   stew/shims/macros, nimcrypto/hash,
   eth/common/eth_types as commonEthTypes,
   web3/[ethtypes, conversions],

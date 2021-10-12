@@ -5,10 +5,14 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import ./testutil
+# All tests except scenarios, which as compiled separately for mainnet and minimal
+
+import
+  chronicles,
+  ./testutil
 
 import # Unit test
-  ./ssz/all_tests,
+  ./ssz/all_tests as ssz_all_tests,
   ./test_attestation_pool,
   ./test_beacon_chain_db,
   ./test_beaconstate,
@@ -23,6 +27,7 @@ import # Unit test
   ./test_helpers,
   ./test_honest_validator,
   ./test_interop,
+  ./test_keystore,
   ./test_message_signatures,
   ./test_peer_pool,
   ./test_statediff,
@@ -30,6 +35,8 @@ import # Unit test
   ./test_sync_manager,
   ./test_zero_signature,
   ./fork_choice/tests_fork_choice,
+  ./consensus_spec/all_tests as consensus_all_tests,
+  ./slashing_protection/test_fixtures,
   ./slashing_protection/test_slashing_interchange,
   ./slashing_protection/test_slashing_protection_db,
   ./slashing_protection/test_migration
@@ -39,11 +46,5 @@ import # Refactor state transition unit tests
   ./spec_block_processing/test_process_deposits,
   ./spec_block_processing/test_process_attestation,
   ./spec_epoch_processing/test_process_justification_and_finalization
-
-# TODO: json tests were removed
-
-# import # Official fixtures that don't require SSZ parsing of invalid BLS signatures
-#        # https://github.com/status-im/nimbus-eth2/issues/374
-#   ./official/test_fixture_bls
 
 summarizeLongTests("AllTests")

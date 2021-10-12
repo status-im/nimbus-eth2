@@ -64,13 +64,13 @@ func get_validator_from_deposit*(deposit: DepositData):
   )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
-func compute_activation_exit_epoch(epoch: Epoch): Epoch =
+func compute_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## Return the epoch during which validator activations and exits initiated in
   ## ``epoch`` take effect.
   epoch + 1 + MAX_SEED_LOOKAHEAD
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_validator_churn_limit
-func get_validator_churn_limit(
+func get_validator_churn_limit*(
       cfg: RuntimeConfig, state: SomeBeaconState, cache: var StateCache):
     uint64 =
   ## Return the validator churn limit for the current epoch.
@@ -344,13 +344,13 @@ template get_total_balance(
   max(EFFECTIVE_BALANCE_INCREMENT, res)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
-func is_eligible_for_activation_queue(validator: Validator): bool =
+func is_eligible_for_activation_queue*(validator: Validator): bool =
   ## Check if ``validator`` is eligible to be placed into the activation queue.
   validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
     validator.effective_balance == MAX_EFFECTIVE_BALANCE
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#is_eligible_for_activation
-func is_eligible_for_activation(state: SomeBeaconState, validator: Validator):
+func is_eligible_for_activation*(state: SomeBeaconState, validator: Validator):
     bool =
   ## Check if ``validator`` is eligible for activation.
 
@@ -358,56 +358,6 @@ func is_eligible_for_activation(state: SomeBeaconState, validator: Validator):
   validator.activation_eligibility_epoch <= state.finalized_checkpoint.epoch and
   # Has not yet been activated
     validator.activation_epoch == FAR_FUTURE_EPOCH
-
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#registry-updates
-proc process_registry_updates*(
-    cfg: RuntimeConfig, state: var SomeBeaconState, cache: var StateCache) {.nbench.} =
-  ## Process activation eligibility and ejections
-
-  # Make visible, e.g.,
-  # https://github.com/status-im/nimbus-eth2/pull/608
-  # https://github.com/sigp/lighthouse/pull/657
-  let epoch {.used.} = get_current_epoch(state)
-  trace "process_registry_updates validator balances",
-    balances=state.balances,
-    active_validator_indices=get_active_validator_indices(state, epoch),
-    epoch=epoch
-
-  # is_active_validator(...) is activation_epoch <= epoch < exit_epoch,
-  # and changes here to either activation_epoch or exit_epoch only take
-  # effect with a compute_activation_exit_epoch(...) delay of, based on
-  # the current epoch, 1 + MAX_SEED_LOOKAHEAD epochs ahead. Thus caches
-  # remain valid for this epoch through though this function along with
-  # the rest of the epoch transition.
-  for index in 0..<state.validators.len():
-    if is_eligible_for_activation_queue(state.validators.asSeq()[index]):
-      state.validators[index].activation_eligibility_epoch =
-        get_current_epoch(state) + 1
-
-    if is_active_validator(state.validators.asSeq()[index], get_current_epoch(state)) and
-        state.validators.asSeq()[index].effective_balance <= cfg.EJECTION_BALANCE:
-      initiate_validator_exit(cfg, state, index.ValidatorIndex, cache)
-
-  ## Queue validators eligible for activation and not dequeued for activation
-  var activation_queue : seq[tuple[a: Epoch, b: int]] = @[]
-  for index in 0..<state.validators.len():
-    let validator = unsafeAddr state.validators.asSeq()[index]
-    if is_eligible_for_activation(state, validator[]):
-      activation_queue.add (
-        validator[].activation_eligibility_epoch, index)
-
-  activation_queue.sort(system.cmp)
-
-  ## Dequeued validators for activation up to churn limit (without resetting
-  ## activation epoch)
-  let churn_limit = get_validator_churn_limit(cfg, state, cache)
-  for i, epoch_and_index in activation_queue:
-    if i.uint64 >= churn_limit:
-      break
-    let
-      (_, index) = epoch_and_index
-    state.validators[index].activation_epoch =
-      compute_activation_exit_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(

@@ -147,12 +147,9 @@ libbacktrace:
 
 # test binaries that can output an XML report
 XML_TEST_BINARIES := \
-	test_fixture_ssz_generic_types \
-	all_fixtures_require_ssz \
-	all_fixtures_require_ssz_minimal \
-	test_official_interchange_vectors \
-	all_tests \
-	test_keystore
+	consensus_spec_tests_mainnet \
+	consensus_spec_tests_minimal \
+	all_tests
 
 # test suite
 TEST_BINARIES := \
@@ -162,48 +159,30 @@ TEST_BINARIES := \
 	block_sim
 .PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES)
 
-# Generic SSZ test, doesn't use consensus objects minimal/mainnet presets
-test_fixture_ssz_generic_types: | build deps
+# Preset-dependent tests
+consensus_spec_tests_mainnet: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
-			"tests/official/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]" && \
-		echo -e $(BUILD_END_MSG) "build/$@"
-
-# EF tests
-all_fixtures_require_ssz: | build deps
-	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
-			$@ \
-			"tests/official/$@.nim" \
+			"tests/consensus_spec/consensus_spec_tests_preset.nim" \
 			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
-all_fixtures_require_ssz_minimal: | build deps
+consensus_spec_tests_minimal: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
-			"tests/official/all_fixtures_require_ssz.nim" \
+			"tests/consensus_spec/consensus_spec_tests_preset.nim" \
 			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=minimal -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
-# EIP-3076 - Slashing interchange
-test_official_interchange_vectors: | build deps
-	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
-			$@ \
-			"tests/slashing_protection/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
-		echo -e $(BUILD_END_MSG) "build/$@"
-
-# Mainnet config
+# Tests we only run for the default preset
 proto_array: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"beacon_chain/fork_choice/$@.nim" \
-			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
+			$(NIM_PARAMS) -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 fork_choice: | build deps
@@ -211,7 +190,7 @@ fork_choice: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"beacon_chain/fork_choice/$@.nim" \
-			$(NIM_PARAMS) -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
+			$(NIM_PARAMS) -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 all_tests: | build deps
@@ -219,16 +198,7 @@ all_tests: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
-		echo -e $(BUILD_END_MSG) "build/$@"
-
-# TODO `test_keystore` is extracted from the rest of the tests because it uses conflicting BLST headers
-test_keystore: | build deps
-	+ echo -e $(BUILD_MSG) "build/$@" && \
-		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
-			$@ \
-			"tests/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
+			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]" && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # State and block sims; getting to 4th epoch triggers consensus checks
@@ -237,7 +207,7 @@ state_sim: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"research/$@.nim" \
-			$(NIM_PARAMS) -d:const_preset=mainnet && \
+			$(NIM_PARAMS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 block_sim: | build deps
@@ -245,14 +215,14 @@ block_sim: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"research/$@.nim" \
-			$(NIM_PARAMS) -d:const_preset=mainnet && \
+			$(NIM_PARAMS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 DISABLE_TEST_FIXTURES_SCRIPT := 0
 # This parameter passing scheme is ugly, but short.
 test: | $(XML_TEST_BINARIES) $(TEST_BINARIES)
 ifeq ($(DISABLE_TEST_FIXTURES_SCRIPT), 0)
-	V=$(V) scripts/setup_official_tests.sh
+	V=$(V) scripts/setup_scenarios.sh
 endif
 	for TEST_BINARY in $(XML_TEST_BINARIES); do \
 		PARAMS="--xml:build/$${TEST_BINARY}.xml --console"; \
