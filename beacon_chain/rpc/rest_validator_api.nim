@@ -212,7 +212,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if item.isNone():
               return RestApiResponse.jsonError(Http500, InternalServerError,
                                               "Could not get validator indices")
-            # TODO: Unsafe conversion from 64bit to 32bit
+            # TODO: Unsafe conversion from 64bit to 32bit, but it only fails
+            # when number of validators will pass `uint32` value.
             res.add(ValidatorIndex(item.get()))
           res
 

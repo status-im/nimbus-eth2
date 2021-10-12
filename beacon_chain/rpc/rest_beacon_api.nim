@@ -600,16 +600,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let indices =
         block:
           var res: seq[ValidatorIndex]
-          let keyset = keys.toHashSet()
-          for index, validator in getStateField(stateData.data,
-                                                validators).pairs():
-            if validator.pubkey in keyset:
-              res.add(ValidatorIndex(uint64(index)))
+          let ores = keysToIndices(node.restKeysCache, stateData().data,
+                                   keys)
+          for item in ores:
+            if item.isNone():
+              return RestApiResponse.jsonError(Http500, InternalServerError,
+                                              "Could not get validator indices")
+            # TODO: Unsafe conversion from 64bit to 32bit, but it only fails
+            # when number of validators will pass `uint32` value.
+            res.add(ValidatorIndex(item.get()))
           res
 
-      if len(indices) != len(keys):
-        return RestApiResponse.jsonError(Http500, InternalServerError,
-                                         "Could not get validator indices")
       let aggregates =
         block:
           var
