@@ -23,7 +23,7 @@ const
   TOTAL_SIZE = PIVOT_VIEW_SIZE + POSITION_WINDOW_SIZE
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#compute_shuffled_index
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#compute_committee
 # Port of https://github.com/protolambda/zrnt/blob/master/eth2/beacon/shuffle.go
 # Shuffles or unshuffles, depending on the `dir` (true for shuffling, false for unshuffling
 func shuffle_list*(input: var seq[ValidatorIndex], seed: Eth2Digest) =
@@ -147,7 +147,7 @@ func get_shuffled_active_validator_indices*(
     let indices = get_shuffled_active_validator_indices(state, epoch)
     return cache.shuffled_active_validator_indices.mgetOrPut(epoch, indices)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_active_validator_indices
 func count_active_validators*(state: SomeBeaconState,
                               epoch: Epoch,
                               cache: var StateCache): uint64 =
@@ -379,12 +379,12 @@ func get_beacon_proposer_index*(
 
     return res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: SomeBeaconState, cache: var StateCache):
     Option[ValidatorIndex] =
   get_beacon_proposer_index(state, cache, state.slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#aggregation-selection
 func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =
   let
     modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)

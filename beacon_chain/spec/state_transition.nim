@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 #
 # The entry point is `state_transition` which is at the bottom of the file!
 #
@@ -78,7 +78,7 @@ proc verify_block_signature(
 
   true
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verifyStateRoot(state: SomeBeaconState, blck: phase0.BeaconBlock or phase0.SigVerifiedBeaconBlock or altair.BeaconBlock or altair.SigVerifiedBeaconBlock or merge.BeaconBlock or merge.SigVerifiedBeaconBlock or merge.TrustedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
@@ -133,7 +133,7 @@ type
 # Hashed-state transition functions
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func process_slot*(
     state: var SomeBeaconState, pre_state_root: Eth2Digest) {.nbench.} =
   # `process_slot` is the first stage of per-slot processing - it is run for
@@ -436,7 +436,7 @@ proc makeBeaconBlock*(
   blck.state_root = state.root
   ok(blck)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#preparing-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/validator.md#preparing-a-beaconblock
 template partialBeaconBlock(
     cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,

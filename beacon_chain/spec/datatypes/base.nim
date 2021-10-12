@@ -78,7 +78,7 @@ const
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
   BASE_REWARDS_PER_EPOCH* = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/validator.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#misc
   ATTESTATION_SUBNET_COUNT* = 64
 
 template maxSize*(n: int) {.pragma.}
@@ -131,7 +131,7 @@ type
     DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF = 8
     DOMAIN_CONTRIBUTION_AND_PROOF = 9
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#custom-types
   Eth2Domain* = array[32, byte]
 
   # https://github.com/nim-lang/Nim/issues/574 and be consistent across
@@ -251,7 +251,7 @@ type
     withdrawal_credentials*: Eth2Digest
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#depositdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
@@ -285,7 +285,7 @@ type
     pubkey*: UncompressedPubKey
     withdrawal_credentials*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey
 
@@ -387,7 +387,7 @@ type
     beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
 
   # This matches the mutable state of the Solidity deposit contract
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/solidity_deposit_contract/deposit_contract.sol
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/solidity_deposit_contract/deposit_contract.sol
   DepositContractState* = object
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
@@ -418,7 +418,7 @@ type
     withdrawable_epoch*: Epoch ##\
     ## When validator can withdraw or transfer funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/p2p-interface.md#eth2-field
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/p2p-interface.md#eth2-field
   ENRForkID* = object
     fork_digest*: ForkDigest
     next_fork_version*: Version

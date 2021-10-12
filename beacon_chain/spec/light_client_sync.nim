@@ -65,7 +65,7 @@ proc validate_light_client_update*(snapshot: LightClientSnapshot,
 
   blsFastAggregateVerify(participant_pubkeys, signing_root.data, update.sync_committee_signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/sync-protocol.md#apply_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/sync-protocol.md#apply_light_client_update
 proc apply_light_client_update(snapshot: var LightClientSnapshot, update: LightClientUpdate) =
   let snapshot_period = compute_epoch_at_slot(snapshot.header.slot) div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
   let update_period = compute_epoch_at_slot(update.header.slot) div EPOCHS_PER_SYNC_COMMITTEE_PERIOD

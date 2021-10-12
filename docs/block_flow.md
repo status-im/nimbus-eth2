@@ -115,7 +115,7 @@ Logs:
 
 ### Gossip flow out
 
-- After validation in `blockValidator()` in the Eth2Processor by `isValidBeaconBlock()` according to spec https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/p2p-interface.md#beacon_block
+- After validation in `blockValidator()` in the Eth2Processor by `isValidBeaconBlock()` according to spec https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/p2p-interface.md#beacon_block
 - Important: P2P validation is not full verification (state transition and internal cryptographic signatures were not checked)
 - We jump into libp2p/protocols/pubsub/pubsub.nim in the method `validate(PubSub, message)`
 - which was called by `rpcHandler(GossipSub, PubSubPeer, RPCMsg)`

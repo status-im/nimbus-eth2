@@ -29,7 +29,7 @@ func increase_balance*(
   if delta != 0: # avoid dirtying the balance cache if not needed
     increase_balance(state.balances[index], delta)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#decrease_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#decrease_balance
 func decrease_balance*(balance: var Gwei, delta: Gwei) =
   balance =
     if delta > balance:
@@ -79,7 +79,7 @@ func get_validator_churn_limit(
     count_active_validators(
       state, state.get_current_epoch(), cache) div cfg.CHURN_LIMIT_QUOTIENT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#initiate_validator_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#initiate_validator_exit
 func initiate_validator_exit*(cfg: RuntimeConfig, state: var SomeBeaconState,
                               index: ValidatorIndex, cache: var StateCache) =
   ## Initiate the exit of the validator with index ``index``.
@@ -119,7 +119,7 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var SomeBeaconState,
   validator.withdrawable_epoch =
     validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
     cfg: RuntimeConfig, state: var SomeBeaconState,
@@ -349,7 +349,7 @@ func is_eligible_for_activation_queue(validator: Validator): bool =
   validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
     validator.effective_balance == MAX_EFFECTIVE_BALANCE
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_eligible_for_activation
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#is_eligible_for_activation
 func is_eligible_for_activation(state: SomeBeaconState, validator: Validator):
     bool =
   ## Check if ``validator`` is eligible for activation.
@@ -584,13 +584,13 @@ func get_total_active_balance*(state: SomeBeaconState, cache: var StateCache): G
   get_total_balance(
     state, cache.get_shuffled_active_validator_indices(state, epoch))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#get_base_reward_per_increment
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment*(
     state: altair.BeaconState | merge.BeaconState, cache: var StateCache): Gwei =
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div
     integer_squareroot(get_total_active_balance(state, cache))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#get_base_reward
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
     state: altair.BeaconState | merge.BeaconState, index: ValidatorIndex,
     base_reward_per_increment: Gwei): Gwei =
@@ -707,7 +707,7 @@ proc process_attestation*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#get_next_sync_committee_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#get_next_sync_committee_indices
 func get_next_sync_committee_indices(state: altair.BeaconState | merge.BeaconState):
     seq[ValidatorIndex] =
   ## Return the sequence of sync committee indices (which may include
@@ -739,7 +739,7 @@ func get_next_sync_committee_indices(state: altair.BeaconState | merge.BeaconSta
     i += 1'u64
   sync_committee_indices
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/beacon-chain.md#get_next_sync_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#get_next_sync_committee
 proc get_next_sync_committee*(state: altair.BeaconState | merge.BeaconState):
     SyncCommittee =
   ## Return the *next* sync committee for a given ``state``.
