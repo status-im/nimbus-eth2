@@ -36,7 +36,7 @@ proc runTest(testName, testDir, unitTestName: string) =
         fhPreState = (ref ForkedHashedBeaconState)(hbsAltair: altair.HashedBeaconState(
           data: preState[], root: hash_tree_root(preState[])), beaconStateFork: forkAltair)
         cache = StateCache()
-        rewards = RewardInfo()
+        info = ForkedEpochInfo()
 
       # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
       # so purely lexicographic sorting wouldn't sort properly.
@@ -46,12 +46,12 @@ proc runTest(testName, testDir, unitTestName: string) =
 
         if hasPostState:
           let success = state_transition(
-            defaultRuntimeConfig, fhPreState[], blck, cache, rewards, flags = {},
+            defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
             noRollback)
           doAssert success, "Failure when applying block " & $i
         else:
           let success = state_transition(
-            defaultRuntimeConfig, fhPreState[], blck, cache, rewards, flags = {},
+            defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
             noRollback)
           doAssert (i + 1 < numBlocks) or not success,
             "We didn't expect these invalid blocks to be processed"

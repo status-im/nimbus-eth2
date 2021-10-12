@@ -9,9 +9,8 @@ import
   # Standard library
   std/[os, strutils, typetraits],
   # Internals
-  ../../beacon_chain/spec/datatypes/[phase0, altair],
   ../../beacon_chain/spec/[
-    eth2_merkleization, eth2_ssz_serialization, state_transition_epoch],
+    eth2_merkleization, eth2_ssz_serialization],
   # Status libs,
   snappy,
   stew/byteutils
@@ -72,18 +71,3 @@ proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
     stderr.write $Format & " load issue for file \"", path, "\"\n"
     stderr.write err.formatMsg(path), "\n"
     quit 1
-
-proc process_justification_and_finalization*(state: var phase0.BeaconState) =
-  var cache = StateCache()
-
-  var rewards: RewardInfo
-  rewards.init(state)
-  rewards.process_attestations(state, cache)
-  process_justification_and_finalization(state, rewards.total_balances)
-
-func process_slashings*(state: var phase0.BeaconState) =
-  var cache = StateCache()
-  var rewards: RewardInfo
-  rewards.init(state)
-  rewards.process_attestations(state, cache)
-  process_slashings(state, rewards.total_balances.current_epoch)

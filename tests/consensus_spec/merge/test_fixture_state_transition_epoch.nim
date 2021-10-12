@@ -11,17 +11,19 @@ import
   # Standard library
   os, strutils,
   # Beacon chain internals
+  chronicles,
   ../../../beacon_chain/spec/[beaconstate, presets, state_transition_epoch],
-  ../../../beacon_chain/spec/datatypes/merge,
+  ../../../beacon_chain/spec/datatypes/[altair, merge],
   # Test utilities
   ../../testutil,
   ../fixtures_utils,
   ../test_fixture_rewards,
   ../../helpers/debug_state
 
+const RootDir = SszTestsDir/const_preset/"merge"/"epoch_processing"
+
 template runSuite(
-    suiteDir, testName: string, transitionProc: untyped{ident},
-    useCache, useTAB, useUPB: static bool = false): untyped =
+    suiteDir, testName: string, transitionProc: untyped): untyped =
   suite "Ethereum Foundation - Merge - Epoch Processing - " & testName & preset():
     for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}, checkDir = true):
 
@@ -29,47 +31,34 @@ template runSuite(
       test testName & " - " & unitTestName & preset():
         # BeaconState objects are stored on the heap to avoid stack overflow
         type T = merge.BeaconState
-        var preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
+        var preState {.inject.} = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
         let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, T))
+        var cache {.inject, used.} = StateCache()
+        template state: untyped {.inject, used.} = preState[]
+        template cfg: untyped {.inject, used.} = defaultRuntimeConfig
 
-        doAssert not (useCache and useTAB)
-        when useCache:
-          var cache = StateCache()
-          when compiles(transitionProc(defaultRuntimeConfig, preState[], cache)):
-            transitionProc(defaultRuntimeConfig, preState[], cache)
-          else:
-            transitionProc(preState[], cache)
-        elif useTAB and not useUPB:
-          var cache = StateCache()
-          let total_active_balance = preState[].get_total_active_balance(cache)
-          transitionProc(preState[], total_active_balance)
-        elif useTAB and useUPB:
-          var cache = StateCache()
-          let
-            total_active_balance = preState[].get_total_active_balance(cache)
-            unslashed_participating_balances =
-              preState[].get_unslashed_participating_balances()
-          transitionProc(
-            preState[], total_active_balance, unslashed_participating_balances)
-        else:
-          when compiles(transitionProc(preState[])):
-            transitionProc(preState[])
-          else:
-            transitionProc(defaultRuntimeConfig, preState[])
+        transitionProc
+
+        check:
+          hash_tree_root(preState[]) == hash_tree_root(postState[])
 
         reportDiff(preState, postState)
 
 # Justification & Finalization
 # ---------------------------------------------------------------
 
-const JustificationFinalizationDir = SszTestsDir/const_preset/"merge"/"epoch_processing"/"justification_and_finalization"/"pyspec_tests"
-runSuite(JustificationFinalizationDir, "Justification & Finalization",  process_justification_and_finalization, useCache = false, useTAB = true, useUPB = true)
+const JustificationFinalizationDir = RootDir/"justification_and_finalization"/"pyspec_tests"
+runSuite(JustificationFinalizationDir, "Justification & Finalization"):
+  let info = altair.EpochInfo.init(state)
+  process_justification_and_finalization(state, info.balances)
 
 # Inactivity updates
 # ---------------------------------------------------------------
 
-const InactivityDir = SszTestsDir/const_preset/"merge"/"epoch_processing"/"inactivity_updates"/"pyspec_tests"
-runSuite(InactivityDir, "Inactivity", process_inactivity_updates, useCache = false)
+const InactivityDir = RootDir/"inactivity_updates"/"pyspec_tests"
+runSuite(InactivityDir, "Inactivity"):
+  let info = altair.EpochInfo.init(state)
+  process_inactivity_updates(cfg, state, info)
 
 # Rewards & Penalties
 # ---------------------------------------------------------------
@@ -79,53 +68,63 @@ runSuite(InactivityDir, "Inactivity", process_inactivity_updates, useCache = fal
 # Registry updates
 # ---------------------------------------------------------------
 
-const RegistryUpdatesDir = SszTestsDir/const_preset/"merge"/"epoch_processing"/"registry_updates"/"pyspec_tests"
-runSuite(RegistryUpdatesDir, "Registry updates",  process_registry_updates, useCache = true)
+const RegistryUpdatesDir = RootDir/"registry_updates"/"pyspec_tests"
+runSuite(RegistryUpdatesDir, "Registry updates"):
+  process_registry_updates(cfg, state, cache)
 
 # Slashings
 # ---------------------------------------------------------------
 
-const SlashingsDir = SszTestsDir/const_preset/"merge"/"epoch_processing"/"slashings"/"pyspec_tests"
-runSuite(SlashingsDir, "Slashings",  process_slashings, useCache = false, useTAB = true)
+const SlashingsDir = RootDir/"slashings"/"pyspec_tests"
+runSuite(SlashingsDir, "Slashings"):
+  let info = altair.EpochInfo.init(state)
+  process_slashings(state, info.balances.current_epoch)
 
 # Eth1 data reset
 # ---------------------------------------------------------------
 
-const Eth1DataResetDir = SszTestsDir/const_preset/"merge"/"epoch_processing"/"eth1_data_reset/"/"pyspec_tests"
-runSuite(Eth1DataResetDir, "Eth1 data reset", process_eth1_data_reset, useCache = false)
+const Eth1DataResetDir = RootDir/"eth1_data_reset/"/"pyspec_tests"
+runSuite(Eth1DataResetDir, "Eth1 data reset"):
+  process_eth1_data_reset(state)
 
 # Effective balance updates
 # ---------------------------------------------------------------
 
-const EffectiveBalanceUpdatesDir = SszTestsDir/const_preset/"merge"/"epoch_processing"/"effective_balance_updates"/"pyspec_tests"
-runSuite(EffectiveBalanceUpdatesDir, "Effective balance updates", process_effective_balance_updates, useCache = false)
+const EffectiveBalanceUpdatesDir = RootDir/"effective_balance_updates"/"pyspec_tests"
+runSuite(EffectiveBalanceUpdatesDir, "Effective balance updates"):
+  process_effective_balance_updates(state)
 
 # Slashings reset
 # ---------------------------------------------------------------
 
-const SlashingsResetDir = SszTestsDir/const_preset/"merge"/"epoch_processing"/"slashings_reset"/"pyspec_tests"
-runSuite(SlashingsResetDir, "Slashings reset", process_slashings_reset, useCache = false)
+const SlashingsResetDir = RootDir/"slashings_reset"/"pyspec_tests"
+runSuite(SlashingsResetDir, "Slashings reset"):
+  process_slashings_reset(state)
 
 # RANDAO mixes reset
 # ---------------------------------------------------------------
 
-const RandaoMixesResetDir = SszTestsDir/const_preset/"merge"/"epoch_processing"/"randao_mixes_reset"/"pyspec_tests"
-runSuite(RandaoMixesResetDir, "RANDAO mixes reset", process_randao_mixes_reset, useCache = false)
+const RandaoMixesResetDir = RootDir/"randao_mixes_reset"/"pyspec_tests"
+runSuite(RandaoMixesResetDir, "RANDAO mixes reset"):
+  process_randao_mixes_reset(state)
 
 # Historical roots update
 # ---------------------------------------------------------------
 
-const HistoricalRootsUpdateDir = SszTestsDir/const_preset/"merge"/"epoch_processing"/"historical_roots_update"/"pyspec_tests"
-runSuite(HistoricalRootsUpdateDir, "Historical roots update", process_historical_roots_update, useCache = false)
+const HistoricalRootsUpdateDir = RootDir/"historical_roots_update"/"pyspec_tests"
+runSuite(HistoricalRootsUpdateDir, "Historical roots update"):
+  process_historical_roots_update(state)
 
 # Participation flag updates
 # ---------------------------------------------------------------
 
-const ParticipationFlagDir = SszTestsDir/const_preset/"merge"/"epoch_processing"/"participation_flag_updates"/"pyspec_tests"
-runSuite(ParticipationFlagDir, "Participation flag updates", process_participation_flag_updates, useCache = false)
+const ParticipationFlagDir = RootDir/"participation_flag_updates"/"pyspec_tests"
+runSuite(ParticipationFlagDir, "Participation flag updates"):
+  process_participation_flag_updates(state)
 
 # Sync committee updates
 # ---------------------------------------------------------------
 
-const SyncCommitteeDir = SszTestsDir/const_preset/"merge"/"epoch_processing"/"sync_committee_updates"/"pyspec_tests"
-runSuite(SyncCommitteeDir, "Sync committee updates", process_sync_committee_updates, useCache = false)
+const SyncCommitteeDir = RootDir/"sync_committee_updates"/"pyspec_tests"
+runSuite(SyncCommitteeDir, "Sync committee updates"):
+  process_sync_committee_updates(state)

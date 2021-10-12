@@ -45,8 +45,8 @@ proc runTest(identifier: string) =
         attestation = parseTest(
           testDir/"attestation.ssz_snappy", SSZ, Attestation)
         done = process_attestation(
-          preState[], attestation, {},
-          get_base_reward_per_increment(preState[], cache), cache)
+          preState[], attestation, {}, get_base_reward_per_increment(
+            get_total_active_balance(preState[], cache)), cache)
 
       if existsFile(testDir/"post.ssz_snappy"):
         let postState =

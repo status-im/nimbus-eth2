@@ -547,10 +547,6 @@ type
     # time of attestation.
     previous_epoch_head_attesters_raw*: Gwei
 
-  RewardInfo* = object
-    statuses*: seq[RewardStatus]
-    total_balances*: TotalBalances
-
 func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
   let cookedKey = validator.pubkey.load() # Loading the pubkey is slow!
   doAssert cookedKey.isSome,

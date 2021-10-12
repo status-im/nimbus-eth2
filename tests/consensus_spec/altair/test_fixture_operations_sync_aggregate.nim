@@ -12,6 +12,7 @@ import
   os,
   # Utilities
   stew/results,
+  chronicles,
   # Beacon chain internals
   ../../../beacon_chain/spec/[beaconstate, state_transition_block],
   ../../../beacon_chain/spec/datatypes/altair,
@@ -19,9 +20,6 @@ import
   ../../testutil,
   ../fixtures_utils,
   ../../helpers/debug_state
-
-when isMainModule:
-  import chronicles # or some random compile error happens...
 
 const OpSyncAggregateDir = SszTestsDir/const_preset/"altair"/"operations"/"sync_aggregate"/"pyspec_tests"
 
@@ -45,8 +43,9 @@ proc runTest(dir, identifier: string) =
       let
         syncAggregate = parseTest(
           testDir/"sync_aggregate.ssz_snappy", SSZ, SyncAggregate)
+        total_active_balance = get_total_active_balance(preState[], cache)
         done = process_sync_aggregate(
-          preState[], syncAggregate, cache)
+          preState[], syncAggregate, total_active_balance, cache)
 
       if existsFile(testDir/"post.ssz_snappy"):
         let postState =

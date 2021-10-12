@@ -240,6 +240,26 @@ type
     current_sync_committee*: SyncCommittee     # [New in Altair]
     next_sync_committee*: SyncCommittee        # [New in Altair]
 
+  UnslashedParticipatingBalances* = object
+    previous_epoch*: array[PARTICIPATION_FLAG_WEIGHTS.len, Gwei]
+    current_epoch_TIMELY_TARGET*: Gwei
+    current_epoch*: Gwei # aka total_active_balance
+
+  ParticipationFlag* {.pure.} = enum
+    timelySourceAttester
+    timelyTargetAttester
+    timelyHeadAttester
+    eligible
+
+  ParticipationInfo* = object
+    flags*: set[ParticipationFlag]
+    delta*: RewardDelta
+
+  EpochInfo* = object
+    ## Information about the outcome of epoch processing
+    validators*: seq[ParticipationInfo]
+    balances*: UnslashedParticipatingBalances
+
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
   #      https://github.com/nim-lang/RFCs/issues/250
@@ -428,7 +448,7 @@ iterator allSyncCommittees*: SyncCommitteeIndex =
     yield SyncCommitteeIndex(committeeIdx)
 
 template validateSyncCommitteeIndexOr*(
-    networkValParam: uint64, 
+    networkValParam: uint64,
     elseBody: untyped): SyncCommitteeIndex =
   let networkVal = networkValParam
   if networkVal < SYNC_COMMITTEE_SUBNET_COUNT:
@@ -501,3 +521,7 @@ chronicles.formatIt SyncCommitteeMessage: shortLog(it)
 
 template hash*(x: LightClientUpdate): Hash =
   hash(x.header)
+
+func clear*(info: var EpochInfo) =
+  info.validators.setLen(0)
+  info.balances = UnslashedParticipatingBalances()

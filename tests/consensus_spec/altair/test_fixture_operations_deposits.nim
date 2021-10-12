@@ -12,6 +12,7 @@ import
   os,
   # Utilities
   stew/results,
+  chronicles,
   # Beacon chain internals
   ../../../beacon_chain/spec/[beaconstate, presets, state_transition_block],
   ../../../beacon_chain/spec/datatypes/altair,

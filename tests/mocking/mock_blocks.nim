@@ -88,8 +88,8 @@ proc mockBlock*(
     cache = StateCache()
     tmpState = assignClone(state)
   if getStateField(state, slot) != slot:
-    var rewards = RewardInfo()
-    doAssert process_slots(cfg, tmpState[], slot, cache, rewards, flags = {})
+    var info = ForkedEpochInfo()
+    doAssert process_slots(cfg, tmpState[], slot, cache, info, flags = {})
 
   result.kind = case tmpState[].beaconStateFork
                 of forkPhase0: BeaconBlockFork.Phase0

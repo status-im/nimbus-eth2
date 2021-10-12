@@ -68,6 +68,19 @@ type
     of BeaconBlockFork.Merge:
       mergeBlock*:  merge.TrustedSignedBeaconBlock
 
+  EpochInfoFork* {.pure.} = enum
+    Phase0
+    Altair
+
+  ForkedEpochInfo* = object
+    case kind*: EpochInfoFork
+    of EpochInfoFork.Phase0:
+      phase0Info*: phase0.EpochInfo
+    of EpochInfoFork.Altair:
+      altairInfo*: altair.EpochInfo
+
+  ForkyEpochInfo* = phase0.EpochInfo | altair.EpochInfo
+
   ForkDigests* = object
     phase0*: ForkDigest
     altair*: ForkDigest
@@ -133,6 +146,11 @@ template init*(T: type ForkedTrustedSignedBeaconBlock, blck: altair.TrustedSigne
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: merge.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Merge,  mergeBlock: blck)
 
+template init*(T: type ForkedEpochInfo, info: phase0.EpochInfo): T =
+  T(kind: EpochInfoFork.Phase0, phase0Info: info)
+template init*(T: type ForkedEpochInfo, info: altair.EpochInfo): T =
+  T(kind: EpochInfoFork.Altair, altairInfo: info)
+
 # State-related functionality based on ForkedHashedBeaconState instead of HashedBeaconState
 
 template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
@@ -149,6 +167,28 @@ template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
     const stateFork {.inject.} = forkPhase0
     template state: untyped {.inject.} = x.hbsPhase0
     body
+
+template withEpochInfo*(x: ForkedEpochInfo, body: untyped): untyped =
+  case x.kind
+  of EpochInfoFork.Phase0:
+    template info: untyped {.inject.} = x.phase0Info
+    body
+  of EpochInfoFork.Altair:
+    template info: untyped {.inject.} = x.altairInfo
+    body
+
+template withEpochInfo*(
+    state: phase0.BeaconState, x: var ForkedEpochInfo, body: untyped): untyped =
+  x.kind = EpochInfoFork.Phase0
+  template info: untyped {.inject.} = x.phase0Info
+  body
+
+template withEpochInfo*(
+    state: altair.BeaconState | merge.BeaconState, x: var ForkedEpochInfo,
+    body: untyped): untyped =
+  x.kind = EpochInfoFork.Altair
+  template info: untyped {.inject.} = x.altairInfo
+  body
 
 # Dispatch functions
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =

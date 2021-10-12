@@ -32,14 +32,14 @@ proc runTest(identifier: string) =
         fhPreState = (ref ForkedHashedBeaconState)(hbsPhase0: phase0.HashedBeaconState(
           data: preState[], root: hash_tree_root(preState[])), beaconStateFork: forkPhase0)
         cache = StateCache()
-        rewards: RewardInfo
+        info: ForkedEpochInfo
       let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, phase0.BeaconState))
 
       check:
         process_slots(
           defaultRuntimeConfig,
           fhPreState[], getStateField(fhPreState[], slot) + num_slots, cache,
-          rewards, {})
+          info, {})
 
         getStateRoot(fhPreState[]) == postState[].hash_tree_root()
       let newPreState = newClone(fhPreState.hbsPhase0.data)

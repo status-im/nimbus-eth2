@@ -12,6 +12,7 @@ import
   # Standard library
   os, sequtils,
   # Status internal
+  chronicles,
   faststreams, streams,
   # Beacon chain internals
   ../../../beacon_chain/spec/[state_transition, forks, helpers],
@@ -45,7 +46,7 @@ proc runTest(testName, testDir, unitTestName: string) =
         fhPreState = (ref ForkedHashedBeaconState)(hbsPhase0: phase0.HashedBeaconState(
           data: preState[], root: hash_tree_root(preState[])), beaconStateFork: forkPhase0)
         cache = StateCache()
-        rewards = RewardInfo()
+        info = ForkedEpochInfo()
         cfg = defaultRuntimeConfig
       cfg.ALTAIR_FORK_EPOCH = transitionEpoch.fork_epoch.Epoch
 
@@ -58,16 +59,14 @@ proc runTest(testName, testDir, unitTestName: string) =
           let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, phase0.SignedBeaconBlock)
 
           let success = state_transition(
-            cfg, fhPreState[], blck,
-            cache, rewards,
+            cfg, fhPreState[], blck, cache, info,
             flags = {skipStateRootValidation}, noRollback)
           doAssert success, "Failure when applying block " & $i
         else:
           let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, altair.SignedBeaconBlock)
 
           let success = state_transition(
-            cfg, fhPreState[], blck,
-            cache, rewards,
+            cfg, fhPreState[], blck, cache, info,
             flags = {skipStateRootValidation}, noRollback)
           doAssert success, "Failure when applying block " & $i
 

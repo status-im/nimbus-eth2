@@ -118,10 +118,10 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
           data: data.state, root: hash_tree_root(data.state)),
         beaconStateFork: forkPhase0)
       cache = StateCache()
-      rewards = RewardInfo()
+      info = ForkedEpochInfo()
     result =
       state_transition(
-        cfg, fhState[], blck, cache, rewards, flags, rollback)
+        cfg, fhState[], blck, cache, info, flags, rollback)
     data.state = fhState.hbsPhase0.data
 
   decodeAndProcess(BlockInput):
