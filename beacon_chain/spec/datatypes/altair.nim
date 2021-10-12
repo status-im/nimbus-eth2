@@ -37,7 +37,7 @@ import ./base, ./phase0
 export base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#incentivization-weights
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#incentivization-weights
   TIMELY_SOURCE_WEIGHT* = 14
   TIMELY_TARGET_WEIGHT* = 26
   TIMELY_HEAD_WEIGHT* = 14
@@ -61,7 +61,7 @@ const
   TIMELY_TARGET_FLAG_INDEX* = 1
   TIMELY_HEAD_FLAG_INDEX* = 2
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#inactivity-penalties
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#inactivity-penalties
   INACTIVITY_SCORE_BIAS* = 4
   INACTIVITY_SCORE_RECOVERY_RATE* = 16
 
@@ -75,7 +75,7 @@ static: doAssert TIMELY_SOURCE_WEIGHT + TIMELY_TARGET_WEIGHT +
 type
   ### New types
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#custom-types
   ParticipationFlags* = uint8
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#syncaggregate
@@ -142,7 +142,7 @@ type
 
   ### Modified/overloaded
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/sync-protocol.md#lightclientsnapshot
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/sync-protocol.md#lightclientsnapshot
   LightClientSnapshot* = object
     header*: BeaconBlockHeader ##\
     ## Beacon block header
@@ -152,7 +152,7 @@ type
 
     next_sync_committee*: SyncCommittee
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/sync-protocol.md#lightclientupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
     header*: BeaconBlockHeader  ##\
     ## Update beacon block header
@@ -174,7 +174,7 @@ type
     fork_version*: Version ##\
     ## Fork version for the aggregate signature
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/sync-protocol.md#lightclientstore
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/sync-protocol.md#lightclientstore
   LightClientStore* = object
     snapshot*: LightClientSnapshot
     valid_updates*: HashSet[LightClientUpdate]
