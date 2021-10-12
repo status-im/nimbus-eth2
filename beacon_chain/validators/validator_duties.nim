@@ -858,7 +858,7 @@ proc makeAggregateAndProof*(
 
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#aggregation-selection
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#aggregation-selection
   if not is_aggregator(epochRef, slot, index, slot_signature):
     return none(AggregateAndProof)
 
@@ -866,8 +866,8 @@ proc makeAggregateAndProof*(
   if maybe_slot_attestation.isNone:
     return none(AggregateAndProof)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#construct-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#construct-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#aggregateandproof
   some(AggregateAndProof(
     aggregator_index: validatorIndex.uint64,
     aggregate: maybe_slot_attestation.get,

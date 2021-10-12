@@ -166,7 +166,7 @@ type
   MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [Defect, CatchableError].}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [Defect].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#goodbye
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
     # might see other values on the wire!
     ClientShutDown = 1
@@ -1778,7 +1778,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 
 func gossipId(data: openArray[byte], topic: string, valid: bool): seq[byte] =
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/p2p-interface.md#topics-and-messages
   const
     MESSAGE_DOMAIN_INVALID_SNAPPY = [0x00'u8, 0x00, 0x00, 0x00]
     MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
@@ -2059,7 +2059,8 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
 proc subscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT],
                                   forkDigest: ForkDigest) =
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
-  # nimbus won't score attestation subnets for now, we just rely on block and aggregate which are more stabe and reliable
+  # Nimbus won't score attestation subnets for now, we just rely on block and
+  # aggregate which are more stable and reliable
 
   for subnet_id, enabled in subnets:
     if enabled:
@@ -2068,8 +2069,9 @@ proc subscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATION_
 
 proc unsubscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT],
                                     forkDigest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
-  # nimbus won't score attestation subnets for now, we just rely on block and aggregate which are more stabe and reliable
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # Nimbus won't score attestation subnets for now; we just rely on block and
+  # aggregate which are more stable and reliable
 
   for subnet_id, enabled in subnets:
     if enabled:
