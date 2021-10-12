@@ -22,7 +22,7 @@ export
 func count_active_validators*(epochInfo: EpochRef): uint64 =
   epochInfo.shuffled_active_validator_indices.lenu64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_committee_count_per_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_committee_count_per_slot
 func get_committee_count_per_slot*(epochInfo: EpochRef): uint64 =
   get_committee_count_per_slot(count_active_validators(epochInfo))
 
@@ -171,7 +171,7 @@ func makeAttestationData*(
     )
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#validator-assignments
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#validator-assignments
 iterator get_committee_assignments*(
     epochRef: EpochRef, epoch: Epoch, validator_indices: IntSet):
     tuple[validatorIndices: IntSet,
