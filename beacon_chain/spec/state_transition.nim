@@ -547,7 +547,8 @@ template partialBeaconBlock(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits:
         List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits),
-      sync_aggregate: sync_aggregate))
+      sync_aggregate: sync_aggregate,
+      execution_payload: executionPayload))
 
 proc makeBeaconBlock*(
     cfg: RuntimeConfig,
