@@ -26,4 +26,3 @@ Go to the "Export" tab and enable "Export for sharing externally":
 ![export tab](https://i.imgur.com/sxgrThb.png)
 
 Now you can either "Save to file" or "View JSON" and copy/paste into the destination file, whichever is faster for you.
-
