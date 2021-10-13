@@ -123,7 +123,7 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#proposer-slashings
 proc check_proposer_slashing*(
     state: var SomeBeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags):

@@ -120,7 +120,7 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var SomeBeaconState,
     validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
     cfg: RuntimeConfig, state: var SomeBeaconState,
     slashed_index: ValidatorIndex, cache: var StateCache) =
@@ -397,7 +397,7 @@ proc is_valid_indexed_attestation*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(state: SomeBeaconState,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits,
