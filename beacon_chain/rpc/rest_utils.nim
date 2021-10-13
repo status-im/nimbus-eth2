@@ -118,7 +118,7 @@ const
   UniqueValidatorIndexError* =
     "Only unique validator's index are allowed"
   StateNotFoundError* =
-    "State not found"
+    "Could not get requested state"
   SlotNotFoundError* =
     "Slot number is too far away"
   SlotNotInNextWallSlotEpochError* =
