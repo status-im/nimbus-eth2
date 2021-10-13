@@ -189,7 +189,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
 
   var
     cache = StateCache()
-    rewards = RewardInfo()
+    info = ForkedEpochInfo()
     loadedState = new phase0.BeaconState
 
   withTimer(timers[tLoadState]):
@@ -202,7 +202,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       withTimer(timers[if isEpoch: tAdvanceEpoch else: tAdvanceSlot]):
         let ok = process_slots(
           dag.cfg, state[].data, getStateField(state[].data, slot) + 1, cache,
-          rewards, {})
+          info, {})
         doAssert ok, "Slot processing can't fail with correct inputs"
 
     var start = Moment.now()
@@ -458,7 +458,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
     perfs = newSeq[ValidatorPerformance](
       getStateField(dag.headState.data, validators).len())
     cache = StateCache()
-    rewards = RewardInfo()
+    info = ForkedEpochInfo()
     blck: phase0.TrustedSignedBeaconBlock
 
   doAssert blockRefs.len() > 0, "Must select at least one block"
@@ -470,7 +470,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   dag.updateStateData(
     state[], blockRefs[^1].atSlot(blockRefs[^1].slot - 1), false, cache)
 
-  func processEpoch() =
+  proc processEpoch() =
     let
       prev_epoch_target_slot =
         state[].data.get_previous_epoch().compute_start_slot_at_epoch()
@@ -490,35 +490,39 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
             prev_epoch_target_slot, committee_index.CommitteeIndex, cache):
           indices.incl(validator_index)
       indices
-
-    for i, s in rewards.statuses.pairs():
-      let perf = addr perfs[i]
-      if RewardFlags.isActiveInPreviousEpoch in s.flags:
-        if s.is_previous_epoch_attester.isSome():
-          perf.attestation_hits += 1;
-
-          if RewardFlags.isPreviousEpochHeadAttester in s.flags:
-            perf.head_attestation_hits += 1
-          else:
-            perf.head_attestation_misses += 1
-
-          if RewardFlags.isPreviousEpochTargetAttester in s.flags:
-            perf.target_attestation_hits += 1
-          else:
-            perf.target_attestation_misses += 1
-
-          if i.ValidatorIndex in first_slot_attesters:
-            if first_slot_empty:
-              perf.first_slot_head_attester_when_first_slot_empty += 1
-            else:
-              perf.first_slot_head_attester_when_first_slot_not_empty += 1
-
+    case info.kind
+    of EpochInfoFork.Phase0:
+      template info: untyped = info.phase0Info
+      for i, s in info.statuses.pairs():
+        let perf = addr perfs[i]
+        if RewardFlags.isActiveInPreviousEpoch in s.flags:
           if s.is_previous_epoch_attester.isSome():
-            perf.delays.mgetOrPut(
-              s.is_previous_epoch_attester.get().delay, 0'u64) += 1
+            perf.attestation_hits += 1;
 
-        else:
-          perf.attestation_misses += 1;
+            if RewardFlags.isPreviousEpochHeadAttester in s.flags:
+              perf.head_attestation_hits += 1
+            else:
+              perf.head_attestation_misses += 1
+
+            if RewardFlags.isPreviousEpochTargetAttester in s.flags:
+              perf.target_attestation_hits += 1
+            else:
+              perf.target_attestation_misses += 1
+
+            if i.ValidatorIndex in first_slot_attesters:
+              if first_slot_empty:
+                perf.first_slot_head_attester_when_first_slot_empty += 1
+              else:
+                perf.first_slot_head_attester_when_first_slot_not_empty += 1
+
+            if s.is_previous_epoch_attester.isSome():
+              perf.delays.mgetOrPut(
+                s.is_previous_epoch_attester.get().delay, 0'u64) += 1
+
+          else:
+            perf.attestation_misses += 1;
+    of EpochInfoFork.Altair:
+      echo "TODO altair"
 
   for bi in 0..<blockRefs.len:
     blck = db.getBlock(blockRefs[blockRefs.len - bi - 1].root).get()
@@ -529,7 +533,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
           if nextSlot == blck.message.slot: {skipLastStateRootCalculation}
           else: {}
       let ok = process_slots(
-        dag.cfg, state[].data, nextSlot, cache, rewards, flags)
+        dag.cfg, state[].data, nextSlot, cache, info, flags)
       doAssert ok, "Slot processing can't fail with correct inputs"
 
       if getStateField(state[].data, slot).isEpoch():
@@ -544,7 +548,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   while getStateField(state[].data, slot) < ends:
     let ok = process_slots(
       dag.cfg, state[].data, getStateField(state[].data, slot) + 1, cache,
-      rewards, {})
+      info, {})
     doAssert ok, "Slot processing can't fail with correct inputs"
 
     if getStateField(state[].data, slot).isEpoch():
@@ -686,7 +690,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
   var
     cache = StateCache()
-    rewards = RewardInfo()
+    info = ForkedEpochInfo()
     blck: phase0.TrustedSignedBeaconBlock
 
   let
@@ -713,46 +717,52 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
     if not inTxn:
       outDb.exec("BEGIN TRANSACTION;").expect("DB")
       inTxn = true
-    insertEpochInfo.exec(
-      (getStateField(state[].data, slot).epoch.int64,
-      rewards.total_balances.current_epoch_raw.int64,
-      rewards.total_balances.previous_epoch_raw.int64,
-      rewards.total_balances.current_epoch_attesters_raw.int64,
-      rewards.total_balances.current_epoch_target_attesters_raw.int64,
-      rewards.total_balances.previous_epoch_attesters_raw.int64,
-      rewards.total_balances.previous_epoch_target_attesters_raw.int64,
-      rewards.total_balances.previous_epoch_head_attesters_raw.int64)
-      ).expect("DB")
+    case info.kind
+    of EpochInfoFork.Phase0:
+      template info: untyped = info.phase0Info
+      insertEpochInfo.exec(
+        (getStateField(state[].data, slot).epoch.int64,
+        info.total_balances.current_epoch_raw.int64,
+        info.total_balances.previous_epoch_raw.int64,
+        info.total_balances.current_epoch_attesters_raw.int64,
+        info.total_balances.current_epoch_target_attesters_raw.int64,
+        info.total_balances.previous_epoch_attesters_raw.int64,
+        info.total_balances.previous_epoch_target_attesters_raw.int64,
+        info.total_balances.previous_epoch_head_attesters_raw.int64)
+        ).expect("DB")
 
-    for index, status in rewards.statuses.pairs():
-      if not is_eligible_validator(status):
-        continue
-      let
-        notSlashed = (RewardFlags.isSlashed notin status.flags)
-        source_attester =
-          notSlashed and status.is_previous_epoch_attester.isSome()
-        target_attester =
-          notSlashed and RewardFlags.isPreviousEpochTargetAttester in status.flags
-        head_attester =
-          notSlashed and RewardFlags.isPreviousEpochHeadAttester in status.flags
-        delay =
-          if notSlashed and status.is_previous_epoch_attester.isSome():
-            some(int64(status.is_previous_epoch_attester.get().delay))
-          else:
-            none(int64)
+      for index, status in info.statuses.pairs():
+        if not is_eligible_validator(status):
+          continue
+        let
+          notSlashed = (RewardFlags.isSlashed notin status.flags)
+          source_attester =
+            notSlashed and status.is_previous_epoch_attester.isSome()
+          target_attester =
+            notSlashed and RewardFlags.isPreviousEpochTargetAttester in status.flags
+          head_attester =
+            notSlashed and RewardFlags.isPreviousEpochHeadAttester in status.flags
+          delay =
+            if notSlashed and status.is_previous_epoch_attester.isSome():
+              some(int64(status.is_previous_epoch_attester.get().delay))
+            else:
+              none(int64)
 
-      if conf.perfect or not
-          (source_attester and target_attester and head_attester and
-            delay.isSome() and delay.get() == 1):
-        insertValidatorInfo.exec(
-          (index.int64,
-          getStateField(state[].data, slot).epoch.int64,
-          status.delta.rewards.int64,
-          status.delta.penalties.int64,
-          int64(source_attester), # Source delta
-          int64(target_attester), # Target delta
-          int64(head_attester), # Head delta
-          delay)).expect("DB")
+        if conf.perfect or not
+            (source_attester and target_attester and head_attester and
+              delay.isSome() and delay.get() == 1):
+          insertValidatorInfo.exec(
+            (index.int64,
+            getStateField(state[].data, slot).epoch.int64,
+            status.delta.rewards.int64,
+            status.delta.penalties.int64,
+            int64(source_attester), # Source delta
+            int64(target_attester), # Target delta
+            int64(head_attester), # Head delta
+            delay)).expect("DB")
+    of EpochInfoFork.Altair:
+      echo "TODO altair support"
+
     if getStateField(state[].data, slot).epoch.int64 mod 16 == 0:
       inTxn = false
       outDb.exec("COMMIT;").expect("DB")
@@ -766,7 +776,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
           if nextSlot == blck.message.slot: {skipLastStateRootCalculation}
           else: {}
 
-      let ok = process_slots(cfg, state[].data, nextSlot, cache, rewards, flags)
+      let ok = process_slots(cfg, state[].data, nextSlot, cache, info, flags)
       doAssert ok, "Slot processing can't fail with correct inputs"
 
       if getStateField(state[].data, slot).isEpoch():
@@ -782,7 +792,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   while getStateField(state[].data, slot) <= ends:
     let ok = process_slots(
       cfg, state[].data, getStateField(state[].data, slot) + 1, cache,
-      rewards, {})
+      info, {})
     doAssert ok, "Slot processing can't fail with correct inputs"
 
     if getStateField(state[].data, slot).isEpoch():

@@ -15,7 +15,7 @@ import
 type
   MockPrivKeysT = object
   MockPubKeysT = object
-const 
+const
   MockPrivKeys* = MockPrivKeysT()
   MockPubKeys* = MockPubKeysT()
 
@@ -36,8 +36,8 @@ func makeFakeHash*(i: int): Eth2Digest =
   copyMem(addr result.data[0], addr bytes[0], sizeof(bytes))
 
 func makeDeposit*(
-    i: int, 
-    flags: UpdateFlags = {}, 
+    i: int,
+    flags: UpdateFlags = {},
     cfg = defaultRuntimeConfig): DepositData =
   let
     privkey = MockPrivKeys[i.ValidatorIndex]
@@ -84,9 +84,9 @@ proc addTestBlock*(
     cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
   if nextSlot:
-    var rewards: RewardInfo
+    var info = ForkedEpochInfo()
     doAssert process_slots(
-      cfg, state, getStateField(state, slot) + 1, cache, rewards, flags)
+      cfg, state, getStateField(state, slot) + 1, cache, info, flags)
 
   let
     proposer_index = get_beacon_proposer_index(
@@ -101,7 +101,7 @@ proc addTestBlock*(
       else:
         ValidatorSig()
 
-  let 
+  let
     message = makeBeaconBlock(
       cfg,
       state,

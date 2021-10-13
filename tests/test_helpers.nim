@@ -11,7 +11,7 @@ import
   # Status libraries
   stew/bitops2,
   # Beacon chain internals
-  ../beacon_chain/spec/[helpers, state_transition],
+  ../beacon_chain/spec/[forks, helpers, state_transition],
   # Test utilities
   ./unittest2, mocking/mock_genesis
 
@@ -29,9 +29,9 @@ suite "Spec helpers":
     var
       forked = newClone(initGenesisState())
       cache = StateCache()
-      rewards = RewardInfo()
-    doAssert process_slots(defaultRuntimeConfig, forked[], 
-                           Slot(100), cache, rewards, flags = {})
+      info = ForkedEpochInfo()
+    doAssert process_slots(defaultRuntimeConfig, forked[],
+                           Slot(100), cache, info, flags = {})
 
     let
       state = forked[].hbsPhase0.data
@@ -46,10 +46,10 @@ suite "Spec helpers":
         let depth = log2trunc(i)
         var proof = newSeq[Eth2Digest](depth)
         build_proof(state, i, proof)
-        check: is_valid_merkle_branch(hash_tree_root(fieldVar), proof, 
+        check: is_valid_merkle_branch(hash_tree_root(fieldVar), proof,
                                       depth, get_subtree_index(i), root)
         when fieldVar is object and not (fieldVar is Eth2Digest):
-          let 
+          let
             numChildLeaves = fieldVar.numLeaves
             childDepth = log2trunc(numChildLeaves)
           process(fieldVar, i shl childDepth)

@@ -11,6 +11,7 @@ import
   # Standard library
   os,
   # Utilities
+  chronicles,
   unittest2,
   stew/results,
   # Beacon chain internals

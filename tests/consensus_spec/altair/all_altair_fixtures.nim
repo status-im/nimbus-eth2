@@ -8,6 +8,9 @@
 {.used.}
 
 import
+  chronicles
+
+import
   ./test_fixture_fork,
   ./test_fixture_merkle_single_proof,
   ./test_fixture_operations_attestations,

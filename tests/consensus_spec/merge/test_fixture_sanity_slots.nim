@@ -35,13 +35,13 @@ proc runTest(identifier: string) =
             data: preState[], root: hash_tree_root(preState[])),
           beaconStateFork: forkMerge)
         cache = StateCache()
-        rewards: RewardInfo
+        info = ForkedEpochInfo()
       let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, merge.BeaconState))
 
       check:
         process_slots(
           defaultRuntimeConfig, fhPreState[],
-          getStateField(fhPreState[], slot) + num_slots, cache, rewards, {})
+          getStateField(fhPreState[], slot) + num_slots, cache, info, {})
 
         getStateRoot(fhPreState[]) == postState[].hash_tree_root()
       let newPreState = newClone(fhPreState.hbsMerge.data)

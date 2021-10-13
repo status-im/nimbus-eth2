@@ -535,10 +535,13 @@ func get_total_active_balance*(state: SomeBeaconState, cache: var StateCache): G
     state, cache.get_shuffled_active_validator_indices(state, epoch))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#get_base_reward_per_increment
+func get_base_reward_per_increment_sqrt*(
+    total_active_balance_sqrt: uint64): Gwei =
+  EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div total_active_balance_sqrt
+
 func get_base_reward_per_increment*(
-    state: altair.BeaconState | merge.BeaconState, cache: var StateCache): Gwei =
-  EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div
-    integer_squareroot(get_total_active_balance(state, cache))
+    total_active_balance: Gwei): Gwei =
+  get_base_reward_per_increment_sqrt(integer_squareroot(total_active_balance))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
@@ -658,13 +661,12 @@ proc process_attestation*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#get_next_sync_committee_indices
-func get_next_sync_committee_indices(state: altair.BeaconState | merge.BeaconState):
-    seq[ValidatorIndex] =
+func get_next_sync_committee_keys(state: altair.BeaconState | merge.BeaconState):
+    array[SYNC_COMMITTEE_SIZE, ValidatorPubKey] =
   ## Return the sequence of sync committee indices (which may include
   ## duplicate indices) for the next sync committee, given a ``state`` at a
   ## sync committee period boundary.
 
-  # TODO this size is known statically, so return array[] if possible
   let epoch = get_current_epoch(state) + 1
 
   const MAX_RANDOM_BYTE = 255
@@ -674,10 +676,11 @@ func get_next_sync_committee_indices(state: altair.BeaconState | merge.BeaconSta
     seed = get_seed(state, epoch, DOMAIN_SYNC_COMMITTEE)
   var
     i = 0'u64
-    sync_committee_indices: seq[ValidatorIndex]
+    index = 0
+    res: array[SYNC_COMMITTEE_SIZE, ValidatorPubKey]
     hash_buffer: array[40, byte]
   hash_buffer[0..31] = seed.data
-  while len(sync_committee_indices) < SYNC_COMMITTEE_SIZE:
+  while index < SYNC_COMMITTEE_SIZE:
     hash_buffer[32..39] = uint_to_bytes8(uint64(i div 32))
     let
       shuffled_index = compute_shuffled_index(uint64(i mod active_validator_count), active_validator_count, seed)
@@ -685,22 +688,17 @@ func get_next_sync_committee_indices(state: altair.BeaconState | merge.BeaconSta
       random_byte = eth2digest(hash_buffer).data[i mod 32]
       effective_balance = state.validators[candidate_index].effective_balance
     if effective_balance * MAX_RANDOM_BYTE >= MAX_EFFECTIVE_BALANCE * random_byte:
-      sync_committee_indices.add candidate_index
+      res[index] = state.validators[candidate_index].pubkey
+      inc index
     i += 1'u64
-  sync_committee_indices
+  res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#get_next_sync_committee
 proc get_next_sync_committee*(state: altair.BeaconState | merge.BeaconState):
     SyncCommittee =
   ## Return the *next* sync committee for a given ``state``.
-  let indices = get_next_sync_committee_indices(state)
-  # TODO not robust
-  doAssert indices.len == SYNC_COMMITTEE_SIZE
-
   var res: SyncCommittee
-  for i, index in indices:
-    res.pubkeys.data[i] = state.validators[index].pubkey
-  res.pubkeys.resetCache()
+  res.pubkeys.data = get_next_sync_committee_keys(state)
 
   # see signatures_batch, TODO shouldn't be here
   # Deposit processing ensures all keys are valid

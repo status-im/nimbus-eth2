@@ -755,7 +755,7 @@ proc get*(dag: ChainDAGRef, root: Eth2Digest): Option[BlockData] =
 
 proc advanceSlots(
     dag: ChainDAGRef, state: var StateData, slot: Slot, save: bool,
-    cache: var StateCache, rewards: var RewardInfo) =
+    cache: var StateCache, info: var ForkedEpochInfo) =
   # Given a state, advance it zero or more slots by applying empty slot
   # processing - the state must be positions at a slot before or equal to the
   # target
@@ -764,7 +764,7 @@ proc advanceSlots(
     loadStateCache(dag, cache, state.blck, getStateField(state.data, slot).epoch)
 
     doAssert process_slots(
-        dag.cfg, state.data, getStateField(state.data, slot) + 1, cache, rewards,
+        dag.cfg, state.data, getStateField(state.data, slot) + 1, cache, info,
         dag.updateFlags),
       "process_slots shouldn't fail when state slot is correct"
     if save:
@@ -773,7 +773,7 @@ proc advanceSlots(
 proc applyBlock(
     dag: ChainDAGRef,
     state: var StateData, blck: BlockData, flags: UpdateFlags,
-    cache: var StateCache, rewards: var RewardInfo): bool =
+    cache: var StateCache, info: var ForkedEpochInfo): bool =
   # Apply a single block to the state - the state must be positioned at the
   # parent of the block with a slot lower than the one of the block being
   # applied
@@ -793,15 +793,15 @@ proc applyBlock(
     of BeaconBlockFork.Phase0:
       state_transition(
         dag.cfg, state.data, blck.data.phase0Block,
-        cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
+        cache, info, flags + dag.updateFlags + {slotProcessed}, restore)
     of BeaconBlockFork.Altair:
       state_transition(
         dag.cfg, state.data, blck.data.altairBlock,
-        cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
+        cache, info, flags + dag.updateFlags + {slotProcessed}, restore)
     of BeaconBlockFork.Merge:
       state_transition(
         dag.cfg, state.data, blck.data.mergeBlock,
-        cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
+        cache, info, flags + dag.updateFlags + {slotProcessed}, restore)
   if ok:
     state.blck = blck.refs
 
@@ -932,7 +932,7 @@ proc updateStateData*(
     assignTick = Moment.now()
     startSlot {.used.} = getStateField(state.data, slot) # used in logs below
     startRoot {.used.} = getStateRoot(state.data)
-  var rewards: RewardInfo
+  var info: ForkedEpochInfo
   # Time to replay all the blocks between then and now
   for i in countdown(ancestors.len - 1, 0):
     # Because the ancestors are in the database, there's no need to persist them
@@ -940,11 +940,11 @@ proc updateStateData*(
     # database, we can skip certain checks that have already been performed
     # before adding the block to the database.
     let ok =
-      dag.applyBlock(state, dag.get(ancestors[i]), {}, cache, rewards)
+      dag.applyBlock(state, dag.get(ancestors[i]), {}, cache, info)
     doAssert ok, "Blocks in database should never fail to apply.."
 
   # ...and make sure to process empty slots as requested
-  dag.advanceSlots(state, bs.slot, save, cache, rewards)
+  dag.advanceSlots(state, bs.slot, save, cache, info)
 
   # ...and make sure to load the state cache, if it exists
   loadStateCache(dag, cache, state.blck, getStateField(state.data, slot).epoch)

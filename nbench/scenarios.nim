@@ -145,7 +145,7 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
   let prePath = dir / preState & ".ssz"
   var
     cache = StateCache()
-    rewards = RewardInfo()
+    info = ForkedEpochInfo()
 
   echo "Running: ", prePath
   let state = (ref ForkedHashedBeaconState)(
@@ -162,14 +162,14 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
     let flags = if skipBLS: {skipBlsValidation}
                 else: {}
     let success = state_transition(
-      defaultRuntimeConfig, state[], signedBlock, cache, rewards, flags,
+      defaultRuntimeConfig, state[], signedBlock, cache, info, flags,
       noRollback)
     echo "State transition status: ", if success: "SUCCESS ✓" else: "FAILURE ⚠️"
 
 proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
   var
     cache = StateCache()
-    rewards = RewardInfo()
+    info = ForkedEpochInfo()
   let prePath = dir / preState & ".ssz"
 
   echo "Running: ", prePath
@@ -182,7 +182,7 @@ proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
   # Shouldn't necessarily assert, because nbench can run test suite
   discard process_slots(
     defaultRuntimeConfig, state[], getStateField(state[], slot) + numSlots,
-    cache, rewards, {})
+    cache, info, {})
 
 template processEpochScenarioImpl(
            dir, preState: string,
@@ -216,6 +216,22 @@ proc process_deposit(state: var phase0.BeaconState;
                      deposit: Deposit;
                      flags: UpdateFlags = {}): Result[void, cstring] =
   process_deposit(defaultRuntimeConfig, state, deposit, flags)
+
+proc bench_process_justification_and_finalization(state: var phase0.BeaconState) =
+  var
+    cache: StateCache
+    info: phase0.EpochInfo
+  info.init(state)
+  info.process_attestations(state, cache)
+  process_justification_and_finalization(state, info.total_balances)
+
+func bench_process_slashings(state: var phase0.BeaconState) =
+  var
+    cache: StateCache
+    info: phase0.EpochInfo
+  info.init(state)
+  info.process_attestations(state, cache)
+  process_slashings(state, info.total_balances.current_epoch)
 
 template processBlockScenarioImpl(
            dir, preState: string, skipBLS: bool,
@@ -258,13 +274,13 @@ template genProcessBlockScenario(name, transitionFn,
     processBlockScenarioImpl(dir, preState, skipBLS, transitionFn, paramName, ref ConsensusObjectType)
 
 genProcessEpochScenario(runProcessJustificationFinalization,
-                        process_justification_and_finalization)
+                        bench_process_justification_and_finalization)
 
 genProcessEpochScenario(runProcessRegistryUpdates,
                         process_registry_updates)
 
 genProcessEpochScenario(runProcessSlashings,
-                        process_slashings)
+                        bench_process_slashings)
 
 genProcessBlockScenario(runProcessBlockHeader,
                         process_block_header,

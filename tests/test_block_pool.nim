@@ -125,7 +125,7 @@ suite "Block pool processing" & preset():
       nilPhase0Callback: OnPhase0BlockAdded
       state = newClone(dag.headState.data)
       cache = StateCache()
-      rewards = RewardInfo()
+      info = ForkedEpochInfo()
       att0 = makeFullAttestations(state[], dag.tail.root, 0.Slot, cache)
       b1 = addTestBlock(state[], dag.tail.root, cache, attestations = att0).phase0Block
       b2 = addTestBlock(state[], b1.root, cache).phase0Block
@@ -178,7 +178,7 @@ suite "Block pool processing" & preset():
     check:
       process_slots(
         defaultRuntimeConfig, state[], getStateField(state[], slot) + 1, cache,
-        rewards, {})
+        info, {})
 
     let
       b4 = addTestBlock(state[], b2.root, cache).phase0Block
@@ -352,7 +352,7 @@ suite "chain DAG finalization tests" & preset():
       quarantine = QuarantineRef.init(keys.newRng(), taskpool)
       nilPhase0Callback: OnPhase0BlockAdded
       cache = StateCache()
-      rewards = RewardInfo()
+      info = ForkedEpochInfo()
 
   test "prune heads on finalization" & preset():
     # Create a fork that will not be taken
@@ -363,7 +363,7 @@ suite "chain DAG finalization tests" & preset():
       process_slots(
         defaultRuntimeConfig, tmpState[],
         getStateField(tmpState[], slot) + (5 * SLOTS_PER_EPOCH).uint64,
-        cache, rewards, {})
+        cache, info, {})
 
     let lateBlock = addTestBlock(tmpState[], dag.head.root, cache).phase0Block
     block:
@@ -466,7 +466,7 @@ suite "chain DAG finalization tests" & preset():
 
     doAssert process_slots(
       defaultRuntimeConfig, prestate[], getStateField(prestate[], slot) + 1,
-      cache, rewards, {})
+      cache, info, {})
 
     # create another block, orphaning the head
     let blck = makeTestBlock(prestate[], dag.head.parent.root, cache).phase0Block
@@ -495,7 +495,7 @@ suite "chain DAG finalization tests" & preset():
     check:
       process_slots(
         defaultRuntimeConfig, dag.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2),
-        cache, rewards, {})
+        cache, info, {})
 
     var blck = makeTestBlock(
       dag.headState.data, dag.head.root, cache,
@@ -586,7 +586,7 @@ suite "Diverging hardforks":
       nilPhase0Callback: OnPhase0BlockAdded
       state = newClone(dag.headState.data)
       cache = StateCache()
-      rewards = RewardInfo()
+      info = ForkedEpochInfo()
       blck = makeTestBlock(dag.headState.data, dag.head.root, cache)
       tmpState = assignClone(dag.headState.data)
 
@@ -595,7 +595,7 @@ suite "Diverging hardforks":
       process_slots(
         phase0RuntimeConfig, tmpState[],
         getStateField(tmpState[], slot) + (3 * SLOTS_PER_EPOCH).uint64,
-        cache, rewards, {})
+        cache, info, {})
 
     # Because the first block is after the Altair transition, the only block in
     # common is the tail block
@@ -614,7 +614,7 @@ suite "Diverging hardforks":
       process_slots(
         phase0RuntimeConfig, tmpState[],
         getStateField(tmpState[], slot) + SLOTS_PER_EPOCH.uint64,
-        cache, rewards, {})
+        cache, info, {})
 
     # There's a block in the shared-correct phase0 hardfork, before epoch 2
     var
@@ -626,7 +626,7 @@ suite "Diverging hardforks":
       process_slots(
         phase0RuntimeConfig, tmpState[],
         getStateField(tmpState[], slot) + (3 * SLOTS_PER_EPOCH).uint64,
-        cache, rewards, {})
+        cache, info, {})
 
     var
       b2 = addTestBlock(tmpState[], b1.root, cache).phase0Block

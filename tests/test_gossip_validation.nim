@@ -42,13 +42,13 @@ suite "Gossip validation " & preset():
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()
-      rewards = RewardInfo()
+      info = ForkedEpochInfo()
       batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false, taskpool)
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
       process_slots(
         defaultRuntimeConfig, state.data, getStateField(state.data, slot) + 1,
-        cache, rewards, {})
+        cache, info, {})
 
   test "Any committee index is valid":
     template committee(idx: uint64): untyped =
