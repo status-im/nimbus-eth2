@@ -15,3 +15,14 @@ In order to use it locally, you would have to make some changes:
 
 - disable the "container" variable by removing `,container=\"${container}\"` from all panel queries
 
+## exporting instructions (for developers)
+
+Click the small "share" icon on the top-left of the Grafana dashboard:
+
+![share icon](https://i.imgur.com/ds3BJoj.png)
+
+Go to the "Export" tab and enable "Export for sharing externally":
+
+![export tab](https://i.imgur.com/sxgrThb.png)
+
+Now you can either "Save to file" or "View JSON" and copy/paste into the destination file, whichever is faster for you.
