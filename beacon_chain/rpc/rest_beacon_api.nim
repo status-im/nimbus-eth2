@@ -632,6 +632,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         bslot.slot.epoch()
 
     node.withStateForBlockSlot(bslot):
+      let validatorsCount = lenu64(getStateField(stateData.data, validators))
       let keys =
         block:
           let res = syncCommitteeParticipants(stateData().data, qepoch)
@@ -653,9 +654,19 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if item.isNone():
               return RestApiResponse.jsonError(Http500, InternalServerError,
                                               "Could not get validator indices")
-            # TODO: Unsafe conversion from 64bit to 32bit, but it only fails
-            # when number of validators will pass `uint32` value.
-            res.add(ValidatorIndex(item.get()))
+            let vres = item.get().toValidatorIndex()
+            if vres.isErr():
+              case vres.error()
+              of ValidatorIndexError.TooHighValue:
+                return RestApiResponse.jsonError(Http400,
+                                                TooHighValidatorIndexValueError)
+              of ValidatorIndexError.UnsupportedValue:
+                return RestApiResponse.jsonError(Http500,
+                                            UnsupportedValidatorIndexValueError)
+            let index = vres.get()
+            if uint64(index) >= validatorsCount:
+              return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
+            res.add(index)
           res
 
       let aggregates =
