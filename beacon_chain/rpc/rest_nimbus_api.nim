@@ -40,6 +40,7 @@ type
 
   RestFutureInfo* = object
     id*: int
+    child_id*: int
     procname*: string
     filename*: string
     line*: int
@@ -213,9 +214,11 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       var res: seq[RestFutureInfo]
       for item in pendingFutures():
         let loc = item.location[LocCreateIndex][]
+        let childId = if isNil(item.child): "" else: $item.child.id
         res.add(
           RestFutureInfo(
             id: item.id,
+            child_id: childId,
             procname: $loc.procedure,
             filename: $loc.file,
             line: loc.line,
