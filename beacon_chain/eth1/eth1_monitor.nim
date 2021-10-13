@@ -422,13 +422,6 @@ proc executePayload*(p: Web3DataProviderRef,
                      payload: engine_api.ExecutionPayload): Future[ExecutePayloadResponse] =
   p.web3.provider.engine_executePayload(payload)
 
-proc consensusValidated*(p: Web3DataProviderRef,
-                         blockHash: BlockHash,
-                         status: BlockValidationStatus): Future[JsonNode] =
-  p.web3.provider.engine_consensusValidated(BlockValidationResult(
-    blockHash: blockHash,
-    status: $status))
-
 proc forkchoiceUpdated*(p: Web3DataProviderRef,
                         headBlock, finalizedBlock: Eth2Digest): Future[JsonNode] =
   p.web3.provider.engine_forkchoiceUpdated(ForkChoiceUpdate(
@@ -770,9 +763,9 @@ template getBlockProposalData*(m: Eth1Monitor,
                                finalizedStateDepositIndex: uint64): BlockProposalEth1Data =
   getBlockProposalData(m.eth1Chain, state, finalizedEth1Data, finalizedStateDepositIndex)
 
-proc new(T: type Web3DataProvider,
-         depositContractAddress: Eth1Address,
-         web3Url: string): Future[Result[Web3DataProviderRef, string]] {.async.} =
+proc new*(T: type Web3DataProvider,
+          depositContractAddress: Eth1Address,
+          web3Url: string): Future[Result[Web3DataProviderRef, string]] {.async.} =
   let web3Fut = newWeb3(web3Url)
   yield web3Fut or sleepAsync(chronos.seconds(10))
   if (not web3Fut.finished) or web3Fut.failed:

@@ -474,9 +474,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   )
 
   doAssert cfg.GENESIS_FORK_VERSION != cfg.ALTAIR_FORK_VERSION
-  when true:
-    doAssert cfg.GENESIS_FORK_VERSION != cfg.MERGE_FORK_VERSION
-    doAssert cfg.ALTAIR_FORK_VERSION != cfg.MERGE_FORK_VERSION
+  doAssert cfg.GENESIS_FORK_VERSION != cfg.MERGE_FORK_VERSION
+  doAssert cfg.ALTAIR_FORK_VERSION != cfg.MERGE_FORK_VERSION
   doAssert cfg.ALTAIR_FORK_EPOCH <= cfg.MERGE_FORK_EPOCH
   doAssert dag.updateFlags in [{}, {verifyFinalization}]
 
