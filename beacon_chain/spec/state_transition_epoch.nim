@@ -203,6 +203,7 @@ func get_unslashed_participating_balances*(state: altair.BeaconState | merge.Bea
           res.previous_epoch[flag_index] += validator_effective_balance
 
     # Only TIMELY_TARGET_FLAG_INDEX is used with the current epoch in Altair
+    # and Merge
     if is_active_current_epoch and has_flag(
         state.current_epoch_participation[validator_index],
         TIMELY_TARGET_FLAG_INDEX):

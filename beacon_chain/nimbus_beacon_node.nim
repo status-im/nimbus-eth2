@@ -1229,9 +1229,40 @@ proc onSlotStart(
   if node.config.verifyFinalization:
     verifyFinalization(node, wallSlot)
 
+  let
+    prevHead = node.dag.head
+    prevFinalizing = node.dag.finalizedHead.blck
+
   node.consensusManager[].updateHead(wallSlot)
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
+
+  let
+    postHead = node.dag.head
+    postFinalizing = node.dag.finalizedHead.blck
+
+  # TODO this is has too many database lookups. There are lots of small
+  # optimizations to this particular structure (only update field which
+  # has changed, et cetera), but should use better approach.
+  if prevHead != postHead or prevFinalizing != postFinalizing:
+    let
+      headBlock = node.dag.getForkedBlock(node.dag.head)
+      finalizingBlock = node.dag.getForkedBlock(node.dag.finalizedHead.blck)
+
+    if  headBlock.kind >= BeaconBlockFork.Merge and
+        finalizingBlock.kind >= BeaconBlockFork.Merge:
+      # TODO withBlck doesn't work when some field doesn't exist on older
+      # object types
+      doAssert headBlock.kind == BeaconBlockFork.Merge
+      doAssert finalizingBlock.kind == BeaconBlockFork.Merge
+      let
+        headExecutionPayloadHash =
+          headBlock.mergeBlock.message.body.execution_payload.block_hash
+        finalizingExecutionPayloadHash =
+          finalizingBlock.mergeBlock.message.body.execution_payload.block_hash
+      discard await node.consensusManager.web3Provider.forkchoiceUpdated(
+        headExecutionPayloadHash.asBlockHash,
+        finalizingExecutionPayloadHash.asBlockHash)
 
   await onSlotEnd(node, wallSlot)
 
