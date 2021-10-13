@@ -369,7 +369,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             let optIndices = keysToIndices(node.restKeysCache, stateData.data,
                                            [vid.key])
             if optIndices[0].isNone():
-              return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
+              return RestApiResponse.jsonError(Http400, ValidatorNotFoundError)
             optIndices[0].get()
           of ValidatorQueryKind.Index:
             let vres = vid.index.toValidatorIndex()
