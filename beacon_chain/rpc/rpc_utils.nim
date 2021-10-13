@@ -16,7 +16,11 @@ import
   ../spec/[forks, helpers],
   ../spec/eth2_apis/[rpc_types, eth2_json_rpc_serialization]
 
-export rpc_types, eth2_json_rpc_serialization, blockchain_dag
+export forks, rpc_types, eth2_json_rpc_serialization, blockchain_dag
+
+template raiseNoAltairSupport*() =
+  raise (ref ValueError)(msg:
+    "The JSON-RPC interface does not support certain Altair operations due to changes in block structure - see https://nimbus.guide/rest-api.html for full altair support")
 
 template withStateForStateId*(stateId: string, body: untyped): untyped =
   let

@@ -26,7 +26,10 @@ proc installDebugApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("get_v1_debug_beacon_states_stateId") do (
       stateId: string) -> phase0.BeaconState:
     withStateForStateId(stateId):
-      return stateData.data.hbsPhase0.data
+      if stateData.data.beaconStateFork == forkPhase0:
+        return stateData.data.hbsPhase0.data
+      else:
+        raiseNoAltairSupport()
 
   rpcServer.rpc("get_v1_debug_beacon_heads") do () -> seq[tuple[root: Eth2Digest, slot: Slot]]:
     return node.dag.heads.mapIt((it.root, it.slot))
