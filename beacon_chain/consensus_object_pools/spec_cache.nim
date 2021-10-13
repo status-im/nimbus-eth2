@@ -43,7 +43,7 @@ iterator get_beacon_committee*(
     committees_per_slot * SLOTS_PER_EPOCH
   ): yield idx
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee*(
     epochRef: EpochRef, slot: Slot, index: CommitteeIndex): seq[ValidatorIndex] =
   # Return the beacon committee at ``slot`` for ``index``.
@@ -114,7 +114,7 @@ func get_attesting_indices*(epochRef: EpochRef,
   for idx in get_attesting_indices(epochRef, data, bits):
     result.add(idx)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     epochRef: EpochRef,

@@ -140,7 +140,7 @@ func compute_attestation_root*(
       fork, DOMAIN_BEACON_ATTESTER, epoch, genesis_validators_root)
   compute_signing_root(attestation_data, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#prepare-sync-committee-message
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/validator.md#prepare-sync-committee-message
 func sync_committee_msg_signing_root*(
     fork: Fork, epoch: Epoch,
     genesis_validators_root: Eth2Digest,
@@ -172,7 +172,7 @@ proc sync_committee_selection_proof_signing_root*(
       subcommittee_index: subcommittee_index)
   compute_signing_root(signing_data, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/validator.md#aggregate-signature
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#aggregate-signature
 func get_attestation_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     attestation_data: AttestationData,

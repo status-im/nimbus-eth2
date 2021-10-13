@@ -36,7 +36,7 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_epoch_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#compute_epoch_at_slot
 func compute_epoch_at_slot*(slot: Slot|uint64): Epoch =
   ## Return the epoch number at ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
@@ -163,7 +163,7 @@ func get_active_validator_indices_len*(state: SomeBeaconState, epoch: Epoch):
     if is_active_validator(state.validators[idx], epoch):
       inc result
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: SomeBeaconState): Epoch =
   ## Return the current epoch.
   doAssert state.slot >= GENESIS_SLOT, $state.slot
@@ -217,7 +217,7 @@ func compute_fork_digest*(current_version: Version,
     compute_fork_data_root(
       current_version, genesis_validators_root).data.toOpenArray(0, 3)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_domain
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#compute_domain
 func compute_domain*(
     domain_type: DomainType,
     fork_version: Version,
@@ -249,7 +249,7 @@ func get_domain*(
   ## of a message.
   get_domain(state.fork, domain_type, epoch, state.genesis_validators_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_signing_root
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#compute_signing_root
 func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
   ## Return the signing root of an object by calculating the root of the
   ## object-domain tree.
@@ -259,7 +259,7 @@ func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
   )
   hash_tree_root(domain_wrapped_object)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_seed
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_seed
 func get_seed*(state: SomeBeaconState, epoch: Epoch, domain_type: DomainType):
     Eth2Digest =
   ## Return the seed at ``epoch``.
@@ -277,7 +277,7 @@ func get_seed*(state: SomeBeaconState, epoch: Epoch, domain_type: DomainType):
       epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1).data
   eth2digest(seed_input)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#add_flag
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#add_flag
 func add_flag*(flags: ParticipationFlags, flag_index: int): ParticipationFlags =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   flags or flag
@@ -304,7 +304,7 @@ func is_merge_block(
   not is_merge_complete(state) and
     body.execution_payload != default(merge.ExecutionPayload)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_execution_enabled
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/merge/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
     state: merge.BeaconState,
     body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |
