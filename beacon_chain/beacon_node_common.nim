@@ -21,7 +21,7 @@ import
   ./networking/eth2_network,
   ./eth1/eth1_monitor,
   ./consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
-  ./spec/datatypes/base, ./spec/eth2_apis/rest_types,
+  ./spec/datatypes/base,
   ./sync/[sync_manager, request_manager]
 
 export
@@ -70,7 +70,7 @@ type
     beaconClock*: BeaconClock
     taskpool*: TaskPoolPtr
     onAttestationSent*: OnAttestationCallback
-    restKeysCache*: Table[ValidatorPubKey, RestValidatorIndex]
+    restKeysCache*: Table[ValidatorPubKey, ValidatorIndex]
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

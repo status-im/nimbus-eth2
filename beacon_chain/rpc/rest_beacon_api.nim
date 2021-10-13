@@ -243,14 +243,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     node.withStateForBlockSlot(bslot):
       let
-        current_epoch = get_current_epoch(node.dag.headState.data)
+        current_epoch = getStateField(stateData.data, slot).epoch()
         validatorsCount = lenu64(getStateField(stateData.data, validators))
 
       let indices =
         block:
-          var indexList: seq[ValidatorIndex]
           var keyset: HashSet[ValidatorPubKey]
-          var indexset: HashSet[RestValidatorIndex]
+          var indexset: HashSet[ValidatorIndex]
           for item in validatorIds:
             case item.kind
             of ValidatorQueryKind.Key:
@@ -259,10 +258,27 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                                  UniqueValidatorKeyError)
               keyset.incl(item.key)
             of ValidatorQueryKind.Index:
-              if item.index in indexset:
-                return RestApiResponse.jsonError(Http400,
-                                                 UniqueValidatorIndexError)
-              indexset.incl(item.index)
+              let vindex =
+                block:
+                  let vres = item.index.toValidatorIndex()
+                  if vres.isErr():
+                    case vres.error()
+                    of ValidatorIndexError.TooHighValue:
+                      return RestApiResponse.jsonError(Http400,
+                                                TooHighValidatorIndexValueError)
+                    of ValidatorIndexError.UnsupportedValue:
+                      return RestApiResponse.jsonError(Http500,
+                                            UnsupportedValidatorIndexValueError)
+                  let index = vres.get()
+                  if uint64(index) >= validatorsCount:
+                    return RestApiResponse.jsonError(Http400,
+                                                     ValidatorNotFoundError)
+                  if index in indexset:
+                    return RestApiResponse.jsonError(Http400,
+                                                     UniqueValidatorIndexError)
+                  index
+              indexset.incl(vindex)
+
           if len(keyset) > 0:
             let optIndices = keysToIndices(node.restKeysCache, stateData.data,
                                            keyset.toSeq())
@@ -275,21 +291,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 return RestApiResponse.jsonError(Http400,
                                                  UniqueValidatorIndexError)
               indexset.incl(vindex)
-          for item in indexset.toSeq():
-            let vres = item.toValidatorIndex()
-            if vres.isErr():
-              case vres.error()
-              of ValidatorIndexError.TooHighValue:
-                return RestApiResponse.jsonError(Http400,
-                                                TooHighValidatorIndexValueError)
-              of ValidatorIndexError.UnsupportedValue:
-                return RestApiResponse.jsonError(Http500,
-                                            UnsupportedValidatorIndexValueError)
-            let index = vres.get()
-            if uint64(index) >= validatorsCount:
-              return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
-            indexList.add(index)
-          indexList
+          indexset.toSeq()
 
       let response =
         block:
@@ -356,36 +358,33 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                        $validator_id.error())
     node.withStateForBlockSlot(bslot):
       let
-        current_epoch = get_current_epoch(node.dag.headState.data)
+        current_epoch = getStateField(stateData.data, slot).epoch()
         validatorsCount = lenu64(getStateField(stateData.data, validators))
 
       let vindex =
         block:
           let vid = validator_id.get()
-          let restIndex =
-            case vid.kind
-            of ValidatorQueryKind.Key:
-              let optIndices = keysToIndices(node.restKeysCache, stateData.data,
-                                             [vid.key])
-              if optIndices[0].isNone():
-                return RestApiResponse.jsonError(Http404,
-                                                 ValidatorNotFoundError)
-              optIndices[0].get()
-            of ValidatorQueryKind.Index:
-              vid.index
-          let vres = restIndex.toValidatorIndex()
-          if vres.isErr():
-            case vres.error()
-            of ValidatorIndexError.TooHighValue:
-              return RestApiResponse.jsonError(Http400,
-                                               TooHighValidatorIndexValueError)
-            of ValidatorIndexError.UnsupportedValue:
-              return RestApiResponse.jsonError(Http500,
+          case vid.kind
+          of ValidatorQueryKind.Key:
+            let optIndices = keysToIndices(node.restKeysCache, stateData.data,
+                                           [vid.key])
+            if optIndices[0].isNone():
+              return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
+            optIndices[0].get()
+          of ValidatorQueryKind.Index:
+            let vres = vid.index.toValidatorIndex()
+            if vres.isErr():
+              case vres.error()
+              of ValidatorIndexError.TooHighValue:
+                return RestApiResponse.jsonError(Http400,
+                                                TooHighValidatorIndexValueError)
+              of ValidatorIndexError.UnsupportedValue:
+                return RestApiResponse.jsonError(Http500,
                                             UnsupportedValidatorIndexValueError)
-          vres.get()
-
-      if uint64(vindex) >= validatorsCount:
-        return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
+            let index = vres.get()
+            if uint64(index) >= validatorsCount:
+              return RestApiResponse.jsonError(Http400, ValidatorNotFoundError)
+            index
 
       let
         validator = getStateField(stateData.data, validators)[vindex]
@@ -436,14 +435,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     node.withStateForBlockSlot(bslot):
       let
-        current_epoch = get_current_epoch(node.dag.headState.data)
+        current_epoch = getStateField(stateData.data, slot).epoch()
         validatorsCount = lenu64(getStateField(stateData.data, validators))
 
       let indices =
         block:
-          var indexList: seq[ValidatorIndex]
           var keyset: HashSet[ValidatorPubKey]
-          var indexset: HashSet[RestValidatorIndex]
+          var indexset: HashSet[ValidatorIndex]
           for item in validatorIds:
             case item.kind
             of ValidatorQueryKind.Key:
@@ -452,10 +450,27 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                                  UniqueValidatorKeyError)
               keyset.incl(item.key)
             of ValidatorQueryKind.Index:
-              if item.index in indexset:
-                return RestApiResponse.jsonError(Http400,
-                                                 UniqueValidatorIndexError)
-              indexset.incl(item.index)
+              let vindex =
+                block:
+                  let vres = item.index.toValidatorIndex()
+                  if vres.isErr():
+                    case vres.error()
+                    of ValidatorIndexError.TooHighValue:
+                      return RestApiResponse.jsonError(Http400,
+                                                TooHighValidatorIndexValueError)
+                    of ValidatorIndexError.UnsupportedValue:
+                      return RestApiResponse.jsonError(Http500,
+                                            UnsupportedValidatorIndexValueError)
+                  let index = vres.get()
+                  if uint64(index) >= validatorsCount:
+                    return RestApiResponse.jsonError(Http400,
+                                                     ValidatorNotFoundError)
+                  if index in indexset:
+                    return RestApiResponse.jsonError(Http400,
+                                                     UniqueValidatorIndexError)
+                  index
+              indexset.incl(vindex)
+
           if len(keyset) > 0:
             let optIndices = keysToIndices(node.restKeysCache, stateData.data,
                                            keyset.toSeq())
@@ -468,21 +483,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 return RestApiResponse.jsonError(Http400,
                                                  UniqueValidatorIndexError)
               indexset.incl(vindex)
-          for item in indexset.toSeq():
-            let vres = item.toValidatorIndex()
-            if vres.isErr():
-              case vres.error()
-              of ValidatorIndexError.TooHighValue:
-                return RestApiResponse.jsonError(Http400,
-                                                TooHighValidatorIndexValueError)
-              of ValidatorIndexError.UnsupportedValue:
-                return RestApiResponse.jsonError(Http500,
-                                            UnsupportedValidatorIndexValueError)
-            let index = vres.get()
-            if uint64(index) >= validatorsCount:
-              return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
-            indexList.add(index)
-          indexList
+          indexset.toSeq()
 
       let response =
         block:
@@ -491,14 +492,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             # There is no indices, so we going to filter all the validators.
             for index, validator in getStateField(stateData.data,
                                                   validators).pairs():
-              let
-                balance = getStateField(stateData.data, balances)[index]
+              let balance = getStateField(stateData.data, balances)[index]
               res.add(RestValidatorBalance.init(ValidatorIndex(index),
                                                 balance))
           else:
             for index in indices:
-              let
-                balance = getStateField(stateData.data, balances)[index]
+              let balance = getStateField(stateData.data, balances)[index]
               res.add(RestValidatorBalance.init(index, balance))
           res
       return RestApiResponse.jsonResponse(response)
@@ -632,7 +631,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         bslot.slot.epoch()
 
     node.withStateForBlockSlot(bslot):
-      let validatorsCount = lenu64(getStateField(stateData.data, validators))
       let keys =
         block:
           let res = syncCommitteeParticipants(stateData().data, qepoch)
@@ -648,25 +646,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let indices =
         block:
           var res: seq[ValidatorIndex]
-          let ores = keysToIndices(node.restKeysCache, stateData().data,
-                                   keys)
-          for item in ores:
+          let optIndices = keysToIndices(node.restKeysCache, stateData().data,
+                                         keys)
+          for item in optIndices:
             if item.isNone():
               return RestApiResponse.jsonError(Http500, InternalServerError,
                                               "Could not get validator indices")
-            let vres = item.get().toValidatorIndex()
-            if vres.isErr():
-              case vres.error()
-              of ValidatorIndexError.TooHighValue:
-                return RestApiResponse.jsonError(Http400,
-                                                TooHighValidatorIndexValueError)
-              of ValidatorIndexError.UnsupportedValue:
-                return RestApiResponse.jsonError(Http500,
-                                            UnsupportedValidatorIndexValueError)
-            let index = vres.get()
-            if uint64(index) >= validatorsCount:
-              return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
-            res.add(index)
+            res.add(item.get())
           res
 
       let aggregates =

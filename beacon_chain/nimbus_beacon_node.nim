@@ -416,7 +416,7 @@ proc init*(T: type BeaconNode,
 
   # initialize REST server cache tables.
   if config.restEnabled:
-    node.restKeysCache = initTable[ValidatorPubKey, RestValidatorIndex](256)
+    node.restKeysCache = initTable[ValidatorPubKey, ValidatorIndex]()
 
   # set topic validation routine
   network.setValidTopics(

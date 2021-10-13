@@ -11,7 +11,6 @@ export
 
 const
   MaxEpoch* = compute_epoch_at_slot(not(0'u64))
-  InvalidValidatorIndex* = RestValidatorIndex(VALIDATOR_REGISTRY_LIMIT + 1'u64)
 
   BlockValidationError* =
     "The block failed validation, but was successfully broadcast anyway. It " &
@@ -344,34 +343,29 @@ func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
     else:
       err("State's fork do not support sync committees")
 
-func keysToIndices*(cacheTable: var Table[ValidatorPubKey, RestValidatorIndex],
+func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
                     forkedState: ForkedHashedBeaconState,
                     keys: openArray[ValidatorPubKey]
-                   ): seq[Option[RestValidatorIndex]] =
-  var indices = newSeq[Option[RestValidatorIndex]](len(keys))
-  let keyset =
+                   ): seq[Option[ValidatorIndex]] =
+  var indices = newSeq[Option[ValidatorIndex]](len(keys))
+  var keyset =
     block:
       var res: Table[ValidatorPubKey, int]
       for inputIndex, pubkey in keys.pairs():
         # Try to search in cache first.
-        let validatorIndex = cacheTable.getOrDefault(pubkey,
-                                                     InvalidValidatorIndex)
-        if validatorIndex == InvalidValidatorIndex:
-          # Prepare value for linear search.
+        cacheTable.withValue(pubkey, vindex):
+          indices[inputIndex] = some(vindex[])
+        do:
           res[pubkey] = inputIndex
-        else:
-          # Use cached value instead.
-          indices[inputIndex] = some(validatorIndex)
       res
   if len(keyset) > 0:
     for validatorIndex, validator in getStateField(forkedState,
                                                    validators).pairs():
-      let inputIndex = keyset.getOrDefault(validator.pubkey, -1)
-      if inputIndex >= 0:
+      keyset.withValue(validator.pubkey, listIndex):
         # Store pair (pubkey, index) into cache table.
-        cacheTable[validator.pubkey] = RestValidatorIndex(validatorIndex)
+        cacheTable[validator.pubkey] = ValidatorIndex(validatorIndex)
         # Fill result sequence.
-        indices[inputIndex] = some(RestValidatorIndex(validatorIndex))
+        indices[listIndex[]] = some(ValidatorIndex(validatorIndex))
   indices
 
 proc getRouter*(): RestRouter =

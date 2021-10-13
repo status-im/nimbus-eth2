@@ -207,31 +207,22 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let participantIndices =
         block:
           var res: seq[ValidatorIndex]
-          let ores = keysToIndices(node.restKeysCache, stateData().data,
-                                   participants)
-          for item in ores:
+          let optIndices = keysToIndices(node.restKeysCache, stateData().data,
+                                         participants)
+          for item in optIndices:
             if item.isNone():
               return RestApiResponse.jsonError(Http500, InternalServerError,
                                               "Could not get validator indices")
-            let vres = item.get().toValidatorIndex()
-            if vres.isErr():
-              case vres.error()
-              of ValidatorIndexError.TooHighValue:
-                return RestApiResponse.jsonError(Http400,
-                                                TooHighValidatorIndexValueError)
-              of ValidatorIndexError.UnsupportedValue:
-                return RestApiResponse.jsonError(Http500,
-                                            UnsupportedValidatorIndexValueError)
-            let index = vres.get()
-            if uint64(index) >= validatorsCount:
-              return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
-            res.add(index)
+            res.add(item.get())
           res
 
       let validatorsSet =
         block:
           var res: Table[ValidatorIndex, int]
           for listIndex, validatorIndex in indexList.pairs():
+            if uint64(validatorIndex) >= validatorsCount:
+              return RestApiResponse.jsonError(Http400,
+                                               ValidatorNotFoundError)
             res[validatorIndex] = listIndex
           res
 
