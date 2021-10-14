@@ -102,7 +102,7 @@ type
     signature*: ValidatorSig ##\
     ## Signature by the validator over the block root of `slot`
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/validator.md#synccommitteecontribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/validator.md#synccommitteecontribution
   SyncCommitteeAggregationBits* =
     BitArray[SYNC_SUBCOMMITTEE_SIZE]
 
@@ -371,7 +371,7 @@ type
     # [New in Altair]
     sync_aggregate*: SyncAggregate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
     attnets*: BitArray[ATTESTATION_SUBNET_COUNT]
