@@ -1260,9 +1260,12 @@ proc onSlotStart(
           headBlock.mergeBlock.message.body.execution_payload.block_hash
         finalizingExecutionPayloadHash =
           finalizingBlock.mergeBlock.message.body.execution_payload.block_hash
-      discard await node.consensusManager.web3Provider.forkchoiceUpdated(
-        headExecutionPayloadHash.asBlockHash,
-        finalizingExecutionPayloadHash.asBlockHash)
+      try:
+        discard await node.consensusManager.web3Provider.forkchoiceUpdated(
+          headExecutionPayloadHash.asBlockHash,
+          finalizingExecutionPayloadHash.asBlockHash)
+      except CatchableError as err:
+        debug "forkchoiceUpdated failed", msg = err.msg
 
   await onSlotEnd(node, wallSlot)
 
