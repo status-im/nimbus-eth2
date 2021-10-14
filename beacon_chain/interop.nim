@@ -28,11 +28,10 @@ func makeInteropPrivKey*(i: int): ValidatorPrivKey =
   var bytes: array[32, byte]
   bytes[0..7] = uint64(i).toBytesLE()
 
+  # BLS381-12 curve order - same as milagro but formatted differently
+  const curveOrder =
+    u256"52435875175126190479447740508185965837690552500527637822603658699938581184513"
   let
-    # BLS381-12 curve order - same as milagro but formatted different
-    curveOrder =
-      "52435875175126190479447740508185965837690552500527637822603658699938581184513".parse(UInt256)
-
     privkeyBytes = eth2digest(bytes)
     key = (UInt256.fromBytesLE(privkeyBytes.data) mod curveOrder).toBytesBE()
 
@@ -55,4 +54,3 @@ func makeDeposit*(
 
   if skipBLSValidation notin flags:
     result.signature = preset.get_deposit_signature(result, privkey).toValidatorSig()
-
