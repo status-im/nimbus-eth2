@@ -93,9 +93,9 @@ proc doTransition(conf: NcliConf) =
 
   var
     cache = StateCache()
-    rewards = RewardInfo()
+    info = ForkedEpochInfo()
   if not state_transition(getRuntimeConfig(conf.eth2Network),
-                          stateY[], blckX, cache, rewards, flags, noRollback):
+                          stateY[], blckX, cache, info, flags, noRollback):
     error "State transition failed"
     quit 1
   else:
@@ -121,13 +121,13 @@ proc doSlots(conf: NcliConf) =
 
   var
     cache = StateCache()
-    rewards = RewardInfo()
+    info = ForkedEpochInfo()
   for i in 0'u64..<conf.slot:
     let isEpoch = (getStateField(stateY[], slot) + 1).isEpoch
     withTimer(timers[if isEpoch: tApplyEpochSlot else: tApplySlot]):
       doAssert process_slots(
         defaultRuntimeConfig, stateY[], getStateField(stateY[], slot) + 1,
-        cache, rewards, {})
+        cache, info, {})
 
   withTimer(timers[tSaveState]):
     saveSSZFile(conf.postState, stateY[])

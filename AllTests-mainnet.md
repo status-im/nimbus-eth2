@@ -1,5 +1,34 @@
 AllTests-mainnet
 ===
+## 
+```diff
++ Slashing test: duplicate_pubkey_not_slashable.json                                         OK
++ Slashing test: multiple_interchanges_single_validator_single_message_gap.json              OK
++ Slashing test: multiple_interchanges_single_validator_single_message_out_of_order.json     OK
++ Slashing test: multiple_validators_multiple_blocks_and_attestations.json                   OK
++ Slashing test: multiple_validators_same_slot_blocks.json                                   OK
++ Slashing test: single_validator_genesis_attestation.json                                   OK
++ Slashing test: single_validator_import_only.json                                           OK
++ Slashing test: single_validator_multiple_block_attempts.json                               OK
++ Slashing test: single_validator_multiple_blocks_and_attestations.json                      OK
++ Slashing test: single_validator_out_of_order_attestations.json                             OK
++ Slashing test: single_validator_out_of_order_blocks.json                                   OK
++ Slashing test: single_validator_resign_attestation.json                                    OK
++ Slashing test: single_validator_resign_block.json                                          OK
++ Slashing test: single_validator_single_attestation.json                                    OK
++ Slashing test: single_validator_single_block.json                                          OK
++ Slashing test: single_validator_single_block_and_attestation.json                          OK
++ Slashing test: single_validator_single_block_and_attestation_signing_root.json             OK
++ Slashing test: single_validator_slashable_attestations_double_vote.json                    OK
++ Slashing test: single_validator_slashable_attestations_surrounded_by_existing.json         OK
++ Slashing test: single_validator_slashable_attestations_surrounds_existing.json             OK
++ Slashing test: single_validator_slashable_blocks.json                                      OK
++ Slashing test: single_validator_slashable_blocks_no_root.json                              OK
++ Slashing test: single_validator_source_greater_than_target.json                            OK
++ Slashing test: single_validator_two_blocks_no_signing_root.json                            OK
++ Slashing test: wrong_genesis_validators_root.json                                          OK
+```
+OK: 25/25 Fail: 0/25 Skip: 0/25
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestations may arrive in any order [Preset: mainnet]                                     OK
@@ -91,6 +120,22 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Subnet query after ENR update                                                              OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Ethereum Foundation - SSZ generic types
+```diff
+  Testing basic_vector inputs - invalid                                                      Skip
++ Testing basic_vector inputs - valid                                                        OK
++ Testing bitlist      inputs - invalid                                                      OK
++ Testing bitlist      inputs - valid                                                        OK
+  Testing bitvector    inputs - invalid                                                      Skip
++ Testing bitvector    inputs - valid                                                        OK
++ Testing boolean      inputs - invalid                                                      OK
++ Testing boolean      inputs - valid                                                        OK
++ Testing containers   inputs - invalid - skipping BitsStruct                                OK
++ Testing containers   inputs - valid - skipping BitsStruct                                  OK
++ Testing uints        inputs - invalid                                                      OK
++ Testing uints        inputs - valid                                                        OK
+```
+OK: 10/12 Fail: 0/12 Skip: 2/12
 ## Exit pool testing suite
 ```diff
 + addExitMessage/getAttesterSlashingMessage                                                  OK
@@ -138,6 +183,19 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Mocked start private key                                                                   OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## KeyStorage testing suite
+```diff
++ Pbkdf2 errors                                                                              OK
++ [PBKDF2] Keystore decryption                                                               OK
++ [PBKDF2] Keystore encryption                                                               OK
++ [PBKDF2] Network Keystore decryption                                                       OK
++ [PBKDF2] Network Keystore encryption                                                       OK
++ [SCRYPT] Keystore decryption                                                               OK
++ [SCRYPT] Keystore encryption                                                               OK
++ [SCRYPT] Network Keystore decryption                                                       OK
++ [SCRYPT] Network Keystore encryption                                                       OK
+```
+OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Message signatures
 ```diff
 + Aggregate and proof signatures                                                             OK
@@ -229,9 +287,13 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Spec helpers
 ```diff
 + build_proof - BeaconState                                                                  OK
++ get_branch_indices                                                                         OK
++ get_helper_indices                                                                         OK
++ get_path_indices                                                                           OK
 + integer_squareroot                                                                         OK
++ verify_merkle_multiproof                                                                   OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Specific field types
 ```diff
 + root update                                                                                OK
@@ -305,6 +367,12 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + prune heads on finalization [Preset: mainnet]                                              OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## eth2.0-deposits-cli compatibility
+```diff
++ restoring mnemonic with password                                                           OK
++ restoring mnemonic without password                                                        OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## hash
 ```diff
 + HashArray                                                                                  OK
@@ -325,6 +393,8 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Overlong SSZ.decode: HashList[system.uint64, 32]                                           OK
 + Overlong SSZ.decode: List[system.uint64, 32]                                               OK
   Overlong SSZ.decode: Simple                                                                Skip
+  Overlong SSZ.decode: UInt128                                                               Skip
+  Overlong SSZ.decode: UInt256                                                               Skip
   Overlong SSZ.decode: array[0..31, byte]                                                    Skip
   Overlong SSZ.decode: bool                                                                  Skip
   Overlong SSZ.decode: limb_t                                                                Skip
@@ -337,6 +407,8 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Overlong readSszBytes: HashList[system.uint64, 32]                                         OK
 + Overlong readSszBytes: List[system.uint64, 32]                                             OK
   Overlong readSszBytes: Simple                                                              Skip
++ Overlong readSszBytes: UInt128                                                             OK
++ Overlong readSszBytes: UInt256                                                             OK
 + Overlong readSszBytes: array[0..31, byte]                                                  OK
 + Overlong readSszBytes: bool                                                                OK
 + Overlong readSszBytes: limb_t                                                              OK
@@ -349,6 +421,8 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Underlong SSZ.decode: HashList[system.uint64, 32]                                          OK
 + Underlong SSZ.decode: List[system.uint64, 32]                                              OK
 + Underlong SSZ.decode: Simple                                                               OK
++ Underlong SSZ.decode: UInt128                                                              OK
++ Underlong SSZ.decode: UInt256                                                              OK
 + Underlong SSZ.decode: array[0..31, byte]                                                   OK
 + Underlong SSZ.decode: bool                                                                 OK
 + Underlong SSZ.decode: limb_t                                                               OK
@@ -361,6 +435,8 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Underlong readSszBytes: HashList[system.uint64, 32]                                        OK
 + Underlong readSszBytes: List[system.uint64, 32]                                            OK
 + Underlong readSszBytes: Simple                                                             OK
++ Underlong readSszBytes: UInt128                                                            OK
++ Underlong readSszBytes: UInt256                                                            OK
 + Underlong readSszBytes: array[0..31, byte]                                                 OK
 + Underlong readSszBytes: bool                                                               OK
 + Underlong readSszBytes: limb_t                                                             OK
@@ -368,7 +444,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Underlong readSszBytes: uint32                                                             OK
 + Underlong readSszBytes: uint8                                                              OK
 ```
-OK: 36/48 Fail: 0/48 Skip: 12/48
+OK: 42/56 Fail: 0/56 Skip: 14/56
 
 ---TOTAL---
-OK: 201/213 Fail: 0/213 Skip: 12/213
+OK: 257/273 Fail: 0/273 Skip: 16/273

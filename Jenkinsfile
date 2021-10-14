@@ -27,7 +27,7 @@ def runStages() {
 				set -e
 				# to allow the following parallel stages
 				make -j${env.NPROC} QUICK_AND_DIRTY_COMPILER=1 deps
-				./scripts/setup_official_tests.sh jsonTestsCache
+				./scripts/setup_scenarios.sh jsonTestsCache
 				"""
 			}
 		}

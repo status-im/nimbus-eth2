@@ -12,7 +12,7 @@ import
        typetraits, uri, json],
   # Nimble packages:
   chronos, json, metrics, chronicles/timings,
-  web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
+  web3, web3/ethtypes as web3Types, web3/ethhexstrings,
   eth/common/eth_types,
   eth/async_utils, stew/byteutils,
   # Local modules:
@@ -280,7 +280,7 @@ template toGaugeValue(x: Quantity): int64 =
 #  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
 #             "Invalid configuration: GENESIS_DELAY is set too low"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#get_eth1_data
 func compute_time_at_slot(genesis_time: uint64, slot: Slot): uint64 =
   genesis_time + slot * SECONDS_PER_SLOT
 
@@ -421,13 +421,6 @@ proc getPayload*(p: Web3DataProviderRef,
 proc executePayload*(p: Web3DataProviderRef,
                      payload: engine_api.ExecutionPayload): Future[ExecutePayloadResponse] =
   p.web3.provider.engine_executePayload(payload)
-
-proc consensusValidated*(p: Web3DataProviderRef,
-                         blockHash: BlockHash,
-                         status: BlockValidationStatus): Future[JsonNode] =
-  p.web3.provider.engine_consensusValidated(BlockValidationResult(
-    blockHash: blockHash,
-    status: $status))
 
 proc forkchoiceUpdated*(p: Web3DataProviderRef,
                         headBlock, finalizedBlock: Eth2Digest): Future[JsonNode] =
@@ -770,9 +763,9 @@ template getBlockProposalData*(m: Eth1Monitor,
                                finalizedStateDepositIndex: uint64): BlockProposalEth1Data =
   getBlockProposalData(m.eth1Chain, state, finalizedEth1Data, finalizedStateDepositIndex)
 
-proc new(T: type Web3DataProvider,
-         depositContractAddress: Eth1Address,
-         web3Url: string): Future[Result[Web3DataProviderRef, string]] {.async.} =
+proc new*(T: type Web3DataProvider,
+          depositContractAddress: Eth1Address,
+          web3Url: string): Future[Result[Web3DataProviderRef, string]] {.async.} =
   let web3Fut = newWeb3(web3Url)
   yield web3Fut or sleepAsync(chronos.seconds(10))
   if (not web3Fut.finished) or web3Fut.failed:

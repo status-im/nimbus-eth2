@@ -9,20 +9,20 @@
 
 import
   std/[tables, typetraits, strformat],
-  stew/shims/macros, stew/[byteutils, bitops2, objects],
+  stew/shims/macros, stew/[byteutils, bitops2, objects], stint,
   serialization/[object_serialization, errors],
   json_serialization,
   "."/[bitseqs],
   ../spec/digest
 
-export bitseqs, json_serialization
+export stint, bitseqs, json_serialization
 
 const
   offsetSize* = 4
   bytesPerChunk* = 32
 
 type
-  UintN* = SomeUnsignedInt
+  UintN* = SomeUnsignedInt|UInt128|UInt256
   BasicType* = bool|UintN
 
   Limit* = int64

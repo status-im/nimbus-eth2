@@ -14,7 +14,7 @@ import
 export base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix* = "beacon_block/ssz"
   topicVoluntaryExitsSuffix* = "voluntary_exit/ssz"
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz"
@@ -73,7 +73,7 @@ func compute_subnet_for_attestation*(
     (committees_since_epoch_start + committee_index.uint64) mod
     ATTESTATION_SUBNET_COUNT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#broadcast-attestation
 func getAttestationTopic*(forkDigest: ForkDigest,
                           subnetId: SubnetId): string =
   ## For subscribing and unsubscribing to/from a subnet.
@@ -85,7 +85,7 @@ func getSyncCommitteeTopic*(forkDigest: ForkDigest,
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_" & $(committeeIdx.asUInt8) & "/ssz"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof" & "/ssz"

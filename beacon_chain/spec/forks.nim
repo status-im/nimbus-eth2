@@ -68,11 +68,23 @@ type
     of BeaconBlockFork.Merge:
       mergeBlock*:  merge.TrustedSignedBeaconBlock
 
+  EpochInfoFork* {.pure.} = enum
+    Phase0
+    Altair
+
+  ForkedEpochInfo* = object
+    case kind*: EpochInfoFork
+    of EpochInfoFork.Phase0:
+      phase0Info*: phase0.EpochInfo
+    of EpochInfoFork.Altair:
+      altairInfo*: altair.EpochInfo
+
+  ForkyEpochInfo* = phase0.EpochInfo | altair.EpochInfo
+
   ForkDigests* = object
     phase0*: ForkDigest
     altair*: ForkDigest
-    merge*:  ForkDigest  # TODO where does this get filled
-    altairTopicPrefix*: string # Used by isAltairTopic
+    merge*:  ForkDigest
 
   ForkDigestsRef* = ref ForkDigests
 
@@ -134,31 +146,60 @@ template init*(T: type ForkedTrustedSignedBeaconBlock, blck: altair.TrustedSigne
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: merge.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Merge,  mergeBlock: blck)
 
+template init*(T: type ForkedEpochInfo, info: phase0.EpochInfo): T =
+  T(kind: EpochInfoFork.Phase0, phase0Info: info)
+template init*(T: type ForkedEpochInfo, info: altair.EpochInfo): T =
+  T(kind: EpochInfoFork.Altair, altairInfo: info)
+
 # State-related functionality based on ForkedHashedBeaconState instead of HashedBeaconState
 
 template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
   case x.beaconStateFork
-  of forkPhase0:
-    template state: untyped {.inject.} = x.hbsPhase0
-    body
-  of forkAltair:
-    template state: untyped {.inject.} = x.hbsAltair
-    body
   of forkMerge:
+    const stateFork {.inject.} = forkMerge
     template state: untyped {.inject.} = x.hbsMerge
     body
+  of forkAltair:
+    const stateFork {.inject.} = forkAltair
+    template state: untyped {.inject.} = x.hbsAltair
+    body
+  of forkPhase0:
+    const stateFork {.inject.} = forkPhase0
+    template state: untyped {.inject.} = x.hbsPhase0
+    body
+
+template withEpochInfo*(x: ForkedEpochInfo, body: untyped): untyped =
+  case x.kind
+  of EpochInfoFork.Phase0:
+    template info: untyped {.inject.} = x.phase0Info
+    body
+  of EpochInfoFork.Altair:
+    template info: untyped {.inject.} = x.altairInfo
+    body
+
+template withEpochInfo*(
+    state: phase0.BeaconState, x: var ForkedEpochInfo, body: untyped): untyped =
+  x.kind = EpochInfoFork.Phase0
+  template info: untyped {.inject.} = x.phase0Info
+  body
+
+template withEpochInfo*(
+    state: altair.BeaconState | merge.BeaconState, x: var ForkedEpochInfo,
+    body: untyped): untyped =
+  x.kind = EpochInfoFork.Altair
+  template info: untyped {.inject.} = x.altairInfo
+  body
 
 # Dispatch functions
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
   if tgt.beaconStateFork == src.beaconStateFork:
-    if tgt.beaconStateFork == forkPhase0:
-      assign(tgt.hbsPhase0, src.hbsPhase0):
-    elif tgt.beaconStateFork == forkAltair:
-      assign(tgt.hbsAltair, src.hbsAltair):
-    elif tgt.beaconStateFork == forkMerge:
+    case tgt.beaconStateFork
+    of forkMerge:
       assign(tgt.hbsMerge,  src.hbsMerge):
-    else:
-      doAssert false
+    of forkAltair:
+      assign(tgt.hbsAltair, src.hbsAltair):
+    of forkPhase0:
+      assign(tgt.hbsPhase0, src.hbsPhase0):
   else:
     # Ensure case object and discriminator get updated simultaneously, even
     # with nimOldCaseObjects. This is infrequent.
@@ -171,9 +212,9 @@ template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
   # ```
   # Without `unsafeAddr`, the `validators` list would be copied to a temporary variable.
   (case x.beaconStateFork
-  of forkPhase0: unsafeAddr x.hbsPhase0.data.y
+  of forkMerge: unsafeAddr x.hbsMerge.data.y
   of forkAltair: unsafeAddr x.hbsAltair.data.y
-  of forkMerge: unsafeAddr x.hbsMerge.data.y)[]
+  of forkPhase0: unsafeAddr x.hbsPhase0.data.y)[]
 
 func getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
   withState(x): state.root
@@ -227,7 +268,7 @@ func get_shuffled_active_validator_indices*(
   withState(state):
     cache.get_shuffled_active_validator_indices(state.data, epoch)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_block_root_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: ForkedHashedBeaconState,
                              slot: Slot): Eth2Digest =
   ## Return the block root at a recent ``slot``.
@@ -242,19 +283,9 @@ proc get_attesting_indices*(state: ForkedHashedBeaconState;
   # iterator
 
   var idxBuf: seq[ValidatorIndex]
-
-  if state.beaconStateFork == forkPhase0:
-    for vidx in state.hbsPhase0.data.get_attesting_indices(data, bits, cache):
+  withState(state):
+    for vidx in state.data.get_attesting_indices(data, bits, cache):
       idxBuf.add vidx
-  elif state.beaconStateFork == forkAltair:
-    for vidx in state.hbsAltair.data.get_attesting_indices(data, bits, cache):
-      idxBuf.add vidx
-  elif state.beaconStateFork == forkMerge:
-    for vidx in state.hbsMerge.data.get_attesting_indices(data, bits, cache):
-      idxBuf.add vidx
-  else:
-    doAssert false
-
   idxBuf
 
 proc check_attester_slashing*(
@@ -289,12 +320,12 @@ func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconStateFork =
   elif epoch >= cfg.ALTAIR_FORK_EPOCH: forkAltair
   else:                                forkPhase0
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(x: ForkedHashedBeaconState): Epoch =
   ## Return the current epoch.
   withState(x): state.data.slot.epoch
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_previous_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(stateData: ForkedHashedBeaconState): Epoch =
   ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   let current_epoch = get_current_epoch(stateData)
@@ -306,15 +337,14 @@ func get_previous_epoch*(stateData: ForkedHashedBeaconState): Epoch =
 func init*(T: type ForkDigests,
            cfg: RuntimeConfig,
            genesisValidatorsRoot: Eth2Digest): T =
-  let altairForkDigest = compute_fork_digest(
-    cfg.ALTAIR_FORK_VERSION,
-    genesisValidatorsRoot)
-
-  T(phase0: compute_fork_digest(
-      cfg.GENESIS_FORK_VERSION,
-      genesisValidatorsRoot),
-    altair: altairForkDigest,
-    altairTopicPrefix: $altairForkDigest)
+  T(
+    phase0:
+      compute_fork_digest(cfg.GENESIS_FORK_VERSION, genesisValidatorsRoot),
+    altair:
+      compute_fork_digest(cfg.ALTAIR_FORK_VERSION, genesisValidatorsRoot),
+    merge:
+      compute_fork_digest(cfg.MERGE_FORK_VERSION, genesisValidatorsRoot),
+  )
 
 template asSigned*(x: phase0.TrustedSignedBeaconBlock or phase0.SigVerifiedBeaconBlock):
     phase0.SignedBeaconBlock =
@@ -342,15 +372,21 @@ template asTrusted*(x: merge.SignedBeaconBlock or merge.SigVerifiedBeaconBlock):
 template asTrusted*(x: ForkedSignedBeaconBlock): ForkedTrustedSignedBeaconBlock =
   isomorphicCast[ForkedTrustedSignedBeaconBlock](x)
 
-template withBlck*(x: ForkedBeaconBlock | ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock, body: untyped): untyped =
+template withBlck*(
+    x: ForkedBeaconBlock | ForkedSignedBeaconBlock |
+       ForkedTrustedSignedBeaconBlock,
+    body: untyped): untyped =
   case x.kind
   of BeaconBlockFork.Phase0:
+    const stateFork {.inject.} = forkPhase0
     template blck: untyped {.inject.} = x.phase0Block
     body
   of BeaconBlockFork.Altair:
+    const stateFork {.inject.} = forkAltair
     template blck: untyped {.inject.} = x.altairBlock
     body
   of BeaconBlockFork.Merge:
+    const stateFork {.inject.} = forkMerge
     template blck: untyped {.inject.} = x.mergeBlock
     body
 
@@ -388,6 +424,28 @@ template shortLog*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock):
 chronicles.formatIt ForkedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedSignedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedTrustedSignedBeaconBlock: it.shortLog
+
+template withStateAndBlck*(
+    s: ForkedHashedBeaconState,
+    b: ForkedBeaconBlock | ForkedSignedBeaconBlock |
+       ForkedTrustedSignedBeaconBlock,
+    body: untyped): untyped =
+  case s.beaconStateFork
+  of forkMerge:
+    const stateFork {.inject.} = forkMerge
+    template state: untyped {.inject.} = s.hbsMerge
+    template blck: untyped {.inject.} = b.mergeBlock
+    body
+  of forkAltair:
+    const stateFork {.inject.} = forkAltair
+    template state: untyped {.inject.} = s.hbsAltair
+    template blck: untyped {.inject.} = b.altairBlock
+    body
+  of forkPhase0:
+    const stateFork {.inject.} = forkPhase0
+    template state: untyped {.inject.} = s.hbsPhase0
+    template blck: untyped {.inject.} = b.phase0Block
+    body
 
 proc forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
   case cfg.stateForkAtEpoch(epoch)

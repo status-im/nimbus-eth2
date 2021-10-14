@@ -115,7 +115,7 @@ make VALIDATORS=192 NODES=6 USER_NODES=1 eth2_network_simulation
 
 By default, validators will be split in half between beacon node and validator
 client processes (50/50), communicating through the
-[official validator API](https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi)
+[common validator API](https://ethereum.github.io/consensus-APIs/#/ValidatorRequiredApi)
 (for example with `192` validators and `6` nodes you will roughly end up with 6
 beacon node and 6 validator client processes, where each of them will handle 16
 validators), but if you don't want to use external validator clients and instead

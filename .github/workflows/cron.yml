@@ -178,7 +178,7 @@ jobs:
 
       - name: Get the Ethereum Foundation fixtures
         run: |
-          scripts/setup_official_tests.sh fixturesCache
+          scripts/setup_scenarios.sh fixturesCache
 
       - name: Build all tools
         run: |

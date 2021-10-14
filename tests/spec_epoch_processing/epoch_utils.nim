@@ -9,19 +9,19 @@ import
   # Specs
   ../../beacon_chain/spec/[
     forks, presets, state_transition, state_transition_epoch],
-  ../../beacon_chain/spec/datatypes/base
+  ../../beacon_chain/spec/datatypes/phase0
 
 proc processSlotsUntilEndCurrentEpoch(state: var ForkedHashedBeaconState) =
   # Process all slots until the end of the last slot of the current epoch
   var
     cache = StateCache()
-    rewards = RewardInfo()
+    info = ForkedEpochInfo()
   let slot =
     getStateField(state, slot) + SLOTS_PER_EPOCH -
       (getStateField(state, slot) mod SLOTS_PER_EPOCH)
 
   # Transition to slot before the epoch state transition
-  discard process_slots(defaultRuntimeConfig, state, slot - 1, cache, rewards, {})
+  discard process_slots(defaultRuntimeConfig, state, slot - 1, cache, info, {})
 
   # For the last slot of the epoch,
   # only process_slot without process_epoch
@@ -34,9 +34,9 @@ proc transitionEpochUntilJustificationFinalization*(state: var ForkedHashedBeaco
 
   var
     cache = StateCache()
-    rewards = RewardInfo()
+    info: phase0.EpochInfo
 
-  rewards.init(state.hbsPhase0.data)
-  rewards.process_attestations(state.hbsPhase0.data, cache)
+  info.init(state.hbsPhase0.data)
+  info.process_attestations(state.hbsPhase0.data, cache)
   process_justification_and_finalization(
-    state.hbsPhase0.data, rewards.total_balances)
+    state.hbsPhase0.data, info.total_balances)

@@ -9,8 +9,7 @@
 
 import
   std/[macros, strutils, parseutils, tables],
-  stew/endians2,
-  web3/[ethtypes]
+  stew/endians2, stint, web3/[ethtypes]
 
 export
   toBytesBE
@@ -30,9 +29,13 @@ type
   Eth1Address* = ethtypes.Address
 
   RuntimeConfig* = object
-    ## https://github.com/ethereum/eth2.0-specs/tree/v1.1.0-alpha.8/configs
+    ## https://github.com/ethereum/consensus-specs/tree/v1.1.1/configs
 
     PRESET_BASE*: string
+
+    # Transition
+    TERMINAL_TOTAL_DIFFICULTY*: UInt256
+    TERMINAL_BLOCK_HASH*: BlockHash
 
     # Genesis
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64
@@ -144,10 +147,6 @@ const
 
     "CONFIG_NAME",
 
-    # Merge-related settings that are already part of the mainnet config:
-    "TERMINAL_TOTAL_DIFFICULTY",
-    "TERMINAL_BLOCK_HASH",
-
     "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
   ]
 
@@ -158,10 +157,19 @@ when const_preset == "mainnet":
   # TODO Move this to RuntimeConfig
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.8/configs/mainnet.yaml
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/configs/mainnet.yaml
   # TODO Read these from yaml file
   const defaultRuntimeConfig* = RuntimeConfig(
     PRESET_BASE: "mainnet",
+
+    # Transition
+    # ---------------------------------------------------------------
+    # TBD, 2**256-2**10 is a placeholder
+    TERMINAL_TOTAL_DIFFICULTY:
+      u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
+    # By default, don't use this param
+    TERMINAL_BLOCK_HASH: BlockHash.fromHex(
+      "0x0000000000000000000000000000000000000000000000000000000000000000"),
 
     # Genesis
     # ---------------------------------------------------------------
@@ -183,7 +191,7 @@ when const_preset == "mainnet":
 
     # Altair
     ALTAIR_FORK_VERSION: Version [byte 0x01, 0x00, 0x00, 0x00],
-    ALTAIR_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    ALTAIR_FORK_EPOCH: Epoch(74240), # Oct 27, 2021, 10:56:23am UTC
     # Merge
     MERGE_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x00],
     MERGE_FORK_EPOCH: Epoch(uint64.high),
@@ -237,12 +245,21 @@ elif const_preset == "minimal":
 
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.8/configs/minimal.yaml
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.1/configs/minimal.yaml
   const defaultRuntimeConfig* = RuntimeConfig(
     # Minimal config
 
     # Extends the minimal preset
     PRESET_BASE: "minimal",
+
+    # Transition
+    # ---------------------------------------------------------------
+    # TBD, 2**256-2**10 is a placeholder
+    TERMINAL_TOTAL_DIFFICULTY:
+      u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
+    # By default, don't use this param
+    TERMINAL_BLOCK_HASH: BlockHash.fromHex(
+      "0x0000000000000000000000000000000000000000000000000000000000000000"),
 
     # Genesis
     # ---------------------------------------------------------------
@@ -366,6 +383,12 @@ template parse(T: type string, input: string): T =
 
 template parse(T: type Eth1Address, input: string): T =
   Eth1Address.fromHex(input)
+
+template parse(T: type BlockHash, input: string): T =
+  BlockHash.fromHex(input)
+
+template parse(T: type UInt256, input: string): T =
+  parse(input, UInt256, 10)
 
 proc readRuntimeConfig*(
     path: string): (RuntimeConfig, seq[string]) {.

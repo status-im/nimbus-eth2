@@ -95,7 +95,6 @@ proc getLastSeenAddress(node: BeaconNode, id: PeerId): string =
     $addrs[len(addrs) - 1]
   else:
     ""
-
 proc getDiscoveryAddresses(node: BeaconNode): Option[seq[string]] =
   let restr = node.network.enrRecord().toTypedRecord()
   if restr.isErr():
@@ -127,6 +126,10 @@ proc getP2PAddresses(node: BeaconNode): Option[seq[string]] =
   return some(addresses)
 
 proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
+  let
+    cachedVersion =
+      RestApiResponse.prepareJsonResponse((version: "Nimbus/" & fullVersionStr))
+
   # https://ethereum.github.io/beacon-APIs/#/Node/getNetworkIdentity
   router.api(MethodGet, "/api/eth/v1/node/identity") do () -> RestApiResponse:
     let discoveryAddresses =
@@ -244,9 +247,8 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getNodeVersion
   router.api(MethodGet, "/api/eth/v1/node/version") do () -> RestApiResponse:
-    return RestApiResponse.jsonResponse(
-      (version: "Nimbus/" & fullVersionStr)
-    )
+    return RestApiResponse.response(cachedVersion, Http200,
+                                    "application/json")
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getSyncingStatus
   router.api(MethodGet, "/api/eth/v1/node/syncing") do () -> RestApiResponse:

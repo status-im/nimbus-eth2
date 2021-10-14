@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 #
 # The entry point is `state_transition` which is at the bottom of the file!
 #
@@ -78,7 +78,7 @@ proc verify_block_signature(
 
   true
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verifyStateRoot(state: SomeBeaconState, blck: phase0.BeaconBlock or phase0.SigVerifiedBeaconBlock or altair.BeaconBlock or altair.SigVerifiedBeaconBlock or merge.BeaconBlock or merge.SigVerifiedBeaconBlock or merge.TrustedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
@@ -133,7 +133,7 @@ type
 # Hashed-state transition functions
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func process_slot*(
     state: var SomeBeaconState, pre_state_root: Eth2Digest) {.nbench.} =
   # `process_slot` is the first stage of per-slot processing - it is run for
@@ -165,19 +165,18 @@ func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
 proc advance_slot(
     cfg: RuntimeConfig,
     state: var SomeBeaconState, previous_slot_state_root: Eth2Digest,
-    flags: UpdateFlags, cache: var StateCache, rewards: var RewardInfo) {.nbench.} =
+    flags: UpdateFlags, cache: var StateCache, info: var ForkyEpochInfo) {.nbench.} =
   # Do the per-slot and potentially the per-epoch processing, then bump the
   # slot number - we've now arrived at the slot state on top of which a block
   # optionally can be applied.
   process_slot(state, previous_slot_state_root)
 
-  rewards.statuses.setLen(0)
-  rewards.total_balances = TotalBalances()
+  info.clear()
 
   let is_epoch_transition = (state.slot + 1).isEpoch
   if is_epoch_transition:
     # Note: Genesis epoch = 0, no need to test if before Genesis
-    process_epoch(cfg, state, flags, cache, rewards)
+    process_epoch(cfg, state, flags, cache, info)
     clear_epoch_from_cache(cache, (state.slot + 1).compute_epoch_at_slot)
 
   state.slot += 1
@@ -222,7 +221,7 @@ proc maybeUpgradeState*(
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
-    cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags): bool {.nbench.} =
+    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags): bool {.nbench.} =
   if not (getStateField(state, slot) < slot):
     if slotProcessed notin flags or getStateField(state, slot) != slot:
       notice "Unusual request for a slot in the past",
@@ -234,8 +233,9 @@ proc process_slots*(
   # Update the state so its slot matches that of the block
   while getStateField(state, slot) < slot:
     withState(state):
-      advance_slot(
-        cfg, state.data, state.root, flags, cache, rewards)
+      withEpochInfo(state.data, info):
+        advance_slot(
+          cfg, state.data, state.root, flags, cache, info)
 
       if skipLastStateRootCalculation notin flags or
           state.data.slot < slot:
@@ -334,7 +334,7 @@ proc state_transition*(
                  phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock |
                  altair.TrustedSignedBeaconBlock | merge.TrustedSignedBeaconBlock |
                  merge.SignedBeaconBlock,
-    cache: var StateCache, rewards: var RewardInfo, flags: UpdateFlags,
+    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags,
     rollback: RollbackForkedHashedProc): bool {.nbench.} =
   ## Apply a block to the state, advancing the slot counter as necessary. The
   ## given state must be of a lower slot, or, in case the `slotProcessed` flag
@@ -352,13 +352,13 @@ proc state_transition*(
   ## object should be rolled back to a consistent state. If the transition fails
   ## before the state has been updated, `rollback` will not be called.
   if not process_slots(
-      cfg, state, signedBlock.message.slot, cache, rewards,
+      cfg, state, signedBlock.message.slot, cache, info,
       flags + {skipLastStateRootCalculation}):
     return false
   state_transition_block(
     cfg, state, signedBlock, cache, flags, rollback)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#preparing-for-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#preparing-for-a-beaconblock
 template partialBeaconBlock(
     cfg: RuntimeConfig,
     state: var phase0.HashedBeaconState,
@@ -436,7 +436,7 @@ proc makeBeaconBlock*(
   blck.state_root = state.root
   ok(blck)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#preparing-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/validator.md#preparing-a-beaconblock
 template partialBeaconBlock(
     cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,
@@ -494,8 +494,8 @@ proc makeBeaconBlock*(
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.
 
-  var blck = partialBeaconBlock(cfg, state, proposer_index, parent_root, 
-                                randao_reveal, eth1_data, graffiti, attestations, deposits, 
+  var blck = partialBeaconBlock(cfg, state, proposer_index, parent_root,
+                                randao_reveal, eth1_data, graffiti, attestations, deposits,
                                 proposerSlashings, attesterSlashings, voluntaryExits,
                                 sync_aggregate, executionPayload)
 
@@ -547,7 +547,8 @@ template partialBeaconBlock(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits:
         List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits),
-      sync_aggregate: sync_aggregate))
+      sync_aggregate: sync_aggregate,
+      execution_payload: executionPayload))
 
 proc makeBeaconBlock*(
     cfg: RuntimeConfig,
@@ -618,11 +619,11 @@ proc makeBeaconBlock*(
   template makeBeaconBlock(kind: untyped): Result[ForkedBeaconBlock, string] =
     # To create a block, we'll first apply a partial block to the state, skipping
     # some validations.
-  
-    var blck = 
+
+    var blck =
       ForkedBeaconBlock.init(
-        partialBeaconBlock(cfg, state.`hbs kind`, proposer_index, parent_root, 
-                           randao_reveal, eth1_data, graffiti, attestations, deposits, 
+        partialBeaconBlock(cfg, state.`hbs kind`, proposer_index, parent_root,
+                           randao_reveal, eth1_data, graffiti, attestations, deposits,
                            proposerSlashings, attesterSlashings, voluntaryExits,
                            sync_aggregate, executionPayload))
 

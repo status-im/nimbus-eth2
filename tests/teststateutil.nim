@@ -60,7 +60,7 @@ proc getTestStates*(
   var
     tmpState = assignClone(initialState)
     cache = StateCache()
-    rewards = RewardInfo()
+    info = ForkedEpochInfo()
     cfg = defaultRuntimeConfig
 
   if stateFork in [forkAltair, forkMerge]:
@@ -73,15 +73,11 @@ proc getTestStates*(
     let slot = epoch.Epoch.compute_start_slot_at_epoch
     if getStateField(tmpState[], slot) < slot:
       doAssert process_slots(
-        cfg, tmpState[], slot, cache, rewards, {})
+        cfg, tmpState[], slot, cache, info, {})
 
     if i mod 3 == 0:
-      if tmpState[].beaconStateFork == forkPhase0:
-        valid_deposit(tmpState[].hbsPhase0.data)
-      elif tmpState[].beaconStateFork == forkAltair:
-        valid_deposit(tmpState[].hbsAltair.data)
-      else:
-        valid_deposit(tmpState[].hbsMerge.data)
+      withState(tmpState[]):
+        valid_deposit(state.data)
     doAssert getStateField(tmpState[], slot) == slot
 
     if tmpState[].beaconStateFork == stateFork:

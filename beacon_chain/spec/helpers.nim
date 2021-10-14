@@ -11,9 +11,10 @@
 
 import
   # Standard lib
-  std/[math, tables],
-  # Third-party
+  std/[algorithm, intsets, math, sequtils, tables],
+  # Status libraries
   stew/[byteutils, endians2, bitops2],
+  chronicles,
   # Internal
   ./datatypes/[phase0, altair, merge],
   ./eth2_merkleization, ./ssz_codec
@@ -36,7 +37,7 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_epoch_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#compute_epoch_at_slot
 func compute_epoch_at_slot*(slot: Slot|uint64): Epoch =
   ## Return the epoch number at ``slot``.
   (slot div SLOTS_PER_EPOCH).Epoch
@@ -46,6 +47,237 @@ template epoch*(slot: Slot): Epoch =
 
 template isEpoch*(slot: Slot): bool =
   (slot mod SLOTS_PER_EPOCH) == 0
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/ssz/merkle-proofs.md#generalized_index_sibling
+template generalized_index_sibling*(
+    index: GeneralizedIndex): GeneralizedIndex =
+  index xor 1.GeneralizedIndex
+
+template generalized_index_sibling_left(
+    index: GeneralizedIndex): GeneralizedIndex =
+  index and not 1.GeneralizedIndex
+
+template generalized_index_sibling_right(
+    index: GeneralizedIndex): GeneralizedIndex =
+  index or 1.GeneralizedIndex
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/ssz/merkle-proofs.md#generalized_index_parent
+template generalized_index_parent*(
+    index: GeneralizedIndex): GeneralizedIndex =
+  index shr 1
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/ssz/merkle-proofs.md#merkle-multiproofs
+iterator get_branch_indices*(
+    tree_index: GeneralizedIndex): GeneralizedIndex =
+  ## Get the generalized indices of the sister chunks along the path
+  ## from the chunk with the given tree index to the root.
+  var index = tree_index
+  while index > 1.GeneralizedIndex:
+    yield generalized_index_sibling(index)
+    index = generalized_index_parent(index)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/ssz/merkle-proofs.md#merkle-multiproofs
+iterator get_path_indices*(
+    tree_index: GeneralizedIndex): GeneralizedIndex =
+  ## Get the generalized indices of the chunks along the path
+  ## from the chunk with the given tree index to the root.
+  var index = tree_index
+  while index > 1.GeneralizedIndex:
+    yield index
+    index = generalized_index_parent(index)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/ssz/merkle-proofs.md#merkle-multiproofs
+func get_helper_indices*(
+    indices: openArray[GeneralizedIndex]): seq[GeneralizedIndex] =
+  ## Get the generalized indices of all "extra" chunks in the tree needed
+  ## to prove the chunks with the given generalized indices. Note that the
+  ## decreasing order is chosen deliberately to ensure equivalence to the order
+  ## of hashes in a regular single-item Merkle proof in the single-item case.
+  var all_helper_indices = initIntSet()
+  var all_path_indices = initIntSet()
+  for index in indices:
+    for idx in get_branch_indices(index):
+      all_helper_indices.incl idx.int
+    for idx in get_path_indices(index):
+      all_path_indices.incl idx.int
+  all_helper_indices.excl all_path_indices
+
+  result = newSeqOfCap[GeneralizedIndex](all_helper_indices.len)
+  for idx in all_helper_indices:
+    result.add idx.GeneralizedIndex
+  result.sort(SortOrder.Descending)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/ssz/merkle-proofs.md#merkle-multiproofs
+func check_multiproof_acceptable*(
+    indices: openArray[GeneralizedIndex]): Result[void, string] =
+  # Check that proof verification won't allocate excessive amounts of memory.
+  const max_multiproof_complexity = nextPowerOfTwo(256)
+  if indices.len > max_multiproof_complexity:
+    trace "Max multiproof complexity exceeded",
+      num_indices=indices.len, max_multiproof_complexity
+    return err("Unsupported multiproof complexity (" & $indices.len & ")")
+
+  if indices.len == 0:
+    return err("No indices specified")
+  if indices.anyIt(it == 0.GeneralizedIndex):
+    return err("Invalid index specified")
+  ok()
+
+func calculate_multi_merkle_root_impl(
+    leaves: openArray[Eth2Digest],
+    proof: openArray[Eth2Digest],
+    indices: openArray[GeneralizedIndex],
+    helper_indices: openArray[GeneralizedIndex]): Result[Eth2Digest, string] =
+  # All callers have already verified the checks in check_multiproof_acceptable,
+  # as well as whether lengths of leaves/indices and proof/helper_indices match.
+
+  # Helper to retrieve a value from a table that is statically known to exist.
+  template getExisting[A, B](t: var Table[A, B], key: A): var B =
+    try: t[key]
+    except KeyError: raiseAssert "Unreachable"
+
+  # Populate data structure with all leaves.
+  # This data structure only scales with the number of `leaves`,
+  # in contrast to the spec one that also scales with the number of `proof`
+  # items and the number of all intermediate roots, potentially the entire tree.
+  let capacity = nextPowerOfTwo(leaves.len)
+  var objects = initTable[GeneralizedIndex, Eth2Digest](capacity)
+  for i, index in indices:
+    if objects.mgetOrPut(index, leaves[i]) != leaves[i]:
+      return err("Conflicting roots for same index")
+
+  # Create list with keys of all active nodes that need to be visited.
+  # This list is sorted in descending order, same as `helper_indices`.
+  # Pulling from `objects` instead of from `indices` deduplicates the list.
+  var keys = newSeqOfCap[GeneralizedIndex](objects.len)
+  for index in objects.keys:
+    if index > 1.GeneralizedIndex: # For the root, no work needs to be done.
+      keys.add index
+  keys.sort(SortOrder.Descending)
+
+  # The merkle tree is processed from bottom to top, pulling in helper
+  # indices from `proof` as needed. During processing, the `keys` list
+  # may temporarily end up being split into two parts, sorted individually.
+  # An additional index tracks the current maximum element of the list.
+  var
+    completed = 0         # All key indices before this are fully processed.
+    maxIndex = completed  # Index of the list's largest key.
+    helper = 0            # Helper index from `proof` to be pulled next.
+
+  # Processing is done when there are no more keys to process.
+  while completed < keys.len:
+    let
+      k = keys[maxIndex]
+      sibling = generalized_index_sibling(k)
+      left = generalized_index_sibling_left(k)
+      right = generalized_index_sibling_right(k)
+      parent = generalized_index_parent(k)
+      parentRight = generalized_index_sibling_right(parent)
+
+    # Keys need to be processed in descending order to ensure that intermediate
+    # roots remain available until they are no longer needed. This ensures that
+    # conflicting roots are detected in all cases.
+    keys[maxIndex] =
+      if not objects.hasKey(k):
+        # A previous computation did already merge this key with its sibling.
+        0.GeneralizedIndex
+      else:
+        # Compute expected root for parent. This deletes child roots.
+        # Because the list is sorted in descending order, they are not needed.
+        let root = withEth2Hash:
+          if helper < helper_indices.len and helper_indices[helper] == sibling:
+            # The next proof item is required to form the parent hash.
+            if sibling == left:
+              h.update proof[helper].data
+              h.update objects.getExisting(right).data; objects.del right
+            else:
+              h.update objects.getExisting(left).data;  objects.del left
+              h.update proof[helper].data
+            inc helper
+          else:
+            # Both siblings are already known.
+            h.update objects.getExisting(left).data;  objects.del left
+            h.update objects.getExisting(right).data; objects.del right
+
+        # Store parent root, and replace the current list entry with its parent.
+        if objects.hasKeyOrPut(parent, root):
+          if objects.getExisting(parent) != root:
+            return err("Conflicting roots for same index")
+          0.GeneralizedIndex
+        elif parent > 1.GeneralizedIndex:
+          # Note that the list may contain further nodes that are on a layer
+          # beneath the parent, so this may break the strictly descending order
+          # of the list. For example, given [12, 9], this will lead to [6, 9].
+          # This will resolve itself after the additional nodes are processed,
+          # i.e., [6, 9] -> [6, 4] -> [3, 4] -> [3, 2] -> [1].
+          parent
+        else:
+          0.GeneralizedIndex
+    if keys[maxIndex] != 0.GeneralizedIndex:
+      # The list may have been temporarily split up into two parts that are
+      # individually sorted in descending order. Have to first process further
+      # nodes until the list is sorted once more.
+      inc maxIndex
+
+    # Determine whether descending sort order has been restored.
+    let isSorted =
+      if maxIndex == completed: true
+      else:
+        while maxIndex < keys.len and keys[maxIndex] == 0.GeneralizedIndex:
+          inc maxIndex
+        maxIndex >= keys.len or keys[maxIndex] <= parentRight
+    if isSorted:
+      # List is sorted once more. Reset `maxIndex` to its start.
+      while completed < keys.len and keys[completed] == 0.GeneralizedIndex:
+        inc completed
+      maxIndex = completed
+
+  # Proof is guaranteed to provide all info needed to reach the root.
+  doAssert helper == helper_indices.len
+  doAssert objects.len == 1
+  ok(objects.getExisting(1.GeneralizedIndex))
+
+func calculate_multi_merkle_root*(
+    leaves: openArray[Eth2Digest],
+    proof: openArray[Eth2Digest],
+    indices: openArray[GeneralizedIndex],
+    helper_indices: openArray[GeneralizedIndex]): Result[Eth2Digest, string] =
+  doAssert proof.len == helper_indices.len
+  if leaves.len != indices.len:
+    return err("Length mismatch for leaves and indices")
+  ? check_multiproof_acceptable(indices)
+  calculate_multi_merkle_root_impl(
+    leaves, proof, indices, helper_indices)
+
+func calculate_multi_merkle_root*(
+    leaves: openArray[Eth2Digest],
+    proof: openArray[Eth2Digest],
+    indices: openArray[GeneralizedIndex]): Result[Eth2Digest, string] =
+  if leaves.len != indices.len:
+    return err("Length mismatch for leaves and indices")
+  ? check_multiproof_acceptable(indices)
+  calculate_multi_merkle_root_impl(
+    leaves, proof, indices, get_helper_indices(indices))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/ssz/merkle-proofs.md#merkle-multiproofs
+func verify_merkle_multiproof*(
+    leaves: openArray[Eth2Digest],
+    proof: openArray[Eth2Digest],
+    indices: openArray[GeneralizedIndex],
+    helper_indices: openArray[GeneralizedIndex],
+    root: Eth2Digest): bool =
+  let calc = calculate_multi_merkle_root(leaves, proof, indices, helper_indices)
+  if calc.isErr: return false
+  calc.get == root
+
+func verify_merkle_multiproof*(
+    leaves: openArray[Eth2Digest],
+    proof: openArray[Eth2Digest],
+    indices: openArray[GeneralizedIndex],
+    root: Eth2Digest): bool =
+  let calc = calculate_multi_merkle_root(leaves, proof, indices)
+  if calc.isErr: return false
+  calc.get == root
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_valid_merkle_branch
 func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openArray[Eth2Digest],
@@ -68,12 +300,12 @@ func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openArray[Eth2Digest],
   value == root
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/tests/core/pyspec/eth2spec/test/helpers/merkle.py#L4-L21
-func build_proof_impl(anchor: object, leaf_index: uint64, 
+func build_proof_impl(anchor: object, leaf_index: uint64,
                       proof: var openArray[Eth2Digest]) =
   let
     bottom_length = nextPow2(typeof(anchor).totalSerializedFields.uint64)
     tree_depth = log2trunc(bottom_length)
-    parent_index = 
+    parent_index =
       if leaf_index < bottom_length shl 1:
         0'u64
       else:
@@ -82,7 +314,7 @@ func build_proof_impl(anchor: object, leaf_index: uint64,
           i = i shr 1
         i
 
-  var 
+  var
     prefix_len = 0
     proof_len = log2trunc(leaf_index)
     cache = newSeq[Eth2Digest](bottom_length shl 1)
@@ -93,7 +325,7 @@ func build_proof_impl(anchor: object, leaf_index: uint64,
         when fieldVar is object:
           prefix_len = log2trunc(leaf_index) - tree_depth
           proof_len -= prefix_len
-          let 
+          let
             bottom_bits = leaf_index and not (uint64.high shl prefix_len)
             prefix_leaf_index = (1'u64 shl prefix_len) + bottom_bits
           build_proof_impl(fieldVar, prefix_leaf_index, proof)
@@ -114,12 +346,12 @@ func build_proof_impl(anchor: object, leaf_index: uint64,
     proof[proof_index] = if b: cache[i shl 1]
                          else: cache[i shl 1 + 1]
 
-func build_proof*(anchor: object, leaf_index: uint64, 
+func build_proof*(anchor: object, leaf_index: uint64,
                   proof: var openArray[Eth2Digest]) =
   doAssert leaf_index > 0
   doAssert proof.len == log2trunc(leaf_index)
   build_proof_impl(anchor, leaf_index, proof)
-  
+
 const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
   EPOCHS_PER_SYNC_COMMITTEE_PERIOD * SLOTS_PER_EPOCH
 
@@ -163,7 +395,7 @@ func get_active_validator_indices_len*(state: SomeBeaconState, epoch: Epoch):
     if is_active_validator(state.validators[idx], epoch):
       inc result
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: SomeBeaconState): Epoch =
   ## Return the current epoch.
   doAssert state.slot >= GENESIS_SLOT, $state.slot
@@ -217,7 +449,7 @@ func compute_fork_digest*(current_version: Version,
     compute_fork_data_root(
       current_version, genesis_validators_root).data.toOpenArray(0, 3)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_domain
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#compute_domain
 func compute_domain*(
     domain_type: DomainType,
     fork_version: Version,
@@ -249,7 +481,7 @@ func get_domain*(
   ## of a message.
   get_domain(state.fork, domain_type, epoch, state.genesis_validators_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_signing_root
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#compute_signing_root
 func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
   ## Return the signing root of an object by calculating the root of the
   ## object-domain tree.
@@ -259,7 +491,7 @@ func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
   )
   hash_tree_root(domain_wrapped_object)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_seed
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_seed
 func get_seed*(state: SomeBeaconState, epoch: Epoch, domain_type: DomainType):
     Eth2Digest =
   ## Return the seed at ``epoch``.
@@ -277,7 +509,7 @@ func get_seed*(state: SomeBeaconState, epoch: Epoch, domain_type: DomainType):
       epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1).data
   eth2digest(seed_input)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#add_flag
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#add_flag
 func add_flag*(flags: ParticipationFlags, flag_index: int): ParticipationFlags =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   flags or flag
@@ -287,7 +519,7 @@ func has_flag*(flags: ParticipationFlags, flag_index: int): bool =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   (flags and flag) == flag
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/sync-protocol.md#get_subtree_index
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/sync-protocol.md#get_subtree_index
 func get_subtree_index*(idx: GeneralizedIndex): uint64 =
   doAssert idx > 0
   uint64(idx mod (type(idx)(1) shl log2trunc(idx)))
@@ -296,14 +528,15 @@ func get_subtree_index*(idx: GeneralizedIndex): uint64 =
 func is_merge_complete*(state: merge.BeaconState): bool =
   state.latest_execution_payload_header != default(ExecutionPayloadHeader)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_merge_block
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/merge/beacon-chain.md#is_merge_block
 func is_merge_block(
     state: merge.BeaconState,
     body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |
           merge.SigVerifiedBeaconBlockBody): bool =
-  not is_merge_complete(state) and body.execution_payload != ExecutionPayload()
+  not is_merge_complete(state) and
+    body.execution_payload != default(merge.ExecutionPayload)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_execution_enabled
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/merge/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
     state: merge.BeaconState,
     body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |

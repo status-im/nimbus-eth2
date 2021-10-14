@@ -42,6 +42,9 @@ type
   BloomLogs* = object
     data*: array[BYTES_PER_LOGS_BLOOM, byte]
 
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.2/src/engine/interop/specification.md#returns
+  PayloadId* = uint64
+
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
@@ -275,7 +278,7 @@ type
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
-    randao_reveal*: ValidatorSig
+    randao_reveal*: TrustedSig
     eth1_data*: Eth1Data ##\
     ## Eth1 data vote
 
@@ -283,17 +286,17 @@ type
     ## Arbitrary data
 
     # Operations
-    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
+    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
     sync_aggregate*: SyncAggregate
 
     # Execution
     execution_payload*: ExecutionPayload  # [New in Merge]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig

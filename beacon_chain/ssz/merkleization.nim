@@ -413,7 +413,7 @@ template merkleizeFields(totalElements: static Limit, body: untyped): Eth2Digest
   getFinalHash(merkleizer)
 
 template writeBytesLE(chunk: var array[bytesPerChunk, byte], atParam: int,
-                      val: SomeUnsignedInt) =
+                      val: UintN) =
   let at = atParam
   chunk[at ..< at + sizeof(val)] = toBytesLE(val)
 
@@ -528,7 +528,7 @@ func maxChunksCount(T: type, maxLen: Limit): Limit =
 func hashTreeRootAux[T](x: T): Eth2Digest =
   when T is bool|char:
     result.data[0] = byte(x)
-  elif T is SomeUnsignedInt:
+  elif T is UintN:
     when cpuEndian == bigEndian:
       result.data[0..<sizeof(x)] = toBytesLE(x)
     else:

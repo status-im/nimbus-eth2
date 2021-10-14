@@ -15,6 +15,7 @@
 
 import
   std/[json, typetraits],
+  stew/base10,
   ".."/forks,
   ".."/datatypes/[phase0, altair]
 
@@ -100,6 +101,11 @@ type
     pubkey*: ValidatorPubKey
     validator_index*: ValidatorIndex
     slot*: Slot
+
+  RestSyncCommitteeDuty* = object
+    pubkey*: ValidatorPubKey
+    validator_index*: ValidatorIndex
+    validator_sync_committee_indices*: seq[SyncCommitteeIndex]
 
   RestCommitteeSubscription* = object
     validator_index*: ValidatorIndex
@@ -202,6 +208,9 @@ type
 
   RestSpec* = object
     CONFIG_NAME*: string
+    PRESET_BASE*: string
+    ALTAIR_FORK_EPOCH*: Epoch
+    ALTAIR_FORK_VERSION*: Version
     MAX_COMMITTEES_PER_SLOT*: uint64
     TARGET_COMMITTEE_SIZE*: uint64
     MAX_VALIDATORS_PER_COMMITTEE*: uint64
@@ -216,6 +225,7 @@ type
     SAFE_SLOTS_TO_UPDATE_JUSTIFIED*: uint64
     ETH1_FOLLOW_DISTANCE*: uint64
     TARGET_AGGREGATORS_PER_COMMITTEE*: uint64
+    TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE*: uint64
     RANDOM_SUBNETS_PER_VALIDATOR*: uint64
     EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64
     SECONDS_PER_ETH1_BLOCK*: uint64
@@ -236,19 +246,28 @@ type
     MAX_SEED_LOOKAHEAD*: uint64
     EPOCHS_PER_ETH1_VOTING_PERIOD*: uint64
     SLOTS_PER_HISTORICAL_ROOT*: uint64
+    SYNC_COMMITTEE_SIZE*: uint64
+    SYNC_COMMITTEE_SUBNET_COUNT*: uint64
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
     SHARD_COMMITTEE_PERIOD*: uint64
     MIN_EPOCHS_TO_INACTIVITY_PENALTY*: uint64
     EPOCHS_PER_HISTORICAL_VECTOR*: uint64
     EPOCHS_PER_SLASHINGS_VECTOR*: uint64
+    EPOCHS_PER_SYNC_COMMITTEE_PERIOD*: uint64
     HISTORICAL_ROOTS_LIMIT*: uint64
     VALIDATOR_REGISTRY_LIMIT*: uint64
     BASE_REWARD_FACTOR*: uint64
     WHISTLEBLOWER_REWARD_QUOTIENT*: uint64
     PROPOSER_REWARD_QUOTIENT*: uint64
     INACTIVITY_PENALTY_QUOTIENT*: uint64
+    INACTIVITY_PENALTY_QUOTIENT_ALTAIR*: uint64
+    INACTIVITY_SCORE_BIAS*: uint64
+    INACTIVITY_SCORE_RECOVERY_RATE*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT*: uint64
+    MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR*: uint64
+    MIN_SYNC_COMMITTEE_PARTICIPANTS*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER*: uint64
+    PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR*: uint64
     MAX_PROPOSER_SLASHINGS*: uint64
     MAX_ATTESTER_SLASHINGS*: uint64
     MAX_ATTESTATIONS*: uint64
@@ -261,6 +280,9 @@ type
     DOMAIN_VOLUNTARY_EXIT*: DomainType
     DOMAIN_SELECTION_PROOF*: DomainType
     DOMAIN_AGGREGATE_AND_PROOF*: DomainType
+    DOMAIN_CONTRIBUTION_AND_PROOF*: DomainType
+    DOMAIN_SYNC_COMMITTEE*: DomainType
+    DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF*: DomainType
 
   RestDepositContract* = object
     chain_id*: string
@@ -339,6 +361,9 @@ type
   ProduceBlockResponse* = DataEnclosedObject[phase0.BeaconBlock]
   ProduceBlockResponseV2* = ForkedBeaconBlock
 
+func `==`*(a, b: RestValidatorIndex): bool =
+  uint64(a) == uint64(b)
+
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)
 
@@ -366,3 +391,13 @@ func init*(t: typedesc[ValidatorIdent], v: ValidatorPubKey): ValidatorIdent =
 func init*(t: typedesc[RestBlockInfo],
            v: ForkedTrustedSignedBeaconBlock): RestBlockInfo =
   RestBlockInfo(slot: v.slot(), blck: v.root())
+
+func init*(t: typedesc[RestValidator], index: ValidatorIndex,
+           balance: uint64, status: string,
+           validator: Validator): RestValidator =
+  RestValidator(index: index, balance: Base10.toString(balance),
+                status: status, validator: validator)
+
+func init*(t: typedesc[RestValidatorBalance], index: ValidatorIndex,
+           balance: uint64): RestValidatorBalance =
+  RestValidatorBalance(index: index, balance: Base10.toString(balance))

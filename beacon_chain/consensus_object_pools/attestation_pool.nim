@@ -457,7 +457,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
                               cache: var StateCache): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
-  ## https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#attestations
+  ## https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#attestations
   let newBlockSlot = state.data.slot.uint64
 
   if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY:
@@ -635,7 +635,7 @@ proc getAggregatedAttestation*(pool: var AttestationPool,
                                index: CommitteeIndex): Option[Attestation] =
   ## Select the attestation that has the most votes going for it in the given
   ## slot/index
-  ## https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#construct-aggregate
+  ## https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#construct-aggregate
   let
     candidateIdx = pool.candidateIdx(slot)
   if candidateIdx.isNone:

@@ -56,7 +56,7 @@ export
 # Eventually, we could also differentiate between user/tainted data and
 # internal state that's gone through sanity checks already.
 
-const SPEC_VERSION* = "1.1.1"
+const SPEC_VERSION* = "1.1.2"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -78,7 +78,7 @@ const
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
   BASE_REWARDS_PER_EPOCH* = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/validator.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#misc
   ATTESTATION_SUBNET_COUNT* = 64
 
 template maxSize*(n: int) {.pragma.}
@@ -126,12 +126,12 @@ type
     DOMAIN_SELECTION_PROOF = 5
     DOMAIN_AGGREGATE_AND_PROOF = 6
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#domain-types
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#domain-types
     DOMAIN_SYNC_COMMITTEE = 7
     DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF = 8
     DOMAIN_CONTRIBUTION_AND_PROOF = 9
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#custom-types
   Eth2Domain* = array[32, byte]
 
   # https://github.com/nim-lang/Nim/issues/574 and be consistent across
@@ -171,7 +171,7 @@ type
     signed_header_1*: TrustedSignedBeaconBlockHeader
     signed_header_2*: TrustedSignedBeaconBlockHeader
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     attestation_1*: IndexedAttestation
     attestation_2*: IndexedAttestation
@@ -245,13 +245,13 @@ type
 
     data*: DepositData
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#depositmessage
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#depositmessage
   DepositMessage* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#depositdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
@@ -260,7 +260,7 @@ type
     # if the deposit should be added or not during processing
     signature*: ValidatorSig  # Signing over DepositMessage
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     epoch*: Epoch ##\
     ## Earliest epoch when voluntary exit can be processed
@@ -285,7 +285,7 @@ type
     pubkey*: UncompressedPubKey
     withdrawal_credentials*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey
 
@@ -307,7 +307,7 @@ type
     withdrawable_epoch*: Epoch ##\
     ## When validator can withdraw or transfer funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
@@ -316,12 +316,12 @@ type
 
     proposer_index*: uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#historicalbatch
   HistoricalBatch* = object
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#fork
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#fork
   Fork* = object
     previous_version*: Version
     current_version*: Version
@@ -329,7 +329,7 @@ type
     epoch*: Epoch ##\
     ## Epoch of latest fork
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#eth1data
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest
     deposit_count*: uint64
@@ -352,7 +352,7 @@ type
     state_root*: Eth2Digest
     body_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#signingdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#signingdata
   SigningData* = object
     object_root*: Eth2Digest
     domain*: Eth2Domain
@@ -374,7 +374,7 @@ type
     aggregate*: Attestation
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/validator.md#signedaggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#signedaggregateandproof
   SignedAggregateAndProof* = object
     message*: AggregateAndProof
     signature*: ValidatorSig
@@ -387,7 +387,7 @@ type
     beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
 
   # This matches the mutable state of the Solidity deposit contract
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/solidity_deposit_contract/deposit_contract.sol
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/solidity_deposit_contract/deposit_contract.sol
   DepositContractState* = object
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
@@ -418,7 +418,7 @@ type
     withdrawable_epoch*: Epoch ##\
     ## When validator can withdraw or transfer funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/p2p-interface.md#eth2-field
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/p2p-interface.md#eth2-field
   ENRForkID* = object
     fork_digest*: ForkDigest
     next_fork_version*: Version
@@ -520,7 +520,7 @@ type
 
     flags*: set[RewardFlags]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_total_balance
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_total_balance
   TotalBalances* = object
     # The total effective balance of all active validators during the _current_
     # epoch.
@@ -546,10 +546,6 @@ type
     # _previous_ epoch and agreed with the state about the beacon block at the
     # time of attestation.
     previous_epoch_head_attesters_raw*: Gwei
-
-  RewardInfo* = object
-    statuses*: seq[RewardStatus]
-    total_balances*: TotalBalances
 
 func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
   let cookedKey = validator.pubkey.load() # Loading the pubkey is slow!

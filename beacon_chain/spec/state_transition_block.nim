@@ -105,7 +105,7 @@ proc process_randao(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#eth1-data
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(state: var SomeBeaconState, body: SomeSomeBeaconBlockBody): Result[void, cstring] {.nbench.}=
   if not state.eth1_data_votes.add body.eth1_data:
     # Count is reset  in process_final_updates, so this should never happen
@@ -116,14 +116,14 @@ func process_eth1_data(state: var SomeBeaconState, body: SomeSomeBeaconBlockBody
     state.eth1_data = body.eth1_data
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#proposer-slashings
 proc check_proposer_slashing*(
     state: var SomeBeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags):
@@ -179,7 +179,7 @@ proc process_proposer_slashing*(
     cache)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
@@ -224,7 +224,7 @@ proc check_attester_slashing*(
 
   ok slashed_indices
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
     cfg: RuntimeConfig,
     state: var SomeBeaconState,
@@ -380,19 +380,14 @@ proc process_voluntary_exit*(
 proc process_operations(cfg: RuntimeConfig,
                         state: var SomeBeaconState,
                         body: SomeSomeBeaconBlockBody,
+                        base_reward_per_increment: Gwei,
                         flags: UpdateFlags,
                         cache: var StateCache): Result[void, cstring] {.nbench.} =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
-  template base_reward_per_increment(state: phase0.BeaconState): Gwei = 0.Gwei
-  template base_reward_per_increment(
-      state: altair.BeaconState | merge.BeaconState): Gwei =
-    get_base_reward_per_increment(state, cache)
-
   let
     req_deposits = min(MAX_DEPOSITS,
                        state.eth1_data.deposit_count - state.eth1_deposit_index)
-    generalized_base_reward_per_increment = base_reward_per_increment(state)
 
   if state.eth1_data.deposit_count < state.eth1_deposit_index or
       body.deposits.lenu64 != req_deposits:
@@ -403,7 +398,7 @@ proc process_operations(cfg: RuntimeConfig,
   for op in body.attester_slashings:
     ? process_attester_slashing(cfg, state, op, flags, cache)
   for op in body.attestations:
-    ? process_attestation(state, op, flags, generalized_base_reward_per_increment, cache)
+    ? process_attestation(state, op, flags, base_reward_per_increment, cache)
   for op in body.deposits:
     ? process_deposit(cfg, state, op, flags)
   for op in body.voluntary_exits:
@@ -413,7 +408,8 @@ proc process_operations(cfg: RuntimeConfig,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-processing
 proc process_sync_aggregate*(
-    state: var (altair.BeaconState | merge.BeaconState), aggregate: SyncAggregate, cache: var StateCache):
+    state: var (altair.BeaconState | merge.BeaconState),
+    aggregate: SyncAggregate, total_active_balance: Gwei, cache: var StateCache):
     Result[void, cstring] {.nbench.} =
   # Verify sync committee aggregate signature signing over the previous slot
   # block root
@@ -441,11 +437,20 @@ proc process_sync_aggregate*(
 
   # Compute participant and proposer rewards
   let
-    total_active_increments = get_total_active_balance(state, cache) div EFFECTIVE_BALANCE_INCREMENT
-    total_base_rewards = get_base_reward_per_increment(state, cache) * total_active_increments
-    max_participant_rewards = total_base_rewards * SYNC_REWARD_WEIGHT div WEIGHT_DENOMINATOR div SLOTS_PER_EPOCH
+    total_active_increments =
+      total_active_balance div EFFECTIVE_BALANCE_INCREMENT
+    total_base_rewards =
+      get_base_reward_per_increment(total_active_balance) * total_active_increments
+    max_participant_rewards =
+      total_base_rewards * SYNC_REWARD_WEIGHT div WEIGHT_DENOMINATOR div SLOTS_PER_EPOCH
     participant_reward = max_participant_rewards div SYNC_COMMITTEE_SIZE
-    proposer_reward = participant_reward * PROPOSER_WEIGHT div (WEIGHT_DENOMINATOR - PROPOSER_WEIGHT)
+    proposer_reward =
+      participant_reward * PROPOSER_WEIGHT div (WEIGHT_DENOMINATOR - PROPOSER_WEIGHT)
+    proposer_index = get_beacon_proposer_index(state, cache)
+
+  if proposer_index.isNone:
+    # We're processing a block, so this can't happen, in theory (!)
+    return err("process_sync_aggregate: no proposer")
 
   # Apply participant and proposer rewards
 
@@ -460,19 +465,15 @@ proc process_sync_aggregate*(
 
   # TODO could use a sequtils2 zipIt
   for i in 0 ..< min(
-      state.current_sync_committee.pubkeys.len,
-      aggregate.sync_committee_bits.len):
-    let proposer_index = get_beacon_proposer_index(state, cache)
-    if proposer_index.isSome:
-      let participant_index =
-        pubkeyIndices.getOrDefault(state.current_sync_committee.pubkeys[i])
-      if aggregate.sync_committee_bits[i]:
-        increase_balance(state, participant_index, participant_reward)
-        increase_balance(state, proposer_index.get, proposer_reward)
-      else:
-        decrease_balance(state, participant_index, participant_reward)
+    state.current_sync_committee.pubkeys.len,
+    aggregate.sync_committee_bits.len):
+    let participant_index =
+      pubkeyIndices.getOrDefault(state.current_sync_committee.pubkeys[i])
+    if aggregate.sync_committee_bits[i]:
+      increase_balance(state, participant_index, participant_reward)
+      increase_balance(state, proposer_index.get, proposer_reward)
     else:
-      warn "process_sync_aggregate: get_beacon_proposer_index failed"
+      decrease_balance(state, participant_index, participant_reward)
 
   ok()
 
@@ -545,7 +546,7 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/phase0.nim
 type SomePhase0Block =
@@ -561,7 +562,7 @@ proc process_block*(
   ? process_block_header(state, blck, flags, cache)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
-  ? process_operations(cfg, state, blck.body, flags, cache)
+  ? process_operations(cfg, state, blck.body, 0.Gwei, flags, cache)
 
   ok()
 
@@ -593,8 +594,16 @@ proc process_block*(
   ? process_block_header(state, blck, flags, cache)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
-  ? process_operations(cfg, state, blck.body, flags, cache)
-  ? process_sync_aggregate(state, blck.body.sync_aggregate, cache)  # [New in Altair]
+
+  let
+    total_active_balance = get_total_active_balance(state, cache)
+    base_reward_per_increment =
+      get_base_reward_per_increment(total_active_balance)
+
+  ? process_operations(
+    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+  ? process_sync_aggregate(
+    state, blck.body.sync_aggregate, total_active_balance, cache)  # [New in Altair]
 
   ok()
 
@@ -617,8 +626,15 @@ proc process_block*(
         func(_: ExecutionPayload): bool = true)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
-  ? process_operations(cfg, state, blck.body, flags, cache)
-  ? process_sync_aggregate(state, blck.body.sync_aggregate, cache)
+
+  let
+    total_active_balance = get_total_active_balance(state, cache)
+    base_reward_per_increment =
+      get_base_reward_per_increment(total_active_balance)
+  ? process_operations(
+    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+  ? process_sync_aggregate(
+    state, blck.body.sync_aggregate, total_active_balance, cache)
 
   ok()
 

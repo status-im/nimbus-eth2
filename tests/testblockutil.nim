@@ -15,11 +15,11 @@ import
 type
   MockPrivKeysT = object
   MockPubKeysT = object
-const 
+const
   MockPrivKeys* = MockPrivKeysT()
   MockPubKeys* = MockPubKeysT()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/tests/core/pyspec/eth2spec/test/helpers/keys.py
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/tests/core/pyspec/eth2spec/test/helpers/keys.py
 func `[]`*(_: MockPrivKeysT, index: ValidatorIndex): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
   # lighthouse. EF tests use 1 instead of 1000.
@@ -36,8 +36,8 @@ func makeFakeHash*(i: int): Eth2Digest =
   copyMem(addr result.data[0], addr bytes[0], sizeof(bytes))
 
 func makeDeposit*(
-    i: int, 
-    flags: UpdateFlags = {}, 
+    i: int,
+    flags: UpdateFlags = {},
     cfg = defaultRuntimeConfig): DepositData =
   let
     privkey = MockPrivKeys[i.ValidatorIndex]
@@ -84,9 +84,9 @@ proc addTestBlock*(
     cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
   if nextSlot:
-    var rewards: RewardInfo
+    var info = ForkedEpochInfo()
     doAssert process_slots(
-      cfg, state, getStateField(state, slot) + 1, cache, rewards, flags)
+      cfg, state, getStateField(state, slot) + 1, cache, info, flags)
 
   let
     proposer_index = get_beacon_proposer_index(
@@ -101,7 +101,7 @@ proc addTestBlock*(
       else:
         ValidatorSig()
 
-  let 
+  let
     message = makeBeaconBlock(
       cfg,
       state,

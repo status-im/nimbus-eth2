@@ -17,17 +17,17 @@ proc nextEpoch*(state: var ForkedHashedBeaconState) =
   ## Transition to the start of the next epoch
   var
     cache = StateCache()
-    rewards = RewardInfo()
+    info = ForkedEpochInfo()
   let slot =
     getStateField(state, slot) + SLOTS_PER_EPOCH -
       (getStateField(state, slot) mod SLOTS_PER_EPOCH)
-  doAssert process_slots(defaultRuntimeConfig, state, slot, cache, rewards, {})
+  doAssert process_slots(defaultRuntimeConfig, state, slot, cache, info, {})
 
 proc nextSlot*(state: var ForkedHashedBeaconState) =
   ## Transition to the next slot
   var
     cache = StateCache()
-    rewards = RewardInfo()
+    info = ForkedEpochInfo()
 
   doAssert process_slots(
-    defaultRuntimeConfig, state, getStateField(state, slot) + 1, cache, rewards, {})
+    defaultRuntimeConfig, state, getStateField(state, slot) + 1, cache, info, {})

@@ -32,12 +32,14 @@ declareGauge beacon_current_justified_root, "Current justified root" # On epoch 
 declareGauge beacon_previous_justified_epoch, "Current previously justified epoch" # On epoch transition
 declareGauge beacon_previous_justified_root, "Current previously justified root" # On epoch transition
 
-declareCounter beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # On fork choice
+declareGauge beacon_reorgs_total_total, "Total occurrences of reorganizations of the chain" # On fork choice; backwards-compat name (used to be a counter)
+declareGauge beacon_reorgs_total, "Total occurrences of reorganizations of the chain" # Interop copy
 declareCounter beacon_state_data_cache_hits, "EpochRef hits"
 declareCounter beacon_state_data_cache_misses, "EpochRef misses"
 declareCounter beacon_state_rewinds, "State database rewinds"
 
 declareGauge beacon_active_validators, "Number of validators in the active validator set"
+declareGauge beacon_current_active_validators, "Number of validators in the active validator set" # Interop copy
 declareGauge beacon_pending_deposits, "Number of pending deposits (state.eth1_data.deposit_count - state.eth1_deposit_index)" # On block
 declareGauge beacon_processed_deposits_total, "Number of total deposits included on chain" # On block
 
@@ -472,9 +474,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   )
 
   doAssert cfg.GENESIS_FORK_VERSION != cfg.ALTAIR_FORK_VERSION
-  when true:
-    doAssert cfg.GENESIS_FORK_VERSION != cfg.MERGE_FORK_VERSION
-    doAssert cfg.ALTAIR_FORK_VERSION != cfg.MERGE_FORK_VERSION
+  doAssert cfg.GENESIS_FORK_VERSION != cfg.MERGE_FORK_VERSION
+  doAssert cfg.ALTAIR_FORK_VERSION != cfg.MERGE_FORK_VERSION
   doAssert cfg.ALTAIR_FORK_EPOCH <= cfg.MERGE_FORK_EPOCH
   doAssert dag.updateFlags in [{}, {verifyFinalization}]
 
@@ -754,7 +755,7 @@ proc get*(dag: ChainDAGRef, root: Eth2Digest): Option[BlockData] =
 
 proc advanceSlots(
     dag: ChainDAGRef, state: var StateData, slot: Slot, save: bool,
-    cache: var StateCache, rewards: var RewardInfo) =
+    cache: var StateCache, info: var ForkedEpochInfo) =
   # Given a state, advance it zero or more slots by applying empty slot
   # processing - the state must be positions at a slot before or equal to the
   # target
@@ -763,7 +764,7 @@ proc advanceSlots(
     loadStateCache(dag, cache, state.blck, getStateField(state.data, slot).epoch)
 
     doAssert process_slots(
-        dag.cfg, state.data, getStateField(state.data, slot) + 1, cache, rewards,
+        dag.cfg, state.data, getStateField(state.data, slot) + 1, cache, info,
         dag.updateFlags),
       "process_slots shouldn't fail when state slot is correct"
     if save:
@@ -772,7 +773,7 @@ proc advanceSlots(
 proc applyBlock(
     dag: ChainDAGRef,
     state: var StateData, blck: BlockData, flags: UpdateFlags,
-    cache: var StateCache, rewards: var RewardInfo): bool =
+    cache: var StateCache, info: var ForkedEpochInfo): bool =
   # Apply a single block to the state - the state must be positioned at the
   # parent of the block with a slot lower than the one of the block being
   # applied
@@ -792,15 +793,15 @@ proc applyBlock(
     of BeaconBlockFork.Phase0:
       state_transition(
         dag.cfg, state.data, blck.data.phase0Block,
-        cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
+        cache, info, flags + dag.updateFlags + {slotProcessed}, restore)
     of BeaconBlockFork.Altair:
       state_transition(
         dag.cfg, state.data, blck.data.altairBlock,
-        cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
+        cache, info, flags + dag.updateFlags + {slotProcessed}, restore)
     of BeaconBlockFork.Merge:
       state_transition(
         dag.cfg, state.data, blck.data.mergeBlock,
-        cache, rewards, flags + dag.updateFlags + {slotProcessed}, restore)
+        cache, info, flags + dag.updateFlags + {slotProcessed}, restore)
   if ok:
     state.blck = blck.refs
 
@@ -931,7 +932,7 @@ proc updateStateData*(
     assignTick = Moment.now()
     startSlot {.used.} = getStateField(state.data, slot) # used in logs below
     startRoot {.used.} = getStateRoot(state.data)
-  var rewards: RewardInfo
+  var info: ForkedEpochInfo
   # Time to replay all the blocks between then and now
   for i in countdown(ancestors.len - 1, 0):
     # Because the ancestors are in the database, there's no need to persist them
@@ -939,11 +940,11 @@ proc updateStateData*(
     # database, we can skip certain checks that have already been performed
     # before adding the block to the database.
     let ok =
-      dag.applyBlock(state, dag.get(ancestors[i]), {}, cache, rewards)
+      dag.applyBlock(state, dag.get(ancestors[i]), {}, cache, info)
     doAssert ok, "Blocks in database should never fail to apply.."
 
   # ...and make sure to process empty slots as requested
-  dag.advanceSlots(state, bs.slot, save, cache, rewards)
+  dag.advanceSlots(state, bs.slot, save, cache, info)
 
   # ...and make sure to load the state cache, if it exists
   loadStateCache(dag, cache, state.blck, getStateField(state.data, slot).epoch)
@@ -1025,19 +1026,28 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
 
-func syncSubcommittee*(syncCommittee: openarray[ValidatorPubKey],
-                       committeeIdx: SyncCommitteeIndex): seq[ValidatorPubKey] =
-  ## TODO Return a view type
-  ## Unfortunately, this doesn't work as a template right now.
-  if syncCommittee.len == 0:
-    return @[]
+iterator syncSubcommittee*(
+    syncCommittee: openarray[ValidatorPubKey],
+    committeeIdx: SyncCommitteeIndex): ValidatorPubKey =
+  var
+    i = committeeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
+    onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
 
-  let
-    startIdx = committeeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
-    onePastEndIdx = startIdx + SYNC_SUBCOMMITTEE_SIZE
-  doAssert startIdx < syncCommittee.len
+  while i < onePastEndIdx:
+    yield syncCommittee[i]
+    inc i
 
-  @(toOpenArray(syncCommittee, startIdx, onePastEndIdx - 1))
+iterator syncSubcommitteePairs*(
+    syncCommittee: openarray[ValidatorIndex],
+    committeeIdx: SyncCommitteeIndex): tuple[validatorIdx: ValidatorIndex,
+                                             committeeIdx: int] =
+  var
+    i = committeeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
+    onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
+
+  while i < onePastEndIdx:
+    yield (syncCommittee[i], i)
+    inc i
 
 func syncCommitteeParticipants*(dagParam: ChainDAGRef,
                                 slotParam: Slot): seq[ValidatorPubKey] =
@@ -1049,21 +1059,22 @@ func syncCommitteeParticipants*(dagParam: ChainDAGRef,
     dag = dagParam
     slot = slotParam
 
-  if dag.headState.data.beaconStateFork == forkAltair:
-    let
-      headSlot = dag.headState.data.hbsAltair.data.slot
-      headCommitteePeriod = syncCommitteePeriod(headSlot)
-      periodStart = syncCommitteePeriodStartSlot(headCommitteePeriod)
-      nextPeriodStart = periodStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
+  withState(dag.headState.data):
+    when stateFork >= forkAltair:
+      let
+        headSlot = state.data.slot
+        headCommitteePeriod = syncCommitteePeriod(headSlot)
+        periodStart = syncCommitteePeriodStartSlot(headCommitteePeriod)
+        nextPeriodStart = periodStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
 
-    if slot >= nextPeriodStart:
-      @(dag.headState.data.hbsAltair.data.next_sync_committee.pubkeys.data)
-    elif slot >= periodStart:
-      @(dag.headState.data.hbsAltair.data.current_sync_committee.pubkeys.data)
+      if slot >= nextPeriodStart:
+        @(state.data.next_sync_committee.pubkeys.data)
+      elif slot >= periodStart:
+        @(state.data.current_sync_committee.pubkeys.data)
+      else:
+        @[]
     else:
       @[]
-  else:
-    @[]
 
 func getSubcommitteePositionsAux(
     dag: ChainDAGRef,
@@ -1078,7 +1089,7 @@ func getSubcommitteePositionsAux(
     return @[]
   let validatorPubKey = validatorKey.get().toPubKey
 
-  for pos, key in syncCommittee.syncSubcommittee(committeeIdx):
+  for pos, key in toSeq(syncCommittee.syncSubcommittee(committeeIdx)):
     if validatorPubKey == key:
       result.add uint64(pos)
 
@@ -1086,24 +1097,25 @@ func getSubcommitteePositions*(dag: ChainDAGRef,
                                slot: Slot,
                                committeeIdx: SyncCommitteeIndex,
                                validatorIdx: uint64): seq[uint64] =
-  if dag.headState.data.beaconStateFork == forkPhase0:
-    return @[]
+  withState(dag.headState.data):
+    when stateFork >= forkAltair:
+      let
+        headSlot = state.data.slot
+        headCommitteePeriod = syncCommitteePeriod(headSlot)
+        periodStart = syncCommitteePeriodStartSlot(headCommitteePeriod)
+        nextPeriodStart = periodStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
 
-  let
-    headSlot = dag.headState.data.hbsAltair.data.slot
-    headCommitteePeriod = syncCommitteePeriod(headSlot)
-    periodStart = syncCommitteePeriodStartSlot(headCommitteePeriod)
-    nextPeriodStart = periodStart + SLOTS_PER_SYNC_COMMITTEE_PERIOD
+      template search(syncCommittee: openarray[ValidatorPubKey]): seq[uint64] =
+        dag.getSubcommitteePositionsAux(syncCommittee, committeeIdx, validatorIdx)
 
-  template search(syncCommittee: openarray[ValidatorPubKey]): seq[uint64] =
-    dag.getSubcommitteePositionsAux(syncCommittee, committeeIdx, validatorIdx)
-
-  if slot < periodStart:
-    return @[]
-  elif slot >= nextPeriodStart:
-    return search(dag.headState.data.hbsAltair.data.next_sync_committee.pubkeys.data)
-  else:
-    return search(dag.headState.data.hbsAltair.data.current_sync_committee.pubkeys.data)
+      if slot < periodStart:
+        @[]
+      elif slot >= nextPeriodStart:
+        search(state.data.next_sync_committee.pubkeys.data)
+      else:
+        search(state.data.current_sync_committee.pubkeys.data)
+    else:
+      @[]
 
 template syncCommitteeParticipants*(
     dag: ChainDAGRef,
@@ -1231,6 +1243,7 @@ proc updateHead*(
 
     # A reasonable criterion for "reorganizations of the chain"
     quarantine.clearQuarantine()
+    beacon_reorgs_total_total.inc()
     beacon_reorgs_total.inc()
   else:
     debug "Updated head block",
@@ -1292,9 +1305,11 @@ proc updateHead*(
       getStateField(
         dag.headState.data, previous_justified_checkpoint).root.toGaugeValue)
 
-    let epochRef = getEpochRef(dag, newHead, newHead.slot.epoch)
-    beacon_active_validators.set(
-      epochRef.shuffled_active_validator_indices.lenu64().toGaugeValue)
+    let
+      epochRef = getEpochRef(dag, newHead, newHead.slot.epoch)
+      number_of_active_validators = epochRef.shuffled_active_validator_indices.lenu64().toGaugeValue
+    beacon_active_validators.set(number_of_active_validators)
+    beacon_current_active_validators.set(number_of_active_validators)
 
   if finalizedHead != dag.finalizedHead:
     notice "Reached new finalization checkpoint",

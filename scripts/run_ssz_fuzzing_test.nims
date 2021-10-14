@@ -13,7 +13,7 @@ cli do (testname {.argument.}: string,
         fuzzer = defaultFuzzingEngine):
 
   if not dirExists(fixturesDir):
-    echo "Please run `make test` first in order to download the official ETH2 test vectors"
+    echo "Please run `make test` first in order to download the consensus spec ETH2 test vectors"
     quit 1
 
   if not dirExists(fixturesDir / testname):

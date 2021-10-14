@@ -255,30 +255,30 @@ proc sendSyncCommitteeMessages*(node: BeaconNode,
         return statuses.mapIt(it.get())
       (resCur, resNxt)
 
-  template curParticipants(): untyped =
-    node.dag.headState.data.hbsAltair.data.current_sync_committee.pubkeys.data
-  template nxtParticipants(): untyped =
-    node.dag.headState.data.hbsAltair.data.next_sync_committee.pubkeys.data
-
   let (pending, indices) =
-    block:
-      var resFutures: seq[Future[SendResult]]
-      var resIndices: seq[int]
-      for committeeIdx in allSyncCommittees():
-        for valKey in syncSubcommittee(curParticipants(), committeeIdx):
-          let index = keysCur.getOrDefault(valKey, -1)
-          if index >= 0:
-            resIndices.add(index)
-            resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
-                                                         committeeIdx, true))
-      for committeeIdx in allSyncCommittees():
-        for valKey in syncSubcommittee(nxtParticipants(), committeeIdx):
-          let index = keysNxt.getOrDefault(valKey, -1)
-          if index >= 0:
-            resIndices.add(index)
-            resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
-                                                         committeeIdx, true))
-      (resFutures, resIndices)
+    withState(node.dag.headState.data):
+      when stateFork >= forkAltair:
+        var resFutures: seq[Future[SendResult]]
+        var resIndices: seq[int]
+        for committeeIdx in allSyncCommittees():
+          for valKey in syncSubcommittee(
+              state.data.current_sync_committee.pubkeys.data, committeeIdx):
+            let index = keysCur.getOrDefault(valKey, -1)
+            if index >= 0:
+              resIndices.add(index)
+              resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
+                                                           committeeIdx, true))
+        for committeeIdx in allSyncCommittees():
+          for valKey in syncSubcommittee(
+              state.data.next_sync_committee.pubkeys.data, committeeIdx):
+            let index = keysNxt.getOrDefault(valKey, -1)
+            if index >= 0:
+              resIndices.add(index)
+              resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
+                                                           committeeIdx, true))
+        (resFutures, resIndices)
+      else:
+        raiseAssert "Sync committee not available in Phase0"
 
   await allFutures(pending)
 
@@ -384,25 +384,6 @@ proc getBlockProposalEth1Data*(node: BeaconNode,
       state, finalizedEpochRef.eth1_data,
       finalizedEpochRef.eth1_deposit_index)
 
-func getOpaqueTransaction(s: string): OpaqueTransaction =
-  try:
-    # Effectively an internal logic error in the Eth1/Eth2 client system, as
-    # it's not possible to just omit a malformatted transaction: it would be
-    # the wrong ExecutionPayload blockHash overall, and rejected by newBlock
-    # when one attempted to reinsert it into Geth (which, while not all Eth2
-    # clients might connect to, some will). It's also not possible to skip a
-    # whole ExecutionPayload being that it's an integral part of BeaconBlock
-    # construction. So not much better to do than bail if an incoming string
-    # representation of the OpaqueTransaction is invalid. init() could catch
-    # this, but it'd make its interface clumsier in a way it doesn't .add().
-    let opaqueTransactionSeq = hexToSeqByte(s)
-    if opaqueTransactionSeq.len > MAX_BYTES_PER_OPAQUE_TRANSACTION:
-      raiseAssert "Execution engine returned too-long opaque transaction"
-    OpaqueTransaction(List[byte, MAX_BYTES_PER_OPAQUE_TRANSACTION].init(
-      opaqueTransactionSeq))
-  except ValueError:
-    raiseAssert "Execution engine returned invalidly formatted transaction"
-
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     randao_reveal: ValidatorSig,
                                     validator_index: ValidatorIndex,
@@ -444,8 +425,8 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       node.exitPool[].getProposerSlashingsForBlock(),
       node.exitPool[].getAttesterSlashingsForBlock(),
       node.exitPool[].getVoluntaryExitsForBlock(),
-      if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH: 
-        SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
+      if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
+        SyncAggregate.init()
       else:
         node.sync_committee_msg_pool[].produceSyncAggregate(head.root),
       default(merge.ExecutionPayload),
@@ -858,7 +839,7 @@ proc makeAggregateAndProof*(
 
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#aggregation-selection
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#aggregation-selection
   if not is_aggregator(epochRef, slot, index, slot_signature):
     return none(AggregateAndProof)
 
@@ -866,8 +847,8 @@ proc makeAggregateAndProof*(
   if maybe_slot_attestation.isNone:
     return none(AggregateAndProof)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#construct-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#construct-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#aggregateandproof
   some(AggregateAndProof(
     aggregator_index: validatorIndex.uint64,
     aggregate: maybe_slot_attestation.get,

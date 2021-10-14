@@ -83,7 +83,7 @@ export
 
 # API
 # ----------------------------------------------------------------------
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
 
 func toPubKey*(privkey: ValidatorPrivKey): CookedPubKey =
   ## Derive a public key from a private key
@@ -191,7 +191,7 @@ func finish*(agg: AggregateSignature): CookedSig {.inline.} =
   sig.finish(agg)
   CookedSig(sig)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(
     pubkey: CookedPubKey, message: openArray[byte],
     signature: CookedSig): bool =
@@ -204,7 +204,7 @@ proc blsVerify*(
   ## to enforce correct usage.
   PublicKey(pubkey).verify(message, blscurve.Signature(signature))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(
     pubkey: ValidatorPubKey, message: openArray[byte],
     signature: CookedSig): bool =
