@@ -422,13 +422,6 @@ proc executePayload*(p: Web3DataProviderRef,
                      payload: engine_api.ExecutionPayload): Future[ExecutePayloadResponse] =
   p.web3.provider.engine_executePayload(payload)
 
-proc consensusValidated*(p: Web3DataProviderRef,
-                         blockHash: BlockHash,
-                         status: BlockValidationStatus): Future[JsonNode] =
-  p.web3.provider.engine_consensusValidated(BlockValidationResult(
-    blockHash: blockHash,
-    status: $status))
-
 proc forkchoiceUpdated*(p: Web3DataProviderRef,
                         headBlock, finalizedBlock: Eth2Digest): Future[JsonNode] =
   p.web3.provider.engine_forkchoiceUpdated(ForkChoiceUpdate(
