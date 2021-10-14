@@ -33,7 +33,7 @@ iterator get_committee_indices*(epochRef: EpochRef): CommitteeIndex =
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_beacon_committee
 iterator get_beacon_committee*(
     epochRef: EpochRef, slot: Slot, index: CommitteeIndex): ValidatorIndex =
-  # Return the beacon committee at ``slot`` for ``index``.
+  ## Return the beacon committee at ``slot`` for ``index``.
   let
     committees_per_slot = get_committee_count_per_slot(epochRef)
   for idx in compute_committee(
@@ -46,7 +46,7 @@ iterator get_beacon_committee*(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee*(
     epochRef: EpochRef, slot: Slot, index: CommitteeIndex): seq[ValidatorIndex] =
-  # Return the beacon committee at ``slot`` for ``index``.
+  ## Return the beacon committee at ``slot`` for ``index``.
   let
     committees_per_slot = get_committee_count_per_slot(epochRef)
   compute_committee(
@@ -56,10 +56,10 @@ func get_beacon_committee*(
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee_len*(
     epochRef: EpochRef, slot: Slot, index: CommitteeIndex): uint64 =
-  # Return the number of members in the beacon committee at ``slot`` for ``index``.
+  ## Return the number of members in the beacon committee at ``slot`` for ``index``.
   let
     committees_per_slot = get_committee_count_per_slot(epochRef)
 
@@ -159,7 +159,7 @@ func makeAttestationData*(
 
   doAssert current_epoch == epochRef.epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.uint64,

@@ -157,7 +157,7 @@ when const_preset == "mainnet":
   # TODO Move this to RuntimeConfig
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.1/configs/mainnet.yaml
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/configs/mainnet.yaml
   # TODO Read these from yaml file
   const defaultRuntimeConfig* = RuntimeConfig(
     PRESET_BASE: "mainnet",

@@ -15,7 +15,7 @@ import
   ./spec/[eth2_ssz_serialization, eth2_merkleization]
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a phase0 BeaconState for in-place SSZ reading and writing
   BeaconStateNoImmutableValidators* = object
     # Versioning
@@ -131,7 +131,7 @@ type
     current_sync_committee*: SyncCommittee     # [New in Altair]
     next_sync_committee*: SyncCommittee        # [New in Altair]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/merge/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a Merge BeaconState for in-place SSZ
   # reading and writing
   MergeBeaconStateNoImmutableValidators* = object

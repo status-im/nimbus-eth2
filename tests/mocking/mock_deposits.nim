@@ -129,7 +129,7 @@ proc mockUpdateStateForNewDeposit*[T](
   attachMerkleProofs(result_seq)
   result.proof = result_seq[0].proof
 
-  # TODO: this logic from the eth2.0-specs test suite seems strange
+  # TODO: this logic from the consensus-specs test suite seems strange
   #       but confirmed by running it
   state.eth1_deposit_index = 0
   state.eth1_data.deposit_root =
