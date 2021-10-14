@@ -12,7 +12,7 @@ import
        typetraits, uri, json],
   # Nimble packages:
   chronos, json, metrics, chronicles/timings,
-  web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
+  web3, web3/ethtypes as web3Types, web3/ethhexstrings,
   eth/common/eth_types,
   eth/async_utils, stew/byteutils,
   # Local modules:
@@ -421,6 +421,13 @@ proc getPayload*(p: Web3DataProviderRef,
 proc executePayload*(p: Web3DataProviderRef,
                      payload: engine_api.ExecutionPayload): Future[ExecutePayloadResponse] =
   p.web3.provider.engine_executePayload(payload)
+
+proc consensusValidated*(p: Web3DataProviderRef,
+                         blockHash: BlockHash,
+                         status: BlockValidationStatus): Future[JsonNode] =
+  p.web3.provider.engine_consensusValidated(BlockValidationResult(
+    blockHash: blockHash,
+    status: $status))
 
 proc forkchoiceUpdated*(p: Web3DataProviderRef,
                         headBlock, finalizedBlock: Eth2Digest): Future[JsonNode] =
