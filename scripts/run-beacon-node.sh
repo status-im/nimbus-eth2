@@ -35,6 +35,7 @@ fi
 : ${DATA_DIR:="build/data/${DATA_DIR_NAME}"}
 : ${BASE_P2P_PORT:=9000}
 : ${BASE_RPC_PORT:=9190}
+: ${BASE_REST_PORT:=5052}
 
 # Windows detection
 if uname | grep -qiE "mingw|msys"; then
@@ -95,8 +96,10 @@ exec ${WINPTY} build/${NBC_BINARY} \
   --log-file="${DATA_DIR}/nbc_bn_$(date +"%Y%m%d%H%M%S").log" \
   --tcp-port=$(( ${BASE_P2P_PORT} + ${NODE_ID} )) \
   --udp-port=$(( ${BASE_P2P_PORT} + ${NODE_ID} )) \
+  --rest \
+  --rest-port=$(( ${BASE_REST_PORT} + ${NODE_ID} )) \
   --rpc \
   --rpc-port=$(( ${BASE_RPC_PORT} +${NODE_ID} )) \
+  --metrics \
   ${EXTRA_ARGS} \
   $@
-

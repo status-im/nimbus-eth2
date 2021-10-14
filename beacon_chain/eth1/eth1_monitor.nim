@@ -12,9 +12,9 @@ import
        typetraits, uri, json],
   # Nimble packages:
   chronos, json, metrics, chronicles/timings,
-  web3, web3/ethtypes as web3Types, web3/ethhexstrings,
+  web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
   eth/common/eth_types,
-  eth/async_utils, stew/byteutils,
+  eth/async_utils, stew/[objects, byteutils],
   # Local modules:
   ../spec/[eth2_merkleization, forks, helpers],
   ../spec/datatypes/[base, merge],
@@ -29,20 +29,26 @@ export
 logScope:
   topics = "eth1"
 
+type
+  PubKeyBytes = DynamicBytes[48, 48]
+  WithdrawalCredentialsBytes = DynamicBytes[32, 32]
+  SignatureBytes = DynamicBytes[96, 96]
+  Int64LeBytes = DynamicBytes[8, 8]
+
 contract(DepositContract):
-  proc deposit(pubkey: Bytes48,
-               withdrawalCredentials: Bytes32,
-               signature: Bytes96,
+  proc deposit(pubkey: PubKeyBytes,
+               withdrawalCredentials: WithdrawalCredentialsBytes,
+               signature: SignatureBytes,
                deposit_data_root: FixedBytes[32])
 
   proc get_deposit_root(): FixedBytes[32]
-  proc get_deposit_count(): Bytes8
+  proc get_deposit_count(): Int64LeBytes
 
-  proc DepositEvent(pubkey: Bytes48,
-                    withdrawalCredentials: Bytes32,
-                    amount: Bytes8,
-                    signature: Bytes96,
-                    index: Bytes8) {.event.}
+  proc DepositEvent(pubkey: PubKeyBytes,
+                    withdrawalCredentials: WithdrawalCredentialsBytes,
+                    amount: Int64LeBytes,
+                    signature: SignatureBytes,
+                    index: Int64LeBytes) {.event.}
 
 const
   web3Timeouts = 60.seconds
@@ -121,10 +127,12 @@ type
   DisconnectHandler* = proc () {.gcsafe, raises: [Defect].}
 
   DepositEventHandler* = proc (
-    pubkey: Bytes48,
-    withdrawalCredentials: Bytes32,
-    amount: Bytes8,
-    signature: Bytes96, merkleTreeIndex: Bytes8, j: JsonNode) {.gcsafe, raises: [Defect].}
+    pubkey: PubKeyBytes,
+    withdrawalCredentials: WithdrawalCredentialsBytes,
+    amount: Int64LeBytes,
+    signature: SignatureBytes,
+    merkleTreeIndex: Int64LeBytes,
+    j: JsonNode) {.gcsafe, raises: [Defect].}
 
   BlockProposalEth1Data* = object
     vote*: Eth1Data
@@ -433,6 +441,9 @@ template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped
   fromJson(j[fieldName], fieldName, res)
   res
 
+template init[N: static int](T: type DynamicBytes[N, N]): T =
+  T newSeq[byte](N)
+
 proc depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] {.
     raises: [Defect, CatchableError].} =
   if depositsList.kind != JArray:
@@ -455,11 +466,11 @@ proc depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] {.
       result.add lastEth1Block
 
     var
-      pubkey: Bytes48
-      withdrawalCredentials: Bytes32
-      amount: Bytes8
-      signature: Bytes96
-      index: Bytes8
+      pubkey = init PubKeyBytes
+      withdrawalCredentials = init WithdrawalCredentialsBytes
+      amount = init Int64LeBytes
+      signature = init SignatureBytes
+      index = init Int64LeBytes
 
     var offset = 0
     offset += decode(logData, offset, pubkey)
@@ -468,11 +479,18 @@ proc depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] {.
     offset += decode(logData, offset, signature)
     offset += decode(logData, offset, index)
 
+    if pubkey.len != 48 or
+       withdrawalCredentials.len != 32 or
+       amount.len != 8 or
+       signature.len != 96 or
+       index.len != 8:
+      raise newException(CorruptDataProvider, "Web3 provider supplied invalid deposit logs")
+
     lastEth1Block.deposits.add DepositData(
-      pubkey: ValidatorPubKey.init(array[48, byte](pubkey)),
-      withdrawal_credentials: Eth2Digest(data: array[32, byte](withdrawalCredentials)),
-      amount: bytes_to_uint64(array[8, byte](amount)),
-      signature: ValidatorSig.init(array[96, byte](signature)))
+      pubkey: ValidatorPubKey.init(pubkey.toArray),
+      withdrawal_credentials: Eth2Digest(data: withdrawalCredentials.toArray),
+      amount: bytes_to_uint64(amount.toArray),
+      signature: ValidatorSig.init(signature.toArray))
 
 proc fetchTimestamp(p: Web3DataProviderRef, blk: Eth1Block) {.async.} =
   let web3block = awaitWithRetries(
