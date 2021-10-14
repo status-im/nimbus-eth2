@@ -3,7 +3,7 @@
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
-import std/[typetraits, strutils]
+import std/[typetraits, strutils, sequtils]
 import stew/[results, base10], chronicles, json_serialization,
        json_serialization/std/[options, net],
        nimcrypto/utils as ncrutils
@@ -141,6 +141,117 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             )
         res
     return RestApiResponse.jsonResponseWRoot(duties, droot)
+
+  router.api(MethodPost, "/api/eth/v1/validator/duties/sync/{epoch}") do (
+    epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
+    let indexList =
+      block:
+        if contentBody.isNone():
+          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+        let dres = decodeBody(seq[RestValidatorIndex], contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidValidatorIndexValueError,
+                                           $dres.error())
+        var res: seq[ValidatorIndex]
+        let items = dres.get()
+        for item in items:
+          let vres = item.toValidatorIndex()
+          if vres.isErr():
+            case vres.error()
+            of ValidatorIndexError.TooHighValue:
+              return RestApiResponse.jsonError(Http400,
+                                               TooHighValidatorIndexValueError)
+            of ValidatorIndexError.UnsupportedValue:
+              return RestApiResponse.jsonError(Http500,
+                                            UnsupportedValidatorIndexValueError)
+          res.add(vres.get())
+        if len(res) == 0:
+          return RestApiResponse.jsonError(Http400,
+                                           EmptyValidatorIndexArrayError)
+        res
+    let qepoch =
+      block:
+        if epoch.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                           $epoch.error())
+        let res = epoch.get()
+        if res > MaxEpoch:
+          return RestApiResponse.jsonError(Http400, EpochOverflowValueError)
+
+        if res > node.dag.head.slot.epoch() + 1:
+          if not(node.isSynced(node.dag.head)):
+            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+          else:
+            return RestApiResponse.jsonError(Http400, EpochFromFutureError)
+        res
+
+    let bslot = node.dag.head.atSlot(qepoch.compute_start_slot_at_epoch())
+
+    node.withStateForBlockSlot(bslot):
+      let validatorsCount = lenu64(getStateField(stateData.data, validators))
+      let participants =
+        block:
+          let res = syncCommitteeParticipants(stateData().data, qepoch)
+          if res.isErr():
+            return RestApiResponse.jsonError(Http400,
+                                             $res.error())
+          let kres = res.get()
+          if len(kres) == 0:
+            return RestApiResponse.jsonError(Http500, InternalServerError,
+                                 "List of sync committee participants is empty")
+          kres
+
+      # TODO: We doing this because `participants` are stored as array of
+      # validator keys, so we need to convert it to indices.
+      let participantIndices =
+        block:
+          var res: seq[ValidatorIndex]
+          let optIndices = keysToIndices(node.restKeysCache, stateData().data,
+                                         participants)
+          for item in optIndices:
+            if item.isNone():
+              return RestApiResponse.jsonError(Http500, InternalServerError,
+                                              "Could not get validator indices")
+            res.add(item.get())
+          res
+
+      let validatorsSet =
+        block:
+          var res: Table[ValidatorIndex, int]
+          for listIndex, validatorIndex in indexList.pairs():
+            if uint64(validatorIndex) >= validatorsCount:
+              return RestApiResponse.jsonError(Http400,
+                                               ValidatorNotFoundError)
+            res[validatorIndex] = listIndex
+          res
+
+      template isEmpty(duty: RestSyncCommitteeDuty): bool =
+        len(duty.validator_sync_committee_indices) == 0
+
+      var duties =
+        block:
+          var res = newSeq[RestSyncCommitteeDuty](len(indexList))
+          for committeeIdx in allSyncCommittees():
+            for valIndex, arrIndex in syncSubcommitteePairs(participantIndices,
+                                                            committeeIdx):
+              let listIndex = validatorsSet.getOrDefault(valIndex, -1)
+              if listIndex >= 0:
+                if res[listIndex].isEmpty():
+                  let key =
+                    getStateField(stateData().data, validators)[valIndex].pubkey
+                  res[listIndex] = RestSyncCommitteeDuty(
+                    validator_index: valIndex,
+                    pubkey: key
+                  )
+                res[listIndex].validator_sync_committee_indices.add(
+                  committeeIdx)
+          res.keepItIf(not(isEmpty(it)))
+          res
+
+      return RestApiResponse.jsonResponse(duties)
+
+    return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlock
   router.api(MethodGet, "/api/eth/v1/validator/blocks/{slot}") do (
@@ -557,6 +668,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     MethodGet,
     "/eth/v1/validator/duties/proposer/{epoch}",
     "/api/eth/v1/validator/duties/proposer/{epoch}"
+  )
+  router.redirect(
+    MethodPost,
+    "/eth/v1/validator/duties/sync/{epoch}",
+    "/api/eth/v1/validator/duties/sync/{epoch}"
   )
   router.redirect(
     MethodGet,

@@ -15,6 +15,7 @@
 
 import
   std/[json, typetraits],
+  stew/base10,
   ".."/forks,
   ".."/datatypes/[phase0, altair]
 
@@ -100,6 +101,11 @@ type
     pubkey*: ValidatorPubKey
     validator_index*: ValidatorIndex
     slot*: Slot
+
+  RestSyncCommitteeDuty* = object
+    pubkey*: ValidatorPubKey
+    validator_index*: ValidatorIndex
+    validator_sync_committee_indices*: seq[SyncCommitteeIndex]
 
   RestCommitteeSubscription* = object
     validator_index*: ValidatorIndex
@@ -355,6 +361,9 @@ type
   ProduceBlockResponse* = DataEnclosedObject[phase0.BeaconBlock]
   ProduceBlockResponseV2* = ForkedBeaconBlock
 
+func `==`*(a, b: RestValidatorIndex): bool =
+  uint64(a) == uint64(b)
+
 func init*(t: typedesc[StateIdent], v: StateIdentType): StateIdent =
   StateIdent(kind: StateQueryKind.Named, value: v)
 
@@ -382,3 +391,13 @@ func init*(t: typedesc[ValidatorIdent], v: ValidatorPubKey): ValidatorIdent =
 func init*(t: typedesc[RestBlockInfo],
            v: ForkedTrustedSignedBeaconBlock): RestBlockInfo =
   RestBlockInfo(slot: v.slot(), blck: v.root())
+
+func init*(t: typedesc[RestValidator], index: ValidatorIndex,
+           balance: uint64, status: string,
+           validator: Validator): RestValidator =
+  RestValidator(index: index, balance: Base10.toString(balance),
+                status: status, validator: validator)
+
+func init*(t: typedesc[RestValidatorBalance], index: ValidatorIndex,
+           balance: uint64): RestValidatorBalance =
+  RestValidatorBalance(index: index, balance: Base10.toString(balance))
