@@ -336,7 +336,9 @@ proc init*(T: type BeaconNode,
     nil
 
   let restServer = if config.restEnabled:
-    RestServerRef.init(config.restAddress, config.restPort)
+    RestServerRef.init(config.restAddress, config.restPort,
+                       maxHeadersSize = 65536,
+                       maxRequestBodySize = 16_777_216)
   else:
     nil
 
