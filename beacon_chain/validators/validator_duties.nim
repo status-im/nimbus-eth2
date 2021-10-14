@@ -474,38 +474,43 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       doAssert v.addr == addr proposalStateAddr.data
       assign(proposalStateAddr[], poolPtr.headState)
 
-    return makeBeaconBlock(
-      node.dag.cfg,
-      stateData.data,
-      validator_index,
-      head.root,
-      randao_reveal,
-      eth1Proposal.vote,
-      graffiti,
-      node.attestationPool[].getAttestationsForBlock(stateData.data, cache),
-      eth1Proposal.deposits,
-      node.exitPool[].getProposerSlashingsForBlock(),
-      node.exitPool[].getAttesterSlashingsForBlock(),
-      node.exitPool[].getVoluntaryExitsForBlock(),
-      if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
-        SyncAggregate.init()
-      else:
-        node.sync_committee_msg_pool[].produceSyncAggregate(head.root),
-      if slot.epoch < node.dag.cfg.MERGE_FORK_EPOCH:
-        default(merge.ExecutionPayload)
-      else:
-        # Loudly fail for now. Needs a more reasonable fallback.
-        doAssert not node.eth1Monitor.isNil
+    try:
+      return makeBeaconBlock(
+        node.dag.cfg,
+        stateData.data,
+        validator_index,
+        head.root,
+        randao_reveal,
+        eth1Proposal.vote,
+        graffiti,
+        node.attestationPool[].getAttestationsForBlock(stateData.data, cache),
+        eth1Proposal.deposits,
+        node.exitPool[].getProposerSlashingsForBlock(),
+        node.exitPool[].getAttesterSlashingsForBlock(),
+        node.exitPool[].getVoluntaryExitsForBlock(),
+        if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
+          SyncAggregate.init()
+        else:
+          node.sync_committee_msg_pool[].produceSyncAggregate(head.root),
+        if slot.epoch < node.dag.cfg.MERGE_FORK_EPOCH:
+          default(merge.ExecutionPayload)
+        else:
+          # Loudly fail for now. Needs a more reasonable fallback.
+          doAssert not node.eth1Monitor.isNil
 
-        let
-          payload_id = await prepare_execution_payload(
-            proposalState.data.hbsMerge.data,
-            node.eth1Monitor.terminalBlockHash, default(Address),
-            node.consensusManager.web3Provider)
-          payload = await get_execution_payload(payload_id, node.consensusManager.web3Provider)
-        payload,
-      restore,
-      cache)
+          let
+            payload_id = await prepare_execution_payload(
+              proposalState.data.hbsMerge.data,
+              node.eth1Monitor.terminalBlockHash, default(Address),
+              node.consensusManager.web3Provider)
+            payload = await get_execution_payload(
+              payload_id, node.consensusManager.web3Provider)
+          payload,
+        restore,
+        cache)
+    except CatchableError as err:
+      # Prefer not to create block at all if it can't get ExecutionPayload
+      error "Error creating beacon block", msg = err.msg
 
 proc proposeSignedBlock*(node: BeaconNode,
                          head: BlockRef,
