@@ -12,7 +12,7 @@ import
        typetraits, uri, json],
   # Nimble packages:
   chronos, json, metrics, chronicles/timings,
-  web3, web3/ethtypes as web3Types, web3/ethhexstrings,
+  web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
   eth/common/eth_types,
   eth/async_utils, stew/byteutils,
   # Local modules:
