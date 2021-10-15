@@ -457,9 +457,18 @@ proc init*(T: type BeaconNode,
     except Exception as exc: raiseAssert exc.msg
     node.addRemoteValidators()
 
-  for validator in node.attachedValidators[].validators.values():
-    if validator.index.isSome():
-      node.actionTracker.knownValidators[validator.index.get()] = node.beaconClock.now().slotOrZero()
+  block:
+    # Add in-process validators to the list of "known" validators such that
+    # we start with a reasonable ENR
+    let wallSlot = node.beaconClock.now().slotOrZero()
+    for validator in node.attachedValidators[].validators.values():
+      if validator.index.isSome():
+        node.actionTracker.knownValidators[validator.index.get()] = wallSlot
+
+    let stabilitySubnets = node.actionTracker.stabilitySubnets(wallSlot)
+    # Here, we also set the correct ENR should we be in all subnets mode!
+    node.network.updateStabilitySubnetMetadata(stabilitySubnets)
+
   network.initBeaconSync(dag, getBeaconTime)
 
   node.updateValidatorMetrics()
@@ -499,8 +508,7 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
     stabilitySubnets = node.actionTracker.stabilitySubnets(slot)
     subnets = aggregateSubnets + stabilitySubnets
 
-  if not node.actionTracker.subscribeAllSubnets:
-    node.network.updateStabilitySubnetMetadata(stabilitySubnets)
+  node.network.updateStabilitySubnetMetadata(stabilitySubnets)
 
   # Now we know what we should be subscribed to - make it so
   let
@@ -527,10 +535,10 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
     node.network.subscribeAttestationSubnets(subscribeSubnets, node.dag.forkDigests.altair)
 
   debug "Attestation subnets",
-    slot, epoch = slot.epoch,
-    prevSubnets = subnetLog(prevSubnets),
+    slot, epoch = slot.epoch, gossipState = node.gossipState,
     stabilitySubnets = subnetLog(stabilitySubnets),
     aggregateSubnets = subnetLog(aggregateSubnets),
+    prevSubnets = subnetLog(prevSubnets),
     subscribeSubnets = subnetLog(subscribeSubnets),
     unsubscribeSubnets = subnetLog(unsubscribeSubnets)
 
@@ -917,6 +925,11 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     # epoch processing that follows
     await sleepAsync(advanceCutoff.offset)
     node.dag.advanceClearanceState()
+
+  # The last thing we do is to perform the subscriptions and unsubscriptions for
+  # the next slot, just before that slot starts - because of the advance cuttoff
+  # above, this will be done just before the next slot starts
+  await node.updateGossipStatus(slot + 1)
 
 proc onSlotStart(
     node: BeaconNode, wallTime: BeaconTime, lastSlot: Slot) {.async.} =

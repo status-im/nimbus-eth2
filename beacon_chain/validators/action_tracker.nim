@@ -10,7 +10,19 @@ import
 export base, helpers, sets, tables
 
 const
-  SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS* = 4
+  SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS* = 4 ##\
+    ## The number of slots before we're up for aggregation duty that we'll
+    ## actually subscribe to the subnet we're aggregating for - this gives
+    ## the node time to find a mesh etc - can likely be further trimmed
+  KNOWN_VALIDATOR_DECAY = 3 * 32 * SLOTS_PER_EPOCH ##\
+    ## The number of slots before we "forget" about validators that have
+    ## registered for duties - once we've forgotten about a validator, we'll
+    ## eventually decrease the number of stability subnets we're subscribed to -
+    ## 3 epochs because we perform attestations once every epoch, +1 to deal
+    ## with rounding + 1 to deal with the network growing beyond 260k validators
+    ## and us not validating every epoch any more.
+    ## When known validators decrease, we will keep the stability subnet around
+    ## until it "naturally" expires.
 
 type
   SubnetBits* = BitArray[ATTESTATION_SUBNET_COUNT]
@@ -24,10 +36,11 @@ type
 
     subscribeAllSubnets*: bool
 
-    currentSlot*: Slot
+    currentSlot*: Slot ##\
+      ## Duties that we accept are limited to a range around the current slot
 
     subscribedSubnets*: SubnetBits ##\
-      ## All subnets we're current subscribed to
+      ## All subnets we're currently subscribed to
 
     stabilitySubnets: seq[tuple[subnet: SubnetId, expiration: Epoch]] ##\
       ## The subnets on which we listen and broadcast gossip traffic to maintain
@@ -40,7 +53,7 @@ type
     proposingSlots*: array[2, uint32]
     lastCalculatedEpoch*: Epoch
 
-    knownValidators*: Table[ValidatorIndex, Slot]
+    knownValidators*: Table[ValidatorIndex, Slot] ##\
       ## Validators that we've recently seen - we'll subscribe to one stability
       ## subnet for each such validator - the slot is used to expire validators
       ## that no longer are posting duties
@@ -48,8 +61,9 @@ type
     duties*: seq[AggregatorDuty] ##\
       ## Known aggregation duties in the near future - before each such
       ## duty, we'll subscribe to the corresponding subnet to collect
+      ## attestations for the aggregate
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 func randomStabilitySubnet*(
     self: ActionTracker, epoch: Epoch): tuple[subnet: SubnetId, expiration: Epoch] =
   (
@@ -113,7 +127,7 @@ func updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
   # Keep stability subnets for as long as validators are validating
   var toPrune: seq[ValidatorIndex]
   for k, v in tracker.knownValidators:
-    if v + SLOTS_PER_EPOCH * 3 < wallSlot: toPrune.add k
+    if v + KNOWN_VALIDATOR_DECAY < wallSlot: toPrune.add k
   for k in toPrune: tracker.knownValidators.del k
 
   # One stability subnet per known validator
