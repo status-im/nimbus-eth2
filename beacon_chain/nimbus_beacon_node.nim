@@ -65,9 +65,14 @@ template init(T: type RestServerRef, ip: ValidIpAddress, port: Port): T =
                      HttpServerFlags.NotifyDisconnect}
   # We increase default timeout to help validator clients who poll our server
   # at least once per slot (12.seconds).
-  let headersTimeout = seconds(2'i64 * int64(SECONDS_PER_SLOT))
+  let
+    headersTimeout = seconds(2'i64 * int64(SECONDS_PER_SLOT))
+    maxHeadersSize = 65536 # 64 kilobytes
+    maxRequestBodySize = 16_777_216 # 16 megabytes
   let res = RestServerRef.new(getRouter(), address, serverFlags = serverFlags,
-                              httpHeadersTimeout = headersTimeout)
+                              httpHeadersTimeout = headersTimeout,
+                              maxHeadersSize = maxHeadersSize,
+                              maxRequestBodySize = maxRequestBodySize)
   if res.isErr():
     notice "Rest server could not be started", address = $address,
            reason = res.error()
@@ -336,9 +341,7 @@ proc init*(T: type BeaconNode,
     nil
 
   let restServer = if config.restEnabled:
-    RestServerRef.init(config.restAddress, config.restPort,
-                       maxHeadersSize = 65536,
-                       maxRequestBodySize = 16_777_216)
+    RestServerRef.init(config.restAddress, config.restPort)
   else:
     nil
 
