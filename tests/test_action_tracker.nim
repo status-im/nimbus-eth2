@@ -3,8 +3,7 @@
 import
   unittest2,
   eth/keys,
-  ../beacon_chain/validators/action_tracker,
-  testblockutil
+  ../beacon_chain/validators/action_tracker
 
 suite "subnet tracker":
   let rng = keys.newRng()
@@ -29,6 +28,11 @@ suite "subnet tracker":
     check:
       tracker.aggregateSubnets(Slot(0)).countOnes() == 2
       tracker.aggregateSubnets(Slot(1)).countOnes() == 1
+
+    tracker.registerDuty(Slot(SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS), SubnetId(2), ValidatorIndex(0), true)
+    check:
+      tracker.aggregateSubnets(Slot(0)).countOnes() == 2
+      tracker.aggregateSubnets(Slot(1)).countOnes() == 2
 
     # Guaranteed to expire
     tracker.updateSlot(

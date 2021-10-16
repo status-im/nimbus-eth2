@@ -917,8 +917,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     # Update 1 epoch early to block non-fork-ready peers
     node.network.updateForkId(epoch, node.dag.genesisValidatorsRoot)
 
-  await node.updateGossipStatus(slot)
-
   # When we're not behind schedule, we'll speculatively update the clearance
   # state in anticipation of receiving the next block - we do it after logging
   # slot end since the nextActionWaitTime can be short
