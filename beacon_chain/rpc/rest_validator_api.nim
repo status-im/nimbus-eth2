@@ -3,7 +3,7 @@
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
-import std/[typetraits, strutils, sequtils]
+import std/[typetraits, strutils, sets, sequtils]
 import stew/[results, base10], chronicles, json_serialization,
        json_serialization/std/[options, net],
        nimcrypto/utils as ncrutils
@@ -31,7 +31,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400,
                                            InvalidValidatorIndexValueError,
                                            $dres.error())
-        var res: seq[ValidatorIndex]
+        var res: HashSet[ValidatorIndex]
         let items = dres.get()
         for item in items:
           let vres = item.toValidatorIndex()
@@ -43,7 +43,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             of ValidatorIndexError.UnsupportedValue:
               return RestApiResponse.jsonError(Http500,
                                             UnsupportedValidatorIndexValueError)
-          res.add(vres.get())
+          res.incl(vres.get())
         if len(res) == 0:
           return RestApiResponse.jsonError(Http400,
                                            EmptyValidatorIndexArrayError)
@@ -203,7 +203,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           kres
 
       # TODO: We doing this because `participants` are stored as array of
-      # validator keys, so we need to convert it to indices.
+      # validator keys, so we need to convert it to indices, and if any of
+      # public keys are missing, it means some unexpected error.
       let participantIndices =
         block:
           var res: seq[ValidatorIndex]
@@ -220,10 +221,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         block:
           var res: Table[ValidatorIndex, int]
           for listIndex, validatorIndex in indexList.pairs():
-            if uint64(validatorIndex) >= validatorsCount:
-              return RestApiResponse.jsonError(Http400,
-                                               ValidatorNotFoundError)
-            res[validatorIndex] = listIndex
+            # We ignore indices which could not fit in current list of
+            # validators.
+            if uint64(validatorIndex) < validatorsCount:
+              res[validatorIndex] = listIndex
           res
 
       template isEmpty(duty: RestSyncCommitteeDuty): bool =
