@@ -25,19 +25,20 @@ const
   TransitionDir = SszTestsDir/const_preset/"altair"/"transition"/"core"/"pyspec_tests"
 
 type
-  TransitionEpoch = object
+  TransitionInfo = object
     post_fork: string
     fork_epoch: int
     blocks_count: int
-    fork_block {.defaultVal: 0.}: int
+    fork_block {.defaultVal: -1.}: int
+    bls_setting {.defaultVal: 1.}: int
 
 proc runTest(testName, testDir, unitTestName: string) =
   let testPath = testDir / unitTestName
 
-  var transitionEpoch: TransitionEpoch
+  var transitionInfo: TransitionInfo
   var s = openFileStream(testPath/"meta.yaml")
   defer: close(s)
-  yaml.load(s, transitionEpoch)
+  yaml.load(s, transitionInfo)
 
   proc `testImpl _ blck _ testName`() =
     test testName & " - " & unitTestName & preset():
@@ -48,14 +49,13 @@ proc runTest(testName, testDir, unitTestName: string) =
         cache = StateCache()
         info = ForkedEpochInfo()
         cfg = defaultRuntimeConfig
-      cfg.ALTAIR_FORK_EPOCH = transitionEpoch.fork_epoch.Epoch
+      cfg.ALTAIR_FORK_EPOCH = transitionInfo.fork_epoch.Epoch
 
       # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
       # so purely lexicographic sorting wouldn't sort properly.
       let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
       for i in 0 ..< numBlocks:
-        let inBeforeTimes = i <= transitionEpoch.fork_block and transitionEpoch.fork_block > 0
-        if inBeforeTimes:
+        if i <= transitionInfo.fork_block:
           let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, phase0.SignedBeaconBlock)
 
           let success = state_transition(
@@ -78,7 +78,5 @@ proc runTest(testName, testDir, unitTestName: string) =
   `testImpl _ blck _ testName`()
 
 suite "Ethereum Foundation - Altair - Transition " & preset():
-  # TODO investigate why this isn't working in minimal preset
-  when const_preset == "mainnet":
-    for kind, path in walkDir(TransitionDir, relative = true, checkDir = true):
-      runTest("Ethereum Foundation - Altair - Transition", TransitionDir, path)
+  for kind, path in walkDir(TransitionDir, relative = true, checkDir = true):
+    runTest("Ethereum Foundation - Altair - Transition", TransitionDir, path)

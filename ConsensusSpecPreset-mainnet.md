@@ -6,10 +6,23 @@ ConsensusSpecPreset-mainnet
 + Ethereum Foundation - Altair - Transition - transition_missing_first_post_block [Preset: m OK
 + Ethereum Foundation - Altair - Transition - transition_missing_last_pre_fork_block [Preset OK
 + Ethereum Foundation - Altair - Transition - transition_only_blocks_post_fork [Preset: main OK
++ Ethereum Foundation - Altair - Transition - transition_with_activation_at_fork_epoch [Pres OK
++ Ethereum Foundation - Altair - Transition - transition_with_attester_slashing_right_after_ OK
++ Ethereum Foundation - Altair - Transition - transition_with_attester_slashing_right_before OK
++ Ethereum Foundation - Altair - Transition - transition_with_deposit_right_after_fork [Pres OK
++ Ethereum Foundation - Altair - Transition - transition_with_deposit_right_before_fork [Pre OK
 + Ethereum Foundation - Altair - Transition - transition_with_finality [Preset: mainnet]     OK
++ Ethereum Foundation - Altair - Transition - transition_with_leaking_at_fork [Preset: mainn OK
++ Ethereum Foundation - Altair - Transition - transition_with_leaking_pre_fork [Preset: main OK
 + Ethereum Foundation - Altair - Transition - transition_with_no_attestations_until_after_fo OK
++ Ethereum Foundation - Altair - Transition - transition_with_non_empty_activation_queue [Pr OK
++ Ethereum Foundation - Altair - Transition - transition_with_one_fourth_exiting_validators_ OK
++ Ethereum Foundation - Altair - Transition - transition_with_proposer_slashing_right_after_ OK
++ Ethereum Foundation - Altair - Transition - transition_with_proposer_slashing_right_before OK
 + Ethereum Foundation - Altair - Transition - transition_with_random_half_participation [Pre OK
 + Ethereum Foundation - Altair - Transition - transition_with_random_three_quarters_particip OK
++ Ethereum Foundation - Altair - Transition - transition_with_voluntary_exit_right_after_for OK
++ Ethereum Foundation - Altair - Transition - transition_with_voluntary_exit_right_before_fo OK
 + Rewards - all_balances_too_low_for_reward [Preset: mainnet]                                OK
 + Rewards - duplicate_attestations_at_later_slots [Preset: mainnet]                          OK
 + Rewards - empty [Preset: mainnet]                                                          OK
@@ -407,7 +420,7 @@ ConsensusSpecPreset-mainnet
 + fork_random_misc_balances                                                                  OK
 + next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 404/404 Fail: 0/404 Skip: 0/404
+OK: 417/417 Fail: 0/417 Skip: 0/417
 ## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -799,4 +812,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 661/661 Fail: 0/661 Skip: 0/661
+OK: 674/674 Fail: 0/674 Skip: 0/674
