@@ -504,6 +504,12 @@ func subnetLog(v: BitArray): string =
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
+  if node.gossipState == GossipState.Disconnected:
+    # When disconnected, updateGossipState is responsible for all things
+    # subnets - in particular, it will remove subscriptions on the edge where
+    # we enter the disconnected state.
+    return
+
   let
     aggregateSubnets = node.actionTracker.aggregateSubnets(slot)
     stabilitySubnets = node.actionTracker.stabilitySubnets(slot)
@@ -522,7 +528,7 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
 
   case node.gossipState
   of GossipState.Disconnected:
-    discard
+    raiseAssert "Checked above"
   of GossipState.ConnectedToPhase0:
     node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, node.dag.forkDigests.phase0)
     node.network.subscribeAttestationSubnets(subscribeSubnets, node.dag.forkDigests.phase0)
@@ -599,7 +605,7 @@ proc addPhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Sl
   node.network.subscribe(getVoluntaryExitsTopic(forkDigest), basicParams)
   node.network.subscribe(getAggregateAndProofsTopic(forkDigest), aggregateTopicParams, enableTopicMetrics = true)
 
-  node.updateAttestationSubnetHandlers(slot)
+  # updateAttestationSubnetHandlers subscribes attestation subnets
 
 proc addPhase0MessageHandlers(node: BeaconNode, slot: Slot) =
   addPhase0MessageHandlers(node, node.dag.forkDigests.phase0, slot)
@@ -718,7 +724,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     debug "Enabling topic subscriptions",
       wallSlot = slot,
       headSlot = node.dag.head.slot,
-      syncQueueLen
+      syncQueueLen, targetGossipState
 
     node.setupDoppelgangerDetection(slot)
 
