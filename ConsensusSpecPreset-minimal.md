@@ -2,6 +2,29 @@ ConsensusSpecPreset-minimal
 ===
 ## 
 ```diff
++ Ethereum Foundation - Altair - Transition - normal_transition [Preset: minimal]            OK
++ Ethereum Foundation - Altair - Transition - transition_missing_first_post_block [Preset: m OK
++ Ethereum Foundation - Altair - Transition - transition_missing_last_pre_fork_block [Preset OK
++ Ethereum Foundation - Altair - Transition - transition_only_blocks_post_fork [Preset: mini OK
++ Ethereum Foundation - Altair - Transition - transition_with_activation_at_fork_epoch [Pres OK
++ Ethereum Foundation - Altair - Transition - transition_with_attester_slashing_right_after_ OK
++ Ethereum Foundation - Altair - Transition - transition_with_attester_slashing_right_before OK
++ Ethereum Foundation - Altair - Transition - transition_with_deposit_right_after_fork [Pres OK
++ Ethereum Foundation - Altair - Transition - transition_with_deposit_right_before_fork [Pre OK
++ Ethereum Foundation - Altair - Transition - transition_with_finality [Preset: minimal]     OK
++ Ethereum Foundation - Altair - Transition - transition_with_leaking_at_fork [Preset: minim OK
++ Ethereum Foundation - Altair - Transition - transition_with_leaking_pre_fork [Preset: mini OK
++ Ethereum Foundation - Altair - Transition - transition_with_no_attestations_until_after_fo OK
++ Ethereum Foundation - Altair - Transition - transition_with_non_empty_activation_queue [Pr OK
++ Ethereum Foundation - Altair - Transition - transition_with_one_fourth_exiting_validators_ OK
++ Ethereum Foundation - Altair - Transition - transition_with_one_fourth_exiting_validators_ OK
++ Ethereum Foundation - Altair - Transition - transition_with_one_fourth_slashed_active_vali OK
++ Ethereum Foundation - Altair - Transition - transition_with_proposer_slashing_right_after_ OK
++ Ethereum Foundation - Altair - Transition - transition_with_proposer_slashing_right_before OK
++ Ethereum Foundation - Altair - Transition - transition_with_random_half_participation [Pre OK
++ Ethereum Foundation - Altair - Transition - transition_with_random_three_quarters_particip OK
++ Ethereum Foundation - Altair - Transition - transition_with_voluntary_exit_right_after_for OK
++ Ethereum Foundation - Altair - Transition - transition_with_voluntary_exit_right_before_fo OK
 + Rewards - all_balances_too_low_for_reward [Preset: minimal]                                OK
 + Rewards - duplicate_attestations_at_later_slots [Preset: minimal]                          OK
 + Rewards - empty [Preset: minimal]                                                          OK
@@ -403,7 +426,7 @@ ConsensusSpecPreset-minimal
 + finality_root_merkle_proof                                                                 OK
 + next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 400/400 Fail: 0/400 Skip: 0/400
+OK: 423/423 Fail: 0/423 Skip: 0/423
 ## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -829,4 +852,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 683/683 Fail: 0/683 Skip: 0/683
+OK: 706/706 Fail: 0/706 Skip: 0/706
