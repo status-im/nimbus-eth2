@@ -622,7 +622,7 @@ func get_base_reward_increment(
   increments * base_reward_per_increment
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#get_flag_index_deltas
-iterator get_flag_index_deltas(
+iterator get_flag_index_deltas*(
     state: altair.BeaconState | merge.BeaconState, flag_index: int,
     base_reward_per_increment: Gwei,
     info: altair.EpochInfo):
@@ -664,7 +664,7 @@ iterator get_flag_index_deltas(
         (vidx, RewardDelta(rewards: 0.Gwei, penalties: 0.Gwei))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
-iterator get_inactivity_penalty_deltas(
+iterator get_inactivity_penalty_deltas*(
     cfg: RuntimeConfig, state: altair.BeaconState | merge.BeaconState,
     info: altair.EpochInfo):
     (ValidatorIndex, Gwei) =
