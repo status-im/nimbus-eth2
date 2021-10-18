@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[deques, intsets, streams, tables, hashes, options],
+  std/[deques, streams, tables, hashes, options],
   stew/endians2,
   ./spec/datatypes/[phase0, altair],
   ./spec/keystore,
@@ -112,35 +112,6 @@ type
     onContributionReceived*: OnSyncContributionCallback
 
   SyncCommitteeMsgPoolRef* = ref SyncCommitteeMsgPool
-
-  OnVoluntaryExitCallback* =
-    proc(data: SignedVoluntaryExit) {.gcsafe, raises: [Defect].}
-
-  ExitPool* = object
-    ## The exit pool tracks attester slashings, proposer slashings, and
-    ## voluntary exits that could be added to a proposed block.
-
-    attester_slashings*: Deque[AttesterSlashing]  ## \
-    ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
-
-    proposer_slashings*: Deque[ProposerSlashing]  ## \
-    ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
-
-    voluntary_exits*: Deque[SignedVoluntaryExit]  ## \
-    ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
-
-    prior_seen_attester_slashed_indices*: IntSet ## \
-    ## Records attester-slashed indices seen.
-
-    prior_seen_proposer_slashed_indices*: IntSet ## \
-    ## Records proposer-slashed indices seen.
-
-    prior_seen_voluntary_exit_indices*: IntSet ##\
-    ## Records voluntary exit indices seen.
-
-    dag*: ChainDAGRef
-
-    onVoluntaryExitReceived*: OnVoluntaryExitCallback
 
   # #############################################
   #

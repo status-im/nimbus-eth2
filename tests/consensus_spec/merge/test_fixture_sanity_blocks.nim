@@ -33,8 +33,8 @@ proc runTest(testName, testDir, unitTestName: string) =
     test prefix & testName & " - " & unitTestName & preset():
       var
         preState = newClone(parseTest(testPath/"pre.ssz_snappy", SSZ, merge.BeaconState))
-        fhPreState = (ref ForkedHashedBeaconState)(hbsMerge: merge.HashedBeaconState(
-          data: preState[], root: hash_tree_root(preState[])), beaconStateFork: forkMerge)
+        fhPreState = (ref ForkedHashedBeaconState)(mergeData: merge.HashedBeaconState(
+          data: preState[], root: hash_tree_root(preState[])), kind: BeaconStateFork.Merge)
         cache = StateCache()
         info = ForkedEpochInfo()
 
@@ -61,7 +61,7 @@ proc runTest(testName, testDir, unitTestName: string) =
       if hasPostState:
         let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, merge.BeaconState))
         when false:
-          reportDiff(fhPreState.hbsMerge.data, postState)
+          reportDiff(fhPreState.mergeData.data, postState)
         doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()
 
   `testImpl _ blck _ testName`()

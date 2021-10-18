@@ -34,7 +34,7 @@ suite "SyncManager test suite":
     result = newSeq[ForkedSignedBeaconBlock](count)
     var curslot = start
     for item in result.mitems():
-      item.phase0Block.message.slot = curslot
+      item.phase0Data.message.slot = curslot
       curslot = curslot + 1'u64
 
   test "[SyncQueue] Start and finish slots equal":

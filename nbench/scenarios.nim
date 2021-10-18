@@ -149,8 +149,8 @@ proc runFullTransition*(dir, preState, blocksPrefix: string, blocksQty: int, ski
 
   echo "Running: ", prePath
   let state = (ref ForkedHashedBeaconState)(
-    hbsPhase0: phase0.HashedBeaconState(data: parseSSZ(prePath, phase0.BeaconState)),
-    beaconStateFork: forkPhase0
+    phase0Data: phase0.HashedBeaconState(data: parseSSZ(prePath, phase0.BeaconState)),
+    kind: BeaconStateFork.Phase0
   )
   setStateRoot(state[], hash_tree_root(state[]))
 
@@ -174,9 +174,9 @@ proc runProcessSlots*(dir, preState: string, numSlots: uint64) =
 
   echo "Running: ", prePath
   let state = (ref ForkedHashedBeaconState)(
-    hbsPhase0: phase0.HashedBeaconState(
+    phase0Data: phase0.HashedBeaconState(
       data: parseSSZ(prePath, phase0.BeaconState)),
-    beaconStateFork: forkPhase0)
+    kind: BeaconStateFork.Phase0)
   setStateRoot(state[], hash_tree_root(state[]))
 
   # Shouldn't necessarily assert, because nbench can run test suite

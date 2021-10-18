@@ -767,13 +767,13 @@ proc publishBlock*(vc: ValidatorClientRef,
   vc.firstSuccessTimeout(RestPlainResponse, SlotDuration):
     case data.kind
     of BeaconBlockFork.Phase0:
-      publishBlock(it, data.phase0Block)
+      publishBlock(it, data.phase0Data)
     of BeaconBlockFork.Altair:
-      publishBlock(it, data.altairBlock)
+      publishBlock(it, data.altairData)
     of BeaconBlockFork.Merge:
       raiseAssert "trying to publish merge block"
       # TODO this doesn't build due to some nim-presto error
-      # publishBlock(it, data.mergeBlock)
+      # publishBlock(it, data.mergeData)
   do:
     if apiResponse.isErr():
       debug "Unable to publish block", endpoint = node,

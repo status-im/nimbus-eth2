@@ -49,7 +49,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     let blck = message.get()
     case blck.kind
     of BeaconBlockFork.Phase0:
-      return blck.phase0Block
+      return blck.phase0Data
     else:
       raiseNoAltairSupport()
 

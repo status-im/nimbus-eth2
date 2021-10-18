@@ -475,6 +475,12 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
+  BeaconBlockExits* = object
+    # Collection of exits that are suitable for block production
+    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+
 type
   # Caches for computing justificiation, rewards and penalties - based on
   # implementation in Lighthouse:

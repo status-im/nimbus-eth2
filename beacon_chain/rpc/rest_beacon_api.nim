@@ -816,9 +816,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       of BeaconBlockFork.Phase0:
         case contentType
         of "application/octet-stream":
-          RestApiResponse.sszResponse(bdata.data.phase0Block)
+          RestApiResponse.sszResponse(bdata.data.phase0Data)
         of "application/json":
-          RestApiResponse.jsonResponse(bdata.data.phase0Block)
+          RestApiResponse.jsonResponse(bdata.data.phase0Data)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
       of BeaconBlockFork.Altair, BeaconBlockFork.Merge:
@@ -848,11 +848,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       of "application/octet-stream":
         case bdata.data.kind
         of BeaconBlockFork.Phase0:
-          RestApiResponse.sszResponse(bdata.data.phase0Block)
+          RestApiResponse.sszResponse(bdata.data.phase0Data)
         of BeaconBlockFork.Altair:
-          RestApiResponse.sszResponse(bdata.data.altairBlock)
+          RestApiResponse.sszResponse(bdata.data.altairData)
         of BeaconBlockFork.Merge:
-          RestApiResponse.sszResponse(bdata.data.mergeBlock)
+          RestApiResponse.sszResponse(bdata.data.mergeData)
       of "application/json":
         RestApiResponse.jsonResponsePlain(bdata.data.asSigned())
       else:

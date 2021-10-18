@@ -19,7 +19,8 @@ import
   ./gossip_processing/[eth2_processor, block_processor, consensus_manager],
   ./networking/eth2_network,
   ./eth1/eth1_monitor,
-  ./consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
+  ./consensus_object_pools/[
+    blockchain_dag, block_quarantine, exit_pool, attestation_pool],
   ./spec/datatypes/base,
   ./sync/[sync_manager, request_manager],
   ./validators/action_tracker
@@ -28,7 +29,7 @@ export
   osproc, chronos, httpserver, presto, action_tracker, beacon_clock,
   beacon_chain_db, conf, attestation_pool, eth2_network, beacon_node_types,
   eth1_monitor, request_manager, sync_manager, eth2_processor, blockchain_dag,
-  block_quarantine, base
+  block_quarantine, base, exit_pool
 
 type
   RpcServer* = RpcHttpServer

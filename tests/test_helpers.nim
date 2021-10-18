@@ -36,7 +36,7 @@ suite "Spec helpers":
                            Slot(100), cache, info, flags = {})
 
     let
-      state = forked[].hbsPhase0.data
+      state = forked[].phase0Data.data
       root = state.hash_tree_root()
 
     func numLeaves(obj: object): GeneralizedIndex =
