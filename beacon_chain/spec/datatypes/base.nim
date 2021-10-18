@@ -424,6 +424,11 @@ type
     next_fork_version*: Version
     next_fork_epoch*: Epoch
 
+  # https://github.com/ethereum/consensus-specs/tree/v1.1.3/tests/formats/rewards#rewards-tests
+  Deltas* = object
+    rewards*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    penalties*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
   BeaconStateDiff* = object
     # Small and/or static; always include
     slot*: Slot

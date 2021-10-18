@@ -16,19 +16,14 @@ import
   ../../beacon_chain/spec/[validator, helpers, state_transition_epoch],
   ../../beacon_chain/spec/datatypes/phase0,
   # Test utilities
-  ../testutil,
-  ./fixtures_utils
+  ../../testutil,
+  ../fixtures_utils
 
 const
   RewardsDirBase = SszTestsDir/const_preset/"phase0"/"rewards"
   RewardsDirBasic = RewardsDirBase/"basic"/"pyspec_tests"
   RewardsDirLeak = RewardsDirBase/"leak"/"pyspec_tests"
   RewardsDirRandom = RewardsDirBase/"random"/"pyspec_tests"
-
-# https://github.com/ethereum/consensus-specs/tree/v1.0.1/tests/formats/rewards#rewards-tests
-type Deltas = object
-  rewards: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
-  penalties: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
 func add(v: var Deltas, idx: int, delta: RewardDelta) =
   v.rewards[idx] += delta.rewards
@@ -44,11 +39,10 @@ proc runTest(rewardsDir, identifier: string) =
   let testDir = rewardsDir / identifier
 
   proc `testImpl _ rewards _ identifier`() =
-    test "Rewards" & " - " & identifier & preset():
-      var
-        state = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, phase0.BeaconState))
-        cache = StateCache()
+    test "Ethereum Foundation - Phase 0 - Rewards - " & identifier & preset():
       let
+        state = newClone(
+          parseTest(testDir/"pre.ssz_snappy", SSZ, phase0.BeaconState))
         sourceDeltas =
           parseTest(testDir/"source_deltas.ssz_snappy", SSZ, Deltas)
         targetDeltas =
@@ -60,6 +54,7 @@ proc runTest(rewardsDir, identifier: string) =
           parseTest(testDir/"inactivity_penalty_deltas.ssz_snappy", SSZ, Deltas)
 
       var
+        cache = StateCache()
         info: phase0.EpochInfo
         finality_delay = (state[].get_previous_epoch() - state[].finalized_checkpoint.epoch)
 
@@ -104,25 +99,15 @@ proc runTest(rewardsDir, identifier: string) =
           inclusionDelayDeltas2.add(proposer_index.int, proposer_delta.get()[1])
 
       check:
-        sourceDeltas.rewards.asSeq == sourceDeltas2.rewards.asSeq
-        sourceDeltas.penalties.asSeq == sourceDeltas2.penalties.asSeq
-
-        targetDeltas.rewards.asSeq == targetDeltas2.rewards.asSeq
-        targetDeltas.penalties.asSeq == targetDeltas2.penalties.asSeq
-
-        headDeltas.rewards.asSeq == headDeltas2.rewards.asSeq
-        headDeltas.penalties.asSeq == headDeltas2.penalties.asSeq
-
-        inclusionDelayDeltas.rewards.asSeq == inclusionDelayDeltas2.rewards.asSeq
-        inclusionDelayDeltas.penalties.asSeq == inclusionDelayDeltas2.penalties.asSeq
-
-        inactivityPenaltyDeltas.rewards.asSeq == inactivityPenaltyDeltas2.rewards.asSeq
-        inactivityPenaltyDeltas.penalties.asSeq == inactivityPenaltyDeltas2.penalties.asSeq
-
+        sourceDeltas == sourceDeltas2
+        targetDeltas == targetDeltas2
+        headDeltas == headDeltas2
+        inclusionDelayDeltas == inclusionDelayDeltas2
+        inactivityPenaltyDeltas == inactivityPenaltyDeltas2
 
   `testImpl _ rewards _ identifier`()
 
-suite "Ethereum Foundation - Rewards " & preset():
+suite "Ethereum Foundation - Phase 0 - Rewards " & preset():
   for rewardsDir in [RewardsDirBasic, RewardsDirLeak, RewardsDirRandom]:
     for kind, path in walkDir(rewardsDir, relative = true, checkDir = true):
       runTest(rewardsDir, path)
