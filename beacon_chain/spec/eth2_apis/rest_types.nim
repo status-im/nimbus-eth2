@@ -24,7 +24,7 @@ export forks, phase0, altair
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validators.yaml#L17
-  MaximumValidatorIds* = 30
+  MaximumValidatorIds* = 16384
 
 type
   EventTopic* {.pure.} = enum

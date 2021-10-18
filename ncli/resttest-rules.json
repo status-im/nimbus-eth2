@@ -531,9 +531,9 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
+      "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
     }
   },
   {
@@ -1218,9 +1218,9 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
+      "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": ""}]}]
     }
   },
   {
