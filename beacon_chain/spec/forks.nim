@@ -320,6 +320,12 @@ func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconStateFork =
   elif epoch >= cfg.ALTAIR_FORK_EPOCH: forkAltair
   else:                                forkPhase0
 
+func blockForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconBlockFork =
+  ## Return the current fork for the given epoch.
+  if   epoch >= cfg.MERGE_FORK_EPOCH:  BeaconBlockFork.Merge
+  elif epoch >= cfg.ALTAIR_FORK_EPOCH: BeaconBlockFork.Altair
+  else:                                BeaconBlockFork.Phase0
+
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(x: ForkedHashedBeaconState): Epoch =
   ## Return the current epoch.
