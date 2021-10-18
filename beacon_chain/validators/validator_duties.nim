@@ -660,11 +660,11 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
             data.target.epoch,
             signing_root)
       if registered.isOk():
-        let subnet_id = compute_subnet_for_attestation(
+        let subnet = compute_subnet_for_attestation(
           committees_per_slot, data.slot, data.index.CommitteeIndex)
         asyncSpawn createAndSendAttestation(
           node, fork, genesis_validators_root, validator, data,
-          committee.len(), index_in_committee, subnet_id)
+          committee.len(), index_in_committee, subnet)
       else:
         warn "Slashing protection activated for attestation",
           validator = validator.pubkey,
@@ -1104,10 +1104,10 @@ proc sendAttestation*(node: BeaconNode,
   let
     epochRef = node.dag.getEpochRef(
       attestationBlock, attestation.data.target.epoch)
-    subnet_id = compute_subnet_for_attestation(
+    subnet = compute_subnet_for_attestation(
       get_committee_count_per_slot(epochRef), attestation.data.slot,
       attestation.data.index.CommitteeIndex)
-    res = await node.sendAttestation(attestation, subnet_id,
+    res = await node.sendAttestation(attestation, subnet,
                                      checkSignature = true)
   if not(res):
     return SendResult.err("Attestation failed validation")

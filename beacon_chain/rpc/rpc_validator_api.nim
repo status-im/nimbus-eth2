@@ -159,11 +159,11 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     let
       head = node.doChecksAndGetCurrentHead(epoch)
       epochRef = node.dag.getEpochRef(head, epoch)
-      subnet_id = compute_subnet_for_attestation(
+      subnet = compute_subnet_for_attestation(
         get_committee_count_per_slot(epochRef), slot, committee_index)
 
     # The validator index here is invalid, but since JSON-RPC is on its way
     # to deprecation, this is fine
     node.registerDuty(
-      slot, subnet_id, 0.ValidatorIndex,
+      slot, subnet, 0.ValidatorIndex,
        is_aggregator(epochRef, slot, committee_index, slot_signature))

@@ -681,7 +681,6 @@ proc trackSyncCommitteeTopics*(node: BeaconNode) =
 proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   ## Subscribe to subnets that we are providing stability for or aggregating
   ## and unsubscribe from the ones that are no longer relevant.
-  node.actionTracker.updateSlot(slot)
 
   # Let the tracker know what duties are approaching - this will tell us how
   # many stability subnets we need to be subscribed to and what subnets we'll
@@ -690,26 +689,19 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   # these arrive
   await node.registerDuties(slot)
 
-  # Syncing tends to be ~1 block/s, and allow for an epoch of time for libp2p
-  # subscribing to spin up. The faster the sync, the more wallSlot - headSlot
-  # lead time is required
+  # We start subscribing to gossip before we're fully synced - this allows time
+  # to subscribe before the sync end game
   const
     TOPIC_SUBSCRIBE_THRESHOLD_SLOTS = 64
     HYSTERESIS_BUFFER = 16
 
   let
-    syncQueueLen = node.syncManager.syncQueueLen
+    head = node.dag.head
+    headDistance =
+      if slot > head.slot: (slot - head.slot).uint64
+      else: 0'u64
     targetGossipState =
-      # SyncManager forward sync by default runs until maxHeadAge slots, or one
-      # epoch range is achieved. This particular condition has a couple caveats
-      # including that under certain conditions, debtsCount appears to push len
-      # (here, syncQueueLen) to underflow-like values; and even when exactly at
-      # the expected walltime slot the queue isn't necessarily empty. Therefore
-      # TOPIC_SUBSCRIBE_THRESHOLD_SLOTS is not exactly the number of slots that
-      # are left. Furthermore, even when 0 peers are being used, this won't get
-      # to 0 slots in syncQueueLen, but that's a vacuous condition given that a
-      # networking interaction cannot happen under such circumstances.
-      if syncQueueLen > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS:
+      if headDistance > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER:
         GossipState.Disconnected
       elif slot.epoch + 1 < node.dag.cfg.ALTAIR_FORK_EPOCH:
         GossipState.ConnectedToPhase0
@@ -723,8 +715,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     # We are synced, so we will connect
     debug "Enabling topic subscriptions",
       wallSlot = slot,
-      headSlot = node.dag.head.slot,
-      syncQueueLen, targetGossipState
+      headSlot = head.slot,
+      headDistance, targetGossipState
 
     node.setupDoppelgangerDetection(slot)
 
@@ -732,68 +724,61 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     # it might also happen on a sufficiently fast restart
 
     # We "know" the actions for the current and the next epoch
-    if node.isSynced(node.dag.head):
+    if node.isSynced(head):
       node.actionTracker.updateActions(
-        node.dag.getEpochRef(node.dag.head, slot.epoch))
+        node.dag.getEpochRef(head, slot.epoch))
       node.actionTracker.updateActions(
-        node.dag.getEpochRef(node.dag.head, slot.epoch + 1))
+        node.dag.getEpochRef(head, slot.epoch + 1))
 
-  block addRemoveHandlers:
-    case targetGossipState
+  case targetGossipState
+  of GossipState.Disconnected:
+    case node.gossipState:
+    of GossipState.Disconnected: discard
+    else:
+      debug "Disabling topic subscriptions",
+        wallSlot = slot,
+        headSlot = head.slot,
+        headDistance
+      node.removeAllMessageHandlers()
+      node.gossipState = GossipState.Disconnected
+
+  of GossipState.ConnectedToPhase0:
+    case node.gossipState:
+    of GossipState.ConnectedToPhase0: discard
     of GossipState.Disconnected:
-      case node.gossipState:
-      of GossipState.Disconnected: break
-      else:
-        if syncQueueLen > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER and
-           # Filter out underflow from debtsCount; plausible queue lengths can't
-           # exceed wallslot, with safety margin.
-           syncQueueLen < 2 * slot.uint64:
-          debug "Disabling topic subscriptions",
-            wallSlot = slot,
-            headSlot = node.dag.head.slot,
-            syncQueueLen
-          node.removeAllMessageHandlers()
-          node.gossipState = GossipState.Disconnected
-          break
-
-    of GossipState.ConnectedToPhase0:
-      case node.gossipState:
-      of GossipState.ConnectedToPhase0: break
-      of GossipState.Disconnected:
-        node.addPhase0MessageHandlers(slot)
-      of GossipState.InTransitionToAltair:
-        warn "Unexpected clock regression during altair transition"
-        node.removeAltairMessageHandlers()
-      of GossipState.ConnectedToAltair:
-        warn "Unexpected clock regression during altair transition"
-        node.removeAltairMessageHandlers()
-        node.addPhase0MessageHandlers(slot)
-
+      node.addPhase0MessageHandlers(slot)
     of GossipState.InTransitionToAltair:
-      case node.gossipState:
-      of GossipState.InTransitionToAltair: break
-      of GossipState.Disconnected:
-        node.addPhase0MessageHandlers(slot)
-        node.addAltairMessageHandlers(slot)
-      of GossipState.ConnectedToPhase0:
-        node.addAltairMessageHandlers(slot)
-      of GossipState.ConnectedToAltair:
-        warn "Unexpected clock regression during altair transition"
-        node.addPhase0MessageHandlers(slot)
-
+      warn "Unexpected clock regression during altair transition"
+      node.removeAltairMessageHandlers()
     of GossipState.ConnectedToAltair:
-      case node.gossipState:
-      of GossipState.ConnectedToAltair: break
-      of GossipState.Disconnected:
-        node.addAltairMessageHandlers(slot)
-      of GossipState.ConnectedToPhase0:
-        node.removePhase0MessageHandlers()
-        node.addAltairMessageHandlers(slot)
-      of GossipState.InTransitionToAltair:
-        node.removePhase0MessageHandlers()
+      warn "Unexpected clock regression during altair transition"
+      node.removeAltairMessageHandlers()
+      node.addPhase0MessageHandlers(slot)
 
-    node.gossipState = targetGossipState
+  of GossipState.InTransitionToAltair:
+    case node.gossipState:
+    of GossipState.InTransitionToAltair: discard
+    of GossipState.Disconnected:
+      node.addPhase0MessageHandlers(slot)
+      node.addAltairMessageHandlers(slot)
+    of GossipState.ConnectedToPhase0:
+      node.addAltairMessageHandlers(slot)
+    of GossipState.ConnectedToAltair:
+      warn "Unexpected clock regression during altair transition"
+      node.addPhase0MessageHandlers(slot)
 
+  of GossipState.ConnectedToAltair:
+    case node.gossipState:
+    of GossipState.ConnectedToAltair: discard
+    of GossipState.Disconnected:
+      node.addAltairMessageHandlers(slot)
+    of GossipState.ConnectedToPhase0:
+      node.removePhase0MessageHandlers()
+      node.addAltairMessageHandlers(slot)
+    of GossipState.InTransitionToAltair:
+      node.removePhase0MessageHandlers()
+
+  node.gossipState = targetGossipState
   node.updateAttestationSubnetHandlers(slot)
 
 func getNextValidatorAction(
@@ -860,18 +845,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   node.syncCommitteeMsgPool[].pruneData(slot)
 
-  # -1 is a more useful output than 18446744073709551615 as an indicator of
-  # no future attestation/proposal known.
-  template displayInt64(x: Slot): int64 =
-    if x == high(uint64).Slot:
-      -1'i64
-    else:
-      toGaugeValue(x)
-
-  # Register upcoming duties from attached validators so that we can subscribe
-  # to the correct topics
-  await node.registerDuties(slot)
-
   # Update upcoming actions - we do this every slot in case a reorg happens
   if node.isSynced(node.dag.head) and
       node.actionTracker.lastCalculatedEpoch < slot.epoch + 1:
@@ -892,6 +865,14 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
       node.actionTracker.lastCalculatedEpoch, slot)
     nextActionWaitTime = saturate(fromNow(
       node.beaconClock, min(nextAttestationSlot, nextProposalSlot)))
+
+  # -1 is a more useful output than 18446744073709551615 as an indicator of
+  # no future attestation/proposal known.
+  template displayInt64(x: Slot): int64 =
+    if x == high(uint64).Slot:
+      -1'i64
+    else:
+      toGaugeValue(x)
 
   info "Slot end",
     slot = shortLog(slot),
@@ -930,6 +911,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     # epoch processing that follows
     await sleepAsync(advanceCutoff.offset)
     node.dag.advanceClearanceState()
+
+  # Prepare action tracker for the next slot
+  node.actionTracker.updateSlot(slot + 1)
 
   # The last thing we do is to perform the subscriptions and unsubscriptions for
   # the next slot, just before that slot starts - because of the advance cuttoff
