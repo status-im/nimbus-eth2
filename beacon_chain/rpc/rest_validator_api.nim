@@ -514,11 +514,14 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                              $res.error())
           res.get()
       let epochRef = node.dag.getEpochRef(head, epoch)
-      let subnet = uint8(compute_subnet_for_attestation(
+      let subnet = compute_subnet_for_attestation(
         get_committee_count_per_slot(epochRef), request.slot,
         request.committee_index)
-      )
-    warn "Beacon committee subscription request served, but not implemented"
+
+      node.registerDuty(
+        request.slot, subnet, request.validator_index,
+        request.is_aggregator)
+
     return RestApiResponse.jsonMsgResponse(BeaconCommitteeSubscriptionSuccess)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/prepareSyncCommitteeSubnets

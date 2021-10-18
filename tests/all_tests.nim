@@ -13,6 +13,7 @@ import
 
 import # Unit test
   ./ssz/all_tests as ssz_all_tests,
+  ./test_action_tracker,
   ./test_attestation_pool,
   ./test_beacon_chain_db,
   ./test_beaconstate,
