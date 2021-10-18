@@ -307,7 +307,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return
       case message.kind
       of BeaconBlockFork.Phase0:
-        RestApiResponse.jsonResponse(message.phase0Block)
+        RestApiResponse.jsonResponse(message.phase0Data)
       else:
         RestApiResponse.jsonError(Http400,
                                   "Unable to produce block for altair fork")

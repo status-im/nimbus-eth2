@@ -26,7 +26,7 @@ import
 suite "[Unit - Spec - Block processing] Deposits " & preset():
 
   const NumValidators = uint64 5 * SLOTS_PER_EPOCH
-  let genesisState = newClone(initGenesisState(NumValidators).hbsPhase0)
+  let genesisState = newClone(initGenesisState(NumValidators).phase0Data)
   doAssert genesisState.data.validators.lenu64 == NumValidators
 
   template valid_deposit(deposit_amount: uint64, name: string): untyped =

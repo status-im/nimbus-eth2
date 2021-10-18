@@ -114,15 +114,15 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
       rollback: RollbackForkedHashedProc): auto =
     var
       fhState = (ref ForkedHashedBeaconState)(
-        hbsPhase0: phase0.HashedBeaconState(
+        phase0Data: phase0.HashedBeaconState(
           data: data.state, root: hash_tree_root(data.state)),
-        beaconStateFork: forkPhase0)
+        kind: BeaconStateFork.Phase0)
       cache = StateCache()
       info = ForkedEpochInfo()
     result =
       state_transition(
         cfg, fhState[], blck, cache, info, flags, rollback)
-    data.state = fhState.hbsPhase0.data
+    data.state = fhState.phase0Data.data
 
   decodeAndProcess(BlockInput):
     state_transition(defaultRuntimeConfig, data, data.beaconBlock, flags, noRollback)

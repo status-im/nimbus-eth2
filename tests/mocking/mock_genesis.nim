@@ -26,8 +26,8 @@ proc initGenesisState*(
     )
 
   result = (ref ForkedHashedBeaconState)(
-    beaconStateFork: forkPhase0,
-    hbsPhase0: initialize_hashed_beacon_state_from_eth1(
+    kind: BeaconStateFork.Phase0,
+    phase0Data: initialize_hashed_beacon_state_from_eth1(
       cfg, eth1BlockHash, 0, deposits, {}))
 
   maybeUpgradeState(cfg, result[])

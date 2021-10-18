@@ -44,8 +44,8 @@ proc runTest(testName, testDir, unitTestName: string) =
     test testName & " - " & unitTestName & preset():
       var
         preState = newClone(parseTest(testPath/"pre.ssz_snappy", SSZ, phase0.BeaconState))
-        fhPreState = (ref ForkedHashedBeaconState)(hbsPhase0: phase0.HashedBeaconState(
-          data: preState[], root: hash_tree_root(preState[])), beaconStateFork: forkPhase0)
+        fhPreState = (ref ForkedHashedBeaconState)(phase0Data: phase0.HashedBeaconState(
+          data: preState[], root: hash_tree_root(preState[])), kind: BeaconStateFork.Phase0)
         cache = StateCache()
         info = ForkedEpochInfo()
         cfg = defaultRuntimeConfig

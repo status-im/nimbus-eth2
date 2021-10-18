@@ -44,7 +44,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
     (hashedState, _) = loadGenesis(validators, validate)
     genesisBlock = get_initial_beacon_block(hashedState.data)
     state = (ref ForkedHashedBeaconState)(
-      hbsPhase0: hashedState[], beaconStateFork: forkPhase0)
+      phase0Data: hashedState[], kind: BeaconStateFork.Phase0)
 
   echo "Starting simulation..."
 
@@ -65,10 +65,10 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
         write(stdout, ".")
 
       if last:
-        writeJson("state.json", state[].hbsPhase0)
+        writeJson("state.json", state[].phase0Data)
     else:
       if getStateField(state[], slot) mod json_interval.uint64 == 0:
-        writeJson(jsonName(prefix, getStateField(state[], slot)), state[].hbsPhase0.data)
+        writeJson(jsonName(prefix, getStateField(state[], slot)), state[].phase0Data.data)
         write(stdout, ":")
       else:
         write(stdout, ".")
@@ -79,7 +79,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
   for i in 0..<slots:
     maybeWrite(false)
-    verifyConsensus(state[].hbsPhase0.data, attesterRatio)
+    verifyConsensus(state[].phase0Data.data, attesterRatio)
 
     let
       attestations_idx = getStateField(state[], slot)
@@ -97,7 +97,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
     withTimer(timers[t]):
       signedBlock = addTestBlock(
         state[], latest_block_root, cache, attestations = blockAttestations,
-        flags = flags).phase0Block
+        flags = flags).phase0Data
     latest_block_root = withTimerRet(timers[tHashBlock]):
       hash_tree_root(signedBlock.message)
     signedBlock.root = latest_block_root
@@ -168,4 +168,4 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
   echo "Done!"
 
-  printTimers(state[].hbsPhase0.data, attesters, validate, timers)
+  printTimers(state[].phase0Data.data, attesters, validate, timers)

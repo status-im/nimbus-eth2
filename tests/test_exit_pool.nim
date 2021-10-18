@@ -9,27 +9,28 @@
 
 import chronicles, chronos
 import eth/keys
-import ../beacon_chain/spec/[datatypes/base, presets]
+import ../beacon_chain/spec/[datatypes/base, forks, presets]
 import ../beacon_chain/consensus_object_pools/[block_quarantine, blockchain_dag, exit_pool]
 import "."/[testutil, testdbutil]
 
-proc getExitPool(): auto =
-  let dag =
-    init(ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3), {})
-  newClone(ExitPool.init(dag))
-
 suite "Exit pool testing suite":
   setup:
-    let pool = getExitPool()
+    let
+      dag = init(
+        ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3), {})
+      pool = newClone(ExitPool.init(dag))
+
   test "addExitMessage/getProposerSlashingMessage":
     for i in 0'u64 .. MAX_PROPOSER_SLASHINGS + 5:
       for j in 0'u64 .. i:
         pool.proposer_slashings.addExitMessage(
-          ProposerSlashing(), MAX_PROPOSER_SLASHINGS)
-      check:
-        pool[].getProposerSlashingsForBlock().lenu64 ==
-          min(i + 1, MAX_PROPOSER_SLASHINGS)
-        pool[].getProposerSlashingsForBlock().len == 0
+          ProposerSlashing(signed_header_1: SignedBeaconBlockHeader(
+            message: BeaconBlockHeader(proposer_index: j))), MAX_PROPOSER_SLASHINGS)
+      withState(dag.headState.data):
+        check:
+          pool[].getBeaconBlockExits(state.data).proposer_slashings.lenu64 ==
+            min(i + 1, MAX_PROPOSER_SLASHINGS)
+          pool[].getBeaconBlockExits(state.data).proposer_slashings.len == 0
 
   test "addExitMessage/getAttesterSlashingMessage":
     for i in 0'u64 .. MAX_ATTESTER_SLASHINGS + 5:
@@ -37,21 +38,23 @@ suite "Exit pool testing suite":
         pool.attester_slashings.addExitMessage(
           AttesterSlashing(
             attestation_1: IndexedAttestation(attesting_indices:
-              List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE](@[0'u64])),
+              List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE](@[j])),
             attestation_2: IndexedAttestation(attesting_indices:
-              List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE](@[0'u64]))),
+              List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE](@[j]))),
           MAX_ATTESTER_SLASHINGS)
-      check:
-        pool[].getAttesterSlashingsForBlock().lenu64 ==
-          min(i + 1, MAX_ATTESTER_SLASHINGS)
-        pool[].getAttesterSlashingsForBlock().len == 0
+      withState(dag.headState.data):
+        check:
+          pool[].getBeaconBlockExits(state.data).attester_slashings.lenu64 ==
+            min(i + 1, MAX_ATTESTER_SLASHINGS)
+          pool[].getBeaconBlockExits(state.data).attester_slashings.len == 0
 
   test "addExitMessage/getVoluntaryExitMessage":
     for i in 0'u64 .. MAX_VOLUNTARY_EXITS + 5:
       for j in 0'u64 .. i:
         pool.voluntary_exits.addExitMessage(
-          SignedVoluntaryExit(), MAX_VOLUNTARY_EXITS)
-      check:
-        pool[].getVoluntaryExitsForBlock().lenu64 ==
-          min(i + 1, MAX_VOLUNTARY_EXITS)
-        pool[].getProposerSlashingsForBlock().len == 0
+          SignedVoluntaryExit(message: VoluntaryExit(validator_index: j)), MAX_VOLUNTARY_EXITS)
+      withState(dag.headState.data):
+        check:
+          pool[].getBeaconBlockExits(state.data).voluntary_exits.lenu64 ==
+            min(i + 1, MAX_VOLUNTARY_EXITS)
+          pool[].getBeaconBlockExits(state.data).voluntary_exits.len == 0

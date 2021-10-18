@@ -428,7 +428,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       blockId: string) -> phase0.TrustedSignedBeaconBlock:
     let blck = node.getBlockDataFromBlockId(blockId).data
     if blck.kind == BeaconBlockFork.Phase0:
-      return blck.phase0Block
+      return blck.phase0Data
     else:
       raiseNoAltairSupport()
 

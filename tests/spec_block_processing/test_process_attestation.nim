@@ -44,32 +44,32 @@ suite "[Unit - Spec - Block processing] Attestations " & preset():
       # ----------------------------------------
       let
         current_epoch_count =
-          state.hbsPhase0.data.current_epoch_attestations.len
+          state.phase0Data.data.current_epoch_attestations.len
         previous_epoch_count =
-          state.hbsPhase0.data.previous_epoch_attestations.len
+          state.phase0Data.data.previous_epoch_attestations.len
 
       # State transition
       # ----------------------------------------
       var cache = StateCache()
       check process_attestation(
-        state.hbsPhase0.data, attestation, flags = {}, 0.Gwei, cache
+        state.phase0Data.data, attestation, flags = {}, 0.Gwei, cache
       ).isOk
 
       # Check that the attestation was processed
       if attestation.data.target.epoch == get_current_epoch(state[]):
-        check(state.hbsPhase0.data.current_epoch_attestations.len ==
+        check(state.phase0Data.data.current_epoch_attestations.len ==
           current_epoch_count + 1)
       else:
-        check(state.hbsPhase0.data.previous_epoch_attestations.len ==
+        check(state.phase0Data.data.previous_epoch_attestations.len ==
           previous_epoch_count + 1)
 
   valid_attestation("Valid attestation"):
-    let attestation = mockAttestation(state.hbsPhase0.data)
+    let attestation = mockAttestation(state.phase0Data.data)
     getStateField(state[], slot) += MIN_ATTESTATION_INCLUSION_DELAY
 
   valid_attestation("Valid attestation from previous epoch"):
     nextSlot(state[])
-    let attestation = mockAttestation(state.hbsPhase0.data)
+    let attestation = mockAttestation(state.phase0Data.data)
     getStateField(state[], slot) = Slot(SLOTS_PER_EPOCH - 1)
     nextEpoch(state[])
 

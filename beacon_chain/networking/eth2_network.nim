@@ -2130,9 +2130,9 @@ proc updateForkId*(node: Eth2Node, epoch: Epoch, genesisValidatorsRoot: Eth2Dige
 
 func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
   case node.cfg.stateForkAtEpoch(epoch)
-  of forkMerge:  node.forkDigests.merge
-  of forkAltair: node.forkDigests.altair
-  of forkPhase0: node.forkDigests.phase0
+  of BeaconStateFork.Merge:  node.forkDigests.merge
+  of BeaconStateFork.Altair: node.forkDigests.altair
+  of BeaconStateFork.Phase0: node.forkDigests.phase0
 
 proc getWallEpoch(node: Eth2Node): Epoch =
   node.getBeaconTime().slotOrZero.epoch
@@ -2174,13 +2174,13 @@ proc broadcastBeaconBlock*(node: Eth2Node, forked: ForkedSignedBeaconBlock) =
   case forked.kind
   of BeaconBlockFork.Phase0:
     let topic = getBeaconBlocksTopic(node.forkDigests.phase0)
-    node.broadcast(topic, forked.phase0Block)
+    node.broadcast(topic, forked.phase0Data)
   of BeaconBlockFork.Altair:
     let topic = getBeaconBlocksTopic(node.forkDigests.altair)
-    node.broadcast(topic, forked.altairBlock)
+    node.broadcast(topic, forked.altairData)
   of BeaconBlockFork.Merge:
     let topic = getBeaconBlocksTopic(node.forkDigests.merge)
-    node.broadcast(topic, forked.mergeBlock)
+    node.broadcast(topic, forked.mergeData)
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage, committeeIdx: SyncCommitteeIndex) =

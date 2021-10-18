@@ -370,7 +370,7 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   let tmpState = assignClone(dag.headState)
   dag.withState(tmpState[], blckRef.atSlot(Slot(conf.slot))):
     echo "Writing state..."
-    dump("./", stateData.data.hbsPhase0, blck)
+    dump("./", stateData.data.phase0Data, blck)
 
 func atCanonicalSlot(blck: BlockRef, slot: Slot): BlockSlot =
   if slot == 0:
@@ -408,7 +408,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
     defer: e2s.close()
 
     dag.withState(tmpState[], canonical):
-      e2s.appendRecord(stateData.data.hbsPhase0.data).get()
+      e2s.appendRecord(stateData.data.phase0Data.data).get()
 
     var
       ancestors: seq[BlockRef]
@@ -492,7 +492,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
       indices
     case info.kind
     of EpochInfoFork.Phase0:
-      template info: untyped = info.phase0Info
+      template info: untyped = info.phase0Data
       for i, s in info.statuses.pairs():
         let perf = addr perfs[i]
         if RewardFlags.isActiveInPreviousEpoch in s.flags:
@@ -719,7 +719,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
       inTxn = true
     case info.kind
     of EpochInfoFork.Phase0:
-      template info: untyped = info.phase0Info
+      template info: untyped = info.phase0Data
       insertEpochInfo.exec(
         (getStateField(state[].data, slot).epoch.int64,
         info.total_balances.current_epoch_raw.int64,

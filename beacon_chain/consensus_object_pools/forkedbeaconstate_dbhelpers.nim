@@ -12,7 +12,7 @@ import
   ../beacon_chain_db
 
 proc putState*(db: BeaconChainDB, state: ForkedHashedBeaconState) =
-  case state.beaconStateFork:
-  of forkPhase0: db.putState(getStateRoot(state), state.hbsPhase0.data)
-  of forkAltair: db.putState(getStateRoot(state), state.hbsAltair.data)
-  of forkMerge:  db.putState(getStateRoot(state), state.hbsMerge.data)
+  case state.kind:
+  of BeaconStateFork.Phase0: db.putState(getStateRoot(state), state.phase0Data.data)
+  of BeaconStateFork.Altair: db.putState(getStateRoot(state), state.altairData.data)
+  of BeaconStateFork.Merge:  db.putState(getStateRoot(state), state.mergeData.data)

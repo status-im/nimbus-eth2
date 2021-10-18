@@ -27,9 +27,9 @@ proc mockAttestationData(
   doAssert state.slot >= slot
 
   if slot == state.slot:
-    let forkedState = (ref ForkedHashedBeaconState)(beaconStateFork: forkPhase0,
-      hbsPhase0: phase0.HashedBeaconState(root: hash_tree_root(state), data: state))[]
-    result.beacon_block_root = mockBlockForNextSlot(forkedState).phase0Block.message.parent_root
+    let forkedState = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0,
+      phase0Data: phase0.HashedBeaconState(root: hash_tree_root(state), data: state))[]
+    result.beacon_block_root = mockBlockForNextSlot(forkedState).phase0Data.message.parent_root
   else:
     result.beacon_block_root = get_block_root_at_slot(state, slot)
 

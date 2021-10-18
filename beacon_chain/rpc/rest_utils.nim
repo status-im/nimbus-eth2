@@ -324,7 +324,7 @@ proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
 func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
   epoch: Epoch): Result[seq[ValidatorPubKey], cstring] =
   withState(forkedState):
-    when stateFork >= forkAltair:
+    when stateFork >= BeaconStateFork.Altair:
       let
         headSlot = state.data.slot
         epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())

@@ -25,7 +25,7 @@ proc compute_aggregate_sync_committee_signature(
     forked: ForkedHashedBeaconState,
     participants: openArray[ValidatorIndex],
     block_root = ZERO_HASH): ValidatorSig =
-  template state: untyped {.inject.} = forked.hbsAltair.data
+  template state: untyped {.inject.} = forked.altairData.data
 
   if len(participants) == 0:
     return ValidatorSig.infinity
@@ -33,7 +33,7 @@ proc compute_aggregate_sync_committee_signature(
   let
     root =
       if block_root != ZERO_HASH: block_root
-      else: mockBlockForNextSlot(forked).altairBlock.message.parent_root
+      else: mockBlockForNextSlot(forked).altairData.message.parent_root
     signing_root = sync_committee_msg_signing_root(
       state.fork, state.slot.epoch, state.genesis_validators_root, root)
 
@@ -56,7 +56,7 @@ proc block_for_next_slot(
     forked: var ForkedHashedBeaconState,
     cache: var StateCache,
     withAttestations = false): ForkedSignedBeaconBlock =
-  template state: untyped {.inject.} = forked.hbsAltair.data
+  template state: untyped {.inject.} = forked.altairData.data
 
   let parent_root = block:
     var previous_block_header = state.latest_block_header
@@ -89,7 +89,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L25-L81
   test "process_light_client_update_not_updated":
     var forked = assignClone(genesisState[])
-    template state: untyped {.inject.} = forked[].hbsAltair.data
+    template state: untyped {.inject.} = forked[].altairData.data
 
     let pre_snapshot = LightClientSnapshot(
       current_sync_committee: state.current_sync_committee,
@@ -100,7 +100,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
     # so it won't update snapshot
     var cache = StateCache()
     let
-      signed_block = block_for_next_slot(cfg, forked[], cache).altairBlock
+      signed_block = block_for_next_slot(cfg, forked[], cache).altairData
       block_header = BeaconBlockHeader(
         slot: signed_block.message.slot,
         proposer_index: signed_block.message.proposer_index,
@@ -144,7 +144,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L84-L147
   test "process_light_client_update_timeout":
     var forked = assignClone(genesisState[])
-    template state: untyped {.inject.} = forked[].hbsAltair.data
+    template state: untyped {.inject.} = forked[].altairData.data
 
     let pre_snapshot = LightClientSnapshot(
       current_sync_committee: state.current_sync_committee,
@@ -165,7 +165,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
     check: snapshot_period + 1 == update_period
 
     let
-      signed_block = block_for_next_slot(cfg, forked[], cache).altairBlock
+      signed_block = block_for_next_slot(cfg, forked[], cache).altairData
       block_header = BeaconBlockHeader(
         slot: signed_block.message.slot,
         proposer_index: signed_block.message.proposer_index,
@@ -210,7 +210,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L150-L221
   test "process_light_client_update_finality_updated":
     var forked = assignClone(genesisState[])
-    template state: untyped {.inject.} = forked[].hbsAltair.data
+    template state: untyped {.inject.} = forked[].altairData.data
 
     let pre_snapshot = LightClientSnapshot(
       current_sync_committee: state.current_sync_committee,
@@ -241,7 +241,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
     var next_sync_committee_branch:
       array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
     let
-      finalized_block = blocks[SLOTS_PER_EPOCH - 1].altairBlock
+      finalized_block = blocks[SLOTS_PER_EPOCH - 1].altairData
       finalized_block_header = BeaconBlockHeader(
         slot: finalized_block.message.slot,
         proposer_index: finalized_block.message.proposer_index,
@@ -259,7 +259,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
 
     # Build block header
     let
-      blck = mockBlock(forked[], state.slot, cfg = cfg).altairBlock.message
+      blck = mockBlock(forked[], state.slot, cfg = cfg).altairData.message
       block_header = BeaconBlockHeader(
         slot: blck.slot,
         proposer_index: blck.proposer_index,

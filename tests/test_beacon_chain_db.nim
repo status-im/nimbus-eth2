@@ -78,9 +78,9 @@ proc getTestStates(stateFork: BeaconStateFork): auto =
 # Each of phase 0/altair/merge states gets used twice, so make them global to
 # module
 let
-  testStatesPhase0 = getTestStates(forkPhase0)
-  testStatesAltair = getTestStates(forkAltair)
-  testStatesMerge  = getTestStates(forkMerge)
+  testStatesPhase0 = getTestStates(BeaconStateFork.Phase0)
+  testStatesAltair = getTestStates(BeaconStateFork.Altair)
+  testStatesMerge  = getTestStates(BeaconStateFork.Merge)
 
 suite "Beacon chain DB" & preset():
   test "empty database" & preset():
@@ -199,7 +199,7 @@ suite "Beacon chain DB" & preset():
     var db = makeTestDB(SLOTS_PER_EPOCH)
 
     for state in testStatesPhase0:
-      db.putState(state[].hbsPhase0.data)
+      db.putState(state[].phase0Data.data)
       let root = hash_tree_root(state[])
 
       check:
@@ -217,7 +217,7 @@ suite "Beacon chain DB" & preset():
     var db = makeTestDB(SLOTS_PER_EPOCH)
 
     for state in testStatesAltair:
-      db.putState(state[].hbsAltair.data)
+      db.putState(state[].altairData.data)
       let root = hash_tree_root(state[])
 
       check:
@@ -235,7 +235,7 @@ suite "Beacon chain DB" & preset():
     var db = makeTestDB(SLOTS_PER_EPOCH)
 
     for state in testStatesMerge:
-      db.putState(state[].hbsMerge.data)
+      db.putState(state[].mergeData.data)
       let root = hash_tree_root(state[])
 
       check:
@@ -254,7 +254,7 @@ suite "Beacon chain DB" & preset():
     let stateBuffer = (phase0.BeaconStateRef)()
 
     for state in testStatesPhase0:
-      db.putState(state[].hbsPhase0.data)
+      db.putState(state[].phase0Data.data)
       let root = hash_tree_root(state[])
 
       check:
@@ -274,7 +274,7 @@ suite "Beacon chain DB" & preset():
     let stateBuffer = (altair.BeaconStateRef)()
 
     for state in testStatesAltair:
-      db.putState(state[].hbsAltair.data)
+      db.putState(state[].altairData.data)
       let root = hash_tree_root(state[])
 
       check:
@@ -294,7 +294,7 @@ suite "Beacon chain DB" & preset():
     let stateBuffer = (merge.BeaconStateRef)()
 
     for state in testStatesMerge:
-      db.putState(state[].hbsMerge.data)
+      db.putState(state[].mergeData.data)
       let root = hash_tree_root(state[])
 
       check:
@@ -314,8 +314,8 @@ suite "Beacon chain DB" & preset():
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
       state = (ref ForkedHashedBeaconState)(
-        beaconStateFork: forkPhase0,
-        hbsPhase0: phase0.HashedBeaconState(data: phase0.BeaconState(
+        kind: BeaconStateFork.Phase0,
+        phase0Data: phase0.HashedBeaconState(data: phase0.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 
@@ -327,17 +327,17 @@ suite "Beacon chain DB" & preset():
       assign(state[], restoreAddr[].data)
 
     check:
-      state[].hbsPhase0.data.slot == 10.Slot
-      not db.getState(root, state[].hbsPhase0.data, restore)
-      state[].hbsPhase0.data.slot != 10.Slot
+      state[].phase0Data.data.slot == 10.Slot
+      not db.getState(root, state[].phase0Data.data, restore)
+      state[].phase0Data.data.slot != 10.Slot
 
   test "sanity check Altair and cross-fork getState rollback" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
       state = (ref ForkedHashedBeaconState)(
-        beaconStateFork: forkAltair,
-        hbsAltair: altair.HashedBeaconState(data: altair.BeaconState(
+        kind: BeaconStateFork.Altair,
+        altairData: altair.HashedBeaconState(data: altair.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 
@@ -349,20 +349,20 @@ suite "Beacon chain DB" & preset():
       assign(state[], restoreAddr[].data)
 
     check:
-      state[].hbsAltair.data.slot == 10.Slot
-      not db.getAltairState(root, state[].hbsAltair.data, restore)
+      state[].altairData.data.slot == 10.Slot
+      not db.getAltairState(root, state[].altairData.data, restore)
 
       # assign() has switched the case object fork
-      state[].beaconStateFork == forkPhase0
-      state[].hbsPhase0.data.slot != 10.Slot
+      state[].kind == BeaconStateFork.Phase0
+      state[].phase0Data.data.slot != 10.Slot
 
   test "sanity check Merge and cross-fork getState rollback" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
       state = (ref ForkedHashedBeaconState)(
-        beaconStateFork: forkMerge,
-        hbsMerge: merge.HashedBeaconState(data: merge.BeaconState(
+        kind: BeaconStateFork.Merge,
+        mergeData: merge.HashedBeaconState(data: merge.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 
@@ -374,12 +374,12 @@ suite "Beacon chain DB" & preset():
       assign(state[], restoreAddr[].data)
 
     check:
-      state[].hbsMerge.data.slot == 10.Slot
-      not db.getMergeState(root, state[].hbsMerge.data, restore)
+      state[].mergeData.data.slot == 10.Slot
+      not db.getMergeState(root, state[].mergeData.data, restore)
 
       # assign() has switched the case object fork
-      state[].beaconStateFork == forkPhase0
-      state[].hbsPhase0.data.slot != 10.Slot
+      state[].kind == BeaconStateFork.Phase0
+      state[].phase0Data.data.slot != 10.Slot
 
   test "find ancestors" & preset():
     var

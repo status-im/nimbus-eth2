@@ -9,23 +9,51 @@
 
 import
   # Standard libraries
-  std/[deques, intsets, tables],
+  std/[deques, sets, intsets],
   # Status libraries
   chronicles,
   # Internal
-  ../spec/[forks, helpers],
-  ../spec/datatypes/base,
-  "."/[blockchain_dag],
-  ../beacon_node_types
+  ../spec/helpers,
+  ../spec/datatypes/[phase0, altair, merge],
+  ./blockchain_dag
 
-export beacon_node_types, base, intsets, deques
+export phase0, altair, merge, deques, intsets, sets, blockchain_dag
 
 logScope: topics = "exitpool"
 
 const
-  ATTESTER_SLASHINGS_BOUND* = MAX_ATTESTER_SLASHINGS * 2
-  PROPOSER_SLASHINGS_BOUND* = MAX_PROPOSER_SLASHINGS * 2
-  VOLUNTARY_EXITS_BOUND* = MAX_VOLUNTARY_EXITS * 2
+  ATTESTER_SLASHINGS_BOUND* = MAX_ATTESTER_SLASHINGS * 4
+  PROPOSER_SLASHINGS_BOUND* = MAX_PROPOSER_SLASHINGS * 4
+  VOLUNTARY_EXITS_BOUND* = MAX_VOLUNTARY_EXITS * 4
+
+type
+  OnVoluntaryExitCallback* =
+    proc(data: SignedVoluntaryExit) {.gcsafe, raises: [Defect].}
+
+  ExitPool* = object
+    ## The exit pool tracks attester slashings, proposer slashings, and
+    ## voluntary exits that could be added to a proposed block.
+
+    attester_slashings*: Deque[AttesterSlashing]  ## \
+    ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
+
+    proposer_slashings*: Deque[ProposerSlashing]  ## \
+    ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
+
+    voluntary_exits*: Deque[SignedVoluntaryExit]  ## \
+    ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
+
+    prior_seen_attester_slashed_indices*: IntSet ## \
+    ## Records attester-slashed indices seen.
+
+    prior_seen_proposer_slashed_indices*: IntSet ## \
+    ## Records proposer-slashed indices seen.
+
+    prior_seen_voluntary_exit_indices*: IntSet ##\
+    ## Records voluntary exit indices seen.
+
+    dag*: ChainDAGRef
+    onVoluntaryExitReceived*: OnVoluntaryExitCallback
 
 proc init*(T: type ExitPool, dag: ChainDAGRef,
            onVoluntaryExit: OnVoluntaryExitCallback = nil): T =
@@ -70,19 +98,8 @@ iterator getValidatorIndices(proposer_slashing: ProposerSlashing): uint64 =
 iterator getValidatorIndices(voluntary_exit: SignedVoluntaryExit): uint64 =
   yield voluntary_exit.message.validator_index
 
-# TODO stew/sequtils2
-template allIt(s, pred: untyped): bool =
-  # https://github.com/nim-lang/Nim/blob/version-1-2/lib/pure/collections/sequtils.nim#L640-L662
-  # without the items(...)
-  var result = true
-  for it {.inject.} in s:
-    if not pred:
-      result = false
-      break
-  result
-
-func getExitMessagesForBlock[T](
-    subpool: var Deque[T], pool: var ExitPool, bound: uint64): seq[T] =
+func getExitMessagesForBlock(
+    subpool: var Deque, validators: auto, seen: var HashSet, output: var List) =
   # Approach taken here is to simply collect messages, effectively, a circular
   # buffer and only re-validate that they haven't already found themselves out
   # of the network eventually via some exit message at block construction time
@@ -103,39 +120,36 @@ func getExitMessagesForBlock[T](
   # this occurs, only validating after the fact ensures that we still broadcast
   # out those exit messages that were in orphaned block X by not having eagerly
   # removed them, if we have the chance.
-  while true:
-    if subpool.len == 0 or result.lenu64 >= bound:
-      break
-
+  while subpool.len > 0 and output.len < output.maxLen:
     # Prefer recent messages
     let exit_message = subpool.popLast()
 
-    if allIt(
-        getValidatorIndices(exit_message),
-        getStateField(pool.dag.headState.data, validators)[it].exit_epoch !=
-          FAR_FUTURE_EPOCH):
-      # A beacon block exit message already targeted all these validators
-      continue
+    for slashed_index in getValidatorIndices(exit_message):
+      if validators.lenu64 <= slashed_index:
+        continue
+      if validators[slashed_index].exit_epoch != FAR_FUTURE_EPOCH:
+        continue
+      if seen.containsOrIncl(slashed_index):
+        continue
 
-    result.add exit_message
+      if not output.add exit_message:
+        break
 
   subpool.clear()
-  doAssert result.lenu64 <= bound
 
-func getAttesterSlashingsForBlock*(pool: var ExitPool):
-                                   seq[AttesterSlashing] =
-  ## Retrieve attester slashings that may be added to a new block
-  getExitMessagesForBlock[AttesterSlashing](
-    pool.attester_slashings, pool, MAX_ATTESTER_SLASHINGS)
+func getBeaconBlockExits*(pool: var ExitPool, state: SomeBeaconState): BeaconBlockExits =
+  var
+    indices: HashSet[uint64]
+    res: BeaconBlockExits
 
-func getProposerSlashingsForBlock*(pool: var ExitPool):
-                                   seq[ProposerSlashing] =
-  ## Retrieve proposer slashings that may be added to a new block
-  getExitMessagesForBlock[ProposerSlashing](
-    pool.proposer_slashings, pool, MAX_PROPOSER_SLASHINGS)
+  getExitMessagesForBlock(
+    pool.attester_slashings, state.validators.asSeq(), indices,
+    res.attester_slashings)
+  getExitMessagesForBlock(
+    pool.proposer_slashings, state.validators.asSeq(), indices,
+    res.proposer_slashings)
+  getExitMessagesForBlock(
+    pool.voluntary_exits, state.validators.asSeq(), indices,
+    res.voluntary_exits)
 
-func getVoluntaryExitsForBlock*(pool: var ExitPool):
-                                seq[SignedVoluntaryExit] =
-  ## Retrieve voluntary exits that may be added to a new block
-  getExitMessagesForBlock[SignedVoluntaryExit](
-    pool.voluntary_exits, pool, MAX_VOLUNTARY_EXITS)
+  res

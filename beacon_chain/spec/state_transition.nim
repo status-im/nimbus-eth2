@@ -195,11 +195,11 @@ proc maybeUpgradeStateToAltair(
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.ALTAIR_FORK_EPOCH and
-      state.beaconStateFork == forkPhase0:
-    var newState = upgrade_to_altair(cfg, state.hbsPhase0.data)
+      state.kind == BeaconStateFork.Phase0:
+    var newState = upgrade_to_altair(cfg, state.phase0Data.data)
     state = (ref ForkedHashedBeaconState)(
-      beaconStateFork: forkAltair,
-      hbsAltair: altair.HashedBeaconState(
+      kind: BeaconStateFork.Altair,
+      altairData: altair.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
 func maybeUpgradeStateToMerge(
@@ -207,11 +207,11 @@ func maybeUpgradeStateToMerge(
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.MERGE_FORK_EPOCH and
-      state.beaconStateFork == forkAltair:
-    var newState = upgrade_to_merge(cfg, state.hbsAltair.data)
+      state.kind == BeaconStateFork.Altair:
+    var newState = upgrade_to_merge(cfg, state.altairData.data)
     state = (ref ForkedHashedBeaconState)(
-      beaconStateFork: forkMerge,
-      hbsMerge: merge.HashedBeaconState(
+      kind: BeaconStateFork.Merge,
+      mergeData: merge.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
 proc maybeUpgradeState*(
@@ -369,9 +369,7 @@ template partialBeaconBlock(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    proposerSlashings: seq[ProposerSlashing],
-    attesterSlashings: seq[AttesterSlashing],
-    voluntaryExits: seq[SignedVoluntaryExit],
+    exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
     executionPayload: ExecutionPayload): phase0.BeaconBlock =
   phase0.BeaconBlock(
@@ -382,14 +380,11 @@ template partialBeaconBlock(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
-      proposer_slashings: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS](
-        proposerSlashings),
-      attester_slashings: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS](
-        attesterSlashings),
+      proposer_slashings: exits.proposer_slashings,
+      attester_slashings: exits.attester_slashings,
       attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits:
-        List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits)))
+      voluntary_exits: exits.voluntary_exits))
 
 proc makeBeaconBlock*(
     cfg: RuntimeConfig,
@@ -401,9 +396,7 @@ proc makeBeaconBlock*(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    proposerSlashings: seq[ProposerSlashing],
-    attesterSlashings: seq[AttesterSlashing],
-    voluntaryExits: seq[SignedVoluntaryExit],
+    exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
     executionPayload: ExecutionPayload,
     rollback: RollbackHashedProc,
@@ -417,8 +410,7 @@ proc makeBeaconBlock*(
 
   var blck = partialBeaconBlock(cfg, state, proposer_index, parent_root,
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
-                                proposerSlashings, attesterSlashings, voluntaryExits,
-                                sync_aggregate, executionPayload)
+                                exits, sync_aggregate, executionPayload)
 
   let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
 
@@ -447,9 +439,7 @@ template partialBeaconBlock(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    proposerSlashings: seq[ProposerSlashing],
-    attesterSlashings: seq[AttesterSlashing],
-    voluntaryExits: seq[SignedVoluntaryExit],
+    exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
     executionPayload: ExecutionPayload): altair.BeaconBlock =
   altair.BeaconBlock(
@@ -460,14 +450,11 @@ template partialBeaconBlock(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
-      proposer_slashings: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS](
-        proposerSlashings),
-      attester_slashings: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS](
-        attesterSlashings),
+      proposer_slashings: exits.proposer_slashings,
+      attester_slashings: exits.attester_slashings,
       attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits:
-        List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits),
+      voluntary_exits: exits.voluntary_exits,
       sync_aggregate: sync_aggregate))
 
 proc makeBeaconBlock*(
@@ -480,9 +467,7 @@ proc makeBeaconBlock*(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    proposerSlashings: seq[ProposerSlashing],
-    attesterSlashings: seq[AttesterSlashing],
-    voluntaryExits: seq[SignedVoluntaryExit],
+    exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
     executionPayload: ExecutionPayload,
     rollback: RollbackAltairHashedProc,
@@ -496,8 +481,7 @@ proc makeBeaconBlock*(
 
   var blck = partialBeaconBlock(cfg, state, proposer_index, parent_root,
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
-                                proposerSlashings, attesterSlashings, voluntaryExits,
-                                sync_aggregate, executionPayload)
+                                exits, sync_aggregate, executionPayload)
 
   let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
 
@@ -526,9 +510,7 @@ template partialBeaconBlock(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    proposerSlashings: seq[ProposerSlashing],
-    attesterSlashings: seq[AttesterSlashing],
-    voluntaryExits: seq[SignedVoluntaryExit],
+    exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
     executionPayload: ExecutionPayload): merge.BeaconBlock =
   merge.BeaconBlock(
@@ -539,14 +521,11 @@ template partialBeaconBlock(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
-      proposer_slashings: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS](
-        proposerSlashings),
-      attester_slashings: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS](
-        attesterSlashings),
+      proposer_slashings: exits.proposer_slashings,
+      attester_slashings: exits.attester_slashings,
       attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits:
-        List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS](voluntaryExits),
+      voluntary_exits: exits.voluntary_exits,
       sync_aggregate: sync_aggregate,
       execution_payload: executionPayload))
 
@@ -560,9 +539,7 @@ proc makeBeaconBlock*(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    proposerSlashings: seq[ProposerSlashing],
-    attesterSlashings: seq[AttesterSlashing],
-    voluntaryExits: seq[SignedVoluntaryExit],
+    exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
     executionPayload: ExecutionPayload,
     rollback: RollbackMergeHashedProc,
@@ -576,8 +553,7 @@ proc makeBeaconBlock*(
 
   var blck = partialBeaconBlock(cfg, state, proposer_index, parent_root,
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
-                                proposerSlashings, attesterSlashings, voluntaryExits,
-                                sync_aggregate, executionPayload)
+                                exits, sync_aggregate, executionPayload)
 
   let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
 
@@ -605,9 +581,7 @@ proc makeBeaconBlock*(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    proposerSlashings: seq[ProposerSlashing],
-    attesterSlashings: seq[AttesterSlashing],
-    voluntaryExits: seq[SignedVoluntaryExit],
+    exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
     executionPayload: ExecutionPayload,
     rollback: RollbackForkedHashedProc,
@@ -622,29 +596,28 @@ proc makeBeaconBlock*(
 
     var blck =
       ForkedBeaconBlock.init(
-        partialBeaconBlock(cfg, state.`hbs kind`, proposer_index, parent_root,
+        partialBeaconBlock(cfg, state.`kind Data`, proposer_index, parent_root,
                            randao_reveal, eth1_data, graffiti, attestations, deposits,
-                           proposerSlashings, attesterSlashings, voluntaryExits,
-                           sync_aggregate, executionPayload))
+                           exits, sync_aggregate, executionPayload))
 
-    let res = process_block(cfg, state.`hbs kind`.data, blck.`kind Block`,
+    let res = process_block(cfg, state.`kind Data`.data, blck.`kind Data`,
                             {skipBlsValidation}, cache)
 
     if res.isErr:
       warn "Unable to apply new block to state",
         blck = shortLog(blck),
-        slot = state.`hbs kind`.data.slot,
-        eth1_deposit_index = state.`hbs kind`.data.eth1_deposit_index,
-        deposit_root = shortLog(state.`hbs kind`.data.eth1_data.deposit_root),
+        slot = state.`kind Data`.data.slot,
+        eth1_deposit_index = state.`kind Data`.data.eth1_deposit_index,
+        deposit_root = shortLog(state.`kind Data`.data.eth1_data.deposit_root),
         error = res.error
       rollback(state)
       return err("Unable to apply new block to state: " & $res.error())
 
-    state.`hbs kind`.root = hash_tree_root(state.`hbs kind`.data)
-    blck.`kind Block`.state_root = state.`hbs kind`.root
+    state.`kind Data`.root = hash_tree_root(state.`kind Data`.data)
+    blck.`kind Data`.state_root = state.`kind Data`.root
     ok(blck)
 
-  case state.beaconStateFork
-  of forkPhase0: makeBeaconBlock(phase0)
-  of forkAltair: makeBeaconBlock(altair)
-  of forkMerge:  makeBeaconBlock(merge)
+  case state.kind
+  of BeaconStateFork.Phase0: makeBeaconBlock(phase0)
+  of BeaconStateFork.Altair: makeBeaconBlock(altair)
+  of BeaconStateFork.Merge:  makeBeaconBlock(merge)

@@ -344,23 +344,23 @@ proc getStateData(
     return false
 
   case cfg.stateForkAtEpoch(bs.slot.epoch)
-  of forkMerge:
-    if state.data.beaconStateFork != forkMerge:
-      state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkMerge)[]
+  of BeaconStateFork.Merge:
+    if state.data.kind != BeaconStateFork.Merge:
+      state.data = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Merge)[]
 
-    if not db.getMergeState(root.get(), state.data.hbsMerge.data, rollback):
+    if not db.getMergeState(root.get(), state.data.mergeData.data, rollback):
       return false
-  of forkAltair:
-    if state.data.beaconStateFork != forkAltair:
-      state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkAltair)[]
+  of BeaconStateFork.Altair:
+    if state.data.kind != BeaconStateFork.Altair:
+      state.data = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Altair)[]
 
-    if not db.getAltairState(root.get(), state.data.hbsAltair.data, rollback):
+    if not db.getAltairState(root.get(), state.data.altairData.data, rollback):
       return false
-  of forkPhase0:
-    if state.data.beaconStateFork != forkPhase0:
-      state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkPhase0)[]
+  of BeaconStateFork.Phase0:
+    if state.data.kind != BeaconStateFork.Phase0:
+      state.data = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0)[]
 
-    if not db.getState(root.get(), state.data.hbsPhase0.data, rollback):
+    if not db.getState(root.get(), state.data.phase0Data.data, rollback):
       return false
 
   state.blck = bs.blck
@@ -457,23 +457,23 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     #      would be a good recovery model?
     raiseAssert "No state found in head history, database corrupt?"
 
-  case tmpState.data.beaconStateFork
-  of forkPhase0:
-    if tmpState.data.hbsPhase0.data.fork != genesisFork(cfg):
+  case tmpState.data.kind
+  of BeaconStateFork.Phase0:
+    if tmpState.data.phase0Data.data.fork != genesisFork(cfg):
       error "State from database does not match network, check --network parameter",
-        stateFork = tmpState.data.hbsPhase0.data.fork,
+        stateFork = tmpState.data.phase0Data.data.fork,
         configFork = genesisFork(cfg)
       quit 1
-  of forkAltair:
-    if tmpState.data.hbsAltair.data.fork != altairFork(cfg):
+  of BeaconStateFork.Altair:
+    if tmpState.data.altairData.data.fork != altairFork(cfg):
       error "State from database does not match network, check --network parameter",
-        stateFork = tmpState.data.hbsAltair.data.fork,
+        stateFork = tmpState.data.altairData.data.fork,
         configFork = altairFork(cfg)
       quit 1
-  of forkMerge:
-    if tmpState.data.hbsMerge.data.fork != mergeFork(cfg):
+  of BeaconStateFork.Merge:
+    if tmpState.data.mergeData.data.fork != mergeFork(cfg):
       error "State from database does not match network, check --network parameter",
-        stateFork = tmpState.data.hbsMerge.data.fork,
+        stateFork = tmpState.data.mergeData.data.fork,
         configFork = mergeFork(cfg)
       quit 1
 
@@ -602,9 +602,9 @@ template forkAtEpoch*(dag: ChainDAGRef, epoch: Epoch): Fork =
 
 proc forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
   case dag.cfg.stateForkAtEpoch(epoch)
-  of forkMerge:  dag.forkDigests.merge
-  of forkAltair: dag.forkDigests.altair
-  of forkPhase0: dag.forkDigests.phase0
+  of BeaconStateFork.Merge:  dag.forkDigests.merge
+  of BeaconStateFork.Altair: dag.forkDigests.altair
+  of BeaconStateFork.Phase0: dag.forkDigests.phase0
 
 proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
   ## Load a state from the database given a block and a slot - this will first
@@ -1051,7 +1051,7 @@ func syncCommitteeParticipants*(dagParam: ChainDAGRef,
     slot = slotParam
 
   withState(dag.headState.data):
-    when stateFork >= forkAltair:
+    when stateFork >= BeaconStateFork.Altair:
       let
         headSlot = state.data.slot
         headCommitteePeriod = syncCommitteePeriod(headSlot)
@@ -1089,7 +1089,7 @@ func getSubcommitteePositions*(dag: ChainDAGRef,
                                committeeIdx: SyncCommitteeIndex,
                                validatorIdx: uint64): seq[uint64] =
   withState(dag.headState.data):
-    when stateFork >= forkAltair:
+    when stateFork >= BeaconStateFork.Altair:
       let
         headSlot = state.data.slot
         headCommitteePeriod = syncCommitteePeriod(headSlot)

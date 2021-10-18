@@ -264,7 +264,7 @@ proc sendSyncCommitteeMessages*(node: BeaconNode,
 
   let (pending, indices) =
     withState(node.dag.headState.data):
-      when stateFork >= forkAltair:
+      when stateFork >= BeaconStateFork.Altair:
         var resFutures: seq[Future[SendResult]]
         var resIndices: seq[int]
         for committeeIdx in allSyncCommittees():
@@ -419,6 +419,8 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       doAssert v.addr == addr proposalStateAddr.data
       assign(proposalStateAddr[], poolPtr.headState)
 
+    let exits = withState(stateData.data):
+      node.exitPool[].getBeaconBlockExits(state.data)
     return makeBeaconBlock(
       node.dag.cfg,
       stateData.data,
@@ -429,9 +431,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       graffiti,
       node.attestationPool[].getAttestationsForBlock(stateData.data, cache),
       eth1Proposal.deposits,
-      node.exitPool[].getProposerSlashingsForBlock(),
-      node.exitPool[].getAttesterSlashingsForBlock(),
-      node.exitPool[].getVoluntaryExitsForBlock(),
+      exits,
       if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
         SyncAggregate.init()
       else:
@@ -448,7 +448,7 @@ proc proposeSignedBlock*(node: BeaconNode,
   let newBlockRef =
     case newBlock.kind:
     of BeaconBlockFork.Phase0:
-      node.dag.addRawBlock(node.quarantine, newBlock.phase0Block) do (
+      node.dag.addRawBlock(node.quarantine, newBlock.phase0Data) do (
           blckRef: BlockRef, trustedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if signed block valid (and becomes trusted)
@@ -456,7 +456,7 @@ proc proposeSignedBlock*(node: BeaconNode,
           epochRef, blckRef, trustedBlock.message,
           node.beaconClock.now().slotOrZero())
     of BeaconBlockFork.Altair:
-      node.dag.addRawBlock(node.quarantine, newBlock.altairBlock) do (
+      node.dag.addRawBlock(node.quarantine, newBlock.altairData) do (
           blckRef: BlockRef, trustedBlock: altair.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if signed block valid (and becomes trusted)
@@ -464,7 +464,7 @@ proc proposeSignedBlock*(node: BeaconNode,
           epochRef, blckRef, trustedBlock.message,
           node.beaconClock.now().slotOrZero())
     of BeaconBlockFork.Merge:
-      node.dag.addRawBlock(node.quarantine, newBlock.mergeBlock) do (
+      node.dag.addRawBlock(node.quarantine, newBlock.mergeData) do (
           blckRef: BlockRef, trustedBlock: merge.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if signed block valid (and becomes trusted)
@@ -524,7 +524,7 @@ proc proposeBlock(node: BeaconNode,
   # general this is far too much copy/paste
   let forked = case blck.kind:
   of BeaconBlockFork.Phase0:
-    let root = hash_tree_root(blck.phase0Block)
+    let root = hash_tree_root(blck.phase0Data)
 
     # TODO: recomputed in block proposal
     let signing_root = compute_block_root(
@@ -544,10 +544,10 @@ proc proposeBlock(node: BeaconNode,
       fork, genesis_validators_root, slot, root)
     ForkedSignedBeaconBlock.init(
       phase0.SignedBeaconBlock(
-        message: blck.phase0Block, root: root, signature: signature)
+        message: blck.phase0Data, root: root, signature: signature)
     )
   of BeaconBlockFork.Altair:
-    let root = hash_tree_root(blck.altairBlock)
+    let root = hash_tree_root(blck.altairData)
 
     # TODO: recomputed in block proposal
     let signing_root = compute_block_root(
@@ -568,10 +568,10 @@ proc proposeBlock(node: BeaconNode,
 
     ForkedSignedBeaconBlock.init(
       altair.SignedBeaconBlock(
-        message: blck.altairBlock, root: root, signature: signature)
+        message: blck.altairData, root: root, signature: signature)
     )
   of BeaconBlockFork.Merge:
-    let root = hash_tree_root(blck.mergeBlock)
+    let root = hash_tree_root(blck.mergeData)
 
     # TODO: recomputed in block proposal
     let signing_root = compute_block_root(
@@ -592,7 +592,7 @@ proc proposeBlock(node: BeaconNode,
 
     ForkedSignedBeaconBlock.init(
       merge.SignedBeaconBlock(
-        message: blck.mergeBlock, root: root, signature: signature)
+        message: blck.mergeData, root: root, signature: signature)
     )
 
   return await node.proposeSignedBlock(head, validator, forked)

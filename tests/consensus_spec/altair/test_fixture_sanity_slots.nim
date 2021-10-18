@@ -31,9 +31,9 @@ proc runTest(identifier: string) =
       var
         preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, altair.BeaconState))
         fhPreState = (ref ForkedHashedBeaconState)(
-          hbsAltair: altair.HashedBeaconState(
+          altairData: altair.HashedBeaconState(
             data: preState[], root: hash_tree_root(preState[])),
-          beaconStateFork: forkAltair)
+          kind: BeaconStateFork.Altair)
         cache = StateCache()
         info: ForkedEpochInfo
       let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, altair.BeaconState))
@@ -44,7 +44,7 @@ proc runTest(identifier: string) =
           getStateField(fhPreState[], slot) + num_slots, cache, info, {})
 
         getStateRoot(fhPreState[]) == postState[].hash_tree_root()
-      let newPreState = newClone(fhPreState.hbsAltair.data)
+      let newPreState = newClone(fhPreState.altairData.data)
       reportDiff(newPreState, postState)
 
   `testImpl _ slots _ identifier`()

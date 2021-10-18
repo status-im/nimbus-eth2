@@ -36,7 +36,7 @@ proc finalizeOn234(
 
   # checkpoints for epochs ago
   let (c1, c2, c3, c4, _) = getCheckpoints(epoch)
-  putCheckpointsInBlockRoots(state.hbsPhase0.data, [c1, c2, c3, c4])
+  putCheckpointsInBlockRoots(state.phase0Data.data, [c1, c2, c3, c4])
 
   # Save for final checks
   let old_finalized = getStateField(state, finalized_checkpoint)
@@ -51,7 +51,7 @@ proc finalizeOn234(
   getStateField(state, justification_bits).setBit 2
   # mock the 2nd latest epoch as justifiable, with 4th as the source
   addMockAttestations(
-    state.hbsPhase0.data,
+    state.phase0Data.data,
     epoch = epoch - 2,
     source = c4,
     target = c2,
@@ -82,7 +82,7 @@ proc finalizeOn23(state: var ForkedHashedBeaconState, epoch: Epoch, sufficient_s
 
   # checkpoints for epochs ago
   let (c1, c2, c3, _, _) = getCheckpoints(epoch)
-  putCheckpointsInBlockRoots(state.hbsPhase0.data, [c1, c2, c3])
+  putCheckpointsInBlockRoots(state.phase0Data.data, [c1, c2, c3])
 
   # Save for final checks
   let old_finalized = getStateField(state, finalized_checkpoint)
@@ -96,7 +96,7 @@ proc finalizeOn23(state: var ForkedHashedBeaconState, epoch: Epoch, sufficient_s
   getStateField(state, justification_bits).setBit 1
   # mock the 2nd latest epoch as justifiable, with 3rd as the source
   addMockAttestations(
-    state.hbsPhase0.data,
+    state.phase0Data.data,
     epoch = epoch - 2,
     source = c3,
     target = c2,
@@ -127,7 +127,7 @@ proc finalizeOn123(state: var ForkedHashedBeaconState, epoch: Epoch, sufficient_
 
   # checkpoints for epochs ago
   let (c1, c2, c3, c4, c5) = getCheckpoints(epoch)
-  putCheckpointsInBlockRoots(state.hbsPhase0.data, [c1, c2, c3, c4, c5])
+  putCheckpointsInBlockRoots(state.phase0Data.data, [c1, c2, c3, c4, c5])
 
   # Save for final checks
   let old_finalized = getStateField(state, finalized_checkpoint)
@@ -141,7 +141,7 @@ proc finalizeOn123(state: var ForkedHashedBeaconState, epoch: Epoch, sufficient_
   getStateField(state, justification_bits).setBit 1
   # mock the 2nd latest epoch as justifiable, with 5th as the source
   addMockAttestations(
-    state.hbsPhase0.data,
+    state.phase0Data.data,
     epoch = epoch - 2,
     source = c5,
     target = c2,
@@ -149,7 +149,7 @@ proc finalizeOn123(state: var ForkedHashedBeaconState, epoch: Epoch, sufficient_
   )
   # mock the 1st latest epoch as justifiable with 3rd as source
   addMockAttestations(
-    state.hbsPhase0.data,
+    state.phase0Data.data,
     epoch = epoch - 1,
     source = c3,
     target = c1,
@@ -180,7 +180,7 @@ proc finalizeOn12(state: var ForkedHashedBeaconState, epoch: Epoch, sufficient_s
 
   # checkpoints for epochs ago
   let (c1, c2, _, _, _) = getCheckpoints(epoch)
-  putCheckpointsInBlockRoots(state.hbsPhase0.data, [c1, c2])
+  putCheckpointsInBlockRoots(state.phase0Data.data, [c1, c2])
 
   # Save for final checks
   let old_finalized = getStateField(state, finalized_checkpoint)
@@ -194,7 +194,7 @@ proc finalizeOn12(state: var ForkedHashedBeaconState, epoch: Epoch, sufficient_s
   getStateField(state, justification_bits).setBit 0
   # mock the 2nd latest epoch as justifiable, with 3rd as the source
   addMockAttestations(
-    state.hbsPhase0.data,
+    state.phase0Data.data,
     epoch = epoch - 1,
     source = c2,
     target = c1,

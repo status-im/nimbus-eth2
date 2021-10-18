@@ -209,7 +209,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           signingRoot = contribution_and_proof_signing_root(
             fork, genesisValidatorsRoot, contributionAndProof)
 
-          validarorPrivKey = 
+          validarorPrivKey =
             MockPrivKeys[aggregator.validatorIdx.ValidatorIndex]
 
           signedContributionAndProof = SignedContributionAndProof(
@@ -244,11 +244,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           static: doAssert false
       hashedState =
         when T is phase0.SignedBeaconBlock:
-          addr stateData.data.hbsPhase0
+          addr stateData.data.phase0Data
         elif T is altair.SignedBeaconBlock:
-          addr stateData.data.hbsAltair
+          addr stateData.data.altairData
         elif T is merge.SignedBeaconBlock:
-          addr stateData.data.hbsMerge
+          addr stateData.data.mergeData
         else:
           static: doAssert false
       message = makeBeaconBlock(
@@ -264,9 +264,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         default(GraffitiBytes),
         attPool.getAttestationsForBlock(stateData.data, cache),
         eth1ProposalData.deposits,
-        @[],
-        @[],
-        @[],
+        BeaconBlockExits(),
         sync_aggregate,
         default(ExecutionPayload),
         noRollback,
@@ -392,9 +390,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     if blockRatio > 0.0:
       withTimer(timers[t]):
         case dag.cfg.stateForkAtEpoch(slot.epoch)
-        of forkMerge:  proposeMergeBlock(slot)
-        of forkAltair: proposeAltairBlock(slot)
-        of forkPhase0: proposePhase0Block(slot)
+        of BeaconStateFork.Merge:  proposeMergeBlock(slot)
+        of BeaconStateFork.Altair: proposeAltairBlock(slot)
+        of BeaconStateFork.Phase0: proposePhase0Block(slot)
     if attesterRatio > 0.0:
       withTimer(timers[tAttest]):
         handleAttestations(slot)
