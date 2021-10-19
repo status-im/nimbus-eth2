@@ -8,12 +8,7 @@
 {.used.}
 
 import
-  ./test_fixture_operations_attestations,
-  ./test_fixture_operations_attester_slashings,
-  ./test_fixture_operations_block_header,
-  ./test_fixture_operations_deposits,
-  ./test_fixture_operations_proposer_slashings,
-  ./test_fixture_operations_voluntary_exit,
+  ./test_fixture_operations,
   ./test_fixture_sanity_blocks,
   ./test_fixture_sanity_slots,
   ./test_fixture_ssz_consensus_objects,

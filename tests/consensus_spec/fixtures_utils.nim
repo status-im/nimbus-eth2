@@ -35,6 +35,11 @@ type
   UnconsumedInput* = object of CatchableError
   TestSizeError* = object of ValueError
 
+  # https://github.com/ethereum/consensus-specs/tree/v1.1.3/tests/formats/rewards#rewards-tests
+  Deltas* = object
+    rewards*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    penalties*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
 const
   FixturesDir* =
     currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
