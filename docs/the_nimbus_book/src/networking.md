@@ -1,7 +1,7 @@
 # Network setup
 
 
-A collection of tips and tricks.
+A collection of tips and tricks to help improve your network connectivity.
 
 ## Monitor your Peer count
 
@@ -101,22 +101,14 @@ In practice this means relaunching the beacon node with `--enr-auto-update:true`
 
 ## Reading the logs
 
-The ` No external IP provided for the ENR...` message basically means that the software did not manage to find a public IP address (by either looking at your routed interface IP address, and/or by attempting to get it from your gateway through UPnP or NAT-PMP).
+`No external IP provided for the ENR...`
 
-----------------
+This message basically means that the software did not manage to find a public IP address (by either looking at your routed interface IP address, and/or by attempting to get it from your gateway through UPnP or NAT-PMP).
 
-If you see
+`Discovered new external address but ENR auto update is off...` 
 
-```
-WRN 2021-03-15 02:23:37.569+00:00 Discovered new external address but ENR auto update is off topics="discv5"...
-```
+It's possible that your ISP has changed your IP address without you knowing. The first thing to do it to try relaunching the beacon node with with `--enr-auto-update:true` (pass it as an option in the command line).
 
-It's possible that your ISP has changed your IP address without you knowing.
-
-The first thing to do it to try relaunching the beacon node with with `--enr-auto-update:true` (pass it as an option in the command line).
-
-If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use [https://www.yougetsignal.com/tools/open-ports/](https://www.yougetsignal.com/tools/open-ports/ ).  Note that Nimbus `TCP` and `UDP` ports are both set to `9000` by default.
-
-See [here](./health.md#set-up-port-forwarding), for how to set up port forwarding.
+If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use [this site](https://www.yougetsignal.com/tools/open-ports/ ).  Note that Nimbus `TCP` and `UDP` ports are both set to `9000` by default. See above for how to set up port forwarding.
 
 

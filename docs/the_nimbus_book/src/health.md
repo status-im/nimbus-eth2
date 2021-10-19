@@ -1,7 +1,8 @@
 # Monitor the health of your node
 
-The most important thing for the the health, performance and stablity of your node and the overall network is the [strength of your node's network connectivity / peer count](./networking.md).
+The most important thing for the the health, performance and stablity of your node and the overall network is the strength of your node's network connectivity / peer count.
 
+See [here](./networking.md) for our networking related tips and tricks.
 
 ## Keep track of your attestation effectiveness
 
