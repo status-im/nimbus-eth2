@@ -8,7 +8,7 @@ import std/[tables, os, sequtils, strutils]
 import chronos, chronicles, confutils,
        stew/[base10, results, byteutils, io2], bearssl, blscurve
 # Local modules
-import ".."/[conf, version, filepath, beacon_node_types, beacon_node_common]
+import ".."/[conf, version, filepath, beacon_node]
 import ".."/spec/[keystore, crypto]
 import ".."/rpc/rest_utils
 import ".."/validators/[keystore_management, validator_pool]

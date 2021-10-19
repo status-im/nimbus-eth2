@@ -10,7 +10,7 @@
 import
   std/[strutils, parseutils],
   stew/byteutils,
-  ../beacon_node_common, ../validators/validator_duties,
+  ../beacon_node, ../validators/validator_duties,
   ../consensus_object_pools/[block_pools_types, blockchain_dag],
   ../spec/datatypes/base,
   ../spec/[forks, helpers],

@@ -12,15 +12,72 @@ import
   std/[options, tables, sequtils],
   # Status libraries
   metrics,
-  chronicles, stew/byteutils, json_serialization/std/sets as jsonSets,
+  chronicles, stew/byteutils,
   # Internal
   ../spec/[beaconstate, eth2_merkleization, forks, helpers, validator],
   ../spec/datatypes/[phase0, altair, merge],
   "."/[spec_cache, blockchain_dag, block_quarantine],
-  ".."/[beacon_clock, beacon_node_types],
-  ../fork_choice/fork_choice
+  ../fork_choice/fork_choice,
+  ../beacon_clock
 
-export beacon_node_types
+export options, tables, phase0, altair, merge, blockchain_dag, fork_choice
+
+const
+  ATTESTATION_LOOKBACK* =
+    min(24'u64, SLOTS_PER_EPOCH) + MIN_ATTESTATION_INCLUSION_DELAY
+    ## The number of slots we'll keep track of in terms of "free" attestations
+    ## that potentially could be added to a newly created block
+
+type
+  OnAttestationCallback* = proc(data: Attestation) {.gcsafe, raises: [Defect].}
+
+  Validation* = object
+    ## Validations collect a set of signatures for a distict attestation - in
+    ## eth2, a single bit is used to keep track of which signatures have been
+    ## added to the aggregate meaning that only non-overlapping aggregates may
+    ## be further combined.
+    aggregation_bits*: CommitteeValidatorsBits
+    aggregate_signature*: AggregateSignature
+
+  AttestationEntry* = object
+    ## Each entry holds the known signatures for a particular, distinct vote
+    data*: AttestationData
+    committee_len*: int
+    singles*: Table[int, CookedSig] ## \
+      ## On the attestation subnets, only attestations with a single vote are
+      ## allowed - these can be collected separately to top up aggregates with -
+      ## here we collect them by mapping index in committee to a vote
+    aggregates*: seq[Validation]
+
+  AttestationTable* = Table[Eth2Digest, AttestationEntry]
+    ## Depending on the world view of the various validators, they may have
+    ## voted on different states - this map keeps track of each vote keyed by
+    ## hash_tree_root(AttestationData)
+
+  AttestationPool* = object
+    ## The attestation pool keeps track of all attestations that potentially
+    ## could be added to a block during block production.
+    ## These attestations also contribute to the fork choice, which combines
+    ## "free" attestations with those found in past blocks - these votes
+    ## are tracked separately in the fork choice.
+
+    candidates*: array[ATTESTATION_LOOKBACK, AttestationTable] ## \
+      ## We keep one item per slot such that indexing matches slot number
+      ## together with startingSlot
+
+    startingSlot*: Slot ## \
+    ## Generally, we keep attestations only until a slot has been finalized -
+    ## after that, they may no longer affect fork choice.
+
+    dag*: ChainDAGRef
+    quarantine*: QuarantineRef
+
+    forkChoice*: ForkChoice
+
+    nextAttestationEpoch*: seq[tuple[subnet: Epoch, aggregate: Epoch]] ## \
+    ## sequence based on validator indices
+
+    onAttestationAdded*: OnAttestationCallback
 
 logScope: topics = "attpool"
 
@@ -591,8 +648,8 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
 
   res
 
-proc getAttestationsForBlock*(pool: var AttestationPool, 
-                              state: ForkedHashedBeaconState, 
+proc getAttestationsForBlock*(pool: var AttestationPool,
+                              state: ForkedHashedBeaconState,
                               cache: var StateCache): seq[Attestation] =
   withState(state):
     pool.getAttestationsForBlock(state, cache)

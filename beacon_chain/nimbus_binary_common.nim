@@ -26,6 +26,8 @@ import
 when defined(posix):
   import termios
 
+export beacon_node_status
+
 type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
                            lastSlot: Slot): Future[void] {.gcsafe,

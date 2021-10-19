@@ -15,7 +15,7 @@ import
   chronicles, chronos,
   eth/keys, taskpools,
   # Internal
-  ../beacon_chain/[beacon_node_types, beacon_clock],
+  ../beacon_chain/[beacon_clock],
   ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
   ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
   ../beacon_chain/consensus_object_pools/[

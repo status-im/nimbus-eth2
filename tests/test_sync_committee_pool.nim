@@ -2,10 +2,9 @@
 
 import
   unittest2,
-  ../beacon_chain/ssz/bitseqs,
-  ../beacon_chain/spec/[beaconstate, crypto, digest, helpers, presets, signatures],
+  ../beacon_chain/spec/[beaconstate, helpers, signatures],
   ../beacon_chain/consensus_object_pools/sync_committee_msg_pool,
-  testblockutil
+  ./testblockutil
 
 func aggregate(sigs: openarray[CookedSig]): CookedSig =
   var agg {.noInit.}: AggregateSignature

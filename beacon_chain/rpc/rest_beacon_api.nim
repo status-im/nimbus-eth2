@@ -11,7 +11,7 @@ import
   chronicles,
   json_serialization, json_serialization/std/[options, net],
   nimcrypto/utils as ncrutils,
-  ../beacon_node_common, ../networking/eth2_network,
+  ../beacon_node, ../networking/eth2_network,
   ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
   ../validators/validator_duties,
   ../spec/[eth2_merkleization, forks, network],

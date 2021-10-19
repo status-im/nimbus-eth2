@@ -6,7 +6,7 @@
 
 import stew/[endians2, base10], chronicles,
        nimcrypto/utils as ncrutils
-import ".."/beacon_node_common,
+import ".."/beacon_node,
        ".."/eth1/eth1_monitor,
        ".."/spec/forks,
        "."/rest_utils

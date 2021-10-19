@@ -15,7 +15,7 @@ import
   libp2p/protocols/pubsub/pubsubpeer,
 
   ".."/[
-    beacon_node_common, nimbus_binary_common, networking/eth2_network,
+    beacon_node, nimbus_binary_common, networking/eth2_network,
     eth1/eth1_monitor, validators/validator_duties],
   ../spec/datatypes/base,
   ../spec/[forks],

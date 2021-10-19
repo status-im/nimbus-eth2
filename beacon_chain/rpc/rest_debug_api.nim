@@ -7,7 +7,7 @@
 
 import std/sequtils
 import chronicles
-import ".."/[version, beacon_node_common],
+import ".."/[version, beacon_node],
        ".."/spec/forks,
        "."/rest_utils
 

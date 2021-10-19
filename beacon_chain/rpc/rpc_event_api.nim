@@ -10,7 +10,7 @@
 import
   json_rpc/servers/httpserver,
   chronicles,
-  ../beacon_node_common
+  ../beacon_node
 
 logScope: topics = "eventapi"
 

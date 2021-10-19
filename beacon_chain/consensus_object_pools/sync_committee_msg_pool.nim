@@ -8,26 +8,52 @@
 {.push raises: [Defect].}
 
 import
-  std/sets,
+  std/[hashes, sets, tables],
   chronicles,
   ../spec/digest,
-  ../spec/datatypes/altair,
-  ../beacon_node_types,
-  ./block_pools_types
+  ../spec/datatypes/altair
 
-export
-  BestSyncSubcommitteeContributions,
-  Slot,
-  SyncCommitteeContribution,
-  SyncCommitteeIndex,
-  SyncCommitteeMsgPool,
-  SyncAggregate,
-  TrustedSyncCommitteeMsg
+export hashes, sets, tables, altair
 
 const
   syncCommitteeMsgsRetentionSlots = 3
     ## How many slots to retain sync committee
     ## messsages before discarding them.
+
+type
+  SyncCommitteeMsgKey* = object
+    originator*: ValidatorIndex
+    slot*: Slot
+    committeeIdx*: SyncCommitteeIndex
+
+  TrustedSyncCommitteeMsg* = object
+    slot*: Slot
+    committeeIdx*: SyncCommitteeIndex
+    positionInCommittee*: uint64
+    signature*: CookedSig
+
+  BestSyncSubcommitteeContribution* = object
+    totalParticipants*: int
+    participationBits*: SyncCommitteeAggregationBits
+    signature*: CookedSig
+
+  BestSyncSubcommitteeContributions* = object
+    slot*: Slot
+    subnets*: array[SYNC_COMMITTEE_SUBNET_COUNT,
+                    BestSyncSubcommitteeContribution]
+
+  OnSyncContributionCallback* =
+    proc(data: SignedContributionAndProof) {.gcsafe, raises: [Defect].}
+
+  SyncCommitteeMsgPool* = object
+    seenSyncMsgByAuthor*: HashSet[SyncCommitteeMsgKey]
+    seenContributionByAuthor*: HashSet[SyncCommitteeMsgKey]
+    syncMessages*: Table[Eth2Digest, seq[TrustedSyncCommitteeMsg]]
+    bestContributions*: Table[Eth2Digest, BestSyncSubcommitteeContributions]
+    onContributionReceived*: OnSyncContributionCallback
+
+func hash*(x: SyncCommitteeMsgKey): Hash =
+  hashData(unsafeAddr x, sizeof(x))
 
 func init*(T: type SyncCommitteeMsgPool,
            onSyncContribution: OnSyncContributionCallback = nil

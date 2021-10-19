@@ -15,8 +15,9 @@ import
   ".."/spec/datatypes/base,
   stew/io2, libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
-  ".."/[conf, filepath, beacon_node_types],
-  ".."/networking/network_metadata
+  ".."/[conf, filepath],
+  ".."/networking/network_metadata,
+  ./validator_pool
 
 export
   keystore

@@ -23,7 +23,7 @@ import
   ../beacon_chain/spec/[
     beaconstate, forks, helpers, signatures, state_transition],
   ../beacon_chain/spec/datatypes/[phase0, altair, merge],
-  ../beacon_chain/[beacon_node_types, beacon_chain_db, beacon_clock],
+  ../beacon_chain/[beacon_chain_db, beacon_clock],
   ../beacon_chain/eth1/eth1_monitor,
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/gossip_processing/gossip_validation,

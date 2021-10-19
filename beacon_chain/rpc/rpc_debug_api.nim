@@ -11,7 +11,7 @@ import
   std/sequtils,
   json_rpc/servers/httpserver,
   chronicles,
-  ../version, ../beacon_node_common,
+  ../version, ../beacon_node,
   ../networking/[eth2_network, peer_pool],
   ../spec/datatypes/phase0,
   ./rpc_utils
