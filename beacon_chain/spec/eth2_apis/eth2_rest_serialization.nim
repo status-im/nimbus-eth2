@@ -49,13 +49,17 @@ type
     ProposerSlashing |
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
-    SignedVoluntaryExit
+    SignedVoluntaryExit |
+    SyncCommitteeIndex
 
   EncodeArrays* =
     seq[ValidatorIndex] |
     seq[Attestation] |
     seq[SignedAggregateAndProof] |
-    seq[RestCommitteeSubscription]
+    seq[RestCommitteeSubscription] |
+    seq[RestSyncCommitteeSubscription] |
+    seq[RestSyncCommitteeMessage] |
+    seq[RestSignedContributionAndProof]
 
   DecodeTypes* =
     DataEnclosedObject |
@@ -874,8 +878,10 @@ proc readValue*(reader: var JsonReader[RestJson],
      raises: [IOError, SerializationError, Defect].} =
   let res = Base10.decode(uint8, reader.readValue(string))
   if res.isOk():
-    # TODO (cheatfate): Here should be present check for maximum value.
-    value = SyncCommitteeIndex(res.get())
+    if res.get() < SYNC_COMMITTEE_SUBNET_COUNT:
+      value = SyncCommitteeIndex(res.get())
+    else:
+      reader.raiseUnexpectedValue("Sync sub-committee index out of rage")
   else:
     reader.raiseUnexpectedValue($res.error())
 
@@ -976,7 +982,7 @@ proc decodeBytes*[T: SszDecodeTypes](t: typedesc[T], value: openarray[byte],
 proc encodeString*(value: string): RestResult[string] =
   ok(value)
 
-proc encodeString*(value: Epoch|Slot|CommitteeIndex): RestResult[string] =
+proc encodeString*(value: Epoch|Slot|CommitteeIndex|SyncCommitteeIndex): RestResult[string] =
   ok(Base10.toString(uint64(value)))
 
 proc encodeString*(value: ValidatorSig): RestResult[string] =
@@ -1213,6 +1219,14 @@ proc decodeString*(t: typedesc[CommitteeIndex],
                    value: string): Result[CommitteeIndex, cstring] =
   let res = ? Base10.decode(uint64, value)
   ok(CommitteeIndex(res))
+
+proc decodeString*(t: typedesc[SyncCommitteeIndex],
+                   value: string): Result[SyncCommitteeIndex, cstring] =
+  let res = ? Base10.decode(uint8, value)
+  if res.get < SYNC_COMMITTEE_SUBNET_COUNT:
+    ok(CommitteeIndex(res))
+  else:
+    err("sync subcommittee index out of range")
 
 proc decodeString*(t: typedesc[Eth2Digest],
                    value: string): Result[Eth2Digest, cstring] =

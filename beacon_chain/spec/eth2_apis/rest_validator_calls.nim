@@ -24,11 +24,12 @@ proc getProposerDuties*(epoch: Epoch): RestResponse[GetProposerDutiesResponse] {
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties
 
-# TODO altair
-# proc getSyncCommitteeDuties*(epoch: Epoch): RestResponse[DataRestSyncCommitteeDuties] {.
-#      rest, endpoint: "/eth/v1/validator/duties/sync/{epoch}",
-#      meth: MethodPost.}
-#   ## https://ethereum.github.io/beacon-APIs/#/Validator/getSyncCommitteeDuties
+proc getSyncCommitteeDuties*(epoch: Epoch,
+                             body: seq[ValidatorIndex]
+                            ): RestResponse[GetSyncCommitteeDutiesResponse] {.
+     rest, endpoint: "/eth/v1/validator/duties/sync/{epoch}",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/getSyncCommitteeDuties
 
 proc produceBlock*(slot: Slot, randao_reveal: ValidatorSig,
                    graffiti: GraffitiBytes
@@ -68,21 +69,19 @@ proc prepareBeaconCommitteeSubnet*(body: seq[RestCommitteeSubscription]): RestPl
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/prepareBeaconCommitteeSubnet
 
-# TODO altair
-# proc prepareSyncCommitteeSubnets*(body: seq[int]
-#                                   ): RestPlainResponse {.
-#      rest, endpoint: "/eth/v1/validator/sync_committee_subscriptions",
-#      meth: MethodPost.}
-#   ## https://ethereum.github.io/beacon-APIs/#/Validator/prepareSyncCommitteeSubnets
+proc prepareSyncCommitteeSubnets*(body: seq[RestSyncCommitteeSubscription]): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/sync_committee_subscriptions",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/prepareSyncCommitteeSubnets
 
-# proc produceSyncCommitteeContribution*(body: seq[int]
-#                                   ): RestPlainResponse {.
-#      rest, endpoint: "/eth/v1/validator/sync_committee_contribution",
-#      meth: MethodPost.}
-#   ## https://ethereum.github.io/beacon-APIs/#/Validator/produceSyncCommitteeContribution
+proc produceSyncCommitteeContribution*(slot: Slot,
+                                       subcommittee_index: SyncCommitteeIndex,
+                                       beacon_block_root: Eth2Digest): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/sync_committee_contribution",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/produceSyncCommitteeContribution
 
-# proc publishContributionAndProofs*(body: seq[RestCommitteeSubscription]
-#                                   ): RestPlainResponse {.
-#      rest, endpoint: "/eth/v1/validator/contribution_and_proofs",
-#      meth: MethodPost.}
-#   ## https://ethereum.github.io/beacon-APIs/#/Validator/publishContributionAndProofs
+proc publishContributionAndProofs*(body: seq[RestSignedContributionAndProof]): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/contribution_and_proofs",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/publishContributionAndProofs
