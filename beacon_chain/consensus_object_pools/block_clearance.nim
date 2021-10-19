@@ -148,8 +148,7 @@ proc addResolvedBlock(
                      merge.TrustedSignedBeaconBlock,
        parent: BlockRef, cache: var StateCache,
        onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnMergeBlockAdded,
-       stateDataDur, sigVerifyDur,
-       stateVerifyDur: Duration
+       stateDataDur, sigVerifyDur, stateVerifyDur: Duration
      ) =
   doAssert getStateField(state.data, slot) == trustedBlock.message.slot,
     "state must match block"

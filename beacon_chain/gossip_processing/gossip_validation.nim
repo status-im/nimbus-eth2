@@ -876,76 +876,75 @@ proc validateSignedContributionAndProof*(
 
     syncCommitteeMsgPool.seenContributionByAuthor.incl msgKey
 
-  block:
-    # [REJECT] The aggregator's validator index is in the declared subcommittee
-    # of the current sync committee.
-    # i.e. state.validators[contribution_and_proof.aggregator_index].pubkey in
-    #      get_sync_subcommittee_pubkeys(state, contribution.subcommittee_index).
-    let
-      epoch = msg.message.contribution.slot.epoch
-      fork = dag.forkAtEpoch(epoch)
-      genesisValidatorsRoot = dag.genesisValidatorsRoot
+  # [REJECT] The aggregator's validator index is in the declared subcommittee
+  # of the current sync committee.
+  # i.e. state.validators[contribution_and_proof.aggregator_index].pubkey in
+  #      get_sync_subcommittee_pubkeys(state, contribution.subcommittee_index).
+  let
+    epoch = msg.message.contribution.slot.epoch
+    fork = dag.forkAtEpoch(epoch)
+    genesisValidatorsRoot = dag.genesisValidatorsRoot
 
-    # [REJECT] The aggregator signature, signed_contribution_and_proof.signature, is valid
-    if not verify_signed_contribution_and_proof_signature(msg, fork,
-                                                          genesisValidatorsRoot,
-                                                          aggregatorPubKey.get()):
-      return errReject(
-        "SignedContributionAndProof: aggregator signature fails to verify")
+  # [REJECT] The aggregator signature, signed_contribution_and_proof.signature, is valid
+  if not verify_signed_contribution_and_proof_signature(msg, fork,
+                                                        genesisValidatorsRoot,
+                                                        aggregatorPubKey.get()):
+    return errReject(
+      "SignedContributionAndProof: aggregator signature fails to verify")
 
-    # [REJECT] The contribution_and_proof.selection_proof is a valid signature of the
-    # SyncAggregatorSelectionData derived from the contribution by the validator with
-    # index contribution_and_proof.aggregator_index.
-    if not verify_selection_proof_signature(msg.message, fork,
-                                            genesisValidatorsRoot,
-                                            aggregatorPubKey.get()):
-      return errReject(
-        "SignedContributionAndProof: selection proof signature fails to verify")
+  # [REJECT] The contribution_and_proof.selection_proof is a valid signature of the
+  # SyncAggregatorSelectionData derived from the contribution by the validator with
+  # index contribution_and_proof.aggregator_index.
+  if not verify_selection_proof_signature(msg.message, fork,
+                                          genesisValidatorsRoot,
+                                          aggregatorPubKey.get()):
+    return errReject(
+      "SignedContributionAndProof: selection proof signature fails to verify")
 
-    # [REJECT] The aggregate signature is valid for the message beacon_block_root
-    # and aggregate pubkey derived from the participation info in aggregation_bits
-    # for the subcommittee specified by the contribution.subcommittee_index.
-    var
-      committeeAggKey {.noInit.}: AggregatePublicKey
-      initialized = false
-      mixedKeys = 0
+  # [REJECT] The aggregate signature is valid for the message beacon_block_root
+  # and aggregate pubkey derived from the participation info in aggregation_bits
+  # for the subcommittee specified by the contribution.subcommittee_index.
+  var
+    committeeAggKey {.noInit.}: AggregatePublicKey
+    initialized = false
+    mixedKeys = 0
 
-    for validatorPubKey in dag.syncCommitteeParticipants(
-        msg.message.contribution.slot + 1,
-        committeeIdx,
-        msg.message.contribution.aggregation_bits):
-      let validatorPubKey = validatorPubKey.loadWithCache.get
-      if not initialized:
-        initialized = true
-        committeeAggKey.init(validatorPubKey)
-        inc mixedKeys
-      else:
-        inc mixedKeys
-        committeeAggKey.aggregate(validatorPubKey)
-
+  for validatorPubKey in dag.syncCommitteeParticipants(
+      msg.message.contribution.slot + 1,
+      committeeIdx,
+      msg.message.contribution.aggregation_bits):
+    let validatorPubKey = validatorPubKey.loadWithCache.get
     if not initialized:
-      # [REJECT] The contribution has participants
-      # that is, any(contribution.aggregation_bits).
-      return errReject("SignedContributionAndProof: aggregation bits empty")
+      initialized = true
+      committeeAggKey.init(validatorPubKey)
+      inc mixedKeys
+    else:
+      inc mixedKeys
+      committeeAggKey.aggregate(validatorPubKey)
 
-    let cookedSignature = msg.message.contribution.signature.load
-    if cookedSignature.isNone:
-      return errReject(
-        "SignedContributionAndProof: aggregate signature fails to load")
+  if not initialized:
+    # [REJECT] The contribution has participants
+    # that is, any(contribution.aggregation_bits).
+    return errReject("SignedContributionAndProof: aggregation bits empty")
 
-    if checkSignature and
-       not verify_sync_committee_message_signature(
-         epoch, msg.message.contribution.beacon_block_root, fork,
-         genesisValidatorsRoot, committeeAggKey.finish, cookedSignature.get):
-      debug "failing_sync_contribution",
-        slot = msg.message.contribution.slot + 1,
-        subnet_id = committeeIdx,
-        participants = $(msg.message.contribution.aggregation_bits),
-        mixedKeys
+  let cookedSignature = msg.message.contribution.signature.load
+  if cookedSignature.isNone:
+    return errReject(
+      "SignedContributionAndProof: aggregate signature fails to load")
 
-      return errReject(
-        "SignedContributionAndProof: aggregate signature fails to verify")
+  if checkSignature and
+      not verify_sync_committee_message_signature(
+        epoch, msg.message.contribution.beacon_block_root, fork,
+        genesisValidatorsRoot, committeeAggKey.finish, cookedSignature.get):
+    debug "failing_sync_contribution",
+      slot = msg.message.contribution.slot + 1,
+      subnet = committeeIdx,
+      participants = $(msg.message.contribution.aggregation_bits),
+      mixedKeys
 
-    syncCommitteeMsgPool[].addSyncContribution(msg, cookedSignature.get)
+    return errReject(
+      "SignedContributionAndProof: aggregate signature fails to verify")
+
+  syncCommitteeMsgPool[].addSyncContribution(msg, cookedSignature.get)
 
   ok()

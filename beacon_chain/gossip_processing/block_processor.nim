@@ -108,8 +108,8 @@ proc addBlock*(
     validationDur = Duration()) =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
-  #   There is no backpressure here - producers must wait for the future in the
-  #   BlockEntry to constrain their own processing
+  #   There is no backpressure here - producers must wait for `resfut` to
+  #   constrain their own processing
   # Producers:
   # - Gossip (when synced)
   # - SyncManager (during sync)
@@ -144,11 +144,11 @@ proc dumpBlock*[T](
     else:
       discard
 
-proc storeBlock(
+proc storeBlock*(
     self: var BlockProcessor,
     signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
                  merge.SignedBeaconBlock,
-    wallSlot: Slot): Result[void, BlockError] =
+    wallSlot: Slot): Result[BlockRef, BlockError] =
   let
     attestationPool = self.consensusManager.attestationPool
 
@@ -167,7 +167,7 @@ proc storeBlock(
   # was pruned from the ForkChoice.
   if blck.isErr:
     return err(blck.error[1])
-  ok()
+  ok(blck.get())
 
 # Event Loop
 # ------------------------------------------------------------------------------
