@@ -25,7 +25,9 @@ fi
 # settings such as WEB3_URL, CPU_LIMIT, etc:
 USER_ENV_FILE="${ABS_PATH}/.env"
 if [ -f "${USER_ENV_FILE}" ]; then
+  set -o allexport
   source "${USER_ENV_FILE}"
+  set +o allexport
 fi
 
 source ${ABS_PATH}/vendor/nimbus-build-system/scripts/env.sh
