@@ -8,8 +8,7 @@
 {.push raises: [Defect].}
 
 import std/[os, strutils, tables]
-import "."/spec/[digest, crypto],
-       "."/validators/keystore_management
+import "."/validators/[keystore_management]
 
 {.pop.} # TODO moduletests exceptions
 

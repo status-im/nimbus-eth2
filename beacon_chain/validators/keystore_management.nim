@@ -20,7 +20,7 @@ import
   ./validator_pool
 
 export
-  keystore
+  keystore, validator_pool
 
 when defined(windows):
   import stew/[windows/acl]
