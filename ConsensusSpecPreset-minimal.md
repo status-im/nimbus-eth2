@@ -147,8 +147,6 @@ ConsensusSpecPreset-minimal
 + Slots - over_epoch_boundary                                                                OK
 + Slots - slots_1                                                                            OK
 + Slots - slots_2                                                                            OK
-+ [Invalid]  bad_merkle_proof                                                                OK
-+ [Invalid]  wrong_deposit_for_deposit_count                                                 OK
 + [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - double_same_proposer_slashings_ OK
 + [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - double_similar_proposer_slashin OK
 + [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - double_validator_exit_same_bloc OK
@@ -192,20 +190,6 @@ ConsensusSpecPreset-minimal
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - same_slot_block_transition [Pr OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - slash_and_exit_same_index [Pre OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - zero_block_sig [Preset: minima OK
-+ [Invalid] after_epoch_slots                                                                OK
-+ [Invalid] all_empty_indices                                                                OK
-+ [Invalid] att1_bad_extra_index                                                             OK
-+ [Invalid] att1_bad_replaced_index                                                          OK
-+ [Invalid] att1_duplicate_index_double_signed                                               OK
-+ [Invalid] att1_duplicate_index_normal_signed                                               OK
-+ [Invalid] att1_empty_indices                                                               OK
-+ [Invalid] att1_high_index                                                                  OK
-+ [Invalid] att2_bad_extra_index                                                             OK
-+ [Invalid] att2_bad_replaced_index                                                          OK
-+ [Invalid] att2_duplicate_index_double_signed                                               OK
-+ [Invalid] att2_duplicate_index_normal_signed                                               OK
-+ [Invalid] att2_empty_indices                                                               OK
-+ [Invalid] att2_high_index                                                                  OK
 + [Invalid] bad_everything_regular_payload                                                   OK
 + [Invalid] bad_execution_first_payload                                                      OK
 + [Invalid] bad_execution_regular_payload                                                    OK
@@ -213,80 +197,12 @@ ConsensusSpecPreset-minimal
 + [Invalid] bad_parent_hash_regular_payload                                                  OK
 + [Invalid] bad_random_first_payload                                                         OK
 + [Invalid] bad_random_regular_payload                                                       OK
-+ [Invalid] bad_source_root                                                                  OK
 + [Invalid] bad_timestamp_first_payload                                                      OK
 + [Invalid] bad_timestamp_regular_payload                                                    OK
-+ [Invalid] before_inclusion_delay                                                           OK
-+ [Invalid] correct_after_epoch_delay                                                        OK
-+ [Invalid] empty_participants_seemingly_valid_sig                                           OK
-+ [Invalid] empty_participants_zeroes_sig                                                    OK
-+ [Invalid] epochs_are_different                                                             OK
-+ [Invalid] future_target_epoch                                                              OK
 + [Invalid] gaslimit_lower_minus_regular_payload                                             OK
 + [Invalid] gaslimit_minimum_minus_regular_payload                                           OK
 + [Invalid] gaslimit_upper_plus_regular_payload                                              OK
 + [Invalid] gasused_gaslimit_plus_regular_payload                                            OK
-+ [Invalid] headers_are_same_sigs_are_different                                              OK
-+ [Invalid] headers_are_same_sigs_are_same                                                   OK
-+ [Invalid] incorrect_head_after_epoch_delay                                                 OK
-+ [Invalid] incorrect_head_and_target_after_epoch_delay                                      OK
-+ [Invalid] incorrect_target_after_epoch_delay                                               OK
-+ [Invalid] invalid_attestation_signature                                                    OK
-+ [Invalid] invalid_current_source_root                                                      OK
-+ [Invalid] invalid_different_proposer_indices                                               OK
-+ [Invalid] invalid_index                                                                    OK
-+ [Invalid] invalid_multiple_blocks_single_slot                                              OK
-+ [Invalid] invalid_parent_root                                                              OK
-+ [Invalid] invalid_proposer_index                                                           OK
-+ [Invalid] invalid_sig_1                                                                    OK
-+ [Invalid] invalid_sig_1_and_2                                                              OK
-+ [Invalid] invalid_sig_1_and_2_swap                                                         OK
-+ [Invalid] invalid_sig_2                                                                    OK
-+ [Invalid] invalid_signature                                                                OK
-+ [Invalid] invalid_signature_bad_domain                                                     OK
-+ [Invalid] invalid_signature_extra_participant                                              OK
-+ [Invalid] invalid_signature_infinite_signature_with_all_participants                       OK
-+ [Invalid] invalid_signature_infinite_signature_with_single_participant                     OK
-+ [Invalid] invalid_signature_missing_participant                                            OK
-+ [Invalid] invalid_signature_no_participants                                                OK
-+ [Invalid] invalid_signature_past_block                                                     OK
-+ [Invalid] invalid_signature_previous_committee                                             OK
-+ [Invalid] invalid_slot_block_header                                                        OK
-+ [Invalid] mismatched_target_and_slot                                                       OK
-+ [Invalid] new_source_epoch                                                                 OK
-+ [Invalid] no_double_or_surround                                                            OK
-+ [Invalid] old_source_epoch                                                                 OK
-+ [Invalid] old_target_epoch                                                                 OK
-+ [Invalid] participants_already_slashed                                                     OK
-+ [Invalid] proposer_is_not_activated                                                        OK
-+ [Invalid] proposer_is_slashed                                                              OK
-+ [Invalid] proposer_is_withdrawn                                                            OK
-+ [Invalid] proposer_slashed                                                                 OK
-+ [Invalid] same_data                                                                        OK
-+ [Invalid] source_root_is_target_root                                                       OK
-+ [Invalid] too_few_aggregation_bits                                                         OK
-+ [Invalid] too_many_aggregation_bits                                                        OK
-+ [Invalid] unsorted_att_1                                                                   OK
-+ [Invalid] unsorted_att_2                                                                   OK
-+ [Invalid] validator_already_exited                                                         OK
-+ [Invalid] validator_exit_in_future                                                         OK
-+ [Invalid] validator_invalid_validator_index                                                OK
-+ [Invalid] validator_not_active                                                             OK
-+ [Invalid] validator_not_active_long_enough                                                 OK
-+ [Invalid] wrong_index_for_committee_signature                                              OK
-+ [Invalid] wrong_index_for_slot_0                                                           OK
-+ [Invalid] wrong_index_for_slot_1                                                           OK
-+ [Valid]    invalid_sig_new_deposit                                                         OK
-+ [Valid]    invalid_sig_other_version                                                       OK
-+ [Valid]    invalid_sig_top_up                                                              OK
-+ [Valid]    invalid_withdrawal_credentials_top_up                                           OK
-+ [Valid]    new_deposit_eth1_withdrawal_credentials                                         OK
-+ [Valid]    new_deposit_max                                                                 OK
-+ [Valid]    new_deposit_non_versioned_withdrawal_credentials                                OK
-+ [Valid]    new_deposit_over_max                                                            OK
-+ [Valid]    new_deposit_under_max                                                           OK
-+ [Valid]    success_top_up                                                                  OK
-+ [Valid]    valid_sig_but_forked_state                                                      OK
 + [Valid]   Ethereum Foundation - Altair - Finality - finality_no_updates_at_genesis [Preset OK
 + [Valid]   Ethereum Foundation - Altair - Finality - finality_rule_1 [Preset: minimal]      OK
 + [Valid]   Ethereum Foundation - Altair - Finality - finality_rule_2 [Preset: minimal]      OK
@@ -435,66 +351,297 @@ ConsensusSpecPreset-minimal
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - skipped_slots [Preset: minimal OK
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Pre OK
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minima OK
-+ [Valid]   correct_epoch_delay                                                              OK
-+ [Valid]   correct_min_inclusion_delay                                                      OK
-+ [Valid]   correct_sqrt_epoch_delay                                                         OK
-+ [Valid]   default_exit_epoch_subsequent_exit                                               OK
 + [Valid]   gaslimit_lower_regular_payload                                                   OK
 + [Valid]   gaslimit_max_first_payload                                                       OK
 + [Valid]   gaslimit_minimum_regular_payload                                                 OK
 + [Valid]   gaslimit_upper_regular_payload                                                   OK
 + [Valid]   gaslimit_zero_first_payload                                                      OK
 + [Valid]   gasused_gaslimit_regular_payload                                                 OK
-+ [Valid]   incorrect_head_and_target_epoch_delay                                            OK
-+ [Valid]   incorrect_head_and_target_min_inclusion_delay                                    OK
-+ [Valid]   incorrect_head_and_target_sqrt_epoch_delay                                       OK
-+ [Valid]   incorrect_head_epoch_delay                                                       OK
-+ [Valid]   incorrect_head_min_inclusion_delay                                               OK
-+ [Valid]   incorrect_head_sqrt_epoch_delay                                                  OK
-+ [Valid]   incorrect_target_epoch_delay                                                     OK
-+ [Valid]   incorrect_target_min_inclusion_delay                                             OK
-+ [Valid]   incorrect_target_sqrt_epoch_delay                                                OK
-+ [Valid]   proposer_in_committee_with_participation                                         OK
-+ [Valid]   proposer_in_committee_without_participation                                      OK
-+ [Valid]   random_all_but_one_participating_without_duplicates                              OK
-+ [Valid]   random_high_participation_without_duplicates                                     OK
-+ [Valid]   random_low_participation_without_duplicates                                      OK
-+ [Valid]   random_misc_balances_and_half_participation_without_duplicates                   OK
-+ [Valid]   random_only_one_participant_without_duplicates                                   OK
-+ [Valid]   random_with_exits_without_duplicates                                             OK
-+ [Valid]   success                                                                          OK
-+ [Valid]   success_already_exited_long_ago                                                  OK
-+ [Valid]   success_already_exited_recent                                                    OK
-+ [Valid]   success_attestation_from_future                                                  OK
-+ [Valid]   success_block_header                                                             OK
-+ [Valid]   success_block_header_from_future                                                 OK
-+ [Valid]   success_double                                                                   OK
-+ [Valid]   success_exit_queue__min_churn                                                    OK
-+ [Valid]   success_exit_queue__scaled_churn                                                 OK
 + [Valid]   success_first_payload                                                            OK
 + [Valid]   success_first_payload_with_gap_slot                                              OK
-+ [Valid]   success_low_balances                                                             OK
-+ [Valid]   success_misc_balances                                                            OK
-+ [Valid]   success_multi_proposer_index_iterations                                          OK
-+ [Valid]   success_previous_epoch                                                           OK
-+ [Valid]   success_proposer_index_slashed                                                   OK
 + [Valid]   success_regular_payload                                                          OK
 + [Valid]   success_regular_payload_with_gap_slot                                            OK
-+ [Valid]   success_slashed_and_proposer_index_the_same                                      OK
-+ [Valid]   success_surround                                                                 OK
-+ [Valid]   success_with_effective_balance_disparity                                         OK
-+ [Valid]   sync_committee_rewards_empty_participants                                        OK
-+ [Valid]   sync_committee_rewards_nonduplicate_committee                                    OK
-+ [Valid]   sync_committee_rewards_not_full_participants                                     OK
-+ [Valid]   sync_committee_with_nonparticipating_exited_member                               OK
-+ [Valid]   sync_committee_with_nonparticipating_withdrawable_member                         OK
-+ [Valid]   sync_committee_with_participating_exited_member                                  OK
-+ [Valid]   sync_committee_with_participating_withdrawable_member                            OK
-+ [Valid]   valid_signature_future_committee                                                 OK
 + finality_root_merkle_proof                                                                 OK
 + next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 491/491 Fail: 0/491 Skip: 0/491
+OK: 361/361 Fail: 0/361 Skip: 0/361
+## Attestation
+```diff
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - after_epoch_slots      OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - bad_source_root        OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - before_inclusion_delay OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - correct_after_epoch_de OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - empty_participants_see OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - empty_participants_zer OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - future_target_epoch    OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - incorrect_head_after_e OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - incorrect_head_and_tar OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - incorrect_target_after OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - invalid_attestation_si OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - invalid_current_source OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - invalid_index          OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - mismatched_target_and_ OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - new_source_epoch       OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - old_source_epoch       OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - old_target_epoch       OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - source_root_is_target_ OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - too_few_aggregation_bi OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - too_many_aggregation_b OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - wrong_index_for_commit OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - wrong_index_for_slot_0 OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - wrong_index_for_slot_1 OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - after_epoch_slots       OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - bad_source_root         OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - before_inclusion_delay  OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - correct_after_epoch_del OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - empty_participants_seem OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - empty_participants_zero OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - future_target_epoch     OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_after_ep OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_and_targ OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - incorrect_target_after_ OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - invalid_attestation_sig OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - invalid_current_source_ OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - invalid_index           OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - mismatched_target_and_s OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - new_source_epoch        OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - old_source_epoch        OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - old_target_epoch        OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - source_root_is_target_r OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - too_few_aggregation_bit OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - too_many_aggregation_bi OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - wrong_index_for_committ OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - wrong_index_for_slot_0  OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - wrong_index_for_slot_1  OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - after_epoch_slots     OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - bad_source_root       OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - before_inclusion_dela OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - correct_after_epoch_d OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - empty_participants_se OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - empty_participants_ze OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - future_target_epoch   OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - incorrect_head_after_ OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - incorrect_head_and_ta OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - incorrect_target_afte OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - invalid_attestation_s OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - invalid_current_sourc OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - invalid_index         OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - mismatched_target_and OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - new_source_epoch      OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - old_source_epoch      OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - old_target_epoch      OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - source_root_is_target OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - too_few_aggregation_b OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - too_many_aggregation_ OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - wrong_index_for_commi OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - wrong_index_for_slot_ OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - wrong_index_for_slot_ OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attestation - correct_epoch_delay    OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attestation - correct_min_inclusion_ OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attestation - correct_sqrt_epoch_del OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attestation - incorrect_head_and_tar OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attestation - incorrect_head_and_tar OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attestation - incorrect_head_and_tar OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attestation - incorrect_head_epoch_d OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attestation - incorrect_head_min_inc OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attestation - incorrect_head_sqrt_ep OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attestation - incorrect_target_epoch OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attestation - incorrect_target_min_i OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attestation - incorrect_target_sqrt_ OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attestation - success                OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attestation - success_multi_proposer OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attestation - success_previous_epoch OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - correct_epoch_delay     OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - correct_min_inclusion_d OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - correct_sqrt_epoch_dela OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_and_targ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_and_targ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_and_targ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_epoch_de OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_min_incl OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_sqrt_epo OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_target_epoch_ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_target_min_in OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_target_sqrt_e OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - success                 OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - success_multi_proposer_ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - success_previous_epoch  OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - correct_epoch_delay   OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - correct_min_inclusion OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - correct_sqrt_epoch_de OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - incorrect_head_and_ta OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - incorrect_head_and_ta OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - incorrect_head_and_ta OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - incorrect_head_epoch_ OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - incorrect_head_min_in OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - incorrect_head_sqrt_e OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - incorrect_target_epoc OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - incorrect_target_min_ OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - incorrect_target_sqrt OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - success               OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - success_multi_propose OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - success_previous_epoc OK
+```
+OK: 114/114 Fail: 0/114 Skip: 0/114
+## Attester Slashing
+```diff
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - all_empty_indice OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - att1_bad_extra_i OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - att1_bad_replace OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - att1_duplicate_i OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - att1_duplicate_i OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - att1_empty_indic OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - att1_high_index  OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - att2_bad_extra_i OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - att2_bad_replace OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - att2_duplicate_i OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - att2_duplicate_i OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - att2_empty_indic OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - att2_high_index  OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - invalid_sig_1    OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - invalid_sig_1_an OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - invalid_sig_2    OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - no_double_or_sur OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - participants_alr OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - same_data        OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - unsorted_att_1   OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - unsorted_att_2   OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - all_empty_indices OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att1_bad_extra_in OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att1_bad_replaced OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att1_duplicate_in OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att1_duplicate_in OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att1_empty_indice OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att1_high_index   OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att2_bad_extra_in OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att2_bad_replaced OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att2_duplicate_in OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att2_duplicate_in OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att2_empty_indice OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att2_high_index   OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - invalid_sig_1     OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - invalid_sig_1_and OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - invalid_sig_2     OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - no_double_or_surr OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - participants_alre OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - same_data         OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - unsorted_att_1    OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - unsorted_att_2    OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - all_empty_indic OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - att1_bad_extra_ OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - att1_bad_replac OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - att1_duplicate_ OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - att1_duplicate_ OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - att1_empty_indi OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - att1_high_index OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - att2_bad_extra_ OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - att2_bad_replac OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - att2_duplicate_ OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - att2_duplicate_ OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - att2_empty_indi OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - att2_high_index OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - invalid_sig_1   OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - invalid_sig_1_a OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - invalid_sig_2   OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - no_double_or_su OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - participants_al OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - same_data       OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - unsorted_att_1  OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - unsorted_att_2  OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attester Slashing - success_already_ OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attester Slashing - success_already_ OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attester Slashing - success_attestat OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attester Slashing - success_double   OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attester Slashing - success_low_bala OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attester Slashing - success_misc_bal OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attester Slashing - success_proposer OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attester Slashing - success_surround OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Attester Slashing - success_with_eff OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_already_e OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_already_e OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_attestati OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_double    OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_low_balan OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_misc_bala OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_proposer_ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_surround  OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_with_effe OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attester Slashing - success_already OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attester Slashing - success_already OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attester Slashing - success_attesta OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attester Slashing - success_double  OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attester Slashing - success_low_bal OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attester Slashing - success_misc_ba OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attester Slashing - success_propose OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attester Slashing - success_surroun OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Attester Slashing - success_with_ef OK
+```
+OK: 90/90 Fail: 0/90 Skip: 0/90
+## Block Header
+```diff
++ [Invalid] Ethereum Foundation - Altair - Operations - Block Header - invalid_multiple_bloc OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Block Header - invalid_parent_root   OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Block Header - invalid_proposer_inde OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Block Header - invalid_slot_block_he OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Block Header - proposer_slashed      OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Block Header - invalid_multiple_block OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Block Header - invalid_parent_root    OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Block Header - invalid_proposer_index OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Block Header - invalid_slot_block_hea OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Block Header - proposer_slashed       OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Block Header - invalid_multiple_blo OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Block Header - invalid_parent_root  OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Block Header - invalid_proposer_ind OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Block Header - invalid_slot_block_h OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Block Header - proposer_slashed     OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Block Header - success_block_header  OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Block Header - success_block_header   OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Block Header - success_block_header OK
+```
+OK: 18/18 Fail: 0/18 Skip: 0/18
+## Deposit
+```diff
++ [Invalid] Ethereum Foundation - Altair - Operations - Deposit - bad_merkle_proof           OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Deposit - wrong_deposit_for_deposit_ OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Deposit - bad_merkle_proof            OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Deposit - wrong_deposit_for_deposit_c OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Deposit - bad_merkle_proof          OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Deposit - wrong_deposit_for_deposit OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Deposit - invalid_sig_new_deposit    OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Deposit - invalid_sig_other_version  OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Deposit - invalid_sig_top_up         OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Deposit - invalid_withdrawal_credent OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Deposit - new_deposit_eth1_withdrawa OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Deposit - new_deposit_max            OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Deposit - new_deposit_non_versioned_ OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Deposit - new_deposit_over_max       OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Deposit - new_deposit_under_max      OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Deposit - success_top_up             OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Deposit - valid_sig_but_forked_state OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - invalid_sig_new_deposit     OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - invalid_sig_other_version   OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - invalid_sig_top_up          OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - invalid_withdrawal_credenti OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - new_deposit_eth1_withdrawal OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - new_deposit_max             OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - new_deposit_non_versioned_w OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - new_deposit_over_max        OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - new_deposit_under_max       OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - success_top_up              OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - valid_sig_but_forked_state  OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Deposit - invalid_sig_new_deposit   OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Deposit - invalid_sig_other_version OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Deposit - invalid_sig_top_up        OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Deposit - invalid_withdrawal_creden OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Deposit - new_deposit_eth1_withdraw OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Deposit - new_deposit_max           OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Deposit - new_deposit_non_versioned OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Deposit - new_deposit_over_max      OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Deposit - new_deposit_under_max     OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Deposit - success_top_up            OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Deposit - valid_sig_but_forked_stat OK
+```
+OK: 39/39 Fail: 0/39 Skip: 0/39
 ## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -918,6 +1065,141 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 27/27 Fail: 0/27 Skip: 0/27
+## Proposer Slashing
+```diff
++ [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - epochs_are_diffe OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - headers_are_same OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - headers_are_same OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - invalid_differen OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - invalid_proposer OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - invalid_sig_1    OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - invalid_sig_1_an OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - invalid_sig_1_an OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - invalid_sig_2    OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - proposer_is_not_ OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - proposer_is_slas OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - proposer_is_with OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - epochs_are_differ OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - headers_are_same_ OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - headers_are_same_ OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - invalid_different OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - invalid_proposer_ OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - invalid_sig_1     OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - invalid_sig_1_and OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - invalid_sig_1_and OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - invalid_sig_2     OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - proposer_is_not_a OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - proposer_is_slash OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - proposer_is_withd OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - epochs_are_diff OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - headers_are_sam OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - headers_are_sam OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - invalid_differe OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - invalid_propose OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - invalid_sig_1   OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - invalid_sig_1_a OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - invalid_sig_1_a OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - invalid_sig_2   OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - proposer_is_not OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - proposer_is_sla OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - proposer_is_wit OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Proposer Slashing - success          OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Proposer Slashing - success_block_he OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Proposer Slashing - success_slashed_ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Proposer Slashing - success           OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Proposer Slashing - success_block_hea OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Proposer Slashing - success_slashed_a OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - success         OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - success_block_h OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - success_slashed OK
+```
+OK: 45/45 Fail: 0/45 Skip: 0/45
+## Sync Aggregate
+```diff
++ [Invalid] Ethereum Foundation - Altair - Operations - Sync Aggregate - invalid_signature_b OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Sync Aggregate - invalid_signature_e OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Sync Aggregate - invalid_signature_i OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Sync Aggregate - invalid_signature_i OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Sync Aggregate - invalid_signature_m OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Sync Aggregate - invalid_signature_n OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Sync Aggregate - invalid_signature_p OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Sync Aggregate - invalid_signature_p OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Sync Aggregate - invalid_signature_ba OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Sync Aggregate - invalid_signature_ex OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Sync Aggregate - invalid_signature_in OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Sync Aggregate - invalid_signature_in OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Sync Aggregate - invalid_signature_mi OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Sync Aggregate - invalid_signature_no OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Sync Aggregate - invalid_signature_pa OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Sync Aggregate - invalid_signature_pr OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - proposer_in_committ OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - proposer_in_committ OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - random_all_but_one_ OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - random_high_partici OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - random_low_particip OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - random_misc_balance OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - random_only_one_par OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - random_with_exits_w OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - sync_committee_rewa OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - sync_committee_rewa OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - sync_committee_rewa OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - sync_committee_with OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - sync_committee_with OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - sync_committee_with OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - sync_committee_with OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - valid_signature_fut OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - proposer_in_committe OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - proposer_in_committe OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - random_all_but_one_p OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - random_high_particip OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - random_low_participa OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - random_misc_balances OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - random_only_one_part OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - random_with_exits_wi OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_rewar OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_rewar OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_rewar OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_with_ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_with_ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_with_ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_with_ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - valid_signature_futu OK
+```
+OK: 48/48 Fail: 0/48 Skip: 0/48
+## Voluntary Exit
+```diff
++ [Invalid] Ethereum Foundation - Altair - Operations - Voluntary Exit - invalid_signature   OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Voluntary Exit - validator_already_e OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Voluntary Exit - validator_exit_in_f OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Voluntary Exit - validator_invalid_v OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Voluntary Exit - validator_not_activ OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Voluntary Exit - validator_not_activ OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Voluntary Exit - invalid_signature    OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Voluntary Exit - validator_already_ex OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Voluntary Exit - validator_exit_in_fu OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Voluntary Exit - validator_invalid_va OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Voluntary Exit - validator_not_active OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Voluntary Exit - validator_not_active OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - invalid_signature  OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - validator_already_ OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - validator_exit_in_ OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - validator_invalid_ OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - validator_not_acti OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - validator_not_acti OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Voluntary Exit - default_exit_epoch_ OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Voluntary Exit - success             OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Voluntary Exit - success_exit_queue_ OK
++ [Valid]   Ethereum Foundation - Altair - Operations - Voluntary Exit - success_exit_queue_ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Voluntary Exit - default_exit_epoch_s OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Voluntary Exit - success              OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Voluntary Exit - success_exit_queue__ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Voluntary Exit - success_exit_queue__ OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - default_exit_epoch OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - success            OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - success_exit_queue OK
++ [Valid]   Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - success_exit_queue OK
+```
+OK: 30/30 Fail: 0/30 Skip: 0/30
 
 ---TOTAL---
-OK: 774/774 Fail: 0/774 Skip: 0/774
+OK: 1028/1028 Fail: 0/1028 Skip: 0/1028
