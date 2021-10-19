@@ -8,9 +8,7 @@
 {.push raises: [Defect].}
 
 import std/[os, strutils, tables]
-import "."/spec/[digest, crypto],
-       "."/validators/keystore_management,
-       "."/beacon_node_types
+import "."/validators/[keystore_management]
 
 {.pop.} # TODO moduletests exceptions
 

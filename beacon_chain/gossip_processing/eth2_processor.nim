@@ -13,12 +13,13 @@ import
   chronicles, chronos, metrics,
   ../spec/[helpers, forks],
   ../spec/datatypes/[altair, phase0],
-  ../consensus_object_pools/[block_clearance, blockchain_dag, exit_pool, attestation_pool],
-  ./gossip_validation, ./block_processor,
-  ./batch_validation,
+  ../consensus_object_pools/[
+    block_clearance, blockchain_dag, exit_pool, attestation_pool,
+    sync_committee_msg_pool],
   ../validators/validator_pool,
-  ../beacon_node_types,
-  ../beacon_clock
+  ../beacon_clock,
+  "."/[gossip_validation, block_processor, batch_validation]
+
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_attestations_received,
@@ -66,7 +67,7 @@ type
     dag*: ChainDAGRef
     attestationPool*: ref AttestationPool
     validatorPool: ref ValidatorPool
-    syncCommitteeMsgPool: SyncCommitteeMsgPoolRef
+    syncCommitteeMsgPool: ref SyncCommitteeMsgPool
 
     doppelgangerDetection*: DoppelgangerProtection
 
@@ -99,7 +100,7 @@ proc new*(T: type Eth2Processor,
           attestationPool: ref AttestationPool,
           exitPool: ref ExitPool,
           validatorPool: ref ValidatorPool,
-          syncCommitteeMsgPool: SyncCommitteeMsgPoolRef,
+          syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
           quarantine: QuarantineRef,
           rng: ref BrHmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,

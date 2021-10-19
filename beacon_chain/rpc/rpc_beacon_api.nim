@@ -13,7 +13,7 @@ import
   json_rpc/servers/httpserver,
   chronicles,
   nimcrypto/utils as ncrutils,
-  ../beacon_node_common,
+  ../beacon_node,
   ../networking/eth2_network,
   ../validators/validator_duties,
   ../consensus_object_pools/blockchain_dag,

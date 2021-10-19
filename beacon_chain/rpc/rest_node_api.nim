@@ -4,7 +4,7 @@ import
   eth/p2p/discoveryv5/enr,
   libp2p/[multiaddress, multicodec],
   nimcrypto/utils as ncrutils,
-  ../version, ../beacon_node_common, ../sync/sync_manager,
+  ../version, ../beacon_node, ../sync/sync_manager,
   ../networking/[eth2_network, peer_pool],
   ../spec/datatypes/base,
   ../spec/eth2_apis/rpc_types,

@@ -8,16 +8,58 @@
 {.push raises: [Defect].}
 
 import
-  std/[tables, json, streams],
+  std/[options, tables, json, streams],
   chronos, chronicles, metrics,
-  json_serialization/std/[sets, net],
-  ../spec/[signatures, helpers],
+  json_serialization/std/net,
+  ../spec/[keystore, signatures, helpers],
   ../spec/datatypes/[phase0, altair],
-  ../beacon_node_types,
   ./slashing_protection
+
+export
+  streams, options, keystore, phase0, altair, tables
 
 declareGauge validators,
   "Number of validators attached to the beacon node"
+
+type
+  ValidatorKind* {.pure.} = enum
+    Local, Remote
+
+  ValidatorConnection* = object
+    inStream*: Stream
+    outStream*: Stream
+    pubKeyStr*: string
+
+  ValidatorPrivateItem* = object
+    privateKey*: ValidatorPrivKey
+    description*: Option[string]
+    path*: Option[KeyPath]
+    uuid*: Option[string]
+    version*: Option[uint64]
+
+  AttachedValidator* = ref object
+    pubKey*: ValidatorPubKey
+    case kind*: ValidatorKind
+    of ValidatorKind.Local:
+      data*: ValidatorPrivateItem
+    of ValidatorKind.Remote:
+      connection*: ValidatorConnection
+
+    # The index at which this validator has been observed in the chain -
+    # it does not change as long as there are no reorgs on eth1 - however, the
+    # index might not be valid in all eth2 histories, so it should not be
+    # assumed that a valid index is stored here!
+    index*: Option[ValidatorIndex]
+
+    # Cache the latest slot signature - the slot signature is used to determine
+    # if the validator will be aggregating (in the near future)
+    slotSignature*: Option[tuple[slot: Slot, signature: ValidatorSig]]
+
+  ValidatorPool* = object
+    validators*: Table[ValidatorPubKey, AttachedValidator]
+    slashingProtection*: SlashingProtectionDB
+
+func shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
 
 func init*(T: type ValidatorPool,
             slashingProtectionDB: SlashingProtectionDB): T =

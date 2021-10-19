@@ -24,8 +24,8 @@ import
 
   # Local modules
   "."/[
-    beacon_clock, beacon_chain_db, beacon_node_common, beacon_node_status,
-    beacon_node_types, conf, filepath, interop, nimbus_binary_common, statusbar,
+    beacon_clock, beacon_chain_db, beacon_node, beacon_node_status,
+    conf, filepath, interop, nimbus_binary_common, statusbar,
     version],
   ./networking/[eth2_discovery, eth2_network, network_metadata],
   ./gossip_processing/[eth2_processor, block_processor, consensus_manager],

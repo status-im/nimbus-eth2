@@ -3,7 +3,7 @@ import std/options,
        nimcrypto/utils as ncrutils,
        ../spec/[forks],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization],
-       ../beacon_node_common,
+       ../beacon_node,
        ../consensus_object_pools/[block_pools_types, blockchain_dag]
 
 export

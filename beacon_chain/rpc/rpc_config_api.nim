@@ -12,7 +12,7 @@ import
   json_rpc/servers/httpserver,
   chronicles,
   nimcrypto/utils as ncrutils,
-  ../beacon_node_common,
+  ../beacon_node,
   ../eth1/eth1_monitor,
   ../spec/forks
 

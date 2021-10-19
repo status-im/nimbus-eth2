@@ -14,7 +14,7 @@ import
   ../eth1/eth1_monitor,
   ../validators/validator_duties,
   ../spec/forks,
-  ../beacon_node_common, ../nimbus_binary_common
+  ../beacon_node, ../nimbus_binary_common
 
 logScope: topics = "rest_nimbusapi"
 

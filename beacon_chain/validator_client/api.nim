@@ -1,6 +1,9 @@
 import
+  ../spec/eth2_apis/eth2_rest_serialization,
   ../spec/datatypes/[phase0, altair],
   common
+
+export eth2_rest_serialization, common
 
 type
   ApiResponse*[T] = Result[T, string]

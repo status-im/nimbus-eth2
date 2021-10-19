@@ -31,7 +31,7 @@ import
   ../networking/eth2_network,
   ../sszdump, ../sync/sync_manager,
   ../gossip_processing/consensus_manager,
-  ".."/[conf, beacon_clock, beacon_node_common, beacon_node_types, version],
+  ".."/[conf, beacon_clock, beacon_node, version],
   "."/[slashing_protection, validator_pool, keystore_management]
 
 # Metrics for tracking attestation and beacon block loss

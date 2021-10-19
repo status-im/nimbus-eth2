@@ -8,7 +8,7 @@ import
   stew/results,
   chronicles,
   ./rest_utils,
-  ../beacon_node_common
+  ../beacon_node
 
 logScope: topics = "rest_eventapi"
 

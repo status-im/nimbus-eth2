@@ -1,4 +1,4 @@
-import std/[tables, os, sequtils, strutils]
+import std/[tables, os, sets, sequtils, strutils]
 import chronos, presto, presto/client as presto_client, chronicles, confutils,
        json_serialization/std/[options, net],
        stew/[base10, results, byteutils]
@@ -6,22 +6,20 @@ import chronos, presto, presto/client as presto_client, chronicles, confutils,
 # Local modules
 import
   ../spec/datatypes/[phase0, altair],
-  ../spec/[eth2_merkleization, helpers, signatures, validator],
-  ../spec/eth2_apis/rest_beacon_client,
-  ../validators/[keystore_management,
-                  validator_pool, slashing_protection],
-  ".."/[conf, beacon_clock, version, beacon_node_types,
-        nimbus_binary_common]
+  ../spec/[eth2_merkleization, helpers, signatures,
+    validator],
+  ../spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client],
+  ../validators/[keystore_management, validator_pool, slashing_protection],
+  ".."/[conf, beacon_clock, version, nimbus_binary_common]
 
-export os, tables, sequtils, sequtils, chronos, presto, chronicles, confutils,
+export os, sets, sequtils, sequtils, chronos, presto, chronicles, confutils,
        nimbus_binary_common, version, conf, options, tables, results, base10,
        byteutils, presto_client
 
-export rest_beacon_client,
+export eth2_rest_serialization, rest_beacon_client,
        phase0, altair, helpers, signatures, validator, eth2_merkleization,
        beacon_clock,
-       keystore_management, slashing_protection, validator_pool,
-       beacon_node_types
+       keystore_management, slashing_protection, validator_pool
 
 const
   SYNC_TOLERANCE* = 4'u64

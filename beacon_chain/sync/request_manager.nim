@@ -13,7 +13,6 @@ import
   ../spec/datatypes/[phase0, altair],
   ../spec/forks,
   ../networking/eth2_network,
-  ../beacon_node_types,
   ../gossip_processing/block_processor,
   "."/sync_protocol, "."/sync_manager
 export sync_manager

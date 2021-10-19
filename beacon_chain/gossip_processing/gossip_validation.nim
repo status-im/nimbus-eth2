@@ -20,7 +20,7 @@ import
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, block_quarantine, exit_pool, spec_cache,
     sync_committee_msg_pool],
-  ".."/[beacon_node_types, beacon_clock],
+  ".."/[beacon_clock],
   ./batch_validation
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
@@ -755,7 +755,7 @@ proc validateVoluntaryExit*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#sync_committee_subnet_id
 proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
-    syncCommitteeMsgPool: SyncCommitteeMsgPoolRef,
+    syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
     msg: SyncCommitteeMessage,
     syncCommitteeIdx: SyncCommitteeIndex,
     wallTime: BeaconTime,
@@ -837,7 +837,7 @@ proc validateSyncCommitteeMessage*(
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
 proc validateSignedContributionAndProof*(
     dag: ChainDAGRef,
-    syncCommitteeMsgPool: SyncCommitteeMsgPoolRef,
+    syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
     msg: SignedContributionAndProof,
     wallTime: BeaconTime,
     checkSignature: bool):

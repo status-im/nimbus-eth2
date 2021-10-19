@@ -7,7 +7,7 @@ import std/[typetraits, strutils, sets, sequtils]
 import stew/[results, base10], chronicles, json_serialization,
        json_serialization/std/[options, net],
        nimcrypto/utils as ncrutils
-import ".."/[beacon_chain_db, beacon_node_common],
+import ".."/[beacon_chain_db, beacon_node],
        ".."/networking/eth2_network,
        ".."/consensus_object_pools/[blockchain_dag, spec_cache,
                                     attestation_pool, sync_committee_msg_pool],
