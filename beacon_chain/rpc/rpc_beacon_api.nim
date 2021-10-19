@@ -406,7 +406,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
                          "Beacon node is currently syncing, try again later.")
     let head = node.dag.head
     if head.slot >= blck.message.slot:
-      node.network.broadcastBeaconBlock(ForkedSignedBeaconBlock.init(blck))
+      node.network.broadcastBeaconBlock(blck)
       # The block failed validation, but was successfully broadcast anyway.
       # It was not integrated into the beacon node's database.
       return 202
@@ -415,7 +415,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
         node, head, AttachedValidator(),
         ForkedSignedBeaconBlock.init(blck))
       if res == head:
-        node.network.broadcastBeaconBlock(ForkedSignedBeaconBlock.init(blck))
+        node.network.broadcastBeaconBlock(blck)
         # The block failed validation, but was successfully broadcast anyway.
         # It was not integrated into the beacon node''s database.
         return 202

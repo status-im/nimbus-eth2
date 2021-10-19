@@ -27,7 +27,7 @@ import
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
   ".."/[version, conf, beacon_clock],
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0, altair, merge],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
   ../validators/keystore_management,
   ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
@@ -2150,37 +2150,40 @@ proc broadcastAttestation*(node: Eth2Node, subnet_id: SubnetId,
   node.broadcast(topic, attestation)
 
 proc broadcastVoluntaryExit*(node: Eth2Node, exit: SignedVoluntaryExit) =
-  let exitsTopic = getVoluntaryExitsTopic(
+  let topic = getVoluntaryExitsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
-  node.broadcast(exitsTopic, exit)
+  node.broadcast(topic, exit)
 
 proc broadcastAttesterSlashing*(node: Eth2Node, slashing: AttesterSlashing) =
-  let attesterSlashingsTopic = getAttesterSlashingsTopic(
+  let topic = getAttesterSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
-  node.broadcast(attesterSlashingsTopic, slashing)
+  node.broadcast(topic, slashing)
 
 proc broadcastProposerSlashing*(node: Eth2Node, slashing: ProposerSlashing) =
-  let proposerSlashingsTopic = getProposerSlashingsTopic(
+  let topic = getProposerSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
-  node.broadcast(proposerSlashingsTopic, slashing)
+  node.broadcast(topic, slashing)
 
 proc broadcastAggregateAndProof*(node: Eth2Node,
                                  proof: SignedAggregateAndProof) =
-  let proofTopic = getAggregateAndProofsTopic(
+  let topic = getAggregateAndProofsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
-  node.broadcast(proofTopic, proof)
+  node.broadcast(topic, proof)
+
+proc broadcastBeaconBlock*(node: Eth2Node, blck: phase0.SignedBeaconBlock) =
+  let topic = getBeaconBlocksTopic(node.forkDigests.phase0)
+  node.broadcast(topic, blck)
+
+proc broadcastBeaconBlock*(node: Eth2Node, blck: altair.SignedBeaconBlock) =
+  let topic = getBeaconBlocksTopic(node.forkDigests.altair)
+  node.broadcast(topic, blck)
+
+proc broadcastBeaconBlock*(node: Eth2Node, blck: merge.SignedBeaconBlock) =
+  let topic = getBeaconBlocksTopic(node.forkDigests.merge)
+  node.broadcast(topic, blck)
 
 proc broadcastBeaconBlock*(node: Eth2Node, forked: ForkedSignedBeaconBlock) =
-  case forked.kind
-  of BeaconBlockFork.Phase0:
-    let topic = getBeaconBlocksTopic(node.forkDigests.phase0)
-    node.broadcast(topic, forked.phase0Data)
-  of BeaconBlockFork.Altair:
-    let topic = getBeaconBlocksTopic(node.forkDigests.altair)
-    node.broadcast(topic, forked.altairData)
-  of BeaconBlockFork.Merge:
-    let topic = getBeaconBlocksTopic(node.forkDigests.merge)
-    node.broadcast(topic, forked.mergeData)
+  withBlck(forked): node.broadcastBeaconBlock(blck)
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage, committeeIdx: SyncCommitteeIndex) =

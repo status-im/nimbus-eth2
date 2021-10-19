@@ -30,7 +30,7 @@ import
   ../eth1/eth1_monitor,
   ../networking/eth2_network,
   ../sszdump, ../sync/sync_manager,
-  ../gossip_processing/consensus_manager,
+  ../gossip_processing/[block_processor, consensus_manager],
   ".."/[conf, beacon_clock, beacon_node, version],
   "."/[slashing_protection, validator_pool, keystore_management]
 
@@ -445,52 +445,26 @@ proc proposeSignedBlock*(node: BeaconNode,
                          validator: AttachedValidator,
                          newBlock: ForkedSignedBeaconBlock):
                          Future[BlockRef] {.async.} =
-  let newBlockRef =
-    case newBlock.kind:
-    of BeaconBlockFork.Phase0:
-      node.dag.addRawBlock(node.quarantine, newBlock.phase0Data) do (
-          blckRef: BlockRef, trustedBlock: phase0.TrustedSignedBeaconBlock,
-          epochRef: EpochRef):
-        # Callback add to fork choice if signed block valid (and becomes trusted)
-        node.attestationPool[].addForkChoice(
-          epochRef, blckRef, trustedBlock.message,
-          node.beaconClock.now().slotOrZero())
-    of BeaconBlockFork.Altair:
-      node.dag.addRawBlock(node.quarantine, newBlock.altairData) do (
-          blckRef: BlockRef, trustedBlock: altair.TrustedSignedBeaconBlock,
-          epochRef: EpochRef):
-        # Callback add to fork choice if signed block valid (and becomes trusted)
-        node.attestationPool[].addForkChoice(
-          epochRef, blckRef, trustedBlock.message,
-          node.beaconClock.now().slotOrZero())
-    of BeaconBlockFork.Merge:
-      node.dag.addRawBlock(node.quarantine, newBlock.mergeData) do (
-          blckRef: BlockRef, trustedBlock: merge.TrustedSignedBeaconBlock,
-          epochRef: EpochRef):
-        # Callback add to fork choice if signed block valid (and becomes trusted)
-        node.attestationPool[].addForkChoice(
-          epochRef, blckRef, trustedBlock.message,
-          node.beaconClock.now().slotOrZero())
+  let wallTime = node.beaconClock.now()
 
-  if newBlockRef.isErr:
-    withBlck(newBlock):
+  return withBlck(newBlock):
+    let newBlockRef = node.blockProcessor[].storeBlock(
+      blck, wallTime.slotOrZero())
+
+    if newBlockRef.isErr:
       warn "Unable to add proposed block to block pool",
             newBlock = blck.message, root = blck.root
-    return head
+      return head
 
-  withBlck(newBlock):
     notice "Block proposed",
            blck = shortLog(blck.message), root = blck.root,
            validator = shortLog(validator)
 
-    if node.config.dumpEnabled:
-      dump(node.config.dumpDirOutgoing, blck)
+    node.network.broadcastBeaconBlock(blck)
 
-  node.network.broadcastBeaconBlock(newBlock)
+    beacon_blocks_proposed.inc()
 
-  beacon_blocks_proposed.inc()
-
-  return newBlockRef[]
+    newBlockRef.get()
 
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,

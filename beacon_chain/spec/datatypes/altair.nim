@@ -514,7 +514,23 @@ func init*(T: type SyncAggregate): SyncAggregate =
 func shortLog*(v: SyncAggregate): auto =
   $(v.sync_committee_bits)
 
+func shortLog*(v: ContributionAndProof): auto =
+  (
+    aggregator_index: v.aggregator_index,
+    contribution: shortLog(v.contribution),
+    selection_proof: shortLog(v.selection_proof)
+  )
+
+func shortLog*(v: SignedContributionAndProof): auto =
+  (
+    message: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )
+
 chronicles.formatIt SyncCommitteeMessage: shortLog(it)
+chronicles.formatIt SyncCommitteeContribution: shortLog(it)
+chronicles.formatIt ContributionAndProof: shortLog(it)
+chronicles.formatIt SignedContributionAndProof: shortLog(it)
 
 template hash*(x: LightClientUpdate): Hash =
   hash(x.header)

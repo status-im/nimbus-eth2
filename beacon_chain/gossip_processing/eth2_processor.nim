@@ -23,17 +23,37 @@ import
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_attestations_received,
-  "Number of beacon chain attestations received by this peer"
+  "Number of valid unaggregated attestations processed by this node"
+declareCounter beacon_attestations_dropped,
+  "Number of invalid unaggregated attestations dropped by this node", labels = ["reason"]
 declareCounter beacon_aggregates_received,
-  "Number of beacon chain aggregate attestations received by this peer"
+  "Number of valid aggregated attestations processed by this node"
+declareCounter beacon_aggregates_dropped,
+  "Number of invalid aggregated attestations dropped by this node", labels = ["reason"]
 declareCounter beacon_blocks_received,
-  "Number of beacon chain blocks received by this peer"
+  "Number of valid blocks processed by this node"
+declareCounter beacon_blocks_dropped,
+  "Number of invalid blocks dropped by this node", labels = ["reason"]
 declareCounter beacon_attester_slashings_received,
-  "Number of beacon chain attester slashings received by this peer"
+  "Number of valid attester slashings processed by this node"
+declareCounter beacon_attester_slashings_dropped,
+  "Number of invalid attester slashings dropped by this node", labels = ["reason"]
 declareCounter beacon_proposer_slashings_received,
-  "Number of beacon chain proposer slashings received by this peer"
+  "Number of valid proposer slashings processed by this node"
+declareCounter beacon_proposer_slashings_dropped,
+  "Number of invalid proposer slashings dropped by this node", labels = ["reason"]
 declareCounter beacon_voluntary_exits_received,
-  "Number of beacon chain voluntary exits received by this peer"
+  "Number of valid voluntary exits processed by this node"
+declareCounter beacon_voluntary_exits_dropped,
+  "Number of invalid voluntary exits dropped by this node", labels = ["reason"]
+declareCounter beacon_sync_committee_messages_received,
+  "Number of valid sync committee messages processed by this node"
+declareCounter beacon_sync_committee_messages_dropped,
+  "Number of invalid sync committee messages dropped by this node", labels = ["reason"]
+declareCounter beacon_sync_committee_contributions_received,
+  "Number of valid sync committee contributions processed by this node"
+declareCounter beacon_sync_committee_contributions_dropped,
+  "Number of invalid sync committee contributions dropped by this node", labels = ["reason"]
 
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
@@ -60,6 +80,19 @@ type
     ## across quick restarts.
 
   Eth2Processor* = object
+    ## The Eth2Processor is the entry point for untrusted message processing -
+    ## when we receive messages from various sources, we pass them to the
+    ## processor for validation and routing - the messages are generally
+    ## validated, and if valid, passed on to the various pools, monitors and
+    ## managers to update the state of the application.
+    ##
+    ## Block processing is special in that part of it is done in the
+    ## `BlockProcessor` instead, via a special block processing queue.
+    ##
+    ## Each validating function generally will do a sanity check on the message
+    ## whose purpose is to quickly filter out spam, then will (usually) delegate
+    ## full validation to the proper manager - finally, metrics and monitoring
+    ## are updated.
     doppelGangerDetectionEnabled*: bool
 
     # Local sources of truth for validation
@@ -158,16 +191,13 @@ proc blockValidator*(
   # decoding at this stage, which may be significant
   debug "Block received", delay
 
-  let blck = self.dag.isValidBeaconBlock(
+  let v = self.dag.isValidBeaconBlock(
     self.quarantine, signedBlock, wallTime, {})
 
-  self.blockProcessor[].dumpBlock(signedBlock, blck)
-
-  if not blck.isOk:
-    return blck.error[0]
-
-  beacon_blocks_received.inc()
-  beacon_block_delay.observe(delay.toFloatSeconds())
+  if v.isErr:
+    self.blockProcessor[].dumpBlock(signedBlock, v)
+    beacon_blocks_dropped.inc(1, [$v.error[0]])
+    return v.error[0]
 
   # Block passed validation - enqueue it for processing. The block processing
   # queue is effectively unbounded as we use a freestanding task to enqueue
@@ -175,9 +205,14 @@ proc blockValidator*(
   # sync, we don't lose the gossip blocks, but also don't block the gossip
   # propagation of seemingly good blocks
   trace "Block validated"
+
   self.blockProcessor[].addBlock(
     ForkedSignedBeaconBlock.init(signedBlock),
     validationDur = self.getCurrentBeaconTime() - wallTime)
+
+  # Validator monitor registration for blocks is done by the processor
+  beacon_blocks_received.inc()
+  beacon_block_delay.observe(delay.toFloatSeconds())
 
   ValidationResult.Accept
 
@@ -235,21 +270,22 @@ proc attestationValidator*(
       self.batchCrypto, attestation, wallTime, subnet_id, checkSignature)
   if v.isErr():
     debug "Dropping attestation", validationError = v.error
+    beacon_attestations_dropped.inc(1, [$v.error[0]])
     return v.error[0]
 
   # Due to async validation the wallSlot here might have changed
   (afterGenesis, wallSlot) = self.getCurrentBeaconTime().toSlot()
 
-  beacon_attestations_received.inc()
-  beacon_attestation_delay.observe(delay.toFloatSeconds())
+  let (attester_index, sig) = v.get()
 
-  let (attestation_index, sig) = v.get()
-
-  self[].checkForPotentialDoppelganger(attestation, [attestation_index])
+  self[].checkForPotentialDoppelganger(attestation, [attester_index])
 
   trace "Attestation validated"
   self.attestationPool[].addAttestation(
-    attestation, [attestation_index], sig, wallSlot)
+    attestation, [attester_index], sig, wallSlot)
+
+  beacon_attestations_received.inc()
+  beacon_attestation_delay.observe(delay.toFloatSeconds())
 
   return ValidationResult.Accept
 
@@ -283,13 +319,11 @@ proc aggregateValidator*(
       aggregator_index = signedAggregateAndProof.message.aggregator_index,
       selection_proof = signedAggregateAndProof.message.selection_proof,
       wallSlot
+    beacon_aggregates_dropped.inc(1, [$v.error[0]])
     return v.error[0]
 
   # Due to async validation the wallSlot here might have changed
   (afterGenesis, wallSlot) = self.getCurrentBeaconTime().toSlot()
-
-  beacon_aggregates_received.inc()
-  beacon_aggregate_delay.observe(delay.toFloatSeconds())
 
   let (attesting_indices, sig) = v.get()
 
@@ -303,6 +337,9 @@ proc aggregateValidator*(
   self.attestationPool[].addAttestation(
     signedAggregateAndProof.message.aggregate, attesting_indices, sig, wallSlot)
 
+  beacon_aggregates_received.inc()
+  beacon_aggregate_delay.observe(delay.toFloatSeconds())
+
   return ValidationResult.Accept
 
 proc attesterSlashingValidator*(
@@ -314,6 +351,7 @@ proc attesterSlashingValidator*(
   let v = self.exitPool[].validateAttesterSlashing(attesterSlashing)
   if v.isErr:
     debug "Dropping attester slashing", validationError = v.error
+    beacon_attester_slashings_dropped.inc(1, [$v.error[0]])
     return v.error[0]
 
   beacon_attester_slashings_received.inc()
@@ -329,6 +367,7 @@ proc proposerSlashingValidator*(
   let v = self.exitPool[].validateProposerSlashing(proposerSlashing)
   if v.isErr:
     debug "Dropping proposer slashing", validationError = v.error
+    beacon_proposer_slashings_dropped.inc(1, [$v.error[0]])
     return v.error[0]
 
   beacon_proposer_slashings_received.inc()
@@ -344,6 +383,7 @@ proc voluntaryExitValidator*(
   let v = self.exitPool[].validateVoluntaryExit(signedVoluntaryExit)
   if v.isErr:
     debug "Dropping voluntary exit", validationError = v.error
+    beacon_voluntary_exits_dropped.inc(1, [$v.error[0]])
     return v.error[0]
 
   beacon_voluntary_exits_received.inc()
@@ -369,11 +409,15 @@ proc syncCommitteeMsgValidator*(
   let v = validateSyncCommitteeMessage(self.dag, self.syncCommitteeMsgPool,
                                        syncCommitteeMsg, committeeIdx, wallTime,
                                        checkSignature)
-  if v.isErr():
+  if v.isErr:
     debug "Dropping sync committee message", validationError = v.error
+    beacon_sync_committee_messages_dropped.inc(1, [$v.error[0]])
     return v.error[0]
 
   trace "Sync committee message validated"
+
+  beacon_sync_committee_messages_received.inc()
+
   ValidationResult.Accept
 
 proc syncCommitteeContributionValidator*(
@@ -401,6 +445,9 @@ proc syncCommitteeContributionValidator*(
           validationError = v.error,
           selection_proof = contributionAndProof.message.selection_proof,
           wallSlot
+    beacon_sync_committee_contributions_dropped.inc(1, [$v.error[0]])
     return v.error[0]
+
+  beacon_sync_committee_contributions_received.inc()
 
   ValidationResult.Accept
