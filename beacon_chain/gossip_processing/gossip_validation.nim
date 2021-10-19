@@ -8,8 +8,6 @@
 {.push raises: [Defect].}
 
 import
-  # Standard library
-  std/[intsets],
   # Status
   chronicles, chronos, metrics,
   stew/results,
@@ -669,7 +667,7 @@ proc validateAttesterSlashing*(
     attestation_2_indices =
       attester_slashing.attestation_2.attesting_indices.asSeq
     attester_slashed_indices =
-      toIntSet(attestation_1_indices) * toIntSet(attestation_2_indices)
+      toHashSet(attestation_1_indices) * toHashSet(attestation_2_indices)
 
   if not disjoint(
       attester_slashed_indices, pool.prior_seen_attester_slashed_indices):
@@ -699,7 +697,7 @@ proc validateProposerSlashing*(
   # [IGNORE] The proposer slashing is the first valid proposer slashing
   # received for the proposer with index
   # proposer_slashing.signed_header_1.message.proposer_index.
-  if proposer_slashing.signed_header_1.message.proposer_index.int in
+  if proposer_slashing.signed_header_1.message.proposer_index in
       pool.prior_seen_proposer_slashed_indices:
     return errIgnore(
       "ProposerSlashing: proposer-slashed index already proposer-slashed")
@@ -711,7 +709,7 @@ proc validateProposerSlashing*(
     return err((ValidationResult.Reject, proposer_slashing_validity.error))
 
   pool.prior_seen_proposer_slashed_indices.incl(
-    proposer_slashing.signed_header_1.message.proposer_index.int)
+    proposer_slashing.signed_header_1.message.proposer_index)
   pool.proposer_slashings.addExitMessage(
     proposer_slashing, PROPOSER_SLASHINGS_BOUND)
   ok(true)
@@ -729,7 +727,7 @@ proc validateVoluntaryExit*(
   # Given that getStateField(pool.dag.headState, validators) is a seq,
   # signed_voluntary_exit.message.validator_index.int is already valid, but
   # check explicitly if one changes that data structure.
-  if signed_voluntary_exit.message.validator_index.int in
+  if signed_voluntary_exit.message.validator_index in
       pool.prior_seen_voluntary_exit_indices:
     return errIgnore("VoluntaryExit: validator index already voluntarily exited")
 
@@ -742,7 +740,7 @@ proc validateVoluntaryExit*(
     return err((ValidationResult.Reject, voluntary_exit_validity.error))
 
   pool.prior_seen_voluntary_exit_indices.incl(
-    signed_voluntary_exit.message.validator_index.int)
+    signed_voluntary_exit.message.validator_index)
   pool.voluntary_exits.addExitMessage(
     signed_voluntary_exit, VOLUNTARY_EXITS_BOUND)
 

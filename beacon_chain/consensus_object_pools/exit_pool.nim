@@ -9,7 +9,7 @@
 
 import
   # Standard libraries
-  std/[deques, sets, intsets],
+  std/[deques, sets],
   # Status libraries
   chronicles,
   # Internal
@@ -17,7 +17,7 @@ import
   ../spec/datatypes/[phase0, altair, merge],
   ./blockchain_dag
 
-export phase0, altair, merge, deques, intsets, sets, blockchain_dag
+export phase0, altair, merge, deques, sets, blockchain_dag
 
 logScope: topics = "exitpool"
 
@@ -43,13 +43,13 @@ type
     voluntary_exits*: Deque[SignedVoluntaryExit]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
-    prior_seen_attester_slashed_indices*: IntSet ## \
+    prior_seen_attester_slashed_indices*: HashSet[uint64] ## \
     ## Records attester-slashed indices seen.
 
-    prior_seen_proposer_slashed_indices*: IntSet ## \
+    prior_seen_proposer_slashed_indices*: HashSet[uint64] ## \
     ## Records proposer-slashed indices seen.
 
-    prior_seen_voluntary_exit_indices*: IntSet ##\
+    prior_seen_voluntary_exit_indices*: HashSet[uint64] ##\
     ## Records voluntary exit indices seen.
 
     dag*: ChainDAGRef
@@ -79,18 +79,13 @@ func addExitMessage*(subpool: var auto, exitMessage, bound: auto) =
   doAssert subpool.lenu64 <= bound
 
 iterator getValidatorIndices(attester_slashing: AttesterSlashing): uint64 =
-  # TODO rely on sortedness and do this sans memory allocations, but it's only
-  # when producing a beacon block, which is rare bottlenecked elsewhere.
-  let
-    attestation_1_indices =
-      attester_slashing.attestation_1.attesting_indices.asSeq
-    attestation_2_indices =
-      attester_slashing.attestation_2.attesting_indices.asSeq
-    attester_slashed_indices =
-      toIntSet(attestation_1_indices) * toIntSet(attestation_2_indices)
+  let attestation_2_indices =
+    toHashSet(attester_slashing.attestation_2.attesting_indices.asSeq)
 
-  for validator_index in attester_slashed_indices:
-    yield validator_index.uint64
+  for validator_index in attester_slashing.attestation_1.attesting_indices.asSeq:
+    if validator_index notin attestation_2_indices:
+      continue
+    yield validator_index
 
 iterator getValidatorIndices(proposer_slashing: ProposerSlashing): uint64 =
   yield proposer_slashing.signed_header_1.message.proposer_index

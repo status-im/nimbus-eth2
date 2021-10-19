@@ -31,7 +31,7 @@ export
   json_serialization
 
 import
-  std/[macros, hashes, intsets, strutils, tables, typetraits],
+  std/[macros, hashes, strutils, tables, typetraits],
   stew/[assign2, byteutils],
   chronicles,
   chronos/timer,
@@ -693,15 +693,6 @@ template `==`*(x: uint64, y: ValidatorIndex): bool =
 
 template `==`*(x: ValidatorIndex, y: uint64): bool =
   uint64(x) == y
-
-# TODO Nim 1.4, but not Nim 1.2, defines a function by this name, which works
-# only on openArray[int]. They do the same thing, so either's fine, when both
-# overloads match. The Nim 1.4 stdlib doesn't int-convert but it's a no-op in
-# its case regardless.
-func toIntSet*[T](x: openArray[T]): IntSet =
-  result = initIntSet()
-  for item in items(x):
-    result.incl(item.int)
 
 template `==`*(x, y: CommitteeIndex): bool =
   distinctBase(x) == distinctBase(y)

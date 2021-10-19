@@ -9,8 +9,6 @@
 # ---------------------------------------------------------------
 
 import
-  # Standard library
-  intsets,
   # Status
   chronicles,
   # Specs

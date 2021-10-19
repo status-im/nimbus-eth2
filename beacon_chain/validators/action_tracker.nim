@@ -1,5 +1,5 @@
 import
-  std/[sequtils, intsets, sets, tables],
+  std/[sequtils, sets, tables],
   chronicles,
   bearssl,
   eth/p2p/discoveryv5/random2,
@@ -167,14 +167,12 @@ proc updateActions*(tracker: var ActionTracker, epochRef: EpochRef) =
     return
   tracker.lastCalculatedEpoch = epoch
 
-  let
-    validatorIndices = toIntSet(toSeq(tracker.knownValidators.keys()))
+  let validatorIndices = toHashSet(toSeq(tracker.knownValidators.keys()))
 
   # Update proposals
   tracker.proposingSlots[epoch mod 2] = 0
   for i, proposer in epochRef.beacon_proposers:
-    # TODO unsafe int conversion
-    if proposer.isSome and proposer.get().int in validatorIndices:
+    if proposer.isSome and proposer.get() in validatorIndices:
       tracker.proposingSlots[epoch mod 2] =
         tracker.proposingSlots[epoch mod 2] or (1'u32 shl i)
 
@@ -183,7 +181,7 @@ proc updateActions*(tracker: var ActionTracker, epochRef: EpochRef) =
   # The relevant bitmaps are 32 bits each.
   static: doAssert SLOTS_PER_EPOCH <= 32
 
-  for (validatorIndices, committeeIndex, subnet_id, slot) in
+  for (committeeIndex, subnet_id, slot) in
       get_committee_assignments(epochRef, validatorIndices):
 
     doAssert compute_epoch_at_slot(slot) == epoch

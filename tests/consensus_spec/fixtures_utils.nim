@@ -40,6 +40,13 @@ type
     rewards*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
     penalties*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/validator.md#eth1block
+  Eth1Block* = object
+    timestamp*: uint64
+    deposit_root*: Eth2Digest
+    deposit_count*: uint64
+    # All other eth1 block fields
+
 const
   FixturesDir* =
     currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"

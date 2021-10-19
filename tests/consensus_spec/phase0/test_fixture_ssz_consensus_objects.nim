@@ -36,13 +36,6 @@ type
     # Some have a signing_root field
     signing_root {.defaultVal: "".}: string
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#eth1block
-  Eth1Block = object
-    timestamp: uint64
-    deposit_root: Eth2Digest
-    deposit_count: uint64
-    # All other eth1 block fields
-
 # Note this only tracks HashTreeRoot
 # Checking the values against the yaml file is TODO (require more flexible Yaml parser)
 
