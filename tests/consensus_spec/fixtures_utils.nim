@@ -67,6 +67,11 @@ proc sszDecodeEntireInput*(input: openArray[byte], Decoded: type): Decoded =
   if stream.readable:
     raise newException(UnconsumedInput, "Remaining bytes in the input")
 
+iterator walkTests*(dir: static string): string =
+   for kind, path in walkDir(
+       dir/"pyspec_tests", relative = true, checkDir = true):
+     yield path
+
 proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
   try:
     # debugEcho "          [Debug] Loading file: \"", path, '\"'

@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os,
+  os, sequtils, sets,
   # Utilities
   chronicles,
   unittest2,
@@ -24,20 +24,25 @@ import
 
 const
   OpDir                 = SszTestsDir/const_preset/"altair"/"operations"
-  OpAttestationsDir     = OpDir/"attestation"/"pyspec_tests"
-  OpAttSlashingDir      = OpDir/"attester_slashing"/"pyspec_tests"
-  OpBlockHeaderDir      = OpDir/"block_header"/"pyspec_tests"
-  OpDepositsDir         = OpDir/"deposit"/"pyspec_tests"
-  OpProposerSlashingDir = OpDir/"proposer_slashing"/"pyspec_tests"
-  OpSyncAggregateDir    = OpDir/"sync_aggregate"/"pyspec_tests"
-  OpVoluntaryExitDir    = OpDir/"voluntary_exit"/"pyspec_tests"
+  OpAttestationsDir     = OpDir/"attestation"
+  OpAttSlashingDir      = OpDir/"attester_slashing"
+  OpBlockHeaderDir      = OpDir/"block_header"
+  OpDepositsDir         = OpDir/"deposit"
+  OpProposerSlashingDir = OpDir/"proposer_slashing"
+  OpSyncAggregateDir    = OpDir/"sync_aggregate"
+  OpVoluntaryExitDir    = OpDir/"voluntary_exit"
 
   baseDescription = "Ethereum Foundation - Altair - Operations - "
+
+doAssert toHashSet(mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) ==
+  toHashSet([OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
+             OpDepositsDir, OpProposerSlashingDir, OpSyncAggregateDir,
+             OpVoluntaryExitDir])
 
 proc runTest[T, U](
     testSuiteDir: string, testSuiteName: string, applyFile: string,
     applyProc: U, identifier: string) =
-  let testDir = testSuiteDir / identifier
+  let testDir = testSuiteDir / "pyspec_tests" / identifier
 
   proc testImpl() =
     let prefix =
@@ -78,8 +83,7 @@ suite baseDescription & "Attestation " & preset():
     process_attestation(
       preState, attestation, {}, base_reward_per_increment, cache)
 
-  for kind, path in walkDir(
-      OpAttestationsDir, relative = true, checkDir = true):
+  for path in walkTests(OpAttestationsDir):
     runTest[Attestation, typeof applyAttestation](
       OpAttestationsDir, "Attestation", "attestation", applyAttestation, path)
 
@@ -91,8 +95,7 @@ suite baseDescription & "Attester Slashing " & preset():
     process_attester_slashing(
       defaultRuntimeConfig, preState, attesterSlashing, {}, cache)
 
-  for kind, path in walkDir(
-      OpAttSlashingDir, relative = true, checkDir = true):
+  for path in walkTests(OpAttSlashingDir):
     runTest[AttesterSlashing, typeof applyAttesterSlashing](
       OpAttSlashingDir, "Attester Slashing", "attester_slashing",
       applyAttesterSlashing, path)
@@ -104,8 +107,7 @@ suite baseDescription & "Block Header " & preset():
     var cache = StateCache()
     process_block_header(preState, blck, {}, cache)
 
-  for kind, path in walkDir(
-      OpBlockHeaderDir, relative = true, checkDir = true):
+  for path in walkTests(OpBlockHeaderDir):
     runTest[altair.BeaconBlock, typeof applyBlockHeader](
       OpBlockHeaderDir, "Block Header", "block", applyBlockHeader, path)
 
@@ -115,7 +117,7 @@ suite baseDescription & "Deposit " & preset():
       Result[void, cstring] =
     process_deposit(defaultRuntimeConfig, preState, deposit, {})
 
-  for kind, path in walkDir(OpDepositsDir, relative = true, checkDir = true):
+  for path in walkTests(OpDepositsDir):
     runTest[Deposit, typeof applyDeposit](
       OpDepositsDir, "Deposit", "deposit", applyDeposit, path)
 
@@ -127,8 +129,7 @@ suite baseDescription & "Proposer Slashing " & preset():
     process_proposer_slashing(
       defaultRuntimeConfig, preState, proposerSlashing, {}, cache)
 
-  for kind, path in walkDir(
-      OpProposerSlashingDir, relative = true, checkDir = true):
+  for path in walkTests(OpProposerSlashingDir):
     runTest[ProposerSlashing, typeof applyProposerSlashing](
       OpProposerSlashingDir, "Proposer Slashing", "proposer_slashing",
       applyProposerSlashing, path)
@@ -141,8 +142,7 @@ suite baseDescription & "Sync Aggregate " & preset():
     process_sync_aggregate(
       preState, syncAggregate, get_total_active_balance(preState, cache), cache)
 
-  for kind, path in walkDir(
-      OpSyncAggregateDir, relative = true, checkDir = true):
+  for path in walkTests(OpSyncAggregateDir):
     runTest[SyncAggregate, typeof applySyncAggregate](
       OpSyncAggregateDir, "Sync Aggregate", "sync_aggregate",
       applySyncAggregate, path)
@@ -155,8 +155,7 @@ suite baseDescription & "Voluntary Exit " & preset():
     process_voluntary_exit(
       defaultRuntimeConfig, preState, voluntaryExit, {}, cache)
 
-  for kind, path in walkDir(
-      OpVoluntaryExitDir, relative = true, checkDir = true):
+  for path in walkTests(OpVoluntaryExitDir):
     runTest[SignedVoluntaryExit, typeof applyVoluntaryExit](
       OpVoluntaryExitDir, "Voluntary Exit", "voluntary_exit",
       applyVoluntaryExit, path)
