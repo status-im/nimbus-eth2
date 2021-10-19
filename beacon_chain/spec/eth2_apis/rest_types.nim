@@ -107,6 +107,28 @@ type
     validator_index*: ValidatorIndex
     validator_sync_committee_indices*: seq[SyncCommitteeIndex]
 
+  RestSyncCommitteeMessage* = object
+    slot*: Slot
+    beacon_block_root*: Eth2Digest
+    validator_index*: uint64
+    signature*: ValidatorSig
+
+  RestSyncCommitteeContribution* = object
+    slot*: Slot
+    beacon_block_root*: Eth2Digest
+    subcommittee_index*: uint64
+    aggregation_bits*: SyncCommitteeAggregationBits ##\
+    signature*: ValidatorSig
+
+  RestContributionAndProof* = object
+    aggregator_index*: uint64
+    selection_proof*: ValidatorSig
+    contribution*: RestSyncCommitteeContribution
+
+  RestSignedContributionAndProof* = object
+    message*: RestContributionAndProof
+    signature*: ValidatorSig
+
   RestCommitteeSubscription* = object
     validator_index*: ValidatorIndex
     committee_index*: CommitteeIndex
@@ -291,7 +313,7 @@ type
   RestBlockInfo* = object
     slot*: Slot
     blck* {.serializedFieldName: "block".}: Eth2Digest
-    
+
   RestEpochSyncCommittee* = object
     validators*: seq[ValidatorIndex]
     validator_aggregates*: seq[seq[ValidatorIndex]]
@@ -347,6 +369,7 @@ type
   GetPoolProposerSlashingsResponse* = DataEnclosedObject[seq[ProposerSlashing]]
   GetPoolVoluntaryExitsResponse* = DataEnclosedObject[seq[SignedVoluntaryExit]]
   GetProposerDutiesResponse* = DataRootEnclosedObject[seq[RestProposerDuty]]
+  GetSyncCommitteeDutiesResponse* = DataEnclosedObject[seq[RestSyncCommitteeDuty]]
   GetSpecResponse* = DataEnclosedObject[RestSpec]
   GetStateFinalityCheckpointsResponse* = DataEnclosedObject[RestBeaconStatesFinalityCheckpoints]
   GetStateForkResponse* = DataEnclosedObject[Fork]

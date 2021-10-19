@@ -258,11 +258,10 @@ proc submitPoolProposerSlashings*(body: ProposerSlashing): RestPlainResponse {.
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolProposerSlashings
 
-# TODO Altair
-# proc submitPoolSyncCommitteeSignatures*(body: seq[RestSyncCommitteeSignature]): RestPlainResponse {.
-#      rest, endpoint: "/eth/v1/beacon/pool/sync_committees",
-#      meth: MethodPost.}
-#   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolSyncCommitteeSignatures
+proc submitPoolSyncCommitteeSignatures*(body: seq[RestSyncCommitteeMessage]): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/pool/sync_committees",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolSyncCommitteeSignatures
 
 proc getPoolVoluntaryExits*(): RestResponse[GetPoolVoluntaryExitsResponse] {.
      rest, endpoint: "/api/eth/v1/beacon/pool/voluntary_exits",
