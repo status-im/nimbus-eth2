@@ -4,7 +4,7 @@
 
 ### How do I check which version of Nimbus I'm currently running?
 
-If you'v enabled RPC, the version is available via
+If you've enabled RPC, the version is available via
 
 ```
 curl -d '{"jsonrpc":"2.0","method":"get_v1_node_version","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s
@@ -13,19 +13,6 @@ curl -d '{"jsonrpc":"2.0","method":"get_v1_node_version","params":[],"id":1}' -H
 
 You can also run `build/nimbus_beacon_node --version`
 
-### How do I fix the discovered new external address warning log?
- 
-```
-WRN 2021-03-15 02:23:37.569+00:00 Discovered new external address but ENR auto update is off topics="discv5"...
-```
-
-It's possible that your ISP has changed your IP address without you knowing.
-
-The first thing to do it to try relaunching the beacon node with with `--enr-auto-update:true` (pass it as an option in the command line).
-
-If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use [https://www.yougetsignal.com/tools/open-ports/](https://www.yougetsignal.com/tools/open-ports/ ).  Note that Nimbus `TCP` and `UDP` ports are both set to `9000` by default.
-
-See [here](./health.md#set-up-port-forwarding), for how to set up port forwarding.
 
 ### Why are metrics not working?
 
@@ -58,6 +45,26 @@ To stress test it, `add--subscribe-all-subnets` to the [beacon node options](./o
 To add an additional validator, just follow [the same steps](./keys.md) as you did when you added your first. You'll have to restart the beacon node for the changes to take effect.
 
 > Note that a single Nimbus instance is able to handle multiple validators.
+
+## Networking
+
+### How can I improve my peer count?
+
+See [here](./networking.md).
+
+### How do I fix the discovered new external address warning log?
+ 
+```
+WRN 2021-03-15 02:23:37.569+00:00 Discovered new external address but ENR auto update is off topics="discv5"...
+```
+
+It's possible that your ISP has changed your IP address without you knowing.
+
+The first thing to do it to try relaunching the beacon node with with `--enr-auto-update:true` (pass it as an option in the command line).
+
+If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use [https://www.yougetsignal.com/tools/open-ports/](https://www.yougetsignal.com/tools/open-ports/ ).  Note that Nimbus `TCP` and `UDP` ports are both set to `9000` by default.
+
+See [here](./health.md#set-up-port-forwarding), for how to set up port forwarding.
 
 ## Folder Permissions
 
@@ -157,15 +164,15 @@ Limiting the maximum stake to 32 ETH encourages decentralization of power as it 
 
 > Remember that a validator’s vote is weighted by the amount it has at stake.
 
-## Can I stop my validator for a few days and then start it back up again?
+### Can I stop my validator for a few days and then start it back up again?
 
 Yes but, under normal conditions, you will lose an amount of ETH roughly equivalent to the amount of ETH you would have gained in that period. In other words, if you stood to earn ≈0.01 ETH, you would instead be penalised ≈0.01 ETH.
 
-## I want to switch my validator keys to another machine, how long do I need to wait to avoid getting slashed?
+### I want to switch my validator keys to another machine, how long do I need to wait to avoid getting slashed?
 
 We recommend waiting 2 epochs (around 15 minutes), before restarting Nimbus on a different machine.
 
-## When should I top up my validator's balance?
+### When should I top up my validator's balance?
 
 The answer to this question very much depends on how much ETH you have at your disposal.
 
@@ -173,7 +180,7 @@ You should certainly top up if your balance is close to 16 ETH: this is to ensur
 
 At the other end of the spectrum, if your balance is closer to 31 ETH, it's probably not worth your while adding the extra ETH required to get back to 32.
 
-## When can I withdraw my funds, and what's the difference between exiting and withdrawing?
+### When can I withdraw my funds, and what's the difference between exiting and withdrawing?
 
 You can signal your intent to stop validating by signing a voluntary exit message with your validator.
 
