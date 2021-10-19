@@ -2,55 +2,146 @@ ConsensusSpecPreset-minimal
 ===
 ## 
 ```diff
-+ Rewards - all_balances_too_low_for_reward [Preset: minimal]                                OK
-+ Rewards - duplicate_attestations_at_later_slots [Preset: minimal]                          OK
-+ Rewards - empty [Preset: minimal]                                                          OK
-+ Rewards - empty_leak [Preset: minimal]                                                     OK
-+ Rewards - full_all_correct [Preset: minimal]                                               OK
-+ Rewards - full_but_partial_participation [Preset: minimal]                                 OK
-+ Rewards - full_but_partial_participation_leak [Preset: minimal]                            OK
-+ Rewards - full_correct_target_incorrect_head [Preset: minimal]                             OK
-+ Rewards - full_correct_target_incorrect_head_leak [Preset: minimal]                        OK
-+ Rewards - full_delay_max_slots [Preset: minimal]                                           OK
-+ Rewards - full_delay_one_slot [Preset: minimal]                                            OK
-+ Rewards - full_half_correct_target_incorrect_head [Preset: minimal]                        OK
-+ Rewards - full_half_correct_target_incorrect_head_leak [Preset: minimal]                   OK
-+ Rewards - full_half_incorrect_target_correct_head [Preset: minimal]                        OK
-+ Rewards - full_half_incorrect_target_correct_head_leak [Preset: minimal]                   OK
-+ Rewards - full_half_incorrect_target_incorrect_head [Preset: minimal]                      OK
-+ Rewards - full_half_incorrect_target_incorrect_head_leak [Preset: minimal]                 OK
-+ Rewards - full_leak [Preset: minimal]                                                      OK
-+ Rewards - full_mixed_delay [Preset: minimal]                                               OK
-+ Rewards - full_random_0 [Preset: minimal]                                                  OK
-+ Rewards - full_random_1 [Preset: minimal]                                                  OK
-+ Rewards - full_random_2 [Preset: minimal]                                                  OK
-+ Rewards - full_random_3 [Preset: minimal]                                                  OK
-+ Rewards - full_random_4 [Preset: minimal]                                                  OK
-+ Rewards - full_random_leak [Preset: minimal]                                               OK
-+ Rewards - full_random_low_balances_0 [Preset: minimal]                                     OK
-+ Rewards - full_random_low_balances_1 [Preset: minimal]                                     OK
-+ Rewards - full_random_misc_balances [Preset: minimal]                                      OK
-+ Rewards - full_random_seven_epoch_leak [Preset: minimal]                                   OK
-+ Rewards - full_random_ten_epoch_leak [Preset: minimal]                                     OK
-+ Rewards - full_random_without_leak_0 [Preset: minimal]                                     OK
-+ Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]                    OK
-+ Rewards - half_full [Preset: minimal]                                                      OK
-+ Rewards - half_full_leak [Preset: minimal]                                                 OK
-+ Rewards - one_attestation_one_correct [Preset: minimal]                                    OK
-+ Rewards - one_attestation_one_correct_leak [Preset: minimal]                               OK
-+ Rewards - proposer_not_in_attestations [Preset: minimal]                                   OK
-+ Rewards - quarter_full [Preset: minimal]                                                   OK
-+ Rewards - quarter_full_leak [Preset: minimal]                                              OK
-+ Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]                 OK
-+ Rewards - some_very_low_effective_balances_that_attested_leak [Preset: minimal]            OK
-+ Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: minimal]           OK
-+ Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset: minimal]      OK
-+ Rewards - with_exited_validators [Preset: minimal]                                         OK
-+ Rewards - with_exited_validators_leak [Preset: minimal]                                    OK
-+ Rewards - with_not_yet_activated_validators [Preset: minimal]                              OK
-+ Rewards - with_not_yet_activated_validators_leak [Preset: minimal]                         OK
-+ Rewards - with_slashed_validators [Preset: minimal]                                        OK
-+ Rewards - with_slashed_validators_leak [Preset: minimal]                                   OK
++ Ethereum Foundation - Altair - Rewards - all_balances_too_low_for_reward [Preset: minimal] OK
++ Ethereum Foundation - Altair - Rewards - empty [Preset: minimal]                           OK
++ Ethereum Foundation - Altair - Rewards - empty_leak [Preset: minimal]                      OK
++ Ethereum Foundation - Altair - Rewards - full_all_correct [Preset: minimal]                OK
++ Ethereum Foundation - Altair - Rewards - full_but_partial_participation [Preset: minimal]  OK
++ Ethereum Foundation - Altair - Rewards - full_but_partial_participation_leak [Preset: mini OK
++ Ethereum Foundation - Altair - Rewards - full_leak [Preset: minimal]                       OK
++ Ethereum Foundation - Altair - Rewards - full_random_0 [Preset: minimal]                   OK
++ Ethereum Foundation - Altair - Rewards - full_random_1 [Preset: minimal]                   OK
++ Ethereum Foundation - Altair - Rewards - full_random_2 [Preset: minimal]                   OK
++ Ethereum Foundation - Altair - Rewards - full_random_3 [Preset: minimal]                   OK
++ Ethereum Foundation - Altair - Rewards - full_random_4 [Preset: minimal]                   OK
++ Ethereum Foundation - Altair - Rewards - full_random_leak [Preset: minimal]                OK
++ Ethereum Foundation - Altair - Rewards - full_random_low_balances_0 [Preset: minimal]      OK
++ Ethereum Foundation - Altair - Rewards - full_random_low_balances_1 [Preset: minimal]      OK
++ Ethereum Foundation - Altair - Rewards - full_random_misc_balances [Preset: minimal]       OK
++ Ethereum Foundation - Altair - Rewards - full_random_seven_epoch_leak [Preset: minimal]    OK
++ Ethereum Foundation - Altair - Rewards - full_random_ten_epoch_leak [Preset: minimal]      OK
++ Ethereum Foundation - Altair - Rewards - full_random_without_leak_0 [Preset: minimal]      OK
++ Ethereum Foundation - Altair - Rewards - full_random_without_leak_and_current_exit_0 [Pres OK
++ Ethereum Foundation - Altair - Rewards - half_full [Preset: minimal]                       OK
++ Ethereum Foundation - Altair - Rewards - half_full_leak [Preset: minimal]                  OK
++ Ethereum Foundation - Altair - Rewards - quarter_full [Preset: minimal]                    OK
++ Ethereum Foundation - Altair - Rewards - quarter_full_leak [Preset: minimal]               OK
++ Ethereum Foundation - Altair - Rewards - some_very_low_effective_balances_that_attested [P OK
++ Ethereum Foundation - Altair - Rewards - some_very_low_effective_balances_that_attested_le OK
++ Ethereum Foundation - Altair - Rewards - some_very_low_effective_balances_that_did_not_att OK
++ Ethereum Foundation - Altair - Rewards - some_very_low_effective_balances_that_did_not_att OK
++ Ethereum Foundation - Altair - Rewards - with_exited_validators [Preset: minimal]          OK
++ Ethereum Foundation - Altair - Rewards - with_exited_validators_leak [Preset: minimal]     OK
++ Ethereum Foundation - Altair - Rewards - with_not_yet_activated_validators [Preset: minima OK
++ Ethereum Foundation - Altair - Rewards - with_not_yet_activated_validators_leak [Preset: m OK
++ Ethereum Foundation - Altair - Rewards - with_slashed_validators [Preset: minimal]         OK
++ Ethereum Foundation - Altair - Rewards - with_slashed_validators_leak [Preset: minimal]    OK
++ Ethereum Foundation - Altair - Transition - normal_transition [Preset: minimal]            OK
++ Ethereum Foundation - Altair - Transition - transition_missing_first_post_block [Preset: m OK
++ Ethereum Foundation - Altair - Transition - transition_missing_last_pre_fork_block [Preset OK
++ Ethereum Foundation - Altair - Transition - transition_only_blocks_post_fork [Preset: mini OK
++ Ethereum Foundation - Altair - Transition - transition_with_activation_at_fork_epoch [Pres OK
++ Ethereum Foundation - Altair - Transition - transition_with_attester_slashing_right_after_ OK
++ Ethereum Foundation - Altair - Transition - transition_with_attester_slashing_right_before OK
++ Ethereum Foundation - Altair - Transition - transition_with_deposit_right_after_fork [Pres OK
++ Ethereum Foundation - Altair - Transition - transition_with_deposit_right_before_fork [Pre OK
++ Ethereum Foundation - Altair - Transition - transition_with_finality [Preset: minimal]     OK
++ Ethereum Foundation - Altair - Transition - transition_with_leaking_at_fork [Preset: minim OK
++ Ethereum Foundation - Altair - Transition - transition_with_leaking_pre_fork [Preset: mini OK
++ Ethereum Foundation - Altair - Transition - transition_with_no_attestations_until_after_fo OK
++ Ethereum Foundation - Altair - Transition - transition_with_non_empty_activation_queue [Pr OK
++ Ethereum Foundation - Altair - Transition - transition_with_one_fourth_exiting_validators_ OK
++ Ethereum Foundation - Altair - Transition - transition_with_one_fourth_exiting_validators_ OK
++ Ethereum Foundation - Altair - Transition - transition_with_one_fourth_slashed_active_vali OK
++ Ethereum Foundation - Altair - Transition - transition_with_proposer_slashing_right_after_ OK
++ Ethereum Foundation - Altair - Transition - transition_with_proposer_slashing_right_before OK
++ Ethereum Foundation - Altair - Transition - transition_with_random_half_participation [Pre OK
++ Ethereum Foundation - Altair - Transition - transition_with_random_three_quarters_particip OK
++ Ethereum Foundation - Altair - Transition - transition_with_voluntary_exit_right_after_for OK
++ Ethereum Foundation - Altair - Transition - transition_with_voluntary_exit_right_before_fo OK
++ Ethereum Foundation - Merge - Rewards - all_balances_too_low_for_reward [Preset: minimal]  OK
++ Ethereum Foundation - Merge - Rewards - empty [Preset: minimal]                            OK
++ Ethereum Foundation - Merge - Rewards - empty_leak [Preset: minimal]                       OK
++ Ethereum Foundation - Merge - Rewards - full_all_correct [Preset: minimal]                 OK
++ Ethereum Foundation - Merge - Rewards - full_but_partial_participation [Preset: minimal]   OK
++ Ethereum Foundation - Merge - Rewards - full_but_partial_participation_leak [Preset: minim OK
++ Ethereum Foundation - Merge - Rewards - full_leak [Preset: minimal]                        OK
++ Ethereum Foundation - Merge - Rewards - full_random_0 [Preset: minimal]                    OK
++ Ethereum Foundation - Merge - Rewards - full_random_1 [Preset: minimal]                    OK
++ Ethereum Foundation - Merge - Rewards - full_random_2 [Preset: minimal]                    OK
++ Ethereum Foundation - Merge - Rewards - full_random_3 [Preset: minimal]                    OK
++ Ethereum Foundation - Merge - Rewards - full_random_4 [Preset: minimal]                    OK
++ Ethereum Foundation - Merge - Rewards - full_random_leak [Preset: minimal]                 OK
++ Ethereum Foundation - Merge - Rewards - full_random_low_balances_0 [Preset: minimal]       OK
++ Ethereum Foundation - Merge - Rewards - full_random_low_balances_1 [Preset: minimal]       OK
++ Ethereum Foundation - Merge - Rewards - full_random_misc_balances [Preset: minimal]        OK
++ Ethereum Foundation - Merge - Rewards - full_random_seven_epoch_leak [Preset: minimal]     OK
++ Ethereum Foundation - Merge - Rewards - full_random_ten_epoch_leak [Preset: minimal]       OK
++ Ethereum Foundation - Merge - Rewards - full_random_without_leak_0 [Preset: minimal]       OK
++ Ethereum Foundation - Merge - Rewards - full_random_without_leak_and_current_exit_0 [Prese OK
++ Ethereum Foundation - Merge - Rewards - half_full [Preset: minimal]                        OK
++ Ethereum Foundation - Merge - Rewards - half_full_leak [Preset: minimal]                   OK
++ Ethereum Foundation - Merge - Rewards - quarter_full [Preset: minimal]                     OK
++ Ethereum Foundation - Merge - Rewards - quarter_full_leak [Preset: minimal]                OK
++ Ethereum Foundation - Merge - Rewards - some_very_low_effective_balances_that_attested [Pr OK
++ Ethereum Foundation - Merge - Rewards - some_very_low_effective_balances_that_attested_lea OK
++ Ethereum Foundation - Merge - Rewards - some_very_low_effective_balances_that_did_not_atte OK
++ Ethereum Foundation - Merge - Rewards - some_very_low_effective_balances_that_did_not_atte OK
++ Ethereum Foundation - Merge - Rewards - with_exited_validators [Preset: minimal]           OK
++ Ethereum Foundation - Merge - Rewards - with_exited_validators_leak [Preset: minimal]      OK
++ Ethereum Foundation - Merge - Rewards - with_not_yet_activated_validators [Preset: minimal OK
++ Ethereum Foundation - Merge - Rewards - with_not_yet_activated_validators_leak [Preset: mi OK
++ Ethereum Foundation - Merge - Rewards - with_slashed_validators [Preset: minimal]          OK
++ Ethereum Foundation - Merge - Rewards - with_slashed_validators_leak [Preset: minimal]     OK
++ Ethereum Foundation - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: minimal OK
++ Ethereum Foundation - Phase 0 - Rewards - duplicate_attestations_at_later_slots [Preset: m OK
++ Ethereum Foundation - Phase 0 - Rewards - empty [Preset: minimal]                          OK
++ Ethereum Foundation - Phase 0 - Rewards - empty_leak [Preset: minimal]                     OK
++ Ethereum Foundation - Phase 0 - Rewards - full_all_correct [Preset: minimal]               OK
++ Ethereum Foundation - Phase 0 - Rewards - full_but_partial_participation [Preset: minimal] OK
++ Ethereum Foundation - Phase 0 - Rewards - full_but_partial_participation_leak [Preset: min OK
++ Ethereum Foundation - Phase 0 - Rewards - full_correct_target_incorrect_head [Preset: mini OK
++ Ethereum Foundation - Phase 0 - Rewards - full_correct_target_incorrect_head_leak [Preset: OK
++ Ethereum Foundation - Phase 0 - Rewards - full_delay_max_slots [Preset: minimal]           OK
++ Ethereum Foundation - Phase 0 - Rewards - full_delay_one_slot [Preset: minimal]            OK
++ Ethereum Foundation - Phase 0 - Rewards - full_half_correct_target_incorrect_head [Preset: OK
++ Ethereum Foundation - Phase 0 - Rewards - full_half_correct_target_incorrect_head_leak [Pr OK
++ Ethereum Foundation - Phase 0 - Rewards - full_half_incorrect_target_correct_head [Preset: OK
++ Ethereum Foundation - Phase 0 - Rewards - full_half_incorrect_target_correct_head_leak [Pr OK
++ Ethereum Foundation - Phase 0 - Rewards - full_half_incorrect_target_incorrect_head [Prese OK
++ Ethereum Foundation - Phase 0 - Rewards - full_half_incorrect_target_incorrect_head_leak [ OK
++ Ethereum Foundation - Phase 0 - Rewards - full_leak [Preset: minimal]                      OK
++ Ethereum Foundation - Phase 0 - Rewards - full_mixed_delay [Preset: minimal]               OK
++ Ethereum Foundation - Phase 0 - Rewards - full_random_0 [Preset: minimal]                  OK
++ Ethereum Foundation - Phase 0 - Rewards - full_random_1 [Preset: minimal]                  OK
++ Ethereum Foundation - Phase 0 - Rewards - full_random_2 [Preset: minimal]                  OK
++ Ethereum Foundation - Phase 0 - Rewards - full_random_3 [Preset: minimal]                  OK
++ Ethereum Foundation - Phase 0 - Rewards - full_random_4 [Preset: minimal]                  OK
++ Ethereum Foundation - Phase 0 - Rewards - full_random_leak [Preset: minimal]               OK
++ Ethereum Foundation - Phase 0 - Rewards - full_random_low_balances_0 [Preset: minimal]     OK
++ Ethereum Foundation - Phase 0 - Rewards - full_random_low_balances_1 [Preset: minimal]     OK
++ Ethereum Foundation - Phase 0 - Rewards - full_random_misc_balances [Preset: minimal]      OK
++ Ethereum Foundation - Phase 0 - Rewards - full_random_seven_epoch_leak [Preset: minimal]   OK
++ Ethereum Foundation - Phase 0 - Rewards - full_random_ten_epoch_leak [Preset: minimal]     OK
++ Ethereum Foundation - Phase 0 - Rewards - full_random_without_leak_0 [Preset: minimal]     OK
++ Ethereum Foundation - Phase 0 - Rewards - full_random_without_leak_and_current_exit_0 [Pre OK
++ Ethereum Foundation - Phase 0 - Rewards - half_full [Preset: minimal]                      OK
++ Ethereum Foundation - Phase 0 - Rewards - half_full_leak [Preset: minimal]                 OK
++ Ethereum Foundation - Phase 0 - Rewards - one_attestation_one_correct [Preset: minimal]    OK
++ Ethereum Foundation - Phase 0 - Rewards - one_attestation_one_correct_leak [Preset: minima OK
++ Ethereum Foundation - Phase 0 - Rewards - proposer_not_in_attestations [Preset: minimal]   OK
++ Ethereum Foundation - Phase 0 - Rewards - quarter_full [Preset: minimal]                   OK
++ Ethereum Foundation - Phase 0 - Rewards - quarter_full_leak [Preset: minimal]              OK
++ Ethereum Foundation - Phase 0 - Rewards - some_very_low_effective_balances_that_attested [ OK
++ Ethereum Foundation - Phase 0 - Rewards - some_very_low_effective_balances_that_attested_l OK
++ Ethereum Foundation - Phase 0 - Rewards - some_very_low_effective_balances_that_did_not_at OK
++ Ethereum Foundation - Phase 0 - Rewards - some_very_low_effective_balances_that_did_not_at OK
++ Ethereum Foundation - Phase 0 - Rewards - with_exited_validators [Preset: minimal]         OK
++ Ethereum Foundation - Phase 0 - Rewards - with_exited_validators_leak [Preset: minimal]    OK
++ Ethereum Foundation - Phase 0 - Rewards - with_not_yet_activated_validators [Preset: minim OK
++ Ethereum Foundation - Phase 0 - Rewards - with_not_yet_activated_validators_leak [Preset:  OK
++ Ethereum Foundation - Phase 0 - Rewards - with_slashed_validators [Preset: minimal]        OK
++ Ethereum Foundation - Phase 0 - Rewards - with_slashed_validators_leak [Preset: minimal]   OK
 + Slots - double_empty_epoch                                                                 OK
 + Slots - empty_epoch                                                                        OK
 + Slots - over_epoch_boundary                                                                OK
@@ -403,7 +494,7 @@ ConsensusSpecPreset-minimal
 + finality_root_merkle_proof                                                                 OK
 + next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 400/400 Fail: 0/400 Skip: 0/400
+OK: 491/491 Fail: 0/491 Skip: 0/491
 ## Ethereum Foundation - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -829,4 +920,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 683/683 Fail: 0/683 Skip: 0/683
+OK: 774/774 Fail: 0/774 Skip: 0/774

@@ -63,10 +63,10 @@ proc getTestStates*(
     info = ForkedEpochInfo()
     cfg = defaultRuntimeConfig
 
-  if stateFork in [forkAltair, forkMerge]:
+  if stateFork in [BeaconStateFork.Altair, BeaconStateFork.Merge]:
     cfg.ALTAIR_FORK_EPOCH = 1.Epoch
 
-  if stateFork == forkMerge:
+  if stateFork == BeaconStateFork.Merge:
     cfg.MERGE_FORK_EPOCH = 1.Epoch
 
   for i, epoch in stateEpochs:
@@ -80,5 +80,5 @@ proc getTestStates*(
         valid_deposit(state.data)
     doAssert getStateField(tmpState[], slot) == slot
 
-    if tmpState[].beaconStateFork == stateFork:
+    if tmpState[].kind == stateFork:
       result.add assignClone(tmpState[])

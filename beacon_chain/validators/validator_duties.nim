@@ -22,7 +22,8 @@ import
   # Local modules
   ../spec/datatypes/[phase0, altair, merge],
   ../spec/[
-    eth2_merkleization, forks, helpers, network, signatures, state_transition],
+    eth2_merkleization, forks, helpers, network, signatures, state_transition,
+    validator],
   ../consensus_object_pools/[
     spec_cache, blockchain_dag, block_clearance, attestation_pool, exit_pool,
     sync_committee_msg_pool],
@@ -82,12 +83,18 @@ proc findValidator(validators: auto, pubKey: ValidatorPubKey):
   else:
     some(idx.ValidatorIndex)
 
-proc addLocalValidator(node: BeaconNode, item: ValidatorPrivateItem) =
-  node.attachedValidators[].addLocalValidator(item)
+proc addLocalValidator(node: BeaconNode,
+                       validators: auto,
+                       item: ValidatorPrivateItem) =
+  let pubKey = item.privateKey.toPubKey()
+  node.attachedValidators[].addLocalValidator(
+    item,
+    findValidator(validators, pubKey.toPubKey()))
 
 proc addLocalValidators*(node: BeaconNode) =
-  for validatorItem in node.config.validatorItems():
-    node.addLocalValidator(validatorItem)
+  withState(node.dag.headState.data):
+    for validatorItem in node.config.validatorItems():
+      node.addLocalValidator(state.data.validators.asSeq(), validatorItem)
 
 proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError].} =
   # load all the validators from the child process - loop until `end`
@@ -257,7 +264,7 @@ proc sendSyncCommitteeMessages*(node: BeaconNode,
 
   let (pending, indices) =
     withState(node.dag.headState.data):
-      when stateFork >= forkAltair:
+      when stateFork >= BeaconStateFork.Altair:
         var resFutures: seq[Future[SendResult]]
         var resIndices: seq[int]
         for committeeIdx in allSyncCommittees():
@@ -412,6 +419,8 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       doAssert v.addr == addr proposalStateAddr.data
       assign(proposalStateAddr[], poolPtr.headState)
 
+    let exits = withState(stateData.data):
+      node.exitPool[].getBeaconBlockExits(state.data)
     return makeBeaconBlock(
       node.dag.cfg,
       stateData.data,
@@ -422,9 +431,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       graffiti,
       node.attestationPool[].getAttestationsForBlock(stateData.data, cache),
       eth1Proposal.deposits,
-      node.exitPool[].getProposerSlashingsForBlock(),
-      node.exitPool[].getAttesterSlashingsForBlock(),
-      node.exitPool[].getVoluntaryExitsForBlock(),
+      exits,
       if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
         SyncAggregate.init()
       else:
@@ -441,7 +448,7 @@ proc proposeSignedBlock*(node: BeaconNode,
   let newBlockRef =
     case newBlock.kind:
     of BeaconBlockFork.Phase0:
-      node.dag.addRawBlock(node.quarantine, newBlock.phase0Block) do (
+      node.dag.addRawBlock(node.quarantine, newBlock.phase0Data) do (
           blckRef: BlockRef, trustedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if signed block valid (and becomes trusted)
@@ -449,7 +456,7 @@ proc proposeSignedBlock*(node: BeaconNode,
           epochRef, blckRef, trustedBlock.message,
           node.beaconClock.now().slotOrZero())
     of BeaconBlockFork.Altair:
-      node.dag.addRawBlock(node.quarantine, newBlock.altairBlock) do (
+      node.dag.addRawBlock(node.quarantine, newBlock.altairData) do (
           blckRef: BlockRef, trustedBlock: altair.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if signed block valid (and becomes trusted)
@@ -457,7 +464,7 @@ proc proposeSignedBlock*(node: BeaconNode,
           epochRef, blckRef, trustedBlock.message,
           node.beaconClock.now().slotOrZero())
     of BeaconBlockFork.Merge:
-      node.dag.addRawBlock(node.quarantine, newBlock.mergeBlock) do (
+      node.dag.addRawBlock(node.quarantine, newBlock.mergeData) do (
           blckRef: BlockRef, trustedBlock: merge.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if signed block valid (and becomes trusted)
@@ -517,7 +524,7 @@ proc proposeBlock(node: BeaconNode,
   # general this is far too much copy/paste
   let forked = case blck.kind:
   of BeaconBlockFork.Phase0:
-    let root = hash_tree_root(blck.phase0Block)
+    let root = hash_tree_root(blck.phase0Data)
 
     # TODO: recomputed in block proposal
     let signing_root = compute_block_root(
@@ -537,10 +544,10 @@ proc proposeBlock(node: BeaconNode,
       fork, genesis_validators_root, slot, root)
     ForkedSignedBeaconBlock.init(
       phase0.SignedBeaconBlock(
-        message: blck.phase0Block, root: root, signature: signature)
+        message: blck.phase0Data, root: root, signature: signature)
     )
   of BeaconBlockFork.Altair:
-    let root = hash_tree_root(blck.altairBlock)
+    let root = hash_tree_root(blck.altairData)
 
     # TODO: recomputed in block proposal
     let signing_root = compute_block_root(
@@ -561,10 +568,10 @@ proc proposeBlock(node: BeaconNode,
 
     ForkedSignedBeaconBlock.init(
       altair.SignedBeaconBlock(
-        message: blck.altairBlock, root: root, signature: signature)
+        message: blck.altairData, root: root, signature: signature)
     )
   of BeaconBlockFork.Merge:
-    let root = hash_tree_root(blck.mergeBlock)
+    let root = hash_tree_root(blck.mergeData)
 
     # TODO: recomputed in block proposal
     let signing_root = compute_block_root(
@@ -585,7 +592,7 @@ proc proposeBlock(node: BeaconNode,
 
     ForkedSignedBeaconBlock.init(
       merge.SignedBeaconBlock(
-        message: blck.mergeBlock, root: root, signature: signature)
+        message: blck.mergeData, root: root, signature: signature)
     )
 
   return await node.proposeSignedBlock(head, validator, forked)
@@ -653,11 +660,11 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
             data.target.epoch,
             signing_root)
       if registered.isOk():
-        let subnet_id = compute_subnet_for_attestation(
+        let subnet = compute_subnet_for_attestation(
           committees_per_slot, data.slot, data.index.CommitteeIndex)
         asyncSpawn createAndSendAttestation(
           node, fork, genesis_validators_root, validator, data,
-          committee.len(), index_in_committee, subnet_id)
+          committee.len(), index_in_committee, subnet)
       else:
         warn "Slashing protection activated for attestation",
           validator = validator.pubkey,
@@ -1097,10 +1104,10 @@ proc sendAttestation*(node: BeaconNode,
   let
     epochRef = node.dag.getEpochRef(
       attestationBlock, attestation.data.target.epoch)
-    subnet_id = compute_subnet_for_attestation(
+    subnet = compute_subnet_for_attestation(
       get_committee_count_per_slot(epochRef), attestation.data.slot,
       attestation.data.index.CommitteeIndex)
-    res = await node.sendAttestation(attestation, subnet_id,
+    res = await node.sendAttestation(attestation, subnet,
                                      checkSignature = true)
   if not(res):
     return SendResult.err("Attestation failed validation")
@@ -1175,3 +1182,45 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
     node.network.broadcastBeaconBlock(forked)
     return SendBlockResult.ok(false)
   return SendBlockResult.ok(true)
+
+proc registerDuty*(
+    node: BeaconNode, slot: Slot, subnet: SubnetId, vidx: ValidatorIndex,
+    isAggregator: bool) =
+  # Only register relevant duties
+  node.actionTracker.registerDuty(slot, subnet, vidx, isAggregator)
+
+proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
+  ## Register upcoming duties of attached validators with the duty tracker
+
+  if node.attachedValidators[].count() == 0 or not node.isSynced(node.dag.head):
+    # Nothing to do because we have no validator attached
+    return
+
+  let
+    genesis_validators_root =
+      getStateField(node.dag.headState.data, genesis_validators_root)
+    head = node.dag.head
+
+  # Getting the slot signature is expensive but cached - in "normal" cases we'll
+  # be getting the duties one slot at a time
+  for slot in wallSlot ..< wallSlot + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS:
+    let
+      epochRef = node.dag.getEpochRef(head, slot.epoch)
+      fork = node.dag.forkAtEpoch(slot.epoch)
+      committees_per_slot = get_committee_count_per_slot(epochRef)
+
+    for committee_index in 0'u64..<committees_per_slot:
+      let committee = get_beacon_committee(
+        epochRef, slot, committee_index.CommitteeIndex)
+
+      for index_in_committee, validatorIdx in committee:
+        let validator = node.getAttachedValidator(epochRef, validatorIdx)
+        if validator != nil:
+          let
+            subnet = compute_subnet_for_attestation(
+              committees_per_slot, slot, committee_index.CommitteeIndex)
+            slotSig = await getSlotSig(
+              validator, fork, genesis_validators_root, slot)
+            isAggregator = is_aggregator(committee.lenu64, slotSig)
+
+          node.registerDuty(slot, subnet, validatorIdx, isAggregator)

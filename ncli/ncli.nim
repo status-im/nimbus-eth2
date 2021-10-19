@@ -74,17 +74,17 @@ type
         desc: "Filename of state resulting from applying blck to preState"}: string
 
 template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
-  case value.beaconStateFork:
-  of forkPhase0: SSZ.saveFile(filename, value.hbsPhase0.data)
-  of forkAltair: SSZ.saveFile(filename, value.hbsAltair.data)
-  of forkMerge:  SSZ.saveFile(filename, value.hbsMerge.data)
+  case value.kind:
+  of BeaconStateFork.Phase0: SSZ.saveFile(filename, value.phase0Data.data)
+  of BeaconStateFork.Altair: SSZ.saveFile(filename, value.altairData.data)
+  of BeaconStateFork.Merge:  SSZ.saveFile(filename, value.mergeData.data)
 
 proc doTransition(conf: NcliConf) =
   let
     stateY = (ref ForkedHashedBeaconState)(
-      hbsPhase0: phase0.HashedBeaconState(
+      phase0Data: phase0.HashedBeaconState(
         data: SSZ.loadFile(conf.preState, phase0.BeaconState)),
-      beaconStateFork: forkPhase0
+      kind: BeaconStateFork.Phase0
     )
     blckX = SSZ.loadFile(conf.blck, phase0.SignedBeaconBlock)
     flags = if not conf.verifyStateRoot: {skipStateRootValidation} else: {}
@@ -112,9 +112,9 @@ proc doSlots(conf: NcliConf) =
   var timers: array[Timers, RunningStat]
   let
     stateY = withTimerRet(timers[tLoadState]): (ref ForkedHashedBeaconState)(
-      hbsPhase0: phase0.HashedBeaconState(
+      phase0Data: phase0.HashedBeaconState(
         data: SSZ.loadFile(conf.preState2, phase0.BeaconState)),
-      beaconStateFork: forkPhase0
+      kind: BeaconStateFork.Phase0
     )
 
   setStateRoot(stateY[], hash_tree_root(stateY[]))

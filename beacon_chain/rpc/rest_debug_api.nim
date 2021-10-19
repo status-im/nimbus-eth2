@@ -37,16 +37,16 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
     node.withStateForBlockSlot(bslot):
       return
-        case stateData.data.beaconStateFork
-        of BeaconStateFork.forkPhase0:
+        case stateData.data.kind
+        of BeaconStateFork.Phase0:
           case contentType
             of "application/octet-stream":
-              RestApiResponse.sszResponse(stateData.data.hbsPhase0.data)
+              RestApiResponse.sszResponse(stateData.data.phase0Data.data)
             of "application/json":
-              RestApiResponse.jsonResponse(stateData.data.hbsPhase0.data)
+              RestApiResponse.jsonResponse(stateData.data.phase0Data.data)
             else:
               RestApiResponse.jsonError(Http500, InvalidAcceptError)
-        of BeaconStateFork.forkAltair, BeaconStateFork.forkMerge:
+        of BeaconStateFork.Altair, BeaconStateFork.Merge:
           RestApiResponse.jsonError(Http404, StateNotFoundError)
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 

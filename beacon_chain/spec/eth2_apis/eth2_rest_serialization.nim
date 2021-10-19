@@ -683,15 +683,15 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconBlock) {.
   case value.kind
   of BeaconBlockFork.Phase0:
     writer.writeField("version", "phase0")
-    writer.writeField("data", value.phase0Block)
+    writer.writeField("data", value.phase0Data)
   of BeaconBlockFork.Altair:
     writer.writeField("version", "altair")
-    writer.writeField("data", value.altairBlock)
+    writer.writeField("data", value.altairData)
   of BeaconBlockFork.Merge:
     writer.writeField("version", "merge")
     when false:
       # TODO SerializationError
-      writer.writeField("data", value.mergeBlock)
+      writer.writeField("data", value.mergeData)
   writer.endRecord()
 
 ## ForkedSignedBeaconBlock
@@ -770,15 +770,15 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   case value.kind
   of BeaconBlockFork.Phase0:
     writer.writeField("version", "phase0")
-    writer.writeField("data", value.phase0Block)
+    writer.writeField("data", value.phase0Data)
   of BeaconBlockFork.Altair:
     writer.writeField("version", "altair")
-    writer.writeField("data", value.altairBlock)
+    writer.writeField("data", value.altairData)
   of BeaconBlockFork.Merge:
     writer.writeField("version", "merge")
     when false:
       # TODO SerializationError
-      writer.writeField("data", value.mergeBlock)
+      writer.writeField("data", value.mergeData)
   writer.endRecord()
 
 # ForkedBeaconState
@@ -796,15 +796,11 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedField("Multiple version fields found",
                                     "ForkedBeaconState")
       let vres = reader.readValue(string)
-      case vres
-      of "phase0":
-        version = some(BeaconStateFork.forkPhase0)
-      of "altair":
-        version = some(BeaconStateFork.forkAltair)
-      of "merge":
-        version = some(BeaconStateFork.forkMerge)
-      else:
-        reader.raiseUnexpectedValue("Incorrect version field value")
+      version = case vres
+      of "phase0": some(BeaconStateFork.Phase0)
+      of "altair": some(BeaconStateFork.Altair)
+      of "merge": some(BeaconStateFork.Merge)
+      else: reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       if data.isSome():
         reader.raiseUnexpectedField("Multiple data fields found",
@@ -819,7 +815,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     reader.raiseUnexpectedValue("Field data is missing")
 
   case version.get():
-  of BeaconStateFork.forkPhase0:
+  of BeaconStateFork.Phase0:
     let res =
       try:
         some(RestJson.decode(string(data.get()), phase0.BeaconState,
@@ -829,7 +825,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect phase0 beacon state format")
     value = ForkedBeaconState.init(res.get())
-  of BeaconStateFork.forkAltair:
+  of BeaconStateFork.Altair:
     let res =
       try:
         some(RestJson.decode(string(data.get()), altair.BeaconState,
@@ -839,7 +835,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect altair beacon state format")
     value = ForkedBeaconState.init(res.get())
-  of BeaconStateFork.forkMerge:
+  of BeaconStateFork.Merge:
     let res =
       try:
         some(RestJson.decode(string(data.get()), merge.BeaconState,
@@ -853,18 +849,18 @@ proc readValue*(reader: var JsonReader[RestJson],
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconState) {.
      raises: [IOError, Defect].} =
   writer.beginRecord()
-  case value.beaconStateFork
-  of BeaconStateFork.forkPhase0:
+  case value.kind
+  of BeaconStateFork.Phase0:
     writer.writeField("version", "phase0")
-    writer.writeField("data", value.bsPhase0)
-  of BeaconStateFork.forkAltair:
+    writer.writeField("data", value.phase0Data)
+  of BeaconStateFork.Altair:
     writer.writeField("version", "altair")
-    writer.writeField("data", value.bsAltair)
-  of BeaconStateFork.forkMerge:
+    writer.writeField("data", value.altairData)
+  of BeaconStateFork.Merge:
     writer.writeField("version", "merge")
     when false:
       # TODO SerializationError
-      writer.writeField("data", value.bsMerge)
+      writer.writeField("data", value.mergeData)
   writer.endRecord()
 
 # SyncCommitteeIndex

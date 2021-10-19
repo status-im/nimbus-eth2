@@ -56,7 +56,7 @@ export
 # Eventually, we could also differentiate between user/tainted data and
 # internal state that's gone through sanity checks already.
 
-const SPEC_VERSION* = "1.1.2"
+const SPEC_VERSION* = "1.1.3"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -424,6 +424,11 @@ type
     next_fork_version*: Version
     next_fork_epoch*: Epoch
 
+  # https://github.com/ethereum/consensus-specs/tree/v1.1.3/tests/formats/rewards#rewards-tests
+  Deltas* = object
+    rewards*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    penalties*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
   BeaconStateDiff* = object
     # Small and/or static; always include
     slot*: Slot
@@ -469,6 +474,12 @@ type
     previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
+
+  BeaconBlockExits* = object
+    # Collection of exits that are suitable for block production
+    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
 type
   # Caches for computing justificiation, rewards and penalties - based on

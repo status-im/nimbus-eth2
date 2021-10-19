@@ -2075,6 +2075,9 @@ proc unsubscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATIO
 proc updateStabilitySubnetMetadata*(
     node: Eth2Node, attnets: BitArray[ATTESTATION_SUBNET_COUNT]) =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/p2p-interface.md#metadata
+  if node.metadata.attnets == attnets:
+    return
+
   node.metadata.seq_number += 1
   node.metadata.attnets = attnets
 
@@ -2120,19 +2123,11 @@ proc updateForkId*(node: Eth2Node, epoch: Epoch, genesisValidatorsRoot: Eth2Dige
   node.updateForkId(getENRForkId(node.cfg, epoch, genesisValidatorsRoot))
   node.discoveryForkId = getDiscoveryForkID(node.cfg, epoch, genesisValidatorsRoot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
-func getStabilitySubnetLength*(node: Eth2Node): uint64 =
-  EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION +
-    node.rng[].rand(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION.int).uint64
-
-func getRandomSubnetId*(node: Eth2Node): SubnetId =
-  node.rng[].rand(ATTESTATION_SUBNET_COUNT - 1).SubnetId
-
 func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
   case node.cfg.stateForkAtEpoch(epoch)
-  of forkMerge:  node.forkDigests.merge
-  of forkAltair: node.forkDigests.altair
-  of forkPhase0: node.forkDigests.phase0
+  of BeaconStateFork.Merge:  node.forkDigests.merge
+  of BeaconStateFork.Altair: node.forkDigests.altair
+  of BeaconStateFork.Phase0: node.forkDigests.phase0
 
 proc getWallEpoch(node: Eth2Node): Epoch =
   node.getBeaconTime().slotOrZero.epoch
@@ -2174,13 +2169,13 @@ proc broadcastBeaconBlock*(node: Eth2Node, forked: ForkedSignedBeaconBlock) =
   case forked.kind
   of BeaconBlockFork.Phase0:
     let topic = getBeaconBlocksTopic(node.forkDigests.phase0)
-    node.broadcast(topic, forked.phase0Block)
+    node.broadcast(topic, forked.phase0Data)
   of BeaconBlockFork.Altair:
     let topic = getBeaconBlocksTopic(node.forkDigests.altair)
-    node.broadcast(topic, forked.altairBlock)
+    node.broadcast(topic, forked.altairData)
   of BeaconBlockFork.Merge:
     let topic = getBeaconBlocksTopic(node.forkDigests.merge)
-    node.broadcast(topic, forked.mergeBlock)
+    node.broadcast(topic, forked.mergeData)
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage, committeeIdx: SyncCommitteeIndex) =

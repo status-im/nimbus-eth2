@@ -302,6 +302,11 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + random slot differences [Preset: mainnet]                                                  OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## subnet tracker
+```diff
++ should register stability subnets on attester duties                                       OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## underlong values
 ```diff
   Overlong SSZ.decode: BitArray[32]                                                          Skip
@@ -364,4 +369,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 42/56 Fail: 0/56 Skip: 14/56
 
 ---TOTAL---
-OK: 202/218 Fail: 0/218 Skip: 16/218
+OK: 203/219 Fail: 0/219 Skip: 16/219

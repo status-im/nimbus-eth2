@@ -26,7 +26,7 @@ suite "state diff tests" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
 
   test "random slot differences" & preset():
-    let testStates = getTestStates(dag.headState.data, forkPhase0)
+    let testStates = getTestStates(dag.headState.data, BeaconStateFork.Phase0)
 
     for i in 0 ..< testStates.len:
       for j in (i+1) ..< testStates.len:
@@ -34,9 +34,9 @@ suite "state diff tests" & preset():
           getStateField(testStates[j][], slot)
         if getStateField(testStates[i][], slot) + SLOTS_PER_EPOCH != getStateField(testStates[j][], slot):
           continue
-        var tmpStateApplyBase = assignClone(testStates[i].hbsPhase0.data)
+        var tmpStateApplyBase = assignClone(testStates[i].phase0Data.data)
         let diff = diffStates(
-          testStates[i].hbsPhase0.data, testStates[j].hbsPhase0.data)
+          testStates[i].phase0Data.data, testStates[j].phase0Data.data)
         # Immutable parts of validators stored separately, so aren't part of
         # the state diff. Synthesize required portion here for testing.
         applyDiff(

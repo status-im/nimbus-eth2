@@ -108,14 +108,10 @@ const
     "Could not find validator"
   ValidatorStatusNotFoundError* =
     "Could not obtain validator's status"
-  UniqueValidatorKeyError* =
-    "Only unique validator's keys are allowed"
   TooHighValidatorIndexValueError* =
     "Validator index exceeds maximum number of validators allowed"
   UnsupportedValidatorIndexValueError* =
     "Validator index exceeds maximum supported number of validators"
-  UniqueValidatorIndexError* =
-    "Only unique validator's index are allowed"
   StateNotFoundError* =
     "Could not get requested state"
   SlotNotFoundError* =
@@ -328,7 +324,7 @@ proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
 func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
   epoch: Epoch): Result[seq[ValidatorPubKey], cstring] =
   withState(forkedState):
-    when stateFork >= forkAltair:
+    when stateFork >= BeaconStateFork.Altair:
       let
         headSlot = state.data.slot
         epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())

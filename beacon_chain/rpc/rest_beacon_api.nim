@@ -253,9 +253,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           for item in validatorIds:
             case item.kind
             of ValidatorQueryKind.Key:
-              if item.key in keyset:
-                return RestApiResponse.jsonError(Http400,
-                                                 UniqueValidatorKeyError)
               keyset.incl(item.key)
             of ValidatorQueryKind.Index:
               let vindex =
@@ -270,27 +267,20 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                       return RestApiResponse.jsonError(Http500,
                                             UnsupportedValidatorIndexValueError)
                   let index = vres.get()
-                  if uint64(index) >= validatorsCount:
-                    return RestApiResponse.jsonError(Http400,
-                                                     ValidatorNotFoundError)
-                  if index in indexset:
-                    return RestApiResponse.jsonError(Http400,
-                                                     UniqueValidatorIndexError)
                   index
-              indexset.incl(vindex)
+              if uint64(vindex) < validatorsCount:
+                # We only adding validator indices which are present in
+                # validators list at this moment.
+                indexset.incl(vindex)
 
           if len(keyset) > 0:
             let optIndices = keysToIndices(node.restKeysCache, stateData.data,
                                            keyset.toSeq())
+            # Remove all the duplicates.
             for item in optIndices:
-              if item.isNone():
-                return RestApiResponse.jsonError(Http400,
-                                                 ValidatorNotFoundError)
-              let vindex = item.get()
-              if vindex in indexset:
-                return RestApiResponse.jsonError(Http400,
-                                                 UniqueValidatorIndexError)
-              indexset.incl(vindex)
+              # We ignore missing keys.
+              if item.isSome():
+                indexset.incl(item.get())
           indexset.toSeq()
 
       let response =
@@ -369,7 +359,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             let optIndices = keysToIndices(node.restKeysCache, stateData.data,
                                            [vid.key])
             if optIndices[0].isNone():
-              return RestApiResponse.jsonError(Http400, ValidatorNotFoundError)
+              return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
             optIndices[0].get()
           of ValidatorQueryKind.Index:
             let vres = vid.index.toValidatorIndex()
@@ -383,7 +373,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                             UnsupportedValidatorIndexValueError)
             let index = vres.get()
             if uint64(index) >= validatorsCount:
-              return RestApiResponse.jsonError(Http400, ValidatorNotFoundError)
+              return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
             index
 
       let
@@ -445,9 +435,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           for item in validatorIds:
             case item.kind
             of ValidatorQueryKind.Key:
-              if item.key in keyset:
-                return RestApiResponse.jsonError(Http400,
-                                                 UniqueValidatorKeyError)
               keyset.incl(item.key)
             of ValidatorQueryKind.Index:
               let vindex =
@@ -461,28 +448,20 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                     of ValidatorIndexError.UnsupportedValue:
                       return RestApiResponse.jsonError(Http500,
                                             UnsupportedValidatorIndexValueError)
-                  let index = vres.get()
-                  if uint64(index) >= validatorsCount:
-                    return RestApiResponse.jsonError(Http400,
-                                                     ValidatorNotFoundError)
-                  if index in indexset:
-                    return RestApiResponse.jsonError(Http400,
-                                                     UniqueValidatorIndexError)
-                  index
-              indexset.incl(vindex)
+                  vres.get()
+              # We only adding validator indices which are present in
+              # validators list at this moment.
+              if uint64(vindex) < validatorsCount:
+                indexset.incl(vindex)
 
           if len(keyset) > 0:
             let optIndices = keysToIndices(node.restKeysCache, stateData.data,
                                            keyset.toSeq())
+            # Remove all the duplicates.
             for item in optIndices:
-              if item.isNone():
-                return RestApiResponse.jsonError(Http400,
-                                                 ValidatorNotFoundError)
-              let vindex = item.get()
-              if vindex in indexset:
-                return RestApiResponse.jsonError(Http400,
-                                                 UniqueValidatorIndexError)
-              indexset.incl(vindex)
+              # We ignore missing keys.
+              if item.isSome():
+                indexset.incl(item.get())
           indexset.toSeq()
 
       let response =
@@ -648,8 +627,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           var res: seq[ValidatorIndex]
           let optIndices = keysToIndices(node.restKeysCache, stateData().data,
                                          keys)
+          # Remove all the duplicates.
           for item in optIndices:
             if item.isNone():
+              # This should not be happened, because keys are from state.
               return RestApiResponse.jsonError(Http500, InternalServerError,
                                               "Could not get validator indices")
             res.add(item.get())
@@ -835,9 +816,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       of BeaconBlockFork.Phase0:
         case contentType
         of "application/octet-stream":
-          RestApiResponse.sszResponse(bdata.data.phase0Block)
+          RestApiResponse.sszResponse(bdata.data.phase0Data)
         of "application/json":
-          RestApiResponse.jsonResponse(bdata.data.phase0Block)
+          RestApiResponse.jsonResponse(bdata.data.phase0Data)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
       of BeaconBlockFork.Altair, BeaconBlockFork.Merge:
@@ -867,11 +848,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       of "application/octet-stream":
         case bdata.data.kind
         of BeaconBlockFork.Phase0:
-          RestApiResponse.sszResponse(bdata.data.phase0Block)
+          RestApiResponse.sszResponse(bdata.data.phase0Data)
         of BeaconBlockFork.Altair:
-          RestApiResponse.sszResponse(bdata.data.altairBlock)
+          RestApiResponse.sszResponse(bdata.data.altairData)
         of BeaconBlockFork.Merge:
-          RestApiResponse.sszResponse(bdata.data.mergeBlock)
+          RestApiResponse.sszResponse(bdata.data.mergeData)
       of "application/json":
         RestApiResponse.jsonResponsePlain(bdata.data.asSigned())
       else:

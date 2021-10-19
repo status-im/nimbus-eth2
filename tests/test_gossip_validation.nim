@@ -78,7 +78,7 @@ suite "Gossip validation " & preset():
     for blck in makeTestBlocks(
         dag.headState.data, dag.head.root, cache,
         int(SLOTS_PER_EPOCH * 5), false):
-      let added = dag.addRawBlock(quarantine, blck.phase0Block) do (
+      let added = dag.addRawBlock(quarantine, blck.phase0Data) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
@@ -196,17 +196,17 @@ suite "Gossip validation - Extra": # Not based on preset config
             case blck.kind
             of BeaconBlockFork.Phase0:
               const nilCallback = OnPhase0BlockAdded(nil)
-              dag.addRawBlock(quarantine, blck.phase0Block, nilCallback)
+              dag.addRawBlock(quarantine, blck.phase0Data, nilCallback)
             of BeaconBlockFork.Altair:
               const nilCallback = OnAltairBlockAdded(nil)
-              dag.addRawBlock(quarantine, blck.altairBlock, nilCallback)
+              dag.addRawBlock(quarantine, blck.altairData, nilCallback)
             of BeaconBlockFork.Merge:
               const nilCallback = OnMergeBlockAdded(nil)
-              dag.addRawBlock(quarantine, blck.mergeBlock, nilCallback)
+              dag.addRawBlock(quarantine, blck.mergeData, nilCallback)
           check: added.isOk()
           dag.updateHead(added[], quarantine)
         dag
-      state = newClone(dag.headState.data.hbsAltair)
+      state = newClone(dag.headState.data.altairData)
 
       syncCommitteeIdx = 0.SyncCommitteeIndex
       syncCommittee = @(dag.syncCommitteeParticipants(state[].data.slot))

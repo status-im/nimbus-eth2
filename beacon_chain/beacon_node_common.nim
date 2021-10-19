@@ -15,20 +15,21 @@ import
   taskpools,
 
   # Local modules
-  ./conf, ./beacon_clock, ./beacon_chain_db,
-  ./beacon_node_types,
+  "."/[beacon_clock, beacon_chain_db, beacon_node_types, conf],
   ./gossip_processing/[eth2_processor, block_processor, consensus_manager],
   ./networking/eth2_network,
   ./eth1/eth1_monitor,
-  ./consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
+  ./consensus_object_pools/[
+    blockchain_dag, block_quarantine, exit_pool, attestation_pool],
   ./spec/datatypes/base,
-  ./sync/[sync_manager, request_manager]
+  ./sync/[sync_manager, request_manager],
+  ./validators/action_tracker
 
 export
-  osproc, chronos, httpserver, presto, conf, beacon_clock, beacon_chain_db,
-  attestation_pool, eth2_network, beacon_node_types, eth1_monitor,
-  request_manager, sync_manager, eth2_processor, blockchain_dag, block_quarantine,
-  base
+  osproc, chronos, httpserver, presto, action_tracker, beacon_clock,
+  beacon_chain_db, conf, attestation_pool, eth2_network, beacon_node_types,
+  eth1_monitor, request_manager, sync_manager, eth2_processor, blockchain_dag,
+  block_quarantine, base, exit_pool
 
 type
   RpcServer* = RpcHttpServer
@@ -61,7 +62,7 @@ type
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerID]
     genesisSnapshotContent*: string
-    attestationSubnets*: AttestationSubnets
+    actionTracker*: ActionTracker
     processor*: ref Eth2Processor
     blockProcessor*: ref BlockProcessor
     consensusManager*: ref ConsensusManager

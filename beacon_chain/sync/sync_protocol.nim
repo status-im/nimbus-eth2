@@ -95,15 +95,15 @@ proc sendResponseChunk*(response: UntypedResponse,
   case val.kind
   of BeaconBlockFork.Phase0:
     response.stream.writeChunk(some ResponseCode.Success,
-                               SSZ.encode(val.phase0Block),
+                               SSZ.encode(val.phase0Data),
                                response.peer.network.forkDigests.phase0.bytes)
   of BeaconBlockFork.Altair:
     response.stream.writeChunk(some ResponseCode.Success,
-                               SSZ.encode(val.altairBlock),
+                               SSZ.encode(val.altairData),
                                response.peer.network.forkDigests.altair.bytes)
   of BeaconBlockFork.Merge:
     response.stream.writeChunk(some ResponseCode.Success,
-                               SSZ.encode(val.mergeBlock),
+                               SSZ.encode(val.mergeData),
                                response.peer.network.forkDigests.merge.bytes)
 
 func shortLog*(s: StatusMsg): auto =
@@ -232,7 +232,7 @@ p2pProtocol BeaconSync(version = 1,
         let blk = dag.get(blocks[i]).data
         case blk.kind
         of BeaconBlockFork.Phase0:
-          await response.write(blk.phase0Block.asSigned)
+          await response.write(blk.phase0Data.asSigned)
         of BeaconBlockFork.Altair, BeaconBlockFork.Merge:
           # Skipping all subsequent blocks should be OK because the spec says:
           # "Clients MAY limit the number of blocks in the response."
@@ -271,7 +271,7 @@ p2pProtocol BeaconSync(version = 1,
         let blk = dag.get(blockRef).data
         case blk.kind
         of BeaconBlockFork.Phase0:
-          await response.write(blk.phase0Block.asSigned)
+          await response.write(blk.phase0Data.asSigned)
           inc found
         of BeaconBlockFork.Altair, BeaconBlockFork.Merge:
           # Skipping this block should be fine because the spec says:

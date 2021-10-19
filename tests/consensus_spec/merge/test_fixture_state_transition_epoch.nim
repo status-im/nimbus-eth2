@@ -17,7 +17,7 @@ import
   # Test utilities
   ../../testutil,
   ../fixtures_utils,
-  ../test_fixture_rewards,
+  ./test_fixture_rewards,
   ../../helpers/debug_state
 
 const RootDir = SszTestsDir/const_preset/"merge"/"epoch_processing"

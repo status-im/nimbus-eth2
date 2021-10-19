@@ -31,9 +31,9 @@ proc runTest(identifier: string) =
       var
         preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, merge.BeaconState))
         fhPreState = (ref ForkedHashedBeaconState)(
-          hbsMerge: merge.HashedBeaconState(
+          mergeData: merge.HashedBeaconState(
             data: preState[], root: hash_tree_root(preState[])),
-          beaconStateFork: forkMerge)
+          kind: BeaconStateFork.Merge)
         cache = StateCache()
         info = ForkedEpochInfo()
       let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, merge.BeaconState))
@@ -44,7 +44,7 @@ proc runTest(identifier: string) =
           getStateField(fhPreState[], slot) + num_slots, cache, info, {})
 
         getStateRoot(fhPreState[]) == postState[].hash_tree_root()
-      let newPreState = newClone(fhPreState.hbsMerge.data)
+      let newPreState = newClone(fhPreState.mergeData.data)
       reportDiff(newPreState, postState)
 
   `testImpl _ slots _ identifier`()

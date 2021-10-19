@@ -91,10 +91,10 @@ proc mockBlock*(
     var info = ForkedEpochInfo()
     doAssert process_slots(cfg, tmpState[], slot, cache, info, flags = {})
 
-  result.kind = case tmpState[].beaconStateFork
-                of forkPhase0: BeaconBlockFork.Phase0
-                of forkAltair: BeaconBlockFork.Altair
-                of forkMerge:  BeaconBlockFork.Merge
+  result.kind = case tmpState[].kind
+                of BeaconStateFork.Phase0: BeaconBlockFork.Phase0
+                of BeaconStateFork.Altair: BeaconBlockFork.Altair
+                of BeaconStateFork.Merge:  BeaconBlockFork.Merge
   withStateAndBlck(tmpState[], result):
     blck.message.slot = slot
     blck.message.proposer_index =
@@ -108,10 +108,10 @@ proc mockBlock*(
 
     apply_randao_reveal(state.data, blck)
 
-    when stateFork >= forkAltair:
+    when stateFork >= BeaconStateFork.Altair:
       blck.message.body.sync_aggregate = SyncAggregate.init()
 
-    when stateFork >= forkMerge:
+    when stateFork >= BeaconStateFork.Merge:
       blck.message.body.execution_payload =
         build_empty_execution_payload(state.data)
 

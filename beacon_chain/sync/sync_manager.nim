@@ -802,9 +802,6 @@ template queueAge(): uint64 =
 template peerStatusAge(): Duration =
   Moment.now() - peer.state(BeaconSync).statusLastTime
 
-func syncQueueLen*[A, B](man: SyncManager[A, B]): uint64 =
-  man.queue.len
-
 proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
   let wallSlot = man.getLocalWallSlot()
   let headSlot = man.getLocalHeadSlot()

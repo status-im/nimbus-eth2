@@ -313,10 +313,10 @@ func contains*(dag: ChainDAGRef, root: Eth2Digest): bool =
 
 proc containsBlock(
     cfg: RuntimeConfig, db: BeaconChainDB, blck: BlockRef): bool =
-  case cfg.stateForkAtEpoch(blck.slot.epoch)
-  of forkMerge:  db.containsBlockMerge(blck.root)
-  of forkAltair: db.containsBlockAltair(blck.root)
-  of forkPhase0: db.containsBlockPhase0(blck.root)
+  case cfg.blockForkAtEpoch(blck.slot.epoch)
+  of BeaconBlockFork.Phase0: db.containsBlockPhase0(blck.root)
+  of BeaconBlockFork.Altair: db.containsBlockAltair(blck.root)
+  of BeaconBlockFork.Merge: db.containsBlockMerge(blck.root)
 
 func isStateCheckpoint(bs: BlockSlot): bool =
   ## State checkpoints are the points in time for which we store full state
@@ -332,6 +332,41 @@ func isStateCheckpoint(bs: BlockSlot): bool =
   # The tail block also counts as a state checkpoint!
   (bs.slot == bs.blck.slot and bs.blck.parent == nil) or
   (bs.slot.isEpoch and bs.slot.epoch == (bs.blck.slot.epoch + 1))
+
+proc getStateData(
+    db: BeaconChainDB, cfg: RuntimeConfig, state: var StateData, bs: BlockSlot,
+    rollback: RollbackProc): bool =
+  if not bs.isStateCheckpoint():
+    return false
+
+  let root = db.getStateRoot(bs.blck.root, bs.slot)
+  if not root.isSome():
+    return false
+
+  case cfg.stateForkAtEpoch(bs.slot.epoch)
+  of BeaconStateFork.Merge:
+    if state.data.kind != BeaconStateFork.Merge:
+      state.data = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Merge)[]
+
+    if not db.getMergeState(root.get(), state.data.mergeData.data, rollback):
+      return false
+  of BeaconStateFork.Altair:
+    if state.data.kind != BeaconStateFork.Altair:
+      state.data = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Altair)[]
+
+    if not db.getAltairState(root.get(), state.data.altairData.data, rollback):
+      return false
+  of BeaconStateFork.Phase0:
+    if state.data.kind != BeaconStateFork.Phase0:
+      state.data = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0)[]
+
+    if not db.getState(root.get(), state.data.phase0Data.data, rollback):
+      return false
+
+  state.blck = bs.blck
+  setStateRoot(state.data, root.get())
+
+  true
 
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            updateFlags: UpdateFlags, onBlockCb: OnBlockCallback = nil,
@@ -412,15 +447,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   # Now that we have a head block, we need to find the most recent state that
   # we have saved in the database
-  while cur.blck != nil:
-    if cur.isStateCheckpoint():
-      let root = db.getStateRoot(cur.blck.root, cur.slot)
-      if root.isSome():
-        if db.getState(root.get(), tmpState.data.hbsPhase0.data, noRollback):
-          setStateRoot(tmpState.data, root.get())
-          tmpState.blck = cur.blck
-
-          break
+  while cur.blck != nil and
+      not getStateData(db, cfg, tmpState[], cur, noRollback):
     cur = cur.parentOrSlot()
 
   if tmpState.blck == nil:
@@ -429,23 +457,23 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     #      would be a good recovery model?
     raiseAssert "No state found in head history, database corrupt?"
 
-  case tmpState.data.beaconStateFork
-  of forkPhase0:
-    if tmpState.data.hbsPhase0.data.fork != genesisFork(cfg):
+  case tmpState.data.kind
+  of BeaconStateFork.Phase0:
+    if tmpState.data.phase0Data.data.fork != genesisFork(cfg):
       error "State from database does not match network, check --network parameter",
-        stateFork = tmpState.data.hbsPhase0.data.fork,
+        stateFork = tmpState.data.phase0Data.data.fork,
         configFork = genesisFork(cfg)
       quit 1
-  of forkAltair:
-    if tmpState.data.hbsAltair.data.fork != altairFork(cfg):
+  of BeaconStateFork.Altair:
+    if tmpState.data.altairData.data.fork != altairFork(cfg):
       error "State from database does not match network, check --network parameter",
-        stateFork = tmpState.data.hbsAltair.data.fork,
+        stateFork = tmpState.data.altairData.data.fork,
         configFork = altairFork(cfg)
       quit 1
-  of forkMerge:
-    if tmpState.data.hbsMerge.data.fork != mergeFork(cfg):
+  of BeaconStateFork.Merge:
+    if tmpState.data.mergeData.data.fork != mergeFork(cfg):
       error "State from database does not match network, check --network parameter",
-        stateFork = tmpState.data.hbsMerge.data.fork,
+        stateFork = tmpState.data.mergeData.data.fork,
         configFork = mergeFork(cfg)
       quit 1
 
@@ -562,46 +590,6 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
 proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
   dag.getEpochRef(dag.finalizedHead.blck, dag.finalizedHead.slot.epoch)
 
-proc getState(
-    dag: ChainDAGRef, state: var StateData, stateRoot: Eth2Digest,
-    blck: BlockRef): bool =
-  let restoreAddr =
-    # Any restore point will do as long as it's not the object being updated
-    if unsafeAddr(state) == unsafeAddr(dag.headState):
-      unsafeAddr dag.clearanceState
-    else:
-      unsafeAddr dag.headState
-
-  let v = addr state.data
-
-  func restore() =
-    assign(v[], restoreAddr[].data)
-
-  case dag.cfg.stateForkAtEpoch(blck.slot.epoch)
-  of forkMerge:
-    if state.data.beaconStateFork != forkMerge:
-      state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkMerge)[]
-
-    if not dag.db.getMergeState(stateRoot, state.data.hbsMerge.data, restore):
-      return false
-  of forkAltair:
-    if state.data.beaconStateFork != forkAltair:
-      state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkAltair)[]
-
-    if not dag.db.getAltairState(stateRoot, state.data.hbsAltair.data, restore):
-      return false
-  of forkPhase0:
-    if state.data.beaconStateFork != forkPhase0:
-      state.data = (ref ForkedHashedBeaconState)(beaconStateFork: forkPhase0)[]
-
-    if not dag.db.getState(stateRoot, state.data.hbsPhase0.data, restore):
-      return false
-
-  state.blck = blck
-  setStateRoot(state.data, stateRoot)
-
-  true
-
 func stateCheckpoint*(bs: BlockSlot): BlockSlot =
   ## The first ancestor BlockSlot that is a state checkpoint
   var bs = bs
@@ -614,9 +602,9 @@ template forkAtEpoch*(dag: ChainDAGRef, epoch: Epoch): Fork =
 
 proc forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
   case dag.cfg.stateForkAtEpoch(epoch)
-  of forkMerge:  dag.forkDigests.merge
-  of forkAltair: dag.forkDigests.altair
-  of forkPhase0: dag.forkDigests.phase0
+  of BeaconStateFork.Merge:  dag.forkDigests.merge
+  of BeaconStateFork.Altair: dag.forkDigests.altair
+  of BeaconStateFork.Phase0: dag.forkDigests.phase0
 
 proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
   ## Load a state from the database given a block and a slot - this will first
@@ -625,11 +613,21 @@ proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
   if not bs.isStateCheckpoint():
     return false # Only state checkpoints are stored - no need to hit DB
 
-  if (let stateRoot = dag.db.getStateRoot(bs.blck.root, bs.slot);
-      stateRoot.isSome()):
-    return dag.getState(state, stateRoot.get(), bs.blck)
+  let stateRoot = dag.db.getStateRoot(bs.blck.root, bs.slot)
+  if stateRoot.isNone(): return false
 
-  false
+  let restoreAddr =
+    # Any restore point will do as long as it's not the object being updated
+    if unsafeAddr(state) == unsafeAddr(dag.headState):
+      unsafeAddr dag.clearanceState
+    else:
+      unsafeAddr dag.headState
+
+  let v = addr state.data
+  func restore() =
+    assign(v[], restoreAddr[].data)
+
+  getStateData(dag.db, dag.cfg, state, bs, restore)
 
 proc putState(dag: ChainDAGRef, state: StateData) =
   # Store a state and its root
@@ -727,14 +725,19 @@ func getBlockBySlot*(dag: ChainDAGRef, slot: Slot): BlockRef =
   dag.head.atSlot(slot).blck
 
 proc getForkedBlock*(dag: ChainDAGRef, blck: BlockRef): ForkedTrustedSignedBeaconBlock =
-  # TODO implement this properly
-  let phase0Block = dag.db.getBlock(blck.root)
-  if phase0Block.isOk:
-    return ForkedTrustedSignedBeaconBlock.init(phase0Block.get)
-
-  let altairBlock = dag.db.getAltairBlock(blck.root)
-  if altairBlock.isOk:
-    return ForkedTrustedSignedBeaconBlock.init(altairBlock.get)
+  case dag.cfg.blockForkAtEpoch(blck.slot.epoch)
+  of BeaconBlockFork.Phase0:
+    let data = dag.db.getBlock(blck.root)
+    if data.isOk():
+      return ForkedTrustedSignedBeaconBlock.init(data.get)
+  of BeaconBlockFork.Altair:
+    let data = dag.db.getAltairBlock(blck.root)
+    if data.isOk():
+      return ForkedTrustedSignedBeaconBlock.init(data.get)
+  of BeaconBlockFork.Merge:
+    let data = dag.db.getMergeBlock(blck.root)
+    if data.isOk():
+      return ForkedTrustedSignedBeaconBlock.init(data.get)
 
   raiseAssert "BlockRef without backing data, database corrupt?"
 
@@ -782,26 +785,14 @@ proc applyBlock(
   var statePtr = unsafeAddr state # safe because `restore` is locally scoped
   func restore(v: var ForkedHashedBeaconState) =
     doAssert (addr(statePtr.data) == addr v)
-    # TODO the block_clearance version uses assign() here
-    statePtr[] = dag.headState
+    assign(statePtr[], dag.headState)
 
   loadStateCache(dag, cache, state.blck, getStateField(state.data, slot).epoch)
 
-  # TODO some abstractions
-  let ok =
-    case blck.data.kind:
-    of BeaconBlockFork.Phase0:
-      state_transition(
-        dag.cfg, state.data, blck.data.phase0Block,
-        cache, info, flags + dag.updateFlags + {slotProcessed}, restore)
-    of BeaconBlockFork.Altair:
-      state_transition(
-        dag.cfg, state.data, blck.data.altairBlock,
-        cache, info, flags + dag.updateFlags + {slotProcessed}, restore)
-    of BeaconBlockFork.Merge:
-      state_transition(
-        dag.cfg, state.data, blck.data.mergeBlock,
-        cache, info, flags + dag.updateFlags + {slotProcessed}, restore)
+  let ok = withBlck(blck.data):
+    state_transition(
+      dag.cfg, state.data, blck, cache, info,
+      flags + dag.updateFlags + {slotProcessed}, restore)
   if ok:
     state.blck = blck.refs
 
@@ -1060,7 +1051,7 @@ func syncCommitteeParticipants*(dagParam: ChainDAGRef,
     slot = slotParam
 
   withState(dag.headState.data):
-    when stateFork >= forkAltair:
+    when stateFork >= BeaconStateFork.Altair:
       let
         headSlot = state.data.slot
         headCommitteePeriod = syncCommitteePeriod(headSlot)
@@ -1098,7 +1089,7 @@ func getSubcommitteePositions*(dag: ChainDAGRef,
                                committeeIdx: SyncCommitteeIndex,
                                validatorIdx: uint64): seq[uint64] =
   withState(dag.headState.data):
-    when stateFork >= forkAltair:
+    when stateFork >= BeaconStateFork.Altair:
       let
         headSlot = state.data.slot
         headCommitteePeriod = syncCommitteePeriod(headSlot)
