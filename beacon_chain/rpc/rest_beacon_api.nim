@@ -933,29 +933,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $dres.error())
         dres.get()
 
-    proc processAttestation(a: Attestation): Future[SendResult] {.async.} =
-      let res = await node.sendAttestation(a)
-      if res.isErr():
-        return res
-      let
-        wallTime = node.processor.getCurrentBeaconTime()
-        deadline = a.data.slot.toBeaconTime() +
-                   seconds(int(SECONDS_PER_SLOT div 3))
-        (delayStr, delaySecs) =
-          if wallTime < deadline:
-            ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
-          else:
-            ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
-      notice "Attestation sent", attestation = shortLog(a), delay = delayStr
-      return res
-
     # Since our validation logic supports batch processing, we will submit all
     # attestations for validation.
     let pending =
       block:
         var res: seq[Future[SendResult]]
         for attestation in attestations:
-          res.add(processAttestation(attestation))
+          res.add(node.sendAttestation(attestation))
         res
     let failures =
       block:

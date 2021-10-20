@@ -366,7 +366,7 @@ proc createAndSendAttestation(node: BeaconNode,
 
     notice "Attestation sent",
       attestation = shortLog(attestation), validator = shortLog(validator),
-      delay = delayStr
+      delay = delayStr, subnet_id
 
     beacon_attestation_sent_delay.observe(delaySecs)
   except CatchableError as exc:
@@ -660,11 +660,11 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
             data.target.epoch,
             signing_root)
       if registered.isOk():
-        let subnet = compute_subnet_for_attestation(
+        let subnet_id = compute_subnet_for_attestation(
           committees_per_slot, data.slot, data.index.CommitteeIndex)
         asyncSpawn createAndSendAttestation(
           node, fork, genesis_validators_root, validator, data,
-          committee.len(), index_in_committee, subnet)
+          committee.len(), index_in_committee, subnet_id)
       else:
         warn "Slashing protection activated for attestation",
           validator = validator.pubkey,
@@ -808,7 +808,7 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
         inc contributionsSent
       else:
         debug "Failure to produce contribution",
-              slot, head, subnet = candidateAggregators[i].committeeIdx
+              slot, head, subnet_id = candidateAggregators[i].committeeIdx
 
   if contributionsSent > 0:
     notice "Contributions sent", count = contributionsSent, time
@@ -913,11 +913,16 @@ proc sendAggregatedAttestations(
         message: aggregateAndProof.get,
         signature: sig)
       node.network.broadcastAggregateAndProof(signedAP)
+      # The subnet on which the attestations (should have) arrived
+      let subnet_id = compute_subnet_for_attestation(
+        committees_per_slot, signedAP.message.aggregate.data.slot,
+        signedAP.message.aggregate.data.index.CommitteeIndex)
       notice "Aggregated attestation sent",
         attestation = shortLog(signedAP.message.aggregate),
-        validator = shortLog(curr[0].v),
+        aggregator_index = signedAP.message.aggregator_index,
         signature = shortLog(signedAP.signature),
-        aggregationSlot
+        validator = shortLog(curr[0].v),
+        subnet_id
 
 proc updateValidatorMetrics*(node: BeaconNode) =
   # Technically, this only needs to be done on epoch transitions and if there's
@@ -1104,27 +1109,50 @@ proc sendAttestation*(node: BeaconNode,
   let
     epochRef = node.dag.getEpochRef(
       attestationBlock, attestation.data.target.epoch)
-    subnet = compute_subnet_for_attestation(
+    subnet_id = compute_subnet_for_attestation(
       get_committee_count_per_slot(epochRef), attestation.data.slot,
       attestation.data.index.CommitteeIndex)
-    res = await node.sendAttestation(attestation, subnet,
+    res = await node.sendAttestation(attestation, subnet_id,
                                      checkSignature = true)
   if not(res):
     return SendResult.err("Attestation failed validation")
+
+  let
+    wallTime = node.processor.getCurrentBeaconTime()
+    deadline = attestation.data.slot.toBeaconTime() +
+                seconds(int(SECONDS_PER_SLOT div 3))
+    (delayStr, delaySecs) =
+      if wallTime < deadline:
+        ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
+      else:
+        ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
+
+  notice "Attestation sent",
+    attestation = shortLog(attestation), delay = delayStr, subnet_id
+
+  beacon_attestation_sent_delay.observe(delaySecs)
+
   return SendResult.ok()
 
 proc sendAggregateAndProof*(node: BeaconNode,
-                          proof: SignedAggregateAndProof): Future[SendResult] {.
+                            proof: SignedAggregateAndProof): Future[SendResult] {.
      async.} =
   # REST/JSON-RPC API helper procedure.
   let res = await node.processor.aggregateValidator(proof)
   case res
   of ValidationResult.Accept:
     node.network.broadcastAggregateAndProof(proof)
+
+    notice "Aggregated attestation sent",
+      attestation = shortLog(proof.message.aggregate),
+      aggregator_index = proof.message.aggregator_index,
+      signature = shortLog(proof.signature)
+
     return SendResult.ok()
   else:
     notice "Aggregate and proof failed validation",
            proof = shortLog(proof.message.aggregate), result = $res
+
     return SendResult.err("Aggregate and proof failed validation")
 
 proc sendVoluntaryExit*(node: BeaconNode,
@@ -1184,10 +1212,10 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
   return SendBlockResult.ok(true)
 
 proc registerDuty*(
-    node: BeaconNode, slot: Slot, subnet: SubnetId, vidx: ValidatorIndex,
+    node: BeaconNode, slot: Slot, subnet_id: SubnetId, vidx: ValidatorIndex,
     isAggregator: bool) =
   # Only register relevant duties
-  node.actionTracker.registerDuty(slot, subnet, vidx, isAggregator)
+  node.actionTracker.registerDuty(slot, subnet_id, vidx, isAggregator)
 
 proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
   ## Register upcoming duties of attached validators with the duty tracker
@@ -1217,10 +1245,10 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
         let validator = node.getAttachedValidator(epochRef, validatorIdx)
         if validator != nil:
           let
-            subnet = compute_subnet_for_attestation(
+            subnet_id = compute_subnet_for_attestation(
               committees_per_slot, slot, committee_index.CommitteeIndex)
             slotSig = await getSlotSig(
               validator, fork, genesis_validators_root, slot)
             isAggregator = is_aggregator(committee.lenu64, slotSig)
 
-          node.registerDuty(slot, subnet, validatorIdx, isAggregator)
+          node.registerDuty(slot, subnet_id, validatorIdx, isAggregator)

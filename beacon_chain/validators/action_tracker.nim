@@ -28,7 +28,7 @@ type
   SubnetBits* = BitArray[ATTESTATION_SUBNET_COUNT]
 
   AggregatorDuty* = object
-    subnet*: SubnetId
+    subnet_id*: SubnetId
     slot*: Slot
 
   ActionTracker* = object
@@ -42,7 +42,7 @@ type
     subscribedSubnets*: SubnetBits ##\
       ## All subnets we're currently subscribed to
 
-    stabilitySubnets: seq[tuple[subnet: SubnetId, expiration: Epoch]] ##\
+    stabilitySubnets: seq[tuple[subnet_id: SubnetId, expiration: Epoch]] ##\
       ## The subnets on which we listen and broadcast gossip traffic to maintain
       ## the health of the network - these are advertised in the ENR
     nextCycleEpoch*: Epoch
@@ -65,7 +65,7 @@ type
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 func randomStabilitySubnet*(
-    self: ActionTracker, epoch: Epoch): tuple[subnet: SubnetId, expiration: Epoch] =
+    self: ActionTracker, epoch: Epoch): tuple[subnet_id: SubnetId, expiration: Epoch] =
   (
     self.rng[].rand(ATTESTATION_SUBNET_COUNT - 1).SubnetId,
     epoch + EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION +
@@ -73,24 +73,24 @@ func randomStabilitySubnet*(
   )
 
 proc registerDuty*(
-    tracker: var ActionTracker, slot: Slot, subnet: SubnetId,
+    tracker: var ActionTracker, slot: Slot, subnet_id: SubnetId,
     vidx: ValidatorIndex, isAggregator: bool) =
   # Only register relevant duties
   if slot < tracker.currentSlot or
       slot + (SLOTS_PER_EPOCH * 2) <= tracker.currentSlot:
-    debug "Irrelevant duty", slot, subnet, vidx
+    debug "Irrelevant duty", slot, subnet_id, vidx
     return
 
   tracker.knownValidators[vidx] = slot # Update validator last-seen registry
 
   if isAggregator:
-    let newDuty = AggregatorDuty(slot: slot, subnet: subnet)
+    let newDuty = AggregatorDuty(slot: slot, subnet_id: subnet_id)
 
     for duty in tracker.duties.mitems():
       if duty == newDuty:
         return
 
-    debug "Registering aggregation duty", slot, subnet, vidx
+    debug "Registering aggregation duty", slot, subnet_id, vidx
     tracker.duties.add(newDuty)
 
 const allSubnetBits = block:
@@ -106,7 +106,7 @@ func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): SubnetBits =
     if wallSlot <= duty.slot and
         wallSlot + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS > duty.slot:
 
-      res[duty.subnet.int] = true
+      res[duty.subnet_id.int] = true
   res
 
 func stabilitySubnets*(tracker: ActionTracker, slot: Slot): SubnetBits =
@@ -115,7 +115,7 @@ func stabilitySubnets*(tracker: ActionTracker, slot: Slot): SubnetBits =
   else:
     var res: SubnetBits
     for v in tracker.stabilitySubnets:
-      res[v.subnet.int] = true
+      res[v.subnet_id.int] = true
     res
 
 func updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =

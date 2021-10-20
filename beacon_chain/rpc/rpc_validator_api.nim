@@ -86,10 +86,7 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("post_v1_validator_aggregate_and_proofs") do (
       payload: SignedAggregateAndProof) -> bool:
     debug "post_v1_validator_aggregate_and_proofs"
-    node.network.broadcastAggregateAndProof(payload)
-    notice "Aggregated attestation sent",
-      attestation = shortLog(payload.message.aggregate),
-      signature = shortLog(payload.signature)
+    return (await node.sendAggregateAndProof(payload)).isOk()
 
   rpcServer.rpc("get_v1_validator_duties_attester") do (
       epoch: Epoch, public_keys: seq[ValidatorPubKey]) -> seq[RpcAttesterDuties]:
@@ -159,11 +156,11 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     let
       head = node.doChecksAndGetCurrentHead(epoch)
       epochRef = node.dag.getEpochRef(head, epoch)
-      subnet = compute_subnet_for_attestation(
+      subnet_id = compute_subnet_for_attestation(
         get_committee_count_per_slot(epochRef), slot, committee_index)
 
     # The validator index here is invalid, but since JSON-RPC is on its way
     # to deprecation, this is fine
     node.registerDuty(
-      slot, subnet, 0.ValidatorIndex,
+      slot, subnet_id, 0.ValidatorIndex,
        is_aggregator(epochRef, slot, committee_index, slot_signature))
