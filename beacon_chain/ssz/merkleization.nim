@@ -447,9 +447,9 @@ func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszMerkleizerImpl,
   else:
     static:
       doAssert T is UintN
-      doAssert bytesPerChunk mod sizeof(Т) == 0
+      doAssert bytesPerChunk mod sizeof(T) == 0
 
-    const valuesPerChunk = bytesPerChunk div sizeof(Т)
+    const valuesPerChunk = bytesPerChunk div sizeof(T)
 
     var writtenValues = 0
 
