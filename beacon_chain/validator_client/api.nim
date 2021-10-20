@@ -16,7 +16,7 @@ proc checkCompatible*(vc: ValidatorClientRef,
   let info =
     try:
       debug "Requesting beacon node network configuration"
-      let res = await node.client.getSpec()
+      let res = await node.client.getSpecVC()
       res.data.data
     except CancelledError as exc:
       error "Configuration request was interrupted"
@@ -55,6 +55,7 @@ proc checkCompatible*(vc: ValidatorClientRef,
 
   let genesisFlag = (genesis != vc.beaconGenesis)
   let configFlag =
+    # /!\ Keep in sync with `spec/eth2_apis/rest_types.nim` > `RestSpecVC`.
     info.MAX_VALIDATORS_PER_COMMITTEE != MAX_VALIDATORS_PER_COMMITTEE or
     info.SLOTS_PER_EPOCH != SLOTS_PER_EPOCH or
     info.SECONDS_PER_SLOT != SECONDS_PER_SLOT or
