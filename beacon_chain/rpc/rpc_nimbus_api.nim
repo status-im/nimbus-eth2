@@ -10,7 +10,7 @@
 import
   std/[deques, sequtils, sets],
   chronos,
-  stew/byteutils,
+  stew/[byteutils, base10],
   json_rpc/servers/httpserver,
   libp2p/protocols/pubsub/pubsubpeer,
 
@@ -27,7 +27,8 @@ type
   RpcServer = RpcHttpServer
 
   FutureInfo* = object
-    id*: int
+    id*: string
+    child_id*: string
     procname*: string
     filename*: string
     line*: int
@@ -113,8 +114,13 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
       for item in pendingFutures():
         let loc = item.location[LocCreateIndex][]
+        let futureId = Base10.toString(item.id)
+        let childId =
+          if isNil(item.child): ""
+          else: Base10.toString(item.child.id)
         res.add FutureInfo(
-          id: item.id,
+          id: futureId,
+          child_id: childId,
           procname: $loc.procedure,
           filename: $loc.file,
           line: loc.line,

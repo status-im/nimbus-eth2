@@ -6,7 +6,7 @@
 
 import
   std/[sequtils],
-  stew/results,
+  stew/[results, base10],
   chronicles,
   libp2p/[multiaddress, multicodec, peerstore],
   libp2p/protocols/pubsub/pubsubpeer,
@@ -39,8 +39,8 @@ type
     score*: int
 
   RestFutureInfo* = object
-    id*: int
-    child_id*: int
+    id*: string
+    child_id*: string
     procname*: string
     filename*: string
     line*: int
@@ -214,10 +214,13 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       var res: seq[RestFutureInfo]
       for item in pendingFutures():
         let loc = item.location[LocCreateIndex][]
-        let childId = if isNil(item.child): "" else: $item.child.id
+        let futureId = Base10.toString(item.id)
+        let childId =
+          if isNil(item.child): ""
+          else: Base10.toString(item.child.id)
         res.add(
           RestFutureInfo(
-            id: item.id,
+            id: futureId,
             child_id: childId,
             procname: $loc.procedure,
             filename: $loc.file,
