@@ -64,7 +64,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1633302932626,
+  "iteration": 1634763693267,
   "links": [],
   "panels": [
     {
@@ -308,7 +308,7 @@
       },
       "gridPos": {
         "h": 2,
-        "w": 3,
+        "w": 2,
         "x": 8,
         "y": 0
       },
@@ -379,8 +379,8 @@
       },
       "gridPos": {
         "h": 2,
-        "w": 3,
-        "x": 11,
+        "w": 2,
+        "x": 10,
         "y": 0
       },
       "id": 6,
@@ -496,132 +496,463 @@
       "type": "timeseries"
     },
     {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
+      "cacheTimeout": null,
       "datasource": null,
+      "description": "Slot based on current wall clock time",
       "fieldConfig": {
         "defaults": {
-          "links": []
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
         },
         "overrides": []
       },
-      "fill": 1,
-      "fillGradient": 0,
       "gridPos": {
-        "h": 6,
-        "w": 14,
+        "h": 2,
+        "w": 2,
         "x": 0,
         "y": 2
       },
-      "hiddenSeries": false,
-      "id": 2,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
+      "id": 28,
+      "interval": null,
+      "links": [],
+      "maxDataPoints": 100,
       "options": {
-        "alertThreshold": true
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
       },
-      "percentage": false,
       "pluginVersion": "8.0.4",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [
+      "targets": [
         {
-          "alias": "RSS",
-          "yaxis": 2
-        },
-        {
-          "alias": "Nim GC mem total",
-          "yaxis": 2
-        },
-        {
-          "alias": "Nim GC mem used",
-          "yaxis": 2
+          "expr": "beacon_slot{instance=\"${instance}\",container=\"${container}\"}",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
         }
       ],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Wall slot",
+      "type": "stat"
+    },
+    {
+      "cacheTimeout": null,
+      "datasource": null,
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 2,
+        "x": 2,
+        "y": 2
+      },
+      "id": 79,
+      "interval": null,
+      "links": [],
+      "maxDataPoints": 100,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
+        {
+          "expr": "beacon_slot{instance=\"${instance}\",container=\"${container}\"}",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Head slot",
+      "type": "stat"
+    },
+    {
+      "cacheTimeout": null,
+      "datasource": null,
+      "description": "Epoch based on current wall clock time",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 2,
+        "x": 4,
+        "y": 2
+      },
+      "id": 81,
+      "interval": null,
+      "links": [],
+      "maxDataPoints": 100,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.0.4",
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(process_cpu_seconds_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 100",
+          "expr": "beacon_slot{instance=\"${instance}\",container=\"${container}\"}/32",
           "interval": "",
-          "legendFormat": "CPU usage %",
+          "legendFormat": "",
           "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Wall epoch",
+      "type": "stat"
+    },
+    {
+      "cacheTimeout": null,
+      "datasource": null,
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
         },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 2,
+        "x": 6,
+        "y": 2
+      },
+      "id": 80,
+      "interval": null,
+      "links": [],
+      "maxDataPoints": 100,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
         {
           "exemplar": true,
-          "expr": "process_open_fds{instance=\"${instance}\",container=\"${container}\"}",
+          "expr": "beacon_slot{instance=\"${instance}\",container=\"${container}\"}/32",
           "interval": "",
-          "legendFormat": "open file descriptors",
-          "refId": "C"
-        },
-        {
-          "expr": "process_resident_memory_bytes{instance=\"${instance}\",container=\"${container}\"}",
-          "legendFormat": "RSS",
-          "refId": "D"
-        },
-        {
-          "expr": "nim_gc_mem_bytes{instance=\"${instance}\",container=\"${container}\"}",
-          "legendFormat": "Nim GC mem total",
-          "refId": "F"
+          "legendFormat": "",
+          "refId": "A"
         }
       ],
-      "thresholds": [],
       "timeFrom": null,
-      "timeRegions": [],
       "timeShift": null,
-      "title": "resources (${instance})",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "$$hashKey": "object:287",
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
+      "title": "Head epoch",
+      "type": "stat"
+    },
+    {
+      "cacheTimeout": null,
+      "datasource": null,
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
         },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 2,
+        "x": 8,
+        "y": 2
+      },
+      "id": 34,
+      "interval": null,
+      "links": [],
+      "maxDataPoints": 100,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
         {
-          "$$hashKey": "object:288",
-          "format": "bytes",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
+          "exemplar": true,
+          "expr": "beacon_current_justified_epoch{instance=\"${instance}\",container=\"${container}\"}",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
         }
       ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Justified epoch",
+      "type": "stat"
+    },
+    {
+      "cacheTimeout": null,
+      "datasource": null,
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 2,
+        "x": 10,
+        "y": 2
+      },
+      "id": 36,
+      "interval": null,
+      "links": [],
+      "maxDataPoints": 100,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
+        {
+          "expr": "beacon_finalized_epoch{instance=\"${instance}\",container=\"${container}\"}",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Finalized epoch",
+      "type": "stat"
     },
     {
       "aliasColors": {},
@@ -738,17 +1069,15 @@
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 8
+        "y": 4
       },
       "hiddenSeries": false,
-      "id": 18,
+      "id": 2,
       "legend": {
-        "alignAsTable": false,
         "avg": false,
         "current": false,
         "max": false,
         "min": false,
-        "rightSide": false,
         "show": true,
         "total": false,
         "values": false
@@ -766,7 +1095,15 @@
       "renderer": "flot",
       "seriesOverrides": [
         {
-          "alias": "/.*/",
+          "alias": "RSS",
+          "yaxis": 2
+        },
+        {
+          "alias": "Nim GC mem total",
+          "yaxis": 2
+        },
+        {
+          "alias": "Nim GC mem used",
           "yaxis": 2
         }
       ],
@@ -775,17 +1112,35 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "nim_gc_heap_instance_occupied_bytes{instance=\"${instance}\",container=\"${container}\"}",
+          "exemplar": true,
+          "expr": "rate(process_cpu_seconds_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 100",
           "interval": "",
-          "legendFormat": "{{type_name}}",
+          "legendFormat": "CPU usage %",
           "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "process_open_fds{instance=\"${instance}\",container=\"${container}\"}",
+          "interval": "",
+          "legendFormat": "open file descriptors",
+          "refId": "C"
+        },
+        {
+          "expr": "process_resident_memory_bytes{instance=\"${instance}\",container=\"${container}\"}",
+          "legendFormat": "RSS",
+          "refId": "D"
+        },
+        {
+          "expr": "nim_gc_mem_bytes{instance=\"${instance}\",container=\"${container}\"}",
+          "legendFormat": "Nim GC mem total",
+          "refId": "F"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "GC heap objects (${instance})",
+      "title": "resources (${instance})",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -801,14 +1156,16 @@
       },
       "yaxes": [
         {
-          "format": "bytes",
+          "$$hashKey": "object:287",
+          "format": "short",
           "label": null,
           "logBase": 1,
           "max": null,
           "min": "0",
-          "show": false
+          "show": true
         },
         {
+          "$$hashKey": "object:288",
           "format": "bytes",
           "label": null,
           "logBase": 1,
@@ -948,6 +1305,108 @@
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
+        "h": 7,
+        "w": 14,
+        "x": 0,
+        "y": 10
+      },
+      "hiddenSeries": false,
+      "id": 18,
+      "legend": {
+        "alignAsTable": false,
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "rightSide": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.0.4",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [
+        {
+          "alias": "/.*/",
+          "yaxis": 2
+        }
+      ],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "nim_gc_heap_instance_occupied_bytes{instance=\"${instance}\",container=\"${container}\"}",
+          "interval": "",
+          "legendFormat": "{{type_name}}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "GC heap objects (${instance})",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "bytes",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": false
+        },
+        {
+          "format": "bytes",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "links": []
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
         "h": 5,
         "w": 10,
         "x": 14,
@@ -1054,7 +1513,7 @@
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 14
+        "y": 17
       },
       "hiddenSeries": false,
       "id": 38,
@@ -1260,7 +1719,7 @@
         "h": 5,
         "w": 14,
         "x": 0,
-        "y": 20
+        "y": 23
       },
       "hiddenSeries": false,
       "id": 30,
@@ -1454,6 +1913,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -1466,10 +1926,10 @@
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 25
+        "y": 28
       },
       "hiddenSeries": false,
-      "id": 22,
+      "id": 82,
       "legend": {
         "avg": false,
         "current": false,
@@ -1492,7 +1952,8 @@
       "renderer": "flot",
       "seriesOverrides": [
         {
-          "alias": "/.*/"
+          "alias": "sent",
+          "yaxis": 2
         }
       ],
       "spaceLength": 10,
@@ -1500,17 +1961,25 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(attached_validator_balance_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 384 / 1000000000",
+          "exemplar": true,
+          "expr": "rate(beacon_sync_committee_messages_received_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 12",
           "interval": "",
-          "legendFormat": "GWei",
+          "legendFormat": "messages",
           "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "rate(beacon_sync_committee_contributions_received_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 12",
+          "interval": "",
+          "legendFormat": "contributions",
+          "refId": "B"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "validator rewards / epoch (${instance})",
+      "title": "sync committee msgs/slot (${instance})",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1526,6 +1995,7 @@
       },
       "yaxes": [
         {
+          "$$hashKey": "object:204",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -1534,12 +2004,13 @@
           "show": true
         },
         {
-          "format": "bytes",
+          "$$hashKey": "object:205",
+          "format": "short",
           "label": null,
           "logBase": 1,
           "max": null,
           "min": "0",
-          "show": false
+          "show": true
         }
       ],
       "yaxis": {
@@ -1666,16 +2137,23 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "links": []
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
         "h": 5,
         "w": 14,
         "x": 0,
-        "y": 31
+        "y": 34
       },
       "hiddenSeries": false,
-      "id": 56,
+      "id": 83,
       "legend": {
         "avg": false,
         "current": false,
@@ -1696,23 +2174,104 @@
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
-      "seriesOverrides": [],
+      "seriesOverrides": [
+        {
+          "alias": "sent",
+          "yaxis": 2
+        },
+        {
+          "alias": "aggregates (reject)",
+          "yaxis": 1
+        }
+      ],
       "spaceLength": 10,
       "stack": false,
       "steppedLine": false,
       "targets": [
         {
-          "expr": "eth1_chain_len{instance=\"${instance}\",container=\"${container}\"}",
+          "exemplar": true,
+          "expr": "rate(beacon_blocks_dropped_total{instance=\"${instance}\",container=\"${container}\",reason=\"Ignore\"}[$__rate_interval]) * 12",
+          "hide": false,
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "blocks (I)",
+          "refId": "C"
+        },
+        {
+          "exemplar": true,
+          "expr": "rate(beacon_attestations_dropped_total{instance=\"${instance}\",container=\"${container}\",reason=\"Ignore\"}[$__rate_interval]) * 12",
+          "interval": "",
+          "legendFormat": "attestations (I)",
           "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "rate(beacon_aggregates_dropped_total{instance=\"${instance}\",container=\"${container}\",reason=\"Ignore\"}[$__rate_interval]) * 12",
+          "interval": "",
+          "legendFormat": "aggregates (I)",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "rate(beacon_sync_committee_messages_dropped_total{instance=\"${instance}\",container=\"${container}\",reason=\"Ignore\"}[$__rate_interval]) * 12",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "sync_msgs (I)",
+          "refId": "D"
+        },
+        {
+          "exemplar": true,
+          "expr": "rate(beacon_sync_committee_contributions_dropped_total{instance=\"${instance}\",container=\"${container}\",reason=\"Ignore\"}[$__rate_interval]) * 12",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "sync_contribs (I)",
+          "refId": "E"
+        },
+        {
+          "exemplar": true,
+          "expr": "rate(beacon_blocks_dropped_total{instance=\"${instance}\",container=\"${container}\",reason=\"Reject\"}[$__rate_interval]) * 12",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "blocks (R)",
+          "refId": "G"
+        },
+        {
+          "exemplar": true,
+          "expr": "rate(beacon_aggregates_dropped_total{instance=\"${instance}\",container=\"${container}\",reason=\"Reject\"}[$__rate_interval]) * 12",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "aggregates (R)",
+          "refId": "F"
+        },
+        {
+          "exemplar": true,
+          "expr": "rate(beacon_attestations_dropped_total{instance=\"${instance}\",container=\"${container}\",reason=\"Reject\"}[$__rate_interval]) * 12",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "attestations (R)",
+          "refId": "H"
+        },
+        {
+          "exemplar": true,
+          "expr": "rate(beacon_sync_committee_messages_dropped_total{instance=\"${instance}\",container=\"${container}\",reason=\"Reject\"}[$__rate_interval]) * 12",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "sync_msgs (R)",
+          "refId": "I"
+        },
+        {
+          "exemplar": true,
+          "expr": "rate(beacon_sync_committee_contributions_dropped_total{instance=\"${instance}\",container=\"${container}\",reason=\"Reject\"}[$__rate_interval]) * 12",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "sync_contribs (R)",
+          "refId": "J"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Eth1 Chain Length",
+      "title": "dropped msgs/slot (${instance})",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1728,19 +2287,21 @@
       },
       "yaxes": [
         {
+          "$$hashKey": "object:204",
           "format": "short",
           "label": null,
           "logBase": 1,
           "max": null,
-          "min": null,
+          "min": "0",
           "show": true
         },
         {
+          "$$hashKey": "object:205",
           "format": "short",
           "label": null,
           "logBase": 1,
           "max": null,
-          "min": null,
+          "min": "0",
           "show": true
         }
       ],
@@ -1810,6 +2371,13 @@
               {
                 "id": "custom.axisPlacement",
                 "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#73BF69",
+                  "mode": "fixed"
+                }
               }
             ]
           },
@@ -1851,14 +2419,14 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "libp2p_total_dial_attempts_total{instance=\"${instance}\",container=\"${container}\"}",
+          "expr": "rate(libp2p_total_dial_attempts_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval])",
           "interval": "",
           "legendFormat": "Dial attempts",
           "refId": "A"
         },
         {
           "exemplar": true,
-          "expr": "discovery_message_requests_outgoing_total{instance=\"${instance}\",container=\"${container}\",response!=\"no_response\"}",
+          "expr": "rate(discovery_message_requests_outgoing_total{instance=\"${instance}\",container=\"${container}\",response!=\"no_response\"}[$__rate_interval])",
           "hide": false,
           "interval": "",
           "legendFormat": "Discovery messages",
@@ -1866,7 +2434,7 @@
         },
         {
           "exemplar": true,
-          "expr": "libp2p_successful_dials_total{instance=\"${instance}\",container=\"${container}\"}",
+          "expr": "rate(libp2p_successful_dials_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval])",
           "hide": false,
           "interval": "",
           "legendFormat": "Dial success",
@@ -1874,7 +2442,7 @@
         },
         {
           "exemplar": true,
-          "expr": "nbc_cycling_kicked_peers_total{instance=\"${instance}\",container=\"${container}\"}",
+          "expr": "rate(nbc_cycling_kicked_peers_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval])",
           "hide": false,
           "interval": "",
           "legendFormat": "Kicked peers",
@@ -1901,13 +2469,13 @@
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 14,
         "x": 0,
-        "y": 36
+        "y": 39
       },
       "hiddenSeries": false,
-      "id": 54,
+      "id": 22,
       "legend": {
         "avg": false,
         "current": false,
@@ -1930,8 +2498,7 @@
       "renderer": "flot",
       "seriesOverrides": [
         {
-          "alias": "/.*/",
-          "yaxis": 2
+          "alias": "/.*/"
         }
       ],
       "spaceLength": 10,
@@ -1939,9 +2506,9 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sqlite3_memory_used_bytes{instance=\"${instance}\",container=\"${container}\"}",
+          "expr": "rate(attached_validator_balance_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 384 / 1000000000",
           "interval": "",
-          "legendFormat": "Memory used",
+          "legendFormat": "GWei",
           "refId": "A"
         }
       ],
@@ -1949,7 +2516,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "SQLite3 (${instance})",
+      "title": "validator rewards / epoch (${instance})",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1969,8 +2536,8 @@
           "label": null,
           "logBase": 1,
           "max": null,
-          "min": null,
-          "show": false
+          "min": "0",
+          "show": true
         },
         {
           "format": "bytes",
@@ -1978,100 +2545,7 @@
           "logBase": 1,
           "max": null,
           "min": "0",
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 7,
-        "w": 14,
-        "x": 0,
-        "y": 41
-      },
-      "hiddenSeries": false,
-      "id": 62,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "alertThreshold": true
-      },
-      "percentage": false,
-      "pluginVersion": "8.0.4",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "exemplar": true,
-          "expr": "netdata_disk_qops_operations_average{instance=\"${instance}\"}",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "",
-          "refId": "C"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Disk QOps Average",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "$$hashKey": "object:344",
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "$$hashKey": "object:345",
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
+          "show": false
         }
       ],
       "yaxis": {
@@ -2160,6 +2634,95 @@
           "logBase": 1,
           "max": null,
           "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 5,
+        "w": 14,
+        "x": 0,
+        "y": 45
+      },
+      "hiddenSeries": false,
+      "id": 56,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.0.4",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "eth1_chain_len{instance=\"${instance}\",container=\"${container}\"}",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Eth1 Chain Length",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
           "show": true
         },
         {
@@ -2302,12 +2865,12 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 5,
-        "w": 10,
-        "x": 14,
-        "y": 51
+        "w": 14,
+        "x": 0,
+        "y": 50
       },
       "hiddenSeries": false,
-      "id": 67,
+      "id": 54,
       "legend": {
         "avg": false,
         "current": false,
@@ -2330,11 +2893,7 @@
       "renderer": "flot",
       "seriesOverrides": [
         {
-          "alias": "misses",
-          "yaxis": 2
-        },
-        {
-          "alias": "cache misses",
+          "alias": "/.*/",
           "yaxis": 2
         }
       ],
@@ -2343,23 +2902,17 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "beacon_state_data_cache_hits_total{instance=\"${instance}\",container=\"${container}\"}",
+          "expr": "sqlite3_memory_used_bytes{instance=\"${instance}\",container=\"${container}\"}",
           "interval": "",
-          "legendFormat": "cache hits",
+          "legendFormat": "Memory used",
           "refId": "A"
-        },
-        {
-          "expr": "beacon_state_data_cache_misses_total{instance=\"${instance}\",container=\"${container}\"}  ",
-          "interval": "",
-          "legendFormat": "cache misses",
-          "refId": "B"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "pool.cachedStates (${instance})",
+      "title": "SQLite3 (${instance})",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -2375,22 +2928,261 @@
       },
       "yaxes": [
         {
-          "$$hashKey": "object:260",
-          "decimals": null,
-          "format": "none",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": false
+        },
+        {
+          "format": "bytes",
           "label": null,
           "logBase": 1,
           "max": null,
           "min": "0",
           "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "cacheTimeout": null,
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
         },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 3,
+        "x": 14,
+        "y": 51
+      },
+      "id": 13,
+      "interval": null,
+      "links": [],
+      "maxDataPoints": 100,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
         {
-          "$$hashKey": "object:261",
-          "format": "none",
+          "expr": "sum(beacon_attestations_sent_total)",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "att'ns sent #all",
+      "type": "stat"
+    },
+    {
+      "cacheTimeout": null,
+      "datasource": null,
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 3,
+        "x": 17,
+        "y": 51
+      },
+      "id": 14,
+      "interval": null,
+      "links": [],
+      "maxDataPoints": 100,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
+        {
+          "expr": "beacon_attestations_received_total{instance=\"${instance}\",container=\"${container}\"}",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "att'ns recv'd",
+      "type": "stat"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 7,
+        "w": 14,
+        "x": 0,
+        "y": 55
+      },
+      "hiddenSeries": false,
+      "id": 62,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "8.0.4",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "netdata_disk_qops_operations_average{instance=\"${instance}\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "",
+          "refId": "C"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Disk QOps Average",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:344",
+          "format": "short",
           "label": null,
           "logBase": 1,
           "max": null,
-          "min": "0",
+          "min": null,
+          "show": true
+        },
+        {
+          "$$hashKey": "object:345",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
           "show": true
         }
       ],
@@ -2409,9 +3201,9 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 7,
-        "w": 10,
-        "x": 14,
-        "y": 56
+        "w": 14,
+        "x": 0,
+        "y": 62
       },
       "hiddenSeries": false,
       "id": 64,
@@ -2502,9 +3294,9 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 7,
-        "w": 10,
-        "x": 14,
-        "y": 63
+        "w": 14,
+        "x": 0,
+        "y": 69
       },
       "hiddenSeries": false,
       "id": 60,
@@ -2594,466 +3386,13 @@
       }
     },
     {
-      "cacheTimeout": null,
-      "datasource": null,
-      "description": "",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "options": {
-                "match": "null",
-                "result": {
-                  "text": "N/A"
-                }
-              },
-              "type": "special"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 3,
-        "x": 14,
-        "y": 70
-      },
-      "id": 28,
-      "interval": null,
-      "links": [],
-      "maxDataPoints": 100,
-      "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "8.0.4",
-      "targets": [
-        {
-          "expr": "beacon_slot{instance=\"${instance}\",container=\"${container}\"}",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "current slot",
-      "type": "stat"
-    },
-    {
-      "cacheTimeout": null,
-      "datasource": null,
-      "description": "",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "options": {
-                "match": "null",
-                "result": {
-                  "text": "N/A"
-                }
-              },
-              "type": "special"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 4,
-        "x": 17,
-        "y": 70
-      },
-      "id": 34,
-      "interval": null,
-      "links": [],
-      "maxDataPoints": 100,
-      "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "8.0.4",
-      "targets": [
-        {
-          "expr": "beacon_current_justified_epoch{instance=\"${instance}\",container=\"${container}\"}",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "current justified epoch",
-      "type": "stat"
-    },
-    {
-      "cacheTimeout": null,
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "options": {
-                "match": "null",
-                "result": {
-                  "text": "N/A"
-                }
-              },
-              "type": "special"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 3,
-        "x": 21,
-        "y": 70
-      },
-      "id": 13,
-      "interval": null,
-      "links": [],
-      "maxDataPoints": 100,
-      "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "8.0.4",
-      "targets": [
-        {
-          "expr": "sum(beacon_attestations_sent_total)",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "att'ns sent #all",
-      "type": "stat"
-    },
-    {
-      "cacheTimeout": null,
-      "datasource": null,
-      "description": "",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "options": {
-                "match": "null",
-                "result": {
-                  "text": "N/A"
-                }
-              },
-              "type": "special"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 3,
-        "x": 14,
-        "y": 72
-      },
-      "id": 32,
-      "interval": null,
-      "links": [],
-      "maxDataPoints": 100,
-      "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "8.0.4",
-      "targets": [
-        {
-          "expr": "beacon_current_epoch{instance=\"${instance}\",container=\"${container}\"}",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "current epoch",
-      "type": "stat"
-    },
-    {
-      "cacheTimeout": null,
-      "datasource": null,
-      "description": "",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "options": {
-                "match": "null",
-                "result": {
-                  "text": "N/A"
-                }
-              },
-              "type": "special"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 4,
-        "x": 17,
-        "y": 72
-      },
-      "id": 36,
-      "interval": null,
-      "links": [],
-      "maxDataPoints": 100,
-      "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "8.0.4",
-      "targets": [
-        {
-          "expr": "beacon_finalized_epoch{instance=\"${instance}\",container=\"${container}\"}",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "last finalized epoch",
-      "type": "stat"
-    },
-    {
-      "cacheTimeout": null,
-      "datasource": null,
-      "description": "",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "options": {
-                "match": "null",
-                "result": {
-                  "text": "N/A"
-                }
-              },
-              "type": "special"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 3,
-        "x": 21,
-        "y": 72
-      },
-      "id": 14,
-      "interval": null,
-      "links": [],
-      "maxDataPoints": 100,
-      "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "8.0.4",
-      "targets": [
-        {
-          "expr": "beacon_attestations_received_total{instance=\"${instance}\",container=\"${container}\"}",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "att'ns recv'd",
-      "type": "stat"
-    },
-    {
       "collapsed": true,
       "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 74
+        "y": 76
       },
       "id": 75,
       "panels": [
@@ -3394,7 +3733,7 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-12h",
     "to": "now"
   },
   "timepicker": {
@@ -3414,5 +3753,5 @@
   "timezone": "",
   "title": "Nimbus Fleet Testnets",
   "uid": "pgeNfj2Wz23",
-  "version": 76
+  "version": 80
 }
