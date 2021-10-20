@@ -939,7 +939,7 @@ proc validateSignedContributionAndProof*(
          genesisValidatorsRoot, committeeAggKey.finish, cookedSignature.get):
       debug "failing_sync_contribution",
         slot = msg.message.contribution.slot + 1,
-        subnet = committeeIdx,
+        subnet_id = committeeIdx,
         participants = $(msg.message.contribution.aggregation_bits),
         mixedKeys
 

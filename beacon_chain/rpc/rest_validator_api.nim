@@ -514,12 +514,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                              $res.error())
           res.get()
       let epochRef = node.dag.getEpochRef(head, epoch)
-      let subnet = compute_subnet_for_attestation(
+      let subnet_id = compute_subnet_for_attestation(
         get_committee_count_per_slot(epochRef), request.slot,
         request.committee_index)
 
       node.registerDuty(
-        request.slot, subnet, request.validator_index,
+        request.slot, subnet_id, request.validator_index,
         request.is_aggregator)
 
     return RestApiResponse.jsonMsgResponse(BeaconCommitteeSubscriptionSuccess)
