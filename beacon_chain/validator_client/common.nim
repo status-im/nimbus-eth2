@@ -69,7 +69,7 @@ type
   BeaconNodeServer* = object
     client*: RestClientRef
     endpoint*: string
-    config*: Option[RestSpec]
+    config*: Option[RestSpecVC]
     ident*: Option[string]
     genesis*: Option[RestGenesis]
     syncInfo*: Option[RestSyncInfo]

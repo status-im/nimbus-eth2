@@ -71,6 +71,12 @@ type
     GetBlockV2Response |
     GetStateV2Response
 
+  # These types may be extended with additional fields in the future.
+  # Locally unknown fields are silently ignored when decoding them.
+  ExtensibleDecodeTypes* =
+    GetSpecResponse |
+    GetSpecVCResponse
+
   SszDecodeTypes* =
     GetPhase0StateSszResponse |
     GetAltairStateSszResponse |
@@ -957,10 +963,11 @@ proc encodeBytes*[T: EncodeArrays](value: T,
 
 proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openarray[byte],
                                   contentType: string): RestResult[T] =
+  const isExtensibleType = t is ExtensibleDecodeTypes
   case contentType
   of "application/json":
     try:
-      ok RestJson.decode(value, T)
+      ok RestJson.decode(value, T, allowUnknownFields = isExtensibleType)
     except SerializationError as exc:
       err("Serialization error")
   else:

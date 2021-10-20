@@ -20,6 +20,10 @@ proc getSpec*(): RestResponse[GetSpecResponse] {.
      rest, endpoint: "/eth/v1/config/spec", meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Config/getSpec
 
+proc getSpecVC*(): RestResponse[GetSpecVCResponse] {.
+     rest, endpoint: "/eth/v1/config/spec", meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Config/getSpec
+
 proc getDepositContract*(): RestResponse[GetDepositContractResponse] {.
      rest, endpoint: "/eth/v1/config/deposit_contract", meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Config/getDepositContract

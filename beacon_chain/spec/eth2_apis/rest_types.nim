@@ -306,6 +306,39 @@ type
     DOMAIN_SYNC_COMMITTEE*: DomainType
     DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF*: DomainType
 
+  # The `RestSpec` is a dynamic dictionary that includes version-specific spec
+  # constants. New versions may introduce new constants, and remove old ones.
+  # The Nimbus validator client fetches the remote spec to determine whether it
+  # is connected to a compatible beacon node. For this purpose, it only needs to
+  # verify a small set of relevant spec constants. To avoid rejecting a remote
+  # spec that includes all of those relevant spec constants, but that does not
+  # include all of the locally known spec constants, a separate type is defined
+  # that includes just the spec constants relevant for the validator client.
+  # Extra spec constants are silently ignored.
+  RestSpecVC* = object
+    # /!\ Keep in sync with `validator_client/api.nim` > `checkCompatible`.
+    MAX_VALIDATORS_PER_COMMITTEE*: uint64
+    SLOTS_PER_EPOCH*: uint64
+    SECONDS_PER_SLOT*: uint64
+    EPOCHS_PER_ETH1_VOTING_PERIOD*: uint64
+    SLOTS_PER_HISTORICAL_ROOT*: uint64
+    EPOCHS_PER_HISTORICAL_VECTOR*: uint64
+    EPOCHS_PER_SLASHINGS_VECTOR*: uint64
+    HISTORICAL_ROOTS_LIMIT*: uint64
+    VALIDATOR_REGISTRY_LIMIT*: uint64
+    MAX_PROPOSER_SLASHINGS*: uint64
+    MAX_ATTESTER_SLASHINGS*: uint64
+    MAX_ATTESTATIONS*: uint64
+    MAX_DEPOSITS*: uint64
+    MAX_VOLUNTARY_EXITS*: uint64
+    DOMAIN_BEACON_PROPOSER*: DomainType
+    DOMAIN_BEACON_ATTESTER*: DomainType
+    DOMAIN_RANDAO*: DomainType
+    DOMAIN_DEPOSIT*: DomainType
+    DOMAIN_VOLUNTARY_EXIT*: DomainType
+    DOMAIN_SELECTION_PROOF*: DomainType
+    DOMAIN_AGGREGATE_AND_PROOF*: DomainType
+
   RestDepositContract* = object
     chain_id*: string
     address*: string
@@ -371,6 +404,7 @@ type
   GetProposerDutiesResponse* = DataRootEnclosedObject[seq[RestProposerDuty]]
   GetSyncCommitteeDutiesResponse* = DataEnclosedObject[seq[RestSyncCommitteeDuty]]
   GetSpecResponse* = DataEnclosedObject[RestSpec]
+  GetSpecVCResponse* = DataEnclosedObject[RestSpecVC]
   GetStateFinalityCheckpointsResponse* = DataEnclosedObject[RestBeaconStatesFinalityCheckpoints]
   GetStateForkResponse* = DataEnclosedObject[Fork]
   GetStateRootResponse* = DataEnclosedObject[Eth2Digest]
