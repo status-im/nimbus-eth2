@@ -464,7 +464,7 @@ func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszMerkleizerImpl,
     if remainingValues > 0:
       var lastChunk: array[bytesPerChunk, byte]
       for i in 0 ..< remainingValues:
-        chunk.writeBytesLE(i * sizeof(T), arr[writtenValues + i])
+        lastChunk.writeBytesLE(i * sizeof(T), arr[writtenValues + i])
       merkleizer.addChunk lastChunk
 
   getFinalHash(merkleizer)
