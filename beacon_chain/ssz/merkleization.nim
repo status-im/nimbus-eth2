@@ -421,13 +421,15 @@ func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszMerkleizerImpl,
                                          arr: openArray[T]): Eth2Digest =
   static:
     doAssert T is BasicType
+    doAssert bytesPerChunk mod sizeof(T) == 0
 
   if arr.len == 0:
     return getFinalHash(merkleizer)
 
-  when T is byte:
+  when sizeof(T) == 1 or cpuEndian == littleEndian:
     var
-      remainingBytes = arr.len
+      remainingBytes = when sizeof(T) == 1: arr.len
+                                      else: arr.len * sizeof(T)
       pos = cast[ptr byte](unsafeAddr arr[0])
 
     while remainingBytes >= bytesPerChunk:
@@ -438,17 +440,7 @@ func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszMerkleizerImpl,
     if remainingBytes > 0:
       merkleizer.addChunk(makeOpenArray(pos, remainingBytes))
 
-  elif T is bool or cpuEndian == littleEndian:
-    let
-      baseAddr = cast[ptr byte](unsafeAddr arr[0])
-      len = arr.len * sizeof(T)
-    return chunkedHashTreeRootForBasicTypes(merkleizer, makeOpenArray(baseAddr, len))
-
   else:
-    static:
-      doAssert T is UintN
-      doAssert bytesPerChunk mod sizeof(T) == 0
-
     const valuesPerChunk = bytesPerChunk div sizeof(T)
 
     var writtenValues = 0
