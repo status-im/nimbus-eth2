@@ -397,11 +397,11 @@ macro unsupported*(T: typed): untyped =
   else:
     error "SSZ serialization of the type " & humaneTypeName(T) & " is not supported, overload toSszType and fromSszBytes"
 
-template ElemType*(T: type HashArray): untyped =
-  T.T
+template ElemType*(T0: type HashArray): untyped =
+  T0.T
 
-template ElemType*(T: type HashList): untyped =
-  T.T
+template ElemType*(T0: type HashList): untyped =
+  T0.T
 
 template ElemType*(T: type array): untyped =
   type(default(T)[low(T)])
@@ -409,8 +409,8 @@ template ElemType*(T: type array): untyped =
 template ElemType*(T: type seq): untyped =
   type(default(T)[0])
 
-template ElemType*(T: type List): untyped =
-  T.T
+template ElemType*(T0: type List): untyped =
+  T0.T
 
 func isFixedSize*(T0: type): bool {.compileTime.} =
   mixin toSszType, enumAllSerializedFields
