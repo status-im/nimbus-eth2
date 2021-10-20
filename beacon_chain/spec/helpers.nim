@@ -352,17 +352,12 @@ func build_proof*(anchor: object, leaf_index: uint64,
   doAssert proof.len == log2trunc(leaf_index)
   build_proof_impl(anchor, leaf_index, proof)
 
-const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
-  EPOCHS_PER_SYNC_COMMITTEE_PERIOD * SLOTS_PER_EPOCH
-
-template syncCommitteePeriod*(epoch: Epoch): uint64 =
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/validator.md#sync-committee
+template sync_committee_period*(epoch: Epoch): uint64 =
   epoch div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
 
-template syncCommitteePeriod*(slot: Slot): uint64 =
+template sync_committee_period*(slot: Slot): uint64 =
   epoch(slot) div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
-
-func syncCommitteePeriodStartSlot*(period: uint64): Slot =
-  Slot(period * EPOCHS_PER_SYNC_COMMITTEE_PERIOD * SLOTS_PER_EPOCH)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
 func compute_start_slot_at_epoch*(epoch: Epoch): Slot =

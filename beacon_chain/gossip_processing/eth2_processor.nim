@@ -393,7 +393,7 @@ proc voluntaryExitValidator*(
 proc syncCommitteeMsgValidator*(
     self: ref Eth2Processor,
     syncCommitteeMsg: SyncCommitteeMessage,
-    committeeIdx: SyncCommitteeIndex,
+    committeeIdx: SyncSubcommitteeIndex,
     checkSignature: bool = true): ValidationResult =
   logScope:
     syncCommitteeMsg = shortLog(syncCommitteeMsg)

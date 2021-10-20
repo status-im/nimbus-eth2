@@ -24,11 +24,11 @@ type
   SyncCommitteeMsgKey* = object
     originator*: ValidatorIndex
     slot*: Slot
-    committeeIdx*: SyncCommitteeIndex
+    committeeIdx*: SyncSubcommitteeIndex
 
   TrustedSyncCommitteeMsg* = object
     slot*: Slot
-    committeeIdx*: SyncCommitteeIndex
+    committeeIdx*: SyncSubcommitteeIndex
     positionInCommittee*: uint64
     signature*: CookedSig
 
@@ -91,7 +91,7 @@ func addSyncCommitteeMsg*(
     slot: Slot,
     blockRoot: Eth2Digest,
     signature: CookedSig,
-    committeeIdx: SyncCommitteeIndex,
+    committeeIdx: SyncSubcommitteeIndex,
     positionInCommittee: uint64) =
   pool.syncMessages.mgetOrPut(blockRoot, @[]).add TrustedSyncCommitteeMsg(
     slot: slot,
@@ -100,7 +100,7 @@ func addSyncCommitteeMsg*(
     signature: signature)
 
 func computeAggregateSig(votes: seq[TrustedSyncCommitteeMsg],
-                         committeeIdx: SyncCommitteeIndex,
+                         committeeIdx: SyncSubcommitteeIndex,
                          contribution: var SyncCommitteeContribution): bool =
   var
     aggregateSig {.noInit.}: AggregateSignature
@@ -127,7 +127,7 @@ func produceContribution*(
     pool: SyncCommitteeMsgPool,
     slot: Slot,
     headRoot: Eth2Digest,
-    committeeIdx: SyncCommitteeIndex,
+    committeeIdx: SyncSubcommitteeIndex,
     outContribution: var SyncCommitteeContribution): bool =
   if headRoot in pool.syncMessages:
     outContribution.slot = slot

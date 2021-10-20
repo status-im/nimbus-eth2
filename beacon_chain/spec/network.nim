@@ -81,7 +81,7 @@ func getAttestationTopic*(forkDigest: ForkDigest,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeTopic*(forkDigest: ForkDigest,
-                            committeeIdx: SyncCommitteeIndex): string =
+                            committeeIdx: SyncSubcommitteeIndex): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_" & $(committeeIdx.asUInt8) & "/ssz"
 

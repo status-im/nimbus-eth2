@@ -426,34 +426,34 @@ type
   SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
   SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
 
-  SyncCommitteeIndex* = distinct uint8
+  SyncSubcommitteeIndex* = distinct uint8
 
 chronicles.formatIt BeaconBlock: it.shortLog
-chronicles.formatIt SyncCommitteeIndex: uint8(it)
+chronicles.formatIt SyncSubcommitteeIndex: uint8(it)
 
-template asInt*(x: SyncCommitteeIndex): int = int(x)
-template asUInt8*(x: SyncCommitteeIndex): uint8 = uint8(x)
-template asUInt64*(x: SyncCommitteeIndex): uint64 = uint64(x)
+template asInt*(x: SyncSubcommitteeIndex): int = int(x)
+template asUInt8*(x: SyncSubcommitteeIndex): uint8 = uint8(x)
+template asUInt64*(x: SyncSubcommitteeIndex): uint64 = uint64(x)
 
-template `[]`*(a: auto; i: SyncCommitteeIndex): auto = a[i.asInt]
+template `[]`*(a: auto; i: SyncSubcommitteeIndex): auto = a[i.asInt]
 
-template `==`*(x, y: SyncCommitteeIndex): bool =
+template `==`*(x, y: SyncSubcommitteeIndex): bool =
   distinctBase(x) == distinctBase(y)
 
-iterator allSyncCommittees*: SyncCommitteeIndex =
+iterator allSyncCommittees*: SyncSubcommitteeIndex =
   for committeeIdx in 0 ..< SYNC_COMMITTEE_SUBNET_COUNT:
-    yield SyncCommitteeIndex(committeeIdx)
+    yield SyncSubcommitteeIndex(committeeIdx)
 
 template validateSyncCommitteeIndexOr*(
     networkValParam: uint64,
-    elseBody: untyped): SyncCommitteeIndex =
+    elseBody: untyped): SyncSubcommitteeIndex =
   let networkVal = networkValParam
   if networkVal < SYNC_COMMITTEE_SUBNET_COUNT:
-    SyncCommitteeIndex(networkVal)
+    SyncSubcommitteeIndex(networkVal)
   else:
     elseBody
 
-template asUInt8*(x: SyncCommitteeIndex): uint8 = uint8(x)
+template asUInt8*(x: SyncSubcommitteeIndex): uint8 = uint8(x)
 
 Json.useCustomSerialization(BeaconState.justification_bits):
   read:

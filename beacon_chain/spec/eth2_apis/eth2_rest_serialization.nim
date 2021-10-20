@@ -50,7 +50,7 @@ type
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
     SignedVoluntaryExit |
-    SyncCommitteeIndex
+    SyncSubcommitteeIndex
 
   EncodeArrays* =
     seq[ValidatorIndex] |
@@ -867,19 +867,19 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconState) {.
       writer.writeField("data", value.mergeData)
   writer.endRecord()
 
-# SyncCommitteeIndex
+# SyncSubcommitteeIndex
 proc writeValue*(writer: var JsonWriter[RestJson],
-                 value: SyncCommitteeIndex) {.
+                 value: SyncSubcommitteeIndex) {.
      raises: [IOError, Defect].} =
   writeValue(writer, Base10.toString(uint8(value)))
 
 proc readValue*(reader: var JsonReader[RestJson],
-                value: var SyncCommitteeIndex) {.
+                value: var SyncSubcommitteeIndex) {.
      raises: [IOError, SerializationError, Defect].} =
   let res = Base10.decode(uint8, reader.readValue(string))
   if res.isOk():
     if res.get() < SYNC_COMMITTEE_SUBNET_COUNT:
-      value = SyncCommitteeIndex(res.get())
+      value = SyncSubcommitteeIndex(res.get())
     else:
       reader.raiseUnexpectedValue("Sync sub-committee index out of rage")
   else:
@@ -982,7 +982,7 @@ proc decodeBytes*[T: SszDecodeTypes](t: typedesc[T], value: openarray[byte],
 proc encodeString*(value: string): RestResult[string] =
   ok(value)
 
-proc encodeString*(value: Epoch|Slot|CommitteeIndex|SyncCommitteeIndex): RestResult[string] =
+proc encodeString*(value: Epoch|Slot|CommitteeIndex|SyncSubcommitteeIndex): RestResult[string] =
   ok(Base10.toString(uint64(value)))
 
 proc encodeString*(value: ValidatorSig): RestResult[string] =
@@ -1220,8 +1220,8 @@ proc decodeString*(t: typedesc[CommitteeIndex],
   let res = ? Base10.decode(uint64, value)
   ok(CommitteeIndex(res))
 
-proc decodeString*(t: typedesc[SyncCommitteeIndex],
-                   value: string): Result[SyncCommitteeIndex, cstring] =
+proc decodeString*(t: typedesc[SyncSubcommitteeIndex],
+                   value: string): Result[SyncSubcommitteeIndex, cstring] =
   let res = ? Base10.decode(uint8, value)
   if res.get < SYNC_COMMITTEE_SUBNET_COUNT:
     ok(CommitteeIndex(res))
