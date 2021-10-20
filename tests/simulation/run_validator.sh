@@ -48,4 +48,4 @@ $VALIDATOR_CLIENT_BIN \
   --log-level=${LOG_LEVEL:-DEBUG} \
   --data-dir=$NODE_DATA_DIR \
   --secrets-dir=$NODE_SECRETS_DIR \
-  --rpc-port="$(( $BASE_RPC_PORT + $NODE_ID ))"
+  --beacon-node="http://127.0.0.1:$(( $BASE_REST_PORT + $NODE_ID ))"
