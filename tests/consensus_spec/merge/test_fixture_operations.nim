@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os,
+  std/[os, sequtils, sets, strutils],
   # Utilities
   chronicles,
   unittest2,
@@ -28,11 +28,17 @@ const
   OpAttSlashingDir      = OpDir/"attester_slashing"
   OpBlockHeaderDir      = OpDir/"block_header"
   OpDepositsDir         = OpDir/"deposit"
+  OpExecutionPayloadDir = OpDir/"execution_payload"
   OpProposerSlashingDir = OpDir/"proposer_slashing"
   OpSyncAggregateDir    = OpDir/"sync_aggregate"
   OpVoluntaryExitDir    = OpDir/"voluntary_exit"
 
   baseDescription = "Ethereum Foundation - Merge - Operations - "
+
+doAssert toHashSet(mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) ==
+  toHashSet([OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
+             OpDepositsDir, OpExecutionPayloadDir, OpProposerSlashingDir,
+             OpSyncAggregateDir, OpVoluntaryExitDir])
 
 proc runTest[T, U](
     testSuiteDir: string, testSuiteName: string, applyFile: string,
@@ -115,6 +121,22 @@ suite baseDescription & "Deposit " & preset():
   for path in walkTests(OpDepositsDir):
     runTest[Deposit, typeof applyDeposit](
       OpDepositsDir, "Deposit", "deposit", applyDeposit, path)
+
+suite baseDescription & "Execution Payload " & preset():
+  for path in walkTests(OpExecutionPayloadDir):
+    proc applyExecutionPayload(
+        preState: var merge.BeaconState, executionPayload: ExecutionPayload):
+        Result[void, cstring] =
+      let payloadValid =
+        readFile(OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml").
+          contains("execution_valid: true")
+      func executePayload(_: ExecutionPayload): bool = payloadValid
+      process_execution_payload(
+            preState, executionPayload, executePayload)
+
+    runTest[ExecutionPayload, typeof applyExecutionPayload](
+      OpExecutionPayloadDir, "Execution Payload", "execution_payload",
+      applyExecutionPayload, path)
 
 suite baseDescription & "Proposer Slashing " & preset():
   proc applyProposerSlashing(

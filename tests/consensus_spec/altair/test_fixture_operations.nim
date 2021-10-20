@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, sequtils, sets,
+  std/[os, sequtils, sets],
   # Utilities
   chronicles,
   unittest2,

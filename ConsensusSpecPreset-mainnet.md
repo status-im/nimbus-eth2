@@ -188,19 +188,6 @@ ConsensusSpecPreset-mainnet
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - same_slot_block_transition [Pr OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - slash_and_exit_same_index [Pre OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - zero_block_sig [Preset: mainne OK
-+ [Invalid] bad_everything_regular_payload                                                   OK
-+ [Invalid] bad_execution_first_payload                                                      OK
-+ [Invalid] bad_execution_regular_payload                                                    OK
-+ [Invalid] bad_number_regular_payload                                                       OK
-+ [Invalid] bad_parent_hash_regular_payload                                                  OK
-+ [Invalid] bad_random_first_payload                                                         OK
-+ [Invalid] bad_random_regular_payload                                                       OK
-+ [Invalid] bad_timestamp_first_payload                                                      OK
-+ [Invalid] bad_timestamp_regular_payload                                                    OK
-+ [Invalid] gaslimit_lower_minus_regular_payload                                             OK
-+ [Invalid] gaslimit_minimum_minus_regular_payload                                           OK
-+ [Invalid] gaslimit_upper_plus_regular_payload                                              OK
-+ [Invalid] gasused_gaslimit_plus_regular_payload                                            OK
 + [Valid]   Ethereum Foundation - Altair - Finality - finality_no_updates_at_genesis [Preset OK
 + [Valid]   Ethereum Foundation - Altair - Finality - finality_rule_1 [Preset: mainnet]      OK
 + [Valid]   Ethereum Foundation - Altair - Finality - finality_rule_2 [Preset: mainnet]      OK
@@ -334,16 +321,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - skipped_slots [Preset: mainnet OK
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Pre OK
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: mainne OK
-+ [Valid]   gaslimit_lower_regular_payload                                                   OK
-+ [Valid]   gaslimit_max_first_payload                                                       OK
-+ [Valid]   gaslimit_minimum_regular_payload                                                 OK
-+ [Valid]   gaslimit_upper_regular_payload                                                   OK
-+ [Valid]   gaslimit_zero_first_payload                                                      OK
-+ [Valid]   gasused_gaslimit_regular_payload                                                 OK
-+ [Valid]   success_first_payload                                                            OK
-+ [Valid]   success_first_payload_with_gap_slot                                              OK
-+ [Valid]   success_regular_payload                                                          OK
-+ [Valid]   success_regular_payload_with_gap_slot                                            OK
 + altair_fork_random_0                                                                       OK
 + altair_fork_random_1                                                                       OK
 + altair_fork_random_2                                                                       OK
@@ -361,7 +338,7 @@ ConsensusSpecPreset-mainnet
 + fork_random_misc_balances                                                                  OK
 + next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 358/358 Fail: 0/358 Skip: 0/358
+OK: 335/335 Fail: 0/335 Skip: 0/335
 ## Attestation
 ```diff
 + [Invalid] Ethereum Foundation - Altair - Operations - Attestation - after_epoch_slots      OK
@@ -1028,6 +1005,33 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 27/27 Fail: 0/27 Skip: 0/27
+## Execution Payload
+```diff
++ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_everything_re OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_execution_fir OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_execution_reg OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_number_regula OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_parent_hash_r OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_random_first_ OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_random_regula OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_timestamp_fir OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_timestamp_reg OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_lower_mi OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_minimum_ OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_upper_pl OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - gasused_gaslimit_ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_lower_re OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_max_firs OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_minimum_ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_upper_re OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_zero_fir OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - gasused_gaslimit_ OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - success_first_pay OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - success_first_pay OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - success_regular_p OK
++ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - success_regular_p OK
+```
+OK: 23/23 Fail: 0/23 Skip: 0/23
 ## Proposer Slashing
 ```diff
 + [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - epochs_are_diffe OK

@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[intsets],
+  std/sequtils,
   chronicles,
   ../extras,
   ../spec/[helpers, network, signatures, validator],
@@ -173,9 +173,8 @@ func makeAttestationData*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#validator-assignments
 iterator get_committee_assignments*(
-    epochRef: EpochRef, validator_indices: IntSet):
-    tuple[validatorIndices: IntSet,
-      committeeIndex: CommitteeIndex,
+    epochRef: EpochRef, validator_indices: HashSet[ValidatorIndex]):
+    tuple[committeeIndex: CommitteeIndex,
       subnet_id: SubnetId, slot: Slot] =
   let
     committees_per_slot = get_committee_count_per_slot(epochRef)
@@ -186,12 +185,10 @@ iterator get_committee_assignments*(
     for index in 0'u64 ..< committees_per_slot:
       let
         idx = index.CommitteeIndex
-        includedIndices =
-          toIntSet(get_beacon_committee(epochRef, slot, idx)) *
-            validator_indices
-      if includedIndices.len > 0:
+      if anyIt(
+          get_beacon_committee(epochRef, slot, idx), it in validator_indices):
         yield (
-          includedIndices, idx,
+          idx,
           compute_subnet_for_attestation(committees_per_slot, slot, idx),
           slot)
 

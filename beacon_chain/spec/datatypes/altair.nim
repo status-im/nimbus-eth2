@@ -24,9 +24,6 @@
 
 {.push raises: [Defect].}
 
-#  std/[intsets, json, strutils, tables],
-#  stew/byteutils,
-
 import
   std/[macros, typetraits, sets, hashes],
   chronicles,

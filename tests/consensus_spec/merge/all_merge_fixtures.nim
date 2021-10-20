@@ -9,7 +9,6 @@
 
 import
   ./test_fixture_operations,
-  ./test_fixture_operations_execution_payload,
   ./test_fixture_sanity_blocks,
   ./test_fixture_sanity_slots,
   ./test_fixture_ssz_consensus_objects,
