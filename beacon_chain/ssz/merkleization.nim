@@ -348,9 +348,11 @@ template createMerkleizer*(totalElements: static Limit): SszMerkleizerImpl =
   const treeHeight = binaryTreeHeight totalElements
   var combinedChunks {.noInit.}: array[treeHeight, Eth2Digest]
 
+  let topIndex = treeHeight - 1
+
   SszMerkleizerImpl(
     combinedChunks: cast[ptr UncheckedArray[Eth2Digest]](addr combinedChunks),
-    topIndex: treeHeight - 1,
+    topIndex: if (topIndex < 0): 0 else: topIndex,
     totalChunks: 0)
 
 func getFinalHash*(merkleizer: SszMerkleizerImpl): Eth2Digest =
@@ -397,83 +399,87 @@ func mixInLength*(root: Eth2Digest, length: int): Eth2Digest =
   dataLen[0..<8] = uint64(length).toBytesLE()
   mergeBranches(root, dataLen)
 
-func hash_tree_root*(x: auto): Eth2Digest {.gcsafe, raises: [Defect].}
+func hash_tree_root*(x: auto): Eth2Digest
 
-template merkleizeFields(totalElements: static Limit, body: untyped): Eth2Digest =
-  var merkleizer {.inject.} = createMerkleizer(totalElements)
+template merkleizeFields(totalChunks: static Limit, body: untyped): Eth2Digest =
+  var merkleizer {.inject.} = createMerkleizer(totalChunks)
 
   template addField(field) =
     let hash = hash_tree_root(field)
     trs "MERKLEIZING FIELD ", astToStr(field), " = ", hash
-    addChunk(merkleizer, hash.data)
+    merkleizer.addChunk hash.data
     trs "CHUNK ADDED"
 
   body
 
-  getFinalHash(merkleizer)
+  merkleizer.getFinalHash()
 
 template writeBytesLE(chunk: var array[bytesPerChunk, byte], atParam: int,
                       val: UintN) =
   let at = atParam
   chunk[at ..< at + sizeof(val)] = toBytesLE(val)
 
-func chunkedHashTreeRootForBasicTypes[T](merkleizer: var SszMerkleizerImpl,
-                                         arr: openArray[T]): Eth2Digest =
-  static:
-    doAssert T is BasicType
-    doAssert bytesPerChunk mod sizeof(T) == 0
+func chunkedHashTreeRoot[T](
+    totalChunks: static Limit, arr: openArray[T]): Eth2Digest =
+  var merkleizer = createMerkleizer(totalChunks)
 
   if arr.len == 0:
-    return getFinalHash(merkleizer)
+    return merkleizer.getFinalHash()
 
-  when sizeof(T) == 1 or cpuEndian == littleEndian:
-    var
-      remainingBytes = when sizeof(T) == 1: arr.len
-                                      else: arr.len * sizeof(T)
-      pos = cast[ptr byte](unsafeAddr arr[0])
+  when T is BasicType:
+    static: doAssert bytesPerChunk mod sizeof(T) == 0
 
-    while remainingBytes >= bytesPerChunk:
-      merkleizer.addChunk(makeOpenArray(pos, bytesPerChunk))
-      pos = offset(pos, bytesPerChunk)
-      remainingBytes -= bytesPerChunk
+    when sizeof(T) == 1 or cpuEndian == littleEndian:
+      var
+        remainingBytes = arr.len * sizeof(T)
+        pos = cast[ptr byte](unsafeAddr arr[0])
 
-    if remainingBytes > 0:
-      merkleizer.addChunk(makeOpenArray(pos, remainingBytes))
+      while remainingBytes >= bytesPerChunk:
+        merkleizer.addChunk makeOpenArray(pos, bytesPerChunk)
+        pos = offset(pos, bytesPerChunk)
+        remainingBytes -= bytesPerChunk
+
+      if remainingBytes > 0:
+        merkleizer.addChunk makeOpenArray(pos, remainingBytes)
+
+    else:
+      const valuesPerChunk = bytesPerChunk div sizeof(T)
+
+      var writtenValues = 0
+
+      var chunk: array[bytesPerChunk, byte]
+      while writtenValues < arr.len - valuesPerChunk:
+        for i in 0 ..< valuesPerChunk:
+          chunk.writeBytesLE(i * sizeof(T), arr[writtenValues + i])
+        merkleizer.addChunk chunk
+        inc writtenValues, valuesPerChunk
+
+      let remainingValues = arr.len - writtenValues
+      if remainingValues > 0:
+        var lastChunk: array[bytesPerChunk, byte]
+        for i in 0 ..< remainingValues:
+          lastChunk.writeBytesLE(i * sizeof(T), arr[writtenValues + i])
+        merkleizer.addChunk lastChunk
 
   else:
-    const valuesPerChunk = bytesPerChunk div sizeof(T)
+    for elem in arr:
+      let elemHash = hash_tree_root(elem)
+      merkleizer.addChunk elemHash.data
 
-    var writtenValues = 0
+  merkleizer.getFinalHash()
 
-    var chunk: array[bytesPerChunk, byte]
-    while writtenValues < arr.len - valuesPerChunk:
-      for i in 0 ..< valuesPerChunk:
-        chunk.writeBytesLE(i * sizeof(T), arr[writtenValues + i])
-      merkleizer.addChunk chunk
-      inc writtenValues, valuesPerChunk
-
-    let remainingValues = arr.len - writtenValues
-    if remainingValues > 0:
-      var lastChunk: array[bytesPerChunk, byte]
-      for i in 0 ..< remainingValues:
-        lastChunk.writeBytesLE(i * sizeof(T), arr[writtenValues + i])
-      merkleizer.addChunk lastChunk
-
-  getFinalHash(merkleizer)
-
-func bitListHashTreeRoot(merkleizer: var SszMerkleizerImpl, x: BitSeq): Eth2Digest =
+func bitListHashTreeRoot(totalChunks: static Limit, x: BitSeq): Eth2Digest =
   # TODO: Switch to a simpler BitList representation and
   #       replace this with `chunkedHashTreeRoot`
   var
+    merkleizer = createMerkleizer(totalChunks)
     totalBytes = bytes(x).len
     lastCorrectedByte = bytes(x)[^1]
 
   if lastCorrectedByte == byte(1):
     if totalBytes == 1:
       # This is an empty bit list.
-      # It should be hashed as a tree containing all zeros:
-      return mergeBranches(zeroHashes[merkleizer.topIndex],
-                           zeroHashes[0]) # this is the mixed length
+      return merkleizer.getFinalHash()
 
     totalBytes -= 1
     lastCorrectedByte = bytes(x)[^2]
@@ -506,11 +512,10 @@ func bitListHashTreeRoot(merkleizer: var SszMerkleizerImpl, x: BitSeq): Eth2Dige
   lastChunk[bytesInLastChunk - 1] = lastCorrectedByte
 
   merkleizer.addChunk lastChunk.toOpenArray(0, bytesInLastChunk - 1)
-  let contentsHash = merkleizer.getFinalHash
-  mixInLength contentsHash, x.len
+  merkleizer.getFinalHash()
 
 func maxChunksCount(T: type, maxLen: Limit): Limit =
-  when T is BitList|BitArray:
+  when T is BitArray|BitList:
     (maxLen + bitsPerChunk - 1) div bitsPerChunk
   elif T is array|List:
     maxChunkIdx(ElemType(T), maxLen)
@@ -525,10 +530,16 @@ func hashTreeRootAux[T](x: T): Eth2Digest =
       result.data[0..<sizeof(x)] = toBytesLE(x)
     else:
       copyMem(addr result.data[0], unsafeAddr x, sizeof x)
-  elif (when T is array: ElemType(T) is BasicType else: false):
+  elif T is BitArray:
+    hashTreeRootAux(x.bytes)
+  elif T is BitList:
+    const totalChunks = maxChunksCount(T, x.maxLen)
+    bitListHashTreeRoot(totalChunks, BitSeq x)
+      .mixInLength(x.len)
+  elif T is array:
     type E = ElemType(T)
-    when sizeof(T) <= sizeof(result.data):
-      when E is byte|bool or cpuEndian == littleEndian:
+    when E is BasicType and sizeof(T) <= sizeof(result.data):
+      when sizeof(E) == 1 or cpuEndian == littleEndian:
         copyMem(addr result.data[0], unsafeAddr x, sizeof x)
       else:
         var pos = 0
@@ -537,52 +548,34 @@ func hashTreeRootAux[T](x: T): Eth2Digest =
           pos += sizeof(E)
     else:
       trs "FIXED TYPE; USE CHUNK STREAM"
-      var merkleizer = createMerkleizer(maxChunksCount(T, Limit x.len))
-      chunkedHashTreeRootForBasicTypes(merkleizer, x)
-  elif T is BitArray:
-    hashTreeRootAux(x.bytes)
+      const totalChunks = maxChunksCount(T, x.len)
+      chunkedHashTreeRoot(totalChunks, x)
+  elif T is List:
+    const totalChunks = maxChunksCount(T, x.maxLen)
+    chunkedHashTreeRoot(totalChunks, asSeq x)
+      .mixInLength(x.len)
   elif T is SingleMemberUnion:
     doAssert x.selector == 0'u8
     merkleizeFields(Limit 2):
       addField hashTreeRoot(toSszType(x.value))
-  elif T is array|object|tuple:
-    trs "MERKLEIZING FIELDS"
-    const totalFields = when T is array: len(x)
-                        else: totalSerializedFields(T)
-    merkleizeFields(Limit totalFields):
-      x.enumerateSubFields(f):
-        addField f
   #elif isCaseObject(T):
   #  # TODO implement this
+  elif T is object|tuple:
+    trs "MERKLEIZING FIELDS"
+    const totalChunks = totalSerializedFields(T)
+    merkleizeFields(Limit totalChunks):
+      x.enumerateSubFields(f):
+        addField f
   else:
     unsupported T
 
-func hashTreeRootList(x: List|BitList): Eth2Digest =
-  const maxLen = static(x.maxLen)
-  type T = type(x)
-  const limit = maxChunksCount(T, maxLen)
-  var merkleizer = createMerkleizer(limit)
-
-  when x is BitList:
-    merkleizer.bitListHashTreeRoot(BitSeq x)
-  else:
-    type E = ElemType(T)
-    let contentsHash = when E is BasicType:
-      chunkedHashTreeRootForBasicTypes(merkleizer, asSeq x)
-    else:
-      for elem in x:
-        let elemHash = hash_tree_root(elem)
-        merkleizer.addChunk(elemHash.data)
-      merkleizer.getFinalHash()
-    mixInLength(contentsHash, x.len)
-
-func mergedDataHash(x: HashList|HashArray, chunkIdx: int64): Eth2Digest =
+func mergedDataHash(x: HashArray|HashList, chunkIdx: int64): Eth2Digest =
   # The merged hash of the data at `chunkIdx` and `chunkIdx + 1`
   trs "DATA HASH ", chunkIdx, " ", x.data.len
 
   when x.T is BasicType:
     when cpuEndian == bigEndian:
-      unsupported type x # No bigendian support here!
+      unsupported typeof(x) # No bigendian support here!
 
     let
       bytes = cast[ptr UncheckedArray[byte]](unsafeAddr x.data[0])
@@ -611,7 +604,7 @@ func mergedDataHash(x: HashList|HashArray, chunkIdx: int64): Eth2Digest =
         hash_tree_root(x.data[chunkIdx]),
         hash_tree_root(x.data[chunkIdx + 1]))
 
-template mergedHash(x: HashList|HashArray, vIdxParam: int64): Eth2Digest =
+template mergedHash(x: HashArray|HashList, vIdxParam: int64): Eth2Digest =
   # The merged hash of the data at `vIdx` and `vIdx + 1`
   let vIdx = vIdxParam
   if vIdx >= x.maxChunks:
@@ -621,6 +614,17 @@ template mergedHash(x: HashList|HashArray, vIdxParam: int64): Eth2Digest =
     mergeBranches(
       hashTreeRootCached(x, vIdx),
       hashTreeRootCached(x, vIdx + 1))
+
+func hashTreeRootCached*(x: HashArray, vIdx: int): Eth2Digest =
+  doAssert vIdx >= 1, "Only valid for flat merkle tree indices"
+
+  if not isCached(x.hashes[vIdx]):
+    # TODO oops. so much for maintaining non-mutability.
+    let px = unsafeAddr x
+
+    px[].hashes[vIdx] = mergedHash(x, vIdx * 2)
+
+  return x.hashes[vIdx]
 
 func hashTreeRootCached*(x: HashList, vIdx: int64): Eth2Digest =
   doAssert vIdx >= 1, "Only valid for flat merkle tree indices"
@@ -649,17 +653,6 @@ func hashTreeRootCached*(x: HashList, vIdx: int64): Eth2Digest =
 
     x.hashes[layerIdx]
 
-func hashTreeRootCached*(x: HashArray, vIdx: int): Eth2Digest =
-  doAssert vIdx >= 1, "Only valid for flat merkle tree indices"
-
-  if not isCached(x.hashes[vIdx]):
-    # TODO oops. so much for maintaining non-mutability.
-    let px = unsafeAddr x
-
-    px[].hashes[vIdx] = mergedHash(x, vIdx * 2)
-
-  return x.hashes[vIdx]
-
 func hashTreeRootCached*(x: HashArray): Eth2Digest =
   hashTreeRootCached(x, 1) # Array does not use idx 0
 
@@ -672,20 +665,19 @@ func hashTreeRootCached*(x: HashList): Eth2Digest =
     if not isCached(x.hashes[0]):
       # TODO oops. so much for maintaining non-mutability.
       let px = unsafeAddr x
-      px[].hashes[0] = mixInLength(hashTreeRootCached(x, 1), x.data.len)
+      px[].hashes[0] = hashTreeRootCached(x, 1)
+        .mixInLength(x.data.len)
 
     x.hashes[0]
 
 func hash_tree_root*(x: auto): Eth2Digest =
-  trs "STARTING HASH TREE ROOT FOR TYPE ", name(type(x))
+  trs "STARTING HASH TREE ROOT FOR TYPE ", typeof(x).name
   mixin toSszType
 
   result =
     when x is HashArray|HashList:
       hashTreeRootCached(x)
-    elif x is List|BitList:
-      hashTreeRootList(x)
     else:
-      hashTreeRootAux toSszType(x)
+      hashTreeRootAux(toSszType(x))
 
-  trs "HASH TREE ROOT FOR ", name(type x), " = ", "0x", $result
+  trs "HASH TREE ROOT FOR ", typeof(x).name, " = ", "0x", $result
