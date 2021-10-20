@@ -96,6 +96,9 @@ $BEACON_NODE_BIN \
   --rpc \
   --rpc-address="127.0.0.1" \
   --rpc-port="$(( $BASE_RPC_PORT + $NODE_ID ))" \
+  --rest \
+  --rest-address="127.0.0.1" \
+  --rest-port="$(( $BASE_REST_PORT + $NODE_ID ))" \
   --metrics \
   --metrics-address="127.0.0.1" \
   --metrics-port="$(( $BASE_METRICS_PORT + $NODE_ID ))" \
