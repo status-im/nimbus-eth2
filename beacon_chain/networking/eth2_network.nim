@@ -1083,7 +1083,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
     # We start looking one epoch before the transition in order to allow
     # some time for the gossip meshes to get healthy:
     if epoch + 1 >= node.cfg.ALTAIR_FORK_EPOCH:
-      findLowSubnets(getSyncCommitteeTopic, SyncCommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
+      findLowSubnets(getSyncCommitteeTopic, SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
     else:
       default(BitArray[SYNC_COMMITTEE_SUBNET_COUNT])
   )
@@ -2186,7 +2186,7 @@ proc broadcastBeaconBlock*(node: Eth2Node, forked: ForkedSignedBeaconBlock) =
   withBlck(forked): node.broadcastBeaconBlock(blck)
 
 proc broadcastSyncCommitteeMessage*(
-    node: Eth2Node, msg: SyncCommitteeMessage, committeeIdx: SyncCommitteeIndex) =
+    node: Eth2Node, msg: SyncCommitteeMessage, committeeIdx: SyncSubcommitteeIndex) =
   let topic = getSyncCommitteeTopic(node.forkDigests.altair, committeeIdx)
   node.broadcast(topic, msg)
 

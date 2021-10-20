@@ -142,7 +142,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   proc handleSyncCommitteeActions(slot: Slot) =
     type
       Aggregator = object
-        committeeIdx: SyncCommitteeIndex
+        committeeIdx: SyncSubcommitteeIndex
         validatorIdx: int
         selectionProof: ValidatorSig
 

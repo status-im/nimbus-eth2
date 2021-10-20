@@ -24,7 +24,7 @@ suite "Sync committee pool":
     let success = pool.produceContribution(
       Slot(1),
       headRoot,
-      SyncCommitteeIndex(0),
+      SyncSubcommitteeIndex(0),
       outContribution)
 
     check(success == false)
@@ -59,8 +59,8 @@ suite "Sync committee pool":
       root2Slot = Slot(101)
       root3Slot = Slot(101)
 
-      subcommittee1 = SyncCommitteeIndex(0)
-      subcommittee2 = SyncCommitteeIndex(1)
+      subcommittee1 = SyncSubcommitteeIndex(0)
+      subcommittee2 = SyncSubcommitteeIndex(1)
 
       sig1 = blsSign(privkey1, sync_committee_msg_signing_root(
         fork, root1Slot.epoch, genesisValidatorsRoot, root1).data)

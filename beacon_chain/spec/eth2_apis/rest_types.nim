@@ -105,7 +105,7 @@ type
   RestSyncCommitteeDuty* = object
     pubkey*: ValidatorPubKey
     validator_index*: ValidatorIndex
-    validator_sync_committee_indices*: seq[SyncCommitteeIndex]
+    validator_sync_committee_indices*: seq[SyncSubcommitteeIndex]
 
   RestSyncCommitteeMessage* = object
     slot*: Slot
@@ -138,7 +138,7 @@ type
 
   RestSyncCommitteeSubscription* = object
     validator_index*: ValidatorIndex
-    sync_committee_indices*: seq[SyncCommitteeIndex]
+    sync_committee_indices*: seq[SyncSubcommitteeIndex]
     until_epoch*: Epoch
 
   RestBeaconStatesFinalityCheckpoints* = object

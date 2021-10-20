@@ -60,11 +60,11 @@ suite "Honest validator":
         "/eth2/00000000/beacon_attestation_62/ssz"
       getAttestationTopic(forkDigest, SubnetId(63)) ==
         "/eth2/00000000/beacon_attestation_63/ssz"
-      getSyncCommitteeTopic(forkDigest, SyncCommitteeIndex(0)) ==
+      getSyncCommitteeTopic(forkDigest, SyncSubcommitteeIndex(0)) ==
         "/eth2/00000000/sync_committee_0/ssz"
-      getSyncCommitteeTopic(forkDigest, SyncCommitteeIndex(1)) ==
+      getSyncCommitteeTopic(forkDigest, SyncSubcommitteeIndex(1)) ==
         "/eth2/00000000/sync_committee_1/ssz"
-      getSyncCommitteeTopic(forkDigest, SyncCommitteeIndex(3)) ==
+      getSyncCommitteeTopic(forkDigest, SyncSubcommitteeIndex(3)) ==
         "/eth2/00000000/sync_committee_3/ssz"
 
   test "is_aggregator":

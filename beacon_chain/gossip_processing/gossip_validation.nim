@@ -755,7 +755,7 @@ proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
     syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
     msg: SyncCommitteeMessage,
-    syncCommitteeIdx: SyncCommitteeIndex,
+    syncCommitteeIdx: SyncSubcommitteeIndex,
     wallTime: BeaconTime,
     checkSignature: bool):
     Result[void, (ValidationResult, cstring)] =

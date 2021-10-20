@@ -208,7 +208,7 @@ suite "Gossip validation - Extra": # Not based on preset config
         dag
       state = newClone(dag.headState.data.altairData)
 
-      syncCommitteeIdx = 0.SyncCommitteeIndex
+      syncCommitteeIdx = 0.SyncSubcommitteeIndex
       syncCommittee = @(dag.syncCommitteeParticipants(state[].data.slot))
       subcommittee = toSeq(syncCommittee.syncSubcommittee(syncCommitteeIdx))
 

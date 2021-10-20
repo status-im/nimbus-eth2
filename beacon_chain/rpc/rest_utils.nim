@@ -326,13 +326,11 @@ func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
   withState(forkedState):
     when stateFork >= BeaconStateFork.Altair:
       let
-        headSlot = state.data.slot
-        epochPeriod = syncCommitteePeriod(epoch.compute_start_slot_at_epoch())
-        currentPeriod = syncCommitteePeriod(headSlot)
-        nextPeriod = currentPeriod + 1'u64
-      if epochPeriod == currentPeriod:
+        epochPeriod = sync_committee_period(epoch)
+        curPeriod = sync_committee_period(state.data.slot)
+      if epochPeriod == curPeriod:
         ok(@(state.data.current_sync_committee.pubkeys.data))
-      elif epochPeriod == nextPeriod:
+      elif epochPeriod == curPeriod + 1:
         ok(@(state.data.next_sync_committee.pubkeys.data))
       else:
         err("Epoch is outside the sync committee period of the state")
