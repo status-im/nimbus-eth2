@@ -15,11 +15,11 @@ export base
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/p2p-interface.md#topics-and-messages
-  topicBeaconBlocksSuffix* = "beacon_block/ssz"
-  topicVoluntaryExitsSuffix* = "voluntary_exit/ssz"
-  topicProposerSlashingsSuffix* = "proposer_slashing/ssz"
-  topicAttesterSlashingsSuffix* = "attester_slashing/ssz"
-  topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz"
+  topicBeaconBlocksSuffix* = "beacon_block/ssz_snappy"
+  topicVoluntaryExitsSuffix* = "voluntary_exit/ssz_snappy"
+  topicProposerSlashingsSuffix* = "proposer_slashing/ssz_snappy"
+  topicAttesterSlashingsSuffix* = "attester_slashing/ssz_snappy"
+  topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz_snappy"
 
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#eth2-network-interaction-domains
   MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
@@ -77,18 +77,18 @@ func compute_subnet_for_attestation*(
 func getAttestationTopic*(forkDigest: ForkDigest,
                           subnetId: SubnetId): string =
   ## For subscribing and unsubscribing to/from a subnet.
-  eth2Prefix(forkDigest) & "beacon_attestation_" & $(subnetId) & "/ssz"
+  eth2Prefix(forkDigest) & "beacon_attestation_" & $(subnetId) & "/ssz_snappy"
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeTopic*(forkDigest: ForkDigest,
                             committeeIdx: SyncSubcommitteeIndex): string =
   ## For subscribing and unsubscribing to/from a subnet.
-  eth2Prefix(forkDigest) & "sync_committee_" & $(committeeIdx.asUInt8) & "/ssz"
+  eth2Prefix(forkDigest) & "sync_committee_" & $(committeeIdx.asUInt8) & "/ssz_snappy"
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string =
   ## For subscribing and unsubscribing to/from a subnet.
-  eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof" & "/ssz"
+  eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof/ssz_snappy"
 
 func getENRForkID*(cfg: RuntimeConfig,
                    epoch: Epoch,

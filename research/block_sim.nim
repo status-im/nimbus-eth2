@@ -157,7 +157,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     var aggregators: seq[Aggregator]
 
-    for committeeIdx in allSyncCommittees():
+    for committeeIdx in allSyncSubcommittees():
       for valKey in syncSubcommittee(syncCommittee, committeeIdx):
         if rand(r, 1.0) > syncCommitteeRatio:
           continue

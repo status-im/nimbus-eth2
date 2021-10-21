@@ -9,7 +9,7 @@
 
 import
   # Std lib
-  std/[typetraits, os, sequtils, algorithm, math, tables],
+  std/[typetraits, os, sequtils, strutils, algorithm, math, tables],
 
   # Status libs
   stew/[leb128, endians2, results, byteutils, io2, bitops2], bearssl,
@@ -919,8 +919,8 @@ proc isCompatibleForkId*(discoveryForkId: ENRForkID, peerForkId: ENRForkID): boo
 proc queryRandom*(
     d: Eth2DiscoveryProtocol,
     forkId: ENRForkID,
-    wantedAttnets: BitArray[ATTESTATION_SUBNET_COUNT],
-    wantedSyncnets: BitArray[SYNC_COMMITTEE_SUBNET_COUNT]): Future[seq[Node]] {.async.} =
+    wantedAttnets: AttnetBits,
+    wantedSyncnets: SyncnetBits): Future[seq[Node]] {.async.} =
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
 
@@ -948,7 +948,7 @@ proc queryRandom*(
     if attnetsBytes.isSome():
       let attnetsNode =
         try:
-          SSZ.decode(attnetsBytes.get(), BitArray[ATTESTATION_SUBNET_COUNT])
+          SSZ.decode(attnetsBytes.get(), AttnetBits)
         except SszError as e:
           debug "Could not decode the attnets ERN bitfield of peer",
             peer = n.record.toURI(), exception = e.name, msg = e.msg
@@ -962,13 +962,13 @@ proc queryRandom*(
     if syncnetsBytes.isSome():
       let syncnetsNode =
         try:
-          SSZ.decode(syncnetsBytes.get(), BitArray[SYNC_COMMITTEE_SUBNET_COUNT])
+          SSZ.decode(syncnetsBytes.get(), SyncnetBits)
         except SszError as e:
           debug "Could not decode the syncnets ENR bitfield of peer",
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
 
-      for i in allSyncCommittees():
+      for i in allSyncSubcommittees():
         if wantedSyncnets[i] and syncnetsNode[i]:
           score += 10 # connecting to the right syncnet is urgent
 
@@ -1037,9 +1037,7 @@ proc trimConnections(node: Eth2Node, count: int) {.async.} =
     inc(nbc_cycling_kicked_peers)
     if toKick <= 0: return
 
-proc getLowSubnets(node: Eth2Node, epoch: Epoch):
-                  (BitArray[ATTESTATION_SUBNET_COUNT],
-                   BitArray[SYNC_COMMITTEE_SUBNET_COUNT]) =
+proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
   # Returns the subnets required to have a healthy mesh
   # The subnets are computed, to, in order:
   # - Have 0 subscribed subnet below `dLow`
@@ -1056,7 +1054,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
 
     for subNetId in 0 ..< totalSubnets:
       let topic =
-        topicNameGenerator(node.forkId.forkDigest, SubnetIdType(subNetId)) & "_snappy"
+        topicNameGenerator(node.forkId.forkDigest, SubnetIdType(subNetId))
 
       if node.pubsub.gossipsub.peers(topic) < node.pubsub.parameters.d:
         lowOutgoingSubnets.setBit(subNetId)
@@ -1067,8 +1065,8 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
       if node.pubsub.mesh.peers(topic) < node.pubsub.parameters.dLow:
         belowDlowSubnets.setBit(subNetId)
 
-      let outPeers = node.pubsub.mesh.getOrDefault(topic).toSeq().filterIt(it.outbound)
-      if outPeers.len() < node.pubsub.parameters.dOut:
+      let outPeers = node.pubsub.mesh.getOrDefault(topic).countIt(it.outbound)
+      if outPeers < node.pubsub.parameters.dOut:
         belowDOutSubnets.setBit(subNetId)
 
     if belowDLowSubnets.countOnes() > 0:
@@ -1085,7 +1083,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch):
     if epoch + 1 >= node.cfg.ALTAIR_FORK_EPOCH:
       findLowSubnets(getSyncCommitteeTopic, SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
     else:
-      default(BitArray[SYNC_COMMITTEE_SUBNET_COUNT])
+      default(SyncnetBits)
   )
 
 proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
@@ -1776,7 +1774,8 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
       pubKey = privKey.getKey().expect("working public key from random")
     NetKeyPair(seckey: privKey, pubkey: pubKey)
 
-func gossipId(data: openArray[byte], topic: string, valid: bool): seq[byte] =
+func gossipId(
+    data: openArray[byte], altairPrefix, topic: string, valid: bool): seq[byte] =
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/p2p-interface.md#topics-and-messages
   const
@@ -1785,30 +1784,14 @@ func gossipId(data: openArray[byte], topic: string, valid: bool): seq[byte] =
   let messageDigest = withEth2Hash:
     h.update(
       if valid: MESSAGE_DOMAIN_VALID_SNAPPY else: MESSAGE_DOMAIN_INVALID_SNAPPY)
-    if topic.len > 0: #altair topic
+
+    if topic.startsWith(altairPrefix):
       h.update topic.len.uint64.toBytesLE
       h.update topic
+
     h.update data
 
-  return messageDigest.data[0..19].toSeq()
-
-func isAltairTopic(topic: string, altairPrefix: string): bool =
-  const prefixLen = "/eth2/".len
-
-  if topic.len <= altairPrefix.len + prefixLen:
-    false
-  else:
-    for ind, ch in altairPrefix:
-      if ch != topic[ind + prefixLen]: return false
-    true
-
-func getAltairTopic(m: messages.Message, altairPrefix: string): string =
-  # TODO Return a lent string here to avoid the string copy
-  let topic = if m.topicIDs.len > 0: m.topicIDs[0] else: ""
-  if isAltairTopic(topic, altairPrefix):
-    topic
-  else:
-    ""
+  messageDigest.data[0..19]
 
 proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
                       address: MultiAddress,
@@ -1857,14 +1840,18 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
   # that are different from the host address (this is relevant when we
   # are running behind a NAT).
   var switch = newBeaconSwitch(config, netKeys.seckey, hostAddress, rng)
-  let altairPrefix = $forkDigests.altair
+
+  let altairPrefix = "/eth2/" & $forkDigests.altair
+
   func msgIdProvider(m: messages.Message): seq[byte] =
-    let topic = getAltairTopic(m, altairPrefix)
+    template topic: untyped =
+      if m.topicIDs.len > 0: m.topicIDs[0] else: ""
+
     try:
       let decoded = snappy.decode(m.data, GOSSIP_MAX_SIZE)
-      gossipId(decoded, topic, true)
+      gossipId(decoded, altairPrefix, topic, true)
     except CatchableError:
-      gossipId(m.data, topic, false)
+      gossipId(m.data, altairPrefix, topic, false)
 
   let
     params = GossipSubParams(
@@ -1917,12 +1904,19 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       verifySignature = false,
       anonymize = true,
       parameters = params)
+
   switch.mount(pubsub)
 
-  Eth2Node.new(
+  let node = Eth2Node.new(
     config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
     extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
     discovery = config.discv5Enabled, rng = rng)
+
+  node.pubsub.subscriptionValidator =
+    proc(topic: string): bool {.gcsafe, raises: [Defect].} =
+      topic in node.validTopics
+
+  node
 
 proc announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
@@ -1934,28 +1928,13 @@ proc shortForm*(id: NetKeyPair): string =
 proc subscribe*(
     node: Eth2Node, topic: string, topicParams: TopicParams,
     enableTopicMetrics: bool = false) =
-  proc dummyMsgHandler(topic: string, data: seq[byte]): Future[void] =
-    # Avoid closure environment with `{.async.}`
-    var res = newFuture[void]("eth2_network.dummyMsgHandler")
-    res.complete()
-    res
-
-  let
-    topicName = topic & "_snappy"
-
   if enableTopicMetrics:
-    node.pubsub.knownTopics.incl(topicName)
+    node.pubsub.knownTopics.incl(topic)
 
-  node.pubsub.topicParams[topicName] = topicParams
-  node.pubsub.subscribe(topicName, dummyMsgHandler)
+  node.pubsub.topicParams[topic] = topicParams
 
-proc setValidTopics*(node: Eth2Node, topics: openArray[string]) =
-  let topicsSnappy = topics.mapIt(it & "_snappy")
-  node.validTopics = topicsSnappy.toHashSet()
-  # there is a window of time where we got the switch open, we need this lazy update for now
-  node.pubsub.subscriptionValidator =
-    proc(topic: string): bool {.gcsafe, raises: [Defect].} =
-      topic in node.validTopics
+  # Passing in `nil` because we do all message processing in the validator
+  node.pubsub.subscribe(topic, nil)
 
 proc newValidationResultFuture(v: ValidationResult): Future[ValidationResult] =
   let res = newFuture[ValidationResult]("eth2_network.execValidator")
@@ -1994,7 +1973,8 @@ proc addValidator*[MsgType](node: Eth2Node,
 
     newValidationResultFuture(res)
 
-  node.pubsub.addValidator(topic & "_snappy", execValidator)
+  node.validTopics.incl topic # Only allow subscription to validated topics
+  node.pubsub.addValidator(topic, execValidator)
 
 proc addAsyncValidator*[MsgType](node: Eth2Node,
                             topic: string,
@@ -2022,21 +2002,23 @@ proc addAsyncValidator*[MsgType](node: Eth2Node,
       debug "Error decompressing gossip", topic, len = message.data.len
       newValidationResultFuture(ValidationResult.Reject)
 
-  node.pubsub.addValidator(topic & "_snappy", execValidator)
+  node.validTopics.incl topic # Only allow subscription to validated topics
+
+  node.pubsub.addValidator(topic, execValidator)
 
 proc unsubscribe*(node: Eth2Node, topic: string) =
-  node.pubsub.unsubscribeAll(topic & "_snappy")
+  node.pubsub.unsubscribeAll(topic)
 
-proc traceMessage(fut: FutureBase, msgId: seq[byte]) =
+proc traceMessage(fut: FutureBase, topic: string) =
   fut.addCallback do (arg: pointer):
     if not(fut.failed):
-      trace "Outgoing pubsub message sent", msgId = byteutils.toHex(msgId)
+      trace "Outgoing pubsub message sent"
     elif fut.error != nil:
       debug "Gossip message not sent",
-        msgId = byteutils.toHex(msgId), err = fut.error.msg
+        topic, err = fut.error.msg
     else:
       debug "Unexpected future state for gossip",
-        msgId = byteutils.toHex(msgId), state = fut.state
+        topic, state = fut.state
 
 proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   try:
@@ -2051,13 +2033,13 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
     doAssert uncompressed.len <= GOSSIP_MAX_SIZE
     inc nbc_gossip_messages_sent
 
-    var futSnappy = node.pubsub.publish(topic & "_snappy", compressed)
-    traceMessage(futSnappy, gossipId(uncompressed, topic & "_snappy", true))
+    var futSnappy = node.pubsub.publish(topic, compressed)
+    traceMessage(futSnappy, topic)
   except IOError as exc:
     raiseAssert exc.msg # TODO in-memory compression shouldn't fail
 
-proc subscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT],
-                                  forkDigest: ForkDigest) =
+proc subscribeAttestationSubnets*(
+    node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # Nimbus won't score attestation subnets for now, we just rely on block and
   # aggregate which are more stable and reliable
@@ -2067,8 +2049,8 @@ proc subscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATION_
       node.subscribe(getAttestationTopic(
         forkDigest, SubnetId(subnet_id)), TopicParams.init()) # don't score attestation subnets for now
 
-proc unsubscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATION_SUBNET_COUNT],
-                                    forkDigest: ForkDigest) =
+proc unsubscribeAttestationSubnets*(
+    node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # Nimbus won't score attestation subnets for now; we just rely on block and
   # aggregate which are more stable and reliable
@@ -2077,8 +2059,7 @@ proc unsubscribeAttestationSubnets*(node: Eth2Node, subnets: BitArray[ATTESTATIO
     if enabled:
       node.unsubscribe(getAttestationTopic(forkDigest, SubnetId(subnet_id)))
 
-proc updateStabilitySubnetMetadata*(
-    node: Eth2Node, attnets: BitArray[ATTESTATION_SUBNET_COUNT]) =
+proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/p2p-interface.md#metadata
   if node.metadata.attnets == attnets:
     return
@@ -2098,9 +2079,11 @@ proc updateStabilitySubnetMetadata*(
   else:
     debug "Stability subnets changed; updated ENR attnets", attnets
 
-proc updateSyncnetsMetadata*(
-    node: Eth2Node, syncnets: BitArray[altair.SYNC_COMMITTEE_SUBNET_COUNT]) =
+proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/validator.md#sync-committee-subnet-stability
+  if node.metadata.syncnets == syncnets:
+    return
+
   node.metadata.seq_number += 1
   node.metadata.syncnets = syncnets
 

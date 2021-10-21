@@ -11,61 +11,61 @@ suite "Honest validator":
 
   test "General pubsub topics":
     check:
-      getBeaconBlocksTopic(forkDigest) == "/eth2/00000000/beacon_block/ssz"
-      getVoluntaryExitsTopic(forkDigest) == "/eth2/00000000/voluntary_exit/ssz"
-      getProposerSlashingsTopic(forkDigest) == "/eth2/00000000/proposer_slashing/ssz"
-      getAttesterSlashingsTopic(forkDigest) == "/eth2/00000000/attester_slashing/ssz"
-      getAggregateAndProofsTopic(forkDigest) == "/eth2/00000000/beacon_aggregate_and_proof/ssz"
-      getSyncCommitteeContributionAndProofTopic(forkDigest) == "/eth2/00000000/sync_committee_contribution_and_proof/ssz"
+      getBeaconBlocksTopic(forkDigest) == "/eth2/00000000/beacon_block/ssz_snappy"
+      getVoluntaryExitsTopic(forkDigest) == "/eth2/00000000/voluntary_exit/ssz_snappy"
+      getProposerSlashingsTopic(forkDigest) == "/eth2/00000000/proposer_slashing/ssz_snappy"
+      getAttesterSlashingsTopic(forkDigest) == "/eth2/00000000/attester_slashing/ssz_snappy"
+      getAggregateAndProofsTopic(forkDigest) == "/eth2/00000000/beacon_aggregate_and_proof/ssz_snappy"
+      getSyncCommitteeContributionAndProofTopic(forkDigest) == "/eth2/00000000/sync_committee_contribution_and_proof/ssz_snappy"
 
   test "Mainnet attestation topics":
     check:
       getAttestationTopic(forkDigest, SubnetId(0)) ==
-        "/eth2/00000000/beacon_attestation_0/ssz"
+        "/eth2/00000000/beacon_attestation_0/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(5)) ==
-        "/eth2/00000000/beacon_attestation_5/ssz"
+        "/eth2/00000000/beacon_attestation_5/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(7)) ==
-        "/eth2/00000000/beacon_attestation_7/ssz"
+        "/eth2/00000000/beacon_attestation_7/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(9)) ==
-        "/eth2/00000000/beacon_attestation_9/ssz"
+        "/eth2/00000000/beacon_attestation_9/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(13)) ==
-        "/eth2/00000000/beacon_attestation_13/ssz"
+        "/eth2/00000000/beacon_attestation_13/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(19)) ==
-        "/eth2/00000000/beacon_attestation_19/ssz"
+        "/eth2/00000000/beacon_attestation_19/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(20)) ==
-        "/eth2/00000000/beacon_attestation_20/ssz"
+        "/eth2/00000000/beacon_attestation_20/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(22)) ==
-        "/eth2/00000000/beacon_attestation_22/ssz"
+        "/eth2/00000000/beacon_attestation_22/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(25)) ==
-        "/eth2/00000000/beacon_attestation_25/ssz"
+        "/eth2/00000000/beacon_attestation_25/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(27)) ==
-        "/eth2/00000000/beacon_attestation_27/ssz"
+        "/eth2/00000000/beacon_attestation_27/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(31)) ==
-        "/eth2/00000000/beacon_attestation_31/ssz"
+        "/eth2/00000000/beacon_attestation_31/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(39)) ==
-        "/eth2/00000000/beacon_attestation_39/ssz"
+        "/eth2/00000000/beacon_attestation_39/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(45)) ==
-        "/eth2/00000000/beacon_attestation_45/ssz"
+        "/eth2/00000000/beacon_attestation_45/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(47)) ==
-        "/eth2/00000000/beacon_attestation_47/ssz"
+        "/eth2/00000000/beacon_attestation_47/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(48)) ==
-        "/eth2/00000000/beacon_attestation_48/ssz"
+        "/eth2/00000000/beacon_attestation_48/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(50)) ==
-        "/eth2/00000000/beacon_attestation_50/ssz"
+        "/eth2/00000000/beacon_attestation_50/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(53)) ==
-        "/eth2/00000000/beacon_attestation_53/ssz"
+        "/eth2/00000000/beacon_attestation_53/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(54)) ==
-        "/eth2/00000000/beacon_attestation_54/ssz"
+        "/eth2/00000000/beacon_attestation_54/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(62)) ==
-        "/eth2/00000000/beacon_attestation_62/ssz"
+        "/eth2/00000000/beacon_attestation_62/ssz_snappy"
       getAttestationTopic(forkDigest, SubnetId(63)) ==
-        "/eth2/00000000/beacon_attestation_63/ssz"
+        "/eth2/00000000/beacon_attestation_63/ssz_snappy"
       getSyncCommitteeTopic(forkDigest, SyncSubcommitteeIndex(0)) ==
-        "/eth2/00000000/sync_committee_0/ssz"
+        "/eth2/00000000/sync_committee_0/ssz_snappy"
       getSyncCommitteeTopic(forkDigest, SyncSubcommitteeIndex(1)) ==
-        "/eth2/00000000/sync_committee_1/ssz"
+        "/eth2/00000000/sync_committee_1/ssz_snappy"
       getSyncCommitteeTopic(forkDigest, SyncSubcommitteeIndex(3)) ==
-        "/eth2/00000000/sync_committee_3/ssz"
+        "/eth2/00000000/sync_committee_3/ssz_snappy"
 
   test "is_aggregator":
     check:

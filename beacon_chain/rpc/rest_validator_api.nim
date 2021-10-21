@@ -233,7 +233,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       var duties =
         block:
           var res = newSeq[RestSyncCommitteeDuty](len(indexList))
-          for committeeIdx in allSyncCommittees():
+          for committeeIdx in allSyncSubcommittees():
             for valIndex, arrIndex in syncSubcommitteePairs(participantIndices,
                                                             committeeIdx):
               let listIndex = validatorsSet.getOrDefault(valIndex, -1)

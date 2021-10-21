@@ -4,10 +4,10 @@ import
   bearssl,
   eth/p2p/discoveryv5/random2,
   ../spec/datatypes/base,
-  ../spec/helpers,
+  ../spec/[helpers, network],
   ../consensus_object_pools/[block_pools_types, spec_cache]
 
-export base, helpers, sets, tables
+export base, helpers, network, sets, tables
 
 const
   SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS* = 4 ##\
@@ -25,8 +25,6 @@ const
     ## until it "naturally" expires.
 
 type
-  SubnetBits* = BitArray[ATTESTATION_SUBNET_COUNT]
-
   AggregatorDuty* = object
     subnet_id*: SubnetId
     slot*: Slot
@@ -39,7 +37,7 @@ type
     currentSlot*: Slot ##\
       ## Duties that we accept are limited to a range around the current slot
 
-    subscribedSubnets*: SubnetBits ##\
+    subscribedSubnets*: AttnetBits ##\
       ## All subnets we're currently subscribed to
 
     stabilitySubnets: seq[tuple[subnet_id: SubnetId, expiration: Epoch]] ##\
@@ -94,12 +92,12 @@ proc registerDuty*(
     tracker.duties.add(newDuty)
 
 const allSubnetBits = block:
-  var res: SubnetBits
+  var res: AttnetBits
   for i in 0..<res.len: res[i] = true
   res
 
-func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): SubnetBits =
-  var res: SubnetBits
+func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
+  var res: AttnetBits
   # Subscribe to subnets for upcoming duties
   for duty in tracker.duties:
 
@@ -109,11 +107,11 @@ func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): SubnetBits =
       res[duty.subnet_id.int] = true
   res
 
-func stabilitySubnets*(tracker: ActionTracker, slot: Slot): SubnetBits =
+func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
   if tracker.subscribeAllSubnets:
     allSubnetBits
   else:
-    var res: SubnetBits
+    var res: AttnetBits
     for v in tracker.stabilitySubnets:
       res[v.subnet_id.int] = true
     res
@@ -157,6 +155,35 @@ func updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
     tracker.stabilitySubnets.add(tracker.randomStabilitySubnet(epoch))
 
   tracker.currentSlot = wallSlot
+
+func getNextValidatorAction*(
+    actionSlotSource: auto, lastCalculatedEpoch: Epoch, slot: Slot): Slot =
+  # The relevant actions are in, depending on calculated bounds:
+  # [aS[epoch mod 2], aS[1 - (epoch mod 2)]]
+  #  current epoch          next epoch
+  let orderedActionSlots = [
+    actionSlotSource[     slot.epoch mod 2'u64],
+    actionSlotSource[1 - (slot.epoch mod 2'u64)]]
+
+  static: doAssert MIN_ATTESTATION_INCLUSION_DELAY == 1
+
+  # Cleverer ways exist, but a short loop is fine. O(n) vs O(log n) isn't that
+  # important when n is 32 or 64, with early exit on average no more than half
+  # through.
+  for i in [0'u64, 1'u64]:
+    let bitmapEpoch = slot.epoch + i
+
+    if bitmapEpoch > lastCalculatedEpoch:
+      return FAR_FUTURE_SLOT
+
+    for slotOffset in 0 ..< SLOTS_PER_EPOCH:
+      let nextActionSlot =
+        compute_start_slot_at_epoch(bitmapEpoch) + slotOffset
+      if ((orderedActionSlots[i] and (1'u32 shl slotOffset)) != 0) and
+          nextActionSlot > slot:
+        return nextActionSlot
+
+  FAR_FUTURE_SLOT
 
 proc updateActions*(tracker: var ActionTracker, epochRef: EpochRef) =
   # Updates the schedule for upcoming attestation and proposal work

@@ -100,7 +100,7 @@ It is important to note that 3 data structures are sharing the same `AsyncQueue[
 
 ### Gossip flow in
 
-Blocks are listened to via the gossipsub topic `/eth2/{$forkDigest}/beacon_block/ssz` (`topicBeaconBlocks` variable)
+Blocks are listened to via the gossipsub topic `/eth2/{$forkDigest}/beacon_block/ssz_snappy` (`topicBeaconBlocks` variable)
 
 They are then:
 - validated by `blockValidator()` in the Eth2Processor by `isValidBeaconBlock()` according to spec https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/p2p-interface.md#beacon_block

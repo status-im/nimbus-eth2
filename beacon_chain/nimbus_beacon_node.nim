@@ -421,37 +421,6 @@ proc init*(T: type BeaconNode,
     onAttestationSent: onAttestationSent,
   )
 
-  # initialize REST server cache tables.
-  if config.restEnabled:
-    node.restKeysCache = initTable[ValidatorPubKey, ValidatorIndex]()
-
-  # set topic validation routine
-  network.setValidTopics(
-    block:
-      var
-        topics = @[
-            getBeaconBlocksTopic(network.forkDigests.phase0),
-            getAttesterSlashingsTopic(network.forkDigests.phase0),
-            getProposerSlashingsTopic(network.forkDigests.phase0),
-            getVoluntaryExitsTopic(network.forkDigests.phase0),
-            getAggregateAndProofsTopic(network.forkDigests.phase0),
-
-            getBeaconBlocksTopic(dag.forkDigests.altair),
-            getAttesterSlashingsTopic(network.forkDigests.altair),
-            getProposerSlashingsTopic(network.forkDigests.altair),
-            getVoluntaryExitsTopic(network.forkDigests.altair),
-            getAggregateAndProofsTopic(network.forkDigests.altair),
-          ]
-      if not config.verifyFinalization:
-        topics &= getSyncCommitteeContributionAndProofTopic(network.forkDigests.altair)
-      for subnet_id in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
-        topics &= getAttestationTopic(network.forkDigests.phase0, SubnetId(subnet_id))
-        topics &= getAttestationTopic(network.forkDigests.altair, SubnetId(subnet_id))
-      if not config.verifyFinalization:
-        for subnet_id in allSyncCommittees():
-          topics &= getSyncCommitteeTopic(network.forkDigests.altair, subnet_id)
-      topics)
-
   if node.config.inProcessValidators:
     node.addLocalValidators()
   else:
@@ -471,7 +440,8 @@ proc init*(T: type BeaconNode,
       if validator.index.isSome():
         node.actionTracker.knownValidators[validator.index.get()] = wallSlot
 
-    let stabilitySubnets = node.actionTracker.stabilitySubnets(wallSlot)
+    let
+      stabilitySubnets = node.actionTracker.stabilitySubnets(wallSlot)
     # Here, we also set the correct ENR should we be in all subnets mode!
     node.network.updateStabilitySubnetMetadata(stabilitySubnets)
 
@@ -499,10 +469,6 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
     # and then state.slot gets incremented, to increase the maximum offset, if
     # finalization occurs every slot, to 4 slots vs scheduledSlot.
     doAssert finalizedEpoch + 4 >= epoch
-
-func toBitArray(stabilitySubnets: auto): BitArray[ATTESTATION_SUBNET_COUNT] =
-  for subnetInfo in stabilitySubnets:
-    result[subnetInfo.subnet_id.int] = true
 
 func subnetLog(v: BitArray): string =
   $toSeq(v.oneIndices())
@@ -626,7 +592,7 @@ proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
     node.network.unsubscribe(
       getAttestationTopic(forkDigest, SubnetId(subnet_id)))
 
-  node.actionTracker.subscribedSubnets = default(SubnetBits)
+  node.actionTracker.subscribedSubnets = default(AttnetBits)
 
 proc removePhase0MessageHandlers(node: BeaconNode) =
   removePhase0MessageHandlers(node, node.dag.forkDigests.phase0)
@@ -634,10 +600,10 @@ proc removePhase0MessageHandlers(node: BeaconNode) =
 proc addAltairMessageHandlers(node: BeaconNode, slot: Slot) =
   node.addPhase0MessageHandlers(node.dag.forkDigests.altair, slot)
 
-  var syncnets: BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
+  var syncnets: SyncnetBits
 
   # TODO: What are the best topic params for this?
-  for committeeIdx in allSyncCommittees():
+  for committeeIdx in allSyncSubcommittees():
     closureScope:
       let idx = committeeIdx
       # TODO This should be done in dynamic way in trackSyncCommitteeTopics
@@ -650,7 +616,7 @@ proc addAltairMessageHandlers(node: BeaconNode, slot: Slot) =
 proc removeAltairMessageHandlers(node: BeaconNode) =
   node.removePhase0MessageHandlers(node.dag.forkDigests.altair)
 
-  for committeeIdx in allSyncCommittees():
+  for committeeIdx in allSyncSubcommittees():
     closureScope:
       let idx = committeeIdx
       # TODO This should be done in dynamic way in trackSyncCommitteeTopics
@@ -785,35 +751,6 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
   node.gossipState = targetGossipState
   node.updateAttestationSubnetHandlers(slot)
-
-func getNextValidatorAction(
-    actionSlotSource: auto, lastCalculatedEpoch: Epoch, slot: Slot): Slot =
-  # The relevant actions are in, depending on calculated bounds:
-  # [aS[epoch mod 2], aS[1 - (epoch mod 2)]]
-  #  current epoch          next epoch
-  let orderedActionSlots = [
-    actionSlotSource[     slot.epoch mod 2'u64],
-    actionSlotSource[1 - (slot.epoch mod 2'u64)]]
-
-  static: doAssert MIN_ATTESTATION_INCLUSION_DELAY == 1
-
-  # Cleverer ways exist, but a short loop is fine. O(n) vs O(log n) isn't that
-  # important when n is 32 or 64, with early exit on average no more than half
-  # through.
-  for i in [0'u64, 1'u64]:
-    let bitmapEpoch = slot.epoch + i
-
-    if bitmapEpoch > lastCalculatedEpoch:
-      return FAR_FUTURE_SLOT
-
-    for slotOffset in 0 ..< SLOTS_PER_EPOCH:
-      let nextActionSlot =
-        compute_start_slot_at_epoch(bitmapEpoch) + slotOffset
-      if ((orderedActionSlots[i] and (1'u32 shl slotOffset)) != 0) and
-          nextActionSlot > slot:
-        return nextActionSlot
-
-  FAR_FUTURE_SLOT
 
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
@@ -1139,7 +1076,7 @@ proc installMessageValidators(node: BeaconNode) =
     proc (signedVoluntaryExit: SignedVoluntaryExit): ValidationResult =
       node.processor[].voluntaryExitValidator(signedVoluntaryExit))
 
-  for committeeIdx in allSyncCommittees():
+  for committeeIdx in allSyncSubcommittees():
     closureScope:
       let idx = committeeIdx
       node.network.addValidator(
