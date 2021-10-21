@@ -58,7 +58,7 @@ See [here](./networking.md).
 WRN 2021-03-15 02:23:37.569+00:00 Discovered new external address but ENR auto update is off topics="discv5"...
 ```
 
-It's possible that your ISP has changed your IP address without you knowing.
+It's possible that your ISP has changed your dynamic IP address without you knowing.
 
 The first thing to do it to try relaunching the beacon node with with `--enr-auto-update:true` (pass it as an option in the command line).
 
