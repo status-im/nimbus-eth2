@@ -31,7 +31,7 @@ proc generateNode(rng: ref BrHmacDrbgContext, port: Port,
         some(ip), some(port), some(port), port, ip, enrFields, rng = rng)
 
 # TODO: Add tests with a syncnets preference
-const noSyncnetsPreference = BitArray[SYNC_COMMITTEE_SUBNET_COUNT]()
+const noSyncnetsPreference = SyncnetBits()
 
 suite "Eth2 specific discovery tests":
   let
@@ -42,7 +42,7 @@ suite "Eth2 specific discovery tests":
       next_fork_epoch: Epoch(0))
 
   asyncTest "Subnet query":
-    var attnets: BitArray[ATTESTATION_SUBNET_COUNT]
+    var attnets: AttnetBits
     attnets.setBit(34)
 
     let
@@ -58,7 +58,7 @@ suite "Eth2 specific discovery tests":
     # ping in one direction to add node2 to routing table of node1
     check (await node2.ping(node1.localNode)).isOk()
 
-    var attnetsSelected: BitArray[ATTESTATION_SUBNET_COUNT]
+    var attnetsSelected: AttnetBits
     attnetsSelected.setBit(42)
     attnetsSelected.setBit(34)
 
@@ -75,7 +75,7 @@ suite "Eth2 specific discovery tests":
     # TODO: This doesn't fail actually.
     # var invalidAttnets2: BitArray[ATTESTATION_SUBNET_COUNT * 2]
     # invalidAttnets2.setBit(15)
-    var attnets: BitArray[ATTESTATION_SUBNET_COUNT]
+    var attnets: AttnetBits
     attnets.setBit(15)
 
     let
@@ -96,7 +96,7 @@ suite "Eth2 specific discovery tests":
     check (await node2.ping(node1.localNode)).isOk()
     check (await node3.ping(node1.localNode)).isOk()
 
-    var attnetsSelected: BitArray[ATTESTATION_SUBNET_COUNT]
+    var attnetsSelected: AttnetBits
     attnetsSelected.setBit(15)
     attnetsSelected.setBit(42)
 
@@ -109,7 +109,7 @@ suite "Eth2 specific discovery tests":
     await node3.closeWait()
 
   asyncTest "Subnet query after ENR update":
-    var attnets: BitArray[ATTESTATION_SUBNET_COUNT]
+    var attnets: AttnetBits
     attnets.setBit(1)
 
     let
@@ -124,7 +124,7 @@ suite "Eth2 specific discovery tests":
 
     check (await node2.ping(node1.localNode)).isOk()
 
-    var attnetsSelected: BitArray[ATTESTATION_SUBNET_COUNT]
+    var attnetsSelected: AttnetBits
     attnetsSelected.setBit(2)
 
     block:

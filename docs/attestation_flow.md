@@ -17,8 +17,8 @@ From the specs it seems like gossip attestation `validation` is a superset of co
 
 Attestations can be received from the following sources:
 - GossipSub
-  - Aggregated: `/eth2/{$forkDigest}/beacon_aggregate_and_proof/ssz`
-  - Unaggregated: `/eth2/{$forkDigest}/beacon_attestation_{subnetIndex}/ssz`
+  - Aggregated: `/eth2/{$forkDigest}/beacon_aggregate_and_proof/ssz_snappy`
+  - Unaggregated: `/eth2/{$forkDigest}/beacon_attestation_{subnetIndex}/ssz_snappy`
 - within received blocks
 - the NBC database (within a block)
 - a local validator vote
@@ -47,8 +47,8 @@ _TODO Note: Image is outdated, attestation queues were removed from the Eth2Proc
 ### Inbound gossip flow
 
 These GossipSub topics are used to listen for attestations:
-- Aggregated: `/eth2/{$forkDigest}/beacon_aggregate_and_proof/ssz`
-- Unaggregated: `/eth2/{$forkDigest}/beacon_attestation_{subnetIndex}/ssz`
+- Aggregated: `/eth2/{$forkDigest}/beacon_aggregate_and_proof/ssz_snappy`
+- Unaggregated: `/eth2/{$forkDigest}/beacon_attestation_{subnetIndex}/ssz_snappy`
 
 The attestations are then validated by `validateAttestation()` or `validateAggregate()` in either `attestationValidator()` or `aggregateValidator()` according to the P2P specs.
 - https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof

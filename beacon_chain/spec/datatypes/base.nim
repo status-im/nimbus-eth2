@@ -476,6 +476,8 @@ type
     attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
+  AttnetBits* = BitArray[ATTESTATION_SUBNET_COUNT]
+
 type
   # Caches for computing justificiation, rewards and penalties - based on
   # implementation in Lighthouse:

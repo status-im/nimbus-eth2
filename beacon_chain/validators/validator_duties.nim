@@ -260,7 +260,7 @@ proc sendSyncCommitteeMessages*(node: BeaconNode,
       let (pending, indices) = block:
         var resFutures: seq[Future[SendResult]]
         var resIndices: seq[int]
-        for committeeIdx in allSyncCommittees():
+        for committeeIdx in allSyncSubcommittees():
           for valKey in syncSubcommittee(
               state.data.current_sync_committee.pubkeys.data, committeeIdx):
             let index = keysCur.getOrDefault(valKey, -1)
@@ -268,7 +268,7 @@ proc sendSyncCommitteeMessages*(node: BeaconNode,
               resIndices.add(index)
               resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
                                                           committeeIdx, true))
-        for committeeIdx in allSyncCommittees():
+        for committeeIdx in allSyncSubcommittees():
           for valKey in syncSubcommittee(
               state.data.next_sync_committee.pubkeys.data, committeeIdx):
             let index = keysNxt.getOrDefault(valKey, -1)
@@ -684,7 +684,7 @@ proc handleSyncCommitteeMessages(node: BeaconNode, head: BlockRef, slot: Slot) =
   # TODO Use a view type to avoid the copy
   var syncCommittee = @(node.dag.syncCommitteeParticipants(slot + 1))
 
-  for committeeIdx in allSyncCommittees():
+  for committeeIdx in allSyncSubcommittees():
     for valKey in syncSubcommittee(syncCommittee, committeeIdx):
       let validator = node.getAttachedValidator(valKey)
       if isNil(validator) or validator.index.isNone():
@@ -731,7 +731,7 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
   var selectionProofs: seq[Future[ValidatorSig]]
 
   var time = timeIt:
-    for committeeIdx in allSyncCommittees():
+    for committeeIdx in allSyncSubcommittees():
       # TODO Hoist outside of the loop with a view type
       #      to avoid the repeated offset calculations
       for valKey in syncSubcommittee(syncCommittee, committeeIdx):

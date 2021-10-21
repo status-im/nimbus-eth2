@@ -368,11 +368,13 @@ type
     # [New in Altair]
     sync_aggregate*: SyncAggregate
 
+  SyncnetBits* = BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
-    attnets*: BitArray[ATTESTATION_SUBNET_COUNT]
-    syncnets*: BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
+    attnets*: AttnetBits
+    syncnets*: SyncnetBits
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -440,7 +442,7 @@ template `[]`*(a: auto; i: SyncSubcommitteeIndex): auto = a[i.asInt]
 template `==`*(x, y: SyncSubcommitteeIndex): bool =
   distinctBase(x) == distinctBase(y)
 
-iterator allSyncCommittees*: SyncSubcommitteeIndex =
+iterator allSyncSubcommittees*: SyncSubcommitteeIndex =
   for committeeIdx in 0 ..< SYNC_COMMITTEE_SUBNET_COUNT:
     yield SyncSubcommitteeIndex(committeeIdx)
 

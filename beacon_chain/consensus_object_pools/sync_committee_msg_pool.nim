@@ -194,7 +194,7 @@ proc produceSyncAggregateAux(
     initialized = false
     startTime = Moment.now
 
-  for subnetId in allSyncCommittees():
+  for subnetId in allSyncSubcommittees():
     if bestContributions.subnets[subnetId].totalParticipants == 0:
       continue
 
