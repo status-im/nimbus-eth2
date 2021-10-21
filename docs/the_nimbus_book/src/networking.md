@@ -20,7 +20,7 @@ It means that Nimbus was unable to find a sufficient number of peers to guarante
 
 Most commonly, this happens when your computer is not reachable from the outside and therefore won't be able to accept any incoming peer connections.
 
-If you're on a home network, the fix here is to [set up port forwarding](./networking.md#set-up-port-forwarding) (which may require you to [pass the extip option](./networking.md#pass-the-extip-option) and [set enr-auto-update](./networking.md#set-enr-auto-update)).
+If you're on a home network, the fix here is to [set up port forwarding](./networking.md#set-up-port-forwarding) (this may require you to [pass the extip option](./networking.md#pass-the-extip-option) and [set enr-auto-update](./networking.md#set-enr-auto-update)).
 
 The first step however, is to check for incoming connections.
 
@@ -31,6 +31,14 @@ To check if you have incoming connections set, run:
 ```
 curl -s http://localhost:8008/metrics | grep libp2p_open_streams 
 ```
+
+In the output, look for a line that looks like:
+
+```
+libp2p_open_streams{type="ChronosStream",dir="in"}
+```
+
+If there are no `dir=in` chronosstreams , incoming connections are not working.
 
 > **N.B** you need to run the client with the `--metrics` option enabled in order for this to work
 
