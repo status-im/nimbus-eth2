@@ -60,7 +60,7 @@ WRN 2021-03-15 02:23:37.569+00:00 Discovered new external address but ENR auto u
 
 It's possible that your ISP has changed your dynamic IP address without you knowing.
 
-The first thing to do it to try relaunching the beacon node with with `--enr-auto-update:true` (pass it as an option in the command line).
+The first thing to do it to try relaunching the beacon node with `--enr-auto-update` (pass it as an option in the command line).
 
 If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use [https://www.yougetsignal.com/tools/open-ports/](https://www.yougetsignal.com/tools/open-ports/ ).  Note that Nimbus `TCP` and `UDP` ports are both set to `9000` by default.
 
