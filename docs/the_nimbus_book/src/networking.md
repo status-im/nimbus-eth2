@@ -20,7 +20,9 @@ It means that Nimbus was unable to find a sufficient number of peers to guarante
 
 Most commonly, this happens when your computer is not reachable from the outside and therefore won't be able to accept any incoming peer connections.
 
-If you're on a home network, the fix here is to set up port forwarding.
+If you're on a home network, the fix here is to [set up port forwarding](./networking.md#set-up-port-forwarding) (which may require you to [pass the extip option](./networking.md#pass-the-extip-option) and [set enr-auto-update](./networking.md#set-enr-auto-update)).
+
+The first step however, is to check for incoming connections.
 
 ## Check for incoming connections
 
@@ -32,6 +34,20 @@ curl -s http://localhost:8008/metrics | grep libp2p_open_streams
 
 > **N.B** you need to run the client with the `--metrics` option enabled in order for this to work
 
+## Pass the extip option
+If you have a static public IP address, use the `--nat:extip:$EXT_IP_ADDRESS` option to pass it to the client,  where `$EXT_IP_ADDRESS` is your public IP. For example, if your public IP address is `1.2.3.4`, you'd run:
+
+```
+./run-prater-beacon-node.sh --nat:extip:1.2.3.4
+```
+
+> Note that this should also work with a dynamic IP address. But you will probably also need to pass `enr-auto-update` as an option to the client.
+
+## Set enr auto update
+
+The `--enr-auto-update` feature keeps your external IP address up to date based on information received from other peers on the network. This option is useful with ISPs that assign IP addresses dynamically.
+
+In practice this means relaunching the beacon node with `--enr-auto-update:true` (pass it as an option in the command line).
 
 ## Set up port forwarding
 
@@ -92,22 +108,6 @@ ifconfig | grep "inet " | grep -v 127.0.0.1
 
 Use [this tool](https://www.yougetsignal.com/tools/open-ports/) to check your external (public) IP address and detect open ports on your connection (Nimbus TCP and UDP ports are both set to `9000` by default).
 
-
-## Pass the extip option
-If you have a static public IP address, use the `--nat:extip:$EXT_IP_ADDRESS` option to pass it to the client,  where `$EXT_IP_ADDRESS` is your public IP. For example, if your public IP address is `1.2.3.4`, you'd run:
-
-```
-./run-prater-beacon-node.sh --nat:extip:1.2.3.4
-```
-
-> Note that this should also work with a dynamic IP address. But you will probably also need to pass `enr-auto-update` as an option to the client.
-
-## ENR auto update
-
-The `--enr-auto-update` feature keeps your external IP address up to date based on information received from other peers on the network. This option is useful with ISPs that assign IP addresses dynamically.
-
-In practice this means relaunching the beacon node with `--enr-auto-update:true` (pass it as an option in the command line).
-
 ## Reading the logs
 
 `No peers for topic, skipping publish...`
@@ -126,5 +126,5 @@ This message basically means that the software did not manage to find a public I
 
 It's possible that your ISP has changed your IP address without you knowing. The first thing to do it to try relaunching the beacon node with with `--enr-auto-update:true` (pass it as an option in the command line).
 
-If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use [this site](https://www.yougetsignal.com/tools/open-ports/ ).  Note that Nimbus `TCP` and `UDP` ports are both set to `9000` by default. See above for how to set up port forwarding. 
+If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use [this site](https://www.yougetsignal.com/tools/open-ports/ ).  Note that Nimbus `TCP` and `UDP` ports are both set to `9000` by default. See above for how to set up port forwarding.
 
