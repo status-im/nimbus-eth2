@@ -32,3 +32,14 @@ To run it:
 
 *TBC -See [here](https://github.com/jclapis/rp-pi-guide/blob/main/Native.md#monitoring-your-pis-performance) for more*
 
+## Keep an eye on the logs
+
+## Keep an eye on the metrics
+
+## Grafana
+
+## Relevant REST API queries
+
+## External tools
+
+### beaconchain
