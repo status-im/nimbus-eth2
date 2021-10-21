@@ -11,7 +11,6 @@
 import
   std/[strutils, parseutils],
   stew/objects, faststreams/outputs, json_serialization/writer,
-  ../spec/datatypes/base,
   ./codec, ./types, ./navigator
 
 export
