@@ -22,7 +22,7 @@ jobs:
             cpu: amd64
           - os: windows
             cpu: i386
-        branch: [version-1-2, version-1-4, devel]
+        branch: [version-1-2, version-1-4, version-1-6, devel]
         include:
           - target:
               os: linux
@@ -43,7 +43,7 @@ jobs:
 
     name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (Nim ${{ matrix.branch }})'
     runs-on: ${{ matrix.builder }}
-    continue-on-error: ${{ matrix.branch == 'devel' }}
+    continue-on-error: ${{ matrix.branch == 'version-1-6' || matrix.branch == 'devel' }}
     steps:
       - name: Checkout nimbus-eth2
         if: ${{ github.event_name != 'pull_request' }}
