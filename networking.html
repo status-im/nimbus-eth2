@@ -176,10 +176,11 @@
 <p>By default, Nimbus uses UPnP to set up port forwarding and detect your external IP address. If you do not have UPnP enabled, you may need to pass additional command-line options to the node, as detailed below.
 A collection of tips and tricks to help improve your network connectivity.</p>
 <h2><a class="header" href="#monitor-your-peer-count" id="monitor-your-peer-count">Monitor your Peer count</a></h2>
-<p>If your Peer count is low (less than <code>15</code>) and/or you repeatedly see the following warning:</p>
-<pre><code>WRN 2021-05-08 12:59:26.669+00:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; tid=1914 file=eth2_network.nim:963 discovered_nodes=9 new_peers=0 current_peers=1 wanted_peers=160
-</code></pre>
-<p>It means that Nimbus was unable to find a sufficient number of peers to guarantee stable operation, and you may miss attestations and blocks as a result. </p>
+<p>If your Peer count is low (less than <code>15</code>) and/or you repeatedly see either of the following warnings:</p>
+<p><code>Peer count low, no new peers discovered...</code></p>
+<p>or </p>
+<p><code>No peers for topic, skipping publish...</code></p>
+<p>It means that Nimbus is unable to find a sufficient number of peers to guarantee stable operation, and you may miss attestations and blocks as a result. </p>
 <p>Most commonly, this happens when your computer is not reachable from the outside and therefore won't be able to accept any incoming peer connections.</p>
 <p>If you're on a home network, the fix here is to <a href="./networking.html#set-up-port-forwarding">set up port forwarding</a> (this may require you to <a href="./networking.html#pass-the-extip-option">pass the extip option</a> and <a href="./networking.html#set-enr-auto-update">set enr-auto-update</a>).</p>
 <p>The first step however, is to check for incoming connections.</p>

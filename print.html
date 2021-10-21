@@ -228,7 +228,7 @@
 <p><strong>Internet:</strong> Reliable broadband connection</p>
 <hr />
 <p>Note that in order to process incoming validator deposits from the eth1 chain, you will need to run an eth1 client in parallel to your eth2 client. While it is possible to use a third-party service like <a href="/infura-guide.html">Infura</a>, if you choose to run your own eth1 client locally, you'll need more memory and storage.</p>
-<p>For example, you'll need at least another <strong>290GB SSD</strong> to run <a href="/eth1.html">geth fast sync</a> on mainnet.</p>
+<p>For example, you'll need at least another <strong>500GB SSD</strong> to run <a href="/eth1.html">geth fast sync</a> on mainnet.</p>
 <p>To future proof your setup we recommend a <strong>1TB SSD</strong>.</p>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/hardware.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#mainnet-checklist" id="mainnet-checklist">Mainnet checklist</a></h1>
 <h2><a class="header" href="#latest-software" id="latest-software">Latest software</a></h2>
@@ -989,6 +989,12 @@ nextActionWait=4m35s874ms405us837ns
 </code></pre>
 <p>To run it:</p>
 <p><em>TBC -See <a href="https://github.com/jclapis/rp-pi-guide/blob/main/Native.md#monitoring-your-pis-performance">here</a> for more</em></p>
+<h2><a class="header" href="#keep-an-eye-on-the-logs" id="keep-an-eye-on-the-logs">Keep an eye on the logs</a></h2>
+<h2><a class="header" href="#keep-an-eye-on-the-metrics" id="keep-an-eye-on-the-metrics">Keep an eye on the metrics</a></h2>
+<h2><a class="header" href="#grafana" id="grafana">Grafana</a></h2>
+<h2><a class="header" href="#relevant-rest-api-queries" id="relevant-rest-api-queries">Relevant REST API queries</a></h2>
+<h2><a class="header" href="#external-tools" id="external-tools">External tools</a></h2>
+<h3><a class="header" href="#beaconchain" id="beaconchain">beaconchain</a></h3>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/health.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#network-setup" id="network-setup">Network setup</a></h1>
 <p>Nimbus will automatically connect to peers based on the health and quality of peers that it's already connected to. Depending on the network and the number of validators attached to the the node, Nimbus may need anywhere from 10 to 60 peers connected to operate well.</p>
 <p>In addition to making outgoing connections, the beacon node node works best when others can connect to the node - this speeds up the process of finding good peers.</p>
@@ -996,10 +1002,11 @@ nextActionWait=4m35s874ms405us837ns
 <p>By default, Nimbus uses UPnP to set up port forwarding and detect your external IP address. If you do not have UPnP enabled, you may need to pass additional command-line options to the node, as detailed below.
 A collection of tips and tricks to help improve your network connectivity.</p>
 <h2><a class="header" href="#monitor-your-peer-count" id="monitor-your-peer-count">Monitor your Peer count</a></h2>
-<p>If your Peer count is low (less than <code>15</code>) and/or you repeatedly see the following warning:</p>
-<pre><code>WRN 2021-05-08 12:59:26.669+00:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; tid=1914 file=eth2_network.nim:963 discovered_nodes=9 new_peers=0 current_peers=1 wanted_peers=160
-</code></pre>
-<p>It means that Nimbus was unable to find a sufficient number of peers to guarantee stable operation, and you may miss attestations and blocks as a result. </p>
+<p>If your Peer count is low (less than <code>15</code>) and/or you repeatedly see either of the following warnings:</p>
+<p><code>Peer count low, no new peers discovered...</code></p>
+<p>or </p>
+<p><code>No peers for topic, skipping publish...</code></p>
+<p>It means that Nimbus is unable to find a sufficient number of peers to guarantee stable operation, and you may miss attestations and blocks as a result. </p>
 <p>Most commonly, this happens when your computer is not reachable from the outside and therefore won't be able to accept any incoming peer connections.</p>
 <p>If you're on a home network, the fix here is to <a href="./networking.html#set-up-port-forwarding">set up port forwarding</a> (this may require you to <a href="./networking.html#pass-the-extip-option">pass the extip option</a> and <a href="./networking.html#set-enr-auto-update">set enr-auto-update</a>).</p>
 <p>The first step however, is to check for incoming connections.</p>
