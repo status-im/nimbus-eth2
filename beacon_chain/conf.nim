@@ -296,18 +296,18 @@ type
         name: "rpc-address" }: ValidIpAddress
 
       restEnabled* {.
-        desc: "Enable the REST (BETA version) server"
+        desc: "Enable the REST server"
         defaultValue: false
         name: "rest" }: bool
 
       restPort* {.
-        desc: "Port for the REST (BETA version) server"
+        desc: "Port for the REST server"
         defaultValue: DefaultEth2RestPort
         defaultValueDesc: "5052"
         name: "rest-port" }: Port
 
       restAddress* {.
-        desc: "Listening address of the REST (BETA version) server"
+        desc: "Listening address of the REST server"
         defaultValue: defaultAdminListenAddress
         defaultValueDesc: "127.0.0.1"
         name: "rest-address" }: ValidIpAddress
