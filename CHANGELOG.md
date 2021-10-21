@@ -1,4 +1,37 @@
-2021-10-04 v1.5.1
+2021-10-21 v1.5.2
+=================
+
+Nimbus `v1.5.2` is a `high-urgency` release for all users who haven't yet upgraded to the `v1.5.x` series
+which add support for the upcoming beacon chain Altair hard-fork.
+
+Please upgrade as soon as possible - **before the 27th of October**.
+
+For users already running `v1.5.1`, the release brings a number of important bug fixes and optimizations
+and upgrading is still highly recommended.
+
+## Notable changes
+
+### Improvements:
+
+* Faster ramp up of peers when starting the beacon node.
+
+* Added new metrics for keeping track of dropped gossip messages:
+
+  https://github.com/status-im/nimbus-eth2/commit/bf6ad41d7dfd0899527a0374009a3fcf2a32361b
+
+* The run-*-node.sh scripts provided in out Github repository will now enable the
+  --rest and --metrics options by default.
+
+### We've fixed:
+
+* Potential crashes triggered by certain JSON-RPC and REST API requests.
+
+* Unnecessary source of syncing time when the beacon node is restarted after the Altair transition.
+
+* Certain non spec-compliant responses of the REST API.
+
+
+2021-10-11 v1.5.1
 =================
 
 Nimbus `v1.5.1` is a `high-urgency` release for all users who have already upgraded to `v1.5.0`. It fixes a deposit contract syncing issue manifesting as the warning message "Eth1 chain not synced". Under specific circumstances, such a failure to sync the Eth1 chain may result in missed Eth2 block proposals, so affected users are advised to upgrade as soon as possible.
