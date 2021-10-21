@@ -42,7 +42,6 @@ If you're running on a home network and want to ensure you are able to receive i
 
 While the specific steps required vary based on your router, they can be summarised as follows:
 
-
 1. Determine your [public IP address](./networking.md#determine-your-public-ip-address)
 2. Determine your [private IP address](./networking.md#determine-your-private-ip-address)
 3. Browse to the management website for your home router (typically [http://192.168.1.1](http://192.168.1.1))
@@ -90,6 +89,7 @@ ifconfig | grep "inet " | grep -v 127.0.0.1
 ```
 
 ### Check open ports on your connection
+
 Use [this tool](https://www.yougetsignal.com/tools/open-ports/) to check your external (public) IP address and detect open ports on your connection (Nimbus TCP and UDP ports are both set to `9000` by default).
 
 
