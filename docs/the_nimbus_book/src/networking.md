@@ -88,7 +88,7 @@ ipconfig | findstr /i "IPv4 Address"
 ifconfig | grep "inet " | grep -v 127.0.0.1
 ```
 
-### Check open ports on your connection
+## Check open ports on your connection
 
 Use [this tool](https://www.yougetsignal.com/tools/open-ports/) to check your external (public) IP address and detect open ports on your connection (Nimbus TCP and UDP ports are both set to `9000` by default).
 
@@ -104,12 +104,19 @@ If you have a static public IP address, use the `--nat:extip:$EXT_IP_ADDRESS` op
 
 ## ENR auto update
 
-
 The `--enr-auto-update` feature keeps your external IP address up to date based on information received from other peers on the network. This option is useful with ISPs that assign IP addresses dynamically.
 
 In practice this means relaunching the beacon node with `--enr-auto-update:true` (pass it as an option in the command line).
 
 ## Reading the logs
+
+`No peers for topic, skipping publish...`
+
+This is printed when the client lacks quality peers to publish attestations to - this is the most important indication that the node is having trouble keeping up. If you see this, you are missing attestations.
+
+`Peer count low, no new peers discovered...` 
+
+This is a sign that you may be missing attestations.
 
 `No external IP provided for the ENR...`
 
@@ -119,6 +126,5 @@ This message basically means that the software did not manage to find a public I
 
 It's possible that your ISP has changed your IP address without you knowing. The first thing to do it to try relaunching the beacon node with with `--enr-auto-update:true` (pass it as an option in the command line).
 
-If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use [this site](https://www.yougetsignal.com/tools/open-ports/ ).  Note that Nimbus `TCP` and `UDP` ports are both set to `9000` by default. See above for how to set up port forwarding.
-
+If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use [this site](https://www.yougetsignal.com/tools/open-ports/ ).  Note that Nimbus `TCP` and `UDP` ports are both set to `9000` by default. See above for how to set up port forwarding. 
 
