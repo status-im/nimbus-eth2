@@ -94,14 +94,15 @@ Use [this tool](https://www.yougetsignal.com/tools/open-ports/) to check your ex
 
 
 ## Pass the extip option
-
-If you're still experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing `--nat:extip:$EXT_IP_ADDRESS` as an option to the client,  where `$EXT_IP_ADDRESS` is your real IP. For example, if your real IP address is `35.124.65.104`, you'd run:
+If you have a static public IP address, use the `--nat:extip:$EXT_IP_ADDRESS` option to pass it to the client,  where `$EXT_IP_ADDRESS` is your public IP. For example, if your public IP address is `1.2.3.4`, you'd run:
 
 ```
-./run-prater-beacon-node.sh --nat:extip:35.124.65.104
+./run-prater-beacon-node.sh --nat:extip:1.2.3.4
 ```
 
-## ENR auto update = true
+> Note that this should also work with a dynamic IP address. But you will probably also need to pass `enr-auto-update` as an option to the client.
+
+## ENR auto update
 
 
 The `--enr-auto-update` feature keeps your external IP address up to date based on information received from other peers on the network. This option is useful with ISPs that assign IP addresses dynamically.
