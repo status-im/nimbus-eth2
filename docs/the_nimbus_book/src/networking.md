@@ -95,7 +95,8 @@ If you're still experiencing a low peer count, you may be behind a firewall. Try
 
 ## ENR auto update = true
 
-Additionally you can turn on `--enr-auto-update` to allow discovery to keep your external IP address up to date based on information received from peers.
+
+The `--enr-auto-update` feature keeps your external IP address up to date based on information received from other peers on the network. This option is useful with ISPs that assign IP addresses dynamically.
 
 In practice this means relaunching the beacon node with `--enr-auto-update:true` (pass it as an option in the command line).
 
