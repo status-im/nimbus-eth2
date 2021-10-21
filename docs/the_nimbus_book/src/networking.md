@@ -1,6 +1,13 @@
 # Network setup
 
 
+Nimbus will automatically connect to peers based on the health and quality of peers that it's already connected to. Depending on the network and the number of validators attached to the the node, Nimbus may need anywhere from 10 to 60 peers connected to operate well.
+
+In addition to making outgoing connections, the beacon node node works best when others can connect to the node - this speeds up the process of finding good peers.
+
+To allow incoming connections, the peer must be reachable via a public IP address.
+
+By default, Nimbus uses UPnP to set up port forwarding and detect your external IP address. If you do not have UPnP enabled, you may need to pass additional command-line options to the node, as detailed below.
 A collection of tips and tricks to help improve your network connectivity.
 
 ## Monitor your Peer count
