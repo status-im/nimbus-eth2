@@ -7,8 +7,8 @@
 
 import
   macros,
-  ../../beacon_chain/spec/datatypes/base,
-  ../../beacon_chain/ssz/types
+  ssz_serialization/types,
+  ../../beacon_chain/spec/datatypes/base
   # digest is necessary for them to be printed as hex
 
 export base.`==`

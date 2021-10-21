@@ -33,7 +33,7 @@ import
 import ./base, ./phase0
 export base
 
-from ../../ssz/merkleization import GeneralizedIndex
+from ssz_serialization/merkleization import GeneralizedIndex
 export merkleization.GeneralizedIndex
 
 const

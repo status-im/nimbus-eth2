@@ -27,9 +27,9 @@ import
   # Nimble packages
   stew/byteutils,
   json_rpc/jsonmarshal,
+  ssz_serialization/types,
 
   # Local modules
-  ../../ssz/types,
   ../datatypes/base
 
 export jsonmarshal, base

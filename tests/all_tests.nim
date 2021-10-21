@@ -12,12 +12,10 @@ import
   ./testutil
 
 import # Unit test
-  ./ssz/all_tests as ssz_all_tests,
   ./test_action_tracker,
   ./test_attestation_pool,
   ./test_beacon_chain_db,
   ./test_beaconstate,
-  ./test_bitseqs,
   ./test_block_pool,
   ./test_datatypes,
   ./test_discovery,

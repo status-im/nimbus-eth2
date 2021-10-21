@@ -11,8 +11,8 @@
 # ssz_serialization directly! To bypass root updates, use `readSszBytes`
 # without involving SSZ!
 import
+  ssz_serialization,
   ./ssz_codec,
-  ../ssz/ssz_serialization,
   ./datatypes/[phase0, altair, merge],
   ./eth2_merkleization
 
