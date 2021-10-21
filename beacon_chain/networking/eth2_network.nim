@@ -92,7 +92,7 @@ type
 
   Peer* = ref object
     network*: Eth2Node
-    info*: PeerInfo
+    peerId*: PeerId
     discoveryId*: Eth2DiscoveryId
     connectionState*: ConnectionState
     protocolStates*: seq[RootRef]
@@ -309,12 +309,12 @@ const
 
 template libp2pProtocol*(name: string, version: int) {.pragma.}
 
-func shortLog*(peer: Peer): string = shortLog(peer.info.peerId)
+func shortLog*(peer: Peer): string = shortLog(peer.peerId)
 chronicles.formatIt(Peer): shortLog(it)
 chronicles.formatIt(PublicKey): byteutils.toHex(it.getBytes().tryGet())
 
 template remote*(peer: Peer): untyped =
-  peer.info.peerId
+  peer.peerId
 
 proc openStream(node: Eth2Node,
                 peer: Peer,
@@ -325,16 +325,11 @@ proc openStream(node: Eth2Node,
   let
     protocolId = protocolId & "ssz_snappy"
     conn = await dial(
-      node.switch, peer.info.peerId, protocolId)
-
-  # libp2p may replace peerinfo ref sometimes, so make sure we have a recent
-  # one
-  if conn.peerInfo != nil:
-    peer.info = conn.peerInfo
+      node.switch, peer.peerId, protocolId)
 
   return conn
 
-proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer {.gcsafe.}
+proc init*(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
 
 func peerId*(node: Eth2Node): PeerID =
   node.switch.peerInfo.peerId
@@ -346,15 +341,15 @@ proc getPeer*(node: Eth2Node, peerId: PeerID): Peer =
   node.peers.withValue(peerId, peer) do:
     return peer[]
   do:
-    let peer = Peer.init(node, PeerInfo.init(peerId))
+    let peer = Peer.init(node, peerId)
     return node.peers.mgetOrPut(peerId, peer)
 
 proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
-  result = network.getPeer(conn.peerInfo.peerId)
-  result.info = conn.peerInfo
+  result = network.getPeer(conn.peerId)
+  result.peerId = conn.peerId
 
 proc getKey*(peer: Peer): PeerID {.inline.} =
-  peer.info.peerId
+  peer.peerId
 
 proc getFuture*(peer: Peer): Future[void] {.inline.} =
   if isNil(peer.disconnectedFut):
@@ -473,11 +468,11 @@ proc disconnect*(peer: Peer, reason: DisconnectionReason,
           SeenTableTimeFaultOrError
         of PeerScoreLow:
           SeenTablePenaltyError
-      peer.network.addSeen(peer.info.peerId, seenTime)
-      await peer.network.switch.disconnect(peer.info.peerId)
+      peer.network.addSeen(peer.peerId, seenTime)
+      await peer.network.switch.disconnect(peer.peerId)
   except CatchableError:
     # We do not care about exceptions in disconnection procedure.
-    trace "Exception while disconnecting peer", peer = peer.info.peerId,
+    trace "Exception while disconnecting peer", peer = peer.peerId,
                                                 reason = reason
 
 include eth/p2p/p2p_backends_helpers
@@ -997,7 +992,7 @@ proc trimConnections(node: Eth2Node, count: int) {.async.} =
       stabilitySubnetsCount = stabilitySubnets.countOnes()
       thisPeersScore = 10 * stabilitySubnetsCount
 
-    scores[peer.info.peerId] = thisPeersScore
+    scores[peer.peerId] = thisPeersScore
 
   # Split a 1000 points for each topic's peers
   # This gives priority to peers in topics with few peers
@@ -1181,13 +1176,13 @@ proc resolvePeer(peer: Peer) =
   # ENR using discovery5. We only resolve ENR for peers we know about to avoid
   # querying the network - as of now, the ENR is not needed, except for
   # debuggging
-  logScope: peer = peer.info.peerId
+  logScope: peer = peer.peerId
   let startTime = now(chronos.Moment)
   let nodeId =
     block:
       var key: PublicKey
       # `secp256k1` keys are always stored inside PeerID.
-      discard peer.info.peerId.extractPublicKey(key)
+      discard peer.peerId.extractPublicKey(key)
       keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
 
   debug "Peer's ENR recovery task started", node_id = $nodeId
@@ -1364,8 +1359,8 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
         msg.protocolMounter node
 
 
-  proc peerHook(peerInfo: PeerInfo, event: ConnEvent): Future[void] {.gcsafe.} =
-    onConnEvent(node, peerInfo.peerId, event)
+  proc peerHook(peerId: PeerId, event: ConnEvent): Future[void] {.gcsafe.} =
+    onConnEvent(node, peerId, event)
 
   switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
   switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
@@ -1437,9 +1432,9 @@ proc stop*(node: Eth2Node) {.async.} =
     trace "Eth2Node.stop(): timeout reached", timeout,
       futureErrors = waitedFutures.filterIt(it.error != nil).mapIt(it.error.msg)
 
-proc init*(T: type Peer, network: Eth2Node, info: PeerInfo): Peer =
+proc init*(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
   let res = Peer(
-    info: info,
+    peerId: peerId,
     network: network,
     connectionState: ConnectionState.None,
     lastReqTime: now(chronos.Moment),
@@ -1620,7 +1615,7 @@ proc peerPingerHeartbeat(node: Eth2Node) {.async.} =
 
       if peer.metadata.isNone or
         heartbeatStart_m - peer.lastMetadataTime > MetadataRequestFrequency:
-        updateFutures.add(node.updatePeerMetadata(peer.info.peerId))
+        updateFutures.add(node.updatePeerMetadata(peer.peerId))
 
     discard await allFinished(updateFutures)
 
@@ -1666,7 +1661,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
         quit QuitFailure
       let
         privKey = res.get()
-        pubKey = privKey.getKey().expect("working public key from random")
+        pubKey = privKey.getPublicKey().expect("working public key from random")
         pres = PeerID.init(pubKey)
       if pres.isErr():
         fatal "Could not obtain PeerID from network key"
@@ -1697,7 +1692,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
           quit QuitFailure
         let
           privKey = res.get()
-          pubKey = privKey.getKey().expect("working public key from file")
+          pubKey = privKey.getPublicKey().expect("working public key from file")
         info "Network key storage was successfully unlocked",
              key_path = keyPath, network_public_key = pubKey
         NetKeyPair(seckey: privKey, pubkey: pubKey)
@@ -1711,7 +1706,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 
         let
           privKey = rres.get()
-          pubKey = privKey.getKey().expect("working public key from random")
+          pubKey = privKey.getPublicKey().expect("working public key from random")
 
         # Insecure password used only for automated testing.
         let insecurePassword =
@@ -1747,7 +1742,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 
     let
       privKey = rres.get()
-      pubKey = privKey.getKey().expect("working public key from random")
+      pubKey = privKey.getPublicKey().expect("working public key from random")
 
     # Insecure password used only for automated testing.
     let insecurePassword =
@@ -1773,7 +1768,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 
     let
       privKey = res.get()
-      pubKey = privKey.getKey().expect("working public key from random")
+      pubKey = privKey.getPublicKey().expect("working public key from random")
     NetKeyPair(seckey: privKey, pubkey: pubKey)
 
 func gossipId(data: openArray[byte], topic: string, valid: bool): seq[byte] =
