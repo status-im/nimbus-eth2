@@ -10,7 +10,7 @@
 
 import
   std/[typetraits],
-  ../ssz/codec,
+  ssz_serialization/codec,
   ../spec/datatypes/[phase0, altair],
   ./eth2_merkleization
 

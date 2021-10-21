@@ -10,8 +10,8 @@
 # Import this module to get access to `hash_tree_root` for spec types
 
 import
+  ssz_serialization/merkleization,
   ./ssz_codec,
-  ../ssz/merkleization,
   ./datatypes/[phase0, altair]
 
 export ssz_codec, merkleization

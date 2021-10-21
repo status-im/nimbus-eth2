@@ -14,7 +14,7 @@ import
   web3/[ethtypes, conversions],
   chronicles,
   eth/common/eth_types_json_serialization,
-  ../ssz/[navigator],
+  ssz_serialization/navigator,
   ../spec/eth2_ssz_serialization,
   ../spec/datatypes/phase0
 

@@ -35,7 +35,8 @@ import
   stew/[assign2, byteutils],
   chronicles,
   chronos/timer,
-  ../../version, ../../ssz/types as sszTypes,
+  ssz_serialization/types as sszTypes,
+  ../../version,
   ".."/[crypto, digest, presets]
 
 export
