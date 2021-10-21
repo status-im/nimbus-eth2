@@ -37,7 +37,7 @@ While the specific steps required vary based on your router, they can be summari
 
 1. Determine your [public IP address](./health.md#public-ip-address)
 2. Determine your [private IP address](./health.html#private-ip-address)
-3. Browse to the management website for your home router (typically [http://192.168.1.1)](http://192.168.1.1)
+3. Browse to the management website for your home router (typically [http://192.168.1.1](http://192.168.1.1))
 4. Log in as admin / root
 5. Find the section to configure port forwarding
 6. Configure a port forwarding rule with the following values:
