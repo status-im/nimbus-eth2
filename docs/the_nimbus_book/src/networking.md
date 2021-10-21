@@ -11,12 +11,15 @@ A collection of tips and tricks to help improve your network connectivity.
 
 ## Monitor your Peer count
 
-If your Peer count is low (less than `15`) and/or you repeatedly see the following warning:
-```
-WRN 2021-05-08 12:59:26.669+00:00 Peer count low, no new peers discovered    topics="networking" tid=1914 file=eth2_network.nim:963 discovered_nodes=9 new_peers=0 current_peers=1 wanted_peers=160
-```
+If your Peer count is low (less than `15`) and/or you repeatedly see either of the following warnings:
 
-It means that Nimbus was unable to find a sufficient number of peers to guarantee stable operation, and you may miss attestations and blocks as a result. 
+`Peer count low, no new peers discovered...`
+
+or 
+
+`No peers for topic, skipping publish...`
+
+It means that Nimbus is unable to find a sufficient number of peers to guarantee stable operation, and you may miss attestations and blocks as a result. 
 
 Most commonly, this happens when your computer is not reachable from the outside and therefore won't be able to accept any incoming peer connections.
 
