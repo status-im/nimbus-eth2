@@ -91,7 +91,7 @@ type
   ProtoArray* = object
     justifiedEpoch*: Epoch
     finalizedEpoch*: Epoch
-    nodes*: Protonodes
+    nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
 
   ProtoNode* = object

@@ -108,12 +108,14 @@ proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: Slot): FcResult[void
       return err ForkChoiceError(
         kind: fcJustifiedNodeUnknown,
         blockRoot: self.best_justified.root)
-
-    let epochRef = dag.getEpochRef(blck, self.best_justified.epoch)
-    self.justified = BalanceCheckpoint(
-      blck: blck,
-      epoch: epochRef.epoch,
-      balances: epochRef.effective_balances)
+    
+    let ancestor = blck.atEpochStart(self.finalized.epoch)
+    if ancestor.blck.root == self.finalized.root:
+      let epochRef = dag.getEpochRef(blck, self.best_justified.epoch)
+      self.justified = BalanceCheckpoint(
+        blck: blck,
+        epoch: epochRef.epoch,
+        balances: epochRef.effective_balances)
   ok()
 
 func process_attestation_queue(self: var ForkChoice) {.gcsafe.}
