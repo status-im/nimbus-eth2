@@ -1,6 +1,5 @@
 # Network setup
 
-
 Nimbus will automatically connect to peers based on the health and quality of peers that it's already connected to. Depending on the network and the number of validators attached to the the node, Nimbus may need anywhere from 10 to 60 peers connected to operate well.
 
 In addition to making outgoing connections, the beacon node node works best when others can connect to the node - this speeds up the process of finding good peers.
@@ -44,8 +43,8 @@ If you're running on a home network and want to ensure you are able to receive i
 While the specific steps required vary based on your router, they can be summarised as follows:
 
 
-1. Determine your [public IP address](./health.md#public-ip-address)
-2. Determine your [private IP address](./health.html#private-ip-address)
+1. Determine your [public IP address](./networking.md#determine-your-public-ip-address)
+2. Determine your [private IP address](./networking.md#determine-your-private-ip-address)
 3. Browse to the management website for your home router (typically [http://192.168.1.1](http://192.168.1.1))
 4. Log in as admin / root
 5. Find the section to configure port forwarding
