@@ -6,7 +6,7 @@
 
 import
   std/[sequtils],
-  stew/[results, base10],
+  stew/results,
   chronicles,
   libp2p/[multiaddress, multicodec, peerstore],
   libp2p/protocols/pubsub/pubsubpeer,
@@ -15,6 +15,9 @@ import
   ../validators/validator_duties,
   ../spec/forks,
   ../beacon_node, ../nimbus_binary_common
+
+when defined(chronosFutureTracking):
+  import stew/base10
 
 logScope: topics = "rest_nimbusapi"
 

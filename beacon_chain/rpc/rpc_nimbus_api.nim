@@ -10,7 +10,7 @@
 import
   std/[deques, sequtils, sets],
   chronos,
-  stew/[byteutils, base10],
+  stew/byteutils,
   json_rpc/servers/httpserver,
   libp2p/protocols/pubsub/pubsubpeer,
 
@@ -20,6 +20,9 @@ import
   ../spec/datatypes/base,
   ../spec/[forks],
   ./rpc_utils
+
+when defined(chronosFutureTracking):
+  import stew/base10
 
 logScope: topics = "nimbusapi"
 
