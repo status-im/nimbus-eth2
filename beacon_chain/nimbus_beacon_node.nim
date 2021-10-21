@@ -98,6 +98,8 @@ declareGauge next_action_wait,
 declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
 versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
 
+declareGauge network_name, "network name", ["name"]
+
 logScope: topics = "beacnde"
 
 const SlashingDbName = "slashing_protection"
@@ -1488,6 +1490,7 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
     quit 1
 
 proc loadEth2Network(config: BeaconNodeConf): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
+  network_name.set(2, labelValues = [config.eth2Network.get(otherwise = "mainnet")])
   if config.eth2Network.isSome:
     getMetadataForNetwork(config.eth2Network.get)
   else:
