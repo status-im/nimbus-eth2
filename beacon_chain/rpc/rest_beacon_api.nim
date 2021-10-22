@@ -287,22 +287,23 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         block:
           var res: seq[RestValidator]
           if len(indices) == 0:
-            # There is no indices, so we going to filter all the validators.
-            for index, validator in getStateField(stateData.data,
-                                                  validators).pairs():
-              let
-                balance = getStateField(stateData.data, balances)[index]
-                status =
-                  block:
-                    let sres = validator.getStatus(current_epoch)
-                    if sres.isErr():
-                      return RestApiResponse.jsonError(Http400,
-                                                   ValidatorStatusNotFoundError,
-                                                   $sres.get())
-                    sres.get()
-              if status in validatorsMask:
-                res.add(RestValidator.init(ValidatorIndex(index), balance,
-                                           toString(status), validator))
+            if len(validatorIds) == 0: # Return nothing if we were given missing keys
+              # There is no indices, so we going to filter all the validators.
+              for index, validator in getStateField(stateData.data,
+                                                    validators).pairs():
+                let
+                  balance = getStateField(stateData.data, balances)[index]
+                  status =
+                    block:
+                      let sres = validator.getStatus(current_epoch)
+                      if sres.isErr():
+                        return RestApiResponse.jsonError(Http400,
+                                                    ValidatorStatusNotFoundError,
+                                                    $sres.get())
+                      sres.get()
+                if status in validatorsMask:
+                  res.add(RestValidator.init(ValidatorIndex(index), balance,
+                                            toString(status), validator))
           else:
             for index in indices:
               let

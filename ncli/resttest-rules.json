@@ -977,6 +977,19 @@
     }
   },
   {
+    "topics": ["beacon", "states_validators"],
+    "comment": "Missing validator ID",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000dead",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": []}]
+    }
+  },
+  {
     "topics": ["beacon", "states_validatorid"],
     "comment": "Correct ValidatorIndex value",
     "request": {
