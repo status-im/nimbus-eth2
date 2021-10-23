@@ -227,8 +227,8 @@ endif
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 	for TEST_BINARY in $(TEST_BINARIES); do \
 		PARAMS=""; \
-		if [[ "$${TEST_BINARY}" == "state_sim" ]]; then PARAMS="--validators=8000 --slots=160"; \
-		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=8000 --slots=160"; \
+		if [[ "$${TEST_BINARY}" == "state_sim" ]]; then PARAMS="--validators=8000 --slots=224"; \
+		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=8000 --slots=224"; \
 		fi; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
 		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Aborting."; exit 1; }; \

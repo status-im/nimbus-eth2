@@ -8,6 +8,7 @@
 {.push raises: [Defect].}
 
 import
+  chronos,
   std/[options, sequtils, tables, sets],
   stew/[assign2, byteutils, results],
   metrics, snappy, chronicles,
@@ -16,6 +17,12 @@ import
   ../spec/datatypes/[phase0, altair],
   ".."/beacon_chain_db,
   "."/[block_pools_types, block_quarantine]
+
+import stint
+import stint/endians2
+
+import web3/[engine_api, ethtypes]
+import ../eth1/eth1_monitor   # for asBlockHash only
 
 export
   eth2_merkleization, eth2_ssz_serialization,
@@ -550,7 +557,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         link(tailRef, curRef)
         curRef = curRef.parent
     else:
-      let newRef = BlockRef.init(blck.root, blck.summary.slot)
+      let newRef = BlockRef.init(blck.root, Eth2Digest(), blck.summary.slot)
       if curRef == nil:
         curRef = newRef
         headRef = newRef
@@ -1732,3 +1739,46 @@ proc getBlockSSZ*(dag: ChainDAGRef, id: BlockId, bytes: var seq[byte]): bool =
 
 func needsBackfill*(dag: ChainDAGRef): bool =
   dag.backfill.slot > dag.genesis.slot
+
+proc newExecutionPayload*(
+    web3Provider: auto, executionPayload: merge.ExecutionPayload):
+    Future[string] {.async.} =
+  debug "executePayload: inserting block into execution engine",
+    parent_hash = executionPayload.parent_hash,
+    block_hash = executionPayload.block_hash
+  template getTypedTransaction(t: Transaction): TypedTransaction =
+    TypedTransaction(t.distinctBase)
+  let rpcExecutionPayload = (ref engine_api.ExecutionPayloadV1)(
+    parentHash: executionPayload.parent_hash.asBlockHash,
+    feeRecipient: Address(executionPayload.feeRecipient.data),
+    stateRoot: executionPayload.state_root.asBlockHash,
+    receiptsRoot: executionPayload.receipts_root.asBlockHash,
+    logsBloom: FixedBytes[256](executionPayload.logs_bloom.data),
+    random: executionPayload.random.asBlockHash,
+    blockNumber: Quantity(executionPayload.block_number),
+    gasLimit: Quantity(executionPayload.gas_limit),
+    gasUsed: Quantity(executionPayload.gas_used),
+    timestamp: Quantity(executionPayload.timestamp),
+    extraData: DynamicBytes[0, 32](executionPayload.extra_data),
+
+    # TODO x86 and the usual ARM ABIs are all little-endian, so this matches
+    # the spec coincidentally, but it's unportable
+    baseFeePerGas:
+      UInt256.fromBytes(executionPayload.base_fee_per_gas.data),
+
+    blockHash: executionPayload.block_hash.asBlockHash,
+    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction))
+  try:
+    let payloadStatus =
+      await(web3Provider.executePayload(rpcExecutionPayload[])).status
+    if payloadStatus notin ["VALID", "INVALID", "SYNCING"]:
+      # TODO use a constrained abstraction; the nim-web3 attempt to create such
+      # didn't work
+      debug "newExecutionPayload: invalid status from execution layer",
+        payloadStatus
+      return "INVALID"
+
+    return payloadStatus
+  except CatchableError as err:
+    debug "newExecutionPayload failed", msg = err.msg
+    return "INVALID"

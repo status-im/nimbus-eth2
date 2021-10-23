@@ -18,9 +18,12 @@ import
     spec_cache],
   ./consensus_manager,
   ".."/[beacon_clock],
-  ../sszdump
+  ../sszdump,
+  ../eth1/eth1_monitor
 
 export sszdump, signatures_batch
+
+import web3/engine_api_types
 
 # Block Processor
 # ------------------------------------------------------------------------------
@@ -69,6 +72,7 @@ type
     # ----------------------------------------------------------------
     consensusManager: ref ConsensusManager
       ## Blockchain DAG, AttestationPool and Quarantine
+      ## Blockchain DAG, AttestationPool, Quarantine, and Eth1Manager
     validatorMonitor: ref ValidatorMonitor
     getBeaconTime: GetBeaconTimeFn
 
@@ -326,4 +330,67 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
 
     discard await idleAsync().withTimeout(idleTimeout)
 
-    self[].processBlock(await self[].blockQueue.popFirst())
+    let
+      blck = await self[].blockQueue.popFirst()
+      hasExecutionPayload = blck.blck.kind >= BeaconBlockFork.Merge
+      executionPayloadStatus =
+        if  hasExecutionPayload and
+            # Allow local testnets to run without requiring an execution layer
+            blck.blck.mergeData.message.body.execution_payload !=
+              default(merge.ExecutionPayload):
+          try:
+            await newExecutionPayload(
+              self.consensusManager.web3Provider,
+              blck.blck.mergeData.message.body.execution_payload)
+          except CatchableError as err:
+            info "runQueueProcessingLoop: newExecutionPayload failed",
+              err = err.msg
+            "SYNCING"
+        else:
+          # Vacuously
+          "VALID"
+
+    # TODO enum
+    doAssert executionPayloadStatus in ["INVALID", "SYNCING", "VALID"]
+
+    info "FOO4",
+      executionPayloadStatus
+
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.5/src/engine/specification.md#specification
+    # "Client software MUST discard the payload if it's deemed invalid."
+    # TODO feed this back into gossip scoring
+    if  executionPayloadStatus != "INVALID" and self[].processBlock(blck) and
+        hasExecutionPayload:
+      # TODO should never be fcUpdating with 0's
+      let
+        terminalBlockHash =
+          default(Eth2Digest)
+        headBlockRoot =
+          if self.consensusManager.dag.head.executionBlockRoot != default(Eth2Digest):
+            self.consensusManager.dag.head.executionBlockRoot
+          else:
+            terminalBlockHash
+        finalizedBlockRoot =
+          if self.consensusManager.dag.finalizedHead.blck.executionBlockRoot != default(Eth2Digest):
+            self.consensusManager.dag.finalizedHead.blck.executionBlockRoot
+          else:
+            terminalBlockHash
+
+      info "FOO14",
+        headBlockRoot,
+        finalizedBlockRoot,
+        block_hash = blck.blck.mergeData.message.body.execution_payload.block_hash,
+        parent_hash = blck.blck.mergeData.message.body.execution_payload.parent_hash,
+        executionPayloadStatus
+
+      if headBlockRoot != default(Eth2Digest):
+        info "FOO15",
+          headBlockRoot,
+          finalizedBlockRoot
+
+        try:
+          discard await forkchoiceUpdated(
+            self.consensusManager.web3Provider, headBlockRoot, finalizedBlockRoot)
+        except CatchableError as err:
+          # TODO log error
+          discard

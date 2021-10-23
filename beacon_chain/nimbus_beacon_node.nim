@@ -253,6 +253,7 @@ proc init*(T: type BeaconNode,
         let eth1MonitorRes = waitFor Eth1Monitor.init(
           cfg,
           db,
+          nil,
           config.web3Urls,
           getDepositContractSnapshot(),
           eth1Network,
@@ -357,8 +358,10 @@ proc init*(T: type BeaconNode,
             dataDir = config.dataDir
       quit 1
 
-  let beaconClock = BeaconClock.init(
-    getStateField(dag.headState.data, genesis_time))
+  let
+    beaconClock = BeaconClock.init(
+      getStateField(dag.headState.data, genesis_time))
+    getBeaconTime = beaconClock.getBeaconTimeFn()
 
   if config.weakSubjectivityCheckpoint.isSome:
     let
@@ -380,6 +383,7 @@ proc init*(T: type BeaconNode,
     eth1Monitor = Eth1Monitor.init(
       cfg,
       db,
+      getBeaconTime,
       config.web3Urls,
       getDepositContractSnapshot(),
       eth1Network,
@@ -430,7 +434,6 @@ proc init*(T: type BeaconNode,
     netKeys = getPersistentNetKeys(rng[], config)
     nickname = if config.nodeName == "auto": shortForm(netKeys)
                else: config.nodeName
-    getBeaconTime = beaconClock.getBeaconTimeFn()
     network = createEth2Node(
       rng, config, netKeys, cfg, dag.forkDigests, getBeaconTime,
       getStateField(dag.headState.data, genesis_validators_root))
@@ -473,8 +476,12 @@ proc init*(T: type BeaconNode,
           config.validatorsDir(), SlashingDbName)
     validatorPool = newClone(ValidatorPool.init(slashingProtectionDB))
 
+    # TODO waitFor etc. This is temporary init code, so fine for now
+    web3Provider = waitFor newWeb3DataProvider(
+      default(Eth1Address), if config.web3Urls.len > 0: config.web3Urls[0] else: "")
+
     consensusManager = ConsensusManager.new(
-      dag, attestationPool, quarantine
+      dag, attestationPool, quarantine, web3Provider.get
     )
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
