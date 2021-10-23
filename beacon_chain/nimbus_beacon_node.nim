@@ -255,6 +255,28 @@ proc initFullNode(
   func getFrontfillSlot(): Slot =
     dag.frontfill.slot
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/sync/optimistic.md#constants
+  # TODO use config settin
+  const
+    SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY = 128
+    OPTIMISTIC_SYNC_WINDOW_SLOTS = 64
+
+  proc getOptimisticStartSlot(): Slot =
+    const SLOT_OFFSET =
+      SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY + OPTIMISTIC_SYNC_WINDOW_SLOTS
+    let localWallSlot = getLocalWallSlot()
+    if localWallSlot >= SLOT_OFFSET:
+      localWallSlot - SLOT_OFFSET
+    else:
+      0.Slot
+
+  proc getOptimisticEndSlot(): Slot =
+    let localWallSlot = getLocalWallSlot()
+    if localWallSlot >= SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY:
+      localWallSlot - SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY
+    else:
+      0.Slot
+
   let
     quarantine = newClone(
       Quarantine.init())
@@ -280,6 +302,16 @@ proc initFullNode(
       let resfut = newFuture[Result[void, BlockError]]("blockVerifier")
       blockProcessor[].addBlock(MsgSource.gossip, signedBlock, resfut)
       resfut
+    optimisticBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock):
+        Future[Result[void, BlockError]] =
+      let resfut = newFuture[Result[void, BlockError]]("optimisticBlockVerifier")
+      if  dag.headState.kind >= BeaconStateFork.Bellatrix and
+          is_merge_transition_complete(dag.headState.bellatrixData.data) and
+          signedBlock.kind >= BeaconBlockFork.Bellatrix:
+        blockProcessor[].addBlock(MsgSource.optSync, signedBlock, resfut)
+      else:
+        resfut.complete(Result[void, BlockError].ok())
+      resfut
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool, exitPool,
@@ -293,6 +325,11 @@ proc initFullNode(
       node.network.peerPool, SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.backfill.slot, blockVerifier, maxHeadAge = 0)
+    optimisticSyncManager = newSyncManager[Peer, PeerID](
+      node.network.peerPool, SyncQueueKind.Forward, getOptimisticStartSlot,
+      getOptimisticEndSlot,
+      getOptimisticStartSlot, # match with head slot, because going back pointless
+      getBackfillSlot, getFrontfillSlot, dag.tail.slot, optimisticBlockVerifier)
 
   dag.setFinalizationCb makeOnFinalizationCb(node.eventBus, node.eth1Monitor)
 
@@ -308,6 +345,7 @@ proc initFullNode(
   node.requestManager = RequestManager.init(node.network, blockVerifier)
   node.syncManager = syncManager
   node.backfiller = backfiller
+  node.optimisticSyncManager = optimisticSyncManager
 
   debug "Loading validators", validatorsDir = config.validatorsDir()
 
@@ -427,6 +465,11 @@ proc init*(T: type BeaconNode,
     else:
       none(seq[byte])
 
+  # TODO should warn on this not being configured but not useful yet to do so
+  # and there will be other ways of specifying these so it's premature to use
+  # any particular design yet for this part.
+  #warn "No suggested fee recipient provided; use --suggested-fee-recipient"
+
   template getDepositContractSnapshot: auto =
     if depositContractSnapshot.isSome:
       depositContractSnapshot
@@ -437,7 +480,7 @@ proc init*(T: type BeaconNode,
         config.web3Urls[0],
         optJwtSecret)
       if snapshotRes.isErr:
-        fatal "Failed to locate the deposit contract deployment block",
+        fatal "Failed to locate the deposit contract deployment block; ensure execution layer client is running and accessible via --web3-url",
               depositContract = cfg.DEPOSIT_CONTRACT_ADDRESS,
               deploymentBlock = $depositContractDeployedAt,
               err = snapshotRes.error
@@ -1282,9 +1325,22 @@ proc onSecond(node: BeaconNode, time: Moment) =
     notice "Shutting down after having reached the target synced epoch"
     bnStatus = BeaconNodeStatus.Stopping
 
+proc onMinute(node: BeaconNode) {.async.} =
+  ## This procedure will be called once per minute.
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.8/src/engine/specification.md#engine_exchangetransitionconfigurationv1
+  if  not node.eth1Monitor.isNil and
+      node.currentSlot.epoch >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+    try:
+      # TODO could create a bool-succeed-or-not interface to this function
+      await node.eth1Monitor.exchangeTransitionConfiguration()
+    except CatchableError as exc:
+      debug "onMinute: exchangeTransitionConfiguration failed",
+        error = exc.msg
+
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
-  let sleepTime = chronos.seconds(1)
-  const nanosecondsIn1s = float(chronos.seconds(1).nanoseconds)
+  const
+    sleepTime = chronos.seconds(1)
+    nanosecondsIn1s = float(sleepTime.nanoseconds)
   while true:
     let start = chronos.now(chronos.Moment)
     await chronos.sleepAsync(sleepTime)
@@ -1295,6 +1351,15 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
     let processingTime = finished - afterSleep
     ticks_delay.set(sleepTime.nanoseconds.float / nanosecondsIn1s)
     trace "onSecond task completed", sleepTime, processingTime
+
+proc runOnMinuteLoop(node: BeaconNode) {.async.} =
+  const
+    sleepTime = chronos.seconds(60)
+    nanosecondsIn60s = float(sleepTime.nanoseconds)
+  while true:
+    await chronos.sleepAsync(sleepTime)
+    await node.onMinute()
+    trace "onMinute task completed"
 
 func connectedPeersCount(node: BeaconNode): int =
   len(node.network.peerPool)
@@ -1452,6 +1517,7 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   node.startLightClient()
   node.requestManager.start()
   node.syncManager.start()
+  node.optimisticSyncManager.start()
 
   if node.dag.needsBackfill(): asyncSpawn node.startBackfillTask()
 
@@ -1459,6 +1525,7 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
 
   asyncSpawn runSlotLoop(node, wallTime, onSlotStart)
   asyncSpawn runOnSecondLoop(node)
+  asyncSpawn runOnMinuteLoop(node)
   asyncSpawn runQueueProcessingLoop(node.blockProcessor)
 
   ## Ctrl+C handling

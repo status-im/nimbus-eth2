@@ -21,8 +21,8 @@ import
   chronicles, chronicles/timings,
   json_serialization/std/[options, sets, net], serialization/errors,
   eth/db/kvstore,
-  eth/keys, eth/p2p/discoveryv5/[protocol, enr],
-  web3/ethtypes,
+  eth/[async_utils, keys], eth/p2p/discoveryv5/[protocol, enr],
+  web3/[engine_api, ethtypes],
 
   # Local modules
   ../spec/datatypes/[phase0, altair, bellatrix],

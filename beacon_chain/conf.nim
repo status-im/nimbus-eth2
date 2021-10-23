@@ -112,8 +112,8 @@ type
 
     logLevel* {.
       desc: "Sets the log level for process and topics (e.g. \"DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none\")"
-      defaultValue: "INFO"
-      name: "log-level" .}: string
+      defaultValue: "DEBUG"
+      name: "log-level" }: string
 
     logStdout* {.
       hidden

@@ -447,6 +447,9 @@ proc getPayload*(p: Eth1Monitor,
                  payloadId: bellatrix.PayloadID): Future[engine_api.ExecutionPayloadV1] =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
+  if p.isNil:
+    warn "getPayload: nil Eth1Monitor; returning empty ExecutionPayload"
+
   if p.isNil or p.dataProvider.isNil:
     var epr: Future[engine_api.ExecutionPayloadV1]
     epr.complete(default(engine_api.ExecutionPayloadV1))
@@ -470,6 +473,9 @@ proc forkchoiceUpdated*(p: Eth1Monitor,
                         Future[engine_api.ForkchoiceUpdatedResponse] =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
+  if p.isNil:
+    warn "forkchoiceUpdated: nil Eth1Monitor; returning syncing"
+
   if p.isNil or p.dataProvider.isNil:
     var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
     fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
@@ -496,6 +502,9 @@ proc forkchoiceUpdated*(p: Eth1Monitor,
                         Future[engine_api.ForkchoiceUpdatedResponse] =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
+  if p.isNil:
+    warn "forkchoiceUpdated: nil Eth1Monitor; returning syncing"
+
   if p.isNil or p.dataProvider.isNil:
     var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
     fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
@@ -524,7 +533,7 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[void] {.async.} =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.isNil:
-    debug "exchangeTransitionConfiguration: nil Eth1Monitor"
+    warn "exchangeTransitionConfiguration: nil Eth1Monitor"
 
   if p.isNil or p.dataProvider.isNil:
     return
@@ -535,27 +544,27 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[void] {.async.} =
       if p.terminalBlockHash.isSome:
         p.terminalBlockHash.get
       else:
-        # TODO can't use static(default(...)) in this context
-        default(BlockHash),
+        # https://github.com/nim-lang/Nim/issues/19802
+        (static(default(BlockHash))),
     terminalBlockNumber:
       if p.terminalBlockNumber.isSome:
         p.terminalBlockNumber.get
       else:
-        # TODO can't use static(default(...)) in this context
-        default(Quantity))
+        # https://github.com/nim-lang/Nim/issues/19802
+        (static(default(Quantity)))
   let ecTransitionConfiguration =
     await p.dataProvider.web3.provider.engine_exchangeTransitionConfigurationV1(
       ccTransitionConfiguration)
   if ccTransitionConfiguration != ecTransitionConfiguration:
     warn "exchangeTransitionConfiguration: Configuration mismatch detected",
       consensusTerminalTotalDifficulty =
-        ccTransitionConfiguration.terminalTotalDifficulty,
+        $ccTransitionConfiguration.terminalTotalDifficulty,
       consensusTerminalBlockHash =
         ccTransitionConfiguration.terminalBlockHash,
       consensusTerminalBlockNumber =
         ccTransitionConfiguration.terminalBlockNumber.uint64,
       executionTerminalTotalDifficulty =
-        ecTransitionConfiguration.terminalTotalDifficulty,
+        $ecTransitionConfiguration.terminalTotalDifficulty,
       executionTerminalBlockHash =
         ecTransitionConfiguration.terminalBlockHash,
       executionTerminalBlockNumber =
@@ -1169,6 +1178,7 @@ proc syncBlockRange(m: Eth1Monitor,
 
     let blocksWithDeposits = depositEventsToBlocks(depositLogs)
 
+    m.eth1Progress.fire()
     for i in 0 ..< blocksWithDeposits.len:
       let blk = blocksWithDeposits[i]
 
@@ -1353,7 +1363,6 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     if expectedNetwork != providerNetwork:
       fatal "The specified web3 provider serves data for a different network",
              expectedNetwork, providerNetwork
-      quit 1
 
   var mustUsePolling = m.forcePolling or
                        web3Url.startsWith("http://") or
@@ -1387,6 +1396,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     let startBlock = awaitWithRetries(
       m.dataProvider.getBlockByHash(m.depositsChain.finalizedBlockHash.asBlockHash))
 
+    doAssert m.depositsChain.blocks.len == 0
     m.depositsChain.addBlock Eth1Block(
       number: Eth1BlockNumber startBlock.number,
       timestamp: Eth1BlockTimestamp startBlock.timestamp,
@@ -1431,7 +1441,6 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       if m.latestEth1Block.isSome and
          m.latestEth1Block.get == fullBlockId:
         await sleepAsync(m.cfg.SECONDS_PER_ETH1_BLOCK.int.seconds)
-        continue
 
       m.latestEth1Block = some fullBlockId
       blk
