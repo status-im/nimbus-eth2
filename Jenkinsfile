@@ -41,28 +41,10 @@ def runStages(nodeDir) {
 			stage("Test suite") { timeout(60) {
 				sh "make -j${env.NPROC} DISABLE_TEST_FIXTURES_SCRIPT=1 test"
 			} }
-
-			stage("REST test suite") { timeout(5) {
-				sh "make restapi-test"
-			} }
-
-			stage("Testnet finalization") { timeout(75) {
-				// EXECUTOR_NUMBER will be 0 or 1, since we have 2 executors per Jenkins node
-				sh """#!/bin/bash
-				make local-testnet-minimal
-				make local-testnet-mainnet
-				"""
-			} }
 		} catch(e) {
 			// we need to rethrow the exception here
 			throw e
 		} finally {
-			// archive testnet logs
-			sh """#!/bin/bash
-			for D in local_testnet0_data local_testnet1_data resttest0_data; do
-				[[ -d "\$D" ]] && tar czf "\${D}-\${NODE_NAME}.tar.gz" "\${D}"/*.txt || true
-			done
-			"""
 			try {
 				archiveArtifacts("*.tar.gz")
 			} catch(e) {

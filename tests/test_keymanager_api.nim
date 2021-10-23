@@ -176,7 +176,7 @@ proc startSingleNodeNetwork {.raises: [CatchableError, Defect].} =
   except Exception as exc: # TODO fix confutils exceptions
     raiseAssert exc.msg
 
-  let metadata = loadEth2NetworkMetadata(dataDir)
+  let metadata = loadEth2NetworkMetadata(dataDir, none(Eth1Network))
 
   let node = BeaconNode.init(
     metadata.cfg,
@@ -1120,5 +1120,3 @@ proc runTests {.async.} =
 proc main() {.async.} =
   asyncSpawn runTests()
   startSingleNodeNetwork()
-
-waitFor main()
