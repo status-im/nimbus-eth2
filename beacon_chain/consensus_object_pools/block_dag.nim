@@ -44,6 +44,8 @@ type
     bid*: BlockId ##\
       ## Root that can be used to retrieve block data from database
 
+    executionBlockRoot*: Eth2Digest
+
     parent*: BlockRef ##\
     ## Not nil, except for the tail
 
@@ -60,14 +62,26 @@ type
 template root*(blck: BlockRef): Eth2Digest = blck.bid.root
 template slot*(blck: BlockRef): Slot = blck.bid.slot
 
-func init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
+func init(
+    T: type BlockRef, root: Eth2Digest, executionPayloadRoot: Eth2Digest,
+    slot: Slot): BlockRef =
   BlockRef(
-    bid: BlockId(root: root, slot: slot)
+    root: root,
+    executionBlockRoot: executionPayloadRoot,
+    slot: slot
   )
 
-func init*(T: type BlockRef, root: Eth2Digest, blck: SomeSomeBeaconBlock):
-    BlockRef =
-  BlockRef.init(root, blck.slot)
+func init*(
+    T: type BlockRef, root: Eth2Digest,
+    blck: phase0.SomeBeaconBlock | altair.SomeBeaconBlock |
+          phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock): BlockRef =
+  BlockRef.init(root, Eth2Digest(), blck.slot)
+
+func init*(
+    T: type BlockRef, root: Eth2Digest,
+    blck: merge.SomeBeaconBlock | merge.TrustedBeaconBlock): BlockRef =
+  BlockRef.init(
+    root, Eth2Digest(blck.body.execution_payload.block_hash), blck.slot)
 
 func toBlockId*(blck: SomeSomeSignedBeaconBlock): BlockId =
   BlockId(root: blck.root, slot: blck.message.slot)
