@@ -364,7 +364,7 @@ fi
 
 # deposit and testnet creation
 PIDS=""
-WEB3_ARG=""
+WEB3_ARG="--web3-url=ws://127.0.0.1:8546"
 BOOTSTRAP_TIMEOUT=30 # in seconds
 DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -403,7 +403,7 @@ else
   ganache-cli --blockTime 17 --gasLimit 100000000 -e 100000 --verbose > "${DATA_DIR}/log_ganache.txt" 2>&1 &
   PIDS="${PIDS},$!"
 
-  WEB3_ARG="--web3-url=ws://localhost:8545"
+  WEB3_ARG="--web3-url=ws://127.0.0.1:8546"
 
   echo "Deploying deposit contract"
   DEPLOY_CMD_OUTPUT=$(./build/deposit_contract deploy $WEB3_ARG)
@@ -437,6 +437,7 @@ echo Wrote $RUNTIME_CONFIG_FILE:
 
 # TODO the runtime config file should be used during deposit generation as well!
 tee "$RUNTIME_CONFIG_FILE" <<EOF
+DEPOSIT_NETWORK_ID: 1
 PRESET_BASE: ${CONST_PRESET}
 MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${TOTAL_VALIDATORS}
 MIN_GENESIS_TIME: 0
@@ -445,6 +446,7 @@ DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
 ETH1_FOLLOW_DISTANCE: 1
 ALTAIR_FORK_EPOCH: 1
 BELLATRIX_FORK_EPOCH: 2
+TERMINAL_TOTAL_DIFFICULTY: 0
 EOF
 
 if [[ "${LIGHTHOUSE_VC_NODES}" != "0" ]]; then
@@ -598,6 +600,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --rest-port="$(( BASE_REST_PORT + NUM_NODE ))" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
     --serve-light-client-data=1 --import-light-client-data=only-new \
+    --web3-force-polling=true \
     ${EXTRA_ARGS} \
     &> "${DATA_DIR}/log${NUM_NODE}.txt" &
 
