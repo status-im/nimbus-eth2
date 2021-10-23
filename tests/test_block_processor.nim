@@ -17,6 +17,7 @@ import
   ../beacon_chain/gossip_processing/[block_processor, consensus_manager],
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, block_quarantine, block_clearance],
+  ../beacon_chain/eth1/eth1_monitor,
   ./testutil, ./testdbutil, ./testblockutil
 
 proc pruneAtFinalization(dag: ChainDAGRef) =
@@ -33,7 +34,9 @@ suite "Block processor" & preset():
       verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
       quarantine = newClone(Quarantine.init())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
-      consensusManager = ConsensusManager.new(dag, attestationPool, quarantine)
+      web3DataProvider = new Web3DataProviderRef
+      consensusManager = ConsensusManager.new(
+        dag, attestationPool, quarantine, web3DataProvider)
       state = newClone(dag.headState.data)
       cache = StateCache()
       b1 = addTestBlock(state[], cache).phase0Data
