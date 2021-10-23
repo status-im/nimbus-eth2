@@ -359,9 +359,14 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## subnet tracker
 ```diff
++ don't unsubscribe and resubscribe within pruneBackoffSlots period                          OK
++ first gap large enough and second not for pruneBackoffSlots                                OK
++ first gap too small and second large enough for pruneBackoffSlots                          OK
++ pruneBackoffSlots slot only                                                                OK
 + should register stability subnets on attester duties                                       OK
++ unsubscribe and resubscribe if pruneBackoffSlots allows                                    OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 6/6 Fail: 0/6 Skip: 0/6
 
 ---TOTAL---
-OK: 204/206 Fail: 0/206 Skip: 2/206
+OK: 209/211 Fail: 0/211 Skip: 2/211

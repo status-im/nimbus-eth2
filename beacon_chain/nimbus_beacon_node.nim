@@ -433,7 +433,11 @@ proc init*(T: type BeaconNode,
     eventBus: eventBus,
     requestManager: RequestManager.init(network, blockProcessor),
     syncManager: syncManager,
-    actionTracker: ActionTracker.init(rng, config.subscribeAllSubnets),
+    actionTracker: ActionTracker.init(
+      rng,
+      (network.pubsub.parameters.pruneBackoff.seconds.uint64 +
+        SECONDS_PER_SLOT - 1) div SECONDS_PER_SLOT,
+      config.subscribeAllSubnets),
     processor: processor,
     blockProcessor: blockProcessor,
     consensusManager: consensusManager,

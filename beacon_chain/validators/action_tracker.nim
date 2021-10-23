@@ -61,6 +61,11 @@ type
       ## duty, we'll subscribe to the corresponding subnet to collect
       ## attestations for the aggregate
 
+    pruneBackoffSlots*: uint64 ##\
+      ## libp2p doesn't support unsubscribing from and resubscribing to topics
+      ## within a pruneBackoff time period so detect when those gaps between a
+      ## topic unsubscription and resubscription would too short.
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 func randomStabilitySubnet*(
     self: ActionTracker, epoch: Epoch): tuple[subnet_id: SubnetId, expiration: Epoch] =
@@ -97,14 +102,37 @@ const allSubnetBits = block:
   res
 
 func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
-  var res: AttnetBits
+  var
+    res: AttnetBits
+    boundingSlotsLowInit: AttnetBits
+    boundingSlotsLow: array[ATTESTATION_SUBNET_COUNT, Slot]
+    boundingSlotsHigh {.noinit.}: array[ATTESTATION_SUBNET_COUNT, Slot]
+
+  for subnet_id in 0 ..< ATTESTATION_SUBNET_COUNT:
+    boundingSlotsHigh[subnet_id] = FAR_FUTURE_SLOT
+
   # Subscribe to subnets for upcoming duties
   for duty in tracker.duties:
+    if wallSlot <= duty.slot:
+      boundingSlotsHigh[duty.subnet_id.int] =
+        min(duty.slot, boundingSlotsHigh[duty.subnet_id.int])
+    else:
+      boundingSlotsLow[duty.subnet_id.int] =
+        max(duty.slot, boundingSlotsLow[duty.subnet_id.int])
+      boundingSlotsLowInit[duty.subnet_id.int] = true
 
     if wallSlot <= duty.slot and
         wallSlot + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS > duty.slot:
 
       res[duty.subnet_id.int] = true
+
+  for subnet_id in 0 ..< ATTESTATION_SUBNET_COUNT:
+    if  boundingSlotsHigh[subnet_id] != FAR_FUTURE_SLOT and
+        boundingSlotsLowInit[subnet_id] and
+        boundingSlotsHigh[subnet_id] < boundingSlotsLow[subnet_id] +
+          tracker.pruneBackoffSlots + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS:
+      res[subnet_id] = true
+
   res
 
 func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
@@ -230,8 +258,11 @@ proc updateActions*(tracker: var ActionTracker, epochRef: EpochRef) =
       tracker.attestingSlots[epoch mod 2] or
         (1'u32 shl (slot mod SLOTS_PER_EPOCH))
 
-proc init*(T: type ActionTracker, rng: ref BrHmacDrbgContext, subscribeAllSubnets: bool): T =
+proc init*(
+    T: type ActionTracker, rng: ref BrHmacDrbgContext,
+    pruneBackoffSlots: uint64, subscribeAllSubnets: bool): T =
   T(
     rng: rng,
+    pruneBackoffSlots: pruneBackoffSlots,
     subscribeAllSubnets: subscribeAllSubnets
   )
