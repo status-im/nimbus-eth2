@@ -1244,7 +1244,7 @@ proc onSlotStart(
   # TODO this is has too many database lookups. There are lots of small
   # optimizations to this particular structure (only update field which
   # has changed, et cetera), but should use better approach.
-  if prevHead != postHead or prevFinalizing != postFinalizing:
+  if true or (prevHead != postHead or prevFinalizing != postFinalizing):
     let
       headBlock = node.dag.getForkedBlock(node.dag.head)
       finalizingBlock = node.dag.getForkedBlock(node.dag.finalizedHead.blck)
