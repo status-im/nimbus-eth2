@@ -512,7 +512,6 @@
   },
   {
     "topics": ["beacon", "states_validators"],
-    "comment": "Maximum number of id[] is 30",
     "request": {
       "url": "/eth/v1/beacon/states/head/validators?id=0&id=1&id=2&id=3&id=4&id=5&id=6&id=7&id=8&id=9&id=10&id=11&id=12&id=13&id=14&id=15&id=16&id=17&id=18&id=19&id=20&id=21&id=22&id=23&id=24&id=25&id=26&id=27&id=28&id=29",
       "headers": {"Accept": "application/json"}
@@ -525,7 +524,6 @@
   },
   {
     "topics": ["beacon", "states_validators"],
-    "comment": "Number of id[] is bigger than 30",
     "request": {
       "url": "/eth/v1/beacon/states/head/validators?id=0&id=1&id=2&id=3&id=4&id=5&id=6&id=7&id=8&id=9&id=10&id=11&id=12&id=13&id=14&id=15&id=16&id=17&id=18&id=19&id=20&id=21&id=22&id=23&id=24&id=25&id=26&id=27&id=28&id=29&id=30",
       "headers": {"Accept": "application/json"}
@@ -537,14 +535,55 @@
     }
   },
   {
-    "topics": ["beacon", "states_validators", "mainnet"],
-    "comment": "Index value equal to high(int32)",
+    "topics": ["beacon", "states_validators", "testnet"],
+    "comment": "Index which not exists in state",
     "request": {
       "url": "/eth/v1/beacon/states/head/validators?id=2147483647",
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "oneof", "value": ["400", "200"]},
+      "status": {"operator": "oneof", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": []}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators", "testnet"],
+    "comment": "Key which is not exist in state",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "oneof", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": []}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators", "testnet"],
+    "comment": "Index and key which not exists in state",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=2147483647,0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "oneof", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": []}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_validators", "testnet"],
+    "comment": "3 identifiers where only one exists",
+    "request": {
+      "url": "/eth/v1/beacon/states/head/validators?id=2147483647,0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,1",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "oneof", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "balance": "", "status": "", "validator": {"pubkey": "", "withdrawal_credentials": "", "effective_balance": "", "slashed": false, "activation_eligibility_epoch": "", "activation_epoch": "", "exit_epoch": "", "withdrawable_epoch": ""}}]}]
     }
   },
   {

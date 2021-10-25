@@ -287,22 +287,26 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         block:
           var res: seq[RestValidator]
           if len(indices) == 0:
-            # There is no indices, so we going to filter all the validators.
-            for index, validator in getStateField(stateData.data,
-                                                  validators).pairs():
-              let
-                balance = getStateField(stateData.data, balances)[index]
-                status =
-                  block:
-                    let sres = validator.getStatus(current_epoch)
-                    if sres.isErr():
-                      return RestApiResponse.jsonError(Http400,
-                                                   ValidatorStatusNotFoundError,
-                                                   $sres.get())
-                    sres.get()
-              if status in validatorsMask:
-                res.add(RestValidator.init(ValidatorIndex(index), balance,
-                                           toString(status), validator))
+            # Case when `len(indices) == 0 and len(validatorIds) != 0` means
+            # that we can't find validator identifiers in state, so we should
+            # return empty response.
+            if len(validatorIds) == 0:
+              # There is no indices, so we going to filter all the validators.
+              for index, validator in getStateField(stateData.data,
+                                                    validators).pairs():
+                let
+                  balance = getStateField(stateData.data, balances)[index]
+                  status =
+                    block:
+                      let sres = validator.getStatus(current_epoch)
+                      if sres.isErr():
+                        return RestApiResponse.jsonError(Http400,
+                                                     ValidatorStatusNotFoundError,
+                                                     $sres.get())
+                      sres.get()
+                if status in validatorsMask:
+                  res.add(RestValidator.init(ValidatorIndex(index), balance,
+                                             toString(status), validator))
           else:
             for index in indices:
               let
@@ -468,12 +472,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         block:
           var res: seq[RestValidatorBalance]
           if len(indices) == 0:
-            # There is no indices, so we going to filter all the validators.
-            for index, validator in getStateField(stateData.data,
-                                                  validators).pairs():
-              let balance = getStateField(stateData.data, balances)[index]
-              res.add(RestValidatorBalance.init(ValidatorIndex(index),
-                                                balance))
+            # Case when `len(indices) == 0 and len(validatorIds) != 0` means
+            # that we can't find validator identifiers in state, so we should
+            # return empty response.
+            if len(validatorIds) == 0:
+              # There is no indices, so we going to return balances of all
+              # known validators.
+              for index, validator in getStateField(stateData.data,
+                                                    validators).pairs():
+                let balance = getStateField(stateData.data, balances)[index]
+                res.add(RestValidatorBalance.init(ValidatorIndex(index),
+                                                  balance))
           else:
             for index in indices:
               let balance = getStateField(stateData.data, balances)[index]
