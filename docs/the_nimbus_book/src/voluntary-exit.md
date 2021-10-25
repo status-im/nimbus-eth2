@@ -4,13 +4,6 @@
 
 To perform a voluntary exit, make sure your beacon node is running with the `--rpc`option enabled (e.g. `./run-mainnet-beacon-node.sh --rpc`), then run:
 
-**Pyrmont**
-
-```
-build/nimbus_beacon_node deposits exit \
- --validator=<VALIDATOR_PUBLIC_KEY> \
- --data-dir=build/data/shared_pyrmont_0
-```
 
 **Prater**
 
