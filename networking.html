@@ -196,7 +196,7 @@ A collection of tips and tricks to help improve your network connectivity.</p>
 <p><strong>N.B</strong> you need to run the client with the <code>--metrics</code> option enabled in order for this to work</p>
 </blockquote>
 <h2><a class="header" href="#pass-the-extip-option" id="pass-the-extip-option">Pass the extip option</a></h2>
-<p>If you have a static public IP address, use the <code>--nat:extip:$EXT_IP_ADDRESS</code> option to pass it to the client,  where <code>$EXT_IP_ADDRESS</code> is your public IP. For example, if your public IP address is <code>1.2.3.4</code>, you'd run:</p>
+<p>If you have a static public IP address, use the <code>--nat:extip:$EXT_IP_ADDRESS</code> option to pass it to the client,  where <code>$EXT_IP_ADDRESS</code> is your public IP (see <a href="./networking.html#determine-your-public-ip-address">here</a> for how to determine your public IP address). For example, if your public IP address is <code>1.2.3.4</code>, you'd run:</p>
 <pre><code>./run-prater-beacon-node.sh --nat:extip:1.2.3.4
 </code></pre>
 <blockquote>

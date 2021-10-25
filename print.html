@@ -575,11 +575,6 @@ to not generate a copy of your original key. Running the same key on two differe
 <p>⚠️  Voluntary exits are <strong>irreversible</strong>. You won't be able to validate again with the same key. And you won't be able to withdraw your stake until the Eth1 and Eth2 merge. <em>Note that voluntary exits won't be processed if the chain isn't finalising.</em></p>
 </blockquote>
 <p>To perform a voluntary exit, make sure your beacon node is running with the <code>--rpc</code>option enabled (e.g. <code>./run-mainnet-beacon-node.sh --rpc</code>), then run:</p>
-<p><strong>Pyrmont</strong></p>
-<pre><code>build/nimbus_beacon_node deposits exit \
- --validator=&lt;VALIDATOR_PUBLIC_KEY&gt; \
- --data-dir=build/data/shared_pyrmont_0
-</code></pre>
 <p><strong>Prater</strong></p>
 <pre><code>build/nimbus_beacon_node deposits exit \ 
  --validator=&lt;VALIDATOR_PUBLIC_KEY&gt; \ 
@@ -795,7 +790,7 @@ WantedBy=default.target
 <p><strong>N.B.</strong> If you're running Nimbus on a Pi, your <code>&lt;BASE-DIRECTORY&gt;</code> is <code>/home/pi/nimbus-eth2/</code> and your <code>&lt;USERNAME&gt;</code> is <code>pi</code></p>
 </blockquote>
 <blockquote>
-<p>If you want to run on mainnet, simply replace all instances of <code>prater</code> with <code>mainnet</code>. If you wish to run on <code>pyrmont</code>, replace all instances of <code>prater</code> with <code>pyrmont</code>.</p>
+<p>If you want to run on mainnet, simply replace all instances of <code>prater</code> with <code>mainnet</code>.</p>
 </blockquote>
 <h3><a class="header" href="#2-notify-systemd-of-the-newly-added-service" id="2-notify-systemd-of-the-newly-added-service">2. Notify systemd of the newly added service</a></h3>
 <pre><code class="language-console">sudo systemctl daemon-reload
@@ -1022,7 +1017,7 @@ A collection of tips and tricks to help improve your network connectivity.</p>
 <p><strong>N.B</strong> you need to run the client with the <code>--metrics</code> option enabled in order for this to work</p>
 </blockquote>
 <h2><a class="header" href="#pass-the-extip-option" id="pass-the-extip-option">Pass the extip option</a></h2>
-<p>If you have a static public IP address, use the <code>--nat:extip:$EXT_IP_ADDRESS</code> option to pass it to the client,  where <code>$EXT_IP_ADDRESS</code> is your public IP. For example, if your public IP address is <code>1.2.3.4</code>, you'd run:</p>
+<p>If you have a static public IP address, use the <code>--nat:extip:$EXT_IP_ADDRESS</code> option to pass it to the client,  where <code>$EXT_IP_ADDRESS</code> is your public IP (see <a href="./networking.html#determine-your-public-ip-address">here</a> for how to determine your public IP address). For example, if your public IP address is <code>1.2.3.4</code>, you'd run:</p>
 <pre><code>./run-prater-beacon-node.sh --nat:extip:1.2.3.4
 </code></pre>
 <blockquote>
@@ -2033,7 +2028,7 @@ topics=&quot;discv5&quot; tid=77655 file=protocol.nim:940 majority=Some(&quot;my
 <ul>
 <li>Features and bugfixes are generally pushed to individual branches, each with their own pull request against the <code>unstable</code> branch.</li>
 <li>Once the branch has been reviewed and passed CI, the developer or reviewer merges the branch to <code>unstable</code>.</li>
-<li>The <code>unstable</code> branch is regularly deployed to the Nimbus prater and pyrmont fleets where additional testing happens.</li>
+<li>The <code>unstable</code> branch is regularly deployed to the Nimbus Prater fleet where additional testing happens.</li>
 </ul>
 <h3><a class="header" href="#testing" id="testing">Testing</a></h3>
 <p>The <code>testing</code> branch contains features and bugfixes that have gone through CI and initial testing on the <code>unstable</code> branch and are ready to be included in the next release.</p>
@@ -2300,11 +2295,9 @@ type of Docker image - meant for end users and defined by
 <hr />
 </br>
 </br>
-<p>The latest Eth2 testnet, <a href="https://twitter.com/Butta_eth/status/1374383003011452937">Prater</a>, is now open to the public.</p>
+<p>The latest Eth2 testnet, <a href="https://twitter.com/Butta_eth/status/1374383003011452937">Prater</a>, is open to the public.</p>
 <p>Prater's objective is to ensure that the network remains stable under a higher load than we've seen so far on mainnet -- the genesis count for Prater was 210k (almost double the size of the Beacon Chain Mainnet).</p>
 <p>To elaborate a little, we want to make sure that the network is able to function properly with considerably more validators: increasing the number of validators increases the state size, increases the amount of work done to process that state, and increases the number of messages being gossipped on the network; blocks also become fuller, which explores a new kind of constraint as clients need to optimise better for attestation inclusion.</p>
-<p>Both Pyrmont and Prater will co-exist for the foreseeable future (we will be testing the <a href="https://github.com/ethereum/consensus-specs/releases/tag/v1.1.2">Altair</a> fork on Pyrmont, for example). However, in the medium term we expect Prater to replace Pyrmont.</p>
-<p>If you're already validating with Nimbus, you should start thinking about transitioning from Pyrmont to Prater at some point over the next few weeks. However, there is no immediate rush, so please do so at your own convenience. If you're new to Nimbus then you could try starting directly with Prater.</p>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/prater.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#security-audit" id="security-audit">Security Audit</a></h1>
 <h2><a class="header" href="#summary" id="summary">Summary</a></h2>
 <p>Nimbus has undergone an extensive, multi-vendor (<a href="https://consensys.net/diligence/">ConsenSys Diligence</a>, <a href="https://www.nccgroup.com/uk/">NCC Group</a>, and <a href="https://www.trailofbits.com/">Trail of Bits</a>) security assessment over a period of many months. During that process, we were notified of several issues within the codebase. These issues have been addressed and the overall security of the Nimbus-eth2 software has been drastically improved.</p>
