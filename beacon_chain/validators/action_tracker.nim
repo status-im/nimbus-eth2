@@ -148,8 +148,11 @@ func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
 func updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
   # Prune duties from the past - this collection is kept small because there
   # are only so many slot/subnet combos - prune both internal and API-supplied
-  # duties at the same time
-  tracker.duties.keepItIf(it.slot >= wallSlot)
+  # duties at the same time. Remember duties long enough to be able to get the
+  # gaps between successive actions on each subnet.
+  tracker.duties.keepItIf(
+    it.slot + tracker.pruneBackoffSlots + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS + 1 >=
+      wallSlot)
 
   # Keep stability subnets for as long as validators are validating
   var toPrune: seq[ValidatorIndex]
