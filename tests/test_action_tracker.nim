@@ -46,7 +46,7 @@ suite "subnet tracker":
       tracker.aggregateSubnets(Slot(0)).countOnes() == 0
 
   test "don't unsubscribe and resubscribe within pruneBackoffSlots period":
-    for secondActionSlot in pruneBackoffSlots..<
+    for secondActionSlot in pruneBackoffSlots ..
         pruneBackoffSlots + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS:
       var tracker = ActionTracker.init(rng, pruneBackoffSlots, false)
 
@@ -85,10 +85,10 @@ suite "subnet tracker":
 
     tracker.registerDuty(Slot(0), SubnetId(0), ValidatorIndex(0), true)
     tracker.registerDuty(
-      Slot(pruneBackoffSlots + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS),
+      Slot(pruneBackoffSlots + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS + 1),
       SubnetId(0), ValidatorIndex(0), true)
 
-    for slot, subscribed in [1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0]:
+    for slot, subscribed in [1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0]:
       check:
         tracker.aggregateSubnets(Slot(slot)).countOnes() == subscribed
 
@@ -101,14 +101,14 @@ suite "subnet tracker":
 
     tracker.registerDuty(Slot(0), SubnetId(0), ValidatorIndex(0), true)
     tracker.registerDuty(
-      Slot(pruneBackoffSlots + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS),
+      Slot(pruneBackoffSlots + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS + 1),
       SubnetId(0), ValidatorIndex(0), true)
     tracker.registerDuty(
-      Slot(2*(pruneBackoffSlots + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS)-1),
+      Slot(2*(pruneBackoffSlots + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS)+1),
       SubnetId(0), ValidatorIndex(0), true)
 
     for slot, subscribed in
-        [1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0]:
+        [1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0]:
       check:
         tracker.aggregateSubnets(Slot(slot)).countOnes() == subscribed
 
@@ -121,13 +121,13 @@ suite "subnet tracker":
 
     tracker.registerDuty(Slot(0), SubnetId(0), ValidatorIndex(0), true)
     tracker.registerDuty(
-      Slot(pruneBackoffSlots + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS) - 1,
+      Slot(pruneBackoffSlots + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS),
       SubnetId(0), ValidatorIndex(0), true)
     tracker.registerDuty(
-      Slot(2*(pruneBackoffSlots + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS)-1),
+      Slot(2*(pruneBackoffSlots + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS)+1),
       SubnetId(0), ValidatorIndex(0), true)
 
     for slot, subscribed in
-        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0]:
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0]:
       check:
         tracker.aggregateSubnets(Slot(slot)).countOnes() == subscribed

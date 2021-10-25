@@ -129,8 +129,9 @@ func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
   for subnet_id in 0 ..< ATTESTATION_SUBNET_COUNT:
     if  boundingSlotsHigh[subnet_id] != FAR_FUTURE_SLOT and
         boundingSlotsLowInit[subnet_id] and
+        # + 1 because unsubscription only occurs on slot after duty slot
         boundingSlotsHigh[subnet_id] < boundingSlotsLow[subnet_id] +
-          tracker.pruneBackoffSlots + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS:
+          tracker.pruneBackoffSlots + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS + 1:
       res[subnet_id] = true
 
   res
