@@ -18,7 +18,7 @@ The `unstable` branch contains features and bugfixes that are actively being tes
 
 * Features and bugfixes are generally pushed to individual branches, each with their own pull request against the `unstable` branch.
 * Once the branch has been reviewed and passed CI, the developer or reviewer merges the branch to `unstable`.
-* The `unstable` branch is regularly deployed to the Nimbus prater and pyrmont fleets where additional testing happens.
+* The `unstable` branch is regularly deployed to the Nimbus Prater fleet where additional testing happens.
 
 ### Testing
 

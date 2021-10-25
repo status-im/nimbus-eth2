@@ -45,7 +45,7 @@ Where you should replace:
 
 > **N.B.** If you're running Nimbus on a Pi, your `<BASE-DIRECTORY>` is `/home/pi/nimbus-eth2/` and your `<USERNAME>` is `pi`
 
-> If you want to run on mainnet, simply replace all instances of `prater` with `mainnet`. If you wish to run on `pyrmont`, replace all instances of `prater` with `pyrmont`.
+> If you want to run on mainnet, simply replace all instances of `prater` with `mainnet`.
 
 ### 2. Notify systemd of the newly added service
 

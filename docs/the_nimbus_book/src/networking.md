@@ -46,7 +46,7 @@ If there are no `dir=in` chronosstreams , incoming connections are not working.
 > **N.B** you need to run the client with the `--metrics` option enabled in order for this to work
 
 ## Pass the extip option
-If you have a static public IP address, use the `--nat:extip:$EXT_IP_ADDRESS` option to pass it to the client,  where `$EXT_IP_ADDRESS` is your public IP. For example, if your public IP address is `1.2.3.4`, you'd run:
+If you have a static public IP address, use the `--nat:extip:$EXT_IP_ADDRESS` option to pass it to the client,  where `$EXT_IP_ADDRESS` is your public IP (see [here](./networking.md#determine-your-public-ip-address) for how to determine your public IP address). For example, if your public IP address is `1.2.3.4`, you'd run:
 
 ```
 ./run-prater-beacon-node.sh --nat:extip:1.2.3.4
