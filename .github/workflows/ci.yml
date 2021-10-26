@@ -287,30 +287,13 @@ jobs:
           make -j$ncpu ARCH_OVERRIDE=$PLATFORM DISABLE_TEST_FIXTURES_SCRIPT=1 test
 
       # The upload creates a combined report that gets posted as a comment on the PR
+      # https://github.com/EnricoMi/publish-unit-test-result-action
       - name: Upload combined results
         if: matrix.target.TEST_KIND == 'unit-tests'
         uses: actions/upload-artifact@v2
         with:
           name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
           path: nimbus-eth2/build/*.xml
-
-      # Linux
-      - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v1
-        if: always() && matrix.target.TEST_KIND == 'unit-tests' && runner.os == 'Linux'
-        with:
-          files: nimbus-eth2/build/*.xml
-          check_name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
-          comment_mode: off
-
-      # Windows and macOS
-      - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action/composite@v1
-        if: always() && matrix.target.TEST_KIND == 'unit-tests' && runner.os != 'Linux'
-        with:
-          files: nimbus-eth2/build/*.xml
-          check_name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
-          comment_mode: off
 
       - name: Run nimbus-eth2 testnet0 (minimal)
         if: matrix.target.TEST_KIND == 'finalization-minimal'
@@ -326,20 +309,13 @@ jobs:
         run: |
           ./scripts/launch_local_testnet.sh --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port 9000 --base-rpc-port 7000 --base-metrics-port 8008 --timeout 2400 -- --verify-finalization --discv5:no
 
-  publish-test-results:
-    name: "Publish Unit Tests Results"
-    needs: build
+  # https://github.com/EnricoMi/publish-unit-test-result-action
+  event_file:
+    name: "Event File"
     runs-on: ubuntu-latest
-    # the build job might be skipped, we don't need to run this job then
-    if: success() || failure()
-
     steps:
-      - name: Download Artifacts
-        uses: actions/download-artifact@v2
-        with:
-          path: artifacts
-
-      - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v1
-        with:
-          files: artifacts/**/*.xml
+    - name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        name: Event File
+        path: ${{ github.event_path }}
