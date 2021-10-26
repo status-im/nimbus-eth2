@@ -33,6 +33,9 @@ import
 import ./base, ./phase0
 export base
 
+from ../../ssz/merkleization import GeneralizedIndex
+export merkleization.GeneralizedIndex
+
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#incentivization-weights
   TIMELY_SOURCE_WEIGHT* = 14
@@ -49,9 +52,9 @@ const
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 16
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/setup.py#L478-L479
-  FINALIZED_ROOT_INDEX* = 105'u16
-  NEXT_SYNC_COMMITTEE_INDEX* = 55'u16
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.3/setup.py#L478-L479
+  FINALIZED_ROOT_INDEX* = 105.GeneralizedIndex
+  NEXT_SYNC_COMMITTEE_INDEX* = 55.GeneralizedIndex
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#participation-flag-indices
   TIMELY_SOURCE_FLAG_INDEX* = 0
