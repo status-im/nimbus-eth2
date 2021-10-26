@@ -1920,16 +1920,190 @@ proc announcedENR*(node: Eth2Node): enr.Record =
 proc shortForm*(id: NetKeyPair): string =
   $PeerID.init(id.pubkey)
 
+
+# Gossipsub scoring explained:
+# A score of a peer in a topic is the sum of 5 different scores:
+#
+# `timeInMesh`: for each `Quantum` spent in a mesh,
+# the peer will win `Weight` points, up to `(Cap * Weight)`
+#
+# Every following score decays: score is multiplied by `Decay` in every heartbeat
+# until they reach `decayToZero` (0.1 by default)
+#
+# `firstMessageDelivery`: for each message delivered first,
+# the peer will win `Weight` points, up to `(Cap * Weight)`
+#
+# `meshMessageDeliveries`: The most convoluted way possible to punish
+# peers in topics with low traffic.
+#
+# For each unique message received in a topic, the topic score is incremented, up to `Cap`.
+# If the score of the topic gets below `Threshold`, each peer present in the topic
+# since at least `Activation` time will have: `score += (Threshold - Score)² * Weight`
+# (`Weight` should be negative to punish them)
+#
+# `meshFailurePenalty`: same as meshMessageDeliveries, but only happens on prune
+# to avoid peers constantly unsubbing-resubbing
+#
+# `invalidMessageDeliveries`: for each message not passing validation received, a peer
+# score is incremented. Final score = `Score * Score * Weight`
+#
+#
+# Once we have the 5 scores for each peer/topic, we sum them up per peer
+# using the topicWeight of each topic.
+#
+# Nimbus strategy:
+# Trying to get a 100 possible points in each topic before weighting
+# And then, weight each topic to have 100 points max total
+#
+# In order of priority:
+# - A badly behaving peer (eg, sending bad messages) will be heavily sanctionned
+# - A good peer will gain good scores
+# - Inactive/slow peers will be mildly sanctionned.
+#
+# Since a "slow" topic will punish everyone in it, we don't want to punish
+# good peers which are unlucky and part of a slow topic. So, we give more points to
+# good peers than we remove to slow peers
+#
+# Global topics are good to check stability of peers, but since we can only
+# have ~20 peers in global topics, we need to score on subnets to have data
+# about as much peers as possible, even the subnets are less stable
+func computeDecay(
+  startValue: float,
+  endValue: float,
+  timeToEndValue: Duration,
+  heartbeatTime: Duration
+  ): float =
+  # startValue will to to endValue in timeToEndValue
+  # given the returned decay
+
+  let heartbeatsToZero = timeToEndValue.seconds.float / heartbeatTime.seconds.float
+  pow(endValue / startValue, 1 / heartbeatsToZero)
+
+func computeMessageDeliveriesWeight(
+  messagesThreshold: float,
+  maxLostPoints: float): float =
+
+  let maxDeficit = messagesThreshold
+  -maxLostPoints / (maxDeficit * maxDeficit)
+
+type TopicType* = enum
+  BlockTopic,
+  AggregateTopic,
+  SubnetTopic,
+  OtherTopic
+
+proc getTopicParams(
+  topicWeight: float,
+  heartbeatPeriod: Duration,
+  period: Duration,
+  averageOverNPeriods: float,
+  peersPerTopic: int,
+  expectedMessagesPerPeriod: int,
+  timeInMeshQuantum: Duration
+  ): TopicParams =
+
+  let
+    # Statistically, a peer will be first for every `receivedMessage / d`
+    shouldSendPerPeriod = expectedMessagesPerPeriod / peersPerTopic
+    shouldSendOverNPeriod = shouldSendPerPeriod * averageOverNPeriods
+
+    # A peer being first in 1/d% messages will reach a score of
+    # `shouldSendOverNPeriod`
+    firstMessageDecay =
+      computeDecay(
+        startValue = shouldSendOverNPeriod,
+        endValue = 0.1,
+        timeToEndValue = period * averageOverNPeriods.int,
+        heartbeatPeriod)
+ 
+    # Start to remove up to 30 points when <80% message received in N periods
+    messageDeliveryThreshold = 1.float
+    messageDeliveryWeight = computeMessageDeliveriesWeight(messageDeliveryThreshold, 30.0)
+    messageDeliveryDecay =
+      computeDecay(
+        startValue = expectedMessagesPerPeriod.float * averageOverNPeriods,
+        endValue = 0,
+        timeToEndValue = period * averageOverNPeriods.int,
+        heartbeatPeriod)
+
+    # Invalid message should be remembered a long time
+    invalidMessageDecay = computeDecay(
+                            startValue = 1,
+                            endValue = 0.1,
+                            timeToEndValue = chronos.minutes(10),
+                            heartbeatPeriod)
+
+  TopicParams(
+    topicWeight: topicWeight,
+    timeInMeshWeight: 0.1,
+    timeInMeshQuantum: timeInMeshQuantum,
+    timeInMeshCap: 300, # 30 points after timeInMeshQuantum * 300
+    firstMessageDeliveriesWeight: 35.0 / shouldSendOverNPeriod,
+    firstMessageDeliveriesDecay: firstMessageDecay,
+    firstMessageDeliveriesCap: shouldSendOverNPeriod, # Max points: 70
+    meshMessageDeliveriesWeight: messageDeliveryWeight,
+    meshMessageDeliveriesDecay: messageDeliveryDecay,
+    meshMessageDeliveriesThreshold: messageDeliveryThreshold,
+    meshMessageDeliveriesCap: expectedMessagesPerPeriod.float * averageOverNPeriods,
+    meshMessageDeliveriesActivation: period * averageOverNPeriods.int,
+    meshMessageDeliveriesWindow: chronos.milliseconds(10),
+    meshFailurePenaltyWeight: messageDeliveryWeight,
+    meshFailurePenaltyDecay: messageDeliveryDecay,
+    invalidMessageDeliveriesWeight: -5, # Invalid messages are badly penalized
+    invalidMessageDeliveriesDecay: invalidMessageDecay
+  )
+
+
+proc getTopicParams(node: Eth2Node, topicType: TopicType): TopicParams =
+  let
+    heartbeatPeriod = node.pubsub.parameters.heartbeatInterval
+    slotPeriod = chronos.seconds(SECONDS_PER_SLOT.int)
+    peersPerTopic = node.pubsub.parameters.d
+
+  case topicType:
+    of BlockTopic:
+      getTopicParams(
+        topicWeight = 0.1,
+        heartbeatPeriod = heartbeatPeriod,
+        period = slotPeriod,
+        averageOverNPeriods = 10, # Average over 10 slots, to smooth missing proposals
+        peersPerTopic = peersPerTopic,
+        expectedMessagesPerPeriod = 1, # One proposal per slot
+        timeInMeshQuantum = chronos.seconds(15) # Stable topic
+      )
+    of AggregateTopic:
+      getTopicParams(
+        topicWeight = 0.1,
+        heartbeatPeriod = heartbeatPeriod,
+        period = slotPeriod,
+        averageOverNPeriods = 2,
+        peersPerTopic = peersPerTopic,
+        expectedMessagesPerPeriod = (TARGET_AGGREGATORS_PER_COMMITTEE * ATTESTATION_SUBNET_COUNT).int,
+        timeInMeshQuantum = chronos.seconds(15) # Stable topic
+      )
+    of SubnetTopic:
+      getTopicParams(
+        topicWeight = 0.8 / ATTESTATION_SUBNET_COUNT,
+        heartbeatPeriod = heartbeatPeriod,
+        period = slotPeriod,
+        averageOverNPeriods = ATTESTATION_SUBNET_COUNT, # Smooth out empty committees
+        peersPerTopic = peersPerTopic,
+        expectedMessagesPerPeriod = TARGET_COMMITTEE_SIZE.int, #TODO use current number
+        timeInMeshQuantum = chronos.seconds(6) # Flaky topic
+      )
+    of OtherTopic:
+      TopicParams.init()
+
 proc subscribe*(
-    node: Eth2Node, topic: string, topicParams: TopicParams,
+    node: Eth2Node, topic: string, topicType: TopicType,
     enableTopicMetrics: bool = false) =
   if enableTopicMetrics:
     node.pubsub.knownTopics.incl(topic)
 
-  node.pubsub.topicParams[topic] = topicParams
+  node.pubsub.topicParams[topic] = node.getTopicParams(topicType)
 
   # Passing in `nil` because we do all message processing in the validator
-  node.pubsub.subscribe(topic, nil)
+  node.pubsub.subscribe(topic, nim)
 
 proc newValidationResultFuture(v: ValidationResult): Future[ValidationResult] =
   let res = newFuture[ValidationResult]("eth2_network.execValidator")
@@ -2042,7 +2216,7 @@ proc subscribeAttestationSubnets*(
   for subnet_id, enabled in subnets:
     if enabled:
       node.subscribe(getAttestationTopic(
-        forkDigest, SubnetId(subnet_id)), TopicParams.init()) # don't score attestation subnets for now
+        forkDigest, SubnetId(subnet_id)), SubnetTopic) # don't score attestation subnets for now
 
 proc unsubscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
