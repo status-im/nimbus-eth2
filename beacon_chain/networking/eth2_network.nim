@@ -2013,7 +2013,7 @@ proc getTopicParams(
       computeDecay(
         startValue = shouldBeFirstOverNPeriod,
         endValue = 0.1,
-        timeToEndValue = period * averageOverNPeriods.int,
+        timeToEndValue = period * averageOverNPeriods.int * 2,
         heartbeatPeriod)
  
     # Start to remove up to 30 points when peer send less
@@ -2034,7 +2034,7 @@ proc getTopicParams(
     invalidMessageDecay = computeDecay(
                             startValue = 1,
                             endValue = 0.1,
-                            timeToEndValue = chronos.minutes(10),
+                            timeToEndValue = chronos.minutes(1),
                             heartbeatPeriod)
 
   let topicParams = TopicParams(
@@ -2053,7 +2053,7 @@ proc getTopicParams(
     meshMessageDeliveriesWindow: chronos.milliseconds(10),
     meshFailurePenaltyWeight: messageDeliveryWeight,
     meshFailurePenaltyDecay: messageDeliveryDecay,
-    invalidMessageDeliveriesWeight: -5, # Invalid messages are badly penalized
+    invalidMessageDeliveriesWeight: -1, # 10 invalid messages = -100 points
     invalidMessageDeliveriesDecay: invalidMessageDecay
   )
   topicParams
