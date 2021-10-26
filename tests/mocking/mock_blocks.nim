@@ -32,7 +32,7 @@ func apply_randao_reveal(
     blck.message.slot.compute_epoch_at_slot,
     privkey).toValidatorSig()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/tests/core/pyspec/eth2spec/test/helpers/block.py#L38-L54
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/tests/core/pyspec/eth2spec/test/helpers/block.py#L38-L54
 func sign_block(
     state: SomeBeaconState,
     blck: var (phase0.SignedBeaconBlock | altair.SignedBeaconBlock |

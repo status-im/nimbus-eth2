@@ -74,7 +74,7 @@ proc apply_light_client_update(snapshot: var LightClientSnapshot, update: LightC
     snapshot.next_sync_committee = update.next_sync_committee
   snapshot.header = update.header
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.3/specs/altair/sync-protocol.md#process_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/sync-protocol.md#process_light_client_update
 proc process_light_client_update*(store: var LightClientStore,
                                   update: LightClientUpdate,
                                   current_slot: Slot,

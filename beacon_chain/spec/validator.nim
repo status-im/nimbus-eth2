@@ -239,7 +239,7 @@ func compute_committee_len*(
 
   (slice.b - slice.a + 1).uint64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#get_beacon_committee
 iterator get_beacon_committee*(
     state: SomeBeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): ValidatorIndex =
@@ -346,7 +346,7 @@ func compute_proposer_index(state: SomeBeaconState,
       return some(candidate_index)
     i += 1
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(
     state: SomeBeaconState, cache: var StateCache, slot: Slot):
     Option[ValidatorIndex] =

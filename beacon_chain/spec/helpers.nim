@@ -24,7 +24,7 @@ import
 export
   phase0, altair, eth2_merkleization, ssz_codec
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#integer_squareroot
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
   ## Return the largest integer ``x`` such that ``x**2 <= n``.
   doAssert n >= 0'u64
@@ -299,7 +299,7 @@ func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openArray[Eth2Digest],
     value = eth2digest(buf)
   value == root
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/tests/core/pyspec/eth2spec/test/helpers/merkle.py#L4-L21
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/tests/core/pyspec/eth2spec/test/helpers/merkle.py#L4-L21
 func build_proof_impl(anchor: object, leaf_index: uint64,
                       proof: var openArray[Eth2Digest]) =
   let
