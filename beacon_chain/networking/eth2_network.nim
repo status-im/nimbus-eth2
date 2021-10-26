@@ -1865,17 +1865,17 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       historyGossip: 3,
       fanoutTTL: 60.seconds,
       seenTTL: 385.seconds,
-      gossipThreshold: -4000,
-      publishThreshold: -8000,
-      graylistThreshold: -16000, # also disconnect threshold
-      opportunisticGraftThreshold: 0,
-      decayInterval: 12.seconds,
+      gossipThreshold: -40,
+      publishThreshold: -80,
+      graylistThreshold: -160, # also disconnect threshold
+      opportunisticGraftThreshold: 1,
+      decayInterval: 12.seconds, #TODO this is not used in libp2p
       decayToZero: 0.01,
       retainScore: 385.seconds,
       appSpecificWeight: 0.0,
-      ipColocationFactorWeight: -53.75,
+      ipColocationFactorWeight: -5,
       ipColocationFactorThreshold: 3.0,
-      behaviourPenaltyWeight: -15.9,
+      behaviourPenaltyWeight: -5,
       behaviourPenaltyDecay: 0.986,
       disconnectBadPeers: true,
       directPeers:
@@ -1934,10 +1934,10 @@ proc shortForm*(id: NetKeyPair): string =
 # the peer will win `Weight` points, up to `(Cap * Weight)`
 #
 # `meshMessageDeliveries`: The most convoluted way possible to punish
-# peers in topics with low traffic.
+# peers not sending enough traffic in a topic.
 #
-# For each unique message received in a topic, the topic score is incremented, up to `Cap`.
-# If the score of the topic gets below `Threshold`, each peer present in the topic
+# For each message (duplicate or first) received in a topic, the score is incremented, up to `Cap`.
+# If the score of the topic gets below `Threshold`, the peer
 # since at least `Activation` time will have: `score += (Threshold - Score)² * Weight`
 # (`Weight` should be negative to punish them)
 #
@@ -1976,7 +1976,7 @@ func computeDecay(
   # startValue will to to endValue in timeToEndValue
   # given the returned decay
 
-  let heartbeatsToZero = timeToEndValue.seconds.float / heartbeatTime.seconds.float
+  let heartbeatsToZero = timeToEndValue.milliseconds.float / heartbeatTime.milliseconds.float
   pow(endValue / startValue, 1 / heartbeatsToZero)
 
 func computeMessageDeliveriesWeight(
@@ -2004,20 +2004,24 @@ proc getTopicParams(
 
   let
     # Statistically, a peer will be first for every `receivedMessage / d`
-    shouldSendPerPeriod = expectedMessagesPerPeriod / peersPerTopic
-    shouldSendOverNPeriod = shouldSendPerPeriod * averageOverNPeriods
+    shouldBeFirstPerPeriod = expectedMessagesPerPeriod / peersPerTopic
+    shouldBeFirstOverNPeriod = shouldBeFirstPerPeriod * averageOverNPeriods
 
     # A peer being first in 1/d% messages will reach a score of
     # `shouldSendOverNPeriod`
     firstMessageDecay =
       computeDecay(
-        startValue = shouldSendOverNPeriod,
+        startValue = shouldBeFirstOverNPeriod,
         endValue = 0.1,
         timeToEndValue = period * averageOverNPeriods.int,
         heartbeatPeriod)
  
-    # Start to remove up to 30 points when <80% message received in N periods
-    messageDeliveryThreshold = 1.float
+    # Start to remove up to 30 points when peer send less
+    # than half message than expected
+    shouldSendAtLeastPerPeriod = expectedMessagesPerPeriod / 2
+    shouldSendAtLeastOverNPeriod = shouldSendAtLeastPerPeriod * averageOverNPeriods
+
+    messageDeliveryThreshold = shouldSendAtLeastOverNPeriod
     messageDeliveryWeight = computeMessageDeliveriesWeight(messageDeliveryThreshold, 30.0)
     messageDeliveryDecay =
       computeDecay(
@@ -2033,14 +2037,14 @@ proc getTopicParams(
                             timeToEndValue = chronos.minutes(10),
                             heartbeatPeriod)
 
-  TopicParams(
+  let topicParams = TopicParams(
     topicWeight: topicWeight,
     timeInMeshWeight: 0.1,
     timeInMeshQuantum: timeInMeshQuantum,
     timeInMeshCap: 300, # 30 points after timeInMeshQuantum * 300
-    firstMessageDeliveriesWeight: 35.0 / shouldSendOverNPeriod,
+    firstMessageDeliveriesWeight: 35.0 / shouldBeFirstOverNPeriod,
     firstMessageDeliveriesDecay: firstMessageDecay,
-    firstMessageDeliveriesCap: shouldSendOverNPeriod, # Max points: 70
+    firstMessageDeliveriesCap: shouldBeFirstOverNPeriod, # Max points: 70
     meshMessageDeliveriesWeight: messageDeliveryWeight,
     meshMessageDeliveriesDecay: messageDeliveryDecay,
     meshMessageDeliveriesThreshold: messageDeliveryThreshold,
@@ -2052,14 +2056,13 @@ proc getTopicParams(
     invalidMessageDeliveriesWeight: -5, # Invalid messages are badly penalized
     invalidMessageDeliveriesDecay: invalidMessageDecay
   )
+  topicParams
 
-
-proc getTopicParams(node: Eth2Node, topicType: TopicType): TopicParams =
-  let
-    heartbeatPeriod = node.pubsub.parameters.heartbeatInterval
-    slotPeriod = chronos.seconds(SECONDS_PER_SLOT.int)
-    peersPerTopic = node.pubsub.parameters.d
-
+proc getTopicParams(
+  heartbeatPeriod: Duration,
+  slotPeriod: Duration,
+  peersPerTopic: int,
+  topicType: TopicType): TopicParams =
   case topicType:
     of BlockTopic:
       getTopicParams(
@@ -2093,6 +2096,24 @@ proc getTopicParams(node: Eth2Node, topicType: TopicType): TopicParams =
       )
     of OtherTopic:
       TopicParams.init()
+
+static:
+  for topicType in ord(low(TopicType))..ord(high(TopicType)):
+    getTopicParams(
+        heartbeatPeriod = chronos.milliseconds(700),
+        slotPeriod = chronos.seconds(12),
+        peersPerTopic = 8,
+        TopicType(topicType)
+      ).validateParameters().tryGet()
+
+
+proc getTopicParams(node: Eth2Node, topicType: TopicType): TopicParams =
+  let
+    heartbeatPeriod = node.pubsub.parameters.heartbeatInterval
+    slotPeriod = chronos.seconds(SECONDS_PER_SLOT.int)
+    peersPerTopic = node.pubsub.parameters.d
+
+  getTopicParams(heartbeatPeriod, slotPeriod, peersPerTopic, topicType)
 
 proc subscribe*(
     node: Eth2Node, topic: string, topicType: TopicType,
