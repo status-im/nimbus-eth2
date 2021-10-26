@@ -82,7 +82,7 @@ func compute_block_root*(
       fork, DOMAIN_BEACON_PROPOSER, epoch, genesis_validators_root)
   compute_signing_root(root, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/validator.md#signature
 func get_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     root: Eth2Digest, privkey: ValidatorPrivKey): CookedSig =

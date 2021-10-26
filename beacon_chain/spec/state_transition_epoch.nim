@@ -795,7 +795,7 @@ func process_registry_updates*(
       compute_activation_exit_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/beacon-chain.md#slashings
 func process_slashings*(state: var SomeBeaconState, total_balance: Gwei) {.nbench.} =
   let
     epoch = get_current_epoch(state)

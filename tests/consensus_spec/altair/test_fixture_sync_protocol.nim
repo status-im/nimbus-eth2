@@ -207,7 +207,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
       len(store.valid_updates) == 0
       store.snapshot.header == update.header
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L150-L221
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.3/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L150-L218
   test "process_light_client_update_finality_updated":
     var forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data

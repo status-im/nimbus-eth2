@@ -44,8 +44,8 @@ func decrease_balance*(
   if delta != 0: # avoid dirtying the balance cache if not needed
     decrease_balance(state.balances[index], delta)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#deposits
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#modified-process_deposit
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/beacon-chain.md#modified-process_deposit
 func get_validator_from_deposit*(deposit: DepositData):
     Validator =
   let
@@ -710,7 +710,7 @@ proc get_next_sync_committee*(state: altair.BeaconState | merge.BeaconState):
   res.aggregate_pubkey = finish(attestersAgg).toPubKey()
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/fork.md#upgrading-the-state
 func translate_participation(
     state: var altair.BeaconState,
     pending_attestations: openArray[phase0.PendingAttestation]) =

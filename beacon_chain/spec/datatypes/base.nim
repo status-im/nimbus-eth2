@@ -344,7 +344,7 @@ type
     message*: VoluntaryExit
     signature*: TrustedSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     proposer_index*: uint64

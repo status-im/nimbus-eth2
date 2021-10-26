@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition - block processing, as described in
-# https://github.com/ethereum/consensus-specs/blob/master/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#block-processing
 #
 # The entry point is `process_block` which is at the bottom of this file.
 #
@@ -191,7 +191,7 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#attester-slashings
 proc check_attester_slashing*(
        state: var SomeBeaconState,
        attester_slashing: SomeAttesterSlashing,
@@ -377,7 +377,7 @@ proc process_voluntary_exit*(
     cache)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#operations
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#operations
 proc process_operations(cfg: RuntimeConfig,
                         state: var SomeBeaconState,
                         body: SomeSomeBeaconBlockBody,
@@ -501,7 +501,7 @@ func is_valid_gas_limit(
 
   true
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
     state: var merge.BeaconState, payload: ExecutionPayload,
     execute_payload: ExecutePayload): Result[void, cstring] {.nbench.} =
