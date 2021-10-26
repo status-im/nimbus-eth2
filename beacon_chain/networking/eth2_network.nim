@@ -2124,7 +2124,7 @@ proc subscribe*(
   node.pubsub.topicParams[topic] = node.getTopicParams(topicType)
 
   # Passing in `nil` because we do all message processing in the validator
-  node.pubsub.subscribe(topic, nim)
+  node.pubsub.subscribe(topic, nil)
 
 proc newValidationResultFuture(v: ValidationResult): Future[ValidationResult] =
   let res = newFuture[ValidationResult]("eth2_network.execValidator")
