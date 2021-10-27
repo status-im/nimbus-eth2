@@ -4,7 +4,7 @@ import std/options,
        ../spec/[forks],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization],
        ../beacon_node,
-       ../consensus_object_pools/[block_pools_types, blockchain_dag]
+       ../consensus_object_pools/blockchain_dag
 
 export
   options, eth2_rest_serialization, blockchain_dag, presto, rest_types

@@ -16,6 +16,11 @@ import
   ../spec/forks,
   ../beacon_node, ../nimbus_binary_common
 
+export rest_utils
+
+when defined(chronosFutureTracking):
+  import stew/base10
+
 logScope: topics = "rest_nimbusapi"
 
 type
@@ -39,7 +44,8 @@ type
     score*: int
 
   RestFutureInfo* = object
-    id*: int
+    id*: string
+    child_id*: string
     procname*: string
     filename*: string
     line*: int
@@ -213,9 +219,14 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       var res: seq[RestFutureInfo]
       for item in pendingFutures():
         let loc = item.location[LocCreateIndex][]
+        let futureId = Base10.toString(item.id)
+        let childId =
+          if isNil(item.child): ""
+          else: Base10.toString(item.child.id)
         res.add(
           RestFutureInfo(
-            id: item.id,
+            id: futureId,
+            child_id: childId,
             procname: $loc.procedure,
             filename: $loc.file,
             line: loc.line,

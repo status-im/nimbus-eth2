@@ -10,6 +10,8 @@ import
   ./rest_utils,
   ../beacon_node
 
+export rest_utils
+
 logScope: topics = "rest_eventapi"
 
 proc validateEventTopics(events: seq[EventTopic]): Result[EventTopics,

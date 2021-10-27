@@ -11,6 +11,8 @@ import
   ../spec/eth2_apis/rpc_types,
   ./rest_utils
 
+export rest_utils
+
 logScope: topics = "rest_node"
 
 type

@@ -7,14 +7,14 @@
 import std/typetraits
 import stew/[results, base10, byteutils, endians2], presto/common,
        libp2p/peerid, serialization,
-       json_serialization, json_serialization/std/[options, net],
+       json_serialization, json_serialization/std/[options, net, sets],
        nimcrypto/utils as ncrutils
 import ".."/[eth2_ssz_serialization, forks],
        ".."/datatypes/[phase0, altair, merge],
        "."/rest_types
 
 export
-  results, peerid, common, serialization, json_serialization, options, net,
+  results, peerid, common, serialization, json_serialization, options, net, sets,
   eth2_ssz_serialization, rest_types
 
 Json.createFlavor RestJson

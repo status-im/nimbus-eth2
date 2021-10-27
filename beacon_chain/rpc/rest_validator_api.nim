@@ -4,8 +4,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 import std/[typetraits, strutils, sets, sequtils]
-import stew/[results, base10], chronicles, json_serialization,
-       json_serialization/std/[options, net],
+import stew/[results, base10], chronicles,
        nimcrypto/utils as ncrutils
 import ".."/[beacon_chain_db, beacon_node],
        ".."/networking/eth2_network,
@@ -15,6 +14,8 @@ import ".."/[beacon_chain_db, beacon_node],
        ".."/spec/[forks, network],
        ".."/spec/datatypes/[phase0, altair],
        "."/rest_utils
+
+export rest_utils
 
 logScope: topics = "rest_validatorapi"
 
