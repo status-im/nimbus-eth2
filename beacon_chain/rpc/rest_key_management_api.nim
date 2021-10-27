@@ -13,7 +13,9 @@ import ".."/spec/[keystore, crypto]
 import ".."/rpc/rest_utils
 import ".."/validators/[keystore_management, validator_pool]
 
-export results
+export
+  rest_utils,
+  results
 
 type
   ValidatorToggleAction {.pure.} = enum

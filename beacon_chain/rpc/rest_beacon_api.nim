@@ -9,7 +9,6 @@ import
   std/[typetraits, sequtils, strutils, sets],
   stew/[results, base10],
   chronicles,
-  json_serialization, json_serialization/std/[options, net],
   nimcrypto/utils as ncrutils,
   ../beacon_node, ../networking/eth2_network,
   ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
@@ -17,6 +16,8 @@ import
   ../spec/[eth2_merkleization, forks, network],
   ../spec/datatypes/[phase0, altair],
   ./rest_utils
+
+export rest_utils
 
 logScope: topics = "rest_beaconapi"
 

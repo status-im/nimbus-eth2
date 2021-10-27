@@ -16,6 +16,8 @@ import
   ../spec/forks,
   ../beacon_node, ../nimbus_binary_common
 
+export rest_utils
+
 when defined(chronosFutureTracking):
   import stew/base10
 

@@ -11,6 +11,8 @@ import ".."/[version, beacon_node],
        ".."/spec/forks,
        "."/rest_utils
 
+export rest_utils
+
 logScope: topics = "rest_debug"
 
 proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
