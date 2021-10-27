@@ -16,7 +16,7 @@ import
 # Routines for mocking blocks
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.1/tests/core/pyspec/eth2spec/test/helpers/block.py#L26-L35
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/tests/core/pyspec/eth2spec/test/helpers/block.py#L26-L35
 func apply_randao_reveal(
     state: SomeBeaconState,
     blck: var (phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
@@ -49,7 +49,7 @@ func sign_block(
     blck.root,
     privkey).toValidatorSig()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.1/tests/core/pyspec/eth2spec/test/helpers/execution_payload.py#L1-L31
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/tests/core/pyspec/eth2spec/test/helpers/execution_payload.py#L1-L31
 func build_empty_execution_payload(
     state: merge.BeaconState): ExecutionPayload =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload

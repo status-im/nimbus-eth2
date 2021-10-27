@@ -153,7 +153,7 @@ func count_active_validators*(state: SomeBeaconState,
                               cache: var StateCache): uint64 =
   cache.get_shuffled_active_validator_indices(state, epoch).lenu64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_committee_count_per_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#get_committee_count_per_slot
 func get_committee_count_per_slot*(num_active_validators: uint64): uint64 =
   clamp(
     num_active_validators div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
@@ -162,7 +162,7 @@ func get_committee_count_per_slot*(num_active_validators: uint64): uint64 =
 func get_committee_count_per_slot*(state: SomeBeaconState,
                                    epoch: Epoch,
                                    cache: var StateCache): uint64 =
-  # Return the number of committees at ``slot``.
+  ## Return the number of committees at ``slot``.
 
   let
     active_validator_count = count_active_validators(state, epoch, cache)
@@ -182,7 +182,7 @@ func get_committee_count_per_slot*(state: SomeBeaconState,
                                    cache: var StateCache): uint64 =
   get_committee_count_per_slot(state, slot.compute_epoch_at_slot, cache)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_previous_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(current_epoch: Epoch): Epoch =
   ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   if current_epoch == GENESIS_EPOCH:
