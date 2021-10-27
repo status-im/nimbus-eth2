@@ -3,7 +3,6 @@
 set -e
 
 rm -rf /var/lib/nimbus
-rm -rf /usr/lib/systemd/system/nimbus.service
 
 if id -u nimbus > /dev/null 2>&1; then
   userdel nimbus # userdel will also delete the nimbus group

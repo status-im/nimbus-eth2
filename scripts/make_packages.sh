@@ -52,9 +52,11 @@ fpm -s dir -t deb -n $PKG_NAME \
   -v $PKG_VERSION \
   -C $PKG_IMG_DIR \
   -p ${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH}.deb \
-  --after-install $PKG_IMG_DIR/postinst \
-  --before-remove $PKG_IMG_DIR/prerm \
-  --after-remove $PKG_IMG_DIR/postrm \
+  --after-install $PKG_IMG_DIR/after_install \
+  --before-remove $PKG_IMG_DIR/before_remove \
+  --after-remove $PKG_IMG_DIR/after_remove \
+  --after-upgrade $PKG_IMG_DIR/after_upgrade \
+  --deb-after-purge $PKG_IMG_DIR/deb_after_purge \
   --license "Apache 2.0 + MIT" \
   --maintainer "The Nimbus Team" \
   --description "Nimbus Beacon Chain / Ethereum Consensus client" \
@@ -64,9 +66,10 @@ fpm -s dir -t rpm -n $PKG_NAME \
     -v $PKG_VERSION \
     -C $PKG_IMG_DIR \
     -p ${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH}.rpm \
-    --after-install $PKG_IMG_DIR/postinst \
-    --before-remove $PKG_IMG_DIR/prerm \
-    --after-remove $PKG_IMG_DIR/postrm \
+    --after-install $PKG_IMG_DIR/after_install \
+    --before-remove $PKG_IMG_DIR/before_remove \
+    --after-remove $PKG_IMG_DIR/after_remove \
+    --after-upgrade $PKG_IMG_DIR/after_upgrade \
     --license "Apache 2.0 + MIT" \
     --maintainer "The Nimbus Team" \
     --description "Nimbus Beacon Chain / Ethereum Consensus client" \
