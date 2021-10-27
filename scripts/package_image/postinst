@@ -1,0 +1,22 @@
+#!/bin/bash
+
+set -e
+
+DISTRO=$(lsb_release -si)
+if ! id -u nimbus > /dev/null 2>&1; then
+  case $DISTRO in
+    Ubuntu|Debian)
+      adduser --system --no-create-home --group nimbus
+      ;;
+    Fedora)
+      adduser --system --no-create-home --user-group nimbus
+      ;;
+    *) # blind shot... ToDo: add more DISTRO cases here
+      adduser --system --no-create-home --group nimbus
+      ;;
+  esac
+fi
+
+chown nimbus:nimbus /var/lib/nimbus
+
+systemctl daemon-reload

@@ -1,0 +1,61 @@
+# To configure the service, use `systemctl edit nimbus_beacon_node.service`
+# and override the environment variables in this file:
+# [Service]
+# Environment="WEB3_URL=wss://provider/"
+#
+# To completely override the start command (to add custom parameters such as
+# graffitit), override the `ExecStart` value instead:
+#
+# [Service]
+# ExecStart=/usr/bin/nimbus_beacon_node --network=${NETWORK} \
+#  --data-dir="${DATA_DIR_PREFIX}/shared_${NETWORK}_${NODE_ID}" \
+#  --graffiti=123
+#
+# See https://nimbus.guide/ for more information
+
+[Unit]
+Description=Nimbus Beacon Node (Ethereum consensus client)
+Wants=network-online.target
+After=network-online.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+User=nimbus
+WorkingDirectory=/var/lib/nimbus
+TimeoutSec=1200
+Restart=always
+
+ExecStart=/usr/bin/nimbus_beacon_node \
+  --network=${NETWORK} \
+  --data-dir="${DATA_DIR_PREFIX}/shared_${NETWORK}_${NODE_ID}" \
+  --tcp-port=${TCP_PORT} \
+  --udp-port=${UDP_PORT} \
+  --rest=${REST_ENABLED} --rest-port=${REST_PORT} \
+  --metrics=${METRICS_ENABLED} --metrics-port=${METRICS_PORT} \
+  --web3-url=${WEB3_URL}
+
+# Network - use `prater` to connect to the prater testnet
+Environment=NETWORK=mainnet
+
+# You need to have have access to an execution client - by default, we assume
+# a compatible executionc client is running on the same machine on the default
+# websocket port.
+Environment=WEB3_URL=ws://127.0.0.1:8546
+
+# Support for running multiple nodes side-by-side
+Environment=NODE_ID=0
+
+# Where data files go
+Environment=DATA_DIR_PREFIX=/var/lib/nimbus
+
+# Default ports
+Environment=TCP_PORT=9000
+Environment=UDP_PORT=9000
+Environment=REST_PORT=5052
+Environment=METRICS_PORT=8008
+
+# Interaction and monitoring
+Environment=REST_ENABLED=1
+Environment=METRICS_ENABLED=1
