@@ -29,7 +29,7 @@ import
 
 export extras, phase0, altair
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#block-header
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
     state: var SomeBeaconState, blck: SomeSomeBeaconBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =

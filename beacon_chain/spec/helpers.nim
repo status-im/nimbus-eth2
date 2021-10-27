@@ -48,7 +48,7 @@ template epoch*(slot: Slot): Epoch =
 template isEpoch*(slot: Slot): bool =
   (slot mod SLOTS_PER_EPOCH) == 0
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/ssz/merkle-proofs.md#generalized_index_sibling
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/ssz/merkle-proofs.md#generalized_index_sibling
 template generalized_index_sibling*(
     index: GeneralizedIndex): GeneralizedIndex =
   index xor 1.GeneralizedIndex
@@ -279,7 +279,7 @@ func verify_merkle_multiproof*(
   if calc.isErr: return false
   calc.get == root
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_valid_merkle_branch
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#is_valid_merkle_branch
 func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openArray[Eth2Digest],
                              depth: int, index: uint64,
                              root: Eth2Digest): bool =
@@ -396,7 +396,7 @@ func get_current_epoch*(state: SomeBeaconState): Epoch =
   doAssert state.slot >= GENESIS_SLOT, $state.slot
   compute_epoch_at_slot(state.slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_randao_mix
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: SomeBeaconState, epoch: Epoch): Eth2Digest =
   ## Returns the randao mix at a recent ``epoch``.
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
@@ -433,7 +433,7 @@ func compute_fork_data_root(current_version: Version,
     genesis_validators_root: genesis_validators_root
   ))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_fork_digest
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#compute_fork_digest
 func compute_fork_digest*(current_version: Version,
                           genesis_validators_root: Eth2Digest): ForkDigest =
   ## Return the 4-byte fork digest for the ``current_version`` and
@@ -509,7 +509,7 @@ func add_flag*(flags: ParticipationFlags, flag_index: int): ParticipationFlags =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   flags or flag
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#has_flag
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/beacon-chain.md#has_flag
 func has_flag*(flags: ParticipationFlags, flag_index: int): bool =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   (flags and flag) == flag
@@ -519,7 +519,7 @@ func get_subtree_index*(idx: GeneralizedIndex): uint64 =
   doAssert idx > 0
   uint64(idx mod (type(idx)(1) shl log2trunc(idx)))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_merge_complete
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/beacon-chain.md#is_merge_complete
 func is_merge_complete*(state: merge.BeaconState): bool =
   state.latest_execution_payload_header != default(ExecutionPayloadHeader)
 

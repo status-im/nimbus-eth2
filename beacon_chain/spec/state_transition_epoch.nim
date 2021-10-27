@@ -464,7 +464,7 @@ func is_in_inactivity_leak(finality_delay: uint64): bool =
 func get_finality_delay(state: SomeBeaconState): uint64 =
   get_previous_epoch(state) - state.finalized_checkpoint.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.8/specs/phase0/beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#rewards-and-penalties-1
 func is_in_inactivity_leak(state: altair.BeaconState | merge.BeaconState): bool =
   # TODO remove this, see above
   get_finality_delay(state) > MIN_EPOCHS_TO_INACTIVITY_PENALTY
@@ -902,7 +902,7 @@ func process_participation_flag_updates*(state: var (altair.BeaconState | merge.
 
   state.current_epoch_participation.resetCache()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#sync-committee-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/beacon-chain.md#sync-committee-updates
 proc process_sync_committee_updates*(state: var (altair.BeaconState | merge.BeaconState)) =
   let next_epoch = get_current_epoch(state) + 1
   if next_epoch mod EPOCHS_PER_SYNC_COMMITTEE_PERIOD == 0:

@@ -56,7 +56,7 @@ export extras, phase0, altair
 
 type Foo = phase0.SignedBeaconBlock | altair.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock | merge.TrustedSignedBeaconBlock | merge.SigVerifiedSignedBeaconBlock | merge.SignedBeaconBlock
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
     #state: SomeBeaconState, signed_block: SomeSomeSignedBeaconBlock): bool {.nbench.} =
     state: SomeBeaconState, signed_block: Foo): bool {.nbench.} =

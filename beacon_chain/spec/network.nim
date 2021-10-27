@@ -21,7 +21,7 @@ const
   topicAttesterSlashingsSuffix* = "attester_slashing/ssz_snappy"
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz_snappy"
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#eth2-network-interaction-domains
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/p2p-interface.md#configuration
   MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
   GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
   TTFB_TIMEOUT* = 5.seconds
