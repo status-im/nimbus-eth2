@@ -18,7 +18,6 @@ NSP_BIN=../build/nimbus_signing_process
 
 if [ ! -f $NBC_BIN -o ! -f $NSP_BIN ]; then
   printf "Please build nimbus_beacon_node and nimbus_signing_process\n"
-  printf "This script needs to be run from the scripts folder\n"
 
   exit 1
 fi
