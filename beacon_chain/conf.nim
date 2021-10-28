@@ -65,11 +65,6 @@ type
   Web3Cmd* {.pure.} = enum
     test = "Test a web3 provider"
 
-  Web3Mode* {.pure.} = enum
-    auto # Enabled only when validators are attached
-    enabled # Always enabled
-    disabled # Always disabled
-
   SlashingDbKind* {.pure.} = enum
     v1
     v2
@@ -118,12 +113,6 @@ type
     web3Urls* {.
       desc: "One or more Web3 provider URLs used for obtaining deposit contract data"
       name: "web3-url" }: seq[string]
-
-    web3Mode* {.
-      hidden
-      defaultValue: Web3Mode.auto
-      desc: "URL of the Web3 server to observe Eth1"
-      name: "web3-mode" }: Web3Mode
 
     nonInteractive* {.
       desc: "Do not display interative prompts. Quit on missing configuration"
