@@ -75,6 +75,13 @@ type
     v2
     both
 
+  StdoutLogKind* {.pure.} = enum
+    Auto = "auto"
+    Colors = "colors"
+    NoColors = "nocolors"
+    Json = "json"
+    None = "none"
+
   SlashProtCmd* = enum
     `import` = "Import a EIP-3076 slashing protection interchange file"
     `export` = "Export a EIP-3076 slashing protection interchange file"
@@ -90,6 +97,12 @@ type
     logFile* {.
       desc: "Specifies a path for the written Json log file"
       name: "log-file" }: Option[OutFile]
+
+    logStdout* {.
+      desc: "Specifies what kind of logs should be written to stdout (auto, colors, nocolors, json)"
+      defaultValueDesc: "auto"
+      defaultValue: StdoutLogKind.Auto
+      name: "log-stdout" }: StdoutLogKind
 
     eth2Network* {.
       desc: "The Eth2 network to join"
@@ -532,6 +545,12 @@ type
     logFile* {.
       desc: "Specifies a path for the written Json log file"
       name: "log-file" }: Option[OutFile]
+
+    logStdout* {.
+      desc: "Specifies what kind of logs should be written to stdout (auto, colors, nocolors, json)"
+      defaultValueDesc: "auto"
+      defaultValue: StdoutLogKind.Auto
+      name: "log-stdout" }: StdoutLogKind
 
     dataDir* {.
       desc: "The directory where nimbus will store all blockchain data"

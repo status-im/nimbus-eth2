@@ -71,7 +71,7 @@ switch("passL", "-fno-omit-frame-pointer")
 --excessiveStackTrace:on
 # enable metric collection
 --define:metrics
---define:chronicles_line_numbers
+--define:chronicles_line_numbers # These are disabled for release binaries
 # for heap-usage-by-instance-type metrics and object base-type strings
 --define:nimTypeNames
 

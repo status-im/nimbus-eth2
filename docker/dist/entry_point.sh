@@ -20,9 +20,8 @@ PLATFORM="${1}"
 BINARIES="nimbus_beacon_node nimbus_signing_process"
 
 #- we need to build everything against libraries available inside this container, including the Nim compiler
-#- we disable the log file and log colours; the user only has to worry about logging stdout now
 make clean
-NIMFLAGS_COMMON="-d:disableMarchNative -d:chronicles_sinks=textlines -d:chronicles_colors=none --gcc.options.debug:'-g1' --clang.options.debug:'-gline-tables-only'"
+NIMFLAGS_COMMON="-d:disableMarchNative --gcc.options.debug:'-g1' --clang.options.debug:'-gline-tables-only'"
 if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   # Cross-compilation using the MXE distribution of Mingw-w64
   export PATH="/usr/lib/mxe/usr/bin:${PATH}"

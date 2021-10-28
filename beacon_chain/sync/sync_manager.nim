@@ -1151,7 +1151,6 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 
     # Update status string
     man.syncStatus = map & ":" & $pending & ":" &
-                     man.insSyncSpeed.formatBiggestFloat(ffDecimal, 4) & ":" &
                      man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) & ":" &
                      man.timeLeft.toTimeLeftString() &
                      " (" & $man.queue.outSlot & ")"

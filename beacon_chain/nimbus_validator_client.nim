@@ -146,11 +146,10 @@ proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
   checkIfShouldStopAtEpoch(wallSlot.slot, vc.config.stopAtEpoch)
 
   info "Slot start",
-    lastSlot = shortLog(lastSlot),
-    wallSlot = shortLog(wallSlot.slot),
-    delay = shortLog(delay),
+    slot = shortLog(wallSlot.slot),
     attestationIn = vc.getDurationToNextAttestation(wallSlot.slot),
-    blockIn = vc.getDurationToNextBlock(wallSlot.slot)
+    blockIn = vc.getDurationToNextBlock(wallSlot.slot),
+    delay = shortLog(delay)
 
 proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   vc.fallbackService.start()
@@ -164,8 +163,7 @@ programMain:
   let config = makeBannerAndConfig("Nimbus validator client " & fullVersionStr,
                                    ValidatorClientConf)
 
-  setupStdoutLogging(config.logLevel)
-  setupLogging(config.logLevel, config.logFile)
+  setupLogging(config.logLevel, config.logStdout, config.logFile)
 
   case config.cmd
     of VCNoCommand:
