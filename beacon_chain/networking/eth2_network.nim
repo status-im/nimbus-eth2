@@ -2006,14 +2006,16 @@ proc getTopicParams(
     # Statistically, a peer will be first for every `receivedMessage / d`
     shouldBeFirstPerPeriod = expectedMessagesPerPeriod / peersPerTopic
     shouldBeFirstOverNPeriod = shouldBeFirstPerPeriod * averageOverNPeriods
+    shouldBeFirstEvery = nanoseconds(period.nanoseconds div expectedMessagesPerPeriod) * peersPerTopic
+    firstMessageCap = shouldBeFirstOverNPeriod
 
-    # A peer being first in 1/d% messages will reach a score of
-    # `shouldSendOverNPeriod`
+    # If peer is first every `shouldBeFirstEvery`
+    # he will be able to stay at cap
     firstMessageDecay =
       computeDecay(
-        startValue = shouldBeFirstOverNPeriod,
-        endValue = 0.1,
-        timeToEndValue = period * averageOverNPeriods.int * 2,
+        startValue = firstMessageCap,
+        endValue = firstMessageCap - 1,
+        timeToEndValue = shouldBeFirstEvery,
         heartbeatPeriod)
  
     # Start to remove up to 30 points when peer send less
@@ -2039,12 +2041,12 @@ proc getTopicParams(
 
   let topicParams = TopicParams(
     topicWeight: topicWeight,
-    timeInMeshWeight: 0.1,
     timeInMeshQuantum: timeInMeshQuantum,
-    timeInMeshCap: 300, # 30 points after timeInMeshQuantum * 300
-    firstMessageDeliveriesWeight: 35.0 / shouldBeFirstOverNPeriod,
+    timeInMeshCap: 200, # 20 points after timeInMeshQuantum * 200
+    timeInMeshWeight: 0.1, # timeInMesh should be less powerful than inactive penalties
+    firstMessageDeliveriesCap: firstMessageCap,
     firstMessageDeliveriesDecay: firstMessageDecay,
-    firstMessageDeliveriesCap: shouldBeFirstOverNPeriod, # Max points: 70
+    firstMessageDeliveriesWeight: 80.0 / firstMessageCap, # Max points: 80
     meshMessageDeliveriesWeight: messageDeliveryWeight,
     meshMessageDeliveriesDecay: messageDeliveryDecay,
     meshMessageDeliveriesThreshold: messageDeliveryThreshold,
