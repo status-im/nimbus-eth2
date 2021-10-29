@@ -62,7 +62,7 @@ type
       ## attestations for the aggregate
 
     pruneBackoffSlots*: uint64 ##\
-      ## libp2p doesn't support unsubscribing from and resubscribing to topics
+      ## when resubscribing too quickly, the gossipsub pruneBackoff prevents forming a mesh with peers that were unsubscribed from
       ## within a pruneBackoff time period so detect when those gaps between a
       ## topic unsubscription and resubscription would too short.
 
