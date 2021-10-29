@@ -159,9 +159,8 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
       cfg, forked[], Slot(SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD),
       cache, info, flags = {})
     let
-      snapshot_period =
-        pre_snapshot.header.slot.epoch div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
-      update_period = state.slot.epoch div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+      snapshot_period = sync_committee_period(pre_snapshot.header.slot)
+      update_period = sync_committee_period(state.slot)
     check: snapshot_period + 1 == update_period
 
     let
@@ -232,9 +231,8 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
     check: state.finalized_checkpoint.epoch == 3
     # Ensure that it's same period
     let
-      snapshot_period =
-        pre_snapshot.header.slot.epoch div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
-      update_period = state.slot.epoch div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+      snapshot_period = sync_committee_period(pre_snapshot.header.slot)
+      update_period = sync_committee_period(state.slot)
     check: snapshot_period == update_period
 
     # Updated sync_committee and finality

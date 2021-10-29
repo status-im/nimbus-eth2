@@ -13,8 +13,9 @@ proc validate_light_client_update*(snapshot: LightClientSnapshot,
     return false
 
   # Verify update does not skip a sync committee period
-  var snapshot_period = compute_epoch_at_slot(snapshot.header.slot) div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
-  var update_period = compute_epoch_at_slot(update.header.slot) div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+  let
+    snapshot_period = sync_committee_period(snapshot.header.slot)
+    update_period = sync_committee_period(update.header.slot)
   if update_period notin [snapshot_period, snapshot_period + 1]:
     return false
 
@@ -67,8 +68,9 @@ proc validate_light_client_update*(snapshot: LightClientSnapshot,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/sync-protocol.md#apply_light_client_update
 proc apply_light_client_update(snapshot: var LightClientSnapshot, update: LightClientUpdate) =
-  let snapshot_period = compute_epoch_at_slot(snapshot.header.slot) div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
-  let update_period = compute_epoch_at_slot(update.header.slot) div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+  let
+    snapshot_period = sync_committee_period(snapshot.header.slot)
+    update_period = sync_committee_period(update.header.slot)
   if update_period == snapshot_period + 1:
     snapshot.current_sync_committee = snapshot.next_sync_committee
     snapshot.next_sync_committee = update.next_sync_committee

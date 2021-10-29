@@ -9,9 +9,9 @@ import stew/[results, base10, byteutils, endians2], presto/common,
        libp2p/peerid, serialization,
        json_serialization, json_serialization/std/[options, net, sets],
        nimcrypto/utils as ncrutils
-import ".."/[eth2_ssz_serialization, forks],
-       ".."/datatypes/[phase0, altair, merge],
-       "."/rest_types
+import "."/rest_types,
+       ".."/[eth2_ssz_serialization, forks],
+       ".."/datatypes/[phase0, altair, merge]
 
 export
   results, peerid, common, serialization, json_serialization, options, net, sets,

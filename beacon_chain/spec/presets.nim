@@ -25,6 +25,7 @@ const
 type
   Slot* = distinct uint64
   Epoch* = distinct uint64
+  SyncCommitteePeriod* = distinct uint64
   Version* = distinct array[4, byte]
   Eth1Address* = ethtypes.Address
 
