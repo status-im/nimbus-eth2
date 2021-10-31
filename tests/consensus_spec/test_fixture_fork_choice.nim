@@ -219,12 +219,12 @@ proc stepChecks(
       doAssert headRef.slot == Slot(val["slot"].getInt())
       doAssert headRef.root == Eth2Digest.fromHex(val["root"].getStr())
     elif check == "justified_checkpoint":
-      let checkpointRoot = fkChoice.checkpoints.justified.blck.root
-      let checkpointEpoch = fkChoice.checkpoints.justified.epoch
+      let checkpointRoot = fkChoice.checkpoints.justified.checkpoint.root
+      let checkpointEpoch = fkChoice.checkpoints.justified.checkpoint.epoch
       doAssert checkpointEpoch == Epoch(val["epoch"].getInt())
       doAssert checkpointRoot == Eth2Digest.fromHex(val["root"].getStr())
     elif check == "justified_checkpoint_root": # undocumented check
-      let checkpointRoot = fkChoice.checkpoints.justified.blck.root
+      let checkpointRoot = fkChoice.checkpoints.justified.checkpoint.root
       doAssert checkpointRoot == Eth2Digest.fromHex(val.getStr())
     elif check == "finalized_checkpoint":
       let checkpointRoot = fkChoice.checkpoints.finalized.root

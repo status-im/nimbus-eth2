@@ -12,10 +12,10 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
   let GenesisRoot = fakeHash(0)
 
   # Initialize the fork choice context
+  # We start with epoch 0 fully finalized to avoid epoch 0 special cases.
   result.fork_choice = ForkChoiceBackend.init(
-    justified_epoch = Epoch(1),
-    finalized_epoch = Epoch(1),
-    finalized_root = GenesisRoot
+    justifiedCheckpoint = Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    finalizedCheckpoint = Checkpoint(root: GenesisRoot, epoch: Epoch(1))
   )
 
   # ----------------------------------
@@ -23,9 +23,8 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
   # Head should be genesis
   result.ops.add Operation(
     kind: FindHead,
-    justified_epoch: Epoch(1),
-    justified_root: GenesisRoot,
-    finalized_epoch: Epoch(1),
+    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
     justified_state_balances: balances,
     expected_head: GenesisRoot
   )
@@ -39,8 +38,8 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
     kind: ProcessBlock,
     root: fakeHash(2),
     parent_root: GenesisRoot,
-    blk_justified_epoch: Epoch(1),
-    blk_finalized_epoch: Epoch(1)
+    blk_justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1))
   )
 
   # Head should be 2
@@ -50,9 +49,8 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
   #       2 <- head
   result.ops.add Operation(
     kind: FindHead,
-    justified_epoch: Epoch(1),
-    justified_root: GenesisRoot,
-    finalized_epoch: Epoch(1),
+    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
     justified_state_balances: balances,
     expected_head: fakeHash(2)
   )
@@ -66,8 +64,8 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
     kind: ProcessBlock,
     root: fakeHash(1),
     parent_root: GenesisRoot,
-    blk_justified_epoch: Epoch(1),
-    blk_finalized_epoch: Epoch(1)
+    blk_justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1))
   )
 
   # Head is still 2 due to tiebreaker as fakeHash(2) (0xD8...) > fakeHash(1) (0x7C...)
@@ -77,9 +75,8 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
   # head-> 2  1
   result.ops.add Operation(
     kind: FindHead,
-    justified_epoch: Epoch(1),
-    justified_root: GenesisRoot,
-    finalized_epoch: Epoch(1),
+    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
     justified_state_balances: balances,
     expected_head: fakeHash(2)
   )
@@ -95,8 +92,8 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
     kind: ProcessBlock,
     root: fakeHash(3),
     parent_root: fakeHash(1),
-    blk_justified_epoch: Epoch(1),
-    blk_finalized_epoch: Epoch(1)
+    blk_justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1))
   )
 
   # Head is still 2
@@ -108,9 +105,8 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
   #           3
   result.ops.add Operation(
     kind: FindHead,
-    justified_epoch: Epoch(1),
-    justified_root: GenesisRoot,
-    finalized_epoch: Epoch(1),
+    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
     justified_state_balances: balances,
     expected_head: fakeHash(2)
   )
@@ -126,8 +122,8 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
     kind: ProcessBlock,
     root: fakeHash(4),
     parent_root: fakeHash(2),
-    blk_justified_epoch: Epoch(1),
-    blk_finalized_epoch: Epoch(1)
+    blk_justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1))
   )
 
   # Check that head is 4
@@ -139,9 +135,8 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
   # head-> 4  3
   result.ops.add Operation(
     kind: FindHead,
-    justified_epoch: Epoch(1),
-    justified_root: GenesisRoot,
-    finalized_epoch: Epoch(1),
+    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
     justified_state_balances: balances,
     expected_head: fakeHash(4)
   )
@@ -159,8 +154,8 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
     kind: ProcessBlock,
     root: fakeHash(5),
     parent_root: fakeHash(4),
-    blk_justified_epoch: Epoch(2),
-    blk_finalized_epoch: Epoch(1)
+    blk_justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+    blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1))
   )
 
   # Ensure the head is still 4 whilst the justified epoch is 0.
@@ -174,9 +169,8 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
   #        5
   result.ops.add Operation(
     kind: FindHead,
-    justified_epoch: Epoch(1),
-    justified_root: GenesisRoot,
-    finalized_epoch: Epoch(1),
+    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
     justified_state_balances: balances,
     expected_head: fakeHash(4)
   )
@@ -188,12 +182,11 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
   #    |  |
   #    4  3
   #    |
-  #    5 <- starting from 5 with justified epoch 1 should error.
+  #    5 <- starting from 5 with justified epoch 0 should error.
   result.ops.add Operation(
     kind: InvalidFindHead,
-    justified_epoch: Epoch(1), # <--- Wrong epoch
-    justified_root: fakeHash(5),
-    finalized_epoch: Epoch(1),
+    justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(1)),
+    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
     justified_state_balances: balances
   )
 
@@ -204,12 +197,11 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
   #    |  |
   #    4  3
   #    |
-  #    5 <- head + justified
+  #    5 <- head
   result.ops.add Operation(
     kind: FindHead,
-    justified_epoch: Epoch(2),
-    justified_root: fakeHash(5),
-    finalized_epoch: Epoch(1),
+    justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
     justified_state_balances: balances,
     expected_head: fakeHash(5)
   )
@@ -229,8 +221,8 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
     kind: ProcessBlock,
     root: fakeHash(6),
     parent_root: fakeHash(5),
-    blk_justified_epoch: Epoch(2),
-    blk_finalized_epoch: Epoch(1)
+    blk_justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+    blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1))
   )
 
   # Ensure 6 is the head
@@ -245,9 +237,8 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
   #    6 <- head
   result.ops.add Operation(
     kind: FindHead,
-    justified_epoch: Epoch(2),
-    justified_root: fakeHash(5),
-    finalized_epoch: Epoch(1),
+    justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
     justified_state_balances: balances,
     expected_head: fakeHash(6)
   )

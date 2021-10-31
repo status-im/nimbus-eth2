@@ -13,9 +13,8 @@ func setup_finality_01(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
 
   # Initialize the fork choice context
   result.fork_choice = ForkChoiceBackend.init(
-    justified_epoch = Epoch(1),
-    finalized_epoch = Epoch(1),
-    finalized_root = GenesisRoot
+    justifiedCheckpoint = Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
+    finalizedCheckpoint = Checkpoint(root: GenesisRoot, epoch: Epoch(0))
   )
 
   # ----------------------------------
@@ -23,9 +22,8 @@ func setup_finality_01(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   # Head should be genesis
   result.ops.add Operation(
     kind: FindHead,
-    justified_epoch: Epoch(1),
-    justified_root: GenesisRoot,
-    finalized_epoch: Epoch(1),
+    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
+    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
     justified_state_balances: balances,
     expected_head: GenesisRoot
   )
@@ -43,22 +41,22 @@ func setup_finality_01(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
     kind: ProcessBlock,
     root: fakeHash(1),
     parent_root: GenesisRoot,
-    blk_justified_epoch: Epoch(0),
-    blk_finalized_epoch: Epoch(0)
+    blk_justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
+    blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0))
   )
   result.ops.add Operation(
     kind: ProcessBlock,
     root: fakeHash(2),
     parent_root: fakeHash(1),
-    blk_justified_epoch: Epoch(1),
-    blk_finalized_epoch: Epoch(0)
+    blk_justified_checkpoint: Checkpoint(root: fakeHash(1), epoch: Epoch(1)),
+    blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0))
   )
   result.ops.add Operation(
     kind: ProcessBlock,
     root: fakeHash(3),
     parent_root: fakeHash(2),
-    blk_justified_epoch: Epoch(2),
-    blk_finalized_epoch: Epoch(1)
+    blk_justified_checkpoint: Checkpoint(root: fakeHash(2), epoch: Epoch(2)),
+    blk_finalized_checkpoint: Checkpoint(root: fakeHash(1), epoch: Epoch(1))
   )
 
   # Ensure that with justified epoch 0 we find 3
@@ -72,9 +70,8 @@ func setup_finality_01(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   #     3 <- head
   result.ops.add Operation(
     kind: FindHead,
-    justified_epoch: Epoch(0),
-    justified_root: GenesisRoot,
-    finalized_epoch: Epoch(0),
+    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
+    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
     justified_state_balances: balances,
     expected_head: fakeHash(3)
   )
@@ -90,9 +87,8 @@ func setup_finality_01(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   #     3 <- head
   result.ops.add Operation(
     kind: FindHead,
-    justified_epoch: Epoch(1),
-    justified_root: fakeHash(2),
-    finalized_epoch: Epoch(0),
+    justified_checkpoint: Checkpoint(root: fakeHash(1), epoch: Epoch(1)),
+    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
     justified_state_balances: balances,
     expected_head: fakeHash(2)
   )
@@ -108,9 +104,8 @@ func setup_finality_01(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   #     3 <- start + head
   result.ops.add Operation(
     kind: FindHead,
-    justified_epoch: Epoch(2),
-    justified_root: fakeHash(3),
-    finalized_epoch: Epoch(1),
+    justified_checkpoint: Checkpoint(root: fakeHash(2), epoch: Epoch(2)),
+    finalized_checkpoint: Checkpoint(root: fakeHash(1), epoch: Epoch(1)),
     justified_state_balances: balances,
     expected_head: fakeHash(3)
   )

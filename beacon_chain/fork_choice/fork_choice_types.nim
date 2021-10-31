@@ -69,11 +69,11 @@ type
       indicesLen*: int
     of fcInvalidBestNode:
       startRoot*: Eth2Digest
-      justifiedEpoch*: Epoch
-      finalizedEpoch*: Epoch
+      fkChoiceJustifiedCheckpoint*: Checkpoint
+      fkChoiceFinalizedCheckpoint*: Checkpoint
       headRoot*: Eth2Digest
-      headJustifiedEpoch*: Epoch
-      headFinalizedEpoch*: Epoch
+      headJustifiedCheckpoint*: Checkpoint
+      headFinalizedCheckpoint*: Checkpoint
     of fcUnknownParent:
       childRoot*: Eth2Digest
       parentRoot*: Eth2Digest
@@ -89,23 +89,22 @@ type
     ## to get the physical index
 
   ProtoArray* = object
-    justifiedEpoch*: Epoch
-    finalizedEpoch*: Epoch
+    justifiedCheckpoint*: Checkpoint
+    finalizedCheckpoint*: Checkpoint
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]
 
   ProtoNode* = object
     root*: Eth2Digest
     parent*: Option[Index]
-    justifiedEpoch*: Epoch
-    finalizedEpoch*: Epoch
+    justifiedCheckpoint*: Checkpoint
+    finalizedCheckpoint*: Checkpoint
     weight*: int64
     bestChild*: Option[Index]
     bestDescendant*: Option[Index]
 
   BalanceCheckpoint* = object
-    blck*: BlockRef
-    epoch*: Epoch
+    checkpoint*: Checkpoint
     balances*: seq[Gwei]
 
   Checkpoints* = object
@@ -137,7 +136,6 @@ type
   ForkChoice* = object
     backend*: ForkChoiceBackend
     checkpoints*: Checkpoints
-    finalizedBlock*: BlockRef ## Any finalized block used at startup
     queuedAttestations*: seq[QueuedAttestation]
 
 func shortlog*(vote: VoteTracker): auto =
