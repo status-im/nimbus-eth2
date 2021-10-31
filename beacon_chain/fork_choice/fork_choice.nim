@@ -364,9 +364,8 @@ func find_head*(
 
   {.noSideEffect.}:
     trace "Fork choice requested",
-      justified_epoch = justified_epoch,
-      justified_root = shortLog(justified_root),
-      finalized_epoch = finalized_epoch,
+      justifiedCheckpoint = shortLog(justifiedCheckpoint),
+      finalizedCheckpoint = shortLog(finalizedCheckpoint),
       fork_choice_head = shortLog(new_head)
 
   return ok(new_head)

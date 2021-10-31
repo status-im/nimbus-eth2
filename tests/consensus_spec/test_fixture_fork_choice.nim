@@ -323,15 +323,15 @@ suite "Ethereum Foundation - ForkChoice" & preset():
     "on_block_finalized_skip_slots_not_in_skip_chain"
   ]
 
-  for fork in [BeaconBlockFork.Phase0]: # TODO: init CHainDAG from Merge/Altair
+  for fork in [BeaconBlockFork.Phase0]: # TODO: init ChainDAG from Merge/Altair
     let forkStr = toLowerAscii($fork)
     for testKind in ["get_head", "on_block"]:
       let basePath = SszTestsDir/const_preset/forkStr/"fork_choice"/testKind/"pyspec_tests"
       for kind, path in walkDir(basePath, relative = true, checkDir = true):
-        if path in SKIP:
-          echo "  [SKIP] ForkChoice - " & const_preset/forkStr/"fork_choice"/testKind/"pyspec_tests"/path
-        else:
-          test "ForkChoice - " & const_preset/forkStr/"fork_choice"/testKind/"pyspec_tests"/path:
+        test "ForkChoice - " & const_preset/forkStr/"fork_choice"/testKind/"pyspec_tests"/path:
+          if path in SKIP:
+            skip()
+          else:
             runTest(basePath/path, fork)
 
 

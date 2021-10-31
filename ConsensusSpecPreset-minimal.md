@@ -784,6 +784,27 @@ OK: 36/36 Fail: 0/36 Skip: 0/36
 + process_light_client_update_timeout                                                        OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Ethereum Foundation - ForkChoice [Preset: minimal]
+```diff
++ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
++ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/filtered_block_tree          OK
++ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/genesis                      OK
++ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
++ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/basic                        OK
+  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justif Skip
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not_ju OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/new_justified_is_later_than_ OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
+  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_before_finalized    Skip
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_checkpoints         OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slot OK
+  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slot Skip
+  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots_ OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_update_justified_ch OK
+```
+OK: 13/17 Fail: 0/17 Skip: 4/17
 ## Ethereum Foundation - Merge - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -1198,4 +1219,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 30/30 Fail: 0/30 Skip: 0/30
 
 ---TOTAL---
-OK: 1020/1020 Fail: 0/1020 Skip: 0/1020
+OK: 1033/1037 Fail: 0/1037 Skip: 4/1037

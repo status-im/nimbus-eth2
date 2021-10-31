@@ -766,6 +766,17 @@ OK: 36/36 Fail: 0/36 Skip: 0/36
 + process_light_client_update_timeout                                                        OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Ethereum Foundation - ForkChoice [Preset: mainnet]
+```diff
++ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
++ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/genesis                      OK
++ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
++ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
++ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/basic                        OK
++ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
+  ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
+```
+OK: 6/7 Fail: 0/7 Skip: 1/7
 ## Ethereum Foundation - Merge - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -1154,4 +1165,4 @@ OK: 44/44 Fail: 0/44 Skip: 0/44
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 984/984 Fail: 0/984 Skip: 0/984
+OK: 990/991 Fail: 0/991 Skip: 1/991
