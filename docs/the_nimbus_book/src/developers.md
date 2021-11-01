@@ -25,7 +25,7 @@ The `unstable` branch contains features and bugfixes that are actively being tes
 The `testing` branch contains features and bugfixes that have gone through CI and initial testing on the `unstable` branch and are ready to be included in the next release.
 
 * After testing a bugfix or feature on `unstable`, the features and fixes that are planned for the next release get merged to the `testing` branch either by the release manager or team members.
-* The `testing` branch is regularly deployed to the Nimbus prater and pyrmont fleet as well as a smaller mainnet fleet.
+* The `testing` branch is regularly deployed to the Nimbus prater fleet as well as a smaller mainnet fleet.
 * The branch should remain release-ready at most times.
 
 ### Stable

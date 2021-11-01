@@ -2,7 +2,7 @@
 
  - [ethstaker discord](https://discord.com/invite/e84CFep): great place for tips and discussions
 
- - [Validator launchpad](https://pyrmont.launchpad.ethereum.org): to send Pyrmont deposits
+ - [Validator launchpad](https://prater.launchpad.ethereum.org): to send Prater deposits
 
  - [Beacon chain explorer](https://pyrmont.beaconcha.in/) : to monitor testnet health
 
