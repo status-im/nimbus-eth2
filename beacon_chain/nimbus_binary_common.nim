@@ -143,9 +143,9 @@ proc setupLogging*(
           # On a TTY, let's be fancy
           StdoutLogKind.Colors
         else:
-          # When there's no TTY, we output colors because this matches what
+          # When there's no TTY, we output no colors because this matches what
           # released binaries were doing before auto-detection was around and
-          # it looks decent in systemd-captured journals.
+          # looks decent in systemd-captured journals.
           StdoutLogKind.NoColors
       else:
         stdoutKind
