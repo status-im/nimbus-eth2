@@ -171,12 +171,35 @@
                     <main>
                         <h1><a class="header" href="#troubleshooting" id="troubleshooting">Troubleshooting</a></h1>
 <blockquote>
-<p>⚠️  The commands on this page refer to the Prater testnet. If you're running mainnet, replace <code>prater</code> with <code>mainnet</code> in the commands below. If you're running <code>pyrmont</code> relace <code>prater</code> with <code>pyrmont</code>.</p>
+<p>⚠️  The commands on this page refer to the Prater testnet. If you're running mainnet, replace <code>prater</code> with <code>mainnet</code> in the commands below.</p>
 </blockquote>
-<p>As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the <code>stable</code> branch. If you can't find a solution to your problem here, feel free to hit us up on our <a href="https://discord.com/invite/XRxWahP">discord</a>!</p>
+<p>As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the <code>stable</code> branch. If you can't find a solution to your problem here, feel free to get in touch with us on our <a href="https://discord.com/invite/XRxWahP">discord</a>!</p>
 <blockquote>
 <p><strong>Note:</strong> While the <code>stable</code> branch of the <code>nimbus-eth2</code> repository is more stable, the latest updates happen in the <code>unstable</code> branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the <code>unstable</code> branch, be prepared for instabilities!</p>
 </blockquote>
+<h2><a class="header" href="#networking" id="networking">Networking</a></h2>
+<blockquote>
+<p>For more complete advice on fine-tuning your networking setup see <a href="./networking.html">here</a></p>
+</blockquote>
+<h3><a class="header" href="#low-peer-count" id="low-peer-count">Low peer count</a></h3>
+<p>If you see a message that looks like the following in your logs:</p>
+<pre><code>Peer count low, no new peers discovered...
+</code></pre>
+<p>Your node is finding it hard to find peers. It's possible that you  may be behind a firewall. Try restarting your client and passing <code>--nat:extip:$EXT_IP_ADDRESS</code> as an option to <code>./run-prater-beacon-node.sh</code>, where <code>$EXT_IP_ADDRESS</code> is your real IP. For example, if your real IP address is <code>1.2.3.4</code>, you'd run:</p>
+<pre><code>./run-prater-beacon-node.sh --nat:extip:1.2.3.4
+</code></pre>
+<p>If this doesn't improve things, you may need to <a href="./networking.html#set-enr-auto-update">set enr-auto-update</a> and/or <a href="./networking.html#set-up-port-forwarding">set up port forwarding</a>.</p>
+<h3><a class="header" href="#no-peers-for-topic" id="no-peers-for-topic">No peers for topic</a></h3>
+<p>If you see a message that looks like the following in your logs:</p>
+<pre><code>No peers for topic, skipping publish...
+</code></pre>
+<p>This means you've missed an attestation because either your peer count is too low, or the quality of your peers is lacking.</p>
+<p>There can be several reasons behind why this is the case. The first thing to check is that your max peer count (<code>--max-peers</code>) hasn't been set too low. In order to ensure your attestations are published correctly, we recommend setting <code>--max-peers</code> to 60, at the <em>very least</em>.</p>
+<blockquote>
+<p>Note that Nimbus manages peers slightly differently to other clients (we automatically connect to more peers than we actually use, in order not to have to do costly reconnects). As such, <code>--max-peers</code> is set to 160 by default.</p>
+</blockquote>
+<p>If this doesn't fix the problem, please double check your node is able to <a href="./networking.html#check-for-incoming-connections">receive incoming connections</a>.</p>
+<h2><a class="header" href="#misc" id="misc">Misc</a></h2>
 <h3><a class="header" href="#console-hanging-for-too-long-on-update" id="console-hanging-for-too-long-on-update">Console hanging for too long on update</a></h3>
 <p>To update and restart, run <code>git pull</code>, <code>make update</code>, followed by <code>make nimbus_beacon_node</code>:</p>
 <pre><code>cd nimbus-eth2
@@ -207,19 +230,6 @@ build/ncli_db pruneDatabase --db=build/data/shared_prater_0/db --verbose=true
 <li><code>--keepOldStates</code> (boolean):  Keep pre-finalisation states; defaults to <code>true</code>.</li>
 <li><code>--verbose</code> (boolean): Print a more verbose output to the console; defaults to <code>false</code>.</li>
 </ul>
-<h3><a class="header" href="#low-peer-count" id="low-peer-count">Low peer count</a></h3>
-<p>If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing <code>--nat:extip:$EXT_IP_ADDRESS</code> as an option to <code>./run-prater-beacon-node.sh</code>, where <code>$EXT_IP_ADDRESS</code> is your real IP. For example, if your real IP address is <code>35.124.65.104</code>, you'd run:</p>
-<pre><code>./run-prater-beacon-node.sh --nat:extip:35.124.65.104
-</code></pre>
-<h3><a class="header" href="#no-peers-for-topic-skipping-publish-logs" id="no-peers-for-topic-skipping-publish-logs">No peers for topic, skipping publish (logs)</a></h3>
-<p>If you see a message that looks like the following in your logs:</p>
-<pre><code>NOT 2021-07-11 17:17:00.928+00:00 No peers for topic, skipping publish       topics=&quot;libp2p gossipsub&quot; tid=284547 file=gossipsub.nim:457 peersOnTopic=0 connectedPeers=0 topic=/eth2/b5303f2a/beacon_attestation_0/ssz_snappy
-</code></pre>
-<p>It could be that your max peer count (<code>--max-peers</code>) has been set too low. In order to ensure your attestations are published correctly, we recommend setting <code>--max-peers</code> to 60, at the <em>very least</em>.</p>
-<blockquote>
-<p>Note that Nimbus manages peers slightly differently to other clients (we automatically connect to more peers than we actually use, in order not to have to do costly reconnects). As such, <code>--max-peers</code> is set to 160 by default.</p>
-</blockquote>
-<p>If this doesn't fix the problem, please double check your node is able to <a href="./health.html">receive incoming connections</a>.</p>
 <h3><a class="header" href="#nocommand-does-not-accept-arguments" id="nocommand-does-not-accept-arguments">noCommand does not accept arguments</a></h3>
 <p>If, on start,  you see <code>The command 'noCommand' does not accept arguments</code></p>
 <p>Double check to see if your command line flags are in the correct format, i.e. <code>--foo=bar</code>, <code>--baz</code>, or <code>--foo-bar=qux</code>.</p>
