@@ -1,12 +1,50 @@
 # Troubleshooting
 
-> ⚠️  The commands on this page refer to the Prater testnet. If you're running mainnet, replace `prater` with `mainnet` in the commands below. If you're running `pyrmont` relace `prater` with `pyrmont`.
+> ⚠️  The commands on this page refer to the Prater testnet. If you're running mainnet, replace `prater` with `mainnet` in the commands below.
 
 
-As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the `stable` branch. If you can't find a solution to your problem here, feel free to hit us up on our [discord](https://discord.com/invite/XRxWahP)!
+As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the `stable` branch. If you can't find a solution to your problem here, feel free to get in touch with us on our [discord](https://discord.com/invite/XRxWahP)!
 
 > **Note:** While the `stable` branch of the `nimbus-eth2` repository is more stable, the latest updates happen in the `unstable` branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the `unstable` branch, be prepared for instabilities!
 
+
+## Networking
+
+> For more complete advice on fine-tuning your networking setup see [here](./networking.md)
+
+### Low peer count
+
+If you see a message that looks like the following in your logs:
+
+```
+Peer count low, no new peers discovered...
+```
+
+Your node is finding it hard to find peers. It's possible that you  may be behind a firewall. Try restarting your client and passing `--nat:extip:$EXT_IP_ADDRESS` as an option to `./run-prater-beacon-node.sh`, where `$EXT_IP_ADDRESS` is your real IP. For example, if your real IP address is `1.2.3.4`, you'd run:
+
+```
+./run-prater-beacon-node.sh --nat:extip:1.2.3.4
+```
+
+If this doesn't improve things, you may need to [set enr-auto-update](./networking.md#set-enr-auto-update) and/or [set up port forwarding](./networking.md#set-up-port-forwarding).
+
+### No peers for topic
+
+If you see a message that looks like the following in your logs:
+
+```
+No peers for topic, skipping publish...
+```
+
+This means you've missed an attestation because either your peer count is too low, or the quality of your peers is lacking.
+
+There can be several reasons behind why this is the case. The first thing to check is that your max peer count (`--max-peers`) hasn't been set too low. In order to ensure your attestations are published correctly, we recommend setting `--max-peers` to 60, at the *very least*.
+
+> Note that Nimbus manages peers slightly differently to other clients (we automatically connect to more peers than we actually use, in order not to have to do costly reconnects). As such, `--max-peers` is set to 160 by default.
+
+If this doesn't fix the problem, please double check your node is able to [receive incoming connections](./networking.md#check-for-incoming-connections).
+
+## Misc
 ### Console hanging for too long on update
 
 To update and restart, run `git pull`, `make update`, followed by `make nimbus_beacon_node`:
@@ -45,27 +83,7 @@ Options:
 - `--keepOldStates` (boolean):  Keep pre-finalisation states; defaults to `true`.
 - `--verbose` (boolean): Print a more verbose output to the console; defaults to `false`.
 
-### Low peer count
 
-If you're experiencing a low peer count, you may be behind a firewall. Try restarting your client and passing `--nat:extip:$EXT_IP_ADDRESS` as an option to `./run-prater-beacon-node.sh`, where `$EXT_IP_ADDRESS` is your real IP. For example, if your real IP address is `35.124.65.104`, you'd run:
-
-```
-./run-prater-beacon-node.sh --nat:extip:35.124.65.104
-```
-
-### No peers for topic, skipping publish (logs)
-
-If you see a message that looks like the following in your logs:
-
-```
-NOT 2021-07-11 17:17:00.928+00:00 No peers for topic, skipping publish       topics="libp2p gossipsub" tid=284547 file=gossipsub.nim:457 peersOnTopic=0 connectedPeers=0 topic=/eth2/b5303f2a/beacon_attestation_0/ssz_snappy
-```
-
-It could be that your max peer count (`--max-peers`) has been set too low. In order to ensure your attestations are published correctly, we recommend setting `--max-peers` to 60, at the *very least*.
-
-> Note that Nimbus manages peers slightly differently to other clients (we automatically connect to more peers than we actually use, in order not to have to do costly reconnects). As such, `--max-peers` is set to 160 by default.
-
-If this doesn't fix the problem, please double check your node is able to [receive incoming connections](./health.md).
 
 ### noCommand does not accept arguments
 
