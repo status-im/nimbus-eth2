@@ -217,13 +217,13 @@ const
   clientId* = "Nimbus beacon node " & fullVersionStr
   nodeMetadataFilename = "node-metadata.json"
 
-  NewPeerScore* = 200
+  NewPeerScore = 200
     ## Score which will be assigned to new connected Peer
-  PeerScoreLowLimit* = 0
+  PeerScoreLowLimit = 0
     ## Score after which peer will be kicked
-  PeerScoreHighLimit* = 1000
+  PeerScoreHighLimit = 1000
     ## Max value of peer's score
-  PeerScoreInvalidRequest* = -500
+  PeerScoreInvalidRequest = -500
     ## This peer is sending malformed or nonsensical data
 
   ConcurrentConnections = 20
@@ -1362,6 +1362,26 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
 
   switch.addConnEventHandler(peerHook, ConnEventKind.Connected)
   switch.addConnEventHandler(peerHook, ConnEventKind.Disconnected)
+
+  proc scoreCheck(peer: Peer): bool =
+    peer.score >= PeerScoreLowLimit
+
+  proc onDeletePeer(peer: Peer) =
+    if peer.connectionState notin {ConnectionState.Disconnecting,
+                                   ConnectionState.Disconnected}:
+      if peer.score < PeerScoreLowLimit:
+        debug "Peer was removed from PeerPool due to low score", peer = peer,
+              peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
+              score_high_limit = PeerScoreHighLimit
+        asyncSpawn(peer.disconnect(PeerScoreLow))
+      else:
+        debug "Peer was removed from PeerPool", peer = peer,
+              peer_score = peer.score, score_low_limit = PeerScoreLowLimit,
+              score_high_limit = PeerScoreHighLimit
+        asyncSpawn(peer.disconnect(FaultOrError)) # Shouldn't actually happen!
+
+  node.peerPool.setScoreCheck(scoreCheck)
+  node.peerPool.setOnDeletePeer(onDeletePeer)
 
   node
 
