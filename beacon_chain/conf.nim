@@ -94,15 +94,15 @@ type
       defaultValue: "INFO"
       name: "log-level" }: string
 
-    logFile* {.
-      desc: "Specifies a path for the written Json log file"
-      name: "log-file" }: Option[OutFile]
-
     logStdout* {.
       desc: "Specifies what kind of logs should be written to stdout (auto, colors, nocolors, json)"
       defaultValueDesc: "auto"
       defaultValue: StdoutLogKind.Auto
       name: "log-stdout" }: StdoutLogKind
+
+    logFile* {.
+      desc: "Specifies a path for the written Json log file"
+      name: "log-file" }: Option[OutFile]
 
     eth2Network* {.
       desc: "The Eth2 network to join"
@@ -542,15 +542,15 @@ type
       defaultValue: "INFO"
       name: "log-level" }: string
 
-    logFile* {.
-      desc: "Specifies a path for the written Json log file"
-      name: "log-file" }: Option[OutFile]
-
     logStdout* {.
       desc: "Specifies what kind of logs should be written to stdout (auto, colors, nocolors, json)"
       defaultValueDesc: "auto"
       defaultValue: StdoutLogKind.Auto
       name: "log-stdout" }: StdoutLogKind
+
+    logFile* {.
+      desc: "Specifies a path for the written Json log file"
+      name: "log-file" }: Option[OutFile]
 
     dataDir* {.
       desc: "The directory where nimbus will store all blockchain data"

@@ -40,7 +40,16 @@ You can choose a log style with the `--log-stdout` option, which also understand
 
 ## Logging to a file
 
-The `--log-file` option writes logs to a given file. Keep an eye on the growth of this file with a [log rotator](./log-rotate.md). Logs will be written in the "JSON Lines" format - one `json` entry per line.
+To sending logs to a file, it is recommended to use a redirect of the stdout logs:
+
+```
+# log json to filename.jsonl
+./run-mainnet-beacon-node.sh --log-stdout=json > filename.jsonl
+```
+
+ Keep an eye on the growth of this file with a [log rotator](./log-rotate.md). Logs will be written in the "JSON Lines" format - one `json` entry per line.
+
+Nimbus also supports writing logs to a log file using the `--log-file` option - this is provided for historical reasons and may be removed in future releases.
 
 ```
 ./run-mainnet-beacon-node.sh --log-file=filename.jsonl # write json logs to the given filename

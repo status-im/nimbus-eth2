@@ -13,9 +13,3 @@ Click on the `tar.gz` file that corresponds to your OS and architecture, unpack 
 We've designed the build process to be reproducible. In practice, this means that anyone can verify that these exact binaries were produced from the corresponding source code commits. For more about the philosophy and importance of this feature see [reproducible-builds.org](https://reproducible-builds.org/).
 
 For instructions on how to reproduce those binaries, see "README.md" inside the archive.
-
-> **N.B.** These binaries are meant to run as a service. As such, they do not
-support the `log-file` [option](./options.md) - duplicating stdout to a
-log file would complicate things. We recommend capturing
-their output (stdout and stderr) with a [log rotation
-helper](./log-rotate.md) instead.
