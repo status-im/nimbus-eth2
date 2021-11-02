@@ -726,7 +726,7 @@ proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
     syncCommitteeMsgPool: SyncCommitteeMsgPool,
     msg: SyncCommitteeMessage,
-    syncCommitteeIdx: SyncSubcommitteeIndex,
+    subcommitteeIdx: SyncSubcommitteeIndex,
     wallTime: BeaconTime,
     checkSignature: bool):
     Result[(seq[uint64], CookedSig), ValidationError] =
@@ -742,7 +742,7 @@ proc validateSyncCommitteeMessage*(
   # current sync committee along with the correct subcommittee.
   # This check also ensures that the validator index is in range
   let positionsInSubcommittee = dag.getSubcommitteePositions(
-    msg.slot + 1, syncCommitteeIdx, msg.validator_index)
+    msg.slot + 1, subcommitteeIdx, msg.validator_index)
 
   if positionsInSubcommittee.len == 0:
     return errReject(
@@ -757,7 +757,7 @@ proc validateSyncCommitteeMessage*(
     # Note this validation is per topic so that for a given slot, multiple
     # messages could be forwarded with the same validator_index as long as
     # the subnet_ids are distinct.
-    if syncCommitteeMsgPool.isSeen(msg, syncCommitteeIdx):
+    if syncCommitteeMsgPool.isSeen(msg, subcommitteeIdx):
       return errIgnore("SyncCommitteeMessage: duplicate message")
 
   # [REJECT] The signature is valid for the message beacon_block_root for the

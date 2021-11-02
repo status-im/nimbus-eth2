@@ -446,8 +446,8 @@ template `==`*(x, y: SyncSubcommitteeIndex): bool =
   distinctBase(x) == distinctBase(y)
 
 iterator allSyncSubcommittees*: SyncSubcommitteeIndex =
-  for committeeIdx in 0 ..< SYNC_COMMITTEE_SUBNET_COUNT:
-    yield SyncSubcommitteeIndex(committeeIdx)
+  for subcommitteeIdx in 0 ..< SYNC_COMMITTEE_SUBNET_COUNT:
+    yield SyncSubcommitteeIndex(subcommitteeIdx)
 
 template validateSyncCommitteeIndexOr*(
     networkValParam: uint64,

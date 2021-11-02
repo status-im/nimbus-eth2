@@ -189,7 +189,7 @@ proc produceAndPublishAttestations*(service: AttestationServiceRef,
   debug "Attestation statistics", total = len(pendingAttestations),
          succeed = statistics[0], failed_to_deliver = statistics[1],
          not_accepted = statistics[2], delay = delay, slot = slot,
-         committee_index = committeeIndex, duties_count = len(duties)
+         committee_index = committee_index, duties_count = len(duties)
 
   return ad
 

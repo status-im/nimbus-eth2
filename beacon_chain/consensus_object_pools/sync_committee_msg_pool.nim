@@ -147,20 +147,19 @@ func produceContribution*(
     pool: SyncCommitteeMsgPool,
     slot: Slot,
     headRoot: Eth2Digest,
-    committeeIdx: SyncSubcommitteeIndex,
+    subcommitteeIndex: SyncSubcommitteeIndex,
     outContribution: var SyncCommitteeContribution): bool =
   if headRoot in pool.syncMessages:
     outContribution.slot = slot
     outContribution.beacon_block_root = headRoot
-    outContribution.subcommittee_index = committeeIdx.asUInt64
+    outContribution.subcommittee_index = subcommitteeIndex.asUInt64
     try:
-      return computeAggregateSig(pool.syncMessages[headRoot],
-                                 committeeIdx,
-                                 outContribution)
+      computeAggregateSig(pool.syncMessages[headRoot],
+                          subcommitteeIndex, outContribution)
     except KeyError:
       raiseAssert "We have checked for the key upfront"
   else:
-    return false
+    false
 
 func addAggregateAux(bestVotes: var BestSyncSubcommitteeContributions,
                      contribution: SyncCommitteeContribution) =

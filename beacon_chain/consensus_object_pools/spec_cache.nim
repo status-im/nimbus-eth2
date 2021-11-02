@@ -174,7 +174,7 @@ func makeAttestationData*(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/validator.md#validator-assignments
 iterator get_committee_assignments*(
     epochRef: EpochRef, validator_indices: HashSet[ValidatorIndex]):
-    tuple[committeeIndex: CommitteeIndex,
+    tuple[subcommitteeIdx: CommitteeIndex,
       subnet_id: SubnetId, slot: Slot] =
   let
     committees_per_slot = get_committee_count_per_slot(epochRef)
