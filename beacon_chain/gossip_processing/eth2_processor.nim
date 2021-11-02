@@ -475,7 +475,7 @@ proc syncCommitteeContributionValidator*(
                                              checkSignature)
 
   return if v.isOk():
-    trace "Contribution validated", v
+    trace "Contribution validated"
     self.syncCommitteeMsgPool[].addSyncContribution(contributionAndProof, v.get)
     beacon_sync_committee_contributions_received.inc()
 

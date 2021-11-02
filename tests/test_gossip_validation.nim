@@ -208,9 +208,9 @@ suite "Gossip validation - Extra": # Not based on preset config
         dag
       state = assignClone(dag.headState.data.altairData)
 
-      syncCommitteeIdx = 0.SyncSubcommitteeIndex
+      subcommitteeIdx = 0.SyncSubcommitteeIndex
       syncCommittee = @(dag.syncCommitteeParticipants(state[].data.slot))
-      subcommittee = toSeq(syncCommittee.syncSubcommittee(syncCommitteeIdx))
+      subcommittee = toSeq(syncCommittee.syncSubcommittee(subcommitteeIdx))
 
       pubkey = subcommittee[0]
       expectedCount = subcommittee.count(pubkey)
@@ -225,15 +225,29 @@ suite "Gossip validation - Extra": # Not based on preset config
 
       syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init())
       res = validateSyncCommitteeMessage(
-        dag, syncCommitteeMsgPool[], msg, syncCommitteeIdx,
+        dag, syncCommitteeMsgPool[], msg, subcommitteeIdx,
         state[].data.slot.toBeaconTime(), true)
+      (positions, cookedSig) = res.get()
+
+    for positionInSubcommittee in positions:
+      syncCommitteeMsgPool[].addSyncCommitteeMsg(
+        msg.slot,
+        msg.beacon_block_root,
+        cookedSig,
+        msg.validator_index,
+        subcommitteeIdx,
+        positionInSubcommittee)
+
+    let
       contribution = block:
-        var contribution: SignedContributionAndProof
+        var contribution = (ref SignedContributionAndProof)()
         check: syncCommitteeMsgPool[].produceContribution(
-          state[].data.slot, state[].root, syncCommitteeIdx,
+          state[].data.slot, state[].root, subcommitteeIdx,
           contribution.message.contribution)
         syncCommitteeMsgPool[].addSyncContribution(
-          contribution, contribution.message.contribution.signature.load.get)
+          contribution[], contribution.message.contribution.signature.load.get)
+        waitFor validator.sign(
+          contribution, state[].data.fork, state[].data.genesis_validators_root)
         contribution
       aggregate = syncCommitteeMsgPool[].produceSyncAggregate(state[].root)
 
@@ -243,9 +257,7 @@ suite "Gossip validation - Extra": # Not based on preset config
       contribution.message.contribution.aggregation_bits.countOnes == expectedCount
       aggregate.sync_committee_bits.countOnes == expectedCount
 
-
-
       # Same message twice should be ignored
       validateSyncCommitteeMessage(
-        dag, syncCommitteeMsgPool[], msg, syncCommitteeIdx,
+        dag, syncCommitteeMsgPool[], msg, subcommitteeIdx,
         state[].data.slot.toBeaconTime(), true).isErr()
