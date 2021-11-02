@@ -353,11 +353,11 @@ func build_proof*(anchor: object, leaf_index: uint64,
   build_proof_impl(anchor, leaf_index, proof)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/validator.md#sync-committee
-template sync_committee_period*(epoch: Epoch): uint64 =
-  epoch div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+template sync_committee_period*(epoch: Epoch): SyncCommitteePeriod =
+  (epoch div EPOCHS_PER_SYNC_COMMITTEE_PERIOD).SyncCommitteePeriod
 
-template sync_committee_period*(slot: Slot): uint64 =
-  epoch(slot) div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+template sync_committee_period*(slot: Slot): SyncCommitteePeriod =
+  sync_committee_period(epoch(slot))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
 func compute_start_slot_at_epoch*(epoch: Epoch): Slot =

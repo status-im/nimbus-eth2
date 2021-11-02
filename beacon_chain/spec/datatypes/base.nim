@@ -721,6 +721,7 @@ func `as`*(d: DepositData, T: type DepositMessage): T =
 
 ethTimeUnit Slot
 ethTimeUnit Epoch
+ethTimeUnit SyncCommitteePeriod
 
 template newClone*[T: not ref](x: T): ref T =
   # TODO not nil in return type: https://github.com/nim-lang/Nim/issues/14146
