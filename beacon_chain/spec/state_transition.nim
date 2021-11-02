@@ -70,7 +70,7 @@ proc verify_block_signature(
 
   if not verify_block_signature(
       state.fork, state.genesis_validators_root, signed_block.message.slot,
-      signed_block.message, state.validators[proposer_index].pubkey,
+      signed_block.root, state.validators[proposer_index].pubkey,
       signed_block.signature):
     notice "Block: signature verification failed",
       blck = shortLog(signedBlock)
