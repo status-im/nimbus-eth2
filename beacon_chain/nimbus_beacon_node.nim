@@ -979,6 +979,11 @@ proc installMessageValidators(node: BeaconNode) =
   func toValidationResult(res: ValidationRes): ValidationResult =
     if res.isOk(): ValidationResult.Accept else: res.error()[0]
 
+  node.network.addValidator(
+    getBeaconBlocksTopic(node.dag.forkDigests.phase0),
+    proc (signedBlock: phase0.SignedBeaconBlock): ValidationResult =
+      toValidationResult(node.processor[].blockValidator(signedBlock)))
+
   template installPhase0Validators(digest: auto) =
     for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
       closureScope:
@@ -996,11 +1001,6 @@ proc installMessageValidators(node: BeaconNode) =
           Future[ValidationResult] {.async.} =
         return toValidationResult(
           await node.processor.aggregateValidator(signedAggregateAndProof)))
-
-    node.network.addValidator(
-      getBeaconBlocksTopic(digest),
-      proc (signedBlock: phase0.SignedBeaconBlock): ValidationResult =
-        toValidationResult(node.processor[].blockValidator(signedBlock)))
 
     node.network.addValidator(
       getAttesterSlashingsTopic(digest),
@@ -1025,6 +1025,12 @@ proc installMessageValidators(node: BeaconNode) =
   # Validators introduced in phase0 are also used in altair, but with different
   # fork digest
   installPhase0Validators(node.dag.forkDigests.altair)
+
+  node.network.addValidator(
+    getBeaconBlocksTopic(node.dag.forkDigests.altair),
+    proc (signedBlock: altair.SignedBeaconBlock): ValidationResult =
+      toValidationResult(node.processor[].blockValidator(signedBlock)))
+
   for committeeIdx in allSyncSubcommittees():
     closureScope:
       let idx = committeeIdx
