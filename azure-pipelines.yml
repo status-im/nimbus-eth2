@@ -64,10 +64,6 @@ jobs:
           git config --global core.autocrlf false
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} CI_CACHE=NimBinaries update
           mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE
-          if [[ $PLATFORM == "x64" ]]; then
-            # everything builds more slowly on 32-bit, since there's no libbacktrace support
-            mingw32-make -j2 ARCH_OVERRIDE=${PLATFORM} LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" nimbus_beacon_node
-          fi
           file build/nimbus_beacon_node
           # fail fast
           export NIMTEST_ABORT_ON_ERROR=1

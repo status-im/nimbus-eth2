@@ -33,7 +33,7 @@
 - [Set up log rotation](./log-rotate.md)
 - [Verify the integrity of Nimbus](./checksums.md)
 - [Back up your database](./database-backup.md)
-- [Change log level](./log-levels.md)
+- [Set up logging](./logging.md)
 - [Set up email notifications](./email-notifications.md)
 - [Graffiti the blockchain](./graffiti.md)
 - [Optimise for profitability](./profits.md)
@@ -64,3 +64,4 @@
 - [Prater: What you should know](./prater.md)
 - [Security Audit](./audit.md)
 - [FAQ](./faq.md)
+

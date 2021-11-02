@@ -1220,9 +1220,8 @@ proc updateHead*(
     beacon_reorgs_total.inc()
   else:
     debug "Updated head block",
+      head = shortLog(dag.headState.blck),
       stateRoot = shortLog(getStateRoot(dag.headState.data)),
-      headBlock = shortLog(dag.headState.blck),
-      stateSlot = shortLog(getStateField(dag.headState.data, slot)),
       justified = shortLog(getStateField(
         dag.headState.data, current_justified_checkpoint)),
       finalized = shortLog(getStateField(
@@ -1285,9 +1284,13 @@ proc updateHead*(
     beacon_current_active_validators.set(number_of_active_validators)
 
   if finalizedHead != dag.finalizedHead:
-    notice "Reached new finalization checkpoint",
-      newFinalizedHead = shortLog(finalizedHead),
-      oldFinalizedHead = shortLog(dag.finalizedHead)
+    info "Reached new finalization checkpoint",
+      head = shortLog(dag.headState.blck),
+      stateRoot = shortLog(getStateRoot(dag.headState.data)),
+      justified = shortLog(getStateField(
+        dag.headState.data, current_justified_checkpoint)),
+      finalized = shortLog(getStateField(
+        dag.headState.data, finalized_checkpoint))
 
     dag.finalizedHead = finalizedHead
 

@@ -1,10 +1,10 @@
 # Log rotation
 
-Nimbus logs are written to stdout, and optionally to a file. Writing to a file for a long-running process may lead to difficulties when the file grows large. This is typically solved with a *log rotator*. A log rotator is responsible for switching the written-to file, as well as compressing and removing old logs.
+Nimbus logs are written to `stdout`, and can be redirected to a file. Writing to a file for a long-running process may lead to difficulties when the file grows large. This is typically solved with a *log rotator*. A log rotator is responsible for switching the written-to file, as well as compressing and removing old logs.
 
 ## Using `logrotate`
 
-[logrotate](https://github.com/logrotate/logrotate) provides log rotation and compression. The corresponding package will install its Cron hooks (or Systemd timer) -- all you have to do is add a configuration file for Nimbus-eth2 in "/etc/logrotate.d/nimbus-eth2":
+[logrotate](https://github.com/logrotate/logrotate) provides log rotation and compression. The corresponding package will install its Cron hooks (or Systemd timer) -- all you have to do is add a configuration file for Nimbus in "/etc/logrotate.d/nimbus-eth2":
 
 ```text
 /var/log/nimbus-eth2/*.log {
@@ -14,7 +14,7 @@ Nimbus logs are written to stdout, and optionally to a file. Writing to a file f
 }
 ```
 
-The above assumes you've configured Nimbus-eth2 to write its logs to "/var/log/nimbus-eth2/" (usually by redirecting stout and stderr from your init script).
+The above assumes you've configured Nimbus to write its logs to "/var/log/nimbus-eth2/" (usually by redirecting `stdout` and `stderr` from your init script).
 
 "copytruncate" is required because, when it comes to moving the log file, `logrotate`'s default behaviour requires application support for re-opening that log file at runtime (something which is currently lacking). So, instead of a move, we tell `logrotate` to do a copy and a truncation of the existing file. A few log lines may be lost in the process.
 
@@ -29,13 +29,15 @@ rotate 7
 
 ## Using `rotatelogs`
 
-[rotatelogs](https://httpd.apache.org/docs/2.4/programs/rotatelogs.html) is available on most servers and can be used with `Docker`, `Systemd` and manual setups to write rotated logs files.
+[rotatelogs](https://httpd.apache.org/docs/2.4/programs/rotatelogs.html) captures `stdout` logging and redirects it to a file, rotating and compressing on the fly.
 
-In particular, when `Systemd` and its accompanying `Journald` log daemon are used, this setup avoids clogging the system log by keeping the Nimbus logs in a separate location.
+It is available on most servers and can be used with `Docker`, `Systemd` and manual setups to write rotated logs files.
+
+In particular, when `systemd` and its accompanying `journald` log daemon are used, this setup avoids clogging the system log by keeping the Nimbus logs in a separate location.
 
 ### Compression
 
-`rotatelogs` works by reading stdin and redirecting it to a file based on a name pattern. Whenever the log is about to be rotated, the application invokes a shell script with the old and new log files. Our aim is to compress the log file to save space. The [Nimbus-eth2 repo](https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rotatelogs-compress.sh) provides a helper script that does this:
+`rotatelogs` works by reading `stdin` and redirecting it to a file based on a name pattern. Whenever the log is about to be rotated, the application invokes a shell script with the old and new log files. Our aim is to compress the log file to save space. The [Nimbus-eth2 repo](https://github.com/status-im/nimbus-eth2/tree/unstable/scripts/rotatelogs-compress.sh) provides a helper script that does this:
 
 ```bash
 # Create a rotation script for rotatelogs
@@ -51,19 +53,6 @@ fi
 EOF
 
 chmod +x rotatelogs-compress.sh
-```
-
-### Build
-
-Logs in files generally don't benefit from colors. To avoid colors being written to the file, additional flags can be added to the Nimbus [build process](./build.md) -- these flags are best saved in a build script to which one can add more options. Future versions of Nimbus will support disabling colors at runtime.
-
-```bash
-
-# Build nimbus with colors disabled
-cat << EOF > build-nbc-text.sh
-#!/bin/bash
-make NIMFLAGS="-d:chronicles_colors=off -d:chronicles_sinks=textlines" nimbus_beacon_node
-EOF
 ```
 
 ### Run

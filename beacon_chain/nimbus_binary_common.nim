@@ -11,7 +11,7 @@
 
 import
   # Standard library
-  std/[os, tables, strutils, typetraits],
+  std/[os, tables, strutils, terminal, typetraits],
 
   # Nimble packages
   chronos, confutils/defs,
@@ -21,7 +21,7 @@ import
   # Local modules
   ./spec/[helpers],
   ./spec/datatypes/base,
-  "."/[beacon_clock, filepath, beacon_node_status]
+  "."/[beacon_clock, conf, filepath, beacon_node_status]
 
 when defined(posix):
   import termios
@@ -33,15 +33,41 @@ type
                            lastSlot: Slot): Future[void] {.gcsafe,
   raises: [Defect].}
 
-proc setupStdoutLogging*(logLevel: string) =
-  when compiles(defaultChroniclesStream.output.writer):
-    defaultChroniclesStream.outputs[0].writer =
-      proc (logLevel: LogLevel, msg: LogOutputStr) {.gcsafe, raises: [Defect].} =
-        try:
-          stdout.write(msg)
-          stdout.flushFile()
-        except IOError as err:
-          logLoggingFailure(cstring(msg), err)
+# silly chronicles, colors is a compile-time property
+proc stripAnsi(v: string): string =
+  var
+    res = newStringOfCap(v.len)
+    i: int
+
+  while i < v.len:
+    let c = v[i]
+    if c == '\x1b':
+      var
+        x = i + 1
+        found = false
+
+      while x < v.len: # look for [..m
+        let c2 = v[x]
+        if x == i + 1:
+          if c2 != '[':
+            break
+        else:
+          if c2 in {'0'..'9'} + {';'}:
+            discard # keep looking
+          elif c2 == 'm':
+            i = x + 1
+            found = true
+            break
+          else:
+            break
+        inc x
+
+      if found: # skip adding c
+        continue
+    res.add c
+    inc i
+
+  res
 
 proc updateLogLevel*(logLevel: string) {.raises: [Defect, ValueError].} =
   # Updates log levels (without clearing old ones)
@@ -56,27 +82,90 @@ proc updateLogLevel*(logLevel: string) {.raises: [Defect, ValueError].} =
       if not setTopicState(topicName, settings.state, settings.logLevel):
         warn "Unrecognized logging topic", topic = topicName
 
-proc setupLogging*(logLevel: string, logFile: Option[OutFile]) =
-  if logFile.isSome:
-    when defaultChroniclesStream.outputs.type.arity > 1:
-      block openLogFile:
+proc setupLogging*(
+    logLevel: string, stdoutKind: StdoutLogKind, logFile: Option[OutFile]) =
+  # In the cfg file for nimbus, we create two formats: textlines and json.
+  # Here, we either write those logs to an output, or not, depending on the
+  # given configuration.
+  # Arguably, if we don't use a format, chronicles should not create it.
+
+  when defaultChroniclesStream.outputs.type.arity != 2:
+    warn "Logging configuration options not enabled in the current build"
+  else:
+    # Naive approach where chronicles will form a string and we will discard
+    # it, even if it could have skipped the formatting phase
+
+    proc noOutput(logLevel: LogLevel, msg: LogOutputStr) = discard
+    proc writeAndFlush(f: File, msg: LogOutputStr) =
+      try:
+        f.write(msg)
+        f.flushFile()
+      except IOError as err:
+        logLoggingFailure(cstring(msg), err)
+
+    proc stdoutFlush(logLevel: LogLevel, msg: LogOutputStr) =
+      writeAndFlush(stdout, msg)
+
+    proc noColorsFlush(logLevel: LogLevel, msg: LogOutputStr) =
+      writeAndFlush(stdout, stripAnsi(msg))
+
+    let fileWriter =
+      if logFile.isSome():
         let
           logFile = logFile.get.string
           logFileDir = splitFile(logFile).dir
-        let lres = secureCreatePath(logFileDir)
-        if lres.isErr():
+          lres = secureCreatePath(logFileDir)
+        if lres.isOk():
+          try:
+            let
+              f = open(logFile, fmAppend)
+              x = proc(logLevel: LogLevel, msg: LogOutputStr) =
+                writeAndFlush(f, msg) # will close when program terminates
+            x
+          except CatchableError as exc:
+            error "Failed to create log file", logFile, msg = exc.msg
+            noOutput
+        else:
           error "Failed to create directory for log file",
                 path = logFileDir, err = ioErrorMsg(lres.error)
-          break openLogFile
-
-        try:
-          if not defaultChroniclesStream.outputs[1].open(logFile):
-            error "Failed to create log file", logFile
-        except CatchableError as exc:
-          # TODO why is there both exception and bool?
-          error "Failed to create log file", logFile, msg = exc.msg
+          noOutput
     else:
-      warn "The --log-file option is not active in the current build"
+      noOutput
+
+    defaultChroniclesStream.outputs[1].writer = fileWriter
+
+    let tmp =
+      if stdoutKind == StdoutLogKind.Auto:
+        if logFile.isSome():
+          # No stdout logging by default, when file logging is enabled
+          StdoutLogKind.None
+        elif isatty(stdout):
+          # On a TTY, let's be fancy
+          StdoutLogKind.Colors
+        else:
+          # When there's no TTY, we output no colors because this matches what
+          # released binaries were doing before auto-detection was around and
+          # looks decent in systemd-captured journals.
+          StdoutLogKind.NoColors
+      else:
+        stdoutKind
+
+    case tmp
+    of StdoutLogKind.Auto: raiseAssert "checked above"
+    of StdoutLogKind.Colors:
+      defaultChroniclesStream.outputs[0].writer = stdoutFlush
+    of StdoutLogKind.NoColors:
+      defaultChroniclesStream.outputs[0].writer = noColorsFlush
+    of StdoutLogKind.Json:
+      defaultChroniclesStream.outputs[0].writer = noOutput
+
+      let prevWriter = defaultChroniclesStream.outputs[1].writer
+      defaultChroniclesStream.outputs[1].writer =
+        proc(logLevel: LogLevel, msg: LogOutputStr) =
+          stdoutFlush(logLevel, msg)
+          prevWriter(logLevel, msg)
+    of StdoutLogKind.None:
+     defaultChroniclesStream.outputs[0].writer = noOutput
 
   try:
     updateLogLevel(logLevel)

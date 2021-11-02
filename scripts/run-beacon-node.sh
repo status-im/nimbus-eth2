@@ -93,7 +93,6 @@ fi
 exec ${WINPTY} build/${NBC_BINARY} \
   --network=${NETWORK} \
   --data-dir="${DATA_DIR}" \
-  --log-file="${DATA_DIR}/nbc_bn_$(date +"%Y%m%d%H%M%S").log" \
   --tcp-port=$(( ${BASE_P2P_PORT} + ${NODE_ID} )) \
   --udp-port=$(( ${BASE_P2P_PORT} + ${NODE_ID} )) \
   --rest \

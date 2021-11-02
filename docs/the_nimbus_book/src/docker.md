@@ -8,9 +8,6 @@ These images are simply the contents of [release tarballs](./binaries.md) inside
 
 The unpacked archive is in `/home/user/nimbus-eth2` which is also the default *WORKDIR*. The default *ENTRYPOINT* is the binary itself: `/home/user/nimbus-eth2/build/nimbus\_beacon\_node`
 
-> **N.B.** Docker images do not support the `log-file` [option](./options.md) - The way we recommend setting up docker is to capture its console output with a [log rotation helper](./log-rotate.md).
-
-
 ## Usage
 
 You need to create an external data directory and mount it as a volume inside the container, with  mounting point: `/home/user/nimbus-eth2/build/data`

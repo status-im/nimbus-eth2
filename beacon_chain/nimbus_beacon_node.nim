@@ -836,19 +836,14 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   info "Slot end",
     slot = shortLog(slot),
-    nextSlot = shortLog(slot + 1),
-    head = shortLog(node.dag.head),
-    headEpoch = shortLog(node.dag.head.slot.compute_epoch_at_slot()),
-    finalizedHead = shortLog(node.dag.finalizedHead.blck),
-    finalizedEpoch =
-      shortLog(node.dag.finalizedHead.blck.slot.compute_epoch_at_slot()),
-    nextAttestationSlot = displayInt64(nextAttestationSlot),
-    nextProposalSlot = displayInt64(nextProposalSlot),
     nextActionWait =
       if nextAttestationSlot == FAR_FUTURE_SLOT:
         "n/a"
       else:
-        shortLog(nextActionWaitTime)
+        shortLog(nextActionWaitTime),
+    nextAttestationSlot = displayInt64(nextAttestationSlot),
+    nextProposalSlot = displayInt64(nextProposalSlot),
+    head = shortLog(node.dag.head)
 
   if nextAttestationSlot != FAR_FUTURE_SLOT:
     next_action_wait.set(nextActionWaitTime.toFloatSeconds)
@@ -898,17 +893,16 @@ proc onSlotStart(
     delay = wallTime - expectedSlot.toBeaconTime()
 
   info "Slot start",
-    lastSlot = shortLog(lastSlot),
-    wallSlot = shortLog(wallSlot),
-    delay = shortLog(delay),
-    peers = len(node.network.peerPool),
-    head = shortLog(node.dag.head),
-    headEpoch = shortLog(node.dag.head.slot.compute_epoch_at_slot()),
-    finalized = shortLog(node.dag.finalizedHead.blck),
-    finalizedEpoch = shortLog(finalizedEpoch),
+    slot = shortLog(wallSlot),
+    epoch = shortLog(wallSlot.epoch),
     sync =
       if node.syncManager.inProgress: node.syncManager.syncStatus
-      else: "synced"
+      else: "synced",
+    peers = len(node.network.peerPool),
+    head = shortLog(node.dag.head),
+    finalized = shortLog(getStateField(
+      node.dag.headState.data, finalized_checkpoint)),
+    delay = shortLog(delay)
 
   # Check before any re-scheduling of onSlotStart()
   checkIfShouldStopAtEpoch(wallSlot, node.config.stopAtEpoch)
@@ -1166,6 +1160,10 @@ proc start(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     timeSinceFinalization =
       node.beaconClock.now() - finalizedHead.slot.toBeaconTime(),
     head = shortLog(head),
+    justified = shortLog(getStateField(
+      node.dag.headState.data, current_justified_checkpoint)),
+    finalized = shortLog(getStateField(
+      node.dag.headState.data, finalized_checkpoint)),
     finalizedHead = shortLog(finalizedHead),
     SLOTS_PER_EPOCH,
     SECONDS_PER_SLOT,
@@ -1292,14 +1290,16 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
     node.config.statusBarContents,
     dataResolver)
 
-  when compiles(defaultChroniclesStream.output.writer):
-    defaultChroniclesStream.output.writer =
+  when compiles(defaultChroniclesStream.outputs[0].writer):
+    let tmp = defaultChroniclesStream.outputs[0].writer
+
+    defaultChroniclesStream.outputs[0].writer =
       proc (logLevel: LogLevel, msg: LogOutputStr) {.raises: [Defect].} =
         try:
           # p.hidePrompt
           erase statusBar
           # p.writeLine msg
-          stdout.write msg
+          tmp(logLevel, msg)
           render statusBar
           # p.showPrompt
         except Exception as e: # render raises Exception
@@ -1827,14 +1827,12 @@ programMain:
   var
     config = makeBannerAndConfig(clientId, BeaconNodeConf)
 
-  setupStdoutLogging(config.logLevel)
-
   if not(checkAndCreateDataDir(string(config.dataDir))):
     # We are unable to access/create data folder or data folder's
     # permissions are insecure.
     quit QuitFailure
 
-  setupLogging(config.logLevel, config.logFile)
+  setupLogging(config.logLevel, config.logStdout, config.logFile)
 
   ## This Ctrl+C handler exits the program in non-graceful way.
   ## It's responsible for handling Ctrl+C in sub-commands such

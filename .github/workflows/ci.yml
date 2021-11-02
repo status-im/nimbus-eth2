@@ -274,7 +274,7 @@ jobs:
           if [[ "${{ runner.os }}" == "macOS" ]]; then
             ulimit -n 1024
           fi
-          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE NIMFLAGS="-d:testnet_servers_image" nimbus_beacon_node nimbus_validator_client
+          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE nimbus_beacon_node nimbus_validator_client
 
       - name: Run nimbus-eth2 tests
         if: matrix.target.TEST_KIND == 'unit-tests'
