@@ -17,6 +17,9 @@ export
   results, peerid, common, serialization, json_serialization, options, net, sets,
   eth2_ssz_serialization, rest_types
 
+from web3/ethtypes import BlockHash
+export ethtypes.BlockHash
+
 Json.createFlavor RestJson
 
 const
@@ -330,6 +333,20 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint64) {.
   else:
     reader.raiseUnexpectedValue($res.error())
 
+## UInt256
+proc writeValue*(w: var JsonWriter[RestJson], value: UInt256) {.
+     raises: [IOError, Defect].} =
+  writeValue(w, toString(value))
+
+proc readValue*(reader: var JsonReader[RestJson], value: var UInt256) {.
+     raises: [IOError, SerializationError, Defect].} =
+  let svalue = reader.readValue(string)
+  try:
+    value = parse(svalue, UInt256, 10)
+  except ValueError:
+    raiseUnexpectedValue(reader,
+                         "UInt256 value should be a valid decimal string")
+
 ## byte
 proc writeValue*(w: var JsonWriter[RestJson], value: byte) {.
      raises: [IOError, Defect].} =
@@ -520,6 +537,19 @@ proc readValue*(reader: var JsonReader[RestJson], value: var BitArray) {.
 proc writeValue*(writer: var JsonWriter[RestJson], value: BitArray) {.
      raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(value.bytes))
+
+## BlockHash
+proc readValue*(reader: var JsonReader[RestJson], value: var BlockHash) {.
+     raises: [IOError, SerializationError, Defect].} =
+  try:
+    hexToByteArray(reader.readValue(string), distinctBase(value))
+  except ValueError:
+    raiseUnexpectedValue(reader,
+                         "BlockHash value should be a valid hex string")
+
+proc writeValue*(writer: var JsonWriter[RestJson], value: BlockHash) {.
+     raises: [IOError, Defect].} =
+  writeValue(writer, hexOriginal(distinctBase(value)))
 
 ## Eth2Digest
 proc readValue*(reader: var JsonReader[RestJson], value: var Eth2Digest) {.
