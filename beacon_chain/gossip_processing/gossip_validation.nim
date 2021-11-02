@@ -293,7 +293,7 @@ proc validateBeaconBlock*(
       dag.forkAtEpoch(signed_beacon_block.message.slot.epoch),
       getStateField(dag.headState.data, genesis_validators_root),
       signed_beacon_block.message.slot,
-      signed_beacon_block.message,
+      signed_beacon_block.root,
       dag.validatorKey(proposer.get()).get(),
       signed_beacon_block.signature):
     return errReject("Invalid proposer signature")
