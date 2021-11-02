@@ -47,18 +47,20 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     if notSlashable.isOk():
       let signature = await validator.signBlockProposal(fork, genesisRoot, slot,
                                                         blockRoot)
-      let signedBlock = ForkedSignedBeaconBlock.init(beaconBlock, blockRoot,
-                                                     signature)
-      debug "Sending block", blck = shortLog(signedBlock),
-            signature = shortLog(signature), blockRoot = shortLog(blockRoot),
-            validator = shortLog(validator)
+      debug "Sending block",
+        blockRoot = shortLog(blockRoot), blck = shortLog(beaconBlock),
+        signature = shortLog(signature), validator = shortLog(validator)
 
       let res =
         try:
+          let signedBlock = ForkedSignedBeaconBlock.init(beaconBlock, blockRoot,
+                                                         signature)
           await vc.publishBlock(signedBlock)
         except ValidatorApiError:
-          error "Unable to publish block", blck = shortLog(signedBlock),
+          error "Unable to publish block",
                 blockRoot = shortLog(blockRoot),
+                blck = shortLog(beaconBlock),
+                signature = shortLog(signature),
                 validator = shortLog(validator),
                 validator_index = validator.index.get(),
                 wall_slot = currentSlot
@@ -68,21 +70,20 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                 err_name = exc.name, err_msg = exc.msg
           return
       if res:
-        notice "Block published", blck = shortLog(signedBlock),
-               blockRoot = shortLog(blockRoot), validator = shortLog(validator),
-               validator_index = validator.index.get()
+        notice "Block published", blockRoot = shortLog(blockRoot),
+               blck = shortLog(beaconBlock), signature = shortLog(signature),
+               validator = shortLog(validator)
       else:
         warn "Block was not accepted by beacon node",
-             blck = shortLog(signedBlock),
              blockRoot = shortLog(blockRoot),
+             blck = shortLog(beaconBlock),
+             signature = shortLog(signature),
              validator = shortLog(validator),
-             validator_index = validator.index.get(),
              wall_slot = currentSlot
     else:
       warn "Slashing protection activated for block proposal",
-           blck = shortLog(beaconBlock), blockRoot = shortLog(blockRoot),
+           blockRoot = shortLog(blockRoot), blck = shortLog(beaconBlock),
            validator = shortLog(validator),
-           validator_index = validator.index.get(),
            wall_slot = currentSlot,
            existingProposal = notSlashable.error
   except CatchableError as exc:

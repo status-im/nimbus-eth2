@@ -225,19 +225,27 @@ suite "Gossip validation - Extra": # Not based on preset config
 
       syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init())
       res = validateSyncCommitteeMessage(
-        dag, syncCommitteeMsgPool, msg, syncCommitteeIdx,
+        dag, syncCommitteeMsgPool[], msg, syncCommitteeIdx,
         state[].data.slot.toBeaconTime(), true)
       contribution = block:
-        var contribution: SyncCommitteeContribution
+        var contribution: SignedContributionAndProof
         check: syncCommitteeMsgPool[].produceContribution(
-          state[].data.slot, state[].root, syncCommitteeIdx, contribution)
+          state[].data.slot, state[].root, syncCommitteeIdx,
+          contribution.message.contribution)
         syncCommitteeMsgPool[].addSyncContribution(
-          contribution, contribution.signature.load.get)
+          contribution, contribution.message.contribution.signature.load.get)
         contribution
       aggregate = syncCommitteeMsgPool[].produceSyncAggregate(state[].root)
 
     check:
       expectedCount > 1 # Cover edge case
       res.isOk
-      contribution.aggregation_bits.countOnes == expectedCount
+      contribution.message.contribution.aggregation_bits.countOnes == expectedCount
       aggregate.sync_committee_bits.countOnes == expectedCount
+
+
+
+      # Same message twice should be ignored
+      validateSyncCommitteeMessage(
+        dag, syncCommitteeMsgPool[], msg, syncCommitteeIdx,
+        state[].data.slot.toBeaconTime(), true).isErr()

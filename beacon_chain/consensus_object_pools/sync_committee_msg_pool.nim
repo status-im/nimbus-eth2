@@ -21,14 +21,14 @@ const
     ## messsages before discarding them.
 
 type
-  SyncCommitteeMsgKey* = object
-    originator*: ValidatorIndex
-    slot*: Slot
-    committeeIdx*: SyncSubcommitteeIndex
+  SyncCommitteeMsgKey = object
+    originator: uint64 # ValidatorIndex avoiding mess with invalid values
+    slot: Slot
+    subcommitteeIndex: uint64 # SyncSubcommitteeIndex avoiding mess with invalid values
 
   TrustedSyncCommitteeMsg* = object
     slot*: Slot
-    committeeIdx*: SyncSubcommitteeIndex
+    subcommitteeIndex*: SyncSubcommitteeIndex
     positionInCommittee*: uint64
     signature*: CookedSig
 
@@ -86,28 +86,48 @@ func pruneData*(pool: var SyncCommitteeMsgPool, slot: Slot) =
   for blockRoot in contributionsToDelete:
     pool.bestContributions.del blockRoot
 
+func isSeen*(
+    pool: SyncCommitteeMsgPool,
+    msg: SyncCommitteeMessage,
+    subcommitteeIndex: SyncSubcommitteeIndex): bool =
+  let seenKey = SyncCommitteeMsgKey(
+    originator: msg.validator_index, # Might be unvalidated at this point
+    slot: msg.slot,
+    subcommitteeIndex: subcommitteeIndex.uint64)
+  seenKey in pool.seenSyncMsgByAuthor
+
 func addSyncCommitteeMsg*(
     pool: var SyncCommitteeMsgPool,
     slot: Slot,
     blockRoot: Eth2Digest,
     signature: CookedSig,
-    committeeIdx: SyncSubcommitteeIndex,
+    validatorIndex: uint64,
+    subcommitteeIndex: SyncSubcommitteeIndex,
     positionInCommittee: uint64) =
+
+  let
+    seenKey = SyncCommitteeMsgKey(
+      originator: validatorIndex,
+      slot: slot,
+      subcommitteeIndex: subcommitteeIndex.uint64)
+
+  pool.seenSyncMsgByAuthor.incl seenKey
+
   pool.syncMessages.mgetOrPut(blockRoot, @[]).add TrustedSyncCommitteeMsg(
     slot: slot,
-    committeeIdx: committeeIdx,
+    subcommitteeIndex: subcommitteeIndex,
     positionInCommittee: positionInCommittee,
     signature: signature)
 
 func computeAggregateSig(votes: seq[TrustedSyncCommitteeMsg],
-                         committeeIdx: SyncSubcommitteeIndex,
+                         subcommitteeIndex: SyncSubcommitteeIndex,
                          contribution: var SyncCommitteeContribution): bool =
   var
     aggregateSig {.noInit.}: AggregateSignature
     initialized = false
 
   for vote in votes:
-    if vote.committeeIdx != committeeIdx:
+    if vote.subcommitteeIndex != subcommitteeIndex:
       continue
 
     if not initialized:
@@ -156,9 +176,24 @@ func addAggregateAux(bestVotes: var BestSyncSubcommitteeContributions,
         participationBits: contribution.aggregation_bits,
         signature: contribution.signature.load.get)
 
-proc addSyncContribution*(pool: var SyncCommitteeMsgPool,
-                          contribution: SyncCommitteeContribution,
-                          signature: CookedSig) =
+func isSeen*(
+    pool: SyncCommitteeMsgPool,
+    msg: ContributionAndProof): bool =
+  let seenKey = SyncCommitteeMsgKey(
+    originator: msg.aggregator_index,
+    slot: msg.contribution.slot,
+    subcommitteeIndex: msg.contribution.subcommittee_index)
+  seenKey in pool.seenContributionByAuthor
+
+proc addSyncContribution(pool: var SyncCommitteeMsgPool,
+                         aggregator_index: uint64,
+                         contribution: SyncCommitteeContribution,
+                         signature: CookedSig) =
+  let seenKey = SyncCommitteeMsgKey(
+    originator: aggregator_index,
+    slot: contribution.slot,
+    subcommitteeIndex: contribution.subcommittee_index)
+  pool.seenContributionByAuthor.incl seenKey
 
   template blockRoot: auto = contribution.beacon_block_root
 
@@ -183,7 +218,9 @@ proc addSyncContribution*(pool: var SyncCommitteeMsgPool,
 proc addSyncContribution*(pool: var SyncCommitteeMsgPool,
                           scproof: SignedContributionAndProof,
                           signature: CookedSig) =
-  pool.addSyncContribution(scproof.message.contribution, signature)
+  pool.addSyncContribution(
+    scproof.message.aggregator_index, scproof.message.contribution, signature)
+
   if not(isNil(pool.onContributionReceived)):
     pool.onContributionReceived(scproof)
 

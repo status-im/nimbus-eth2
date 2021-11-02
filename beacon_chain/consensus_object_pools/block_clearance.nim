@@ -155,8 +155,8 @@ proc addResolvedBlock(
     epochRefTick = Moment.now()
 
   debug "Block resolved",
-    blck = shortLog(trustedBlock.message),
     blockRoot = shortLog(blockRoot),
+    blck = shortLog(trustedBlock.message),
     heads = dag.heads.len(),
     stateDataDur, sigVerifyDur, stateVerifyDur,
     putBlockDur = putBlockTick - startTick,
@@ -191,8 +191,8 @@ proc checkStateTransition(
     assign(dag.clearanceState, dag.headState)
 
   logScope:
-    blck = shortLog(signedBlock.message)
     blockRoot = shortLog(signedBlock.root)
+    blck = shortLog(signedBlock.message)
 
   if not state_transition_block(
       dag.cfg, dag.clearanceState.data, signedBlock,
@@ -228,8 +228,8 @@ proc addRawBlockKnownParent(
      ): Result[BlockRef, (ValidationResult, BlockError)] =
   ## Add a block whose parent is known, after performing validity checks
   logScope:
-    blck = shortLog(signedBlock.message)
     blockRoot = shortLog(signedBlock.root)
+    blck = shortLog(signedBlock.message)
     signature = shortLog(signedBlock.signature)
 
   if parent.slot >= signedBlock.message.slot:
@@ -315,8 +315,8 @@ proc addRawBlockUnresolved(
   ## addRawBlock - Block is unresolved / has no parent
 
   logScope:
-    blck = shortLog(signedBlock.message)
     blockRoot = shortLog(signedBlock.root)
+    blck = shortLog(signedBlock.message)
 
   # This is an unresolved block - add it to the quarantine, which will cause its
   # parent to be scheduled for downloading
@@ -359,8 +359,8 @@ proc addRawBlock(
   ## Cryptographic checks can be skipped by adding skipBLSValidation to dag.updateFlags
 
   logScope:
-    blck = shortLog(signedBlock.message)
     blockRoot = shortLog(signedBlock.root)
+    blck = shortLog(signedBlock.message)
 
   template blck(): untyped = signedBlock.message # shortcuts without copy
   template blockRoot(): untyped = signedBlock.root

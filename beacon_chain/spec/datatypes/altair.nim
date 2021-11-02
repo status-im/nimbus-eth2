@@ -500,7 +500,7 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
 func shortLog*(v: SyncCommitteeContribution): auto =
   (
     slot: shortLog(v.slot),
-    blk: shortLog(v.beacon_block_root),
+    beacon_block_root: shortLog(v.beacon_block_root),
     subnetId: v.subcommittee_index,
     aggregation_bits: $v.aggregation_bits
   )

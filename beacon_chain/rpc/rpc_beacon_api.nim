@@ -473,7 +473,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("post_v1_beacon_pool_attestations") do (
       attestation: Attestation) -> bool:
     let res = await node.sendAttestation(attestation)
-    return res.isOk()
+    if not res.isOk():
+      raise (ref CatchableError)(msg: $res.error())
+    return true
 
   rpcServer.rpc("get_v1_beacon_pool_attester_slashings") do (
       ) -> seq[AttesterSlashing]:
@@ -489,7 +491,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("post_v1_beacon_pool_attester_slashings") do (
       slashing: AttesterSlashing) -> bool:
     let res = node.sendAttesterSlashing(slashing)
-    return res.isOk()
+    if not res.isOk():
+      raise (ref CatchableError)(msg: $res.error())
+    return true
 
   rpcServer.rpc("get_v1_beacon_pool_proposer_slashings") do (
       ) -> seq[ProposerSlashing]:
@@ -505,7 +509,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("post_v1_beacon_pool_proposer_slashings") do (
       slashing: ProposerSlashing) -> bool:
     let res = node.sendProposerSlashing(slashing)
-    return res.isOk()
+    if not res.isOk():
+      raise (ref CatchableError)(msg: $res.error())
+    return true
 
   rpcServer.rpc("get_v1_beacon_pool_voluntary_exits") do (
       ) -> seq[SignedVoluntaryExit]:
@@ -521,4 +527,6 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("post_v1_beacon_pool_voluntary_exits") do (
       exit: SignedVoluntaryExit) -> bool:
     let res = node.sendVoluntaryExit(exit)
-    return res.isOk()
+    if not res.isOk():
+      raise (ref CatchableError)(msg: $res.error())
+    return true
