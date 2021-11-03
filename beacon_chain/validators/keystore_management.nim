@@ -11,7 +11,7 @@ import
   std/[os, strutils, terminal, wordwrap, unicode],
   chronicles, chronos, json_serialization, zxcvbn,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
-  ".."/spec/[eth2_merkleization, keystore],
+  ".."/spec/[eth2_merkleization, keystore, crypto],
   ".."/spec/datatypes/base,
   stew/io2, libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
@@ -20,7 +20,7 @@ import
   ./validator_pool
 
 export
-  keystore, validator_pool
+  keystore, validator_pool, crypto
 
 when defined(windows):
   import stew/[windows/acl]
@@ -29,6 +29,7 @@ when defined(windows):
 
 const
   KeystoreFileName* = "keystore.json"
+  RemoteKeystoreFileName* = "remote_keystore.json"
   NetKeystoreFileName* = "network_keystore.json"
   DisableFileName* = ".disable"
   DisableFileContent* = "Please do not remove this file manually. " &
@@ -42,8 +43,6 @@ type
   CreatedWallet* = object
     walletPath*: WalletPathPair
     seed*: KeySeed
-
-  AnyConf* = BeaconNodeConf | ValidatorClientConf
 
 const
   minPasswordLen = 12
@@ -59,9 +58,10 @@ proc echoP*(msg: string) =
   echo ""
   echo wrapWords(msg, 80)
 
-proc init*(t: typedesc[ValidatorPrivateItem], privateKey: ValidatorPrivKey,
+func init*(t: typedesc[ValidatorPrivateItem], privateKey: ValidatorPrivKey,
            keystore: Keystore): ValidatorPrivateItem =
   ValidatorPrivateItem(
+    kind: ValidatorKind.Local,
     privateKey: privateKey,
     description: if keystore.description == nil: none(string)
                  else: some(keystore.description[]),
@@ -69,6 +69,22 @@ proc init*(t: typedesc[ValidatorPrivateItem], privateKey: ValidatorPrivKey,
     uuid: some(keystore.uuid),
     version: some(uint64(keystore.version))
   )
+
+func init*(t: typedesc[ValidatorPrivateItem],
+           keystore: RemoteKeystore): Result[ValidatorPrivateItem, cstring] =
+  let cookedKey =
+    block:
+      let res = keystore.pubkey.load()
+      if res.isNone():
+        return err("Invalid validator's public key")
+      res.get()
+  ok(ValidatorPrivateItem(
+    kind: ValidatorKind.Remote,
+    publicKey: cookedKey,
+    description: keystore.description,
+    version: keystore.version,
+    remoteUrl: keystore.remote
+  ))
 
 proc checkAndCreateDataDir*(dataDir: string): bool =
   when defined(posix):
@@ -312,8 +328,29 @@ proc loadKeystoreUnsafe*(validatorsDir, secretsDir,
   else:
     err("Failed to decrypt keystore")
 
-proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
-                   nonInteractive: bool): Option[ValidatorPrivateItem] =
+proc loadRemoteKeystoreImpl(validatorsDir,
+                            keyName: string): Option[ValidatorPrivateItem] =
+  let remoteKeystorePath = validatorsDir / keyName / RemoteKeystoreFileName
+  let privateItem =
+    block:
+      let keystore =
+        try:
+          Json.decode(remoteKeystorePath, RemoteKeystore)
+        except SerializationError as e:
+          error "Failed to read remote keystore file",
+                keystore_path = remoteKeystorePath,
+                err_msg = e.formatMsg("<remote_keystore>")
+          return
+      let res = ValidatorPrivateItem.init(keystore)
+      if res.isErr():
+        error "Invalid validator's public key in keystore file",
+              keystore_path = remoteKeystorePath
+        return
+      res.get()
+  some(privateItem)
+
+proc loadKeystoreImpl(validatorsDir, secretsDir, keyName: string,
+                      nonInteractive: bool): Option[ValidatorPrivateItem] =
   let
     keystorePath = validatorsDir / keyName / KeystoreFileName
     keystore =
@@ -366,6 +403,21 @@ proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
     some(ValidatorPrivateItem.init(res.get(), keystore))
   else:
     return
+
+proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
+                   nonInteractive: bool): Option[ValidatorPrivateItem] =
+  let
+    keystorePath = validatorsDir / keyName
+    localKeystorePath = keystorePath / KeystoreFileName
+    remoteKeystorePath = keystorePath / RemoteKeystoreFileName
+
+  if fileExists(localKeystorePath):
+    loadKeystoreImpl(validatorsDir, secretsDir, keyName, nonInteractive)
+  elif fileExists(remoteKeystorePath):
+    loadRemoteKeystoreImpl(validatorsDir, keyName)
+  else:
+    error "Unable to find any keystore files", keystorePath
+    none[ValidatorPrivateItem]()
 
 proc isEnabled*(validatorsDir, keyName: string): bool {.
      raises: [Defect].} =
@@ -680,7 +732,7 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
                                         KeystorePass.init password,
                                         secret)
         case status
-        of Success:
+        of DecryptionStatus.Success:
           let privKey = ValidatorPrivKey.fromRaw(secret)
           if privKey.isOk:
             let pubKey = privKey.value.toPubKey
@@ -695,10 +747,10 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
           else:
             error "Imported keystore holds invalid key", file, err = privKey.error
           break
-        of InvalidKeystore:
+        of DecryptionStatus.InvalidKeystore:
           warn "Invalid keystore", file
           break
-        of InvalidPassword:
+        of DecryptionStatus.InvalidPassword:
           if firstDecryptionAttempt:
             try:
               const msg = "Please enter the password for decrypting '$1' " &
@@ -953,7 +1005,7 @@ proc unlockWalletInteractively*(wallet: Wallet): Result[KeySeed, string] =
       defer: burnMem(secret)
       let status = decryptCryptoField(wallet.crypto, KeystorePass.init password, secret)
       case status
-      of Success:
+      of DecryptionStatus.Success:
         ok(KeySeed secret)
       else:
         # TODO Handle InvalidKeystore in a special way here

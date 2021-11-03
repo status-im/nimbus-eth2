@@ -86,37 +86,56 @@ proc findValidator(validators: auto, pubKey: ValidatorPubKey):
 proc addLocalValidator(node: BeaconNode,
                        validators: auto,
                        item: ValidatorPrivateItem) =
-  let pubKey = item.privateKey.toPubKey()
-  node.attachedValidators[].addLocalValidator(
-    item,
-    findValidator(validators, pubKey.toPubKey()))
+  let
+    pubKey = item.privateKey.toPubKey()
+    index = findValidator(validators, pubKey.toPubKey())
+  node.attachedValidators[].addLocalValidator(item, index)
 
-proc addLocalValidators*(node: BeaconNode) =
+proc addRemoteValidator(node: BeaconNode, validators: auto,
+                        item: ValidatorPrivateItem) =
+  let httpFlags =
+    block:
+      var res: set[HttpClientFlag]
+      if RemoteKeystoreFlag.IgnoreSSLVerification in item.flags:
+        res.incl({HttpClientFlag.NoVerifyHost,
+                  HttpClientFlag.NoVerifyServerName})
+      res
+  let prestoFlags = {RestClientFlag.CommaSeparatedArray}
+  let client = RestClientRef.new($item.remoteUrl, prestoFlags, httpFlags)
+  if client.isErr():
+    warn "Unable to resolve remote signer address",
+         remote_url = $item.remoteUrl, validator = item.publicKey
+    return
+  let index = findValidator(validators, item.publicKey.toPubKey())
+  node.attachedValidators[].addRemoteValidator(item, client.get(), index)
+
+proc addLocalValidators*(node: BeaconNode,
+                         validators: openArray[ValidatorPrivateItem]) =
   withState(node.dag.headState.data):
-    for validatorItem in node.config.validatorItems():
-      node.addLocalValidator(state.data.validators.asSeq(), validatorItem)
+    for item in validators:
+      node.addLocalValidator(state.data.validators.asSeq(), item)
 
-proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError].} =
-  # load all the validators from the child process - loop until `end`
-  var line = newStringOfCap(120).TaintedString
-  while line != "end" and running(node.vcProcess):
-    if node.vcProcess.outputStream.readLine(line) and line != "end":
-      let
-        key = ValidatorPubKey.fromHex(line).get()
-        index = findValidator(
-          getStateField(node.dag.headState.data, validators).asSeq, key)
-        pk = key.load()
-      if pk.isSome():
-        let v = AttachedValidator(pubKey: key,
-                                  index: index,
-                                  kind: ValidatorKind.Remote,
-                                  connection: ValidatorConnection(
-                                    inStream: node.vcProcess.inputStream,
-                                    outStream: node.vcProcess.outputStream,
-                                    pubKeyStr: $key))
-        node.attachedValidators[].addRemoteValidator(key, v)
-      else:
-        warn "Could not load public key", line
+proc addRemoteValidators*(node: BeaconNode,
+                          validators: openArray[ValidatorPrivateItem]) =
+  withState(node.dag.headState.data):
+    for item in validators:
+      node.addRemoteValidator(state.data.validators.asSeq(), item)
+
+proc addValidators*(node: BeaconNode) =
+  let (localValidators, remoteValidators) =
+    block:
+      var local, remote: seq[ValidatorPrivateItem]
+      for item in node.config.validatorItems():
+        case item.kind
+        of ValidatorKind.Local:
+          local.add(item)
+        of ValidatorKind.Remote:
+          remote.add(item)
+      (local, remote)
+  # Adding local validators.
+  node.addLocalValidators(localValidators)
+  # Adding remote validators.
+  node.addRemoteValidators(remoteValidators)
 
 proc getAttachedValidator*(node: BeaconNode,
                            pubkey: ValidatorPubKey): AttachedValidator =
@@ -341,10 +360,16 @@ proc createAndSendAttestation(node: BeaconNode,
                               indexInCommittee: int,
                               subnet_id: SubnetId) {.async.} =
   try:
-    var
-      attestation = await validator.produceAndSignAttestation(
-        attestationData, committeeLen, indexInCommittee, fork,
-        genesis_validators_root)
+    var attestation =
+      block:
+        let res = await validator.produceAndSignAttestation(
+          attestationData, committeeLen, indexInCommittee, fork,
+          genesis_validators_root)
+        if res.isErr():
+          error "Unable to sign attestation", validator = shortLog(validator),
+                error_msg = res.error()
+          return
+        res.get()
 
     let res = await node.sendAttestation(
       attestation, subnet_id, checkSignature = false)
@@ -481,8 +506,16 @@ proc proposeBlock(node: BeaconNode,
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root =
       getStateField(node.dag.headState.data, genesis_validators_root)
-    randao = await validator.genRandaoReveal(
-      fork, genesis_validators_root, slot)
+    randao =
+      block:
+        let res = await validator.genRandaoReveal(fork, genesis_validators_root,
+                                                  slot)
+        if res.isErr():
+          error "Unable to generate randao reveal",
+                validator = shortLog(validator), error_msg = res.error()
+          return head
+        res.get()
+
   var newBlock = await makeBeaconBlockForHeadAndSlot(
     node, randao, validator_index, node.graffitiBytes, head, slot)
 
@@ -511,8 +544,15 @@ proc proposeBlock(node: BeaconNode,
         existingProposal = notSlashable.error
       return head
 
-    let signature = await validator.signBlockProposal(
-      fork, genesis_validators_root, slot, root)
+    let signature =
+      block:
+        let res = await validator.signBlockProposal(fork,
+          genesis_validators_root, slot, root, blck)
+        if res.isErr():
+          error "Unable to sign block proposal",
+                validator = shortLog(validator), error_msg = res.error()
+          return head
+        res.get()
     ForkedSignedBeaconBlock.init(
       phase0.SignedBeaconBlock(
         message: blck.phase0Data, root: root, signature: signature)
@@ -534,8 +574,15 @@ proc proposeBlock(node: BeaconNode,
         existingProposal = notSlashable.error
       return head
 
-    let signature = await validator.signBlockProposal(
-      fork, genesis_validators_root, slot, root)
+    let signature =
+      block:
+        let res = await validator.signBlockProposal(
+          fork, genesis_validators_root, slot, root, blck)
+        if res.isErr():
+          error "Unable to sign block proposal",
+                validator = shortLog(validator), error_msg = res.error()
+          return head
+        res.get()
 
     ForkedSignedBeaconBlock.init(
       altair.SignedBeaconBlock(
@@ -558,8 +605,15 @@ proc proposeBlock(node: BeaconNode,
         existingProposal = notSlashable.error
       return head
 
-    let signature = await validator.signBlockProposal(
-      fork, genesis_validators_root, slot, root)
+    let signature =
+      block:
+        let res = await validator.signBlockProposal(
+          fork, genesis_validators_root, slot, root, blck)
+        if res.isErr():
+          error "Unable to sign block proposal",
+                validator = shortLog(validator), error_msg = res.error()
+          return head
+        res.get()
 
     ForkedSignedBeaconBlock.init(
       merge.SignedBeaconBlock(
@@ -650,8 +704,17 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
     let
       fork = node.dag.forkAtEpoch(slot.epoch)
       genesisValidatorsRoot = node.dag.genesisValidatorsRoot
-      msg = await signSyncCommitteeMessage(validator, slot, fork,
-                                           genesisValidatorsRoot, head.root)
+      msg =
+        block:
+          let res = await signSyncCommitteeMessage(validator, slot, fork,
+                                                   genesisValidatorsRoot,
+                                                   head.root)
+          if res.isErr():
+            error "Unable to sign committee message using remote signer",
+                  validator = shortLog(validator), slot = slot,
+                  block_root = shortLog(head.root)
+            return
+          res.get()
 
     let res = await node.sendSyncCommitteeMessage(
       msg, subcommitteeIdx, checkSignature = false)
@@ -707,9 +770,14 @@ proc signAndSendContribution(node: BeaconNode,
         contribution: contribution,
         selection_proof: selectionProof))
 
-    await validator.sign(msg,
-                         node.dag.forkAtEpoch(contribution.slot.epoch),
-                         node.dag.genesisValidatorsRoot)
+    let res = await validator.sign(
+      msg, node.dag.forkAtEpoch(contribution.slot.epoch),
+      node.dag.genesisValidatorsRoot)
+
+    if res.isErr():
+      error "Unable to sign sync committee contribution usign remote signer",
+            validator = shortLog(validator), error_msg = res.error()
+      return
 
     # Failures logged in sendSyncCommitteeContribution
     discard await node.sendSyncCommitteeContribution(msg[], false)
@@ -733,7 +801,7 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
       subcommitteeIdx: SyncSubcommitteeIndex
 
   var candidateAggregators: seq[AggregatorCandidate]
-  var selectionProofs: seq[Future[ValidatorSig]]
+  var selectionProofs: seq[Future[SignatureResult]]
 
   var time = timeIt:
     for subcommitteeIdx in allSyncSubcommittees():
@@ -760,11 +828,17 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
   var contributionsSent = 0
 
   time = timeIt:
-    for i in 0 ..< selectionProofs.len:
-      if not selectionProofs[i].completed:
+    for i, proof in selectionProofs.pairs():
+      if not proof.completed:
         continue
 
-      let selectionProof = selectionProofs[i].read
+      let selectionProofRes = proof.read()
+      if selectionProofRes.isErr():
+        error "Unable to sign selection proof using remote signer",
+              validator = shortLog(candidateAggregators[i].validator),
+              slot, head, subnet_id = candidateAggregators[i].committeeIdx
+        continue
+      let selectionProof = selectionProofRes.get()
       if not is_sync_committee_aggregator(selectionProof):
         continue
 
@@ -852,7 +926,7 @@ proc sendAggregatedAttestations(
     committees_per_slot = get_committee_count_per_slot(epochRef)
 
   var
-    slotSigs: seq[Future[ValidatorSig]] = @[]
+    slotSigs: seq[Future[SignatureResult]] = @[]
     slotSigsData: seq[tuple[committee_index: uint64,
                             validator_idx: ValidatorIndex,
                             v: AttachedValidator]] = @[]
@@ -872,16 +946,29 @@ proc sendAggregatedAttestations(
   await allFutures(slotSigs)
 
   for curr in zip(slotSigsData, slotSigs):
+    let slotSig = curr[1].read()
+    if slotSig.isErr():
+      error "Unable to create slot signature using remote signer",
+            validator = shortLog(curr[0].v),
+            aggregation_slot = aggregationSlot, error_msg = slotSig.error()
+      continue
     let aggregateAndProof =
       makeAggregateAndProof(node.attestationPool[], epochRef, aggregationSlot,
                             curr[0].committee_index.CommitteeIndex,
-                             curr[0].validator_idx,
-                             curr[1].read)
+                            curr[0].validator_idx,
+                            slotSig.get())
 
     # Don't broadcast when, e.g., this node isn't aggregator
     if aggregateAndProof.isSome:
-      let sig = await signAggregateAndProof(curr[0].v,
-        aggregateAndProof.get, fork, genesis_validators_root)
+      let sig =
+        block:
+          let res = await signAggregateAndProof(curr[0].v,
+            aggregateAndProof.get, fork, genesis_validators_root)
+          if res.isErr():
+            error "Unable to sign aggregated attestation using remote signer",
+                  validator = shortLog(curr[0].v), error_msg = res.error()
+            return
+          res.get()
       var signedAP = SignedAggregateAndProof(
         message: aggregateAndProof.get,
         signature: sig)
@@ -1210,8 +1297,13 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
           let
             subnet_id = compute_subnet_for_attestation(
               committees_per_slot, slot, committee_index.CommitteeIndex)
-            slotSig = await getSlotSig(
-              validator, fork, genesis_validators_root, slot)
-            isAggregator = is_aggregator(committee.lenu64, slotSig)
+          let slotSigRes = await getSlotSig(validator, fork,
+                                            genesis_validators_root, slot)
+          if slotSigRes.isErr():
+            error "Unable to create slot signature using remote signer",
+                  validator = shortLog(validator),
+                  error_msg = slotSigRes.error()
+            continue
+          let isAggregator = is_aggregator(committee.lenu64, slotSigRes.get())
 
           node.registerDuty(slot, subnet_id, validatorIdx, isAggregator)

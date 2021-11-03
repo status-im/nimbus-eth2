@@ -41,10 +41,17 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
          validator_index = vindex, badVoteDetails = $notSlashable.error
     return false
 
-  let attestation = await validator.produceAndSignAttestation(adata,
-    int(duty.data.committee_length),
-    Natural(duty.data.validator_committee_index),
-    fork, vc.beaconGenesis.genesis_validators_root)
+  let attestation =
+    block:
+      let res = await validator.produceAndSignAttestation(adata,
+        int(duty.data.committee_length),
+        Natural(duty.data.validator_committee_index),
+        fork, vc.beaconGenesis.genesis_validators_root)
+      if res.isErr():
+        error "Unable to sign attestation", validator = shortLog(validator),
+              error_msg = res.error()
+        return false
+      res.get()
 
   debug "Sending attestation", attestation = shortLog(attestation),
         validator = shortLog(validator), validator_index = vindex,
@@ -91,8 +98,17 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
     genesisRoot = vc.beaconGenesis.genesis_validators_root
     fork = vc.fork.get()
 
-  let signature = await signAggregateAndProof(validator, proof, fork,
-                                              genesisRoot)
+  let signature =
+    block:
+      let res = await signAggregateAndProof(validator, proof, fork,
+                                            genesisRoot)
+      if res.isErr():
+        error "Unable to sign aggregate and proof using remote signer",
+              validator = shortLog(validator),
+              aggregationSlot = proof.aggregate.data.slot,
+              error_msg = res.error()
+        return false
+      res.get()
   let signedProof = SignedAggregateAndProof(message: proof,
                                             signature: signature)
 

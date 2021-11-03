@@ -444,16 +444,7 @@ proc init*(T: type BeaconNode,
     onAttestationSent: onAttestationSent,
   )
 
-  if node.config.inProcessValidators:
-    node.addLocalValidators()
-  else:
-    let cmd = getAppDir() / "nimbus_signing_process".addFileExt(ExeExt)
-    let args = [$node.config.validatorsDir, $node.config.secretsDir]
-    let workdir = io2.getCurrentDir().tryGet()
-    node.vcProcess = try: startProcess(cmd, workdir, args)
-    except CatchableError as exc: raise exc
-    except Exception as exc: raiseAssert exc.msg
-    node.addRemoteValidators()
+  node.addValidators()
 
   block:
     # Add in-process validators to the list of "known" validators such that

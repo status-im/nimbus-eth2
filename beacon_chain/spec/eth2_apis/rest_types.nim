@@ -412,6 +412,90 @@ type
     genesis_validators_root*: Eth2Digest
     slot*: Slot
 
+  Web3SignerKeysResponse* = object
+    keys*: seq[ValidatorPubKey]
+
+  Web3SignerStatusResponse* = object
+    status*: string
+
+  Web3SignerSignatureResponse* = object
+    signature*: ValidatorSig
+
+  Web3SignerErrorResponse* = object
+    error*: string
+
+  Web3SignerTypes* = Web3SignerStatusResponse |
+                     Web3SignerKeysResponse |
+                     Web3SignerSignatureResponse |
+                     Web3SignerErrorResponse
+
+  Web3SignerForkInfo* = object
+    fork*: Fork
+    genesisValidatorsRoot* {.
+      serializedFieldName: "genesis_validators_root".}: Eth2Digest
+
+  Web3SignerAggregationSlotData* = object
+    slot*: Slot
+
+  Web3SignerRandaoRevealData* = object
+    epoch*: Epoch
+
+  Web3SignerDepositData* = object
+    pubkey*: ValidatorPubKey
+    withdrawalCredentials* {.
+      serializedFieldName: "withdrawal_credentials".}: Eth2Digest
+    genesisForkVersion* {.
+      serializedFieldName: "genesis_fork_version".}: Version
+    amount*: Gwei
+
+  Web3SignerSyncCommitteeMessageData* = object
+    beaconBlockRoot* {.
+      serializedFieldName: "beacon_block_root".}: Eth2Digest
+    slot*: Slot
+
+  Web3SignerRequestKind* {.pure.} = enum
+    AggregationSlot, AggregateAndProof, Attestation, Block, BlockV2,
+    Deposit, RandaoReveal, VoluntaryExit, SyncCommitteeMessage,
+    SyncCommitteeSelectionProof, SyncCommitteeContributionAndProof
+
+  Web3SignerRequest* = object
+    signingRoot*: Option[Eth2Digest]
+    forkInfo* {.serializedFieldName: "fork_info".}: Option[Web3SignerForkInfo]
+    case kind* {.dontSerialize.}: Web3SignerRequestKind
+    of Web3SignerRequestKind.AggregationSlot:
+      aggregationSlot* {.
+        serializedFieldName: "aggregation_slot".}: Web3SignerAggregationSlotData
+    of Web3SignerRequestKind.AggregateAndProof:
+      aggregateAndProof* {.
+        serializedFieldName: "aggregate_and_proof".}: AggregateAndProof
+    of Web3SignerRequestKind.Attestation:
+      attestation*: AttestationData
+    of Web3SignerRequestKind.Block:
+      blck* {.
+        serializedFieldName: "block".}: phase0.BeaconBlock
+    of Web3SignerRequestKind.BlockV2:
+      beaconBlock* {.
+        serializedFieldName: "beacon_block".}: ForkedBeaconBlock
+    of Web3SignerRequestKind.Deposit:
+      deposit*: Web3SignerDepositData
+    of Web3SignerRequestKind.RandaoReveal:
+      randaoReveal* {.
+        serializedFieldName: "randao_reveal".}: Web3SignerRandaoRevealData
+    of Web3SignerRequestKind.VoluntaryExit:
+      voluntaryExit* {.
+        serializedFieldName: "voluntary_exit".}: VoluntaryExit
+    of Web3SignerRequestKind.SyncCommitteeMessage:
+      syncCommitteeMessage* {.
+        serializedFieldName: "sync_committee_message".}:
+          Web3SignerSyncCommitteeMessageData
+    of Web3SignerRequestKind.SyncCommitteeSelectionProof:
+      syncAggregatorSelectionData* {.
+        serializedFieldName: "sync_aggregator_selection_data".}:
+          SyncAggregatorSelectionData
+    of Web3SignerRequestKind.SyncCommitteeContributionAndProof:
+      syncCommitteeContributionAndProof* {.
+        serializedFieldName: "contribution_and_proof".}: ContributionAndProof
+
   GetBlockResponse* = DataEnclosedObject[phase0.SignedBeaconBlock]
   GetStateResponse* = DataEnclosedObject[phase0.BeaconState]
   GetBlockV2Response* = ForkedSignedBeaconBlock
@@ -500,3 +584,152 @@ func init*(t: typedesc[RestValidator], index: ValidatorIndex,
 func init*(t: typedesc[RestValidatorBalance], index: ValidatorIndex,
            balance: uint64): RestValidatorBalance =
   RestValidatorBalance(index: index, balance: Base10.toString(balance))
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesisValidatorsRoot: Eth2Digest, data: Slot,
+           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.AggregationSlot,
+    forkInfo: some(Web3SignerForkInfo(
+      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+    )),
+    signingRoot: signingRoot,
+    aggregationSlot: Web3SignerAggregationSlotData(slot: data)
+  )
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesisValidatorsRoot: Eth2Digest, data: AggregateAndProof,
+           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.AggregateAndProof,
+    forkInfo: some(Web3SignerForkInfo(
+      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+    )),
+    signingRoot: signingRoot,
+    aggregateAndProof: data
+  )
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesisValidatorsRoot: Eth2Digest, data: AttestationData,
+           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.Attestation,
+    forkInfo: some(Web3SignerForkInfo(
+      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+    )),
+    signingRoot: signingRoot,
+    attestation: data
+  )
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesisValidatorsRoot: Eth2Digest, data: phase0.BeaconBlock,
+           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.Block,
+    forkInfo: some(Web3SignerForkInfo(
+      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+    )),
+    signingRoot: signingRoot,
+    blck: data
+  )
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesisValidatorsRoot: Eth2Digest, data: ForkedBeaconBlock,
+           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.BlockV2,
+    forkInfo: some(Web3SignerForkInfo(
+      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+    )),
+    signingRoot: signingRoot,
+    beaconBlock: data
+  )
+
+func init*(t: typedesc[Web3SignerRequest], genesisForkVersion: Version,
+           data: DepositMessage,
+           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.Deposit,
+    signingRoot: signingRoot,
+    deposit: Web3SignerDepositData(
+      pubkey: data.pubkey,
+      withdrawalCredentials: data.withdrawalCredentials,
+      genesisForkVersion: genesisForkVersion,
+      amount: data.amount
+    )
+  )
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesisValidatorsRoot: Eth2Digest, data: Epoch,
+           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.RandaoReveal,
+    forkInfo: some(Web3SignerForkInfo(
+      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+    )),
+    signingRoot: signingRoot,
+    randaoReveal: Web3SignerRandaoRevealData(epoch: data)
+  )
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesisValidatorsRoot: Eth2Digest, data: VoluntaryExit,
+           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.VoluntaryExit,
+    forkInfo: some(Web3SignerForkInfo(
+      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+    )),
+    signingRoot: signingRoot,
+    voluntaryExit: data
+  )
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesisValidatorsRoot: Eth2Digest, blockRoot: Eth2Digest,
+           slot: Slot, signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.SyncCommitteeMessage,
+    forkInfo: some(Web3SignerForkInfo(
+      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+    )),
+    signingRoot: signingRoot,
+    syncCommitteeMessage: Web3SignerSyncCommitteeMessageData(
+      beaconBlockRoot: blockRoot, slot: slot
+    )
+  )
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesisValidatorsRoot: Eth2Digest,
+           data: SyncAggregatorSelectionData,
+           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.SyncCommitteeSelectionProof,
+    forkInfo: some(Web3SignerForkInfo(
+      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+    )),
+    signingRoot: signingRoot,
+    syncAggregatorSelectionData: data
+  )
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesisValidatorsRoot: Eth2Digest,
+           data: ContributionAndProof,
+           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.SyncCommitteeContributionAndProof,
+    forkInfo: some(Web3SignerForkInfo(
+      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+    )),
+    signingRoot: signingRoot,
+    syncCommitteeContributionAndProof: data
+  )

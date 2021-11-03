@@ -642,6 +642,10 @@ type
       desc: "A directory containing validator keystore passwords"
       name: "secrets-dir" }: Option[InputDir]
 
+    serverIdent* {.
+      desc: "Server identifier which will be used in HTTP Host header"
+      name: "server-ident" }: Option[string]
+
     case cmd* {.
       command
       defaultValue: SNNoCommand }: SNStartUpCmd

@@ -190,6 +190,8 @@ const
     "Could not remove keystore(s)"
   InvalidValidatorPublicKey* =
     "Invalid validator's public key(s) found"
+  BadRequestFormatError* =
+    "Bad request format"
 
 type
   ValidatorIndexError* {.pure.} = enum
@@ -217,7 +219,7 @@ proc validate(key: string, value: string): int =
     0
   of "{validator_id}":
     0
-  of "{validator_key_wo0x}":
+  of "{validator_key}":
     0
   else:
     1

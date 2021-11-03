@@ -9,14 +9,17 @@ import chronos, presto, presto/secureserver, chronicles, confutils,
        stew/[base10, results, byteutils, io2],
        json_serialization/std/[options, net]
 
-import "."/[conf, version, nimbus_binary_common, beacon_node_types]
+import "."/[conf, version, nimbus_binary_common]
 import "."/spec/datatypes/[base, altair, phase0],
        "."/spec/[crypto, digest, network, signatures],
+       "."/spec/eth2_apis/[rest_types, eth2_rest_serialization],
        "."/ssz/merkleization
 import "."/rpc/[rest_utils]
 import "."/validators/[keystore_management, validator_pool]
 
-const HttpHeadersTimeout = 10.seconds
+const
+  HttpHeadersTimeout = 10.seconds
+  NimbusSigningNodeIdent = "nimbus_remote_signer/" & fullVersionStr
 
 type
   SigningNodeKind* {.pure.} = enum
@@ -34,22 +37,6 @@ type
     attachedValidators: ValidatorPool
     signingServer: SigningNodeServer
     keysList: string
-
-  SignRequestKind* {.pure.} = enum
-    Phase0Block, AltairBlock, Attestation, Randao
-
-  SignRequest* = object
-    fork: Fork
-    genesisValidatorsRoot: Eth2Digest
-    case kind: SignRequestKind
-    of SignRequestKind.Phase0Block:
-      phase0Block: phase0.BeaconBlock
-    of SignRequestKind.AltairBlock:
-      altairBlock: altair.BeaconBlock
-    of SignRequestKind.Attestation:
-      attestation: AttestationData
-    of SignRequestKind.Randao:
-      epoch: Epoch
 
 proc router(sn: SigningNode): RestRouter =
   case sn.signingServer.kind
@@ -107,117 +94,26 @@ proc loadTLSKey(pathName: InputFile): Result[TLSPrivateKey, cstring] =
       return err("Invalid private key or incorrect file format")
   ok(key)
 
-proc readValue*(reader: var JsonReader[RestJson], value: var SignRequest) {.
-     raises: [IOError, SerializationError, Defect].} =
-  var
-    kind: Option[SignRequestKind]
-    fork: Option[Fork]
-    root: Option[Eth2Digest]
-    data: Option[JsonString]
-
-  for fieldName in readObjectFields(reader):
-    case fieldName
-    of "bls_domain":
-      if kind.isSome():
-        reader.raiseUnexpectedField("Multiple bls_domain fields found",
-                                    "SignRequest")
-      let domain = reader.readValue(string)
-      case domain
-      of "beacon_proposer": kind = some(SignRequestKind.Phase0Block)
-      of "beacon_attester": kind = some(SignRequestKind.Attestation)
-      of "randao": kind = some(SignRequestKind.Randao)
-      else:
-        reader.raiseUnexpectedValue("Incorrect bls_domain value")
-    of "fork":
-      if fork.isSome():
-        reader.raiseUnexpectedField("Multiple fork fields found", "SignRequest")
-      fork = some(reader.readValue(Fork))
-    of "genesis_validators_root":
-      if root.isSome():
-        reader.raiseUnexpectedField("Multiple genesis_validators_root " &
-                                    "fields found", "SignRequest")
-      root = some(reader.readValue(Eth2Digest))
-    of "data":
-      if data.isSome():
-        reader.raiseUnexpectedField("Multiple data fields found", "SignRequest")
-      data = some(reader.readValue(JsonString))
-    else:
-      reader.raiseUnexpectedField(fieldName, "SignRequest")
-
-  if kind.isNone():
-    reader.raiseUnexpectedValue("Field bls_domain is missing")
-  if fork.isNone():
-    reader.raiseUnexpectedValue("Field fork is missing")
-  if root.isNone():
-    reader.raiseUnexpectedValue("Field genesis_validators_root is missing")
-  if data.isNone():
-    reader.raiseUnexpectedValue("Field data is missing")
-
-  let kkind = kind.get()
-  case kkind
-  of SignRequestKind.Phase0Block, SignRequestKind.AltairBlock:
-    let altairBlock =
-      try:
-        some(RestJson.decode(string(data.get()), altair.BeaconBlock,
-                             requireAllFields = true))
-      except SerializationError:
-        none[altair.BeaconBlock]()
-    if altairBlock.isSome():
-      value = SignRequest(
-        kind: SignRequestKind.AltairBlock,
-        fork: fork.get(),
-        genesisValidatorsRoot: root.get(),
-        altairBlock: altairBlock.get()
-      )
-    else:
-      let phase0Block =
-        try:
-          some(RestJson.decode(string(data.get()), phase0.BeaconBlock,
-                               requireAllFields = true))
-        except SerializationError:
-          none[phase0.BeaconBlock]()
-      if phase0Block.isSome():
-        value = SignRequest(
-          kind: SignRequestKind.Phase0Block,
-          fork: fork.get(),
-          genesisValidatorsRoot: root.get(),
-          phase0Block: phase0Block.get()
-        )
-      else:
-        reader.raiseUnexpectedValue("Incorrect beacon block format")
-  of SignRequestKind.Attestation:
-    let attestation = RestJson.decode(string(data.get()), AttestationData,
-                                      requireAllFields = true)
-    value = SignRequest(
-      kind: SignRequestKind.Attestation,
-      fork: fork.get(),
-      genesisValidatorsRoot: root.get(),
-      attestation: attestation
-    )
-  of SignRequestKind.Randao:
-    let epoch = RestJson.decode(string(data.get()), Epoch,
-                                requireAllFields = true)
-    value = SignRequest(
-      kind: SignRequestKind.Randao,
-      fork: fork.get(),
-      genesisValidatorsRoot: root.get(),
-      epoch: epoch
-    )
-
 proc initValidators(sn: var SigningNode): bool =
   info "Initializaing validators", path = sn.config.validatorsDir()
   var duplicates: seq[ValidatorPubKey]
   var publicKeyIdents: seq[string]
-  for key in sn.config.validatorKeys():
-    let pubkey = key.toPubKey().toPubKey()
-    if pubkey in duplicates:
-      error "Duplicate validator's key found", validator_pubkey = pubkey
+  for item in sn.config.validatorItems():
+    case item.kind
+    of ValidatorKind.Local:
+      let pubkey = item.privateKey.toPubKey().toPubKey()
+      if pubkey in duplicates:
+        error "Duplicate validator's key found", validator_pubkey = pubkey
+        return false
+      else:
+        duplicates.add(pubkey)
+        sn.attachedValidators.addLocalValidator(item)
+        publicKeyIdents.add("\"0x" & pubkey.toHex() & "\"")
+    of ValidatorKind.Remote:
+      error "Signing node do not supports remote validators",
+            validator_pubkey = item.publicKey
       return false
-    else:
-      duplicates.add(pubkey)
-      sn.attachedValidators.addLocalValidator(key)
-      publicKeyIdents.add("\"" & pubkey.toHex() & "\"")
-  sn.keysList = "{\"keys\": [" & publicKeyIdents.join(", ") & "]}"
+  sn.keysList = "[" & publicKeyIdents.join(", ") & "]"
   true
 
 proc init(t: typedesc[SigningNode], config: SigningNodeConf): SigningNode =
@@ -232,6 +128,11 @@ proc init(t: typedesc[SigningNode], config: SigningNodeConf): SigningNode =
     serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
                    HttpServerFlags.NotifyDisconnect}
     timeout = HttpHeadersTimeout
+    serverIdent =
+      if config.serverIdent.isSome():
+        config.serverIdent.get()
+      else:
+        NimbusSigningNodeIdent
 
   sn.signingServer =
     if config.tlsEnabled:
@@ -259,7 +160,8 @@ proc init(t: typedesc[SigningNode], config: SigningNodeConf): SigningNode =
           res.get()
       let res = SecureRestServerRef.new(getRouter(), address, key, cert,
                                         serverFlags = serverFlags,
-                                        httpHeadersTimeout = timeout)
+                                        httpHeadersTimeout = timeout,
+                                        serverIdent = serverIdent)
       if res.isErr():
         fatal "HTTPS(REST) server could not be started", address = $address,
               reason = $res.error()
@@ -268,7 +170,8 @@ proc init(t: typedesc[SigningNode], config: SigningNodeConf): SigningNode =
     else:
       let res = RestServerRef.new(getRouter(), address,
                                   serverFlags = serverFlags,
-                                  httpHeadersTimeout = timeout)
+                                  httpHeadersTimeout = timeout,
+                                  serverIdent = serverIdent)
       if res.isErr():
         fatal "HTTP(REST) server could not be started", address = $address,
                reason = $res.error()
@@ -280,12 +183,12 @@ template errorResponse(code: HttpCode, message: string): RestApiResponse =
   RestApiResponse.response("{\"error\": \"" & message & "\"}", code)
 
 template signatureResponse(code: HttpCode, signature: string): RestApiResponse =
-  RestApiResponse.response("{\"signature\": \"" & signature & "\"}", code)
+  RestApiResponse.response("{\"signature\": \"0x" & signature & "\"}", code)
 
 proc installApiHandlers*(node: SigningNode) =
   var router = node.router()
 
-  router.api(MethodGet, "/keys") do () -> RestApiResponse:
+  router.api(MethodGet, "/api/v1/eth2/publicKeys") do () -> RestApiResponse:
     return RestApiResponse.response(node.keysList, Http200,
                                     "application/json")
 
@@ -293,56 +196,128 @@ proc installApiHandlers*(node: SigningNode) =
     return RestApiResponse.response("{\"status\": \"OK\"}", Http200,
                                     "application/json")
 
-  router.api(MethodPost, "/sign/{validator_key_wo0x}") do (
-    validator_key_wo0x: ValidatorPubKey,
+  router.api(MethodPost, "/api/v1/eth2/sign/{validator_key}") do (
+    validator_key: ValidatorPubKey,
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let request =
       block:
         if contentBody.isNone():
           return errorResponse(Http400, EmptyRequestBodyError)
-        let res = decodeBody(SignRequest, contentBody.get())
+        let res = decodeBody(Web3SignerRequest, contentBody.get())
         if res.isErr():
           return errorResponse(Http400, $res.error())
         res.get()
+
     let validator =
       block:
-        if validator_key_wo0x.isErr():
-          return errorResponse(Http400, "Invalid validator key")
-        let key = validator_key_wo0x.get()
+        if validator_key.isErr():
+          return errorResponse(Http400, InvalidValidatorPublicKey)
+        let key = validator_key.get()
         let validator = node.attachedValidators.getValidator(key)
         if isNil(validator):
-          return errorResponse(Http404, "Validator key not found")
+          return errorResponse(Http404, ValidatorNotFoundError)
         validator
-    case request.kind
-    of SignRequestKind.Phase0Block:
-      let blockRoot = hash_tree_root(request.phase0Block)
-      let cooked = get_block_signature(request.fork,
-                                       request.genesisValidatorsRoot,
-                                       request.phase0Block.slot,
-                                       blockRoot, validator.privKey)
-      let signature = cooked.toValidatorSig().toHex()
-      return signatureResponse(Http200, signature)
-    of SignRequestKind.AltairBlock:
-      let blockRoot = hash_tree_root(request.altairBlock)
-      let cooked = get_block_signature(request.fork,
-                                       request.genesisValidatorsRoot,
-                                       request.altairBlock.slot,
-                                       blockRoot, validator.privKey)
-      let signature = cooked.toValidatorSig().toHex()
-      return signatureResponse(Http200, signature)
-    of SignRequestKind.Attestation:
-      let cooked = get_attestation_signature(request.fork,
-                                             request.genesisValidatorsRoot,
-                                             request.attestation,
-                                             validator.privKey)
-      let signature = cooked.toValidatorSig().toHex()
-      return signatureResponse(Http200, signature)
-    of SignRequestKind.Randao:
-      let cooked = get_epoch_signature(request.fork,
-                                       request.genesisValidatorsRoot,
-                                       request.epoch, validator.privKey)
-      let signature = cooked.toValidatorSig().toHex()
-      return signatureResponse(Http200, signature)
+
+    return
+      case request.kind
+      of Web3SignerRequestKind.AggregationSlot:
+        let
+          forkInfo = request.forkInfo.get()
+          cooked = get_slot_signature(forkInfo.fork,
+            forkInfo.genesisValidatorsRoot,
+            request.aggregationSlot.slot, validator.data.privateKey)
+          signature = cooked.toValidatorSig().toHex()
+        signatureResponse(Http200, signature)
+      of Web3SignerRequestKind.AggregateAndProof:
+        let
+          forkInfo = request.forkInfo.get()
+          cooked = get_aggregate_and_proof_signature(forkInfo.fork,
+            forkInfo.genesisValidatorsRoot, request.aggregateAndProof,
+            validator.data.privateKey)
+          signature = cooked.toValidatorSig().toHex()
+        signatureResponse(Http200, signature)
+      of Web3SignerRequestKind.Attestation:
+        let
+          forkInfo = request.forkInfo.get()
+          cooked = get_attestation_signature(forkInfo.fork,
+            forkInfo.genesisValidatorsRoot, request.attestation,
+            validator.data.privateKey)
+          signature = cooked.toValidatorSig().toHex()
+        signatureResponse(Http200, signature)
+      of Web3SignerRequestKind.Block:
+        let
+          forkInfo = request.forkInfo.get()
+          blck = request.blck
+          blockRoot = hash_tree_root(blck)
+          cooked = get_block_signature(forkInfo.fork,
+            forkInfo.genesisValidatorsRoot, blck.slot, blockRoot,
+            validator.data.privateKey)
+          signature = cooked.toValidatorSig().toHex()
+        signatureResponse(Http200, signature)
+      of Web3SignerRequestKind.BlockV2:
+        let
+          forkInfo = request.forkInfo.get()
+          forked = request.beaconBlock
+          blockRoot = hash_tree_root(forked)
+          cooked =
+            withBlck(forked):
+              get_block_signature(forkInfo.fork,
+                forkInfo.genesisValidatorsRoot, blck.slot, blockRoot,
+                validator.data.privateKey)
+          signature = cooked.toValidatorSig().toHex()
+        signatureResponse(Http200, signature)
+      of Web3SignerRequestKind.Deposit:
+        let
+          data = DepositMessage(pubkey: request.deposit.pubkey,
+            withdrawal_credentials: request.deposit.withdrawalCredentials,
+            amount: request.deposit.amount)
+          cooked = get_deposit_signature(data,
+            request.deposit.genesisForkVersion, validator.data.privateKey)
+          signature = cooked.toValidatorSig().toHex()
+        signatureResponse(Http200, signature)
+      of Web3SignerRequestKind.RandaoReveal:
+        let
+          forkInfo = request.forkInfo.get()
+          cooked = get_epoch_signature(forkInfo.fork,
+            forkInfo.genesisValidatorsRoot, request.randaoReveal.epoch,
+            validator.data.privateKey)
+          signature = cooked.toValidatorSig().toHex()
+        signatureResponse(Http200, signature)
+      of Web3SignerRequestKind.VoluntaryExit:
+        let
+          forkInfo = request.forkInfo.get()
+          cooked = get_voluntary_exit_signature(forkInfo.fork,
+            forkInfo.genesisValidatorsRoot, request.voluntaryExit,
+            validator.data.privateKey)
+          signature = cooked.toValidatorSig().toHex()
+        signatureResponse(Http200, signature)
+      of Web3SignerRequestKind.SyncCommitteeMessage:
+        let
+          forkInfo = request.forkInfo.get()
+          msg = request.syncCommitteeMessage
+          cooked = get_sync_committee_message_signature(forkInfo.fork,
+            forkInfo.genesisValidatorsRoot, msg.slot, msg.beaconBlockRoot,
+            validator.data.privateKey)
+          signature = cooked.toValidatorSig().toHex()
+        signatureResponse(Http200, signature)
+      of Web3SignerRequestKind.SyncCommitteeSelectionProof:
+        let
+          forkInfo = request.forkInfo.get()
+          msg = request.syncAggregatorSelectionData
+          cooked = get_sync_aggregator_selection_data_signature(forkInfo.fork,
+            forkInfo.genesisValidatorsRoot, msg.slot, msg.subcommittee_index,
+            validator.data.privateKey)
+          signature = cooked.toValidatorSig().toHex()
+        signatureResponse(Http200, signature)
+      of Web3SignerRequestKind.SyncCommitteeContributionAndProof:
+        let
+          forkInfo = request.forkInfo.get()
+          msg = request.syncCommitteeContributionAndProof
+          cooked = get_sync_committee_contribution_and_proof_signature(
+            forkInfo.fork, forkInfo.genesisValidatorsRoot, msg,
+            validator.data.privateKey)
+          signature = cooked.toValidatorSig().toHex()
+        signatureResponse(Http200, signature)
 
 programMain:
   let config = makeBannerAndConfig("Nimbus signing node " & fullVersionStr,
@@ -362,10 +337,6 @@ programMain:
       try:
         runForever()
       finally:
-        await sn.stop()
-        await sn.close()
+        waitFor sn.stop()
+        waitFor sn.close()
       discard sn.stop()
-
-
-
-  #     waitFor asyncRun(vc)

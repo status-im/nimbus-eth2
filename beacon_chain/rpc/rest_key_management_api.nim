@@ -61,19 +61,19 @@ proc init*(t: typedesc[ValidatorListItem],
   ValidatorListItem(pubkey: key.pubkey, status: $key.flag,
                     description: key.description, path: string(key.path))
 
-proc listValidators*(conf: AnyConf): seq[StoredValidatorKey] {.
+proc listValidators*(config: AnyConf): seq[StoredValidatorKey] {.
      raises: [Defect].} =
   var validators: seq[StoredValidatorKey]
   try:
-    for kind, file in walkDir(conf.validatorsDir()):
+    for kind, file in walkDir(config.validatorsDir()):
       if kind == pcDir:
         let keyName = splitFile(file).name
         let rkey = ValidatorPubKey.fromHex(keyName)
         if rkey.isErr():
           # Skip folders which represents invalid public key
           continue
-        let secretFile = conf.secretsDir() / keyName
-        let keystorePath = conf.validatorsDir() / keyName
+        let secretFile = config.secretsDir() / keyName
+        let keystorePath = config.validatorsDir() / keyName
         let keystoreFile = keystorePath / KeystoreFileName
         let disableFile = keystorePath / DisableFileName
 

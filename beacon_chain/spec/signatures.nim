@@ -206,6 +206,13 @@ func get_deposit_signature*(preset: RuntimeConfig,
 
   blsSign(privKey, signing_root.data)
 
+func get_deposit_signature*(message: DepositMessage, version: Version,
+                            privkey: ValidatorPrivKey): CookedSig =
+  let
+    domain = compute_domain(DOMAIN_DEPOSIT, version)
+    signing_root = compute_signing_root(message, domain)
+  blsSign(privkey, signing_root.data)
+
 proc verify_deposit_signature*(preset: RuntimeConfig,
                                deposit: DepositData): bool =
   let
@@ -241,6 +248,28 @@ proc verify_voluntary_exit_signature*(
       signing_root = compute_signing_root(voluntary_exit, domain)
 
     blsVerify(pubkey, signing_root.data, signature)
+
+func get_sync_committee_message_signature*(fork: Fork,
+  genesis_validators_root: Eth2Digest, slot: Slot,
+  block_root: Eth2Digest, privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = sync_committee_msg_signing_root(fork, slot.epoch,
+                       genesis_validators_root, block_root)
+  blsSign(privkey, signing_root.data)
+
+func get_sync_aggregator_selection_data_signature*(fork: Fork,
+  genesis_validators_root: Eth2Digest, slot: Slot,
+  subcommittee_index: SyncSubcommitteeIndex,
+  privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = sync_committee_selection_proof_signing_root(fork,
+    genesis_validators_root, slot, uint64(subcommittee_index))
+  blsSign(privkey, signing_root.data)
+
+proc get_sync_committee_contribution_and_proof_signature*(fork: Fork,
+  genesis_validators_root: Eth2Digest, msg: ContributionAndProof,
+  privkey: ValidatorPrivKey): CookedSig =
+  let signing_root = contribution_and_proof_signing_root(fork,
+    genesis_validators_root, msg)
+  blsSign(privkey, signing_root.data)
 
 proc verify_sync_committee_message_signature*(
     epoch: Epoch,

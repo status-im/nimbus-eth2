@@ -53,7 +53,8 @@ type
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
     SignedVoluntaryExit |
-    SyncSubcommitteeIndex
+    SyncSubcommitteeIndex |
+    Web3SignerRequest
 
   EncodeArrays* =
     seq[ValidatorIndex] |
@@ -318,6 +319,14 @@ proc sszResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
 
 template hexOriginal(data: openarray[byte]): string =
   "0x" & ncrutils.toHex(data, true)
+
+proc decodeJsonString*[T](t: typedesc[T],
+                          data: JsonString,
+                          requireAllFields = true): Result[T, cstring] =
+  try:
+    ok(RestJson.decode(string(data), T, requireAllFields = requireAllFields))
+  except SerializationError:
+    err("Unable to deserialize data")
 
 ## uint64
 proc writeValue*(w: var JsonWriter[RestJson], value: uint64) {.
@@ -945,6 +954,355 @@ proc readValue*(reader: var JsonReader[RestJson],
   else:
     reader.raiseUnexpectedValue($res.error())
 
+# Web3SignerRequest
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: Web3SignerRequest) {.
+     raises: [IOError, Defect].} =
+  case value.kind
+  of Web3SignerRequestKind.AggregationSlot:
+    doAssert(value.forkInfo.isSome(),
+             "forkInfo should be set for this type of request")
+    writer.writeField("type", "AGGREGATION_SLOT")
+    writer.writeField("fork_info", value.forkInfo.get())
+    if isSome(value.signingRoot):
+      writer.writeField("signingRoot", value.signingRoot)
+    writer.writeField("aggregation_slot", value.aggregationSlot)
+  of Web3SignerRequestKind.AggregateAndProof:
+    doAssert(value.forkInfo.isSome(),
+             "forkInfo should be set for this type of request")
+    writer.writeField("type", "AGGREGATE_AND_PROOF")
+    writer.writeField("fork_info", value.forkInfo.get())
+    if isSome(value.signingRoot):
+      writer.writeField("signingRoot", value.signingRoot)
+    writer.writeField("aggregate_and_proof", value.aggregateAndProof)
+  of Web3SignerRequestKind.Attestation:
+    doAssert(value.forkInfo.isSome(),
+             "forkInfo should be set for this type of request")
+    writer.writeField("type", "ATTESTATION")
+    writer.writeField("fork_info", value.forkInfo.get())
+    if isSome(value.signingRoot):
+      writer.writeField("signingRoot", value.signingRoot)
+    writer.writeField("attestation", value.attestation)
+  of Web3SignerRequestKind.Block:
+    doAssert(value.forkInfo.isSome(),
+             "forkInfo should be set for this type of request")
+    writer.writeField("type", "BLOCK")
+    writer.writeField("fork_info", value.forkInfo.get())
+    if isSome(value.signingRoot):
+      writer.writeField("signingRoot", value.signingRoot)
+    writer.writeField("block", value.blck)
+  of Web3SignerRequestKind.BlockV2:
+    doAssert(value.forkInfo.isSome(),
+             "forkInfo should be set for this type of request")
+    writer.writeField("type", "BLOCK_V2")
+    writer.writeField("fork_info", value.forkInfo.get())
+    if isSome(value.signingRoot):
+      writer.writeField("signingRoot", value.signingRoot)
+    writer.writeField("beacon_block", value.beaconBlock)
+  of Web3SignerRequestKind.Deposit:
+    writer.writeField("type", "DEPOSIT")
+    if isSome(value.signingRoot):
+      writer.writeField("signingRoot", value.signingRoot)
+    writer.writeField("deposit", value.deposit)
+  of Web3SignerRequestKind.RandaoReveal:
+    doAssert(value.forkInfo.isSome(),
+             "forkInfo should be set for this type of request")
+    writer.writeField("type", "RANDAO_REVEAL")
+    writer.writeField("fork_info", value.forkInfo.get())
+    if isSome(value.signingRoot):
+      writer.writeField("signingRoot", value.signingRoot)
+    writer.writeField("randao_reveal", value.randaoReveal)
+  of Web3SignerRequestKind.VoluntaryExit:
+    doAssert(value.forkInfo.isSome(),
+             "forkInfo should be set for this type of request")
+    writer.writeField("type", "VOLUNTARY_EXIT")
+    writer.writeField("fork_info", value.forkInfo.get())
+    if isSome(value.signingRoot):
+      writer.writeField("signingRoot", value.signingRoot)
+    writer.writeField("voluntary_exit", value.voluntaryExit)
+  of Web3SignerRequestKind.SyncCommitteeMessage:
+    doAssert(value.forkInfo.isSome(),
+             "forkInfo should be set for this type of request")
+    writer.writeField("type", "SYNC_COMMITTEE_MESSAGE")
+    writer.writeField("fork_info", value.forkInfo.get())
+    if isSome(value.signingRoot):
+      writer.writeField("signingRoot", value.signingRoot)
+    writer.writeField("sync_committee_message", value.syncCommitteeMessage)
+  of Web3SignerRequestKind.SyncCommitteeSelectionProof:
+    doAssert(value.forkInfo.isSome(),
+             "forkInfo should be set for this type of request")
+    writer.writeField("type", "SYNC_COMMITTEE_SELECTION_PROOF")
+    writer.writeField("fork_info", value.forkInfo.get())
+    if isSome(value.signingRoot):
+      writer.writeField("signingRoot", value.signingRoot)
+    writer.writeField("sync_aggregator_selection_data",
+                      value.syncAggregatorSelectionData)
+  of Web3SignerRequestKind.SyncCommitteeContributionAndProof:
+    doAssert(value.forkInfo.isSome(),
+             "forkInfo should be set for this type of request")
+    writer.writeField("type", "SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF")
+    writer.writeField("fork_info", value.forkInfo.get())
+    if isSome(value.signingRoot):
+      writer.writeField("signingRoot", value.signingRoot)
+    writer.writeField("contribution_and_proof",
+                      value.syncCommitteeContributionAndProof)
+
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var Web3SignerRequest) {.
+     raises: [IOError, SerializationError, Defect].} =
+  var
+    requestKind: Option[Web3SignerRequestKind]
+    forkInfo: Option[Web3SignerForkInfo]
+    signingRoot: Option[Eth2Digest]
+    data: Option[JsonString]
+    dataName: string
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "type":
+      if requestKind.isSome():
+        reader.raiseUnexpectedField("Multiple `type` fields found",
+                                    "Web3SignerRequest")
+      let vres = reader.readValue(string)
+      requestKind = some(
+        case vres
+        of "AGGREGATION_SLOT":
+          Web3SignerRequestKind.AggregationSlot
+        of "AGGREGATE_AND_PROOF":
+          Web3SignerRequestKind.AggregateAndProof
+        of "ATTESTATION":
+          Web3SignerRequestKind.Attestation
+        of "BLOCK":
+          Web3SignerRequestKind.Block
+        of "BLOCK_V2":
+          Web3SignerRequestKind.BlockV2
+        of "DEPOSIT":
+          Web3SignerRequestKind.Deposit
+        of "RANDAO_REVEAL":
+          Web3SignerRequestKind.RandaoReveal
+        of "VOLUNTARY_EXIT":
+          Web3SignerRequestKind.VoluntaryExit
+        of "SYNC_COMMITTEE_MESSAGE":
+          Web3SignerRequestKind.SyncCommitteeMessage
+        of "SYNC_COMMITTEE_SELECTION_PROOF":
+          Web3SignerRequestKind.SyncCommitteeSelectionProof
+        of "SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF":
+          Web3SignerRequestKind.SyncCommitteeContributionAndProof
+        else:
+          reader.raiseUnexpectedValue("Unexpected `type` value")
+      )
+    of "fork_info":
+      if forkInfo.isSome():
+        reader.raiseUnexpectedField("Multiple `fork_info` fields found",
+                                    "Web3SignerRequest")
+      forkInfo = some(reader.readValue(Web3SignerForkInfo))
+    of "signingRoot":
+      if signingRoot.isSome():
+        reader.raiseUnexpectedField("Multiple `signingRoot` fields found",
+                                    "Web3SignerRequest")
+      signingRoot = some(reader.readValue(Eth2Digest))
+    of "aggregation_slot", "aggregate_and_proof", "block", "beacon_block",
+       "randao_reveal", "voluntary_exit", "sync_committee_message",
+       "sync_aggregator_selection_data", "contribution_and_proof":
+      if data.isSome():
+        reader.raiseUnexpectedField("Multiple data fields found",
+                                    "Web3SignerRequest")
+      dataName = fieldName
+      data = some(reader.readValue(JsonString))
+    else:
+      # We ignore all unknown fields.
+      discard
+
+  if requestKind.isNone():
+    reader.raiseUnexpectedValue("Field `type` is missing")
+
+  value =
+    case requestKind.get()
+    of Web3SignerRequestKind.AggregationSlot:
+      if dataName != "aggregation_slot":
+        reader.raiseUnexpectedValue("Field `aggregation_slot` is missing")
+      if forkInfo.isNone():
+        reader.raiseUnexpectedValue("Field `fork_info` is missing")
+      let data =
+        block:
+          let res = decodeJsonString(Web3SignerAggregationSlotData,
+                                     data.get(), true)
+          if res.isErr():
+            reader.raiseUnexpectedValue(
+              "Incorrect field `aggregation_slot` format")
+          res.get()
+      Web3SignerRequest(kind: Web3SignerRequestKind.AggregationSlot,
+        forkInfo: forkInfo, signingRoot: signingRoot, aggregationSlot: data
+      )
+    of Web3SignerRequestKind.AggregateAndProof:
+      if dataName != "aggregate_and_proof":
+        reader.raiseUnexpectedValue("Field `aggregate_and_proof` is missing")
+      if forkInfo.isNone():
+        reader.raiseUnexpectedValue("Field `fork_info` is missing")
+      let data =
+        block:
+          let res = decodeJsonString(AggregateAndProof, data.get(), true)
+          if res.isErr():
+            reader.raiseUnexpectedValue(
+              "Incorrect field `aggregate_and_proof` format")
+          res.get()
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.AggregateAndProof,
+        forkInfo: forkInfo, signingRoot: signingRoot, aggregateAndProof: data
+      )
+    of Web3SignerRequestKind.Attestation:
+      if dataName != "attestation":
+        reader.raiseUnexpectedValue("Field `attestation` is missing")
+      if forkInfo.isNone():
+        reader.raiseUnexpectedValue("Field `fork_info` is missing")
+      let data =
+        block:
+          let res = decodeJsonString(AttestationData, data.get(), true)
+          if res.isErr():
+            reader.raiseUnexpectedValue(
+              "Incorrect field `attestation` format")
+          res.get()
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.Attestation,
+        forkInfo: forkInfo, signingRoot: signingRoot, attestation: data
+      )
+    of Web3SignerRequestKind.Block:
+      if dataName != "block":
+        reader.raiseUnexpectedValue("Field `block` is missing")
+      if forkInfo.isNone():
+        reader.raiseUnexpectedValue("Field `fork_info` is missing")
+      let data =
+        block:
+          let res = decodeJsonString(phase0.BeaconBlock, data.get(), true)
+          if res.isErr():
+            reader.raiseUnexpectedValue(
+              "Incorrect field `block` format")
+          res.get()
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.Block,
+        forkInfo: forkInfo, signingRoot: signingRoot, blck: data
+      )
+    of Web3SignerRequestKind.BlockV2:
+      if dataName != "beacon_block":
+        reader.raiseUnexpectedValue("Field `beacon_block` is missing")
+      if forkInfo.isNone():
+        reader.raiseUnexpectedValue("Field `fork_info` is missing")
+      let data =
+        block:
+          let res = decodeJsonString(ForkedBeaconBlock, data.get(), true)
+          if res.isErr():
+            reader.raiseUnexpectedValue(
+              "Incorrect field `beacon_block` format")
+          res.get()
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.BlockV2,
+        forkInfo: forkInfo, signingRoot: signingRoot, beaconBlock: data
+      )
+    of Web3SignerRequestKind.Deposit:
+      if dataName != "deposit":
+        reader.raiseUnexpectedValue("Field `deposit` is missing")
+      let data =
+        block:
+          let res = decodeJsonString(Web3SignerDepositData, data.get(), true)
+          if res.isErr():
+            reader.raiseUnexpectedValue(
+              "Incorrect field `deposit` format")
+          res.get()
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.Deposit,
+        signingRoot: signingRoot, deposit: data
+      )
+    of Web3SignerRequestKind.RandaoReveal:
+      if dataName != "randao_reveal":
+        reader.raiseUnexpectedValue("Field `randao_reveal` is missing")
+      if forkInfo.isNone():
+        reader.raiseUnexpectedValue("Field `fork_info` is missing")
+      let data =
+        block:
+          let res = decodeJsonString(Web3SignerRandaoRevealData, data.get(),
+                                     true)
+          if res.isErr():
+            reader.raiseUnexpectedValue(
+              "Incorrect field `randao_reveal` format")
+          res.get()
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.RandaoReveal,
+        forkInfo: forkInfo, signingRoot: signingRoot, randaoReveal: data
+      )
+    of Web3SignerRequestKind.VoluntaryExit:
+      if dataName != "voluntary_exit":
+        reader.raiseUnexpectedValue("Field `voluntary_exit` is missing")
+      if forkInfo.isNone():
+        reader.raiseUnexpectedValue("Field `fork_info` is missing")
+      let data =
+        block:
+          let res = decodeJsonString(VoluntaryExit, data.get(), true)
+          if res.isErr():
+            reader.raiseUnexpectedValue(
+              "Incorrect field `voluntary_exit` format")
+          res.get()
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.VoluntaryExit,
+        forkInfo: forkInfo, signingRoot: signingRoot, voluntaryExit: data
+      )
+    of Web3SignerRequestKind.SyncCommitteeMessage:
+      if dataName != "sync_committee_message":
+        reader.raiseUnexpectedValue(
+          "Field `sync_committee_message` is missing")
+      if forkInfo.isNone():
+        reader.raiseUnexpectedValue("Field `fork_info` is missing")
+      let data =
+        block:
+          let res = decodeJsonString(Web3SignerSyncCommitteeMessageData,
+                                     data.get(), true)
+          if res.isErr():
+            reader.raiseUnexpectedValue(
+              "Incorrect field `sync_committee_message` format")
+          res.get()
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.SyncCommitteeMessage,
+        forkInfo: forkInfo, signingRoot: signingRoot,
+        syncCommitteeMessage: data
+      )
+    of Web3SignerRequestKind.SyncCommitteeSelectionProof:
+      if dataName != "sync_aggregator_selection_data":
+        reader.raiseUnexpectedValue(
+          "Field `sync_aggregator_selection_data` is missing")
+      if forkInfo.isNone():
+        reader.raiseUnexpectedValue("Field `fork_info` is missing")
+      let data =
+        block:
+          let res = decodeJsonString(SyncAggregatorSelectionData,
+                                     data.get(), true)
+          if res.isErr():
+            reader.raiseUnexpectedValue(
+              "Incorrect field `sync_aggregator_selection_data` format")
+          res.get()
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.SyncCommitteeSelectionProof,
+        forkInfo: forkInfo, signingRoot: signingRoot,
+        syncAggregatorSelectionData: data
+      )
+    of Web3SignerRequestKind.SyncCommitteeContributionAndProof:
+      if dataName != "contribution_and_proof":
+        reader.raiseUnexpectedValue(
+          "Field `contribution_and_proof` is missing")
+      if forkInfo.isNone():
+        reader.raiseUnexpectedValue("Field `fork_info` is missing")
+      let data =
+        block:
+          let res = decodeJsonString(ContributionAndProof,
+                                     data.get(), true)
+          if res.isErr():
+            reader.raiseUnexpectedValue(
+              "Incorrect field `contribution_and_proof` format")
+          res.get()
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.SyncCommitteeContributionAndProof,
+        forkInfo: forkInfo, signingRoot: signingRoot,
+        syncCommitteeContributionAndProof: data
+      )
+
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:
     ok(Eth2Digest(data: hexToByteArray[32](value)))
@@ -1041,6 +1399,17 @@ proc decodeBytes*[T: SszDecodeTypes](t: typedesc[T], value: openarray[byte],
   else:
     err("Content-Type not supported")
 
+proc decodeBytes*[T: Web3SignerTypes](t: typedesc[T], value: openarray[byte],
+                                      contentType: string): RestResult[T] =
+  case contentType
+  of "application/json":
+    try:
+      ok(RestJson.decode(value, T, allowUnknownFields = false))
+    except SerializationError as exc:
+      err("Serialization error")
+  else:
+    err("Unsupported Content-Type")
+
 proc encodeString*(value: string): RestResult[string] =
   ok(value)
 
@@ -1062,6 +1431,9 @@ proc encodeString*(value: ValidatorIdent): RestResult[string] =
     ok(Base10.toString(uint64(value.index)))
   of ValidatorQueryKind.Key:
     ok(hexOriginal(toRaw(value.key)))
+
+proc encodeString*(value: ValidatorPubKey): RestResult[string] =
+  ok(hexOriginal(toRaw(value)))
 
 proc encodeString*(value: StateIdent): RestResult[string] =
   case value.kind
@@ -1167,6 +1539,15 @@ proc decodeString*(t: typedesc[ValidatorSig],
   if value[0] != '0' and value[1] != 'x':
     return err("Incorrect validator signature encoding")
   ValidatorSig.fromHex(value)
+
+proc decodeString*(t: typedesc[ValidatorPubKey],
+                   value: string): Result[ValidatorPubKey, cstring] =
+  if len(value) != ValidatorKeySize + 2:
+    return err("Incorrect validator's key value length")
+  if value[0] != '0' and value[1] != 'x':
+    err("Incorrect validator's key encoding")
+  else:
+    ValidatorPubKey.fromHex(value)
 
 proc decodeString*(t: typedesc[GraffitiBytes],
                    value: string): Result[GraffitiBytes, cstring] =
@@ -1342,10 +1723,3 @@ proc decodeString*(t: typedesc[ValidatorFilter],
     })
   else:
     err("Incorrect validator state identifier value")
-
-proc decodeString*(t: typedesc[ValidatorPubKey],
-                   value: string): Result[ValidatorPubKey, cstring] =
-  if len(value) != ValidatorKeySize:
-    err("Incorrect validator's key value length")
-  else:
-    ValidatorPubKey.fromHex(value)

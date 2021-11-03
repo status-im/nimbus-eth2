@@ -22,7 +22,15 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                             graffiti = graffiti, fork = fork, slot = slot,
                             wall_slot = currentSlot
   try:
-    let randaoReveal = await validator.genRandaoReveal(fork, genesisRoot, slot)
+    let randaoReveal =
+      block:
+        let res = await validator.genRandaoReveal(fork, genesisRoot, slot)
+        if res.isErr():
+          error "Unable to generate randao reveal usint remote signer",
+                validator = shortLog(validator), error_msg = res.error()
+          return
+        res.get()
+
     let beaconBlock =
       try:
         await vc.produceBlockV2(slot, randaoReveal, graffiti)
@@ -45,8 +53,17 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                      validator.pubKey, slot, signing_root)
 
     if notSlashable.isOk():
-      let signature = await validator.signBlockProposal(fork, genesisRoot, slot,
-                                                        blockRoot)
+      let signature =
+        block:
+          let res = await validator.signBlockProposal(fork, genesisRoot,
+                                                      slot, blockRoot,
+                                                      beaconBlock)
+          if res.isErr():
+            error "Unable to sign block proposal using remote signer",
+                  validator = shortLog(validator), error_msg = res.error()
+            return
+          res.get()
+
       debug "Sending block",
         blockRoot = shortLog(blockRoot), blck = shortLog(beaconBlock),
         signature = shortLog(signature), validator = shortLog(validator)
