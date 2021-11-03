@@ -432,14 +432,13 @@ proc syncCommitteeMsgValidator*(
     trace "Sync committee message validated"
     let (positions, cookedSig) = v.get()
 
-    for positionInSubcommittee in positions:
-      self.syncCommitteeMsgPool[].addSyncCommitteeMsg(
-        syncCommitteeMsg.slot,
-        syncCommitteeMsg.beacon_block_root,
-        cookedSig,
-        syncCommitteeMsg.validator_index,
-        subcommitteeIdx,
-        positionInSubcommittee)
+    self.syncCommitteeMsgPool[].addSyncCommitteeMsg(
+      syncCommitteeMsg.slot,
+      syncCommitteeMsg.beacon_block_root,
+      syncCommitteeMsg.validator_index,
+      cookedSig,
+      subcommitteeIdx,
+      positions)
 
     beacon_sync_committee_messages_received.inc()
 

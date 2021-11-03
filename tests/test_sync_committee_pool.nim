@@ -76,10 +76,10 @@ suite "Sync committee pool":
 
     # Inserting sync committee messages
     #
-    pool.addSyncCommitteeMsg(root1Slot, root1, sig1, 1, subcommittee1, 1)
-    pool.addSyncCommitteeMsg(root1Slot, root1, sig2, 2, subcommittee1, 10)
-    pool.addSyncCommitteeMsg(root2Slot, root1, sig3, 3, subcommittee2, 7)
-    pool.addSyncCommitteeMsg(root2Slot, root2, sig4, 4, subcommittee2, 3)
+    pool.addSyncCommitteeMsg(root1Slot, root1, 1, sig1, subcommittee1, [1'u64])
+    pool.addSyncCommitteeMsg(root1Slot, root1, 2, sig2, subcommittee1, [10'u64])
+    pool.addSyncCommitteeMsg(root2Slot, root1, 3, sig3, subcommittee2, [7'u64])
+    pool.addSyncCommitteeMsg(root2Slot, root2, 4, sig4, subcommittee2, [3'u64])
 
     # Producing contributions
     #

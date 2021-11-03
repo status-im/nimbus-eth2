@@ -183,14 +183,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
         let (positions, cookedSig) = res.get()
 
-        for positionInSubcommittee in positions:
-          syncCommitteePool[].addSyncCommitteeMsg(
-            msg.slot,
-            msg.beacon_block_root,
-            cookedSig,
-            msg.validator_index,
-            subcommitteeIdx,
-            positionInSubcommittee)
+        syncCommitteePool[].addSyncCommitteeMsg(
+          msg.slot,
+          msg.beacon_block_root,
+          msg.validator_index,
+          cookedSig,
+          subcommitteeIdx,
+          positions)
 
         let
           selectionProofSigningRoot =

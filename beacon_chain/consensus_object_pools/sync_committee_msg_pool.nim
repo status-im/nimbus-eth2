@@ -100,10 +100,10 @@ func addSyncCommitteeMsg*(
     pool: var SyncCommitteeMsgPool,
     slot: Slot,
     blockRoot: Eth2Digest,
-    signature: CookedSig,
     validatorIndex: uint64,
+    signature: CookedSig,
     subcommitteeIndex: SyncSubcommitteeIndex,
-    positionInCommittee: uint64) =
+    positionsInCommittee: openArray[uint64]) =
 
   let
     seenKey = SyncCommitteeMsgKey(
@@ -113,11 +113,12 @@ func addSyncCommitteeMsg*(
 
   pool.seenSyncMsgByAuthor.incl seenKey
 
-  pool.syncMessages.mgetOrPut(blockRoot, @[]).add TrustedSyncCommitteeMsg(
-    slot: slot,
-    subcommitteeIndex: subcommitteeIndex,
-    positionInCommittee: positionInCommittee,
-    signature: signature)
+  for position in positionsInCommittee:
+    pool.syncMessages.mgetOrPut(blockRoot, @[]).add TrustedSyncCommitteeMsg(
+      slot: slot,
+      subcommitteeIndex: subcommitteeIndex,
+      positionInCommittee: position,
+      signature: signature)
 
 func computeAggregateSig(votes: seq[TrustedSyncCommitteeMsg],
                          subcommitteeIndex: SyncSubcommitteeIndex,

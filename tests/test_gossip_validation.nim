@@ -229,14 +229,13 @@ suite "Gossip validation - Extra": # Not based on preset config
         state[].data.slot.toBeaconTime(), true)
       (positions, cookedSig) = res.get()
 
-    for positionInSubcommittee in positions:
-      syncCommitteeMsgPool[].addSyncCommitteeMsg(
-        msg.slot,
-        msg.beacon_block_root,
-        cookedSig,
-        msg.validator_index,
-        subcommitteeIdx,
-        positionInSubcommittee)
+    syncCommitteeMsgPool[].addSyncCommitteeMsg(
+      msg.slot,
+      msg.beacon_block_root,
+      msg.validator_index,
+      cookedSig,
+      subcommitteeIdx,
+      positions)
 
     let
       contribution = block:
