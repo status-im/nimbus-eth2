@@ -443,6 +443,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --nat:extip:127.0.0.1 \
     --network="${DATA_DIR}" \
     --log-level="${LOG_LEVEL}" \
+    --log-stdout=json \
     --tcp-port=$(( BASE_PORT + NUM_NODE )) \
     --udp-port=$(( BASE_PORT + NUM_NODE )) \
     --max-peers=$(( NUM_NODES - 1 )) \
