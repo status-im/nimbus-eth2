@@ -13,8 +13,8 @@ import "."/spec/datatypes/[base, altair, phase0],
        "."/spec/[crypto, digest, network, signatures],
        "."/spec/eth2_apis/[rest_types, eth2_rest_serialization],
        "."/ssz/merkleization,
-       "."/rpc/[rest_utils],
-       "."/[conf, version],
+       "."/rpc/rest_constants,
+       "."/[conf, version, nimbus_binary_common],
        "."/validators/[keystore_management, validator_pool]
 
 const
@@ -36,6 +36,8 @@ type
     attachedValidators: ValidatorPool
     signingServer: SigningNodeServer
     keysList: string
+
+proc getRouter*(): RestRouter
 
 proc router(sn: SigningNode): RestRouter =
   case sn.signingServer.kind
@@ -126,7 +128,12 @@ proc init(t: typedesc[SigningNode], config: SigningNodeConf): SigningNode =
     address = initTAddress(config.bindAddress, config.bindPort)
     serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
                    HttpServerFlags.NotifyDisconnect}
-    timeout = config.requestTimeout
+    timeout =
+      if config.requestTimeout < 0:
+        warn "Negative value of request timeout, using default instead"
+        seconds(DefaultSigningNodeRequestTimeout)
+      else:
+        seconds(config.requestTimeout)
     serverIdent =
       if config.serverIdent.isSome():
         config.serverIdent.get()
@@ -317,6 +324,16 @@ proc installApiHandlers*(node: SigningNode) =
             validator.data.privateKey)
           signature = cooked.toValidatorSig().toHex()
         signatureResponse(Http200, signature)
+
+proc validate(key: string, value: string): int =
+  case key
+  of "{validator_key}":
+    0
+  else:
+    1
+
+proc getRouter*(): RestRouter =
+  RestRouter.init(validate)
 
 programMain:
   let config = makeBannerAndConfig("Nimbus signing node " & fullVersionStr,

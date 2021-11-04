@@ -258,10 +258,10 @@ func get_sync_committee_message_signature*(fork: Fork,
 
 func get_sync_aggregator_selection_data_signature*(fork: Fork,
   genesis_validators_root: Eth2Digest, slot: Slot,
-  subcommittee_index: SyncSubcommitteeIndex,
+  subcommittee_index: uint64,
   privkey: ValidatorPrivKey): CookedSig =
   let signing_root = sync_committee_selection_proof_signing_root(fork,
-    genesis_validators_root, slot, uint64(subcommittee_index))
+    genesis_validators_root, slot, subcommittee_index)
   blsSign(privkey, signing_root.data)
 
 proc get_sync_committee_contribution_and_proof_signature*(fork: Fork,

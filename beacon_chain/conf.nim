@@ -33,6 +33,7 @@ const
   # Maybe there should be a config option for this.
   defaultListenAddress* = (static ValidIpAddress.init("0.0.0.0"))
   defaultAdminListenAddress* = (static ValidIpAddress.init("127.0.0.1"))
+  DefaultSigningNodeRequestTimeout* = 60
 
 type
   BNStartUpCmd* = enum
@@ -655,8 +656,8 @@ type
     requestTimeout* {.
       desc: "Request timeout, maximum time that node will wait for remote " &
             "client request (in seconds)"
-      defaultValue: 60
-      name: "request-timeout" }: uint64
+      defaultValue: DefaultSigningNodeRequestTimeout
+      name: "request-timeout" }: int
 
     case cmd* {.
       command
