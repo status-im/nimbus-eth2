@@ -853,19 +853,17 @@ proc validateSignedContributionAndProof*(
   var
     committeeAggKey {.noInit.}: AggregatePublicKey
     initialized = false
-    mixedKeys = 0
+    syncCommitteeSlot = msg.message.contribution.slot + 1
 
   for validatorPubKey in dag.syncCommitteeParticipants(
-      msg.message.contribution.slot + 1,
+      syncCommitteeSlot,
       committeeIdx,
       msg.message.contribution.aggregation_bits):
     let validatorPubKey = validatorPubKey.loadWithCache.get
     if not initialized:
       initialized = true
       committeeAggKey.init(validatorPubKey)
-      inc mixedKeys
     else:
-      inc mixedKeys
       committeeAggKey.aggregate(validatorPubKey)
 
   if not initialized:
@@ -883,10 +881,10 @@ proc validateSignedContributionAndProof*(
         epoch, msg.message.contribution.beacon_block_root, fork,
         genesisValidatorsRoot, committeeAggKey.finish, cookedSignature.get):
     debug "failing_sync_contribution",
-      slot = msg.message.contribution.slot + 1,
+      blk = msg.message.contribution.beacon_block_root,
+      slot = syncCommitteeSlot,
       subnet = committeeIdx,
-      participants = $(msg.message.contribution.aggregation_bits),
-      mixedKeys
+      participants = $(msg.message.contribution.aggregation_bits)
 
     return errReject(
       "SignedContributionAndProof: aggregate signature fails to verify")

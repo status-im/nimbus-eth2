@@ -207,9 +207,10 @@ suite "Gossip validation - Extra": # Not based on preset config
           dag.updateHead(added[], quarantine)
         dag
       state = assignClone(dag.headState.data.altairData)
+      slot = state[].data.slot
 
       subcommitteeIdx = 0.SyncSubcommitteeIndex
-      syncCommittee = @(dag.syncCommitteeParticipants(state[].data.slot))
+      syncCommittee = @(dag.syncCommitteeParticipants(slot))
       subcommittee = toSeq(syncCommittee.syncSubcommittee(subcommitteeIdx))
 
       pubkey = subcommittee[0]
@@ -220,13 +221,13 @@ suite "Gossip validation - Extra": # Not based on preset config
       validator = AttachedValidator(pubKey: pubkey,
         kind: ValidatorKind.Local, data: privateItem, index: some(index))
       msg = waitFor signSyncCommitteeMessage(
-        validator, state[].data.slot,
+        validator, slot,
         state[].data.fork, state[].data.genesis_validators_root, state[].root)
 
       syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init())
       res = validateSyncCommitteeMessage(
         dag, syncCommitteeMsgPool[], msg, subcommitteeIdx,
-        state[].data.slot.toBeaconTime(), true)
+        slot.toBeaconTime(), true)
       (positions, cookedSig) = res.get()
 
     syncCommitteeMsgPool[].addSyncCommitteeMsg(
@@ -241,7 +242,7 @@ suite "Gossip validation - Extra": # Not based on preset config
       contribution = block:
         var contribution = (ref SignedContributionAndProof)()
         check: syncCommitteeMsgPool[].produceContribution(
-          state[].data.slot, state[].root, subcommitteeIdx,
+          slot, state[].root, subcommitteeIdx,
           contribution.message.contribution)
         syncCommitteeMsgPool[].addSyncContribution(
           contribution[], contribution.message.contribution.signature.load.get)
