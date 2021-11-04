@@ -219,7 +219,7 @@ suite "Gossip validation - Extra": # Not based on preset config
 
       syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init())
       res = validateSyncCommitteeMessage(
-        dag, syncCommitteeMsgPool[], msg, subcommitteeIdx,
+        dag, syncCommitteeMsgPool[], msg.get(), subcommitteeIdx,
         slot.toBeaconTime(), true)
       (positions, cookedSig) = res.get()
 
