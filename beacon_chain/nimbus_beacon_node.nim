@@ -12,7 +12,7 @@ import
        tables, times, terminal],
 
   # Nimble packages
-  serialization, json_serialization, spec/eth2_apis/eth2_rest_serialization,
+  spec/eth2_apis/eth2_rest_serialization,
   stew/[objects, byteutils, endians2, io2], stew/shims/macros,
   chronos, confutils, metrics, metrics/chronos_httpserver,
   chronicles, bearssl, blscurve, presto,

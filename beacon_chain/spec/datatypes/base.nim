@@ -734,6 +734,7 @@ template assignClone*[T: not ref](x: T): ref T =
   # This is a bit of a mess: if x is an rvalue (temporary), RVO kicks in for
   # newClone - if it's not, `genericAssign` will be called which is ridiculously
   # slow - so `assignClone` should be used when RVO doesn't work. sigh.
+  mixin assign
   let res = new typeof(x) # TODO safe to do noinit here?
   assign(res[], x)
   res
@@ -938,6 +939,12 @@ func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
     # is still better to keep field names parallel.
     result.add((name.replace("blob", "data"), sizeof(value), n))
 
+## At the GC-level, the GC is type-agnostic; it's all type-erased so
+## casting between seq[Attestation] and seq[TrustedAttestation] will
+## not disrupt GC operations.
+##
+## These SHOULD be used in function calls to avoid expensive temporary.
+## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
 template isomorphicCast*[T, U](x: U): T =
   # Each of these pairs of types has ABI-compatible memory representations.
   static:

@@ -76,7 +76,7 @@ type
     connTable: HashSet[PeerID]
     forkId*: ENRForkID
     discoveryForkId*: ENRForkID
-    forkDigests*: ForkDigestsRef
+    forkDigests*: ref ForkDigests
     rng*: ref BrHmacDrbgContext
     peers*: Table[PeerID, Peer]
     validTopics: HashSet[string]
@@ -1302,7 +1302,7 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       peer.connectionState = Disconnected
 
 proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
-          enrForkId: ENRForkID, discoveryForkId: ENRForkId, forkDigests: ForkDigestsRef,
+          enrForkId: ENRForkID, discoveryForkId: ENRForkId, forkDigests: ref ForkDigests,
           getBeaconTime: GetBeaconTimeFn, switch: Switch,
           pubsub: GossipSub, ip: Option[ValidIpAddress], tcpPort,
           udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
@@ -1827,7 +1827,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      config: BeaconNodeConf,
                      netKeys: NetKeyPair,
                      cfg: RuntimeConfig,
-                     forkDigests: ForkDigestsRef,
+                     forkDigests: ref ForkDigests,
                      getBeaconTime: GetBeaconTimeFn,
                      genesisValidatorsRoot: Eth2Digest): Eth2Node
                     {.raises: [Defect, CatchableError].} =

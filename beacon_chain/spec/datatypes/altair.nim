@@ -543,3 +543,14 @@ template hash*(x: LightClientUpdate): Hash =
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)
   info.balances = UnslashedParticipatingBalances()
+
+template asSigned*(x: SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock):
+    SignedBeaconBlock =
+  isomorphicCast[SignedBeaconBlock](x)
+
+template asSigVerified*(x: SignedBeaconBlock | TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
+
+template asTrusted*(
+    x: SignedBeaconBlock | SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
+  isomorphicCast[TrustedSignedBeaconBlock](x)

@@ -13,7 +13,7 @@ import
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./beacon_chain_db_immutable,
-  ./spec/[eth2_ssz_serialization, eth2_merkleization, state_transition],
+  ./spec/[eth2_ssz_serialization, eth2_merkleization, forks, state_transition],
   ./spec/datatypes/[phase0, altair, merge],
   ./filepath
 
@@ -93,7 +93,7 @@ type
     altairBlocks: KvStoreRef # BlockRoot -> altair.TrustedBeaconBlock
     mergeBlocks: KvStoreRef # BlockRoot -> merge.TrustedBeaconBlock
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
-    statesNoVal: KvStoreRef # StateRoot -> BeaconStateNoImmutableValidators
+    statesNoVal: KvStoreRef # StateRoot -> Phase0BeaconStateNoImmutableValidators
     altairStatesNoVal: KvStoreRef # StateRoot -> AltairBeaconStateNoImmutableValidators
     mergeStatesNoVal: KvStoreRef # StateRoot -> MergeBeaconStateNoImmutableValidators
     stateDiffs: KvStoreRef ##\
@@ -120,7 +120,7 @@ type
       ##       past the weak subjectivity period.
     kBlockSlotStateRoot
       ## BlockSlot -> state_root mapping
-    kGenesisBlockRoot
+    kGenesisBlock
       ## Immutable reference to the network genesis state
       ## (needed for satisfying requests to the beacon node API).
     kEth1PersistedTo # Obsolete
@@ -168,7 +168,7 @@ func subkey(kind: type phase0.BeaconState, key: Eth2Digest): auto =
   subkey(kHashToState, key.data)
 
 func subkey(
-    kind: type BeaconStateNoImmutableValidators, key: Eth2Digest): auto =
+    kind: type Phase0BeaconStateNoImmutableValidators, key: Eth2Digest): auto =
   subkey(kHashToStateOnlyMutableValidators, key.data)
 
 func subkey(kind: type phase0.SignedBeaconBlock, key: Eth2Digest): auto =
@@ -508,27 +508,34 @@ proc updateImmutableValidators*(
     db.immutableValidatorsDb.add immutableValidator
     db.immutableValidators.add immutableValidator
 
+template toBeaconStateNoImmutableValidators(state: phase0.BeaconState):
+    Phase0BeaconStateNoImmutableValidators =
+  isomorphicCast[Phase0BeaconStateNoImmutableValidators](state)
+
+template toBeaconStateNoImmutableValidators(state: altair.BeaconState):
+    AltairBeaconStateNoImmutableValidators =
+  isomorphicCast[AltairBeaconStateNoImmutableValidators](state)
+
+template toBeaconStateNoImmutableValidators(state: merge.BeaconState):
+    MergeBeaconStateNoImmutableValidators =
+  isomorphicCast[MergeBeaconStateNoImmutableValidators](state)
+
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: phase0.BeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
   db.statesNoVal.putSnappySSZ(
-    key.data,
-    isomorphicCast[BeaconStateNoImmutableValidators](value))
+    key.data, toBeaconStateNoImmutableValidators(value))
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: altair.BeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
   db.altairStatesNoVal.putSnappySSZ(
-    key.data,
-    isomorphicCast[AltairBeaconStateNoImmutableValidators](value))
+    key.data, toBeaconStateNoImmutableValidators(value))
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: merge.BeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
   db.mergeStatesNoVal.putSnappySSZ(
-    key.data,
-    isomorphicCast[MergeBeaconStateNoImmutableValidators](value))
+    key.data, toBeaconStateNoImmutableValidators(value))
 
-proc putState*(
-    db: BeaconChainDB,
-    value: phase0.BeaconState | altair.BeaconState | merge.BeaconState) =
+proc putState*(db: BeaconChainDB, value: ForkyBeaconState) =
   db.putState(hash_tree_root(value), value)
 
 # For testing rollback
@@ -579,14 +586,14 @@ proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kTailBlock), key)
 
-proc putGenesisBlockRoot*(db: BeaconChainDB, key: Eth2Digest) =
-  db.keyValues.putRaw(subkey(kGenesisBlockRoot), key)
+proc putGenesisBlock*(db: BeaconChainDB, key: Eth2Digest) =
+  db.keyValues.putRaw(subkey(kGenesisBlock), key)
 
 proc putEth2FinalizedTo*(db: BeaconChainDB,
                          eth1Checkpoint: DepositContractSnapshot) =
   db.keyValues.putSnappySSZ(subkey(kDepositsFinalizedByEth2), eth1Checkpoint)
 
-proc getBlock(db: BeaconChainDBV0, key: Eth2Digest): Opt[phase0.TrustedSignedBeaconBlock] =
+proc getPhase0Block(db: BeaconChainDBV0, key: Eth2Digest): Opt[phase0.TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
   result.ok(default(phase0.TrustedSignedBeaconBlock))
   if db.backend.getSnappySSZ(
@@ -596,12 +603,12 @@ proc getBlock(db: BeaconChainDBV0, key: Eth2Digest): Opt[phase0.TrustedSignedBea
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
 
-proc getBlock*(db: BeaconChainDB, key: Eth2Digest):
+proc getPhase0Block*(db: BeaconChainDB, key: Eth2Digest):
     Opt[phase0.TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
   result.ok(default(phase0.TrustedSignedBeaconBlock))
   if db.blocks.getSnappySSZ(key.data, result.get) != GetResult.found:
-    result = db.v0.getBlock(key)
+    result = db.v0.getPhase0Block(key)
   else:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
@@ -628,7 +635,7 @@ proc getMergeBlock*(db: BeaconChainDB, key: Eth2Digest):
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
-    store: KvStoreRef, key: openArray[byte], output: var phase0.BeaconState,
+    store: KvStoreRef, key: openArray[byte], output: var ForkyBeaconState,
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -641,92 +648,7 @@ proc getStateOnlyMutableValidators(
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
 
-  case store.getSnappySSZ(
-    key, isomorphicCast[BeaconStateNoImmutableValidators](output))
-  of GetResult.found:
-    let numValidators = output.validators.len
-    doAssert immutableValidators.len >= numValidators
-
-    for i in 0 ..< numValidators:
-      let
-        # Bypass hash cache invalidation
-        dstValidator = addr output.validators.data[i]
-
-      assign(
-        dstValidator.pubkey,
-        immutableValidators[i].pubkey.loadValid().toPubKey())
-      assign(
-        dstValidator.withdrawal_credentials,
-        immutableValidators[i].withdrawal_credentials)
-
-    output.validators.resetCache()
-
-    true
-  of GetResult.notFound:
-    false
-  of GetResult.corrupted:
-    rollback()
-    false
-
-proc getAltairStateOnlyMutableValidators(
-    immutableValidators: openArray[ImmutableValidatorData2],
-    store: KvStoreRef, key: openArray[byte], output: var altair.BeaconState,
-    rollback: RollbackProc): bool =
-  ## Load state into `output` - BeaconState is large so we want to avoid
-  ## re-allocating it if possible
-  ## Return `true` iff the entry was found in the database and `output` was
-  ## overwritten.
-  ## Rollback will be called only if output was partially written - if it was
-  ## not found at all, rollback will not be called
-  # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
-  #      https://github.com/nim-lang/Nim/issues/14126
-  # TODO RVO is inefficient for large objects:
-  #      https://github.com/nim-lang/Nim/issues/13879
-
-  case store.getSnappySSZ(
-    key, isomorphicCast[AltairBeaconStateNoImmutableValidators](output))
-  of GetResult.found:
-    let numValidators = output.validators.len
-    doAssert immutableValidators.len >= numValidators
-
-    for i in 0 ..< numValidators:
-      let
-        # Bypass hash cache invalidation
-        dstValidator = addr output.validators.data[i]
-
-      assign(
-        dstValidator.pubkey,
-        immutableValidators[i].pubkey.loadValid().toPubKey())
-      assign(
-        dstValidator.withdrawal_credentials,
-        immutableValidators[i].withdrawal_credentials)
-
-    output.validators.resetCache()
-
-    true
-  of GetResult.notFound:
-    false
-  of GetResult.corrupted:
-    rollback()
-    false
-
-proc getMergeStateOnlyMutableValidators(
-    immutableValidators: openArray[ImmutableValidatorData2],
-    store: KvStoreRef, key: openArray[byte], output: var merge.BeaconState,
-    rollback: RollbackProc): bool =
-  ## Load state into `output` - BeaconState is large so we want to avoid
-  ## re-allocating it if possible
-  ## Return `true` iff the entry was found in the database and `output` was
-  ## overwritten.
-  ## Rollback will be called only if output was partially written - if it was
-  ## not found at all, rollback will not be called
-  # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
-  #      https://github.com/nim-lang/Nim/issues/14126
-  # TODO RVO is inefficient for large objects:
-  #      https://github.com/nim-lang/Nim/issues/13879
-
-  case store.getSnappySSZ(
-    key, isomorphicCast[MergeBeaconStateNoImmutableValidators](output))
+  case store.getSnappySSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert immutableValidators.len >= numValidators
@@ -765,11 +687,11 @@ proc getState(
   # from `stateStore`. We will try to read the state from all these locations.
   if getStateOnlyMutableValidators(
       immutableValidators, db.stateStore,
-      subkey(BeaconStateNoImmutableValidators, key), output, rollback):
+      subkey(Phase0BeaconStateNoImmutableValidators, key), output, rollback):
     return true
   if getStateOnlyMutableValidators(
       immutableValidators, db.backend,
-      subkey(BeaconStateNoImmutableValidators, key), output, rollback):
+      subkey(Phase0BeaconStateNoImmutableValidators, key), output, rollback):
     return true
 
   case db.backend.getSnappySSZ(subkey(phase0.BeaconState, key), output)
@@ -800,7 +722,7 @@ proc getState*(
   else:
     true
 
-proc getAltairState*(
+proc getState*(
     db: BeaconChainDB, key: Eth2Digest, output: var altair.BeaconState,
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
@@ -813,10 +735,10 @@ proc getAltairState*(
   #      https://github.com/nim-lang/Nim/issues/14126
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
-  getAltairStateOnlyMutableValidators(
+  getStateOnlyMutableValidators(
     db.immutableValidators, db.altairStatesNoVal, key.data, output, rollback)
 
-proc getMergeState*(
+proc getState*(
     db: BeaconChainDB, key: Eth2Digest, output: var merge.BeaconState,
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
@@ -829,7 +751,7 @@ proc getMergeState*(
   #      https://github.com/nim-lang/Nim/issues/14126
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
-  getMergeStateOnlyMutableValidators(
+  getStateOnlyMutableValidators(
     db.immutableValidators, db.mergeStatesNoVal, key.data, output, rollback)
 
 proc getStateRoot(db: BeaconChainDBV0,
@@ -863,12 +785,12 @@ proc getTailBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.keyValues.getRaw(subkey(kTailBlock), Eth2Digest) or
     db.v0.getTailBlock()
 
-proc getGenesisBlockRoot(db: BeaconChainDBV0): Opt[Eth2Digest] =
-  db.backend.getRaw(subkey(kGenesisBlockRoot), Eth2Digest)
+proc getGenesisBlock(db: BeaconChainDBV0): Opt[Eth2Digest] =
+  db.backend.getRaw(subkey(kGenesisBlock), Eth2Digest)
 
-proc getGenesisBlockRoot*(db: BeaconChainDB): Opt[Eth2Digest] =
-  db.keyValues.getRaw(subkey(kGenesisBlockRoot), Eth2Digest) or
-    db.v0.getGenesisBlockRoot()
+proc getGenesisBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
+  db.keyValues.getRaw(subkey(kGenesisBlock), Eth2Digest) or
+    db.v0.getGenesisBlock()
 
 proc getEth2FinalizedTo(db: BeaconChainDBV0): Opt[DepositContractSnapshot] =
   result.ok(DepositContractSnapshot())
@@ -898,7 +820,7 @@ proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
     db.containsBlockPhase0(key)
 
 proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
-  let sk = subkey(BeaconStateNoImmutableValidators, key)
+  let sk = subkey(Phase0BeaconStateNoImmutableValidators, key)
   db.stateStore.contains(sk).expectDb() or
     db.backend.contains(sk).expectDb() or
     db.backend.contains(subkey(phase0.BeaconState, key)).expectDb()

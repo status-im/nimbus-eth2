@@ -167,9 +167,6 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  SomeBeaconState* = BeaconState | altair.BeaconState | phase0.BeaconState
-  SomeHashedBeaconState* = HashedBeaconState | altair.HashedBeaconState | phase0.HashedBeaconState
-
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
@@ -397,3 +394,14 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     blck: shortLog(v.message),
     signature: shortLog(v.signature)
   )
+
+template asSigned*(x: SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock):
+    SignedBeaconBlock =
+  isomorphicCast[SignedBeaconBlock](x)
+
+template asSigVerified*(x: SignedBeaconBlock | TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
+
+template asTrusted*(
+    x: SignedBeaconBlock | SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
+  isomorphicCast[TrustedSignedBeaconBlock](x)

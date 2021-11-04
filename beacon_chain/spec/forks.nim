@@ -8,15 +8,31 @@
 {.push raises: [Defect].}
 
 import
-  std/macros,
+  stew/[assign2],
   chronicles,
-  stew/[assign2, results],
   ../extras,
-  ../spec/[
-    beaconstate, eth2_merkleization, helpers, state_transition_block, validator],
+  "."/[eth2_merkleization, eth2_ssz_serialization, presets],
   ./datatypes/[phase0, altair, merge]
 
-export extras, phase0, altair, eth2_merkleization
+export
+  extras, phase0, altair, merge, eth2_merkleization, eth2_ssz_serialization,
+  presets
+
+# This file contains helpers for dealing with forks - we have two ways we can
+# deal with forks:
+# * generics - this means using the static typing and differentiating forks
+#   at compile time - this is preferred in fork-specific code where the fork
+#   is known up-front, for example spec functions.
+# * variants - this means using a variant object and determining the fork at
+#   runtime - this carries the obvious risk and complexity of dealing with
+#   runtime checking, but is of course needed for external data that may be
+#   of any fork kind.
+#
+# For generics, we define `Forky*` type classes that cover "similar" objects
+# across forks - for variants, they're called `Forked*` instead.
+# See withXxx and `init` for convenient ways of moving between these two worlds.
+# A clever programmer would use templates, macros and dark magic to create all
+# these types and converters :)
 
 type
   BeaconStateFork* {.pure.} = enum
@@ -24,49 +40,70 @@ type
     Altair,
     Merge
 
+  ForkyBeaconState* =
+    phase0.BeaconState |
+    altair.BeaconState |
+    merge.BeaconState
+
+  ForkyHashedBeaconState* =
+    phase0.HashedBeaconState |
+    altair.HashedBeaconState |
+    merge.HashedBeaconState
+
   ForkedHashedBeaconState* = object
     case kind*: BeaconStateFork
     of BeaconStateFork.Phase0: phase0Data*: phase0.HashedBeaconState
     of BeaconStateFork.Altair: altairData*: altair.HashedBeaconState
     of BeaconStateFork.Merge:  mergeData*:  merge.HashedBeaconState
 
-  ForkedBeaconState* = object
-    case kind*: BeaconStateFork
-    of BeaconStateFork.Phase0: phase0Data*: phase0.BeaconState
-    of BeaconStateFork.Altair: altairData*: altair.BeaconState
-    of BeaconStateFork.Merge:  mergeData*:  merge.BeaconState
-
   BeaconBlockFork* {.pure.} = enum
     Phase0
     Altair
     Merge
 
+  ForkyBeaconBlock* =
+    phase0.BeaconBlock |
+    altair.BeaconBlock |
+    merge.BeaconBlock
+
+  ForkyTrustedBeaconBlock* =
+    phase0.TrustedBeaconBlock |
+    altair.TrustedBeaconBlock |
+    merge.TrustedBeaconBlock
+
   ForkedBeaconBlock* = object
     case kind*: BeaconBlockFork
-    of BeaconBlockFork.Phase0:
-      phase0Data*: phase0.BeaconBlock
-    of BeaconBlockFork.Altair:
-      altairData*: altair.BeaconBlock
-    of BeaconBlockFork.Merge:
-      mergeData*:  merge.BeaconBlock
+    of BeaconBlockFork.Phase0: phase0Data*: phase0.BeaconBlock
+    of BeaconBlockFork.Altair: altairData*: altair.BeaconBlock
+    of BeaconBlockFork.Merge:  mergeData*:  merge.BeaconBlock
+
+  ForkedTrustedBeaconBlock* = object
+    case kind*: BeaconBlockFork
+    of BeaconBlockFork.Phase0: phase0Data*: phase0.TrustedBeaconBlock
+    of BeaconBlockFork.Altair: altairData*: altair.TrustedBeaconBlock
+    of BeaconBlockFork.Merge:  mergeData*:  merge.TrustedBeaconBlock
+
+  ForkySignedBeaconBlock* =
+    phase0.SignedBeaconBlock |
+    altair.SignedBeaconBlock |
+    merge.SignedBeaconBlock
 
   ForkedSignedBeaconBlock* = object
     case kind*: BeaconBlockFork
-    of BeaconBlockFork.Phase0:
-      phase0Data*: phase0.SignedBeaconBlock
-    of BeaconBlockFork.Altair:
-      altairData*: altair.SignedBeaconBlock
-    of BeaconBlockFork.Merge:
-      mergeData*:  merge.SignedBeaconBlock
+    of BeaconBlockFork.Phase0: phase0Data*: phase0.SignedBeaconBlock
+    of BeaconBlockFork.Altair: altairData*: altair.SignedBeaconBlock
+    of BeaconBlockFork.Merge:  mergeData*:  merge.SignedBeaconBlock
+
+  ForkyTrustedSignedBeaconBlock* =
+    phase0.TrustedSignedBeaconBlock |
+    altair.TrustedSignedBeaconBlock |
+    merge.TrustedSignedBeaconBlock
 
   ForkedTrustedSignedBeaconBlock* = object
     case kind*: BeaconBlockFork
-    of BeaconBlockFork.Phase0:
-      phase0Data*: phase0.TrustedSignedBeaconBlock
-    of BeaconBlockFork.Altair:
-      altairData*: altair.TrustedSignedBeaconBlock
-    of BeaconBlockFork.Merge:
-      mergeData*:  merge.TrustedSignedBeaconBlock
+    of BeaconBlockFork.Phase0: phase0Data*: phase0.TrustedSignedBeaconBlock
+    of BeaconBlockFork.Altair: altairData*: altair.TrustedSignedBeaconBlock
+    of BeaconBlockFork.Merge:  mergeData*:  merge.TrustedSignedBeaconBlock
 
   EpochInfoFork* {.pure.} = enum
     Phase0
@@ -74,10 +111,8 @@ type
 
   ForkedEpochInfo* = object
     case kind*: EpochInfoFork
-    of EpochInfoFork.Phase0:
-      phase0Data*: phase0.EpochInfo
-    of EpochInfoFork.Altair:
-      altairData*: altair.EpochInfo
+    of EpochInfoFork.Phase0: phase0Data*: phase0.EpochInfo
+    of EpochInfoFork.Altair: altairData*: altair.EpochInfo
 
   ForkyEpochInfo* = phase0.EpochInfo | altair.EpochInfo
 
@@ -86,13 +121,35 @@ type
     altair*: ForkDigest
     merge*:  ForkDigest
 
-  ForkDigestsRef* = ref ForkDigests
+template toFork*[T: phase0.BeaconState | phase0.HashedBeaconState](
+    t: type T): BeaconStateFork =
+  BeaconStateFork.Phase0
+template toFork*[T: altair.BeaconState | altair.HashedBeaconState](
+    t: type T): BeaconStateFork =
+  BeaconStateFork.Altair
+template toFork*[T: merge.BeaconState | merge.HashedBeaconState](
+    t: type T): BeaconStateFork =
+  BeaconStateFork.Merge
+
+template init*(T: type ForkedHashedBeaconState, data: phase0.HashedBeaconState): T =
+  T(kind: BeaconStateFork.Phase0, phase0Data: data)
+template init*(T: type ForkedHashedBeaconState, data: altair.HashedBeaconState): T =
+  T(kind: BeaconStateFork.Altair, altairData: data)
+template init*(T: type ForkedHashedBeaconState, data: merge.HashedBeaconState): T =
+  T(kind: BeaconStateFork.Merge, mergeData: data)
 
 template init*(T: type ForkedBeaconBlock, blck: phase0.BeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
 template init*(T: type ForkedBeaconBlock, blck: altair.BeaconBlock): T =
   T(kind: BeaconBlockFork.Altair, altairData: blck)
 template init*(T: type ForkedBeaconBlock, blck: merge.BeaconBlock): T =
+  T(kind: BeaconBlockFork.Merge, mergeData: blck)
+
+template init*(T: type ForkedTrustedBeaconBlock, blck: phase0.TrustedBeaconBlock): T =
+  T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
+template init*(T: type ForkedTrustedBeaconBlock, blck: altair.TrustedBeaconBlock): T =
+  T(kind: BeaconBlockFork.Altair, altairData: blck)
+template init*(T: type ForkedTrustedBeaconBlock, blck: merge.TrustedBeaconBlock): T =
   T(kind: BeaconBlockFork.Merge, mergeData: blck)
 
 template init*(T: type ForkedSignedBeaconBlock, blck: phase0.SignedBeaconBlock): T =
@@ -102,37 +159,19 @@ template init*(T: type ForkedSignedBeaconBlock, blck: altair.SignedBeaconBlock):
 template init*(T: type ForkedSignedBeaconBlock, blck: merge.SignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Merge, mergeData: blck)
 
-template init*(T: type ForkedBeaconState, state: phase0.BeaconState): T =
-  T(kind: BeaconStateFork.Phase0, phase0Data: state)
-template init*(T: type ForkedBeaconState, state: altair.BeaconState): T =
-  T(kind: BeaconStateFork.Altair, altairData: state)
-template init*(T: type ForkedBeaconState, state: merge.BeaconState): T =
-  T(kind: BeaconStateFork.Merge, mergeData: state)
-template init*(T: type ForkedBeaconState, state: ForkedHashedBeaconState): T =
-  case state.kind
-  of BeaconStateFork.Phase0:
-    T(kind: BeaconStateFork.Phase0,
-      phase0Data: state.phase0Data.data)
-  of BeaconStateFork.Altair:
-    T(kind: BeaconStateFork.Altair,
-      altairData: state.altairData.data)
-  of BeaconStateFork.Merge:
-    T(kind: BeaconStateFork.Merge,
-      mergeData: state.mergeData.data)
-
 template init*(T: type ForkedSignedBeaconBlock, forked: ForkedBeaconBlock,
                blockRoot: Eth2Digest, signature: ValidatorSig): T =
   case forked.kind
   of BeaconBlockFork.Phase0:
     T(kind: BeaconBlockFork.Phase0,
       phase0Data: phase0.SignedBeaconBlock(message: forked.phase0Data,
-                                            root: blockRoot,
-                                            signature: signature))
+                                           root: blockRoot,
+                                           signature: signature))
   of BeaconBlockFork.Altair:
     T(kind: BeaconBlockFork.Altair,
       altairData: altair.SignedBeaconBlock(message: forked.altairData,
-                                            root: blockRoot,
-                                            signature: signature))
+                                           root: blockRoot,
+                                           signature: signature))
   of BeaconBlockFork.Merge:
     T(kind: BeaconBlockFork.Merge,
       mergeData: merge.SignedBeaconBlock(message: forked.mergeData,
@@ -146,12 +185,20 @@ template init*(T: type ForkedTrustedSignedBeaconBlock, blck: altair.TrustedSigne
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: merge.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Merge,  mergeData: blck)
 
+template toFork*[T: phase0.TrustedSignedBeaconBlock](
+    t: type T): BeaconBlockFork =
+  BeaconBlockFork.Phase0
+template toFork*[T: altair.TrustedSignedBeaconBlock](
+    t: type T): BeaconBlockFork =
+  BeaconBlockFork.Altair
+template toFork*[T: merge.TrustedSignedBeaconBlock](
+    t: type T): BeaconBlockFork =
+  BeaconBlockFork.Merge
+
 template init*(T: type ForkedEpochInfo, info: phase0.EpochInfo): T =
   T(kind: EpochInfoFork.Phase0, phase0Data: info)
 template init*(T: type ForkedEpochInfo, info: altair.EpochInfo): T =
   T(kind: EpochInfoFork.Altair, altairData: info)
-
-# State-related functionality based on ForkedHashedBeaconState instead of HashedBeaconState
 
 template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
   case x.kind
@@ -190,7 +237,6 @@ template withEpochInfo*(
   template info: untyped {.inject.} = x.altairData
   body
 
-# Dispatch functions
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
   if tgt.kind == src.kind:
     case tgt.kind
@@ -222,93 +268,6 @@ func getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
 func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
   withState(x): state.root = root
 
-func hash_tree_root*(x: ForkedHashedBeaconState): Eth2Digest =
-  # This is a bit of a hack because we drill into data here, unlike other places
-  withState(x): hash_tree_root(state.data)
-
-func get_active_validator_indices_len*(
-    state: ForkedHashedBeaconState; epoch: Epoch): uint64 =
-  withState(state):
-    get_active_validator_indices_len(state.data, epoch)
-
-func get_beacon_committee*(
-    state: ForkedHashedBeaconState, slot: Slot, index: CommitteeIndex,
-    cache: var StateCache): seq[ValidatorIndex] =
-  # This one is used by tests/, ncli/, and a couple of places in RPC
-  # TODO use the iterator version alone, to remove the risk of using
-  # diverging get_beacon_committee() in tests and beacon_chain/ by a
-  # wrapper approach (e.g., toSeq). This is a perf tradeoff for test
-  # correctness/consistency.
-  withState(state):
-    get_beacon_committee(state.data, slot, index, cache)
-
-func get_beacon_committee_len*(
-    state: ForkedHashedBeaconState, slot: Slot, index: CommitteeIndex,
-    cache: var StateCache): uint64 =
-  # This one is used by tests
-  withState(state):
-    get_beacon_committee_len(state.data, slot, index, cache)
-
-func get_committee_count_per_slot*(state: ForkedHashedBeaconState,
-                                   epoch: Epoch,
-                                   cache: var StateCache): uint64 =
-  ## Return the number of committees at ``epoch``.
-  withState(state):
-    get_committee_count_per_slot(state.data, epoch, cache)
-
-func get_beacon_proposer_index*(state: ForkedHashedBeaconState,
-                                cache: var StateCache, slot: Slot):
-                                Option[ValidatorIndex] =
-  withState(state):
-    get_beacon_proposer_index(state.data, cache, slot)
-
-func get_shuffled_active_validator_indices*(
-    cache: var StateCache, state: ForkedHashedBeaconState, epoch: Epoch):
-    seq[ValidatorIndex] =
-  withState(state):
-    cache.get_shuffled_active_validator_indices(state.data, epoch)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_block_root_at_slot
-func get_block_root_at_slot*(state: ForkedHashedBeaconState,
-                             slot: Slot): Eth2Digest =
-  ## Return the block root at a recent ``slot``.
-  withState(state):
-    get_block_root_at_slot(state.data, slot)
-
-proc get_attesting_indices*(state: ForkedHashedBeaconState;
-                            data: AttestationData;
-                            bits: CommitteeValidatorsBits;
-                            cache: var StateCache): seq[ValidatorIndex] =
-  # TODO when https://github.com/nim-lang/Nim/issues/18188 fixed, use an
-  # iterator
-
-  var idxBuf: seq[ValidatorIndex]
-  withState(state):
-    for vidx in state.data.get_attesting_indices(data, bits, cache):
-      idxBuf.add vidx
-  idxBuf
-
-proc check_attester_slashing*(
-    state: var ForkedHashedBeaconState; attester_slashing: SomeAttesterSlashing;
-    flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
-  withState(state):
-    check_attester_slashing(state.data, attester_slashing, flags)
-
-proc check_proposer_slashing*(
-    state: var ForkedHashedBeaconState; proposer_slashing: SomeProposerSlashing;
-    flags: UpdateFlags): Result[void, cstring] =
-  withState(state):
-    check_proposer_slashing(state.data, proposer_slashing, flags)
-
-proc check_voluntary_exit*(
-    cfg: RuntimeConfig, state: ForkedHashedBeaconState;
-    signed_voluntary_exit: SomeSignedVoluntaryExit;
-    flags: UpdateFlags): Result[void, cstring] =
-  withState(state):
-    check_voluntary_exit(cfg, state.data, signed_voluntary_exit, flags)
-
-# Derived utilities
-
 func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconStateFork =
   ## Return the current fork for the given epoch.
   static:
@@ -326,54 +285,8 @@ func blockForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconBlockFork =
   elif epoch >= cfg.ALTAIR_FORK_EPOCH: BeaconBlockFork.Altair
   else:                                BeaconBlockFork.Phase0
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_current_epoch
-func get_current_epoch*(x: ForkedHashedBeaconState): Epoch =
-  ## Return the current epoch.
-  withState(x): state.data.slot.epoch
-
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_previous_epoch
-func get_previous_epoch*(stateData: ForkedHashedBeaconState): Epoch =
-  ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
-  let current_epoch = get_current_epoch(stateData)
-  if current_epoch == GENESIS_EPOCH:
-    GENESIS_EPOCH
-  else:
-    current_epoch - 1
-
-func init*(T: type ForkDigests,
-           cfg: RuntimeConfig,
-           genesisValidatorsRoot: Eth2Digest): T =
-  T(
-    phase0:
-      compute_fork_digest(cfg.GENESIS_FORK_VERSION, genesisValidatorsRoot),
-    altair:
-      compute_fork_digest(cfg.ALTAIR_FORK_VERSION, genesisValidatorsRoot),
-    merge:
-      compute_fork_digest(cfg.MERGE_FORK_VERSION, genesisValidatorsRoot),
-  )
-
-template asSigned*(x: phase0.TrustedSignedBeaconBlock or phase0.SigVerifiedBeaconBlock):
-    phase0.SignedBeaconBlock =
-  isomorphicCast[phase0.SignedBeaconBlock](x)
-
-template asSigned*(x: altair.TrustedSignedBeaconBlock or altair.SigVerifiedBeaconBlock):
-    altair.SignedBeaconBlock =
-  isomorphicCast[altair.SignedBeaconBlock](x)
-
 template asSigned*(x: ForkedTrustedSignedBeaconBlock): ForkedSignedBeaconBlock =
   isomorphicCast[ForkedSignedBeaconBlock](x)
-
-template asTrusted*(x: phase0.SignedBeaconBlock or phase0.SigVerifiedBeaconBlock):
-    phase0.TrustedSignedBeaconBlock =
-  isomorphicCast[phase0.TrustedSignedBeaconBlock](x)
-
-template asTrusted*(x: altair.SignedBeaconBlock or altair.SigVerifiedBeaconBlock):
-    altair.TrustedSignedBeaconBlock =
-  isomorphicCast[altair.TrustedSignedBeaconBlock](x)
-
-template asTrusted*(x: merge.SignedBeaconBlock or merge.SigVerifiedBeaconBlock):
-    merge.TrustedSignedBeaconBlock =
-  isomorphicCast[merge.TrustedSignedBeaconBlock](x)
 
 template asTrusted*(x: ForkedSignedBeaconBlock): ForkedTrustedSignedBeaconBlock =
   isomorphicCast[ForkedTrustedSignedBeaconBlock](x)
@@ -453,6 +366,26 @@ template withStateAndBlck*(
     template blck: untyped {.inject.} = b.phase0Data
     body
 
+func genesisFork*(cfg: RuntimeConfig): Fork =
+  Fork(
+    previous_version: cfg.GENESIS_FORK_VERSION,
+    current_version: cfg.GENESIS_FORK_VERSION,
+    epoch: GENESIS_EPOCH)
+
+func altairFork*(cfg: RuntimeConfig): Fork =
+  Fork(
+    previous_version: cfg.GENESIS_FORK_VERSION,
+    current_version: cfg.ALTAIR_FORK_VERSION,
+    epoch: cfg.ALTAIR_FORK_EPOCH)
+
+func mergeFork*(cfg: RuntimeConfig): Fork =
+  # TODO in theory, the altair + merge forks could be in same epoch, so the
+  # previous fork version would be the GENESIS_FORK_VERSION
+  Fork(
+    previous_version: cfg.ALTAIR_FORK_VERSION,
+    current_version: cfg.MERGE_FORK_VERSION,
+    epoch: cfg.MERGE_FORK_EPOCH)
+
 proc forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
   case cfg.stateForkAtEpoch(epoch)
   of BeaconStateFork.Merge:  cfg.mergeFork
@@ -478,3 +411,99 @@ func getForkSchedule*(cfg: RuntimeConfig): array[2, Fork] =
   ##
   ## NOTE: Update this procedure when new fork will be scheduled.
   [cfg.genesisFork(), cfg.altairFork()]
+
+func readSszForkedHashedBeaconState*(
+    data: openArray[byte], likelyFork: BeaconStateFork):
+    ForkedHashedBeaconState {.raises: [Defect, SszError].} =
+  ## Helper to read a state from bytes when it's not certain what kind of state
+  ## it is - this happens for example when loading an SSZ state from command
+  ## line - we'll use wall time to "guess" which state to start with
+  # careful - `result` is used, RVO didn't seem to work without
+  result = ForkedHashedBeaconState(kind: likelyFork)
+  var tried: set[BeaconStateFork]
+
+  template readFork() =
+    withState(result):
+      try:
+        readSszBytes(data, state.data)
+        state.root = hash_tree_root(state.data)
+        return result
+      except SszError as exc:
+        tried.incl result.kind
+
+  readFork()
+
+  for fork in BeaconStateFork:
+    if fork in tried: continue
+    result = ForkedHashedBeaconState(kind: fork)
+    readFork()
+
+  raise (ref SszError)(msg: "Unable to match data to any known fork")
+
+func readSszForkedTrustedSignedBeaconBlock*(
+    data: openArray[byte], likelyFork: BeaconBlockFork):
+    ForkedTrustedSignedBeaconBlock {.raises: [Defect, SszError].} =
+  ## Helper to read a state from bytes when it's not certain what kind of state
+  ## it is - this happens for example when loading an SSZ state from command
+  ## line - we'll use wall time to "guess" which state to start with
+
+  var
+    res = ForkedTrustedSignedBeaconBlock(kind: likelyFork)
+    tried: set[BeaconBlockFork]
+
+  template readFork() =
+    withBlck(res):
+      try:
+        readSszBytes(data, blck)
+        return res
+      except SszError as exc:
+        tried.incl res.kind
+
+  readFork()
+
+  for fork in BeaconBlockFork:
+    if fork in tried: continue
+    res = ForkedTrustedSignedBeaconBlock(kind: fork)
+    readFork()
+  raise (ref SszError)(msg: "Unable to match data to any known fork")
+
+func toBeaconBlockFork*(fork: BeaconStateFork): BeaconBlockFork =
+  case fork
+  of BeaconStateFork.Phase0: BeaconBlockFork.Phase0
+  of BeaconStateFork.Altair: BeaconBlockFork.Altair
+  of BeaconStateFork.Merge: BeaconBlockFork.Merge
+
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_fork_data_root
+func compute_fork_data_root*(current_version: Version,
+    genesis_validators_root: Eth2Digest): Eth2Digest =
+  ## Return the 32-byte fork data root for the ``current_version`` and
+  ## ``genesis_validators_root``.
+  ## This is used primarily in signature domains to avoid collisions across
+  ## forks/chains.
+  hash_tree_root(ForkData(
+    current_version: current_version,
+    genesis_validators_root: genesis_validators_root
+  ))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#compute_fork_digest
+func compute_fork_digest*(current_version: Version,
+                          genesis_validators_root: Eth2Digest): ForkDigest =
+  ## Return the 4-byte fork digest for the ``current_version`` and
+  ## ``genesis_validators_root``.
+  ## This is a digest primarily used for domain separation on the p2p layer.
+  ## 4-bytes suffices for practical separation of forks/chains.
+  array[4, byte](result)[0..3] =
+    compute_fork_data_root(
+      current_version, genesis_validators_root).data.toOpenArray(0, 3)
+
+func init*(T: type ForkDigests,
+           cfg: RuntimeConfig,
+           genesisValidatorsRoot: Eth2Digest): T =
+  T(
+    phase0:
+      compute_fork_digest(cfg.GENESIS_FORK_VERSION, genesisValidatorsRoot),
+    altair:
+      compute_fork_digest(cfg.ALTAIR_FORK_VERSION, genesisValidatorsRoot),
+    merge:
+      compute_fork_digest(cfg.MERGE_FORK_VERSION, genesisValidatorsRoot),
+  )

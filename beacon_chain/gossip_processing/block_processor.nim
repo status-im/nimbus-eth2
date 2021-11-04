@@ -130,8 +130,7 @@ proc addBlock*(
 
 proc dumpBlock*[T](
     self: BlockProcessor,
-    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                 merge.SignedBeaconBlock,
+    signedBlock: ForkySignedBeaconBlock,
     res: Result[T, (ValidationResult, BlockError)]) =
   if self.dumpEnabled and res.isErr:
     case res.error[1]
@@ -146,8 +145,7 @@ proc dumpBlock*[T](
 
 proc storeBlock*(
     self: var BlockProcessor,
-    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                 merge.SignedBeaconBlock,
+    signedBlock: ForkySignedBeaconBlock,
     wallSlot: Slot): Result[BlockRef, BlockError] =
   let
     attestationPool = self.consensusManager.attestationPool

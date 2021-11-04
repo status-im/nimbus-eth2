@@ -17,7 +17,7 @@ import
   ../networking/eth2_network,
   ../validators/validator_duties,
   ../consensus_object_pools/blockchain_dag,
-  ../spec/[eth2_merkleization, forks, network],
+  ../spec/[eth2_merkleization, forks, network, validator],
   ../spec/datatypes/[phase0],
   ./rpc_utils
 

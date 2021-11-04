@@ -20,7 +20,7 @@ import
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool],
   ../beacon_chain/spec/datatypes/phase0,
-  ../beacon_chain/spec/[forks, state_transition, helpers],
+  ../beacon_chain/spec/[helpers, state_transition, validator],
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
 

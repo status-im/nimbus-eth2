@@ -14,7 +14,7 @@ import
   ../beacon_node, ../networking/eth2_network,
   ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
   ../validators/validator_duties,
-  ../spec/[eth2_merkleization, forks, network],
+  ../spec/[eth2_merkleization, forks, network, validator],
   ../spec/datatypes/[phase0, altair]
 
 export rest_utils

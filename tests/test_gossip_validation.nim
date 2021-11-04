@@ -22,7 +22,7 @@ import
     block_quarantine, blockchain_dag, block_clearance, attestation_pool,
     sync_committee_msg_pool],
   ../beacon_chain/spec/datatypes/[phase0, altair],
-  ../beacon_chain/spec/[forks, state_transition, helpers, network],
+  ../beacon_chain/spec/[state_transition, helpers, network, validator],
   ../beacon_chain/validators/validator_pool,
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
@@ -206,7 +206,7 @@ suite "Gossip validation - Extra": # Not based on preset config
           check: added.isOk()
           dag.updateHead(added[], quarantine)
         dag
-      state = newClone(dag.headState.data.altairData)
+      state = assignClone(dag.headState.data.altairData)
 
       syncCommitteeIdx = 0.SyncSubcommitteeIndex
       syncCommittee = @(dag.syncCommitteeParticipants(state[].data.slot))

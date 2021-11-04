@@ -14,17 +14,17 @@ import
   chronicles,
   ../extras,
   ./datatypes/[phase0, altair, merge],
-  "."/[eth2_merkleization, helpers, signatures, validator],
+  "."/[eth2_merkleization, forks, signatures, validator],
   ../../nbench/bench_lab
 
-export extras, phase0, altair, merge
+export extras, forks, validator
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#increase_balance
 func increase_balance*(balance: var Gwei, delta: Gwei) =
   balance += delta
 
 func increase_balance*(
-    state: var SomeBeaconState, index: ValidatorIndex, delta: Gwei) =
+    state: var ForkyBeaconState, index: ValidatorIndex, delta: Gwei) =
   ## Increase the validator balance at index ``index`` by ``delta``.
   if delta != 0: # avoid dirtying the balance cache if not needed
     increase_balance(state.balances[index], delta)
@@ -38,7 +38,7 @@ func decrease_balance*(balance: var Gwei, delta: Gwei) =
       balance - delta
 
 func decrease_balance*(
-    state: var SomeBeaconState, index: ValidatorIndex, delta: Gwei) =
+    state: var ForkyBeaconState, index: ValidatorIndex, delta: Gwei) =
   ## Decrease the validator balance at index ``index`` by ``delta``, with
   ## underflow protection.
   if delta != 0: # avoid dirtying the balance cache if not needed
@@ -71,7 +71,7 @@ func compute_activation_exit_epoch*(epoch: Epoch): Epoch =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#get_validator_churn_limit
 func get_validator_churn_limit*(
-      cfg: RuntimeConfig, state: SomeBeaconState, cache: var StateCache):
+      cfg: RuntimeConfig, state: ForkyBeaconState, cache: var StateCache):
     uint64 =
   ## Return the validator churn limit for the current epoch.
   max(
@@ -80,7 +80,7 @@ func get_validator_churn_limit*(
       state, state.get_current_epoch(), cache) div cfg.CHURN_LIMIT_QUOTIENT)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#initiate_validator_exit
-func initiate_validator_exit*(cfg: RuntimeConfig, state: var SomeBeaconState,
+func initiate_validator_exit*(cfg: RuntimeConfig, state: var ForkyBeaconState,
                               index: ValidatorIndex, cache: var StateCache) =
   ## Initiate the exit of the validator with index ``index``.
 
@@ -122,7 +122,7 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var SomeBeaconState,
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
-    cfg: RuntimeConfig, state: var SomeBeaconState,
+    cfg: RuntimeConfig, state: var ForkyBeaconState,
     slashed_index: ValidatorIndex, cache: var StateCache) =
   ## Slash the validator with index ``index``.
   let epoch = get_current_epoch(state)
@@ -183,26 +183,6 @@ proc slash_validator*(
 
 func genesis_time_from_eth1_timestamp*(cfg: RuntimeConfig, eth1_timestamp: uint64): uint64 =
   eth1_timestamp + cfg.GENESIS_DELAY
-
-func genesisFork*(cfg: RuntimeConfig): Fork =
-  Fork(
-    previous_version: cfg.GENESIS_FORK_VERSION,
-    current_version: cfg.GENESIS_FORK_VERSION,
-    epoch: GENESIS_EPOCH)
-
-func altairFork*(cfg: RuntimeConfig): Fork =
-  Fork(
-    previous_version: cfg.GENESIS_FORK_VERSION,
-    current_version: cfg.ALTAIR_FORK_VERSION,
-    epoch: cfg.ALTAIR_FORK_EPOCH)
-
-func mergeFork*(cfg: RuntimeConfig): Fork =
-  # TODO in theory, the altair + merge forks could be in same epoch, so the
-  # previous fork version would be the GENESIS_FORK_VERSION
-  Fork(
-    previous_version: cfg.ALTAIR_FORK_VERSION,
-    current_version: cfg.MERGE_FORK_VERSION,
-    epoch: cfg.MERGE_FORK_EPOCH)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1*(
@@ -315,8 +295,7 @@ func get_initial_beacon_block*(state: phase0.BeaconState):
     message: message, root: hash_tree_root(message))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#get_block_root_at_slot
-func get_block_root_at_slot*(state: SomeBeaconState,
-                             slot: Slot): Eth2Digest =
+func get_block_root_at_slot*(state: ForkyBeaconState, slot: Slot): Eth2Digest =
   ## Return the block root at a recent ``slot``.
 
   # Potential overflow/wrap shouldn't occur, as get_block_root_at_slot() called
@@ -327,14 +306,20 @@ func get_block_root_at_slot*(state: SomeBeaconState,
   doAssert slot < state.slot
   state.block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
 
+func get_block_root_at_slot*(state: ForkedHashedBeaconState,
+                             slot: Slot): Eth2Digest =
+  ## Return the block root at a recent ``slot``.
+  withState(state):
+    get_block_root_at_slot(state.data, slot)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#get_block_root
-func get_block_root*(state: SomeBeaconState, epoch: Epoch): Eth2Digest =
+func get_block_root*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#get_total_balance
 template get_total_balance(
-    state: SomeBeaconState, validator_indices: untyped): Gwei =
+    state: ForkyBeaconState, validator_indices: untyped): Gwei =
   ## Return the combined effective balance of the ``indices``.
   ## ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
   ## Math safe up to ~10B ETH, afterwhich this overflows uint64.
@@ -350,7 +335,7 @@ func is_eligible_for_activation_queue*(validator: Validator): bool =
     validator.effective_balance == MAX_EFFECTIVE_BALANCE
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#is_eligible_for_activation
-func is_eligible_for_activation*(state: SomeBeaconState, validator: Validator):
+func is_eligible_for_activation*(state: ForkyBeaconState, validator: Validator):
     bool =
   ## Check if ``validator`` is eligible for activation.
 
@@ -361,7 +346,7 @@ func is_eligible_for_activation*(state: SomeBeaconState, validator: Validator):
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
-    state: SomeBeaconState, indexed_attestation: SomeIndexedAttestation,
+    state: ForkyBeaconState, indexed_attestation: SomeIndexedAttestation,
     flags: UpdateFlags): Result[void, cstring] =
   ## Check if ``indexed_attestation`` is not empty, has sorted and unique
   ## indices and has a valid aggregate signature.
@@ -398,7 +383,7 @@ proc is_valid_indexed_attestation*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#get_attesting_indices
-func get_attesting_indices*(state: SomeBeaconState,
+func get_attesting_indices*(state: ForkyBeaconState,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits,
                             cache: var StateCache): seq[ValidatorIndex] =
@@ -419,8 +404,21 @@ func get_attesting_indices*(state: SomeBeaconState,
 
   res
 
+proc get_attesting_indices*(state: ForkedHashedBeaconState;
+                            data: AttestationData;
+                            bits: CommitteeValidatorsBits;
+                            cache: var StateCache): seq[ValidatorIndex] =
+  # TODO when https://github.com/nim-lang/Nim/issues/18188 fixed, use an
+  # iterator
+
+  var idxBuf: seq[ValidatorIndex]
+  withState(state):
+    for vidx in state.data.get_attesting_indices(data, bits, cache):
+      idxBuf.add vidx
+  idxBuf
+
 proc is_valid_indexed_attestation*(
-    state: SomeBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
+    state: ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   # This is a variation on `is_valid_indexed_attestation` that works directly
   # with an attestation instead of first constructing an `IndexedAttestation`
@@ -524,7 +522,7 @@ func get_attestation_participation_flag_indices(state: altair.BeaconState | merg
 # better to centralize around that if feasible
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#get_total_active_balance
-func get_total_active_balance*(state: SomeBeaconState, cache: var StateCache): Gwei =
+func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): Gwei =
   ## Return the combined effective balance of the active validators.
   # Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei
   # minimum to avoid divisions by zero.
@@ -555,7 +553,7 @@ func get_base_reward(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
-    state: SomeBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
+    state: ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
@@ -589,7 +587,7 @@ proc check_attestation*(
   ok()
 
 proc process_attestation*(
-    state: var SomeBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
+    state: var ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
     base_reward_per_increment: Gwei, cache: var StateCache):
     Result[void, cstring] {.nbench.} =
   # In the spec, attestation validation is mixed with state mutation, so here

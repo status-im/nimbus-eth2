@@ -461,7 +461,7 @@ func get_proposer_reward(base_reward: Gwei): Gwei =
 func is_in_inactivity_leak(finality_delay: uint64): bool =
   finality_delay > MIN_EPOCHS_TO_INACTIVITY_PENALTY
 
-func get_finality_delay(state: SomeBeaconState): uint64 =
+func get_finality_delay(state: ForkyBeaconState): uint64 =
   get_previous_epoch(state) - state.finalized_checkpoint.epoch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#rewards-and-penalties-1
@@ -746,7 +746,7 @@ func process_rewards_and_penalties(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#registry-updates
 func process_registry_updates*(
-    cfg: RuntimeConfig, state: var SomeBeaconState, cache: var StateCache) {.nbench.} =
+    cfg: RuntimeConfig, state: var ForkyBeaconState, cache: var StateCache) {.nbench.} =
   ## Process activation eligibility and ejections
 
   # Make visible, e.g.,
@@ -796,7 +796,7 @@ func process_registry_updates*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/beacon-chain.md#slashings
-func process_slashings*(state: var SomeBeaconState, total_balance: Gwei) {.nbench.} =
+func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) {.nbench.} =
   let
     epoch = get_current_epoch(state)
     multiplier =
@@ -824,7 +824,7 @@ func process_slashings*(state: var SomeBeaconState, total_balance: Gwei) {.nbenc
       decrease_balance(state, index.ValidatorIndex, penalty)
 
 # https://github.com/ethereum/consensus-specs/blob/34cea67b91/specs/phase0/beacon-chain.md#eth1-data-votes-updates
-func process_eth1_data_reset*(state: var SomeBeaconState) {.nbench.} =
+func process_eth1_data_reset*(state: var ForkyBeaconState) {.nbench.} =
   let next_epoch = get_current_epoch(state) + 1
 
   # Reset eth1 data votes
@@ -832,7 +832,7 @@ func process_eth1_data_reset*(state: var SomeBeaconState) {.nbench.} =
     state.eth1_data_votes = default(type state.eth1_data_votes)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#effective-balances-updates
-func process_effective_balance_updates*(state: var SomeBeaconState) {.nbench.} =
+func process_effective_balance_updates*(state: var ForkyBeaconState) {.nbench.} =
   # Update effective balances with hysteresis
   for index in 0..<state.validators.len:
     let balance = state.balances.asSeq()[index]
@@ -851,14 +851,14 @@ func process_effective_balance_updates*(state: var SomeBeaconState) {.nbench.} =
           MAX_EFFECTIVE_BALANCE)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#slashings-balances-updates
-func process_slashings_reset*(state: var SomeBeaconState) {.nbench.} =
+func process_slashings_reset*(state: var ForkyBeaconState) {.nbench.} =
   let next_epoch = get_current_epoch(state) + 1
 
   # Reset slashings
   state.slashings[int(next_epoch mod EPOCHS_PER_SLASHINGS_VECTOR)] = 0.Gwei
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#randao-mixes-updates
-func process_randao_mixes_reset*(state: var SomeBeaconState) {.nbench.} =
+func process_randao_mixes_reset*(state: var ForkyBeaconState) {.nbench.} =
   let
     current_epoch = get_current_epoch(state)
     next_epoch = current_epoch + 1
@@ -868,7 +868,7 @@ func process_randao_mixes_reset*(state: var SomeBeaconState) {.nbench.} =
     get_randao_mix(state, current_epoch)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#historical-roots-updates
-func process_historical_roots_update*(state: var SomeBeaconState) {.nbench.} =
+func process_historical_roots_update*(state: var ForkyBeaconState) {.nbench.} =
   ## Set historical root accumulator
   let next_epoch = get_current_epoch(state) + 1
 

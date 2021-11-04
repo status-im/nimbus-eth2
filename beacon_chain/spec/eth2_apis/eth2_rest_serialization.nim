@@ -5,7 +5,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import std/typetraits
-import stew/[results, base10, byteutils, endians2], presto/common,
+import stew/[assign2, results, base10, byteutils, endians2], presto/common,
        libp2p/peerid, serialization,
        json_serialization, json_serialization/std/[options, net, sets],
        nimcrypto/utils as ncrutils
@@ -821,9 +821,10 @@ proc writeValue*(writer: var JsonWriter[RestJson],
       writer.writeField("data", value.mergeData)
   writer.endRecord()
 
-# ForkedBeaconState
+# ForkedHashedBeaconState is used where a `ForkedBeaconState` normally would
+# be used, mainly because caching the hash early on is easier to do
 proc readValue*(reader: var JsonReader[RestJson],
-                value: var ForkedBeaconState) {.
+                value: var ForkedHashedBeaconState) {.
      raises: [IOError, SerializationError, Defect].} =
   var
     version: Option[BeaconStateFork]
@@ -854,53 +855,58 @@ proc readValue*(reader: var JsonReader[RestJson],
   if data.isNone():
     reader.raiseUnexpectedValue("Field data is missing")
 
+  # Use a temporary to avoid stack instances and `value` mutation in case of
+  # exception
+  let
+    tmp = (ref ForkedHashedBeaconState)(kind: version.get())
+
+  template toValue(field: untyped) =
+    if tmp[].kind == value.kind:
+      assign(value.field, tmp[].field)
+    else:
+      value = tmp[] # slow, but rare (hopefully)
+      value.field.root = hash_tree_root(value.field.data)
+
   case version.get():
   of BeaconStateFork.Phase0:
-    let res =
-      try:
-        some(RestJson.decode(string(data.get()), phase0.BeaconState,
-                             requireAllFields = true))
-      except SerializationError:
-        none[phase0.BeaconState]()
-    if res.isNone():
+    try:
+      tmp[].phase0Data.data = RestJson.decode(
+        string(data.get()), phase0.BeaconState, requireAllFields = true)
+    except SerializationError:
       reader.raiseUnexpectedValue("Incorrect phase0 beacon state format")
-    value = ForkedBeaconState.init(res.get())
-  of BeaconStateFork.Altair:
-    let res =
-      try:
-        some(RestJson.decode(string(data.get()), altair.BeaconState,
-                             requireAllFields = true))
-      except SerializationError:
-        none[altair.BeaconState]()
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect altair beacon state format")
-    value = ForkedBeaconState.init(res.get())
-  of BeaconStateFork.Merge:
-    let res =
-      try:
-        some(RestJson.decode(string(data.get()), merge.BeaconState,
-                             requireAllFields = true))
-      except SerializationError:
-        none[merge.BeaconState]()
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect merge beacon state format")
-    value = ForkedBeaconState.init(res.get())
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconState) {.
+    toValue(phase0Data)
+  of BeaconStateFork.Altair:
+    try:
+      tmp[].altairData.data = RestJson.decode(
+        string(data.get()), altair.BeaconState, requireAllFields = true)
+    except SerializationError:
+      reader.raiseUnexpectedValue("Incorrect altair beacon state format")
+
+    toValue(altairData)
+  of BeaconStateFork.Merge:
+    try:
+      tmp[].mergeData.data = RestJson.decode(
+        string(data.get()), merge.BeaconState, requireAllFields = true)
+    except SerializationError:
+      reader.raiseUnexpectedValue("Incorrect altair beacon state format")
+    toValue(mergeData)
+
+proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState) {.
      raises: [IOError, Defect].} =
   writer.beginRecord()
   case value.kind
   of BeaconStateFork.Phase0:
     writer.writeField("version", "phase0")
-    writer.writeField("data", value.phase0Data)
+    writer.writeField("data", value.phase0Data.data)
   of BeaconStateFork.Altair:
     writer.writeField("version", "altair")
-    writer.writeField("data", value.altairData)
+    writer.writeField("data", value.altairData.data)
   of BeaconStateFork.Merge:
     writer.writeField("version", "merge")
     when false:
       # TODO SerializationError
-      writer.writeField("data", value.mergeData)
+      writer.writeField("data", value.mergeData.data)
   writer.endRecord()
 
 # SyncSubcommitteeIndex

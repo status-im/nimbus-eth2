@@ -10,9 +10,12 @@
 import
   std/[os, strformat],
   chronicles,
-  ./spec/[eth2_ssz_serialization, eth2_merkleization],
+  ./spec/[eth2_ssz_serialization, eth2_merkleization, forks],
   ./spec/datatypes/[phase0, altair, merge],
   ./consensus_object_pools/block_pools_types
+
+export
+  eth2_ssz_serialization, eth2_merkleization, forks, block_pools_types
 
 # Dump errors are generally not fatal where used currently - the code calling
 # these functions, like most code, is not exception safe
@@ -46,14 +49,14 @@ proc dump*(dir: string, v: merge.SignedBeaconBlock) =
   logErrors:
     SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(v.root)}.ssz", v)
 
-proc dump*(dir: string, v: SomeHashedBeaconState, blck: BlockRef) =
+proc dump*(dir: string, v: ForkyHashedBeaconState, blck: BlockRef) =
   mixin saveFile
   logErrors:
     SSZ.saveFile(
       dir / &"state-{v.data.slot}-{shortLog(blck.root)}-{shortLog(v.root)}.ssz",
       v.data)
 
-proc dump*(dir: string, v: SomeHashedBeaconState) =
+proc dump*(dir: string, v: ForkyHashedBeaconState) =
   mixin saveFile
   logErrors:
     SSZ.saveFile(

@@ -44,7 +44,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
     (hashedState, _) = loadGenesis(validators, validate)
     genesisBlock = get_initial_beacon_block(hashedState.data)
     state = (ref ForkedHashedBeaconState)(
-      phase0Data: hashedState[], kind: BeaconStateFork.Phase0)
+      kind: BeaconStateFork.Phase0, phase0Data: hashedState[])
 
   echo "Starting simulation..."
 

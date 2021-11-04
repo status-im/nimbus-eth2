@@ -250,8 +250,7 @@ proc addAggregateAndProofSignature*(
 
 proc collectSignatureSets*(
        sigs: var seq[SignatureSet],
-       signed_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                     merge.SignedBeaconBlock,
+       signed_block: ForkySignedBeaconBlock,
        validatorKeys: auto,
        state: ForkedHashedBeaconState,
        cache: var StateCache): Result[void, cstring] =

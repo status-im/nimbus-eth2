@@ -17,7 +17,7 @@ import
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a phase0 BeaconState for in-place SSZ reading and writing
-  BeaconStateNoImmutableValidators* = object
+  Phase0BeaconStateNoImmutableValidators* = object
     # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest

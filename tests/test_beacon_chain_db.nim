@@ -32,14 +32,14 @@ proc getAltairStateRef(db: BeaconChainDB, root: Eth2Digest):
     altair.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
   let res = (altair.BeaconStateRef)()
-  if db.getAltairState(root, res[], noRollback):
+  if db.getState(root, res[], noRollback):
     return res
 
 proc getMergeStateRef(db: BeaconChainDB, root: Eth2Digest):
     merge.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
   let res = (merge.BeaconStateRef)()
-  if db.getMergeState(root, res[], noRollback):
+  if db.getState(root, res[], noRollback):
     return res
 
 func withDigest(blck: phase0.TrustedBeaconBlock):
@@ -88,7 +88,7 @@ suite "Beacon chain DB" & preset():
       db = BeaconChainDB.new("", inMemory = true)
     check:
       db.getPhase0StateRef(Eth2Digest()).isNil
-      db.getBlock(Eth2Digest()).isNone
+      db.getPhase0Block(Eth2Digest()).isNone
 
   test "sanity check phase 0 blocks" & preset():
     var db = BeaconChainDB.new("", inMemory = true)
@@ -104,7 +104,7 @@ suite "Beacon chain DB" & preset():
       db.containsBlockPhase0(root)
       not db.containsBlockAltair(root)
       not db.containsBlockMerge(root)
-      db.getBlock(root).get() == signedBlock
+      db.getPhase0Block(root).get() == signedBlock
 
     db.delBlock(root)
     check:
@@ -112,7 +112,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlockPhase0(root)
       not db.containsBlockAltair(root)
       not db.containsBlockMerge(root)
-      db.getBlock(root).isErr()
+      db.getPhase0Block(root).isErr()
 
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root
@@ -200,7 +200,7 @@ suite "Beacon chain DB" & preset():
 
     for state in testStatesPhase0:
       db.putState(state[].phase0Data.data)
-      let root = hash_tree_root(state[])
+      let root = hash_tree_root(state[].phase0Data.data)
 
       check:
         db.containsState(root)
@@ -218,7 +218,7 @@ suite "Beacon chain DB" & preset():
 
     for state in testStatesAltair:
       db.putState(state[].altairData.data)
-      let root = hash_tree_root(state[])
+      let root = hash_tree_root(state[].altairData.data)
 
       check:
         db.containsState(root)
@@ -236,7 +236,7 @@ suite "Beacon chain DB" & preset():
 
     for state in testStatesMerge:
       db.putState(state[].mergeData.data)
-      let root = hash_tree_root(state[])
+      let root = hash_tree_root(state[].mergeData.data)
 
       check:
         db.containsState(root)
@@ -255,7 +255,7 @@ suite "Beacon chain DB" & preset():
 
     for state in testStatesPhase0:
       db.putState(state[].phase0Data.data)
-      let root = hash_tree_root(state[])
+      let root = hash_tree_root(state[].phase0Data.data)
 
       check:
         db.getState(root, stateBuffer[], noRollback)
@@ -275,17 +275,17 @@ suite "Beacon chain DB" & preset():
 
     for state in testStatesAltair:
       db.putState(state[].altairData.data)
-      let root = hash_tree_root(state[])
+      let root = hash_tree_root(state[].altairData.data)
 
       check:
-        db.getAltairState(root, stateBuffer[], noRollback)
+        db.getState(root, stateBuffer[], noRollback)
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
       db.delState(root)
       check:
         not db.containsState(root)
-        not db.getAltairState(root, stateBuffer[], noRollback)
+        not db.getState(root, stateBuffer[], noRollback)
 
     db.close()
 
@@ -295,17 +295,17 @@ suite "Beacon chain DB" & preset():
 
     for state in testStatesMerge:
       db.putState(state[].mergeData.data)
-      let root = hash_tree_root(state[])
+      let root = hash_tree_root(state[].mergeData.data)
 
       check:
-        db.getMergeState(root, stateBuffer[], noRollback)
+        db.getState(root, stateBuffer[], noRollback)
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
       db.delState(root)
       check:
         not db.containsState(root)
-        not db.getMergeState(root, stateBuffer[], noRollback)
+        not db.getState(root, stateBuffer[], noRollback)
 
     db.close()
 
@@ -350,7 +350,7 @@ suite "Beacon chain DB" & preset():
 
     check:
       state[].altairData.data.slot == 10.Slot
-      not db.getAltairState(root, state[].altairData.data, restore)
+      not db.getState(root, state[].altairData.data, restore)
 
       # assign() has switched the case object fork
       state[].kind == BeaconStateFork.Phase0
@@ -375,7 +375,7 @@ suite "Beacon chain DB" & preset():
 
     check:
       state[].mergeData.data.slot == 10.Slot
-      not db.getMergeState(root, state[].mergeData.data, restore)
+      not db.getState(root, state[].mergeData.data, restore)
 
       # assign() has switched the case object fork
       state[].kind == BeaconStateFork.Phase0
