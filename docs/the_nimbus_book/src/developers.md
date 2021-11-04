@@ -139,7 +139,19 @@ make NIMFLAGS="-d:disableMarchNative" nimbus_beacon_node
 make NIMFLAGS="-d:disableLTO" nimbus_beacon_node
 ```
 
-- build a static binary
+- show C compiler warnings:
+
+```bash
+make NIMFLAGS="-d:cwarnings" nimbus_beacon_node
+```
+
+- limit stack usage to 1 MiB per C function (static analysis - see the [GCC docs](https://gcc.gnu.org/onlinedocs/gnat_ugn/Static-Stack-Usage-Analysis.html); if LTO is enabled, it works without `-d:cwarnings`):
+
+```bash
+make NIMFLAGS="-d:limitStackUsage" nimbus_beacon_node
+```
+
+- build a static binary:
 
 ```bash
 make NIMFLAGS="--passL:-static" nimbus_beacon_node
@@ -151,16 +163,10 @@ make NIMFLAGS="--passL:-static" nimbus_beacon_node
 make publish-book
 ```
 
-- create a binary distribution
+- create a binary distribution:
 
 ```bash
 make dist
-```
-
-- test the binaries
-
-```bash
-make dist-test
 ```
 
 ## Multi-client interop scripts

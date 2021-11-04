@@ -13,6 +13,10 @@ switch("nimcache", nimCachePath)
 # `-flto` gives a significant improvement in processing speed, specially hash tree and state transition (basically any CPU-bound code implemented in nim)
 # With LTO enabled, optimization flags should be passed to both compiler and linker!
 if defined(release) and not defined(disableLTO):
+  # "-w" is not passed to the compiler during linking, so we need to disable
+  # some warnings by hand.
+  switch("passL", "-Wno-stringop-overflow -Wno-stringop-overread")
+
   if defined(macosx): # Clang
     switch("passC", "-flto=thin")
     switch("passL", "-flto=thin -Wl,-object_path_lto," & nimCachePath & "/lto")
@@ -25,6 +29,23 @@ if defined(release) and not defined(disableLTO):
     # On windows, LTO needs more love and attention so "gcc-ar" and "gcc-ranlib" are
     # used for static libraries.
     discard
+
+# show C compiler warnings
+if defined(cwarnings):
+  let common_gcc_options = "-Wno-discarded-qualifiers -Wno-incompatible-pointer-types"
+  if defined(windows):
+    put("gcc.options.always", "-mno-ms-bitfields " & common_gcc_options)
+    put("clang.options.always", "-mno-ms-bitfields " & common_gcc_options)
+  else:
+    put("gcc.options.always", common_gcc_options)
+    put("clang.options.always", common_gcc_options)
+
+if defined(limitStackUsage):
+  # This limits stack usage of each individual function to 1MB - the option is
+  # available on some GCC versions but not all - run with `-d:limitStackUsage`
+  # and look for .su files in "./nimcache/" that list the stack size of each function
+  switch("passC", "-fstack-usage -Werror=stack-usage=1048576")
+  switch("passL", "-fstack-usage -Werror=stack-usage=1048576")
 
 if defined(windows):
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
