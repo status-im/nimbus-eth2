@@ -619,6 +619,12 @@ type
       defaultValue: "INFO"
       name: "log-level" }: string
 
+    logStdout* {.
+      desc: "Specifies what kind of logs should be written to stdout (auto, colors, nocolors, json)"
+      defaultValueDesc: "auto"
+      defaultValue: StdoutLogKind.Auto
+      name: "log-stdout" }: StdoutLogKind
+
     logFile* {.
       desc: "Specifies a path for the written Json log file"
       name: "log-file" }: Option[OutFile]
@@ -645,6 +651,12 @@ type
     serverIdent* {.
       desc: "Server identifier which will be used in HTTP Host header"
       name: "server-ident" }: Option[string]
+
+    requestTimeout* {.
+      desc: "Request timeout, maximum time that node will wait for remote " &
+            "client request (in seconds)"
+      defaultValue: 60
+      name: "request-timeout" }: uint64
 
     case cmd* {.
       command

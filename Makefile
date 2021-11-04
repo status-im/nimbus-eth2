@@ -49,7 +49,7 @@ TOOLS := \
 	ncli_db \
 	stack_sizes \
 	nimbus_validator_client \
-	nimbus_signing_process
+	nimbus_signing_node
 .PHONY: $(TOOLS)
 
 # bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
@@ -287,7 +287,7 @@ clean-testnet0:
 clean-testnet1:
 	rm -rf build/data/testnet1*
 
-testnet0 testnet1: | nimbus_beacon_node nimbus_signing_process
+testnet0 testnet1: | nimbus_beacon_node nimbus_signing_node
 	build/nimbus_beacon_node \
 		--network=$@ \
 		--log-level="$(RUNTIME_LOG_LEVEL)" \
@@ -393,7 +393,7 @@ endef
 ###
 ### Pyrmont
 ###
-pyrmont-build: | nimbus_beacon_node nimbus_signing_process
+pyrmont-build: | nimbus_beacon_node nimbus_signing_node
 
 # https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
 pyrmont: | pyrmont-build
@@ -420,7 +420,7 @@ clean-pyrmont:
 ###
 ### Prater
 ###
-prater-build: | nimbus_beacon_node nimbus_signing_process
+prater-build: | nimbus_beacon_node nimbus_signing_node
 
 # https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
 prater: | prater-build

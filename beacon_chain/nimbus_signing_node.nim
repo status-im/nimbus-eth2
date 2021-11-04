@@ -5,20 +5,19 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 import std/[tables, os, strutils]
-import chronos, presto, presto/secureserver, chronicles, confutils,
-       stew/[base10, results, byteutils, io2],
-       json_serialization/std/[options, net]
-
-import "."/[conf, version, nimbus_binary_common]
+import serialization, json_serialization,
+       json_serialization/std/[options, net],
+       chronos, presto, presto/secureserver, chronicles, confutils,
+       stew/[base10, results, byteutils, io2]
 import "."/spec/datatypes/[base, altair, phase0],
        "."/spec/[crypto, digest, network, signatures],
        "."/spec/eth2_apis/[rest_types, eth2_rest_serialization],
-       "."/ssz/merkleization
-import "."/rpc/[rest_utils]
-import "."/validators/[keystore_management, validator_pool]
+       "."/ssz/merkleization,
+       "."/rpc/[rest_utils],
+       "."/[conf, version],
+       "."/validators/[keystore_management, validator_pool]
 
 const
-  HttpHeadersTimeout = 10.seconds
   NimbusSigningNodeIdent = "nimbus_remote_signer/" & fullVersionStr
 
 type
@@ -127,7 +126,7 @@ proc init(t: typedesc[SigningNode], config: SigningNodeConf): SigningNode =
     address = initTAddress(config.bindAddress, config.bindPort)
     serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
                    HttpServerFlags.NotifyDisconnect}
-    timeout = HttpHeadersTimeout
+    timeout = config.requestTimeout
     serverIdent =
       if config.serverIdent.isSome():
         config.serverIdent.get()
@@ -322,9 +321,7 @@ proc installApiHandlers*(node: SigningNode) =
 programMain:
   let config = makeBannerAndConfig("Nimbus signing node " & fullVersionStr,
                                    SigningNodeConf)
-
-  setupStdoutLogging(config.logLevel)
-  setupLogging(config.logLevel, config.logFile)
+  setupLogging(config.logLevel, config.logStdout, config.logFile)
 
   case config.cmd
     of SNNoCommand:
