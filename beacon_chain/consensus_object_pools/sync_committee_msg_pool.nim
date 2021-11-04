@@ -131,13 +131,14 @@ func computeAggregateSig(votes: seq[TrustedSyncCommitteeMsg],
     if vote.subcommitteeIndex != subcommitteeIndex:
       continue
 
-    if not initialized:
-      initialized = true
-      aggregateSig.init(vote.signature)
-    else:
-      aggregateSig.aggregate(vote.signature)
+    if not contribution.aggregation_bits[vote.positionInCommittee]:
+      if not initialized:
+        initialized = true
+        aggregateSig.init(vote.signature)
+      else:
+        aggregateSig.aggregate(vote.signature)
 
-    contribution.aggregation_bits.setBit vote.positionInCommittee
+      contribution.aggregation_bits.setBit vote.positionInCommittee
 
   if initialized:
     contribution.signature = aggregateSig.finish.toValidatorSig
@@ -156,7 +157,8 @@ func produceContribution*(
     outContribution.subcommittee_index = subcommitteeIndex.asUInt64
     try:
       computeAggregateSig(pool.syncMessages[headRoot],
-                          subcommitteeIndex, outContribution)
+                          subcommitteeIndex,
+                          outContribution)
     except KeyError:
       raiseAssert "We have checked for the key upfront"
   else:

@@ -708,6 +708,7 @@ proc signAndSendContribution(node: BeaconNode,
 
     # Failures logged in sendSyncCommitteeContribution
     discard await node.sendSyncCommitteeContribution(msg[], false)
+    notice "Contribution sent", contribution = shortLog(msg[])
   except CatchableError as exc:
     # An error could happen here when the signature task fails - we must
     # not leak the exception because this is an asyncSpawn task
@@ -751,6 +752,7 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
         count = selectionProofs.len, time
 
   var contributionsSent = 0
+
   time = timeIt:
     for i in 0 ..< selectionProofs.len:
       if not selectionProofs[i].completed:
@@ -762,7 +764,10 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
 
       var contribution: SyncCommitteeContribution
       let contributionWasProduced = node.syncCommitteeMsgPool[].produceContribution(
-        slot, head.root, candidateAggregators[i].subcommitteeIdx, contribution)
+        slot,
+        head.root,
+        candidateAggregators[i].subcommitteeIdx,
+        contribution)
 
       if contributionWasProduced:
         asyncSpawn signAndSendContribution(
@@ -770,7 +775,6 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
           candidateAggregators[i].validator,
           contribution,
           selectionProof)
-        notice "Contribution sent", contribution = shortLog(contribution)
         inc contributionsSent
       else:
         debug "Failure to produce contribution",

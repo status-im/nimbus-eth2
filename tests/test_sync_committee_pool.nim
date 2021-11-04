@@ -81,6 +81,9 @@ suite "Sync committee pool":
     pool.addSyncCommitteeMsg(root2Slot, root1, 3, sig3, subcommittee2, [7'u64])
     pool.addSyncCommitteeMsg(root2Slot, root2, 4, sig4, subcommittee2, [3'u64])
 
+    # Insert a duplicate message (this should be handled gracefully)
+    pool.addSyncCommitteeMsg(root1Slot, root1, 1, sig1, subcommittee1, [1'u64])
+
     # Producing contributions
     #
     block:
