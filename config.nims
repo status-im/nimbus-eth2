@@ -26,6 +26,13 @@ if defined(release) and not defined(disableLTO):
     # used for static libraries.
     discard
 
+if defined(enableStackUsage):
+  # This limits stack usage of each individual function to 1MB - the option is
+  # available on some GCC versions but not all - run with `-d:enableStackUsage`
+  # and look for .su files that list the stack size of each function
+  switch("passC", "-fstack-usage -Werror=stack-usage=1048576")
+  switch("passL", "-fstack-usage -Werror=stack-usage=1048576")
+
 if defined(windows):
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
   switch("passL", "-Wl,--no-insert-timestamp")
