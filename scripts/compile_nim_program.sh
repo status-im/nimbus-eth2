@@ -23,7 +23,8 @@ PROJECT_NAME="$(basename ${SOURCE%.nim})"
 # LTO on macOS, in "config.nims"
 nim c --compileOnly -o:build/${BINARY} "$@" -d:nimCachePathOverride=nimcache/release/${BINARY} "${SOURCE}"
 build/generate_makefile "nimcache/release/${BINARY}/${PROJECT_NAME}.json" "nimcache/release/${BINARY}/${BINARY}.makefile"
-[[ "$V" == "0" ]] && exec &>/dev/null
+# Don't swallow stderr, in case it's important.
+[[ "$V" == "0" ]] && exec >/dev/null
 "${MAKE}" -f "nimcache/release/${BINARY}/${BINARY}.makefile" --no-print-directory build
 
 if uname | grep -qi darwin || [[ -n "${FORCE_DSYMUTIL}" ]]; then
