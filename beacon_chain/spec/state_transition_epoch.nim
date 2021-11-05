@@ -665,14 +665,36 @@ iterator get_flag_index_deltas*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
 iterator get_inactivity_penalty_deltas*(
-    cfg: RuntimeConfig, state: altair.BeaconState | merge.BeaconState,
-    info: altair.EpochInfo):
+    cfg: RuntimeConfig, state: altair.BeaconState, info: altair.EpochInfo):
     (ValidatorIndex, Gwei) =
   ## Return the inactivity penalty deltas by considering timely target
   ## participation flags and inactivity scores.
   let
     penalty_denominator =
       cfg.INACTIVITY_SCORE_BIAS * INACTIVITY_PENALTY_QUOTIENT_ALTAIR
+    previous_epoch = get_previous_epoch(state)
+
+  for index in 0 ..< state.validators.len:
+    if not is_eligible_validator(info.validators[index]):
+      continue
+
+    template vidx: untyped = index.ValidatorIndex
+    if not is_unslashed_participating_index(
+        state, TIMELY_TARGET_FLAG_INDEX, previous_epoch, vidx):
+      let
+        penalty_numerator = state.validators[index].effective_balance *
+          state.inactivity_scores[index]
+      yield (vidx, Gwei(penalty_numerator div penalty_denominator))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/beacon-chain.md#modified-get_inactivity_penalty_deltas
+iterator get_inactivity_penalty_deltas*(
+    cfg: RuntimeConfig, state: merge.BeaconState, info: altair.EpochInfo):
+    (ValidatorIndex, Gwei) =
+  ## Return the inactivity penalty deltas by considering timely target
+  ## participation flags and inactivity scores.
+  let
+    penalty_denominator =
+      cfg.INACTIVITY_SCORE_BIAS * INACTIVITY_PENALTY_QUOTIENT_MERGE
     previous_epoch = get_previous_epoch(state)
 
   for index in 0 ..< state.validators.len:
@@ -794,8 +816,9 @@ func process_registry_updates*(
     state.validators[index].activation_epoch =
       compute_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/phase0/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/altair/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/beacon-chain.md#slashings
 func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) {.nbench.} =
   let
     epoch = get_current_epoch(state)
@@ -804,8 +827,10 @@ func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) {.nben
       # single-constant changes...
       uint64(when state is phase0.BeaconState:
         PROPORTIONAL_SLASHING_MULTIPLIER
-      elif state is altair.BeaconState or state is merge.BeaconState:
+      elif state is altair.BeaconState:
         PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR
+      elif state is merge.BeaconState:
+        PROPORTIONAL_SLASHING_MULTIPLIER_MERGE
       else:
         raiseAssert "process_slashings: incorrect BeaconState type")
     adjusted_total_slashing_balance =

@@ -21,11 +21,15 @@ const
   topicAttesterSlashingsSuffix* = "attester_slashing/ssz_snappy"
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz_snappy"
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/phase0/p2p-interface.md#configuration
   MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
   GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
   TTFB_TIMEOUT* = 5.seconds
   RESP_TIMEOUT* = 10.seconds
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/p2p-interface.md#configuration
+  GOSSIP_MAX_SIZE_MERGE* = 10 * 1024 * 1024 # bytes
+  MAX_CHUNK_SIZE_MERGE* = 10 * 1024 * 1024 # bytes
 
   defaultEth2TcpPort* = 9000
 

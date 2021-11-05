@@ -497,44 +497,16 @@ proc process_sync_aggregate*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_valid_gas_limit
-func is_valid_gas_limit(
-    payload: ExecutionPayload, parent: ExecutionPayloadHeader): bool =
-  let parent_gas_limit = parent.gas_limit
-
-  # Check if the payload used too much gas
-  if payload.gas_used > payload.gas_limit:
-    return false
-
-  # Check if the payload changed the gas limit too much
-  if payload.gas_limit >=
-      parent_gas_limit + parent_gas_limit div GAS_LIMIT_DENOMINATOR:
-    return false
-  if payload.gas_limit <=
-      parent_gas_limit - parent_gas_limit div GAS_LIMIT_DENOMINATOR:
-    return false
-
-  # Check if the gas limit is at least the minimum gas limit
-  if payload.gas_limit < MIN_GAS_LIMIT:
-    return false
-
-  true
-
-# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/beacon-chain.md#process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
     state: var merge.BeaconState, payload: ExecutionPayload,
     execute_payload: ExecutePayload): Result[void, cstring] {.nbench.} =
-  # Verify consistency of the parent hash, block number, base fee per gas and
-  # gas limit with respect to the previous execution payload header
+  ## Verify consistency of the parent hash with respect to the previous
+  ## execution payload header
   if is_merge_complete(state):
     if not (payload.parent_hash ==
         state.latest_execution_payload_header.block_hash):
       return err("process_execution_payload: payload and state parent hash mismatch")
-    if not (payload.block_number ==
-        state.latest_execution_payload_header.block_number + 1):
-      return err("process_execution_payload: payload and state block number mismatch")
-    if not is_valid_gas_limit(payload, state.latest_execution_payload_header):
-      return err("process_execution_payload: invalid gas limit")
 
   # Verify random
   if not (payload.random == get_randao_mix(state, get_current_epoch(state))):

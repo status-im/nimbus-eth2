@@ -119,8 +119,9 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var ForkyBeaconState,
   validator.withdrawable_epoch =
     validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     slashed_index: ValidatorIndex, cache: var StateCache) =
@@ -149,9 +150,12 @@ proc slash_validator*(
   when state is phase0.BeaconState:
     decrease_balance(state, slashed_index,
       validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
-  elif state is altair.BeaconState or state is merge.BeaconState:
+  elif state is altair.BeaconState:
     decrease_balance(state, slashed_index,
       validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR)
+  elif state is merge.BeaconState:
+    decrease_balance(state, slashed_index,
+      validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_MERGE)
   else:
     raiseAssert "invalid BeaconState type"
 

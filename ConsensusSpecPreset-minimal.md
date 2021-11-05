@@ -357,6 +357,7 @@ OK: 338/338 Fail: 0/338 Skip: 0/338
 + [Invalid] Ethereum Foundation - Altair - Operations - Attestation - invalid_attestation_si OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Attestation - invalid_current_source OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Attestation - invalid_index          OK
++ [Invalid] Ethereum Foundation - Altair - Operations - Attestation - invalid_previous_sourc OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Attestation - mismatched_target_and_ OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Attestation - new_source_epoch       OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Attestation - old_source_epoch       OK
@@ -380,6 +381,7 @@ OK: 338/338 Fail: 0/338 Skip: 0/338
 + [Invalid] Ethereum Foundation - Merge - Operations - Attestation - invalid_attestation_sig OK
 + [Invalid] Ethereum Foundation - Merge - Operations - Attestation - invalid_current_source_ OK
 + [Invalid] Ethereum Foundation - Merge - Operations - Attestation - invalid_index           OK
++ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - invalid_previous_source OK
 + [Invalid] Ethereum Foundation - Merge - Operations - Attestation - mismatched_target_and_s OK
 + [Invalid] Ethereum Foundation - Merge - Operations - Attestation - new_source_epoch        OK
 + [Invalid] Ethereum Foundation - Merge - Operations - Attestation - old_source_epoch        OK
@@ -403,6 +405,7 @@ OK: 338/338 Fail: 0/338 Skip: 0/338
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - invalid_attestation_s OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - invalid_current_sourc OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - invalid_index         OK
++ [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - invalid_previous_sour OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - mismatched_target_and OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - new_source_epoch      OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - old_source_epoch      OK
@@ -459,7 +462,7 @@ OK: 338/338 Fail: 0/338 Skip: 0/338
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - success_multi_propose OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - success_previous_epoc OK
 ```
-OK: 114/114 Fail: 0/114 Skip: 0/114
+OK: 117/117 Fail: 0/117 Skip: 0/117
 ## Attester Slashing
 ```diff
 + [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - all_empty_indice OK
@@ -1047,28 +1050,17 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_everything_re OK
 + [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_execution_fir OK
 + [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_execution_reg OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_number_regula OK
 + [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_parent_hash_r OK
 + [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_random_first_ OK
 + [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_random_regula OK
 + [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_timestamp_fir OK
 + [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_timestamp_reg OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_lower_mi OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_minimum_ OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_upper_pl OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - gasused_gaslimit_ OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_lower_re OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_max_firs OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_minimum_ OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_upper_re OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - gaslimit_zero_fir OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - gasused_gaslimit_ OK
 + [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - success_first_pay OK
 + [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - success_first_pay OK
 + [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - success_regular_p OK
 + [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - success_regular_p OK
 ```
-OK: 23/23 Fail: 0/23 Skip: 0/23
+OK: 12/12 Fail: 0/12 Skip: 0/12
 ## Proposer Slashing
 ```diff
 + [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - epochs_are_diffe OK
@@ -1206,4 +1198,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 30/30 Fail: 0/30 Skip: 0/30
 
 ---TOTAL---
-OK: 1028/1028 Fail: 0/1028 Skip: 0/1028
+OK: 1020/1020 Fail: 0/1020 Skip: 0/1020

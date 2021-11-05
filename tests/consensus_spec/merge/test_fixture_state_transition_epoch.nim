@@ -11,7 +11,6 @@ import
   # Standard library
   os, strutils,
   # Beacon chain internals
-  chronicles,
   ../../../beacon_chain/spec/[beaconstate, presets, state_transition_epoch],
   ../../../beacon_chain/spec/datatypes/[altair, merge],
   # Test utilities
