@@ -23,18 +23,15 @@ import
   nimcrypto/utils
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#execution
-  MAX_BYTES_PER_OPAQUE_TRANSACTION* = 1048576
-  MAX_TRANSACTIONS_PER_PAYLOAD* = 16384
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/beacon-chain.md#execution
+  MAX_BYTES_PER_TRANSACTION* = 1073741824
+  MAX_TRANSACTIONS_PER_PAYLOAD* = 1048576
   BYTES_PER_LOGS_BLOOM = 256
-  GAS_LIMIT_DENOMINATOR* = 1024
-  MIN_GAS_LIMIT* = 5000
   MAX_EXTRA_DATA_BYTES = 32
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#custom-types
-  OpaqueTransaction* = List[byte, Limit MAX_BYTES_PER_OPAQUE_TRANSACTION]
-  Transaction* = SingleMemberUnion[OpaqueTransaction]
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/beacon-chain.md#custom-types
+  Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
 
   EthAddress* = object
     data*: array[20, byte]  # TODO there's a network_metadata type, but the import hierarchy's inconvenient
@@ -42,10 +39,10 @@ type
   BloomLogs* = object
     data*: array[BYTES_PER_LOGS_BLOOM, byte]
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.2/src/engine/interop/specification.md#returns
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.4/src/engine/interop/specification.md#returns
   PayloadId* = uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
     coinbase*: EthAddress  # 'beneficiary' in the yellow paper

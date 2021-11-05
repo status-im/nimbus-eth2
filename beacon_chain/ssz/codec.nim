@@ -161,8 +161,8 @@ func readSszValue*[T](input: openArray[byte],
       val.setOutputSize resultLen
       for i in 1 ..< resultLen:
         let nextOffset = readOffset(i * offsetSize)
-        if nextOffset <= offset:
-          raise newException(MalformedSszError, "SSZ list element offsets are not monotonically increasing")
+        if nextOffset < offset:
+          raise newException(MalformedSszError, "SSZ list element offsets are decreasing")
         else:
           readSszValue(input.toOpenArray(offset, nextOffset - 1), val[i - 1])
         offset = nextOffset
