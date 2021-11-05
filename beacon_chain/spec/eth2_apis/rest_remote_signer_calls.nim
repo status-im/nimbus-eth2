@@ -7,7 +7,7 @@
 {.push raises: [Defect].}
 
 import
-  std/strutils,
+  std/strutils, chronicles,
   chronos, chronos/apps/http/httpclient, presto/client,
   nimcrypto/utils as ncrutils,
   stew/[results, base10],
