@@ -31,7 +31,7 @@ export extras, phase0, altair
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
-    state: var SomeBeaconState, blck: SomeSomeBeaconBlock, flags: UpdateFlags,
+    state: var ForkyBeaconState, blck: SomeSomeBeaconBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =
   # Verify that the slots match
   if not (blck.slot == state.slot):
@@ -74,7 +74,7 @@ func `xor`[T: array](a, b: T): T =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#randao
 proc process_randao(
-    state: var SomeBeaconState, body: SomeSomeBeaconBlockBody, flags: UpdateFlags,
+    state: var ForkyBeaconState, body: SomeSomeBeaconBlockBody, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =
   let
     proposer_index = get_beacon_proposer_index(state, cache)
@@ -106,7 +106,7 @@ proc process_randao(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#eth1-data
-func process_eth1_data(state: var SomeBeaconState, body: SomeSomeBeaconBlockBody): Result[void, cstring] {.nbench.}=
+func process_eth1_data(state: var ForkyBeaconState, body: SomeSomeBeaconBlockBody): Result[void, cstring] {.nbench.}=
   if not state.eth1_data_votes.add body.eth1_data:
     # Count is reset  in process_final_updates, so this should never happen
     return err("process_eth1_data: no more room for eth1 data")
@@ -125,7 +125,7 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#proposer-slashings
 proc check_proposer_slashing*(
-    state: var SomeBeaconState, proposer_slashing: SomeProposerSlashing,
+    state: var ForkyBeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags):
     Result[void, cstring] {.nbench.} =
 
@@ -166,9 +166,15 @@ proc check_proposer_slashing*(
 
   ok()
 
+proc check_proposer_slashing*(
+    state: var ForkedHashedBeaconState; proposer_slashing: SomeProposerSlashing;
+    flags: UpdateFlags): Result[void, cstring] =
+  withState(state):
+    check_proposer_slashing(state.data, proposer_slashing, flags)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
-    cfg: RuntimeConfig, state: var SomeBeaconState,
+    cfg: RuntimeConfig, state: var ForkyBeaconState,
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
     cache: var StateCache):
     Result[void, cstring] {.nbench.} =
@@ -193,7 +199,7 @@ func is_slashable_attestation_data(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#attester-slashings
 proc check_attester_slashing*(
-       state: var SomeBeaconState,
+       state: var ForkyBeaconState,
        attester_slashing: SomeAttesterSlashing,
        flags: UpdateFlags
      ): Result[seq[ValidatorIndex], cstring] {.nbench.} =
@@ -225,10 +231,16 @@ proc check_attester_slashing*(
 
   ok slashed_indices
 
+proc check_attester_slashing*(
+    state: var ForkedHashedBeaconState; attester_slashing: SomeAttesterSlashing;
+    flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
+  withState(state):
+    check_attester_slashing(state.data, attester_slashing, flags)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
     cfg: RuntimeConfig,
-    state: var SomeBeaconState,
+    state: var ForkyBeaconState,
     attester_slashing: SomeAttesterSlashing,
     flags: UpdateFlags,
     cache: var StateCache
@@ -245,7 +257,7 @@ proc process_attester_slashing*(
   ok()
 
 proc process_deposit*(cfg: RuntimeConfig,
-                      state: var SomeBeaconState,
+                      state: var ForkyBeaconState,
                       deposit: Deposit,
                       flags: UpdateFlags): Result[void, cstring] {.nbench.} =
   ## Process an Eth1 deposit, registering a validator or increasing its balance.
@@ -314,7 +326,7 @@ proc process_deposit*(cfg: RuntimeConfig,
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#voluntary-exits
 proc check_voluntary_exit*(
     cfg: RuntimeConfig,
-    state: SomeBeaconState,
+    state: ForkyBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags): Result[void, cstring] {.nbench.} =
 
@@ -364,10 +376,17 @@ proc check_voluntary_exit*(
 
   ok()
 
+proc check_voluntary_exit*(
+    cfg: RuntimeConfig, state: ForkedHashedBeaconState;
+    signed_voluntary_exit: SomeSignedVoluntaryExit;
+    flags: UpdateFlags): Result[void, cstring] =
+  withState(state):
+    check_voluntary_exit(cfg, state.data, signed_voluntary_exit, flags)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
     cfg: RuntimeConfig,
-    state: var SomeBeaconState,
+    state: var ForkyBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =
@@ -379,7 +398,7 @@ proc process_voluntary_exit*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#operations
 proc process_operations(cfg: RuntimeConfig,
-                        state: var SomeBeaconState,
+                        state: var ForkyBeaconState,
                         body: SomeSomeBeaconBlockBody,
                         base_reward_per_increment: Gwei,
                         flags: UpdateFlags,

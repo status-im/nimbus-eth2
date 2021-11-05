@@ -89,7 +89,7 @@ proc doTransition(conf: NcliConf) =
     blckX = SSZ.loadFile(conf.blck, phase0.SignedBeaconBlock)
     flags = if not conf.verifyStateRoot: {skipStateRootValidation} else: {}
 
-  setStateRoot(stateY[], hash_tree_root(stateY[]))
+  setStateRoot(stateY[], hash_tree_root(stateY[].phase0Data.data))
 
   var
     cache = StateCache()
@@ -117,7 +117,7 @@ proc doSlots(conf: NcliConf) =
       kind: BeaconStateFork.Phase0
     )
 
-  setStateRoot(stateY[], hash_tree_root(stateY[]))
+  setStateRoot(stateY[], hash_tree_root(stateY[].phase0Data.data))
 
   var
     cache = StateCache()
@@ -147,7 +147,9 @@ proc doSSZ(conf: NcliConf) =
       if cmpIgnoreCase(ext, ".ssz") == 0:
         SSZ.loadFile(file, t)
       elif cmpIgnoreCase(ext, ".json") == 0:
-        JSON.loadFile(file, t)
+        # JSON.loadFile(file, t)
+        echo "TODO needs porting to RestJson"
+        quit 1
       else:
         echo "Unknown file type: ", ext
         quit 1

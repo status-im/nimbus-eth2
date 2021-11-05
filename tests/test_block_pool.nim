@@ -265,7 +265,7 @@ suite "Block pool processing" & preset():
     check:
       # ensure we loaded the correct head state
       dag2.head.root == b2.root
-      hash_tree_root(dag2.headState.data) == b2.message.state_root
+      getStateRoot(dag2.headState.data) == b2.message.state_root
       dag2.get(b1.root).isSome()
       dag2.get(b2.root).isSome()
       dag2.heads.len == 1
@@ -443,7 +443,7 @@ suite "chain DAG finalization tests" & preset():
       dag2.head.root == dag.head.root
       dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
       dag2.finalizedHead.slot == dag.finalizedHead.slot
-      hash_tree_root(dag2.headState.data) == hash_tree_root(dag.headState.data)
+      getStateRoot(dag2.headState.data) == getStateRoot(dag.headState.data)
 
   test "orphaned epoch block" & preset():
     var prestate = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0)
@@ -516,8 +516,10 @@ suite "chain DAG finalization tests" & preset():
         assign(tmpStateData[], dag.headState)
         dag.updateStateData(tmpStateData[], cur.atSlot(cur.slot), false, cache)
         check:
-          dag.get(cur).data.phase0Data.message.state_root == getStateRoot(tmpStateData[].data)
-          getStateRoot(tmpStateData[].data) == hash_tree_root(tmpStateData[].data)
+          dag.get(cur).data.phase0Data.message.state_root ==
+            getStateRoot(tmpStateData[].data)
+          getStateRoot(tmpStateData[].data) == hash_tree_root(
+            tmpStateData[].data.phase0Data.data)
         cur = cur.parent
 
     let
@@ -529,7 +531,7 @@ suite "chain DAG finalization tests" & preset():
       dag2.head.root == dag.head.root
       dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
       dag2.finalizedHead.slot == dag.finalizedHead.slot
-      hash_tree_root(dag2.headState.data) == hash_tree_root(dag.headState.data)
+      getStateRoot(dag2.headState.data) == getStateRoot(dag.headState.data)
 
 suite "Old database versions" & preset():
   setup:
@@ -555,7 +557,7 @@ suite "Old database versions" & preset():
     db.putTailBlock(genBlock.root)
     db.putHeadBlock(genBlock.root)
     db.putStateRoot(genBlock.root, genState.slot, genBlock.message.state_root)
-    db.putGenesisBlockRoot(genBlock.root)
+    db.putGenesisBlock(genBlock.root)
 
     var
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})

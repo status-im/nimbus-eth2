@@ -132,7 +132,7 @@ func getExitMessagesForBlock(
 
   subpool.clear()
 
-func getBeaconBlockExits*(pool: var ExitPool, state: SomeBeaconState): BeaconBlockExits =
+func getBeaconBlockExits*(pool: var ExitPool, state: ForkyBeaconState): BeaconBlockExits =
   var
     indices: HashSet[uint64]
     res: BeaconBlockExits

@@ -289,3 +289,14 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     blck: shortLog(v.message),
     signature: shortLog(v.signature)
   )
+
+template asSigned*(x: SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock):
+    SignedBeaconBlock =
+  isomorphicCast[SignedBeaconBlock](x)
+
+template asSigVerified*(x: SignedBeaconBlock | TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
+
+template asTrusted*(
+    x: SignedBeaconBlock | SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
+  isomorphicCast[TrustedSignedBeaconBlock](x)

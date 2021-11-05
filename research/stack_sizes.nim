@@ -9,7 +9,7 @@ proc print(t: auto, n: string, indent: int) =
     for n, p in t.fieldPairs:
       print(p, n, indent + 1)
 
-print(BeaconState(), "state", 0)
+print((ref BeaconState)()[], "state", 0)
 
 echo ""
 

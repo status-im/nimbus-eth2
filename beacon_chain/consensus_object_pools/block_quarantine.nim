@@ -12,6 +12,7 @@ import
   chronicles,
   stew/bitops2,
   eth/keys,
+  ../spec/forks,
   ../spec/datatypes/[phase0, altair, merge],
   ./block_pools_types
 
@@ -102,9 +103,7 @@ func removeOrphan*(
   quarantine.orphansMerge.del((signedBlock.root, signedBlock.signature))
 
 func isViableOrphan(
-    dag: ChainDAGRef,
-    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                 merge.SignedBeaconBlock): bool =
+    dag: ChainDAGRef, signedBlock: ForkySignedBeaconBlock): bool =
   # The orphan must be newer than the finalization point so that its parent
   # either is the finalized block or more recent
   signedBlock.message.slot > dag.finalizedHead.slot

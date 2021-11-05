@@ -374,8 +374,7 @@ proc addAttestation*(pool: var AttestationPool,
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
-                    blck: phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock |
-                          merge.TrustedBeaconBlock,
+                    blck: ForkyTrustedBeaconBlock,
                     wallSlot: Slot) =
   ## Add a verified block to the fork choice context
   let state = pool.forkChoice.process_block(
@@ -510,7 +509,7 @@ proc score(
   bitsScore
 
 proc getAttestationsForBlock*(pool: var AttestationPool,
-                              state: SomeHashedBeaconState,
+                              state: ForkyHashedBeaconState,
                               cache: var StateCache): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state

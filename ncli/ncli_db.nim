@@ -7,7 +7,7 @@ import
     blockchain_dag, forkedbeaconstate_dbhelpers],
   ../beacon_chain/spec/datatypes/phase0,
   ../beacon_chain/spec/[
-    forks, helpers, state_transition, state_transition_epoch],
+    beaconstate, helpers, state_transition, state_transition_epoch, validator],
   ../beacon_chain/sszdump,
   ../research/simutils, ./e2store
 
@@ -183,7 +183,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
 
   for b in 0..<blockRefs.len:
     withTimer(timers[tLoadBlock]):
-      blocks.add db.getBlock(blockRefs[blockRefs.len - b - 1].root).get()
+      blocks.add db.getPhase0Block(blockRefs[blockRefs.len - b - 1].root).get()
 
   let state = newClone(dag.headState)
 
@@ -233,7 +233,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
           doAssert dbBenchmark.getState(getStateRoot(state[].data), loadedState[], noRollback)
 
         if getStateField(state[].data, slot).epoch mod 16 == 0:
-          doAssert hash_tree_root(state[].data) == hash_tree_root(loadedState[])
+          doAssert hash_tree_root(state[].data.phase0Data.data) == hash_tree_root(loadedState[])
 
   printTimers(false, timers)
 
@@ -259,7 +259,7 @@ proc cmdDumpBlock(conf: DbConf) =
   for blockRoot in conf.blockRootx:
     try:
       let root = Eth2Digest(data: hexToByteArray[32](blockRoot))
-      if (let blck = db.getBlock(root); blck.isSome):
+      if (let blck = db.getPhase0Block(root); blck.isSome):
         dump("./", blck.get())
       else:
         echo "Couldn't load ", root
@@ -276,20 +276,20 @@ proc copyPrunedDatabase(
     tailBlock = db.getTailBlock()
 
   doAssert headBlock.isOk and tailBlock.isOk
-  doAssert db.getBlock(headBlock.get).isOk
-  doAssert db.getBlock(tailBlock.get).isOk
+  doAssert db.getPhase0Block(headBlock.get).isOk
+  doAssert db.getPhase0Block(tailBlock.get).isOk
 
   var
     beaconState: ref phase0.BeaconState
     finalizedEpoch: Epoch  # default value of 0 is conservative/safe
-    prevBlockSlot = db.getBlock(db.getHeadBlock().get).get.message.slot
+    prevBlockSlot = db.getPhase0Block(db.getHeadBlock().get).get.message.slot
 
   beaconState = new phase0.BeaconState
-  let headEpoch = db.getBlock(headBlock.get).get.message.slot.epoch
+  let headEpoch = db.getPhase0Block(headBlock.get).get.message.slot.epoch
 
   # Tail states are specially addressed; no stateroot intermediary
   if not db.getState(
-      db.getBlock(tailBlock.get).get.message.state_root, beaconState[],
+      db.getPhase0Block(tailBlock.get).get.message.state_root, beaconState[],
       noRollback):
     doAssert false, "could not load tail state"
   if not dry_run:
@@ -421,7 +421,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
       for i in 0..<ancestors.len():
         let
           ancestor = ancestors[ancestors.len - 1 - i]
-        e2s.appendRecord(db.getBlock(ancestor.root).get()).get()
+        e2s.appendRecord(db.getPhase0Block(ancestor.root).get()).get()
 
 type
   # Validator performance metrics tool based on
@@ -525,7 +525,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
       echo "TODO altair"
 
   for bi in 0..<blockRefs.len:
-    blck = db.getBlock(blockRefs[blockRefs.len - bi - 1].root).get()
+    blck = db.getPhase0Block(blockRefs[blockRefs.len - bi - 1].root).get()
     while getStateField(state[].data, slot) < blck.message.slot:
       let
         nextSlot = getStateField(state[].data, slot) + 1
@@ -768,7 +768,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
       outDb.exec("COMMIT;").expect("DB")
 
   for bi in 0..<blockRefs.len:
-    blck = db.getBlock(blockRefs[blockRefs.len - bi - 1].root).get()
+    blck = db.getPhase0Block(blockRefs[blockRefs.len - bi - 1].root).get()
     while getStateField(state[].data, slot) < blck.message.slot:
       let
         nextSlot = getStateField(state[].data, slot) + 1

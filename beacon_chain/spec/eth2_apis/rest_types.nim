@@ -414,7 +414,7 @@ type
   GetStateResponse* = DataEnclosedObject[phase0.BeaconState]
   GetBlockV2Response* = ForkedSignedBeaconBlock
   GetBlockV2Header* = ForkedSignedBlockHeader
-  GetStateV2Response* = ForkedBeaconState
+  GetStateV2Response* = ForkedHashedBeaconState
   GetStateV2Header* = ForkedBeaconStateHeader
   GetPhase0StateSszResponse* = phase0.BeaconState
   GetAltairStateSszResponse* = altair.BeaconState

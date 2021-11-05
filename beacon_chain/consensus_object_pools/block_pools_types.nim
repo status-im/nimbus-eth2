@@ -183,7 +183,7 @@ type
       ## block - we limit the number of held EpochRefs to put a cap on
       ## memory usage
 
-    forkDigests*: ForkDigestsRef
+    forkDigests*: ref ForkDigests
       ## Cached copy of the fork digests associated with the current
       ## database. We use a ref type to facilitate sharing this small
       ## value with other components which don't have access to the

@@ -77,8 +77,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return
         case contentType
         of "application/json":
-          RestApiResponse.jsonResponsePlain(
-            ForkedBeaconState.init(stateData.data))
+          RestApiResponse.jsonResponsePlain(stateData.data)
         of "application/octet-stream":
           withState(stateData.data):
             RestApiResponse.sszResponse(state.data)

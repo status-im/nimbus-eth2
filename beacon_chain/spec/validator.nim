@@ -13,7 +13,7 @@ import
   ./datatypes/[phase0, altair, merge],
   ./helpers
 
-export phase0, altair
+export helpers
 
 const
   SEED_SIZE = sizeof(Eth2Digest)
@@ -126,7 +126,7 @@ func shuffle_list*(input: var seq[ValidatorIndex], seed: Eth2Digest) =
     shuffle
 
 func get_shuffled_active_validator_indices*(
-    state: SomeBeaconState, epoch: Epoch): seq[ValidatorIndex] =
+    state: ForkyBeaconState, epoch: Epoch): seq[ValidatorIndex] =
   # Non-spec function, to cache a data structure from which one can cheaply
   # compute both get_active_validator_indexes() and get_beacon_committee().
   var active_validator_indices = get_active_validator_indices(state, epoch)
@@ -137,7 +137,7 @@ func get_shuffled_active_validator_indices*(
   active_validator_indices
 
 func get_shuffled_active_validator_indices*(
-    cache: var StateCache, state: SomeBeaconState, epoch: Epoch):
+    cache: var StateCache, state: ForkyBeaconState, epoch: Epoch):
     var seq[ValidatorIndex] =
   # `cache` comes first because of nim's borrowing rules for the `var` return -
   # the `var` returns avoids copying the validator set.
@@ -147,8 +147,14 @@ func get_shuffled_active_validator_indices*(
     let indices = get_shuffled_active_validator_indices(state, epoch)
     return cache.shuffled_active_validator_indices.mgetOrPut(epoch, indices)
 
+func get_shuffled_active_validator_indices*(
+    cache: var StateCache, state: ForkedHashedBeaconState, epoch: Epoch):
+    seq[ValidatorIndex] =
+  withState(state):
+    cache.get_shuffled_active_validator_indices(state.data, epoch)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#get_active_validator_indices
-func count_active_validators*(state: SomeBeaconState,
+func count_active_validators*(state: ForkyBeaconState,
                               epoch: Epoch,
                               cache: var StateCache): uint64 =
   cache.get_shuffled_active_validator_indices(state, epoch).lenu64
@@ -159,7 +165,7 @@ func get_committee_count_per_slot*(num_active_validators: uint64): uint64 =
     num_active_validators div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
     1'u64, MAX_COMMITTEES_PER_SLOT)
 
-func get_committee_count_per_slot*(state: SomeBeaconState,
+func get_committee_count_per_slot*(state: ForkyBeaconState,
                                    epoch: Epoch,
                                    cache: var StateCache): uint64 =
   ## Return the number of committees at ``slot``.
@@ -171,13 +177,19 @@ func get_committee_count_per_slot*(state: SomeBeaconState,
   # Otherwise, get_beacon_committee(...) cannot access some committees.
   doAssert (SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT) >= uint64(result)
 
-iterator committee_indices_per_slot*(state: SomeBeaconState,
+func get_committee_count_per_slot*(state: ForkedHashedBeaconState,
+                                   epoch: Epoch,
+                                   cache: var StateCache): uint64 =
+  withState(state):
+    get_committee_count_per_slot(state.data, epoch, cache)
+
+iterator committee_indices_per_slot*(state: ForkyBeaconState,
                                      epoch: Epoch,
                                      cache: var StateCache): CommitteeIndex =
   for idx in 0'u64 ..< get_committee_count_per_slot(state, epoch, cache):
     yield CommitteeIndex.verifiedValue(idx)
 
-func get_committee_count_per_slot*(state: SomeBeaconState,
+func get_committee_count_per_slot*(state: ForkyBeaconState,
                                    slot: Slot,
                                    cache: var StateCache): uint64 =
   get_committee_count_per_slot(state, slot.compute_epoch_at_slot, cache)
@@ -190,9 +202,14 @@ func get_previous_epoch*(current_epoch: Epoch): Epoch =
   else:
     current_epoch - 1
 
-func get_previous_epoch*(state: SomeBeaconState): Epoch =
+func get_previous_epoch*(state: ForkyBeaconState): Epoch =
   ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   # Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
+  get_previous_epoch(get_current_epoch(state))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_previous_epoch
+func get_previous_epoch*(state: ForkedHashedBeaconState): Epoch =
+  ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   get_previous_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#compute_committee
@@ -241,7 +258,7 @@ func compute_committee_len*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#get_beacon_committee
 iterator get_beacon_committee*(
-    state: SomeBeaconState, slot: Slot, index: CommitteeIndex,
+    state: ForkyBeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): ValidatorIndex =
   ## Return the beacon committee at ``slot`` for ``index``.
   let
@@ -255,7 +272,7 @@ iterator get_beacon_committee*(
   ): yield idx
 
 func get_beacon_committee*(
-    state: SomeBeaconState, slot: Slot, index: CommitteeIndex,
+    state: ForkyBeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): seq[ValidatorIndex] =
   ## Return the beacon committee at ``slot`` for ``index``.
   let
@@ -268,9 +285,20 @@ func get_beacon_committee*(
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
+func get_beacon_committee*(
+    state: ForkedHashedBeaconState, slot: Slot, index: CommitteeIndex,
+    cache: var StateCache): seq[ValidatorIndex] =
+  # This one is used by tests/, ncli/, and a couple of places in RPC
+  # TODO use the iterator version alone, to remove the risk of using
+  # diverging get_beacon_committee() in tests and beacon_chain/ by a
+  # wrapper approach (e.g., toSeq). This is a perf tradeoff for test
+  # correctness/consistency.
+  withState(state):
+    get_beacon_committee(state.data, slot, index, cache)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee_len*(
-    state: SomeBeaconState, slot: Slot, index: CommitteeIndex,
+    state: ForkyBeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): uint64 =
   # Return the number of members in the beacon committee at ``slot`` for ``index``.
   let
@@ -283,6 +311,13 @@ func get_beacon_committee_len*(
       index.uint64,
     committees_per_slot * SLOTS_PER_EPOCH
   )
+
+func get_beacon_committee_len*(
+    state: ForkedHashedBeaconState, slot: Slot, index: CommitteeIndex,
+    cache: var StateCache): uint64 =
+  # This one is used by tests
+  withState(state):
+    get_beacon_committee_len(state.data, slot, index, cache)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#compute_shuffled_index
 func compute_shuffled_index*(
@@ -320,7 +355,7 @@ func compute_shuffled_index*(
   cur_idx_permuted
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#compute_proposer_index
-func compute_proposer_index(state: SomeBeaconState,
+func compute_proposer_index(state: ForkyBeaconState,
     indices: seq[ValidatorIndex], seed: Eth2Digest): Option[ValidatorIndex] =
   ## Return from ``indices`` a random index sampled by effective balance.
   const MAX_RANDOM_BYTE = 255
@@ -348,7 +383,7 @@ func compute_proposer_index(state: SomeBeaconState,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(
-    state: SomeBeaconState, cache: var StateCache, slot: Slot):
+    state: ForkyBeaconState, cache: var StateCache, slot: Slot):
     Option[ValidatorIndex] =
   cache.beacon_proposer_indices.withValue(slot, proposer) do:
     return proposer[]
@@ -380,9 +415,15 @@ func get_beacon_proposer_index*(
     return res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#get_beacon_proposer_index
-func get_beacon_proposer_index*(state: SomeBeaconState, cache: var StateCache):
+func get_beacon_proposer_index*(state: ForkyBeaconState, cache: var StateCache):
     Option[ValidatorIndex] =
   get_beacon_proposer_index(state, cache, state.slot)
+
+func get_beacon_proposer_index*(state: ForkedHashedBeaconState,
+                                cache: var StateCache, slot: Slot):
+                                Option[ValidatorIndex] =
+  withState(state):
+    get_beacon_proposer_index(state.data, cache, slot)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/validator.md#aggregation-selection
 func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =

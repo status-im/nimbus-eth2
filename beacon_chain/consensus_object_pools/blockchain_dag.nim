@@ -18,7 +18,10 @@ import
   ".."/beacon_chain_db,
   "."/[block_pools_types, block_quarantine, forkedbeaconstate_dbhelpers]
 
-export block_pools_types, results
+export
+  forks, block_pools_types, results, forkedbeaconstate_dbhelpers,
+  beacon_chain_db,
+  eth2_merkleization, eth2_ssz_serialization
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
@@ -46,9 +49,7 @@ declareGauge beacon_processed_deposits_total, "Number of total deposits included
 logScope: topics = "chaindag"
 
 proc putBlock*(
-    dag: ChainDAGRef,
-    signedBlock: phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock |
-                 merge.TrustedSignedBeaconBlock) =
+    dag: ChainDAGRef, signedBlock: ForkyTrustedSignedBeaconBlock) =
   dag.db.putBlock(signedBlock)
 
 proc updateStateData*(
@@ -343,23 +344,18 @@ proc getStateData(
   if not root.isSome():
     return false
 
-  case cfg.stateForkAtEpoch(bs.slot.epoch)
-  of BeaconStateFork.Merge:
-    if state.data.kind != BeaconStateFork.Merge:
-      state.data = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Merge)[]
+  let expectedFork = cfg.stateForkAtEpoch(bs.slot.epoch)
+  if state.data.kind != expectedFork:
+    state.data = (ref ForkedHashedBeaconState)(kind: expectedFork)[]
 
-    if not db.getMergeState(root.get(), state.data.mergeData.data, rollback):
+  case expectedFork
+  of BeaconStateFork.Merge:
+    if not db.getState(root.get(), state.data.mergeData.data, rollback):
       return false
   of BeaconStateFork.Altair:
-    if state.data.kind != BeaconStateFork.Altair:
-      state.data = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Altair)[]
-
-    if not db.getAltairState(root.get(), state.data.altairData.data, rollback):
+    if not db.getState(root.get(), state.data.altairData.data, rollback):
       return false
   of BeaconStateFork.Phase0:
-    if state.data.kind != BeaconStateFork.Phase0:
-      state.data = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0)[]
-
     if not db.getState(root.get(), state.data.phase0Data.data, rollback):
       return false
 
@@ -384,7 +380,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   let
     tailRoot = tailBlockRoot.get()
-    tailBlock = db.getBlock(tailRoot).get()
+    tailBlock = db.getPhase0Block(tailRoot).get()
     tailRef = BlockRef.init(tailRoot, tailBlock.message)
     headRoot = headBlockRoot.get()
 
@@ -392,9 +388,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     tailRef
   else:
     let
-      genesisBlockRoot = db.getGenesisBlockRoot().expect(
+      genesisBlockRoot = db.getGenesisBlock().expect(
         "preInit should have initialized the database with a genesis block root")
-      genesisBlock = db.getBlock(genesisBlockRoot).expect(
+      genesisBlock = db.getPhase0Block(genesisBlockRoot).expect(
         "preInit should have initialized the database with a genesis block")
     BlockRef.init(genesisBlockRoot, genesisBlock.message)
 
@@ -727,7 +723,7 @@ func getBlockBySlot*(dag: ChainDAGRef, slot: Slot): BlockRef =
 proc getForkedBlock*(dag: ChainDAGRef, blck: BlockRef): ForkedTrustedSignedBeaconBlock =
   case dag.cfg.blockForkAtEpoch(blck.slot.epoch)
   of BeaconBlockFork.Phase0:
-    let data = dag.db.getBlock(blck.root)
+    let data = dag.db.getPhase0Block(blck.root)
     if data.isOk():
       return ForkedTrustedSignedBeaconBlock.init(data.get)
   of BeaconBlockFork.Altair:
@@ -1324,9 +1320,9 @@ proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
     return false
 
   let
-    headBlockPhase0 = db.getBlock(headBlockRoot.get())
+    headBlockPhase0 = db.getPhase0Block(headBlockRoot.get())
     headBlockAltair = db.getAltairBlock(headBlockRoot.get())
-    tailBlock = db.getBlock(tailBlockRoot.get())
+    tailBlock = db.getPhase0Block(tailBlockRoot.get())
 
   if not ((headBlockPhase0.isSome() or headBlockAltair.isSome()) and
           tailBlock.isSome()):
@@ -1359,14 +1355,14 @@ proc preInit*(
   db.putStateRoot(tailBlock.root, tailState.slot, tailBlock.message.state_root)
 
   if tailState.slot == GENESIS_SLOT:
-    db.putGenesisBlockRoot(tailBlock.root)
+    db.putGenesisBlock(tailBlock.root)
   else:
     doAssert genesisState.slot == GENESIS_SLOT
     db.putState(genesisState)
     let genesisBlock = get_initial_beacon_block(genesisState)
     db.putBlock(genesisBlock)
     db.putStateRoot(genesisBlock.root, GENESIS_SLOT, genesisBlock.message.state_root)
-    db.putGenesisBlockRoot(genesisBlock.root)
+    db.putGenesisBlock(genesisBlock.root)
 
 func setTailState*(dag: ChainDAGRef,
                    checkpointState: phase0.BeaconState,

@@ -47,5 +47,5 @@ suite "state diff tests" & preset():
               getStateField(testStates[j][], validators).len - 1],
             it.getImmutableValidatorData),
           diff)
-        check hash_tree_root(testStates[j][]) ==
+        check hash_tree_root(testStates[j][].phase0Data.data) ==
           hash_tree_root(tmpStateApplyBase[])
