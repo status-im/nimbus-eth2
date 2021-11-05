@@ -686,25 +686,6 @@ proc isValidBeaconBlock*(
           compute_timestamp_at_slot(state, blck.slot)):
         return err((ValidationResult.Reject, Invalid))
 
-      # [REJECT] Gas used is less than the gas limit -- i.e.
-      # execution_payload.gas_used <= execution_payload.gas_limit.
-      if not (execution_payload.timestamp ==
-          compute_timestamp_at_slot(state, blck.slot)):
-        return err((ValidationResult.Reject, Invalid))
-
-      # [REJECT] The execution payload block hash is not equal to the parent
-      # hash -- i.e. execution_payload.block_hash != execution_payload.parent_hash.
-      if not (execution_payload.timestamp ==
-          compute_timestamp_at_slot(state, blck.slot)):
-        return err((ValidationResult.Reject, Invalid))
-
-      # [REJECT] The execution payload transaction list data is within expected
-      # size limits, the data MUST NOT be larger than the SSZ list-limit, and a
-      # client MAY be more strict.
-      if not (execution_payload.timestamp ==
-          compute_timestamp_at_slot(state, blck.slot)):
-        return err((ValidationResult.Reject, Invalid))
-
   dag.isValidBeaconBlockAux(quarantine, signed_beacon_block, wallTime, flags)
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attester_slashing
