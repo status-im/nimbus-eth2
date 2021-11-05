@@ -166,7 +166,7 @@ proc init*(T: type BeaconNode,
     let checkpointStatePath = config.finalizedCheckpointState.get.string
     checkpointState = try:
       newClone(readSszForkedHashedBeaconState(
-        readAllBytes(checkpointStatePath).tryGet(), BeaconStateFork.Altair))
+        cfg, readAllBytes(checkpointStatePath).tryGet()))
     except SszError as err:
       fatal "Checkpoint state deserialization failed",
             err = formatMsg(err, checkpointStatePath)
@@ -183,8 +183,10 @@ proc init*(T: type BeaconNode,
     else:
       let checkpointBlockPath = config.finalizedCheckpointBlock.get.string
       try:
+        # Checkpoint block might come from an earlier fork than the state with
+        # the state having empty slots processed past the fork epoch.
         checkpointBlock = readSszForkedTrustedSignedBeaconBlock(
-          readAllBytes(checkpointBlockPath).tryGet(), BeaconBlockFork.Altair)
+          cfg, readAllBytes(checkpointBlockPath).tryGet())
 
         withBlck(checkpointBlock):
           if blck.message.state_root != getStateRoot(checkpointState[]):
@@ -272,8 +274,8 @@ proc init*(T: type BeaconNode,
     else:
       try:
         genesisState = newClone(readSszForkedHashedBeaconState(
-          genesisStateContents.toOpenArrayByte(0, genesisStateContents.high()),
-          BeaconStateFork.Phase0))
+          cfg,
+          genesisStateContents.toOpenArrayByte(0, genesisStateContents.high())))
       except CatchableError as err:
         raiseAssert "Invalid baked-in state: " & err.msg
 

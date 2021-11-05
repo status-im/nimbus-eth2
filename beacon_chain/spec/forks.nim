@@ -412,60 +412,57 @@ func getForkSchedule*(cfg: RuntimeConfig): array[2, Fork] =
   ## NOTE: Update this procedure when new fork will be scheduled.
   [cfg.genesisFork(), cfg.altairFork()]
 
-func readSszForkedHashedBeaconState*(
-    data: openArray[byte], likelyFork: BeaconStateFork):
+type
+  # The first few fields of a state, shared across all forks
+  BeaconStateHeader = object
+    genesis_time: uint64
+    genesis_validators_root: Eth2Digest
+    slot: uint64
+
+func readSszForkedHashedBeaconState*(cfg: RuntimeConfig, data: openArray[byte]):
     ForkedHashedBeaconState {.raises: [Defect, SszError].} =
-  ## Helper to read a state from bytes when it's not certain what kind of state
+  ## Helper to read a header from bytes when it's not certain what kind of state
   ## it is - this happens for example when loading an SSZ state from command
-  ## line - we'll use wall time to "guess" which state to start with
+  ## line
+  if data.len() < sizeof(BeaconStateHeader):
+    raise (ref MalformedSszError)(msg: "Not enough data for BeaconState header")
+  let header = SSZ.decode(
+    data.toOpenArray(0, sizeof(BeaconStateHeader) - 1),
+    BeaconStateHeader)
+
   # careful - `result` is used, RVO didn't seem to work without
-  result = ForkedHashedBeaconState(kind: likelyFork)
-  var tried: set[BeaconStateFork]
+  # TODO move time helpers somewhere to avoid circular imports
+  result = ForkedHashedBeaconState(
+    kind: cfg.stateForkAtEpoch(Epoch(header.slot div SLOTS_PER_EPOCH)))
 
-  template readFork() =
-    withState(result):
-      try:
-        readSszBytes(data, state.data)
-        state.root = hash_tree_root(state.data)
-        return result
-      except SszError as exc:
-        tried.incl result.kind
+  withState(result):
+    readSszBytes(data, state.data)
+    state.root = hash_tree_root(state.data)
 
-  readFork()
-
-  for fork in BeaconStateFork:
-    if fork in tried: continue
-    result = ForkedHashedBeaconState(kind: fork)
-    readFork()
-
-  raise (ref SszError)(msg: "Unable to match data to any known fork")
+type
+  BeaconBlockHeader = object
+    slot: Slot
 
 func readSszForkedTrustedSignedBeaconBlock*(
-    data: openArray[byte], likelyFork: BeaconBlockFork):
+    cfg: RuntimeConfig, data: openArray[byte]):
     ForkedTrustedSignedBeaconBlock {.raises: [Defect, SszError].} =
-  ## Helper to read a state from bytes when it's not certain what kind of state
-  ## it is - this happens for example when loading an SSZ state from command
-  ## line - we'll use wall time to "guess" which state to start with
+  ## Helper to read a header from bytes when it's not certain what kind of block
+  ## it is
 
-  var
-    res = ForkedTrustedSignedBeaconBlock(kind: likelyFork)
-    tried: set[BeaconBlockFork]
+  if data.len() < sizeof(BeaconBlockHeader):
+    raise (ref MalformedSszError)(msg: "Not enough data for SignedBeaconBlock header")
 
-  template readFork() =
-    withBlck(res):
-      try:
-        readSszBytes(data, blck)
-        return res
-      except SszError as exc:
-        tried.incl res.kind
+  let header = SSZ.decode(
+    data.toOpenArray(0, sizeof(BeaconBlockHeader) - 1),
+    BeaconBlockHeader)
 
-  readFork()
+  # careful - `result` is used, RVO didn't seem to work without
+  # TODO move time helpers somewhere to avoid circular imports
+  result = ForkedTrustedSignedBeaconBlock(
+    kind: cfg.blockForkAtEpoch(Epoch(header.slot div SLOTS_PER_EPOCH)))
 
-  for fork in BeaconBlockFork:
-    if fork in tried: continue
-    res = ForkedTrustedSignedBeaconBlock(kind: fork)
-    readFork()
-  raise (ref SszError)(msg: "Unable to match data to any known fork")
+  withBlck(result):
+    readSszBytes(data, blck)
 
 func toBeaconBlockFork*(fork: BeaconStateFork): BeaconBlockFork =
   case fork

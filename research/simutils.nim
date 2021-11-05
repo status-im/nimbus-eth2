@@ -68,11 +68,12 @@ proc loadGenesis*(validators: Natural, validate: bool):
       &"genesis_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
     contractSnapshotFn =
       &"deposit_contract_snapshot_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
+    cfg = defaultRuntimeConfig
 
 
   if fileExists(genesisFn) and fileExists(contractSnapshotFn):
     let res = newClone(readSszForkedHashedBeaconState(
-        readAllBytes(genesisFn).tryGet(), BeaconStateFork.Phase0))
+      cfg, readAllBytes(genesisFn).tryGet()))
 
     withState(res[]):
       if state.data.slot != GENESIS_SLOT:
@@ -106,7 +107,7 @@ proc loadGenesis*(validators: Natural, validate: bool):
 
     let res = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0)
     res.phase0Data.data = initialize_beacon_state_from_eth1(
-      defaultRuntimeConfig,
+      cfg,
       Eth2Digest(),
       0,
       deposits,
