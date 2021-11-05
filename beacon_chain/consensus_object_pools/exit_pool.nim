@@ -70,7 +70,7 @@ proc init*(T: type ExitPool, dag: ChainDAGRef,
     onVoluntaryExitReceived: onVoluntaryExit
    )
 
-func addExitMessage*(subpool: var auto, exitMessage, bound: auto) =
+func addExitMessage(subpool: var auto, exitMessage, bound: auto) =
   # Prefer newer to older exit messages
   while subpool.lenu64 >= bound:
     discard subpool.popFirst()
@@ -92,6 +92,37 @@ iterator getValidatorIndices(proposer_slashing: ProposerSlashing): uint64 =
 
 iterator getValidatorIndices(voluntary_exit: SignedVoluntaryExit): uint64 =
   yield voluntary_exit.message.validator_index
+
+func isSeen*(pool: ExitPool, msg: AttesterSlashing): bool =
+  for idx in getValidatorIndices(msg):
+    # One index is enough!
+    if idx notin pool.prior_seen_attester_slashed_indices:
+      return false
+  true
+
+func isSeen*(pool: ExitPool, msg: ProposerSlashing): bool =
+  msg.signed_header_1.message.proposer_index in
+    pool.prior_seen_proposer_slashed_indices
+
+func isSeen*(pool: ExitPool, msg: SignedVoluntaryExit): bool =
+  msg.message.validator_index in
+    pool.prior_seen_voluntary_exit_indices
+
+func addMessage*(pool: var ExitPool, msg: AttesterSlashing) =
+  for idx in getValidatorIndices(msg):
+    pool.prior_seen_attester_slashed_indices.incl idx
+
+  pool.attester_slashings.addExitMessage(msg, ATTESTER_SLASHINGS_BOUND)
+
+func addMessage*(pool: var ExitPool, msg: ProposerSlashing) =
+  pool.prior_seen_proposer_slashed_indices.incl(
+    msg.signed_header_1.message.proposer_index)
+  pool.proposer_slashings.addExitMessage(msg, PROPOSER_SLASHINGS_BOUND)
+
+func addMessage*(pool: var ExitPool, msg: SignedVoluntaryExit) =
+  pool.prior_seen_voluntary_exit_indices.incl(
+    msg.message.validator_index)
+  pool.voluntary_exits.addExitMessage(msg, VOLUNTARY_EXITS_BOUND)
 
 func getExitMessagesForBlock(
     subpool: var Deque, validators: auto, seen: var HashSet, output: var List) =

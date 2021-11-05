@@ -14,7 +14,7 @@ digraph architecture{
   Eth2RPC -> SyncProtocol [dir=both]
   SyncProtocol -> SyncManager [dir=both, label="beaconBlocksByRange() (mixin)"]
 
-  GossipSub -> Eth2Processor [label="node.topicBeaconBlocks: blockValidator->isValidBeaconBlock (no transition or signature check yet)\nthen enqueued in blocksQueue"];
+  GossipSub -> Eth2Processor [label="node.topicBeaconBlocks: blockValidator->validateBeaconBlock (no transition or signature check yet)\nthen enqueued in blocksQueue"];
   GossipSub -> Eth2Processor [dir=back, label="node.topicBeaconBlocks: blockValidator()->ValidationResult.Accept->libp2p/gossipsub.nim\nvalidate() in rpcHandler()"];
 
   Eth2Processor -> Clearance [label="storeBlock(): enqueue in clearance/quarantine and callback to fork choice"];

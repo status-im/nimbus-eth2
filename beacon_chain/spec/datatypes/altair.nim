@@ -446,8 +446,8 @@ template `==`*(x, y: SyncSubcommitteeIndex): bool =
   distinctBase(x) == distinctBase(y)
 
 iterator allSyncSubcommittees*: SyncSubcommitteeIndex =
-  for committeeIdx in 0 ..< SYNC_COMMITTEE_SUBNET_COUNT:
-    yield SyncSubcommitteeIndex(committeeIdx)
+  for subcommitteeIdx in 0 ..< SYNC_COMMITTEE_SUBNET_COUNT:
+    yield SyncSubcommitteeIndex(subcommitteeIdx)
 
 template validateSyncCommitteeIndexOr*(
     networkValParam: uint64,
@@ -500,7 +500,7 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
 func shortLog*(v: SyncCommitteeContribution): auto =
   (
     slot: shortLog(v.slot),
-    blk: shortLog(v.beacon_block_root),
+    beacon_block_root: shortLog(v.beacon_block_root),
     subnetId: v.subcommittee_index,
     aggregation_bits: $v.aggregation_bits
   )

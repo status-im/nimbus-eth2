@@ -128,6 +128,13 @@ proc addBlock*(
 # Storage
 # ------------------------------------------------------------------------------
 
+proc dumpInvalidBlock*(
+    self: BlockProcessor,
+    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                 merge.SignedBeaconBlock) =
+  if self.dumpEnabled:
+    dump(self.dumpDirInvalid, signedBlock)
+
 proc dumpBlock*[T](
     self: BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
@@ -135,11 +142,9 @@ proc dumpBlock*[T](
   if self.dumpEnabled and res.isErr:
     case res.error[1]
     of Invalid:
-      dump(
-        self.dumpDirInvalid, signedBlock)
+      self.dumpInvalidBlock(signedBlock)
     of MissingParent:
-      dump(
-        self.dumpDirIncoming, signedBlock)
+      dump(self.dumpDirIncoming, signedBlock)
     else:
       discard
 

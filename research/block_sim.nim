@@ -142,7 +142,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   proc handleSyncCommitteeActions(slot: Slot) =
     type
       Aggregator = object
-        committeeIdx: SyncSubcommitteeIndex
+        subcommitteeIdx: SyncSubcommitteeIndex
         validatorIdx: int
         selectionProof: ValidatorSig
 
@@ -157,8 +157,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     var aggregators: seq[Aggregator]
 
-    for committeeIdx in allSyncSubcommittees():
-      for valKey in syncSubcommittee(syncCommittee, committeeIdx):
+    for subcommitteeIdx in allSyncSubcommittees():
+      for valKey in syncSubcommittee(syncCommittee, subcommitteeIdx):
         if rand(r, 1.0) > syncCommitteeRatio:
           continue
 
@@ -173,31 +173,41 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             signature: signature.toValidatorSig)
 
         let res = dag.validateSyncCommitteeMessage(
-          syncCommitteePool,
+          syncCommitteePool[],
           msg,
-          committeeIdx,
+          subcommitteeIdx,
           messagesTime,
           false)
 
         doAssert res.isOk
 
+        let (positions, cookedSig) = res.get()
+
+        syncCommitteePool[].addSyncCommitteeMsg(
+          msg.slot,
+          msg.beacon_block_root,
+          msg.validator_index,
+          cookedSig,
+          subcommitteeIdx,
+          positions)
+
         let
           selectionProofSigningRoot =
             sync_committee_selection_proof_signing_root(
-              fork, genesisValidatorsRoot, slot, uint64 committeeIdx)
+              fork, genesisValidatorsRoot, slot, uint64 subcommitteeIdx)
           selectionProofSig = blsSign(
             validarorPrivKey, selectionProofSigningRoot.data).toValidatorSig
 
         if is_sync_committee_aggregator(selectionProofSig):
           aggregators.add Aggregator(
-            committeeIdx: committeeIdx,
+            subcommitteeIdx: subcommitteeIdx,
             validatorIdx: validatorIdx,
             selectionProof: selectionProofSig)
 
     for aggregator in aggregators:
       var contribution: SyncCommitteeContribution
       let contributionWasProduced = syncCommitteePool[].produceContribution(
-        slot, dag.head.root, aggregator.committeeIdx, contribution)
+        slot, dag.head.root, aggregator.subcommitteeIdx, contribution)
 
       if contributionWasProduced:
         let
@@ -217,12 +227,15 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             signature: blsSign(validarorPrivKey, signingRoot.data).toValidatorSig)
 
           res = dag.validateSignedContributionAndProof(
-            syncCommitteePool,
+            syncCommitteePool[],
             signedContributionAndProof,
             contributionsTime,
             false)
 
         doAssert res.isOk
+
+        syncCommitteePool[].addSyncContribution(
+          signedContributionAndProof, res.get)
 
   proc getNewBlock[T](
       stateData: var StateData, slot: Slot, cache: var StateCache): T =

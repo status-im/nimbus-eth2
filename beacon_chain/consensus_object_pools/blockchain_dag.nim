@@ -1015,9 +1015,9 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
 
 iterator syncSubcommittee*(
     syncCommittee: openArray[ValidatorPubKey],
-    committeeIdx: SyncSubcommitteeIndex): ValidatorPubKey =
+    subcommitteeIdx: SyncSubcommitteeIndex): ValidatorPubKey =
   var
-    i = committeeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
+    i = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
     onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
 
   while i < onePastEndIdx:
@@ -1026,10 +1026,10 @@ iterator syncSubcommittee*(
 
 iterator syncSubcommitteePairs*(
     syncCommittee: openArray[ValidatorIndex],
-    committeeIdx: SyncSubcommitteeIndex): tuple[validatorIdx: ValidatorIndex,
-                                             committeeIdx: int] =
+    subcommitteeIdx: SyncSubcommitteeIndex): tuple[validatorIdx: ValidatorIndex,
+                                             subcommitteeIdx: int] =
   var
-    i = committeeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
+    i = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
     onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
 
   while i < onePastEndIdx:
@@ -1055,7 +1055,7 @@ func syncCommitteeParticipants*(dag: ChainDAGRef,
 func getSubcommitteePositionsAux(
     dag: ChainDAGRef,
     syncCommittee: openarray[ValidatorPubKey],
-    committeeIdx: SyncSubcommitteeIndex,
+    subcommitteeIdx: SyncSubcommitteeIndex,
     validatorIdx: uint64): seq[uint64] =
   # TODO Can we avoid the key conversions by getting a compressed key
   #      out of ImmutableValidatorData2? If we had this, we can define
@@ -1065,13 +1065,13 @@ func getSubcommitteePositionsAux(
     return @[]
   let validatorPubKey = validatorKey.get().toPubKey
 
-  for pos, key in toSeq(syncCommittee.syncSubcommittee(committeeIdx)):
+  for pos, key in toSeq(syncCommittee.syncSubcommittee(subcommitteeIdx)):
     if validatorPubKey == key:
       result.add uint64(pos)
 
 func getSubcommitteePositions*(dag: ChainDAGRef,
                                slot: Slot,
-                               committeeIdx: SyncSubcommitteeIndex,
+                               subcommitteeIdx: SyncSubcommitteeIndex,
                                validatorIdx: uint64): seq[uint64] =
   withState(dag.headState.data):
     when stateFork >= BeaconStateFork.Altair:
@@ -1080,7 +1080,8 @@ func getSubcommitteePositions*(dag: ChainDAGRef,
         curPeriod = sync_committee_period(state.data.slot)
 
       template search(syncCommittee: openarray[ValidatorPubKey]): seq[uint64] =
-        dag.getSubcommitteePositionsAux(syncCommittee, committeeIdx, validatorIdx)
+        dag.getSubcommitteePositionsAux(
+          syncCommittee, subcommitteeIdx, validatorIdx)
 
       if period == curPeriod:
         search(state.data.current_sync_committee.pubkeys.data)
@@ -1093,15 +1094,15 @@ func getSubcommitteePositions*(dag: ChainDAGRef,
 template syncCommitteeParticipants*(
     dag: ChainDAGRef,
     slot: Slot,
-    committeeIdx: SyncSubcommitteeIndex): seq[ValidatorPubKey] =
-  toSeq(syncSubcommittee(dag.syncCommitteeParticipants(slot), committeeIdx))
+    subcommitteeIdx: SyncSubcommitteeIndex): seq[ValidatorPubKey] =
+  toSeq(syncSubcommittee(dag.syncCommitteeParticipants(slot), subcommitteeIdx))
 
 iterator syncCommitteeParticipants*(
     dag: ChainDAGRef,
     slot: Slot,
-    committeeIdx: SyncSubcommitteeIndex,
+    subcommitteeIdx: SyncSubcommitteeIndex,
     aggregationBits: SyncCommitteeAggregationBits): ValidatorPubKey =
-  for pos, valIdx in pairs(dag.syncCommitteeParticipants(slot, committeeIdx)):
+  for pos, valIdx in pairs(dag.syncCommitteeParticipants(slot, subcommitteeIdx)):
     if aggregationBits[pos]:
       yield valIdx
 

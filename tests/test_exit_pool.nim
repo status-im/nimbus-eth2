@@ -23,9 +23,14 @@ suite "Exit pool testing suite":
   test "addExitMessage/getProposerSlashingMessage":
     for i in 0'u64 .. MAX_PROPOSER_SLASHINGS + 5:
       for j in 0'u64 .. i:
-        pool.proposer_slashings.addExitMessage(
-          ProposerSlashing(signed_header_1: SignedBeaconBlockHeader(
-            message: BeaconBlockHeader(proposer_index: j))), MAX_PROPOSER_SLASHINGS)
+        let msg = ProposerSlashing(signed_header_1: SignedBeaconBlockHeader(
+            message: BeaconBlockHeader(proposer_index: j)))
+
+        if i == 0:
+          check not pool[].isSeen(msg)
+
+        pool[].addMessage(msg)
+        check: pool[].isSeen(msg)
       withState(dag.headState.data):
         check:
           pool[].getBeaconBlockExits(state.data).proposer_slashings.lenu64 ==
@@ -35,13 +40,17 @@ suite "Exit pool testing suite":
   test "addExitMessage/getAttesterSlashingMessage":
     for i in 0'u64 .. MAX_ATTESTER_SLASHINGS + 5:
       for j in 0'u64 .. i:
-        pool.attester_slashings.addExitMessage(
-          AttesterSlashing(
+        let msg = AttesterSlashing(
             attestation_1: IndexedAttestation(attesting_indices:
               List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE](@[j])),
             attestation_2: IndexedAttestation(attesting_indices:
-              List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE](@[j]))),
-          MAX_ATTESTER_SLASHINGS)
+              List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE](@[j])))
+
+        if i == 0:
+          check not pool[].isSeen(msg)
+
+        pool[].addMessage(msg)
+        check: pool[].isSeen(msg)
       withState(dag.headState.data):
         check:
           pool[].getBeaconBlockExits(state.data).attester_slashings.lenu64 ==
@@ -51,8 +60,13 @@ suite "Exit pool testing suite":
   test "addExitMessage/getVoluntaryExitMessage":
     for i in 0'u64 .. MAX_VOLUNTARY_EXITS + 5:
       for j in 0'u64 .. i:
-        pool.voluntary_exits.addExitMessage(
-          SignedVoluntaryExit(message: VoluntaryExit(validator_index: j)), MAX_VOLUNTARY_EXITS)
+        let msg = SignedVoluntaryExit(message: VoluntaryExit(validator_index: j))
+
+        if i == 0:
+          check not pool[].isSeen(msg)
+
+        pool[].addMessage(msg)
+        check: pool[].isSeen(msg)
       withState(dag.headState.data):
         check:
           pool[].getBeaconBlockExits(state.data).voluntary_exits.lenu64 ==
