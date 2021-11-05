@@ -14,12 +14,13 @@ import
 
   ../spec/[keystore, signatures, helpers, crypto],
   ../spec/datatypes/[phase0, altair],
-  ../spec/eth2_apis/rest_remote_signer_calls,
+  ../spec/eth2_apis/[rest_types, eth2_rest_serialization,
+                     rest_remote_signer_calls],
   ./slashing_protection
 
 export
   streams, options, keystore, phase0, altair, tables, uri, crypto,
-  rest_remote_signer_calls
+  rest_types, eth2_rest_serialization, rest_remote_signer_calls
 
 declareGauge validators,
   "Number of validators attached to the beacon node"
