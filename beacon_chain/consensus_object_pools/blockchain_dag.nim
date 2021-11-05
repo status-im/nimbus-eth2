@@ -1475,10 +1475,18 @@ proc executionPayloadSync*(
   # that assembleBlock can be guaranteed to catch up, in a reasonably bounded
   # time frame.
 
+  info "FOO3",
+    parent_hash = blck.body.execution_payload.parent_hash,
+    block_hash = blck.body.execution_payload.block_hash
+
   # Fast-path out. Maybe it just works and the execution engine was already
   # synced. This should be the usual case.
   if await web3Provider.newExecutionPayload(blck.body.execution_payload):
     return
+
+  info "FOO4",
+    parent_hash = blck.body.execution_payload.parent_hash,
+    block_hash = blck.body.execution_payload.block_hash
 
   # Execution engine rejected block, so backfill execution engine.
   var
@@ -1514,18 +1522,28 @@ proc executionPayloadSync*(
     #      and retry - also, this approach is obviously not sustainable once
     #      there are lots of blocks - we should _perhaps_ retry the latest
     #      block we have however!
-    if executionPayloads.len > 10: break
+    if executionPayloads.len > 10:
+      info "FOO5",
+        parent_hash = executionPayload.parent_hash,
+        block_hash = executionPayload.block_hash
+      break
 
     executionPayloads.add executionPayload
 
     # Might run out of execution-layer chain...
     if executionPayload.parent_hash == default(Eth2Digest) or
         executionpayload.blockhash == default(Eth2Digest):
+      info "FOO6",
+        parent_hash = executionPayload.parent_hash,
+        block_hash = executionPayload.block_hash
       break
 
     # ... or consensus-layer chain.
     root = blockData.get.data.mergeBlock.message.parent_root
     if root == default(Eth2Digest):
+      info "FOO7",
+        parent_hash = executionPayload.parent_hash,
+        block_hash = executionPayload.block_hash
       break
 
   # executionPayloads is ordered from newest to oldest, but execution payloads

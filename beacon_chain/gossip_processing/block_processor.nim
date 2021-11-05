@@ -216,7 +216,8 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry): bool =
     # Duplicate and old blocks are ok from a sync point of view, so we mark
     # them as successful
     entry.done()
-    false
+    # if this is what matters, that's ... weird/wrong.
+    true
   else:
     entry.fail(res.error())
     false
@@ -237,10 +238,20 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
     discard await idleAsync().withTimeout(idleTimeout)
 
     let blck = await self[].blocksQueue.popFirst()
+    info "FOO11",
+      block_kind = blck.blck.kind,
+      block_matches_merge = blck.blck.kind >= BeaconBlockFork.Merge
+    if blck.blck.kind >= BeaconBlockFork.Merge:
+      info "FOO9",
+        block_hash = blck.blck.mergeBlock.message.body.execution_payload.block_hash,
+        parent_hash = blck.blck.mergeBlock.message.body.execution_payload.parent_hash
     if  self[].processBlock(blck) and blck.blck.kind >= BeaconBlockFork.Merge and
         # wasn't necessary before, but not incorrect either; helps it run san
         # execution client for local testnets
         blck.blck.mergeBlock.message.body.execution_payload !=
           default(merge.ExecutionPayload):
+      info "FOO10",
+        block_hash = blck.blck.mergeBlock.message.body.execution_payload.block_hash,
+        parent_hash = blck.blck.mergeBlock.message.body.execution_payload.parent_hash
       await self.consensusManager.dag.executionPayloadSync(
         self.consensusManager.web3Provider, blck.blck.mergeBlock.message)

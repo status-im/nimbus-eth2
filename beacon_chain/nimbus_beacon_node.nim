@@ -1257,13 +1257,18 @@ proc onSlotStart(
       doAssert finalizingBlock.kind == BeaconBlockFork.Merge
       let
         headExecutionPayloadHash =
-          headBlock.mergeBlock.message.body.execution_payload.block_hash
+          headBlock.mergeBlock.message.body.execution_payload.block_hash.asBlockHash
         finalizingExecutionPayloadHash =
-          finalizingBlock.mergeBlock.message.body.execution_payload.block_hash
+          finalizingBlock.mergeBlock.message.body.execution_payload.block_hash.asBlockhash
       try:
+        debug "FOO7",
+          prevHead = shortLog(prevHead),
+          postHead = shortLog(postHead),
+          prevFinalizing = shortLog(prevFinalizing),
+          postFinalizing = shortLog(postFinalizing)
+
         discard await node.consensusManager.web3Provider.forkchoiceUpdated(
-          headExecutionPayloadHash.asBlockHash,
-          finalizingExecutionPayloadHash.asBlockHash)
+          headExecutionPayloadHash, finalizingExecutionPayloadHash)
       except CatchableError as err:
         debug "forkchoiceUpdated failed", msg = err.msg
 
