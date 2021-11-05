@@ -43,7 +43,8 @@ if defined(cwarnings):
 if defined(limitStackUsage):
   # This limits stack usage of each individual function to 1MB - the option is
   # available on some GCC versions but not all - run with `-d:limitStackUsage`
-  # and look for .su files in "./nimcache/" that list the stack size of each function
+  # and look for .su files in "./build/", "./nimcache/" or $TMPDIR that list the
+  # stack size of each function.
   switch("passC", "-fstack-usage -Werror=stack-usage=1048576")
   switch("passL", "-fstack-usage -Werror=stack-usage=1048576")
 
