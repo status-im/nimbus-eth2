@@ -73,7 +73,11 @@ type
     RestAttestationError |
     RestGenericError |
     GetBlockV2Response |
-    GetStateV2Response
+    GetStateV2Response |
+    Web3SignerStatusResponse |
+    Web3SignerKeysResponse |
+    Web3SignerSignatureResponse |
+    Web3SignerErrorResponse
 
   # These types may be extended with additional fields in the future.
   # Locally unknown fields are silently ignored when decoding them.
@@ -1398,17 +1402,6 @@ proc decodeBytes*[T: SszDecodeTypes](t: typedesc[T], value: openarray[byte],
       err("Serialization error")
   else:
     err("Content-Type not supported")
-
-proc decodeBytes*[T: Web3SignerTypes](t: typedesc[T], value: openarray[byte],
-                                      contentType: string): RestResult[T] =
-  case contentType
-  of "application/json":
-    try:
-      ok(RestJson.decode(value, T, allowUnknownFields = false))
-    except SerializationError as exc:
-      err("Serialization error")
-  else:
-    err("Unsupported Content-Type")
 
 proc encodeString*(value: string): RestResult[string] =
   ok(value)

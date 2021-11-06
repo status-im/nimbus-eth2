@@ -8,7 +8,7 @@
 
 import
   std/strutils, chronicles,
-  chronos, chronos/apps/http/httpclient, presto/client,
+  chronos, chronos/apps/http/httpclient, presto, presto/client,
   nimcrypto/utils as ncrutils,
   stew/[results, base10],
   "."/[rest_types, eth2_rest_serialization]

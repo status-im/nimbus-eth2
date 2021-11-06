@@ -424,11 +424,6 @@ type
   Web3SignerErrorResponse* = object
     error*: string
 
-  Web3SignerTypes* = Web3SignerStatusResponse |
-                     Web3SignerKeysResponse |
-                     Web3SignerSignatureResponse |
-                     Web3SignerErrorResponse
-
   Web3SignerForkInfo* = object
     fork*: Fork
     genesisValidatorsRoot* {.
