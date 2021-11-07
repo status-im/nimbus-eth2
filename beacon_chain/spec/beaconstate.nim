@@ -19,6 +19,9 @@ import
 
 export extras, forks, validator
 
+type
+  SomeBeaconState* = phase0.BeaconState | altair.BeaconState | merge.BeaconState
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/phase0/beacon-chain.md#increase_balance
 func increase_balance*(balance: var Gwei, delta: Gwei) =
   balance += delta
@@ -855,3 +858,7 @@ func upgrade_to_merge*(cfg: RuntimeConfig, pre: altair.BeaconState):
     # Execution-layer
     latest_execution_payload_header: ExecutionPayloadHeader()
   )
+
+template isValidInState*(idx: ValidatorIndex, state: SomeBeaconState): bool =
+  idx.int < state.validators.len
+
