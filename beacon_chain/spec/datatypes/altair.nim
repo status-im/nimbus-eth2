@@ -432,6 +432,7 @@ type
   SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
 
   SyncSubcommitteeIndex* = distinct uint8
+  ValidatorIndexInSyncCommittee* = distinct uint16
 
 chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt SyncSubcommitteeIndex: uint8(it)
@@ -440,7 +441,12 @@ template asInt*(x: SyncSubcommitteeIndex): int = int(x)
 template asUInt8*(x: SyncSubcommitteeIndex): uint8 = uint8(x)
 template asUInt64*(x: SyncSubcommitteeIndex): uint64 = uint64(x)
 
-template `[]`*(a: auto; i: SyncSubcommitteeIndex): auto = a[i.asInt]
+template `[]`*(a: auto; i: SyncSubcommitteeIndex): auto =
+  a[i.asInt]
+
+template `[]`*(arr: array[SYNC_COMMITTEE_SIZE, any] | seq;
+               idx: ValidatorIndexInSyncCommittee): auto =
+  arr[int idx]
 
 template `==`*(x, y: SyncSubcommitteeIndex): bool =
   distinctBase(x) == distinctBase(y)

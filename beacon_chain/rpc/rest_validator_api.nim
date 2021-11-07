@@ -3,7 +3,7 @@
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
-import std/[typetraits, strutils, sets, sequtils]
+import std/[typetraits, strutils, sets]
 import stew/[results, base10], chronicles,
        nimcrypto/utils as ncrutils
 import ".."/[beacon_chain_db, beacon_node],
@@ -11,7 +11,7 @@ import ".."/[beacon_chain_db, beacon_node],
        ".."/consensus_object_pools/[blockchain_dag, spec_cache,
                                     attestation_pool, sync_committee_msg_pool],
        ".."/validators/validator_duties,
-       ".."/spec/[forks, network],
+       ".."/spec/[beaconstate, forks, network],
        ".."/spec/datatypes/[phase0, altair],
        "."/rest_utils
 
@@ -190,8 +190,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let bslot = node.dag.head.atSlot(qepoch.compute_start_slot_at_epoch())
 
     node.withStateForBlockSlot(bslot):
-      let validatorsCount = lenu64(getStateField(stateData.data, validators))
-      let participants =
+      let syncCommittee =
         block:
           let res = syncCommitteeParticipants(stateData().data, qepoch)
           if res.isErr():
@@ -203,52 +202,20 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                  "List of sync committee participants is empty")
           kres
 
-      # TODO: We doing this because `participants` are stored as array of
-      # validator keys, so we need to convert it to indices, and if any of
-      # public keys are missing, it means some unexpected error.
-      let participantIndices =
-        block:
-          var res: seq[ValidatorIndex]
-          let optIndices = keysToIndices(node.restKeysCache, stateData().data,
-                                         participants)
-          for item in optIndices:
-            if item.isNone():
-              return RestApiResponse.jsonError(Http500, InternalServerError,
-                                              "Could not get validator indices")
-            res.add(item.get())
-          res
-
-      let validatorsSet =
-        block:
-          var res: Table[ValidatorIndex, int]
-          for listIndex, validatorIndex in indexList.pairs():
-            # We ignore indices which could not fit in current list of
-            # validators.
-            if uint64(validatorIndex) < validatorsCount:
-              res[validatorIndex] = listIndex
-          res
-
-      template isEmpty(duty: RestSyncCommitteeDuty): bool =
-        len(duty.validator_sync_committee_indices) == 0
-
       var duties =
-        block:
+        withState(stateData().data):
           var res = newSeq[RestSyncCommitteeDuty](len(indexList))
-          for committeeIdx in allSyncSubcommittees():
-            for valIndex, arrIndex in syncSubcommitteePairs(participantIndices,
-                                                            committeeIdx):
-              let listIndex = validatorsSet.getOrDefault(valIndex, -1)
-              if listIndex >= 0:
-                if res[listIndex].isEmpty():
-                  let key =
-                    getStateField(stateData().data, validators)[valIndex].pubkey
-                  res[listIndex] = RestSyncCommitteeDuty(
-                    validator_index: valIndex,
-                    pubkey: key
-                  )
-                res[listIndex].validator_sync_committee_indices.add(
-                  committeeIdx)
-          res.keepItIf(not(isEmpty(it)))
+          for resIdx, validatorIdx in indexList:
+            if not validatorIdx.isValidInState(state.data):
+              return RestApiResponse.jsonError(Http400, "Invalid index: " & $validatorIdx)
+
+            res[resIdx].pubkey = state.data.validators[validatorIdx].pubkey
+            res[resIdx].validator_index = validatorIdx
+
+            for idx, pubkey in syncCommittee:
+              if pubkey == res[resIdx].pubkey:
+                res[resIdx].validator_sync_committee_indices.add(
+                  ValidatorIndexInSyncCommittee idx)
           res
 
       return RestApiResponse.jsonResponse(duties)

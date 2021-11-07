@@ -105,7 +105,7 @@ type
   RestSyncCommitteeDuty* = object
     pubkey*: ValidatorPubKey
     validator_index*: ValidatorIndex
-    validator_sync_committee_indices*: seq[SyncSubcommitteeIndex]
+    validator_sync_committee_indices*: seq[ValidatorIndexInSyncCommittee]
 
   RestSyncCommitteeMessage* = object
     slot*: Slot
