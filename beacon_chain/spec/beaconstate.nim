@@ -799,7 +799,7 @@ proc upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState): ref altair
 
   post
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/fork.md#upgrading-the-state
 func upgrade_to_merge*(cfg: RuntimeConfig, pre: altair.BeaconState):
     ref merge.BeaconState =
   let epoch = get_current_epoch(pre)

@@ -20,7 +20,7 @@ import
   # Test utilities
   ../../testutil, ../../testblockutil
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
+# https://github.com/ethereum/consensus-specs/blob/v1.1.4/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
 proc compute_aggregate_sync_committee_signature(
     forked: ForkedHashedBeaconState,
     participants: openArray[ValidatorIndex],
@@ -86,7 +86,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
       res
     genesisState = newClone(initGenesisState(cfg = cfg))
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L25-L81
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.4/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L22-L78
   test "process_light_client_update_not_updated":
     var forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
