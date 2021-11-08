@@ -430,21 +430,21 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorIndex)
   else:
     reader.raiseUnexpectedValue($res.error())
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: ValidatorIndexInSyncCommittee)
+proc writeValue*(writer: var JsonWriter[RestJson], value: IndexInSyncCommittee)
                 {.raises: [IOError, Defect].} =
   writeValue(writer, Base10.toString(distinctBase(value)))
 
-proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorIndexInSyncCommittee)
+proc readValue*(reader: var JsonReader[RestJson], value: var IndexInSyncCommittee)
                {.raises: [IOError, SerializationError, Defect].} =
   let svalue = reader.readValue(string)
   let res = Base10.decode(uint64, svalue)
   if res.isOk():
     let v = res.get()
     if v < SYNC_COMMITTEE_SIZE:
-      value = ValidatorIndexInSyncCommittee(v)
+      value = IndexInSyncCommittee(v)
     else:
       reader.raiseUnexpectedValue(
-        "Validator index is bigger then SYNC_COMMITTEE_SIZE")
+        "Index in committee is bigger than SYNC_COMMITTEE_SIZE")
   else:
     reader.raiseUnexpectedValue($res.error())
 
