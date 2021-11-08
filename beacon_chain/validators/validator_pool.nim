@@ -139,7 +139,7 @@ proc signWithRemoteValidator(v: AttachedValidator,
   discard v.connection.outStream.readLine(line)
   return ValidatorSig.fromHex(line).get()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/phase0/validator.md#signature
 proc signBlockProposal*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         blockRoot: Eth2Digest): Future[ValidatorSig] {.async.} =
@@ -220,7 +220,7 @@ proc signSyncCommitteeMessage*(v: AttachedValidator,
     validator_index: v.index.get.uint64,
     signature: signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/altair/validator.md#aggregation-selection
 proc getSyncCommitteeSelectionProof*(
     v: AttachedValidator,
     fork: Fork,
@@ -238,7 +238,7 @@ proc getSyncCommitteeSelectionProof*(
     of ValidatorKind.Remote:
       await signWithRemoteValidator(v, signing_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/altair/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/altair/validator.md#signature
 proc sign*(
     v: AttachedValidator,
     msg: ref SignedContributionAndProof,
@@ -255,7 +255,7 @@ proc sign*(
     of ValidatorKind.Remote:
       await signWithRemoteValidator(v, signing_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/phase0/validator.md#randao-reveal
 func genRandaoReveal*(k: ValidatorPrivKey, fork: Fork,
                       genesis_validators_root: Eth2Digest,
                       slot: Slot): CookedSig =
