@@ -6,10 +6,10 @@ This is a WIP document to explain the attestation flows.
 
 It is important to distinguish attestation `validation` from attestation `verification`.
 - Attestation `validation` is defined in the P2P specs. Validated attestations can be forwarded on GossipSub.
-  - Aggregated: https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-  - Unaggregated: https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+  - Aggregated: https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+  - Unaggregated: https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 - Attestation `verification` is defined in the consensus specs. Verified attestations can affect fork choice and may be included in a block.
-  - https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/beacon-chain.md#attestations
+  - https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/phase0/beacon-chain.md#attestations
 
 From the specs it seems like gossip attestation `validation` is a superset of consensus attestation `verification`.
 
@@ -52,7 +52,7 @@ These GossipSub topics are used to listen for attestations:
 
 The attestations are then validated by `validateAttestation()` or `validateAggregate()` in either `attestationValidator()` or `aggregateValidator()` according to the P2P specs.
 - https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
-- https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/phase0/p2p-interface.md#attestation-subnets
+- https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/phase0/p2p-interface.md#attestation-subnets
 
 Finally, valid attestations are added to the local `attestationPool`.
 Attestations are dropped in case of an error.
