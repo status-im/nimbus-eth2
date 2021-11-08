@@ -14,6 +14,7 @@ import
   options, sequtils, random, tables,
   ../tests/testblockutil,
   ../beacon_chain/spec/datatypes/phase0,
+  ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
   ../beacon_chain/spec/[beaconstate, forks, helpers],
   ./simutils
 
@@ -30,7 +31,7 @@ func jsonName(prefix, slot: auto): string =
 proc writeJson*(fn, v: auto) =
   var f: File
   defer: close(f)
-  Json.saveFile(fn, v, pretty = true)
+  RestJson.saveFile(fn, v, pretty = true)
 
 cli do(slots = SLOTS_PER_EPOCH * 5,
        validators = SLOTS_PER_EPOCH * 400, # One per shard is minimum
@@ -41,20 +42,18 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
        validate = true):
   let
     flags = if validate: {} else: {skipBlsValidation}
-    (hashedState, _) = loadGenesis(validators, validate)
-    genesisBlock = get_initial_beacon_block(hashedState.data)
-    state = (ref ForkedHashedBeaconState)(
-      kind: BeaconStateFork.Phase0, phase0Data: hashedState[])
+    (state, _) = loadGenesis(validators, validate)
+    genesisBlock = get_initial_beacon_block(state[])
 
   echo "Starting simulation..."
 
   var
     attestations = initTable[Slot, seq[Attestation]]()
-    latest_block_root = hash_tree_root(genesisBlock.message)
+    latest_block_root = withBlck(genesisBlock): blck.root
     timers: array[Timers, RunningStat]
     attesters: RunningStat
     r = initRand(1)
-    signedBlock: phase0.SignedBeaconBlock
+    signedBlock: ForkedSignedBeaconBlock
     cache = StateCache()
 
   proc maybeWrite(last: bool) =
@@ -65,13 +64,14 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
         write(stdout, ".")
 
       if last:
-        writeJson("state.json", state[].phase0Data)
+        withState(state[]): writeJson("state.json", state.data)
     else:
-      if getStateField(state[], slot) mod json_interval.uint64 == 0:
-        writeJson(jsonName(prefix, getStateField(state[], slot)), state[].phase0Data.data)
-        write(stdout, ":")
-      else:
-        write(stdout, ".")
+      withState(state[]):
+        if state.data.slot mod json_interval.uint64 == 0:
+          writeJson(jsonName(prefix, state.data.slot), state.data)
+          write(stdout, ":")
+        else:
+          write(stdout, ".")
 
   # TODO doAssert against this up-front
   # indexed attestation: validator index beyond max validators per committee
@@ -97,10 +97,9 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
     withTimer(timers[t]):
       signedBlock = addTestBlock(
         state[], latest_block_root, cache, attestations = blockAttestations,
-        flags = flags).phase0Data
+        flags = flags)
     latest_block_root = withTimerRet(timers[tHashBlock]):
-      hash_tree_root(signedBlock.message)
-    signedBlock.root = latest_block_root
+      withBlck(signedBlock): hash_tree_root(blck.message)
 
     if attesterRatio > 0.0:
       # attesterRatio is the fraction of attesters that actually do their
@@ -168,4 +167,4 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
   echo "Done!"
 
-  printTimers(state[].phase0Data.data, attesters, validate, timers)
+  printTimers(state[], attesters, validate, timers)

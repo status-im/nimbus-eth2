@@ -3,7 +3,8 @@ import
   confutils, chronicles, json_serialization,
   stew/byteutils,
   ../research/simutils,
-  ../beacon_chain/spec/datatypes/[phase0],
+  ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
+  ../beacon_chain/spec/datatypes/[phase0, altair, merge],
   ../beacon_chain/spec/[
     eth2_ssz_serialization, forks, helpers, state_transition],
   ../beacon_chain/networking/network_metadata
@@ -157,12 +158,12 @@ proc doSSZ(conf: NcliConf) =
 
     case conf.cmd:
     of hashTreeRoot:
-      when t is phase0.SignedBeaconBlock:
+      when t is ForkySignedBeaconBlock:
         echo hash_tree_root(v.message).data.toHex()
       else:
         echo hash_tree_root(v[]).data.toHex()
     of pretty:
-      echo JSON.encode(v[], pretty = true)
+      echo RestJson.encode(v[], pretty = true)
     else:
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
@@ -171,14 +172,22 @@ proc doSSZ(conf: NcliConf) =
   case kind
   of "attester_slashing": printit(AttesterSlashing)
   of "attestation": printit(Attestation)
-  of "signed_block": printit(phase0.SignedBeaconBlock)
-  of "block": printit(phase0.BeaconBlock)
-  of "block_body": printit(phase0.BeaconBlockBody)
+  of "phase0_signed_block": printit(phase0.SignedBeaconBlock)
+  of "altair_signed_block": printit(altair.SignedBeaconBlock)
+  of "merge_signed_block": printit(merge.SignedBeaconBlock)
+  of "phase0_block": printit(phase0.BeaconBlock)
+  of "altair_block": printit(altair.BeaconBlock)
+  of "merge_block": printit(merge.BeaconBlock)
+  of "phase0_block_body": printit(phase0.BeaconBlockBody)
+  of "altair_block_body": printit(altair.BeaconBlockBody)
+  of "merge_block_body": printit(merge.BeaconBlockBody)
   of "block_header": printit(BeaconBlockHeader)
   of "deposit": printit(Deposit)
   of "deposit_data": printit(DepositData)
   of "eth1_data": printit(Eth1Data)
-  of "state": printit(phase0.BeaconState)
+  of "phase0_state": printit(phase0.BeaconState)
+  of "altiar_state": printit(altair.BeaconState)
+  of "merge_state": printit(merge.BeaconState)
   of "proposer_slashing": printit(ProposerSlashing)
   of "voluntary_exit": printit(VoluntaryExit)
 

@@ -29,23 +29,11 @@ proc dump*(dir: string, v: AttestationData, validator: ValidatorPubKey) =
   logErrors:
     SSZ.saveFile(dir / &"att-{v.slot}-{v.index}-{shortLog(validator)}.ssz", v)
 
-proc dump*(dir: string, v: phase0.TrustedSignedBeaconBlock) =
+proc dump*(dir: string, v: ForkyTrustedSignedBeaconBlock) =
   logErrors:
     SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(v.root)}.ssz", v)
 
-proc dump*(dir: string, v: altair.TrustedSignedBeaconBlock) =
-  logErrors:
-    SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(v.root)}.ssz", v)
-
-proc dump*(dir: string, v: phase0.SignedBeaconBlock) =
-  logErrors:
-    SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(v.root)}.ssz", v)
-
-proc dump*(dir: string, v: altair.SignedBeaconBlock) =
-  logErrors:
-    SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(v.root)}.ssz", v)
-
-proc dump*(dir: string, v: merge.SignedBeaconBlock) =
+proc dump*(dir: string, v: ForkySignedBeaconBlock) =
   logErrors:
     SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(v.root)}.ssz", v)
 

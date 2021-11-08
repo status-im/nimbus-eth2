@@ -10,23 +10,27 @@ import
   ../beacon_chain/[beacon_chain_db],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
   ../beacon_chain/spec/datatypes/phase0,
-  ../beacon_chain/spec/[beaconstate],
+  ../beacon_chain/spec/[beaconstate, forks],
   eth/db/[kvstore, kvstore_sqlite3],
   ./testblockutil
 
 export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 
-proc makeTestDB*(tailState: var phase0.BeaconState, tailBlock: phase0.TrustedSignedBeaconBlock): BeaconChainDB =
+proc makeTestDB*(
+    tailState: ForkedHashedBeaconState,
+    tailBlock: ForkedTrustedSignedBeaconBlock): BeaconChainDB =
   result = BeaconChainDB.new("", inMemory = true)
   ChainDAGRef.preInit(result, tailState, tailState, tailBlock)
 
 proc makeTestDB*(validators: Natural): BeaconChainDB =
   let
-    genState = initialize_beacon_state_from_eth1(
-      defaultRuntimeConfig,
-      Eth2Digest(),
-      0,
-      makeInitialDeposits(validators.uint64, flags = {skipBlsValidation}),
-      {skipBlsValidation})
+    genState = (ref ForkedHashedBeaconState)(
+      kind: BeaconStateFork.Phase0,
+      phase0Data: initialize_hashed_beacon_state_from_eth1(
+        defaultRuntimeConfig,
+        Eth2Digest(),
+        0,
+        makeInitialDeposits(validators.uint64, flags = {skipBlsValidation}),
+        {skipBlsValidation}))
     genBlock = get_initial_beacon_block(genState[])
   makeTestDB(genState[], genBlock)

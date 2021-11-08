@@ -3,9 +3,8 @@ import
   chronicles, confutils, stew/byteutils, eth/db/kvstore_sqlite3,
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db],
-  ../beacon_chain/consensus_object_pools/[
-    blockchain_dag, forkedbeaconstate_dbhelpers],
-  ../beacon_chain/spec/datatypes/phase0,
+  ../beacon_chain/consensus_object_pools/[blockchain_dag],
+  ../beacon_chain/spec/datatypes/[phase0, altair, merge],
   ../beacon_chain/spec/[
     beaconstate, helpers, state_transition, state_transition_epoch, validator],
   ../beacon_chain/sszdump,
@@ -176,64 +175,96 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
   var
     (start, ends) = dag.getSlotRange(conf.benchSlot, conf.benchSlots)
     blockRefs = dag.getBlockRange(start, ends)
-    blocks: seq[phase0.TrustedSignedBeaconBlock]
+    blocks: (
+      seq[phase0.TrustedSignedBeaconBlock],
+      seq[altair.TrustedSignedBeaconBlock],
+      seq[merge.TrustedSignedBeaconBlock])
 
   echo &"Loaded {dag.blocks.len} blocks, head slot {dag.head.slot}, selected {blockRefs.len} blocks"
   doAssert blockRefs.len() > 0, "Must select at least one block"
 
   for b in 0..<blockRefs.len:
+    let blck = blockRefs[blockRefs.len - b - 1]
     withTimer(timers[tLoadBlock]):
-      blocks.add db.getPhase0Block(blockRefs[blockRefs.len - b - 1].root).get()
+      case cfg.blockForkAtEpoch(blck.slot.epoch)
+      of BeaconBlockFork.Phase0:
+        blocks[0].add dag.db.getPhase0Block(blck.root).get()
+      of BeaconBlockFork.Altair:
+        blocks[1].add dag.db.getAltairBlock(blck.root).get()
+      of BeaconBlockFork.Merge:
+        blocks[2].add dag.db.getMergeBlock(blck.root).get()
 
-  let state = newClone(dag.headState)
+  let stateData = newClone(dag.headState)
 
   var
     cache = StateCache()
     info = ForkedEpochInfo()
-    loadedState = new phase0.BeaconState
+    loadedState = (
+      (ref phase0.HashedBeaconState)(),
+      (ref altair.HashedBeaconState)(),
+      (ref merge.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
     dag.updateStateData(
-      state[], blockRefs[^1].atSlot(blockRefs[^1].slot - 1), false, cache)
+      stateData[], blockRefs[^1].atSlot(blockRefs[^1].slot - 1), false, cache)
 
-  for b in blocks.mitems():
-    while getStateField(state[].data, slot) < b.message.slot:
-      let isEpoch = (getStateField(state[].data, slot) + 1).isEpoch()
-      withTimer(timers[if isEpoch: tAdvanceEpoch else: tAdvanceSlot]):
-        let ok = process_slots(
-          dag.cfg, state[].data, getStateField(state[].data, slot) + 1, cache,
-          info, {})
-        doAssert ok, "Slot processing can't fail with correct inputs"
+  template processBlocks(blocks: auto) =
+    for b in blocks.mitems():
+      while getStateField(stateData[].data, slot) < b.message.slot:
+        let isEpoch = (getStateField(stateData[].data, slot) + 1).isEpoch()
+        withTimer(timers[if isEpoch: tAdvanceEpoch else: tAdvanceSlot]):
+          let ok = process_slots(
+            dag.cfg, stateData[].data, getStateField(stateData[].data, slot) + 1, cache,
+            info, {})
+          doAssert ok, "Slot processing can't fail with correct inputs"
 
-    var start = Moment.now()
-    withTimer(timers[tApplyBlock]):
-      if conf.resetCache:
-        cache = StateCache()
-      if not state_transition_block(
-          dag.cfg, state[].data, b, cache, {}, noRollback):
-        dump("./", b)
-        echo "State transition failed (!)"
-        quit 1
-    if conf.printTimes:
-      echo b.message.slot, ",", toHex(b.root.data), ",", nanoseconds(Moment.now() - start)
-    if conf.storeBlocks:
-      withTimer(timers[tDbStore]):
-        dbBenchmark.putBlock(b)
-
-    if getStateField(state[].data, slot).isEpoch and conf.storeStates:
-      if getStateField(state[].data, slot).epoch < 2:
-        dbBenchmark.putState(state[].data)
-        dbBenchmark.checkpoint()
-      else:
+      var start = Moment.now()
+      withTimer(timers[tApplyBlock]):
+        if conf.resetCache:
+          cache = StateCache()
+        if not state_transition_block(
+            dag.cfg, stateData[].data, b, cache, {}, noRollback):
+          dump("./", b)
+          echo "State transition failed (!)"
+          quit 1
+      if conf.printTimes:
+        echo b.message.slot, ",", toHex(b.root.data), ",", nanoseconds(Moment.now() - start)
+      if conf.storeBlocks:
         withTimer(timers[tDbStore]):
-          dbBenchmark.putState(state[].data)
-          dbBenchmark.checkpoint()
+          dbBenchmark.putBlock(b)
 
-        withTimer(timers[tDbLoad]):
-          doAssert dbBenchmark.getState(getStateRoot(state[].data), loadedState[], noRollback)
+      withState(stateData[].data):
+        if state.data.slot.isEpoch and conf.storeStates:
+          if state.data.slot.epoch < 2:
+            dbBenchmark.putState(state.root, state.data)
+            dbBenchmark.checkpoint()
+          else:
+            withTimer(timers[tDbStore]):
+              dbBenchmark.putState(state.root, state.data)
+              dbBenchmark.checkpoint()
 
-        if getStateField(state[].data, slot).epoch mod 16 == 0:
-          doAssert hash_tree_root(state[].data.phase0Data.data) == hash_tree_root(loadedState[])
+            withTimer(timers[tDbLoad]):
+              case stateFork
+              of BeaconStateFork.Phase0:
+                doAssert dbBenchmark.getState(
+                  state.root, loadedState[0][].data, noRollback)
+              of BeaconStateFork.Altair:
+                doAssert dbBenchmark.getState(
+                  state.root, loadedState[1][].data, noRollback)
+              of BeaconStateFork.Merge:
+                doAssert dbBenchmark.getState(
+                  state.root, loadedState[2][].data, noRollback)
+
+            if state.data.slot.epoch mod 16 == 0:
+              let loadedRoot = case stateFork
+                of BeaconStateFork.Phase0: hash_tree_root(loadedState[0][].data)
+                of BeaconStateFork.Altair: hash_tree_root(loadedState[1][].data)
+                of BeaconStateFork.Merge: hash_tree_root(loadedState[2][].data)
+              doAssert hash_tree_root(state.data) == loadedRoot
+
+  processBlocks(blocks[0])
+  processBlocks(blocks[1])
+  processBlocks(blocks[2])
 
   printTimers(false, timers)
 
@@ -241,16 +272,27 @@ proc cmdDumpState(conf: DbConf) =
   let db = BeaconChainDB.new(conf.databaseDir.string)
   defer: db.close()
 
+  let
+    phase0State = (ref phase0.HashedBeaconState)()
+    altairState = (ref altair.HashedBeaconState)()
+    mergeState = (ref merge.HashedBeaconState)()
+
   for stateRoot in conf.stateRoot:
-    try:
-      let root = Eth2Digest(data: hexToByteArray[32](stateRoot))
-      var state = (ref phase0.HashedBeaconState)(root: root)
-      if not db.getState(root, state.data, noRollback):
-        echo "Couldn't load ", root
-      else:
-        dump("./", state[])
-    except CatchableError as e:
-      echo "Couldn't load ", stateRoot, ": ", e.msg
+    template doit(state: untyped) =
+      try:
+        state.root = Eth2Digest.fromHex(stateRoot)
+
+        if db.getState(state.root, state.data, noRollback):
+          dump("./", state)
+          continue
+      except CatchableError as e:
+        echo "Couldn't load ", state.root, ": ", e.msg
+
+    doit(phase0State[])
+    doit(altairState[])
+    doit(mergeState[])
+
+    echo "Couldn't load ", stateRoot
 
 proc cmdDumpBlock(conf: DbConf) =
   let db = BeaconChainDB.new(conf.databaseDir.string)
@@ -258,11 +300,15 @@ proc cmdDumpBlock(conf: DbConf) =
 
   for blockRoot in conf.blockRootx:
     try:
-      let root = Eth2Digest(data: hexToByteArray[32](blockRoot))
+      let root = Eth2Digest.fromHex(blockRoot)
       if (let blck = db.getPhase0Block(root); blck.isSome):
         dump("./", blck.get())
+      elif (let blck = db.getAltairBlock(root); blck.isSome):
+        dump("./", blck.get())
+      elif (let blck = db.getMergeBlock(root); blck.isSome):
+        dump("./", blck.get())
       else:
-        echo "Couldn't load ", root
+        echo "Couldn't load ", blockRoot
     except CatchableError as e:
       echo "Couldn't load ", blockRoot, ": ", e.msg
 
@@ -370,7 +416,8 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   let tmpState = assignClone(dag.headState)
   dag.withState(tmpState[], blckRef.atSlot(Slot(conf.slot))):
     echo "Writing state..."
-    dump("./", stateData.data.phase0Data, blck)
+    withState(stateData.data):
+      dump("./", state, blck)
 
 func atCanonicalSlot(blck: BlockRef, slot: Slot): BlockSlot =
   if slot == 0:

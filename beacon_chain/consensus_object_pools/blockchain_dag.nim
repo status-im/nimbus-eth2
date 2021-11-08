@@ -11,17 +11,15 @@ import
   std/[options, sequtils, tables, sets],
   stew/[assign2, byteutils, results],
   metrics, snappy, chronicles,
-  ../spec/[
-    beaconstate, eth2_merkleization, eth2_ssz_serialization, forks, helpers,
+  ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
   ../spec/datatypes/[phase0, altair, merge],
   ".."/beacon_chain_db,
-  "."/[block_pools_types, block_quarantine, forkedbeaconstate_dbhelpers]
+  "."/[block_pools_types, block_quarantine]
 
 export
-  forks, block_pools_types, results, forkedbeaconstate_dbhelpers,
-  beacon_chain_db,
-  eth2_merkleization, eth2_ssz_serialization
+  eth2_merkleization, eth2_ssz_serialization,
+  block_pools_types, results, beacon_chain_db
 
 # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
@@ -364,6 +362,19 @@ proc getStateData(
 
   true
 
+proc getForkedBlock(db: BeaconChainDB, root: Eth2Digest):
+    Opt[ForkedTrustedSignedBeaconBlock] =
+  # When we only have a digest, we don't know which fork it's from so we try
+  # them one by one - this should be used sparingly
+  if (let blck = db.getMergeBlock(root); blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getAltairBlock(root); blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getPhase0Block(root); blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  else:
+    err()
+
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            updateFlags: UpdateFlags, onBlockCb: OnBlockCallback = nil,
            onHeadCb: OnHeadCallback = nil, onReorgCb: OnReorgCallback = nil,
@@ -380,19 +391,19 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   let
     tailRoot = tailBlockRoot.get()
-    tailBlock = db.getPhase0Block(tailRoot).get()
-    tailRef = BlockRef.init(tailRoot, tailBlock.message)
+    tailBlock = db.getForkedBlock(tailRoot).get()
+    tailRef = withBlck(tailBlock): BlockRef.init(tailRoot, blck.message)
     headRoot = headBlockRoot.get()
 
-  let genesisRef = if tailBlock.message.slot == GENESIS_SLOT:
+  let genesisRef = if tailBlock.slot == GENESIS_SLOT:
     tailRef
   else:
     let
       genesisBlockRoot = db.getGenesisBlock().expect(
         "preInit should have initialized the database with a genesis block root")
-      genesisBlock = db.getPhase0Block(genesisBlockRoot).expect(
+      genesisBlock = db.getForkedBlock(genesisBlockRoot).expect(
         "preInit should have initialized the database with a genesis block")
-    BlockRef.init(genesisBlockRoot, genesisBlock.message)
+    withBlck(genesisBlock): BlockRef.init(genesisBlockRoot, blck.message)
 
   var
     blocks: HashSet[KeyedBlockRef]
@@ -644,7 +655,7 @@ proc putState(dag: ChainDAGRef, state: StateData) =
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
-  dag.db.putState(state.data)
+  withState(state.data): dag.db.putState(state.root, state.data)
   dag.db.putStateRoot(
     state.blck.root, getStateField(state.data, slot), getStateRoot(state.data))
 
@@ -1313,65 +1324,93 @@ proc updateHead*(
       dag.onFinHappened(data)
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
+  # Lightweight check to see if we have the minimal information needed to
+  # load up a database - we don't check head here - if something is wrong with
+  # head, it's likely an initialized, but corrupt database - init will detect
+  # that
   let
-    headBlockRoot = db.getHeadBlock()
+    genesisBlockRoot = db.getGenesisBlock()
     tailBlockRoot = db.getTailBlock()
 
-  if not (headBlockRoot.isSome() and tailBlockRoot.isSome()):
+  if not (genesisBlockRoot.isSome() and tailBlockRoot.isSome()):
     return false
 
   let
-    headBlockPhase0 = db.getPhase0Block(headBlockRoot.get())
-    headBlockAltair = db.getAltairBlock(headBlockRoot.get())
-    tailBlock = db.getPhase0Block(tailBlockRoot.get())
+    genesisBlock = db.getForkedBlock(genesisBlockRoot.get())
+    tailBlock = db.getForkedBlock(tailBlockRoot.get())
 
-  if not ((headBlockPhase0.isSome() or headBlockAltair.isSome()) and
-          tailBlock.isSome()):
+  if not (genesisBlock.isSome() and tailBlock.isSome()):
     return false
+  let
+    genesisStateRoot = withBlck(genesisBlock.get()): blck.message.state_root
+    tailStateRoot = withBlck(tailBlock.get()): blck.message.state_root
 
-  if not db.containsState(tailBlock.get().message.state_root):
+  if not (
+      db.containsState(genesisStateRoot) and db.containsState(tailStateRoot)):
     return false
 
   true
 
 proc preInit*(
     T: type ChainDAGRef, db: BeaconChainDB,
-    genesisState, tailState: var phase0.BeaconState, tailBlock: phase0.TrustedSignedBeaconBlock) =
+    genesisState, tailState: ForkedHashedBeaconState,
+    tailBlock: ForkedTrustedSignedBeaconBlock) =
   # write a genesis state, the way the ChainDAGRef expects it to be stored in
   # database
   # TODO probably should just init a block pool with the freshly written
   #      state - but there's more refactoring needed to make it nice - doing
   #      a minimal patch for now..
-  doAssert tailBlock.message.state_root == hash_tree_root(tailState)
-  notice "New database from snapshot",
-    blockRoot = shortLog(tailBlock.root),
-    stateRoot = shortLog(tailBlock.message.state_root),
-    fork = tailState.fork,
-    validators = tailState.validators.len()
 
-  db.putState(tailState)
-  db.putBlock(tailBlock)
-  db.putTailBlock(tailBlock.root)
-  db.putHeadBlock(tailBlock.root)
-  db.putStateRoot(tailBlock.root, tailState.slot, tailBlock.message.state_root)
+  logScope:
+    genesisStateRoot = getStateRoot(genesisState)
+    genesisStateSlot = getStateField(genesisState, slot)
+    tailStateRoot = getStateRoot(tailState)
+    tailStateSlot = getStateField(tailState, slot)
 
-  if tailState.slot == GENESIS_SLOT:
-    db.putGenesisBlock(tailBlock.root)
-  else:
-    doAssert genesisState.slot == GENESIS_SLOT
-    db.putState(genesisState)
-    let genesisBlock = get_initial_beacon_block(genesisState)
-    db.putBlock(genesisBlock)
-    db.putStateRoot(genesisBlock.root, GENESIS_SLOT, genesisBlock.message.state_root)
-    db.putGenesisBlock(genesisBlock.root)
+  let genesisBlockRoot = withState(genesisState):
+    if state.root != getStateRoot(tailState):
+      # Different tail and genesis
+      if state.data.slot >= getStateField(tailState, slot):
+        fatal "Tail state must be newer or the same as genesis state"
+        quit 1
 
-func setTailState*(dag: ChainDAGRef,
-                   checkpointState: phase0.BeaconState,
-                   checkpointBlock: phase0.TrustedSignedBeaconBlock) =
-  # TODO(zah)
-  # Delete all records up to the tail node. If the tail node is not
-  # in the database, init the dabase in a way similar to `preInit`.
-  discard
+      let tail_genesis_validators_root =
+        getStateField(tailState, genesis_validators_root)
+      if state.data.genesis_validators_root != tail_genesis_validators_root:
+        fatal "Tail state doesn't match genesis validators root, it is likely from a different network!",
+          genesis_validators_root = shortLog(state.data.genesis_validators_root),
+          tail_genesis_validators_root = shortLog(tail_genesis_validators_root)
+        quit 1
+
+      let blck = get_initial_beacon_block(state.data)
+      db.putGenesisBlock(blck.root)
+      db.putBlock(blck)
+
+      db.putState(state.root, state.data)
+      db.putStateRoot(blck.root, state.data.slot, state.root)
+      blck.root
+    else: # tail and genesis are the same
+      withBlck(tailBlock):
+        db.putGenesisBlock(blck.root)
+        blck.root
+
+  withState(tailState):
+    withBlck(tailBlock):
+      doAssert blck.message.state_root == state.root
+      db.putBlock(blck)
+      db.putTailBlock(blck.root)
+      db.putHeadBlock(blck.root)
+
+      db.putState(state.root, state.data)
+      db.putStateRoot(blck.root, state.data.slot, state.root)
+
+      notice "New database from snapshot",
+        genesisBlockRoot = shortLog(genesisBlockRoot),
+        genesisStateRoot = shortLog(getStateRoot(genesisState)),
+        tailBlockRoot = shortLog(blck.root),
+        tailStateRoot = shortLog(state.root),
+        fork = state.data.fork,
+        validators = state.data.validators.len()
 
 proc getGenesisBlockData*(dag: ChainDAGRef): BlockData =
   dag.get(dag.genesis)

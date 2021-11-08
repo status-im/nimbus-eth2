@@ -6,14 +6,14 @@
 import std/[typetraits, strutils, sets]
 import stew/[results, base10], chronicles,
        nimcrypto/utils as ncrutils
-import ".."/[beacon_chain_db, beacon_node],
+import "."/rest_utils,
+       ".."/[beacon_chain_db, beacon_node],
        ".."/networking/eth2_network,
        ".."/consensus_object_pools/[blockchain_dag, spec_cache,
                                     attestation_pool, sync_committee_msg_pool],
        ".."/validators/validator_duties,
-       ".."/spec/[beaconstate, forks, network],
-       ".."/spec/datatypes/[phase0, altair],
-       "."/rest_utils
+       ".."/spec/[forks, network],
+       ".."/spec/datatypes/[phase0, altair]
 
 export rest_utils
 
