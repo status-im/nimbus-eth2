@@ -621,22 +621,27 @@ proc process_attestation*(
     pa[].inclusion_delay = state.slot - attestation.data.slot
     pa[].proposer_index = proposer_index.get().uint64
 
-  # For Altair
+  # Altair and Merge
   template updateParticipationFlags(epoch_participation: untyped) =
     var proposer_reward_numerator = 0'u64
 
     # Participation flag indices
-    let
-      participation_flag_indices =
-        get_attestation_participation_flag_indices(
-          state, attestation.data, state.slot - attestation.data.slot)
+    let participation_flag_indices =
+      get_attestation_participation_flag_indices(
+        state, attestation.data, state.slot - attestation.data.slot)
 
-    for index in get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache):
-        for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
-            if flag_index in participation_flag_indices and not has_flag(epoch_participation[index], flag_index):
-              epoch_participation[index] = add_flag(epoch_participation[index], flag_index)
-              proposer_reward_numerator += get_base_reward(
-                state, index, base_reward_per_increment) * weight.uint64 # these are all valid, #TODO statically verify or do it type-safely
+    for index in get_attesting_indices(
+        state, attestation.data, attestation.aggregation_bits, cache):
+      for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
+        if flag_index in participation_flag_indices and
+            not has_flag(epoch_participation.asSeq[index], flag_index):
+          epoch_participation.asSeq[index] =
+            add_flag(epoch_participation.asSeq[index], flag_index)
+
+          # these are all valid; TODO statically verify or do it type-safely
+          proposer_reward_numerator += get_base_reward(
+            state, index, base_reward_per_increment) * weight.uint64
+    epoch_participation.clearCache()
 
     # Reward proposer
     let
