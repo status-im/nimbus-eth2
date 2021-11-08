@@ -484,7 +484,7 @@ type
     # Represent in full
     inactivity_scores*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
-    # Represent in full; for the next epoch, next_sync_committee in
+    # Represent in full; for the next epoch, next_sync_committee is
     # current_sync_committee, but this doesn't generalize.
     current_sync_committee*: SyncCommittee
     next_sync_committee*: SyncCommittee
