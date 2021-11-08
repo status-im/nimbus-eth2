@@ -836,7 +836,7 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
       if selectionProofRes.isErr():
         error "Unable to sign selection proof using remote signer",
               validator = shortLog(candidateAggregators[i].validator),
-              slot, head, subnet_id = candidateAggregators[i].committeeIdx
+              slot, head, subnet_id = candidateAggregators[i].subcommitteeIdx
         continue
       let selectionProof = selectionProofRes.get()
       if not is_sync_committee_aggregator(selectionProof):
