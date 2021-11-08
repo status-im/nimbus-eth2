@@ -160,7 +160,8 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
                               blck: ForkedBeaconBlock): Future[SignResponse] {.
      async.} =
   let request = Web3SignerRequest.init(fork, genesis_validators_root, blck)
-  debug "Signing block proposal using remote signer"
+  debug "Signing block proposal using remote signer",
+        validator = shortLog(v)
   return await v.client.signData(v.pubKey, request)
 
 proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
@@ -168,7 +169,8 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
                               adata: AttestationData): Future[SignResponse] {.
      async.} =
   let request = Web3SignerRequest.init(fork, genesis_validators_root, adata)
-  debug "Signing block proposal using remote signer"
+  debug "Signing block proposal using remote signer",
+        validator = shortLog(v)
   return await v.client.signData(v.pubKey, request)
 
 proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
@@ -176,7 +178,8 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
                               epoch: Epoch): Future[SignResponse] {.
      async.} =
   let request = Web3SignerRequest.init(fork, genesis_validators_root, epoch)
-  debug "Generating randao reveal signature using remote signer"
+  debug "Generating randao reveal signature using remote signer",
+        validator = shortLog(v)
   return await v.client.signData(v.pubKey, request)
 
 proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
@@ -184,7 +187,8 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
                               proof: AggregateAndProof): Future[SignResponse] {.
      async.} =
   let request = Web3SignerRequest.init(fork, genesis_validators_root, proof)
-  debug "Signing aggregate and proof using remote signer"
+  debug "Signing aggregate and proof using remote signer",
+        validator = shortLog(v)
   return await v.client.signData(v.pubKey, request)
 
 proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
@@ -192,7 +196,8 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
                               slot: Slot): Future[SignResponse] {.
      async.} =
   let request = Web3SignerRequest.init(fork, genesis_validators_root, slot)
-  debug "Signing aggregate slot using remote signer"
+  debug "Signing aggregate slot using remote signer",
+        validator = shortLog(v)
   return await v.client.signData(v.pubKey, request)
 
 proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
@@ -202,7 +207,8 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
      async.} =
   let request = Web3SignerRequest.init(fork, genesis_validators_root, blockRoot,
                                        slot)
-  debug "Signing sync committee message using remote signer"
+  debug "Signing sync committee message using remote signer",
+        validator = shortLog(v)
   return await v.client.signData(v.pubKey, request)
 
 proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
@@ -214,7 +220,8 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
     fork, genesis_validators_root,
     SyncAggregatorSelectionData(slot: slot, subcommittee_index: subIndex),
   )
-  debug "Signing sync aggregator selection data using remote signer"
+  debug "Signing sync aggregator selection data using remote signer",
+        validator = shortLog(v)
   return await v.client.signData(v.pubKey, request)
 
 proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
@@ -225,7 +232,8 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
   let request = Web3SignerRequest.init(
     fork, genesis_validators_root, contribution
   )
-  debug "Signing sync contribution and proof message using remote signer"
+  debug "Signing sync contribution and proof message using remote signer",
+        validator = shortLog(v)
   return await v.client.signData(v.pubKey, request)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#signature
