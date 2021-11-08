@@ -10,6 +10,8 @@ import
   std/strutils, chronicles, metrics,
   chronos, chronos/apps/http/httpclient, presto, presto/client,
   nimcrypto/utils as ncrutils,
+  serialization, json_serialization,
+  json_serialization/std/[options, net, sets],
   stew/[results, base10],
   "."/[rest_types, eth2_rest_serialization]
 
