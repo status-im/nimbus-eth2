@@ -424,52 +424,6 @@ type
     next_fork_version*: Version
     next_fork_epoch*: Epoch
 
-  BeaconStateDiff* = object
-    # Small and/or static; always include
-    slot*: Slot
-    latest_block_header*: BeaconBlockHeader
-
-    # Mod-increment/circular
-    block_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
-    state_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
-
-    # Append only; either 0 or 1 per epoch
-    historical_root_added*: bool
-    historical_root*: Eth2Digest
-
-    # Replace
-    eth1_data*: Eth1Data
-
-    eth1_data_votes_replaced*: bool
-    eth1_data_votes*:
-      List[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
-
-    # Replace
-    eth1_deposit_index*: uint64
-
-    # Validators come in two parts, the immutable public key and mutable
-    # entrance/exit/slashed information about that validator.
-    validator_statuses*:
-      List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
-
-    # Represent in full
-    balances*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
-
-    # Mod-increment
-    randao_mix*: Eth2Digest
-    slashing*: uint64
-
-    # To start with, always overwrite, not append
-    previous_epoch_attestations*:
-      List[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
-    current_epoch_attestations*:
-      List[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
-
-    justification_bits*: uint8
-    previous_justified_checkpoint*: Checkpoint
-    current_justified_checkpoint*: Checkpoint
-    finalized_checkpoint*: Checkpoint
-
   BeaconBlockExits* = object
     # Collection of exits that are suitable for block production
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
