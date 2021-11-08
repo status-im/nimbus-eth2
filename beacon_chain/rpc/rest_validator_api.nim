@@ -215,7 +215,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             for idx, pubkey in syncCommittee:
               if pubkey == res[resIdx].pubkey:
                 res[resIdx].validator_sync_committee_indices.add(
-                  ValidatorIndexInSyncCommittee idx)
+                  IndexInSyncCommittee idx)
           res
 
       return RestApiResponse.jsonResponse(duties)
