@@ -1162,7 +1162,7 @@ proc start(node: BeaconNode) {.raises: [Defect, CatchableError].} =
 
   waitFor node.initializeNetworking()
 
-  if node.eth1Monitor != nil:
+  if node.eth1Monitor != nil and node.attachedValidators[].count > 0:
     node.eth1Monitor.start()
   else:
     notice "Running without execution chain monitor, block producation partially disabled"
