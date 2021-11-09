@@ -440,8 +440,10 @@ func readSszForkedHashedBeaconState*(cfg: RuntimeConfig, data: openArray[byte]):
     state.root = hash_tree_root(state.data)
 
 type
-  BeaconBlockHeader = object
-    slot: Slot
+  ForkedBeaconBlockHeader = object
+    message*: uint32 # message offset
+    signature*: ValidatorSig
+    slot: Slot # start of BeaconBlock
 
 func readSszForkedTrustedSignedBeaconBlock*(
     cfg: RuntimeConfig, data: openArray[byte]):
@@ -453,9 +455,8 @@ func readSszForkedTrustedSignedBeaconBlock*(
     raise (ref MalformedSszError)(msg: "Not enough data for SignedBeaconBlock header")
 
   let header = SSZ.decode(
-    data.toOpenArray(0, sizeof(BeaconBlockHeader) - 1),
-    BeaconBlockHeader)
-
+    data.toOpenArray(0, sizeof(ForkedBeaconBlockHeader) - 1),
+    ForkedBeaconBlockHeader)
   # careful - `result` is used, RVO didn't seem to work without
   # TODO move time helpers somewhere to avoid circular imports
   result = ForkedTrustedSignedBeaconBlock(

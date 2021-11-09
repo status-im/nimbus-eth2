@@ -129,6 +129,17 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Next fork epoch check                                                                      OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Forked SSZ readers
+```diff
++ load altair block                                                                          OK
++ load altair state                                                                          OK
++ load merge block                                                                           OK
++ load merge state                                                                           OK
++ load phase0 block                                                                          OK
++ load phase0 state                                                                          OK
++ should raise on unknown data                                                               OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Gossip validation  [Preset: mainnet]
 ```diff
 + Any committee index is valid                                                               OK
@@ -369,4 +380,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 42/56 Fail: 0/56 Skip: 14/56
 
 ---TOTAL---
-OK: 203/219 Fail: 0/219 Skip: 16/219
+OK: 210/226 Fail: 0/226 Skip: 16/226
