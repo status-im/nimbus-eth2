@@ -15,7 +15,7 @@ when not defined(nimscript):
 const
   versionMajor* = 1
   versionMinor* = 5
-  versionBuild* = 2
+  versionBuild* = 3
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffitti
 
