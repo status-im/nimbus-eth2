@@ -9,7 +9,7 @@
 
 import
   stew/assign2,
-  ./spec/datatypes/phase0,
+  ./spec/datatypes/altair,
   ./spec/helpers
 
 func diffModIncEpoch[T, U](hl: HashArray[U, T], startSlot: uint64):
@@ -81,7 +81,7 @@ func replaceOrAddDecodeEth1Votes[T, U](
     if not votes0.add item:
       raiseAssert "same limit"
 
-func getMutableValidatorStatuses(state: phase0.BeaconState):
+func getMutableValidatorStatuses(state: altair.BeaconState):
     List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT] =
   if not result.setLen(state.validators.len):
     raiseAssert "same limt as validators"
@@ -96,7 +96,7 @@ func getMutableValidatorStatuses(state: phase0.BeaconState):
     assign(result[i].exit_epoch, validator.exit_epoch)
     assign(result[i].withdrawable_epoch, validator.withdrawable_epoch)
 
-func diffStates*(state0, state1: phase0.BeaconState): BeaconStateDiff =
+func diffStates*(state0, state1: altair.BeaconState): BeaconStateDiff =
   doAssert state1.slot > state0.slot
   doAssert state0.slot.isEpoch
   doAssert state1.slot == state0.slot + SLOTS_PER_EPOCH
@@ -139,17 +139,22 @@ func diffStates*(state0, state1: phase0.BeaconState): BeaconStateDiff =
     slashing: state1.slashings[state0.slot.compute_epoch_at_slot.uint64 mod
       EPOCHS_PER_HISTORICAL_VECTOR.uint64],
 
-    previous_epoch_attestations: state1.previous_epoch_attestations.data,
-    current_epoch_attestations: state1.current_epoch_attestations.data,
+    previous_epoch_participation: state1.previous_epoch_participation.data,
+    current_epoch_participation: state1.current_epoch_participation.data,
 
     justification_bits: state1.justification_bits,
     previous_justified_checkpoint: state1.previous_justified_checkpoint,
     current_justified_checkpoint: state1.current_justified_checkpoint,
-    finalized_checkpoint: state1.finalized_checkpoint
+    finalized_checkpoint: state1.finalized_checkpoint,
+
+    inactivity_scores: state1.inactivity_scores.data,
+
+    current_sync_committee: state1.current_sync_committee,
+    next_sync_committee: state1.next_sync_committee
   )
 
 func applyDiff*(
-    state: var phase0.BeaconState,
+    state: var altair.BeaconState,
     immutableValidators: openArray[ImmutableValidatorData2],
     stateDiff: BeaconStateDiff) =
   template assign[T, U](tgt: var HashList[T, U], src: List[T, U]) =
@@ -183,9 +188,9 @@ func applyDiff*(
   assign(state.slashings[epochIndex], stateDiff.slashing)
 
   assign(
-    state.previous_epoch_attestations, stateDiff.previous_epoch_attestations)
+    state.previous_epoch_participation, stateDiff.previous_epoch_participation)
   assign(
-    state.current_epoch_attestations, stateDiff.current_epoch_attestations)
+    state.current_epoch_participation, stateDiff.current_epoch_participation)
 
   state.justification_bits = stateDiff.justification_bits
   assign(
@@ -193,6 +198,11 @@ func applyDiff*(
   assign(
     state.current_justified_checkpoint, stateDiff.current_justified_checkpoint)
   assign(state.finalized_checkpoint, stateDiff.finalized_checkpoint)
+
+  assign(state.inactivity_scores, stateDiff.inactivity_scores)
+
+  assign(state.current_sync_committee, stateDiff.current_sync_committee)
+  assign(state.next_sync_committee, stateDiff.next_sync_committee)
 
   # Don't update slot until the end, because various other updates depend on it
   state.slot = stateDiff.slot
