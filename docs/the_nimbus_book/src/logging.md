@@ -1,6 +1,6 @@
 # Logging
 
-> :warning: the logging options outlined here are based on a preview feature, and are subject to change
+> :warning: The logging options outlined here are based on a preview feature, and are subject to change
 
 Nimbus offers several options for logging - by default, logs are written to stdout using the [chronicles](https://github.com/status-im/nim-chronicles#introduction) `textlines` format which is convenient to read and can be used with tooling for [heroku/logfmt](https://brandur.org/logfmt).
 
