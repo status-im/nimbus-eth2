@@ -886,6 +886,9 @@ fd68c8792ea60c2c72e9c2201745f9698bfd1dae4af4fa9e1683f082109045efebd1d80267f13caf
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/checksums.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#back-up-your-database" id="back-up-your-database">Back up your database</a></h1>
 <p>The best way to do this is to simply copy it over: you'll find it either in <code>build/data/shared_mainnet_0/db/</code> (if you're running Prater, <code>shared_prater_0</code>) or the directory you supplied to the <code>--data-dir</code>  argument when you launched Nimbus).</p>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/database-backup.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#logging" id="logging">Logging</a></h1>
+<blockquote>
+<p>:warning: The logging options outlined here are based on a preview feature, and are subject to change</p>
+</blockquote>
 <p>Nimbus offers several options for logging - by default, logs are written to stdout using the <a href="https://github.com/status-im/nim-chronicles#introduction">chronicles</a> <code>textlines</code> format which is convenient to read and can be used with tooling for <a href="https://brandur.org/logfmt">heroku/logfmt</a>.</p>
 <h2><a class="header" href="#change-log-level" id="change-log-level">Change log level</a></h2>
 <p>You can customise Nimbus' verbosity with the <code>--log-level</code> option.</p>
@@ -904,21 +907,17 @@ FATAL
 NONE
 </code></pre>
 <h2><a class="header" href="#change-logging-style" id="change-logging-style">Change logging style</a></h2>
-<p>Nimbus supports 3 styles of logging: <code>colors</code>, <code>nocolors</code> and <code>json</code>. In <code>auto</code> mode, logs will be printed using either <code>colors</code> or <code>nocolors</code>.</p>
-<p>You can choose a log style with the <code>--log-stdout</code> option, which also understands <code>auto</code> and <code>none</code>:</p>
-<pre><code>./run-mainnet-beacon-node.sh --log-stdout=none # disable logging to std out
-./run-mainnet-beacon-node.sh --log-stdout=json # print json logs, one line per item
+<p>Nimbus supports three log formats: <code>colors</code>, <code>nocolors</code> and <code>json</code>. In <code>auto</code> mode, logs will be printed using either <code>colors</code> or <code>nocolors</code>.</p>
+<p>You can choose a log format with the <code>--log-format</code> option, which also understands <code>auto</code> and <code>none</code>:</p>
+<pre><code>./run-mainnet-beacon-node.sh --log-format=none # disable logging to std out
+./run-mainnet-beacon-node.sh --log-format=json # print json logs, one line per item
 </code></pre>
 <h2><a class="header" href="#logging-to-a-file" id="logging-to-a-file">Logging to a file</a></h2>
 <p>To send logs to a file, you can redirect the stdout logs:</p>
 <pre><code># log json to filename.jsonl
-./run-mainnet-beacon-node.sh --log-stdout=json &gt; filename.jsonl
+./run-mainnet-beacon-node.sh --log-format=json &gt; filename.jsonl
 </code></pre>
 <p>We recommend keeping an eye on the growth of this file with a <a href="./log-rotate.html">log rotator</a>. Logs are written in the &quot;JSON Lines&quot; format - one <code>json</code> entry per line.</p>
-<p>Nimbus also supports writing logs to a log file using the <code>--log-file</code> option - this is provided for historical reasons and may be removed in future releases.</p>
-<pre><code>./run-mainnet-beacon-node.sh --log-file=filename.jsonl # write json logs to the given filename
-</code></pre>
-<p>When the <code>--log-file</code> option is enabled, stdout logs will by default be disabled. You can enable them with the <code>--log-stdout</code> option (choose any format other than <code>auto</code>).</p>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/logging.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#email-notifications" id="email-notifications">Email notifications</a></h1>
 <p>You can create an account on <a href="https://beaconcha.in/">beaconcha.in</a> to set up email notifications in case your validator loses balance (goes offline), or gets slashed.</p>
 <blockquote>
