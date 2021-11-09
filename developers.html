@@ -275,7 +275,17 @@ make LOG_LEVEL=TRACE nimbus_beacon_node # log everything
 <pre><code class="language-bash">make NIMFLAGS=&quot;-d:disableLTO&quot; nimbus_beacon_node
 </code></pre>
 <ul>
-<li>build a static binary</li>
+<li>show C compiler warnings:</li>
+</ul>
+<pre><code class="language-bash">make NIMFLAGS=&quot;-d:cwarnings&quot; nimbus_beacon_node
+</code></pre>
+<ul>
+<li>limit stack usage to 1 MiB per C function (static analysis - see the <a href="https://gcc.gnu.org/onlinedocs/gnat_ugn/Static-Stack-Usage-Analysis.html">GCC docs</a>; if LTO is enabled, it works without <code>-d:cwarnings</code>):</li>
+</ul>
+<pre><code class="language-bash">make NIMFLAGS=&quot;-d:limitStackUsage&quot; nimbus_beacon_node
+</code></pre>
+<ul>
+<li>build a static binary:</li>
 </ul>
 <pre><code class="language-bash">make NIMFLAGS=&quot;--passL:-static&quot; nimbus_beacon_node
 </code></pre>
@@ -285,14 +295,9 @@ make LOG_LEVEL=TRACE nimbus_beacon_node # log everything
 <pre><code class="language-bash">make publish-book
 </code></pre>
 <ul>
-<li>create a binary distribution</li>
+<li>create a binary distribution:</li>
 </ul>
 <pre><code class="language-bash">make dist
-</code></pre>
-<ul>
-<li>test the binaries</li>
-</ul>
-<pre><code class="language-bash">make dist-test
 </code></pre>
 <h2><a class="header" href="#multi-client-interop-scripts" id="multi-client-interop-scripts">Multi-client interop scripts</a></h2>
 <p><a href="https://github.com/eth2-clients/multinet">This repository</a> contains a set of scripts used by the client implementation teams to test interop between the clients (in certain simplified scenarios). It mostly helps us find and debug issues.</p>

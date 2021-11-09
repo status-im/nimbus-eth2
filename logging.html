@@ -194,15 +194,15 @@ NONE
 ./run-mainnet-beacon-node.sh --log-stdout=json # print json logs, one line per item
 </code></pre>
 <h2><a class="header" href="#logging-to-a-file" id="logging-to-a-file">Logging to a file</a></h2>
-<p>To sending logs to a file, it is recommended to use a redirect of the stdout logs:</p>
+<p>To send logs to a file, you can redirect the stdout logs:</p>
 <pre><code># log json to filename.jsonl
 ./run-mainnet-beacon-node.sh --log-stdout=json &gt; filename.jsonl
 </code></pre>
-<p>Keep an eye on the growth of this file with a <a href="./log-rotate.html">log rotator</a>. Logs will be written in the &quot;JSON Lines&quot; format - one <code>json</code> entry per line.</p>
+<p>We recommend keeping an eye on the growth of this file with a <a href="./log-rotate.html">log rotator</a>. Logs are written in the &quot;JSON Lines&quot; format - one <code>json</code> entry per line.</p>
 <p>Nimbus also supports writing logs to a log file using the <code>--log-file</code> option - this is provided for historical reasons and may be removed in future releases.</p>
 <pre><code>./run-mainnet-beacon-node.sh --log-file=filename.jsonl # write json logs to the given filename
 </code></pre>
-<p>When the <code>--log-file</code> option is enabled, stdout logs will by default be disabled - enable them with the <code>--log-stdout</code> option choosing a format other than <code>auto</code>.</p>
+<p>When the <code>--log-file</code> option is enabled, stdout logs will by default be disabled. You can enable them with the <code>--log-stdout</code> option (choose any format other than <code>auto</code>).</p>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/logging.md">Edit this file on GitHub.</a></footer>
                     </main>
 
