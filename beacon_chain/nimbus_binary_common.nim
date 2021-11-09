@@ -136,10 +136,7 @@ proc setupLogging*(
 
     let tmp =
       if stdoutKind == StdoutLogKind.Auto:
-        if logFile.isSome():
-          # No stdout logging by default, when file logging is enabled
-          StdoutLogKind.None
-        elif isatty(stdout):
+        if isatty(stdout):
           # On a TTY, let's be fancy
           StdoutLogKind.Colors
         else:
@@ -167,6 +164,8 @@ proc setupLogging*(
     of StdoutLogKind.None:
      defaultChroniclesStream.outputs[0].writer = noOutput
 
+    if logFile.isSome():
+      warn "The --log-file option is deprecated. Consider redirecting the standard output to a file instead"
   try:
     updateLogLevel(logLevel)
   except ValueError as err:

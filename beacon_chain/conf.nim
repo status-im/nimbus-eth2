@@ -90,13 +90,14 @@ type
       name: "log-level" }: string
 
     logStdout* {.
+      hidden
       desc: "Specifies what kind of logs should be written to stdout (auto, colors, nocolors, json)"
       defaultValueDesc: "auto"
       defaultValue: StdoutLogKind.Auto
-      name: "log-stdout" }: StdoutLogKind
+      name: "log-format" }: StdoutLogKind
 
     logFile* {.
-      desc: "Specifies a path for the written Json log file"
+      desc: "Specifies a path for the written Json log file (deprecated)"
       name: "log-file" }: Option[OutFile]
 
     eth2Network* {.
@@ -532,13 +533,14 @@ type
       name: "log-level" }: string
 
     logStdout* {.
+      hidden
       desc: "Specifies what kind of logs should be written to stdout (auto, colors, nocolors, json)"
       defaultValueDesc: "auto"
       defaultValue: StdoutLogKind.Auto
-      name: "log-stdout" }: StdoutLogKind
+      name: "log-format" }: StdoutLogKind
 
     logFile* {.
-      desc: "Specifies a path for the written Json log file"
+      desc: "Specifies a path for the written Json log file (deprecated)"
       name: "log-file" }: Option[OutFile]
 
     dataDir* {.
