@@ -411,30 +411,23 @@ proc getBlockByNumber*(p: Web3DataProviderRef,
   except ValueError as exc: raiseAssert exc.msg # Never fails
   p.web3.provider.eth_getBlockByNumber(hexNumber, false)
 
-proc preparePayload*(p: Web3DataProviderRef,
-                     parentHash: Eth2Digest,
-                     timestamp: uint64,
-                     randomData: array[32, byte],
-                     feeRecipient: Eth1Address): Future[PreparePayloadResponse] =
-  p.web3.provider.engine_preparePayload(PayloadAttributes(
-    parentHash: parentHash.asBlockHash,
-    timestamp: Quantity timestamp,
-    random: FixedBytes[32] randomData,
-    feeRecipient: feeRecipient))
-
 proc getPayload*(p: Web3DataProviderRef,
-                 payloadId: Quantity): Future[engine_api.ExecutionPayload] =
-  p.web3.provider.engine_getPayload(payloadId)
+                 payloadId: Quantity): Future[engine_api.ExecutionPayloadV1] =
+  p.web3.provider.engine_getPayloadV1(payloadId)
 
 proc executePayload*(p: Web3DataProviderRef,
-                     payload: engine_api.ExecutionPayload): Future[ExecutePayloadResponse] =
-  p.web3.provider.engine_executePayload(payload)
+                     payload: engine_api.ExecutionPayloadV1): Future[ExecutePayloadResponse] =
+  p.web3.provider.engine_executePayloadV1(payload)
 
 proc forkchoiceUpdated*(p: Web3DataProviderRef,
-                        headBlock, finalizedBlock: Eth2Digest): Future[JsonNode] =
-  p.web3.provider.engine_forkchoiceUpdated(ForkChoiceUpdate(
-    headBlockHash: headBlock.asBlockHash,
-    finalizedBlockHash: finalizedBlock.asBlockHash))
+                        headBlock, finalizedBlock: Eth2Digest):
+                        Future[engine_api.ForkchoiceUpdatedResponse] =
+  p.web3.provider.engine_forkchoiceUpdatedV1(
+    ForkchoiceStateV1(
+      headBlockHash: headBlock.asBlockHash,
+      safeBlockHash: finalizedBlock.asBlockHash,
+      finalizedBlockHash: finalizedBlock.asBlockHash),
+    none(engine_api.PayloadAttributesV1))
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
   var res: ValueType
