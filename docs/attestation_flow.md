@@ -51,7 +51,7 @@ These GossipSub topics are used to listen for attestations:
 - Unaggregated: `/eth2/{$forkDigest}/beacon_attestation_{subnetIndex}/ssz_snappy`
 
 The attestations are then validated by `validateAttestation()` or `validateAggregate()` in either `attestationValidator()` or `aggregateValidator()` according to the P2P specs.
-- https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+- https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 - https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/p2p-interface.md#attestation-subnets
 
 Finally, valid attestations are added to the local `attestationPool`.

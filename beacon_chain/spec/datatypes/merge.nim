@@ -30,7 +30,7 @@ const
   MAX_EXTRA_DATA_BYTES = 32
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#custom-types
   Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
 
   EthAddress* = object

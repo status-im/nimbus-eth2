@@ -818,7 +818,7 @@ func process_registry_updates*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#slashings
 func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) {.nbench.} =
   let
     epoch = get_current_epoch(state)
@@ -913,7 +913,7 @@ func process_participation_record_updates*(state: var phase0.BeaconState) {.nben
   state.previous_epoch_attestations.clear()
   swap(state.previous_epoch_attestations, state.current_epoch_attestations)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#participation-flags-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#participation-flags-updates
 func process_participation_flag_updates*(state: var (altair.BeaconState | merge.BeaconState)) =
   state.previous_epoch_participation = state.current_epoch_participation
 

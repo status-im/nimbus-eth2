@@ -16,7 +16,7 @@ import
 # Routines for mocking blocks
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.4/tests/core/pyspec/eth2spec/test/helpers/block.py#L26-L35
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/tests/core/pyspec/eth2spec/test/helpers/block.py#L26-L35
 func apply_randao_reveal(state: ForkyBeaconState, blck: var ForkySignedBeaconBlock) =
   doAssert state.slot <= blck.message.slot
   let
@@ -110,7 +110,7 @@ proc mockBlock*(
 
     sign_block(state.data, blck)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.1/tests/core/pyspec/eth2spec/test/helpers/block.py#L107-L108
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/tests/core/pyspec/eth2spec/test/helpers/block.py#L107-L108
 proc mockBlockForNextSlot*(
     state: ForkedHashedBeaconState): ForkedSignedBeaconBlock =
   ## Mock a BeaconBlock for the next slot
