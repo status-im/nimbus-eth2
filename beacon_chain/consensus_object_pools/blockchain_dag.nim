@@ -1396,7 +1396,16 @@ proc preInit*(
 
   withState(tailState):
     withBlck(tailBlock):
-      doAssert blck.message.state_root == state.root
+      # When looking up the state root of the tail block, we don't use the
+      # BlockSlot->state_root map, so the only way the init code can find the
+      # state is through the state root in the block - this could be relaxed
+      # down the line
+      if blck.message.state_root != state.root:
+        fatal "State must match the given block",
+            tailBlck = shortLog(blck)
+
+        quit 1
+
       db.putBlock(blck)
       db.putTailBlock(blck.root)
       db.putHeadBlock(blck.root)

@@ -187,15 +187,6 @@ proc init*(T: type BeaconNode,
         # the state having empty slots processed past the fork epoch.
         checkpointBlock = readSszForkedTrustedSignedBeaconBlock(
           cfg, readAllBytes(checkpointBlockPath).tryGet())
-
-        withBlck(checkpointBlock):
-          if blck.message.state_root != getStateRoot(checkpointState[]):
-            fatal "Given block doesn't match given state",
-              blck = shortLog(blck),
-              stateRoot = getStateRoot(checkpointState[])
-
-            quit 1
-
       except SszError as err:
         fatal "Invalid checkpoint block", err = err.formatMsg(checkpointBlockPath)
         quit 1

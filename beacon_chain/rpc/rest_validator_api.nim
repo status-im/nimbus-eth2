@@ -12,7 +12,7 @@ import "."/rest_utils,
        ".."/consensus_object_pools/[blockchain_dag, spec_cache,
                                     attestation_pool, sync_committee_msg_pool],
        ".."/validators/validator_duties,
-       ".."/spec/[forks, network],
+       ".."/spec/[beaconstate, forks, network],
        ".."/spec/datatypes/[phase0, altair]
 
 export rest_utils
