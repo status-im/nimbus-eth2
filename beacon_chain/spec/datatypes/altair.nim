@@ -432,7 +432,7 @@ type
   SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
 
   SyncSubcommitteeIndex* = distinct uint8
-  ValidatorIndexInSyncCommittee* = distinct uint16
+  IndexInSyncCommittee* = distinct uint16
 
   BeaconStateDiff* = object
     # Small and/or static; always include
@@ -501,7 +501,7 @@ template `[]`*(a: auto; i: SyncSubcommitteeIndex): auto =
   a[i.asInt]
 
 template `[]`*(arr: array[SYNC_COMMITTEE_SIZE, any] | seq;
-               idx: ValidatorIndexInSyncCommittee): auto =
+               idx: IndexInSyncCommittee): auto =
   arr[int idx]
 
 template `==`*(x, y: SyncSubcommitteeIndex): bool =

@@ -6,16 +6,16 @@
 
 import std/typetraits
 import stew/[assign2, results, base10, byteutils, endians2], presto/common,
-       libp2p/peerid, serialization,
-       json_serialization, json_serialization/std/[options, net, sets],
-       nimcrypto/utils as ncrutils
+       libp2p/peerid, nimcrypto/utils as ncrutils
 import "."/rest_types,
        ".."/[eth2_ssz_serialization, forks],
        ".."/datatypes/[phase0, altair, merge]
 
+import serialization, json_serialization, json_serialization/std/[options, net, sets]
+
 export
-  results, peerid, common, serialization, json_serialization, options, net, sets,
-  eth2_ssz_serialization, rest_types
+  eth2_ssz_serialization, results, peerid, common, serialization,
+  json_serialization, options, net, sets, rest_types
 
 from web3/ethtypes import BlockHash
 export ethtypes.BlockHash
@@ -430,21 +430,21 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorIndex)
   else:
     reader.raiseUnexpectedValue($res.error())
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: ValidatorIndexInSyncCommittee)
+proc writeValue*(writer: var JsonWriter[RestJson], value: IndexInSyncCommittee)
                 {.raises: [IOError, Defect].} =
   writeValue(writer, Base10.toString(distinctBase(value)))
 
-proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorIndexInSyncCommittee)
+proc readValue*(reader: var JsonReader[RestJson], value: var IndexInSyncCommittee)
                {.raises: [IOError, SerializationError, Defect].} =
   let svalue = reader.readValue(string)
   let res = Base10.decode(uint64, svalue)
   if res.isOk():
     let v = res.get()
     if v < SYNC_COMMITTEE_SIZE:
-      value = ValidatorIndexInSyncCommittee(v)
+      value = IndexInSyncCommittee(v)
     else:
       reader.raiseUnexpectedValue(
-        "Validator index is bigger then SYNC_COMMITTEE_SIZE")
+        "Index in committee is bigger than SYNC_COMMITTEE_SIZE")
   else:
     reader.raiseUnexpectedValue($res.error())
 
