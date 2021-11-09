@@ -72,7 +72,7 @@ func `xor`[T: array](a, b: T): T =
   for i in 0..<result.len:
     result[i] = a[i] xor b[i]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#randao
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#randao
 proc process_randao(
     state: var ForkyBeaconState, body: SomeSomeBeaconBlockBody, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] {.nbench.} =

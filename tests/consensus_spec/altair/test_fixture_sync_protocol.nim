@@ -141,7 +141,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
       store.valid_updates.pop() == update
       store.snapshot == pre_snapshot
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L84-L147
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L81-L144
   test "process_light_client_update_timeout":
     var forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data

@@ -48,7 +48,7 @@ template epoch*(slot: Slot): Epoch =
 template isEpoch*(slot: Slot): bool =
   (slot mod SLOTS_PER_EPOCH) == 0
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.3/ssz/merkle-proofs.md#generalized_index_sibling
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/ssz/merkle-proofs.md#generalized_index_sibling
 template generalized_index_sibling*(
     index: GeneralizedIndex): GeneralizedIndex =
   index xor 1.GeneralizedIndex
@@ -66,7 +66,7 @@ template generalized_index_parent*(
     index: GeneralizedIndex): GeneralizedIndex =
   index shr 1
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/ssz/merkle-proofs.md#merkle-multiproofs
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/ssz/merkle-proofs.md#merkle-multiproofs
 iterator get_branch_indices*(
     tree_index: GeneralizedIndex): GeneralizedIndex =
   ## Get the generalized indices of the sister chunks along the path
@@ -76,7 +76,7 @@ iterator get_branch_indices*(
     yield generalized_index_sibling(index)
     index = generalized_index_parent(index)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/ssz/merkle-proofs.md#merkle-multiproofs
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/ssz/merkle-proofs.md#merkle-multiproofs
 iterator get_path_indices*(
     tree_index: GeneralizedIndex): GeneralizedIndex =
   ## Get the generalized indices of the chunks along the path
@@ -86,7 +86,7 @@ iterator get_path_indices*(
     yield index
     index = generalized_index_parent(index)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/ssz/merkle-proofs.md#merkle-multiproofs
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/ssz/merkle-proofs.md#merkle-multiproofs
 func get_helper_indices*(
     indices: openArray[GeneralizedIndex]): seq[GeneralizedIndex] =
   ## Get the generalized indices of all "extra" chunks in the tree needed
@@ -359,7 +359,7 @@ template sync_committee_period*(epoch: Epoch): SyncCommitteePeriod =
 template sync_committee_period*(slot: Slot): SyncCommitteePeriod =
   sync_committee_period(epoch(slot))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
 func compute_start_slot_at_epoch*(epoch: Epoch): Slot =
   ## Return the start slot of ``epoch``.
   (epoch * SLOTS_PER_EPOCH).Slot
@@ -506,7 +506,7 @@ func get_subtree_index*(idx: GeneralizedIndex): uint64 =
   doAssert idx > 0
   uint64(idx mod (type(idx)(1) shl log2trunc(idx)))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/beacon-chain.md#is_merge_complete
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#is_merge_complete
 func is_merge_complete*(state: merge.BeaconState): bool =
   state.latest_execution_payload_header != default(ExecutionPayloadHeader)
 

@@ -33,7 +33,7 @@ func compute_slot_root*(
       fork, DOMAIN_SELECTION_PROOF, epoch, genesis_validators_root)
   compute_signing_root(slot, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#aggregation-selection
 func get_slot_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     privkey: ValidatorPrivKey): CookedSig =
@@ -110,7 +110,7 @@ func compute_aggregate_and_proof_root*(fork: Fork, genesis_validators_root: Eth2
       fork, DOMAIN_AGGREGATE_AND_PROOF, epoch, genesis_validators_root)
   compute_signing_root(aggregate_and_proof, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/validator.md#broadcast-aggregate
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#broadcast-aggregate
 func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
                                         aggregate_and_proof: AggregateAndProof,
                                         privKey: ValidatorPrivKey): CookedSig =
