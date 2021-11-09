@@ -6,16 +6,16 @@
 
 import std/typetraits
 import stew/[assign2, results, base10, byteutils, endians2], presto/common,
-       libp2p/peerid, serialization,
-       json_serialization, json_serialization/std/[options, net, sets],
-       nimcrypto/utils as ncrutils
+       libp2p/peerid, nimcrypto/utils as ncrutils
 import "."/rest_types,
        ".."/[eth2_ssz_serialization, forks],
        ".."/datatypes/[phase0, altair, merge]
 
+import serialization, json_serialization, json_serialization/std/[options, net, sets]
+
 export
-  results, peerid, common, serialization, json_serialization, options, net, sets,
-  eth2_ssz_serialization, rest_types
+  eth2_ssz_serialization, results, peerid, common, serialization,
+  json_serialization, options, net, sets, rest_types
 
 from web3/ethtypes import BlockHash
 export ethtypes.BlockHash
