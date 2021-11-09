@@ -240,7 +240,7 @@ suite "Gossip validation - Extra": # Not based on preset config
           contribution.message.contribution)
         syncCommitteeMsgPool[].addContribution(
           contribution[], contribution.message.contribution.signature.load.get)
-        let signRes = validator.sign(
+        let signRes = waitFor validator.sign(
           contribution, state[].data.fork, state[].data.genesis_validators_root)
         doAssert(signRes.isOk())
         contribution
