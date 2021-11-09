@@ -1,3 +1,33 @@
+2021-11-09 v1.5.3
+=================
+
+Nimbus `v1.5.3` is a `medium-urgency` hotfix release. It addresses an important issue which, in rare cases, can lead to the loss of attestations and sync committee messages. This can, in turn, lead to a reduction in rewards.
+
+Please upgrade at your earliest convenience.
+
+### We've fixed:
+
+* A rare issue during the construction of sync committee contributions: invalid BLS aggregate signatures were being produced under certain conditions; this had the potential to negatively affect the peer score of the node, and impact its ability to deliver gossip messages.
+
+* A non-spec-compliant implementation of the `/eth/v1/validator/duties/sync/{epoch}` REST API.
+
+* A crash in the `/eth/v2/debug/beacon/states` REST API call on systems with limited stack space.
+
+### Improvements:
+
+* A nice little performance improvement for block verification and replay.
+
+* Improved error messages in the REST API.
+
+* The `/eth/v1/config/spec` REST API now returns more information regarding spec config parameters.
+
+## Other notable changes:
+
+* The `--log-file` option is now deprecated and may be removed in a future release (if you wish to log to a file, we recommend redirecting the standard output).
+  
+  Please note that the --log-file option was previously supported only when Nimbus was built from source. If your existing configuration used the --log-file option with a binary release, upgrading to v1.5.3 will enable the log file creation (though a deprecation warning will be printed on start-up).
+
+
 2021-10-21 v1.5.2
 =================
 
