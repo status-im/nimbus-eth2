@@ -29,7 +29,7 @@ func apply_randao_reveal(state: ForkyBeaconState, blck: var ForkySignedBeaconBlo
     blck.message.slot.compute_epoch_at_slot,
     privkey).toValidatorSig()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.4/tests/core/pyspec/eth2spec/test/helpers/block.py#L38-L54
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/tests/core/pyspec/eth2spec/test/helpers/block.py#L38-L54
 func sign_block(state: ForkyBeaconState, blck: var ForkySignedBeaconBlock) =
   let
     proposer_index = blck.message.proposer_index.ValidatorIndex
@@ -43,7 +43,7 @@ func sign_block(state: ForkyBeaconState, blck: var ForkySignedBeaconBlock) =
     blck.root,
     privkey).toValidatorSig()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.3/tests/core/pyspec/eth2spec/test/helpers/execution_payload.py#L1-L31
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/tests/core/pyspec/eth2spec/test/helpers/execution_payload.py#L1-L31
 func build_empty_execution_payload(state: merge.BeaconState): ExecutionPayload =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions.

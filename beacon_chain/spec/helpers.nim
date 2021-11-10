@@ -518,14 +518,14 @@ func is_merge_block(
   not is_merge_complete(state) and
     body.execution_payload != default(merge.ExecutionPayload)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/merge/beacon-chain.md#is_execution_enabled
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
     state: merge.BeaconState,
     body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |
           merge.SigVerifiedBeaconBlockBody): bool =
   is_merge_block(state, body) or is_merge_complete(state)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#compute_timestamp_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#compute_timestamp_at_slot
 func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   # Note: This function is unsafe with respect to overflows and underflows.
   let slots_since_genesis = slot - GENESIS_SLOT

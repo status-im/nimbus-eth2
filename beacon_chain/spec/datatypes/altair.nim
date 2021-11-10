@@ -56,7 +56,7 @@ const
   FINALIZED_ROOT_INDEX* = 105.GeneralizedIndex
   NEXT_SYNC_COMMITTEE_INDEX* = 55.GeneralizedIndex
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#participation-flag-indices
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#participation-flag-indices
   TIMELY_SOURCE_FLAG_INDEX* = 0
   TIMELY_TARGET_FLAG_INDEX* = 1
   TIMELY_HEAD_FLAG_INDEX* = 2
