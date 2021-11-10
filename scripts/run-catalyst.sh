@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
 # set -Eeuo pipefail
 
-# https://notes.ethereum.org/_UH57VUPRrC-re3ubtmo2w
+# https://notes.ethereum.org/@9AeMAlpyQYaAAyuj47BzRw/rkwW3ceVY#Genesis
 
+# Genesis block hash: 0x3b8fb240d288781d4aac94d3fd16809ee413bc99294a085798a589dae51ddd4a
+# To start miner, run miner.start()
 # To increase verbosity: debug.verbosity(4)
-# MetaMask seed phrase for address with balance is:
-# lecture manual soon title cloth uncle gesture cereal common fruit tooth crater
 
 GENESISJSON=$(mktemp)
 GETHDATADIR=$(mktemp -d)
 
 echo \{\
-    \"config\": \{\
+	\"config\": \{\
 		\"chainId\":1,\
 		\"homesteadBlock\":0,\
 		\"eip150Block\":0,\
-		\"eip150Hash\": \"0x0000000000000000000000000000000000000000000000000000000000000000\",\
 		\"eip155Block\":0,\
 		\"eip158Block\":0,\
 		\"byzantiumBlock\":0,\
@@ -29,13 +28,13 @@ echo \{\
 			\"period\": 5,\
 			\"epoch\": 30000\
 		\},\
-		\"terminalTotalDifficulty\":10\
+		\"terminalTotalDifficulty\":0\
 	\},\
 	\"nonce\":\"0x42\",\
 	\"timestamp\":\"0x0\",\
 	\"extraData\":\"0x0000000000000000000000000000000000000000000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\
 	\"gasLimit\":\"0x1C9C380\",\
-	\"difficulty\":\"0x0\",\
+	\"difficulty\":\"0x400000000\",\
 	\"mixHash\":\"0x0000000000000000000000000000000000000000000000000000000000000000\",\
 	\"coinbase\":\"0x0000000000000000000000000000000000000000\",\
 	\"alloc\":\{\
@@ -54,4 +53,4 @@ echo \{\
 ~/execution_clients/go-ethereum/build/bin/geth --catalyst --http --ws -http.api "engine" --datadir "${GETHDATADIR}" account import <(echo 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8)
 
 # Start the node (and press enter once to unlock the account)
-~/execution_clients/go-ethereum/build/bin/geth --catalyst --http --ws -ws.api "eth,net,engine" --datadir "${GETHDATADIR}" --allow-insecure-unlock --unlock "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" --password "" --nodiscover console
+~/execution_clients/go-ethereum/build/bin/geth --catalyst --http --ws --http.api "eth,net,engine" -ws.api "eth,net,engine" --datadir "${GETHDATADIR}" --allow-insecure-unlock --unlock "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" --password "" --nodiscover console
