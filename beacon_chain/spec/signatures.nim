@@ -158,7 +158,7 @@ func contribution_and_proof_signing_root*(
                           genesis_validators_root)
   compute_signing_root(msg, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/validator.md#aggregation-selection
 proc sync_committee_selection_proof_signing_root*(
     fork: Fork,
     genesis_validators_root: Eth2Digest,
