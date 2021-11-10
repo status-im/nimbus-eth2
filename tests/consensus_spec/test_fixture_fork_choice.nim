@@ -59,10 +59,10 @@ proc initialLoad(
        dag: ChainDagRef, fkChoice: ref ForkChoice
     ] =
 
-  var state = parseTest(
+  var state = newClone(parseTest(
     path/"anchor_state.ssz_snappy",
     SSZ, StateType
-  )
+  ))
 
   let blk = parseTest(
     path/"anchor_block.ssz_snappy",
@@ -77,7 +77,7 @@ proc initialLoad(
 
   ChainDagRef.preInit(
     db,
-    state, state,
+    state[], state[],
     asTrusted(signedBlock)
   )
   let dag = ChainDAGRef.init(
