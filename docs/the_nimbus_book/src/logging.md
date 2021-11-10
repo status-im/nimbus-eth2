@@ -50,3 +50,4 @@ To send logs to a file, you can redirect the stdout logs:
 ```
 
 We recommend keeping an eye on the growth of this file with a [log rotator](./log-rotate.md). Logs are written in the "JSON Lines" format - one `json` entry per line.
+
