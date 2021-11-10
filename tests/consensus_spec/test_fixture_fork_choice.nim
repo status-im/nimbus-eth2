@@ -59,9 +59,18 @@ proc initialLoad(
        dag: ChainDagRef, fkChoice: ref ForkChoice
     ] =
 
-  var state = newClone(parseTest(
+   # TODO: support more than phase 0 genesis
+
+  let state = newClone(parseTest(
     path/"anchor_state.ssz_snappy",
     SSZ, StateType
+  ))
+
+  let forkedState = newClone(ForkedHashedBeaconState.init(
+    phase0.HashedBeaconState(
+      data: state[],
+      root: hash_tree_root(state[])
+    )
   ))
 
   let blk = parseTest(
@@ -69,15 +78,16 @@ proc initialLoad(
     SSZ, BlockType
   )
 
-  let signedBlock = phase0.SignedBeaconBlock(
+
+  let signedBlock = ForkedSignedBeaconBlock.init(phase0.SignedBeaconBlock(
         message: blk,
         # signature: - unused as it's trusted
         root: hashTreeRoot(blk)
-      )
+      ))
 
   ChainDagRef.preInit(
     db,
-    state[], state[],
+    forkedState[], forkedState[],
     asTrusted(signedBlock)
   )
   let dag = ChainDAGRef.init(
