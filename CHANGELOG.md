@@ -1,7 +1,7 @@
-2021-11-09 v1.5.3
+2021-11-09 v1.5.4
 =================
 
-Nimbus `v1.5.3` is a `medium-urgency` hotfix release. It addresses an important issue which, in rare cases, can lead to the loss of attestations and sync committee messages. This can, in turn, lead to a reduction in rewards.
+Nimbus `v1.5.4` is a `medium-urgency` hotfix release. It addresses an important issue which, in rare cases, can lead to the loss of attestations and sync committee messages. This can, in turn, lead to a reduction in rewards.
 
 Please upgrade at your earliest convenience.
 
@@ -25,7 +25,7 @@ Please upgrade at your earliest convenience.
 
 * The `--log-file` option is now deprecated and may be removed in a future release (if you wish to log to a file, we recommend redirecting the standard output).
   
-  Please note that the --log-file option was previously supported only when Nimbus was built from source. If your existing configuration used the --log-file option with a binary release, upgrading to v1.5.3 will enable the log file creation (though a deprecation warning will be printed on start-up).
+  Please note that the --log-file option was previously supported only when Nimbus was built from source. If your existing configuration used the --log-file option with a binary release, upgrading to v1.5.4 will enable the log file creation (though a deprecation warning will be printed on start-up).
 
 
 2021-10-21 v1.5.2
