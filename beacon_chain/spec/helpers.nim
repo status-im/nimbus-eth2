@@ -11,7 +11,7 @@
 
 import
   # Standard lib
-  std/[algorithm, intsets, math, sequtils, tables],
+  std/[algorithm, math, sequtils, sets, tables],
   # Status libraries
   stew/[byteutils, endians2, bitops2],
   chronicles,
@@ -93,21 +93,21 @@ func get_helper_indices*(
   ## to prove the chunks with the given generalized indices. Note that the
   ## decreasing order is chosen deliberately to ensure equivalence to the order
   ## of hashes in a regular single-item Merkle proof in the single-item case.
-  var all_helper_indices = initIntSet()
-  var all_path_indices = initIntSet()
+  var all_helper_indices = initHashSet[GeneralizedIndex]()
   for index in indices:
     for idx in get_branch_indices(index):
-      all_helper_indices.incl idx.int
+      all_helper_indices.incl idx
+  for index in indices:
     for idx in get_path_indices(index):
-      all_path_indices.incl idx.int
-  all_helper_indices.excl all_path_indices
+      all_helper_indices.excl idx
 
-  result = newSeqOfCap[GeneralizedIndex](all_helper_indices.len)
+  var res = newSeqOfCap[GeneralizedIndex](all_helper_indices.len)
   for idx in all_helper_indices:
-    result.add idx.GeneralizedIndex
-  result.sort(SortOrder.Descending)
+    res.add idx
+  res.sort(SortOrder.Descending)
+  res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/ssz/merkle-proofs.md#merkle-multiproofs
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/ssz/merkle-proofs.md#merkle-multiproofs
 func check_multiproof_acceptable*(
     indices: openArray[GeneralizedIndex]): Result[void, string] =
   # Check that proof verification won't allocate excessive amounts of memory.
