@@ -23,7 +23,7 @@ The following options are available:
 
      --log-level               Sets the log level for process and topics (e.g. "DEBUG;
                                TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none") [=INFO].
-     --log-format              Specifies what kind of logs should be written to stdout
+     --log-format              Specifies what kind of logs should be written to stdout (beta)
                                (auto, colors, nocolors, json) [=auto].
      --log-file                Specifies a path for the written Json log file.
      --network                 The Eth2 network to join [=mainnet].
