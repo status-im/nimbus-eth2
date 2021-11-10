@@ -169,16 +169,16 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#migrate-from-another-client" id="migrate-from-another-client">Migrate from another client</a></h1>
+                        <h1 id="migrate-from-another-client"><a class="header" href="#migrate-from-another-client">Migrate from another client</a></h1>
 <p><em>See <a href="./migration-options.html">here</a> for advanced options</em></p>
-<h2><a class="header" href="#step-1---sync-the-beacon-node" id="step-1---sync-the-beacon-node">Step 1 - Sync the beacon node</a></h2>
+<h2 id="step-1---sync-the-beacon-node"><a class="header" href="#step-1---sync-the-beacon-node">Step 1 - Sync the beacon node</a></h2>
 <p>No matter which client you are migrating over from, the first step is to sync the Nimbus beacon node.</p>
 <p>The easiest way to do this is to follow the <a href="./quick-start.html">beacon node quick start guide</a>.  Syncing the beacon node might take up to 30h depending on your hardware - you should keep validating using your current setup until it completes.</p>
-<h2><a class="header" href="#step-2---export-your-slashing-protection-history" id="step-2---export-your-slashing-protection-history">Step 2 - Export your slashing protection history</a></h2>
+<h2 id="step-2---export-your-slashing-protection-history"><a class="header" href="#step-2---export-your-slashing-protection-history">Step 2 - Export your slashing protection history</a></h2>
 <blockquote>
 <p>Hat tip to Michael Sproul for his <a href="https://lighthouse.sigmaprime.io/switch-to-lighthouse.html">wonderful guide</a> on how to migrate from Prysm to Lighthouse.</p>
 </blockquote>
-<h3><a class="header" href="#export-from-prysm" id="export-from-prysm">Export from Prysm</a></h3>
+<h3 id="export-from-prysm"><a class="header" href="#export-from-prysm">Export from Prysm</a></h3>
 <p><strong>1. Disable the Prysm validator client</strong></p>
 <p>Once your Nimbus beacon node has synced and you're satisfied that it's working, stop and disable the Prysm validator client (you can also stop the Prysm beacon node if you wish).</p>
 <p>If you're using systemd and your service is called <code>prysmvalidator</code>, run the following commands to stop and disable the service:</p>
@@ -195,7 +195,7 @@ sudo systemctl disable prysmvalidator.service
 </code></pre>
 <p>To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check <a href="https://beaconcha.in/">beaconcha.in</a>).</p>
 </br>
-<h3><a class="header" href="#export-from-nimbus" id="export-from-nimbus">Export from Nimbus</a></h3>
+<h3 id="export-from-nimbus"><a class="header" href="#export-from-nimbus">Export from Nimbus</a></h3>
 <p><strong>1. Disable the Nimbus validator client</strong></p>
 <p>Once your Nimbus beacon node on your new setup has synced and you're satisfied that it's working, stop and disable the Nimbus validator client on your current setup. </p>
 <p>If you're using systemd and your service is called <code>nimbus-eth2-mainnet</code>, run the following commands to stop and disable the service:</p>
@@ -210,28 +210,28 @@ sudo systemctl disable nimbus-eth2-mainnet.service
 </code></pre>
 <p>This will export your history in the correct format to <code>database.json</code>.</p>
 <p>To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check <code>beaconcha.in</code>).</p>
-<h3><a class="header" href="#export-from-lighthouse" id="export-from-lighthouse">Export from Lighthouse</a></h3>
+<h3 id="export-from-lighthouse"><a class="header" href="#export-from-lighthouse">Export from Lighthouse</a></h3>
 <p><em>coming soon</em></p>
-<h3><a class="header" href="#export-from-teku" id="export-from-teku">Export from Teku</a></h3>
+<h3 id="export-from-teku"><a class="header" href="#export-from-teku">Export from Teku</a></h3>
 <p><em>coming soon</em></p>
-<h2><a class="header" href="#step-3---import-your-validator-keys-into-nimbus" id="step-3---import-your-validator-keys-into-nimbus">Step 3 - Import your validator key(s) into Nimbus</a></h2>
+<h2 id="step-3---import-your-validator-keys-into-nimbus"><a class="header" href="#step-3---import-your-validator-keys-into-nimbus">Step 3 - Import your validator key(s) into Nimbus</a></h2>
 <p>To import you validator key(s), follow the instructions <a href="./keys.html">outlined here</a>.</p>
 <blockquote>
 <p>To check that your key(s) has been successfully imported, look for a file named after your public key in <code>build/data/shared_mainet_0/secrets/</code>.</p>
 <p>If you run into an error at this stage, it's probably because the wrong permissions have been set on either a folder or file. See <a href="faq.html#folder-permissions">here</a> for how to fix this.</p>
 </blockquote>
-<h2><a class="header" href="#step-4---import-your-slashing-protection-history" id="step-4---import-your-slashing-protection-history">Step 4 - Import your slashing protection history</a></h2>
+<h2 id="step-4---import-your-slashing-protection-history"><a class="header" href="#step-4---import-your-slashing-protection-history">Step 4 - Import your slashing protection history</a></h2>
 <p>To import the slashing protection history you exported in <strong>step 3</strong>, from the <code>nimbus-eth2</code> directory run:</p>
 <pre><code>build/nimbus_beacon_node slashingdb import path/to/export_dir/database.json
 </code></pre>
 <p>Replacing <code>/path/to/export_dir</code> with the file/directory you specified when you exported your slashing protection history.</p>
-<h2><a class="header" href="#step-5---start-the-nimbus-validator" id="step-5---start-the-nimbus-validator">Step 5 - Start the Nimbus validator</a></h2>
+<h2 id="step-5---start-the-nimbus-validator"><a class="header" href="#step-5---start-the-nimbus-validator">Step 5 - Start the Nimbus validator</a></h2>
 <p>Follow the instructions <a href="./connect-eth2.html">here</a> to start your validator using our pre-built <a href="./binaries.html">binaries</a>.</p>
 <p>If you prefer to use Docker, see <a href="./docker.html">here</a></p>
 <p>For a quick guide on how to set up a systemd service, see <a href="./beacon-node-systemd.html">here</a></p>
-<h2><a class="header" href="#final-thoughts" id="final-thoughts">Final thoughts</a></h2>
+<h2 id="final-thoughts"><a class="header" href="#final-thoughts">Final thoughts</a></h2>
 <p>If you are unsure of the safety of a step, please get in touch with us directly on <a href="https://discord.gg/nnNEBvHu3m">discord</a>. Additionally, we recommend testing the migration works correctly on a testnet before going ahead on mainnet.</p>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/migration.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

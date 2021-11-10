@@ -169,7 +169,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#run-an-eth1-node" id="run-an-eth1-node">Run an eth1 node</a></h1>
+                        <h1 id="run-an-eth1-node"><a class="header" href="#run-an-eth1-node">Run an eth1 node</a></h1>
 <blockquote>
 <p>⚠️ Warning: make sure you've copied the endpoint that starts with either <code>ws</code> or <code>wss</code> (websocket), and not <code>http</code> or <code>https</code>. Nimbus does not currently support <code>http</code> endpoints.</p>
 </blockquote>
@@ -179,14 +179,14 @@
 <blockquote>
 <p><strong>Note:</strong> If you have a &gt; 500GB SSD, and your <a href="./hardware.html">hardware</a> can handle it, we strongly recommend running your own eth1 client. This will help ensure the network stays as decentralised as possible. If you can't however, the next best option is to set up a 3rd part provider like <a href="./infura-guide.html">infura</a>.</p>
 </blockquote>
-<h2><a class="header" href="#nimbus" id="nimbus">Nimbus</a></h2>
+<h2 id="nimbus"><a class="header" href="#nimbus">Nimbus</a></h2>
 <p>In parallel to <code>nimbus-eth2</code> we are working hard on our <a href="https://github.com/status-im/nimbus-eth1">our exectution client</a>. While this is  very much a project in development (i.e. not yet ready for public consumption), we welcome you to experiment with it.</p>
-<h2><a class="header" href="#nethermind" id="nethermind">Nethermind</a></h2>
+<h2 id="nethermind"><a class="header" href="#nethermind">Nethermind</a></h2>
 <p><em>TBC</em></p>
-<h2><a class="header" href="#geth" id="geth">Geth</a></h2>
-<h3><a class="header" href="#1-install-geth" id="1-install-geth">1. Install Geth</a></h3>
+<h2 id="geth"><a class="header" href="#geth">Geth</a></h2>
+<h3 id="1-install-geth"><a class="header" href="#1-install-geth">1. Install Geth</a></h3>
 <p>If you're running MacOS, follow the instructions <a href="https://github.com/ethereum/go-ethereum/wiki/Installation-Instructions-for-Mac">listed here</a> to install geth. Otherwise <a href="https://github.com/ethereum/go-ethereum/wiki/Installing-Geth">see here</a>.</p>
-<h3><a class="header" href="#2-start-geth" id="2-start-geth">2. Start Geth</a></h3>
+<h3 id="2-start-geth"><a class="header" href="#2-start-geth">2. Start Geth</a></h3>
 <p>Once you have geth installed, use the following command to start your eth1 node:</p>
 <p><strong>Testnet</strong></p>
 <pre><code>geth --goerli --ws
@@ -197,7 +197,7 @@
 <blockquote>
 <p><strong>Note:</strong> The <code>--ws</code> flag is needed to enable the websocket RPC API. This allows Nimbus to query the eth1 chain using Web3 API calls.</p>
 </blockquote>
-<h3><a class="header" href="#3-leave-geth-running" id="3-leave-geth-running">3. Leave Geth running</a></h3>
+<h3 id="3-leave-geth-running"><a class="header" href="#3-leave-geth-running">3. Leave Geth running</a></h3>
 <p>Let it sync - Geth uses a fast sync mode by default. It may take anywhere between a few hours and a couple of days.</p>
 <blockquote>
 <p><strong>N.B.</strong> It is safe to run Nimbus and start validating even if Geth hasn't fully synced yet</p>
@@ -214,7 +214,7 @@ INFO [05-29|01:16:10] Imported new chain segment               blocks=1 txs=1   
 INFO [05-29|01:16:14] Imported new chain segment               blocks=1 txs=11  mgas=1.135  elapsed=22.281ms  mgasps=50.943  number=3785444 hash=277bb9…623d8c
 </code></pre>
 <p>Geth accepts connections from the loopback interface (<code>127.0.0.1</code>), with default WebSocket port <code>8546</code>. This means that your default Web3 provider URL should be: <code>ws://127.0.0.1:8546</code></p>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/eth1.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

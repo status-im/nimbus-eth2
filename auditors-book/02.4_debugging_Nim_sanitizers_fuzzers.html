@@ -163,15 +163,15 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#debugging-nim" id="debugging-nim">Debugging Nim</a></h1>
+                        <h1 id="debugging-nim"><a class="header" href="#debugging-nim">Debugging Nim</a></h1>
 <p>Reference article: <a href="https://nim-lang.org/blog/2017/10/02/documenting-profiling-and-debugging-nim-code.html">https://nim-lang.org/blog/2017/10/02/documenting-profiling-and-debugging-nim-code.html</a></p>
-<h2><a class="header" href="#gdb--lldb" id="gdb--lldb">GDB / LLDB</a></h2>
+<h2 id="gdb--lldb"><a class="header" href="#gdb--lldb">GDB / LLDB</a></h2>
 <p>Nim can be instrumented with sourcemaps:</p>
 <ul>
 <li>by passing <code>--debugger:native</code> to the compiler, so that the stacktraces in gdb shows the Nim source code</li>
 <li>by passing <code>--passC:&quot;-g&quot;</code> to the compiler, so that the stacktraces in gdb shows the C source code</li>
 </ul>
-<h2><a class="header" href="#sanitizers--valgrind" id="sanitizers--valgrind">Sanitizers &amp; Valgrind</a></h2>
+<h2 id="sanitizers--valgrind"><a class="header" href="#sanitizers--valgrind">Sanitizers &amp; Valgrind</a></h2>
 <p>LLVM and GCC sanitizers can be used with</p>
 <pre><code class="language-Nim">nim c --cc:clang -r -d:release --debugger:native \
   --passC:&quot;-fsanitize=address&quot; --passL:&quot;-fsanitize=address&quot; \
@@ -186,16 +186,16 @@
 <p>Instead of Nim custom allocators, the sys malloc/free can be used by passing
 <code>-d:useMalloc</code> in the command-line</p>
 <p><em>Some GC/versions might not properly accept the flag, this is a Nim bug and we can patch upstream and our own fork in that case</em></p>
-<h2><a class="header" href="#fuzzers" id="fuzzers">Fuzzers</a></h2>
+<h2 id="fuzzers"><a class="header" href="#fuzzers">Fuzzers</a></h2>
 <p>TODO</p>
-<h3><a class="header" href="#internal-fuzzing" id="internal-fuzzing">Internal fuzzing</a></h3>
+<h3 id="internal-fuzzing"><a class="header" href="#internal-fuzzing">Internal fuzzing</a></h3>
 <p>We are currently adding fuzzing to our repositories via libFuzzer and AFL.</p>
 <ul>
 <li>Fuzzing abstraction: <a href="https://github.com/status-im/nim-testutils">https://github.com/status-im/nim-testutils</a></li>
 <li>Network lib fuzzing: <a href="https://github.com/status-im/nim-eth/tree/4f533eb5/tests/fuzzing">https://github.com/status-im/nim-eth/tree/4f533eb5/tests/fuzzing</a></li>
 <li>Eth2 core/Validator core fuzzing: <a href="https://github.com/status-im/nim-blscurve/tree/271a5738/tests/fuzzing">https://github.com/status-im/nim-blscurve/tree/271a5738/tests/fuzzing</a></li>
 </ul>
-<h3><a class="header" href="#external-consensus-fuzzing" id="external-consensus-fuzzing">External &quot;Consensus&quot; fuzzing</a></h3>
+<h3 id="external-consensus-fuzzing"><a class="header" href="#external-consensus-fuzzing">External &quot;Consensus&quot; fuzzing</a></h3>
 <p>Sigma Prima is fuzzing all Ethereum 2 clients on the spec (Eth2 core/Validator core)</p>
 <p>We provide them with a simple C API</p>
 <ul>
@@ -207,7 +207,7 @@
 </ul>
 <p>And compile the nim code as a shared or static library.</p>
 <p>On usage, the only extra limitation compared to a C library is the need to call <code>NimMain()</code> before calling any Nim function to initialize the Nim runtime.</p>
-<h2><a class="header" href="#inspecting-the-generated-intermediate-code-and-objects" id="inspecting-the-generated-intermediate-code-and-objects">Inspecting the generated intermediate code and objects</a></h2>
+<h2 id="inspecting-the-generated-intermediate-code-and-objects"><a class="header" href="#inspecting-the-generated-intermediate-code-and-objects">Inspecting the generated intermediate code and objects</a></h2>
 <p>The intermediate C code and object files are stored in</p>
 <ul>
 <li><code>$HOME/.cache/nim/compiled_target_d</code> or <code>$HOME/.cache/nim/compiled_target_r</code> on UNIX (d for debug, r for release)</li>

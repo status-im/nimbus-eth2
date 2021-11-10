@@ -169,11 +169,11 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#grafana-and-prometheus" id="grafana-and-prometheus">Grafana and Prometheus</a></h1>
+                        <h1 id="grafana-and-prometheus"><a class="header" href="#grafana-and-prometheus">Grafana and Prometheus</a></h1>
 <p>In this page we'll cover how to use  Grafana and Prometheus to help you visualise important real-time metrics concerning your validator and/or beacon node.</p>
 <p>Prometheus is an open-source systems monitoring and alerting toolkit. It runs as a service on your computer and its job is to capture metrics. You can find more information about Prometheus <a href="https://prometheus.io/docs/introduction/overview/">here</a>.</p>
 <p>Grafana is a tool for beautiful dashboard monitoring that works well with Prometheus. You can learn more about Grafana <a href="https://github.com/grafana/grafana">here</a>.</p>
-<h2><a class="header" href="#simple-metrics" id="simple-metrics">Simple metrics</a></h2>
+<h2 id="simple-metrics"><a class="header" href="#simple-metrics">Simple metrics</a></h2>
 <p>Run the beacon node  with the <code>--metrics</code> flag:</p>
 <pre><code>./run-prater-beacon-node.sh --metrics
 </code></pre>
@@ -200,10 +200,10 @@ nim_gc_heap_instance_occupied_bytes{type_name=&quot;seq[TrustedAttestation]&quot
 </blockquote>
 <p>Unfortunately, this simple method only offers one snapshot in time (you'll need to keep refreshing to see the data update) which means it's impossible to see a useful history of the metrics. In short, it's far from optimal from an information design point of view.</p>
 <p>In order to settle on a better solution, we'll need the help of two external projects -- Prometheus and Grafana.</p>
-<h2><a class="header" href="#prometheus-and-grafana" id="prometheus-and-grafana">Prometheus and Grafana</a></h2>
+<h2 id="prometheus-and-grafana"><a class="header" href="#prometheus-and-grafana">Prometheus and Grafana</a></h2>
 <p>The following steps will take you through how to use Prometheus and Grafana to spin up a beautiful and useful monitoring dashboard for your validator and beacon node.</p>
-<h3><a class="header" href="#steps" id="steps">Steps</a></h3>
-<h4><a class="header" href="#1-download-prometheus" id="1-download-prometheus">1. Download Prometheus</a></h4>
+<h3 id="steps"><a class="header" href="#steps">Steps</a></h3>
+<h4 id="1-download-prometheus"><a class="header" href="#1-download-prometheus">1. Download Prometheus</a></h4>
 <p>Use your favourite package manager to download Prometheus -- for example <code>apt-get install prometheus</code> on Ubuntu, or <code>brew install prometheus</code> on MacOS, should do the trick.</p>
 <blockquote>
 <p>If you don't use a package manager, you can download the <a href="https://prometheus.io/download/">latest release</a> of directly from Prometheus website. To extract it, run:</p>
@@ -211,11 +211,11 @@ nim_gc_heap_instance_occupied_bytes{type_name=&quot;seq[TrustedAttestation]&quot
 cd prometheus-*
 </code></pre>
 </blockquote>
-<h4><a class="header" href="#2-copy-the-binary" id="2-copy-the-binary">2. Copy the binary</a></h4>
+<h4 id="2-copy-the-binary"><a class="header" href="#2-copy-the-binary">2. Copy the binary</a></h4>
 <p>The Prometheus server is a single binary called prometheus (or prometheus.exe on Microsoft Windows). Copy it over to <a href="https://unix.stackexchange.com/questions/4186/what-is-usr-local-bin"><code>/usr/local/bin</code></a></p>
 <pre><code>cp prometheus-2.20.1.linux-amd64/prometheus /usr/local/bin/
 </code></pre>
-<h4><a class="header" href="#3-run-prometheus-with-the-default-configuration-file" id="3-run-prometheus-with-the-default-configuration-file">3. Run Prometheus with the default configuration file</a></h4>
+<h4 id="3-run-prometheus-with-the-default-configuration-file"><a class="header" href="#3-run-prometheus-with-the-default-configuration-file">3. Run Prometheus with the default configuration file</a></h4>
 <p>Prometheus relies on a YAML configuration file to let it know where, and how often, to scrape data.</p>
 <p>Example config file:</p>
 <pre><code>global:
@@ -234,18 +234,18 @@ scrape_configs:
 <p>You should see the following confirmation in the logs:</p>
 <pre><code>level=info ts=2021-01-22T14:52:10.604Z caller=main.go:673 msg=&quot;Server is ready to receive web requests.&quot;
 </code></pre>
-<h4><a class="header" href="#4-download-grafana" id="4-download-grafana">4. Download Grafana</a></h4>
+<h4 id="4-download-grafana"><a class="header" href="#4-download-grafana">4. Download Grafana</a></h4>
 <p><a href="(https://grafana.com/grafana/download?platform=linux)">Download the latest release</a> of Grafana for your platform. You need version 7.2 or newer.</p>
 <blockquote>
 <p><strong>Note:</strong> If you use a package manager, you can also download Grafana that way -- for example <code>apt-get install grafana</code> on Ubuntu, or <code>brew install grafana</code> on MacOS, should do the trick.</p>
 </blockquote>
-<h4><a class="header" href="#5-install-and-start-grafana" id="5-install-and-start-grafana">5. Install and start Grafana</a></h4>
+<h4 id="5-install-and-start-grafana"><a class="header" href="#5-install-and-start-grafana">5. Install and start Grafana</a></h4>
 <p>Follow <a href="https://grafana.com/docs/grafana/latest/installation/">the instructions for your platform</a> to install and start Grafana.</p>
-<h4><a class="header" href="#6-configure-login" id="6-configure-login">6. Configure login</a></h4>
+<h4 id="6-configure-login"><a class="header" href="#6-configure-login">6. Configure login</a></h4>
 <p>Go to <a href="http://localhost:3000/">http://localhost:3000/</a>, you should see a Grafana login screen that looks like this</p>
 <p><img src="https://i.imgur.com/jcP1qWl.png" alt="" /></p>
 <p>Type in <code>admin</code> for both the username and password. You'll be asked to change the password (we recommend you do so).</p>
-<h4><a class="header" href="#7-add-a-data-source" id="7-add-a-data-source">7. Add a data source</a></h4>
+<h4 id="7-add-a-data-source"><a class="header" href="#7-add-a-data-source">7. Add a data source</a></h4>
 <p>Hover your mouse over the gear icon in the left menu bar, and click on the <code>Data Sources</code> option in the sub-menu that pops up.</p>
 <p><img src="https://i.imgur.com/0Xsgx61.png" alt="" /></p>
 <p>Now click on the <code>Add Data Source</code> button in the center of the screen</p>
@@ -259,7 +259,7 @@ scrape_configs:
 <p><img src="https://i.imgur.com/GJVdwaK.png" alt="" /></p>
 <p>If everything is working correctly you should see a green <code>Data source is working</code> box pop up</p>
 <p><img src="https://i.imgur.com/vf5ahNA.png" alt="" /></p>
-<h4><a class="header" href="#8-import-a-dashboard" id="8-import-a-dashboard">8. Import a dashboard</a></h4>
+<h4 id="8-import-a-dashboard"><a class="header" href="#8-import-a-dashboard">8. Import a dashboard</a></h4>
 <p>Now, let's import a dashboard; hover your mouse over the <code>+</code> icon in the left menu bar and select <code>import</code> from the pop-up menu</p>
 <p><img src="https://i.imgur.com/WnnAcUR.png" alt="" /></p>
 <p>Click on <code>Upload JSON file</code></p>
@@ -272,8 +272,8 @@ scrape_configs:
 <p><strong>Note:</strong> the dashboard is very much a work in progress. Some of the highlights right now include received and proposed blocks, received and sent attestations, peers, memory and cpu usage stats. But keep an eye out for additional metrics in the near future.</p>
 </blockquote>
 <p>And voila! That's all there is to it :)</p>
-<h2><a class="header" href="#community-dashboards" id="community-dashboards">Community dashboards</a></h2>
-<h3><a class="header" href="#joe-clapis" id="joe-clapis">Joe Clapis</a></h3>
+<h2 id="community-dashboards"><a class="header" href="#community-dashboards">Community dashboards</a></h2>
+<h3 id="joe-clapis"><a class="header" href="#joe-clapis">Joe Clapis</a></h3>
 <p><img src="https://i.imgur.com/05eJeBr.png" alt="" /></p>
 <p>Joe – who’s done some brilliant work <a href="https://our.status.im/rocket-pool-integration/">integrating Nimbus with Rocket Pool</a> – has created a <a href="https://github.com/jclapis/rp-pi-guide/blob/main/Grafana.md">wonderful guide</a> where he takes you through how to set up a Grafana server on your Pi – using his dashboard as an example.</p>
 <p>In his words:</p>
@@ -281,16 +281,16 @@ scrape_configs:
 <p>This captures just about every metric I think I’d like to see at a glance.</p>
 </blockquote>
 <p>Whether or not you're running a Pi, we recommend you check out his guide <a href="https://github.com/jclapis/rp-pi-guide/blob/main/Grafana.md">here</a>.</p>
-<h3><a class="header" href="#metanull" id="metanull">Metanull</a></h3>
+<h3 id="metanull"><a class="header" href="#metanull">Metanull</a></h3>
 <p><img src="https://i.imgur.com/OlvNGlq.jpg" alt="" /></p>
 <p>A dashboard aimed primarily at users rather than developers.</p>
 <p>Note that this dashboard does rely heavily on three prometheus exporter tools: <code>node_exporter</code> for system metrics, <code>json_exporter</code> for ETH price, and <code>blackbox_exporter</code> for ping times.</p>
 <p>The good news is that you don't need to use all these tools, as long as you take care of removing the related panels.</p>
 <p>See <a href="https://github.com/metanull-operator/eth2-grafana/tree/master/nimbus">here</a> for a detailed guide explaining how to use it.</p>
-<h2><a class="header" href="#enabling-mobile-alerts" id="enabling-mobile-alerts">Enabling mobile alerts</a></h2>
-<h3><a class="header" href="#telegram" id="telegram">Telegram</a></h3>
+<h2 id="enabling-mobile-alerts"><a class="header" href="#enabling-mobile-alerts">Enabling mobile alerts</a></h2>
+<h3 id="telegram"><a class="header" href="#telegram">Telegram</a></h3>
 <p>TODO</p>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/metrics-pretty-pictures.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

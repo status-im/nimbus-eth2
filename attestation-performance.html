@@ -169,15 +169,15 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#monitor-attestation-performance" id="monitor-attestation-performance">Monitor attestation performance</a></h1>
+                        <h1 id="monitor-attestation-performance"><a class="header" href="#monitor-attestation-performance">Monitor attestation performance</a></h1>
 <p>Use the <code>ncli_db validatorPerf</code> command to create a report for the attestation performance of your validator over time.</p>
-<h2><a class="header" href="#steps" id="steps">Steps</a></h2>
+<h2 id="steps"><a class="header" href="#steps">Steps</a></h2>
 <p>Make sure you're in the <code>nimbus-eth2</code> repository.</p>
-<h3><a class="header" href="#1-build-ncli_db" id="1-build-ncli_db">1. Build ncli_db</a></h3>
+<h3 id="1-build-ncli_db"><a class="header" href="#1-build-ncli_db">1. Build ncli_db</a></h3>
 <p>The first step is to build <code>ncli_db</code>:</p>
 <pre><code>make ncli_db
 </code></pre>
-<h3><a class="header" href="#2-view-options" id="2-view-options">2. View options</a></h3>
+<h3 id="2-view-options"><a class="header" href="#2-view-options">2. View options</a></h3>
 <p>To view the options available to you, run:</p>
 <pre><code>build/ncli_db --help
 </code></pre>
@@ -207,7 +207,7 @@ The following options are available:
  --slots        Number of slots to run benchmark for, 0 = all the way to head [=0].
 </code></pre>
 <p>Use <code>start-slot</code> and <code>slots</code> to restrict the analysis on a specific block range.</p>
-<h3><a class="header" href="#3-run" id="3-run">3. Run</a></h3>
+<h3 id="3-run"><a class="header" href="#3-run">3. Run</a></h3>
 <p>To view the performance of all validators on Prater so far across the entire block range stored in your database, run:</p>
 <pre><code>build/ncli_db validatorPerf \
 --network=prater \
@@ -220,7 +220,7 @@ The following options are available:
 2,128,0,127,1,127,1,1.0078125,0,5
 ...
 </code></pre>
-<h3><a class="header" href="#4-adjust-to-target-a-specific-block-range" id="4-adjust-to-target-a-specific-block-range">4. Adjust to target a specific block range</a></h3>
+<h3 id="4-adjust-to-target-a-specific-block-range"><a class="header" href="#4-adjust-to-target-a-specific-block-range">4. Adjust to target a specific block range</a></h3>
 <p>To restrict the analysis to the performance between slots 0 and 128, say, run:</p>
 <pre><code>build/ncli_db validatorPerf \
 --network=prater \
@@ -228,7 +228,7 @@ The following options are available:
 --start-slot=0 \
 --slots=128
 </code></pre>
-<h3><a class="header" href="#5-compare-my-validators-to-the-global-average" id="5-compare-my-validators-to-the-global-average">5. Compare my validators to the global average</a></h3>
+<h3 id="5-compare-my-validators-to-the-global-average"><a class="header" href="#5-compare-my-validators-to-the-global-average">5. Compare my validators to the global average</a></h3>
 <p>We'll use <a href="https://docs.google.com/spreadsheets/d/1SNFf4LsDOK91SWuQZm9DYBoX9JNQNMKHw66Rv0l5EGo/">Paul Hauner's wonderful workbook</a> as a template. This workbook consists of three inter-related spreadsheets - <code>Summary</code>, <code>My Validators</code>, and <code>datasource</code>.</p>
 <ol>
 <li>
@@ -247,9 +247,9 @@ The following options are available:
 <p>Go to the <code>Summary</code> page and view your results</p>
 </li>
 </ol>
-<h2><a class="header" href="#resources" id="resources">Resources</a></h2>
+<h2 id="resources"><a class="header" href="#resources">Resources</a></h2>
 <p>The workbook's method  is explained <a href="https://hackmd.io/xQfi83kHQpm05-aAFVV0DA?view">here</a>.</p>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/attestation-performance.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

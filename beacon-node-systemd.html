@@ -169,13 +169,13 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#set-up-a-systemd-service" id="set-up-a-systemd-service">Set up a systemd service</a></h1>
+                        <h1 id="set-up-a-systemd-service"><a class="header" href="#set-up-a-systemd-service">Set up a systemd service</a></h1>
 <p>This page will take you through how to set up a <code>systemd</code> service for your beacon node.</p>
 <p>Systemd is used in order to have a command or program run when your device boots (i.e. add it as a service). Once this is done, you can start/stop enable/disable from the linux prompt.</p>
 <blockquote>
 <p><a href="https://www.freedesktop.org/wiki/Software/systemd/"><code>systemd</code></a> is a service manager designed specifically for Linux. There is no port to Mac OS. You can get more information from <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">https://www.raspberrypi.org/documentation/linux/usage/systemd.md</a>  or  <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">https://fedoramagazine.org/what-is-an-init-system/</a></p>
 </blockquote>
-<h3><a class="header" href="#1-create-a-systemd-service" id="1-create-a-systemd-service">1. Create a systemd service</a></h3>
+<h3 id="1-create-a-systemd-service"><a class="header" href="#1-create-a-systemd-service">1. Create a systemd service</a></h3>
 <blockquote>
 <p>⚠️  If you wish to run the service with metrics enabled, you'll need to replace <code>--metrics:off</code> with <code>--metrics:on</code> in the service file below. See <a href="./metrics-pretty-pictures.html">here</a> for more on metrics.</p>
 </blockquote>
@@ -210,13 +210,13 @@ WantedBy=default.target
 <blockquote>
 <p>If you want to run on mainnet, simply replace all instances of <code>prater</code> with <code>mainnet</code>.</p>
 </blockquote>
-<h3><a class="header" href="#2-notify-systemd-of-the-newly-added-service" id="2-notify-systemd-of-the-newly-added-service">2. Notify systemd of the newly added service</a></h3>
+<h3 id="2-notify-systemd-of-the-newly-added-service"><a class="header" href="#2-notify-systemd-of-the-newly-added-service">2. Notify systemd of the newly added service</a></h3>
 <pre><code class="language-console">sudo systemctl daemon-reload
 </code></pre>
-<h3><a class="header" href="#3-start-the-service" id="3-start-the-service">3. Start the service</a></h3>
+<h3 id="3-start-the-service"><a class="header" href="#3-start-the-service">3. Start the service</a></h3>
 <pre><code class="language-console">sudo systemctl enable nimbus-eth2-prater --now
 </code></pre>
-<h3><a class="header" href="#4-monitor-the-service" id="4-monitor-the-service">4. Monitor the service</a></h3>
+<h3 id="4-monitor-the-service"><a class="header" href="#4-monitor-the-service">4. Monitor the service</a></h3>
 <pre><code class="language-console">sudo journalctl -u nimbus-eth2-prater.service
 </code></pre>
 <p>This will show you the Nimbus logs at the default setting -- it should include regular &quot;slot start&quot; messages which will show your <a href="./keep-an-eye.html#keep-track-of-your-syncing-progress">sync progress</a>.</p>
@@ -224,11 +224,11 @@ WantedBy=default.target
 <pre><code class="language-console">sudo journalctl -u nimbus-eth2-prater.service --since yesterday
 </code></pre>
 <p>For more options, see <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">here</a>.</p>
-<h2><a class="header" href="#further-examples" id="further-examples">Further examples</a></h2>
+<h2 id="further-examples"><a class="header" href="#further-examples">Further examples</a></h2>
 <ul>
 <li><a href="https://github.com/chfast/ethereum-node/blob/main/nimbus%40.service">A systemd service file</a> by Pawel Bylica which allows you to start two services at the same time: e.g. <code>nimbus@prater.service</code> and <code>nimbus@mainnet.service</code>.</li>
 </ul>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/beacon-node-systemd.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

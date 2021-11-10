@@ -169,37 +169,37 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#for-developers" id="for-developers">For Developers</a></h1>
+                        <h1 id="for-developers"><a class="header" href="#for-developers">For Developers</a></h1>
 <p>This page contains tips and tricks for developers, further resources, along with information on how to set up your build environment on your platform.</p>
 <p>Before building Nimbus for the first time, make sure to install the <a href="./install.html">prerequisites</a>.</p>
-<h2><a class="header" href="#code-style" id="code-style">Code style</a></h2>
+<h2 id="code-style"><a class="header" href="#code-style">Code style</a></h2>
 <p>The code follows the <a href="https://status-im.github.io/nim-style-guide/">Status Nim Style Guide</a>.</p>
-<h2><a class="header" href="#branch-lifecycle" id="branch-lifecycle">Branch lifecycle</a></h2>
+<h2 id="branch-lifecycle"><a class="header" href="#branch-lifecycle">Branch lifecycle</a></h2>
 <p>The git repository has 3 main branches, <code>stable</code>, <code>testing</code> and <code>unstable</code> as well as feature and bugfix branches.</p>
-<h3><a class="header" href="#unstable" id="unstable">Unstable</a></h3>
+<h3 id="unstable"><a class="header" href="#unstable">Unstable</a></h3>
 <p>The <code>unstable</code> branch contains features and bugfixes that are actively being tested and worked on.</p>
 <ul>
 <li>Features and bugfixes are generally pushed to individual branches, each with their own pull request against the <code>unstable</code> branch.</li>
 <li>Once the branch has been reviewed and passed CI, the developer or reviewer merges the branch to <code>unstable</code>.</li>
 <li>The <code>unstable</code> branch is regularly deployed to the Nimbus Prater fleet where additional testing happens.</li>
 </ul>
-<h3><a class="header" href="#testing" id="testing">Testing</a></h3>
+<h3 id="testing"><a class="header" href="#testing">Testing</a></h3>
 <p>The <code>testing</code> branch contains features and bugfixes that have gone through CI and initial testing on the <code>unstable</code> branch and are ready to be included in the next release.</p>
 <ul>
 <li>After testing a bugfix or feature on <code>unstable</code>, the features and fixes that are planned for the next release get merged to the <code>testing</code> branch either by the release manager or team members.</li>
 <li>The <code>testing</code> branch is regularly deployed to the Nimbus prater fleet as well as a smaller mainnet fleet.</li>
 <li>The branch should remain release-ready at most times.</li>
 </ul>
-<h3><a class="header" href="#stable" id="stable">Stable</a></h3>
+<h3 id="stable"><a class="header" href="#stable">Stable</a></h3>
 <p>The <code>stable</code> branch tracks the latest released version of Nimbus and is suitable for mainnet staking.</p>
-<h2><a class="header" href="#build-system" id="build-system">Build system</a></h2>
-<h3><a class="header" href="#windows" id="windows">Windows</a></h3>
+<h2 id="build-system"><a class="header" href="#build-system">Build system</a></h2>
+<h3 id="windows"><a class="header" href="#windows">Windows</a></h3>
 <pre><code class="language-bash">mingw32-make # this first invocation will update the Git submodules
 </code></pre>
 <p>You can now follow the instructions in this this book by replacing <code>make</code> with <code>mingw32-make</code> (you should run <code>mingw32</code> regardless of whether you're running 32-bit or 64-bit architecture):</p>
 <pre><code class="language-bash">mingw32-make test # run the test suite
 </code></pre>
-<h3><a class="header" href="#linux-macos" id="linux-macos">Linux, macOS</a></h3>
+<h3 id="linux-macos"><a class="header" href="#linux-macos">Linux, macOS</a></h3>
 <p>After cloning the repo:</p>
 <pre><code class="language-bash"># Build nimbus_beacon_node and all the tools, using 4 parallel Make jobs
 make -j4
@@ -211,7 +211,7 @@ make test
 git pull
 make update
 </code></pre>
-<h2><a class="header" href="#environment" id="environment">Environment</a></h2>
+<h2 id="environment"><a class="header" href="#environment">Environment</a></h2>
 <p>Nimbus comes with a build environment similar to Python venv - this helps ensure that the correct version of Nim is used and that all dependencies can be found.</p>
 <pre><code class="language-bash">./env.sh bash # start a new interactive shell with the right env vars set
 which nim
@@ -225,7 +225,7 @@ nim --version # Nimbus is tested and supported on 1.2.12 at the moment
 ./env.sh code
 
 </code></pre>
-<h2><a class="header" href="#makefile-tips-and-tricks-for-developers" id="makefile-tips-and-tricks-for-developers">Makefile tips and tricks for developers</a></h2>
+<h2 id="makefile-tips-and-tricks-for-developers"><a class="header" href="#makefile-tips-and-tricks-for-developers">Makefile tips and tricks for developers</a></h2>
 <ul>
 <li>build all those tools known to the Makefile:</li>
 </ul>
@@ -299,14 +299,14 @@ make LOG_LEVEL=TRACE nimbus_beacon_node # log everything
 </ul>
 <pre><code class="language-bash">make dist
 </code></pre>
-<h2><a class="header" href="#multi-client-interop-scripts" id="multi-client-interop-scripts">Multi-client interop scripts</a></h2>
+<h2 id="multi-client-interop-scripts"><a class="header" href="#multi-client-interop-scripts">Multi-client interop scripts</a></h2>
 <p><a href="https://github.com/eth2-clients/multinet">This repository</a> contains a set of scripts used by the client implementation teams to test interop between the clients (in certain simplified scenarios). It mostly helps us find and debug issues.</p>
-<h2><a class="header" href="#stress-testing-the-client-by-limiting-the-cpu-power" id="stress-testing-the-client-by-limiting-the-cpu-power">Stress-testing the client by limiting the CPU power</a></h2>
+<h2 id="stress-testing-the-client-by-limiting-the-cpu-power"><a class="header" href="#stress-testing-the-client-by-limiting-the-cpu-power">Stress-testing the client by limiting the CPU power</a></h2>
 <pre><code class="language-bash">make prater CPU_LIMIT=20
 </code></pre>
 <p>The limiting is provided by the cpulimit utility, available on Linux and macOS.
 The specified value is a percentage of a single CPU core. Usually 1 - 100, but can be higher on multi-core CPUs.</p>
-<h2><a class="header" href="#build-and-run-the-local-beacon-chain-simulation" id="build-and-run-the-local-beacon-chain-simulation">Build and run the local beacon chain simulation</a></h2>
+<h2 id="build-and-run-the-local-beacon-chain-simulation"><a class="header" href="#build-and-run-the-local-beacon-chain-simulation">Build and run the local beacon chain simulation</a></h2>
 <p>The beacon chain simulation runs several beacon nodes on the local machine, attaches several local validators to each, and builds a beacon chain between them.</p>
 <p>To run the simulation:</p>
 <pre><code class="language-bash">make update
@@ -325,7 +325,7 @@ make VALIDATORS=192 NODES=6 USER_NODES=1 eth2_network_simulation
 <p>You’ll get something like this (click for full size):</p>
 <p><a href="https://i.imgur.com/Pc99VDO.png"><img src="https://i.imgur.com/Pc99VDO.png" alt="" /></a></p>
 <p>You can find out more about the beacon node simulation <a href="https://our.status.im/nimbus-development-update-03/#beaconsimulation">here</a>.</p>
-<h2><a class="header" href="#build-and-run-the-local-state-transition-simulation" id="build-and-run-the-local-state-transition-simulation">Build and run the local state transition simulation</a></h2>
+<h2 id="build-and-run-the-local-state-transition-simulation"><a class="header" href="#build-and-run-the-local-state-transition-simulation">Build and run the local state transition simulation</a></h2>
 <p>This simulation is primarily designed for researchers, but we'll cover it briefly here in case you're curious :)</p>
 <p>The <a href="https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md#beacon-chain-state-transition-function">state transition</a> simulation quickly runs the beacon chain state transition function in isolation and outputs JSON snapshots of the state (directly to the <code>nimbus-eth2</code> directory). It runs without networking and blocks are processed without slot time delays.</p>
 <pre><code class="language-bash"># build the state simulator, then display its help (&quot;-d:release&quot; speeds it
@@ -344,7 +344,7 @@ build/state_sim --help
 <p>For example, to run the state simulator for 384 slots, with 20,000 validators, and an average of 66% of attesters doing their work every slot, while outputting snapshots of the state twice per epoch, run:</p>
 <pre><code>build/state_sim --slots=384 --validators=20000 --attesterRatio=0.66 --json_interval=16
 </code></pre>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/developers.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

@@ -163,15 +163,15 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#foreign-language-interop" id="foreign-language-interop">Foreign language interop</a></h1>
-<h2><a class="header" href="#wrapping-c" id="wrapping-c">Wrapping C</a></h2>
-<h3><a class="header" href="#using-shared-library" id="using-shared-library">Using shared library</a></h3>
+                        <h1 id="foreign-language-interop"><a class="header" href="#foreign-language-interop">Foreign language interop</a></h1>
+<h2 id="wrapping-c"><a class="header" href="#wrapping-c">Wrapping C</a></h2>
+<h3 id="using-shared-library"><a class="header" href="#using-shared-library">Using shared library</a></h3>
 <p>Example: secp256k1</p>
 <p><a href="https://github.com/status-im/nim-secp256k1/blob/master/secp256k1_abi.nim">https://github.com/status-im/nim-secp256k1/blob/master/secp256k1_abi.nim</a></p>
-<h3><a class="header" href="#compiling-directly-the-c-files" id="compiling-directly-the-c-files">Compiling directly the C files</a></h3>
+<h3 id="compiling-directly-the-c-files"><a class="header" href="#compiling-directly-the-c-files">Compiling directly the C files</a></h3>
 <p>Example: Apache Milagro Crypto</p>
 <p><a href="https://github.com/status-im/nim-blscurve/blob/master/blscurve/milagro.nim">https://github.com/status-im/nim-blscurve/blob/master/blscurve/milagro.nim</a></p>
-<h2><a class="header" href="#wrapping-c-1" id="wrapping-c-1">Wrapping C++</a></h2>
+<h2 id="wrapping-c-1"><a class="header" href="#wrapping-c-1">Wrapping C++</a></h2>
 <p>Beyond the syntax for wrapping C, Nim offers a flexible syntax for wrapping C++,
 for example for vectors:</p>
 <pre><code class="language-Nim">type
@@ -187,9 +187,9 @@ proc `[]=`*[T](v: var CppVector[T], idx: int, value: T) {.importcpp: &quot;#[#]=
 </code></pre>
 <p>Example: ttmath</p>
 <p><a href="https://github.com/status-im/nim-ttmath/blob/master/src/ttmath.nim">https://github.com/status-im/nim-ttmath/blob/master/src/ttmath.nim</a></p>
-<h2><a class="header" href="#exporting" id="exporting">Exporting</a></h2>
+<h2 id="exporting"><a class="header" href="#exporting">Exporting</a></h2>
 <p>See &quot;Fuzzing&quot; chapter for exporting a C API for <a href="02.4_debugging_Nim_sanitizers_fuzzers.html#Fuzzers">fuzzing</a></p>
-<h2><a class="header" href="#references" id="references">References</a></h2>
+<h2 id="references"><a class="header" href="#references">References</a></h2>
 <ul>
 <li>Nim manual:
 <ul>

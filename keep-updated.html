@@ -169,7 +169,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#keep-nimbus-updated" id="keep-nimbus-updated">Keep Nimbus updated</a></h1>
+                        <h1 id="keep-nimbus-updated"><a class="header" href="#keep-nimbus-updated">Keep Nimbus updated</a></h1>
 <p>Make sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through the <strong>announcements</strong> channel on our <a href="https://discord.com/invite/XRxWahP">discord</a>. The Nimbus eth2 releases page can be found <a href="https://github.com/status-im/nimbus-eth2/releases/">here</a>.</p>
 <blockquote>
 <p><strong>Note:</strong> If your beacon node is already running, you'll need to disconnect and reconnect for the changes to take effect.</p>
@@ -178,13 +178,13 @@
 <blockquote>
 <p><strong>Tip:</strong> To check which version of Nimbus you're currently running, run <code>build/nimbus_beacon_node --version</code></p>
 </blockquote>
-<h2><a class="header" href="#download-the-binary" id="download-the-binary">Download the binary</a></h2>
+<h2 id="download-the-binary"><a class="header" href="#download-the-binary">Download the binary</a></h2>
 <p>Open the latest <a href="https://github.com/status-im/nimbus-eth2/releases/latest">Nimbus eth2 release</a> and copy the link for the file that works on your system.</p>
 <pre><code>wget &lt;insert download link here&gt;
 tar -xzf nimbus-eth2_Linux_arm64v8*.tar.gz -C nimbus-eth2
 rm nimbus-eth2_Linux_arm64v8*.tar.gz
 </code></pre>
-<h2><a class="header" href="#compile-the-beacon-node-release" id="compile-the-beacon-node-release">Compile the beacon node release</a></h2>
+<h2 id="compile-the-beacon-node-release"><a class="header" href="#compile-the-beacon-node-release">Compile the beacon node release</a></h2>
 <blockquote>
 <p>⚠️   In order to minimise downtime, we recommend updating and rebuilding the beacon node before restarting.</p>
 </blockquote>
@@ -194,12 +194,12 @@ rm nimbus-eth2_Linux_arm64v8*.tar.gz
 <pre><code>make nimbus_beacon_node
 </code></pre>
 <p>to <a href="./build.html">rebuild the beacon node</a>.</p>
-<h2><a class="header" href="#urgency-guidelines" id="urgency-guidelines">Urgency guidelines</a></h2>
+<h2 id="urgency-guidelines"><a class="header" href="#urgency-guidelines">Urgency guidelines</a></h2>
 <p>As of <code>v1.4.0</code>, releases are marked with the following tags:</p>
 <p><code>low-urgency</code>: update at your own convenience, sometime within our normal update cycle of two weeks</p>
 <p><code>medium-urgency</code>: may contain an important stability fix, it is better to update sooner rather than later</p>
 <p><code>high-urgency</code>: update as soon as you can, this is a critical update required for Nimbus to function correctly</p>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/keep-updated.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

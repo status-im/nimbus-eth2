@@ -169,52 +169,52 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#supplying-your-own-infura-endpoint" id="supplying-your-own-infura-endpoint">Supplying your own Infura endpoint</a></h1>
+                        <h1 id="supplying-your-own-infura-endpoint"><a class="header" href="#supplying-your-own-infura-endpoint">Supplying your own Infura endpoint</a></h1>
 <p>In a nutshell, Infura is a hosted ethereum node cluster that lets you make requests to the eth1 blockchain without requiring you to set up your own eth1 node.</p>
 <p>While we do support Infura to process incoming validator deposits, we recommend running your own eth1 node to avoid relying on a third-party-service.</p>
 <blockquote>
 <p><strong>Note:</strong> Nimbus currently supports remote Infura nodes and <a href="./eth1.html#geth">local Geth nodes</a>. In the future, we plan on having our own eth1 client -- <a href="https://github.com/status-im/nimbus">Nimbus 1</a> -- be the recommended default.</p>
 </blockquote>
-<h3><a class="header" href="#1-visit-infuraio" id="1-visit-infuraio">1. Visit Infura.io</a></h3>
+<h3 id="1-visit-infuraio"><a class="header" href="#1-visit-infuraio">1. Visit Infura.io</a></h3>
 <p>Go to:</p>
 <p><a href="https://infura.io/">https://infura.io/</a></p>
 <p>and click on <code>Get Started For Free</code></p>
 <p><img src="https://i.imgur.com/BtStgup.png" alt="" /></p>
-<h3><a class="header" href="#2-sign-up" id="2-sign-up">2. Sign up</a></h3>
+<h3 id="2-sign-up"><a class="header" href="#2-sign-up">2. Sign up</a></h3>
 <p>Enter your email address and create a password</p>
 <p><img src="https://i.imgur.com/al1OsdR.png" alt="" /></p>
-<h3><a class="header" href="#3-verify-email-address" id="3-verify-email-address">3. Verify email address</a></h3>
+<h3 id="3-verify-email-address"><a class="header" href="#3-verify-email-address">3. Verify email address</a></h3>
 <p>You should have received an email from Infura in your inbox. Open up it up and click on <code>Confirm Email Address</code></p>
 <p><img src="https://i.imgur.com/EAD8ZhV.png" alt="" /></p>
-<h3><a class="header" href="#4-go-to-dashboard" id="4-go-to-dashboard">4. Go to dashboard</a></h3>
+<h3 id="4-go-to-dashboard"><a class="header" href="#4-go-to-dashboard">4. Go to dashboard</a></h3>
 <p>This will take you to your Infura dashboard (https://infura.io/dashboard/)</p>
 <p><img src="https://i.imgur.com/LuNcoYr.png" alt="" /></p>
-<h3><a class="header" href="#5-create-your-first-project" id="5-create-your-first-project">5. Create your first project</a></h3>
+<h3 id="5-create-your-first-project"><a class="header" href="#5-create-your-first-project">5. Create your first project</a></h3>
 <p>Click on the first option (<code>create your first project</code>) under <code>Let's Get Started</code></p>
 <p><img src="https://i.imgur.com/wBAGhcs.png" alt="" /></p>
 <p>Choose a name for your project</p>
 <p><img src="https://i.imgur.com/yr5vnSo.png" alt="" /></p>
 <p>You'll be directed to the settings page of your newly created project</p>
 <p><img src="https://i.imgur.com/kx3R8XS.png" alt="" /></p>
-<h3><a class="header" href="#6-select-endpoint" id="6-select-endpoint">6. Select endpoint</a></h3>
+<h3 id="6-select-endpoint"><a class="header" href="#6-select-endpoint">6. Select endpoint</a></h3>
 <blockquote>
 <p>⚠️  <strong>Warning:</strong> if you're connecting to mainnet, you should skip this step</p>
 </blockquote>
 <p>If you're connecting to a testnet, in the <code>KEYS</code> section, click on the dropdown menu to the right of <code>ENDPOINTS</code>, and select <code>GÖRLI</code></p>
 <p><img src="https://i.imgur.com/D9186kv.png" alt="" /></p>
-<h3><a class="header" href="#7-copy-the-websocket-endpoint" id="7-copy-the-websocket-endpoint">7. Copy the websocket endpoint</a></h3>
+<h3 id="7-copy-the-websocket-endpoint"><a class="header" href="#7-copy-the-websocket-endpoint">7. Copy the websocket endpoint</a></h3>
 <p>Copy the address that starts with <code>wss://</code></p>
 <p><img src="https://i.imgur.com/fZ6Bcjy.png" alt="" /></p>
 <blockquote>
 <p>⚠️  <strong>Warning:</strong> make sure you've copied the endpoint that starts with<code>wss</code> (websocket), and not the <code>https</code> endpoint. If you're connecting  to mainnet this will read <code>wss://mainnet.infura.io/ws/...</code></p>
 </blockquote>
-<h3><a class="header" href="#8-run-the-beacon-node" id="8-run-the-beacon-node">8. Run the beacon node</a></h3>
+<h3 id="8-run-the-beacon-node"><a class="header" href="#8-run-the-beacon-node">8. Run the beacon node</a></h3>
 <p><a href="./start-syncing.html">Launch the beacon node</a> on your favourite testnet, pasaing in your websocket endpoint as the <a href="./start-syncing.html#web3-provider-url">Web3 provider URL</a>.</p>
-<h3><a class="header" href="#9-check-stats" id="9-check-stats">9. Check stats</a></h3>
+<h3 id="9-check-stats"><a class="header" href="#9-check-stats">9. Check stats</a></h3>
 <p>Visit your project's stats page to see a summary of your eth1 related activity and method calls</p>
 <p><img src="https://i.imgur.com/MZVTHHV.png" alt="" /></p>
 <p>That's all there is to it :)</p>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/infura-guide.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

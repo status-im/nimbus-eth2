@@ -169,7 +169,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#import-your-validator-keys-into-nimbus" id="import-your-validator-keys-into-nimbus">Import your validator keys into Nimbus</a></h1>
+                        <h1 id="import-your-validator-keys-into-nimbus"><a class="header" href="#import-your-validator-keys-into-nimbus">Import your validator keys into Nimbus</a></h1>
 <p>To import your signing key(s) into Nimbus, copy the <code>validator_keys</code> directory -- the directory that was created for you when you generated your keys using the <a href="https://github.com/ethereum/eth2.0-deposit-cli">command line app</a> -- into <code>nimbus-eth2</code>. Then run:</p>
 <p><strong>Prater</strong></p>
 <pre><code>build/nimbus_beacon_node deposits import --data-dir=build/data/shared_prater_0
@@ -197,16 +197,16 @@
 <blockquote>
 <p><strong>Note:</strong> If you come across an error, it's probably because the wrong permissions have been set on either a folder or file. See <a href="faq.html#folder-permissions">here</a> for how to fix this.</p>
 </blockquote>
-<h2><a class="header" href="#storage" id="storage">Storage</a></h2>
+<h2 id="storage"><a class="header" href="#storage">Storage</a></h2>
 <p>When you import your keys into Nimbus, your validator signing key(s) are stored in the <code>build/data/shared_&lt;prater or mainnet&gt;_0/</code> folder, under <code>secrets</code> and <code>validators</code> - <strong>make sure you keep these folders backed up somewhere safe.</strong></p>
 <p>The <code>secrets</code> folder contains the common secret that gives you access to all your validator keys.</p>
 <p>The <code>validators</code> folder contains your signing keystore(s) (encrypted keys). Keystores are used by validators as a method for exchanging keys. For more on keys and keystores, see <a href="https://blog.ethereum.org/2020/05/21/keys/">here</a>.</p>
 <blockquote>
 <p><strong>Note:</strong> The Nimbus client will only ever import your signing key. In any case, if you used the deposit launchpad, this is the only key you should have (thanks to the way these keys are derived, it is possible to generate the withdrawal key from your mnemonic when you wish to withdraw).</p>
 </blockquote>
-<h2><a class="header" href="#export" id="export">Export</a></h2>
+<h2 id="export"><a class="header" href="#export">Export</a></h2>
 <p><em>Todo</em></p>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/keys.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

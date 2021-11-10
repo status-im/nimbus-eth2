@@ -169,12 +169,12 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#logging" id="logging">Logging</a></h1>
+                        <h1 id="logging"><a class="header" href="#logging">Logging</a></h1>
 <blockquote>
 <p>:warning: The logging options outlined here are based on a preview feature, and are subject to change</p>
 </blockquote>
 <p>Nimbus offers several options for logging - by default, logs are written to stdout using the <a href="https://github.com/status-im/nim-chronicles#introduction">chronicles</a> <code>textlines</code> format which is convenient to read and can be used with tooling for <a href="https://brandur.org/logfmt">heroku/logfmt</a>.</p>
-<h2><a class="header" href="#change-log-level" id="change-log-level">Change log level</a></h2>
+<h2 id="change-log-level"><a class="header" href="#change-log-level">Change log level</a></h2>
 <p>You can customise Nimbus' verbosity with the <code>--log-level</code> option.</p>
 <p>For example:</p>
 <pre><code>./run-mainnet-beacon-node.sh --log-level=WARN
@@ -190,19 +190,19 @@ ERROR
 FATAL
 NONE
 </code></pre>
-<h2><a class="header" href="#change-logging-style" id="change-logging-style">Change logging style</a></h2>
+<h2 id="change-logging-style"><a class="header" href="#change-logging-style">Change logging style</a></h2>
 <p>Nimbus supports three log formats: <code>colors</code>, <code>nocolors</code> and <code>json</code>. In <code>auto</code> mode, logs will be printed using either <code>colors</code> or <code>nocolors</code>.</p>
 <p>You can choose a log format with the <code>--log-format</code> option, which also understands <code>auto</code> and <code>none</code>:</p>
 <pre><code>./run-mainnet-beacon-node.sh --log-format=none # disable logging to std out
 ./run-mainnet-beacon-node.sh --log-format=json # print json logs, one line per item
 </code></pre>
-<h2><a class="header" href="#logging-to-a-file" id="logging-to-a-file">Logging to a file</a></h2>
+<h2 id="logging-to-a-file"><a class="header" href="#logging-to-a-file">Logging to a file</a></h2>
 <p>To send logs to a file, you can redirect the stdout logs:</p>
 <pre><code># log json to filename.jsonl
 ./run-mainnet-beacon-node.sh --log-format=json &gt; filename.jsonl
 </code></pre>
 <p>We recommend keeping an eye on the growth of this file with a <a href="./log-rotate.html">log rotator</a>. Logs are written in the &quot;JSON Lines&quot; format - one <code>json</code> entry per line.</p>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/logging.md">Edit this file on GitHub.</a></footer>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
