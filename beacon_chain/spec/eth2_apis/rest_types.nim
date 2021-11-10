@@ -403,6 +403,8 @@ type
     data*: T
 
   ForkedSignedBlockHeader* = object
+    message*: uint32 # message offset
+    signature*: ValidatorSig
     slot*: Slot
 
   ForkedBeaconStateHeader* = object

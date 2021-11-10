@@ -64,9 +64,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
        blockRatio {.desc: "ratio of slots with blocks"} = 1.0,
        replay = true):
   let
-    (state, depositContractSnapshot) = loadGenesis(validators, false)
-    genesisBlock = get_initial_beacon_block(state[].data)
-    genesisTime = float state[].data.genesis_time
+    (genesisState, depositContractSnapshot) = loadGenesis(validators, false)
+    genesisBlock = get_initial_beacon_block(genesisState[])
+    genesisTime = float getStateField(genesisState[], genesis_time)
 
   var
     validatorKeyToIndex = initTable[ValidatorPubKey, int]()
@@ -80,11 +80,12 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   let db = BeaconChainDB.new("block_sim_db")
   defer: db.close()
 
-  ChainDAGRef.preInit(db, state[].data, state[].data, genesisBlock)
+  ChainDAGRef.preInit(db, genesisState[], genesisState[], genesisBlock)
   putInitialDepositContractSnapshot(db, depositContractSnapshot)
 
-  for i in 0 ..< state.data.validators.len:
-    validatorKeyToIndex[state.data.validators[i].pubkey] = i
+  withState(genesisState[]):
+    for i in 0 ..< state.data.validators.len:
+      validatorKeyToIndex[state.data.validators[i].pubkey] = i
 
   var
     dag = ChainDAGRef.init(cfg, db, {})

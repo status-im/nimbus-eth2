@@ -1,4 +1,5 @@
 import
+  stew/io2,
   stats, os, strformat, times,
   ../tests/testblockutil,
   ../beacon_chain/beacon_chain_db,
@@ -61,31 +62,34 @@ func verifyConsensus*(state: ForkedHashedBeaconState, attesterRatio: auto) =
       state, finalized_checkpoint).epoch + 2 >= current_epoch
 
 proc loadGenesis*(validators: Natural, validate: bool):
-                 (ref phase0.HashedBeaconState, DepositContractSnapshot) =
+                 (ref ForkedHashedBeaconState, DepositContractSnapshot) =
   let
     genesisFn =
       &"genesis_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
     contractSnapshotFn =
       &"deposit_contract_snapshot_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
-    res = (ref phase0.HashedBeaconState)()
+    cfg = defaultRuntimeConfig
+
 
   if fileExists(genesisFn) and fileExists(contractSnapshotFn):
-    res.data = SSZ.loadFile(genesisFn, phase0.BeaconState)
-    res.root = hash_tree_root(res.data)
-    if res.data.slot != GENESIS_SLOT:
-      echo "Can only start from genesis state"
-      quit 1
+    let res = newClone(readSszForkedHashedBeaconState(
+      cfg, readAllBytes(genesisFn).tryGet()))
 
-    if res.data.validators.len != validators:
-      echo &"Supplied genesis file has {res.data.validators.len} validators, while {validators} where requested, running anyway"
+    withState(res[]):
+      if state.data.slot != GENESIS_SLOT:
+        echo "Can only start from genesis state"
+        quit 1
 
-    echo &"Loaded {genesisFn}..."
+      if state.data.validators.len != validators:
+        echo &"Supplied genesis file has {state.data.validators.len} validators, while {validators} where requested, running anyway"
 
-    # TODO check that the private keys are interop keys
+      echo &"Loaded {genesisFn}..."
 
-    let contractSnapshot = SSZ.loadFile(contractSnapshotFn,
-                                        DepositContractSnapshot)
-    (res, contractSnapshot)
+      # TODO check that the private keys are interop keys
+
+      let contractSnapshot = SSZ.loadFile(contractSnapshotFn,
+                                          DepositContractSnapshot)
+      (res, contractSnapshot)
   else:
     echo "Genesis file not found, making one up (use nimbus_beacon_node createTestnet to make one)"
 
@@ -101,17 +105,18 @@ proc loadGenesis*(validators: Natural, validate: bool):
     let contractSnapshot = DepositContractSnapshot(
       depositContractState: merkleizer.toDepositContractState)
 
-    res.data = initialize_beacon_state_from_eth1(
-      defaultRuntimeConfig,
+    let res = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0)
+    res.phase0Data.data = initialize_beacon_state_from_eth1(
+      cfg,
       Eth2Digest(),
       0,
       deposits,
       flags)[]
 
-    res.root = hash_tree_root(res.data)
+    res.phase0Data.root = hash_tree_root(res[].phase0Data.data)
 
     echo &"Saving to {genesisFn}..."
-    SSZ.saveFile(genesisFn, res.data)
+    SSZ.saveFile(genesisFn, res.phase0Data.data)
     echo &"Saving to {contractSnapshotFn}..."
     SSZ.saveFile(contractSnapshotFn, contractSnapshot)
 

@@ -62,8 +62,6 @@ The following options are available:
                                [=false].
      --weak-subjectivity-checkpoint  Weak subjectivity checkpoint in the format
                                block_root:epoch_number.
-     --finalized-checkpoint-state  SSZ file specifying a recent finalized state.
-     --finalized-checkpoint-block  SSZ file specifying a recent finalized block.
      --node-name               A name for this node that will appear in the logs. If you set
                                this to 'auto', a persistent automatically generated ID will
                                be selected for each --data-dir folder.

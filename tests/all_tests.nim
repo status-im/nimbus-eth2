@@ -22,6 +22,7 @@ import # Unit test
   ./test_eth1_monitor,
   ./test_eth2_ssz_serialization,
   ./test_exit_pool,
+  ./test_forks,
   ./test_gossip_validation,
   ./test_helpers,
   ./test_honest_validator,

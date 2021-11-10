@@ -298,6 +298,35 @@ func get_initial_beacon_block*(state: phase0.BeaconState):
   phase0.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#initialize-state-for-pure-altair-testnets-and-test-vectors
+func get_initial_beacon_block*(state: altair.BeaconState):
+    altair.TrustedSignedBeaconBlock =
+  # The genesis block is implicitly trusted
+  let message = altair.TrustedBeaconBlock(
+    slot: state.slot,
+    state_root: hash_tree_root(state),)
+    # parent_root, randao_reveal, eth1_data, signature, and body automatically
+    # initialized to default values.
+  altair.TrustedSignedBeaconBlock(
+    message: message, root: hash_tree_root(message))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#testing
+func get_initial_beacon_block*(state: merge.BeaconState):
+    merge.TrustedSignedBeaconBlock =
+  # The genesis block is implicitly trusted
+  let message = merge.TrustedBeaconBlock(
+    slot: state.slot,
+    state_root: hash_tree_root(state),)
+    # parent_root, randao_reveal, eth1_data, signature, and body automatically
+    # initialized to default values.
+  merge.TrustedSignedBeaconBlock(
+    message: message, root: hash_tree_root(message))
+
+func get_initial_beacon_block*(state: ForkedHashedBeaconState):
+    ForkedTrustedSignedBeaconBlock =
+  withState(state):
+    ForkedTrustedSignedBeaconBlock.init(get_initial_beacon_block(state.data))
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: ForkyBeaconState, slot: Slot): Eth2Digest =
   ## Return the block root at a recent ``slot``.
