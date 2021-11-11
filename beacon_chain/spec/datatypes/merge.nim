@@ -263,7 +263,7 @@ type
     attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
-    sync_aggregate*: SyncAggregate
+    sync_aggregate*: SyncAggregate # TODO TrustedSyncAggregate after batching
 
     # Execution
     execution_payload*: ExecutionPayload  # [New in Merge]
@@ -283,7 +283,7 @@ type
     attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
-    sync_aggregate*: SyncAggregate
+    sync_aggregate*: TrustedSyncAggregate
 
     # Execution
     execution_payload*: ExecutionPayload  # [New in Merge]

@@ -623,13 +623,10 @@ proc readValue*(reader: var JsonReader, value: var ForkDigest)
 static: doAssert high(int) >= high(int32)
 
 # `ValidatorIndex` seq handling.
-func `[]`*[T](a: var seq[T], b: ValidatorIndex): var T =
-  a[b.int]
-
-func `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
+template `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
   a[b.int] = c
 
-func `[]`*[T](a: seq[T], b: ValidatorIndex): auto =
+template `[]`*[T](a: seq[T], b: ValidatorIndex): auto = # Also var seq (!)
   a[b.int]
 
 # `ValidatorIndex` Nim integration

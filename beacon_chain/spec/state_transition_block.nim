@@ -429,7 +429,7 @@ proc process_operations(cfg: RuntimeConfig,
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-processing
 proc process_sync_aggregate*(
     state: var (altair.BeaconState | merge.BeaconState),
-    aggregate: SyncAggregate, total_active_balance: Gwei, cache: var StateCache):
+    aggregate: SomeSyncAggregate, total_active_balance: Gwei, cache: var StateCache):
     Result[void, cstring] {.nbench.} =
   # Verify sync committee aggregate signature signing over the previous slot
   # block root
@@ -439,21 +439,22 @@ proc process_sync_aggregate*(
     domain = get_domain(state, DOMAIN_SYNC_COMMITTEE, compute_epoch_at_slot(previous_slot))
     signing_root = compute_signing_root(get_block_root_at_slot(state, previous_slot), domain)
 
-  var participant_pubkeys: seq[ValidatorPubKey]
-  for i in 0 ..< committee_pubkeys.len:
-    if aggregate.sync_committee_bits[i]:
-      participant_pubkeys.add committee_pubkeys[i]
+  when aggregate.sync_committee_signature isnot TrustedSig:
+    var participant_pubkeys: seq[ValidatorPubKey]
+    for i in 0 ..< committee_pubkeys.len:
+      if aggregate.sync_committee_bits[i]:
+        participant_pubkeys.add committee_pubkeys[i]
 
   # p2p-interface message validators check for empty sync committees, so it
   # shouldn't run except as part of test suite.
-  if  participant_pubkeys.len == 0 and
-      aggregate.sync_committee_signature != default(CookedSig).toValidatorSig():
-    return err("process_sync_aggregate: empty sync aggregates need signature of point at infinity")
+    if participant_pubkeys.len == 0 and
+        aggregate.sync_committee_signature != default(CookedSig).toValidatorSig():
+      return err("process_sync_aggregate: empty sync aggregates need signature of point at infinity")
 
-  # Empty participants allowed
-  if participant_pubkeys.len > 0 and not blsFastAggregateVerify(
-      participant_pubkeys, signing_root.data, aggregate.sync_committee_signature):
-    return err("process_sync_aggregate: invalid signature")
+    # Empty participants allowed
+    if participant_pubkeys.len > 0 and not blsFastAggregateVerify(
+        participant_pubkeys, signing_root.data, aggregate.sync_committee_signature):
+      return err("process_sync_aggregate: invalid signature")
 
   # Compute participant and proposer rewards
   let
