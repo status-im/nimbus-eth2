@@ -870,10 +870,13 @@ func process_effective_balance_updates*(state: var ForkyBeaconState) {.nbench.} 
     let effective_balance = state.validators.asSeq()[index].effective_balance
     if balance + DOWNWARD_THRESHOLD < effective_balance or
         effective_balance + UPWARD_THRESHOLD < balance:
-      state.validators[index].effective_balance =
+      let new_effective_balance =
         min(
           balance - balance mod EFFECTIVE_BALANCE_INCREMENT,
           MAX_EFFECTIVE_BALANCE)
+      # Protect against unnecessary cache invalidation
+      if new_effective_balance != effective_balance:
+        state.validators[index].effective_balance = new_effective_balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#slashings-balances-updates
 func process_slashings_reset*(state: var ForkyBeaconState) {.nbench.} =
@@ -946,13 +949,13 @@ func process_inactivity_updates*(
     previous_epoch = get_previous_epoch(state)  # get_eligible_validator_indices()
     not_in_inactivity_leak = not is_in_inactivity_leak(state)
 
-  state.inactivity_scores.clearCache()
   for index in 0'u64 ..< state.validators.lenu64:
     if not is_eligible_validator(info.validators[index]):
       continue
 
     # Increase the inactivity score of inactive validators
-    var inactivity_score = state.inactivity_scores.asSeq()[index]
+    let pre_inactivity_score = state.inactivity_scores.asSeq()[index]
+    var inactivity_score = pre_inactivity_score
     # TODO activeness already checked; remove redundant checks between
     # is_active_validator and is_unslashed_participating_index
     if is_unslashed_participating_index(
@@ -964,7 +967,9 @@ func process_inactivity_updates*(
     # leak-free epoch
     if not_in_inactivity_leak:
       inactivity_score -= min(INACTIVITY_SCORE_RECOVERY_RATE.uint64, inactivity_score)
-    state.inactivity_scores.asSeq()[index] = inactivity_score
+    # Most inactivity scores remain at 0 - avoid invalidating cache
+    if pre_inactivity_score != inactivity_score:
+      state.inactivity_scores[index] = inactivity_score
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(

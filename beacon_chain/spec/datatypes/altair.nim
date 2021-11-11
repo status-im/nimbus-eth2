@@ -83,6 +83,10 @@ type
     sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
     sync_committee_signature*: ValidatorSig
 
+  TrustedSyncAggregate* = object
+    sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
+    sync_committee_signature*: TrustedSig
+
   # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#synccommittee
   SyncCommittee* = object
     pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
@@ -369,7 +373,7 @@ type
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
     # [New in Altair]
-    sync_aggregate*: SyncAggregate
+    sync_aggregate*: SyncAggregate # TODO TrustedSyncAggregate after batching
 
   SyncnetBits* = BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
 
@@ -393,7 +397,7 @@ type
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
     # [New in Altair]
-    sync_aggregate*: SyncAggregate
+    sync_aggregate*: TrustedSyncAggregate
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
@@ -430,6 +434,8 @@ type
   SomeSignedBeaconBlock* = SignedBeaconBlock | SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock
   SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
   SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
+
+  SomeSyncAggregate* = SyncAggregate | TrustedSyncAggregate
 
   SyncSubcommitteeIndex* = distinct uint8
   IndexInSyncCommittee* = distinct uint16
