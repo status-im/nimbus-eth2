@@ -439,7 +439,7 @@ proc process_sync_aggregate*(
     domain = get_domain(state, DOMAIN_SYNC_COMMITTEE, compute_epoch_at_slot(previous_slot))
     signing_root = compute_signing_root(get_block_root_at_slot(state, previous_slot), domain)
 
-  when not (aggregate.sync_committee_signature is TrustedSig):
+  when aggregate.sync_committee_signature isnot TrustedSig:
     var participant_pubkeys: seq[ValidatorPubKey]
     for i in 0 ..< committee_pubkeys.len:
       if aggregate.sync_committee_bits[i]:
