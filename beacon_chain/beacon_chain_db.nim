@@ -535,9 +535,6 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: merge.BeaconState) =
   db.mergeStatesNoVal.putSnappySSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
 
-proc putState*(db: BeaconChainDB, value: ForkyBeaconState) =
-  db.putState(hash_tree_root(value), value)
-
 # For testing rollback
 proc putCorruptPhase0State*(db: BeaconChainDB, key: Eth2Digest) =
   db.statesNoVal.putSnappySSZ(key.data, Validator())

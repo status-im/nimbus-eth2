@@ -96,7 +96,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
     withTimer(timers[t]):
       signedBlock = addTestBlock(
-        state[], latest_block_root, cache, attestations = blockAttestations,
+        state[], cache, attestations = blockAttestations,
         flags = flags)
     latest_block_root = withTimerRet(timers[tHashBlock]):
       withBlck(signedBlock): hash_tree_root(blck.message)

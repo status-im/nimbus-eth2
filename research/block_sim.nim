@@ -269,7 +269,6 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         cfg,
         hashedState[],
         proposerIdx,
-        dag.head.root,
         privKey.genRandaoReveal(
           getStateField(stateData.data, fork),
           getStateField(stateData.data, genesis_validators_root),

@@ -13,7 +13,7 @@ import
   math,
 
   # Specs
-  ../../beacon_chain/spec/[eth2_merkleization, keystore, signatures],
+  ../../beacon_chain/spec/[eth2_merkleization, keystore, forks, signatures],
   ../../beacon_chain/spec/datatypes/base,
 
   # Internals
@@ -66,7 +66,7 @@ template mockGenesisDepositsImpl(
       updateAmount
 
       # DepositData
-      result[valIdx] = 
+      result[valIdx] =
         mockDepositData(MockPubKeys[valIdx.ValidatorIndex], amount)
   else: # With signing
     var depositsDataHash: seq[Eth2Digest]
@@ -80,10 +80,10 @@ template mockGenesisDepositsImpl(
       updateAmount
 
       # DepositData
-      result[valIdx] = 
+      result[valIdx] =
         mockDepositData(
-          MockPubKeys[valIdx.ValidatorIndex], 
-          MockPrivKeys[valIdx.ValidatorIndex], 
+          MockPubKeys[valIdx.ValidatorIndex],
+          MockPrivKeys[valIdx.ValidatorIndex],
           amount, flags)
 
       depositsData.add result[valIdx]
@@ -106,8 +106,8 @@ proc mockGenesisBalancedDeposits*(
   mockGenesisDepositsImpl(result, validatorCount,amount,flags):
     discard
 
-proc mockUpdateStateForNewDeposit*[T](
-       state: var T,
+proc mockUpdateStateForNewDeposit*(
+       state: var ForkyBeaconState,
        validator_index: uint64,
        amount: uint64,
        # withdrawal_credentials: Eth2Digest

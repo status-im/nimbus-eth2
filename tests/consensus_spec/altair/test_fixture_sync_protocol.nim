@@ -14,7 +14,7 @@ import
   stew/bitops2,
   # Beacon chain internals
   ../../../beacon_chain/spec/
-    [forks, helpers, light_client_sync, signatures, state_transition],
+    [beaconstate, forks, helpers, light_client_sync, signatures, state_transition],
   # Mock helpers
   ../../mocking/[mock_blocks, mock_genesis],
   # Test utilities
@@ -58,20 +58,15 @@ proc block_for_next_slot(
     withAttestations = false): ForkedSignedBeaconBlock =
   template state: untyped {.inject.} = forked.altairData.data
 
-  let parent_root = block:
-    var previous_block_header = state.latest_block_header
-    if previous_block_header.state_root == ZERO_HASH:
-      previous_block_header.state_root = state.hash_tree_root()
-    previous_block_header.hash_tree_root()
-
   let attestations =
     if withAttestations:
-      makeFullAttestations(forked, parent_root, state.slot, cache)
+      let block_root = withState(forked): state.latest_block_root()
+      makeFullAttestations(forked, block_root, state.slot, cache)
     else:
       @[]
 
   addTestBlock(
-    forked, parent_root, cache, attestations = attestations, cfg = cfg)
+    forked, cache, attestations = attestations, cfg = cfg)
 
 let full_sync_committee_bits = block:
   var res: BitArray[SYNC_COMMITTEE_SIZE]

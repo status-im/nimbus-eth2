@@ -14,30 +14,31 @@ import
   ../beacon_chain/spec/[
     forks, helpers, state_transition, state_transition_block]
 
-proc valid_deposit[T](state: var T) =
+proc valid_deposit(state: var ForkyHashedBeaconState) =
   const deposit_amount = MAX_EFFECTIVE_BALANCE
-  let validator_index = state.validators.len
+  let validator_index = state.data.validators.len
   let deposit = mockUpdateStateForNewDeposit(
-                  state,
+                  state.data,
                   uint64 validator_index,
                   deposit_amount,
                   flags = {}
                 )
 
-  let pre_val_count = state.validators.len
+  let pre_val_count = state.data.validators.len
   let pre_balance = if validator_index < pre_val_count:
-                      state.balances[validator_index]
+                      state.data.balances[validator_index]
                     else:
                       0
-  doAssert process_deposit(defaultRuntimeConfig, state, deposit, {}).isOk
-  doAssert state.validators.len == pre_val_count + 1
-  doAssert state.balances.len == pre_val_count + 1
-  doAssert state.balances[validator_index] == pre_balance + deposit.data.amount
-  doAssert state.validators[validator_index].effective_balance ==
+  doAssert process_deposit(defaultRuntimeConfig, state.data, deposit, {}).isOk
+  doAssert state.data.validators.len == pre_val_count + 1
+  doAssert state.data.balances.len == pre_val_count + 1
+  doAssert state.data.balances[validator_index] == pre_balance + deposit.data.amount
+  doAssert state.data.validators[validator_index].effective_balance ==
     round_multiple_down(
-      min(MAX_EFFECTIVE_BALANCE, state.balances[validator_index]),
+      min(MAX_EFFECTIVE_BALANCE, state.data.balances[validator_index]),
       EFFECTIVE_BALANCE_INCREMENT
     )
+  state.root = hash_tree_root(state.data)
 
 proc getTestStates*(
     initialState: ForkedHashedBeaconState, stateFork: BeaconStateFork):
@@ -77,7 +78,7 @@ proc getTestStates*(
 
     if i mod 3 == 0:
       withState(tmpState[]):
-        valid_deposit(state.data)
+        valid_deposit(state)
     doAssert getStateField(tmpState[], slot) == slot
 
     if tmpState[].kind == stateFork:

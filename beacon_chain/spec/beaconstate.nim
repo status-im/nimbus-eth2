@@ -195,7 +195,7 @@ proc initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[DepositData],
-    flags: UpdateFlags = {}): phase0.BeaconStateRef {.nbench.} =
+    flags: UpdateFlags = {}): phase0.BeaconState {.nbench.} =
   ## Get the genesis ``BeaconState``.
   ##
   ## Before the beacon chain starts, validators will register in the Eth1 chain
@@ -212,7 +212,9 @@ proc initialize_beacon_state_from_eth1*(
   # at that point :)
   doAssert deposits.lenu64 >= SLOTS_PER_EPOCH
 
-  var state = phase0.BeaconStateRef(
+  # TODO https://github.com/nim-lang/Nim/issues/19094
+  template state(): untyped = result
+  state = phase0.BeaconState(
     fork: genesisFork(cfg),
     genesis_time: genesis_time_from_eth1_timestamp(cfg, eth1_timestamp),
     eth1_data:
@@ -243,7 +245,7 @@ proc initialize_beacon_state_from_eth1*(
 
     pubkeyToIndex.withValue(pubkey, foundIdx) do:
       # Increase balance by deposit amount
-      increase_balance(state[], ValidatorIndex foundIdx[], amount)
+      increase_balance(state, ValidatorIndex foundIdx[], amount)
     do:
       if skipBlsValidation in flags or
          verify_deposit_signature(cfg, deposit):
@@ -274,7 +276,8 @@ proc initialize_beacon_state_from_eth1*(
   # Set genesis validators root for domain separation and chain versioning
   state.genesis_validators_root = hash_tree_root(state.validators)
 
-  state
+  # TODO https://github.com/nim-lang/Nim/issues/19094
+  # state
 
 proc initialize_hashed_beacon_state_from_eth1*(
     cfg: RuntimeConfig,
@@ -282,42 +285,43 @@ proc initialize_hashed_beacon_state_from_eth1*(
     eth1_timestamp: uint64,
     deposits: openArray[DepositData],
     flags: UpdateFlags = {}): phase0.HashedBeaconState =
-  let genesisState = initialize_beacon_state_from_eth1(
-    cfg, eth1_block_hash, eth1_timestamp, deposits, flags)
-  phase0.HashedBeaconState(
-    data: genesisState[], root: hash_tree_root(genesisState[]))
+  # TODO https://github.com/nim-lang/Nim/issues/19094
+  result = phase0.HashedBeaconState(
+    data: initialize_beacon_state_from_eth1(
+      cfg, eth1_block_hash, eth1_timestamp, deposits, flags))
+  result.root = hash_tree_root(result.data)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#genesis-block
-func get_initial_beacon_block*(state: phase0.BeaconState):
+func get_initial_beacon_block*(state: phase0.HashedBeaconState):
     phase0.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
   let message = phase0.TrustedBeaconBlock(
-    slot: state.slot,
-    state_root: hash_tree_root(state),)
+    slot: state.data.slot,
+    state_root: state.root)
     # parent_root, randao_reveal, eth1_data, signature, and body automatically
     # initialized to default values.
   phase0.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#initialize-state-for-pure-altair-testnets-and-test-vectors
-func get_initial_beacon_block*(state: altair.BeaconState):
+func get_initial_beacon_block*(state: altair.HashedBeaconState):
     altair.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
   let message = altair.TrustedBeaconBlock(
-    slot: state.slot,
-    state_root: hash_tree_root(state),)
+    slot: state.data.slot,
+    state_root: state.root)
     # parent_root, randao_reveal, eth1_data, signature, and body automatically
     # initialized to default values.
   altair.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#testing
-func get_initial_beacon_block*(state: merge.BeaconState):
+func get_initial_beacon_block*(state: merge.HashedBeaconState):
     merge.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
   let message = merge.TrustedBeaconBlock(
-    slot: state.slot,
-    state_root: hash_tree_root(state),)
+    slot: state.data.slot,
+    state_root: state.root,)
     # parent_root, randao_reveal, eth1_data, signature, and body automatically
     # initialized to default values.
   merge.TrustedSignedBeaconBlock(
@@ -326,7 +330,7 @@ func get_initial_beacon_block*(state: merge.BeaconState):
 func get_initial_beacon_block*(state: ForkedHashedBeaconState):
     ForkedTrustedSignedBeaconBlock =
   withState(state):
-    ForkedTrustedSignedBeaconBlock.init(get_initial_beacon_block(state.data))
+    ForkedTrustedSignedBeaconBlock.init(get_initial_beacon_block(state))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: ForkyBeaconState, slot: Slot): Eth2Digest =
@@ -894,3 +898,27 @@ func upgrade_to_merge*(cfg: RuntimeConfig, pre: altair.BeaconState):
 template isValidInState*(idx: ValidatorIndex, state: ForkyBeaconState): bool =
   idx.uint64 < state.validators.lenu64
 
+func latest_block_root*(state: ForkyBeaconState, state_root: Eth2Digest): Eth2Digest =
+  # The root of the last block that was successfully applied to this state -
+  # normally, when a block is applied, the data from the header is stored in
+  # the state without the state root - on the next process_slot, the state root
+  # is added to the header and the block root can now be computed and added to
+  # the block roots table. If process_slot has not yet run on top of the new
+  # block, we must fill in the state root ourselves.
+  if state.slot == state.latest_block_header.slot:
+    # process_slot will not yet have updated the header of the "current" block -
+    # similar to block creation, we fill it in with the state root
+    var tmp = state.latest_block_header
+    tmp.state_root = state_root
+    hash_tree_root(tmp)
+  elif state.slot <=
+      (state.latest_block_header.slot + SLOTS_PER_HISTORICAL_ROOT):
+    # block_roots is limited to about a day - see assert in
+    # `get_block_root_at_slot`
+    state.get_block_root_at_slot(state.latest_block_header.slot)
+  else:
+    # Reallly long periods of empty slots - unlikely but possible
+    hash_tree_root(state.latest_block_header)
+
+func latest_block_root*(state: ForkyHashedBeaconState): Eth2Digest =
+  latest_block_root(state.data, state.root)

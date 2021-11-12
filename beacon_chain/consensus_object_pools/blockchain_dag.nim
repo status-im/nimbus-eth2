@@ -667,9 +667,9 @@ proc putState(dag: ChainDAGRef, state: StateData) =
   # Ideally we would save the state and the root lookup cache in a single
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
-  withState(state.data): dag.db.putState(state.root, state.data)
-  dag.db.putStateRoot(
-    state.blck.root, getStateField(state.data, slot), getStateRoot(state.data))
+  withState(state.data):
+    dag.db.putStateRoot(state.latest_block_root(), state.data.slot, state.root)
+    dag.db.putState(state.root, state.data)
 
   debug "Stored state", putStateDur = Moment.now() - startTick
 
@@ -1394,12 +1394,12 @@ proc preInit*(
           tail_genesis_validators_root = shortLog(tail_genesis_validators_root)
         quit 1
 
-      let blck = get_initial_beacon_block(state.data)
+      let blck = get_initial_beacon_block(state)
       db.putGenesisBlock(blck.root)
       db.putBlock(blck)
 
+      db.putStateRoot(state.latest_block_root(), state.data.slot, state.root)
       db.putState(state.root, state.data)
-      db.putStateRoot(blck.root, state.data.slot, state.root)
       blck.root
     else: # tail and genesis are the same
       withBlck(tailBlock):
@@ -1422,8 +1422,8 @@ proc preInit*(
       db.putTailBlock(blck.root)
       db.putHeadBlock(blck.root)
 
+      db.putStateRoot(state.latest_block_root(), state.data.slot, state.root)
       db.putState(state.root, state.data)
-      db.putStateRoot(blck.root, state.data.slot, state.root)
 
       notice "New database from snapshot",
         genesisBlockRoot = shortLog(genesisBlockRoot),

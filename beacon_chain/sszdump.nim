@@ -10,12 +10,11 @@
 import
   std/[os, strformat],
   chronicles,
-  ./spec/[eth2_ssz_serialization, eth2_merkleization, forks],
-  ./spec/datatypes/[phase0, altair, merge],
-  ./consensus_object_pools/block_pools_types
+  ./spec/[beaconstate, eth2_ssz_serialization, eth2_merkleization, forks],
+  ./spec/datatypes/[phase0, altair, merge]
 
 export
-  eth2_ssz_serialization, eth2_merkleization, forks, block_pools_types
+  beaconstate, eth2_ssz_serialization, eth2_merkleization, forks
 
 # Dump errors are generally not fatal where used currently - the code calling
 # these functions, like most code, is not exception safe
@@ -37,18 +36,11 @@ proc dump*(dir: string, v: ForkySignedBeaconBlock) =
   logErrors:
     SSZ.saveFile(dir / &"block-{v.message.slot}-{shortLog(v.root)}.ssz", v)
 
-proc dump*(dir: string, v: ForkyHashedBeaconState, blck: BlockRef) =
-  mixin saveFile
-  logErrors:
-    SSZ.saveFile(
-      dir / &"state-{v.data.slot}-{shortLog(blck.root)}-{shortLog(v.root)}.ssz",
-      v.data)
-
 proc dump*(dir: string, v: ForkyHashedBeaconState) =
   mixin saveFile
   logErrors:
     SSZ.saveFile(
-      dir / &"state-{v.data.slot}-{shortLog(v.root)}.ssz",
+      dir / &"state-{v.data.slot}-{shortLog(v.latest_block_root)}-{shortLog(v.root)}.ssz",
       v.data)
 
 proc dump*(dir: string, v: SyncCommitteeMessage, validator: ValidatorPubKey) =

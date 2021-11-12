@@ -177,7 +177,7 @@ proc init*(T: type BeaconNode,
 
     if config.finalizedCheckpointBlock.isNone:
       withState(checkpointState[]):
-        if getStateField(checkpointState[], slot) > 0:
+        if state.data.slot > 0:
           fatal "Specifying a non-genesis --finalized-checkpoint-state requires specifying --finalized-checkpoint-block as well"
           quit 1
     else:
@@ -1530,8 +1530,8 @@ proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raise
                else: (waitFor getEth1BlockHash(config.web3Urls[0], blockId("latest"))).asEth2Digest
     cfg = getRuntimeConfig(config.eth2Network)
   var
-    initialState = initialize_beacon_state_from_eth1(
-      cfg, eth1Hash, startTime, deposits, {skipBlsValidation})
+    initialState = newClone(initialize_beacon_state_from_eth1(
+      cfg, eth1Hash, startTime, deposits, {skipBlsValidation}))
 
   # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
   initialState.genesis_time = startTime

@@ -74,7 +74,6 @@ func signBlock(
 
 proc addTestBlock*(
     state: var ForkedHashedBeaconState,
-    parent_root: Eth2Digest,
     cache: var StateCache,
     eth1_data = Eth1Data(),
     attestations = newSeq[Attestation](),
@@ -107,7 +106,6 @@ proc addTestBlock*(
       cfg,
       state,
       proposer_index.get(),
-      parent_root,
       randao_reveal,
       # Keep deposit counts internally consistent.
       Eth1Data(
@@ -135,7 +133,6 @@ proc addTestBlock*(
 
 proc makeTestBlock*(
     state: ForkedHashedBeaconState,
-    parent_root: Eth2Digest,
     cache: var StateCache,
     eth1_data = Eth1Data(),
     attestations = newSeq[Attestation](),
@@ -148,22 +145,16 @@ proc makeTestBlock*(
   # because the block includes the state root.
   var tmpState = assignClone(state)
   addTestBlock(
-    tmpState[], parent_root, cache, eth1_data, attestations, deposits,
-    graffiti, cfg = cfg)
+    tmpState[], cache, eth1_data, attestations, deposits, graffiti, cfg = cfg)
 
 func makeAttestationData*(
-    state: ForkedHashedBeaconState, slot: Slot, committee_index: CommitteeIndex,
+    state: ForkyBeaconState, slot: Slot, committee_index: CommitteeIndex,
     beacon_block_root: Eth2Digest): AttestationData =
-  ## Create an attestation / vote for the block `beacon_block_root` using the
-  ## data in `state` to fill in the rest of the fields.
-  ## `state` is the state corresponding to the `beacon_block_root` advanced to
-  ## the slot we're attesting to.
-
   let
     current_epoch = get_current_epoch(state)
     start_slot = compute_start_slot_at_epoch(current_epoch)
     epoch_boundary_block_root =
-      if start_slot == getStateField(state, slot): beacon_block_root
+      if start_slot == state.slot: beacon_block_root
       else: get_block_root_at_slot(state, start_slot)
 
   doAssert slot.compute_epoch_at_slot == current_epoch,
@@ -175,12 +166,22 @@ func makeAttestationData*(
     slot: slot,
     index: committee_index.uint64,
     beacon_block_root: beacon_block_root,
-    source: getStateField(state, current_justified_checkpoint),
+    source: state.current_justified_checkpoint,
     target: Checkpoint(
       epoch: current_epoch,
       root: epoch_boundary_block_root
     )
   )
+
+func makeAttestationData*(
+    state: ForkedHashedBeaconState, slot: Slot, committee_index: CommitteeIndex,
+    beacon_block_root: Eth2Digest): AttestationData =
+  ## Create an attestation / vote for the block `beacon_block_root` using the
+  ## data in `state` to fill in the rest of the fields.
+  ## `state` is the state corresponding to the `beacon_block_root` advanced to
+  ## the slot we're attesting to.
+  withState(state):
+    makeAttestationData(state.data, slot, committee_index, beacon_block_root)
 
 func makeAttestation*(
     state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
@@ -284,21 +285,17 @@ func makeFullAttestations*(
 
 iterator makeTestBlocks*(
   state: ForkedHashedBeaconState,
-  parent_root: Eth2Digest,
   cache: var StateCache,
   blocks: int,
   attested: bool,
   cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
   var
     state = assignClone(state)
-    parent_root = parent_root
   for _ in 0..<blocks:
+    let parent_root = withState(state[]): state.latest_block_root()
     let attestations = if attested:
       makeFullAttestations(state[], parent_root, getStateField(state[], slot), cache)
     else:
       @[]
 
-    let blck = addTestBlock(
-      state[], parent_root, cache, attestations = attestations, cfg = cfg)
-    yield blck
-    parent_root = blck.root
+    yield addTestBlock(state[], cache, attestations = attestations, cfg = cfg)

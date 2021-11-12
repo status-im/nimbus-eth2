@@ -67,8 +67,10 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
++ get_beacon_proposer_index                                                                  OK
++ latest_block_root                                                                          OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Block pool processing [Preset: mainnet]
 ```diff
 + Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
@@ -364,4 +366,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 204/206 Fail: 0/206 Skip: 2/206
+OK: 206/208 Fail: 0/208 Skip: 2/208
