@@ -246,11 +246,11 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
               res.add((validator: validator,
                        index: uint64(index),
                        status: vstatus,
-                       balance: getStateField(stateData.data, balances)[index]))
+                       balance: getStateField(stateData.data, balances).asSeq()[index]))
       else:
         for index in vquery.ids:
           if index < lenu64(getStateField(stateData.data, validators)):
-            let validator = getStateField(stateData.data, validators)[index]
+            let validator = getStateField(stateData.data, validators).asSeq()[index]
             let sres = validator.getStatus(current_epoch)
             if sres.isOk:
               let vstatus = sres.get()
@@ -261,7 +261,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
                 res.add((validator: validator,
                          index: uint64(index),
                          status: vstatus,
-                         balance: getStateField(stateData.data, balances)[index]))
+                         balance: getStateField(stateData.data, balances).asSeq()[index]))
 
         for index, validator in getStateField(stateData.data, validators).pairs():
           if validator.pubkey in vquery.keyset:
@@ -274,7 +274,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
                 res.add((validator: validator,
                          index: uint64(index),
                          status: vstatus,
-                         balance: getStateField(stateData.data, balances)[index]))
+                         balance: getStateField(stateData.data, balances).asSeq()[index]))
     return res
 
   rpcServer.rpc("get_v1_beacon_states_stateId_validators_validatorId") do (
@@ -289,12 +289,12 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       if len(vquery.ids) > 0:
         let index = vquery.ids[0]
         if index < lenu64(getStateField(stateData.data, validators)):
-          let validator = getStateField(stateData.data, validators)[index]
+          let validator = getStateField(stateData.data, validators).asSeq()[index]
           let sres = validator.getStatus(current_epoch)
           if sres.isOk:
             return (validator: validator, index: uint64(index),
                     status: sres.get(),
-                    balance: getStateField(stateData.data, balances)[index])
+                    balance: getStateField(stateData.data, balances).asSeq()[index])
           else:
             raise newException(CatchableError, "Incorrect validator's state")
       else:
@@ -304,7 +304,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
             if sres.isOk:
               return (validator: validator, index: uint64(index),
                       status: sres.get(),
-                      balance: getStateField(stateData.data, balances)[index])
+                      balance: getStateField(stateData.data, balances).asSeq()[index])
             else:
               raise newException(CatchableError, "Incorrect validator's state")
 
@@ -325,16 +325,16 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
         var vquery = vqres.get()
         for index in vquery.ids:
           if index < lenu64(getStateField(stateData.data, validators)):
-            let validator = getStateField(stateData.data, validators)[index]
+            let validator = getStateField(stateData.data, validators).asSeq()[index]
             vquery.keyset.excl(validator.pubkey)
             let balance = (index: uint64(index),
-                           balance: getStateField(stateData.data, balances)[index])
+                           balance: getStateField(stateData.data, balances).asSeq()[index])
             res.add(balance)
 
         for index, validator in getStateField(stateData.data, validators).pairs():
           if validator.pubkey in vquery.keyset:
             let balance = (index: uint64(index),
-                           balance: getStateField(stateData.data, balances)[index])
+                           balance: getStateField(stateData.data, balances).asSeq()[index])
             res.add(balance)
     return res
 

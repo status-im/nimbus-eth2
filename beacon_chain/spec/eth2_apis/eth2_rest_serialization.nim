@@ -1028,13 +1028,14 @@ proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openarray[byte],
     err("Content-Type not supported")
 
 proc decodeBytes*[T: SszDecodeTypes](t: typedesc[T], value: openarray[byte],
-                                     contentType: string): RestResult[T] =
+                                     contentType: string, updateRoot = true): RestResult[T] =
   case contentType
   of "application/octet-stream":
     try:
-      var v: T
-      readSszBytes(value, v)
-      ok(v)
+      var v: RestResult[T]
+      v.ok(T()) # This optimistically avoids an expensive genericAssign
+      readSszBytes(value, v.get(), updateRoot)
+      v
     except SerializationError as exc:
       err("Serialization error")
   else:

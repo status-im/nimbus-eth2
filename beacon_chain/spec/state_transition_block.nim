@@ -489,7 +489,7 @@ proc process_sync_aggregate*(
     state.current_sync_committee.pubkeys.len,
     aggregate.sync_committee_bits.len):
     let participant_index =
-      pubkeyIndices.getOrDefault(state.current_sync_committee.pubkeys[i])
+      pubkeyIndices.getOrDefault(state.current_sync_committee.pubkeys.data[i])
     if aggregate.sync_committee_bits[i]:
       increase_balance(state, participant_index, participant_reward)
       increase_balance(state, proposer_index.get, proposer_reward)

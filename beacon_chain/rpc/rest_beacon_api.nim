@@ -296,7 +296,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               for index, validator in getStateField(stateData.data,
                                                     validators).pairs():
                 let
-                  balance = getStateField(stateData.data, balances)[index]
+                  balance = getStateField(stateData.data, balances).asSeq()[index]
                   status =
                     block:
                       let sres = validator.getStatus(current_epoch)
@@ -311,8 +311,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           else:
             for index in indices:
               let
-                validator = getStateField(stateData.data, validators)[index]
-                balance = getStateField(stateData.data, balances)[index]
+                validator = getStateField(stateData.data, validators).asSeq()[index]
+                balance = getStateField(stateData.data, balances).asSeq()[index]
                 status =
                   block:
                     let sres = validator.getStatus(current_epoch)
@@ -382,8 +382,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             index
 
       let
-        validator = getStateField(stateData.data, validators)[vindex]
-        balance = getStateField(stateData.data, balances)[vindex]
+        validator = getStateField(stateData.data, validators).asSeq()[vindex]
+        balance = getStateField(stateData.data, balances).asSeq()[vindex]
         status =
           block:
             let sres = validator.getStatus(current_epoch)
@@ -479,14 +479,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if len(validatorIds) == 0:
               # There is no indices, so we going to return balances of all
               # known validators.
-              for index, validator in getStateField(stateData.data,
-                                                    validators).pairs():
-                let balance = getStateField(stateData.data, balances)[index]
+              for index, balance in getStateField(stateData.data,
+                                                    balances).pairs():
                 res.add(RestValidatorBalance.init(ValidatorIndex(index),
                                                   balance))
           else:
             for index in indices:
-              let balance = getStateField(stateData.data, balances)[index]
+              let balance = getStateField(stateData.data, balances).asSeq()[index]
               res.add(RestValidatorBalance.init(index, balance))
           res
       return RestApiResponse.jsonResponse(response)
