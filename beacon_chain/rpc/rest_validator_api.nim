@@ -209,7 +209,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if not validatorIdx.isValidInState(state.data):
               return RestApiResponse.jsonError(Http400, "Invalid index: " & $validatorIdx)
 
-            res[resIdx].pubkey = state.data.validators[validatorIdx].pubkey
+            res[resIdx].pubkey = state.data.validators.asSeq()[validatorIdx].pubkey
             res[resIdx].validator_index = validatorIdx
 
             for idx, pubkey in syncCommittee:
@@ -458,14 +458,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       if uint64(request.committee_index) >= uint64(MAX_COMMITTEES_PER_SLOT):
         return RestApiResponse.jsonError(Http400,
                                          InvalidCommitteeIndexValueError)
-      let validator_pubkey =
-        block:
-          let idx = request.validator_index
-          if uint64(idx) >=
-                     lenu64(getStateField(node.dag.headState.data, validators)):
-            return RestApiResponse.jsonError(Http400,
-                                             InvalidValidatorIndexValueError)
-          getStateField(node.dag.headState.data, validators)[idx].pubkey
+      if uint64(request.validator_index) >=
+                  lenu64(getStateField(node.dag.headState.data, validators)):
+        return RestApiResponse.jsonError(Http400,
+                                          InvalidValidatorIndexValueError)
 
       let wallSlot = node.beaconClock.now.slotOrZero
       if wallSlot > request.slot + 1:

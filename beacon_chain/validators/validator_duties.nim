@@ -913,7 +913,7 @@ proc updateValidatorMetrics*(node: BeaconNode) =
           stateRoot = getStateRoot(node.dag.headState.data)
         0.Gwei
       else:
-        getStateField(node.dag.headState.data, balances)[v.index.get()]
+        getStateField(node.dag.headState.data, balances).asSeq()[v.index.get()]
 
     if i < 64:
       attached_validator_balance.set(

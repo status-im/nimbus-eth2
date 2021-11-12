@@ -84,10 +84,11 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var ForkyBeaconState,
                               index: ValidatorIndex, cache: var StateCache) =
   ## Initiate the exit of the validator with index ``index``.
 
+  if state.validators.asSeq()[index].exit_epoch != FAR_FUTURE_EPOCH:
+    return # Before touching cache
+
   # Return if validator already initiated exit
   let validator = addr state.validators[index]
-  if validator.exit_epoch != FAR_FUTURE_EPOCH:
-    return
 
   trace "Validator exiting",
     index = index,
