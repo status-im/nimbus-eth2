@@ -35,7 +35,7 @@ import
     slashing_protection, keystore_management],
   ./sync/[sync_manager, sync_protocol, request_manager],
   ./rpc/[rest_api, rpc_api],
-  ./spec/datatypes/[altair, phase0],
+  ./spec/datatypes/[altair, merge, phase0],
   ./spec/eth2_apis/rpc_beacon_client,
   ./spec/[
     beaconstate, forks, helpers, network, weak_subjectivity, signatures,
@@ -1026,30 +1026,35 @@ proc installMessageValidators(node: BeaconNode) =
 
   installPhase0Validators(node.dag.forkDigests.phase0)
 
-  # Validators introduced in phase0 are also used in altair, but with different
-  # fork digest
+  # Validators introduced in phase0 are also used in altair and merge, but with
+  # different fork digest
   installPhase0Validators(node.dag.forkDigests.altair)
+  installPhase0Validators(node.dag.forkDigests.merge)
 
   node.network.addValidator(
     getBeaconBlocksTopic(node.dag.forkDigests.altair),
     proc (signedBlock: altair.SignedBeaconBlock): ValidationResult =
       toValidationResult(node.processor[].blockValidator(signedBlock)))
 
-  for committeeIdx in allSyncSubcommittees():
-    closureScope:
-      let idx = committeeIdx
-      node.network.addValidator(
-        getSyncCommitteeTopic(node.dag.forkDigests.altair, idx),
-        # This proc needs to be within closureScope; don't lift out of loop.
-        proc(msg: SyncCommitteeMessage): ValidationResult =
-          toValidationResult(
-            node.processor.syncCommitteeMsgValidator(msg, idx)))
+  template installSyncCommitteeeValidators(digest: auto) =
+    for committeeIdx in allSyncSubcommittees():
+      closureScope:
+        let idx = committeeIdx
+        node.network.addValidator(
+          getSyncCommitteeTopic(digest, idx),
+          # This proc needs to be within closureScope; don't lift out of loop.
+          proc(msg: SyncCommitteeMessage): ValidationResult =
+            toValidationResult(
+              node.processor.syncCommitteeMsgValidator(msg, idx)))
 
-  node.network.addValidator(
-    getSyncCommitteeContributionAndProofTopic(node.dag.forkDigests.altair),
-    proc(msg: SignedContributionAndProof): ValidationResult =
-      toValidationResult(
-        node.processor.syncCommitteeContributionValidator(msg)))
+    node.network.addValidator(
+      getSyncCommitteeContributionAndProofTopic(digest),
+      proc(msg: SignedContributionAndProof): ValidationResult =
+        toValidationResult(
+          node.processor.syncCommitteeContributionValidator(msg)))
+
+  installSyncCommitteeeValidators(node.dag.forkDigests.altair)
+  installSyncCommitteeeValidators(node.dag.forkDigests.merge)
 
 proc stop*(node: BeaconNode) =
   bnStatus = BeaconNodeStatus.Stopping
