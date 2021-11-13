@@ -278,5 +278,3 @@ suite "Ethereum Foundation - SSZ generic types":
           checkpoint getStackTrace(getCurrentException())
           checkpoint getCurrentExceptionMsg()
           check false
-
-summarizeLongTests("FixtureSSZGeneric")

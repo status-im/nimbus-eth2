@@ -438,8 +438,12 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       blocks.incl(KeyedBlockRef.init(curRef))
       trace "Populating block dag", key = curRef.root, val = curRef
 
-    doAssert curRef == tailRef,
-      "head block does not lead to tail, database corrupt?"
+    if curRef != tailRef:
+      fatal "Head block does not lead to tail - database corrupt?",
+        genesisRef, tailRef, headRef, curRef, tailRoot, headRoot,
+        blocks = blocks.len()
+
+      quit 1
   else:
     headRef = tailRef
 
@@ -459,27 +463,35 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     cur = cur.parentOrSlot()
 
   if tmpState.blck == nil:
-    warn "No state found in head history, database corrupt?"
+    warn "No state found in head history, database corrupt?",
+      genesisRef, tailRef, headRef, tailRoot, headRoot,
+      blocks = blocks.len()
     # TODO Potentially we could recover from here instead of crashing - what
     #      would be a good recovery model?
-    raiseAssert "No state found in head history, database corrupt?"
+    quit 1
 
   case tmpState.data.kind
   of BeaconStateFork.Phase0:
     if tmpState.data.phase0Data.data.fork != genesisFork(cfg):
       error "State from database does not match network, check --network parameter",
+        genesisRef, tailRef, headRef, tailRoot, headRoot,
+        blocks = blocks.len(),
         stateFork = tmpState.data.phase0Data.data.fork,
         configFork = genesisFork(cfg)
       quit 1
   of BeaconStateFork.Altair:
     if tmpState.data.altairData.data.fork != altairFork(cfg):
       error "State from database does not match network, check --network parameter",
+        genesisRef, tailRef, headRef, tailRoot, headRoot,
+        blocks = blocks.len(),
         stateFork = tmpState.data.altairData.data.fork,
         configFork = altairFork(cfg)
       quit 1
   of BeaconStateFork.Merge:
     if tmpState.data.mergeData.data.fork != mergeFork(cfg):
       error "State from database does not match network, check --network parameter",
+        genesisRef, tailRef, headRef, tailRoot, headRoot,
+        blocks = blocks.len(),
         stateFork = tmpState.data.mergeData.data.fork,
         configFork = mergeFork(cfg)
       quit 1
