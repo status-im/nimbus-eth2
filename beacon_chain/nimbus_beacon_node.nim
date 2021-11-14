@@ -619,8 +619,8 @@ proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 proc removePhase0MessageHandlers(node: BeaconNode) =
   removePhase0MessageHandlers(node, node.dag.forkDigests.phase0)
 
-proc addAltairMessageHandlers(node: BeaconNode, slot: Slot) =
-  node.addPhase0MessageHandlers(node.dag.forkDigests.altair, slot)
+proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
+  node.addPhase0MessageHandlers(forkDigest, slot)
 
   var syncnets: SyncnetBits
 
@@ -629,26 +629,41 @@ proc addAltairMessageHandlers(node: BeaconNode, slot: Slot) =
     closureScope:
       let idx = committeeIdx
       # TODO This should be done in dynamic way in trackSyncCommitteeTopics
-      node.network.subscribe(getSyncCommitteeTopic(node.dag.forkDigests.altair, idx), basicParams)
+      node.network.subscribe(getSyncCommitteeTopic(forkDigest, idx), basicParams)
       syncnets.setBit(idx.asInt)
 
-  node.network.subscribe(getSyncCommitteeContributionAndProofTopic(node.dag.forkDigests.altair), basicParams)
+  node.network.subscribe(
+    getSyncCommitteeContributionAndProofTopic(forkDigest), basicParams)
   node.network.updateSyncnetsMetadata(syncnets)
 
-proc removeAltairMessageHandlers(node: BeaconNode) =
-  node.removePhase0MessageHandlers(node.dag.forkDigests.altair)
+proc addAltairMessageHandlers(node: BeaconNode, slot: Slot) =
+  addAltairMessageHandlers(node, node.dag.forkDigests.altair, slot)
+
+proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.removePhase0MessageHandlers(forkDigest)
 
   for committeeIdx in allSyncSubcommittees():
     closureScope:
       let idx = committeeIdx
       # TODO This should be done in dynamic way in trackSyncCommitteeTopics
-      node.network.unsubscribe(getSyncCommitteeTopic(node.dag.forkDigests.altair, idx))
+      node.network.unsubscribe(getSyncCommitteeTopic(forkDigest, idx))
 
-  node.network.unsubscribe(getSyncCommitteeContributionAndProofTopic(node.dag.forkDigests.altair))
+  node.network.unsubscribe(
+    getSyncCommitteeContributionAndProofTopic(forkDigest))
+
+proc removeAltairMessageHandlers(node: BeaconNode) =
+  removeAltairMessageHandlers(node, node.dag.forkDigests.altair)
+
+proc addMergeMessageHandlers(node: BeaconNode, slot: Slot) =
+  addAltairMessageHandlers(node, node.dag.forkDigests.merge, slot)
+
+proc removeMergeMessageHandlers(node: BeaconNode) =
+  removeAltairMessageHandlers(node, node.dag.forkDigests.merge)
 
 proc removeAllMessageHandlers(node: BeaconNode) =
   node.removePhase0MessageHandlers()
   node.removeAltairMessageHandlers()
+  node.removeMergeMessageHandlers()
 
 proc setupDoppelgangerDetection(node: BeaconNode, slot: Slot) =
   # When another client's already running, this is very likely to detect
