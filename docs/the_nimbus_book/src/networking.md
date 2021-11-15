@@ -1,13 +1,18 @@
 # Network setup
 
-Nimbus will automatically connect to peers based on the health and quality of peers that it's already connected to. Depending on the network and the number of validators attached to the the node, Nimbus may need anywhere from 10 to 60 peers connected to operate well.
+Nimbus will automatically connect to peers based on the health and quality of peers that it's already connected to. Depending on the network and the number of validators attached to the node, Nimbus may need anywhere from 10 to 60 peers connected to operate well.
 
-In addition to making outgoing connections, the beacon node node works best when others can connect to the node - this speeds up the process of finding good peers.
+In addition to making outgoing connections, the beacon node node works best when others can connect to it - this speeds up the process of finding good peers.
 
-To allow incoming connections, the peer must be reachable via a public IP address.
+To allow incoming connections, the node must be reachable via a public IP address and it must be aware of it, so it can advertise it to its peers.
 
-By default, Nimbus uses UPnP to set up port forwarding and detect your external IP address. If you do not have UPnP enabled, you may need to pass additional command-line options to the node, as detailed below.
-A collection of tips and tricks to help improve your network connectivity.
+## UPnP
+
+By default, Nimbus uses [UPnP](https://en.wikipedia.org/wiki/Universal_Plug_and_Play) to set up port forwarding and detect your external IP address. If you do not have UPnP enabled, you may need to pass additional command-line options to the node, as explained in subsequent sections.
+
+To enable UPnP, it's usually as simple as checking a box in your router's configuration. Unless it's a FRITZ!Box router, that is.
+
+With this brand, you also need to edit individual connections - in "Home Network" -> "Network" -> edit icon -> "Permit independent port sharing for this device". You might also want to enable "Always assign this network device the same IPv4 address", in case the setting is associated with IPs instead of MACs.
 
 ## Monitor your Peer count
 
@@ -15,11 +20,11 @@ If your Peer count is low (less than `15`) and/or you repeatedly see either of t
 
 `Peer count low, no new peers discovered...`
 
-or 
+or
 
 `No peers for topic, skipping publish...`
 
-It means that Nimbus is unable to find a sufficient number of peers to guarantee stable operation, and you may miss attestations and blocks as a result. 
+It means that Nimbus is unable to find a sufficient number of peers to guarantee stable operation, and you may miss attestations and blocks as a result.
 
 Most commonly, this happens when your computer is not reachable from the outside and therefore won't be able to accept any incoming peer connections.
 
@@ -32,7 +37,7 @@ The first step however, is to check for incoming connections.
 To check if you have incoming connections set, run:
 
 ```
-curl -s http://localhost:8008/metrics | grep libp2p_open_streams 
+curl -s http://localhost:8008/metrics | grep libp2p_open_streams
 ```
 
 In the output, look for a line that looks like:
@@ -41,7 +46,7 @@ In the output, look for a line that looks like:
 libp2p_open_streams{type="ChronosStream",dir="in"}
 ```
 
-If there are no `dir=in` chronosstreams , incoming connections are not working.
+If there are no `dir=in` ChronosStreams , incoming connections are not working.
 
 > **N.B** you need to run the client with the `--metrics` option enabled in order for this to work
 
@@ -54,7 +59,7 @@ If you have a static public IP address, use the `--nat:extip:$EXT_IP_ADDRESS` op
 
 > Note that this should also work with a dynamic IP address. But you will probably also need to pass `enr-auto-update` as an option to the client.
 
-## Set enr auto update
+## Set ENR auto update
 
 The `--enr-auto-update` feature keeps your external IP address up to date based on information received from other peers on the network. This option is useful with ISPs that assign IP addresses dynamically.
 
@@ -65,14 +70,14 @@ In practice this means relaunching the beacon node with `--enr-auto-update:true`
 If you're running on a home network and want to ensure you are able to receive incoming connections you may need to set up port forwarding (though some routers automagically set this up for you).
 
 
-> **Note:** If you are running your node on a virtual public cloud (VPC) instance, you can safely ignore this section.
+> **Note:** If you are running your node on a virtual public server (VPS) instance, you can safely ignore this section.
 
 While the specific steps required vary based on your router, they can be summarised as follows:
 
 1. Determine your [public IP address](./networking.md#determine-your-public-ip-address)
 2. Determine your [private IP address](./networking.md#determine-your-private-ip-address)
-3. Browse to the management website for your home router (typically [http://192.168.1.1](http://192.168.1.1))
-4. Log in as admin / root
+3. Browse to the management website for your home router ([http://192.168.1.1](http://192.168.1.1) for most routers, [https://192.168.178.1](https://192.168.178.1) for FRITZ!Box)
+4. Log in as admin
 5. Find the section to configure port forwarding
 6. Configure a port forwarding rule with the following values:
 - External port: `9000`
@@ -125,7 +130,7 @@ Use [this tool](https://www.yougetsignal.com/tools/open-ports/) to check your ex
 
 This is printed when the client lacks quality peers to publish attestations to - this is the most important indication that the node is having trouble keeping up. If you see this, you are missing attestations.
 
-`Peer count low, no new peers discovered...` 
+`Peer count low, no new peers discovered...`
 
 This is a sign that you may be missing attestations.
 
@@ -133,7 +138,7 @@ This is a sign that you may be missing attestations.
 
 This message basically means that the software did not manage to find a public IP address (by either looking at your routed interface IP address, and/or by attempting to get it from your gateway through UPnP or NAT-PMP).
 
-`Discovered new external address but ENR auto update is off...` 
+`Discovered new external address but ENR auto update is off...`
 
 It's possible that your ISP has changed your IP address without you knowing. The first thing to do it to try relaunching the beacon node with with `--enr-auto-update:true` (pass it as an option in the command line).
 
