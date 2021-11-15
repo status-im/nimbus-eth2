@@ -12,7 +12,7 @@ import
 
 suite "Merge test vectors":
   let web3Provider = (waitFor Web3DataProvider.new(
-    default(Eth1Address), "ws://127.0.0.1:8546")).get
+    default(Eth1Address), "ws://127.0.0.1:8551")).get
 
   test "getPayload, executePayload, and forkchoiceUpdated":
     const feeRecipient =
@@ -26,7 +26,7 @@ suite "Merge test vectors":
         default(Eth2Digest).data,  # Random
         feeRecipient)
       payload =         waitFor web3Provider.getPayload(
-        Quantity(payloadId.payloadId.get))
+        array[8, byte] (payloadId.payloadId.get))
       payloadStatus =   waitFor web3Provider.executePayload(payload)
       fcupdatedStatus = waitFor web3Provider.forkchoiceUpdated(
         payload.blockHash.asEth2Digest,
@@ -36,7 +36,7 @@ suite "Merge test vectors":
         feeRecipient)
 
       payload2 =         waitFor web3Provider.getPayload(
-        Quantity(fcupdatedStatus.payloadId.get))
+        array[8, byte] (fcupdatedStatus.payloadId.get))
       payloadStatus2 =   waitFor web3Provider.executePayload(payload2)
       fcupdatedStatus2 = waitFor web3Provider.forkchoiceUpdated(
         payload2.blockHash.asEth2Digest,

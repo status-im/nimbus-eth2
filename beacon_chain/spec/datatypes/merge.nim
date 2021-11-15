@@ -40,6 +40,8 @@ type
   BloomLogs* = object
     data*: array[BYTES_PER_LOGS_BLOOM, byte]
 
+  PayloadID* = array[8, byte]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest

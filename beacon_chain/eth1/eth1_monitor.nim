@@ -412,8 +412,8 @@ proc getBlockByNumber*(p: Web3DataProviderRef,
   p.web3.provider.eth_getBlockByNumber(hexNumber, false)
 
 proc getPayload*(p: Web3DataProviderRef,
-                 payloadId: Quantity): Future[engine_api.ExecutionPayloadV1] =
-  p.web3.provider.engine_getPayloadV1(payloadId)
+                 payloadId: merge.PayloadID): Future[engine_api.ExecutionPayloadV1] =
+  p.web3.provider.engine_getPayloadV1(FixedBytes[8] payloadId)
 
 proc executePayload*(p: Web3DataProviderRef,
                      payload: engine_api.ExecutionPayloadV1): Future[ExecutePayloadResponse] =
