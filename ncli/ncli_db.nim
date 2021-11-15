@@ -377,13 +377,14 @@ proc copyPrunedDatabase(
   let
     headBlock = db.getHeadBlock()
     tailBlock = db.getTailBlock()
+    genesisBlock = db.getGenesisBlock()
 
-  doAssert headBlock.isOk and tailBlock.isOk
   doAssert db.getPhase0Block(headBlock.get).isOk
   doAssert db.getPhase0Block(tailBlock.get).isOk
+  doAssert db.getPhase0Block(genesisBlock.get).isOk
 
   var
-    beaconState: (ref phase0.HashedBeaconState)()
+    beaconState = (ref phase0.HashedBeaconState)()
     finalizedEpoch: Epoch  # default value of 0 is conservative/safe
     prevBlockSlot = db.getPhase0Block(db.getHeadBlock().get).get.message.slot
 
@@ -401,6 +402,7 @@ proc copyPrunedDatabase(
       beaconState[].latest_block_root(), beaconState[].data.slot,
       beaconState[].root)
     copyDb.putState(beaconState[].root, beaconState[].data)
+    copyDb.putBlock(db.getPhase0Block(genesisBlock.get).get)
 
   for signedBlock in getAncestors(db, headBlock.get):
     if not dry_run:
@@ -432,7 +434,7 @@ proc copyPrunedDatabase(
       beaconState[].root = sr.get()
 
       finalizedEpoch = max(
-        finalizedEpoch, beaconState.finalized_checkpoint.epoch)
+        finalizedEpoch, beaconState[].data.finalized_checkpoint.epoch)
 
       if not dry_run:
         copyDb.putStateRoot(
@@ -447,6 +449,7 @@ proc copyPrunedDatabase(
   if not dry_run:
     copyDb.putHeadBlock(headBlock.get)
     copyDb.putTailBlock(tailBlock.get)
+    copyDb.putGenesisBlock(genesisBlock.get)
 
 proc cmdPrune(conf: DbConf) =
   let
