@@ -40,7 +40,6 @@ if ! command -v fpm &> /dev/null;then
   exit 1
 fi
 
-mkdir -p $PKG_IMG_DIR/var/lib/nimbus
 mkdir -p $PKG_IMG_DIR/usr/bin
 
 cp $NBC_BIN $PKG_IMG_DIR/usr/bin
