@@ -41,7 +41,7 @@ empirical_resp_execute_payload='{"jsonrpc":"2.0","id":67,"result":{"status":"VAL
 resp_update_forkchoice=$(curl -sX POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"engine_forkchoiceUpdatedV1","params":[{"headBlockHash":"0x3559e851470f6e7bbed1db474980683e8c315bfce99b2a6ef47c057c04de7858", "safeBlockHash":"0x3559e851470f6e7bbed1db474980683e8c315bfce99b2a6ef47c057c04de7858", "finalizedBlockHash":"0x3b8fb240d288781d4aac94d3fd16809ee413bc99294a085798a589dae51ddd4a"}, null],"id":67}' http://localhost:8545)
 echo "engine_forkchoiceUpdatedV1 response: ${resp_update_forkchoice}"
 
-expected_resp_update_forkchoice='{"jsonrpc":"2.0","id":67,"result":{"status":"SUCCESS","payloadId":"0x"}}'
+expected_resp_update_forkchoice='{"jsonrpc":"2.0","id":67,"result":{"status":"SUCCESS","payloadId":null}}'
 [[ ${resp_update_forkchoice} == "${expected_resp_update_forkchoice}" ]] || (echo "Unexpected response to engine_forkchoiceUpdatedV1"; false)
 
 echo "kintsugi test vectors passed"

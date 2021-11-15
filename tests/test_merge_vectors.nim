@@ -12,7 +12,7 @@ import
 
 suite "Merge test vectors":
   let web3Provider = (waitFor Web3DataProvider.new(
-    default(Eth1Address), "ws://127.0.0.1:8551")).get
+    default(Eth1Address), "ws://127.0.0.1:8546")).get
 
   test "getPayload, executePayload, and forkchoiceUpdated":
     const feeRecipient =
