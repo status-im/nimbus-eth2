@@ -34,7 +34,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#custom-types
   Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
 
-  EthAddress* = object
+  ExecutionAddress* = object
     data*: array[20, byte]  # TODO there's a network_metadata type, but the import hierarchy's inconvenient
 
   BloomLogs* = object
@@ -43,7 +43,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
-    coinbase*: EthAddress  # 'beneficiary' in the yellow paper
+    coinbase*: ExecutionAddress  # 'beneficiary' in the yellow paper
     state_root*: Eth2Digest
     receipt_root*: Eth2Digest # 'receipts root' in the yellow paper
     logs_bloom*: BloomLogs
@@ -62,7 +62,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     parent_hash*: Eth2Digest
-    coinbase*: EthAddress
+    coinbase*: ExecutionAddress
     state_root*: Eth2Digest
     receipt_root*: Eth2Digest
     logs_bloom*: BloomLogs
@@ -356,13 +356,13 @@ func encodeQuantityHex*(x: auto): string =
 proc fromHex*(T: typedesc[BloomLogs], s: string): T =
   hexToBytes(s, result.data)
 
-proc fromHex*(T: typedesc[EthAddress], s: string): T =
+proc fromHex*(T: typedesc[ExecutionAddress], s: string): T =
   hexToBytes(s, result.data)
 
-proc writeValue*(w: var JsonWriter, a: EthAddress) {.raises: [Defect, IOError, SerializationError].} =
+proc writeValue*(w: var JsonWriter, a: ExecutionAddress) {.raises: [Defect, IOError, SerializationError].} =
   w.writeValue $a
 
-proc readValue*(r: var JsonReader, a: var EthAddress) {.raises: [Defect, IOError, SerializationError].} =
+proc readValue*(r: var JsonReader, a: var ExecutionAddress) {.raises: [Defect, IOError, SerializationError].} =
   try:
     a = fromHex(type(a), r.readValue(string))
   except ValueError:
