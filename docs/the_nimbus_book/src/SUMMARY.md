@@ -26,7 +26,7 @@
 - [Monitor attestation performance](./attestation-performance.md)
 
 # How-to (misc)
-- [Update Nimbus](./keep-updated.md)
+- [Upgrade / downgrade Nimbus](./keep-updated.md)
 - [Run an eth1 node](./eth1.md)
 - [Obtain Goerli ETH](./goerli-eth.md)
 - [Set up a systemd service](./beacon-node-systemd.md)
