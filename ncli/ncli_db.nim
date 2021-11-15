@@ -383,18 +383,19 @@ proc copyPrunedDatabase(
   doAssert db.getPhase0Block(tailBlock.get).isOk
 
   var
-    beaconState: ref phase0.BeaconState
+    beaconState: (ref phase0.HashedBeaconState)()
     finalizedEpoch: Epoch  # default value of 0 is conservative/safe
     prevBlockSlot = db.getPhase0Block(db.getHeadBlock().get).get.message.slot
 
-  beaconState = new phase0.BeaconState
-  let headEpoch = db.getPhase0Block(headBlock.get).get.message.slot.epoch
+  let
+    headEpoch = db.getPhase0Block(headBlock.get).get.message.slot.epoch
+    tailStateRoot = db.getPhase0Block(tailBlock.get).get.message.state_root
 
   # Tail states are specially addressed; no stateroot intermediary
-  if not db.getState(
-      db.getPhase0Block(tailBlock.get).get.message.state_root, beaconState[],
-      noRollback):
+  if not db.getState(tailStateRoot, beaconState[].data, noRollback):
     doAssert false, "could not load tail state"
+  beaconState[].root = tailStateRoot
+
   if not dry_run:
     copyDb.putStateRoot(
       beaconState[].latest_block_root(), beaconState[].data.slot,
@@ -423,11 +424,12 @@ proc copyPrunedDatabase(
             slot, " with root ", signedBlock.root
         continue
 
-      if not db.getState(sr.get, beaconState[], noRollback):
+      if not db.getState(sr.get, beaconState[].data, noRollback):
         # Don't copy dangling stateroot pointers
         if stateRequired:
           doAssert false, "state root and state required"
         continue
+      beaconState[].root = sr.get()
 
       finalizedEpoch = max(
         finalizedEpoch, beaconState.finalized_checkpoint.epoch)

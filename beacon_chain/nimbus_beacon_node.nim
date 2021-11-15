@@ -176,10 +176,9 @@ proc init*(T: type BeaconNode,
       quit 1
 
     if config.finalizedCheckpointBlock.isNone:
-      withState(checkpointState[]):
-        if state.data.slot > 0:
-          fatal "Specifying a non-genesis --finalized-checkpoint-state requires specifying --finalized-checkpoint-block as well"
-          quit 1
+      if getStateField(checkpointState[], slot) > 0:
+        fatal "Specifying a non-genesis --finalized-checkpoint-state requires specifying --finalized-checkpoint-block as well"
+        quit 1
     else:
       let checkpointBlockPath = config.finalizedCheckpointBlock.get.string
       try:
