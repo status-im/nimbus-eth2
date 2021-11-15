@@ -12,7 +12,6 @@ import serialization, json_serialization,
 import "."/spec/datatypes/[base, altair, phase0, merge],
        "."/spec/[crypto, digest, network, signatures, forks],
        "."/spec/eth2_apis/[rest_types, eth2_rest_serialization],
-       "."/ssz/merkleization,
        "."/rpc/rest_constants,
        "."/[conf, version, nimbus_binary_common],
        "."/validators/[keystore_management, validator_pool]
