@@ -163,12 +163,12 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="the-nim-programming-language"><a class="header" href="#the-nim-programming-language">The Nim Programming Language</a></h1>
+                        <h1><a class="header" href="#the-nim-programming-language" id="the-nim-programming-language">The Nim Programming Language</a></h1>
 <p>The Nim programming language is a compiled language, with strong static typing.</p>
 <p>The rest of the Handbook will assume that Nim-by-example was read.</p>
 <p>Nim compilation process is in 2 phases, first lowering the Nim code to C, C++ or Javascript. Then for machine code, rely on the C/C++ compiler to produce the final code.</p>
 <p>Nim can target any combination of C compiler, host OS and hardware architecture as long as the C compiler supports it.</p>
-<h2 id="installing"><a class="header" href="#installing">Installing</a></h2>
+<h2><a class="header" href="#installing" id="installing">Installing</a></h2>
 <p>Nim can be installed via:</p>
 <ul>
 <li>A Linux distribution package manager or Homebrew on MacOS</li>
@@ -179,7 +179,7 @@
 <p>Nim Vagrant <a href="https://github.com/status-im/nim-vagrant">https://github.com/status-im/nim-vagrant</a> is unmaintained but might
 help setting up your own virtualized environment.</p>
 <p>We target Nim 1.2.2 and should be compatible with the latest stable, Nim 1.2.4</p>
-<h2 id="casings"><a class="header" href="#casings">Casings</a></h2>
+<h2><a class="header" href="#casings" id="casings">Casings</a></h2>
 <p>Nim has unusual partial case insensitivity for identifiers. The rationales being:</p>
 <ul>
 <li>Preventing bugs when using <code>SDL_QUIT</code> instead of <code>SDL_Quit</code>.</li>
@@ -195,14 +195,14 @@ help setting up your own virtualized environment.</p>
 </ul>
 <p>In summary, we respect the Ethereum spec for Ethereum specified identifiers
 and use Nim NEP-1 for the rest.</p>
-<h2 id="checking-the-c-code"><a class="header" href="#checking-the-c-code">Checking the C code</a></h2>
+<h2><a class="header" href="#checking-the-c-code" id="checking-the-c-code">Checking the C code</a></h2>
 <p>By default the intermediate C code produced by the Nim compiler is available at</p>
 <ul>
 <li><code>$HOME/.nim/compiled_project_d</code> on UNIX systems</li>
 <li><code>$HOME/nimcache/compiled_project_d</code> on Windows</li>
 </ul>
 <p>The suffix <code>_d</code> indicates a debug build, the suffix <code>_d</code> indicates a release build</p>
-<h2 id="compiler-options"><a class="header" href="#compiler-options">Compiler options</a></h2>
+<h2><a class="header" href="#compiler-options" id="compiler-options">Compiler options</a></h2>
 <p>At the time of writing, NBC targets Nim v1.2.2 compiler.
 The build system is at <a href="https://github.com/status-im/nimbus-build-system">https://github.com/status-im/nimbus-build-system</a>
 No patching is done at the moment on the Nim compiler, we use vanilla v1.2.2 upstream.</p>
@@ -211,7 +211,7 @@ No patching is done at the moment on the Nim compiler, we use vanilla v1.2.2 ups
 <p>Runtime checks (overflow, array bounds checks, nil checks, ...) are still included in <code>-d:release</code> build. We also choose to have verbose stacktraces in NBC.</p>
 <p>A danger build optimizes away all runtime checks and debugging help like stackframes. This might have a significant impact on performance
 as it may enable optimizations that were not possible like optimizing tail calls. This is not used in NBC.</p>
-<h2 id="references"><a class="header" href="#references">References</a></h2>
+<h2><a class="header" href="#references" id="references">References</a></h2>
 <ul>
 <li>
 <p>Nim by example:</p>
@@ -243,11 +243,11 @@ as it may enable optimizations that were not possible like optimizing tail calls
 <ul>
 <li><a href="https://nim-lang.org/learn.html">https://nim-lang.org/learn.html</a></li>
 </ul>
-<h3 id="compiler-configuration"><a class="header" href="#compiler-configuration">Compiler configuration</a></h3>
+<h3><a class="header" href="#compiler-configuration" id="compiler-configuration">Compiler configuration</a></h3>
 <ul>
 <li>Compiler User Guide: <a href="https://nim-lang.org/docs/nimc.html">https://nim-lang.org/docs/nimc.html</a></li>
 </ul>
-<h3 id="style-guide"><a class="header" href="#style-guide">Style Guide</a></h3>
+<h3><a class="header" href="#style-guide" id="style-guide">Style Guide</a></h3>
 <ul>
 <li><a href="https://nim-lang.org/docs/nep1.html">https://nim-lang.org/docs/nep1.html</a></li>
 </ul>

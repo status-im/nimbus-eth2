@@ -163,7 +163,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="nim-routines"><a class="header" href="#nim-routines">Nim Routines</a></h1>
+                        <h1><a class="header" href="#nim-routines" id="nim-routines">Nim Routines</a></h1>
 <p>Nim offers several kinds of &quot;routines&quot; that:</p>
 <ul>
 <li>do computation</li>
@@ -179,7 +179,7 @@
 <li><code>template</code></li>
 <li><code>macro</code></li>
 </ul>
-<h2 id="proc-and-func"><a class="header" href="#proc-and-func"><code>proc</code> and <code>func</code></a></h2>
+<h2><a class="header" href="#proc-and-func" id="proc-and-func"><code>proc</code> and <code>func</code></a></h2>
 <p><code>proc</code> and <code>func</code> are the most basic routines.</p>
 <p>At the moment, Nim requires forward declaration of proc and func.
 Also it prevents circular dependencies, this means that a procedure is
@@ -187,7 +187,7 @@ always coming from one of the imports.</p>
 <p>Additionally, all dependencies are submodules and a proc can be found by greping
 <code>procname*</code>, the <code>*</code> being the export marker.</p>
 <p>The only exception being the standard library. Procedures from the standard library are all listed in &quot;<a href="https://nim-lang.org/docs/theindex.html">The Index</a>&quot;.</p>
-<h3 id="function-call-syntax"><a class="header" href="#function-call-syntax">Function call syntax</a></h3>
+<h3><a class="header" href="#function-call-syntax" id="function-call-syntax">Function call syntax</a></h3>
 <p>Nim provides flexible call syntax, the following are possible:</p>
 <pre><code class="language-Nim">prof foo(a: int) =
   discard
@@ -203,22 +203,22 @@ a.foo
 <p>Nim doesn't enforce namespacing by default but is an option</p>
 <pre><code class="language-Nim">let a = byteutils.fromhex&quot;0x12345&quot;
 </code></pre>
-<h3 id="parameters"><a class="header" href="#parameters">Parameters</a></h3>
+<h3><a class="header" href="#parameters" id="parameters">Parameters</a></h3>
 <p>Mutable parameters must be tagged with <code>var</code></p>
 <p>TODO</p>
-<h3 id="symbol-resolution"><a class="header" href="#symbol-resolution">Symbol resolution</a></h3>
+<h3><a class="header" href="#symbol-resolution" id="symbol-resolution">Symbol resolution</a></h3>
 <p>If 2 procedures are visible in the same module (a module is a file) and
 have the same name the compiler will infer which to call from the arguments
 signatures. In case both are applicable, the compiler will throw an &quot;ambiguous call&quot; compile-time error.</p>
 <p>Note that a procedure specialized to a concrete type has priority over a generic procedure, for example a procedure for int64 over a procedure for all number types.</p>
-<h3 id="func-and-side-effect-analysis"><a class="header" href="#func-and-side-effect-analysis"><code>func</code> and side effect analysis</a></h3>
+<h3><a class="header" href="#func-and-side-effect-analysis" id="func-and-side-effect-analysis"><code>func</code> and side effect analysis</a></h3>
 <p>In Nim a proc is considered to have side-effect if it accesses a global variable.
 Mutating a declared function parameter is not considered a side-effect as there is no access to a global variable.
 Printing to the standard output or reading the standard input is considered a sideeffect.</p>
 <p><code>func</code> are syntactic sugar for <code>proc</code> without sideeffects. In particular this means that <code>func</code> behaviors are fully determined by their input parameters.</p>
 <p>In the codebase, logging at the <code>trace</code> level are not considered a sideeffect.</p>
 <p>Additionally some logging statements and metrics statement may be in an explicit <code>{.noSideEffect.}:</code> code-block.</p>
-<h3 id="returning-values"><a class="header" href="#returning-values">Returning values</a></h3>
+<h3><a class="header" href="#returning-values" id="returning-values">Returning values</a></h3>
 <p>There are 3 syntaxes to return a value from a procedure:</p>
 <ol>
 <li>The return statement</li>
@@ -275,30 +275,30 @@ Omitting <code>a</code> or <code>b</code> will be a compiletime error, unlike
 <li>copying the type is expensive (SHA256 hash for example)</li>
 <li>or we need early returns</li>
 </ul>
-<h4 id="ignoring-return-values"><a class="header" href="#ignoring-return-values">Ignoring return values</a></h4>
+<h4><a class="header" href="#ignoring-return-values" id="ignoring-return-values">Ignoring return values</a></h4>
 <p>Unlike C, return values MUST be used or explicitly discarded.</p>
-<h4 id="mutable-return-values"><a class="header" href="#mutable-return-values">Mutable return values</a></h4>
+<h4><a class="header" href="#mutable-return-values" id="mutable-return-values">Mutable return values</a></h4>
 <p>TODO</p>
-<h3 id="at-a-low-level"><a class="header" href="#at-a-low-level">At a low-level</a></h3>
-<h4 id="argument-passing"><a class="header" href="#argument-passing">Argument passing</a></h4>
+<h3><a class="header" href="#at-a-low-level" id="at-a-low-level">At a low-level</a></h3>
+<h4><a class="header" href="#argument-passing" id="argument-passing">Argument passing</a></h4>
 <p>Nim passes arguments by value if they take less than 3*sizeof(pointer) (i.e. 24 bytes on 64-bit OS) and passes them by pointer with the C backend or reference with the C++ backend if they are bigger.
 Mutable arguments are always passed by pointer.</p>
 <p>This behavior can be changed on a type-by-type bases by tagging them {.bycopy.} or {.byref.}. This is only used for interfacing with non-Nim code.</p>
-<h4 id="stacktraces"><a class="header" href="#stacktraces">Stacktraces</a></h4>
+<h4><a class="header" href="#stacktraces" id="stacktraces">Stacktraces</a></h4>
 <p>With <code>--stacktrace:on</code>, Nim create a stackframe on <code>proc</code> entry and destroys it on exit. This is used for reporting stacktraces.</p>
 <p>NBC is always compiled with <code>--stacktraces:on</code></p>
 <p>NBC uses <a href="https://github.com/ianlancetaylor/libbacktrace">libbacktrace</a> to have less costly stacktraces.</p>
-<h4 id="name-in-the-c-code-or-assembly"><a class="header" href="#name-in-the-c-code-or-assembly">Name in the C code or Assembly</a></h4>
+<h4><a class="header" href="#name-in-the-c-code-or-assembly" id="name-in-the-c-code-or-assembly">Name in the C code or Assembly</a></h4>
 <p><code>proc</code> and <code>func</code> are materialized in the produced C code with name-mangling appended at the end. For the purpose of building Nim libraries, the name can be controlled by:</p>
 <ul>
 <li><code>{.exportc.}</code> so that the generated C name is the same as Nim</li>
 <li>`{.exportc: &quot;specific_name&quot;.} to generate a specific name</li>
 </ul>
-<h2 id="method"><a class="header" href="#method"><code>method</code></a></h2>
+<h2><a class="header" href="#method" id="method"><code>method</code></a></h2>
 <p><code>method</code>s are used for dynamic dispatch when an object has an inherited subtype only known at runtime.</p>
 <p><code>method</code> are dispatched using a dispatch tree in the C code instead of a VTable.</p>
 <p>There might be some cases where <code>method</code> were used not for their intended purpose</p>
-<h2 id="converter"><a class="header" href="#converter"><code>converter</code></a></h2>
+<h2><a class="header" href="#converter" id="converter"><code>converter</code></a></h2>
 <p>Converters are procedures that are implicitly called on a value to change its type.</p>
 <p>For example with a fictional option type that automatically extracts the boxed type.</p>
 <pre><code class="language-Nim">type Option[T] = object
@@ -319,7 +319,7 @@ let z = x + y
 <p>Even though the <code>+</code> operator is not defined for <code>Option[int]</code> it is defined for <code>int</code> and Nim implicitly calls the converter.</p>
 <p><code>converter</code> are seldom used in the codebase as we prefer explicit over implicit.</p>
 <p>Note that in case an operation is defined on both the convertible and the converted type, the operation without conversion should be preferred however <a href="https://github.com/nim-lang/Nim/issues/7416">the compiler might throw an ambiguous call instead</a>.</p>
-<h2 id="iterators"><a class="header" href="#iterators">Iterators</a></h2>
+<h2><a class="header" href="#iterators" id="iterators">Iterators</a></h2>
 <p>Iterators are construct that transforms a for loop.</p>
 <p>For example to iterate on a custom array collection</p>
 <pre><code class="language-Nim">const MaxSize = 7
@@ -393,7 +393,7 @@ for value in s.iterate(backward = false):
   echo value
 </code></pre>
 <p>The long series of operation will be duplicated.</p>
-<h3 id="items-and-pairs"><a class="header" href="#items-and-pairs"><code>items</code> and <code>pairs</code></a></h3>
+<h3><a class="header" href="#items-and-pairs" id="items-and-pairs"><code>items</code> and <code>pairs</code></a></h3>
 <p>The <code>items</code> and <code>pairs</code> iterator are special cased and implictly call
 if there is respectively one and two iteration variables hence:</p>
 <pre><code class="language-Nim">for x in collection:
@@ -405,13 +405,13 @@ if there is respectively one and two iteration variables hence:</p>
   echo y
 </code></pre>
 <p>will automatically call the <code>pairs</code> proc defined for the collection (or error)</p>
-<h3 id="fields-and-fieldpairs"><a class="header" href="#fields-and-fieldpairs"><code>fields</code> and <code>fieldPairs</code></a></h3>
+<h3><a class="header" href="#fields-and-fieldpairs" id="fields-and-fieldpairs"><code>fields</code> and <code>fieldPairs</code></a></h3>
 <p><code>fields</code> and <code>fieldsPairs</code> are iterator-like magic, that allow &quot;iterating&quot; on an object field. Note that those are unrolled at compile-time.</p>
-<h2 id="closures-and-closure-iterators"><a class="header" href="#closures-and-closure-iterators">Closures and closure iterators</a></h2>
+<h2><a class="header" href="#closures-and-closure-iterators" id="closures-and-closure-iterators">Closures and closure iterators</a></h2>
 <p>Will be covered in a dedicated section.</p>
 <p>They are the backbone of Chronos, our async/await framework and also
 have a major potential for memory leaks.</p>
-<h2 id="template"><a class="header" href="#template"><code>template</code></a></h2>
+<h2><a class="header" href="#template" id="template"><code>template</code></a></h2>
 <p><code>template</code>s in Nim allows raw code substitution.</p>
 <p><code>templates</code> are hygienic and typechecked unlike the C preprocessor.
 Also they create their own scope unless tagged with the <code>{.dirty.}</code> pragma.</p>
@@ -432,11 +432,11 @@ log(foo())
 <p>and triggers the &quot;launch missile&quot; side-effect twice.</p>
 <p>Another issue with templates is that they may not generate stacktraces properly as
 they are not materialized in the C code.</p>
-<h3 id="symbol-visibility-and-inject"><a class="header" href="#symbol-visibility-and-inject">Symbol visibility and {.inject.}</a></h3>
+<h3><a class="header" href="#symbol-visibility-and-inject" id="symbol-visibility-and-inject">Symbol visibility and {.inject.}</a></h3>
 <p>TODO</p>
-<h2 id="macro"><a class="header" href="#macro"><code>macro</code></a></h2>
+<h2><a class="header" href="#macro" id="macro"><code>macro</code></a></h2>
 <p>TODO</p>
-<h2 id="the-do-notation"><a class="header" href="#the-do-notation">The <code>do</code> notation</a></h2>
+<h2><a class="header" href="#the-do-notation" id="the-do-notation">The <code>do</code> notation</a></h2>
 <p>TODO</p>
 
                     </main>

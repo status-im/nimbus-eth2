@@ -163,17 +163,17 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="casting-and-low-level-memory-representation"><a class="header" href="#casting-and-low-level-memory-representation">Casting and low-level memory representation</a></h1>
-<h2 id="conversions"><a class="header" href="#conversions">Conversions</a></h2>
+                        <h1><a class="header" href="#casting-and-low-level-memory-representation" id="casting-and-low-level-memory-representation">Casting and low-level memory representation</a></h1>
+<h2><a class="header" href="#conversions" id="conversions">Conversions</a></h2>
 <p>Casting to a signed integer will lead to a range check.
 Conversion to an unsigned integer even from a negative signed integer will NOT lead to a range check (https://github.com/nim-lang/RFCs/issues/175)
 https://nim-lang.org/docs/manual.html#statements-and-expressions-type-conversions</p>
-<h2 id="casting-integers"><a class="header" href="#casting-integers">Casting integers</a></h2>
+<h2><a class="header" href="#casting-integers" id="casting-integers">Casting integers</a></h2>
 <p>Unsigned integer casts behave like C.</p>
 <p>Upcasting will lead to zero extension
 Downcasting will lead to truncation</p>
 <p>Signed integer ranges will not be checked with a cast.</p>
-<h2 id="casting-tofrom-other-types"><a class="header" href="#casting-tofrom-other-types">Casting to/from other types</a></h2>
+<h2><a class="header" href="#casting-tofrom-other-types" id="casting-tofrom-other-types">Casting to/from other types</a></h2>
 <p>Casting to or from any other types will be done through:</p>
 <ul>
 <li>union casts by default</li>

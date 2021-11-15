@@ -163,8 +163,8 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="operators-and-bit-manipulation"><a class="header" href="#operators-and-bit-manipulation">Operators and bit manipulation</a></h1>
-<h2 id="operators"><a class="header" href="#operators">Operators</a></h2>
+                        <h1><a class="header" href="#operators-and-bit-manipulation" id="operators-and-bit-manipulation">Operators and bit manipulation</a></h1>
+<h2><a class="header" href="#operators" id="operators">Operators</a></h2>
 <p>A set of symbol and keywords can be used as infix operators
 Nim supports operator overloading.</p>
 <p>Those symbols are:</p>
@@ -181,7 +181,7 @@ Nim supports operator overloading.</p>
 <li>shift left and right are <code>shl</code> and <code>shr</code></li>
 <li>division and modulo are <code>div</code> and <code>mod</code></li>
 </ul>
-<h3 id="implementation-defined-behaviors"><a class="header" href="#implementation-defined-behaviors">Implementation-defined behaviors</a></h3>
+<h3><a class="header" href="#implementation-defined-behaviors" id="implementation-defined-behaviors">Implementation-defined behaviors</a></h3>
 <p><code>mod</code> is defined as the mathematical remainder, like C. With signed integers <code>a mod b</code> has the same sign as <code>a</code></p>
 <p><code>shr</code> of a signed integer will not preserve the sign bit.
 <code>ashr</code> can be used for arithmetic right shift.</p>
@@ -189,14 +189,14 @@ Nim supports operator overloading.</p>
 also <code>ashr</code> relies on the C compiler actually lowering <code>&gt;&gt;</code> to SAR for signed integer.
 This is specified for GCC and Clang (<a href="https://gcc.gnu.org/onlinedocs/gcc/Integers-implementation.html#Integers-implementation">https://gcc.gnu.org/onlinedocs/gcc/Integers-implementation.html#Integers-implementation</a>)
 but implementation defined in general.</p>
-<h3 id="operator-precedence"><a class="header" href="#operator-precedence">Operator precedence</a></h3>
+<h3><a class="header" href="#operator-precedence" id="operator-precedence">Operator precedence</a></h3>
 <p>Operator precedence is specified described in the manual:</p>
 <p><a href="https://nim-lang.org/docs/manual.html#syntax-precedence">https://nim-lang.org/docs/manual.html#syntax-precedence</a></p>
-<h3 id="additional-system-operators"><a class="header" href="#additional-system-operators">Additional system operators</a></h3>
+<h3><a class="header" href="#additional-system-operators" id="additional-system-operators">Additional system operators</a></h3>
 <p>Nim system exports additional operators with a <code>%</code> like <code>+%</code> and <code>-%</code>.
 Those cast the signed integer operand to unsigned and cast the result back to signed.
 This is intended to use with the ByteAddress type for pointer arithmetic</p>
-<h2 id="bit-manipulation"><a class="header" href="#bit-manipulation">Bit manipulation</a></h2>
+<h2><a class="header" href="#bit-manipulation" id="bit-manipulation">Bit manipulation</a></h2>
 <p><a href="https://github.com/status-im/nim-stew/blob/master/stew/bitops2.nim">https://github.com/status-im/nim-stew/blob/master/stew/bitops2.nim</a></p>
 
                     </main>

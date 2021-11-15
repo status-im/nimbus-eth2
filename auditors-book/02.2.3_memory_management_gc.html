@@ -163,7 +163,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="nim-memory-management"><a class="header" href="#nim-memory-management">Nim memory management</a></h1>
+                        <h1><a class="header" href="#nim-memory-management" id="nim-memory-management">Nim memory management</a></h1>
 <p>Nim memory management is on a per-type basis.</p>
 <p>Plain objects and char and numerical types are allocated on the stack.</p>
 <p>Sequences and strings are allocated on the heap but have value semantics.
@@ -173,13 +173,13 @@ can be held by multiple variables and only when all those variables go out-of-sc
 the ref type discarded.</p>
 <p>By default Nim uses a deferred reference counting GC. Additionally, if the type can lead
 to cycles, Nim will add &quot;mark-and-sweep&quot; passes to collect them.</p>
-<h2 id="destructors"><a class="header" href="#destructors">Destructors</a></h2>
+<h2><a class="header" href="#destructors" id="destructors">Destructors</a></h2>
 <p>TODO</p>
-<h2 id="nim-allocator"><a class="header" href="#nim-allocator">Nim allocator</a></h2>
+<h2><a class="header" href="#nim-allocator" id="nim-allocator">Nim allocator</a></h2>
 <p>Nim GCs are backed by a TLSF allocator which allows Nim to provide soft real-time guarantees if needed.</p>
-<h2 id="analyzing-memory-leaks"><a class="header" href="#analyzing-memory-leaks">Analyzing memory leaks</a></h2>
+<h2><a class="header" href="#analyzing-memory-leaks" id="analyzing-memory-leaks">Analyzing memory leaks</a></h2>
 <p>Nim can be compiled with <code>-d:useMalloc</code> to bypass the TLSF allocator and directly use malloc/free</p>
-<h2 id="references"><a class="header" href="#references">References</a></h2>
+<h2><a class="header" href="#references" id="references">References</a></h2>
 <ul>
 <li>
 <p><a href="https://nim-lang.org/docs/gc.html">https://nim-lang.org/docs/gc.html</a></p>
