@@ -1859,6 +1859,13 @@ proc loadEth2Network(config: BeaconNodeConf): Eth2NetworkMetadata {.raises: [Def
       echo "Must specify network on non-mainnet node"
       quit 1
 
+proc update_system_metrics_task() {.async.} =
+  let sleepTime = chronos.seconds(10)
+  while true:
+    await chronos.sleepAsync(sleepTime)
+    {.gcsafe.}:
+      updateSystemMetrics()
+
 proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.raises: [Defect, CatchableError].} =
   info "Launching beacon node",
       version = fullVersionStr,
@@ -1876,8 +1883,13 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
       url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
     try:
       startMetricsHttpServer($metricsAddress, config.metricsPort)
-    except CatchableError as exc: raise exc
-    except Exception as exc: raiseAssert exc.msg # TODO fix metrics
+    except CatchableError as exc:
+      raise exc
+    except Exception as exc:
+      raiseAssert exc.msg # TODO fix metrics
+    # Nim GC metrics (for the main thread)
+    setSystemMetricsAutomaticUpdate(false)
+    asyncSpawn update_system_metrics_task()
 
   # There are no managed event loops in here, to do a graceful shutdown, but
   # letting the default Ctrl+C handler exit is safe, since we only read from
