@@ -4,7 +4,7 @@ Nimbus will automatically connect to peers based on the health and quality of pe
 
 In addition to making outgoing connections, the beacon node node works best when others can connect to it - this speeds up the process of finding good peers.
 
-To allow incoming connections, the node must be reachable via a public IP address and it must be aware of it, so it can advertise it to its peers.
+To allow incoming connections, the node must be reachable via a public IP address. It must also be aware of this address, so that it can advertise it to its peers.
 
 ## UPnP
 
