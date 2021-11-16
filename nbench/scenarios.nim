@@ -231,7 +231,7 @@ func bench_process_slashings(state: var phase0.BeaconState) =
     info: phase0.EpochInfo
   info.init(state)
   info.process_attestations(state, cache)
-  process_slashings(state, info.total_balances.current_epoch)
+  process_slashings(state, info.total_balances.current_epoch, info)
 
 template processBlockScenarioImpl(
            dir, preState: string, skipBLS: bool,

@@ -52,8 +52,7 @@ suite "[Unit - Spec - Block processing] Attestations " & preset():
       # ----------------------------------------
       var cache = StateCache()
       check process_attestation(
-        state.phase0Data.data, attestation, flags = {}, 0.Gwei, cache
-      ).isOk
+        state.phase0Data.data, attestation, flags = {}, 0.Gwei, cache).isOk
 
       # Check that the attestation was processed
       if attestation.data.target.epoch == get_current_epoch(state[]):

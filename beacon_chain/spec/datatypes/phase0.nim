@@ -244,13 +244,26 @@ type
 
   EpochInfo* = object
     ## Information about the outcome of epoch processing
-    statuses*: seq[RewardStatus]
+    validators*: seq[RewardStatus]
     total_balances*: TotalBalances
+
+  DetailedEpochInfo* = object
+    ## Used in `ncli_db validatorDb` for detailed rewards and penalties tracking
+    validators*: seq[DetailedRewardStatus]
+    total_balances*: TotalBalances
+
+  SomePhase0EpochInfo* = EpochInfo | DetailedEpochInfo
+    # TODO:
+    # Nim can't handle expressions such as `phase0.SomeEpochInfo` at the moment
+    # bacause they seem to lead to an incorrect `tyTypeDesc` wrapping for the
+    # generated type and compilation errors at the usage sites. To solve the
+    # problem, we resort to unique names such as `SomePhase0EpochInfo` and
+    # `SomeAltairEpochInfo`.
 
 chronicles.formatIt BeaconBlock: it.shortLog
 
-func clear*(info: var EpochInfo) =
-  info.statuses.setLen(0)
+func clear*(info: var SomePhase0EpochInfo) =
+  info.validators.setLen(0)
   info.total_balances = TotalBalances()
 
 Json.useCustomSerialization(BeaconState.justification_bits):
@@ -300,3 +313,6 @@ template asSigVerified*(x: SignedBeaconBlock | TrustedSignedBeaconBlock): SigVer
 template asTrusted*(
     x: SignedBeaconBlock | SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
+
+template RewardStatusType*(T: type EpochInfo): type = RewardStatus
+template RewardStatusType*(T: type DetailedEpochInfo): type = DetailedRewardStatus

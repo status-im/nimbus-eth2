@@ -107,7 +107,7 @@ type
     # by root without keeping a Table that keeps a separate copy of the digest
     # At the time of writing, a Table[Eth2Digest, BlockRef] adds about 100mb of
     # unnecessary overhead.
-    data: BlockRef
+    data*: BlockRef
 
   ChainDAGRef* = ref object
     ## Pool of blocks responsible for keeping a DAG of resolved blocks.

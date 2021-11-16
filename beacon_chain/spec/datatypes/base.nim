@@ -468,7 +468,7 @@ type
     # block root known to the state.
     isPreviousEpochHeadAttester
 
-  RewardStatus* = object
+  RewardStatus* {.inheritable.} = object
     ## Data detailing the status of a single validator with respect to the
     ## reward processing
 
@@ -482,6 +482,54 @@ type
     delta*: RewardDelta
 
     flags*: set[RewardFlags]
+
+  DetailedRewardsAndPenalties* = object
+    ## This record in used in `ncli_db validatorDb` to keep track of all
+    ## sources of changes to the validator balances. At the end of each
+    ## transition, `ncli_db` asserts that the detailed book-keeping agrees
+    ## with the final balance recorded in the `BeaconState`, so we must
+    ## really record every possible change (such as a new deposit from
+    ## the same validator which has already occured on mainnet).
+    ##
+    ## The `outcome` fields record what actually happened.
+    ##
+    ## The `max_reward` fields record what could have happened if the
+    ## validator had performed its duties correctly (please note that
+    ## this is still different from the theoretical maximum where all
+    ## validators have performed their duties correctly).
+    ##
+    ## The difference between the two could be considered an opportunity
+    ## cost (or loss) for the validator and this is what we report in the
+    ## `ncli_db validatorDb` jupyter noteboook.
+    source_outcome*: int64
+    max_source_reward*: Gwei
+    target_outcome*: int64
+    max_target_reward*: Gwei
+    head_outcome*: int64
+    max_head_reward*: Gwei
+    inclusion_delay_outcome*: int64
+    max_inclusion_delay_reward*: Gwei
+    sync_committee_outcome*: int64
+    max_sync_committee_reward*: Gwei
+    proposer_outcome*: int64
+    inactivity_penalty*: Gwei
+    slashing_outcome*: int64
+    deposits*: Gwei
+    inclusion_delay*: Option[int64]
+
+  DetailedRewardStatus* = object of RewardStatus
+    ## `RewardStatus` augmented with detailed `RewardInfo`.
+    detailed_info*: DetailedRewardsAndPenalties
+
+  SlotRewards* = ref object
+    # Used in ncli_db for detailed rewards and penalties tracking
+    # in the Altair world where balances can change on every slot
+    data*: seq[DetailedRewardsAndPenalties]
+
+  DontTrackRewards* = object
+    # Passed as a compile-time symbol to the functions tracking
+    # slot rewards in order to disable the tracking (i.e. this
+    # is what we use by default in the regular client).
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#get_total_balance
   TotalBalances* = object
@@ -903,3 +951,27 @@ template isomorphicCast*[T, U](x: U): T =
     doAssert sizeof(T) == sizeof(U)
     doAssert getSizeofSig(T()) == getSizeofSig(U())
   cast[ptr T](unsafeAddr x)[]
+
+proc sum*(lhs, rhs: DetailedRewardsAndPenalties): DetailedRewardsAndPenalties =
+  DetailedRewardsAndPenalties(
+    source_outcome: lhs.source_outcome + rhs.source_outcome,
+    max_source_reward: lhs.max_source_reward + rhs.max_source_reward,
+    target_outcome: lhs.target_outcome + rhs.target_outcome,
+    max_target_reward: lhs.max_target_reward + rhs.max_target_reward,
+    head_outcome: lhs.head_outcome + rhs.head_outcome,
+    max_head_reward: lhs.max_head_reward + rhs.max_head_reward,
+    inclusion_delay_outcome: lhs.inclusion_delay_outcome +
+                             rhs.inclusion_delay_outcome,
+    max_inclusion_delay_reward: lhs.max_inclusion_delay_reward +
+                                rhs.max_inclusion_delay_reward,
+    sync_committee_outcome: lhs.sync_committee_outcome +
+                            rhs.sync_committee_outcome,
+    max_sync_committee_reward: lhs.max_sync_committee_reward +
+                               rhs.max_sync_committee_reward,
+    proposer_outcome: lhs.proposer_outcome + rhs.proposer_outcome,
+    inactivity_penalty: lhs.inactivity_penalty + rhs.inactivity_penalty,
+    slashing_outcome: lhs.slashing_outcome + rhs.slashing_outcome,
+    deposits: lhs.deposits + rhs.deposits,
+    inclusion_delay: if lhs.inclusion_delay.isSome: lhs.inclusion_delay
+                     elif rhs.inclusion_delay.isSome: rhs.inclusion_delay
+                     else: none(int64))

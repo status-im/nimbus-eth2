@@ -176,13 +176,14 @@ proc check_proposer_slashing*(
 proc process_proposer_slashing*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
-    cache: var StateCache):
+    cache: var StateCache,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards):
     Result[void, cstring] {.nbench.} =
   ? check_proposer_slashing(state, proposer_slashing, flags)
   slash_validator(
     cfg, state,
     proposer_slashing.signed_header_1.message.proposer_index.ValidatorIndex,
-    cache)
+    cache, outSlotRewards)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#is_slashable_attestation_data
@@ -243,7 +244,8 @@ proc process_attester_slashing*(
     state: var ForkyBeaconState,
     attester_slashing: SomeAttesterSlashing,
     flags: UpdateFlags,
-    cache: var StateCache
+    cache: var StateCache,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards
     ): Result[void, cstring] {.nbench.} =
   let attester_slashing_validity =
     check_attester_slashing(state, attester_slashing, flags)
@@ -252,14 +254,17 @@ proc process_attester_slashing*(
     return err(attester_slashing_validity.error)
 
   for index in attester_slashing_validity.value:
-    slash_validator(cfg, state, index, cache)
+    slash_validator(cfg, state, index, cache, outSlotRewards)
 
   ok()
 
-proc process_deposit*(cfg: RuntimeConfig,
-                      state: var ForkyBeaconState,
-                      deposit: Deposit,
-                      flags: UpdateFlags): Result[void, cstring] {.nbench.} =
+proc process_deposit*(
+    cfg: RuntimeConfig,
+    state: var ForkyBeaconState,
+    deposit: Deposit,
+    flags: UpdateFlags,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards
+    ): Result[void, cstring] {.nbench.} =
   ## Process an Eth1 deposit, registering a validator or increasing its balance.
 
   # Verify the Merkle branch
@@ -294,6 +299,10 @@ proc process_deposit*(cfg: RuntimeConfig,
   if index != -1:
     # Increase balance by deposit amount
     increase_balance(state, index.ValidatorIndex, amount)
+    when outSlotRewards is SlotRewards:
+      if index >= outSlotRewards[].data.len:
+        outSlotRewards[].data.setLen(index + 1)
+      outSlotRewards[].data[index].deposits += amount
   else:
     # Verify the deposit signature (proof of possession) which is not checked
     # by the deposit contract
@@ -301,6 +310,9 @@ proc process_deposit*(cfg: RuntimeConfig,
       # New validator! Add validator and balance entries
       if not state.validators.add(get_validator_from_deposit(deposit.data)):
         return err("process_deposit: too many validators")
+      when outSlotRewards is SlotRewards:
+        outSlotRewards[].data.add(DetailedRewardsAndPenalties(
+          deposits: deposit.data.amount))
       if not state.balances.add(amount):
         static: doAssert state.balances.maxLen == state.validators.maxLen
         raiseAssert "adding validator succeeded, so should balances"
@@ -397,12 +409,15 @@ proc process_voluntary_exit*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#operations
-proc process_operations(cfg: RuntimeConfig,
-                        state: var ForkyBeaconState,
-                        body: SomeSomeBeaconBlockBody,
-                        base_reward_per_increment: Gwei,
-                        flags: UpdateFlags,
-                        cache: var StateCache): Result[void, cstring] {.nbench.} =
+proc process_operations(
+    cfg: RuntimeConfig,
+    state: var ForkyBeaconState,
+    body: SomeSomeBeaconBlockBody,
+    base_reward_per_increment: Gwei,
+    flags: UpdateFlags,
+    cache: var StateCache,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards
+    ): Result[void, cstring] {.nbench.} =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
   let
@@ -414,13 +429,13 @@ proc process_operations(cfg: RuntimeConfig,
     return err("incorrect number of deposits")
 
   for op in body.proposer_slashings:
-    ? process_proposer_slashing(cfg, state, op, flags, cache)
+    ? process_proposer_slashing(cfg, state, op, flags, cache, outSlotRewards)
   for op in body.attester_slashings:
-    ? process_attester_slashing(cfg, state, op, flags, cache)
+    ? process_attester_slashing(cfg, state, op, flags, cache, outSlotRewards)
   for op in body.attestations:
-    ? process_attestation(state, op, flags, base_reward_per_increment, cache)
+    ? process_attestation(state, op, flags, base_reward_per_increment, cache, outSlotRewards)
   for op in body.deposits:
-    ? process_deposit(cfg, state, op, flags)
+    ? process_deposit(cfg, state, op, flags, outSlotRewards)
   for op in body.voluntary_exits:
     ? process_voluntary_exit(cfg, state, op, flags, cache)
 
@@ -429,8 +444,11 @@ proc process_operations(cfg: RuntimeConfig,
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-processing
 proc process_sync_aggregate*(
     state: var (altair.BeaconState | merge.BeaconState),
-    aggregate: SomeSyncAggregate, total_active_balance: Gwei, cache: var StateCache):
-    Result[void, cstring] {.nbench.} =
+    aggregate: SomeSyncAggregate,
+    total_active_balance: Gwei,
+    cache: var StateCache,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards
+    ): Result[void, cstring] {.nbench.} =
   # Verify sync committee aggregate signature signing over the previous slot
   # block root
   let
@@ -496,6 +514,14 @@ proc process_sync_aggregate*(
     else:
       decrease_balance(state, participant_index, participant_reward)
 
+    when outSlotRewards is SlotRewards:
+      outSlotRewards[].data[participant_index].max_sync_committee_reward += participant_reward
+      if aggregate.sync_committee_bits[i]:
+        outSlotRewards[].data[participant_index].sync_committee_outcome += participant_reward.int64
+        outSlotRewards[].data[proposer_index.get].proposer_outcome += proposer_reward.int64
+      else:
+        outSlotRewards[].data[participant_index].sync_committee_outcome -= participant_reward.int64
+
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/beacon-chain.md#process_execution_payload
@@ -547,7 +573,9 @@ type SomePhase0Block =
 proc process_block*(
     cfg: RuntimeConfig,
     state: var phase0.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.}=
+    cache: var StateCache,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards):
+      Result[void, cstring] {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
@@ -555,20 +583,24 @@ proc process_block*(
   ? process_block_header(state, blck, flags, cache)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
-  ? process_operations(cfg, state, blck.body, 0.Gwei, flags, cache)
+  ? process_operations(cfg, state, blck.body, 0.Gwei, flags, cache, outSlotRewards)
 
   ok()
 
 proc process_block*(
     cfg: RuntimeConfig,
     state: var altair.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.} =
+    cache: var StateCache,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards):
+      Result[void, cstring] {.nbench.} =
   err("process_block: Altair state with Phase 0 block")
 
 proc process_block*(
     cfg: RuntimeConfig,
     state: var merge.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.} =
+    cache: var StateCache,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards):
+      Result[void, cstring] {.nbench.} =
   err("process_block: Merge state with Phase 0 block")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#block-processing
@@ -579,7 +611,9 @@ type SomeAltairBlock =
 proc process_block*(
     cfg: RuntimeConfig,
     state: var altair.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.}=
+    cache: var StateCache,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards):
+      Result[void, cstring] {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
@@ -594,9 +628,9 @@ proc process_block*(
       get_base_reward_per_increment(total_active_balance)
 
   ? process_operations(
-    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+    cfg, state, blck.body, base_reward_per_increment, flags, cache, outSlotRewards)
   ? process_sync_aggregate(
-    state, blck.body.sync_aggregate, total_active_balance, cache)  # [New in Altair]
+    state, blck.body.sync_aggregate, total_active_balance, cache, outSlotRewards)  # [New in Altair]
 
   ok()
 
@@ -606,7 +640,9 @@ type SomeMergeBlock =
 proc process_block*(
     cfg: RuntimeConfig,
     state: var merge.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.}=
+    cache: var StateCache,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards):
+      Result[void, cstring] {.nbench.}=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
@@ -625,32 +661,40 @@ proc process_block*(
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
   ? process_operations(
-    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+    cfg, state, blck.body, base_reward_per_increment, flags, cache, outSlotRewards)
   ? process_sync_aggregate(
-    state, blck.body.sync_aggregate, total_active_balance, cache)
+    state, blck.body.sync_aggregate, total_active_balance, cache, outSlotRewards)
 
   ok()
 
 proc process_block*(
     cfg: RuntimeConfig,
     state: var phase0.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.}=
+    cache: var StateCache,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards):
+      Result[void, cstring] {.nbench.} =
   err("process_block: Phase 0 state with Altair block")
 
 proc process_block*(
     cfg: RuntimeConfig,
     state: var phase0.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.}=
+    cache: var StateCache,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards):
+      Result[void, cstring] {.nbench.} =
   err("process_block: Phase 0 state with Merge block")
 
 proc process_block*(
     cfg: RuntimeConfig,
     state: var altair.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.}=
+    cache: var StateCache,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards):
+      Result[void, cstring] {.nbench.} =
   err("process_block: Altair state with Merge block")
 
 proc process_block*(
     cfg: RuntimeConfig,
     state: var merge.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.}=
+    cache: var StateCache,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards):
+      Result[void, cstring] {.nbench.} =
   err("process_block: Merge state with Altair block")

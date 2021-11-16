@@ -71,7 +71,7 @@ proc runTest(rewardsDir, identifier: string) =
         inclusionDelayDeltas2 = Deltas.init(state[].validators.len)
         inactivityPenaltyDeltas2 = Deltas.init(state[].validators.len)
 
-      for index, validator in info.statuses.mpairs():
+      for index, validator in info.validators.mpairs():
         if not is_eligible_validator(validator):
           continue
 

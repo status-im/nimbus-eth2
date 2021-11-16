@@ -114,7 +114,17 @@ type
     of EpochInfoFork.Phase0: phase0Data*: phase0.EpochInfo
     of EpochInfoFork.Altair: altairData*: altair.EpochInfo
 
-  ForkyEpochInfo* = phase0.EpochInfo | altair.EpochInfo
+  DetailedForkedEpochInfo* = object
+    case kind*: EpochInfoFork
+    of EpochInfoFork.Phase0:
+      phase0Data*: phase0.DetailedEpochInfo
+    of EpochInfoFork.Altair:
+      altairData*: altair.DetailedEpochInfo
+
+  ForkyEpochInfo* = phase0.EpochInfo | altair.EpochInfo |
+                    phase0.DetailedEpochInfo | altair.DetailedEpochInfo
+
+  SomeForkedEpochInfo* = ForkedEpochInfo | DetailedForkedEpochInfo
 
   ForkDigests* = object
     phase0*: ForkDigest
@@ -215,23 +225,27 @@ template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
     template state: untyped {.inject.} = x.phase0Data
     body
 
-template withEpochInfo*(x: ForkedEpochInfo, body: untyped): untyped =
+template withEpochInfo*(x: SomeForkedEpochInfo, body: untyped): untyped =
   case x.kind
   of EpochInfoFork.Phase0:
+    const infoFork {.inject.} = EpochInfoFork.Phase0
     template info: untyped {.inject.} = x.phase0Data
     body
   of EpochInfoFork.Altair:
+    const infoFork {.inject.} = EpochInfoFork.Altair
     template info: untyped {.inject.} = x.altairData
     body
 
-template withEpochInfo*(
-    state: phase0.BeaconState, x: var ForkedEpochInfo, body: untyped): untyped =
+template withEpochInfo*(state: phase0.BeaconState,
+                        x: var SomeForkedEpochInfo,
+                        body: untyped): untyped =
   x.kind = EpochInfoFork.Phase0
   template info: untyped {.inject.} = x.phase0Data
   body
 
 template withEpochInfo*(
-    state: altair.BeaconState | merge.BeaconState, x: var ForkedEpochInfo,
+    state: altair.BeaconState | merge.BeaconState,
+    x: var SomeForkedEpochInfo,
     body: untyped): untyped =
   x.kind = EpochInfoFork.Altair
   template info: untyped {.inject.} = x.altairData

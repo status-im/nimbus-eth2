@@ -123,13 +123,33 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var ForkyBeaconState,
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/beacon-chain.md#modified-slash_validator
+# Extracted from `slash_validator` in order to reuse in ncli_db for detailed rewards tracking
+proc get_slashing_penalty*(
+    StateType: type ForkyBeaconState, validator: Validator): Gwei =
+  when StateType is phase0.BeaconState:
+    validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT
+  elif StateType is altair.BeaconState:
+    validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR
+  elif StateType is merge.BeaconState:
+    validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_MERGE
+  else:
+    {.fatal: "Implement this for new forks".}
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
-    cfg: RuntimeConfig, state: var ForkyBeaconState,
-    slashed_index: ValidatorIndex, cache: var StateCache) =
+    cfg: RuntimeConfig,
+    state: var ForkyBeaconState,
+    slashed_index: ValidatorIndex,
+    cache: var StateCache,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards) =
   ## Slash the validator with index ``index``.
   let epoch = get_current_epoch(state)
   initiate_validator_exit(cfg, state, slashed_index, cache)
-  let validator = addr state.validators[slashed_index]
+
+  template validator: untyped =
+    state.validators[slashed_index]
 
   trace "slash_validator: ejecting validator via slashing (validator_leaving)",
     index = slashed_index,
@@ -146,19 +166,10 @@ proc slash_validator*(
   state.slashings[int(epoch mod EPOCHS_PER_SLASHINGS_VECTOR)] +=
     validator.effective_balance
 
-  # TODO Consider whether this is better than splitting the functions apart; in
-  # each case, tradeoffs. Here, it's just changing a couple of constants.
-  when state is phase0.BeaconState:
-    decrease_balance(state, slashed_index,
-      validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
-  elif state is altair.BeaconState:
-    decrease_balance(state, slashed_index,
-      validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR)
-  elif state is merge.BeaconState:
-    decrease_balance(state, slashed_index,
-      validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_MERGE)
-  else:
-    raiseAssert "invalid BeaconState type"
+  let slashing_penalty = get_slashing_penalty(typeof(state), validator)
+  decrease_balance(state, slashed_index, slashing_penalty)
+  when outSlotRewards is SlotRewards:
+    outSlotRewards[].data[slashed_index].slashing_outcome -= slashing_penalty.int64
 
   # The rest doesn't make sense without there being any proposer index, so skip
   let proposer_index = get_beacon_proposer_index(state, cache)
@@ -185,6 +196,9 @@ proc slash_validator*(
   doAssert(whistleblower_reward >= proposer_reward, "Spec bug: underflow in slash_validator")
   increase_balance(
     state, whistleblower_index, whistleblower_reward - proposer_reward)
+
+  when outSlotRewards is SlotRewards:
+    outSlotRewards[].data[whistleblower_index].slashing_outcome += whistleblower_reward.int64
 
 func genesis_time_from_eth1_timestamp*(cfg: RuntimeConfig, eth1_timestamp: uint64): uint64 =
   eth1_timestamp + cfg.GENESIS_DELAY
@@ -621,9 +635,13 @@ proc check_attestation*(
   ok()
 
 proc process_attestation*(
-    state: var ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
-    base_reward_per_increment: Gwei, cache: var StateCache):
-    Result[void, cstring] {.nbench.} =
+    state: var ForkyBeaconState,
+    attestation: SomeAttestation,
+    flags: UpdateFlags,
+    base_reward_per_increment: Gwei,
+    cache: var StateCache,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards
+    ): Result[void, cstring] {.nbench.} =
   # In the spec, attestation validation is mixed with state mutation, so here
   # we've split it into two functions so that the validation logic can be
   # reused when looking for suitable blocks to include in attestations.
@@ -679,6 +697,9 @@ proc process_attestation*(
       proposer_reward_denominator = (WEIGHT_DENOMINATOR.uint64 - PROPOSER_WEIGHT.uint64) * WEIGHT_DENOMINATOR.uint64 div PROPOSER_WEIGHT.uint64
       proposer_reward = Gwei(proposer_reward_numerator div proposer_reward_denominator)
     increase_balance(state, proposer_index.get, proposer_reward)
+    when outSlotRewards is SlotRewards:
+      outSlotRewards[].data[proposer_index.get].proposer_outcome += proposer_reward.int64
+      outSlotRewards[].data[proposer_index.get].inclusion_delay = some(int64(state.slot - attestation.data.slot))
 
   when state is phase0.BeaconState:
     doAssert base_reward_per_increment == 0.Gwei

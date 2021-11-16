@@ -76,8 +76,8 @@ runSuite(RegistryUpdatesDir, "Registry updates"):
 
 const SlashingsDir = RootDir/"slashings"/"pyspec_tests"
 runSuite(SlashingsDir, "Slashings"):
-  let info = altair.EpochInfo.init(state)
-  process_slashings(state, info.balances.current_epoch)
+  var info = altair.EpochInfo.init(state)
+  process_slashings(state, info.balances.current_epoch, info)
 
 # Eth1 data reset
 # ---------------------------------------------------------------

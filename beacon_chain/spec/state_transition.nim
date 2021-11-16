@@ -220,8 +220,12 @@ proc maybeUpgradeState*(
   cfg.maybeUpgradeStateToMerge(state)
 
 proc process_slots*(
-    cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
-    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags): bool {.nbench.} =
+    cfg: RuntimeConfig,
+    state: var ForkedHashedBeaconState,
+    slot: Slot,
+    cache: var StateCache,
+    info: var SomeForkedEpochInfo,
+    flags: UpdateFlags): bool {.nbench.} =
   if not (getStateField(state, slot) < slot):
     if slotProcessed notin flags or getStateField(state, slot) != slot:
       notice "Unusual request for a slot in the past",
@@ -255,7 +259,9 @@ proc state_transition_block_aux(
                  altair.SigVerifiedSignedBeaconBlock | altair.TrustedSignedBeaconBlock |
                  merge.TrustedSignedBeaconBlock | merge.SigVerifiedSignedBeaconBlock |
                  merge.SignedBeaconBlock,
-    cache: var StateCache, flags: UpdateFlags): bool {.nbench.} =
+    cache: var StateCache, flags: UpdateFlags,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards):
+      bool {.nbench.} =
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
   # according to the contents of this block - but first they will validate
@@ -268,7 +274,7 @@ proc state_transition_block_aux(
     signature = shortLog(signedBlock.signature),
     blockRoot = shortLog(signedBlock.root)
 
-  let res = process_block(cfg, state.data, signedBlock.message, flags, cache)
+  let res = process_block(cfg, state.data, signedBlock.message, flags, cache, outSlotRewards)
 
   if not res.isOk():
     debug "state_transition: process_block failed",
@@ -307,7 +313,9 @@ proc state_transition_block*(
                  altair.TrustedSignedBeaconBlock | merge.TrustedSignedBeaconBlock |
                  merge.SigVerifiedSignedBeaconBlock | merge.SignedBeaconBlock,
     cache: var StateCache, flags: UpdateFlags,
-    rollback: RollbackForkedHashedProc): bool {.nbench.} =
+    rollback: RollbackForkedHashedProc,
+    outSlotRewards: SlotRewards | type DontTrackRewards = DontTrackRewards):
+      bool {.nbench.} =
   ## `rollback` is called if the transition fails and the given state has been
   ## partially changed. If a temporary state was given to `state_transition`,
   ## it is safe to use `noRollback` and leave it broken, else the state
@@ -319,7 +327,7 @@ proc state_transition_block*(
   maybeUpgradeStateToAltair(cfg, state)
 
   let success = withState(state):
-    state_transition_block_aux(cfg, state, signedBlock, cache, flags)
+    state_transition_block_aux(cfg, state, signedBlock, cache, flags, outSlotRewards)
 
   if not success:
     rollback(state)

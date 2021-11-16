@@ -71,7 +71,7 @@ runSuite(RegistryUpdatesDir, "Registry updates"):
 const SlashingsDir = RootDir/"slashings"/"pyspec_tests"
 runSuite(SlashingsDir, "Slashings"):
   info.process_attestations(state, cache)
-  process_slashings(state, info.total_balances.current_epoch)
+  process_slashings(state, info.total_balances.current_epoch, info)
 
 # Final updates
 # ---------------------------------------------------------------

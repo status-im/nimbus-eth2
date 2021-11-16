@@ -255,14 +255,32 @@ type
     timelyHeadAttester
     eligible
 
-  ParticipationInfo* = object
+  ParticipationInfo* {.inheritable.} = object
     flags*: set[ParticipationFlag]
     delta*: RewardDelta
+
+  DetailedParticipationInfo* = object of ParticipationInfo
+    ## `ParticipationInfo` augmented with detailed rewards and penalties.
+    ## Used in `ncli_db validatorDb`.
+    detailed_info*: DetailedRewardsAndPenalties
 
   EpochInfo* = object
     ## Information about the outcome of epoch processing
     validators*: seq[ParticipationInfo]
     balances*: UnslashedParticipatingBalances
+
+  DetailedEpochInfo* = object
+    # Used in `ncli_db validatorDb` for detailed reward and penalty tracking.
+    validators*: seq[DetailedParticipationInfo]
+    balances*: UnslashedParticipatingBalances
+
+  SomeAltairEpochInfo* = EpochInfo | DetailedEpochInfo
+    # TODO:
+    # Nim can't handle expressions such as `altair.SomeEpochInfo` at the moment
+    # bacause they seem to lead to an incorrect `tyTypeDesc` wrapping for the
+    # generated type and compilation errors at the usage sites. To solve the
+    # problem, we resort to unique names such as `SomePhase0EpochInfo` and
+    # `SomeAltairEpochInfo`.
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
@@ -608,7 +626,7 @@ chronicles.formatIt SignedContributionAndProof: shortLog(it)
 template hash*(x: LightClientUpdate): Hash =
   hash(x.header)
 
-func clear*(info: var EpochInfo) =
+func clear*(info: var SomeAltairEpochInfo) =
   info.validators.setLen(0)
   info.balances = UnslashedParticipatingBalances()
 
@@ -622,3 +640,6 @@ template asSigVerified*(x: SignedBeaconBlock | TrustedSignedBeaconBlock): SigVer
 template asTrusted*(
     x: SignedBeaconBlock | SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)
+
+template ParticipationInfoType*(T: type EpochInfo): type = ParticipationInfo
+template ParticipationInfoType*(T: type DetailedEpochInfo): type = DetailedParticipationInfo

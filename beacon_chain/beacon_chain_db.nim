@@ -76,7 +76,7 @@ type
     ## database - this may have a number of "natural" causes such as switching
     ## between different versions of the client and accidentally using an old
     ## database.
-    db: SqStoreRef
+    db*: SqStoreRef
 
     v0: BeaconChainDBV0
     genesisDeposits*: DepositsSeq
@@ -199,12 +199,13 @@ template expectDb(x: auto): untyped =
   x.expect("working database (disk broken/full?)")
 
 proc init*[T](Seq: type DbSeq[T], db: SqStoreRef, name: string): KvResult[Seq] =
-  ? db.exec("""
-    CREATE TABLE IF NOT EXISTS """ & name & """(
-       id INTEGER PRIMARY KEY,
-       value BLOB
-    );
-  """)
+  if not db.readOnly:
+    ? db.exec("""
+      CREATE TABLE IF NOT EXISTS """ & name & """(
+        id INTEGER PRIMARY KEY,
+        value BLOB
+      );
+    """)
 
   let
     insertStmt = db.prepareStmt(
@@ -268,25 +269,27 @@ proc loadImmutableValidators(vals: DbSeq[ImmutableValidatorData2]): seq[Immutabl
 proc new*(T: type BeaconChainDB,
           dir: string,
           inMemory = false,
+          readOnly = false
     ): BeaconChainDB =
   var db = if inMemory:
-      SqStoreRef.init("", "test", inMemory = true).expect(
+      SqStoreRef.init("", "test", readOnly = readOnly, inMemory = true).expect(
         "working database (out of memory?)")
     else:
       let s = secureCreatePath(dir)
       doAssert s.isOk # TODO(zah) Handle this in a better way
 
       SqStoreRef.init(
-        dir, "nbc", manualCheckpoint = true).expectDb()
+        dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()
 
-  # Remove the deposits table we used before we switched
-  # to storing only deposit contract checkpoints
-  if db.exec("DROP TABLE IF EXISTS deposits;").isErr:
-    debug "Failed to drop the deposits table"
+  if not readOnly:
+    # Remove the deposits table we used before we switched
+    # to storing only deposit contract checkpoints
+    if db.exec("DROP TABLE IF EXISTS deposits;").isErr:
+      debug "Failed to drop the deposits table"
 
-  # An old pubkey->index mapping that hasn't been used on any mainnet release
-  if db.exec("DROP TABLE IF EXISTS validatorIndexFromPubKey;").isErr:
-    debug "Failed to drop the validatorIndexFromPubKey table"
+    # An old pubkey->index mapping that hasn't been used on any mainnet release
+    if db.exec("DROP TABLE IF EXISTS validatorIndexFromPubKey;").isErr:
+      debug "Failed to drop the validatorIndexFromPubKey table"
 
   var
     # V0 compatibility tables - these were created WITHOUT ROWID which is slow
