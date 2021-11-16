@@ -10,7 +10,7 @@ To allow incoming connections, the node must be reachable via a public IP addres
 
 By default, Nimbus uses [UPnP](https://en.wikipedia.org/wiki/Universal_Plug_and_Play) to set up port forwarding and detect your external IP address. If you do not have UPnP enabled, you may need to pass additional command-line options to the node, as explained in subsequent sections.
 
-To enable UPnP, it's usually as simple as checking a box in your router's configuration. Unless it's a FRITZ!Box router, that is.
+Enabling UPnP is usually as simple as checking a box in your router's configuration. Unless it's a FRITZ!Box router, that is.
 
 With this brand, you also need to edit individual connections - in "Home Network" -> "Network" -> edit icon -> "Permit independent port sharing for this device". You might also want to enable "Always assign this network device the same IPv4 address", in case the setting is associated with IPs instead of MACs.
 
