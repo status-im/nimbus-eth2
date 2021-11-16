@@ -984,6 +984,10 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # This is the last pruning to do as it clears the "needPruning" condition.
   node.consensusManager[].pruneStateCachesAndForkChoice()
 
+  # Nim GC metrics (for the main thread)
+  {.gcsafe.}:
+    updateSystemMetrics()
+
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
     # sure that we're ready for the next one and don't get stuck in lengthy
@@ -1859,13 +1863,6 @@ proc loadEth2Network(config: BeaconNodeConf): Eth2NetworkMetadata {.raises: [Def
       echo "Must specify network on non-mainnet node"
       quit 1
 
-proc update_system_metrics_task() {.async.} =
-  let sleepTime = chronos.seconds(10)
-  while true:
-    await chronos.sleepAsync(sleepTime)
-    {.gcsafe.}:
-      updateSystemMetrics()
-
 proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.raises: [Defect, CatchableError].} =
   info "Launching beacon node",
       version = fullVersionStr,
@@ -1887,9 +1884,10 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
       raise exc
     except Exception as exc:
       raiseAssert exc.msg # TODO fix metrics
-    # Nim GC metrics (for the main thread)
-    setSystemMetricsAutomaticUpdate(false)
-    asyncSpawn update_system_metrics_task()
+
+  # Nim GC metrics (for the main thread) will be collected in onSlotEnd(), but
+  # we disable piggy-backing on other metrics here.
+  setSystemMetricsAutomaticUpdate(false)
 
   # There are no managed event loops in here, to do a graceful shutdown, but
   # letting the default Ctrl+C handler exit is safe, since we only read from
