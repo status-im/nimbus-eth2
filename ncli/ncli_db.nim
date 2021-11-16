@@ -507,8 +507,9 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   var
     (start, ends) = dag.getSlotRange(conf.perfSlot, conf.perfSlots)
     blockRefs = dag.getBlockRange(start, ends)
-    perfs = newSeq[ValidatorPerformance](
-      getStateField(dag.headState.data, validators).len())
+    validatorsCount = withState(dag.headState.data):
+      state.data.validators.len
+    perfs = newSeq[ValidatorPerformance](validatorsCount)
     cache = StateCache()
     info = ForkedEpochInfo()
     blck: phase0.TrustedSignedBeaconBlock
@@ -882,27 +883,27 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   echo "Analyzing performance for epochs ",
     start.epoch, " - ", ends.epoch
 
-  let headState = newClone(dag.headState)
+  let tmpState = newClone(dag.headState)
   var cache = StateCache()
   let slot = if start > 0: start - 1 else: 0.Slot
   if blockRefs.len > 0:
-    dag.updateStateData(headState[], blockRefs[^1].atSlot(slot), false, cache)
+    dag.updateStateData(tmpState[], blockRefs[^1].atSlot(slot), false, cache)
   else:
-    dag.updateStateData(headState[], dag.head.atSlot(slot), false, cache)
+    dag.updateStateData(tmpState[], dag.head.atSlot(slot), false, cache)
 
   let dbValidatorsCount = outDb.getDbValidatorsCount()
-  var validatorsCount = getStateField(headState[].data, validators).len
-  outDb.insertValidators(headState[].data, dbValidatorsCount, validatorsCount)
+  var validatorsCount = withState(tmpState[].data): state.data.validators.len
+  outDb.insertValidators(tmpState[].data, dbValidatorsCount, validatorsCount)
 
   var previousEpochBalances: seq[uint64]
-  collectBalances(previousEpochBalances, headState[].data)
+  collectBalances(previousEpochBalances, tmpState[].data)
 
   var forkedInfo = DetailedForkedEpochInfo()
   var slotRewards = SlotRewards.new
   slotRewards[].data.setLen(validatorsCount)
 
   proc processEpoch() =
-    let epoch = getStateField(headState[].data, slot).epoch.int64
+    let epoch = getStateField(tmpState[].data, slot).epoch.int64
     echo epoch
 
     case forkedInfo.kind
@@ -929,7 +930,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
         info.balances.current_epoch.int64
       )).expect("working database")
 
-    withState(headState[].data):
+    withState(tmpState[].data):
       withEpochInfo(forkedInfo):
         doAssert state.data.balances.len == info.validators.len
         doAssert state.data.balances.len == previousEpochBalances.len
@@ -970,12 +971,12 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
               delay
             )).expect("working database")
 
-    collectBalances(previousEpochBalances, headState[].data)
+    collectBalances(previousEpochBalances, tmpState[].data)
 
   for blockIdx in 0 ..< blockRefs.len:
     let forkedBlock = dag.getForkedBlock(blockRefs[blockRefs.len - blockIdx - 1])
     withBlck(forkedBlock):
-      var currentSlot = getStateField(headState[].data, slot)
+      var currentSlot = getStateField(tmpState[].data, slot)
       while currentSlot < blck.message.slot:
         let
           nextSlot = currentSlot + 1
@@ -983,7 +984,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
             if nextSlot == blck.message.slot: {skipLastStateRootCalculation}
             else: {}
 
-        let ok = process_slots(cfg, headState[].data, nextSlot, cache, forkedInfo, flags)
+        let ok = process_slots(cfg, tmpState[].data, nextSlot, cache, forkedInfo, flags)
         doAssert ok, "Slot processing can't fail with correct inputs"
 
         currentSlot = nextSlot
@@ -995,29 +996,29 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
           slotRewards[].data.setLen(validatorsCount)
 
       if not state_transition_block(
-          cfg, headState[].data, blck, cache, {}, noRollback, slotRewards):
+          cfg, tmpState[].data, blck, cache, {}, noRollback, slotRewards):
         echo "State transition failed (!)"
         quit 1
 
-      let newValidatorsCount = getStateField(headState[].data, validators).len
+      let newValidatorsCount = withState(tmpState[].data): state.data.validators.len
       if newValidatorsCount > validatorsCount:
         # Resize the structures in case a new validator has appeared after
         # the state_transition_block procedure call ...
         slotRewards[].data.setLen(newValidatorsCount)
         previousEpochBalances.setLen(newValidatorsCount)
         # ... and add the new validators to the database.
-        outDb.insertValidators(headState[].data, validatorsCount, newValidatorsCount)
+        outDb.insertValidators(tmpState[].data, validatorsCount, newValidatorsCount)
         validatorsCount = newValidatorsCount
 
   # Capture rewards of empty slots as well, including the epoch that got
   # finalized
-  while getStateField(headState[].data, slot) <= ends:
+  while getStateField(tmpState[].data, slot) <= ends:
     let ok = process_slots(
-      cfg, headState[].data, getStateField(headState[].data, slot) + 1, cache,
+      cfg, tmpState[].data, getStateField(tmpState[].data, slot) + 1, cache,
       forkedInfo, {})
     doAssert ok, "Slot processing can't fail with correct inputs"
 
-    if getStateField(headState[].data, slot).isEpoch():
+    if getStateField(tmpState[].data, slot).isEpoch():
       processEpoch()
 
 when isMainModule:

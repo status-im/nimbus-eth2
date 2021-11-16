@@ -524,6 +524,18 @@ type
   SlotRewards* = ref object
     # Used in ncli_db for detailed rewards and penalties tracking
     # in the Altair world where balances can change on every slot
+    #
+    # TODO
+    # This is a ref type only becuase Nim has problems with proc
+    # signatures such as:
+    #
+    # proc foo(x: (var Foo) | Bar)
+    #
+    # Even then the `var Foo` branch is instantiated, the `x` param
+    # will be treated as read-only within the body of the function.
+    # For the specific use case of `SlotRewards` in `ncli_db`, the
+    # ref type is considered acceptable and it solves the mutability
+    # problem.
     data*: seq[DetailedRewardsAndPenalties]
 
   DontTrackRewards* = object
