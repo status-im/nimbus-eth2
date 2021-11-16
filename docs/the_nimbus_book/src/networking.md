@@ -12,7 +12,7 @@ By default, Nimbus uses [UPnP](https://en.wikipedia.org/wiki/Universal_Plug_and_
 
 Enabling UPnP is usually as simple as checking a box in your router's configuration. Unless it's a FRITZ!Box router, that is.
 
-With this brand, you also need to edit individual connections - in "Home Network" -> "Network" -> edit icon -> "Permit independent port sharing for this device". You might also want to enable "Always assign this network device the same IPv4 address", in case the setting is associated with IPs instead of MACs.
+With this brand, you will also need to edit individual connections - in "Home Network" -> "Network" -> edit icon -> "Permit independent port sharing for this device". You might also want to enable "Always assign this network device the same IPv4 address", in case the setting is associated with IPs instead of MACs.
 
 ## Monitor your Peer count
 
