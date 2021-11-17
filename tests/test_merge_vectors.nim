@@ -1,7 +1,7 @@
 {.used.}
 
 # https://notes.ethereum.org/@9AeMAlpyQYaAAyuj47BzRw/rkwW3ceVY
-# Monitor traffic: socat -v TCP-LISTEN:9545,fork TCP-CONNECT:127.0.0.1:8545
+# Monitor traffic: socat -v TCP-LISTEN:9550,fork TCP-CONNECT:127.0.0.1:8550
 
 import
   unittest2,
@@ -12,13 +12,13 @@ import
 
 suite "Merge test vectors":
   let web3Provider = (waitFor Web3DataProvider.new(
-    default(Eth1Address), "ws://127.0.0.1:8546")).get
+    default(Eth1Address), "http://127.0.0.1:8550")).get
 
   test "getPayload, executePayload, and forkchoiceUpdated":
     const feeRecipient =
       Eth1Address.fromHex("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     let
-      existingBlock = waitFor web3Provider.getBlockByNumber(1)
+      existingBlock = waitFor web3Provider.getBlockByNumber(0)
       payloadId = waitFor web3Provider.forkchoiceUpdated(
         existingBlock.hash.asEth2Digest,
         existingBlock.hash.asEth2Digest,
