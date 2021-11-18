@@ -199,8 +199,8 @@ suite "Beacon chain DB" & preset():
     var db = makeTestDB(SLOTS_PER_EPOCH)
 
     for state in testStatesPhase0:
-      db.putState(state[].phase0Data.data)
-      let root = hash_tree_root(state[].phase0Data.data)
+      let root = state[].phase0Data.root
+      db.putState(root, state[].phase0Data.data)
 
       check:
         db.containsState(root)
@@ -217,8 +217,8 @@ suite "Beacon chain DB" & preset():
     var db = makeTestDB(SLOTS_PER_EPOCH)
 
     for state in testStatesAltair:
-      db.putState(state[].altairData.data)
-      let root = hash_tree_root(state[].altairData.data)
+      let root = state[].altairData.root
+      db.putState(root, state[].altairData.data)
 
       check:
         db.containsState(root)
@@ -235,8 +235,8 @@ suite "Beacon chain DB" & preset():
     var db = makeTestDB(SLOTS_PER_EPOCH)
 
     for state in testStatesMerge:
-      db.putState(state[].mergeData.data)
-      let root = hash_tree_root(state[].mergeData.data)
+      let root = state[].mergeData.root
+      db.putState(root, state[].mergeData.data)
 
       check:
         db.containsState(root)
@@ -254,8 +254,8 @@ suite "Beacon chain DB" & preset():
     let stateBuffer = (phase0.BeaconStateRef)()
 
     for state in testStatesPhase0:
-      db.putState(state[].phase0Data.data)
-      let root = hash_tree_root(state[].phase0Data.data)
+      let root = state[].phase0Data.root
+      db.putState(root, state[].phase0Data.data)
 
       check:
         db.getState(root, stateBuffer[], noRollback)
@@ -274,8 +274,8 @@ suite "Beacon chain DB" & preset():
     let stateBuffer = (altair.BeaconStateRef)()
 
     for state in testStatesAltair:
-      db.putState(state[].altairData.data)
-      let root = hash_tree_root(state[].altairData.data)
+      let root = state[].altairData.root
+      db.putState(root, state[].altairData.data)
 
       check:
         db.getState(root, stateBuffer[], noRollback)
@@ -294,8 +294,8 @@ suite "Beacon chain DB" & preset():
     let stateBuffer = (merge.BeaconStateRef)()
 
     for state in testStatesMerge:
-      db.putState(state[].mergeData.data)
-      let root = hash_tree_root(state[].mergeData.data)
+      let root = state[].mergeData.root
+      db.putState(root, state[].mergeData.data)
 
       check:
         db.getState(root, stateBuffer[], noRollback)
@@ -432,21 +432,20 @@ suite "Beacon chain DB" & preset():
       db = BeaconChainDB.new("", inMemory = true)
 
     let
-      state = initialize_beacon_state_from_eth1(
+      state = newClone(initialize_hashed_beacon_state_from_eth1(
         defaultRuntimeConfig, eth1BlockHash, 0,
-        makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation})
-      root = hash_tree_root(state[])
+        makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation}))
 
-    db.putState(state[])
+    db.putState(state[].root, state[].data)
 
-    check db.containsState(root)
-    let state2 = db.getPhase0StateRef(root)
-    db.delState(root)
-    check not db.containsState(root)
+    check db.containsState(state[].root)
+    let state2 = db.getPhase0StateRef(state[].root)
+    db.delState(state[].root)
+    check not db.containsState(state[].root)
     db.close()
 
     check:
-      hash_tree_root(state2[]) == root
+      hash_tree_root(state2[]) == state[].root
 
   test "sanity check state diff roundtrip" & preset():
     var

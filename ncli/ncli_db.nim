@@ -1,6 +1,6 @@
 import
   os, stats, strformat, tables,
-  chronicles, confutils, stew/byteutils, eth/db/kvstore_sqlite3,
+  chronicles, confutils, stew/[byteutils, io2], eth/db/kvstore_sqlite3,
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db],
   ../beacon_chain/consensus_object_pools/[blockchain_dag],
@@ -21,13 +21,15 @@ type Timers = enum
   tDbStore = "Database store"
 
 type
-  DbCmd* = enum
-    bench
-    dumpState
-    dumpBlock
+  DbCmd* {.pure.} = enum
+    bench = "Run a replay benchmark for block and epoch processing"
+    dumpState = "Extract a state from the database as-is - only works for states that have been explicitly stored"
+    putState = "Store a given BeaconState in the database"
+    dumpBlock = "Extract a (trusted) SignedBeaconBlock from the database"
+    putBlock = "Store a given SignedBeaconBlock in the database, potentially updating some of the pointers"
     pruneDatabase
-    rewindState
-    exportEra
+    rewindState = "Extract any state from the database based on a given block and slot, replaying if needed"
+    exportEra = "Write an experimental era file"
     validatorPerf
     validatorDb = "Create or update attestation performance database"
 
@@ -48,7 +50,7 @@ type
       desc: ""
       .}: DbCmd
 
-    of bench:
+    of DbCmd.bench:
       benchSlot* {.
         defaultValue: 0
         name: "start-slot"
@@ -70,17 +72,41 @@ type
         defaultValue: false
         desc: "Process each block with a fresh cache".}: bool
 
-    of dumpState:
+    of DbCmd.dumpState:
       stateRoot* {.
         argument
         desc: "State roots to save".}: seq[string]
 
-    of dumpBlock:
+    of DbCmd.putState:
+      stateFile {.
+        argument
+        name: "file"
+        desc: "Files to import".}: seq[string]
+
+    of DbCmd.dumpBlock:
       blockRootx* {.
         argument
         desc: "Block roots to save".}: seq[string]
 
-    of pruneDatabase:
+    of DbCmd.putBlock:
+      blckFile {.
+        argument
+        name: "file"
+        desc: "Files to import".}: seq[string]
+      setHead {.
+        defaultValue: false
+        name: "set-head"
+        desc: "Update head to this block"}: bool
+      setTail {.
+        defaultValue: false
+        name: "set-tail"
+        desc: "Update tail to this block"}: bool
+      setGenesis {.
+        defaultValue: false
+        name: "set-genesis"
+        desc: "Update genesis to this block"}: bool
+
+    of DbCmd.pruneDatabase:
       dryRun* {.
         defaultValue: false
         desc: "Don't write to the database copy; only simulate actions; default false".}: bool
@@ -91,7 +117,7 @@ type
         defaultValue: false
         desc: "Enables verbose output; default false".}: bool
 
-    of rewindState:
+    of DbCmd.rewindState:
       blockRoot* {.
         argument
         desc: "Block root".}: string
@@ -100,7 +126,7 @@ type
         argument
         desc: "Slot".}: uint64
 
-    of exportEra:
+    of DbCmd.exportEra:
       era* {.
         defaultValue: 0
         desc: "The era number to write".}: uint64
@@ -108,7 +134,7 @@ type
         defaultValue: 1
         desc: "Number of eras to write".}: uint64
 
-    of validatorPerf:
+    of DbCmd.validatorPerf:
       perfSlot* {.
         defaultValue: -128 * SLOTS_PER_EPOCH.int64
         name: "start-slot"
@@ -117,7 +143,7 @@ type
         defaultValue: 0
         name: "slots"
         desc: "Number of slots to run benchmark for, 0 = all the way to head".}: uint64
-    of validatorDb:
+    of DbCmd.validatorDb:
       outDir* {.
         defaultValue: ""
         name: "out-db"
@@ -126,6 +152,11 @@ type
         defaultValue: false
         name: "perfect"
         desc: "Include perfect records (full rewards)".}: bool
+
+proc putState(db: BeaconChainDB, state: ForkedHashedBeaconState) =
+  withState(state):
+    db.putStateRoot(state.latest_block_root(), state.data.slot, state.root)
+    db.putState(state.root, state.data)
 
 func getSlotRange(dag: ChainDAGRef, startSlot: int64, count: uint64): (Slot, Slot) =
   let
@@ -294,6 +325,15 @@ proc cmdDumpState(conf: DbConf) =
 
     echo "Couldn't load ", stateRoot
 
+proc cmdPutState(conf: DbConf, cfg: RuntimeConfig) =
+  let db = BeaconChainDB.new(conf.databaseDir.string)
+  defer: db.close()
+
+  for file in conf.stateFile:
+    let state = newClone(readSszForkedHashedBeaconState(
+        cfg, readAllBytes(file).tryGet()))
+    db.putState(state[])
+
 proc cmdDumpBlock(conf: DbConf) =
   let db = BeaconChainDB.new(conf.databaseDir.string)
   defer: db.close()
@@ -312,6 +352,23 @@ proc cmdDumpBlock(conf: DbConf) =
     except CatchableError as e:
       echo "Couldn't load ", blockRoot, ": ", e.msg
 
+proc cmdPutBlock(conf: DbConf, cfg: RuntimeConfig) =
+  let db = BeaconChainDB.new(conf.databaseDir.string)
+  defer: db.close()
+
+  for file in conf.blckFile:
+    let blck = readSszForkedTrustedSignedBeaconBlock(
+        cfg, readAllBytes(file).tryGet())
+
+    withBlck(blck):
+      db.putBlock(blck)
+      if conf.setHead:
+        db.putHeadBlock(blck.root)
+      if conf.setTail:
+        db.putTailBlock(blck.root)
+      if conf.setGenesis:
+        db.putGenesisBlock(blck.root)
+
 proc copyPrunedDatabase(
     db: BeaconChainDB, copyDb: BeaconChainDB,
     dryRun, verbose, keepOldStates: bool) =
@@ -320,26 +377,32 @@ proc copyPrunedDatabase(
   let
     headBlock = db.getHeadBlock()
     tailBlock = db.getTailBlock()
+    genesisBlock = db.getGenesisBlock()
 
-  doAssert headBlock.isOk and tailBlock.isOk
   doAssert db.getPhase0Block(headBlock.get).isOk
   doAssert db.getPhase0Block(tailBlock.get).isOk
+  doAssert db.getPhase0Block(genesisBlock.get).isOk
 
   var
-    beaconState: ref phase0.BeaconState
+    beaconState = (ref phase0.HashedBeaconState)()
     finalizedEpoch: Epoch  # default value of 0 is conservative/safe
     prevBlockSlot = db.getPhase0Block(db.getHeadBlock().get).get.message.slot
 
-  beaconState = new phase0.BeaconState
-  let headEpoch = db.getPhase0Block(headBlock.get).get.message.slot.epoch
+  let
+    headEpoch = db.getPhase0Block(headBlock.get).get.message.slot.epoch
+    tailStateRoot = db.getPhase0Block(tailBlock.get).get.message.state_root
 
   # Tail states are specially addressed; no stateroot intermediary
-  if not db.getState(
-      db.getPhase0Block(tailBlock.get).get.message.state_root, beaconState[],
-      noRollback):
+  if not db.getState(tailStateRoot, beaconState[].data, noRollback):
     doAssert false, "could not load tail state"
+  beaconState[].root = tailStateRoot
+
   if not dry_run:
-    copyDb.putState(beaconState[])
+    copyDb.putStateRoot(
+      beaconState[].latest_block_root(), beaconState[].data.slot,
+      beaconState[].root)
+    copyDb.putState(beaconState[].root, beaconState[].data)
+    copyDb.putBlock(db.getPhase0Block(genesisBlock.get).get)
 
   for signedBlock in getAncestors(db, headBlock.get):
     if not dry_run:
@@ -363,18 +426,21 @@ proc copyPrunedDatabase(
             slot, " with root ", signedBlock.root
         continue
 
-      if not db.getState(sr.get, beaconState[], noRollback):
+      if not db.getState(sr.get, beaconState[].data, noRollback):
         # Don't copy dangling stateroot pointers
         if stateRequired:
           doAssert false, "state root and state required"
         continue
+      beaconState[].root = sr.get()
 
       finalizedEpoch = max(
-        finalizedEpoch, beaconState.finalized_checkpoint.epoch)
+        finalizedEpoch, beaconState[].data.finalized_checkpoint.epoch)
 
       if not dry_run:
-        copyDb.putStateRoot(signedBlock.root, slot, sr.get)
-        copyDb.putState(beaconState[])
+        copyDb.putStateRoot(
+          beaconState[].latest_block_root(), beaconState[].data.slot,
+          beaconState[].root)
+        copyDb.putState(beaconState[].root, beaconState[].data)
       if verbose:
         echo "copied state at slot ", slot, " from block at ", shortLog(signedBlock.message.slot)
 
@@ -383,6 +449,7 @@ proc copyPrunedDatabase(
   if not dry_run:
     copyDb.putHeadBlock(headBlock.get)
     copyDb.putTailBlock(tailBlock.get)
+    copyDb.putGenesisBlock(genesisBlock.get)
 
 proc cmdPrune(conf: DbConf) =
   let
@@ -417,7 +484,7 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   dag.withState(tmpState[], blckRef.atSlot(Slot(conf.slot))):
     echo "Writing state..."
     withState(stateData.data):
-      dump("./", state, blck)
+      dump("./", state)
 
 func atCanonicalSlot(blck: BlockRef, slot: Slot): BlockSlot =
   if slot == 0:
@@ -855,19 +922,23 @@ when isMainModule:
     cfg = getRuntimeConfig(conf.eth2Network)
 
   case conf.cmd
-  of bench:
+  of DbCmd.bench:
     cmdBench(conf, cfg)
-  of dumpState:
+  of DbCmd.dumpState:
     cmdDumpState(conf)
-  of dumpBlock:
+  of DbCmd.putState:
+    cmdPutState(conf, cfg)
+  of DbCmd.dumpBlock:
     cmdDumpBlock(conf)
-  of pruneDatabase:
+  of DbCmd.putBlock:
+    cmdPutBlock(conf, cfg)
+  of DbCmd.pruneDatabase:
     cmdPrune(conf)
-  of rewindState:
+  of DbCmd.rewindState:
     cmdRewindState(conf, cfg)
-  of exportEra:
+  of DbCmd.exportEra:
     cmdExportEra(conf, cfg)
-  of validatorPerf:
+  of DbCmd.validatorPerf:
     cmdValidatorPerf(conf, cfg)
-  of validatorDb:
+  of DbCmd.validatorDb:
     cmdValidatorDb(conf, cfg)

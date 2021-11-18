@@ -151,8 +151,8 @@ suite "Interop":
 
     const genesis_time = 1570500000
     var
-      initialState = initialize_beacon_state_from_eth1(
-        defaultRuntimeConfig, eth1BlockHash, genesis_time, deposits, {})
+      initialState = newClone(initialize_beacon_state_from_eth1(
+        defaultRuntimeConfig, eth1BlockHash, genesis_time, deposits, {}))
 
     # https://github.com/ethereum/eth2.0-pm/tree/6e41fcf383ebeb5125938850d8e9b4e9888389b4/interop/mocked_start#create-genesis-state
     initialState.genesis_time = genesis_time

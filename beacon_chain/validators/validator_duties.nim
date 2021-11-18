@@ -390,26 +390,24 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     head: BlockRef, slot: Slot
                                    ): Future[ForkedBlockResult] {.async.} =
   # Advance state to the slot that we're proposing for
-
   let
     proposalState = assignClone(node.dag.headState)
-    proposalStateAddr = unsafeAddr proposalState[]
 
-  node.dag.withState(proposalState[], head.atSlot(slot)):
+  node.dag.withState(proposalState[], head.atSlot(slot - 1)):
+    # Advance to the given slot without calculating state root - we'll only
+    # need a state root _with_ the block applied
+    var info: ForkedEpochInfo
+    if not process_slots(
+        node.dag.cfg, stateData.data, slot, cache, info,
+        {skipLastStateRootCalculation}):
+      return ForkedBlockResult.err("Unable to advance state to slot")
+
     let
       eth1Proposal = node.getBlockProposalEth1Data(stateData.data)
-      poolPtr = unsafeAddr node.dag # safe because restore is short-lived
 
     if eth1Proposal.hasMissingDeposits:
       error "Eth1 deposits not available. Skipping block proposal", slot
       return ForkedBlockResult.err("Eth1 deposits not available")
-
-    func restore(v: var ForkedHashedBeaconState) =
-      # TODO address this ugly workaround - there should probably be a
-      #      `state_transition` that takes a `StateData` instead and updates
-      #      the block as well
-      doAssert v.addr == addr proposalStateAddr.data
-      assign(proposalStateAddr[], poolPtr.headState)
 
     let exits = withState(stateData.data):
       node.exitPool[].getBeaconBlockExits(state.data)
@@ -417,7 +415,6 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       node.dag.cfg,
       stateData.data,
       validator_index,
-      head.root,
       randao_reveal,
       eth1Proposal.vote,
       graffiti,
@@ -429,7 +426,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       else:
         node.sync_committee_msg_pool[].produceSyncAggregate(head.root),
       default(merge.ExecutionPayload),
-      restore,
+      noRollback, # Temporary state - no need for rollback
       cache)
 
 proc proposeSignedBlock*(node: BeaconNode,

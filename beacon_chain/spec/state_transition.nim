@@ -363,7 +363,6 @@ template partialBeaconBlock(
     cfg: RuntimeConfig,
     state: var phase0.HashedBeaconState,
     proposer_index: ValidatorIndex,
-    parent_root: Eth2Digest,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
@@ -375,7 +374,7 @@ template partialBeaconBlock(
   phase0.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
-    parent_root: parent_root,
+    parent_root: state.latest_block_root(),
     body: phase0.BeaconBlockBody(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
@@ -390,7 +389,6 @@ proc makeBeaconBlock*(
     cfg: RuntimeConfig,
     state: var phase0.HashedBeaconState,
     proposer_index: ValidatorIndex,
-    parent_root: Eth2Digest,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
@@ -401,14 +399,15 @@ proc makeBeaconBlock*(
     executionPayload: ExecutionPayload,
     rollback: RollbackHashedProc,
     cache: var StateCache): Result[phase0.BeaconBlock, string] =
-  ## Create a block for the given state. The last block applied to it must be
-  ## the one identified by parent_root and process_slots must be called up to
-  ## the slot for which a block is to be created.
+  ## Create a block for the given state. The latest block applied to it will
+  ## be used for the parent_root value, and the slot will be take from
+  ## state.slot meaning process_slots must be called up to the slot for which
+  ## the block is to be created.
 
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.
 
-  var blck = partialBeaconBlock(cfg, state, proposer_index, parent_root,
+  var blck = partialBeaconBlock(cfg, state, proposer_index,
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
                                 exits, sync_aggregate, executionPayload)
 
@@ -433,7 +432,6 @@ template partialBeaconBlock(
     cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,
     proposer_index: ValidatorIndex,
-    parent_root: Eth2Digest,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
@@ -445,7 +443,7 @@ template partialBeaconBlock(
   altair.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
-    parent_root: parent_root,
+    parent_root: state.latest_block_root(),
     body: altair.BeaconBlockBody(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
@@ -461,7 +459,6 @@ proc makeBeaconBlock*(
     cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,
     proposer_index: ValidatorIndex,
-    parent_root: Eth2Digest,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
@@ -472,14 +469,15 @@ proc makeBeaconBlock*(
     executionPayload: ExecutionPayload,
     rollback: RollbackAltairHashedProc,
     cache: var StateCache): Result[altair.BeaconBlock, string] =
-  ## Create a block for the given state. The last block applied to it must be
-  ## the one identified by parent_root and process_slots must be called up to
-  ## the slot for which a block is to be created.
+  ## Create a block for the given state. The latest block applied to it will
+  ## be used for the parent_root value, and the slot will be take from
+  ## state.slot meaning process_slots must be called up to the slot for which
+  ## the block is to be created.
 
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.
 
-  var blck = partialBeaconBlock(cfg, state, proposer_index, parent_root,
+  var blck = partialBeaconBlock(cfg, state, proposer_index,
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
                                 exits, sync_aggregate, executionPayload)
 
@@ -504,7 +502,6 @@ template partialBeaconBlock(
     cfg: RuntimeConfig,
     state: var merge.HashedBeaconState,
     proposer_index: ValidatorIndex,
-    parent_root: Eth2Digest,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
@@ -516,7 +513,7 @@ template partialBeaconBlock(
   merge.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
-    parent_root: parent_root,
+    parent_root: state.latest_block_root(),
     body: merge.BeaconBlockBody(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
@@ -533,7 +530,6 @@ proc makeBeaconBlock*(
     cfg: RuntimeConfig,
     state: var merge.HashedBeaconState,
     proposer_index: ValidatorIndex,
-    parent_root: Eth2Digest,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
@@ -544,14 +540,15 @@ proc makeBeaconBlock*(
     executionPayload: ExecutionPayload,
     rollback: RollbackMergeHashedProc,
     cache: var StateCache): Result[merge.BeaconBlock, string] =
-  ## Create a block for the given state. The last block applied to it must be
-  ## the one identified by parent_root and process_slots must be called up to
-  ## the slot for which a block is to be created.
+  ## Create a block for the given state. The latest block applied to it will
+  ## be used for the parent_root value, and the slot will be take from
+  ## state.slot meaning process_slots must be called up to the slot for which
+  ## the block is to be created.
 
   # To create a block, we'll first apply a partial block to the state, skipping
   # some validations.
 
-  var blck = partialBeaconBlock(cfg, state, proposer_index, parent_root,
+  var blck = partialBeaconBlock(cfg, state, proposer_index,
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
                                 exits, sync_aggregate, executionPayload)
 
@@ -575,7 +572,6 @@ proc makeBeaconBlock*(
     cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
     proposer_index: ValidatorIndex,
-    parent_root: Eth2Digest,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
     graffiti: GraffitiBytes,
@@ -586,9 +582,10 @@ proc makeBeaconBlock*(
     executionPayload: ExecutionPayload,
     rollback: RollbackForkedHashedProc,
     cache: var StateCache): Result[ForkedBeaconBlock, string] =
-  ## Create a block for the given state. The last block applied to it must be
-  ## the one identified by parent_root and process_slots must be called up to
-  ## the slot for which a block is to be created.
+  ## Create a block for the given state. The latest block applied to it will
+  ## be used for the parent_root value, and the slot will be take from
+  ## state.slot meaning process_slots must be called up to the slot for which
+  ## the block is to be created.
 
   template makeBeaconBlock(kind: untyped): Result[ForkedBeaconBlock, string] =
     # To create a block, we'll first apply a partial block to the state, skipping
@@ -596,7 +593,7 @@ proc makeBeaconBlock*(
 
     var blck =
       ForkedBeaconBlock.init(
-        partialBeaconBlock(cfg, state.`kind Data`, proposer_index, parent_root,
+        partialBeaconBlock(cfg, state.`kind Data`, proposer_index,
                            randao_reveal, eth1_data, graffiti, attestations, deposits,
                            exits, sync_aggregate, executionPayload))
 

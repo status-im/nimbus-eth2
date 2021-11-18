@@ -385,18 +385,24 @@ func compute_proposer_index(state: ForkyBeaconState,
 func get_beacon_proposer_index*(
     state: ForkyBeaconState, cache: var StateCache, slot: Slot):
     Option[ValidatorIndex] =
+  let epoch = get_current_epoch(state)
+
+  if slot.epoch() != epoch:
+    # compute_proposer_index depends on `effective_balance`, therefore the
+    # beacon proposer index can only be computed for the "current" epoch:
+    # https://github.com/ethereum/consensus-specs/pull/772#issuecomment-475574357
+    return none(ValidatorIndex)
+
   cache.beacon_proposer_indices.withValue(slot, proposer) do:
     return proposer[]
   do:
-
     # Return the beacon proposer index at the current slot.
-    let epoch = get_current_epoch(state)
 
     var buffer: array[32 + 8, byte]
     buffer[0..31] = get_seed(state, epoch, DOMAIN_BEACON_PROPOSER).data
 
-    # There's exactly one beacon proposer per slot.
-
+    # There's exactly one beacon proposer per slot - the same validator may
+    # however propose several times in the same epoch (however unlikely)
     let
       # active validator indices are kept in cache but sorting them takes
       # quite a while

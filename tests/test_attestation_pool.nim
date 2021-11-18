@@ -20,7 +20,7 @@ import
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool],
   ../beacon_chain/spec/datatypes/phase0,
-  ../beacon_chain/spec/[helpers, state_transition, validator],
+  ../beacon_chain/spec/[beaconstate, helpers, state_transition, validator],
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
 
@@ -111,17 +111,21 @@ suite "Attestation pool processing" & preset():
 
     let
       root1 = addTestBlock(
-        state.data, state.blck.root,
-        cache, attestations = attestations, nextSlot = false).phase0Data.root
+        state.data, cache, attestations = attestations,
+        nextSlot = false).phase0Data.root
       bc1 = get_beacon_committee(
         state[].data, getStateField(state.data, slot), 0.CommitteeIndex, cache)
       att1 = makeAttestation(state[].data, root1, bc1[0], cache)
 
     check:
+      withState(state.data): state.latest_block_root == root1
+
       process_slots(
         defaultRuntimeConfig, state.data,
         getStateField(state.data, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
         info, {})
+
+      withState(state.data): state.latest_block_root == root1
 
     check:
       # shouldn't include already-included attestations
@@ -376,7 +380,7 @@ suite "Attestation pool processing" & preset():
   test "Fork choice returns latest block with no attestations":
     var cache = StateCache()
     let
-      b1 = addTestBlock(state.data, dag.tail.root, cache).phase0Data
+      b1 = addTestBlock(state.data, cache).phase0Data
       b1Add = dag.addRawBlock(quarantine, b1) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
@@ -389,7 +393,7 @@ suite "Attestation pool processing" & preset():
       head == b1Add[]
 
     let
-      b2 = addTestBlock(state.data, b1.root, cache).phase0Data
+      b2 = addTestBlock(state.data, cache).phase0Data
       b2Add = dag.addRawBlock(quarantine, b2) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
@@ -404,7 +408,7 @@ suite "Attestation pool processing" & preset():
   test "Fork choice returns block with attestation":
     var cache = StateCache()
     let
-      b10 = makeTestBlock(state.data, dag.tail.root, cache).phase0Data
+      b10 = makeTestBlock(state.data, cache).phase0Data
       b10Add = dag.addRawBlock(quarantine, b10) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
@@ -417,7 +421,7 @@ suite "Attestation pool processing" & preset():
       head == b10Add[]
 
     let
-      b11 = makeTestBlock(state.data, dag.tail.root, cache,
+      b11 = makeTestBlock(state.data, cache,
         graffiti = GraffitiBytes [1'u8, 0, 0, 0 ,0 ,0 ,0 ,0 ,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
       ).phase0Data
       b11Add = dag.addRawBlock(quarantine, b11) do (
@@ -465,7 +469,7 @@ suite "Attestation pool processing" & preset():
   test "Trying to add a block twice tags the second as an error":
     var cache = StateCache()
     let
-      b10 = makeTestBlock(state.data, dag.tail.root, cache).phase0Data
+      b10 = makeTestBlock(state.data, cache).phase0Data
       b10Add = dag.addRawBlock(quarantine, b10) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
@@ -494,7 +498,7 @@ suite "Attestation pool processing" & preset():
     dag.updateFlags.incl {skipBLSValidation}
     var cache = StateCache()
     let
-      b10 = addTestBlock(state.data, dag.tail.root, cache).phase0Data
+      b10 = addTestBlock(state.data, cache).phase0Data
       b10Add = dag.addRawBlock(quarantine, b10) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
@@ -510,8 +514,6 @@ suite "Attestation pool processing" & preset():
 
     # -------------------------------------------------------------
     # Pass an epoch
-    var block_root = b10.root
-
     var attestations: seq[Attestation]
 
     for epoch in 0 ..< 5:
@@ -520,9 +522,8 @@ suite "Attestation pool processing" & preset():
         get_committee_count_per_slot(state[].data, Epoch epoch, cache)
       for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
         let new_block = addTestBlock(
-          state.data, block_root, cache, attestations = attestations).phase0Data
+          state.data, cache, attestations = attestations).phase0Data
 
-        block_root = new_block.root
         let blockRef = dag.addRawBlock(quarantine, new_block) do (
             blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
             epochRef: EpochRef):
@@ -550,7 +551,7 @@ suite "Attestation pool processing" & preset():
             aggregation_bits: aggregation_bits,
             data: makeAttestationData(
               state[].data, getStateField(state.data, slot),
-              index.CommitteeIndex, blockroot)
+              index.CommitteeIndex, blockRef.get().root)
             # signature: ValidatorSig()
           )
 

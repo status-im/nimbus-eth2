@@ -76,8 +76,7 @@ suite "Gossip validation " & preset():
     var
       cache: StateCache
     for blck in makeTestBlocks(
-        dag.headState.data, dag.head.root, cache,
-        int(SLOTS_PER_EPOCH * 5), false):
+        dag.headState.data, cache, int(SLOTS_PER_EPOCH * 5), false):
       let added = dag.addRawBlock(quarantine, blck.phase0Data) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
@@ -190,8 +189,7 @@ suite "Gossip validation - Extra": # Not based on preset config
           quarantine = QuarantineRef.init(keys.newRng(), taskpool)
         var cache = StateCache()
         for blck in makeTestBlocks(
-            dag.headState.data, dag.head.root, cache,
-            int(SLOTS_PER_EPOCH), false, cfg = cfg):
+            dag.headState.data, cache, int(SLOTS_PER_EPOCH), false, cfg = cfg):
           let added =
             case blck.kind
             of BeaconBlockFork.Phase0:

@@ -105,15 +105,10 @@ proc loadGenesis*(validators: Natural, validate: bool):
     let contractSnapshot = DepositContractSnapshot(
       depositContractState: merkleizer.toDepositContractState)
 
-    let res = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0)
-    res.phase0Data.data = initialize_beacon_state_from_eth1(
-      cfg,
-      Eth2Digest(),
-      0,
-      deposits,
-      flags)[]
-
-    res.phase0Data.root = hash_tree_root(res[].phase0Data.data)
+    let res = (ref ForkedHashedBeaconState)(
+      kind: BeaconStateFork.Phase0,
+      phase0Data: initialize_hashed_beacon_state_from_eth1(
+        cfg, Eth2Digest(), 0, deposits, flags))
 
     echo &"Saving to {genesisFn}..."
     SSZ.saveFile(genesisFn, res.phase0Data.data)

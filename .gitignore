@@ -23,6 +23,7 @@ build/
 *.la
 *.exe
 *.dll
+*.su
 
 /scripts/testnet*.sh
 
