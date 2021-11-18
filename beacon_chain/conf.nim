@@ -348,6 +348,13 @@ type
         name: "doppelganger-detection"
       }: bool
 
+      syncHorizon* {.
+        hidden
+        desc: "Number of empty slots to process before considering the client out of sync"
+        defaultValue: MaxEmptySlotCount
+        defaultValueDesc: "50"
+        name: "sync-horizon" }: uint64
+
     of createTestnet:
       testnetDepositsFile* {.
         desc: "A LaunchPad deposits file for the genesis state validators"
