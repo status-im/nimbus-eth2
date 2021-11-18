@@ -197,7 +197,7 @@ proc signAggregateAndProof*(v: AttachedValidator,
                                                   aggregate_and_proof)
       await signWithRemoteValidator(v, root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#prepare-sync-committee-message
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/validator.md#prepare-sync-committee-message
 proc signSyncCommitteeMessage*(v: AttachedValidator,
                                slot: Slot,
                                fork: Fork,

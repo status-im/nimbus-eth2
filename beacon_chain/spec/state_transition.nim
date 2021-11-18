@@ -497,7 +497,7 @@ proc makeBeaconBlock*(
   blck.state_root = state.root
   ok(blck)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/merge/validator.md#block-proposal
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/validator.md#block-proposal
 template partialBeaconBlock(
     cfg: RuntimeConfig,
     state: var merge.HashedBeaconState,

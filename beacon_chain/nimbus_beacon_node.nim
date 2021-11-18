@@ -35,7 +35,7 @@ import
     slashing_protection, keystore_management],
   ./sync/[sync_manager, sync_protocol, request_manager],
   ./rpc/[rest_api, rpc_api],
-  ./spec/datatypes/[altair, phase0],
+  ./spec/datatypes/[altair, merge, phase0],
   ./spec/eth2_apis/rpc_beacon_client,
   ./spec/[
     beaconstate, forks, helpers, network, weak_subjectivity, signatures,
@@ -618,8 +618,8 @@ proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 proc removePhase0MessageHandlers(node: BeaconNode) =
   removePhase0MessageHandlers(node, node.dag.forkDigests.phase0)
 
-proc addAltairMessageHandlers(node: BeaconNode, slot: Slot) =
-  node.addPhase0MessageHandlers(node.dag.forkDigests.altair, slot)
+proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
+  node.addPhase0MessageHandlers(forkDigest, slot)
 
   var syncnets: SyncnetBits
 
@@ -628,26 +628,41 @@ proc addAltairMessageHandlers(node: BeaconNode, slot: Slot) =
     closureScope:
       let idx = committeeIdx
       # TODO This should be done in dynamic way in trackSyncCommitteeTopics
-      node.network.subscribe(getSyncCommitteeTopic(node.dag.forkDigests.altair, idx), basicParams)
+      node.network.subscribe(getSyncCommitteeTopic(forkDigest, idx), basicParams)
       syncnets.setBit(idx.asInt)
 
-  node.network.subscribe(getSyncCommitteeContributionAndProofTopic(node.dag.forkDigests.altair), basicParams)
+  node.network.subscribe(
+    getSyncCommitteeContributionAndProofTopic(forkDigest), basicParams)
   node.network.updateSyncnetsMetadata(syncnets)
 
-proc removeAltairMessageHandlers(node: BeaconNode) =
-  node.removePhase0MessageHandlers(node.dag.forkDigests.altair)
+proc addAltairMessageHandlers(node: BeaconNode, slot: Slot) =
+  addAltairMessageHandlers(node, node.dag.forkDigests.altair, slot)
+
+proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.removePhase0MessageHandlers(forkDigest)
 
   for committeeIdx in allSyncSubcommittees():
     closureScope:
       let idx = committeeIdx
       # TODO This should be done in dynamic way in trackSyncCommitteeTopics
-      node.network.unsubscribe(getSyncCommitteeTopic(node.dag.forkDigests.altair, idx))
+      node.network.unsubscribe(getSyncCommitteeTopic(forkDigest, idx))
 
-  node.network.unsubscribe(getSyncCommitteeContributionAndProofTopic(node.dag.forkDigests.altair))
+  node.network.unsubscribe(
+    getSyncCommitteeContributionAndProofTopic(forkDigest))
+
+proc removeAltairMessageHandlers(node: BeaconNode) =
+  removeAltairMessageHandlers(node, node.dag.forkDigests.altair)
+
+proc addMergeMessageHandlers(node: BeaconNode, slot: Slot) =
+  addAltairMessageHandlers(node, node.dag.forkDigests.merge, slot)
+
+proc removeMergeMessageHandlers(node: BeaconNode) =
+  removeAltairMessageHandlers(node, node.dag.forkDigests.merge)
 
 proc removeAllMessageHandlers(node: BeaconNode) =
   node.removePhase0MessageHandlers()
   node.removeAltairMessageHandlers()
+  node.removeMergeMessageHandlers()
 
 proc setupDoppelgangerDetection(node: BeaconNode, slot: Slot) =
   # When another client's already running, this is very likely to detect
@@ -1025,30 +1040,35 @@ proc installMessageValidators(node: BeaconNode) =
 
   installPhase0Validators(node.dag.forkDigests.phase0)
 
-  # Validators introduced in phase0 are also used in altair, but with different
-  # fork digest
+  # Validators introduced in phase0 are also used in altair and merge, but with
+  # different fork digest
   installPhase0Validators(node.dag.forkDigests.altair)
+  installPhase0Validators(node.dag.forkDigests.merge)
 
   node.network.addValidator(
     getBeaconBlocksTopic(node.dag.forkDigests.altair),
     proc (signedBlock: altair.SignedBeaconBlock): ValidationResult =
       toValidationResult(node.processor[].blockValidator(signedBlock)))
 
-  for committeeIdx in allSyncSubcommittees():
-    closureScope:
-      let idx = committeeIdx
-      node.network.addValidator(
-        getSyncCommitteeTopic(node.dag.forkDigests.altair, idx),
-        # This proc needs to be within closureScope; don't lift out of loop.
-        proc(msg: SyncCommitteeMessage): ValidationResult =
-          toValidationResult(
-            node.processor.syncCommitteeMsgValidator(msg, idx)))
+  template installSyncCommitteeeValidators(digest: auto) =
+    for committeeIdx in allSyncSubcommittees():
+      closureScope:
+        let idx = committeeIdx
+        node.network.addValidator(
+          getSyncCommitteeTopic(digest, idx),
+          # This proc needs to be within closureScope; don't lift out of loop.
+          proc(msg: SyncCommitteeMessage): ValidationResult =
+            toValidationResult(
+              node.processor.syncCommitteeMsgValidator(msg, idx)))
 
-  node.network.addValidator(
-    getSyncCommitteeContributionAndProofTopic(node.dag.forkDigests.altair),
-    proc(msg: SignedContributionAndProof): ValidationResult =
-      toValidationResult(
-        node.processor.syncCommitteeContributionValidator(msg)))
+    node.network.addValidator(
+      getSyncCommitteeContributionAndProofTopic(digest),
+      proc(msg: SignedContributionAndProof): ValidationResult =
+        toValidationResult(
+          node.processor.syncCommitteeContributionValidator(msg)))
+
+  installSyncCommitteeeValidators(node.dag.forkDigests.altair)
+  installSyncCommitteeeValidators(node.dag.forkDigests.merge)
 
 proc stop*(node: BeaconNode) =
   bnStatus = BeaconNodeStatus.Stopping

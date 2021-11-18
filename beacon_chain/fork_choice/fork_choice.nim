@@ -47,7 +47,7 @@ func compute_deltas(
 logScope:
   topics = "fork_choice"
 
-proc init*(T: type ForkChoiceBackend,
+func init*(T: type ForkChoiceBackend,
            justified_epoch: Epoch,
            finalized_root: Eth2Digest,
            finalized_epoch: Epoch): T =
@@ -91,7 +91,7 @@ func extend[T](s: var seq[T], minLen: int) =
   if s.len < minLen:
     s.setLen(minLen)
 
-proc compute_slots_since_epoch_start(slot: Slot): uint64 =
+func compute_slots_since_epoch_start(slot: Slot): uint64 =
     slot - slot.epoch().compute_start_slot_at_epoch()
 
 proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: Slot): FcResult[void] =
@@ -116,7 +116,7 @@ proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: Slot): FcResult[void
       balances: epochRef.effective_balances)
   ok()
 
-proc process_attestation_queue(self: var ForkChoice) {.gcsafe.}
+func process_attestation_queue(self: var ForkChoice) {.gcsafe.}
 
 proc update_time(self: var ForkChoice, dag: ChainDAGRef, time: Slot): FcResult[void] =
   if time > self.checkpoints.time:
@@ -152,7 +152,7 @@ func process_attestation*(
         validator_index = validator_index,
         new_vote = shortLog(vote)
 
-proc process_attestation_queue(self: var ForkChoice) =
+func process_attestation_queue(self: var ForkChoice) =
   self.queuedAttestations.keepItIf:
     if it.slot < self.checkpoints.time:
       for validator_index in it.attesting_indices:
@@ -199,7 +199,7 @@ proc on_attestation*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v0.12.1/specs/phase0/fork-choice.md#should_update_justified_checkpoint
-proc should_update_justified_checkpoint(
+func should_update_justified_checkpoint(
         self: var Checkpoints,
         dag: ChainDAGRef,
         epochRef: EpochRef): FcResult[bool] =
@@ -274,7 +274,7 @@ proc process_state(self: var Checkpoints,
             balances: justifiedEpoch.effective_balances)
   ok()
 
-proc process_block*(self: var ForkChoiceBackend,
+func process_block*(self: var ForkChoiceBackend,
                     block_root: Eth2Digest,
                     parent_root: Eth2Digest,
                     justified_epoch: Epoch,
@@ -329,7 +329,7 @@ proc process_block*(self: var ForkChoice,
 
   ok()
 
-proc find_head*(
+func find_head*(
        self: var ForkChoiceBackend,
        justified_epoch: Epoch,
        justified_root: Eth2Digest,

@@ -848,7 +848,7 @@ func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) {.nben
       let penalty = penalty_numerator div total_balance * increment
       decrease_balance(state, index.ValidatorIndex, penalty)
 
-# https://github.com/ethereum/consensus-specs/blob/34cea67b91/specs/phase0/beacon-chain.md#eth1-data-votes-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#eth1-data-votes-updates
 func process_eth1_data_reset*(state: var ForkyBeaconState) {.nbench.} =
   let next_epoch = get_current_epoch(state) + 1
 

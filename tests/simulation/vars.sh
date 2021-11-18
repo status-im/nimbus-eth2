@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # https://github.com/koalaman/shellcheck/wiki/SC2034
 # shellcheck disable=2034

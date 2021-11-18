@@ -510,7 +510,7 @@ func get_subtree_index*(idx: GeneralizedIndex): uint64 =
 func is_merge_complete*(state: merge.BeaconState): bool =
   state.latest_execution_payload_header != default(ExecutionPayloadHeader)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/merge/beacon-chain.md#is_merge_block
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#is_merge_block
 func is_merge_block(
     state: merge.BeaconState,
     body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |
