@@ -48,7 +48,7 @@ Note that right now these are very much unstable testing instances. They may be 
 ## Related projects
 
 * [status-im/nimbus-eth1](https://github.com/status-im/nimbus-eth1/): Nimbus for Ethereum 1
-* [ethereum/consensus-specs](https://github.com/ethereum/consensus-specs/tree/v1.0.1#phase-0): Serenity specification that this project implements
+* [ethereum/consensus-specs](https://github.com/ethereum/consensus-specs/tree/v1.1.5#phase-0): Consensus specification that this project implements
 
 You can check where the beacon chain fits in the Ethereum ecosystem in our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 

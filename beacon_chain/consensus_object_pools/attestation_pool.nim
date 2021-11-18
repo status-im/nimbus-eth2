@@ -691,7 +691,7 @@ proc getAggregatedAttestation*(pool: var AttestationPool,
                                index: CommitteeIndex): Option[Attestation] =
   ## Select the attestation that has the most votes going for it in the given
   ## slot/index
-  ## https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#construct-aggregate
+  ## https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#construct-aggregate
   let
     candidateIdx = pool.candidateIdx(slot)
   if candidateIdx.isNone:

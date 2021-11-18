@@ -287,7 +287,7 @@ proc initialize_hashed_beacon_state_from_eth1*(
   phase0.HashedBeaconState(
     data: genesisState[], root: hash_tree_root(genesisState[]))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#genesis-block
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#genesis-block
 func get_initial_beacon_block*(state: phase0.BeaconState):
     phase0.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
