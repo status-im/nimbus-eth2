@@ -171,12 +171,10 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
     beaconTime = node.beaconClock.now()
     wallSlot = beaconTime.toSlot()
 
-  # TODO: MaxEmptySlotCount should likely involve the weak subjectivity period.
-
   # TODO if everyone follows this logic, the network will not recover from a
   #      halt: nobody will be producing blocks because everone expects someone
   #      else to do it
-  if wallSlot.afterGenesis and head.slot + MaxEmptySlotCount < wallSlot.slot:
+  if wallSlot.afterGenesis and head.slot + node.config.syncHorizon < wallSlot.slot:
     false
   else:
     true
