@@ -70,7 +70,7 @@ func build_empty_execution_payload(state: merge.BeaconState): ExecutionPayload =
 
   payload
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/tests/core/pyspec/eth2spec/test/helpers/block.py#L75-L104
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/tests/core/pyspec/eth2spec/test/helpers/block.py#L75-L104
 proc mockBlock*(
     state: ForkedHashedBeaconState,
     slot: Slot,

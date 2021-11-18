@@ -148,7 +148,7 @@ func sync_committee_msg_signing_root*(
   let domain = get_domain(fork, DOMAIN_SYNC_COMMITTEE, epoch, genesis_validators_root)
   compute_signing_root(block_root, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.7/specs/altair/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/validator.md#signature
 func contribution_and_proof_signing_root*(
     fork: Fork,
     genesis_validators_root: Eth2Digest,
