@@ -686,6 +686,104 @@ suite "PeerPool testing suite":
 
     check waitFor(testDeleteOnRelease()) == true
 
+  test "Notify when peer leaves pool test":
+    proc testNotifyOnLeave(): Future[bool] {.async.} =
+      var pool = newPeerPool[PeerTest, PeerTestID]()
+      var peer0 = PeerTest.init("idInc0", 100)
+      var peer1 = PeerTest.init("idOut0", 100)
+      var peer2 = PeerTest.init("idInc1", 100)
+      var peer3 = PeerTest.init("idOut1", 100)
+
+      # Case 1. Deleting peer which is not part of PeerPool.
+      block:
+        var fut0 = pool.joinPeer(peer0)
+        doAssert(fut0.finished == false)
+        await sleepAsync(20.milliseconds)
+        doAssert(fut0.finished == true and fut0.failed == false)
+
+      # Case 2. Deleting peer which is not acquired.
+      discard pool.addPeerNoWait(peer0, PeerType.Incoming)
+      block:
+        var fut0 = pool.joinPeer(peer0)
+        discard pool.deletePeer(peer0)
+        var fut1 = pool.joinPeer(peer0)
+        await sleepAsync(20.milliseconds)
+        var fut2 = pool.joinPeer(peer0)
+        doAssert(fut0.finished == true and fut0.failed == false)
+        doAssert(fut1.finished == true and fut1.failed == false)
+        doAssert(fut2.finished == false)
+        await sleepAsync(20.milliseconds)
+        doAssert(fut2.finished == true and fut2.failed == false)
+
+      # Case 3. Peer disconnected while it wasn't acquired.
+      discard pool.addPeerNoWait(peer1, PeerType.Outgoing)
+      block:
+        var fut0 = pool.joinPeer(peer1)
+        # Peer disconnecting
+        peer1.future.complete()
+        var fut1 = pool.joinPeer(peer1)
+        await sleepAsync(20.milliseconds)
+        var fut2 = pool.joinPeer(peer1)
+        doAssert(fut0.finished == true and fut0.failed == false)
+        doAssert(fut1.finished == true and fut1.failed == false)
+        doAssert(fut2.finished == false)
+        await sleepAsync(20.milliseconds)
+        doAssert(fut2.finished == true and fut2.failed == false)
+
+      # Case 4. Peer deleted when it was acquired.
+      discard pool.addPeerNoWait(peer2, PeerType.Incoming)
+      block:
+        var fut0 = pool.joinPeer(peer2)
+        var p = await pool.acquire()
+        doAssert(p.id == "idInc1")
+        var fut1 = pool.joinPeer(peer2)
+        discard pool.deletePeer(peer2)
+        await sleepAsync(20.milliseconds)
+        var fut2 = pool.joinPeer(peer2)
+        doAssert(fut0.finished == false)
+        doAssert(fut1.finished == false)
+        doAssert(fut2.finished == false)
+        pool.release(peer2)
+        var fut3 = pool.joinPeer(peer2)
+        await sleepAsync(20.milliseconds)
+        var fut4 = pool.joinPeer(peer2)
+        doAssert(fut0.finished == true and fut0.failed == false)
+        doAssert(fut1.finished == true and fut1.failed == false)
+        doAssert(fut2.finished == true and fut2.failed == false)
+        doAssert(fut3.finished == true and fut3.failed == false)
+        doAssert(fut4.finished == false)
+        await sleepAsync(20.milliseconds)
+        doAssert(fut4.finished == true and fut4.failed == false)
+
+      # Case 5. Peer disconnected while it was acquired.
+      discard pool.addPeerNoWait(peer3, PeerType.Outgoing)
+      block:
+        var fut0 = pool.joinPeer(peer3)
+        var p = await pool.acquire()
+        doAssert(p.id == "idOut1")
+        var fut1 = pool.joinPeer(peer3)
+        # Peer disconnecting
+        peer3.future.complete()
+        await sleepAsync(20.milliseconds)
+        var fut2 = pool.joinPeer(peer3)
+        doAssert(fut0.finished == false)
+        doAssert(fut1.finished == false)
+        doAssert(fut2.finished == false)
+        pool.release(peer3)
+        var fut3 = pool.joinPeer(peer3)
+        await sleepAsync(20.milliseconds)
+        var fut4 = pool.joinPeer(peer3)
+        doAssert(fut0.finished == true and fut0.failed == false)
+        doAssert(fut1.finished == true and fut1.failed == false)
+        doAssert(fut2.finished == true and fut2.failed == false)
+        doAssert(fut3.finished == true and fut3.failed == false)
+        doAssert(fut4.finished == false)
+        await sleepAsync(20.milliseconds)
+        doAssert(fut4.finished == true and fut4.failed == false)
+      return true
+
+    check waitFor(testNotifyOnLeave()) == true
+
   test "Space tests":
     var pool1 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79)
     var pool2 = newPeerPool[PeerTest, PeerTestID](maxPeers = 79,

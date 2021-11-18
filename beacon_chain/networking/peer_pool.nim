@@ -370,20 +370,18 @@ proc joinPeer*[A, B](pool: PeerPool[A, B], peer: A): Future[void] =
       future.removeCallback(continuation)
 
   let key = getKey(peer)
-  if pool.registry.hasKey(key):
-    let pindex = pool.registry[key].data
-    var item = addr(pool.storage[pindex])
+  pool.registry.withValue(key, pindex):
+    var item = addr(pool.storage[pindex[].data])
     future = item[].future
     # If peer is still in PeerPool, then item[].future should not be finished.
     doAssert(not(future.finished()))
     future.addCallback(continuation)
     retFuture.cancelCallback = cancellation
-  else:
+  do:
     # If there no such peer in PeerPool anymore, its possible that
     # PeerItem.future's callbacks is not yet processed, so we going to complete
     # retFuture only in next `poll()` call.
     callSoon(continuation, cast[pointer](retFuture))
-
   retFuture
 
 proc addPeerImpl[A, B](pool: PeerPool[A, B], peer: A, peerKey: B,
