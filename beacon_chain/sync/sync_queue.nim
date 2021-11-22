@@ -142,10 +142,6 @@ proc getFullMap*[T](req: SyncRequest[T],
   # Returns all slot numbers in ``data`` as comma-delimeted string.
   mapIt(data, $it.message.slot).join(", ")
 
-# proc init[T](t1: typedesc[SyncRequest], t2: typedesc[T], slot: Slot,
-#               count: uint64): SyncRequest[T] =
-#   SyncRequest[T](slot: slot, count: count, step: 1'u64)
-
 proc init[T](t1: typedesc[SyncRequest], kind: SyncQueueKind, start: Slot,
              finish: Slot, t2: typedesc[T]): SyncRequest[T] =
   let count = finish - start + 1'u64
@@ -153,7 +149,7 @@ proc init[T](t1: typedesc[SyncRequest], kind: SyncQueueKind, start: Slot,
 
 proc init[T](t1: typedesc[SyncRequest], kind: SyncQueueKind, slot: Slot,
              count: uint64, item: T): SyncRequest[T] =
-  SyncRequest[T](slot: slot, count: count, item: item, step: 1'u64)
+  SyncRequest[T](kind: kind, slot: slot, count: count, item: item, step: 1'u64)
 
 proc init[T](t1: typedesc[SyncRequest], kind: SyncQueueKind, start: Slot,
              finish: Slot, item: T): SyncRequest[T] =
@@ -229,6 +225,7 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
   # epoch's first slot.
   doAssert(chunkSize > 0'u64, "Chunk size should not be zero")
   result = SyncQueue[T](
+    kind: queueKind,
     startSlot: start,
     finalSlot: final,
     chunkSize: chunkSize,
@@ -453,6 +450,30 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
     sq.rewind = some(RewindPoint(failSlot: failSlot, epochCount: epochCount))
     compute_start_slot_at_epoch(rewindEpoch)
 
+iterator blocks*[T](sq: SyncQueue[T],
+                    sr: SyncResult[T]): ForkedSignedBeaconBlock =
+  case sq.kind
+  of SyncQueueKind.Forward:
+    for i in countup(0, len(sr.data) - 1):
+      yield sr.data[i]
+  of SyncQueueKind.Backward:
+    for i in countdown(len(sr.data) - 1, 0):
+      yield sr.data[i]
+
+proc advanceOutput*[T](sq: SyncQueue[T], number: uint64) =
+  case sq.kind
+  of SyncQueueKind.Forward:
+    sq.outSlot = sq.outSlot + number
+  of SyncQueueKind.Backward:
+    sq.outSlot = sq.outSlot - number
+
+proc advanceInput[T](sq: SyncQueue[T], number: uint64) =
+  case sq.kind
+  of SyncQueueKind.Forward:
+    sq.inpSlot = sq.inpSlot + number
+  of SyncQueueKind.Backward:
+    sq.inpSlot = sq.inpSlot - number
+
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               data: seq[ForkedSignedBeaconBlock]) {.async, gcsafe.} =
   ## Push successful result to queue ``sq``.
@@ -490,20 +511,49 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
     return
 
   while len(sq.readyQueue) > 0:
-    let minSlot = sq.readyQueue[0].request.slot
-    if sq.outSlot != minSlot:
-      break
-    let item = sq.readyQueue.pop()
+    let reqres =
+      case sq.kind
+      of SyncQueueKind.Forward:
+        let minSlot = sq.readyQueue[0].request.slot
+        if sq.outSlot != minSlot:
+          none[SyncResult[T]]()
+        else:
+          some(sq.readyQueue.pop())
+      of SyncQueueKind.Backward:
+        let maxSlot = sq.readyQueue[0].request.slot +
+                      (sq.readyQueue[0].request.count - 1'u64)
+        if sq.outSlot != maxSlot:
+          none[SyncResult[T]]()
+        else:
+          some(sq.readyQueue.pop())
+
+    let item =
+      if reqres.isSome():
+        reqres.get()
+      else:
+        let rewindSlot = sq.getRewindPoint(sq.outSlot, sq.getFinalizedSlot())
+        warn "Got incorrect sync result in queue, rewind happens",
+             request_slot = sq.readyQueue[0].request.slot,
+             request_count = sq.readyQueue[0].request.count,
+             request_step = sq.readyQueue[0].request.step,
+             blocks_map = getShortMap(sq.readyQueue[0].request,
+                                      sq.readyQueue[0].data),
+             blocks_count = len(sq.readyQueue[0].data),
+             output_slot = sq.outSlot, input_slot = sq.inpSlot,
+             peer = sq.readyQueue[0].request.item, rewind_to_slot = rewindSlot,
+             topics = "syncman"
+        await sq.resetWait(some(rewindSlot))
+        break
 
     # Validating received blocks one by one
     var res: Result[void, BlockError]
     var failSlot: Option[Slot]
     if len(item.data) > 0:
-      for blk in item.data:
+      for blk in sq.blocks(item):
         trace "Pushing block", block_root = blk.root,
                                block_slot = blk.slot
         res = await sq.validate(blk)
-        if not(res.isOk):
+        if res.isErr():
           failSlot = some(blk.slot)
           break
     else:
@@ -513,8 +563,8 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
     # not stuck.
     inc(sq.opcounter)
 
-    if res.isOk:
-      sq.outSlot = sq.outSlot + item.request.count
+    if res.isOk():
+      sq.advanceOutput(item.request.count)
       if len(item.data) > 0:
         # If there no error and response was not empty we should reward peer
         # with some bonus score.
@@ -595,49 +645,89 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
   sq.toDebtsQueue(sr)
 
 proc pop*[T](sq: SyncQueue[T], maxslot: Slot, item: T): SyncRequest[T] =
+  ## Create new request according to current SyncQueue parameters.
   if len(sq.debtsQueue) > 0:
     if maxSlot < sq.debtsQueue[0].slot:
+      # Peer's latest slot is less than starting request's slot.
       return SyncRequest.empty(sq.kind, T)
-
+    if maxSlot < sq.debtsQueue[0].lastSlot():
+      # Peer's latest slot is less than finishing request's slot.
+      return SyncRequest.empty(sq.kind, T)
     var sr = sq.debtsQueue.pop()
-    if sr.lastSlot() <= maxSlot:
-      sq.debtsCount = sq.debtsCount - sr.count
-      sr.setItem(item)
-      sq.makePending(sr)
-      return sr
-
-    var sr1 = SyncRequest.init(sq.kind, sr.slot, maxslot, item)
-    let sr2 = SyncRequest.init(sq.kind, maxslot + 1'u64, sr.lastSlot(), T)
-    sq.debtsQueue.push(sr2)
-    sq.debtsCount = sq.debtsCount - sr1.count
-    sq.makePending(sr1)
-    return sr1
-  else:
-    if maxSlot < sq.inpSlot:
-      return SyncRequest.empty(sq.kind, T)
-
-    if sq.inpSlot > sq.finalSlot:
-      return SyncRequest.empty(sq.kind, T)
-
-    let lastSlot = min(maxslot, sq.finalSlot)
-    let count = min(sq.chunkSize, lastSlot + 1'u64 - sq.inpSlot)
-    var sr = SyncRequest.init(sq.kind, sq.inpSlot, count, item)
-    sq.inpSlot = sq.inpSlot + count
+    sq.debtsCount = sq.debtsCount - sr.count
+    sr.setItem(item)
     sq.makePending(sr)
-    return sr
+    sr
+  else:
+    case sq.kind
+    of SyncQueueKind.Forward:
+      if maxSlot < sq.inpSlot:
+        # Peer's latest slot is less than queue's input slot.
+        return SyncRequest.empty(sq.kind, T)
+      if sq.inpSlot > sq.finalSlot:
+        # Queue's input slot is bigger than queue's final slot.
+        return SyncRequest.empty(sq.kind, T)
+      let lastSlot = min(maxslot, sq.finalSlot)
+      let count = min(sq.chunkSize, lastSlot + 1'u64 - sq.inpSlot)
+      var sr = SyncRequest.init(sq.kind, sq.inpSlot, count, item)
+      sq.advanceInput(count)
+      sq.makePending(sr)
+      sr
+    of SyncQueueKind.Backward:
+      if sq.inpSlot == 0xFFFF_FFFF_FFFF_FFFF'u64:
+        return SyncRequest.empty(sq.kind, T)
+      if sq.inpSlot < sq.finalSlot:
+        return SyncRequest.empty(sq.kind, T)
+      let (slot, count) =
+        block:
+          let baseSlot = sq.inpSlot + 1'u64
+          if baseSlot - sq.finalSlot < sq.chunkSize:
+            let count = uint64(baseSlot - sq.finalSlot)
+            (baseSlot - count, count)
+          else:
+            (baseSlot - sq.chunkSize, sq.chunkSize)
+      if (maxSlot + 1'u64) < slot + count:
+        # Peer's latest slot is less than queue's input slot.
+        return SyncRequest.empty(sq.kind, T)
+      var sr = SyncRequest.init(sq.kind, slot, count, item)
+      sq.advanceInput(count)
+      sq.makePending(sr)
+      sr
+
+proc debtLen*[T](sq: SyncQueue[T]): uint64 =
+  sq.debtsCount
+
+proc pendingLen*[T](sq: SyncQueue[T]): uint64 =
+  case sq.kind
+  of SyncQueueKind.Forward:
+    # When moving forward `outSlot` will be <= of `inpSlot`.
+    sq.inpSlot - sq.outSlot
+  of SyncQueueKind.Backward:
+    # When moving backward `outSlot` will be >= of `inpSlot`
+    sq.outSlot - sq.inpSlot
 
 proc len*[T](sq: SyncQueue[T]): uint64 {.inline.} =
   ## Returns number of slots left in queue ``sq``.
-  if sq.inpSlot > sq.lastSlot:
-    result = sq.debtsCount
-  else:
-    result = sq.lastSlot - sq.inpSlot + 1'u64 - sq.debtsCount
+  case sq.kind
+  of SyncQueueKind.Forward:
+    sq.finalSlot + 1'u64 - sq.outSlot
+  of SyncQueueKind.Backward:
+    sq.outSlot + 1'u64 - sq.finalSlot
 
 proc total*[T](sq: SyncQueue[T]): uint64 {.inline.} =
   ## Returns total number of slots in queue ``sq``.
-  sq.lastSlot - sq.startSlot + 1'u64
+  case sq.kind
+  of SyncQueueKind.Forward:
+    sq.finalSlot + 1'u64 - sq.startSlot
+  of SyncQueueKind.Backward:
+    sq.startSlot + 1'u64 - sq.finalSlot
 
 proc progress*[T](sq: SyncQueue[T]): uint64 =
   ## Returns queue's ``sq`` progress string.
-  let curSlot = sq.outSlot - sq.startSlot
+  let curSlot =
+    case sq.kind
+    of SyncQueueKind.Forward:
+      sq.outSlot - sq.startSlot
+    of SyncQueueKind.Backward:
+      sq.startSlot - sq.outSlot
   (curSlot * 100'u64) div sq.total()
