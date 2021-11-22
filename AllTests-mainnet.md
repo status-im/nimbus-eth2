@@ -71,6 +71,11 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + latest_block_root                                                                          OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Block pool altair processing [Preset: mainnet]
+```diff
++ Invalid signatures [Preset: mainnet]                                                       OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Block pool processing [Preset: mainnet]
 ```diff
 + Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
@@ -165,7 +170,7 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Gossip validation  [Preset: mainnet]
 ```diff
 + Any committee index is valid                                                               OK
-+ Validation sanity                                                                          OK
++ validateAttestation                                                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Gossip validation - Extra
@@ -366,4 +371,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 206/208 Fail: 0/208 Skip: 2/208
+OK: 207/209 Fail: 0/209 Skip: 2/209

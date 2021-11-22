@@ -357,7 +357,9 @@ type
     ## - ProposerSlashing (SignedBeaconBlockHeader)
     ## - AttesterSlashing (IndexedAttestation)
     ## - SignedVoluntaryExits
+    ## - SyncAggregate
     ##
+    ## However:
     ## - ETH1Data (Deposits) can contain invalid BLS signatures
     ##
     ## The block state transition has NOT been verified
@@ -373,7 +375,7 @@ type
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
     # [New in Altair]
-    sync_aggregate*: SyncAggregate # TODO TrustedSyncAggregate after batching
+    sync_aggregate*: TrustedSyncAggregate
 
   SyncnetBits* = BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
 

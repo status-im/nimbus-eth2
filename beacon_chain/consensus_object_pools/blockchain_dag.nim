@@ -151,7 +151,7 @@ func init*(
       finalized_checkpoint: getStateField(state.data, finalized_checkpoint),
       shuffled_active_validator_indices:
         cache.get_shuffled_active_validator_indices(state.data, epoch)
-      )
+    )
 
   for i in 0'u64..<SLOTS_PER_EPOCH:
     epochRef.beacon_proposers[i] = get_beacon_proposer_index(
@@ -547,6 +547,10 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # Fill validator key cache in case we're loading an old database that doesn't
   # have a cache
   dag.updateValidatorKeys(getStateField(dag.headState.data, validators).asSeq())
+
+  withState(dag.headState.data):
+    when stateFork >= BeaconStateFork.Altair:
+      dag.headSyncCommittees = state.data.get_sync_committee_cache(cache)
 
   info "Block dag initialized",
     head = shortLog(headRef),
@@ -1037,8 +1041,8 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     dagPruneDur = Moment.now() - startTick
 
 iterator syncSubcommittee*(
-    syncCommittee: openArray[ValidatorPubKey],
-    subcommitteeIdx: SyncSubcommitteeIndex): ValidatorPubKey =
+    syncCommittee: openArray[ValidatorIndex],
+    subcommitteeIdx: SyncSubcommitteeIndex): ValidatorIndex =
   var
     i = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
     onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
@@ -1060,7 +1064,7 @@ iterator syncSubcommitteePairs*(
     inc i
 
 func syncCommitteeParticipants*(dag: ChainDAGRef,
-                                slot: Slot): seq[ValidatorPubKey] =
+                                slot: Slot): seq[ValidatorIndex] =
   withState(dag.headState.data):
     when stateFork >= BeaconStateFork.Altair:
       let
@@ -1068,28 +1072,25 @@ func syncCommitteeParticipants*(dag: ChainDAGRef,
         curPeriod = sync_committee_period(state.data.slot)
 
       if period  == curPeriod:
-        @(state.data.current_sync_committee.pubkeys.data)
+        @(dag.headSyncCommittees.current_sync_committee)
       elif period == curPeriod + 1:
-        @(state.data.current_sync_committee.pubkeys.data)
+        @(dag.headSyncCommittees.next_sync_committee)
       else: @[]
     else:
       @[]
 
 func getSubcommitteePositionsAux(
     dag: ChainDAGRef,
-    syncCommittee: openarray[ValidatorPubKey],
+    syncCommittee: openArray[ValidatorIndex],
     subcommitteeIdx: SyncSubcommitteeIndex,
     validatorIdx: uint64): seq[uint64] =
-  # TODO Can we avoid the key conversions by getting a compressed key
-  #      out of ImmutableValidatorData2? If we had this, we can define
-  #      the function `dag.validatorKeyBytes` and use it here.
   let validatorKey = dag.validatorKey(validatorIdx)
   if validatorKey.isNone():
     return @[]
   let validatorPubKey = validatorKey.get().toPubKey
 
   for pos, key in toSeq(syncCommittee.syncSubcommittee(subcommitteeIdx)):
-    if validatorPubKey == key:
+    if validatorIdx == uint64(key):
       result.add uint64(pos)
 
 func getSubcommitteePositions*(dag: ChainDAGRef,
@@ -1102,14 +1103,14 @@ func getSubcommitteePositions*(dag: ChainDAGRef,
         period = sync_committee_period(slot)
         curPeriod = sync_committee_period(state.data.slot)
 
-      template search(syncCommittee: openarray[ValidatorPubKey]): seq[uint64] =
+      template search(syncCommittee: openArray[ValidatorIndex]): seq[uint64] =
         dag.getSubcommitteePositionsAux(
           syncCommittee, subcommitteeIdx, validatorIdx)
 
       if period == curPeriod:
-        search(state.data.current_sync_committee.pubkeys.data)
+        search(dag.headSyncCommittees.current_sync_committee)
       elif period == curPeriod + 1:
-        search(state.data.current_sync_committee.pubkeys.data)
+        search(dag.headSyncCommittees.next_sync_committee)
       else: @[]
     else:
       @[]
@@ -1117,16 +1118,16 @@ func getSubcommitteePositions*(dag: ChainDAGRef,
 template syncCommitteeParticipants*(
     dag: ChainDAGRef,
     slot: Slot,
-    subcommitteeIdx: SyncSubcommitteeIndex): seq[ValidatorPubKey] =
+    subcommitteeIdx: SyncSubcommitteeIndex): seq[ValidatorIndex] =
   toSeq(syncSubcommittee(dag.syncCommitteeParticipants(slot), subcommitteeIdx))
 
 iterator syncCommitteeParticipants*(
     dag: ChainDAGRef,
     slot: Slot,
     subcommitteeIdx: SyncSubcommitteeIndex,
-    aggregationBits: SyncCommitteeAggregationBits): ValidatorPubKey =
+    aggregationBits: SyncCommitteeAggregationBits): ValidatorIndex =
   for pos, valIdx in pairs(dag.syncCommitteeParticipants(slot, subcommitteeIdx)):
-    if aggregationBits[pos]:
+    if pos < aggregationBits.bits and aggregationBits[pos]:
       yield valIdx
 
 func needStateCachesAndForkChoicePruning*(dag: ChainDAGRef): bool =
@@ -1206,6 +1207,10 @@ proc updateHead*(
     dag, dag.headState, newHead.atSlot(newHead.slot), false, cache)
 
   dag.db.putHeadBlock(newHead.root)
+
+  withState(dag.headState.data):
+    when stateFork >= BeaconStateFork.Altair:
+      dag.headSyncCommittees = state.data.get_sync_committee_cache(cache)
 
   let
     finalizedHead = newHead.atEpochStart(

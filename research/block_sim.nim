@@ -69,7 +69,6 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     genesisTime = float getStateField(genesisState[], genesis_time)
 
   var
-    validatorKeyToIndex = initTable[ValidatorPubKey, int]()
     cfg = defaultRuntimeConfig
 
   cfg.ALTAIR_FORK_EPOCH = 64.Slot.epoch
@@ -82,10 +81,6 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   ChainDAGRef.preInit(db, genesisState[], genesisState[], genesisBlock)
   putInitialDepositContractSnapshot(db, depositContractSnapshot)
-
-  withState(genesisState[]):
-    for i in 0 ..< state.data.validators.len:
-      validatorKeyToIndex[state.data.validators[i].pubkey] = i
 
   var
     dag = ChainDAGRef.init(cfg, db, {})
@@ -144,7 +139,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     type
       Aggregator = object
         subcommitteeIdx: SyncSubcommitteeIndex
-        validatorIdx: int
+        validatorIdx: ValidatorIndex
         selectionProof: ValidatorSig
 
     let
@@ -159,13 +154,12 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     var aggregators: seq[Aggregator]
 
     for subcommitteeIdx in allSyncSubcommittees():
-      for valKey in syncSubcommittee(syncCommittee, subcommitteeIdx):
+      for validatorIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
         if rand(r, 1.0) > syncCommitteeRatio:
           continue
 
         let
-          validatorIdx = validatorKeyToIndex[valKey]
-          validarorPrivKey = MockPrivKeys[validatorIdx.ValidatorIndex]
+          validarorPrivKey = MockPrivKeys[validatorIdx]
           signature = blsSign(validarorPrivKey, signingRoot.data)
           msg = SyncCommitteeMessage(
             slot: slot,
@@ -390,7 +384,6 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       for i in 0 ..< newDeposits:
         let validatorIdx = merkleizer.getChunkCount.int
         let d = makeDeposit(validatorIdx, {skipBLSValidation})
-        validatorKeyToIndex[d.pubkey] = validatorIdx
         eth1Block.deposits.add d
         merkleizer.addChunk hash_tree_root(d).data
 
