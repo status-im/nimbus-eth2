@@ -62,7 +62,7 @@ type
     opcounter*: uint64
     pending*: Table[uint64, SyncRequest[T]]
     waiters: seq[SyncWaiter[T]]
-    getFinalizedSlot*: GetSlotCallback
+    getSafeSlot*: GetSlotCallback
     debtsQueue: HeapQueue[SyncRequest[T]]
     debtsCount: uint64
     readyQueue: HeapQueue[SyncResult[T]]
@@ -169,7 +169,7 @@ proc isEmpty*[T](sr: SyncRequest[T]): bool {.inline.} =
 proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               queueKind: SyncQueueKind,
               start, final: Slot, chunkSize: uint64,
-              getFinalizedSlotCb: GetSlotCallback,
+              getSafeSlotCb: GetSlotCallback,
               blockProcessor: ref BlockProcessor,
               syncQueueSize: int = -1): SyncQueue[T] =
   ## Create new synchronization queue with parameters
@@ -178,13 +178,9 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
   ##
   ## ``chunkSize`` maximum number of slots in one request.
   ##
-  ## ``syncQueueSize`` maximum queue size for incoming data. If ``syncQueueSize > 0``
-  ## queue will help to keep backpressure under control. If ``syncQueueSize <= 0``
-  ## then queue size is unlimited (default).
-  ##
-  ## ``updateCb`` procedure which will be used to send downloaded blocks to
-  ## consumer. Procedure should return ``false`` only when it receives
-  ## incorrect blocks, and ``true`` if sequence of blocks is correct.
+  ## ``syncQueueSize`` maximum queue size for incoming data.
+  ## If ``syncQueueSize > 0`` queue will help to keep backpressure under
+  ## control. If ``syncQueueSize <= 0`` then queue size is unlimited (default).
 
   # SyncQueue is the core of sync manager, this data structure distributes
   # requests to peers and manages responses from peers.
@@ -230,7 +226,7 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
     finalSlot: final,
     chunkSize: chunkSize,
     queueSize: syncQueueSize,
-    getFinalizedSlot: getFinalizedSlotCb,
+    getSafeSlot: getSafeSlotCb,
     waiters: newSeq[SyncWaiter[T]](),
     counter: 1'u64,
     pending: initTable[uint64, SyncRequest[T]](),
@@ -370,85 +366,94 @@ proc toDebtsQueue[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
   sq.debtsCount = sq.debtsCount + sr.count
 
 proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
-                        finalizedSlot: Slot): Slot =
-  # Calculate the latest finalized epoch.
-  let finalizedEpoch = compute_epoch_at_slot(finalizedSlot)
+                        safeSlot: Slot): Slot =
+  case sq.kind
+  of SyncQueueKind.Forward:
+    # Calculate the latest finalized epoch.
+    let finalizedEpoch = compute_epoch_at_slot(safeSlot)
 
-  # Calculate failure epoch.
-  let failEpoch = compute_epoch_at_slot(failSlot)
+    # Calculate failure epoch.
+    let failEpoch = compute_epoch_at_slot(failSlot)
 
-  # Calculate exponential rewind point in number of epochs.
-  let epochCount =
-    if sq.rewind.isSome():
-      let rewind = sq.rewind.get()
-      if failSlot == rewind.failSlot:
-        # `MissingParent` happened at same slot so we increase rewind point by
-        # factor of 2.
-        if failEpoch > finalizedEpoch:
-          let rewindPoint = rewind.epochCount shl 1
-          if rewindPoint < rewind.epochCount:
-            # If exponential rewind point produces `uint64` overflow we will
-            # make rewind to latest finalized epoch.
-            failEpoch - finalizedEpoch
-          else:
-            if (failEpoch < rewindPoint) or
-               (failEpoch - rewindPoint < finalizedEpoch):
-              # If exponential rewind point points to position which is far
-              # behind latest finalized epoch.
+    # Calculate exponential rewind point in number of epochs.
+    let epochCount =
+      if sq.rewind.isSome():
+        let rewind = sq.rewind.get()
+        if failSlot == rewind.failSlot:
+          # `MissingParent` happened at same slot so we increase rewind point by
+          # factor of 2.
+          if failEpoch > finalizedEpoch:
+            let rewindPoint = rewind.epochCount shl 1
+            if rewindPoint < rewind.epochCount:
+              # If exponential rewind point produces `uint64` overflow we will
+              # make rewind to latest finalized epoch.
               failEpoch - finalizedEpoch
             else:
-              rewindPoint
+              if (failEpoch < rewindPoint) or
+                 (failEpoch - rewindPoint < finalizedEpoch):
+                # If exponential rewind point points to position which is far
+                # behind latest finalized epoch.
+                failEpoch - finalizedEpoch
+              else:
+                rewindPoint
+          else:
+            warn "Trying to rewind over the last finalized epoch",
+                 finalized_slot = safeSlot, fail_slot = failSlot,
+                 finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
+                 rewind_epoch_count = rewind.epochCount,
+                 finalized_epoch = finalizedEpoch
+            0'u64
         else:
-          warn "Trying to rewind over the last finalized epoch",
-               finalized_slot = finalizedSlot, fail_slot = failSlot,
-               finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
-               rewind_epoch_count = rewind.epochCount,
-               finalized_epoch = finalizedEpoch
-          0'u64
+          # `MissingParent` happened at different slot so we going to rewind for
+          # 1 epoch only.
+          if (failEpoch < 1'u64) or (failEpoch - 1'u64 < finalizedEpoch):
+            warn "Сould not rewind further than the last finalized epoch",
+                 finalized_slot = safeSlot, fail_slot = failSlot,
+                 finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
+                 rewind_epoch_count = rewind.epochCount,
+                 finalized_epoch = finalizedEpoch
+            0'u64
+          else:
+            1'u64
       else:
-        # `MissingParent` happened at different slot so we going to rewind for
-        # 1 epoch only.
+        # `MissingParent` happened first time.
         if (failEpoch < 1'u64) or (failEpoch - 1'u64 < finalizedEpoch):
           warn "Сould not rewind further than the last finalized epoch",
-               finalized_slot = finalizedSlot, fail_slot = failSlot,
+               finalized_slot = safeSlot, fail_slot = failSlot,
                finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
-               rewind_epoch_count = rewind.epochCount,
                finalized_epoch = finalizedEpoch
           0'u64
         else:
           1'u64
-    else:
-      # `MissingParent` happened first time.
-      if (failEpoch < 1'u64) or (failEpoch - 1'u64 < finalizedEpoch):
-        warn "Сould not rewind further than the last finalized epoch",
-             finalized_slot = finalizedSlot, fail_slot = failSlot,
-             finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
-             finalized_epoch = finalizedEpoch
-        0'u64
-      else:
-        1'u64
 
-  if epochCount == 0'u64:
-    warn "Unable to continue syncing, please restart the node",
-         finalized_slot = finalizedSlot, fail_slot = failSlot,
-         finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
-         finalized_epoch = finalizedEpoch
-    # Calculate the rewind epoch, which will be equal to last rewind point or
-    # finalizedEpoch
-    let rewindEpoch =
-      if sq.rewind.isNone():
-        finalizedEpoch
-      else:
-        compute_epoch_at_slot(sq.rewind.get().failSlot) -
-          sq.rewind.get().epochCount
-    compute_start_slot_at_epoch(rewindEpoch)
-  else:
-    # Calculate the rewind epoch, which should not be less than the latest
-    # finalized epoch.
-    let rewindEpoch = failEpoch - epochCount
-    # Update and save new rewind point in SyncQueue.
-    sq.rewind = some(RewindPoint(failSlot: failSlot, epochCount: epochCount))
-    compute_start_slot_at_epoch(rewindEpoch)
+    if epochCount == 0'u64:
+      warn "Unable to continue syncing, please restart the node",
+           finalized_slot = safeSlot, fail_slot = failSlot,
+           finalized_epoch = finalizedEpoch, fail_epoch = failEpoch,
+           finalized_epoch = finalizedEpoch
+      # Calculate the rewind epoch, which will be equal to last rewind point or
+      # finalizedEpoch
+      let rewindEpoch =
+        if sq.rewind.isNone():
+          finalizedEpoch
+        else:
+          compute_epoch_at_slot(sq.rewind.get().failSlot) -
+            sq.rewind.get().epochCount
+      compute_start_slot_at_epoch(rewindEpoch)
+    else:
+      # Calculate the rewind epoch, which should not be less than the latest
+      # finalized epoch.
+      let rewindEpoch = failEpoch - epochCount
+      # Update and save new rewind point in SyncQueue.
+      sq.rewind = some(RewindPoint(failSlot: failSlot, epochCount: epochCount))
+      compute_start_slot_at_epoch(rewindEpoch)
+  of SyncQueueKind.Backward:
+    # While we perform backward sync, the only possible slot we could rewind is
+    # latest stored block.
+    if failSlot == safeSlot:
+      warn "Unable to continue syncing, please restart the node",
+           safe_slot = safeSlot, fail_slot = failSlot
+    safeSlot
 
 iterator blocks*[T](sq: SyncQueue[T],
                     sr: SyncResult[T]): ForkedSignedBeaconBlock =
@@ -531,7 +536,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       if reqres.isSome():
         reqres.get()
       else:
-        let rewindSlot = sq.getRewindPoint(sq.outSlot, sq.getFinalizedSlot())
+        let rewindSlot = sq.getRewindPoint(sq.outSlot, sq.getSafeSlot())
         warn "Got incorrect sync result in queue, rewind happens",
              request_slot = sq.readyQueue[0].request.slot,
              request_count = sq.readyQueue[0].request.count,
@@ -585,27 +590,49 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         # If we got `BlockError.MissingParent` it means that peer returns chain
         # of blocks with holes or `block_pool` is in incomplete state. We going
         # to rewind to the first slot at latest finalized epoch.
-        let req = item.request
-        let finalizedSlot = sq.getFinalizedSlot()
-        if finalizedSlot < req.slot:
-          let rewindSlot = sq.getRewindPoint(failSlot.get(), finalizedSlot)
-          warn "Unexpected missing parent, rewind happens",
-               peer = req.item, rewind_to_slot = rewindSlot,
-               rewind_epoch_count = sq.rewind.get().epochCount,
-               rewind_fail_slot = failSlot.get(),
-               finalized_slot = finalized_slot,
-               request_slot = req.slot, request_count = req.count,
-               request_step = req.step, blocks_count = len(item.data),
-               blocks_map = getShortMap(req, item.data), topics = "syncman"
-          resetSlot = some(rewindSlot)
-          req.item.updateScore(PeerScoreMissingBlocks)
-        else:
-          error "Unexpected missing parent at finalized epoch slot",
-                peer = req.item, to_slot = finalizedSlot,
-                request_slot = req.slot, request_count = req.count,
-                request_step = req.step, blocks_count = len(item.data),
-                blocks_map = getShortMap(req, item.data), topics = "syncman"
-          req.item.updateScore(PeerScoreBadBlocks)
+        let
+          req = item.request
+          safeSlot = sq.getSafeSlot()
+        case sq.kind
+        of SyncQueueKind.Forward:
+          if safeSlot < req.slot:
+            let rewindSlot = sq.getRewindPoint(failSlot.get(), safeSlot)
+            warn "Unexpected missing parent, rewind happens",
+                 peer = req.item, rewind_to_slot = rewindSlot,
+                 rewind_epoch_count = sq.rewind.get().epochCount,
+                 rewind_fail_slot = failSlot.get(),
+                 finalized_slot = safeSlot,
+                 request_slot = req.slot, request_count = req.count,
+                 request_step = req.step, blocks_count = len(item.data),
+                 blocks_map = getShortMap(req, item.data), topics = "syncman"
+            resetSlot = some(rewindSlot)
+            req.item.updateScore(PeerScoreMissingBlocks)
+          else:
+            error "Unexpected missing parent at finalized epoch slot",
+                  peer = req.item, to_slot = safeSlot,
+                  request_slot = req.slot, request_count = req.count,
+                  request_step = req.step, blocks_count = len(item.data),
+                  blocks_map = getShortMap(req, item.data), topics = "syncman"
+            req.item.updateScore(PeerScoreBadBlocks)
+        of SyncQueueKind.Backward:
+          if safeSlot > req.slot:
+            let rewindSlot = sq.getRewindPoint(failSlot.get(), safeSlot)
+            warn "Unexpected missing parent, rewind happens",
+                 peer = req.item, rewind_to_slot = rewindSlot,
+                 rewind_fail_slot = failSlot.get(),
+                 finalized_slot = safeSlot,
+                 request_slot = req.slot, request_count = req.count,
+                 request_step = req.step, blocks_count = len(item.data),
+                 blocks_map = getShortMap(req, item.data), topics = "syncman"
+            resetSlot = some(rewindSlot)
+            req.item.updateScore(PeerScoreMissingBlocks)
+          else:
+            error "Unexpected missing parent at safe slot",
+                  peer = req.item, to_slot = safeSlot,
+                  request_slot = req.slot, request_count = req.count,
+                  request_step = req.step, blocks_count = len(item.data),
+                  blocks_map = getShortMap(req, item.data), topics = "syncman"
+            req.item.updateScore(PeerScoreBadBlocks)
       elif res.error == BlockError.Invalid:
         let req = item.request
         warn "Received invalid sequence of blocks", peer = req.item,
