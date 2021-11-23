@@ -1340,7 +1340,8 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
   let rpcClient = newRpcHttpClient()
 
   try:
-    await connect(rpcClient, config.rpcUrlForExit.hostname, port)
+    await connect(rpcClient, config.rpcUrlForExit.hostname, port,
+                  secure = config.rpcUrlForExit.scheme in ["https", "wss"])
   except CatchableError as err:
     fatal "Failed to connect to the beacon node RPC service", err = err.msg
     quit 1
