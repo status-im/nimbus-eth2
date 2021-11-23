@@ -220,7 +220,7 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
   # To fix "joker" problem we going to perform rollback to the latest finalized
   # epoch's first slot.
   doAssert(chunkSize > 0'u64, "Chunk size should not be zero")
-  result = SyncQueue[T](
+  SyncQueue[T](
     kind: queueKind,
     startSlot: start,
     finalSlot: final,
@@ -292,7 +292,8 @@ proc waitForChanges[T](sq: SyncQueue[T],
   let waititem = SyncWaiter[T](future: waitfut, request: req)
   sq.waiters.add(waititem)
   try:
-    result = await waitfut
+    let res = await waitfut
+    return res
   finally:
     sq.waiters.delete(sq.waiters.find(waititem))
 
@@ -326,15 +327,23 @@ proc resetWait*[T](sq: SyncQueue[T], toSlot: Option[Slot]) {.async.} =
   # Queue's `outSlot` is the lowest slot we added to `block_pool`, but
   # `toSlot` slot can be less then `outSlot`. `debtsQueue` holds only not
   # added slot requests, so it can't be bigger then `outSlot` value.
-  var minSlot = sq.outSlot
-  if toSlot.isSome():
-    minSlot = min(toSlot.get(), sq.outSlot)
+  let minSlot =
+    case sq.kind
+    of SyncQueueKind.Forward:
+      if toSlot.isSome():
+        min(toSlot.get(), sq.outSlot)
+      else:
+        sq.outSlot
+    of SyncQueueKind.Backward:
+      if toSlot.isSome():
+        max(toSlot.get(), sq.outSlot)
+      else:
+        sq.outSlot
   sq.debtsQueue.clear()
   sq.debtsCount = 0
   sq.readyQueue.clear()
   sq.inpSlot = minSlot
   sq.outSlot = minSlot
-
   # We are going to wakeup all the waiters and wait for last one.
   await sq.wakeupAndWaitWaiters()
 
@@ -342,24 +351,6 @@ proc isEmpty*[T](sr: SyncResult[T]): bool {.inline.} =
   ## Returns ``true`` if response chain of blocks is empty (has only empty
   ## slots).
   len(sr.data) == 0
-
-proc hasEndGap*[T](sr: SyncResult[T]): bool {.inline.} =
-  ## Returns ``true`` if response chain of blocks has gap at the end.
-  let lastslot = sr.request.slot + sr.request.count - 1'u64
-  if len(sr.data) == 0:
-    return true
-  if sr.data[^1].slot != lastslot:
-    return true
-  return false
-
-proc getLastNonEmptySlot*[T](sr: SyncResult[T]): Slot {.inline.} =
-  ## Returns last non-empty slot from result ``sr``. If response has only
-  ## empty slots, original request slot will be returned.
-  if len(sr.data) == 0:
-    # If response has only empty slots we going to use original request slot
-    sr.request.slot
-  else:
-    sr.data[^1].slot
 
 proc toDebtsQueue[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
   sq.debtsQueue.push(sr)
