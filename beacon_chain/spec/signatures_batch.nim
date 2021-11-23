@@ -415,6 +415,8 @@ proc collectSignatureSets*(
             DOMAIN_VOLUNTARY_EXIT)
 
   block:
+    # 7. SyncAggregate
+    # ----------------------------------------------------
     withState(state):
       when stateFork >= BeaconStateFork.Altair and
           (signed_block is altair.SignedBeaconBlock or
