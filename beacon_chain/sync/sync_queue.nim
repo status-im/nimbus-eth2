@@ -670,11 +670,17 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       sq.toDebtsQueue(item.request)
       if resetSlot.isSome():
         await sq.resetWait(resetSlot)
-        debug "Rewind to slot was happened", reset_slot = reset_slot.get(),
-              queue_input_slot = sq.inpSlot, queue_output_slot = sq.outSlot,
-              rewind_epoch_count = sq.rewind.get().epochCount,
-              rewind_fail_slot = sq.rewind.get().failSlot,
-              reset_slot = resetSlot, topics = "syncman"
+        case sq.kind
+        of SyncQueueKind.Forward:
+          debug "Rewind to slot was happened", reset_slot = reset_slot.get(),
+                queue_input_slot = sq.inpSlot, queue_output_slot = sq.outSlot,
+                rewind_epoch_count = sq.rewind.get().epochCount,
+                rewind_fail_slot = sq.rewind.get().failSlot,
+                reset_slot = resetSlot, topics = "syncman"
+        of SyncQueueKind.Backward:
+          debug "Rewind to slot was happened", reset_slot = reset_slot.get(),
+                queue_input_slot = sq.inpSlot, queue_output_slot = sq.outSlot,
+                reset_slot = resetSlot, topics = "syncman"
       break
 
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
