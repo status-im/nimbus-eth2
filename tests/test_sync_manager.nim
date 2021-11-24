@@ -20,6 +20,9 @@ proc updateScore(peer: SomeTPeer, score: int) =
 proc getFirstSlotAtFinalizedEpoch(): Slot =
   Slot(0)
 
+proc getSafeSlot(): Slot =
+  Slot(1024)
+
 proc newBlockProcessor(): ref BlockProcessor =
   # Minimal block processor for test - the real block processor has an unbounded
   # queue but the tests here
@@ -31,18 +34,19 @@ suite "SyncManager test suite":
   proc createChain(start, finish: Slot): seq[ForkedSignedBeaconBlock] =
     doAssert(start <= finish)
     let count = int(finish - start + 1'u64)
-    result = newSeq[ForkedSignedBeaconBlock](count)
+    var res = newSeq[ForkedSignedBeaconBlock](count)
     var curslot = start
-    for item in result.mitems():
+    for item in res.mitems():
       item.phase0Data.message.slot = curslot
       curslot = curslot + 1'u64
+    res
 
-  proc getSlice(chain: openarray[ForkedSignedBeaconBlock],
+  proc getSlice(chain: openarray[ForkedSignedBeaconBlock], startSlot: Slot,
                 request: SyncRequest[SomeTPeer]): seq[ForkedSignedBeaconBlock] =
     let
-      start = int(request.slot)
-      finish = int(request.slot) + int(request.count) - 1
-    @chain[start..finish]
+      startIndex = int(request.slot - startSlot)
+      finishIndex = int(request.slot - startSlot) + int(request.count) - 1
+    @chain[startIndex..finishIndex]
 
   template startAndFinishSlotsEqual(kind: SyncQueueKind) =
     let p1 = SomeTPeer()
@@ -227,16 +231,17 @@ suite "SyncManager test suite":
         r21.slot == Slot(1) and r21.count == 1'u64 and r21.step == 1'u64
         r22.slot == Slot(0) and r22.count == 1'u64 and r22.step == 1'u64
 
-  template smokeTest(kkind: SyncQueueKind) =
+  template smokeTest(kkind: SyncQueueKind, start, finish: Slot,
+                     chunkSize: uint64) =
     let
       aq = newBlockProcessor()
-      maxSlot = Slot(1024)
+
     var counter =
       case kkind
       of SyncQueueKind.Forward:
-        0
+        int(start)
       of SyncQueueKind.Backward:
-        int(maxSlot)
+        int(finish)
 
     proc backwardValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
       while true:
@@ -261,13 +266,13 @@ suite "SyncManager test suite":
         case kkind
         of SyncQueueKind.Forward:
           SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                         Slot(0), maxSlot, 61'u64,
+                         start, finish, chunkSize,
                          getFirstSlotAtFinalizedEpoch, aq)
         of SyncQueueKind.Backward:
           SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
-                         maxSlot, Slot(0), 61'u64,
+                         finish, start, chunkSize,
                          getFirstSlotAtFinalizedEpoch, aq)
-      chain = createChain(Slot(0), maxSlot)
+      chain = createChain(start, finish)
       validatorFut =
         case kkind
         of SyncQueueKind.Forward:
@@ -279,12 +284,116 @@ suite "SyncManager test suite":
 
     proc runSmokeTest() {.async.} =
       while true:
-        var request = queue.pop(maxSlot, p1)
+        var request = queue.pop(finish, p1)
         if request.isEmpty():
           break
-        await queue.push(request, getSlice(chain, request))
+        await queue.push(request, getSlice(chain, start, request))
+      await validatorFut.cancelAndWait()
 
     waitFor runSmokeTest()
+    case kkind
+    of SyncQueueKind.Forward:
+      check (counter - 1) == int(finish)
+    of SyncQueueKind.Backward:
+      check (counter + 1) == int(start)
+
+  template unorderedAsyncTest(kkind: SyncQueueKind, startSlot: Slot) =
+    let
+      aq = newBlockProcessor()
+      chunkSize = 3'u64
+      numberOfChunks = 3'u64
+      finishSlot = Slot(startSlot + numberOfChunks * chunkSize - 1'u64)
+      queueSize = 1
+
+    var counter =
+      case kkind
+      of SyncQueueKind.Forward:
+        int(startSlot)
+      of SyncQueueKind.Backward:
+        int(finishSlot)
+
+    proc backwardValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
+      while true:
+        let sblock = await aq.popFirst()
+        if sblock.blck.slot == Slot(counter):
+          sblock.done()
+        else:
+          sblock.fail(BlockError.Invalid)
+        dec(counter)
+
+    proc forwardValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
+      while true:
+        let sblock = await aq.popFirst()
+        if sblock.blck.slot == Slot(counter):
+          inc(counter)
+          sblock.done()
+        else:
+          sblock.fail(BlockError.Invalid)
+
+    var
+      chain = createChain(startSlot, finishSlot)
+      queue =
+        case kkind
+        of SyncQueueKind.Forward:
+          SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
+                         startSlot, finishSlot, chunkSize,
+                         getFirstSlotAtFinalizedEpoch, aq,
+                         queueSize)
+        of SyncQueueKind.Backward:
+          SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
+                         finishSlot, startSlot, chunkSize,
+                         getFirstSlotAtFinalizedEpoch, aq,
+                         queueSize)
+      validatorFut =
+        case kkind
+        of SyncQueueKind.Forward:
+          forwardValidator(aq[].blocksQueue)
+        of SyncQueueKind.Backward:
+          backwardValidator(aq[].blocksQueue)
+
+    let
+      p1 = SomeTPeer()
+      p2 = SomeTPeer()
+      p3 = SomeTPeer()
+
+    proc runTest(): Future[bool] {.async.} =
+      var r11 = queue.pop(finishSlot, p1)
+      var r12 = queue.pop(finishSlot, p2)
+      var r13 = queue.pop(finishSlot, p3)
+
+      var f13 = queue.push(r13, chain.getSlice(startSlot, r13))
+      await sleepAsync(100.milliseconds)
+      check:
+        f13.finished == false
+        case kkind
+        of SyncQueueKind.Forward: counter == int(startSlot)
+        of SyncQueueKind.Backward: counter == int(finishSlot)
+
+      var f11 = queue.push(r11, chain.getSlice(startSlot, r11))
+      await sleepAsync(100.milliseconds)
+      check:
+        case kkind
+        of SyncQueueKind.Forward: counter == int(startSlot + chunkSize)
+        of SyncQueueKind.Backward: counter == int(finishSlot - chunkSize)
+        f11.finished == true and f11.failed == false
+        f13.finished == false
+
+      var f12 = queue.push(r12, chain.getSlice(startSlot, r12))
+      await sleepAsync(100.milliseconds)
+      check:
+        f12.finished == true and f12.failed == false
+        f13.finished == true and f13.failed == false
+      check:
+        case kkind
+        of SyncQueueKind.Forward: counter == int(finishSlot) + 1
+        of SyncQueueKind.Backward: counter == int(startSlot) - 1
+        r11.item == p1
+        r12.item == p2
+        r13.item == p3
+      await validatorFut.cancelAndWait()
+      return true
+
+    check waitFor(runTest()) == true
 
   for k in {SyncQueueKind.Forward, SyncQueueKind.Backward}:
     let prefix = "[SyncQueue#" & $k & "] "
@@ -299,343 +408,260 @@ suite "SyncManager test suite":
       twoFullRequests(k)
 
     test prefix & "Smoke test":
-      smokeTest(k)
+      const SmokeTests = [
+        (Slot(0), Slot(547), 61'u64),
+        (Slot(193), Slot(389), 79'u64),
+        (Slot(1181), Slot(1399), 41'u64)
+      ]
+      for item in SmokeTests:
+        smokeTest(k, item[0], item[1], item[2])
 
+    test prefix & "Async unordered push test":
+      const UnorderedTests = [
+        Slot(0), Slot(100)
+      ]
+      for item in UnorderedTests:
+        unorderedAsyncTest(k, item)
 
-  # test "[SyncQueue] Full and incomplete success/fail start from zero":
-  #   let aq = newBlockProcessor()
-  #   var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-  #                              Slot(0), Slot(4), 2'u64,
-  #                              getFirstSlotAtFinalizedEpoch, aq)
-  #   let p1 = SomeTPeer()
-  #   let p2 = SomeTPeer()
-  #   let p3 = SomeTPeer()
-  #   check len(queue) == 5
-  #   var r31 = queue.pop(Slot(4), p1)
-  #   check len(queue) == 3
-  #   var r32 = queue.pop(Slot(4), p2)
-  #   check len(queue) == 1
-  #   var r33 = queue.pop(Slot(4), p3)
-  #   check len(queue) == 0
-  #   queue.push(r33)
-  #   check len(queue) == 1
-  #   queue.push(r32)
-  #   check len(queue) == 3
-  #   queue.push(r31)
-  #   check len(queue) == 5
-  #   var r31e = queue.pop(Slot(4), p1)
-  #   check len(queue) == 3
-  #   var r32e = queue.pop(Slot(4), p2)
-  #   check len(queue) == 1
-  #   var r33e = queue.pop(Slot(4), p3)
-  #   check:
-  #     len(queue) == 0
-  #     r31 == r31e
-  #     r32 == r32e
-  #     r33 == r33e
-  #     r31.item == r31e.item
-  #     r32.item == r32e.item
-  #     r33.item == r33e.item
-  #     r31.item == p1
-  #     r32.item == p2
-  #     r33.item == p3
-  #     r31.slot == Slot(0) and r31.count == 2'u64 and r31.step == 1'u64
-  #     r32.slot == Slot(2) and r32.count == 2'u64 and r32.step == 1'u64
-  #     r33.slot == Slot(4) and r33.count == 1'u64 and r33.step == 1'u64
+  test "[SyncQueue#Forward] Async unordered push with rewind test":
+    let
+      aq = newBlockProcessor()
+      startSlot = Slot(0)
+      chunkSize = SLOTS_PER_EPOCH
+      numberOfChunks = 4'u64
+      finishSlot = Slot(startSlot + numberOfChunks * chunkSize - 1'u64)
+      queueSize = 1
 
-  # test "[SyncQueue] Full and incomplete success/fail start from non-zero":
-  #   let aq = newBlockProcessor()
-  #   var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-  #                              Slot(1), Slot(5), 3'u64,
-  #                              getFirstSlotAtFinalizedEpoch, aq)
-  #   let p1 = SomeTPeer()
-  #   let p2 = SomeTPeer()
-  #   check len(queue) == 5
-  #   var r41 = queue.pop(Slot(5), p1)
-  #   check len(queue) == 2
-  #   var r42 = queue.pop(Slot(5), p2)
-  #   check len(queue) == 0
-  #   queue.push(r42)
-  #   check len(queue) == 2
-  #   queue.push(r41)
-  #   check len(queue) == 5
-  #   var r41e = queue.pop(Slot(5), p1)
-  #   check len(queue) == 2
-  #   var r42e = queue.pop(Slot(5), p2)
-  #   check:
-  #     len(queue) == 0
-  #     r41 == r41e
-  #     r42 == r42e
-  #     r41.item == r41e.item
-  #     r42.item == r42e.item
-  #     r41.item == p1
-  #     r42.item == p2
-  #     r41.slot == Slot(1) and r41.count == 3'u64 and r41.step == 1'u64
-  #     r42.slot == Slot(4) and r42.count == 2'u64 and r42.step == 1'u64
+    var counter = int(startSlot)
 
-  # test "[SyncQueue] Smart and stupid success/fail":
-  #   let aq = newBlockProcessor()
-  #   var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-  #                              Slot(0), Slot(4), 5'u64,
-  #                              getFirstSlotAtFinalizedEpoch, aq)
-  #   let p1 = SomeTPeer()
-  #   let p2 = SomeTPeer()
-  #   check len(queue) == 5
-  #   var r51 = queue.pop(Slot(3), p1)
-  #   check len(queue) == 1
-  #   var r52 = queue.pop(Slot(4), p2)
-  #   check len(queue) == 0
-  #   queue.push(r52)
-  #   check len(queue) == 1
-  #   queue.push(r51)
-  #   check len(queue) == 5
-  #   var r51e = queue.pop(Slot(3), p1)
-  #   check len(queue) == 1
-  #   var r52e = queue.pop(Slot(4), p2)
-  #   check:
-  #     len(queue) == 0
-  #     r51 == r51e
-  #     r52 == r52e
-  #     r51.item == r51e.item
-  #     r52.item == r52e.item
-  #     r51.item == p1
-  #     r52.item == p2
-  #     r51.slot == Slot(0) and r51.count == 4'u64 and r51.step == 1'u64
-  #     r52.slot == Slot(4) and r52.count == 1'u64 and r52.step == 1'u64
+    proc forwardValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
+      while true:
+        let sblock = await aq.popFirst()
+        if sblock.blck.slot == Slot(counter):
+          withBlck(sblock.blck):
+            if blck.message.proposer_index == 0xDEADBEAF'u64:
+              sblock.fail(BlockError.MissingParent)
+            else:
+              inc(counter)
+              sblock.done()
+        else:
+          sblock.fail(BlockError.Invalid)
 
-  # test "[SyncQueue] One smart and one stupid + debt split + empty":
-  #   let aq = newBlockProcessor()
-  #   var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-  #                              Slot(0), Slot(4), 5'u64,
-  #                              getFirstSlotAtFinalizedEpoch, aq)
-  #   let p1 = SomeTPeer()
-  #   let p2 = SomeTPeer()
-  #   let p3 = SomeTPeer()
-  #   let p4 = SomeTPeer()
-  #   check len(queue) == 5
-  #   var r61 = queue.pop(Slot(4), p1)
-  #   check len(queue) == 0
-  #   queue.push(r61)
-  #   var r61e = queue.pop(Slot(2), p1)
-  #   check len(queue) == 2
-  #   var r62e = queue.pop(Slot(2), p2)
-  #   check len(queue) == 2
-  #   check r62e.isEmpty()
-  #   var r63e = queue.pop(Slot(3), p3)
-  #   check len(queue) == 1
-  #   var r64e = queue.pop(Slot(4), p4)
-  #   check:
-  #     len(queue) == 0
-  #     r61.slot == Slot(0) and r61.count == 5'u64 and r61.step == 1'u64
-  #     r61e.slot == Slot(0) and r61e.count == 3'u64 and r61e.step == 1'u64
-  #     r62e.isEmpty()
-  #     r63e.slot == Slot(3) and r63e.count == 1'u64 and r63e.step == 1'u64
-  #     r64e.slot == Slot(4) and r64e.count == 1'u64 and r64e.step == 1'u64
-  #     r61.item == p1
-  #     r61e.item == p1
-  #     isNil(r62e.item) == true
-  #     r63e.item == p3
-  #     r64e.item == p4
+    var
+      chain = createChain(startSlot, finishSlot)
+      queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
+                             startSlot, finishSlot, chunkSize,
+                             getFirstSlotAtFinalizedEpoch, aq,
+                             queueSize)
+      validatorFut = forwardValidator(aq[].blocksQueue)
 
-  # test "[SyncQueue] Async unordered push start from zero":
-  #   proc test(): Future[bool] {.async.} =
-  #     var counter = 0
+    let
+      p1 = SomeTPeer()
+      p2 = SomeTPeer()
+      p3 = SomeTPeer()
+      p4 = SomeTPeer()
+      p5 = SomeTPeer()
+      p6 = SomeTPeer()
+      p7 = SomeTPeer()
+      p8 = SomeTPeer()
 
-  #     proc simpleValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
-  #       while true:
-  #         let sblock = await aq.popFirst()
-  #         if sblock.blck.slot == Slot(counter):
-  #           inc(counter)
-  #           sblock.done()
-  #         else:
-  #           sblock.fail(BlockError.Invalid)
+    proc runTest(): Future[bool] {.async.} =
+      var r11 = queue.pop(finishSlot, p1)
+      var r12 = queue.pop(finishSlot, p2)
+      var r13 = queue.pop(finishSlot, p3)
+      var r14 = queue.pop(finishSlot, p4)
 
-  #     let aq = newBlockProcessor()
-  #     var chain = createChain(Slot(0), Slot(2))
-  #     var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-  #                                Slot(0), Slot(2), 1'u64,
-  #                                getFirstSlotAtFinalizedEpoch, aq, 1)
+      var f14 = queue.push(r14, chain.getSlice(startSlot, r14))
+      await sleepAsync(100.milliseconds)
+      check:
+        f14.finished == false
+        counter == int(startSlot)
 
-  #     var validatorFut = simpleValidator(aq[].blocksQueue)
-  #     let p1 = SomeTPeer()
-  #     let p2 = SomeTPeer()
-  #     let p3 = SomeTPeer()
-  #     var r11 = queue.pop(Slot(2), p1)
-  #     var r12 = queue.pop(Slot(2), p2)
-  #     var r13 = queue.pop(Slot(2), p3)
-  #     var f13 = queue.push(r13, @[chain[2]])
-  #     #
-  #     await sleepAsync(100.milliseconds)
-  #     # doAssert(f12.finished == false)
-  #     doAssert(f13.finished == false)
-  #     doAssert(counter == 0)
-  #     var f11 = queue.push(r11, @[chain[0]])
-  #     await sleepAsync(100.milliseconds)
-  #     doAssert(counter == 1)
-  #     doAssert(f11.finished == true and f11.failed == false)
-  #     var f12 = queue.push(r12, @[chain[1]])
-  #     await sleepAsync(100.milliseconds)
-  #     doAssert(f12.finished == true and f12.failed == false)
-  #     doAssert(f13.finished == true and f13.failed == false)
-  #     doAssert(counter == 3)
-  #     doAssert(r11.item == p1)
-  #     doAssert(r12.item == p2)
-  #     doAssert(r13.item == p3)
+      var f12 = queue.push(r12, chain.getSlice(startSlot, r12))
+      await sleepAsync(100.milliseconds)
+      check:
+        counter == int(startSlot)
+        f12.finished == false
+        f14.finished == false
 
-  #     await validatorFut.cancelAndWait()
-  #     result = true
+      var f11 = queue.push(r11, chain.getSlice(startSlot, r11))
+      await sleepAsync(100.milliseconds)
+      check:
+        counter == int(startSlot + chunkSize + chunkSize)
+        f11.finished == true and f11.failed == false
+        f12.finished == true and f12.failed == false
+        f14.finished == false
 
-  #   check waitFor(test())
+      var missingSlice = chain.getSlice(startSlot, r13)
+      withBlck(missingSlice[0]):
+        blck.message.proposer_index = 0xDEADBEAF'u64
+      var f13 = queue.push(r13, missingSlice)
+      await sleepAsync(100.milliseconds)
+      check:
+        f11.finished == true and f11.failed == false
+        f12.finished == true and f12.failed == false
+        f13.finished == true and f13.failed == false
+        f14.finished == true and f14.failed == false
+        queue.inpSlot == Slot(SLOTS_PER_EPOCH)
+        queue.outSlot == Slot(SLOTS_PER_EPOCH)
+        queue.debtLen == 0
 
-  # test "[SyncQueue] Async unordered push with not full start from non-zero":
-  #   proc test(): Future[bool] {.async.} =
-  #     var counter = 5
+      # Recovery process
+      counter = int(SLOTS_PER_EPOCH)
 
-  #     proc simpleValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
-  #       while true:
-  #         let sblock = await aq.popFirst()
-  #         if sblock.blck.slot == Slot(counter):
-  #           inc(counter)
-  #           sblock.done()
-  #         else:
-  #           sblock.fail(BlockError.Invalid)
+      var r15 = queue.pop(finishSlot, p5)
+      var r16 = queue.pop(finishSlot, p6)
+      var r17 = queue.pop(finishSlot, p7)
+      var r18 = queue.pop(finishSlot, p8)
 
-  #     let aq = newBlockProcessor()
-  #     var chain = createChain(Slot(5), Slot(11))
-  #     var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-  #                                Slot(5), Slot(11), 2'u64,
-  #                                getFirstSlotAtFinalizedEpoch, aq, 2)
+      check r18.isEmpty() == true
 
-  #     let p1 = SomeTPeer()
-  #     let p2 = SomeTPeer()
-  #     let p3 = SomeTPeer()
-  #     let p4 = SomeTPeer()
+      var f17 = queue.push(r17, chain.getSlice(startSlot, r17))
+      await sleepAsync(100.milliseconds)
+      check f17.finished == false
 
-  #     var validatorFut = simpleValidator(aq[].blocksQueue)
+      var f16 = queue.push(r16, chain.getSlice(startSlot, r16))
+      await sleepAsync(100.milliseconds)
+      check f16.finished == false
 
-  #     var r21 = queue.pop(Slot(11), p1)
-  #     var r22 = queue.pop(Slot(11), p2)
-  #     var r23 = queue.pop(Slot(11), p3)
-  #     var r24 = queue.pop(Slot(11), p4)
+      var f15 = queue.push(r15, chain.getSlice(startSlot, r15))
+      await sleepAsync(100.milliseconds)
+      check:
+        f15.finished == true and f15.failed == false
+        f16.finished == true and f16.failed == false
+        f17.finished == true and f17.failed == false
+        counter == int(finishSlot) + 1
 
-  #     var f24 = queue.push(r24, @[chain[6]])
-  #     var f22 = queue.push(r22, @[chain[2], chain[3]])
-  #     doAssert(f24.finished == false)
-  #     doAssert(f22.finished == true and f22.failed == false)
-  #     doAssert(counter == 5)
-  #     var f21 = queue.push(r21, @[chain[0], chain[1]])
-  #     await sleepAsync(100.milliseconds)
-  #     doAssert(f21.finished == true and f21.failed == false)
-  #     doAssert(f24.finished == true and f24.failed == false)
-  #     doAssert(counter == 9)
-  #     var f23 = queue.push(r23, @[chain[4], chain[5]])
-  #     await sleepAsync(100.milliseconds)
-  #     doAssert(f23.finished == true and f23.failed == false)
-  #     doAssert(counter == 12)
-  #     doAssert(counter == 12)
-  #     doAssert(r21.item == p1)
-  #     doAssert(r22.item == p2)
-  #     doAssert(r23.item == p3)
-  #     doAssert(r24.item == p4)
+      await validatorFut.cancelAndWait()
+      return true
 
-  #     await validatorFut.cancelAndWait()
-  #     result = true
+    check waitFor(runTest()) == true
 
-  #   check waitFor(test())
+  test "[SyncQueue#Backward] Async unordered push with rewind test":
+    let
+      aq = newBlockProcessor()
+      startSlot = Slot(0)
+      chunkSize = SLOTS_PER_EPOCH
+      numberOfChunks = 4'u64
+      finishSlot = Slot(startSlot + numberOfChunks * chunkSize - 1'u64)
+      queueSize = 1
 
-  # test "[SyncQueue] Async pending and resetWait() test":
-  #   proc test(): Future[bool] {.async.} =
-  #     var counter = 5
+    var
+      lastSafeSlot: Slot
+      counter = int(finishSlot)
 
-  #     proc simpleValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
-  #       while true:
-  #         let sblock = await aq.popFirst()
-  #         if sblock.blck.slot == Slot(counter):
-  #           inc(counter)
-  #           sblock.done()
-  #         else:
-  #           sblock.fail(BlockError.Invalid)
+    proc getSafeSlot(): Slot =
+      lastSafeSlot
 
-  #     let aq = newBlockProcessor()
-  #     var chain = createChain(Slot(5), Slot(18))
-  #     var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-  #                                Slot(5), Slot(18), 2'u64,
-  #                                getFirstSlotAtFinalizedEpoch, aq, 2)
-  #     let p1 = SomeTPeer()
-  #     let p2 = SomeTPeer()
-  #     let p3 = SomeTPeer()
-  #     let p4 = SomeTPeer()
-  #     let p5 = SomeTPeer()
-  #     let p6 = SomeTPeer()
-  #     let p7 = SomeTPeer()
+    proc backwardValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
+      while true:
+        let sblock = await aq.popFirst()
+        if sblock.blck.slot == Slot(counter):
+          withBlck(sblock.blck):
+            if blck.message.proposer_index == 0xDEADBEAF'u64:
+              sblock.fail(BlockError.MissingParent)
+            else:
+              lastSafeSlot = sblock.blck.slot
+              dec(counter)
+              sblock.done()
+        else:
+          sblock.fail(BlockError.Invalid)
 
-  #     var validatorFut = simpleValidator(aq[].blocksQueue)
+    var
+      chain = createChain(startSlot, finishSlot)
+      queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
+                             finishSlot, startSlot, chunkSize,
+                             getSafeSlot, aq, queueSize)
+      validatorFut = backwardValidator(aq[].blocksQueue)
 
-  #     var r21 = queue.pop(Slot(20), p1)
-  #     var r22 = queue.pop(Slot(20), p2)
-  #     var r23 = queue.pop(Slot(20), p3)
-  #     var r24 = queue.pop(Slot(20), p4)
-  #     var r25 = queue.pop(Slot(20), p5)
-  #     var r26 = queue.pop(Slot(20), p6)
-  #     var r27 = queue.pop(Slot(20), p7)
+    let
+      p1 = SomeTPeer()
+      p2 = SomeTPeer()
+      p3 = SomeTPeer()
+      p4 = SomeTPeer()
+      p5 = SomeTPeer()
+      p6 = SomeTPeer()
+      p7 = SomeTPeer()
 
-  #     var f21 = queue.push(r21, @[chain[0], chain[1]])
-  #     # This should be silently ignored, because r21 is already processed.
-  #     var e21 = queue.push(r21, @[chain[0], chain[1]])
-  #     queue.push(r22)
-  #     queue.push(r23)
-  #     var f26 = queue.push(r26, @[chain[10], chain[11]])
-  #     var f27 = queue.push(r27, @[chain[12], chain[13]])
+    proc runTest(): Future[bool] {.async.} =
+      var r11 = queue.pop(finishSlot, p1)
+      var r12 = queue.pop(finishSlot, p2)
+      var r13 = queue.pop(finishSlot, p3)
+      var r14 = queue.pop(finishSlot, p4)
 
-  #     await sleepAsync(100.milliseconds)
-  #     doAssert(f21.finished == true and f21.failed == false)
-  #     doAssert(e21.finished == true and e21.failed == false)
-  #     doAssert(f26.finished == false)
-  #     doAssert(f27.finished == false)
-  #     await queue.resetWait(none[Slot]())
-  #     await sleepAsync(100.milliseconds)
-  #     doAssert(f26.finished == true and f26.failed == false)
-  #     doAssert(f27.finished == true and f27.failed == false)
-  #     doAssert(queue.inpSlot == Slot(7) and queue.outSlot == Slot(7))
-  #     doAssert(counter == 7)
-  #     doAssert(len(queue) == 12)
-  #     # This should be silently ignored, because r21 is already processed.
-  #     var o21 = queue.push(r21, @[chain[0], chain[1]])
-  #     var o22 = queue.push(r22, @[chain[2], chain[3]])
-  #     queue.push(r23)
-  #     queue.push(r24)
-  #     var o25 = queue.push(r25, @[chain[8], chain[9]])
-  #     var o26 = queue.push(r26, @[chain[10], chain[11]])
-  #     var o27 = queue.push(r27, @[chain[12], chain[13]])
-  #     await sleepAsync(100.milliseconds)
-  #     doAssert(o21.finished == true and o21.failed == false)
-  #     doAssert(o22.finished == true and o22.failed == false)
-  #     doAssert(o25.finished == true and o25.failed == false)
-  #     doAssert(o26.finished == true and o26.failed == false)
-  #     doAssert(o27.finished == true and o27.failed == false)
-  #     doAssert(len(queue) == 12)
+      var f14 = queue.push(r14, chain.getSlice(startSlot, r14))
+      await sleepAsync(100.milliseconds)
+      check:
+        f14.finished == false
+        counter == int(finishSlot)
 
-  #     await validatorFut.cancelAndWait()
-  #     result = true
+      var f12 = queue.push(r12, chain.getSlice(startSlot, r12))
+      await sleepAsync(100.milliseconds)
+      check:
+        counter == int(finishSlot)
+        f12.finished == false
+        f14.finished == false
 
-  #   check waitFor(test())
+      var f11 = queue.push(r11, chain.getSlice(startSlot, r11))
+      await sleepAsync(100.milliseconds)
+      check:
+        counter == int(finishSlot - chunkSize - chunkSize)
+        f11.finished == true and f11.failed == false
+        f12.finished == true and f12.failed == false
+        f14.finished == false
 
-  # test "[SyncQueue] hasEndGap() test":
-  #   let chain1 = createChain(Slot(1), Slot(1))
-  #   let chain2 = newSeq[ForkedSignedBeaconBlock]()
+      var missingSlice = chain.getSlice(startSlot, r13)
+      withBlck(missingSlice[0]):
+        blck.message.proposer_index = 0xDEADBEAF'u64
+      var f13 = queue.push(r13, missingSlice)
+      await sleepAsync(100.milliseconds)
+      check:
+        f11.finished == true and f11.failed == false
+        f12.finished == true and f12.failed == false
+        f13.finished == true and f13.failed == false
+        f14.finished == true and f14.failed == false
 
-  #   for counter in countdown(32'u64, 2'u64):
-  #     let req = SyncRequest[SomeTPeer](slot: Slot(1), count: counter,
-  #                                     step: 1'u64)
-  #     let sr = SyncResult[SomeTPeer](request: req, data: chain1)
-  #     check sr.hasEndGap() == true
+      # Recovery process
+      counter = int(SLOTS_PER_EPOCH) + 1
 
-  #   let req = SyncRequest[SomeTPeer](slot: Slot(1), count: 1'u64, step: 1'u64)
-  #   let sr1 = SyncResult[SomeTPeer](request: req, data: chain1)
-  #   let sr2 = SyncResult[SomeTPeer](request: req, data: chain2)
-  #   check:
-  #     sr1.hasEndGap() == false
-  #     sr2.hasEndGap() == true
+      var r15 = queue.pop(finishSlot, p5)
+      var r16 = queue.pop(finishSlot, p6)
+      var r17 = queue.pop(finishSlot, p7)
+
+      check r17.isEmpty() == true
+
+      var f16 = queue.push(r16, chain.getSlice(startSlot, r16))
+      await sleepAsync(100.milliseconds)
+      check f16.finished == false
+
+      var f15 = queue.push(r15, chain.getSlice(startSlot, r15))
+      await sleepAsync(100.milliseconds)
+      check:
+        f15.finished == true and f15.failed == false
+        f16.finished == true and f16.failed == false
+        counter == int(startSlot) - 1
+
+      await validatorFut.cancelAndWait()
+      return true
+
+    check waitFor(runTest()) == true
+
+  test "[SyncQueue] hasEndGap() test":
+    let chain1 = createChain(Slot(1), Slot(1))
+    let chain2 = newSeq[ForkedSignedBeaconBlock]()
+
+    for counter in countdown(32'u64, 2'u64):
+      let req = SyncRequest[SomeTPeer](slot: Slot(1), count: counter,
+                                      step: 1'u64)
+      let sr = SyncResult[SomeTPeer](request: req, data: chain1)
+      check sr.hasEndGap() == true
+
+    let req = SyncRequest[SomeTPeer](slot: Slot(1), count: 1'u64, step: 1'u64)
+    let sr1 = SyncResult[SomeTPeer](request: req, data: chain1)
+    let sr2 = SyncResult[SomeTPeer](request: req, data: chain2)
+    check:
+      sr1.hasEndGap() == false
+      sr2.hasEndGap() == true
 
   test "[SyncQueue] getLastNonEmptySlot() test":
     let chain1 = createChain(Slot(10), Slot(10))
@@ -744,59 +770,69 @@ suite "SyncManager test suite":
       checkResponse(r22, @[chain[4]]) == false
       checkResponse(r22, @[chain[3], chain[1]]) == false
 
-  # test "[SyncQueue] getRewindPoint() test":
-  #   let aq = newBlockProcessor()
-  #   block:
-  #     var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-  #                                Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-  #                                1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
-  #     let finalizedSlot = compute_start_slot_at_epoch(Epoch(0'u64))
-  #     let startSlot = compute_start_slot_at_epoch(Epoch(0'u64)) + 1'u64
-  #     let finishSlot = compute_start_slot_at_epoch(Epoch(2'u64))
+  test "[SyncQueue#Forward] getRewindPoint() test":
+    let aq = newBlockProcessor()
+    block:
+      var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
+                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                                 1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
+      let finalizedSlot = compute_start_slot_at_epoch(Epoch(0'u64))
+      let startSlot = compute_start_slot_at_epoch(Epoch(0'u64)) + 1'u64
+      let finishSlot = compute_start_slot_at_epoch(Epoch(2'u64))
 
-  #     for i in uint64(startSlot) ..< uint64(finishSlot):
-  #       check queue.getRewindPoint(Slot(i), finalizedSlot) == finalizedSlot
+      for i in uint64(startSlot) ..< uint64(finishSlot):
+        check queue.getRewindPoint(Slot(i), finalizedSlot) == finalizedSlot
 
-  #   block:
-  #     var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-  #                                Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-  #                                1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
-  #     let finalizedSlot = compute_start_slot_at_epoch(Epoch(1'u64))
-  #     let startSlot = compute_start_slot_at_epoch(Epoch(1'u64)) + 1'u64
-  #     let finishSlot = compute_start_slot_at_epoch(Epoch(3'u64))
+    block:
+      var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
+                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                                 1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
+      let finalizedSlot = compute_start_slot_at_epoch(Epoch(1'u64))
+      let startSlot = compute_start_slot_at_epoch(Epoch(1'u64)) + 1'u64
+      let finishSlot = compute_start_slot_at_epoch(Epoch(3'u64))
 
-  #     for i in uint64(startSlot) ..< uint64(finishSlot) :
-  #       check queue.getRewindPoint(Slot(i), finalizedSlot) == finalizedSlot
+      for i in uint64(startSlot) ..< uint64(finishSlot) :
+        check queue.getRewindPoint(Slot(i), finalizedSlot) == finalizedSlot
 
-  #   block:
-  #     var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-  #                                Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-  #                                1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
-  #     let finalizedSlot = compute_start_slot_at_epoch(Epoch(0'u64))
-  #     let failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
-  #     let failEpoch = compute_epoch_at_slot(failSlot)
+    block:
+      var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
+                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                                 1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
+      let finalizedSlot = compute_start_slot_at_epoch(Epoch(0'u64))
+      let failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
+      let failEpoch = compute_epoch_at_slot(failSlot)
 
-  #     var counter = 1'u64
-  #     for i in 0 ..< 64:
-  #       if counter >= failEpoch:
-  #         break
-  #       let rewindEpoch = failEpoch - counter
-  #       let rewindSlot = compute_start_slot_at_epoch(rewindEpoch)
-  #       check queue.getRewindPoint(failSlot, finalizedSlot) == rewindSlot
-  #       counter = counter shl 1
+      var counter = 1'u64
+      for i in 0 ..< 64:
+        if counter >= failEpoch:
+          break
+        let rewindEpoch = failEpoch - counter
+        let rewindSlot = compute_start_slot_at_epoch(rewindEpoch)
+        check queue.getRewindPoint(failSlot, finalizedSlot) == rewindSlot
+        counter = counter shl 1
 
-  #   block:
-  #     var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-  #                                Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-  #                                1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
-  #     let finalizedSlot = compute_start_slot_at_epoch(Epoch(1'u64))
-  #     let failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
-  #     let failEpoch = compute_epoch_at_slot(failSlot)
-  #     var counter = 1'u64
-  #     for i in 0 ..< 64:
-  #       if counter >= failEpoch:
-  #         break
-  #       let rewindEpoch = failEpoch - counter
-  #       let rewindSlot = compute_start_slot_at_epoch(rewindEpoch)
-  #       check queue.getRewindPoint(failSlot, finalizedSlot) == rewindSlot
-  #       counter = counter shl 1
+    block:
+      var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
+                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                                 1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
+      let finalizedSlot = compute_start_slot_at_epoch(Epoch(1'u64))
+      let failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
+      let failEpoch = compute_epoch_at_slot(failSlot)
+      var counter = 1'u64
+      for i in 0 ..< 64:
+        if counter >= failEpoch:
+          break
+        let rewindEpoch = failEpoch - counter
+        let rewindSlot = compute_start_slot_at_epoch(rewindEpoch)
+        check queue.getRewindPoint(failSlot, finalizedSlot) == rewindSlot
+        counter = counter shl 1
+
+  test "[SyncQueue#Backward] getRewindPoint() test":
+    let aq = newBlockProcessor()
+    block:
+      var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
+                                 Slot(1024), Slot(0),
+                                 1'u64, getSafeSlot, aq, 2)
+      let safeSlot = getSafeSlot()
+      for i in countdown(1023, 0):
+        check queue.getRewindPoint(Slot(i), safeSlot) == safeSlot

@@ -336,7 +336,7 @@ proc resetWait*[T](sq: SyncQueue[T], toSlot: Option[Slot]) {.async.} =
         sq.outSlot
     of SyncQueueKind.Backward:
       if toSlot.isSome():
-        max(toSlot.get(), sq.outSlot)
+        toSlot.get()
       else:
         sq.outSlot
   sq.debtsQueue.clear()
@@ -351,6 +351,24 @@ proc isEmpty*[T](sr: SyncResult[T]): bool {.inline.} =
   ## Returns ``true`` if response chain of blocks is empty (has only empty
   ## slots).
   len(sr.data) == 0
+
+proc hasEndGap*[T](sr: SyncResult[T]): bool {.inline.} =
+  ## Returns ``true`` if response chain of blocks has gap at the end.
+  let lastslot = sr.request.slot + sr.request.count - 1'u64
+  if len(sr.data) == 0:
+    return true
+  if sr.data[^1].slot != lastslot:
+    return true
+  return false
+
+proc getLastNonEmptySlot*[T](sr: SyncResult[T]): Slot {.inline.} =
+  ## Returns last non-empty slot from result ``sr``. If response has only
+  ## empty slots, original request slot will be returned.
+  if len(sr.data) == 0:
+    # If response has only empty slots we going to use original request slot
+    sr.request.slot
+  else:
+    sr.data[^1].slot
 
 proc toDebtsQueue[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
   sq.debtsQueue.push(sr)
@@ -470,6 +488,15 @@ proc advanceInput[T](sq: SyncQueue[T], number: uint64) =
   of SyncQueueKind.Backward:
     sq.inpSlot = sq.inpSlot - number
 
+proc notInRange[T](sq: SyncQueue[T], slot: Slot): bool =
+  case sq.kind
+  of SyncQueueKind.Forward:
+    (sq.queueSize > 0) and
+    (slot >= sq.outSlot + uint64(sq.queueSize) * sq.chunkSize)
+  of SyncQueueKind.Backward:
+    (sq.queueSize > 0) and
+    (uint64(sq.queueSize) * sq.chunkSize <= sq.outSlot - slot)
+
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               data: seq[ForkedSignedBeaconBlock]) {.async, gcsafe.} =
   ## Push successful result to queue ``sq``.
@@ -489,8 +516,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
   # [current_queue_slot, current_queue_slot + sq.queueSize * sq.chunkSize].
   var exitNow = false
   while true:
-    if (sq.queueSize > 0) and
-       (sr.slot >= sq.outSlot + uint64(sq.queueSize) * sq.chunkSize):
+    if sq.notInRange(sr.slot):
       let res = await sq.waitForChanges(sr)
       if res:
         continue
