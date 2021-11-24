@@ -184,21 +184,21 @@ when hasGenesisDetection:
   func isGenesisCandidate(m: Eth1Monitor, blk: Eth1Block): bool =
     m.hasEnoughValidators(blk) and m.isAfterMinGenesisTime(blk)
 
-  proc findGenesisBlockInRange(m: Eth1Monitor, startBlock, endBlock: Eth1Block):
+  func findGenesisBlockInRange(m: Eth1Monitor, startBlock, endBlock: Eth1Block):
                                Future[Eth1Block] {.async, gcsafe.}
 
-  proc signalGenesis(m: Eth1Monitor, genesisState: BeaconStateRef) =
+  func signalGenesis(m: Eth1Monitor, genesisState: BeaconStateRef) =
     m.genesisState = genesisState
 
     if not m.genesisStateFut.isNil:
       m.genesisStateFut.complete()
       m.genesisStateFut = nil
 
-  proc allGenesisDepositsUpTo(m: Eth1Monitor, totalDeposits: uint64): seq[DepositData] =
+  func allGenesisDepositsUpTo(m: Eth1Monitor, totalDeposits: uint64): seq[DepositData] =
     for i in 0'u64 ..< totalDeposits:
       result.add m.db.genesisDeposits.get(i)
 
-  proc createGenesisState(m: Eth1Monitor, eth1Block: Eth1Block): BeaconStateRef =
+  func createGenesisState(m: Eth1Monitor, eth1Block: Eth1Block): BeaconStateRef =
     notice "Generating genesis state",
       blockNum = eth1Block.number,
       blockHash = eth1Block.voteData.block_hash,
@@ -217,7 +217,7 @@ when hasGenesisDetection:
     if eth1Block.activeValidatorsCount != 0:
       doAssert result.validators.lenu64 == eth1Block.activeValidatorsCount
 
-  proc produceDerivedData(m: Eth1Monitor, deposit: DepositData) =
+  func produceDerivedData(m: Eth1Monitor, deposit: DepositData) =
     let htr = hash_tree_root(deposit)
 
     if verify_deposit_signature(m.cfg, deposit):
@@ -229,7 +229,7 @@ when hasGenesisDetection:
           withdrawal_credentials: deposit.withdrawal_credentials)
         m.genesisValidatorKeyToIndex[pubkey] = idx
 
-  proc processGenesisDeposit*(m: Eth1Monitor, newDeposit: DepositData) =
+  func processGenesisDeposit*(m: Eth1Monitor, newDeposit: DepositData) =
     m.db.genesisDeposits.add newDeposit
     m.produceDerivedData(newDeposit)
 
@@ -448,7 +448,7 @@ template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped
 template init[N: static int](T: type DynamicBytes[N, N]): T =
   T newSeq[byte](N)
 
-proc depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] {.
+func depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] {.
     raises: [Defect, CatchableError].} =
   if depositsList.kind != JArray:
     raise newException(CatchableError,
@@ -519,7 +519,7 @@ when hasDepositRootChecks:
     awaitWithTimeout(fut, timeout):
       raise newException(DataProviderTimeout, "Timeout")
 
-  proc fetchDepositContractData(p: Web3DataProviderRef, blk: Eth1Block):
+  func fetchDepositContractData(p: Web3DataProviderRef, blk: Eth1Block):
                                 Future[DepositContractDataStatus] {.async.} =
     let
       depositRoot = p.ns.get_deposit_root.call(blockNumber = blk.number)
@@ -612,7 +612,7 @@ proc pruneOldBlocks(chain: var Eth1Chain, depositIndex: uint64) =
            newTailBlock = lastBlock.voteData.block_hash,
            depositsCount = lastBlock.voteData.deposit_count
 
-proc advanceMerkleizer(chain: Eth1Chain,
+func advanceMerkleizer(chain: Eth1Chain,
                        merkleizer: var DepositsMerkleizer,
                        depositIndex: uint64): bool =
   if chain.blocks.len == 0:
@@ -638,7 +638,7 @@ proc advanceMerkleizer(chain: Eth1Chain,
 
   return merkleizer.getChunkCount == depositIndex
 
-proc getDepositsRange(chain: Eth1Chain, first, last: uint64): seq[DepositData] =
+func getDepositsRange(chain: Eth1Chain, first, last: uint64): seq[DepositData] =
   # TODO It's possible to make this faster by performing binary search that
   #      will locate the blocks holding the `first` and `last` indices.
   # TODO There is an assumption here that the requested range will be present
@@ -657,7 +657,7 @@ proc getDepositsRange(chain: Eth1Chain, first, last: uint64): seq[DepositData] =
       if globalIdx >= first and globalIdx < last:
         result.add blk.deposits[i]
 
-proc lowerBound(chain: Eth1Chain, depositCount: uint64): Eth1Block =
+func lowerBound(chain: Eth1Chain, depositCount: uint64): Eth1Block =
   # TODO: This can be replaced with a proper binary search in the
   #       future, but the `algorithm` module currently requires an
   #       `openArray`, which the `deques` module can't provide yet.
@@ -845,7 +845,7 @@ proc safeCancel(fut: var Future[void]) =
     fut.cancel()
   fut = nil
 
-proc clear(chain: var Eth1Chain) =
+func clear(chain: var Eth1Chain) =
   chain.blocks.clear()
   chain.blocksByHash.clear()
   chain.hasConsensusViolation = false
@@ -872,7 +872,7 @@ proc stop*(m: Eth1Monitor) {.async.} =
 const
   votedBlocksSafetyMargin = 50
 
-proc earliestBlockOfInterest(m: Eth1Monitor): Eth1BlockNumber =
+func earliestBlockOfInterest(m: Eth1Monitor): Eth1BlockNumber =
   m.latestEth1BlockNumber - (2 * m.cfg.ETH1_FOLLOW_DISTANCE) - votedBlocksSafetyMargin
 
 

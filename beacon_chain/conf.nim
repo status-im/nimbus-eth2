@@ -33,6 +33,7 @@ const
   # Maybe there should be a config option for this.
   defaultListenAddress* = (static ValidIpAddress.init("0.0.0.0"))
   defaultAdminListenAddress* = (static ValidIpAddress.init("127.0.0.1"))
+  defaultTerminalTotalDifficultyOverride* = high(uint64)
 
 type
   BNStartUpCmd* = enum
@@ -354,6 +355,14 @@ type
         defaultValue: MaxEmptySlotCount
         defaultValueDesc: "50"
         name: "sync-horizon" }: uint64
+
+      # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/client-settings.md#override-terminal-total-difficulty
+      terminalTotalDifficultyOverride* {.
+        hidden
+        desc: "Override pre-configured TERMINAL_TOTAL_DIFFICULTY parameter"
+        defaultValue: defaultTerminalTotalDifficultyOverride
+        name: "terminal-total-difficulty-override"
+      }: uint64
 
     of createTestnet:
       testnetDepositsFile* {.
