@@ -406,7 +406,7 @@ proc voluntaryExitValidator*(
 
   v
 
-proc syncCommitteeMsgValidator*(
+proc syncCommitteeMessageValidator*(
     self: ref Eth2Processor,
     syncCommitteeMsg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex,
@@ -432,7 +432,7 @@ proc syncCommitteeMsgValidator*(
     trace "Sync committee message validated"
     let (positions, cookedSig) = v.get()
 
-    self.syncCommitteeMsgPool[].addSyncCommitteeMsg(
+    self.syncCommitteeMsgPool[].addSyncCommitteeMessage(
       syncCommitteeMsg.slot,
       syncCommitteeMsg.beacon_block_root,
       syncCommitteeMsg.validator_index,
@@ -448,7 +448,7 @@ proc syncCommitteeMsgValidator*(
     beacon_sync_committee_messages_dropped.inc(1, [$v.error[0]])
     err(v.error())
 
-proc syncCommitteeContributionValidator*(
+proc contributionValidator*(
     self: ref Eth2Processor,
     contributionAndProof: SignedContributionAndProof,
     checkSignature: bool = true): Result[void, ValidationError] =
@@ -468,14 +468,13 @@ proc syncCommitteeContributionValidator*(
   debug "Contribution received", delay
 
   # Now proceed to validation
-  let v = validateSignedContributionAndProof(self.dag,
-                                             self.syncCommitteeMsgPool[],
-                                             contributionAndProof, wallTime,
-                                             checkSignature)
+  let v = validateContribution(
+    self.dag, self.syncCommitteeMsgPool[], contributionAndProof, wallTime,
+    checkSignature)
 
   return if v.isOk():
     trace "Contribution validated"
-    self.syncCommitteeMsgPool[].addSyncContribution(contributionAndProof, v.get)
+    self.syncCommitteeMsgPool[].addContribution(contributionAndProof, v.get)
     beacon_sync_committee_contributions_received.inc()
 
     ok()

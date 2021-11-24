@@ -244,14 +244,14 @@ type
 
   EpochInfo* = object
     ## Information about the outcome of epoch processing
-    statuses*: seq[RewardStatus]
-    total_balances*: TotalBalances
+    validators*: seq[RewardStatus]
+    balances*: TotalBalances
 
 chronicles.formatIt BeaconBlock: it.shortLog
 
 func clear*(info: var EpochInfo) =
-  info.statuses.setLen(0)
-  info.total_balances = TotalBalances()
+  info.validators.setLen(0)
+  info.balances = TotalBalances()
 
 Json.useCustomSerialization(BeaconState.justification_bits):
   read:

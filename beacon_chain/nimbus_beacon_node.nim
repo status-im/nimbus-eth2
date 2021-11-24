@@ -1059,13 +1059,13 @@ proc installMessageValidators(node: BeaconNode) =
           # This proc needs to be within closureScope; don't lift out of loop.
           proc(msg: SyncCommitteeMessage): ValidationResult =
             toValidationResult(
-              node.processor.syncCommitteeMsgValidator(msg, idx)))
+              node.processor.syncCommitteeMessageValidator(msg, idx)))
 
     node.network.addValidator(
       getSyncCommitteeContributionAndProofTopic(digest),
       proc(msg: SignedContributionAndProof): ValidationResult =
         toValidationResult(
-          node.processor.syncCommitteeContributionValidator(msg)))
+          node.processor.contributionValidator(msg)))
 
   installSyncCommitteeeValidators(node.dag.forkDigests.altair)
   installSyncCommitteeeValidators(node.dag.forkDigests.merge)

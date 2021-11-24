@@ -178,7 +178,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
         let (positions, cookedSig) = res.get()
 
-        syncCommitteePool[].addSyncCommitteeMsg(
+        syncCommitteePool[].addSyncCommitteeMessage(
           msg.slot,
           msg.beacon_block_root,
           msg.validator_index,
@@ -221,7 +221,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             message: contributionAndProof,
             signature: blsSign(validarorPrivKey, signingRoot.data).toValidatorSig)
 
-          res = dag.validateSignedContributionAndProof(
+          res = dag.validateContribution(
             syncCommitteePool[],
             signedContributionAndProof,
             contributionsTime,
@@ -229,8 +229,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
         doAssert res.isOk
 
-        syncCommitteePool[].addSyncContribution(
-          signedContributionAndProof, res.get)
+        syncCommitteePool[].addContribution(
+          signedContributionAndProof, res.get())
 
   proc getNewBlock[T](
       stateData: var StateData, slot: Slot, cache: var StateCache): T =

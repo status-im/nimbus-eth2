@@ -61,7 +61,7 @@ proc runTest(rewardsDir, identifier: string) =
       info.init(state[])
       info.process_attestations(state[], cache)
       let
-        total_balance = info.total_balances.current_epoch
+        total_balance = info.balances.current_epoch
         total_balance_sqrt = integer_squareroot(total_balance)
 
       var
@@ -71,7 +71,7 @@ proc runTest(rewardsDir, identifier: string) =
         inclusionDelayDeltas2 = Deltas.init(state[].validators.len)
         inactivityPenaltyDeltas2 = Deltas.init(state[].validators.len)
 
-      for index, validator in info.statuses.mpairs():
+      for index, validator in info.validators.mpairs():
         if not is_eligible_validator(validator):
           continue
 
@@ -80,11 +80,11 @@ proc runTest(rewardsDir, identifier: string) =
             state[], index.ValidatorIndex, total_balance_sqrt)
 
         sourceDeltas2.add(index, get_source_delta(
-          validator, base_reward, info.total_balances, finality_delay))
+          validator, base_reward, info.balances, finality_delay))
         targetDeltas2.add(index, get_target_delta(
-          validator, base_reward, info.total_balances, finality_delay))
+          validator, base_reward, info.balances, finality_delay))
         headDeltas2.add(index, get_head_delta(
-          validator, base_reward, info.total_balances, finality_delay))
+          validator, base_reward, info.balances, finality_delay))
 
         let
           (inclusion_delay_delta, proposer_delta) =

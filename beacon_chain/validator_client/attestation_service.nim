@@ -49,7 +49,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
   debug "Sending attestation", attestation = shortLog(attestation),
         validator = shortLog(validator), validator_index = vindex,
         attestation_root = shortLog(attestationRoot),
-        delay = vc.getDelay(seconds(int64(SECONDS_PER_SLOT) div 3))
+        delay = vc.getDelay(attestationSlotOffset)
 
   let res =
     try:
@@ -68,7 +68,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
             err_name = exc.name, err_msg = exc.msg
       return false
 
-  let delay = vc.getDelay(seconds(int64(SECONDS_PER_SLOT) div 3))
+  let delay = vc.getDelay(attestationSlotOffset)
   if res:
     notice "Attestation published", attestation = shortLog(attestation),
                                     validator = shortLog(validator),
@@ -103,7 +103,7 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
         attestation = shortLog(signedProof.message.aggregate),
         validator = shortLog(validator), validator_index = vindex,
         aggregationSlot = aggregationSlot,
-        delay = vc.getDelay(seconds((int64(SECONDS_PER_SLOT) div 3) * 2))
+        delay = vc.getDelay(aggregateSlotOffset)
 
   let res =
     try:
@@ -185,7 +185,7 @@ proc produceAndPublishAttestations*(service: AttestationServiceRef,
           inc(errored)
       (succeed, errored, failed)
 
-  let delay = vc.getDelay(seconds(int64(SECONDS_PER_SLOT) div 3))
+  let delay = vc.getDelay(attestationSlotOffset)
   debug "Attestation statistics", total = len(pendingAttestations),
          succeed = statistics[0], failed_to_deliver = statistics[1],
          not_accepted = statistics[2], delay = delay, slot = slot,
@@ -273,7 +273,7 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
             inc(errored)
         (succeed, errored, failed)
 
-    let delay = vc.getDelay(seconds((int64(SECONDS_PER_SLOT) div 3) * 2))
+    let delay = vc.getDelay(aggregateSlotOffset)
     debug "Aggregated attestation statistics", total = len(pendingAggregates),
           succeed = statistics[0], failed_to_deliver = statistics[1],
           not_accepted = statistics[2], delay = delay, slot = slot,
@@ -291,7 +291,7 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
   # Waiting for blocks to be published before attesting.
   let startTime = Moment.now()
   try:
-    let timeout = seconds(int64(SECONDS_PER_SLOT) div 3) # 4.seconds in mainnet
+    let timeout = attestationSlotOffset # 4.seconds in mainnet
     await vc.waitForBlockPublished(slot).wait(timeout)
     let dur = Moment.now() - startTime
     debug "Block proposal awaited", slot = slot, duration = dur
@@ -300,7 +300,7 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
     debug "Block was not produced in time", slot = slot, duration = dur
 
   block:
-    let delay = vc.getDelay(seconds(int64(SECONDS_PER_SLOT) div 3))
+    let delay = vc.getDelay(attestationSlotOffset)
     debug "Producing attestations", delay = delay, slot = slot,
                                     committee_index = committee_index,
                                     duties_count = len(duties)
@@ -325,7 +325,7 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
     await sleepAsync(aggregateTime)
 
   block:
-    let delay = vc.getDelay(seconds((int64(SECONDS_PER_SLOT) div 3) * 2))
+    let delay = vc.getDelay(aggregateSlotOffset)
     debug "Producing aggregate and proofs", delay = delay
   await service.produceAndPublishAggregates(ad, duties)
 
@@ -350,7 +350,7 @@ proc mainLoop(service: AttestationServiceRef) {.async.} =
   try:
     while true:
       let sleepTime = vc.beaconClock.durationToNextSlot() +
-                        seconds(int64(SECONDS_PER_SLOT) div 3)
+                        attestationSlotOffset
       let sres = vc.getCurrentSlot()
       if sres.isSome():
         let currentSlot = sres.get()

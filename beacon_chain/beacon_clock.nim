@@ -35,6 +35,18 @@ type
 
   GetBeaconTimeFn* = proc(): BeaconTime {.gcsafe, raises: [Defect].}
 
+const
+  # Offsets from the start of the slot to when the corresponding message should
+  # be sent
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#attesting
+  attestationSlotOffset* = seconds(SECONDS_PER_SLOT.int) div 3
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#broadcast-aggregate
+  aggregateSlotOffset* = seconds(SECONDS_PER_SLOT.int) * 2 div 3
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/validator.md#prepare-sync-committee-message
+  syncCommitteeMessageSlotOffset* = seconds(SECONDS_PER_SLOT.int) div 3
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/validator.md#broadcast-sync-committee-contribution
+  syncContributionSlotOffset* = seconds(SECONDS_PER_SLOT.int) * 2 div 3
+
 proc init*(T: type BeaconClock, genesis_time: uint64): T =
   # ~290 billion years into the future
   doAssert genesis_time <= high(int64).uint64

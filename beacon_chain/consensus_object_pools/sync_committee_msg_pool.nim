@@ -96,7 +96,7 @@ func isSeen*(
     subcommitteeIndex: subcommitteeIndex.uint64)
   seenKey in pool.seenSyncMsgByAuthor
 
-func addSyncCommitteeMsg*(
+func addSyncCommitteeMessage*(
     pool: var SyncCommitteeMsgPool,
     slot: Slot,
     blockRoot: Eth2Digest,
@@ -187,7 +187,7 @@ func isSeen*(
     subcommitteeIndex: msg.contribution.subcommittee_index)
   seenKey in pool.seenContributionByAuthor
 
-proc addSyncContribution(pool: var SyncCommitteeMsgPool,
+proc addContribution(pool: var SyncCommitteeMsgPool,
                          aggregator_index: uint64,
                          contribution: SyncCommitteeContribution,
                          signature: CookedSig) =
@@ -217,10 +217,10 @@ proc addSyncContribution(pool: var SyncCommitteeMsgPool,
     except KeyError:
       raiseAssert "We have checked for the key upfront"
 
-proc addSyncContribution*(pool: var SyncCommitteeMsgPool,
+proc addContribution*(pool: var SyncCommitteeMsgPool,
                           scproof: SignedContributionAndProof,
                           signature: CookedSig) =
-  pool.addSyncContribution(
+  pool.addContribution(
     scproof.message.aggregator_index, scproof.message.contribution, signature)
 
   if not(isNil(pool.onContributionReceived)):
