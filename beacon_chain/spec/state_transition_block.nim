@@ -434,19 +434,18 @@ proc process_sync_aggregate*(
   # Verify sync committee aggregate signature signing over the previous slot
   # block root
   let
-    committee_pubkeys = state.current_sync_committee.pubkeys
     previous_slot = max(state.slot, Slot(1)) - 1
     domain = get_domain(state, DOMAIN_SYNC_COMMITTEE, compute_epoch_at_slot(previous_slot))
     signing_root = compute_signing_root(get_block_root_at_slot(state, previous_slot), domain)
 
   when aggregate.sync_committee_signature isnot TrustedSig:
     var participant_pubkeys: seq[ValidatorPubKey]
-    for i in 0 ..< committee_pubkeys.len:
+    for i in 0 ..< state.current_sync_committee.pubkeys.len:
       if aggregate.sync_committee_bits[i]:
-        participant_pubkeys.add committee_pubkeys[i]
+        participant_pubkeys.add state.current_sync_committee.pubkeys[i]
 
-  # p2p-interface message validators check for empty sync committees, so it
-  # shouldn't run except as part of test suite.
+    # p2p-interface message validators check for empty sync committees, so it
+    # shouldn't run except as part of test suite.
     if participant_pubkeys.len == 0 and
         aggregate.sync_committee_signature != default(CookedSig).toValidatorSig():
       return err("process_sync_aggregate: empty sync aggregates need signature of point at infinity")
@@ -474,22 +473,13 @@ proc process_sync_aggregate*(
     return err("process_sync_aggregate: no proposer")
 
   # Apply participant and proposer rewards
-
-  # stand-in to be replaced
-  # TODO obviously not viable as written
-  # TODO also, this could use the pubkey -> index map that's been approached a couple places
-  let s = toHashSet(state.current_sync_committee.pubkeys.data)  # TODO leaking abstraction
-  var pubkeyIndices: Table[ValidatorPubKey, ValidatorIndex]
-  for i, v in state.validators:
-    if v.pubkey in s:
-      pubkeyIndices[v.pubkey] = i.ValidatorIndex
+  let indices = get_sync_committee_cache(state, cache).current_sync_committee
 
   # TODO could use a sequtils2 zipIt
   for i in 0 ..< min(
     state.current_sync_committee.pubkeys.len,
     aggregate.sync_committee_bits.len):
-    let participant_index =
-      pubkeyIndices.getOrDefault(state.current_sync_committee.pubkeys.data[i])
+    let participant_index = indices[i]
     if aggregate.sync_committee_bits[i]:
       increase_balance(state, participant_index, participant_reward)
       increase_balance(state, proposer_index.get, proposer_reward)

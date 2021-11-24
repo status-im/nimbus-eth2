@@ -14,7 +14,7 @@ import
   stew/assign2,
   eth/keys, taskpools,
   ../beacon_chain/spec/datatypes/base,
-  ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
+  ../beacon_chain/spec/[beaconstate, forks, helpers, signatures, state_transition],
   ../beacon_chain/[beacon_chain_db],
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, block_quarantine, block_clearance],
@@ -22,6 +22,10 @@ import
 
 func `$`(x: BlockRef): string =
   $x.root
+
+const
+  nilPhase0Callback = OnPhase0BlockAdded(nil)
+  nilAltairCallback = OnAltairBlockAdded(nil)
 
 proc pruneAtFinalization(dag: ChainDAGRef) =
   if dag.needStateCachesAndForkChoicePruning():
@@ -121,7 +125,6 @@ suite "Block pool processing" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
       taskpool = Taskpool.new()
       quarantine = QuarantineRef.init(keys.newRng(), taskpool)
-      nilPhase0Callback: OnPhase0BlockAdded
       state = newClone(dag.headState.data)
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -340,7 +343,84 @@ suite "Block pool processing" & preset():
       tmpState.blck == b1Add[].parent
       getStateField(tmpState.data, slot) == bs1.parent.slot
 
-const nilPhase0Callback = OnPhase0BlockAdded(nil)
+suite "Block pool altair processing" & preset():
+  setup:
+    var
+      cfg = defaultRuntimeConfig
+    cfg.ALTAIR_FORK_EPOCH = Epoch(1)
+
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      dag = init(ChainDAGRef, cfg, db, {})
+      taskpool = Taskpool.new()
+      quarantine = QuarantineRef.init(keys.newRng(), taskpool)
+      nilAltairCallback: OnAltairBlockAdded
+      state = newClone(dag.headState.data)
+      cache = StateCache()
+      info = ForkedEpochInfo()
+
+    # Advance to altair
+    check:
+      process_slots(
+        cfg, state[], cfg.ALTAIR_FORK_EPOCH.compute_start_slot_at_epoch(), cache,
+        info, {})
+
+      state[].kind == BeaconStateFork.Altair
+
+    var
+      b1 = addTestBlock(state[], cache).altairData
+      att1 = makeFullAttestations(state[], b1.root, b1.message.slot, cache)
+      b2 = addTestBlock(state[], cache, attestations = att1).altairData
+
+  test "Invalid signatures" & preset():
+    let badSignature = get_slot_signature(
+      Fork(), Eth2Digest(), 42.Slot,
+      MockPrivKeys[ValidatorIndex(0)]).toValidatorSig()
+
+    check:
+      dag.addRawBlock(quarantine, b1, nilAltairCallback).isOk()
+
+    block: # Main signature
+      var b = b2
+      b.signature = badSignature
+      let
+        bAdd = dag.addRawBlock(quarantine, b, nilAltairCallback)
+      check:
+        bAdd.error() == (ValidationResult.Reject, Invalid)
+
+    block: # Randao reveal
+      var b = b2
+      b.message.body.randao_reveal = badSignature
+      let
+        bAdd = dag.addRawBlock(quarantine, b, nilAltairCallback)
+      check:
+        bAdd.error() == (ValidationResult.Reject, Invalid)
+
+    block: # Attestations
+      var b = b2
+      b.message.body.attestations[0].signature = badSignature
+      let
+        bAdd = dag.addRawBlock(quarantine, b, nilAltairCallback)
+      check:
+        bAdd.error() == (ValidationResult.Reject, Invalid)
+
+    block: # SyncAggregate empty
+      var b = b2
+      b.message.body.sync_aggregate.sync_committee_signature = badSignature
+      let
+        bAdd = dag.addRawBlock(quarantine, b, nilAltairCallback)
+      check:
+        bAdd.error() == (ValidationResult.Reject, Invalid)
+
+    block: # SyncAggregate junk
+      var b = b2
+      b.message.body.sync_aggregate.sync_committee_signature = badSignature
+      b.message.body.sync_aggregate.sync_committee_bits[0] = true
+
+      let
+        bAdd = dag.addRawBlock(quarantine, b, nilAltairCallback)
+      check:
+        bAdd.error() == (ValidationResult.Reject, Invalid)
 
 suite "chain DAG finalization tests" & preset():
   setup:
@@ -349,7 +429,6 @@ suite "chain DAG finalization tests" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
       taskpool = Taskpool.new()
       quarantine = QuarantineRef.init(keys.newRng(), taskpool)
-      nilPhase0Callback: OnPhase0BlockAdded
       cache = StateCache()
       info = ForkedEpochInfo()
 
@@ -586,7 +665,6 @@ suite "Diverging hardforks":
       dag = init(ChainDAGRef, phase0RuntimeConfig, db, {})
       taskpool = Taskpool.new()
       quarantine = QuarantineRef.init(keys.newRng(), taskpool)
-      nilPhase0Callback: OnPhase0BlockAdded
       state = newClone(dag.headState.data)
       cache = StateCache()
       info = ForkedEpochInfo()

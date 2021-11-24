@@ -414,4 +414,48 @@ proc collectSignatureSets*(
             volex.message.epoch,
             DOMAIN_VOLUNTARY_EXIT)
 
+  block:
+    # 7. SyncAggregate
+    # ----------------------------------------------------
+    withState(state):
+      when stateFork >= BeaconStateFork.Altair and
+          (signed_block is altair.SignedBeaconBlock or
+            signed_block is merge.SignedBeaconBlock):
+        let
+          current_sync_committee =
+            state.data.get_sync_committee_cache(cache).current_sync_committee
+
+        var inited = false
+        var attestersAgg{.noInit.}: AggregatePublicKey
+        for i in 0 ..< current_sync_committee.len:
+          if signed_block.message.body.sync_aggregate.sync_committee_bits[i]:
+            let key = validatorKeys.load(current_sync_committee[i])
+            if not key.isSome():
+              return err("Invalid key cache")
+
+            if not inited: # first iteration
+              attestersAgg.init(key.get())
+              inited = true
+            else:
+              attestersAgg.aggregate(key.get())
+
+        if not inited:
+          if signed_block.message.body.sync_aggregate.sync_committee_signature !=
+              default(CookedSig).toValidatorSig():
+            return err("process_sync_aggregate: empty sync aggregates need signature of point at infinity")
+        else:
+          let
+            attesters = finish(attestersAgg)
+            previous_slot = max(state.data.slot, Slot(1)) - 1
+
+          sigs.addSignatureSet(
+            attesters,
+            get_block_root_at_slot(state.data, previous_slot),
+            signed_block.message.body.sync_aggregate.sync_committee_signature.loadOrExit(
+              "process_sync_aggregate: cannot load signature"),
+            state.data.fork,
+            state.data.genesis_validators_root,
+            previous_slot.epoch,
+            DOMAIN_SYNC_COMMITTEE)
+
   ok()

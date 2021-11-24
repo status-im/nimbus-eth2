@@ -125,7 +125,7 @@ proc getAttachedValidator*(node: BeaconNode,
 proc getAttachedValidator*(node: BeaconNode,
                            state_validators: auto,
                            idx: ValidatorIndex): AttachedValidator =
-  if idx < state_validators.len.ValidatorIndex:
+  if uint64(idx) < state_validators.lenu64:
     let validator = node.getAttachedValidator(state_validators[idx].pubkey)
     if validator != nil and validator.index != some(idx):
       # Update index, in case the validator was activated!
@@ -235,16 +235,16 @@ proc sendSyncCommitteeMessages*(node: BeaconNode,
 
       let (keysCur, keysNxt) =
         block:
-          var resCur: Table[ValidatorPubKey, int]
-          var resNxt: Table[ValidatorPubKey, int]
+          var resCur: Table[uint64, int]
+          var resNxt: Table[uint64, int]
 
           for index, msg in msgs.pairs():
             if msg.validator_index < lenu64(state.data.validators):
               let msgPeriod = sync_committee_period(msg.slot)
               if msgPeriod == curPeriod:
-                resCur[state.data.validators.asSeq[msg.validator_index].pubkey] = index
+                resCur[msg.validator_index] = index
               elif msgPeriod == nextPeriod:
-                resNxt[state.data.validators.asSeq[msg.validator_index].pubkey] = index
+                resNxt[msg.validator_index] = index
               else:
                 statuses[index] =
                   some(SendResult.err("Message's slot out of state's head range"))
@@ -259,16 +259,16 @@ proc sendSyncCommitteeMessages*(node: BeaconNode,
         var resIndices: seq[int]
         for committeeIdx in allSyncSubcommittees():
           for valKey in syncSubcommittee(
-              state.data.current_sync_committee.pubkeys.data, committeeIdx):
-            let index = keysCur.getOrDefault(valKey, -1)
+              node.dag.headSyncCommittees.current_sync_committee, committeeIdx):
+            let index = keysCur.getOrDefault(uint64(valKey), -1)
             if index >= 0:
               resIndices.add(index)
               resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
                                                           committeeIdx, true))
         for committeeIdx in allSyncSubcommittees():
           for valKey in syncSubcommittee(
-              state.data.next_sync_committee.pubkeys.data, committeeIdx):
-            let index = keysNxt.getOrDefault(valKey, -1)
+              node.dag.headSyncCommittees.next_sync_committee, committeeIdx):
+            let index = keysNxt.getOrDefault(uint64(valKey), -1)
             if index >= 0:
               resIndices.add(index)
               resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
@@ -676,11 +676,12 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
 
 proc handleSyncCommitteeMessages(node: BeaconNode, head: BlockRef, slot: Slot) =
   # TODO Use a view type to avoid the copy
-  var syncCommittee = @(node.dag.syncCommitteeParticipants(slot + 1))
+  var syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
 
   for committeeIdx in allSyncSubcommittees():
-    for valKey in syncSubcommittee(syncCommittee, committeeIdx):
-      let validator = node.getAttachedValidator(valKey)
+    for valIdx in syncSubcommittee(syncCommittee, committeeIdx):
+      let validator = node.getAttachedValidator(
+        getStateField(node.dag.headState.data, validators), valIdx)
       if isNil(validator) or validator.index.isNone():
         continue
       asyncSpawn createAndSendSyncCommitteeMessage(node, slot, validator,
@@ -715,7 +716,7 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesisValidatorsRoot = node.dag.genesisValidatorsRoot
-    syncCommittee = @(node.dag.syncCommitteeParticipants(slot + 1))
+    syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
 
   type
     AggregatorCandidate = object
@@ -729,8 +730,9 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
     for subcommitteeIdx in allSyncSubcommittees():
       # TODO Hoist outside of the loop with a view type
       #      to avoid the repeated offset calculations
-      for valKey in syncSubcommittee(syncCommittee, subcommitteeIdx):
-        let validator = node.getAttachedValidator(valKey)
+      for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
+        let validator = node.getAttachedValidator(
+          getStateField(node.dag.headState.data, validators), valIdx)
         if validator == nil:
           continue
 

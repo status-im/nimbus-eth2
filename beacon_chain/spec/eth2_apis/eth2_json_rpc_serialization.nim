@@ -40,10 +40,7 @@ proc toJsonHex(data: openArray[byte]): string =
 
 proc fromJson*(n: JsonNode, argName: string, result: var ValidatorPubKey) {.raises: [Defect, ValueError].} =
   n.kind.expect(JString, argName)
-  var tmp = ValidatorPubKey.fromHex(n.getStr()).tryGet()
-  if not tmp.loadWithCache().isSome():
-    raise (ref ValueError)(msg: "Invalid public BLS key")
-  result = tmp
+  result = ValidatorPubKey.fromHex(n.getStr()).tryGet()
 
 proc `%`*(pubkey: ValidatorPubKey): JsonNode =
   newJString(toJsonHex(toRaw(pubkey)))

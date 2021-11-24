@@ -198,6 +198,12 @@ type
     onFinHappened*: OnFinalizedCallback
       ## On finalization callback
 
+    headSyncCommittees*: SyncCommitteeCache ##\
+      ## A cache of the sync committees, as they appear in the head state -
+      ## using the head state is slightly wrong - if a reorg deeper than
+      ## EPOCHS_PER_SYNC_COMMITTEE_PERIOD is happening, some valid sync
+      ## committee messages will be rejected
+
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and
     ## committees in a beacon state - the epoch level information in the state

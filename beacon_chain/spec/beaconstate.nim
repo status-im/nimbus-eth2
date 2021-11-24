@@ -237,7 +237,7 @@ proc initialize_beacon_state_from_eth1*(
                                              deposits.len)
   state.eth1_deposit_index = deposits.lenu64
 
-  var pubkeyToIndex = initTable[ValidatorPubKey, int]()
+  var pubkeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
   for idx, deposit in deposits:
     let
       pubkey = deposit.pubkey
@@ -249,7 +249,7 @@ proc initialize_beacon_state_from_eth1*(
     do:
       if skipBlsValidation in flags or
          verify_deposit_signature(cfg, deposit):
-        pubkeyToIndex[pubkey] = state.validators.len
+        pubkeyToIndex[pubkey] = ValidatorIndex(state.validators.len)
         if not state.validators.add(get_validator_from_deposit(deposit)):
           raiseAssert "too many validators"
         if not state.balances.add(amount):
@@ -707,6 +707,9 @@ func get_next_sync_committee_keys(state: altair.BeaconState | merge.BeaconState)
   ## Return the sequence of sync committee indices (which may include
   ## duplicate indices) for the next sync committee, given a ``state`` at a
   ## sync committee period boundary.
+  # The sync committe depends on seed and effective balance - it can
+  # thus only be computed for the current epoch of the state, after balance
+  # updates have been performed
 
   let epoch = get_current_epoch(state) + 1
 
@@ -744,9 +747,9 @@ proc get_next_sync_committee*(state: altair.BeaconState | merge.BeaconState):
   # see signatures_batch, TODO shouldn't be here
   # Deposit processing ensures all keys are valid
   var attestersAgg: AggregatePublicKey
-  attestersAgg.init(res.pubkeys.data[0].loadWithCache().get)
+  attestersAgg.init(res.pubkeys.data[0].load().get)
   for i in 1 ..< res.pubkeys.data.len:
-    attestersAgg.aggregate(res.pubkeys.data[i].loadWithCache().get)
+    attestersAgg.aggregate(res.pubkeys.data[i].load().get)
 
   res.aggregate_pubkey = finish(attestersAgg).toPubKey()
   res
@@ -922,3 +925,36 @@ func latest_block_root*(state: ForkyBeaconState, state_root: Eth2Digest): Eth2Di
 
 func latest_block_root*(state: ForkyHashedBeaconState): Eth2Digest =
   latest_block_root(state.data, state.root)
+
+func get_sync_committee_cache*(
+    state: altair.BeaconState | merge.BeaconState, cache: var StateCache):
+    SyncCommitteeCache =
+  let period = state.slot.sync_committee_period()
+
+  cache.sync_committees.withValue(period, v) do:
+    return v[]
+
+  var
+    s = toHashSet(state.current_sync_committee.pubkeys.data)
+
+  for pk in state.next_sync_committee.pubkeys.data:
+    s.incl(pk)
+
+  var pubkeyIndices: Table[ValidatorPubKey, ValidatorIndex]
+  for i, v in state.validators:
+    if v.pubkey in s:
+      pubkeyIndices[v.pubkey] = i.ValidatorIndex
+
+  var res: SyncCommitteeCache
+  try:
+    for i in 0..<res.current_sync_committee.len():
+      res.current_sync_committee[i] =
+        pubkeyIndices[state.current_sync_committee.pubkeys[i]]
+      res.next_sync_committee[i] =
+        pubkeyIndices[state.next_sync_committee.pubkeys[i]]
+  except KeyError:
+    raiseAssert "table constructed just above"
+
+  cache.sync_committees[period] = res
+
+  res

@@ -69,10 +69,7 @@ suite "Gossip validation " & preset():
       committeeLen(10000) == 0
       committeeLen(uint64.high) == 0
 
-  test "Validation sanity":
-    # TODO: refactor tests to avoid skipping BLS validation
-    dag.updateFlags.incl {skipBLSValidation}
-
+  test "validateAttestation":
     var
       cache: StateCache
     for blck in makeTestBlocks(
@@ -210,11 +207,9 @@ suite "Gossip validation - Extra": # Not based on preset config
       subcommitteeIdx = 0.SyncSubcommitteeIndex
       syncCommittee = @(dag.syncCommitteeParticipants(slot))
       subcommittee = toSeq(syncCommittee.syncSubcommittee(subcommitteeIdx))
-
-      pubkey = subcommittee[0]
-      expectedCount = subcommittee.count(pubkey)
-      index = ValidatorIndex(
-        state[].data.validators.mapIt(it.pubkey).find(pubKey))
+      index = subcommittee[0]
+      expectedCount = subcommittee.count(index)
+      pubkey = state[].data.validators[index].pubkey
       privateItem = ValidatorPrivateItem(privateKey: MockPrivKeys[index])
       validator = AttachedValidator(pubKey: pubkey,
         kind: ValidatorKind.Local, data: privateItem, index: some(index))

@@ -380,12 +380,17 @@ type
     message*: AggregateAndProof
     signature*: ValidatorSig
 
+  SyncCommitteeCache* = object
+    current_sync_committee*: array[SYNC_COMMITTEE_SIZE, ValidatorIndex]
+    next_sync_committee*: array[SYNC_COMMITTEE_SIZE, ValidatorIndex]
+
   # This doesn't know about forks or branches in the DAG. It's for straight,
   # linear chunks of the chain.
   StateCache* = object
     shuffled_active_validator_indices*:
       Table[Epoch, seq[ValidatorIndex]]
     beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
+    sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
 
   # This matches the mutable state of the Solidity deposit contract
   # https://github.com/ethereum/consensus-specs/blob/v1.1.2/solidity_deposit_contract/deposit_contract.sol

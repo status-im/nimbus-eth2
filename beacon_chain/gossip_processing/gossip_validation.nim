@@ -785,7 +785,7 @@ proc validateSyncCommitteeMessage*(
 
   ok((positionsInSubcommittee, cookedSignature.get()))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+# https://github.com/ethereum/eth2.0-specs/blob/v1.1.5/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
 proc validateSignedContributionAndProof*(
     dag: ChainDAGRef,
     syncCommitteeMsgPool: var SyncCommitteeMsgPool,
@@ -855,16 +855,22 @@ proc validateSignedContributionAndProof*(
     initialized = false
     syncCommitteeSlot = msg.message.contribution.slot + 1
 
-  for validatorPubKey in dag.syncCommitteeParticipants(
+  for validatorIndex in dag.syncCommitteeParticipants(
       syncCommitteeSlot,
       committeeIdx,
       msg.message.contribution.aggregation_bits):
-    let validatorPubKey = validatorPubKey.loadWithCache.get
+    let validatorPubKey = dag.validatorKey(validatorIndex)
+    if not validatorPubKey.isSome():
+      # This should never happen (!)
+      warn "Invalid validator index in committee cache",
+        validatorIndex
+      return errIgnore("SignedContributionAndProof: Invalid committee cache")
+
     if not initialized:
       initialized = true
-      committeeAggKey.init(validatorPubKey)
+      committeeAggKey.init(validatorPubKey.get())
     else:
-      committeeAggKey.aggregate(validatorPubKey)
+      committeeAggKey.aggregate(validatorPubKey.get())
 
   if not initialized:
     # [REJECT] The contribution has participants
