@@ -984,10 +984,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # This is the last pruning to do as it clears the "needPruning" condition.
   node.consensusManager[].pruneStateCachesAndForkChoice()
 
-  # Nim GC metrics (for the main thread)
-  {.gcsafe.}:
-    updateSystemMetrics()
-
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
     # sure that we're ready for the next one and don't get stuck in lengthy
@@ -1129,6 +1125,10 @@ proc onSecond(node: BeaconNode) =
   ## This procedure will be called once per second.
   if not(node.syncManager.inProgress):
     node.handleMissingBlocks()
+
+  # Nim GC metrics (for the main thread)
+  {.gcsafe.}:
+    updateSystemMetrics()
 
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
   let sleepTime = chronos.seconds(1)
@@ -1885,7 +1885,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
     except Exception as exc:
       raiseAssert exc.msg # TODO fix metrics
 
-  # Nim GC metrics (for the main thread) will be collected in onSlotEnd(), but
+  # Nim GC metrics (for the main thread) will be collected in onSecond(), but
   # we disable piggy-backing on other metrics here.
   setSystemMetricsAutomaticUpdate(false)
 
