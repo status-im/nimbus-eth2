@@ -224,7 +224,8 @@ proc init*(T: type BeaconNode,
           db,
           config.web3Urls,
           depositContractDeployedAt,
-          eth1Network)
+          eth1Network,
+          config.web3ForcePolling)
 
         if eth1MonitorRes.isErr:
           fatal "Failed to start Eth1 monitor",
@@ -342,7 +343,8 @@ proc init*(T: type BeaconNode,
       db,
       config.web3Urls,
       genesisDepositsSnapshot,
-      eth1Network)
+      eth1Network,
+      config.web3ForcePolling)
 
   let rpcServer = if config.rpcEnabled:
     RpcServer.init(config.rpcAddress, config.rpcPort)

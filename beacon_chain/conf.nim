@@ -128,6 +128,12 @@ type
       desc: "One or more Web3 provider URLs used for obtaining deposit contract data"
       name: "web3-url" }: seq[string]
 
+    web3ForcePolling* {.
+      hidden
+      defaultValue: false
+      desc: "Force the use of polling when determining the head block of Eth1"
+      name: "web3-force-polling" }: bool
+
     nonInteractive* {.
       desc: "Do not display interative prompts. Quit on missing configuration"
       name: "non-interactive" }: bool
