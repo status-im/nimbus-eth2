@@ -190,7 +190,7 @@ proc sendAttestation*(
     attestation, subnet_id, checkSignature)
 
   return
-    if res.isOk():
+    if res.isOk() or res.error[0] == ValidationResult.Ignore:
       node.network.broadcastAttestation(subnet_id, attestation)
       beacon_attestations_sent.inc()
       if not(isNil(node.onAttestationSent)):
@@ -211,9 +211,9 @@ proc sendSyncCommitteeMessage*(
   # message pool. Notably, although libp2p calls the data handler for
   # any subscription on the subnet topic, it does not perform validation.
   let res = node.processor.syncCommitteeMessageValidator(msg, subcommitteeIdx,
-                                                     checkSignature)
+                                                         checkSignature)
   return
-    if res.isOk():
+    if res.isOk() or res.error[0] == ValidationResult.Ignore:
       node.network.broadcastSyncCommitteeMessage(msg, subcommitteeIdx)
       beacon_sync_committee_messages_sent.inc()
       SendResult.ok()
@@ -312,7 +312,7 @@ proc sendSyncCommitteeContribution*(
     msg, checkSignature)
 
   return
-    if res.isOk():
+    if res.isOk() or res.error[0] == ValidationResult.Ignore:
       node.network.broadcastSignedContributionAndProof(msg)
       beacon_sync_committee_contributions_sent.inc()
       ok()
@@ -1099,7 +1099,7 @@ proc sendAggregateAndProof*(node: BeaconNode,
   # REST/JSON-RPC API helper procedure.
   let res = await node.processor.aggregateValidator(proof)
   return
-    if res.isOk():
+    if res.isOk() or res.error[0] == ValidationResult.Ignore:
       node.network.broadcastAggregateAndProof(proof)
 
       notice "Aggregated attestation sent",
@@ -1118,7 +1118,7 @@ proc sendVoluntaryExit*(node: BeaconNode,
                         exit: SignedVoluntaryExit): SendResult =
   # REST/JSON-RPC API helper procedure.
   let res = node.processor[].voluntaryExitValidator(exit)
-  if res.isOk():
+  if res.isOk() or res.error[0] == ValidationResult.Ignore:
     node.network.broadcastVoluntaryExit(exit)
     ok()
   else:
@@ -1130,7 +1130,7 @@ proc sendAttesterSlashing*(node: BeaconNode,
                            slashing: AttesterSlashing): SendResult =
   # REST/JSON-RPC API helper procedure.
   let res = node.processor[].attesterSlashingValidator(slashing)
-  if res.isOk():
+  if res.isOk() or res.error[0] == ValidationResult.Ignore:
     node.network.broadcastAttesterSlashing(slashing)
     ok()
   else:
@@ -1142,7 +1142,7 @@ proc sendProposerSlashing*(node: BeaconNode,
                            slashing: ProposerSlashing): SendResult =
   # REST/JSON-RPC API helper procedure.
   let res = node.processor[].proposerSlashingValidator(slashing)
-  if res.isOk():
+  if res.isOk() or res.error[0] == ValidationResult.Ignore:
     node.network.broadcastProposerSlashing(slashing)
     ok()
   else:
