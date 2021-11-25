@@ -66,12 +66,12 @@ proc initialLoad(
     SSZ, StateType
   ))
 
-  let forkedState = newClone(ForkedHashedBeaconState.init(
-    phase0.HashedBeaconState(
-      data: state[],
-      root: hash_tree_root(state[])
-    )
-  ))
+  # TODO stack usage. newClone and assignClone do not seem to
+  # prevent temporaries created by case objects
+  let forkedState = new ForkedHashedBeaconState
+  forkedState.kind = BeaconStateFork.Phase0
+  forkedState.phase0Data.data = state[]
+  forkedState.phase0Data.root = hash_tree_root(state[])
 
   let blk = parseTest(
     path/"anchor_block.ssz_snappy",
