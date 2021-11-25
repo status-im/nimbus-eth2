@@ -33,7 +33,6 @@ const
   # Maybe there should be a config option for this.
   defaultListenAddress* = (static ValidIpAddress.init("0.0.0.0"))
   defaultAdminListenAddress* = (static ValidIpAddress.init("127.0.0.1"))
-  defaultTerminalTotalDifficultyOverride* = high(uint64)
 
 type
   BNStartUpCmd* = enum
@@ -360,9 +359,8 @@ type
       terminalTotalDifficultyOverride* {.
         hidden
         desc: "Override pre-configured TERMINAL_TOTAL_DIFFICULTY parameter"
-        defaultValue: defaultTerminalTotalDifficultyOverride
         name: "terminal-total-difficulty-override"
-      }: uint64
+      }: Option[uint64]
 
     of createTestnet:
       testnetDepositsFile* {.
