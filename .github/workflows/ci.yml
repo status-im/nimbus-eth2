@@ -102,6 +102,10 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
+      - name: Support longpaths (Windows)
+        if: runner.os == 'Windows'
+        run: git config --system core.longpaths true
+
       - name: Checkout nimbus-eth2
         uses: actions/checkout@v2
         with:

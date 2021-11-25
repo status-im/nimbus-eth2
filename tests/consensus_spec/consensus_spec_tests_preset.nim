@@ -14,6 +14,7 @@ import
 import
   ./phase0/all_phase0_fixtures,
   ./altair/all_altair_fixtures,
-  ./merge/all_merge_fixtures
+  ./merge/all_merge_fixtures,
+  ./test_fixture_fork_choice
 
 summarizeLongTests("ConsensusSpecPreset")

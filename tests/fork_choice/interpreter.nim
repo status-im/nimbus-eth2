@@ -41,16 +41,15 @@ type
     # variant specific fields
     case kind*: OpKind
     of FindHead, InvalidFindHead:
-      justified_epoch*: Epoch
-      justified_root*: Eth2Digest
-      finalized_epoch*: Epoch
+      justified_checkpoint*: Checkpoint
+      finalized_checkpoint*: Checkpoint
       justified_state_balances*: seq[Gwei]
       expected_head*: Eth2Digest
     of ProcessBlock:
       root*: Eth2Digest
       parent_root*: Eth2Digest
-      blk_justified_epoch*: Epoch
-      blk_finalized_epoch*: Epoch
+      blk_justified_checkpoint*: Checkpoint
+      blk_finalized_checkpoint*: Checkpoint
     of ProcessAttestation:
       validator_index*: ValidatorIndex
       block_root*: Eth2Digest
@@ -67,27 +66,26 @@ func apply(ctx: var ForkChoiceBackend, id: int, op: Operation) =
   case op.kind
   of FindHead, InvalidFindHead:
     let r = ctx.find_head(
-      op.justified_epoch,
-      op.justified_root,
-      op.finalized_epoch,
+      op.justified_checkpoint,
+      op.finalized_checkpoint,
       op.justified_state_balances
     )
     if op.kind == FindHead:
       doAssert r.isOk(), &"find_head (op #{id}) returned an error: {r.error}"
-      doAssert r.get() == op.expected_head, &"find_head (op #{id}) returned an incorrect result: {r.get()} (expected: {op.expected_head})"
-      debugEcho "    Found expected head: 0x", op.expected_head, " from justified checkpoint(epoch: ", op.justified_epoch, ", root: 0x", op.justified_root, ")"
+      doAssert r.get() == op.expected_head, &"find_head (op #{id}) returned an incorrect result: {r.get()} (expected: {op.expected_head}, from justified checkpoint: {op.justified_checkpoint}, finalized checkpoint: {op.finalized_checkpoint})"
+      debugEcho &"    Found expected head: 0x{op.expected_head} from justified checkpoint {op.justified_checkpoint}, finalized checkpoint {op.finalized_checkpoint}"
     else:
-      doAssert r.isErr(), "find_head was unexpectedly successful"
-      debugEcho "    Detected an expected invalid head"
+      doAssert r.isErr(), &"invalid_find_head (op #{id}) was unexpectedly successful, head {op.expected_head} from justified checkpoint {op.justified_checkpoint}, finalized checkpoint {op.finalized_checkpoint}"
+      debugEcho &"    Detected an expected invalid head from justified checkpoint {op.justified_checkpoint}, finalized checkpoint {op.finalized_checkpoint}"
   of ProcessBlock:
     let r = ctx.process_block(
       block_root = op.root,
       parent_root = op.parent_root,
-      justified_epoch = op.blk_justified_epoch,
-      finalized_epoch = op.blk_finalized_epoch
+      justified_checkpoint = op.blk_justified_checkpoint,
+      finalized_checkpoint = op.blk_finalized_checkpoint
     )
     doAssert r.isOk(), &"process_block (op #{id}) returned an error: {r.error}"
-    debugEcho "    Processed block      0x", op.root, " with parent 0x", op.parent_root, " and justified epoch ", op.blk_justified_epoch
+    debugEcho "    Processed block      0x", op.root, " with parent 0x", op.parent_root, " and justified checkpoint ", op.blk_justified_checkpoint
   of ProcessAttestation:
     ctx.process_attestation(
       validator_index = op.validator_index,

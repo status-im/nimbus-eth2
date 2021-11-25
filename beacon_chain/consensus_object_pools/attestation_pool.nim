@@ -131,8 +131,8 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
           # too big - getting an EpochRef can be expensive.
           forkChoice.backend.process_block(
             blckRef.root, blckRef.parent.root,
-            epochRef.current_justified_checkpoint.epoch,
-            epochRef.finalized_checkpoint.epoch)
+            epochRef.current_justified_checkpoint,
+            epochRef.finalized_checkpoint)
         else:
           epochRef = dag.getEpochRef(blckRef, blckRef.slot.epoch)
           withBlck(dag.get(blckRef).data):

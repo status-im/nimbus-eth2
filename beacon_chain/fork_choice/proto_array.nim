@@ -84,30 +84,29 @@ func nodeLeadsToViableHead(self: ProtoArray, node: ProtoNode): FcResult[bool]
 # ----------------------------------------------------------------------
 
 func init*(T: type ProtoArray,
-           justifiedEpoch: Epoch,
-           finalizedRoot: Eth2Digest,
-           finalizedEpoch: Epoch): T =
+           justifiedCheckpoint: Checkpoint,
+           finalizedCheckpoint: Checkpoint): T =
   let node = ProtoNode(
-    root: finalizedRoot,
+    root: finalizedCheckpoint.root,
     parent: none(int),
-    justifiedEpoch: justifiedEpoch,
-    finalizedEpoch: finalizedEpoch,
+    justifiedCheckpoint: justifiedCheckpoint,
+    finalizedCheckpoint: finalizedCheckpoint,
     weight: 0,
     bestChild: none(int),
     bestDescendant: none(int)
   )
 
   T(
-    justifiedEpoch: justifiedEpoch,
-    finalizedEpoch: finalizedEpoch,
+    justifiedCheckpoint: justifiedCheckpoint,
+    finalizedCheckpoint: finalizedCheckpoint,
     nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.root: 0}.toTable()
   )
 
 func applyScoreChanges*(self: var ProtoArray,
                         deltas: var openArray[Delta],
-                        justifiedEpoch: Epoch,
-                        finalizedEpoch: Epoch): FcResult[void] =
+                        justifiedCheckpoint: Checkpoint,
+                        finalizedCheckpoint: Checkpoint): FcResult[void] =
   ## Iterate backwards through the array, touching all nodes and their parents
   ## and potentially the best-child of each parent.
   ##
@@ -128,8 +127,8 @@ func applyScoreChanges*(self: var ProtoArray,
       deltasLen: deltas.len,
       indicesLen: self.indices.len)
 
-  self.justifiedEpoch = justifiedEpoch
-  self.finalizedEpoch = finalizedEpoch
+  self.justifiedCheckpoint = justifiedCheckpoint
+  self.finalizedCheckpoint = finalizedCheckpoint
 
   ## Alias
   # This cannot raise the IndexError exception, how to tell compiler?
@@ -206,8 +205,8 @@ func applyScoreChanges*(self: var ProtoArray,
 func onBlock*(self: var ProtoArray,
               root: Eth2Digest,
               parent: Eth2Digest,
-              justifiedEpoch: Epoch,
-              finalizedEpoch: Epoch): FcResult[void] =
+              justifiedCheckpoint: Checkpoint,
+              finalizedCheckpoint: Checkpoint): FcResult[void] =
   ## Register a block with the fork choice
   ## A block `hasParentInForkChoice` may be false
   ## on fork choice initialization:
@@ -234,8 +233,8 @@ func onBlock*(self: var ProtoArray,
   let node = ProtoNode(
     root: root,
     parent: some(parentIdx),
-    justifiedEpoch: justifiedEpoch,
-    finalizedEpoch: finalizedEpoch,
+    justifiedCheckpoint: justifiedCheckpoint,
+    finalizedCheckpoint: finalizedCheckpoint,
     weight: 0,
     bestChild: none(int),
     bestDescendant: none(int)
@@ -283,11 +282,11 @@ func findHead*(self: var ProtoArray,
     return err ForkChoiceError(
       kind: fcInvalidBestNode,
       startRoot: justifiedRoot,
-      justifiedEpoch: self.justifiedEpoch,
-      finalizedEpoch: self.finalizedEpoch,
+      fkChoiceJustifiedCheckpoint: self.justifiedCheckpoint,
+      fkChoiceFinalizedCheckpoint: self.finalizedCheckpoint,
       headRoot: justifiedNode.get().root,
-      headJustifiedEpoch: justifiedNode.get().justifiedEpoch,
-      headFinalizedEpoch: justifiedNode.get().finalizedEpoch)
+      headJustifiedCheckpoint: justifiedNode.get().justifiedCheckpoint,
+      headFinalizedCheckpoint: justifiedNode.get().finalizedCheckpoint)
 
   head = bestNode.get().root
   ok()
@@ -456,11 +455,11 @@ func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool =
   ## Any node that has a different finalized or justified epoch
   ## should not be viable for the head.
   (
-    (node.justifiedEpoch == self.justifiedEpoch) or
-    (self.justifiedEpoch == Epoch(0))
+    (node.justifiedCheckpoint == self.justifiedCheckpoint) or
+    (self.justifiedCheckpoint.epoch == Epoch(0))
   ) and (
-    (node.finalizedEpoch == self.finalizedEpoch) or
-    (self.finalizedEpoch == Epoch(0))
+    (node.finalizedCheckpoint == self.finalizedCheckpoint) or
+    (self.finalizedCheckpoint.epoch == Epoch(0))
   )
 
 # Sanity checks
