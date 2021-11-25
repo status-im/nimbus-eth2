@@ -83,7 +83,7 @@ type
 
     # immutableValidatorsDb only stores the total count; it's a proxy for SQL
     # queries.
-    immutableValidatorsDb*: DbSeq[ImmutableValidatorData2]
+    immutableValidatorsDb*: DbSeq[ImmutableValidatorDataDb2]
     immutableValidators*: seq[ImmutableValidatorData2]
 
     checkpoint*: proc() {.gcsafe, raises: [Defect].}
@@ -257,13 +257,13 @@ proc get*[T](s: DbSeq[T], idx: int64): T =
   let found = queryRes.expectDb()
   if not found: panic()
 
-proc loadImmutableValidators(vals: DbSeq[ImmutableValidatorData]): seq[ImmutableValidatorData] =
+proc loadImmutableValidators(vals: DbSeq[ImmutableValidatorDataDb2]): seq[ImmutableValidatorData2] =
+  result = newSeqOfCap[ImmutableValidatorData2](vals.len())
   for i in 0 ..< vals.len:
-    result.add vals.get(i)
-
-proc loadImmutableValidators(vals: DbSeq[ImmutableValidatorData2]): seq[ImmutableValidatorData2] =
-  for i in 0 ..< vals.len:
-    result.add vals.get(i)
+    let tmp = vals.get(i)
+    result.add ImmutableValidatorData2(
+      pubkey: tmp.pubkey.loadValid(),
+      withdrawal_credentials: tmp.withdrawal_credentials)
 
 proc new*(T: type BeaconChainDB,
           dir: string,
@@ -299,7 +299,7 @@ proc new*(T: type BeaconChainDB,
     genesisDepositsSeq =
       DbSeq[DepositData].init(db, "genesis_deposits").expectDb()
     immutableValidatorsDb =
-      DbSeq[ImmutableValidatorData2].init(db, "immutable_validators2").expectDb()
+      DbSeq[ImmutableValidatorDataDb2].init(db, "immutable_validators2").expectDb()
 
     # V1 - expected-to-be small rows get without rowid optimizations
     keyValues = kvStore db.openKvStore("key_values", true).expectDb()
@@ -325,7 +325,7 @@ proc new*(T: type BeaconChainDB,
       len = immutableValidatorsDb1.len()
     while immutableValidatorsDb.len() < immutableValidatorsDb1.len():
       let val = immutableValidatorsDb1.get(immutableValidatorsDb.len())
-      immutableValidatorsDb.add(ImmutableValidatorData2(
+      immutableValidatorsDb.add(ImmutableValidatorDataDb2(
         pubkey: val.pubkey.loadValid().toUncompressed(),
         withdrawal_credentials: val.withdrawal_credentials
       ))
@@ -505,7 +505,9 @@ proc updateImmutableValidators*(
   while db.immutableValidators.len() < numValidators:
     let immutableValidator =
       getImmutableValidatorData(validators[db.immutableValidators.len()])
-    db.immutableValidatorsDb.add immutableValidator
+    db.immutableValidatorsDb.add ImmutableValidatorDataDb2(
+      pubkey: immutableValidator.pubkey.toUncompressed(),
+      withdrawal_credentials: immutableValidator.withdrawal_credentials)
     db.immutableValidators.add immutableValidator
 
 template toBeaconStateNoImmutableValidators(state: phase0.BeaconState):
@@ -657,7 +659,7 @@ proc getStateOnlyMutableValidators(
 
       assign(
         dstValidator.pubkey,
-        immutableValidators[i].pubkey.loadValid().toPubKey())
+        immutableValidators[i].pubkey.toPubKey())
       assign(
         dstValidator.withdrawal_credentials,
         immutableValidators[i].withdrawal_credentials)

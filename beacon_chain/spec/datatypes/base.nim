@@ -282,8 +282,12 @@ type
 
   # Non-spec type that represents the immutable part of a validator - an
   # uncompressed key serialization is used to speed up loading from database
-  ImmutableValidatorData2* = object
+  ImmutableValidatorDataDb2* = object
     pubkey*: UncompressedPubKey
+    withdrawal_credentials*: Eth2Digest
+
+  ImmutableValidatorData2* = object
+    pubkey*: CookedPubKey
     withdrawal_credentials*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#validator
@@ -520,7 +524,7 @@ func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
   doAssert cookedKey.isSome,
     "Cannot parse validator key: " & toHex(validator.pubkey)
   ImmutableValidatorData2(
-    pubkey: cookedKey.get().toUncompressed(),
+    pubkey: cookedKey.get(),
     withdrawal_credentials: validator.withdrawal_credentials)
 
 # TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
@@ -875,7 +879,7 @@ proc load*(
   if validators.lenu64() <= index.uint64:
     none(CookedPubKey)
   else:
-    some(validators[index.int].pubkey.loadValid())
+    some(validators[index.int].pubkey)
 
 template hash*(header: BeaconBlockHeader): Hash =
   hash(header.state_root)
