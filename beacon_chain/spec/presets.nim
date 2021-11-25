@@ -357,6 +357,9 @@ else:
 
   # createConstantsFromPreset const_preset
 
+const SLOTS_PER_SYNC_COMMITTEE_PERIOD* =
+  SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+
 func parse(T: type uint64, input: string): T {.raises: [ValueError, Defect].} =
   var res: BiggestUInt
   if input.len > 2 and input[0] == '0' and input[1] == 'x':
