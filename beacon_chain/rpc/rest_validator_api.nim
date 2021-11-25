@@ -180,16 +180,28 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res > MaxEpoch:
           return RestApiResponse.jsonError(Http400, EpochOverflowValueError)
 
-        if res > node.dag.head.slot.epoch() + 1:
-          if not(node.isSynced(node.dag.head)):
-            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-          else:
-            return RestApiResponse.jsonError(Http400, EpochFromFutureError)
         res
 
-    let bslot = node.dag.head.atSlot(qepoch.compute_start_slot_at_epoch())
+    # We may be asked for an epoch in the future.
+    # It may still be possible to provide the correct answer if the requested
+    # epoch is within the `next_sync_committee_period` of an epoch we know about.
+    # In order to do this, we calcualte the previous sync committee period with
+    # respect to the requested epoch and we use the earliest possible state from
+    # that period:
+    let qSyncPeriod = sync_committee_period(qepoch)
+    let prevSyncPeriod = if qSyncPeriod > 0: qSyncPeriod - 1
+                         else: SyncCommitteePeriod(0)
+    let earliestSlotInPrevSyncPeriod =
+      Slot(prevSyncPeriod * (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * SLOTS_PER_EPOCH))
 
-    node.withStateForBlockSlot(bslot):
+    # The requested epoch may still be too far in the future.
+    if earliestSlotInPrevSyncPeriod > node.dag.head.slot:
+      if not(node.isSynced(node.dag.head)):
+        return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+      else:
+        return RestApiResponse.jsonError(Http400, EpochFromFutureError)
+
+    node.withStateForBlockSlot(node.dag.head.atSlot(earliestSlotInPrevSyncPeriod)):
       let syncCommittee =
         block:
           let res = syncCommitteeParticipants(stateData().data, qepoch)
@@ -202,21 +214,38 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                  "List of sync committee participants is empty")
           kres
 
-      var duties =
+      # We use a local proc in order to reduce the code bloat from `withState`
+      proc computeDuties(requestedValidatorIndices: openArray[ValidatorIndex],
+                         syncCommittee: openArray[ValidatorPubKey],
+                         stateValidators: seq[Validator]
+                        ): seq[RestSyncCommitteeDuty] {.nimcall.} =
+        result = newSeqOfCap[RestSyncCommitteeDuty](len(requestedValidatorIndices))
+        for requestedValidatorIdx in requestedValidatorIndices:
+          if requestedValidatorIdx.uint64 >= stateValidators.lenu64:
+            # If the requested validator index was not valid within this old
+            # state, it's not possible that it will sit on the sync committee.
+            # Since this API must omit results for validators that don't have
+            # duties, we can simply ingnore this requested index.
+            # (we won't bother to validate it agains a more recent state).
+            continue
+
+          let requestedValidatorPubkey =
+            stateValidators[requestedValidatorIdx].pubkey
+
+          var indicesInSyncCommittee = newSeq[IndexInSyncCommittee]()
+          for idx, syncCommitteeMemberPubkey in syncCommittee:
+            if syncCommitteeMemberPubkey == requestedValidatorPubkey:
+              indicesInSyncCommittee.add(IndexInSyncCommittee idx)
+
+          if indicesInSyncCommittee.len > 0:
+            result.add RestSyncCommitteeDuty(
+              pubkey: requestedValidatorPubkey,
+              validator_index: requestedValidatorIdx,
+              validator_sync_committee_indices: indicesInSyncCommittee)
+
+      let duties =
         withState(stateData().data):
-          var res = newSeq[RestSyncCommitteeDuty](len(indexList))
-          for resIdx, validatorIdx in indexList:
-            if not validatorIdx.isValidInState(state.data):
-              return RestApiResponse.jsonError(Http400, "Invalid index: " & $validatorIdx)
-
-            res[resIdx].pubkey = state.data.validators.asSeq()[validatorIdx].pubkey
-            res[resIdx].validator_index = validatorIdx
-
-            for idx, pubkey in syncCommittee:
-              if pubkey == res[resIdx].pubkey:
-                res[resIdx].validator_sync_committee_indices.add(
-                  IndexInSyncCommittee idx)
-          res
+          computeDuties(indexList, syncCommittee, state.data.validators.asSeq)
 
       return RestApiResponse.jsonResponse(duties)
 

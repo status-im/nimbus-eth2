@@ -322,7 +322,8 @@ proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
     doAssert(false, "ValidatorIndex type size is incorrect")
 
 func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
-  epoch: Epoch): Result[seq[ValidatorPubKey], cstring] =
+                                epoch: Epoch
+                               ): Result[seq[ValidatorPubKey], cstring] =
   withState(forkedState):
     when stateFork >= BeaconStateFork.Altair:
       let
