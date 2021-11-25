@@ -355,6 +355,13 @@ type
         defaultValueDesc: "50"
         name: "sync-horizon" }: uint64
 
+      # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/client-settings.md#override-terminal-total-difficulty
+      terminalTotalDifficultyOverride* {.
+        hidden
+        desc: "Override pre-configured TERMINAL_TOTAL_DIFFICULTY parameter"
+        name: "terminal-total-difficulty-override"
+      }: Option[uint64]
+
     of createTestnet:
       testnetDepositsFile* {.
         desc: "A LaunchPad deposits file for the genesis state validators"

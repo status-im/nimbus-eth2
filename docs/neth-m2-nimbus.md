@@ -20,7 +20,7 @@ cd Nethermind.Runner
 run Nethermind
 ```
 rm -rf bin/Release/net5.0/nethermind_db
-dotnet run -c Release -- --config themerge_kintsugi_m2 --Merge.TerminalTotalDifficulty 100
+dotnet run -c Release -- --config themerge_kintsugi_m2 --Merge.TerminalTotalDifficulty 0
 ```
 
 # Verify that Nimbus runs through test vectors
