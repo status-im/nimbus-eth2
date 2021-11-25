@@ -941,6 +941,11 @@ proc onSlotStart(
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
 
+  if node.eth1Monitor != nil and (wallSlot mod SLOTS_PER_EPOCH) == 0:
+    let finalizedEpochRef = node.dag.getFinalizedEpochRef()
+    discard node.eth1Monitor.trackFinalizedState(
+      finalizedEpochRef.eth1_data, finalizedEpochRef.eth1_deposit_index)
+
   await onSlotEnd(node, wallSlot)
 
 proc handleMissingBlocks(node: BeaconNode) =
@@ -1187,7 +1192,7 @@ proc start(node: BeaconNode) {.raises: [Defect, CatchableError].} =
 
   waitFor node.initializeNetworking()
 
-  if node.eth1Monitor != nil and node.attachedValidators[].count > 0:
+  if node.eth1Monitor != nil:
     node.eth1Monitor.start()
   else:
     notice "Running without execution chain monitor, block producation partially disabled"

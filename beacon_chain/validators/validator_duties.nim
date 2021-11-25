@@ -1049,11 +1049,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     await handleSyncCommitteeContributionsFut
     await sendAggregatedAttestationsFut
 
-  if node.eth1Monitor != nil and (slot mod SLOTS_PER_EPOCH) == 0:
-    let finalizedEpochRef = node.dag.getFinalizedEpochRef()
-    discard node.eth1Monitor.trackFinalizedState(
-      finalizedEpochRef.eth1_data, finalizedEpochRef.eth1_deposit_index)
-
 proc sendAttestation*(node: BeaconNode,
                       attestation: Attestation): Future[SendResult] {.async.} =
   # REST/JSON-RPC API helper procedure.
