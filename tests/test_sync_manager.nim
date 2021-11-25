@@ -379,7 +379,7 @@ suite "SyncManager test suite":
         f13.finished == false
 
       var f12 = queue.push(r12, chain.getSlice(startSlot, r12))
-      await sleepAsync(100.milliseconds)
+      await allFutures(f11, f12, f13)
       check:
         f12.finished == true and f12.failed == false
         f13.finished == true and f13.failed == false
@@ -485,7 +485,7 @@ suite "SyncManager test suite":
         f14.finished == false
 
       var f11 = queue.push(r11, chain.getSlice(startSlot, r11))
-      await sleepAsync(100.milliseconds)
+      await allFutures(f11, f12)
       check:
         counter == int(startSlot + chunkSize + chunkSize)
         f11.finished == true and f11.failed == false
@@ -496,7 +496,7 @@ suite "SyncManager test suite":
       withBlck(missingSlice[0]):
         blck.message.proposer_index = 0xDEADBEAF'u64
       var f13 = queue.push(r13, missingSlice)
-      await sleepAsync(100.milliseconds)
+      await allFutures(f13, f14)
       check:
         f11.finished == true and f11.failed == false
         f12.finished == true and f12.failed == false
@@ -525,7 +525,7 @@ suite "SyncManager test suite":
       check f16.finished == false
 
       var f15 = queue.push(r15, chain.getSlice(startSlot, r15))
-      await sleepAsync(100.milliseconds)
+      await allFutures(f15, f16, f17)
       check:
         f15.finished == true and f15.failed == false
         f16.finished == true and f16.failed == false
@@ -603,7 +603,7 @@ suite "SyncManager test suite":
         f14.finished == false
 
       var f11 = queue.push(r11, chain.getSlice(startSlot, r11))
-      await sleepAsync(100.milliseconds)
+      await allFutures(f11, f12)
       check:
         counter == int(finishSlot - chunkSize - chunkSize)
         f11.finished == true and f11.failed == false
@@ -614,7 +614,7 @@ suite "SyncManager test suite":
       withBlck(missingSlice[0]):
         blck.message.proposer_index = 0xDEADBEAF'u64
       var f13 = queue.push(r13, missingSlice)
-      await sleepAsync(100.milliseconds)
+      await allFutures(f13, f14)
       check:
         f11.finished == true and f11.failed == false
         f12.finished == true and f12.failed == false
@@ -635,7 +635,7 @@ suite "SyncManager test suite":
       check f16.finished == false
 
       var f15 = queue.push(r15, chain.getSlice(startSlot, r15))
-      await sleepAsync(100.milliseconds)
+      await allFutures(f15, f16)
       check:
         f15.finished == true and f15.failed == false
         f16.finished == true and f16.failed == false
