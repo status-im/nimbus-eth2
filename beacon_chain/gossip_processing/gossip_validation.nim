@@ -786,7 +786,7 @@ proc validateSyncCommitteeMessage*(
   ok((positionsInSubcommittee, cookedSignature.get()))
 
 # https://github.com/ethereum/eth2.0-specs/blob/v1.1.5/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
-proc validateSignedContributionAndProof*(
+proc validateContribution*(
     dag: ChainDAGRef,
     syncCommitteeMsgPool: var SyncCommitteeMsgPool,
     msg: SignedContributionAndProof,

@@ -210,7 +210,7 @@ proc sendSyncCommitteeMessage*(
   # validation will also register the message with the sync committee
   # message pool. Notably, although libp2p calls the data handler for
   # any subscription on the subnet topic, it does not perform validation.
-  let res = node.processor.syncCommitteeMsgValidator(msg, subcommitteeIdx,
+  let res = node.processor.syncCommitteeMessageValidator(msg, subcommitteeIdx,
                                                      checkSignature)
   return
     if res.isOk():
@@ -308,7 +308,7 @@ proc sendSyncCommitteeContribution*(
     node: BeaconNode,
     msg: SignedContributionAndProof,
     checkSignature: bool): Future[SendResult] {.async.} =
-  let res = node.processor.syncCommitteeContributionValidator(
+  let res = node.processor.contributionValidator(
     msg, checkSignature)
 
   return
@@ -345,8 +345,7 @@ proc createAndSendAttestation(node: BeaconNode,
            validator.pubKey)
 
     let wallTime = node.beaconClock.now()
-    let deadline = attestationData.slot.toBeaconTime() +
-                  seconds(int(SECONDS_PER_SLOT div 3))
+    let deadline = attestationData.slot.toBeaconTime(attestationSlotOffset)
 
     let (delayStr, delaySecs) =
       if wallTime < deadline:
@@ -654,8 +653,7 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
 
     let
       wallTime = node.beaconClock.now()
-      deadline = msg.slot.toBeaconTime() +
-                 seconds(int(SECONDS_PER_SLOT div 3))
+      deadline = msg.slot.toBeaconTime(syncCommitteeMessageSlotOffset)
 
     let (delayStr, delaySecs) =
       if wallTime < deadline:
@@ -975,14 +973,9 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   head = await handleProposal(node, head, slot)
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#attesting
-  # Milliseconds to wait from the start of the slot before sending out
-  # attestations
-  const attestationOffset = SECONDS_PER_SLOT.int64 * 1000 div 3
-
   let
     # The latest point in time when we'll be sending out attestations
-    attestationCutoffTime = slot.toBeaconTime(millis(attestationOffset))
+    attestationCutoffTime = slot.toBeaconTime(attestationSlotOffset)
     attestationCutoff = node.beaconClock.fromNow(attestationCutoffTime)
 
   if attestationCutoff.inFuture:
@@ -1024,25 +1017,28 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     node.consensusManager[].updateHead(slot)
     head = node.dag.head
 
+  static: doAssert attestationSlotOffset == syncCommitteeMessageSlotOffset
+
   handleAttestations(node, head, slot)
   handleSyncCommitteeMessages(node, head, slot)
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.5/specs/phase0/validator.md#broadcast-aggregate
   # If the validator is selected to aggregate (is_aggregator), then they
   # broadcast their best aggregate as a SignedAggregateAndProof to the global
   # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way
   # through the slot-that is, SECONDS_PER_SLOT * 2 / 3 seconds after the start
   # of slot.
   if slot > 2:
+    static: doAssert aggregateSlotOffset == syncContributionSlotOffset
     let
-      aggregateWaitTime = node.beaconClock.fromNow(
-        slot.toBeaconTime(seconds(int64(SECONDS_PER_SLOT * 2) div 3)))
-    if aggregateWaitTime.inFuture:
+      aggregateCutoffTime = slot.toBeaconTime(aggregateSlotOffset)
+      aggregateCutoff = node.beaconClock.fromNow(aggregateCutoffTime)
+    if aggregateCutoff.inFuture:
       debug "Waiting to send aggregate attestations",
-        aggregateWaitTime = shortLog(aggregateWaitTime.offset)
-      await sleepAsync(aggregateWaitTime.offset)
+        aggregateCutoff = shortLog(aggregateCutoff.offset)
+      await sleepAsync(aggregateCutoff.offset)
 
     let sendAggregatedAttestationsFut =
       sendAggregatedAttestations(node, head, slot)
@@ -1083,8 +1079,7 @@ proc sendAttestation*(node: BeaconNode,
 
   let
     wallTime = node.processor.getCurrentBeaconTime()
-    deadline = attestation.data.slot.toBeaconTime() +
-                seconds(int(SECONDS_PER_SLOT div 3))
+    deadline = attestation.data.slot.toBeaconTime(attestationSlotOffset)
     (delayStr, delaySecs) =
       if wallTime < deadline:
         ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))

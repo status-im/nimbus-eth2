@@ -607,7 +607,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
     case info.kind
     of EpochInfoFork.Phase0:
       template info: untyped = info.phase0Data
-      for i, s in info.statuses.pairs():
+      for i, s in info.validators.pairs():
         let perf = addr perfs[i]
         if RewardFlags.isActiveInPreviousEpoch in s.flags:
           if s.is_previous_epoch_attester.isSome():
@@ -836,16 +836,16 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
       template info: untyped = info.phase0Data
       insertEpochInfo.exec(
         (getStateField(state[].data, slot).epoch.int64,
-        info.total_balances.current_epoch_raw.int64,
-        info.total_balances.previous_epoch_raw.int64,
-        info.total_balances.current_epoch_attesters_raw.int64,
-        info.total_balances.current_epoch_target_attesters_raw.int64,
-        info.total_balances.previous_epoch_attesters_raw.int64,
-        info.total_balances.previous_epoch_target_attesters_raw.int64,
-        info.total_balances.previous_epoch_head_attesters_raw.int64)
+        info.balances.current_epoch_raw.int64,
+        info.balances.previous_epoch_raw.int64,
+        info.balances.current_epoch_attesters_raw.int64,
+        info.balances.current_epoch_target_attesters_raw.int64,
+        info.balances.previous_epoch_attesters_raw.int64,
+        info.balances.previous_epoch_target_attesters_raw.int64,
+        info.balances.previous_epoch_head_attesters_raw.int64)
         ).expect("DB")
 
-      for index, status in info.statuses.pairs():
+      for index, status in info.validators.pairs():
         if not is_eligible_validator(status):
           continue
         let

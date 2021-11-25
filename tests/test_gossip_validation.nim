@@ -223,7 +223,7 @@ suite "Gossip validation - Extra": # Not based on preset config
         slot.toBeaconTime(), true)
       (positions, cookedSig) = res.get()
 
-    syncCommitteeMsgPool[].addSyncCommitteeMsg(
+    syncCommitteeMsgPool[].addSyncCommitteeMessage(
       msg.slot,
       msg.beacon_block_root,
       msg.validator_index,
@@ -237,7 +237,7 @@ suite "Gossip validation - Extra": # Not based on preset config
         check: syncCommitteeMsgPool[].produceContribution(
           slot, state[].root, subcommitteeIdx,
           contribution.message.contribution)
-        syncCommitteeMsgPool[].addSyncContribution(
+        syncCommitteeMsgPool[].addContribution(
           contribution[], contribution.message.contribution.signature.load.get)
         waitFor validator.sign(
           contribution, state[].data.fork, state[].data.genesis_validators_root)

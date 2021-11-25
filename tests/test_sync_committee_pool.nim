@@ -76,13 +76,13 @@ suite "Sync committee pool":
 
     # Inserting sync committee messages
     #
-    pool.addSyncCommitteeMsg(root1Slot, root1, 1, sig1, subcommittee1, [1'u64])
-    pool.addSyncCommitteeMsg(root1Slot, root1, 2, sig2, subcommittee1, [10'u64])
-    pool.addSyncCommitteeMsg(root2Slot, root1, 3, sig3, subcommittee2, [7'u64])
-    pool.addSyncCommitteeMsg(root2Slot, root2, 4, sig4, subcommittee2, [3'u64])
+    pool.addSyncCommitteeMessage(root1Slot, root1, 1, sig1, subcommittee1, [1'u64])
+    pool.addSyncCommitteeMessage(root1Slot, root1, 2, sig2, subcommittee1, [10'u64])
+    pool.addSyncCommitteeMessage(root2Slot, root1, 3, sig3, subcommittee2, [7'u64])
+    pool.addSyncCommitteeMessage(root2Slot, root2, 4, sig4, subcommittee2, [3'u64])
 
     # Insert a duplicate message (this should be handled gracefully)
-    pool.addSyncCommitteeMsg(root1Slot, root1, 1, sig1, subcommittee1, [1'u64])
+    pool.addSyncCommitteeMessage(root1Slot, root1, 1, sig1, subcommittee1, [1'u64])
 
     # Producing contributions
     #
@@ -120,7 +120,7 @@ suite "Sync committee pool":
         contribution.aggregation_bits[10] == true
         contribution.signature == expectedSig.toValidatorSig
 
-      pool.addSyncContribution(outContribution, expectedSig)
+      pool.addContribution(outContribution, expectedSig)
       check: pool.isSeen(outContribution.message)
 
     block:
@@ -142,7 +142,7 @@ suite "Sync committee pool":
         contribution.aggregation_bits[7] == true
         contribution.signature == sig3.toValidatorSig
 
-      pool.addSyncContribution(outContribution, sig3)
+      pool.addContribution(outContribution, sig3)
       check: pool.isSeen(outContribution.message)
 
     block:
@@ -165,7 +165,7 @@ suite "Sync committee pool":
         contribution.aggregation_bits[3] == true
         contribution.signature == sig4.toValidatorSig
 
-      pool.addSyncContribution(outContribution, sig4)
+      pool.addContribution(outContribution, sig4)
       check: pool.isSeen(outContribution.message)
 
     block:

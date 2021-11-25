@@ -51,7 +51,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped): untyped 
 const JustificationFinalizationDir = RootDir/"justification_and_finalization"/"pyspec_tests"
 runSuite(JustificationFinalizationDir, "Justification & Finalization"):
   info.process_attestations(state, cache)
-  process_justification_and_finalization(state, info.total_balances)
+  process_justification_and_finalization(state, info.balances)
 
 # Rewards & Penalties
 # ---------------------------------------------------------------
@@ -71,7 +71,7 @@ runSuite(RegistryUpdatesDir, "Registry updates"):
 const SlashingsDir = RootDir/"slashings"/"pyspec_tests"
 runSuite(SlashingsDir, "Slashings"):
   info.process_attestations(state, cache)
-  process_slashings(state, info.total_balances.current_epoch)
+  process_slashings(state, info.balances.current_epoch)
 
 # Final updates
 # ---------------------------------------------------------------
