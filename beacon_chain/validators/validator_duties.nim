@@ -179,6 +179,17 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   else:
     true
 
+func isGoodForSending(validationResult: ValidationRes): bool =
+  # Validator clients such as Vouch can be configured to work with multiple
+  # beacon nodes simultaneously. In this configuration, the validator client
+  # will try to broadcast the gossip messages through each of the connected
+  # beacon nodes which may lead to a situation where some of the nodes see a
+  # message arriving from the network before it arrives through the REST API.
+  # This should not be considered an error and the beacon node should still
+  # broadcast the message as the intented purpose of the Vouch strategy is
+  # to ensure that the message will reach as many peers as possible.
+  validationResult.isOk() or validationResult.error[0] == ValidationResult.Ignore
+
 proc sendAttestation*(
     node: BeaconNode, attestation: Attestation,
     subnet_id: SubnetId, checkSignature: bool): Future[SendResult] {.async.} =
@@ -190,7 +201,7 @@ proc sendAttestation*(
     attestation, subnet_id, checkSignature)
 
   return
-    if res.isOk():
+    if res.isGoodForSending:
       node.network.broadcastAttestation(subnet_id, attestation)
       beacon_attestations_sent.inc()
       if not(isNil(node.onAttestationSent)):
@@ -211,9 +222,9 @@ proc sendSyncCommitteeMessage*(
   # message pool. Notably, although libp2p calls the data handler for
   # any subscription on the subnet topic, it does not perform validation.
   let res = node.processor.syncCommitteeMessageValidator(msg, subcommitteeIdx,
-                                                     checkSignature)
+                                                         checkSignature)
   return
-    if res.isOk():
+    if res.isGoodForSending:
       node.network.broadcastSyncCommitteeMessage(msg, subcommitteeIdx)
       beacon_sync_committee_messages_sent.inc()
       SendResult.ok()
@@ -312,7 +323,7 @@ proc sendSyncCommitteeContribution*(
     msg, checkSignature)
 
   return
-    if res.isOk():
+    if res.isGoodForSending:
       node.network.broadcastSignedContributionAndProof(msg)
       beacon_sync_committee_contributions_sent.inc()
       ok()
@@ -1094,7 +1105,7 @@ proc sendAggregateAndProof*(node: BeaconNode,
   # REST/JSON-RPC API helper procedure.
   let res = await node.processor.aggregateValidator(proof)
   return
-    if res.isOk():
+    if res.isGoodForSending:
       node.network.broadcastAggregateAndProof(proof)
 
       notice "Aggregated attestation sent",
@@ -1113,7 +1124,7 @@ proc sendVoluntaryExit*(node: BeaconNode,
                         exit: SignedVoluntaryExit): SendResult =
   # REST/JSON-RPC API helper procedure.
   let res = node.processor[].voluntaryExitValidator(exit)
-  if res.isOk():
+  if res.isGoodForSending:
     node.network.broadcastVoluntaryExit(exit)
     ok()
   else:
@@ -1125,7 +1136,7 @@ proc sendAttesterSlashing*(node: BeaconNode,
                            slashing: AttesterSlashing): SendResult =
   # REST/JSON-RPC API helper procedure.
   let res = node.processor[].attesterSlashingValidator(slashing)
-  if res.isOk():
+  if res.isGoodForSending:
     node.network.broadcastAttesterSlashing(slashing)
     ok()
   else:
@@ -1137,7 +1148,7 @@ proc sendProposerSlashing*(node: BeaconNode,
                            slashing: ProposerSlashing): SendResult =
   # REST/JSON-RPC API helper procedure.
   let res = node.processor[].proposerSlashingValidator(slashing)
-  if res.isOk():
+  if res.isGoodForSending:
     node.network.broadcastProposerSlashing(slashing)
     ok()
   else:
