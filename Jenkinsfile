@@ -103,7 +103,7 @@ parallel(
 	},
 	"macOS": {
 		throttle(['nimbus-eth2']) {
-			node("macos") {
+			node("macos && x86_64") {
 				withEnv(["NPROC=${sh(returnStdout: true, script: 'sysctl -n hw.logicalcpu').trim()}"]) {
 					runStages()
 				}
