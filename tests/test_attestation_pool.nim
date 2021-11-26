@@ -491,7 +491,7 @@ suite "Attestation pool processing" & preset():
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
-    doAssert: b10Add_clone.error == (ValidationResult.Ignore, Duplicate)
+    doAssert: b10Add_clone.error == BlockError.Duplicate
 
   test "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
     # Note: very sensitive to stack usage
@@ -573,4 +573,4 @@ suite "Attestation pool processing" & preset():
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
-    doAssert: b10Add_clone.error == (ValidationResult.Ignore, Duplicate)
+    doAssert: b10Add_clone.error == BlockError.Duplicate

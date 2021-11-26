@@ -19,9 +19,7 @@ import
   ../spec/datatypes/[phase0, altair, merge],
   "."/[blockchain_dag]
 
-from libp2p/protocols/pubsub/pubsub import ValidationResult
-
-export results, ValidationResult, signatures_batch
+export results, signatures_batch
 
 # Clearance
 # ---------------------------------------------
@@ -111,7 +109,7 @@ type SomeSignedBlock =
   merge.TrustedSignedBeaconBlock
 proc checkStateTransition(
        dag: ChainDAGRef, signedBlock: SomeSignedBlock,
-       cache: var StateCache): (ValidationResult, BlockError) =
+       cache: var StateCache): Result[void, BlockError] =
   ## Ensure block can be applied on a state
   func restore(v: var ForkedHashedBeaconState) =
     # TODO address this ugly workaround - there should probably be a
@@ -129,8 +127,9 @@ proc checkStateTransition(
       cache, dag.updateFlags, restore):
     info "Invalid block"
 
-    return (ValidationResult.Reject, Invalid)
-  return (ValidationResult.Accept, default(BlockError))
+    err(BlockError.Invalid)
+  else:
+    ok()
 
 proc advanceClearanceState*(dag: ChainDAGRef) =
   # When the chain is synced, the most likely block to be produced is the block
@@ -154,7 +153,7 @@ proc addRawBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
     onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnMergeBlockAdded
-    ): Result[BlockRef, (ValidationResult, BlockError)] =
+    ): Result[BlockRef, BlockError] =
   ## Try adding a block to the chain, verifying first that it passes the state
   ## transition function and contains correct cryptographic signature.
   ##
@@ -173,7 +172,7 @@ proc addRawBlock*(
     # existed in the pool, as that may confuse consumers such as the fork
     # choice. While the validation result won't be accessed, it's IGNORE,
     # according to the spec.
-    return err((ValidationResult.Ignore, Duplicate))
+    return err(BlockError.Duplicate)
 
   # If the block we get is older than what we finalized already, we drop it.
   # One way this can happen is that we start request a block and finalization
@@ -186,13 +185,13 @@ proc addRawBlock*(
 
     # Doesn't correspond to any specific validation condition, and still won't
     # be used, but certainly would be IGNORE.
-    return err((ValidationResult.Ignore, Unviable))
+    return err(BlockError.UnviableFork)
 
   let parent = dag.getRef(blck.parent_root)
 
   if parent == nil:
     debug "Block parent unknown"
-    return err((ValidationResult.Ignore, MissingParent))
+    return err(BlockError.MissingParent)
 
   if parent.slot >= signedBlock.message.slot:
     # A block whose parent is newer than the block itself is clearly invalid -
@@ -200,7 +199,7 @@ proc addRawBlock*(
     debug "Block with invalid parent, dropping",
       parentBlock = shortLog(parent)
 
-    return err((ValidationResult.Reject, Invalid))
+    return err(BlockError.Invalid)
 
   if (parent.slot < dag.finalizedHead.slot) or
       (parent.slot == dag.finalizedHead.slot and
@@ -217,7 +216,7 @@ proc addRawBlock*(
       finalizedHead = shortLog(dag.finalizedHead),
       tail = shortLog(dag.tail)
 
-    return err((ValidationResult.Ignore, Unviable))
+    return err(BlockError.UnviableFork)
 
   # The block is resolved, now it's time to validate it to ensure that the
   # blocks we add to the database are clean for the given state
@@ -239,17 +238,14 @@ proc addRawBlock*(
         err = e.error()
 
       # A PublicKey or Signature isn't on the BLS12-381 curve
-      return err((ValidationResult.Reject, Invalid))
+      return err(BlockError.Invalid)
     if not verifier.batchVerify(sigs):
       info "Block signature verification failed"
-      return err((ValidationResult.Reject, Invalid))
+      return err(BlockError.Invalid)
 
   let sigVerifyTick = Moment.now()
-  let (valRes, blockErr) = checkStateTransition(
-    dag, signedBlock.asSigVerified(), cache)
 
-  if valRes != ValidationResult.Accept:
-    return err((valRes, blockErr))
+  ? checkStateTransition(dag, signedBlock.asSigVerified(), cache)
 
   let stateVerifyTick = Moment.now()
   # Careful, clearanceState.data has been updated but not blck - we need to

@@ -9,7 +9,6 @@
 
 import
   chronicles,
-  std/[options, sequtils],
   unittest2,
   stew/assign2,
   eth/keys, taskpools,
@@ -333,7 +332,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addRawBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == (ValidationResult.Reject, Invalid)
+        bAdd.error() == BlockError.Invalid
 
     block: # Randao reveal
       var b = b2
@@ -341,7 +340,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addRawBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == (ValidationResult.Reject, Invalid)
+        bAdd.error() == BlockError.Invalid
 
     block: # Attestations
       var b = b2
@@ -349,7 +348,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addRawBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == (ValidationResult.Reject, Invalid)
+        bAdd.error() == BlockError.Invalid
 
     block: # SyncAggregate empty
       var b = b2
@@ -357,7 +356,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addRawBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == (ValidationResult.Reject, Invalid)
+        bAdd.error() == BlockError.Invalid
 
     block: # SyncAggregate junk
       var b = b2
@@ -367,7 +366,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addRawBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == (ValidationResult.Reject, Invalid)
+        bAdd.error() == BlockError.Invalid
 
 suite "chain DAG finalization tests" & preset():
   setup:
@@ -455,7 +454,7 @@ suite "chain DAG finalization tests" & preset():
       # The late block is a block whose parent was finalized long ago and thus
       # is no longer a viable head candidate
       let status = dag.addRawBlock(verifier, lateBlock, nilPhase0Callback)
-      check: status.error == (ValidationResult.Ignore, Unviable)
+      check: status.error == BlockError.UnviableFork
 
     block:
       let

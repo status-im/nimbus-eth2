@@ -23,21 +23,22 @@ export sets, tables
 # relationships and allowing various forms of lookups
 
 type
-  BlockError* = enum
+  BlockError* {.pure.} = enum
+    Invalid ##\
+      ## Block is broken / doesn't apply cleanly - whoever sent it is fishy (or
+      ## we're buggy)
+
     MissingParent ##\
       ## We don't know the parent of this block so we can't tell if it's valid
       ## or not - it'll go into the quarantine and be reexamined when the parent
       ## appears or be discarded if finality obsoletes it
 
-    Unviable ##\
+    UnviableFork ##\
       ## Block is from a different history / fork than the one we're interested
       ## in (based on our finalized checkpoint)
 
-    Invalid ##\
-      ## Block is broken / doesn't apply cleanly - whoever sent it is fishy (or
-      ## we're buggy)
-    Old
-    Duplicate
+    Duplicate ##\
+      ## We've seen this block already, can't add again
 
   OnBlockCallback* =
     proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [Defect].}

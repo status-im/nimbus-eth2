@@ -45,12 +45,10 @@ suite "Block processor" & preset():
   test "Reverse order block add & get" & preset():
     let missing = processor[].storeBlock(
       b2, b2.message.slot)
-    check: missing.error == MissingParent
+    check: missing.error == BlockError.MissingParent
 
     check:
       dag.get(b2.root).isNone() # Unresolved, shouldn't show up
-
-      quarantine[].add(dag, ForkedSignedBeaconBlock.init(b2))
 
       FetchRecord(root: b1.root) in quarantine[].checkMissing()
 

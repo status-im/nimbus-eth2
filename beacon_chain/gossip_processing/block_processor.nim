@@ -139,21 +139,19 @@ proc addBlock*(
 # ------------------------------------------------------------------------------
 
 proc dumpInvalidBlock*(
-    self: BlockProcessor,
-    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                 merge.SignedBeaconBlock) =
+    self: BlockProcessor, signedBlock: ForkySignedBeaconBlock) =
   if self.dumpEnabled:
     dump(self.dumpDirInvalid, signedBlock)
 
 proc dumpBlock*[T](
     self: BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    res: Result[T, (ValidationResult, BlockError)]) =
+    res: Result[T, BlockError]) =
   if self.dumpEnabled and res.isErr:
-    case res.error[1]
-    of Invalid:
+    case res.error
+    of BlockError.Invalid:
       self.dumpInvalidBlock(signedBlock)
-    of MissingParent:
+    of BlockError.MissingParent:
       dump(self.dumpDirIncoming, signedBlock)
     else:
       discard
@@ -189,7 +187,15 @@ proc storeBlock*(
   # However this block was before the last finalized epoch and so its parent
   # was pruned from the ForkChoice.
   if blck.isErr():
-    return err(blck.error[1])
+    if blck.error() == BlockError.MissingParent:
+      if not self.consensusManager.quarantine[].add(
+          dag, ForkedSignedBeaconBlock.init(signedBlock)):
+        debug "Block quarantine full",
+          blockRoot = shortLog(signedBlock.root),
+          blck = shortLog(signedBlock.message),
+          signature = shortLog(signedBlock.signature)
+
+    return blck
 
   let storeBlockTick = Moment.now()
 
@@ -213,7 +219,7 @@ proc storeBlock*(
     # Process the blocks that had the newly accepted block as parent
     self.addBlock(quarantined)
 
-  ok(blck.get())
+  blck
 
 # Event Loop
 # ------------------------------------------------------------------------------
@@ -234,8 +240,8 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
      res = withBlck(entry.blck):
        self.storeBlock(blck, wallSlot, entry.queueTick, entry.validationDur)
 
-  if res.isOk() or (res.error() in {BlockError.Duplicate, BlockError.Old}):
-    # Duplicate and old blocks are ok from a sync point of view, so we mark
+  if res.isOk() or res.error() == BlockError.Duplicate:
+    # Duplicate blocks are ok from a sync point of view, so we mark
     # them as successful
     entry.done()
   else:
