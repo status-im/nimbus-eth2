@@ -339,7 +339,7 @@ proc loadRemoteKeystoreImpl(validatorsDir,
         except SerializationError as e:
           error "Failed to read remote keystore file",
                 keystore_path = remoteKeystorePath,
-                err_msg = e.formatMsg("<remote_keystore>")
+                err_msg = e.formatMsg(remoteKeystorePath)
           return
       let res = ValidatorPrivateItem.init(keystore)
       if res.isErr():

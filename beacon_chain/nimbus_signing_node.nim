@@ -96,21 +96,15 @@ proc loadTLSKey(pathName: InputFile): Result[TLSPrivateKey, cstring] =
 
 proc initValidators(sn: var SigningNode): bool =
   info "Initializaing validators", path = sn.config.validatorsDir()
-  var duplicates: seq[ValidatorPubKey]
   var publicKeyIdents: seq[string]
   for item in sn.config.validatorItems():
     case item.kind
     of ValidatorKind.Local:
       let pubkey = item.privateKey.toPubKey().toPubKey()
-      if pubkey in duplicates:
-        error "Duplicate validator's key found", validator_pubkey = pubkey
-        return false
-      else:
-        duplicates.add(pubkey)
-        sn.attachedValidators.addLocalValidator(item)
-        publicKeyIdents.add("\"0x" & pubkey.toHex() & "\"")
+      sn.attachedValidators.addLocalValidator(item)
+      publicKeyIdents.add("\"0x" & pubkey.toHex() & "\"")
     of ValidatorKind.Remote:
-      error "Signing node do not supports remote validators",
+      error "Signing node do not support remote validators",
             validator_pubkey = item.publicKey
       return false
   sn.keysList = "[" & publicKeyIdents.join(", ") & "]"
