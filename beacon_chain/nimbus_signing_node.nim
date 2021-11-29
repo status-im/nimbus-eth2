@@ -124,7 +124,7 @@ proc init(t: typedesc[SigningNode], config: SigningNodeConf): SigningNode =
     timeout =
       if config.requestTimeout < 0:
         warn "Negative value of request timeout, using default instead"
-        seconds(DefaultSigningNodeRequestTimeout)
+        seconds(defaultSigningNodeRequestTimeout)
       else:
         seconds(config.requestTimeout)
     serverIdent =
