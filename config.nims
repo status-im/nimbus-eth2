@@ -99,6 +99,10 @@ switch("passL", "-fno-omit-frame-pointer")
 
 # switch("define", "snappy_implementation=libp2p")
 
+# TODO https://github.com/status-im/nimbus-eth2/issues/3130
+# We are still seeing problems with the websock package, se we stick to using news:
+switch("define", "json_rpc_websocket_package=news")
+
 const currentDir = currentSourcePath()[0 .. ^(len("config.nims") + 1)]
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
 switch("define", "withoutPCRE")
