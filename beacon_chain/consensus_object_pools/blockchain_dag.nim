@@ -74,11 +74,12 @@ template withState*(
   ## TODO async transformations will lead to a race where stateData gets updated
   ##      while waiting for future to complete - catch this here somehow?
 
-  var cache {.inject.} = StateCache()
-  updateStateData(dag, stateData, blockSlot, false, cache)
+  block:
+    var cache {.inject.} = StateCache()
+    updateStateData(dag, stateData, blockSlot, false, cache)
 
-  withStateVars(stateData):
-    body
+    withStateVars(stateData):
+      body
 
 func parent*(bs: BlockSlot): BlockSlot =
   ## Return a blockslot representing the previous slot, using the parent block
