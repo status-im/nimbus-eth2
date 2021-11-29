@@ -161,18 +161,16 @@ type
     header*: BeaconBlockHeader  ##\
     ## Update beacon block header
 
-    next_sync_committee*: SyncCommittee ##\
-    ## Next sync committee corresponding to the header
+    # Next sync committee corresponding to the header
+    next_sync_committee*: SyncCommittee
+    next_sync_committee_branch*: array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
 
-    next_sync_committee_branch*: array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest] ##\
-    ## Finality proof for the update header
-
+    # Finality proof for the update header
     finality_header*: BeaconBlockHeader
     finality_branch*: array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
 
-    sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE] ##\
-    ## Sync committee aggregate signature
-
+    # Sync committee aggregate signature
+    sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
     sync_committee_signature*: ValidatorSig
 
     fork_version*: Version ##\
