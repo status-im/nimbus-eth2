@@ -183,7 +183,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
 
     # We use a local proc in order to:
-    # * avoid code duplicates and
+    # * avoid code duplication
     # * reduce code bloat from `withState`
     proc produceResponse(requestedValidatorIndices: openArray[ValidatorIndex],
                          syncCommittee: openArray[ValidatorPubKey],
@@ -254,6 +254,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let earliestSlotInQSyncPeriod =
         Slot(qSyncPeriod * SLOTS_PER_SYNC_COMMITTEE_PERIOD)
 
+      # TODO
+      # The DAG can offer a short-cut for getting just the information we need
+      # in order to compute the sync committee for the epoch. See the following
+      # discussion for more details:
+      # https://github.com/status-im/nimbus-eth2/pull/3133#pullrequestreview-817184693
       node.withStateForBlockSlot(node.dag.head.atSlot(earliestSlotInQSyncPeriod)):
         let res = withState(stateData().data):
           when stateFork >= BeaconStateFork.Altair:
