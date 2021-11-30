@@ -21,7 +21,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"/..
 GETOPT_BINARY="getopt"
 if uname | grep -qi darwin; then
   # macOS
-  GETOPT_BINARY="/usr/local/opt/gnu-getopt/bin/getopt"
+  GETOPT_BINARY=$(find /opt/homebrew/opt/gnu-getopt/bin/getopt /usr/local/opt/gnu-getopt/bin/getopt 2> /dev/null || true)
   [[ -f "$GETOPT_BINARY" ]] || { echo "GNU getopt not installed. Please run 'brew install gnu-getopt'. Aborting."; exit 1; }
 fi
 
@@ -32,7 +32,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rpc-port:,base-metrics-port:,reuse-existing-data-dir,timeout:,kill-old-processes"
+LONGOPTS="help,preset:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rpc-port:,base-metrics-port:,reuse-existing-data-dir,timeout:,kill-old-processes,eth2-docker-image:"
 
 # default values
 NUM_NODES="10"
@@ -43,13 +43,14 @@ USE_GANACHE="0"
 LOG_LEVEL="DEBUG; TRACE:networking"
 BASE_PORT="9000"
 BASE_METRICS_PORT="8008"
-BASE_RPC_PORT="7000"
+BASE_RPC_PORT="7500"
 REUSE_EXISTING_DATA_DIR="0"
 ENABLE_LOGTRACE="0"
 STOP_AT_EPOCH_FLAG=""
 TIMEOUT_DURATION="0"
 CONST_PRESET="mainnet"
 KILL_OLD_PROCESSES="0"
+ETH2_DOCKER_IMAGE=""
 
 print_help() {
   cat <<EOF
@@ -74,6 +75,7 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --reuse-existing-data-dir   instead of deleting and recreating the data dir, keep it and reuse everything we can from it
   --timeout                   timeout in seconds (default: ${TIMEOUT_DURATION} - no timeout)
   --kill-old-processes        if any process is found listening on a port we use, kill it (default: disabled)
+  --eth2-docker-image         use docker image instead of compiling the beacon node
 EOF
 }
 
@@ -151,6 +153,14 @@ while true; do
       KILL_OLD_PROCESSES="1"
       shift
       ;;
+    --eth2-docker-image)
+      ETH2_DOCKER_IMAGE="$2"
+      shift 2
+      # TODO The validator client is still not being shipped with
+      #      our docker images, so we must disable it:
+      echo "warning: --eth-docker-image implies --disable-vc"
+      USE_VC="0"
+      ;;
     --)
       shift
       break
@@ -174,16 +184,11 @@ fi
 
 scripts/makedir.sh "${DATA_DIR}"
 
-DEPOSITS_FILE="${DATA_DIR}/deposits.json"
-
 VALIDATORS_DIR="${DATA_DIR}/validators"
 scripts/makedir.sh "${VALIDATORS_DIR}"
 
 SECRETS_DIR="${DATA_DIR}/secrets"
 scripts/makedir.sh "${SECRETS_DIR}"
-
-NETWORK_DIR="${DATA_DIR}/network_dir"
-mkdir -p "${NETWORK_DIR}"
 
 USER_VALIDATORS=8
 TOTAL_VALIDATORS=128
@@ -223,9 +228,23 @@ if [[ "${HAVE_LSOF}" == "1" ]]; then
 fi
 
 # Build the binaries
-BINARIES="nimbus_beacon_node nimbus_validator_client deposit_contract"
+BINARIES="nimbus_validator_client deposit_contract"
+
 if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
   BINARIES="${BINARIES} logtrace"
+fi
+
+if [[ ! -z "$ETH2_DOCKER_IMAGE" ]]; then
+  DATA_DIR_FULL_PATH=$(cd "${DATA_DIR}"; pwd)
+  # CONTAINER_DATA_DIR must be used everywhere where paths are supplied to BEACON_NODE_COMMAND executions.
+  # We'll use the CONTAINER_ prefix throughout the file to indicate such paths.
+  CONTAINER_DATA_DIR=/home/user/nimbus-eth2/testnet
+  BEACON_NODE_COMMAND="docker run -v /etc/passwd:/etc/passwd -u $(id -u):$(id -g) --net=host -v ${DATA_DIR_FULL_PATH}:${CONTAINER_DATA_DIR}:rw $ETH2_DOCKER_IMAGE"
+else
+  # When docker is not used CONTAINER_DATA_DIR is just an alias for DATA_DIR
+  CONTAINER_DATA_DIR=$DATA_DIR
+  BEACON_NODE_COMMAND="./build/nimbus_beacon_node"
+  BINARIES="${BINARIES} nimbus_beacon_node"
 fi
 
 $MAKE -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
@@ -245,6 +264,10 @@ cleanup() {
   for BINARY in ${BINARIES}; do
     rm build/${BINARY}
   done
+
+  if [[ ! -z "$ETH2_DOCKER_IMAGE" ]]; then
+    docker rm $(docker stop $(docker ps -a -q --filter ancestor=$ETH2_DOCKER_IMAGE --format="{{.ID}}"))
+  fi
 }
 trap 'cleanup' SIGINT SIGTERM EXIT
 
@@ -269,6 +292,9 @@ DEPOSIT_CONTRACT_BLOCK="0x000000000000000000000000000000000000000000000000000000
 RUNTIME_CONFIG_FILE="${DATA_DIR}/config.yaml"
 NUM_JOBS=${NUM_NODES}
 
+DEPOSITS_FILE="${DATA_DIR}/deposits.json"
+CONTAINER_DEPOSITS_FILE="${CONTAINER_DATA_DIR}/deposits.json"
+
 if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
   ./build/deposit_contract generateSimulationDeposits \
     --count=${TOTAL_VALIDATORS} \
@@ -281,12 +307,12 @@ if [[ $USE_GANACHE == "0" ]]; then
   GENESIS_OFFSET=30
   BOOTSTRAP_IP="127.0.0.1"
 
-  ./build/nimbus_beacon_node createTestnet \
-    --data-dir="${DATA_DIR}" \
-    --deposits-file="${DEPOSITS_FILE}" \
+  $BEACON_NODE_COMMAND createTestnet \
+    --data-dir="${CONTAINER_DATA_DIR}" \
+    --deposits-file="${CONTAINER_DEPOSITS_FILE}" \
     --total-validators=${TOTAL_VALIDATORS} \
-    --output-genesis="${DATA_DIR}/genesis.ssz" \
-    --output-bootstrap-file="${DATA_DIR}/bootstrap_nodes.txt" \
+    --output-genesis="${CONTAINER_DATA_DIR}/genesis.ssz" \
+    --output-bootstrap-file="${CONTAINER_DATA_DIR}/bootstrap_nodes.txt" \
     --bootstrap-address=${BOOTSTRAP_IP} \
     --bootstrap-port=${BASE_PORT} \
     --netkey-file=network_key.json \
@@ -369,8 +395,11 @@ if [ "${USE_VC:-}" == "1" ]; then
 fi
 VALIDATORS_PER_VALIDATOR=$(( (SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS) / 2 ))
 VALIDATOR_OFFSET=$((SYSTEM_VALIDATORS / 2))
+
 BOOTSTRAP_ENR="${DATA_DIR}/node${BOOTSTRAP_NODE}/beacon_node.enr"
-NETWORK_KEYFILE="../network_key.json"
+CONTAINER_BOOTSTRAP_ENR="${CONTAINER_DATA_DIR}/node${BOOTSTRAP_NODE}/beacon_node.enr"
+
+CONTAINER_NETWORK_KEYFILE="network_key.json"
 
 for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   # Copy validators to individual nodes.
@@ -409,14 +438,15 @@ done
 
 for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
+  CONTAINER_NODE_DATA_DIR="${CONTAINER_DATA_DIR}/node${NUM_NODE}"
   VALIDATOR_DATA_DIR="${DATA_DIR}/validator${NUM_NODE}"
   if [[ ${NUM_NODE} == ${BOOTSTRAP_NODE} ]]; then
     # Due to star topology, the bootstrap node must relay all attestations,
     # even if it itself is not interested. --subscribe-all-subnets could be
     # removed by switching to a fully-connected topology.
-    BOOTSTRAP_ARG="--netkey-file=${NETWORK_KEYFILE} --insecure-netkey-password=true --subscribe-all-subnets"
+    BOOTSTRAP_ARG="--netkey-file=${CONTAINER_NETWORK_KEYFILE} --insecure-netkey-password=true --subscribe-all-subnets"
   else
-    BOOTSTRAP_ARG="--bootstrap-file=${BOOTSTRAP_ENR}"
+    BOOTSTRAP_ARG="--bootstrap-file=${CONTAINER_BOOTSTRAP_ENR}"
 
     if [[ "${CONST_PRESET}" == "minimal" ]]; then
       # The fast epoch and slot times in the minimal config might cause the
@@ -438,16 +468,16 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     done
   fi
 
-  ./build/nimbus_beacon_node \
+  $BEACON_NODE_COMMAND \
     --non-interactive \
     --nat:extip:127.0.0.1 \
-    --network="${DATA_DIR}" \
+    --network="${CONTAINER_DATA_DIR}" \
     --log-level="${LOG_LEVEL}" \
     --log-format=json \
     --tcp-port=$(( BASE_PORT + NUM_NODE )) \
     --udp-port=$(( BASE_PORT + NUM_NODE )) \
     --max-peers=$(( NUM_NODES - 1 )) \
-    --data-dir="${NODE_DATA_DIR}" \
+    --data-dir="${CONTAINER_NODE_DATA_DIR}" \
     ${BOOTSTRAP_ARG} \
     ${WEB3_ARG} \
     ${STOP_AT_EPOCH_FLAG} \
