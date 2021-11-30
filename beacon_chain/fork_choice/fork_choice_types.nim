@@ -15,6 +15,7 @@ import
 
   chronicles,
   # Internal
+  ../beacon_clock,
   ../spec/datatypes/base,
   ../consensus_object_pools/block_pools_types
 
@@ -108,10 +109,11 @@ type
     balances*: seq[Gwei]
 
   Checkpoints* = object
-    time*: Slot
+    time*: BeaconTime
     justified*: BalanceCheckpoint
     finalized*: Checkpoint
     best_justified*: Checkpoint
+    proposer_boost_root*: Eth2Digest
 
 # Fork choice high-level types
 # ----------------------------------------------------------------------

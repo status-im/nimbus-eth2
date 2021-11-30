@@ -137,7 +137,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
           epochRef = dag.getEpochRef(blckRef, blckRef.slot.epoch)
           withBlck(dag.get(blckRef).data):
             forkChoice.process_block(
-              dag, epochRef, blckRef, blck.message, blckRef.slot)
+              dag, epochRef, blckRef, blck.message, blckRef.slot.toBeaconTime)
 
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
@@ -158,10 +158,10 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
 proc addForkChoiceVotes(
     pool: var AttestationPool, slot: Slot,
     attesting_indices: openArray[ValidatorIndex], block_root: Eth2Digest,
-    wallSlot: Slot) =
+    wallTime: BeaconTime) =
   # Add attestation votes to fork choice
   if (let v = pool.forkChoice.on_attestation(
-    pool.dag, slot, block_root, attesting_indices, wallSlot);
+    pool.dag, slot, block_root, attesting_indices, wallTime);
     v.isErr):
       # This indicates that the fork choice and the chain dag are out of sync -
       # this is most likely the result of a bug, but we'll try to keep going -
@@ -325,7 +325,7 @@ proc addAttestation*(pool: var AttestationPool,
                      attestation: Attestation,
                      attesting_indices: openArray[ValidatorIndex],
                      signature: CookedSig,
-                     wallSlot: Slot) =
+                     wallTime: BeaconTime) =
   ## Add an attestation to the pool, assuming it's been validated already.
   ##
   ## Assuming the votes in the attestation have not already been seen, the
@@ -337,7 +337,7 @@ proc addAttestation*(pool: var AttestationPool,
   doAssert attestation.signature == signature.toValidatorSig(),
     "Deserialized signature must match the one in the attestation"
 
-  updateCurrent(pool, wallSlot)
+  updateCurrent(pool, wallTime.slotOrZero)
 
   let candidateIdx = pool.candidateIdx(attestation.data.slot)
   if candidateIdx.isNone:
@@ -365,7 +365,7 @@ proc addAttestation*(pool: var AttestationPool,
 
   pool.addForkChoiceVotes(
     attestation.data.slot, attesting_indices,
-    attestation.data.beacon_block_root, wallSlot)
+    attestation.data.beacon_block_root, wallTime)
 
   # Send notification about new attestation via callback.
   if not(isNil(pool.onAttestationAdded)):
@@ -375,10 +375,10 @@ proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
                     blck: ForkyTrustedBeaconBlock,
-                    wallSlot: Slot) =
+                    wallTime: BeaconTime) =
   ## Add a verified block to the fork choice context
   let state = pool.forkChoice.process_block(
-    pool.dag, epochRef, blckRef, blck, wallSlot)
+    pool.dag, epochRef, blckRef, blck, wallTime)
 
   if state.isErr:
     # This indicates that the fork choice and the chain dag are out of sync -
@@ -712,10 +712,10 @@ proc getAggregatedAttestation*(pool: var AttestationPool,
 
   res
 
-proc selectHead*(pool: var AttestationPool, wallSlot: Slot): BlockRef =
+proc selectHead*(pool: var AttestationPool, wallTime: BeaconTime): BlockRef =
   ## Trigger fork choice and returns the new head block.
   ## Can return `nil`
-  let newHead = pool.forkChoice.get_head(pool.dag, wallSlot)
+  let newHead = pool.forkChoice.get_head(pool.dag, wallTime)
 
   if newHead.isErr:
     error "Couldn't select head", err = newHead.error

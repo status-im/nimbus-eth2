@@ -13,6 +13,7 @@ import
   # Status libraries
   stew/results, chronicles,
   # Internal
+  ../beacon_clock,
   ../spec/[beaconstate, helpers],
   ../spec/datatypes/[phase0, altair, merge],
   # Fork choice
@@ -92,12 +93,25 @@ func extend[T](s: var seq[T], minLen: int) =
 func compute_slots_since_epoch_start(slot: Slot): uint64 =
     slot - slot.epoch().compute_start_slot_at_epoch()
 
-proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: Slot): FcResult[void] =
+func on_tick*(self: var Checkpoints, time: BeaconTime): FcResult[void] =
   if self.time > time:
     return err ForkChoiceError(kind: fcInconsistentTick)
 
-  let newEpoch = self.time.epoch() != time.epoch()
+  # Reset store.proposer_boost_root if this is a new slot
+  if time.slotOrZero > self.time.slotOrZero:
+    self.proposer_boost_root = default(Eth2Digest)
+
   self.time = time
+
+  ok()
+
+proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: BeaconTime):
+    FcResult[void] =
+  let prev_time = self.time
+
+  ? self.on_tick(time)
+
+  let newEpoch = prev_time.slotOrZero.epoch() != time.slotOrZero.epoch()
 
   if newEpoch and
       self.best_justified.epoch > self.justified.checkpoint.epoch:
@@ -117,10 +131,10 @@ proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: Slot): FcResult[void
 
 func process_attestation_queue(self: var ForkChoice) {.gcsafe.}
 
-proc update_time(self: var ForkChoice, dag: ChainDAGRef, time: Slot): FcResult[void] =
+proc update_time(self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime):
+    FcResult[void] =
   if time > self.checkpoints.time:
-    while time > self.checkpoints.time:
-      ? on_tick(self.checkpoints, dag, self.checkpoints.time + 1)
+    ? on_tick(self.checkpoints, dag, time)
 
     self.process_attestation_queue() # Only run if time changed!
 
@@ -153,7 +167,7 @@ func process_attestation*(
 
 func process_attestation_queue(self: var ForkChoice) =
   self.queuedAttestations.keepItIf:
-    if it.slot < self.checkpoints.time:
+    if it.slot < self.checkpoints.time.slotOrZero:
       for validator_index in it.attesting_indices:
         self.backend.process_attestation(
           validator_index, it.block_root, it.slot.epoch())
@@ -175,14 +189,14 @@ proc on_attestation*(
        attestation_slot: Slot,
        beacon_block_root: Eth2Digest,
        attesting_indices: openArray[ValidatorIndex],
-       wallSlot: Slot
+       wallTime: BeaconTime
      ): FcResult[void] =
-  ? self.update_time(dag, wallSlot)
+  ? self.update_time(dag, wallTime)
 
   if beacon_block_root == Eth2Digest():
     return ok()
 
-  if attestation_slot < self.checkpoints.time:
+  if attestation_slot < self.checkpoints.time.slotOrZero:
     for validator_index in attesting_indices:
       # attestation_slot and target epoch must match, per attestation rules
       self.backend.process_attestation(
@@ -202,7 +216,8 @@ func should_update_justified_checkpoint(
         self: var Checkpoints,
         dag: ChainDAGRef,
         epochRef: EpochRef): FcResult[bool] =
-  if compute_slots_since_epoch_start(self.time) < SAFE_SLOTS_TO_UPDATE_JUSTIFIED:
+  if compute_slots_since_epoch_start(self.time.slotOrZero) <
+      SAFE_SLOTS_TO_UPDATE_JUSTIFIED:
     return ok(true)
 
   let
@@ -300,8 +315,8 @@ proc process_block*(self: var ForkChoice,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
                     blck: ReallyAnyBeaconBlock,
-                    wallSlot: Slot): FcResult[void] =
-  ? update_time(self, dag, wallSlot)
+                    wallTime: BeaconTime): FcResult[void] =
+  ? update_time(self, dag, wallTime)
   ? process_state(self.checkpoints, dag, epochRef, blckRef)
 
   let committees_per_slot = get_committee_count_per_slot(epochRef)
@@ -320,6 +335,16 @@ proc process_block*(self: var ForkChoice,
           validator,
           attestation.data.beacon_block_root,
           attestation.data.target.epoch)
+
+  # Add proposer score boost if the block is timely
+  let
+    time_into_slot =
+      self.checkpoints.time - self.checkpoints.time.slotOrZero.toBeaconTime
+    is_before_attesting_interval =
+      time_into_slot < (SECONDS_PER_SLOT div INTERVALS_PER_SLOT).int64.seconds
+  if  self.checkpoints.time.slotOrZero == blck.slot and
+      is_before_attesting_interval:
+    self.checkpoints.proposer_boost_root = blckRef.root
 
   ? process_block(
       self.backend, blckRef.root, blck.parent_root,
@@ -373,8 +398,8 @@ func find_head*(
 # https://github.com/ethereum/consensus-specs/blob/v0.12.1/specs/phase0/fork-choice.md#get_head
 proc get_head*(self: var ForkChoice,
                dag: ChainDAGRef,
-               wallSlot: Slot): FcResult[Eth2Digest] =
-  ? self.update_time(dag, wallSlot)
+               wallTime: BeaconTime): FcResult[Eth2Digest] =
+  ? self.update_time(dag, wallTime)
 
   self.backend.find_head(
     self.checkpoints.justified.checkpoint,
