@@ -188,7 +188,7 @@
 <p><a href="https://github.com/status-im/nimbus-eth2">nimbus-eth2 repository</a></p>
 </li>
 <li>
-<p><a href="https://github.com/ethereum/consensus-specs/tree/v1.0.1#phase-0">eth2 specification</a></p>
+<p><a href="https://github.com/ethereum/consensus-specs/tree/v1.1.5#phase-0">eth2 specification</a></p>
 </li>
 <li>
 <p><a href="https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/">Ben Edgington's annotated spec</a> </p>
@@ -1267,15 +1267,12 @@ scrape_configs:
 <p>⚠️  <strong>Warning:</strong> if you're connecting to mainnet, you should skip this step</p>
 </blockquote>
 <p>If you're connecting to a testnet, in the <code>KEYS</code> section, click on the dropdown menu to the right of <code>ENDPOINTS</code>, and select <code>GÖRLI</code></p>
-<p><img src="https://i.imgur.com/D9186kv.png" alt="" /></p>
-<h3><a class="header" href="#7-copy-the-websocket-endpoint" id="7-copy-the-websocket-endpoint">7. Copy the websocket endpoint</a></h3>
-<p>Copy the address that starts with <code>wss://</code></p>
-<p><img src="https://i.imgur.com/fZ6Bcjy.png" alt="" /></p>
-<blockquote>
-<p>⚠️  <strong>Warning:</strong> make sure you've copied the endpoint that starts with<code>wss</code> (websocket), and not the <code>https</code> endpoint. If you're connecting  to mainnet this will read <code>wss://mainnet.infura.io/ws/...</code></p>
-</blockquote>
+<p><img src="https://i.imgur.com/MKZ6rVc.png" alt="" /></p>
+<h3><a class="header" href="#7-copy-one-of-the-endpoints" id="7-copy-one-of-the-endpoints">7. Copy one of the endpoints</a></h3>
+<p>You can use either endpoint, but the <code>https</code> endpoint will result in significantly fewer requests, especially during initial sync.</p>
+<p><img src="https://i.imgur.com/OfI3tKO.png" alt="" /></p>
 <h3><a class="header" href="#8-run-the-beacon-node" id="8-run-the-beacon-node">8. Run the beacon node</a></h3>
-<p><a href="./start-syncing.html">Launch the beacon node</a> on your favourite testnet, pasaing in your websocket endpoint as the <a href="./start-syncing.html#web3-provider-url">Web3 provider URL</a>.</p>
+<p><a href="./start-syncing.html">Launch the beacon node</a> on your favourite testnet, passing in your websocket endpoint as the <a href="./start-syncing.html#web3-provider-url">Web3 provider URL</a>.</p>
 <h3><a class="header" href="#9-check-stats" id="9-check-stats">9. Check stats</a></h3>
 <p>Visit your project's stats page to see a summary of your eth1 related activity and method calls</p>
 <p><img src="https://i.imgur.com/MZVTHHV.png" alt="" /></p>
