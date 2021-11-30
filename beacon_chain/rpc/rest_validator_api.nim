@@ -180,45 +180,94 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res > MaxEpoch:
           return RestApiResponse.jsonError(Http400, EpochOverflowValueError)
 
-        if res > node.dag.head.slot.epoch() + 1:
-          if not(node.isSynced(node.dag.head)):
-            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-          else:
-            return RestApiResponse.jsonError(Http400, EpochFromFutureError)
         res
 
-    let bslot = node.dag.head.atSlot(qepoch.compute_start_slot_at_epoch())
+    # We use a local proc in order to:
+    # * avoid code duplication
+    # * reduce code bloat from `withState`
+    proc produceResponse(requestedValidatorIndices: openArray[ValidatorIndex],
+                         syncCommittee: openArray[ValidatorPubKey],
+                         stateValidators: seq[Validator]
+                        ): seq[RestSyncCommitteeDuty] {.nimcall.} =
+      result = newSeqOfCap[RestSyncCommitteeDuty](len(requestedValidatorIndices))
+      for requestedValidatorIdx in requestedValidatorIndices:
+        if requestedValidatorIdx.uint64 >= stateValidators.lenu64:
+          # If the requested validator index was not valid within this old
+          # state, it's not possible that it will sit on the sync committee.
+          # Since this API must omit results for validators that don't have
+          # duties, we can simply ingnore this requested index.
+          # (we won't bother to validate it agains a more recent state).
+          continue
 
-    node.withStateForBlockSlot(bslot):
-      let syncCommittee =
-        block:
-          let res = syncCommitteeParticipants(stateData().data, qepoch)
-          if res.isErr():
-            return RestApiResponse.jsonError(Http400,
-                                             $res.error())
-          let kres = res.get()
-          if len(kres) == 0:
-            return RestApiResponse.jsonError(Http500, InternalServerError,
-                                 "List of sync committee participants is empty")
-          kres
+        let requestedValidatorPubkey =
+          stateValidators[requestedValidatorIdx].pubkey
 
-      var duties =
-        withState(stateData().data):
-          var res = newSeq[RestSyncCommitteeDuty](len(indexList))
-          for resIdx, validatorIdx in indexList:
-            if not validatorIdx.isValidInState(state.data):
-              return RestApiResponse.jsonError(Http400, "Invalid index: " & $validatorIdx)
+        var indicesInSyncCommittee = newSeq[IndexInSyncCommittee]()
+        for idx, syncCommitteeMemberPubkey in syncCommittee:
+          if syncCommitteeMemberPubkey == requestedValidatorPubkey:
+            indicesInSyncCommittee.add(IndexInSyncCommittee idx)
 
-            res[resIdx].pubkey = state.data.validators.asSeq()[validatorIdx].pubkey
-            res[resIdx].validator_index = validatorIdx
+        if indicesInSyncCommittee.len > 0:
+          result.add RestSyncCommitteeDuty(
+            pubkey: requestedValidatorPubkey,
+            validator_index: requestedValidatorIdx,
+            validator_sync_committee_indices: indicesInSyncCommittee)
 
-            for idx, pubkey in syncCommittee:
-              if pubkey == res[resIdx].pubkey:
-                res[resIdx].validator_sync_committee_indices.add(
-                  IndexInSyncCommittee idx)
-          res
+    template emptyResponse: auto =
+      newSeq[RestSyncCommitteeDuty]()
 
-      return RestApiResponse.jsonResponse(duties)
+    # We check the head state first in order to avoid costly replays
+    # if possible:
+    let
+      qSyncPeriod = sync_committee_period(qepoch)
+      headEpoch = node.dag.head.slot.epoch
+      headSyncPeriod = sync_committee_period(headEpoch)
+
+    if qSyncPeriod == headSyncPeriod:
+      let res = withState(node.dag.headState.data):
+        when stateFork >= BeaconStateFork.Altair:
+          produceResponse(indexList,
+                          state.data.current_sync_committee.pubkeys.data,
+                          state.data.validators.asSeq)
+        else:
+          emptyResponse()
+      return RestApiResponse.jsonResponse(res)
+    elif qSyncPeriod == (headSyncPeriod + 1):
+      let res = withState(node.dag.headState.data):
+        when stateFork >= BeaconStateFork.Altair:
+          produceResponse(indexList,
+                          state.data.next_sync_committee.pubkeys.data,
+                          state.data.validators.asSeq)
+        else:
+          emptyResponse()
+      return RestApiResponse.jsonResponse(res)
+    elif qSyncPeriod > headSyncPeriod:
+      # The requested epoch may still be too far in the future.
+      if not(node.isSynced(node.dag.head)):
+        return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+      else:
+        return RestApiResponse.jsonError(Http400, EpochFromFutureError)
+    else:
+      # The slot at the start of the sync committee period is likely to have a
+      # state snapshot in the database, so we can restore the state relatively
+      # cheaply:
+      let earliestSlotInQSyncPeriod =
+        Slot(qSyncPeriod * SLOTS_PER_SYNC_COMMITTEE_PERIOD)
+
+      # TODO
+      # The DAG can offer a short-cut for getting just the information we need
+      # in order to compute the sync committee for the epoch. See the following
+      # discussion for more details:
+      # https://github.com/status-im/nimbus-eth2/pull/3133#pullrequestreview-817184693
+      node.withStateForBlockSlot(node.dag.head.atSlot(earliestSlotInQSyncPeriod)):
+        let res = withState(stateData().data):
+          when stateFork >= BeaconStateFork.Altair:
+            produceResponse(indexList,
+                              state.data.current_sync_committee.pubkeys.data,
+                            state.data.validators.asSeq)
+          else:
+            emptyResponse()
+        return RestApiResponse.jsonResponse(res)
 
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
