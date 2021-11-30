@@ -40,8 +40,22 @@ proc validate(key: string, value: string): int =
   else:
     1
 
-proc getCurrentHead*(node: BeaconNode,
-                     slot: Slot): Result[BlockRef, cstring] =
+func getCurrentSlot*(node: BeaconNode, slot: Slot):
+    Result[Slot, cstring] =
+  if slot <= (node.dag.head.slot + (SLOTS_PER_EPOCH * 2)):
+    ok(slot)
+  else:
+    err("Requesting slot too far ahead of the current head")
+
+func getCurrentBlock*(node: BeaconNode, slot: Slot):
+    Result[BlockRef, cstring] =
+  let bs = node.dag.getBlockBySlot(? node.getCurrentSlot(slot))
+  if bs.slot == bs.blck.slot:
+    ok(bs.blck)
+  else:
+    err("Block not found")
+
+proc getCurrentHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
   let res = node.dag.head
   # if not(node.isSynced(res)):
   #   return err("Cannot fulfill request until node is synced")
@@ -62,16 +76,13 @@ proc getBlockSlot*(node: BeaconNode,
                    stateIdent: StateIdent): Result[BlockSlot, cstring] =
   case stateIdent.kind
   of StateQueryKind.Slot:
-    let head = ? getCurrentHead(node, stateIdent.slot)
-    let bslot = head.atSlot(stateIdent.slot)
-    if isNil(bslot.blck):
-      return err("Block not found")
-    ok(bslot)
+    ok(node.dag.getBlockBySlot(? node.getCurrentSlot(stateIdent.slot)))
   of StateQueryKind.Root:
-    let blckRef = node.dag.getRef(stateIdent.root)
-    if isNil(blckRef):
-      return err("Block not found")
-    ok(blckRef.toBlockSlot())
+    if stateIdent.root == getStateRoot(node.dag.headState.data):
+      ok(node.dag.headState.blck.toBlockSlot())
+    else:
+      # We don't have a state root -> BlockSlot mapping
+      err("State not found")
   of StateQueryKind.Named:
     case stateIdent.value
     of StateIdentType.Head:
@@ -84,28 +95,29 @@ proc getBlockSlot*(node: BeaconNode,
       ok(node.dag.head.atEpochStart(getStateField(
         node.dag.headState.data, current_justified_checkpoint).epoch))
 
-proc getBlockDataFromBlockIdent*(node: BeaconNode,
-                                 id: BlockIdent): Result[BlockData, cstring] =
+proc getBlockRef*(node: BeaconNode,
+                   id: BlockIdent): Result[BlockRef, cstring] =
   case id.kind
   of BlockQueryKind.Named:
     case id.value
     of BlockIdentType.Head:
-      ok(node.dag.get(node.dag.head))
+      ok(node.dag.head)
     of BlockIdentType.Genesis:
-      ok(node.dag.getGenesisBlockData())
+      ok(node.dag.genesis)
     of BlockIdentType.Finalized:
-      ok(node.dag.get(node.dag.finalizedHead.blck))
+      ok(node.dag.finalizedHead.blck)
   of BlockQueryKind.Root:
-    let res = node.dag.get(id.root)
-    if res.isNone():
-      return err("Block not found")
-    ok(res.get())
+    let res = node.dag.getRef(id.root)
+    if isNil(res):
+      err("Block not found")
+    else:
+      ok(res)
   of BlockQueryKind.Slot:
-    let head = ? node.getCurrentHead(id.slot)
-    let blockSlot = head.atSlot(id.slot)
-    if isNil(blockSlot.blck):
-      return err("Block not found")
-    ok(node.dag.get(blockSlot.blck))
+    node.getCurrentBlock(id.slot)
+
+proc getBlockDataFromBlockIdent*(node: BeaconNode,
+                                 id: BlockIdent): Result[BlockData, cstring] =
+  ok(node.dag.get(? node.getBlockRef(id)))
 
 template withStateForBlockSlot*(node: BeaconNode,
                                 blockSlot: BlockSlot, body: untyped): untyped =

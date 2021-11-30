@@ -68,22 +68,6 @@ suite "BlockRef and helpers" & preset():
       s4.get_ancestor(Slot(3)) == s2
       s4.get_ancestor(Slot(4)) == s4
 
-  test "epochAncestor sanity" & preset():
-    let
-      s0 = BlockRef(slot: Slot(0))
-    var cur = s0
-    for i in 1..SLOTS_PER_EPOCH * 2:
-      cur = BlockRef(slot: Slot(i), parent: cur)
-
-    let ancestor = cur.epochAncestor(cur.slot.epoch)
-
-    check:
-      ancestor.epoch == cur.slot.epoch
-      ancestor.blck != cur # should have selected a parent
-
-      ancestor.blck.epochAncestor(cur.slot.epoch) == ancestor
-      ancestor.blck.epochAncestor(ancestor.blck.slot.epoch) != ancestor
-
 suite "BlockSlot and helpers" & preset():
   test "atSlot sanity" & preset():
     let
