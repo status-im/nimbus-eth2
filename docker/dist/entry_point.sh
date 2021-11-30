@@ -17,7 +17,7 @@ if [[ -z "${1}" ]]; then
   exit 1
 fi
 PLATFORM="${1}"
-BINARIES="nimbus_beacon_node nimbus_signing_process"
+BINARIES="nimbus_beacon_node"
 
 #- we need to build everything against libraries available inside this container, including the Nim compiler
 make clean
