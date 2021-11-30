@@ -58,9 +58,11 @@ If you're connecting to a testnet, in the `KEYS` section, click on the dropdown 
 
 ### 7. Copy one of the endpoints
 
-You can use either endpoint, but the `https` endpoint will result in significantly fewer requests, especially during initial sync.
+ 
+You can use either endpoint but we recommend you copy the `wss`
 
-![](https://i.imgur.com/OfI3tKO.png)
+![](https://i.imgur.com/fZ6Bcjy.png)
+
 
 ### 8. Run the beacon node
 
