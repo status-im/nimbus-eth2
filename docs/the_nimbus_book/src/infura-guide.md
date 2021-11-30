@@ -58,7 +58,7 @@ If you're connecting to a testnet, in the `KEYS` section, click on the dropdown 
 
 ### 7. Copy one of the endpoints
 
-You can use either endpoint, but the https one will result in significantly fewer requests used, especially when initially syncing the node.
+You can use either endpoint, but the `https` endpoint will result in significantly fewer requests, especially during initial sync.
 
 ![](https://i.imgur.com/OfI3tKO.png)
 
