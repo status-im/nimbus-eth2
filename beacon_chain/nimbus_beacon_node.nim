@@ -1129,6 +1129,7 @@ proc onSecond(node: BeaconNode) =
   # Nim GC metrics (for the main thread)
   {.gcsafe.}:
     updateSystemMetrics()
+    updateThreadMetrics()
 
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
   let sleepTime = chronos.seconds(1)
