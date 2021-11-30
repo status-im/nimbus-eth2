@@ -743,10 +743,10 @@ func getBlockRange*(
 
   o # Return the index of the first non-nil item in the output
 
-func getBlockBySlot*(dag: ChainDAGRef, slot: Slot): BlockRef =
+func getBlockBySlot*(dag: ChainDAGRef, slot: Slot): BlockSlot =
   ## Retrieves the first block in the current canonical chain
   ## with slot number less or equal to `slot`.
-  dag.head.atSlot(slot).blck
+  dag.head.atSlot(slot)
 
 proc getForkedBlock*(dag: ChainDAGRef, blck: BlockRef): ForkedTrustedSignedBeaconBlock =
   case dag.cfg.blockForkAtEpoch(blck.slot.epoch)

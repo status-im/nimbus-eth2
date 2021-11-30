@@ -282,7 +282,7 @@ proc collectSignatureSets*(
   # ----------------------------------------------------
   sigs.addSignatureSet(
           proposer_key.get(),
-          signed_block.message,
+          signed_block.root,
           signed_block.signature.loadOrExit(
             "collectSignatureSets: cannot load signature"),
           getStateField(state, fork),
