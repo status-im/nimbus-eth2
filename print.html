@@ -726,9 +726,6 @@ rm nimbus-eth2_Linux_arm64v8*.tar.gz
 </code></pre>
 <p>Don't forget to restart your node.</p>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/keep-updated.md">Edit this file on GitHub.</a></footer><h1><a class="header" href="#run-an-eth1-node" id="run-an-eth1-node">Run an eth1 node</a></h1>
-<blockquote>
-<p>⚠️ Warning: make sure you've copied the endpoint that starts with either <code>ws</code> or <code>wss</code> (websocket), and not <code>http</code> or <code>https</code>. Nimbus does not currently support <code>http</code> endpoints.</p>
-</blockquote>
 <p>In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client in parallel to your eth2 client. </p>
 <p>Validators are responsible for including new deposits when they propose blocks. And an eth1 client is needed to ensure your validator performs this task correctly.</p>
 <p>On this page we provide instructions for using Geth (however, any reputable eth1 client should do the trick).</p>
