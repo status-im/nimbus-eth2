@@ -14,8 +14,7 @@ import
   chronicles,
   ../extras,
   ./datatypes/[phase0, altair, merge],
-  "."/[eth2_merkleization, forks, signatures, validator],
-  ../../nbench/bench_lab
+  "."/[eth2_merkleization, forks, signatures, validator]
 
 export extras, forks, validator
 
@@ -195,7 +194,7 @@ proc initialize_beacon_state_from_eth1*(
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[DepositData],
-    flags: UpdateFlags = {}): phase0.BeaconState {.nbench.} =
+    flags: UpdateFlags = {}): phase0.BeaconState =
   ## Get the genesis ``BeaconState``.
   ##
   ## Before the beacon chain starts, validators will register in the Eth1 chain
@@ -627,7 +626,7 @@ proc check_attestation*(
 proc process_attestation*(
     state: var ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
     base_reward_per_increment: Gwei, cache: var StateCache):
-    Result[void, cstring] {.nbench.} =
+    Result[void, cstring] =
   # In the spec, attestation validation is mixed with state mutation, so here
   # we've split it into two functions so that the validation logic can be
   # reused when looking for suitable blocks to include in attestations.

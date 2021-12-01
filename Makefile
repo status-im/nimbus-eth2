@@ -43,8 +43,6 @@ TOOLS := \
 	deposit_contract \
 	resttest \
 	logtrace \
-	nbench \
-	nbench_spec_scenarios \
 	ncli \
 	ncli_db \
 	stack_sizes \
@@ -59,7 +57,6 @@ TOOLS_DIRS := \
 	beacon_chain/eth1 \
 	benchmarks \
 	ncli \
-	nbench \
 	research \
 	tools
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
