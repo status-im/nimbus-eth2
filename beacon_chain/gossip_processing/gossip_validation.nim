@@ -228,13 +228,12 @@ proc validateBeaconBlock*(
     return errIgnore("BeaconBlock: already seen")
 
   let
-    slotBlockRef = getBlockBySlot(dag, signed_beacon_block.message.slot)
+    slotBlock = getBlockBySlot(dag, signed_beacon_block.message.slot)
 
-  if not slotBlockRef.isNil:
-    let blck = dag.get(slotBlockRef).data
+  if slotBlock.slot == signed_beacon_block.message.slot:
+    let blck = dag.get(slotBlock.blck).data
     if getForkedBlockField(blck, proposer_index) ==
           signed_beacon_block.message.proposer_index and
-        getForkedBlockField(blck, slot) == signed_beacon_block.message.slot and
         blck.signature.toRaw() != signed_beacon_block.signature.toRaw():
       return errIgnore("BeaconBlock: already proposed in the same slot")
 

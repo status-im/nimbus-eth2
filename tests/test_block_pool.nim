@@ -467,6 +467,11 @@ suite "chain DAG finalization tests" & preset():
 
     check:
       dag.heads.len() == 1
+      dag.getBlockBySlot(0.Slot) == BlockSlot(blck: dag.genesis, slot: 0.Slot)
+      dag.getBlockBySlot(dag.head.slot) == BlockSlot(
+        blck: dag.head, slot: dag.head.slot.Slot)
+      dag.getBlockBySlot(dag.head.slot + 1) == BlockSlot(
+        blck: dag.head, slot: dag.head.slot.Slot + 1)
 
     check:
       dag.db.immutableValidators.len() == getStateField(dag.headState.data, validators).len()
