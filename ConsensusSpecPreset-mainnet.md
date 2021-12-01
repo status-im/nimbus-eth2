@@ -55,8 +55,6 @@ ConsensusSpecPreset-mainnet
 + Ethereum Foundation - Altair - Transition - transition_with_proposer_slashing_right_before OK
 + Ethereum Foundation - Altair - Transition - transition_with_random_half_participation [Pre OK
 + Ethereum Foundation - Altair - Transition - transition_with_random_three_quarters_particip OK
-+ Ethereum Foundation - Altair - Transition - transition_with_voluntary_exit_right_after_for OK
-+ Ethereum Foundation - Altair - Transition - transition_with_voluntary_exit_right_before_fo OK
 + Ethereum Foundation - Merge - Rewards - all_balances_too_low_for_reward [Preset: mainnet]  OK
 + Ethereum Foundation - Merge - Rewards - empty [Preset: mainnet]                            OK
 + Ethereum Foundation - Merge - Rewards - empty_leak [Preset: mainnet]                       OK
@@ -267,6 +265,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - historical_batch [Preset: mainne OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - inactivity_scores_full_participa OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - inactivity_scores_leaking [Prese OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - is_execution_enabled_false [Pres OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_attester_slashings_no_o OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_attester_slashings_part OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_different_proposer_slas OK
@@ -338,7 +337,7 @@ ConsensusSpecPreset-mainnet
 + fork_random_misc_balances                                                                  OK
 + next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 335/335 Fail: 0/335 Skip: 0/335
+OK: 334/334 Fail: 0/334 Skip: 0/334
 ## Attestation
 ```diff
 + [Invalid] Ethereum Foundation - Altair - Operations - Attestation - after_epoch_slots      OK
@@ -770,13 +769,16 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 ```diff
 + ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
 + ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/genesis                      OK
+  ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  Skip
 + ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
 + ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
 + ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/basic                        OK
 + ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
   ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
++ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               OK
++ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
 ```
-OK: 6/7 Fail: 0/7 Skip: 1/7
+OK: 8/10 Fail: 0/10 Skip: 2/10
 ## Ethereum Foundation - Merge - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -1165,4 +1167,4 @@ OK: 44/44 Fail: 0/44 Skip: 0/44
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 990/991 Fail: 0/991 Skip: 1/991
+OK: 991/993 Fail: 0/993 Skip: 2/993

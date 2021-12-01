@@ -57,7 +57,7 @@ export
 # Eventually, we could also differentiate between user/tainted data and
 # internal state that's gone through sanity checks already.
 
-const SPEC_VERSION* = "1.1.5"
+const SPEC_VERSION* = "1.1.6"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -81,6 +81,9 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#misc
   ATTESTATION_SUBNET_COUNT* = 64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/fork-choice.md#constant
+  INTERVALS_PER_SLOT* = 3
 
 template maxSize*(n: int) {.pragma.}
 
