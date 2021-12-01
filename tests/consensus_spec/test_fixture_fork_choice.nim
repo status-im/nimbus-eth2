@@ -5,11 +5,13 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.used.}
+
 import
   # Standard library
-  std/[strformat, tables, options, json, os, strutils],
+  std/[json, options, os, strutils, tables],
   # Status libraries
-  stew/[results, endians2], snappy, chronicles,
+  stew/[results, endians2], chronicles,
   eth/keys, taskpools,
   # Internals
   ../../beacon_chain/spec/[helpers, forks],
@@ -216,7 +218,7 @@ proc stepChecks(
        checks: JsonNode,
        dag: ChainDagRef,
        fkChoice: ref ForkChoice,
-       time: Slot  
+       time: Slot
      ) =
   doAssert checks.len >= 1, "No checks found"
   for check, val in checks:
@@ -246,6 +248,9 @@ proc stepChecks(
       let checkpointEpoch = fkChoice.checkpoints.best_justified.epoch
       doAssert checkpointEpoch == Epoch(val["epoch"].getInt())
       doAssert checkpointRoot == Eth2Digest.fromHex(val["root"].getStr())
+    elif check == "proposer_boost_root":
+      # TODO needs fork choice to know about BeaconTime
+      discard
     elif check == "genesis_time":
       # The fork choice is pruned regularly
       # and does not store the genesis time,
@@ -322,6 +327,9 @@ suite "Ethereum Foundation - ForkChoice" & preset():
     # test: tests/fork_choice/scenarios/no_votes.nim
     #       "Ensure the head is still 4 whilst the justified epoch is 0."
     "on_block_future_block",
+
+    # TODO needs fork choice to know about BeaconTime
+    "proposer_boost_correct_head"
   ]
 
   for fork in [BeaconBlockFork.Phase0]: # TODO: init ChainDAG from Merge/Altair
