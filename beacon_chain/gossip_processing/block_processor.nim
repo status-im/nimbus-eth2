@@ -151,9 +151,11 @@ proc dumpBlock*[T](
 proc storeBlock*(
     self: var BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    wallSlot: Slot): Result[BlockRef, BlockError] =
+    wallSlot: Slot, queueTick: Moment = Moment.now(),
+    validationDur = Duration()): Result[BlockRef, BlockError] =
   let
     attestationPool = self.consensusManager.attestationPool
+    startTick = Moment.now()
 
   type Trusted = typeof signedBlock.asTrusted()
   let blck = self.consensusManager.dag.addRawBlock(
@@ -170,6 +172,25 @@ proc storeBlock*(
   # was pruned from the ForkChoice.
   if blck.isErr:
     return err(blck.error[1])
+
+  let storeBlockTick = Moment.now()
+
+  # Eagerly update head: the incoming block "should" get selected
+  self.consensusManager[].updateHead(wallSlot)
+
+  let
+    updateHeadTick = Moment.now()
+    queueDur = startTick - queueTick
+    storeBlockDur = storeBlockTick - startTick
+    updateHeadDur = updateHeadTick - storeBlockTick
+
+  beacon_store_block_duration_seconds.observe(storeBlockDur.toFloatSeconds())
+
+  debug "Block processed",
+    localHeadSlot = self.consensusManager.dag.head.slot,
+    blockSlot = blck.get().slot,
+    validationDur, queueDur, storeBlockDur, updateHeadDur
+
   ok(blck.get())
 
 # Event Loop
@@ -188,30 +209,10 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
     quit 1
 
   let
-    startTick = Moment.now()
-    res = withBlck(entry.blck): self.storeBlock(blck, wallSlot)
-    storeBlockTick = Moment.now()
+     res = withBlck(entry.blck):
+       self.storeBlock(blck, wallSlot, entry.queueTick, entry.validationDur)
 
-  if res.isOk():
-    # Eagerly update head in case the new block gets selected
-    self.consensusManager[].updateHead(wallSlot)
-
-    let
-      updateHeadTick = Moment.now()
-      queueDur = startTick - entry.queueTick
-      storeBlockDur = storeBlockTick - startTick
-      updateHeadDur = updateHeadTick - storeBlockTick
-
-    beacon_store_block_duration_seconds.observe(storeBlockDur.toFloatSeconds())
-
-    debug "Block processed",
-      localHeadSlot = self.consensusManager.dag.head.slot,
-      blockSlot = entry.blck.slot,
-      validationDur = entry.validationDur,
-      queueDur, storeBlockDur, updateHeadDur
-
-    entry.done()
-  elif res.error() in {BlockError.Duplicate, BlockError.Old}:
+  if res.isOk() or (res.error() in {BlockError.Duplicate, BlockError.Old}):
     # Duplicate and old blocks are ok from a sync point of view, so we mark
     # them as successful
     entry.done()
