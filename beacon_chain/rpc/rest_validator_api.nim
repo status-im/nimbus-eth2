@@ -503,6 +503,18 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     if not(node.isSynced(node.dag.head)):
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 
+    let
+      wallSlot = node.beaconClock.now.slotOrZero
+      wallEpoch = wallSlot.epoch
+      head = node.dag.head
+
+    var currentEpoch, nextEpoch: Option[EpochRef]
+    template getAndCacheEpochRef(epochRefVar: var Option[EpochRef],
+                                 epoch: Epoch): EpochRef =
+      if epochRefVar.isNone:
+        epochRefVar = some node.dag.getEpochRef(head, epoch)
+      epochRefVar.get
+
     for request in requests:
       if uint64(request.committee_index) >= uint64(MAX_COMMITTEES_PER_SLOT):
         return RestApiResponse.jsonError(Http400,
@@ -510,23 +522,19 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       if uint64(request.validator_index) >=
                   lenu64(getStateField(node.dag.headState.data, validators)):
         return RestApiResponse.jsonError(Http400,
-                                          InvalidValidatorIndexValueError)
-
-      let wallSlot = node.beaconClock.now.slotOrZero
+                                         InvalidValidatorIndexValueError)
       if wallSlot > request.slot + 1:
         return RestApiResponse.jsonError(Http400, SlotFromThePastError)
+
       let epoch = request.slot.epoch
-      if epoch >= wallSlot.epoch and epoch - wallSlot.epoch > 1:
+      let epochRef = if epoch == wallEpoch:
+        currentEpoch.getAndCacheEpochRef(wallEpoch)
+      elif epoch == wallEpoch + 1:
+        nextEpoch.getAndCacheEpochRef(wallEpoch + 1)
+      else:
         return RestApiResponse.jsonError(Http400,
                                          SlotNotInNextWallSlotEpochError)
-      let head =
-        block:
-          let res = node.getCurrentHead(epoch)
-          if res.isErr():
-            return RestApiResponse.jsonError(Http400, NoHeadForSlotError,
-                                             $res.error())
-          res.get()
-      let epochRef = node.dag.getEpochRef(head, epoch)
+
       let subnet_id = compute_subnet_for_attestation(
         get_committee_count_per_slot(epochRef), request.slot,
         request.committee_index)
