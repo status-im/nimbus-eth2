@@ -8,13 +8,13 @@
 {.push raises: [Defect].}
 
 import
-  std/[deques, hashes, options, strformat, strutils, sequtils, tables,
+  std/[deques, options, strformat, strutils, sequtils, tables,
        typetraits, uri, json],
   # Nimble packages:
   chronos, json, metrics, chronicles/timings,
   web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
   eth/common/eth_types,
-  eth/async_utils, stew/[objects, byteutils],
+  eth/async_utils, stew/[objects, byteutils, shims/hashes],
   # Local modules:
   ../spec/[eth2_merkleization, forks, helpers],
   ../spec/datatypes/[base, merge],
@@ -330,7 +330,7 @@ proc addBlock*(chain: var Eth1Chain, newBlock: Eth1Block) =
   eth1_chain_len.set chain.blocks.len.int64
 
 func hash*(x: Eth1Data): Hash =
-  hashData(unsafeAddr x, sizeof(x))
+  hashObjectBytes(x)
 
 template hash*(x: Eth1Block): Hash =
   hash(x.voteData)

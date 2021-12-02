@@ -1,7 +1,7 @@
 import
-  std/[tables, sequtils, hashes],
+  std/[tables, sequtils],
   bearssl,
-  stew/shims/sets, chronicles,
+  stew/shims/[sets, hashes], chronicles,
   eth/p2p/discoveryv5/random2,
   ../spec/datatypes/base,
   ../spec/[helpers, network],
@@ -62,7 +62,7 @@ type
       ## attestations for the aggregate
 
 func hash*(x: AggregatorDuty): Hash =
-  hashData(unsafeAddr x, sizeof(x))
+  hashObjectBytes(x)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 func randomStabilitySubnet*(
