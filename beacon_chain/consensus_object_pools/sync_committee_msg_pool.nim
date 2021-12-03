@@ -54,7 +54,7 @@ type
     onContributionReceived*: OnSyncContributionCallback
 
 func hash*(x: SyncCommitteeMsgKey): Hash =
-  hashObjectBytes(x)
+  hashAllFields(x)
 
 func init*(T: type SyncCommitteeMsgPool,
            onSyncContribution: OnSyncContributionCallback = nil

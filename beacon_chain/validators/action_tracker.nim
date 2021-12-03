@@ -62,7 +62,7 @@ type
       ## attestations for the aggregate
 
 func hash*(x: AggregatorDuty): Hash =
-  hashObjectBytes(x)
+  hashAllFields(x)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 func randomStabilitySubnet*(

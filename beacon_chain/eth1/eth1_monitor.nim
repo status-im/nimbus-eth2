@@ -330,7 +330,7 @@ proc addBlock*(chain: var Eth1Chain, newBlock: Eth1Block) =
   eth1_chain_len.set chain.blocks.len.int64
 
 func hash*(x: Eth1Data): Hash =
-  hashObjectBytes(x)
+  hash(x.block_hash)
 
 template hash*(x: Eth1Block): Hash =
   hash(x.voteData)
