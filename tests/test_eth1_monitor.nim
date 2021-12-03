@@ -36,15 +36,15 @@ suite "Eth1 monitor":
 
     check:
       mainnetWssUrl == "wss://mainnet.infura.io/ws/v3/6224f3c792cc443fafb64e70a98f871e"
-      mainnetHttpUrl == "http://mainnet.infura.io/v3/6224f3c792cc443fafb64e70a98f871e"
-      mainnetHttpsUrl == "https://mainnet.infura.io/v3/6224f3c792cc443fafb64e70a98f871e"
+      mainnetHttpUrl == mainnetWssUrl
+      mainnetHttpsUrl == mainnetWssUrl
 
       goerliWssUrl == "wss://goerli.infura.io/ws/v3/6224f3c792cc443fafb64e70a98f871e"
-      goerliHttpUrl == "http://goerli.infura.io/v3/6224f3c792cc443fafb64e70a98f871e"
-      goerliHttpsUrl == "https://goerli.infura.io/v3/6224f3c792cc443fafb64e70a98f871e"
+      goerliHttpUrl == goerliWssUrl
+      goerliHttpsUrl == goerliWssUrl
 
-      gethHttpUrl == "http://localhost:8545"
-      gethHttpsUrl == "https://localhost:8545"
-      unspecifiedProtocolUrl == "ws://localhost:8545"
+      gethHttpUrl == gethWsUrl
+      gethHttpsUrl == gethWsUrl
+      unspecifiedProtocolUrl == gethWsUrl
 
       gethWsUrl == "ws://localhost:8545"
