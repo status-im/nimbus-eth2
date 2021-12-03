@@ -53,20 +53,6 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     else:
       raiseNoAltairSupport()
 
-  rpcServer.rpc("post_v1_validator_block") do (body: phase0.SignedBeaconBlock) -> bool:
-    debug "post_v1_validator_block",
-      slot = body.message.slot,
-      prop_idx = body.message.proposer_index
-    let head = node.doChecksAndGetCurrentHead(body.message.slot)
-
-    if head.slot >= body.message.slot:
-      raise newException(CatchableError,
-        "Proposal is for a past slot: " & $body.message.slot)
-    if head == await proposeSignedBlock(
-        node, head, AttachedValidator(), ForkedSignedBeaconBlock.init(body)):
-      raise newException(CatchableError, "Could not propose block")
-    return true
-
   rpcServer.rpc("get_v1_validator_attestation_data") do (
       slot: Slot, committee_index: CommitteeIndex) -> AttestationData:
     debug "get_v1_validator_attestation_data", slot = slot

@@ -462,32 +462,6 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       noRollback, # Temporary state - no need for rollback
       cache)
 
-proc proposeSignedBlock*(node: BeaconNode,
-                         head: BlockRef,
-                         validator: AttachedValidator,
-                         newBlock: ForkedSignedBeaconBlock):
-                         Future[BlockRef] {.async.} =
-  let wallTime = node.beaconClock.now()
-
-  return withBlck(newBlock):
-    let newBlockRef = node.blockProcessor[].storeBlock(
-      blck, wallTime.slotOrZero())
-
-    if newBlockRef.isErr:
-      warn "Unable to add proposed block to block pool",
-            newBlock = blck.message, root = blck.root
-      return head
-
-    notice "Block proposed",
-           blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-           signature = shortLog(blck.signature), validator = shortLog(validator)
-
-    node.network.broadcastBeaconBlock(blck)
-
-    beacon_blocks_proposed.inc()
-
-    newBlockRef.get()
-
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
                   validator_index: ValidatorIndex,
@@ -522,20 +496,17 @@ proc proposeBlock(node: BeaconNode,
   if newBlock.isErr():
     return head # already logged elsewhere!
 
-  let blck = newBlock.get()
+  let forkedBlck = newBlock.get()
 
-  # TODO abstract this, or move it into makeBeaconBlockForHeadAndSlot, and in
-  # general this is far too much copy/paste
-  let forked = case blck.kind:
-  of BeaconBlockFork.Phase0:
-    let root = hash_tree_root(blck.phase0Data)
+  withBlck(forkedBlck):
+    let
+      blockRoot = hash_tree_root(blck)
+      signing_root = compute_block_root(
+        fork, genesis_validators_root, slot, blockRoot)
 
-    # TODO: recomputed in block proposal
-    let signing_root = compute_block_root(
-      fork, genesis_validators_root, slot, root)
-    let notSlashable = node.attachedValidators
-      .slashingProtection
-      .registerBlock(validator_index, validator.pubkey, slot, signing_root)
+      notSlashable = node.attachedValidators
+        .slashingProtection
+        .registerBlock(validator_index, validator.pubkey, slot, signing_root)
 
     if notSlashable.isErr:
       warn "Slashing protection activated",
@@ -544,83 +515,58 @@ proc proposeBlock(node: BeaconNode,
         existingProposal = notSlashable.error
       return head
 
-    let signature =
-      block:
-        let res = await validator.signBlockProposal(fork,
-          genesis_validators_root, slot, root, blck)
-        if res.isErr():
-          error "Unable to sign block proposal",
-                validator = shortLog(validator), error_msg = res.error()
-          return head
-        res.get()
-    ForkedSignedBeaconBlock.init(
-      phase0.SignedBeaconBlock(
-        message: blck.phase0Data, root: root, signature: signature)
-    )
-  of BeaconBlockFork.Altair:
-    let root = hash_tree_root(blck.altairData)
+    let
+      signature =
+        block:
+          let res = await validator.signBlockProposal(
+            fork, genesis_validators_root, slot, blockRoot, forkedBlck)
+          if res.isErr():
+            error "Unable to sign block proposal",
+                  validator = shortLog(validator), error_msg = res.error()
+            return head
+          res.get()
+      signedBlock =
+        when blck is phase0.BeaconBlock:
+          phase0.SignedBeaconBlock(
+            message: blck, signature: signature, root: blockRoot)
+        elif blck is altair.BeaconBlock:
+          altair.SignedBeaconBlock(
+            message: blck, signature: signature, root: blockRoot)
+        elif blck is merge.BeaconBlock:
+          merge.SignedBeaconBlock(
+            message: blck, signature: signature, root: blockRoot)
+        else:
+          static: doAssert "Unkown block type"
 
-    # TODO: recomputed in block proposal
-    let signing_root = compute_block_root(
-      fork, genesis_validators_root, slot, root)
-    let notSlashable = node.attachedValidators
-      .slashingProtection
-      .registerBlock(validator_index, validator.pubkey, slot, signing_root)
+    # We produced the block using a state transition, meaning the block is valid
+    # enough that it will not be rejected by gossip - it is unlikely but
+    # possible that it will be ignored due to extreme timing conditions, for
+    # example a delay in signing.
+    # We'll start broadcasting it before integrating fully in the chaindag
+    # so that it can start propagating through the network ASAP.
+    node.network.broadcastBeaconBlock(signedBlock)
 
-    if notSlashable.isErr:
-      warn "Slashing protection activated",
-        validator = validator.pubkey,
-        slot = slot,
-        existingProposal = notSlashable.error
+    let
+      wallTime = node.beaconClock.now()
+
+      # storeBlock puts the block in the chaindag, and if accepted, takes care
+      # of side effects such as event api notification
+      newBlockRef = node.blockProcessor[].storeBlock(
+        signedBlock, wallTime.slotOrZero())
+
+    if newBlockRef.isErr:
+      warn "Unable to add proposed block to block pool",
+        blockRoot = shortLog(blockRoot), blck = shortLog(blck),
+        signature = shortLog(signature), validator = shortLog(validator)
       return head
 
-    let signature =
-      block:
-        let res = await validator.signBlockProposal(
-          fork, genesis_validators_root, slot, root, blck)
-        if res.isErr():
-          error "Unable to sign block proposal",
-                validator = shortLog(validator), error_msg = res.error()
-          return head
-        res.get()
+    notice "Block proposed",
+      blockRoot = shortLog(blockRoot), blck = shortLog(blck),
+      signature = shortLog(signature), validator = shortLog(validator)
 
-    ForkedSignedBeaconBlock.init(
-      altair.SignedBeaconBlock(
-        message: blck.altairData, root: root, signature: signature)
-    )
-  of BeaconBlockFork.Merge:
-    let root = hash_tree_root(blck.mergeData)
+    beacon_blocks_proposed.inc()
 
-    # TODO: recomputed in block proposal
-    let signing_root = compute_block_root(
-      fork, genesis_validators_root, slot, root)
-    let notSlashable = node.attachedValidators
-      .slashingProtection
-      .registerBlock(validator_index, validator.pubkey, slot, signing_root)
-
-    if notSlashable.isErr:
-      warn "Slashing protection activated",
-        validator = validator.pubkey,
-        slot = slot,
-        existingProposal = notSlashable.error
-      return head
-
-    let signature =
-      block:
-        let res = await validator.signBlockProposal(
-          fork, genesis_validators_root, slot, root, blck)
-        if res.isErr():
-          error "Unable to sign block proposal",
-                validator = shortLog(validator), error_msg = res.error()
-          return head
-        res.get()
-
-    ForkedSignedBeaconBlock.init(
-      merge.SignedBeaconBlock(
-        message: blck.mergeData, root: root, signature: signature)
-    )
-
-  return await node.proposeSignedBlock(head, validator, forked)
+    return newBlockRef.get()
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
@@ -874,16 +820,17 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     proposerKey = node.dag.validatorKey(proposer.get).get().toPubKey
     validator = node.attachedValidators[].getValidator(proposerKey)
 
-  if validator != nil:
-    return await proposeBlock(node, validator, proposer.get(), head, slot)
+  return
+    if validator == nil:
+      debug "Expecting block proposal",
+        headRoot = shortLog(head.root),
+        slot = shortLog(slot),
+        proposer_index = proposer.get(),
+        proposer = shortLog(proposerKey)
 
-  debug "Expecting block proposal",
-    headRoot = shortLog(head.root),
-    slot = shortLog(slot),
-    proposer_index = proposer.get(),
-    proposer = shortLog(proposerKey)
-
-  return head
+      head
+    else:
+      await proposeBlock(node, validator, proposer.get(), head, slot)
 
 proc makeAggregateAndProof*(
     pool: var AttestationPool, epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
@@ -1246,20 +1193,47 @@ proc sendProposerSlashing*(node: BeaconNode,
 proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
                      ): Future[SendBlockResult] {.async.} =
   # REST/JSON-RPC API helper procedure.
-  let head = node.dag.head
-  if not(node.isSynced(head)):
-    return SendBlockResult.err("Beacon node is currently syncing")
-  if head.slot >= forked.slot():
-    node.network.broadcastBeaconBlock(forked)
-    return SendBlockResult.ok(false)
+  block:
+    # Start with a quick gossip validation check such that broadcasting the
+    # block doesn't get the node into trouble
+    let res = withBlck(forked):
+      when blck isnot merge.SignedBeaconBlock:
+        validateBeaconBlock(
+          node.dag, node.quarantine, blck, node.beaconClock.now(),
+          {})
+      else:
+       return SendBlockResult.err(
+        "TODO merge block proposal via REST not implemented")
 
-  let res = await node.proposeSignedBlock(head, AttachedValidator(), forked)
-  if res == head:
-    # `res == head` means failure, in such case we need to broadcast block
-    # manually because of the specification.
-    node.network.broadcastBeaconBlock(forked)
-    return SendBlockResult.ok(false)
-  return SendBlockResult.ok(true)
+    if not res.isGoodForSending():
+      return SendBlockResult.err(res.error()[1])
+
+  # The block passed basic gossip validation - we can "safely" broadcast it now.
+  # In fact, per the spec, we should broadcast it even if it later fails to
+  # apply to our state.
+  node.network.broadcastBeaconBlock(forked)
+
+  let
+    head = node.dag.head
+    wallTime = node.beaconClock.now()
+    accepted = withBlck(forked):
+      let newBlockRef = node.blockProcessor[].storeBlock(
+        blck, wallTime.slotOrZero())
+
+      # The boolean we return tells the caller whether the block was integrated
+      # into the chain
+      if newBlockRef.isOk():
+        notice "Block published",
+          blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
+          signature = shortLog(blck.signature)
+        true
+      else:
+        warn "Unable to add proposed block to block pool",
+          blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
+          signature = shortLog(blck.signature), err = newBlockRef.error()
+
+        false
+  return SendBlockResult.ok(accepted)
 
 proc registerDuty*(
     node: BeaconNode, slot: Slot, subnet_id: SubnetId, vidx: ValidatorIndex,
