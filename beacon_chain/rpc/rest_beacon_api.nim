@@ -799,6 +799,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
     if not(res.get()):
       return RestApiResponse.jsonError(Http202, BlockValidationError)
+
     return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
