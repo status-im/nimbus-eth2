@@ -91,7 +91,7 @@ proc process_light_client_update*(store: var LightClientStore,
      not update.finality_header.isZeroMemory:
     # Apply update if (1) 2/3 quorum is reached and (2) we have a finality proof.
     # Note that (2) means that the current light client design needs finality.
-    # It may be changed to re-organizable light client design. See the on-going issue eth2.0-specs#2182.
+    # It may be changed to re-organizable light client design. See the on-going issue consensus-specs#2182.
     apply_light_client_update(store.snapshot, update)
     store.valid_updates.clear()
   elif current_slot > store.snapshot.header.slot + update_timeout:

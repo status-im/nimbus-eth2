@@ -276,14 +276,14 @@ proc runTest(path: string, fork: BeaconBlockFork) =
     # of BeaconBlockFork.Altair:
     #   initialLoad(
     #     path, db,
-    #     # The tests always use phase 0 block for anchor - https://github.com/ethereum/eth2.0-specs/pull/2323
+    #     # The tests always use phase 0 block for anchor - https://github.com/ethereum/consensus-specs/pull/2323
     #     # TODO: support altair genesis state
     #     altair.BeaconState, phase0.BeaconBlock
     #   )
     # of BeaconBlockFork.Merge:
     #   initialLoad(
     #     path, db,
-    #     # The tests always use phase 0 block for anchor - https://github.com/ethereum/eth2.0-specs/pull/2323
+    #     # The tests always use phase 0 block for anchor - https://github.com/ethereum/consensus-specs/pull/2323
     #     # TODO: support merge genesis state
     #     merge.BeaconState, phase0.BeaconBlock
     #   )

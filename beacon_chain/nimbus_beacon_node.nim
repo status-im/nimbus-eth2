@@ -487,7 +487,7 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
 func subnetLog(v: BitArray): string =
   $toSeq(v.oneIndices())
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   if node.gossipState == GossipState.Disconnected:
     # When disconnected, updateGossipState is responsible for all things
@@ -989,7 +989,7 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
     restServer.router.installValidatorManagementHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
   func toValidationResult(res: ValidationRes): ValidationResult =
