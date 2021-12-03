@@ -289,7 +289,7 @@ type
     # Execution
     execution_payload*: ExecutionPayload  # [New in Merge]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig

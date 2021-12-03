@@ -303,7 +303,7 @@ type
     DEPOSIT_NETWORK_ID*: uint64
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#constants
     # GENESIS_SLOT
     # GENESIS_EPOCH
     # FAR_FUTURE_EPOCH
@@ -321,7 +321,7 @@ type
     DOMAIN_SELECTION_PROOF*: DomainType
     DOMAIN_AGGREGATE_AND_PROOF*: DomainType
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#constants
     TIMELY_SOURCE_FLAG_INDEX*: byte
     TIMELY_TARGET_FLAG_INDEX*: byte
     TIMELY_HEAD_FLAG_INDEX*: byte
@@ -336,13 +336,13 @@ type
     DOMAIN_CONTRIBUTION_AND_PROOF*: DomainType
     # PARTICIPATION_FLAG_WEIGHTS
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#constants
     TARGET_AGGREGATORS_PER_COMMITTEE*: uint64
     RANDOM_SUBNETS_PER_VALIDATOR*: uint64
     EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64
     ATTESTATION_SUBNET_COUNT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/validator.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/validator.md#constants
     TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE*: uint64
     SYNC_COMMITTEE_SUBNET_COUNT*: uint64
 
