@@ -654,7 +654,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#validator-assignments
+  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#validator-assignments
   let
     epochRef = node.dag.getEpochRef(
       attestationHead.blck, slot.compute_epoch_at_slot())
@@ -893,7 +893,7 @@ proc makeAggregateAndProof*(
 
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#aggregation-selection
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#aggregation-selection
   if not is_aggregator(epochRef, slot, index, slot_signature):
     return none(AggregateAndProof)
 
@@ -901,8 +901,8 @@ proc makeAggregateAndProof*(
   if maybe_slot_attestation.isNone:
     return none(AggregateAndProof)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#construct-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#construct-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#aggregateandproof
   some(AggregateAndProof(
     aggregator_index: validatorIndex.uint64,
     aggregate: maybe_slot_attestation.get,
@@ -1122,12 +1122,12 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.5/specs/phase0/validator.md#broadcast-aggregate
-  # If the validator is selected to aggregate (is_aggregator), then they
-  # broadcast their best aggregate as a SignedAggregateAndProof to the global
-  # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way
-  # through the slot-that is, SECONDS_PER_SLOT * 2 / 3 seconds after the start
-  # of slot.
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#broadcast-aggregate
+  # If the validator is selected to aggregate (`is_aggregator`), then they
+  # broadcast their best aggregate as a `SignedAggregateAndProof` to the global
+  # aggregate channel (`beacon_aggregate_and_proof`) `2 / INTERVALS_PER_SLOT`
+  # of the way through the `slot`-that is,
+  # `SECONDS_PER_SLOT * 2 / INTERVALS_PER_SLOT` seconds after the start of `slot`.
   if slot > 2:
     static: doAssert aggregateSlotOffset == syncContributionSlotOffset
     let
