@@ -126,8 +126,18 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
     relevantDuties = duties.filterIt(
       checkDuty(it) and (it.pubkey in vc.attachedValidators)
     )
-    dependentRoot = currentRoot.get()
-    fork = vc.fork.get()
+    dependentRoot =
+      if currentRoot.isNone():
+        error "Unable to get current dependent root", epoch = epoch
+        return 0
+      else:
+        currentRoot.get()
+    fork =
+      if vc.fork.isNone():
+        error "Unable to get fork information", epoch = epoch
+        return 0
+      else:
+        vc.fork.get()
     genesisRoot = vc.beaconGenesis.genesis_validators_root
 
   let addOrReplaceItems =
