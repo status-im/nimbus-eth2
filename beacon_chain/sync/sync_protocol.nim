@@ -64,7 +64,7 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
   var contextBytes: ForkDigest
   try:
     await conn.readExactly(addr contextBytes, sizeof contextBytes)
-  except CatchableError as e:
+  except CatchableError:
     return neterr UnexpectedEOF
 
   if contextBytes == peer.network.forkDigests.phase0:

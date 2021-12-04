@@ -1384,7 +1384,7 @@ proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openarray[byte],
   of "application/json":
     try:
       ok RestJson.decode(value, T, allowUnknownFields = isExtensibleType)
-    except SerializationError as exc:
+    except SerializationError:
       err("Serialization error")
   else:
     err("Content-Type not supported")

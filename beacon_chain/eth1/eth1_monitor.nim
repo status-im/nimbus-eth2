@@ -298,7 +298,7 @@ func compute_time_at_slot(genesis_time: uint64, slot: Slot): uint64 =
   genesis_time + slot * SECONDS_PER_SLOT
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
-func voting_period_start_time*(state: ForkedHashedBeaconState): uint64 =
+func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   let eth1_voting_period_start_slot =
     getStateField(state, slot) - getStateField(state, slot) mod
       SLOTS_PER_ETH1_VOTING_PERIOD.uint64
@@ -318,12 +318,12 @@ func asEth2Digest*(x: BlockHash): Eth2Digest =
 template asBlockHash(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
 
-func shortLog*(b: Eth1Block): string =
+func shortLog(b: Eth1Block): string =
   try:
     &"{b.number}:{shortLog b.voteData.block_hash}(deposits = {b.voteData.deposit_count})"
   except ValueError as exc: raiseAssert exc.msg
 
-template findBlock*(chain: Eth1Chain, eth1Data: Eth1Data): Eth1Block =
+template findBlock(chain: Eth1Chain, eth1Data: Eth1Data): Eth1Block =
   getOrDefault(chain.blocksByHash, asBlockHash(eth1Data.block_hash), nil)
 
 func makeSuccessorWithoutDeposits(existingBlock: Eth1Block,
@@ -355,11 +355,8 @@ proc addBlock*(chain: var Eth1Chain, newBlock: Eth1Block) =
   chain.blocksByHash[newBlock.voteData.block_hash.asBlockHash] = newBlock
   eth1_chain_len.set chain.blocks.len.int64
 
-func hash*(x: Eth1Data): Hash =
+func hash(x: Eth1Data): Hash =
   hash(x.block_hash)
-
-template hash*(x: Eth1Block): Hash =
-  hash(x.voteData)
 
 template awaitWithRetries*[T](lazyFutExpr: Future[T],
                               retries = 3,
@@ -397,7 +394,7 @@ template awaitWithRetries*[T](lazyFutExpr: Future[T],
 
   read(f)
 
-proc close*(p: Web3DataProviderRef): Future[void] {.async.} =
+proc close(p: Web3DataProviderRef): Future[void] {.async.} =
   if p.blockHeadersSubscription != nil:
     try:
       awaitWithRetries(p.blockHeadersSubscription.unsubscribe())
@@ -406,12 +403,12 @@ proc close*(p: Web3DataProviderRef): Future[void] {.async.} =
 
   await p.web3.close()
 
-proc getBlockByHash*(p: Web3DataProviderRef, hash: BlockHash):
-                     Future[BlockObject] =
+proc getBlockByHash(p: Web3DataProviderRef, hash: BlockHash):
+                    Future[BlockObject] =
   return p.web3.provider.eth_getBlockByHash(hash, false)
 
-proc getBlockByNumber*(p: Web3DataProviderRef,
-                       number: Eth1BlockNumber): Future[BlockObject] =
+proc getBlockByNumber(p: Web3DataProviderRef,
+                      number: Eth1BlockNumber): Future[BlockObject] =
   let hexNumber = try: &"0x{number:X}" # No leading 0's!
   except ValueError as exc: raiseAssert exc.msg # Never fails
   p.web3.provider.eth_getBlockByNumber(hexNumber, false)
@@ -559,9 +556,9 @@ when hasDepositRootChecks:
             err = err.msg
       result = DepositCountUnavailable
 
-proc onBlockHeaders*(p: Web3DataProviderRef,
-                     blockHeaderHandler: BlockHeaderHandler,
-                     errorHandler: SubscriptionErrorHandler) {.async.} =
+proc onBlockHeaders(p: Web3DataProviderRef,
+                    blockHeaderHandler: BlockHeaderHandler,
+                    errorHandler: SubscriptionErrorHandler) {.async.} =
   info "Waiting for new Eth1 block headers"
 
   p.blockHeadersSubscription = awaitWithRetries(
@@ -577,7 +574,7 @@ func toDepositContractState*(merkleizer: DepositsMerkleizer): DepositContractSta
   result.branch[0..31] = merkleizer.getCombinedChunks[0..31]
   result.deposit_count[24..31] = merkleizer.getChunkCount().toBytesBE
 
-func createMerkleizer*(s: DepositContractState): DepositsMerkleizer =
+func createMerkleizer(s: DepositContractState): DepositsMerkleizer =
   DepositsMerkleizer.init(s.branch, s.depositCountU64)
 
 func createMerkleizer*(s: DepositContractSnapshot): DepositsMerkleizer =
@@ -671,9 +668,9 @@ func lowerBound(chain: Eth1Chain, depositCount: uint64): Eth1Block =
       return
     result = eth1Block
 
-proc trackFinalizedState*(chain: var Eth1Chain,
-                          finalizedEth1Data: Eth1Data,
-                          finalizedStateDepositIndex: uint64): bool =
+proc trackFinalizedState(chain: var Eth1Chain,
+                         finalizedEth1Data: Eth1Data,
+                         finalizedStateDepositIndex: uint64): bool =
   # Returns true if the Eth1Monitor is synced to the finalization point
   if chain.blocks.len == 0:
     debug "Eth1 chain not initialized"
@@ -867,7 +864,7 @@ proc resetState(m: Eth1Monitor) {.async.} =
     await m.dataProvider.close()
     m.dataProvider = nil
 
-proc stop*(m: Eth1Monitor) {.async.} =
+proc stop(m: Eth1Monitor) {.async.} =
   if m.state == Started:
     m.state = Stopping
     m.stopFut = resetState(m)

@@ -156,7 +156,7 @@ proc processBatch(batchCrypto: ref BatchCrypto) =
       batchCrypto.sigVerifCache,
       batch.pendingBuffer,
       secureRandomBytes)
-  except Exception as exc:
+  except Exception:
     raise newException(Defect, "Unexpected exception in batchVerify.")
 
   trace "batch crypto - finished",
