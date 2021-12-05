@@ -318,7 +318,7 @@ func asEth2Digest*(x: BlockHash): Eth2Digest =
 template asBlockHash(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
 
-func shortLog(b: Eth1Block): string =
+func shortLog*(b: Eth1Block): string =
   try:
     &"{b.number}:{shortLog b.voteData.block_hash}(deposits = {b.voteData.deposit_count})"
   except ValueError as exc: raiseAssert exc.msg
