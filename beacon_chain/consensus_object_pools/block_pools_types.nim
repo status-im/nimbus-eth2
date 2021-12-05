@@ -12,7 +12,6 @@ import
   std/[sets, tables, hashes],
   # Status libraries
   stew/endians2, chronicles,
-  eth/keys, taskpools,
   # Internals
   ../spec/[signatures_batch, forks],
   ../spec/datatypes/[phase0, altair, merge],
@@ -20,16 +19,8 @@ import
 
 export sets, tables
 
-# #############################################
-#
-#            Quarantine & DAG
-#
-# #############################################
-#
-# The Quarantine and DagChain data structures
-# keep track respectively of unsafe blocks coming from the network
-# and blocks that underwent verification and have a resolved path to
-# the last finalized block known.
+# ChainDAG and types related to forming a DAG of blocks, keeping track of their
+# relationships and allowing various forms of lookups
 
 type
   BlockError* = enum
@@ -56,48 +47,6 @@ type
     proc(data: ReorgInfoObject) {.gcsafe, raises: [Defect].}
   OnFinalizedCallback* =
     proc(data: FinalizationInfoObject) {.gcsafe, raises: [Defect].}
-
-  QuarantineRef* = ref object
-    ## Keeps track of unsafe blocks coming from the network
-    ## and that cannot be added to the chain
-    ##
-    ## This only stores valid blocks that cannot be linked to the
-    ## ChainDAGRef DAG due to missing ancestor(s).
-    ##
-    ## Invalid blocks are dropped immediately.
-
-    orphansPhase0*: Table[(Eth2Digest, ValidatorSig), phase0.SignedBeaconBlock] ##\
-    ## Phase 0 Blocks that have passed validation but that we lack a link back
-    ## to tail for - when we receive a "missing link", we can use this data to
-    ## build an entire branch
-
-    orphansAltair*: Table[(Eth2Digest, ValidatorSig), altair.SignedBeaconBlock] ##\
-    ## Altair Blocks that have passed validation, but that we lack a link back
-    ## to tail for - when we receive a "missing link", we can use this data to
-    ## build an entire branch
-
-    orphansMerge*:  Table[(Eth2Digest, ValidatorSig), merge.SignedBeaconBlock] ##\
-    ## Merge Blocks which have passed validation, but that we lack a link back
-    ## to tail for - when we receive a "missing link", we can use this data to
-    ## build an entire branch
-
-    missing*: Table[Eth2Digest, MissingBlock] ##\
-    ## Roots of blocks that we would like to have (either parent_root of
-    ## unresolved blocks or block roots of attestations)
-
-    sigVerifCache*: BatchedBLSVerifierCache ##\
-    ## A cache for batch BLS signature verification contexts
-    rng*: ref BrHmacDrbgContext  ##\
-    ## A reference to the Nimbus application-wide RNG
-
-    inAdd*: bool
-
-    taskpool*: TaskPoolPtr
-
-  TaskPoolPtr* = TaskPool
-
-  MissingBlock* = object
-    tries*: int
 
   FetchRecord* = object
     root*: Eth2Digest

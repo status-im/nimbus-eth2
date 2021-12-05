@@ -20,8 +20,8 @@ There are multiple consumers of validated consensus objects:
 - a `ValidationResult.Accept` output triggers rebroadcasting in libp2p
   - We jump into method `validate(PubSub, Message)` in libp2p/protocols/pubsub/pubsub.nim
   - which was called by `rpcHandler(GossipSub, PubSubPeer, RPCMsg)`
-- a `blockValidator` message enqueues the validated object to the processing queue in block_processor
-  - `blocksQueue: AsyncQueue[BlockEntry]` (shared with request_manager and sync_manager)
+- a `blockValidator` message enqueues the validated object to the processing queue in `block_processor`
+  - `blockQueue: AsyncQueue[BlockEntry]` (shared with request_manager and sync_manager)
   - This queue is then regularly processed to be made available to the consensus object pools.
 - a `xyzValidator` message adds the validated object to a pool in eth2_processor
   - Attestations (unaggregated and aggregated) get collected into batches.

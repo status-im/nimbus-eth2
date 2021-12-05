@@ -24,7 +24,7 @@ proc newBlockProcessor(): ref BlockProcessor =
   # Minimal block processor for test - the real block processor has an unbounded
   # queue but the tests here
   (ref BlockProcessor)(
-    blocksQueue: newAsyncQueue[BlockEntry]()
+    blockQueue: newAsyncQueue[BlockEntry]()
   )
 
 suite "SyncManager test suite":
@@ -233,7 +233,7 @@ suite "SyncManager test suite":
       var queue = SyncQueue.init(SomeTPeer, Slot(0), Slot(2), 1'u64,
                                  getFirstSlotAtFinalizedEpoch, aq, 1)
 
-      var validatorFut = simpleValidator(aq[].blocksQueue)
+      var validatorFut = simpleValidator(aq[].blockQueue)
       let p1 = SomeTPeer()
       let p2 = SomeTPeer()
       let p3 = SomeTPeer()
@@ -287,7 +287,7 @@ suite "SyncManager test suite":
       let p3 = SomeTPeer()
       let p4 = SomeTPeer()
 
-      var validatorFut = simpleValidator(aq[].blocksQueue)
+      var validatorFut = simpleValidator(aq[].blockQueue)
 
       var r21 = queue.pop(Slot(11), p1)
       var r22 = queue.pop(Slot(11), p2)
@@ -344,7 +344,7 @@ suite "SyncManager test suite":
       let p6 = SomeTPeer()
       let p7 = SomeTPeer()
 
-      var validatorFut = simpleValidator(aq[].blocksQueue)
+      var validatorFut = simpleValidator(aq[].blockQueue)
 
       var r21 = queue.pop(Slot(20), p1)
       var r22 = queue.pop(Slot(20), p2)

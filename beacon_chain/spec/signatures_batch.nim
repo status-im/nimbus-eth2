@@ -11,6 +11,8 @@ import
   # Status lib
   blscurve,
   stew/[byteutils, results],
+  taskpools,
+  bearssl,
   # Internal
   "."/[helpers, beaconstate, forks],
   "."/datatypes/[altair, merge, phase0]
@@ -18,7 +20,18 @@ import
 # Otherwise, error.
 import chronicles
 
-export altair, phase0
+export altair, phase0, taskpools, bearssl
+
+type
+  TaskPoolPtr* = TaskPool
+
+  BatchVerifier* = object
+    sigVerifCache*: BatchedBLSVerifierCache ##\
+    ## A cache for batch BLS signature verification contexts
+    rng*: ref BrHmacDrbgContext  ##\
+    ## A reference to the Nimbus application-wide RNG
+
+    taskpool*: TaskPoolPtr
 
 func `$`*(s: SignatureSet): string =
   "(pubkey: 0x" & s.pubkey.toHex() &
@@ -459,3 +472,11 @@ proc collectSignatureSets*(
             DOMAIN_SYNC_COMMITTEE)
 
   ok()
+
+proc batchVerify*(verifier: var BatchVerifier, sigs: openArray[SignatureSet]): bool =
+  var bytes: array[32, byte]
+  verifier.rng[].brHmacDrbgGenerate(bytes)
+  try:
+    verifier.taskpool.batchVerify(verifier.sigVerifCache, sigs, bytes)
+  except Exception as exc:
+    raiseAssert exc.msg # Shouldn't happen
