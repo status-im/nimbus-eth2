@@ -37,7 +37,7 @@ proc batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool
   try:
     return quarantine.taskpool.batchVerify(quarantine.sigVerifCache, sigs, secureRandomBytes)
   except Exception as exc:
-    raise newException(Defect, "Unexpected exception in batchVerify.")
+    raiseAssert exc.msg
 
 proc addRawBlock*(
       dag: ChainDAGRef, quarantine: QuarantineRef,

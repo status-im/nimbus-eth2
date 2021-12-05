@@ -23,23 +23,6 @@ kintsugi test vectors passed
 
 # Verify that Nimbus runs through the same examples
 
-- Ensure `tests/test_merge_vectors.nim` points to the correct Web3 URL, e.g.:
-```
-diff --git a/tests/test_merge_vectors.nim b/tests/test_merge_vectors.nim
-index 7eedb46d..1a573c80 100644
---- a/tests/test_merge_vectors.nim
-+++ b/tests/test_merge_vectors.nim
-@@ -12,7 +12,7 @@ import
-
- suite "Merge test vectors":
-   let web3Provider = (waitFor Web3DataProvider.new(
--    default(Eth1Address), "ws://127.0.0.1:8551")).get
-+    default(Eth1Address), "ws://127.0.0.1:8546")).get
-
-   test "getPayload, executePayload, and forkchoiceUpdated":
-     const feeRecipient =
-```
-
 - Run `./env.sh nim c -r tests/test_merge_vectors.nim`. It should show output akin to:
 
 ```

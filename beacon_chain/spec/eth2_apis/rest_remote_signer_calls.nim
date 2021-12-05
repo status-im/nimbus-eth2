@@ -88,7 +88,6 @@ proc signData*(client: RestClientRef, identifier: ValidatorPubKey,
       inc(nbc_remote_signer_communication_errors)
       return Web3SignerDataResponse.err(msg)
     except CatchableError as exc:
-      let signDur = Moment.now() - startSignTick
       let msg = "[" & $exc.name & "] " & $exc.msg
       debug "Unexpected error occured while generating signature",
             validator = shortLog(identifier),

@@ -198,7 +198,6 @@ func makeAttestation*(
   # montonoic enumerable index, is wasteful and slow. Most test callers
   # want ValidatorIndex, so that's supported too.
   let
-    validator = getStateField(state, validators)[validator_index]
     sac_index = committee.find(validator_index)
     data = makeAttestationData(state, slot, index, beacon_block_root)
 

@@ -26,7 +26,6 @@ import
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/beacon-chain.md#execution
   MAX_BYTES_PER_TRANSACTION* = 1073741824
-  MAX_TRANSACTIONS_PER_PAYLOAD* = 1048576
   BYTES_PER_LOGS_BLOOM = 256
   MAX_EXTRA_DATA_BYTES = 32
 

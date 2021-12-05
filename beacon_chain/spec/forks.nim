@@ -203,16 +203,16 @@ template init*(T: type ForkedEpochInfo, info: altair.EpochInfo): T =
 template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
   case x.kind
   of BeaconStateFork.Merge:
-    const stateFork {.inject.} = BeaconStateFork.Merge
-    template state: untyped {.inject.} = x.mergeData
+    const stateFork {.inject, used.} = BeaconStateFork.Merge
+    template state: untyped {.inject, used.} = x.mergeData
     body
   of BeaconStateFork.Altair:
-    const stateFork {.inject.} = BeaconStateFork.Altair
-    template state: untyped {.inject.} = x.altairData
+    const stateFork {.inject, used.} = BeaconStateFork.Altair
+    template state: untyped {.inject, used.} = x.altairData
     body
   of BeaconStateFork.Phase0:
-    const stateFork {.inject.} = BeaconStateFork.Phase0
-    template state: untyped {.inject.} = x.phase0Data
+    const stateFork {.inject, used.} = BeaconStateFork.Phase0
+    template state: untyped {.inject, used.} = x.phase0Data
     body
 
 template withEpochInfo*(x: ForkedEpochInfo, body: untyped): untyped =
@@ -297,15 +297,15 @@ template withBlck*(
     body: untyped): untyped =
   case x.kind
   of BeaconBlockFork.Phase0:
-    const stateFork {.inject.} = BeaconStateFork.Phase0
+    const stateFork {.inject, used.} = BeaconStateFork.Phase0
     template blck: untyped {.inject.} = x.phase0Data
     body
   of BeaconBlockFork.Altair:
-    const stateFork {.inject.} = BeaconStateFork.Altair
+    const stateFork {.inject, used.} = BeaconStateFork.Altair
     template blck: untyped {.inject.} = x.altairData
     body
   of BeaconBlockFork.Merge:
-    const stateFork {.inject.} = BeaconStateFork.Merge
+    const stateFork {.inject, used.} = BeaconStateFork.Merge
     template blck: untyped {.inject.} = x.mergeData
     body
 

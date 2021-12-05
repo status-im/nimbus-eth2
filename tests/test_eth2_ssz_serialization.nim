@@ -12,9 +12,6 @@ import
   ../beacon_chain/spec/datatypes/[phase0, altair],
   ../beacon_chain/spec/eth2_ssz_serialization
 
-template reject(stmt) =
-  doAssert(not compiles(stmt))
-
 static:
   doAssert isFixedSize(Slot) == true
 
