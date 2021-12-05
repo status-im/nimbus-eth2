@@ -25,6 +25,7 @@ build/
 *.dll
 
 /scripts/testnet*.sh
+/scripts/package_image/usr/bin
 
 # State sim # TODO - move in another folder
 0000-*.json

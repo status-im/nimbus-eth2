@@ -7,73 +7,143 @@
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
 
-cd "$(dirname $0)"
+set -e
 
-PKG_NAME=nimbus_beacon_node
-PKG_ARCH=amd64
-PKG_IMG_DIR=package_image
+####################
+# argument parsing #
+####################
 
-NBC_BIN=../build/nimbus_beacon_node
-NSP_BIN=../build/nimbus_signing_process
+GETOPT_BINARY="getopt"
+if uname | grep -qi darwin; then
+  # macOS
+  GETOPT_BINARY="/usr/local/opt/gnu-getopt/bin/getopt"
+  [[ -f "$GETOPT_BINARY" ]] || { echo "GNU getopt not installed. Please run 'brew install gnu-getopt'. Aborting."; exit 1; }
+fi
 
-if [ ! -f $NBC_BIN -o ! -f $NSP_BIN ]; then
-  printf "Please build nimbus_beacon_node and nimbus_signing_process\n"
-
+! ${GETOPT_BINARY} --test > /dev/null
+if [ ${PIPESTATUS[0]} != 4 ]; then
+  echo '`getopt --test` failed in this environment.'
   exit 1
 fi
 
-PKG_VERSION=$(./$NBC_BIN --version | awk -F[-v] 'NR==1{print $2}')
+OPTS="ht:"
+LONGOPTS="help,tarball:"
 
-if [ -z $1 ]; then
-  printf "Please provide a Package Architecture!\n"
+# default values
+TARBALL=""
+PKG_ARCH=""
+
+print_help() {
+  cat <<EOF
+Usage: $(basename "$0") --tarball dist/nimbus-eth2_Linux_amd64_1.5.4_382be3fd.tar.gz
+
+  -h, --help                  this help message
+  -t, --tarball               tarball produced by "make dist-..."
+EOF
+}
+
+! PARSED=$(${GETOPT_BINARY} --options=${OPTS} --longoptions=${LONGOPTS} --name "$0" -- "$@")
+if [ ${PIPESTATUS[0]} != 0 ]; then
+  # getopt has complained about wrong arguments to stdout
   exit 1
-else
-  PKG_ARCH=$1
-  if [ $PKG_ARCH != "amd64" -a $PKG_ARCH != "arm64" -a $PKG_ARCH != "arm" ]; then
-    printf "Package Architecture options:\n-amd64\n-arm64\n-arm\n"
+fi
+
+# read getopt's output this way to handle the quoting right
+eval set -- "$PARSED"
+while true; do
+  case "$1" in
+    -h|--help)
+      print_help
+      exit
+      ;;
+    -t|--tarball)
+      TARBALL="$2"
+      shift 2
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      echo "argument parsing error"
+      print_help
+      exit 1
+  esac
+done
+
+case "${TARBALL}" in
+  *_Linux_amd64_*)
+    PKG_ARCH_DEB="amd64"
+    PKG_ARCH_RPM="x86_64"
+    ;;
+  *_Linux_arm32v7_*)
+    PKG_ARCH_DEB="armhf"
+    PKG_ARCH_RPM="armv7hl"
+    ;;
+  *_Linux_arm64v8_*)
+    PKG_ARCH_DEB="arm64"
+    PKG_ARCH_RPM="aarch64"
+    ;;
+  *)
+    echo "unsupported tarball type"
     exit 1
-  fi
-fi
+    ;;
+esac
+
+SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+PKG_NAME="nimbus_beacon_node"
+PKG_IMG_DIR="${SCRIPT_DIR}/package_image"
+BINARIES="nimbus_beacon_node nimbus_signing_process"
+PKG_VERSION="$(echo "${TARBALL}" | sed 's/^.*_\([^_]\+\)_[^_]\+$/\1/')"
+TARBALL_TOP_DIR="$(echo "${TARBALL}" | sed 's#^.*/\([^/]\+\)\.tar\.gz$#\1#')"
+PKG_PATH_DEB="${SCRIPT_DIR}/../build/${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH_DEB}.deb"
+PKG_PATH_RPM="${SCRIPT_DIR}/../build/${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH_RPM}.rpm"
 
 if ! command -v fpm &> /dev/null;then
-  printf "Please install FPM! \nhttps://fpm.readthedocs.io/en/latest/installing.html\n"
+  printf "Please install FPM! \nhttps://fpm.readthedocs.io/en/latest/installation.html\n"
   exit 1
 fi
 
-mkdir -p $PKG_IMG_DIR/usr/bin
+BIN_DIR="${PKG_IMG_DIR}/usr/bin"
+rm -rf "${BIN_DIR}"
+mkdir -p "${BIN_DIR}"
+for BINARY in ${BINARIES}; do
+  tar -xzf "${TARBALL}" --strip-components 2 -C "${BIN_DIR}" "${TARBALL_TOP_DIR}/build/${BINARY}"
+done
 
-cp $NBC_BIN $PKG_IMG_DIR/usr/bin
-cp $NSP_BIN $PKG_IMG_DIR/usr/bin
+# delete existing packages
+rm -f "${PKG_PATH_DEB}" "${PKG_PATH_RPM}"
 
-fpm -s dir -t deb -n $PKG_NAME \
-   --deb-no-default-config-files \
-  -v $PKG_VERSION \
-  -C $PKG_IMG_DIR \
-  -p ${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH}.deb \
-  --after-install $PKG_IMG_DIR/after_install \
-  --before-remove $PKG_IMG_DIR/before_remove \
-  --after-remove $PKG_IMG_DIR/after_remove \
-  --after-upgrade $PKG_IMG_DIR/after_upgrade \
-  --deb-after-purge $PKG_IMG_DIR/deb_after_purge \
+fpm -s dir -t deb -n "${PKG_NAME}" \
+  --deb-no-default-config-files \
+  -v "${PKG_VERSION}" \
+  -C "${PKG_IMG_DIR}" \
+  -p "${PKG_PATH_DEB}" \
+  --depends lsb-release \
+  --after-install "${PKG_IMG_DIR}/after_install" \
+  --before-remove "${PKG_IMG_DIR}/before_remove" \
+  --after-remove "${PKG_IMG_DIR}/after_remove" \
+  --after-upgrade "${PKG_IMG_DIR}/after_upgrade" \
+  --deb-after-purge "${PKG_IMG_DIR}/deb_after_purge" \
   --license "Apache 2.0 + MIT" \
   --maintainer "The Nimbus Team" \
   --description "Nimbus Beacon Chain / Ethereum Consensus client" \
-  --url "https://nimbus.team/"
+  --url "https://nimbus.team/" \
+  2>/dev/null
 
-fpm -s dir -t rpm -n $PKG_NAME \
-    -v $PKG_VERSION \
-    -C $PKG_IMG_DIR \
-    -p ${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH}.rpm \
-    --after-install $PKG_IMG_DIR/after_install \
-    --before-remove $PKG_IMG_DIR/before_remove \
-    --after-remove $PKG_IMG_DIR/after_remove \
-    --after-upgrade $PKG_IMG_DIR/after_upgrade \
-    --license "Apache 2.0 + MIT" \
-    --maintainer "The Nimbus Team" \
-    --description "Nimbus Beacon Chain / Ethereum Consensus client" \
-    --url "https://nimbus.team/"
+fpm -s dir -t rpm -n "${PKG_NAME}" \
+  -v "${PKG_VERSION}" \
+  -C "${PKG_IMG_DIR}" \
+  -p "${PKG_PATH_RPM}" \
+  --depends redhat-lsb-core \
+  --after-install "${PKG_IMG_DIR}/after_install" \
+  --before-remove "${PKG_IMG_DIR}/before_remove" \
+  --after-remove "${PKG_IMG_DIR}/after_remove" \
+  --after-upgrade "${PKG_IMG_DIR}/after_upgrade" \
+  --license "Apache 2.0 + MIT" \
+  --maintainer "The Nimbus Team" \
+  --description "Nimbus Beacon Chain / Ethereum Consensus client" \
+  --url "https://nimbus.team/" \
+  2>/dev/null
 
-# clean up to avoid committing binaries to the repository
-rm -rf $PKG_IMG_DIR/usr/bin/
-
-exit 0
+ls -l "${PKG_PATH_DEB}" "${PKG_PATH_RPM}"
