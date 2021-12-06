@@ -259,7 +259,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       # in order to compute the sync committee for the epoch. See the following
       # discussion for more details:
       # https://github.com/status-im/nimbus-eth2/pull/3133#pullrequestreview-817184693
-      node.withStateForBlockSlot(node.dag.head.atSlot(earliestSlotInQSyncPeriod)):
+      node.withStateForBlockSlot(node.dag.getBlockBySlot(earliestSlotInQSyncPeriod)):
         let res = withState(stateData().data):
           when stateFork >= BeaconStateFork.Altair:
             produceResponse(indexList,

@@ -89,6 +89,10 @@ type
     ## Directed acyclic graph of blocks pointing back to a finalized block on the chain we're
     ## interested in - we call that block the tail
 
+    finalizedBlocks*: seq[BlockRef] ##\
+    ## Slot -> BlockRef mapping for the canonical chain - use getBlockBySlot
+    ## to access, generally
+
     genesis*: BlockRef ##\
     ## The genesis block of the network
 
