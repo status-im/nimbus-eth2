@@ -1051,18 +1051,18 @@ proc installMessageValidators(node: BeaconNode) =
     for committeeIdx in allSyncSubcommittees():
       closureScope:
         let idx = committeeIdx
-        node.network.addValidator(
+        node.network.addAsyncValidator(
           getSyncCommitteeTopic(digest, idx),
           # This proc needs to be within closureScope; don't lift out of loop.
-          proc(msg: SyncCommitteeMessage): ValidationResult =
-            toValidationResult(
-              node.processor.syncCommitteeMessageValidator(msg, idx)))
+          proc(msg: SyncCommitteeMessage): Future[ValidationResult] {.async.} =
+            return toValidationResult(
+              await node.processor.syncCommitteeMessageValidator(msg, idx)))
 
-    node.network.addValidator(
+    node.network.addAsyncValidator(
       getSyncCommitteeContributionAndProofTopic(digest),
-      proc(msg: SignedContributionAndProof): ValidationResult =
-        toValidationResult(
-          node.processor.contributionValidator(msg)))
+      proc(msg: SignedContributionAndProof): Future[ValidationResult] {.async.} =
+        return toValidationResult(
+          await node.processor.contributionValidator(msg)))
 
   installSyncCommitteeeValidators(node.dag.forkDigests.altair)
   installSyncCommitteeeValidators(node.dag.forkDigests.merge)

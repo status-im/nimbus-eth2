@@ -7,6 +7,11 @@
 
 {.push raises: [Defect].}
 
+## This module contains signature verification helpers corresponding to those
+## in signatures.nim, for use with signature sets / batch signature verification
+## The functions follow the same structure and use the same arguments, except
+## that the flow is split into separate collection and verification steps.
+
 import
   # Status lib
   blscurve,
@@ -14,13 +19,10 @@ import
   taskpools,
   bearssl,
   # Internal
-  "."/[helpers, beaconstate, forks],
+  "."/[helpers, beaconstate, forks, signatures],
   "."/datatypes/[altair, merge, phase0]
 
-# Otherwise, error.
-import chronicles
-
-export altair, phase0, taskpools, bearssl
+export results, altair, phase0, taskpools, bearssl, signatures
 
 type
   TaskPoolPtr* = TaskPool
@@ -53,35 +55,20 @@ template loadOrExit(signature: ValidatorSig, error: cstring):
     return err(error) # this exits the calling scope, as templates are inlined.
   sig.unsafeGet()
 
-func addSignatureSet[T](
-      sigs: var seq[SignatureSet],
-      pubkey: CookedPubKey,
-      sszObj: T,
-      signature: CookedSig,
-      fork: Fork,
-      genesis_validators_root: Eth2Digest,
-      epoch: Epoch,
-      domain: DomainType) =
+func addSignatureSet(
+    sigs: var seq[SignatureSet], pubkey: CookedPubKey, signing_root: Eth2Digest,
+    signature: CookedSig) =
   ## Add a new signature set triplet (pubkey, message, signature)
   ## to a collection of signature sets for batch verification.
-  ## Can return false if `signature` wasn't deserialized to a valid BLS signature.
-  let signing_root = compute_signing_root(
-      sszObj,
-      get_domain(
-        fork, domain,
-        epoch,
-        genesis_validators_root
-      )
-    ).data
 
   sigs.add((
     blscurve.PublicKey(pubkey),
-    signing_root,
+    signing_root.data,
     blscurve.Signature(signature)
   ))
 
 proc aggregateAttesters(
-      validatorIndices: openArray[uint64],
+      validatorIndices: openArray[uint64|ValidatorIndex],
       validatorKeys: auto,
      ): Result[CookedPubKey, cstring] =
   if validatorIndices.len == 0:
@@ -108,158 +95,135 @@ proc aggregateAttesters(
 
   ok(finish(attestersAgg))
 
-proc addIndexedAttestation(
-      sigs: var seq[SignatureSet],
-      attestation: IndexedAttestation,
+proc aggregateAttesters(
+      validatorIndices: openArray[uint64|ValidatorIndex],
+      bits: auto,
       validatorKeys: auto,
-      state: ForkedHashedBeaconState,
-     ): Result[void, cstring] =
-  ## Add an indexed attestation for batched BLS verification
-  ## purposes
-  ## This only verifies cryptography, checking that
-  ## the indices are sorted and unique is not checked for example.
+     ): Result[CookedPubKey, cstring] =
+  if validatorIndices.len == 0:
+    # Aggregation spec requires non-empty collection
+    # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
+    # Eth2 spec requires at least one attesting index in attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    return err("aggregateAttesters: no attesting indices")
 
-  let aggPk =
-    ? aggregateAttesters(attestation.attesting_indices.asSeq(), validatorKeys)
-
-  sigs.addSignatureSet(
-          aggPK,
-          attestation.data,
-          attestation.signature.loadOrExit(
-            "addIndexedAttestation: cannot load signature"),
-          getStateField(state, fork),
-          getStateField(state, genesis_validators_root),
-          attestation.data.target.epoch,
-          DOMAIN_BEACON_ATTESTER)
-  ok()
-
-proc addAttestation(
-      sigs: var seq[SignatureSet],
-      attestation: Attestation,
-      validatorKeys: auto,
-      state: ForkedHashedBeaconState,
-      cache: var StateCache
-     ): Result[void, cstring] =
+  var attestersAgg{.noInit.}: AggregatePublicKey
 
   var inited = false
-  var attestersAgg{.noInit.}: AggregatePublicKey
-  for valIndex in state.get_attesting_indices(
-                    attestation.data,
-                    attestation.aggregation_bits,
-                    cache
-                  ):
-    if not inited: # first iteration
-      attestersAgg.init(validatorKeys.load(valIndex).get())
-      inited = true
-    else:
-      attestersAgg.aggregate(validatorKeys.load(valIndex).get())
+  for i in 0..<bits.len:
+    if bits[i]:
+      let key = validatorKeys.load(validatorIndices[i])
+      if not key.isSome():
+        return err("aggregateAttesters: invalid attesting index")
+      if inited:
+        attestersAgg.aggregate(key.get())
+      else:
+        attestersAgg = AggregatePublicKey.init(key.get)
+        inited = true
 
   if not inited:
-    # There were no attesters
-    return err("addAttestation: no attesting indices")
+    return err("aggregateAttesters:no attesting indices")
 
-  let attesters = finish(attestersAgg)
-
-  sigs.addSignatureSet(
-          attesters,
-          attestation.data,
-          attestation.signature.loadOrExit(
-            "addAttestation: cannot load signature"),
-          getStateField(state, fork),
-          getStateField(state, genesis_validators_root),
-          attestation.data.target.epoch,
-          DOMAIN_BEACON_ATTESTER)
-
-  ok()
+  ok(finish(attestersAgg))
 
 # Public API
 # ------------------------------------------------------
 
-proc addAttestation*(
-      sigs: var seq[SignatureSet],
-      fork: Fork, genesis_validators_root: Eth2Digest,
-      epochRef: auto,
-      attestation: Attestation
-     ): Result[CookedSig, cstring] =
-  ## Add an attestation for batched BLS verification
-  ## purposes
-  ## This only verifies cryptography
-  ##
-  ## Returns true if the attestation was added to the batching buffer
-  ## Returns false if sanity checks failed (non-empty, keys are valid)
-  ## In that case the seq[SignatureSet] is unmodified
-  mixin get_attesting_indices, validatorKey
+# See also: verify_slot_signature
+proc add_slot_signature*(
+    sigs: var seq[SignatureSet],
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    pubkey: CookedPubKey, signature: CookedSig) =
+  let signing_root = compute_slot_signing_root(
+    fork, genesis_validators_root, slot)
 
-  var inited = false
-  var attestersAgg{.noInit.}: AggregatePublicKey
-  for valIndex in epochRef.get_attesting_indices(
-                    attestation.data,
-                    attestation.aggregation_bits):
-    if not inited: # first iteration
-      attestersAgg.init(epochRef.validatorKey(valIndex).get())
-      inited = true
-    else:
-      attestersAgg.aggregate(epochRef.validatorKey(valIndex).get())
+  sigs.addSignatureSet(pubkey, signing_root, signature)
 
-  if not inited:
-    # There were no attesters
-    return err("addAttestation: no attesting indices")
+# See also: verify_epoch_signature
+proc add_epoch_signature*(
+    sigs: var seq[SignatureSet],
+    fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
+    pubkey: CookedPubKey, signature: CookedSig) =
+  let signing_root = compute_epoch_signing_root(
+    fork, genesis_validators_root, epoch)
 
-  let
-    attesters = finish(attestersAgg)
-    cookedSig = attestation.signature.loadOrExit(
-      "addAttestation: cannot load signature")
+  sigs.addSignatureSet(pubkey, signing_root, signature)
 
-  sigs.addSignatureSet(
-      attesters,
-      attestation.data,
-      cookedSig,
-      fork,
-      genesis_validators_root,
-      attestation.data.target.epoch,
-      DOMAIN_BEACON_ATTESTER)
+# See also: verify_block_signature
+proc add_block_signature*(
+    sigs: var seq[SignatureSet],
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    blck: Eth2Digest | SomeSomeBeaconBlock | BeaconBlockHeader,
+    pubkey: CookedPubKey, signature: CookedSig) =
+  let signing_root = compute_block_signing_root(
+    fork, genesis_validators_root, slot, blck)
 
-  ok(CookedSig(cookedSig))
+  sigs.addSignatureSet(pubkey, signing_root, signature)
 
-proc addSlotSignature*(
-      sigs: var seq[SignatureSet],
-      fork: Fork, genesis_validators_root: Eth2Digest,
-      slot: Slot,
-      pubkey: CookedPubKey,
-      signature: ValidatorSig): Result[void, cstring] =
-  let epoch = compute_epoch_at_slot(slot)
-  sigs.addSignatureSet(
-    pubkey,
-    sszObj = slot,
-    signature.loadOrExit("addSlotSignature: cannot load signature"),
-    fork,
-    genesis_validators_root,
-    epoch,
-    DOMAIN_SELECTION_PROOF
-  )
+# See also: verify_aggregate_and_proof_signature
+proc add_aggregate_and_proof_signature*(
+    sigs: var seq[SignatureSet],
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    aggregate_and_proof: AggregateAndProof,
+    pubkey: CookedPubKey, signature: CookedSig) =
+  let signing_root = compute_aggregate_and_proof_signing_root(
+    fork, genesis_validators_root, aggregate_and_proof)
 
-  ok()
+  sigs.addSignatureSet(pubkey, signing_root, signature)
 
-proc addAggregateAndProofSignature*(
-      sigs: var seq[SignatureSet],
-      fork: Fork, genesis_validators_root: Eth2Digest,
-      aggregate_and_proof: AggregateAndProof,
-      pubkey: CookedPubKey,
-      signature: ValidatorSig
-  ): Result[void, cstring] =
+# See also: verify_attestation_signature
+proc add_attestation_signature*(
+    sigs: var seq[SignatureSet],
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    attestation_data: AttestationData,
+    pubkey: CookedPubKey, signature: CookedSig) =
+  let signing_root = compute_attestation_signing_root(
+    fork, genesis_validators_root, attestation_data)
 
-  let epoch = compute_epoch_at_slot(aggregate_and_proof.aggregate.data.slot)
-  sigs.addSignatureSet(
-    pubkey,
-    sszObj = aggregate_and_proof,
-    signature.loadOrExit("addAggregateAndProofSignature: cannot load signature"),
-    fork,
-    genesis_validators_root,
-    epoch,
-    DOMAIN_AGGREGATE_AND_PROOF
-  )
+  sigs.addSignatureSet(pubkey, signing_root, signature)
 
-  ok()
+# See also: verify_voluntary_exit_signature
+proc add_voluntary_exit_signature*(
+    sigs: var seq[SignatureSet],
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    voluntary_exit: VoluntaryExit,
+    pubkey: CookedPubKey, signature: CookedSig) =
+  let signing_root = compute_voluntary_exit_signing_root(
+    fork, genesis_validators_root, voluntary_exit)
+
+  sigs.addSignatureSet(pubkey, signing_root, signature)
+
+# See also: verify_sync_committee_message_signature
+proc add_sync_committee_message_signature*(
+    sigs: var seq[SignatureSet],
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    slot: Slot, block_root: Eth2Digest,
+    pubkey: CookedPubKey, signature: CookedSig) =
+  let signing_root = compute_sync_committee_message_signing_root(
+    fork, genesis_validators_root, slot, block_root)
+
+  sigs.addSignatureSet(pubkey, signing_root, signature)
+
+# See also: verify_sync_committee_selection_proof
+proc add_sync_committee_selection_proof*(
+    sigs: var seq[SignatureSet],
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    slot: Slot, subcommittee_index: uint64,
+    pubkey: CookedPubKey, signature: CookedSig) =
+  let signing_root = compute_sync_committee_selection_proof_signing_root(
+    fork, genesis_validators_root, slot, subcommittee_index)
+
+  sigs.addSignatureSet(pubkey, signing_root, signature)
+
+proc add_contribution_and_proof_signature*(
+    sigs: var seq[SignatureSet],
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    msg: ContributionAndProof,
+    pubkey: CookedPubKey, signature: CookedSig) =
+  let signing_root = compute_contribution_and_proof_signing_root(
+    fork, genesis_validators_root, msg)
+
+  sigs.addSignatureSet(pubkey, signing_root, signature)
 
 proc collectSignatureSets*(
        sigs: var seq[SignatureSet],
@@ -267,7 +231,9 @@ proc collectSignatureSets*(
        validatorKeys: auto,
        state: ForkedHashedBeaconState,
        cache: var StateCache): Result[void, cstring] =
-  ## Collect all signatures in a single signed block.
+  ## Collect all signature verifications that process_block would normally do
+  ## except deposits, in one go.
+  ##
   ## This includes
   ## - Block proposer
   ## - Randao Reaveal
@@ -275,13 +241,18 @@ proc collectSignatureSets*(
   ## - Attester slashings
   ## - Attestations
   ## - VoluntaryExits
+  ## - SyncCommittee (altair+)
   ##
-  ## We do not include deposits as they can be invalid per protocol
-  ## (secp256k1 signature instead of BLS)
+  ## We do not include deposits as they can be invalid while still leaving the
+  ## block valid
 
   # Metadata
   # ----------------------------------------------------
   mixin load
+
+  let
+    fork = getStateField(state, fork)
+    genesis_validators_root = getStateField(state, genesis_validators_root)
 
   let
     proposer_index = signed_block.message.proposer_index
@@ -293,27 +264,18 @@ proc collectSignatureSets*(
 
   # 1. Block proposer
   # ----------------------------------------------------
-  sigs.addSignatureSet(
-          proposer_key.get(),
-          signed_block.root,
-          signed_block.signature.loadOrExit(
-            "collectSignatureSets: cannot load signature"),
-          getStateField(state, fork),
-          getStateField(state, genesis_validators_root),
-          epoch,
-          DOMAIN_BEACON_PROPOSER)
+  sigs.add_block_signature(
+    fork, genesis_validators_root,
+    signed_block.message.slot, signed_block.root,
+    proposer_key.get(), signed_block.signature.loadOrExit(
+      "collectSignatureSets: cannot load signature"))
 
   # 2. Randao Reveal
   # ----------------------------------------------------
-  sigs.addSignatureSet(
-          proposer_key.get(),
-          epoch,
-          signed_block.message.body.randao_reveal.loadOrExit(
-            "collectSignatureSets: cannot load randao"),
-          getStateField(state, fork),
-          getStateField(state, genesis_validators_root),
-          epoch,
-          DOMAIN_RANDAO)
+  sigs.add_epoch_signature(
+    fork, genesis_validators_root, epoch, proposer_key.get(),
+    signed_block.message.body.randao_reveal.loadOrExit(
+      "collectSignatureSets: cannot load randao"))
 
   # 3. Proposer slashings
   # ----------------------------------------------------
@@ -332,41 +294,28 @@ proc collectSignatureSets*(
     # Proposed block 1
     block:
       let
-        header_1 = slashing.signed_header_1
-        key_1 = validatorKeys.load(header_1.message.proposer_index)
-      if not key_1.isSome():
+        header = slashing.signed_header_1
+        key = validatorKeys.load(header.message.proposer_index)
+      if not key.isSome():
         return err("collectSignatureSets: invalid slashing proposer index 1")
 
-      let epoch1 = header_1.message.slot.compute_epoch_at_slot()
-      sigs.addSignatureSet(
-              key_1.get(),
-              header_1.message,
-              header_1.signature.loadOrExit(
-                "collectSignatureSets: cannot load proposer slashing 1 signature"),
-              getStateField(state, fork),
-              getStateField(state, genesis_validators_root),
-              epoch1,
-              DOMAIN_BEACON_PROPOSER
-            )
+      sigs.add_block_signature(
+        fork, genesis_validators_root, header.message.slot, header.message,
+        key.get(), header.signature.loadOrExit(
+          "collectSignatureSets: cannot load proposer slashing 1 signature"))
 
     # Conflicting block 2
     block:
       let
-        header_2 = slashing.signed_header_2
-        key_2 = validatorKeys.load(header_2.message.proposer_index)
-      if not key_2.isSome():
+        header = slashing.signed_header_2
+        key = validatorKeys.load(header.message.proposer_index)
+      if not key.isSome():
         return err("collectSignatureSets: invalid slashing proposer index 2")
-      let epoch2 = header_2.message.slot.compute_epoch_at_slot()
-      sigs.addSignatureSet(
-              key_2.get(),
-              header_2.message,
-              header_2.signature.loadOrExit(
-                "collectSignatureSets: cannot load proposer slashing 2 signature"),
-              getStateField(state, fork),
-              getStateField(state, genesis_validators_root),
-              epoch2,
-              DOMAIN_BEACON_PROPOSER
-            )
+
+      sigs.add_block_signature(
+        fork, genesis_validators_root, header.message.slot, header.message,
+        key.get(), header.signature.loadOrExit(
+          "collectSignatureSets: cannot load proposer slashing 2 signature"))
 
   # 4. Attester slashings
   # ----------------------------------------------------
@@ -383,10 +332,22 @@ proc collectSignatureSets*(
     template slashing: untyped = signed_block.message.body.attester_slashings[i]
 
     # Attestation 1
-    ? sigs.addIndexedAttestation(slashing.attestation_1, validatorKeys, state)
+    block:
+      let
+        key = ? aggregateAttesters(
+          slashing.attestation_1.attesting_indices.asSeq(), validatorKeys)
+        sig = slashing.attestation_1.signature.loadOrExit("")
+      sigs.add_attestation_signature(
+        fork, genesis_validators_root, slashing.attestation_1.data, key, sig)
 
     # Conflicting attestation 2
-    ? sigs.addIndexedAttestation(slashing.attestation_2, validatorKeys, state)
+    block:
+      let
+        key = ? aggregateAttesters(
+          slashing.attestation_2.attesting_indices.asSeq(), validatorKeys)
+        sig = slashing.attestation_2.signature.loadOrExit("")
+      sigs.add_attestation_signature(
+        fork, genesis_validators_root, slashing.attestation_2.data, key, sig)
 
   # 5. Attestations
   # ----------------------------------------------------
@@ -398,9 +359,17 @@ proc collectSignatureSets*(
     # don't use "items" for iterating over large type
     # due to https://github.com/nim-lang/Nim/issues/14421
     # fixed in 1.4.2
-    ? sigs.addAttestation(
-        signed_block.message.body.attestations[i],
-        validatorKeys, state, cache)
+    template attestation: untyped = signed_block.message.body.attestations[i]
+
+    let
+      key = ? aggregateAttesters(
+        get_attesting_indices(
+          state, attestation.data, attestation.aggregation_bits, cache),
+        validatorKeys)
+      sig = attestation.signature.loadOrExit("")
+
+    sigs.add_attestation_signature(
+      fork, genesis_validators_root, attestation.data, key, sig)
 
   # 6. VoluntaryExits
   # ----------------------------------------------------
@@ -417,15 +386,10 @@ proc collectSignatureSets*(
     if not key.isSome():
       return err("collectSignatureSets: invalid voluntary exit")
 
-    sigs.addSignatureSet(
-            key.get(),
-            volex.message,
-            volex.signature.loadOrExit(
-              "collectSignatureSets: cannot load voluntary exit signature"),
-            getStateField(state, fork),
-            getStateField(state, genesis_validators_root),
-            volex.message.epoch,
-            DOMAIN_VOLUNTARY_EXIT)
+    sigs.add_voluntary_exit_signature(
+      fork, genesis_validators_root, volex.message, key.get(),
+      volex.signature.loadOrExit(
+        "collectSignatureSets: cannot load voluntary exit signature"))
 
   block:
     # 7. SyncAggregate
@@ -434,42 +398,25 @@ proc collectSignatureSets*(
       when stateFork >= BeaconStateFork.Altair and
           (signed_block is altair.SignedBeaconBlock or
             signed_block is merge.SignedBeaconBlock):
-        let
-          current_sync_committee =
-            state.data.get_sync_committee_cache(cache).current_sync_committee
-
-        var inited = false
-        var attestersAgg{.noInit.}: AggregatePublicKey
-        for i in 0 ..< current_sync_committee.len:
-          if signed_block.message.body.sync_aggregate.sync_committee_bits[i]:
-            let key = validatorKeys.load(current_sync_committee[i])
-            if not key.isSome():
-              return err("Invalid key cache")
-
-            if not inited: # first iteration
-              attestersAgg.init(key.get())
-              inited = true
-            else:
-              attestersAgg.aggregate(key.get())
-
-        if not inited:
-          if signed_block.message.body.sync_aggregate.sync_committee_signature !=
-              default(CookedSig).toValidatorSig():
-            return err("process_sync_aggregate: empty sync aggregates need signature of point at infinity")
+        if signed_block.message.body.sync_aggregate.sync_committee_bits.countOnes() == 0:
+          if signed_block.message.body.sync_aggregate.sync_committee_signature != ValidatorSig.infinity():
+            return err("collectSignatureSets: empty sync aggregates need signature of point at infinity")
         else:
           let
-            attesters = finish(attestersAgg)
+            current_sync_committee =
+              state.data.get_sync_committee_cache(cache).current_sync_committee
             previous_slot = max(state.data.slot, Slot(1)) - 1
+            beacon_block_root = get_block_root_at_slot(state.data, previous_slot)
+            pubkey = ? aggregateAttesters(
+              current_sync_committee,
+              signed_block.message.body.sync_aggregate.sync_committee_bits,
+              validatorKeys)
 
-          sigs.addSignatureSet(
-            attesters,
-            get_block_root_at_slot(state.data, previous_slot),
+          sigs.add_sync_committee_message_signature(
+            fork, genesis_validators_root, previous_slot, beacon_block_root,
+            pubkey,
             signed_block.message.body.sync_aggregate.sync_committee_signature.loadOrExit(
-              "process_sync_aggregate: cannot load signature"),
-            state.data.fork,
-            state.data.genesis_validators_root,
-            previous_slot.epoch,
-            DOMAIN_SYNC_COMMITTEE)
+              "collectSignatureSets: cannot load signature"))
 
   ok()
 

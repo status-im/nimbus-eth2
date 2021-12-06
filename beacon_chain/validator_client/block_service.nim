@@ -45,8 +45,8 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
 
     let blockRoot = withBlck(beaconBlock): hash_tree_root(blck)
     # TODO: signing_root is recomputed in signBlockProposal just after
-    let signing_root = compute_block_root(fork, genesisRoot, slot,
-                                          blockRoot)
+    let signing_root = compute_block_signing_root(fork, genesisRoot, slot,
+                                                  blockRoot)
     let notSlashable = vc.attachedValidators
       .slashingProtection
       .registerBlock(ValidatorIndex(beaconBlock.proposer_index),

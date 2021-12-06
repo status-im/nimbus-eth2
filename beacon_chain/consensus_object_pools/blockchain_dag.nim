@@ -1492,3 +1492,59 @@ proc getProposer*(
       return none(ValidatorIndex)
 
   proposer
+
+proc aggregateAll*(
+  dag: ChainDAGRef,
+  validator_indices: openArray[ValidatorIndex]): Result[CookedPubKey, cstring] =
+  if validator_indices.len == 0:
+    # Aggregation spec requires non-empty collection
+    # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
+    # Eth2 spec requires at least one attesting index in attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    return err("aggregate: no attesting keys")
+
+  let
+    firstKey = dag.validatorKey(validator_indices[0])
+
+  if not firstKey.isSome():
+    return err("aggregate: invalid validator index")
+
+  var aggregateKey{.noInit.}: AggregatePublicKey
+
+  aggregateKey.init(firstKey.get())
+
+  for i in 1 ..< validator_indices.len:
+    let key = dag.validatorKey(validator_indices[i])
+    if not key.isSome():
+      return err("aggregate: invalid validator index")
+    aggregateKey.aggregate(key.get())
+
+  ok(finish(aggregateKey))
+
+proc aggregateAll*(
+  dag: ChainDAGRef,
+  validator_indices: openArray[ValidatorIndex|uint64],
+  bits: BitSeq | BitArray): Result[CookedPubKey, cstring] =
+  if validator_indices.len() != bits.len():
+    return err("aggregateAll: mismatch in bits length")
+
+  var
+    aggregateKey{.noInit.}: AggregatePublicKey
+    inited = false
+
+  for i in 0..<bits.len():
+    if bits[i]:
+      let key = dag.validatorKey(validator_indices[i])
+      if not key.isSome():
+        return err("aggregate: invalid validator index")
+
+      if inited:
+        aggregateKey.aggregate(key.get)
+      else:
+        aggregateKey = AggregatePublicKey.init(key.get)
+        inited = true
+
+  if not inited:
+    err("aggregate: no attesting keys")
+  else:
+    ok(finish(aggregateKey))

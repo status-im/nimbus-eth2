@@ -10,7 +10,7 @@
 import
   std/random,
   unittest2,
-  ../beacon_chain/spec/[crypto, signatures],
+  ../beacon_chain/spec/[crypto, helpers, signatures],
   ./testblockutil
 
 suite "Message signatures":
@@ -175,69 +175,69 @@ suite "Message signatures":
 
   test "Sync committee message signatures":
     let
-      epoch = default(Epoch)
+      slot = default(Slot)
+      epoch = slot.epoch
       block_root = default(Eth2Digest)
 
     check:
       # Matching public/private keys and genesis validator roots
       verify_sync_committee_message_signature(
-        epoch, block_root, fork0, genesis_validators_root0, load(pubkey0).get,
-        blsSign(privkey0, sync_committee_msg_signing_root(
-          fork0, epoch, genesis_validators_root0, block_root).data))
+        fork0, genesis_validators_root0, slot, block_root, load(pubkey0).get,
+        get_sync_committee_message_signature(
+          fork0, genesis_validators_root0, slot, block_root, privkey0).toValidatorSig())
 
       # Mismatched public/private keys
       not verify_sync_committee_message_signature(
-        epoch, block_root, fork0, genesis_validators_root0, load(pubkey0).get,
-        blsSign(privkey1, sync_committee_msg_signing_root(
-          fork0, epoch, genesis_validators_root0, block_root).data))
-
+        fork0, genesis_validators_root0, slot, block_root, load(pubkey0).get,
+        get_sync_committee_message_signature(
+          fork0, genesis_validators_root0, slot, block_root, privkey1).toValidatorSig())
       # Mismatched forks
       not verify_sync_committee_message_signature(
-        epoch, block_root, fork0, genesis_validators_root0, load(pubkey0).get,
-        blsSign(privkey0, sync_committee_msg_signing_root(
-          fork1, epoch, genesis_validators_root0, block_root).data))
+        fork0, genesis_validators_root0, slot, block_root, load(pubkey0).get,
+        get_sync_committee_message_signature(
+          fork1, genesis_validators_root0, slot, block_root, privkey0).toValidatorSig())
 
       # Mismatched genesis validator roots
       not verify_sync_committee_message_signature(
-        epoch, block_root, fork0, genesis_validators_root0, load(pubkey0).get,
-        blsSign(privkey0, sync_committee_msg_signing_root(
-          fork0, epoch, genesis_validators_root1, block_root).data))
+        fork0, genesis_validators_root0, slot, block_root, load(pubkey0).get,
+        get_sync_committee_message_signature(
+          fork0, genesis_validators_root1, slot, block_root, privkey0).toValidatorSig())
 
   test "Sync committee signed contribution and proof signatures":
-    let signed_contribution_and_proof = default(SignedContributionAndProof)
+    let contribution_and_proof = default(ContributionAndProof)
 
     check:
       # Matching public/private keys and genesis validator roots
-      verify_signed_contribution_and_proof_signature(
-        SignedContributionAndProof(signature: blsSign(
-          privkey0, contribution_and_proof_signing_root(
-            fork0, genesis_validators_root0,
-            signed_contribution_and_proof.message).data).toValidatorSig),
-        fork0, genesis_validators_root0, load(pubkey0).get)
+      verify_contribution_and_proof_signature(
+        fork0, genesis_validators_root0, contribution_and_proof,
+        load(pubkey0).get,
+        get_contribution_and_proof_signature(
+          fork0, genesis_validators_root0,
+          contribution_and_proof, privkey0).toValidatorSig)
 
       # Mismatched public/private keys
-      not verify_signed_contribution_and_proof_signature(
-        SignedContributionAndProof(signature: blsSign(
-          privkey1, contribution_and_proof_signing_root(
-            fork0, genesis_validators_root0,
-            signed_contribution_and_proof.message).data).toValidatorSig),
-        fork0, genesis_validators_root0, load(pubkey0).get)
+      not verify_contribution_and_proof_signature(
+        fork0, genesis_validators_root0, contribution_and_proof,
+        load(pubkey0).get,
+        get_contribution_and_proof_signature(
+          fork0, genesis_validators_root0,
+          contribution_and_proof, privkey1).toValidatorSig)
 
       # Mismatched forks
-      not verify_signed_contribution_and_proof_signature(
-        SignedContributionAndProof(signature: blsSign(
-          privkey0, contribution_and_proof_signing_root(
-            fork1, genesis_validators_root0,
-            signed_contribution_and_proof.message).data).toValidatorSig),
-        fork0, genesis_validators_root0, load(pubkey0).get)
+      not verify_contribution_and_proof_signature(
+        fork0, genesis_validators_root0, contribution_and_proof,
+        load(pubkey0).get,
+        get_contribution_and_proof_signature(
+          fork1, genesis_validators_root0,
+          contribution_and_proof, privkey0).toValidatorSig)
 
       # Mismatched genesis validator roots
-      not verify_signed_contribution_and_proof_signature(
-        SignedContributionAndProof(signature: blsSign(
-          privkey0, contribution_and_proof_signing_root(
-            fork0, genesis_validators_root0,
-            signed_contribution_and_proof.message).data).toValidatorSig),
-        fork0, genesis_validators_root1, load(pubkey0).get)
+      not verify_contribution_and_proof_signature(
+        fork0, genesis_validators_root0, contribution_and_proof,
+        load(pubkey0).get,
+        get_contribution_and_proof_signature(
+          fork0, genesis_validators_root1,
+          contribution_and_proof, privkey0).toValidatorSig)
 
   test "Sync committee selection proof signatures":
     let
@@ -246,45 +246,29 @@ suite "Message signatures":
 
     check:
       # Matching public/private keys and genesis validator roots
-      verify_selection_proof_signature(
-        ContributionAndProof(
-          contribution: SyncCommitteeContribution(
-          slot: slot, subcommittee_index: subcommittee_index),
-          selection_proof: blsSign(
-            privkey0, sync_committee_selection_proof_signing_root(
-              fork0, genesis_validators_root0, slot,
-              subcommittee_index).data).toValidatorSig),
-        fork0, genesis_validators_root0, load(pubkey0).get)
+      verify_sync_committee_selection_proof(
+        fork0, genesis_validators_root0, slot, subcommittee_index,
+        load(pubkey0).get, get_sync_committee_selection_proof(
+          fork0, genesis_validators_root0, slot,
+          subcommittee_index, privkey0).toValidatorSig)
 
       # Mismatched public/private keys
-      not verify_selection_proof_signature(
-        ContributionAndProof(
-          contribution: SyncCommitteeContribution(
-          slot: slot, subcommittee_index: subcommittee_index),
-          selection_proof: blsSign(
-            privkey1, sync_committee_selection_proof_signing_root(
-              fork0, genesis_validators_root0, slot,
-              subcommittee_index).data).toValidatorSig),
-        fork0, genesis_validators_root0, load(pubkey0).get)
+      not verify_sync_committee_selection_proof(
+        fork0, genesis_validators_root0, slot, subcommittee_index,
+        load(pubkey0).get, get_sync_committee_selection_proof(
+          fork0, genesis_validators_root0, slot,
+          subcommittee_index, privkey1).toValidatorSig)
 
       # Mismatched forks
-      not verify_selection_proof_signature(
-        ContributionAndProof(
-          contribution: SyncCommitteeContribution(
-          slot: slot, subcommittee_index: subcommittee_index),
-          selection_proof: blsSign(
-            privkey0, sync_committee_selection_proof_signing_root(
-              fork0, genesis_validators_root0, slot,
-              subcommittee_index).data).toValidatorSig),
-        fork1, genesis_validators_root0, load(pubkey0).get)
+      not verify_sync_committee_selection_proof(
+        fork0, genesis_validators_root0, slot, subcommittee_index,
+        load(pubkey0).get, get_sync_committee_selection_proof(
+          fork1, genesis_validators_root0, slot,
+          subcommittee_index, privkey0).toValidatorSig)
 
       # Mismatched genesis validator roots
-      not verify_selection_proof_signature(
-        ContributionAndProof(
-          contribution: SyncCommitteeContribution(
-          slot: slot, subcommittee_index: subcommittee_index),
-          selection_proof: blsSign(
-            privkey1, sync_committee_selection_proof_signing_root(
-              fork0, genesis_validators_root0, slot,
-              subcommittee_index).data).toValidatorSig),
-        fork0, genesis_validators_root1, load(pubkey0).get)
+      not verify_sync_committee_selection_proof(
+        fork0, genesis_validators_root0, slot, subcommittee_index,
+        load(pubkey0).get, get_sync_committee_selection_proof(
+          fork0, genesis_validators_root1, slot,
+          subcommittee_index, privkey0).toValidatorSig)

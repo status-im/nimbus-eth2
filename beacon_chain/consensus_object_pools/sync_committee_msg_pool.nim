@@ -11,7 +11,7 @@ import
   std/[sets, tables],
   stew/shims/hashes,
   chronicles,
-  ../spec/digest,
+  ../spec/[crypto, digest],
   ../spec/datatypes/altair
 
 export hashes, sets, tables, altair
@@ -97,7 +97,7 @@ func isSeen*(
     subcommitteeIndex: subcommitteeIndex.uint64)
   seenKey in pool.seenSyncMsgByAuthor
 
-func addSyncCommitteeMessage*(
+proc addSyncCommitteeMessage*(
     pool: var SyncCommitteeMsgPool,
     slot: Slot,
     blockRoot: Eth2Digest,
@@ -120,6 +120,9 @@ func addSyncCommitteeMessage*(
       subcommitteeIndex: subcommitteeIndex,
       positionInCommittee: position,
       signature: signature)
+
+  debug "Sync committee message resolved",
+    slot = slot, blockRoot = shortLog(blockRoot), validatorIndex
 
 func computeAggregateSig(votes: seq[TrustedSyncCommitteeMsg],
                          subcommitteeIndex: SyncSubcommitteeIndex,

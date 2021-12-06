@@ -410,7 +410,7 @@ proc syncCommitteeMessageValidator*(
     self: ref Eth2Processor,
     syncCommitteeMsg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex,
-    checkSignature: bool = true): Result[void, ValidationError] =
+    checkSignature: bool = true): Future[Result[void, ValidationError]] {.async.} =
   let
     wallTime = self.getCurrentBeaconTime()
     wallSlot = wallTime.slotOrZero()
@@ -425,9 +425,9 @@ proc syncCommitteeMessageValidator*(
   debug "Sync committee message received", delay
 
   # Now proceed to validation
-  let v = validateSyncCommitteeMessage(self.dag, self.syncCommitteeMsgPool[],
-                                       syncCommitteeMsg, subcommitteeIdx,
-                                       wallTime, checkSignature)
+  let v = await validateSyncCommitteeMessage(
+    self.dag, self.batchCrypto, self.syncCommitteeMsgPool[],
+    syncCommitteeMsg, subcommitteeIdx, wallTime, checkSignature)
   return if v.isOk():
     trace "Sync committee message validated"
     let (positions, cookedSig) = v.get()
@@ -451,7 +451,7 @@ proc syncCommitteeMessageValidator*(
 proc contributionValidator*(
     self: ref Eth2Processor,
     contributionAndProof: SignedContributionAndProof,
-    checkSignature: bool = true): Result[void, ValidationError] =
+    checkSignature: bool = true): Future[Result[void, ValidationError]] {.async.} =
   let
     wallTime = self.getCurrentBeaconTime()
     wallSlot = wallTime.slotOrZero()
@@ -468,9 +468,9 @@ proc contributionValidator*(
   debug "Contribution received", delay
 
   # Now proceed to validation
-  let v = validateContribution(
-    self.dag, self.syncCommitteeMsgPool[], contributionAndProof, wallTime,
-    checkSignature)
+  let v = await validateContribution(
+    self.dag, self.batchCrypto, self.syncCommitteeMsgPool,
+    contributionAndProof, wallTime, checkSignature)
 
   return if v.isOk():
     trace "Contribution validated"

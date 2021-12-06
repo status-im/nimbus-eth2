@@ -26,7 +26,7 @@ import
   ../beacon_chain/[beacon_chain_db, beacon_clock],
   ../beacon_chain/eth1/eth1_monitor,
   ../beacon_chain/validators/validator_pool,
-  ../beacon_chain/gossip_processing/gossip_validation,
+  ../beacon_chain/gossip_processing/[batch_validation, gossip_validation],
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine,
                                           block_clearance, attestation_pool,
                                           sync_committee_msg_pool],
@@ -90,6 +90,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
     quarantine = newClone(Quarantine.init())
     attPool = AttestationPool.init(dag, quarantine)
+    batchCrypto = BatchCrypto.new(
+      keys.newRng(), eager = proc(): bool = true, taskpool)
     syncCommitteePool = newClone SyncCommitteeMsgPool.init()
     timers: array[Timers, RunningStat]
     attesters: RunningStat
@@ -145,10 +147,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     let
       syncCommittee = @(dag.syncCommitteeParticipants(slot + 1))
-      genesisValidatorsRoot = dag.genesisValidatorsRoot
+      genesis_validators_root = dag.genesisValidatorsRoot
       fork = dag.forkAtEpoch(slot.epoch)
-      signingRoot = sync_committee_msg_signing_root(
-        fork, slot.epoch, genesisValidatorsRoot, dag.head.root)
       messagesTime = slot.toBeaconTime(seconds(SECONDS_PER_SLOT div 3))
       contributionsTime = slot.toBeaconTime(seconds(2 * SECONDS_PER_SLOT div 3))
 
@@ -160,15 +160,17 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           continue
 
         let
-          validarorPrivKey = MockPrivKeys[validatorIdx]
-          signature = blsSign(validarorPrivKey, signingRoot.data)
+          validatorPrivKey = MockPrivKeys[validatorIdx]
+          signature = get_sync_committee_message_signature(
+            fork, genesis_validators_root, slot, dag.head.root, validatorPrivKey)
           msg = SyncCommitteeMessage(
             slot: slot,
             beacon_block_root: dag.head.root,
             validator_index: uint64 validatorIdx,
             signature: signature.toValidatorSig)
 
-        let res = dag.validateSyncCommitteeMessage(
+        let res = waitFor dag.validateSyncCommitteeMessage(
+          batchCrypto,
           syncCommitteePool[],
           msg,
           subcommitteeIdx,
@@ -188,11 +190,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           positions)
 
         let
-          selectionProofSigningRoot =
-            sync_committee_selection_proof_signing_root(
-              fork, genesisValidatorsRoot, slot, uint64 subcommitteeIdx)
-          selectionProofSig = blsSign(
-            validarorPrivKey, selectionProofSigningRoot.data).toValidatorSig
+          selectionProofSig = get_sync_committee_selection_proof(
+            fork, genesis_validators_root, slot, uint64 subcommitteeIdx,
+            validatorPrivKey).toValidatorSig
 
         if is_sync_committee_aggregator(selectionProofSig):
           aggregators.add Aggregator(
@@ -212,18 +212,18 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             contribution: contribution,
             selection_proof: aggregator.selectionProof)
 
-          signingRoot = contribution_and_proof_signing_root(
-            fork, genesisValidatorsRoot, contributionAndProof)
-
-          validarorPrivKey =
+          validatorPrivKey =
             MockPrivKeys[aggregator.validatorIdx.ValidatorIndex]
 
           signedContributionAndProof = SignedContributionAndProof(
             message: contributionAndProof,
-            signature: blsSign(validarorPrivKey, signingRoot.data).toValidatorSig)
+            signature: get_contribution_and_proof_signature(
+              fork, genesis_validators_root, contributionAndProof,
+              validatorPrivKey).toValidatorSig)
 
-          res = dag.validateContribution(
-            syncCommitteePool[],
+          res = waitFor dag.validateContribution(
+            batchCrypto,
+            syncCommitteePool,
             signedContributionAndProof,
             contributionsTime,
             false)

@@ -57,22 +57,19 @@ suite "Sync committee pool":
 
       root1Slot = Slot(100)
       root2Slot = Slot(101)
-      root3Slot = Slot(101)
+      root3Slot = Slot(102)
 
       subcommittee1 = SyncSubcommitteeIndex(0)
       subcommittee2 = SyncSubcommitteeIndex(1)
 
-      sig1 = blsSign(privkey1, sync_committee_msg_signing_root(
-        fork, root1Slot.epoch, genesisValidatorsRoot, root1).data)
-
-      sig2 = blsSign(privkey2, sync_committee_msg_signing_root(
-        fork, root2Slot.epoch, genesisValidatorsRoot, root1).data)
-
-      sig3 = blsSign(privkey3, sync_committee_msg_signing_root(
-        fork, root3Slot.epoch, genesisValidatorsRoot, root1).data)
-
-      sig4 = blsSign(privkey4, sync_committee_msg_signing_root(
-        fork, root3Slot.epoch, genesisValidatorsRoot, root2).data)
+      sig1 = get_sync_committee_message_signature(
+        fork, genesisValidatorsRoot, root1Slot, root1, privkey1)
+      sig2 = get_sync_committee_message_signature(
+        fork, genesisValidatorsRoot, root2Slot, root2, privkey1)
+      sig3 = get_sync_committee_message_signature(
+        fork, genesisValidatorsRoot, root3Slot, root3, privkey1)
+      sig4 = get_sync_committee_message_signature(
+        fork, genesisValidatorsRoot, root3Slot, root2, privkey1)
 
     # Inserting sync committee messages
     #
