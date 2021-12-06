@@ -1338,13 +1338,17 @@ proc updateHead*(
       finalized = shortLog(getStateField(
         dag.headState.data, finalized_checkpoint))
 
-    dag.finalizedBlocks.setLen(finalizedHead.slot.int + 1)
-    var tmp = finalizedHead.blck
-    while not isNil(tmp) and tmp.slot >= dag.finalizedHead.slot:
-      dag.finalizedBlocks[tmp.slot.int] = tmp
-      tmp = tmp.parent
+    block:
+      # Update `dag.finalizedBlocks` with all newly finalized blocks (those
+      # newer than the previous finalized head), then update `dag.finalizedHead`
 
-    dag.finalizedHead = finalizedHead
+      dag.finalizedBlocks.setLen(finalizedHead.slot.int + 1)
+      var tmp = finalizedHead.blck
+      while not isNil(tmp) and tmp.slot >= dag.finalizedHead.slot:
+        dag.finalizedBlocks[tmp.slot.int] = tmp
+        tmp = tmp.parent
+
+      dag.finalizedHead = finalizedHead
 
     beacon_finalized_epoch.set(getStateField(
       dag.headState.data, finalized_checkpoint).epoch.toGaugeValue)
