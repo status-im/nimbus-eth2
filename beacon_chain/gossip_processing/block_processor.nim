@@ -12,13 +12,15 @@ import
   stew/results,
   chronicles, chronos, metrics,
   ../spec/datatypes/[phase0, altair, merge],
-  ../spec/[forks],
-  ../consensus_object_pools/[block_clearance, blockchain_dag, attestation_pool],
+  ../spec/[forks, signatures_batch],
+  ../consensus_object_pools/[
+    attestation_pool, block_clearance, blockchain_dag, block_quarantine,
+    spec_cache],
   ./consensus_manager,
   ".."/[beacon_clock],
   ../sszdump
 
-export sszdump
+export sszdump, signatures_batch
 
 # Block Processor
 # ------------------------------------------------------------------------------
@@ -48,6 +50,9 @@ type
     ## - database
     ## - attestation pool
     ## - fork choice
+    ##
+    ## The processor will also reinsert blocks from the quarantine, should a
+    ## parent be found.
 
     # Config
     # ----------------------------------------------------------------
@@ -57,7 +62,7 @@ type
 
     # Producers
     # ----------------------------------------------------------------
-    blocksQueue*: AsyncQueue[BlockEntry] # Exported for "test_sync_manager"
+    blockQueue*: AsyncQueue[BlockEntry] # Exported for "test_sync_manager"
 
     # Consumer
     # ----------------------------------------------------------------
@@ -65,21 +70,26 @@ type
       ## Blockchain DAG, AttestationPool and Quarantine
     getBeaconTime: GetBeaconTimeFn
 
+    verifier: BatchVerifier
+
 # Initialization
 # ------------------------------------------------------------------------------
 
 proc new*(T: type BlockProcessor,
           dumpEnabled: bool,
           dumpDirInvalid, dumpDirIncoming: string,
+          rng: ref BrHmacDrbgContext, taskpool: TaskPoolPtr,
           consensusManager: ref ConsensusManager,
           getBeaconTime: GetBeaconTimeFn): ref BlockProcessor =
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
     dumpDirInvalid: dumpDirInvalid,
     dumpDirIncoming: dumpDirIncoming,
-    blocksQueue: newAsyncQueue[BlockEntry](),
+    blockQueue: newAsyncQueue[BlockEntry](),
     consensusManager: consensusManager,
-    getBeaconTime: getBeaconTime)
+    getBeaconTime: getBeaconTime,
+    verifier: BatchVerifier(rng: rng, taskpool: taskpool)
+  )
 
 # Sync callbacks
 # ------------------------------------------------------------------------------
@@ -97,7 +107,7 @@ proc fail*(entry: BlockEntry, error: BlockError) =
     entry.resfut.complete(Result[void, BlockError].err(error))
 
 proc hasBlocks*(self: BlockProcessor): bool =
-  self.blocksQueue.len() > 0
+  self.blockQueue.len() > 0
 
 # Enqueue
 # ------------------------------------------------------------------------------
@@ -118,7 +128,7 @@ proc addBlock*(
   # addLast doesn't fail with unbounded queues, but we'll add asyncSpawn as a
   # sanity check
   try:
-    self.blocksQueue.addLastNoWait(BlockEntry(
+    self.blockQueue.addLastNoWait(BlockEntry(
       blck: blck,
       resfut: resfut, queueTick: Moment.now(),
       validationDur: validationDur))
@@ -129,21 +139,19 @@ proc addBlock*(
 # ------------------------------------------------------------------------------
 
 proc dumpInvalidBlock*(
-    self: BlockProcessor,
-    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                 merge.SignedBeaconBlock) =
+    self: BlockProcessor, signedBlock: ForkySignedBeaconBlock) =
   if self.dumpEnabled:
     dump(self.dumpDirInvalid, signedBlock)
 
 proc dumpBlock*[T](
     self: BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    res: Result[T, (ValidationResult, BlockError)]) =
+    res: Result[T, BlockError]) =
   if self.dumpEnabled and res.isErr:
-    case res.error[1]
-    of Invalid:
+    case res.error
+    of BlockError.Invalid:
       self.dumpInvalidBlock(signedBlock)
-    of MissingParent:
+    of BlockError.MissingParent:
       dump(self.dumpDirIncoming, signedBlock)
     else:
       discard
@@ -156,10 +164,18 @@ proc storeBlock*(
   let
     attestationPool = self.consensusManager.attestationPool
     startTick = Moment.now()
+    dag = self.consensusManager.dag
+
+  # The block is certainly not missing any more
+  self.consensusManager.quarantine[].missing.del(signedBlock.root)
+
+  # We'll also remove the block as an orphan: it's unlikely the parent is
+  # missing if we get this far - should that be the case, the block will
+  # be re-added later
+  self.consensusManager.quarantine[].removeOrphan(signedBlock)
 
   type Trusted = typeof signedBlock.asTrusted()
-  let blck = self.consensusManager.dag.addRawBlock(
-    self.consensusManager.quarantine, signedBlock) do (
+  let blck = dag.addRawBlock(self.verifier, signedBlock) do (
       blckRef: BlockRef, trustedBlock: Trusted, epochRef: EpochRef):
     # Callback add to fork choice if valid
     attestationPool[].addForkChoice(
@@ -170,8 +186,16 @@ proc storeBlock*(
   # There can be a scenario where we receive a block we already received.
   # However this block was before the last finalized epoch and so its parent
   # was pruned from the ForkChoice.
-  if blck.isErr:
-    return err(blck.error[1])
+  if blck.isErr():
+    if blck.error() == BlockError.MissingParent:
+      if not self.consensusManager.quarantine[].add(
+          dag, ForkedSignedBeaconBlock.init(signedBlock)):
+        debug "Block quarantine full",
+          blockRoot = shortLog(signedBlock.root),
+          blck = shortLog(signedBlock.message),
+          signature = shortLog(signedBlock.signature)
+
+    return blck
 
   let storeBlockTick = Moment.now()
 
@@ -191,7 +215,11 @@ proc storeBlock*(
     blockSlot = blck.get().slot,
     validationDur, queueDur, storeBlockDur, updateHeadDur
 
-  ok(blck.get())
+  for quarantined in self.consensusManager.quarantine[].pop(blck.get().root):
+    # Process the blocks that had the newly accepted block as parent
+    self.addBlock(quarantined)
+
+  blck
 
 # Event Loop
 # ------------------------------------------------------------------------------
@@ -212,8 +240,8 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
      res = withBlck(entry.blck):
        self.storeBlock(blck, wallSlot, entry.queueTick, entry.validationDur)
 
-  if res.isOk() or (res.error() in {BlockError.Duplicate, BlockError.Old}):
-    # Duplicate and old blocks are ok from a sync point of view, so we mark
+  if res.isOk() or res.error() == BlockError.Duplicate:
+    # Duplicate blocks are ok from a sync point of view, so we mark
     # them as successful
     entry.done()
   else:
@@ -234,4 +262,4 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
 
     discard await idleAsync().withTimeout(idleTimeout)
 
-    self[].processBlock(await self[].blocksQueue.popFirst())
+    self[].processBlock(await self[].blockQueue.popFirst())

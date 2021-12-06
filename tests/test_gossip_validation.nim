@@ -38,7 +38,8 @@ suite "Gossip validation " & preset():
     var
       dag = init(ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3), {})
       taskpool = Taskpool.new()
-      quarantine = QuarantineRef.init(keys.newRng(), taskpool)
+      verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+      quarantine = newClone(Quarantine.init())
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()
@@ -74,14 +75,14 @@ suite "Gossip validation " & preset():
       cache: StateCache
     for blck in makeTestBlocks(
         dag.headState.data, cache, int(SLOTS_PER_EPOCH * 5), false):
-      let added = dag.addRawBlock(quarantine, blck.phase0Data) do (
+      let added = dag.addRawBlock(verifier, blck.phase0Data) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       check: added.isOk()
-      dag.updateHead(added[], quarantine)
+      dag.updateHead(added[], quarantine[])
       pruneAtFinalization(dag, pool[])
 
     var
@@ -180,10 +181,11 @@ suite "Gossip validation - Extra": # Not based on preset config
         cfg.ALTAIR_FORK_EPOCH = (GENESIS_EPOCH + 1).Epoch
         cfg
       dag = block:
-        let
-          dag = ChainDAGRef.init(cfg, makeTestDB(num_validators), {})
-          taskpool = Taskpool.new()
-          quarantine = QuarantineRef.init(keys.newRng(), taskpool)
+        var
+          dag = ChainDAGRef.init(
+            cfg, makeTestDB(num_validators), {})
+          verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+          quarantine = newClone(Quarantine.init())
         var cache = StateCache()
         for blck in makeTestBlocks(
             dag.headState.data, cache, int(SLOTS_PER_EPOCH), false, cfg = cfg):
@@ -191,15 +193,15 @@ suite "Gossip validation - Extra": # Not based on preset config
             case blck.kind
             of BeaconBlockFork.Phase0:
               const nilCallback = OnPhase0BlockAdded(nil)
-              dag.addRawBlock(quarantine, blck.phase0Data, nilCallback)
+              dag.addRawBlock(verifier, blck.phase0Data, nilCallback)
             of BeaconBlockFork.Altair:
               const nilCallback = OnAltairBlockAdded(nil)
-              dag.addRawBlock(quarantine, blck.altairData, nilCallback)
+              dag.addRawBlock(verifier, blck.altairData, nilCallback)
             of BeaconBlockFork.Merge:
               const nilCallback = OnMergeBlockAdded(nil)
-              dag.addRawBlock(quarantine, blck.mergeData, nilCallback)
+              dag.addRawBlock(verifier, blck.mergeData, nilCallback)
           check: added.isOk()
-          dag.updateHead(added[], quarantine)
+          dag.updateHead(added[], quarantine[])
         dag
       state = assignClone(dag.headState.data.altairData)
       slot = state[].data.slot

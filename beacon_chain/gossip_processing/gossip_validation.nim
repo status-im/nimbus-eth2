@@ -105,7 +105,7 @@ func check_beacon_and_target_block(
   # of the block in the pool.
   let blck = pool.dag.getRef(data.beacon_block_root)
   if blck.isNil:
-    pool.quarantine.addMissing(data.beacon_block_root)
+    pool.quarantine[].addMissing(data.beacon_block_root)
     return errIgnore("Attestation block unknown")
 
   # Not in spec - check that rewinding to the state is sane
@@ -173,7 +173,7 @@ template checkedReject(error: ValidationError): untyped =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
-    dag: ChainDAGRef, quarantine: QuarantineRef,
+    dag: ChainDAGRef, quarantine: ref Quarantine,
     signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
@@ -245,10 +245,9 @@ proc validateBeaconBlock*(
   # [REJECT] The block's parent (defined by block.parent_root) passes validation.
   let parent_ref = dag.getRef(signed_beacon_block.message.parent_root)
   if parent_ref.isNil:
-    # Pending dag gets checked via `ChainDAGRef.add(...)` later, and relevant
-    # checks are performed there. In usual paths beacon_node adds blocks via
-    # ChainDAGRef.add(...) directly, with no additional validity checks.
-    if not quarantine.add(dag, signed_beacon_block):
+    # When the parent is missing, we can't validate the block - we'll queue it
+    # in the quarantine for later processing
+    if not quarantine[].add(dag, ForkedSignedBeaconBlock.init(signed_beacon_block)):
       debug "Block quarantine full"
     return errIgnore("BeaconBlock: Parent not found")
 

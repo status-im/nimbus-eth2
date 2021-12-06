@@ -299,7 +299,7 @@ proc init*(T: type BeaconNode,
                      else: {}
     dag = ChainDAGRef.init(cfg, db, chainDagFlags, onBlockAdded, onHeadChanged,
                            onChainReorg, onFinalization)
-    quarantine = QuarantineRef.init(rng, taskpool)
+    quarantine = newClone(Quarantine.init())
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState.data, genesis_validators_root)
 
@@ -405,7 +405,7 @@ proc init*(T: type BeaconNode,
     )
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      consensusManager, getBeaconTime)
+      rng, taskpool, consensusManager, getBeaconTime)
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, dag, attestationPool, exitPool, validatorPool,
@@ -440,7 +440,6 @@ proc init*(T: type BeaconNode,
     consensusManager: consensusManager,
     gossipState: GossipState.Disconnected,
     beaconClock: beaconClock,
-    taskpool: taskpool,
     onAttestationSent: onAttestationSent,
   )
 
@@ -940,7 +939,7 @@ proc onSlotStart(
   await onSlotEnd(node, wallSlot)
 
 proc handleMissingBlocks(node: BeaconNode) =
-  let missingBlocks = node.quarantine.checkMissing()
+  let missingBlocks = node.quarantine[].checkMissing()
   if missingBlocks.len > 0:
     debug "Requesting detected missing blocks", blocks = shortLog(missingBlocks)
     node.requestManager.fetchAncestorBlocks(missingBlocks)

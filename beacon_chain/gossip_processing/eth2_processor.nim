@@ -9,21 +9,21 @@
 
 import
   std/tables,
-  stew/results,
-  chronicles, chronos, metrics,
+  stew/results, bearssl,
+  chronicles, chronos, metrics, taskpools,
   ../spec/[helpers, forks],
   ../spec/datatypes/[altair, phase0],
   ../consensus_object_pools/[
-    block_clearance, blockchain_dag, exit_pool, attestation_pool,
+    block_clearance, block_quarantine, blockchain_dag, exit_pool, attestation_pool,
     sync_committee_msg_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation]
 
 export
-  results, block_clearance, blockchain_dag, exit_pool, attestation_pool,
+  results, bearssl, taskpools, block_clearance, blockchain_dag, exit_pool, attestation_pool,
   sync_committee_msg_pool, validator_pool, beacon_clock, gossip_validation,
-  block_processor, batch_validation
+  block_processor, batch_validation, block_quarantine
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_attestations_received,
@@ -122,7 +122,7 @@ type
 
     # Missing information
     # ----------------------------------------------------------------
-    quarantine*: QuarantineRef
+    quarantine*: ref Quarantine
 
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
@@ -140,10 +140,10 @@ proc new*(T: type Eth2Processor,
           exitPool: ref ExitPool,
           validatorPool: ref ValidatorPool,
           syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
-          quarantine: QuarantineRef,
+          quarantine: ref Quarantine,
           rng: ref BrHmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
-          taskpool: batch_validation.TaskPoolPtr
+          taskpool: TaskPoolPtr
          ): ref Eth2Processor =
   (ref Eth2Processor)(
     doppelGangerDetectionEnabled: doppelGangerDetectionEnabled,

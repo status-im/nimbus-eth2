@@ -13,13 +13,13 @@ import
   stew/[assign2, results],
   eth/keys,
   ".."/[beacon_clock],
-  ../spec/[eth2_merkleization, forks, helpers, signatures, signatures_batch, state_transition],
+  ../spec/[
+    eth2_merkleization, forks, helpers, signatures, signatures_batch,
+    state_transition],
   ../spec/datatypes/[phase0, altair, merge],
-  "."/[blockchain_dag, block_quarantine]
+  "."/[blockchain_dag]
 
-from libp2p/protocols/pubsub/pubsub import ValidationResult
-
-export results, ValidationResult
+export results, signatures_batch
 
 # Clearance
 # ---------------------------------------------
@@ -31,86 +31,14 @@ export results, ValidationResult
 logScope:
   topics = "clearance"
 
-proc batchVerify(quarantine: QuarantineRef, sigs: openArray[SignatureSet]): bool =
-  var secureRandomBytes: array[32, byte]
-  quarantine.rng[].brHmacDrbgGenerate(secureRandomBytes)
-  try:
-    return quarantine.taskpool.batchVerify(quarantine.sigVerifCache, sigs, secureRandomBytes)
-  except Exception as exc:
-    raiseAssert exc.msg
-
-proc addRawBlock*(
-      dag: ChainDAGRef, quarantine: QuarantineRef,
-      signedBlock: ForkySignedBeaconBlock,
-      onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnMergeBlockAdded
-     ): Result[BlockRef, (ValidationResult, BlockError)] {.gcsafe.}
-
-# Now that we have the new block, we should see if any of the previously
-# unresolved blocks magically become resolved
-# TODO This code is convoluted because when there are more than ~1.5k
-#      blocks being synced, there's a stack overflow as `add` gets called
-#      for the whole chain of blocks. Instead we use this ugly field in `dag`
-#      which could be avoided by refactoring the code
-# TODO unit test the logic, in particular interaction with fork choice block parents
-proc resolveQuarantinedBlocks(
-    dag: ChainDAGRef, quarantine: QuarantineRef,
-    onBlockAdded: OnPhase0BlockAdded) =
-  if not quarantine.inAdd:
-    quarantine.inAdd = true
-    defer: quarantine.inAdd = false
-    var entries = 0
-    while entries != quarantine.orphansPhase0.len:
-      entries = quarantine.orphansPhase0.len # keep going while quarantine is shrinking
-      var resolved: seq[phase0.SignedBeaconBlock]
-      for _, v in quarantine.orphansPhase0:
-        if v.message.parent_root in dag:
-          resolved.add(v)
-
-      for v in resolved:
-        discard addRawBlock(dag, quarantine, v, onBlockAdded)
-
-proc resolveQuarantinedBlocks(
-    dag: ChainDAGRef, quarantine: QuarantineRef,
-    onBlockAdded: OnAltairBlockAdded) =
-  if not quarantine.inAdd:
-    quarantine.inAdd = true
-    defer: quarantine.inAdd = false
-    var entries = 0
-    while entries != quarantine.orphansAltair.len:
-      entries = quarantine.orphansAltair.len # keep going while quarantine is shrinking
-      var resolved: seq[altair.SignedBeaconBlock]
-      for _, v in quarantine.orphansAltair:
-        if v.message.parent_root in dag:
-          resolved.add(v)
-
-      for v in resolved:
-        discard addRawBlock(dag, quarantine, v, onBlockAdded)
-
-proc resolveQuarantinedBlocks(
-    dag: ChainDAGRef, quarantine: QuarantineRef,
-    onBlockAdded: OnMergeBlockAdded) =
-  if not quarantine.inAdd:
-    quarantine.inAdd = true
-    defer: quarantine.inAdd = false
-    var entries = 0
-    while entries != quarantine.orphansMerge.len:
-      entries = quarantine.orphansMerge.len # keep going while quarantine is shrinking
-      var resolved: seq[merge.SignedBeaconBlock]
-      for _, v in quarantine.orphansMerge:
-        if v.message.parent_root in dag:
-          resolved.add(v)
-
-      for v in resolved:
-        discard addRawBlock(dag, quarantine, v, onBlockAdded)
-
 proc addResolvedBlock(
-       dag: ChainDAGRef, quarantine: QuarantineRef,
+       dag: ChainDAGRef,
        state: var StateData,
        trustedBlock: ForkyTrustedSignedBeaconBlock,
        parent: BlockRef, cache: var StateCache,
        onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnMergeBlockAdded,
        stateDataDur, sigVerifyDur, stateVerifyDur: Duration
-     ) =
+     ): BlockRef =
   doAssert getStateField(state.data, slot) == trustedBlock.message.slot,
     "state must match block"
   doAssert state.blck.root == trustedBlock.message.parent_root,
@@ -169,7 +97,7 @@ proc addResolvedBlock(
   if not(isNil(dag.onBlockAdded)):
     dag.onBlockAdded(ForkedTrustedSignedBeaconBlock.init(trustedBlock))
 
-  resolveQuarantinedBlocks(dag, quarantine, onBlockAdded)
+  blockRef
 
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeSignedBlock =
@@ -181,7 +109,7 @@ type SomeSignedBlock =
   merge.TrustedSignedBeaconBlock
 proc checkStateTransition(
        dag: ChainDAGRef, signedBlock: SomeSignedBlock,
-       cache: var StateCache): (ValidationResult, BlockError) =
+       cache: var StateCache): Result[void, BlockError] =
   ## Ensure block can be applied on a state
   func restore(v: var ForkedHashedBeaconState) =
     # TODO address this ugly workaround - there should probably be a
@@ -199,8 +127,9 @@ proc checkStateTransition(
       cache, dag.updateFlags, restore):
     info "Invalid block"
 
-    return (ValidationResult.Reject, Invalid)
-  return (ValidationResult.Accept, default(BlockError))
+    err(BlockError.Invalid)
+  else:
+    ok()
 
 proc advanceClearanceState*(dag: ChainDAGRef) =
   # When the chain is synced, the most likely block to be produced is the block
@@ -220,25 +149,57 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
     debug "Prepared clearance state for next block",
       next, updateStateDur = Moment.now() - startTick
 
-proc addRawBlockKnownParent(
-       dag: ChainDAGRef, quarantine: QuarantineRef,
-       signedBlock: ForkySignedBeaconBlock,
-       parent: BlockRef,
-       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnMergeBlockAdded
-     ): Result[BlockRef, (ValidationResult, BlockError)] =
-  ## Add a block whose parent is known, after performing validity checks
+proc addRawBlock*(
+    dag: ChainDAGRef, verifier: var BatchVerifier,
+    signedBlock: ForkySignedBeaconBlock,
+    onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnMergeBlockAdded
+    ): Result[BlockRef, BlockError] =
+  ## Try adding a block to the chain, verifying first that it passes the state
+  ## transition function and contains correct cryptographic signature.
+  ##
+  ## Cryptographic checks can be skipped by adding skipBLSValidation to dag.updateFlags
   logScope:
     blockRoot = shortLog(signedBlock.root)
     blck = shortLog(signedBlock.message)
-    signature = shortLog(signedBlock.signature)
+
+  template blck(): untyped = signedBlock.message # shortcuts without copy
+  template blockRoot(): untyped = signedBlock.root
+
+  if blockRoot in dag:
+    debug "Block already exists"
+
+    # We should not call the block added callback for blocks that already
+    # existed in the pool, as that may confuse consumers such as the fork
+    # choice. While the validation result won't be accessed, it's IGNORE,
+    # according to the spec.
+    return err(BlockError.Duplicate)
+
+  # If the block we get is older than what we finalized already, we drop it.
+  # One way this can happen is that we start request a block and finalization
+  # happens in the meantime - the block we requested will then be stale
+  # by the time it gets here.
+  if blck.slot <= dag.finalizedHead.slot:
+    debug "Old block, dropping",
+      finalizedHead = shortLog(dag.finalizedHead),
+      tail = shortLog(dag.tail)
+
+    # Doesn't correspond to any specific validation condition, and still won't
+    # be used, but certainly would be IGNORE.
+    return err(BlockError.UnviableFork)
+
+  let parent = dag.getRef(blck.parent_root)
+
+  if parent == nil:
+    debug "Block parent unknown"
+    return err(BlockError.MissingParent)
 
   if parent.slot >= signedBlock.message.slot:
     # A block whose parent is newer than the block itself is clearly invalid -
     # discard it immediately
-    info "Block with invalid parent, dropping",
+    debug "Block with invalid parent, dropping",
       parentBlock = shortLog(parent)
 
-    return err((ValidationResult.Reject, Invalid))
+    return err(BlockError.Invalid)
 
   if (parent.slot < dag.finalizedHead.slot) or
       (parent.slot == dag.finalizedHead.slot and
@@ -251,15 +212,11 @@ proc addRawBlockKnownParent(
     # correct - from their point of view, the head block they have is the
     # latest thing that happened on the chain and they're performing their
     # duty correctly.
-    info "Unviable block, dropping",
+    debug "Unviable block, dropping",
       finalizedHead = shortLog(dag.finalizedHead),
       tail = shortLog(dag.tail)
 
-    return err((ValidationResult.Ignore, Unviable))
-
-  # The block might have been in either of `orphans` or `missing` - we don't
-  # want any more work done on its behalf
-  quarantine.removeOrphan(signedBlock)
+    return err(BlockError.UnviableFork)
 
   # The block is resolved, now it's time to validate it to ensure that the
   # blocks we add to the database are clean for the given state
@@ -281,116 +238,23 @@ proc addRawBlockKnownParent(
         err = e.error()
 
       # A PublicKey or Signature isn't on the BLS12-381 curve
-      return err((ValidationResult.Reject, Invalid))
-    if not quarantine.batchVerify(sigs):
+      return err(BlockError.Invalid)
+    if not verifier.batchVerify(sigs):
       info "Block signature verification failed"
-      return err((ValidationResult.Reject, Invalid))
+      return err(BlockError.Invalid)
 
   let sigVerifyTick = Moment.now()
-  let (valRes, blockErr) = checkStateTransition(
-    dag, signedBlock.asSigVerified(), cache)
-  if valRes != ValidationResult.Accept:
-    return err((valRes, blockErr))
+
+  ? checkStateTransition(dag, signedBlock.asSigVerified(), cache)
 
   let stateVerifyTick = Moment.now()
   # Careful, clearanceState.data has been updated but not blck - we need to
   # create the BlockRef first!
-  addResolvedBlock(
-    dag, quarantine, dag.clearanceState,
+  ok addResolvedBlock(
+    dag, dag.clearanceState,
     signedBlock.asTrusted(),
     parent, cache,
     onBlockAdded,
     stateDataDur = stateDataTick - startTick,
     sigVerifyDur = sigVerifyTick - stateDataTick,
     stateVerifyDur = stateVerifyTick - sigVerifyTick)
-
-  return ok dag.clearanceState.blck
-
-proc addRawBlockUnresolved(
-       dag: ChainDAGRef,
-       quarantine: QuarantineRef,
-       signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                    merge.SignedBeaconBlock,
-     ): Result[BlockRef, (ValidationResult, BlockError)] =
-  ## addRawBlock - Block is unresolved / has no parent
-
-  logScope:
-    blockRoot = shortLog(signedBlock.root)
-    blck = shortLog(signedBlock.message)
-
-  # This is an unresolved block - add it to the quarantine, which will cause its
-  # parent to be scheduled for downloading
-  if not quarantine.add(dag, signedBlock):
-    debug "Block quarantine full"
-
-  if signedBlock.message.parent_root in quarantine.missing or
-      containsOrphan(quarantine, signedBlock):
-    debug "Unresolved block (parent missing or orphaned)",
-      orphansPhase0 = quarantine.orphansPhase0.len,
-      orphansAltair = quarantine.orphansAltair.len,
-      missing = quarantine.missing.len
-
-    return err((ValidationResult.Ignore, MissingParent))
-
-  # TODO if we receive spam blocks, one heurestic to implement might be to wait
-  #      for a couple of attestations to appear before fetching parents - this
-  #      would help prevent using up network resources for spam - this serves
-  #      two purposes: one is that attestations are likely to appear for the
-  #      block only if it's valid / not spam - the other is that malicious
-  #      validators that are not proposers can sign invalid blocks and send
-  #      them out without penalty - but signing invalid attestations carries
-  #      a risk of being slashed, making attestations a more valuable spam
-  #      filter.
-  debug "Unresolved block (parent missing)",
-    orphansPhase0 = quarantine.orphansPhase0.len,
-    orphansAltair = quarantine.orphansAltair.len,
-    missing = quarantine.missing.len
-
-  return err((ValidationResult.Ignore, MissingParent))
-
-proc addRawBlock(
-       dag: ChainDAGRef, quarantine: QuarantineRef,
-       signedBlock: ForkySignedBeaconBlock,
-       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnMergeBlockAdded
-     ): Result[BlockRef, (ValidationResult, BlockError)] =
-  ## Try adding a block to the chain, verifying first that it passes the state
-  ## transition function and contains correct cryptographic signature.
-  ##
-  ## Cryptographic checks can be skipped by adding skipBLSValidation to dag.updateFlags
-
-  logScope:
-    blockRoot = shortLog(signedBlock.root)
-    blck = shortLog(signedBlock.message)
-
-  template blck(): untyped = signedBlock.message # shortcuts without copy
-  template blockRoot(): untyped = signedBlock.root
-
-  if blockRoot in dag:
-    debug "Block already exists"
-
-    # We should not call the block added callback for blocks that already
-    # existed in the pool, as that may confuse consumers such as the fork
-    # choice. While the validation result won't be accessed, it's IGNORE,
-    # according to the spec.
-    return err((ValidationResult.Ignore, Duplicate))
-
-  quarantine.missing.del(blockRoot)
-
-  # If the block we get is older than what we finalized already, we drop it.
-  # One way this can happen is that we start resolving a block and finalization
-  # happens in the meantime - the block we requested will then be stale
-  # by the time it gets here.
-  if blck.slot <= dag.finalizedHead.slot:
-    debug "Old block, dropping",
-      finalizedHead = shortLog(dag.finalizedHead),
-      tail = shortLog(dag.tail)
-
-    # Doesn't correspond to any specific validation condition, and still won't
-    # be used, but certainly would be IGNORE.
-    return err((ValidationResult.Ignore, Unviable))
-
-  let parent = dag.getRef(blck.parent_root)
-
-  if parent != nil:
-    return addRawBlockKnownParent(dag, quarantine, signedBlock, parent, onBlockAdded)
-  return addRawBlockUnresolved(dag, quarantine, signedBlock)
