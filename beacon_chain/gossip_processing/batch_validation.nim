@@ -205,9 +205,10 @@ proc scheduleBatch(batchCrypto: ref BatchCrypto, fresh: bool) =
 
 template orReturnErr(v: Option, error: cstring): untyped =
   ## Returns with given error string if the option does not have a value
-  if v.isNone:
+  let tmp = v
+  if tmp.isNone:
     return err(error) # this exits the calling scope, as templates are inlined.
-  v.unsafeGet()
+  tmp.unsafeGet()
 
 template withBatch(
     batchCrypto: ref BatchCrypto, name: cstring,
