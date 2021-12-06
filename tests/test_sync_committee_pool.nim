@@ -57,7 +57,7 @@ suite "Sync committee pool":
 
       root1Slot = Slot(100)
       root2Slot = Slot(101)
-      root3Slot = Slot(102)
+      root3Slot = Slot(101)
 
       subcommittee1 = SyncSubcommitteeIndex(0)
       subcommittee2 = SyncSubcommitteeIndex(1)
