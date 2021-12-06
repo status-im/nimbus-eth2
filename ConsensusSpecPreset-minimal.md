@@ -339,10 +339,26 @@ ConsensusSpecPreset-minimal
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - skipped_slots [Preset: minimal OK
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Pre OK
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minima OK
++ altair_fork_random_0                                                                       OK
++ altair_fork_random_1                                                                       OK
++ altair_fork_random_2                                                                       OK
++ altair_fork_random_3                                                                       OK
++ altair_fork_random_duplicate_attestations                                                  OK
++ altair_fork_random_large_validator_set                                                     OK
++ altair_fork_random_low_balances                                                            OK
++ altair_fork_random_misc_balances                                                           OK
++ altair_fork_random_mismatched_attestations                                                 OK
 + finality_root_merkle_proof                                                                 OK
++ fork_base_state                                                                            OK
++ fork_many_next_epoch                                                                       OK
++ fork_next_epoch                                                                            OK
++ fork_next_epoch_with_block                                                                 OK
++ fork_random_large_validator_set                                                            OK
++ fork_random_low_balances                                                                   OK
++ fork_random_misc_balances                                                                  OK
 + next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 339/339 Fail: 0/339 Skip: 0/339
+OK: 355/355 Fail: 0/355 Skip: 0/355
 ## Attestation
 ```diff
 + [Invalid] Ethereum Foundation - Altair - Operations - Attestation - after_epoch_slots      OK
@@ -1223,4 +1239,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 30/30 Fail: 0/30 Skip: 0/30
 
 ---TOTAL---
-OK: 1021/1041 Fail: 0/1041 Skip: 20/1041
+OK: 1037/1057 Fail: 0/1057 Skip: 20/1057
