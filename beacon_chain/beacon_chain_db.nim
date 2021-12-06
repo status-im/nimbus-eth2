@@ -847,21 +847,23 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     yield res
     root = res.message.parent_root
 
-proc loadSummaries(db: BeaconChainDB): Table[Eth2Digest, BeaconBlockSummary] =
-  # Load summaries into table - there's no telling what order they're in so we
-  # load them all - bugs in nim prevent this code from living in the iterator.
-  var summaries = initTable[Eth2Digest, BeaconBlockSummary](1024*1024)
+proc loadSummary(db: BeaconChainDB, k: openArray[byte]): Result[BeaconBlockSummary, void] =
+  # Load summary from the db. Nim bugs prevent this code from living in the
+  # iterator.
+  var
+    res: BeaconBlockSummary
+    success = false
 
-  discard db.summaries.find([], proc(k, v: openArray[byte]) =
-    var output: BeaconBlockSummary
-
-    if k.len() == sizeof(Eth2Digest) and decodeSSz(v, output):
-      summaries[Eth2Digest(data: toArray(sizeof(Eth2Digest), k))] = output
+  let dbRes = db.summaries.get(k, proc(v: openArray[byte]) {.nimcall.} =
+    if decodeSSz(v, res):
+      success = true
     else:
-      warn "Invalid summary in database", klen = k.len(), vlen = v.len()
+      warn "Invalid summary in database", vlen = v.len()
   )
-
-  summaries
+  if dbRes.get(false) and success:
+    ok(res)
+  else:
+    err()
 
 type RootedSummary = tuple[root: Eth2Digest, summary: BeaconBlockSummary]
 iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
@@ -874,11 +876,7 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
   # Summaries are loaded from the dedicated summaries table. For backwards
   # compatibility, we also load from `kvstore` and finally, if no summaries
   # can be found, by loading the blocks instead.
-
-  # First, load the full summary table into memory in one query - this makes
-  # initial startup very fast.
   var
-    summaries = db.loadSummaries()
     res: RootedSummary
     blck: phase0.TrustedSignedBeaconBlock
     newSummaries: seq[RootedSummary]
@@ -907,10 +905,10 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
   # If a summary is missing, try loading it from the older version or create one
   # from block data.
   while true:
-    summaries.withValue(res.root, summary) do:
-      res.summary = summary[]
+    if (let summaryRes = loadSummary(db, res.root.data); summaryRes.isOk()):
+      res.summary = summaryRes.value
       yield res
-    do: # Summary was not found in summary table, look elsewhere
+    else: # Summary was not found in summary table, look elsewhere
       if db.v0.backend.getSnappySSZ(subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found:
         yield res
       elif db.v0.backend.getSnappySSZ(
