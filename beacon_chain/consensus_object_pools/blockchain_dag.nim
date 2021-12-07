@@ -1064,9 +1064,8 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
 iterator syncSubcommittee*(
     syncCommittee: openArray[ValidatorIndex],
     subcommitteeIdx: SyncSubcommitteeIndex): ValidatorIndex =
-  var
-    i = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
-    onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
+  var i = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
+  let onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
 
   while i < onePastEndIdx:
     yield syncCommittee[i]
@@ -1076,9 +1075,8 @@ iterator syncSubcommitteePairs*(
     syncCommittee: openArray[ValidatorIndex],
     subcommitteeIdx: SyncSubcommitteeIndex): tuple[validatorIdx: ValidatorIndex,
                                              subcommitteeIdx: int] =
-  var
-    i = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
-    onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
+  var i = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
+  let onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
 
   while i < onePastEndIdx:
     yield (syncCommittee[i], i)
@@ -1092,7 +1090,7 @@ func syncCommitteeParticipants*(dag: ChainDAGRef,
         period = sync_committee_period(slot)
         curPeriod = sync_committee_period(state.data.slot)
 
-      if period  == curPeriod:
+      if period == curPeriod:
         @(dag.headSyncCommittees.current_sync_committee)
       elif period == curPeriod + 1:
         @(dag.headSyncCommittees.next_sync_committee)
@@ -1105,19 +1103,17 @@ func getSubcommitteePositionsAux(
     syncCommittee: openArray[ValidatorIndex],
     subcommitteeIdx: SyncSubcommitteeIndex,
     validatorIdx: uint64): seq[uint64] =
-  let validatorKey = dag.validatorKey(validatorIdx)
-  if validatorKey.isNone():
-    return @[]
-  let validatorPubKey = validatorKey.get().toPubKey
+  var pos = 0'u64
+  for valIdx in syncCommittee.syncSubcommittee(subcommitteeIdx):
+    if validatorIdx == uint64(valIdx):
+      result.add pos
+    inc pos
 
-  for pos, key in toSeq(syncCommittee.syncSubcommittee(subcommitteeIdx)):
-    if validatorIdx == uint64(key):
-      result.add uint64(pos)
-
-func getSubcommitteePositions*(dag: ChainDAGRef,
-                               slot: Slot,
-                               subcommitteeIdx: SyncSubcommitteeIndex,
-                               validatorIdx: uint64): seq[uint64] =
+func getSubcommitteePositions*(
+    dag: ChainDAGRef,
+    slot: Slot,
+    subcommitteeIdx: SyncSubcommitteeIndex,
+    validatorIdx: uint64): seq[uint64] =
   withState(dag.headState.data):
     when stateFork >= BeaconStateFork.Altair:
       let
@@ -1147,7 +1143,7 @@ iterator syncCommitteeParticipants*(
     slot: Slot,
     subcommitteeIdx: SyncSubcommitteeIndex,
     aggregationBits: SyncCommitteeAggregationBits): ValidatorIndex =
-  for pos, valIdx in pairs(dag.syncCommitteeParticipants(slot, subcommitteeIdx)):
+  for pos, valIdx in dag.syncCommitteeParticipants(slot, subcommitteeIdx):
     if pos < aggregationBits.bits and aggregationBits[pos]:
       yield valIdx
 
