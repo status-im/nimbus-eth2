@@ -93,7 +93,7 @@ esac
 SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
 PKG_NAME="nimbus_beacon_node"
 PKG_IMG_DIR="${SCRIPT_DIR}/package_image"
-BINARIES="nimbus_beacon_node nimbus_signing_process"
+BINARIES="nimbus_beacon_node"
 PKG_VERSION="$(echo "${TARBALL}" | sed 's/^.*_\([^_]\+\)_[^_]\+$/\1/')"
 TARBALL_TOP_DIR="$(echo "${TARBALL}" | sed 's#^.*/\([^/]\+\)\.tar\.gz$#\1#')"
 PKG_PATH_DEB="${SCRIPT_DIR}/../build/${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH_DEB}.deb"
