@@ -95,7 +95,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + get_ancestor sanity [Preset: mainnet]                                                      OK
 + isAncestorOf sanity [Preset: mainnet]                                                      OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockSlot and helpers [Preset: mainnet]
 ```diff
 + atSlot sanity [Preset: mainnet]                                                            OK
@@ -373,4 +373,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 206/208 Fail: 0/208 Skip: 2/208
+OK: 205/207 Fail: 0/207 Skip: 2/207
