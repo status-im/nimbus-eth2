@@ -153,7 +153,15 @@ func init*(
         getStateField(state.data, current_justified_checkpoint),
       finalized_checkpoint: getStateField(state.data, finalized_checkpoint),
       shuffled_active_validator_indices:
-        cache.get_shuffled_active_validator_indices(state.data, epoch)
+        cache.get_shuffled_active_validator_indices(state.data, epoch),
+      merge_transition_complete:
+        case state.data.kind:
+        of BeaconStateFork.Phase0: false
+        of BeaconStateFork.Altair: false
+        of BeaconStateFork.Merge:
+          # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#is_merge_transition_complete
+          state.data.mergeData.data.latest_execution_payload_header !=
+            ExecutionPayloadHeader()
     )
 
   for i in 0'u64..<SLOTS_PER_EPOCH:

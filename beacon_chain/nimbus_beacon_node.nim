@@ -1047,6 +1047,11 @@ proc installMessageValidators(node: BeaconNode) =
     proc (signedBlock: altair.SignedBeaconBlock): ValidationResult =
       toValidationResult(node.processor[].blockValidator(signedBlock)))
 
+  node.network.addValidator(
+    getBeaconBlocksTopic(node.dag.forkDigests.merge),
+    proc (signedBlock: merge.SignedBeaconBlock): ValidationResult =
+      toValidationResult(node.processor[].blockValidator(signedBlock)))
+
   template installSyncCommitteeeValidators(digest: auto) =
     for committeeIdx in allSyncSubcommittees():
       closureScope:

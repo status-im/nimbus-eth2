@@ -12,7 +12,7 @@ import
   chronicles, chronos, metrics,
   stew/results,
   # Internals
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0, altair, merge],
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],
   ../consensus_object_pools/[
@@ -172,9 +172,10 @@ template checkedReject(error: ValidationError): untyped =
   err(error)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
-proc validateBeaconBlock*(
+proc validateBeaconBlockAux(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                         merge.SignedBeaconBlock,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an
@@ -298,6 +299,66 @@ proc validateBeaconBlock*(
 
   ok()
 
+proc validateBeaconBlock*(
+       dag: ChainDAGRef, quarantine: ref Quarantine,
+       signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+       wallTime: BeaconTime, flags: UpdateFlags):
+       Result[void, ValidationError] =
+  dag.validateBeaconBlockAux(quarantine, signed_beacon_block, wallTime, flags)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/p2p-interface.md#beacon_block
+proc validateBeaconBlock*(
+       dag: ChainDAGRef, quarantine: ref Quarantine,
+       signed_beacon_block: merge.SignedBeaconBlock,
+       wallTime: BeaconTime, flags: UpdateFlags):
+       Result[void, ValidationError] =
+  ? dag.validateBeaconBlockAux(quarantine, signed_beacon_block, wallTime, flags)
+
+  template blck: auto = signed_beacon_block.message
+
+  # If the execution is enabled for the block -- i.e.
+  # is_execution_enabled(state, block.body) then validate the following:
+  let parentRef = dag.getRef(blck.parent_root)
+  doAssert not parentRef.isNil  # already checked in validateBeaconBlockAux
+
+  let
+    executionEnabled =
+      if blck.body.execution_payload != default(ExecutionPayload):
+        true
+      elif dag.getEpochRef(parentRef, parentRef.slot.epoch).merge_transition_complete:
+        # Should usually be inexpensive, but could require cache refilling
+        true
+      else:
+        # Somewhat more expensive fallback, with database I/O, but should be
+        # mostly relevant around merge transition epochs. It's possible that
+        # the previous block is phase 0 or Altair, if this is the transition
+        # block itself, so that's not an error as such.
+        let blockData = dag.get(parentRef)
+        case blockData.data.kind:
+        of BeaconBlockFork.Phase0:
+          false
+        of BeaconBlockFork.Altair:
+          false
+        of BeaconBlockFork.Merge:
+          # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#process_execution_payload
+          # shows how this gets folded into the state each block; checking this
+          # is equivalent, without ever requiring state replay or any similarly
+          # expensive computation.
+          blockData.data.mergeData.message.body.execution_payload !=
+            default(ExecutionPayload)
+
+  if executionEnabled:
+    # [REJECT] The block's execution payload timestamp is correct with respect
+    # to the slot -- i.e. execution_payload.timestamp ==
+    # compute_timestamp_at_slot(state, block.slot).
+    let timestampAtSlot =
+      withState(dag.headState.data):
+        compute_timestamp_at_slot(state.data, blck.slot)
+    if not (blck.body.execution_payload.timestamp == timestampAtSlot):
+      return errReject("BeaconBlock: Mismatched execution payload timestamp")
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc validateAttestation*(
     pool: ref AttestationPool,
@@ -359,8 +420,7 @@ proc validateAttestation*(
   # attestation.data.beacon_block_root,
   # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
   # store.finalized_checkpoint.root
-  let
-    epochRef = pool.dag.getEpochRef(target, attestation.data.target.epoch)
+  let epochRef = pool.dag.getEpochRef(target, attestation.data.target.epoch)
 
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
