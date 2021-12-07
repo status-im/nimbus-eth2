@@ -425,7 +425,7 @@ proc forkchoiceUpdated*(p: Web3DataProviderRef,
                         headBlock, finalizedBlock: Eth2Digest,
                         timestamp: uint64,
                         randomData: array[32, byte],
-                        feeRecipient: Eth1Address):
+                        suggestedFeeRecipient: Eth1Address):
                         Future[engine_api.ForkchoiceUpdatedResponse] =
   p.web3.provider.engine_forkchoiceUpdatedV1(
     ForkchoiceStateV1(
@@ -440,7 +440,7 @@ proc forkchoiceUpdated*(p: Web3DataProviderRef,
     some(engine_api.PayloadAttributesV1(
       timestamp: Quantity timestamp,
       random: FixedBytes[32] randomData,
-      feeRecipient: feeRecipient)))
+      suggestedFeeRecipient: suggestedFeeRecipient)))
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
   var res: ValueType
