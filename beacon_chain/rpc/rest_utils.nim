@@ -69,9 +69,6 @@ proc getCurrentHead*(node: BeaconNode,
     return err("Requesting epoch for which slot would overflow")
   node.getCurrentHead(compute_start_slot_at_epoch(epoch))
 
-proc toBlockSlot*(blckRef: BlockRef): BlockSlot =
-  blckRef.atSlot(blckRef.slot)
-
 proc getBlockSlot*(node: BeaconNode,
                    stateIdent: StateIdent): Result[BlockSlot, cstring] =
   case stateIdent.kind
@@ -79,16 +76,16 @@ proc getBlockSlot*(node: BeaconNode,
     ok(node.dag.getBlockBySlot(? node.getCurrentSlot(stateIdent.slot)))
   of StateQueryKind.Root:
     if stateIdent.root == getStateRoot(node.dag.headState.data):
-      ok(node.dag.headState.blck.toBlockSlot())
+      ok(node.dag.headState.blck.atSlot())
     else:
       # We don't have a state root -> BlockSlot mapping
       err("State not found")
   of StateQueryKind.Named:
     case stateIdent.value
     of StateIdentType.Head:
-      ok(node.dag.head.toBlockSlot())
+      ok(node.dag.head.atSlot())
     of StateIdentType.Genesis:
-      ok(node.dag.getGenesisBlockSlot())
+      ok(node.dag.genesis.atSlot())
     of StateIdentType.Finalized:
       ok(node.dag.finalizedHead)
     of StateIdentType.Justified:
