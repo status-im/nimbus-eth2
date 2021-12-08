@@ -14,7 +14,7 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "8.0.4"
+      "version": "8.2.7"
     },
     {
       "type": "panel",
@@ -50,16 +50,24 @@
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
         "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
         "type": "dashboard"
       }
     ]
   },
   "editable": true,
+  "fiscalYearStartMonth": 0,
   "gnetId": null,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1634806487743,
+  "iteration": 1638969416186,
   "links": [],
+  "liveNow": false,
   "panels": [
     {
       "collapsed": false,
@@ -118,7 +126,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.2.7",
       "targets": [
         {
           "expr": "validators{instance=\"${instance}\",container=\"${container}\"}",
@@ -191,7 +199,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.2.7",
       "targets": [
         {
           "expr": "nbc_peers{instance=\"${instance}\",container=\"${container}\"}",
@@ -264,7 +272,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.2.7",
       "targets": [
         {
           "expr": "time() - process_start_time_seconds{instance=\"${instance}\",container=\"${container}\"}",
@@ -339,7 +347,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.2.7",
       "targets": [
         {
           "expr": "rate(process_cpu_seconds_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 100",
@@ -410,7 +418,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.2.7",
       "targets": [
         {
           "expr": "process_resident_memory_bytes{instance=\"${instance}\",container=\"${container}\"}",
@@ -475,7 +483,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 3,
+        "h": 4,
         "w": 10,
         "x": 14,
         "y": 1
@@ -488,7 +496,7 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "single"
+          "mode": "multi"
         }
       },
       "targets": [
@@ -498,9 +506,17 @@
           "interval": "",
           "legendFormat": "{{version}}",
           "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "network_name{instance=\"${instance}\",container=\"${container}\"}  ",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "{{name}}",
+          "refId": "B"
         }
       ],
-      "title": "version (${instance})",
+      "title": "version/network (${instance})",
       "type": "timeseries"
     },
     {
@@ -565,7 +581,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.2.7",
       "targets": [
         {
           "expr": "beacon_slot{instance=\"${instance}\",container=\"${container}\"}",
@@ -641,7 +657,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.2.7",
       "targets": [
         {
           "expr": "beacon_slot{instance=\"${instance}\",container=\"${container}\"}",
@@ -717,7 +733,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.2.7",
       "targets": [
         {
           "exemplar": true,
@@ -794,7 +810,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.2.7",
       "targets": [
         {
           "exemplar": true,
@@ -871,7 +887,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.2.7",
       "targets": [
         {
           "exemplar": true,
@@ -948,7 +964,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.2.7",
       "targets": [
         {
           "expr": "beacon_finalized_epoch{instance=\"${instance}\",container=\"${container}\"}",
@@ -988,93 +1004,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "links": [],
-          "mappings": [],
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 10,
-        "x": 14,
-        "y": 4
-      },
-      "id": 16,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "8.0.4",
-      "targets": [
-        {
-          "expr": "libp2p_open_streams{instance=\"${instance}\",container=\"${container}\"}",
-          "interval": "",
-          "legendFormat": "{{type}} ({{dir}})",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "open streams (${instance})",
-      "type": "timeseries"
-    },
-    {
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -1179,9 +1109,19 @@
           "refId": "D"
         },
         {
-          "expr": "nim_gc_mem_bytes{instance=\"${instance}\",container=\"${container}\"}",
+          "exemplar": true,
+          "expr": "sum(nim_gc_mem_bytes{instance=\"${instance}\",container=\"${container}\"})",
+          "interval": "",
           "legendFormat": "Nim GC mem total",
           "refId": "F"
+        },
+        {
+          "exemplar": true,
+          "expr": "sum(nim_gc_mem_occupied_bytes{instance=\"${instance}\",container=\"${container}\"})",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Nim GC mem used",
+          "refId": "B"
         }
       ],
       "timeFrom": null,
@@ -1215,7 +1155,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -1248,7 +1188,93 @@
         "h": 5,
         "w": 10,
         "x": 14,
-        "y": 9
+        "y": 5
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
+        {
+          "expr": "libp2p_open_streams{instance=\"${instance}\",container=\"${container}\"}",
+          "interval": "",
+          "legendFormat": "{{type}} ({{dir}})",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "open streams (${instance})",
+      "type": "timeseries"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [],
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 10,
+        "x": 14,
+        "y": 10
       },
       "id": 51,
       "options": {
@@ -1313,7 +1339,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -1412,7 +1438,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "normal"
@@ -1469,7 +1495,7 @@
         "h": 5,
         "w": 10,
         "x": 14,
-        "y": 14
+        "y": 15
       },
       "id": 76,
       "options": {
@@ -1529,7 +1555,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -1652,7 +1678,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "normal"
@@ -1709,7 +1735,7 @@
         "h": 5,
         "w": 10,
         "x": 14,
-        "y": 19
+        "y": 20
       },
       "id": 77,
       "options": {
@@ -1769,7 +1795,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -1861,7 +1887,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "normal"
@@ -1918,7 +1944,7 @@
         "h": 5,
         "w": 10,
         "x": 14,
-        "y": 24
+        "y": 25
       },
       "id": 78,
       "options": {
@@ -1979,7 +2005,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -2119,7 +2145,7 @@
         "h": 7,
         "w": 10,
         "x": 14,
-        "y": 29
+        "y": 30
       },
       "id": 71,
       "options": {
@@ -2187,7 +2213,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -2345,7 +2371,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -2411,7 +2437,7 @@
         "h": 6,
         "w": 10,
         "x": 14,
-        "y": 36
+        "y": 37
       },
       "id": 73,
       "options": {
@@ -2489,7 +2515,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -2575,7 +2601,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -2608,7 +2634,7 @@
         "h": 5,
         "w": 10,
         "x": 14,
-        "y": 42
+        "y": 43
       },
       "id": 20,
       "options": {
@@ -2661,7 +2687,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -2746,7 +2772,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -2793,7 +2819,7 @@
         "h": 5,
         "w": 10,
         "x": 14,
-        "y": 47
+        "y": 48
       },
       "id": 24,
       "options": {
@@ -2853,7 +2879,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -2973,7 +2999,7 @@
         "h": 2,
         "w": 3,
         "x": 14,
-        "y": 52
+        "y": 53
       },
       "id": 13,
       "interval": null,
@@ -2994,7 +3020,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.2.7",
       "targets": [
         {
           "expr": "sum(beacon_attestations_sent_total)",
@@ -3049,7 +3075,7 @@
         "h": 2,
         "w": 3,
         "x": 17,
-        "y": 52
+        "y": 53
       },
       "id": 14,
       "interval": null,
@@ -3070,7 +3096,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.2.7",
       "targets": [
         {
           "expr": "beacon_attestations_received_total{instance=\"${instance}\",container=\"${container}\"}",
@@ -3108,7 +3134,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -3194,7 +3220,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -3280,7 +3306,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -3379,7 +3405,7 @@
             "h": 6,
             "w": 14,
             "x": 0,
-            "y": 77
+            "y": 78
           },
           "heatmap": {},
           "hideZeroBuckets": false,
@@ -3448,7 +3474,7 @@
             "h": 6,
             "w": 10,
             "x": 14,
-            "y": 77
+            "y": 78
           },
           "heatmap": {},
           "hideZeroBuckets": false,
@@ -3517,7 +3543,7 @@
             "h": 6,
             "w": 14,
             "x": 0,
-            "y": 83
+            "y": 84
           },
           "heatmap": {},
           "hideZeroBuckets": false,
@@ -3585,7 +3611,7 @@
             "h": 6,
             "w": 10,
             "x": 14,
-            "y": 83
+            "y": 84
           },
           "heatmap": {},
           "hideZeroBuckets": false,
@@ -3639,7 +3665,7 @@
     }
   ],
   "refresh": false,
-  "schemaVersion": 30,
+  "schemaVersion": 32,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -3716,5 +3742,5 @@
   "timezone": "",
   "title": "Nimbus Fleet Testnets",
   "uid": "pgeNfj2Wz23",
-  "version": 87
+  "version": 93
 }
