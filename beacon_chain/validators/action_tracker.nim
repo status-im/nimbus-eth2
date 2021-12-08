@@ -1,7 +1,7 @@
 import
-  std/[sequtils, sets, tables],
-  chronicles,
+  std/[tables, sequtils],
   bearssl,
+  stew/shims/[sets, hashes], chronicles,
   eth/p2p/discoveryv5/random2,
   ../spec/datatypes/base,
   ../spec/[helpers, network],
@@ -56,10 +56,13 @@ type
       ## subnet for each such validator - the slot is used to expire validators
       ## that no longer are posting duties
 
-    duties*: seq[AggregatorDuty] ##\
+    duties*: HashSet[AggregatorDuty] ##\
       ## Known aggregation duties in the near future - before each such
       ## duty, we'll subscribe to the corresponding subnet to collect
       ## attestations for the aggregate
+
+func hash*(x: AggregatorDuty): Hash =
+  hashAllFields(x)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 func randomStabilitySubnet*(
@@ -84,12 +87,11 @@ proc registerDuty*(
   if isAggregator:
     let newDuty = AggregatorDuty(slot: slot, subnet_id: subnet_id)
 
-    for duty in tracker.duties.mitems():
-      if duty == newDuty:
-        return
+    if newDuty in tracker.duties:
+      return
 
     debug "Registering aggregation duty", slot, subnet_id, vidx
-    tracker.duties.add(newDuty)
+    tracker.duties.incl(newDuty)
 
 const allSubnetBits = block:
   var res: AttnetBits
@@ -100,7 +102,6 @@ func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
   var res: AttnetBits
   # Subscribe to subnets for upcoming duties
   for duty in tracker.duties:
-
     if wallSlot <= duty.slot and
         wallSlot + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS > duty.slot:
 
@@ -131,7 +132,7 @@ func updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
   # One stability subnet per known validator
   static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   let expectedSubnets =
     min(ATTESTATION_SUBNET_COUNT, tracker.knownValidators.len)
 

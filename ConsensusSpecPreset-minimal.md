@@ -279,6 +279,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - historical_batch [Preset: minima OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - inactivity_scores_full_participa OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - inactivity_scores_leaking [Prese OK
++ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - is_execution_enabled_false [Pres OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_attester_slashings_no_o OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_attester_slashings_part OK
 + [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_different_proposer_slas OK
@@ -338,10 +339,26 @@ ConsensusSpecPreset-minimal
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - skipped_slots [Preset: minimal OK
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Pre OK
 + [Valid]   Ethereum Foundation - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minima OK
++ altair_fork_random_0                                                                       OK
++ altair_fork_random_1                                                                       OK
++ altair_fork_random_2                                                                       OK
++ altair_fork_random_3                                                                       OK
++ altair_fork_random_duplicate_attestations                                                  OK
++ altair_fork_random_large_validator_set                                                     OK
++ altair_fork_random_low_balances                                                            OK
++ altair_fork_random_misc_balances                                                           OK
++ altair_fork_random_mismatched_attestations                                                 OK
 + finality_root_merkle_proof                                                                 OK
++ fork_base_state                                                                            OK
++ fork_many_next_epoch                                                                       OK
++ fork_next_epoch                                                                            OK
++ fork_next_epoch_with_block                                                                 OK
++ fork_random_large_validator_set                                                            OK
++ fork_random_low_balances                                                                   OK
++ fork_random_misc_balances                                                                  OK
 + next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 338/338 Fail: 0/338 Skip: 0/338
+OK: 355/355 Fail: 0/355 Skip: 0/355
 ## Attestation
 ```diff
 + [Invalid] Ethereum Foundation - Altair - Operations - Attestation - after_epoch_slots      OK
@@ -789,6 +806,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
   ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/chain_no_attestations        Skip
   ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/filtered_block_tree          Skip
   ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/genesis                      Skip
+  ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  Skip
   ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we Skip
   ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta Skip
   ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/basic                        Skip
@@ -803,8 +821,10 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
   ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
   ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots_ Skip
   ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_update_justified_ch Skip
+  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               Skip
+  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo Skip
 ```
-OK: 0/17 Fail: 0/17 Skip: 17/17
+OK: 0/20 Fail: 0/20 Skip: 20/20
 ## Ethereum Foundation - Merge - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -1219,4 +1239,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 30/30 Fail: 0/30 Skip: 0/30
 
 ---TOTAL---
-OK: 1020/1037 Fail: 0/1037 Skip: 17/1037
+OK: 1037/1057 Fail: 0/1057 Skip: 20/1057

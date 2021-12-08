@@ -9,7 +9,8 @@
 
 import
   # Standard library
-  std/[algorithm, math, parseutils, strformat, strutils, typetraits, unicode],
+  std/[algorithm, math, parseutils, strformat, strutils, typetraits, unicode,
+       uri],
   # Third-party libraries
   normalize,
   # Status libraries
@@ -20,7 +21,7 @@ import
   libp2p/crypto/crypto as lcrypto,
   ./datatypes/base,  ./signatures
 
-export base
+export base, uri
 
 # We use `ncrutils` for constant-time hexadecimal encoding/decoding procedures.
 import nimcrypto/utils as ncrutils
@@ -126,6 +127,20 @@ type
     pubkey*: lcrypto.PublicKey
     uuid*: string
     version*: int
+
+  RemoteKeystoreFlag* {.pure.} = enum
+    IgnoreSSLVerification
+
+  RemoteSignerType* {.pure.} = enum
+    Web3Signer
+
+  RemoteKeystore* = object
+    version*: Option[uint64]
+    description*: Option[string]
+    remoteType*: RemoteSignerType
+    pubkey*: ValidatorPubKey
+    remote*: Uri
+    flags*: set[RemoteKeystoreFlag]
 
   KsResult*[T] = Result[T, string]
 
@@ -496,6 +511,75 @@ proc readValue*(r: var JsonReader, value: var Kdf)
   if not (functionSpecified and paramsSpecified):
     r.raiseUnexpectedValue(
       "The Kdf value should have sub-fields named 'function' and 'params'")
+
+proc readValue*(r: var JsonReader, value: var RemoteKeystore)
+               {.raises: [SerializationError, IOError, Defect].} =
+  var
+    version: Option[uint64]
+    description: Option[string]
+    remote: Option[Uri]
+    remoteType: Option[string]
+    ignoreSslVerification: Option[bool]
+    pubkey: Option[ValidatorPubKey]
+  for fieldName in readObjectFields(r):
+    case fieldName:
+    of "pubkey":
+      if pubkey.isSome():
+        r.raiseUnexpectedField("Multiple `pubkey` fields found",
+                               "RemoteKeystore")
+      let res = r.readValue(ValidatorPubKey)
+      pubkey = some(res)
+      value.pubkey = res
+    of "remote":
+      if remote.isSome():
+        r.raiseUnexpectedField("Multiple `remote` fields found",
+                               "RemoteKeystore")
+      let res = r.readValue(Uri)
+      remote = some(res)
+      value.remote = res
+    of "version":
+      if version.isSome():
+        r.raiseUnexpectedField("Multiple `version` fields found",
+                               "RemoteKeystore")
+      value.version = some(r.readValue(uint64))
+    of "description":
+      let res = r.readValue(string)
+      if value.description.isSome():
+        value.description = some(value.description.get() & "\n" & res)
+      else:
+        value.description = some(res)
+    of "ignore_ssl_verification":
+      if ignoreSslVerification.isSome():
+        r.raiseUnexpectedField("Multiple conflicting options found",
+                               "RemoteKeystore")
+      let res = r.readValue(bool)
+      ignoreSslVerification = some(res)
+      if res:
+        value.flags.incl(RemoteKeystoreFlag.IgnoreSSLVerification)
+      else:
+        value.flags.excl(RemoteKeystoreFlag.IgnoreSSLVerification)
+    of "type":
+      if remoteType.isSome():
+        r.raiseUnexpectedField("Multiple `type` fields found",
+                               "RemoteKeystore")
+      let res = r.readValue(string)
+      remoteType = some(res)
+      case res
+      of "web3signer":
+        value.remoteType = RemoteSignerType.Web3Signer
+      else:
+        r.raiseUnexpectedValue("Unsupported remote signer `type` value")
+    else:
+      # Ignore unknown field names.
+      discard
+
+  if remote.isNone():
+    r.raiseUnexpectedValue("Field remote is missing")
+  if pubkey.isNone():
+    r.raiseUnexpectedValue("Field pubkey is missing")
+  # Set default remote signer type to `Web3Signer`.
+  if remoteType.isNone():
+    value.remoteType = RemoteSignerType.Web3Signer
 
 template writeValue*(w: var JsonWriter,
                      value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv) =

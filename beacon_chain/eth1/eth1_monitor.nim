@@ -8,13 +8,13 @@
 {.push raises: [Defect].}
 
 import
-  std/[deques, hashes, options, strformat, strutils, sequtils, tables,
+  std/[deques, options, strformat, strutils, sequtils, tables,
        typetraits, uri, json],
   # Nimble packages:
   chronos, json, metrics, chronicles/timings,
   web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
   eth/common/eth_types,
-  eth/async_utils, stew/[objects, byteutils],
+  eth/async_utils, stew/[objects, byteutils, shims/hashes],
   # Local modules:
   ../spec/[eth2_merkleization, forks, helpers],
   ../spec/datatypes/[base, merge],
@@ -248,16 +248,42 @@ template finalizedDepositsMerkleizer(m: Eth1Monitor): auto =
   m.depositsChain.finalizedDepositsMerkleizer
 
 proc fixupWeb3Urls*(web3Url: var string) =
-  var normalizedUrl = toLowerAscii(web3Url)
-  if not (normalizedUrl.startsWith("https://") or
-          normalizedUrl.startsWith("http://") or
-          normalizedUrl.startsWith("wss://") or
-          normalizedUrl.startsWith("ws://")):
-    normalizedUrl = "ws://" & normalizedUrl
-    warn "The Web3 URL does not specify a protocol. Assuming a WebSocket server", web3Url
+  ## Converts HTTP and HTTPS Infura URLs to their WebSocket equivalents
+  ## because we are missing a functional HTTPS client.
+  let normalizedUrl = toLowerAscii(web3Url)
+  var pos = 0
 
-  # We do this at the end in order to allow the warning above to print the original value
-  web3Url = normalizedUrl
+  template skip(x: string): bool {.dirty.} =
+    if normalizedUrl.len - pos >= x.len and
+       normalizedUrl.toOpenArray(pos, pos + x.len - 1) == x:
+      pos += x.len
+      true
+    else:
+      false
+
+  if not (skip("https://") or skip("http://")):
+    if not (skip("ws://") or skip("wss://")):
+      web3Url = "ws://" & web3Url
+      warn "The Web3 URL does not specify a protocol. Assuming a WebSocket server", web3Url
+    return
+
+  block infuraRewrite:
+    var pos = pos
+    let network = if skip("mainnet"): mainnet
+                  elif skip("goerli"): goerli
+                  else: break
+
+    if not skip(".infura.io/v3/"):
+      break
+
+    template infuraKey: string = normalizedUrl.substr(pos)
+
+    web3Url = "wss://" & $network & ".infura.io/ws/v3/" & infuraKey
+    return
+
+  block gethRewrite:
+    web3Url = "ws://" & normalizedUrl.substr(pos)
+    warn "Only WebSocket web3 providers are supported. Rewriting URL", web3Url
 
 template toGaugeValue(x: Quantity): int64 =
   toGaugeValue(distinctBase x)
@@ -267,12 +293,12 @@ template toGaugeValue(x: Quantity): int64 =
 #  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
 #             "Invalid configuration: GENESIS_DELAY is set too low"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#get_eth1_data
 func compute_time_at_slot(genesis_time: uint64, slot: Slot): uint64 =
   genesis_time + slot * SECONDS_PER_SLOT
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#get_eth1_data
-func voting_period_start_time*(state: ForkedHashedBeaconState): uint64 =
+func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   let eth1_voting_period_start_slot =
     getStateField(state, slot) - getStateField(state, slot) mod
       SLOTS_PER_ETH1_VOTING_PERIOD.uint64
@@ -297,7 +323,7 @@ func shortLog*(b: Eth1Block): string =
     &"{b.number}:{shortLog b.voteData.block_hash}(deposits = {b.voteData.deposit_count})"
   except ValueError as exc: raiseAssert exc.msg
 
-template findBlock*(chain: Eth1Chain, eth1Data: Eth1Data): Eth1Block =
+template findBlock(chain: Eth1Chain, eth1Data: Eth1Data): Eth1Block =
   getOrDefault(chain.blocksByHash, asBlockHash(eth1Data.block_hash), nil)
 
 func makeSuccessorWithoutDeposits(existingBlock: Eth1Block,
@@ -329,11 +355,8 @@ proc addBlock*(chain: var Eth1Chain, newBlock: Eth1Block) =
   chain.blocksByHash[newBlock.voteData.block_hash.asBlockHash] = newBlock
   eth1_chain_len.set chain.blocks.len.int64
 
-func hash*(x: Eth1Data): Hash =
-  hashData(unsafeAddr x, sizeof(x))
-
-template hash*(x: Eth1Block): Hash =
-  hash(x.voteData)
+func hash(x: Eth1Data): Hash =
+  hash(x.block_hash)
 
 template awaitWithRetries*[T](lazyFutExpr: Future[T],
                               retries = 3,
@@ -371,7 +394,7 @@ template awaitWithRetries*[T](lazyFutExpr: Future[T],
 
   read(f)
 
-proc close*(p: Web3DataProviderRef): Future[void] {.async.} =
+proc close(p: Web3DataProviderRef): Future[void] {.async.} =
   if p.blockHeadersSubscription != nil:
     try:
       awaitWithRetries(p.blockHeadersSubscription.unsubscribe())
@@ -380,12 +403,12 @@ proc close*(p: Web3DataProviderRef): Future[void] {.async.} =
 
   await p.web3.close()
 
-proc getBlockByHash*(p: Web3DataProviderRef, hash: BlockHash):
-                     Future[BlockObject] =
+proc getBlockByHash(p: Web3DataProviderRef, hash: BlockHash):
+                    Future[BlockObject] =
   return p.web3.provider.eth_getBlockByHash(hash, false)
 
-proc getBlockByNumber*(p: Web3DataProviderRef,
-                       number: Eth1BlockNumber): Future[BlockObject] =
+proc getBlockByNumber(p: Web3DataProviderRef,
+                      number: Eth1BlockNumber): Future[BlockObject] =
   let hexNumber = try: &"0x{number:X}" # No leading 0's!
   except ValueError as exc: raiseAssert exc.msg # Never fails
   p.web3.provider.eth_getBlockByNumber(hexNumber, false)
@@ -402,7 +425,7 @@ proc forkchoiceUpdated*(p: Web3DataProviderRef,
                         headBlock, finalizedBlock: Eth2Digest,
                         timestamp: uint64,
                         randomData: array[32, byte],
-                        feeRecipient: Eth1Address):
+                        suggestedFeeRecipient: Eth1Address):
                         Future[engine_api.ForkchoiceUpdatedResponse] =
   p.web3.provider.engine_forkchoiceUpdatedV1(
     ForkchoiceStateV1(
@@ -417,7 +440,7 @@ proc forkchoiceUpdated*(p: Web3DataProviderRef,
     some(engine_api.PayloadAttributesV1(
       timestamp: Quantity timestamp,
       random: FixedBytes[32] randomData,
-      feeRecipient: feeRecipient)))
+      suggestedFeeRecipient: suggestedFeeRecipient)))
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
   var res: ValueType
@@ -533,9 +556,9 @@ when hasDepositRootChecks:
             err = err.msg
       result = DepositCountUnavailable
 
-proc onBlockHeaders*(p: Web3DataProviderRef,
-                     blockHeaderHandler: BlockHeaderHandler,
-                     errorHandler: SubscriptionErrorHandler) {.async.} =
+proc onBlockHeaders(p: Web3DataProviderRef,
+                    blockHeaderHandler: BlockHeaderHandler,
+                    errorHandler: SubscriptionErrorHandler) {.async.} =
   info "Waiting for new Eth1 block headers"
 
   p.blockHeadersSubscription = awaitWithRetries(
@@ -551,7 +574,7 @@ func toDepositContractState*(merkleizer: DepositsMerkleizer): DepositContractSta
   result.branch[0..31] = merkleizer.getCombinedChunks[0..31]
   result.deposit_count[24..31] = merkleizer.getChunkCount().toBytesBE
 
-func createMerkleizer*(s: DepositContractState): DepositsMerkleizer =
+func createMerkleizer(s: DepositContractState): DepositsMerkleizer =
   DepositsMerkleizer.init(s.branch, s.depositCountU64)
 
 func createMerkleizer*(s: DepositContractSnapshot): DepositsMerkleizer =
@@ -645,9 +668,9 @@ func lowerBound(chain: Eth1Chain, depositCount: uint64): Eth1Block =
       return
     result = eth1Block
 
-proc trackFinalizedState*(chain: var Eth1Chain,
-                          finalizedEth1Data: Eth1Data,
-                          finalizedStateDepositIndex: uint64): bool =
+proc trackFinalizedState(chain: var Eth1Chain,
+                         finalizedEth1Data: Eth1Data,
+                         finalizedStateDepositIndex: uint64): bool =
   # Returns true if the Eth1Monitor is synced to the finalization point
   if chain.blocks.len == 0:
     debug "Eth1 chain not initialized"
@@ -841,7 +864,7 @@ proc resetState(m: Eth1Monitor) {.async.} =
     await m.dataProvider.close()
     m.dataProvider = nil
 
-proc stop*(m: Eth1Monitor) {.async.} =
+proc stop(m: Eth1Monitor) {.async.} =
   if m.state == Started:
     m.state = Stopping
     m.stopFut = resetState(m)

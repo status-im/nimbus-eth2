@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 #
 # The entry point is `state_transition` which is at the bottom of the file!
 #
@@ -49,18 +49,17 @@ import
   ./datatypes/[phase0, altair, merge],
   "."/[
     beaconstate, eth2_merkleization, forks, helpers, signatures,
-    state_transition_block, state_transition_epoch, validator],
-  ../../nbench/bench_lab
+    state_transition_block, state_transition_epoch, validator]
 
 export extras, phase0, altair
 
 type Foo = phase0.SignedBeaconBlock | altair.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock | merge.TrustedSignedBeaconBlock | merge.SigVerifiedSignedBeaconBlock | merge.SignedBeaconBlock
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
-    #state: ForkyBeaconState, signed_block: SomeSomeSignedBeaconBlock): bool {.nbench.} =
-    state: ForkyBeaconState, signed_block: Foo): bool {.nbench.} =
-    #state: ForkyBeaconState, signed_block: phase0.SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock): bool {.nbench.} =
+    #state: ForkyBeaconState, signed_block: SomeSomeSignedBeaconBlock): bool =
+    state: ForkyBeaconState, signed_block: Foo): bool =
+    #state: ForkyBeaconState, signed_block: phase0.SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock): bool =
   let
     proposer_index = signed_block.message.proposer_index
   if proposer_index >= state.validators.lenu64:
@@ -78,7 +77,7 @@ proc verify_block_signature(
 
   true
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verifyStateRoot(state: ForkyBeaconState, blck: phase0.BeaconBlock or phase0.SigVerifiedBeaconBlock or altair.BeaconBlock or altair.SigVerifiedBeaconBlock or merge.BeaconBlock or merge.SigVerifiedBeaconBlock or merge.TrustedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
@@ -133,9 +132,9 @@ type
 # Hashed-state transition functions
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func process_slot*(
-    state: var ForkyBeaconState, pre_state_root: Eth2Digest) {.nbench.} =
+    state: var ForkyBeaconState, pre_state_root: Eth2Digest) =
   # `process_slot` is the first stage of per-slot processing - it is run for
   # every slot, including epoch slots - it does not however update the slot
   # number! `pre_state_root` refers to the state root of the incoming
@@ -165,7 +164,7 @@ func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
 proc advance_slot(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState, previous_slot_state_root: Eth2Digest,
-    flags: UpdateFlags, cache: var StateCache, info: var ForkyEpochInfo) {.nbench.} =
+    flags: UpdateFlags, cache: var StateCache, info: var ForkyEpochInfo) =
   # Do the per-slot and potentially the per-epoch processing, then bump the
   # slot number - we've now arrived at the slot state on top of which a block
   # optionally can be applied.
@@ -221,7 +220,7 @@ proc maybeUpgradeState*(
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
-    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags): bool {.nbench.} =
+    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags): bool =
   if not (getStateField(state, slot) < slot):
     if slotProcessed notin flags or getStateField(state, slot) != slot:
       notice "Unusual request for a slot in the past",
@@ -255,7 +254,7 @@ proc state_transition_block_aux(
                  altair.SigVerifiedSignedBeaconBlock | altair.TrustedSignedBeaconBlock |
                  merge.TrustedSignedBeaconBlock | merge.SigVerifiedSignedBeaconBlock |
                  merge.SignedBeaconBlock,
-    cache: var StateCache, flags: UpdateFlags): bool {.nbench.} =
+    cache: var StateCache, flags: UpdateFlags): bool =
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
   # according to the contents of this block - but first they will validate
@@ -307,7 +306,7 @@ proc state_transition_block*(
                  altair.TrustedSignedBeaconBlock | merge.TrustedSignedBeaconBlock |
                  merge.SigVerifiedSignedBeaconBlock | merge.SignedBeaconBlock,
     cache: var StateCache, flags: UpdateFlags,
-    rollback: RollbackForkedHashedProc): bool {.nbench.} =
+    rollback: RollbackForkedHashedProc): bool =
   ## `rollback` is called if the transition fails and the given state has been
   ## partially changed. If a temporary state was given to `state_transition`,
   ## it is safe to use `noRollback` and leave it broken, else the state
@@ -335,7 +334,7 @@ proc state_transition*(
                  altair.TrustedSignedBeaconBlock | merge.TrustedSignedBeaconBlock |
                  merge.SignedBeaconBlock,
     cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags,
-    rollback: RollbackForkedHashedProc): bool {.nbench.} =
+    rollback: RollbackForkedHashedProc): bool =
   ## Apply a block to the state, advancing the slot counter as necessary. The
   ## given state must be of a lower slot, or, in case the `slotProcessed` flag
   ## is set, can be the slot state of the same slot as the block (where the
@@ -358,7 +357,7 @@ proc state_transition*(
   state_transition_block(
     cfg, state, signedBlock, cache, flags, rollback)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#preparing-for-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#preparing-for-a-beaconblock
 template partialBeaconBlock(
     cfg: RuntimeConfig,
     state: var phase0.HashedBeaconState,
@@ -427,7 +426,7 @@ proc makeBeaconBlock*(
   blck.state_root = state.root
   ok(blck)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/validator.md#preparing-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/validator.md#preparing-a-beaconblock
 template partialBeaconBlock(
     cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,

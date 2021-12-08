@@ -9,7 +9,6 @@
 
 import
   chronicles,
-  std/[options, sequtils],
   unittest2,
   stew/assign2,
   eth/keys, taskpools,
@@ -69,22 +68,6 @@ suite "BlockRef and helpers" & preset():
       s4.get_ancestor(Slot(3)) == s2
       s4.get_ancestor(Slot(4)) == s4
 
-  test "epochAncestor sanity" & preset():
-    let
-      s0 = BlockRef(slot: Slot(0))
-    var cur = s0
-    for i in 1..SLOTS_PER_EPOCH * 2:
-      cur = BlockRef(slot: Slot(i), parent: cur)
-
-    let ancestor = cur.epochAncestor(cur.slot.epoch)
-
-    check:
-      ancestor.epoch == cur.slot.epoch
-      ancestor.blck != cur # should have selected a parent
-
-      ancestor.blck.epochAncestor(cur.slot.epoch) == ancestor
-      ancestor.blck.epochAncestor(ancestor.blck.slot.epoch) != ancestor
-
 suite "BlockSlot and helpers" & preset():
   test "atSlot sanity" & preset():
     let
@@ -123,8 +106,8 @@ suite "Block pool processing" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
-      taskpool = Taskpool.new()
-      quarantine = QuarantineRef.init(keys.newRng(), taskpool)
+      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      quarantine = Quarantine.init()
       state = newClone(dag.headState.data)
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -144,7 +127,7 @@ suite "Block pool processing" & preset():
 
   test "Simple block add&get" & preset():
     let
-      b1Add = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
+      b1Add = dag.addRawBlock(verifier, b1, nilPhase0Callback)
       b1Get = dag.get(b1.root)
 
     check:
@@ -155,7 +138,7 @@ suite "Block pool processing" & preset():
       dag.heads[0] == b1Add[]
 
     let
-      b2Add = dag.addRawBlock(quarantine, b2, nilPhase0Callback)
+      b2Add = dag.addRawBlock(verifier, b2, nilPhase0Callback)
       b2Get = dag.get(b2.root)
       er = dag.findEpochRef(b1Add[], b1Add[].slot.epoch)
       validators = getStateField(dag.headState.data, validators).lenu64()
@@ -184,7 +167,7 @@ suite "Block pool processing" & preset():
 
     let
       b4 = addTestBlock(state[], cache).phase0Data
-      b4Add = dag.addRawBlock(quarantine, b4, nilPhase0Callback)
+      b4Add = dag.addRawBlock(verifier, b4, nilPhase0Callback)
 
     check:
       b4Add[].parent == b2Add[]
@@ -231,61 +214,9 @@ suite "Block pool processing" & preset():
       dag.getBlockRange(Slot(3), 2, blocks.toOpenArray(0, 1)) == 2
       blocks[2..<2].len == 0
 
-  test "Reverse order block add & get" & preset():
-    let missing = dag.addRawBlock(quarantine, b2, nilPhase0Callback)
-    check: missing.error == (ValidationResult.Ignore, MissingParent)
-
-    check:
-      dag.get(b2.root).isNone() # Unresolved, shouldn't show up
-      FetchRecord(root: b1.root) in quarantine.checkMissing()
-
-    let status = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
-
-    check: status.isOk
-
-    let
-      b1Get = dag.get(b1.root)
-      b2Get = dag.get(b2.root)
-
-    check:
-      b1Get.isSome()
-      b2Get.isSome()
-
-      b2Get.get().refs.parent == b1Get.get().refs
-
-    dag.updateHead(b2Get.get().refs, quarantine)
-    dag.pruneAtFinalization()
-
-    # The heads structure should have been updated to contain only the new
-    # b2 head
-    check:
-      dag.heads.mapIt(it) == @[b2Get.get().refs]
-
-    # check that init also reloads block graph
-    var
-      dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, {})
-
-    check:
-      # ensure we loaded the correct head state
-      dag2.head.root == b2.root
-      getStateRoot(dag2.headState.data) == b2.message.state_root
-      dag2.get(b1.root).isSome()
-      dag2.get(b2.root).isSome()
-      dag2.heads.len == 1
-      dag2.heads[0].root == b2.root
-
-  test "Adding the same block twice returns a Duplicate error" & preset():
-    let
-      b10 = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
-      b11 = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
-
-    check:
-      b11.error == (ValidationResult.Ignore, Duplicate)
-      not b10[].isNil
-
   test "updateHead updates head and headState" & preset():
     let
-      b1Add = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
+      b1Add = dag.addRawBlock(verifier, b1, nilPhase0Callback)
 
     dag.updateHead(b1Add[], quarantine)
     dag.pruneAtFinalization()
@@ -296,8 +227,8 @@ suite "Block pool processing" & preset():
 
   test "updateStateData sanity" & preset():
     let
-      b1Add = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
-      b2Add = dag.addRawBlock(quarantine, b2, nilPhase0Callback)
+      b1Add = dag.addRawBlock(verifier, b1, nilPhase0Callback)
+      b2Add = dag.addRawBlock(verifier, b2, nilPhase0Callback)
       bs1 = BlockSlot(blck: b1Add[], slot: b1.message.slot)
       bs1_3 = b1Add[].atSlot(3.Slot)
       bs2_3 = b2Add[].atSlot(3.Slot)
@@ -352,9 +283,8 @@ suite "Block pool altair processing" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, cfg, db, {})
-      taskpool = Taskpool.new()
-      quarantine = QuarantineRef.init(keys.newRng(), taskpool)
-      nilAltairCallback: OnAltairBlockAdded
+      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      quarantine = Quarantine.init()
       state = newClone(dag.headState.data)
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -378,39 +308,39 @@ suite "Block pool altair processing" & preset():
       MockPrivKeys[ValidatorIndex(0)]).toValidatorSig()
 
     check:
-      dag.addRawBlock(quarantine, b1, nilAltairCallback).isOk()
+      dag.addRawBlock(verifier, b1, nilAltairCallback).isOk()
 
     block: # Main signature
       var b = b2
       b.signature = badSignature
       let
-        bAdd = dag.addRawBlock(quarantine, b, nilAltairCallback)
+        bAdd = dag.addRawBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == (ValidationResult.Reject, Invalid)
+        bAdd.error() == BlockError.Invalid
 
     block: # Randao reveal
       var b = b2
       b.message.body.randao_reveal = badSignature
       let
-        bAdd = dag.addRawBlock(quarantine, b, nilAltairCallback)
+        bAdd = dag.addRawBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == (ValidationResult.Reject, Invalid)
+        bAdd.error() == BlockError.Invalid
 
     block: # Attestations
       var b = b2
       b.message.body.attestations[0].signature = badSignature
       let
-        bAdd = dag.addRawBlock(quarantine, b, nilAltairCallback)
+        bAdd = dag.addRawBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == (ValidationResult.Reject, Invalid)
+        bAdd.error() == BlockError.Invalid
 
     block: # SyncAggregate empty
       var b = b2
       b.message.body.sync_aggregate.sync_committee_signature = badSignature
       let
-        bAdd = dag.addRawBlock(quarantine, b, nilAltairCallback)
+        bAdd = dag.addRawBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == (ValidationResult.Reject, Invalid)
+        bAdd.error() == BlockError.Invalid
 
     block: # SyncAggregate junk
       var b = b2
@@ -418,17 +348,17 @@ suite "Block pool altair processing" & preset():
       b.message.body.sync_aggregate.sync_committee_bits[0] = true
 
       let
-        bAdd = dag.addRawBlock(quarantine, b, nilAltairCallback)
+        bAdd = dag.addRawBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == (ValidationResult.Reject, Invalid)
+        bAdd.error() == BlockError.Invalid
 
 suite "chain DAG finalization tests" & preset():
   setup:
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
-      taskpool = Taskpool.new()
-      quarantine = QuarantineRef.init(keys.newRng(), taskpool)
+      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      quarantine = Quarantine.init()
       cache = StateCache()
       info = ForkedEpochInfo()
 
@@ -445,7 +375,7 @@ suite "chain DAG finalization tests" & preset():
 
     let lateBlock = addTestBlock(tmpState[], cache).phase0Data
     block:
-      let status = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
+      let status = dag.addRawBlock(verifier, blck, nilPhase0Callback)
       check: status.isOk()
 
     assign(tmpState[], dag.headState.data)
@@ -460,13 +390,18 @@ suite "chain DAG finalization tests" & preset():
         tmpState[], cache,
         attestations = makeFullAttestations(
           tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {})).phase0Data
-      let added = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
+      let added = dag.addRawBlock(verifier, blck, nilPhase0Callback)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
       dag.pruneAtFinalization()
 
     check:
       dag.heads.len() == 1
+      dag.getBlockBySlot(0.Slot) == BlockSlot(blck: dag.genesis, slot: 0.Slot)
+      dag.getBlockBySlot(dag.head.slot) == BlockSlot(
+        blck: dag.head, slot: dag.head.slot.Slot)
+      dag.getBlockBySlot(dag.head.slot + 1) == BlockSlot(
+        blck: dag.head, slot: dag.head.slot.Slot + 1)
 
     check:
       dag.db.immutableValidators.len() == getStateField(dag.headState.data, validators).len()
@@ -502,8 +437,8 @@ suite "chain DAG finalization tests" & preset():
     block:
       # The late block is a block whose parent was finalized long ago and thus
       # is no longer a viable head candidate
-      let status = dag.addRawBlock(quarantine, lateBlock, nilPhase0Callback)
-      check: status.error == (ValidationResult.Ignore, Unviable)
+      let status = dag.addRawBlock(verifier, lateBlock, nilPhase0Callback)
+      check: status.error == BlockError.UnviableFork
 
     block:
       let
@@ -531,7 +466,7 @@ suite "chain DAG finalization tests" & preset():
         assign(prestate[], dag.headState.data)
 
       let blck = makeTestBlock(dag.headState.data, cache).phase0Data
-      let added = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
+      let added = dag.addRawBlock(verifier, blck, nilPhase0Callback)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
       dag.pruneAtFinalization()
@@ -550,21 +485,21 @@ suite "chain DAG finalization tests" & preset():
     let blck = makeTestBlock(prestate[], cache).phase0Data
 
     # Add block, but don't update head
-    let added = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
+    let added = dag.addRawBlock(verifier, blck, nilPhase0Callback)
     check: added.isOk()
 
     var
       dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, {})
 
     # check that we can apply the block after the orphaning
-    let added2 = dag2.addRawBlock(quarantine, blck, nilPhase0Callback)
+    let added2 = dag2.addRawBlock(verifier, blck, nilPhase0Callback)
     check: added2.isOk()
 
   test "init with gaps" & preset():
     for blck in makeTestBlocks(
         dag.headState.data, cache, int(SLOTS_PER_EPOCH * 6 - 2),
         true):
-      let added = dag.addRawBlock(quarantine, blck.phase0Data, nilPhase0Callback)
+      let added = dag.addRawBlock(verifier, blck.phase0Data, nilPhase0Callback)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
       dag.pruneAtFinalization()
@@ -581,7 +516,7 @@ suite "chain DAG finalization tests" & preset():
         dag.headState.data, dag.head.root, getStateField(dag.headState.data, slot),
         cache, {})).phase0Data
 
-    let added = dag.addRawBlock(quarantine, blck, nilPhase0Callback)
+    let added = dag.addRawBlock(verifier, blck, nilPhase0Callback)
     check: added.isOk()
     dag.updateHead(added[], quarantine)
     dag.pruneAtFinalization()
@@ -622,8 +557,9 @@ suite "Old database versions" & preset():
         makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),
         {skipBlsValidation}))
       genBlock = get_initial_beacon_block(genState[])
-      taskpool = Taskpool.new()
-      quarantine = QuarantineRef.init(keys.newRng(), taskpool)
+    var
+      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      quarantine = Quarantine.init()
 
   test "pre-1.1.0":
     # only kvstore, no immutable validator keys
@@ -646,7 +582,7 @@ suite "Old database versions" & preset():
       cache = StateCache()
       att0 = makeFullAttestations(state[], dag.tail.root, 0.Slot, cache)
       b1 = addTestBlock(state[], cache, attestations = att0).phase0Data
-      b1Add = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
+      b1Add = dag.addRawBlock(verifier, b1, nilPhase0Callback)
 
     check:
       b1Add.isOk()
@@ -663,8 +599,9 @@ suite "Diverging hardforks":
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       dag = init(ChainDAGRef, phase0RuntimeConfig, db, {})
-      taskpool = Taskpool.new()
-      quarantine = QuarantineRef.init(keys.newRng(), taskpool)
+      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      quarantine = newClone(Quarantine.init())
+      nilPhase0Callback: OnPhase0BlockAdded
       state = newClone(dag.headState.data)
       cache = StateCache()
       info = ForkedEpochInfo()
@@ -682,10 +619,10 @@ suite "Diverging hardforks":
     # common is the tail block
     var
       b1 = addTestBlock(tmpState[], cache).phase0Data
-      b1Add = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
+      b1Add = dag.addRawBlock(verifier, b1, nilPhase0Callback)
 
     check b1Add.isOk()
-    dag.updateHead(b1Add[], quarantine)
+    dag.updateHead(b1Add[], quarantine[])
 
     var dagAltair = init(ChainDAGRef, altairRuntimeConfig, db, {})
     discard AttestationPool.init(dagAltair, quarantine)
@@ -700,7 +637,7 @@ suite "Diverging hardforks":
     # There's a block in the shared-correct phase0 hardfork, before epoch 2
     var
       b1 = addTestBlock(tmpState[], cache).phase0Data
-      b1Add = dag.addRawBlock(quarantine, b1, nilPhase0Callback)
+      b1Add = dag.addRawBlock(verifier, b1, nilPhase0Callback)
 
     check:
       b1Add.isOk()
@@ -711,10 +648,10 @@ suite "Diverging hardforks":
 
     var
       b2 = addTestBlock(tmpState[], cache).phase0Data
-      b2Add = dag.addRawBlock(quarantine, b2, nilPhase0Callback)
+      b2Add = dag.addRawBlock(verifier, b2, nilPhase0Callback)
 
     check b2Add.isOk()
-    dag.updateHead(b2Add[], quarantine)
+    dag.updateHead(b2Add[], quarantine[])
 
     var dagAltair = init(ChainDAGRef, altairRuntimeConfig, db, {})
     discard AttestationPool.init(dagAltair, quarantine)

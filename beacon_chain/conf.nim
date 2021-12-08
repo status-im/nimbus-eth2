@@ -33,6 +33,7 @@ const
   # Maybe there should be a config option for this.
   defaultListenAddress* = (static ValidIpAddress.init("0.0.0.0"))
   defaultAdminListenAddress* = (static ValidIpAddress.init("127.0.0.1"))
+  defaultSigningNodeRequestTimeout* = 60
 
 type
   BNStartUpCmd* = enum
@@ -57,6 +58,9 @@ type
 
   VCStartUpCmd* = enum
     VCNoCommand
+
+  SNStartUpCmd* = enum
+    SNNoCommand
 
   RecordCmd* {.pure.} = enum
     create  = "Create a new ENR"
@@ -610,7 +614,84 @@ type
         desc: "URL addresses to one or more beacon node HTTP REST APIs",
         name: "beacon-node" }: seq[string]
 
-proc defaultDataDir*(config: BeaconNodeConf|ValidatorClientConf): string =
+  SigningNodeConf* = object
+    logLevel* {.
+      desc: "Sets the log level"
+      defaultValue: "INFO"
+      name: "log-level" }: string
+
+    logStdout* {.
+      desc: "Specifies what kind of logs should be written to stdout (auto, colors, nocolors, json)"
+      defaultValueDesc: "auto"
+      defaultValue: StdoutLogKind.Auto
+      name: "log-stdout" }: StdoutLogKind
+
+    logFile* {.
+      desc: "Specifies a path for the written Json log file"
+      name: "log-file" }: Option[OutFile]
+
+    nonInteractive* {.
+      desc: "Do not display interative prompts. Quit on missing configuration"
+      name: "non-interactive" }: bool
+
+    dataDir* {.
+      desc: "The directory where nimbus will store validator's keys"
+      defaultValue: config.defaultDataDir()
+      defaultValueDesc: ""
+      abbr: "d"
+      name: "data-dir" }: OutDir
+
+    validatorsDirFlag* {.
+      desc: "A directory containing validator keystores"
+      name: "validators-dir" }: Option[InputDir]
+
+    secretsDirFlag* {.
+      desc: "A directory containing validator keystore passwords"
+      name: "secrets-dir" }: Option[InputDir]
+
+    serverIdent* {.
+      desc: "Server identifier which will be used in HTTP Host header"
+      name: "server-ident" }: Option[string]
+
+    requestTimeout* {.
+      desc: "Request timeout, maximum time that node will wait for remote " &
+            "client request (in seconds)"
+      defaultValue: defaultSigningNodeRequestTimeout
+      name: "request-timeout" }: int
+
+    case cmd* {.
+      command
+      defaultValue: SNNoCommand }: SNStartUpCmd
+
+    of SNNoCommand:
+      bindPort* {.
+        desc: "Port for the REST (BETA version) HTTP server"
+        defaultValue: DefaultEth2RestPort
+        defaultValueDesc: "5052"
+        name: "bind-port" }: Port
+
+      bindAddress* {.
+        desc: "Listening address of the REST (BETA version) HTTP server"
+        defaultValue: defaultAdminListenAddress
+        defaultValueDesc: "127.0.0.1"
+        name: "bind-address" }: ValidIpAddress
+
+      tlsEnabled* {.
+        desc: "Use secure TLS communication for REST (BETA version) server"
+        defaultValue: false
+        name: "tls" }: bool
+
+      tlsCertificate* {.
+        desc: "Path to SSL certificate file"
+        name: "tls-cert" }: Option[InputFile]
+
+      tlsPrivateKey* {.
+        desc: "Path to SSL ceritificate's private key"
+        name: "tls-key" }: Option[InputFile]
+
+  AnyConf* = BeaconNodeConf | ValidatorClientConf | SigningNodeConf
+
+proc defaultDataDir*(config: AnyConf): string =
   let dataDir = when defined(windows):
     "AppData" / "Roaming" / "Nimbus"
   elif defined(macosx):
@@ -620,16 +701,16 @@ proc defaultDataDir*(config: BeaconNodeConf|ValidatorClientConf): string =
 
   getHomeDir() / dataDir / "BeaconNode"
 
-func dumpDir*(config: BeaconNodeConf|ValidatorClientConf): string =
+func dumpDir*(config: AnyConf): string =
   config.dataDir / "dump"
 
-func dumpDirInvalid*(config: BeaconNodeConf|ValidatorClientConf): string =
+func dumpDirInvalid*(config: AnyConf): string =
   config.dumpDir / "invalid" # things that failed validation
 
-func dumpDirIncoming*(config: BeaconNodeConf|ValidatorClientConf): string =
+func dumpDirIncoming*(config: AnyConf): string =
   config.dumpDir / "incoming" # things that couldn't be validated (missingparent etc)
 
-func dumpDirOutgoing*(config: BeaconNodeConf|ValidatorClientConf): string =
+func dumpDirOutgoing*(config: AnyConf): string =
   config.dumpDir / "outgoing" # things we produced
 
 proc createDumpDirs*(config: BeaconNodeConf) =
@@ -717,10 +798,10 @@ proc parseCmdArg*(T: type enr.Record, p: TaintedString): T
 proc completeCmdArg*(T: type enr.Record, val: TaintedString): seq[string] =
   return @[]
 
-func validatorsDir*(config: BeaconNodeConf|ValidatorClientConf): string =
+func validatorsDir*(config: AnyConf): string =
   string config.validatorsDirFlag.get(InputDir(config.dataDir / "validators"))
 
-func secretsDir*(config: BeaconNodeConf|ValidatorClientConf): string =
+func secretsDir*(config: AnyConf): string =
   string config.secretsDirFlag.get(InputDir(config.dataDir / "secrets"))
 
 func walletsDir*(config: BeaconNodeConf): string =
@@ -763,7 +844,7 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
   else:
     fail()
 
-func databaseDir*(config: BeaconNodeConf|ValidatorClientConf): string =
+func databaseDir*(config: AnyConf): string =
   config.dataDir / "db"
 
 template writeValue*(writer: var JsonWriter,

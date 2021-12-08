@@ -10,7 +10,7 @@
 import
   chronicles, chronos,
   ../spec/datatypes/base,
-  ../consensus_object_pools/[blockchain_dag, attestation_pool]
+  ../consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool]
 
 # TODO: Move to "consensus_object_pools" folder
 
@@ -26,7 +26,7 @@ type
 
     # Missing info
     # ----------------------------------------------------------------
-    quarantine*: QuarantineRef
+    quarantine*: ref Quarantine
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -34,7 +34,7 @@ type
 proc new*(T: type ConsensusManager,
           dag: ChainDAGRef,
           attestationPool: ref AttestationPool,
-          quarantine: QuarantineRef
+          quarantine: ref Quarantine
          ): ref ConsensusManager =
   (ref ConsensusManager)(
     dag: dag,
@@ -87,7 +87,7 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
 
   # Store the new head in the chain DAG - this may cause epochs to be
   # justified and finalized
-  self.dag.updateHead(newHead, self.quarantine)
+  self.dag.updateHead(newHead, self.quarantine[])
 
   self.checkExpectedBlock()
 

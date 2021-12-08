@@ -6,8 +6,10 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
+  random,
   chronicles,
   options, stew/endians2,
+  ../beacon_chain/consensus_object_pools/sync_committee_msg_pool,
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/spec/datatypes/merge,
   ../beacon_chain/spec/[
@@ -78,6 +80,7 @@ proc addTestBlock*(
     eth1_data = Eth1Data(),
     attestations = newSeq[Attestation](),
     deposits = newSeq[Deposit](),
+    sync_aggregate = SyncAggregate.init(),
     graffiti = default(GraffitiBytes),
     flags: set[UpdateFlag] = {},
     nextSlot = true,
@@ -116,7 +119,7 @@ proc addTestBlock*(
       attestations,
       deposits,
       BeaconBlockExits(),
-      SyncAggregate.init(),
+      sync_aggregate,
       default(ExecutionPayload),
       noRollback,
       cache)
@@ -137,6 +140,7 @@ proc makeTestBlock*(
     eth1_data = Eth1Data(),
     attestations = newSeq[Attestation](),
     deposits = newSeq[Deposit](),
+    sync_aggregate = SyncAggregate.init(),
     graffiti = default(GraffitiBytes),
     cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
   # Create a block for `state.slot + 1` - like a block proposer would do!
@@ -145,7 +149,8 @@ proc makeTestBlock*(
   # because the block includes the state root.
   var tmpState = assignClone(state)
   addTestBlock(
-    tmpState[], cache, eth1_data, attestations, deposits, graffiti, cfg = cfg)
+    tmpState[], cache, eth1_data,
+    attestations, deposits, sync_aggregate, graffiti, cfg = cfg)
 
 func makeAttestationData*(
     state: ForkyBeaconState, slot: Slot, committee_index: CommitteeIndex,
@@ -161,7 +166,7 @@ func makeAttestationData*(
     "Computed epoch was " & $slot.compute_epoch_at_slot &
     "  while the state current_epoch was " & $current_epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.uint64,
@@ -193,7 +198,6 @@ func makeAttestation*(
   # montonoic enumerable index, is wasteful and slow. Most test callers
   # want ValidatorIndex, so that's supported too.
   let
-    validator = getStateField(state, validators)[validator_index]
     sac_index = committee.find(validator_index)
     data = makeAttestationData(state, slot, index, beacon_block_root)
 
@@ -283,19 +287,120 @@ func makeFullAttestations*(
     attestation.signature = agg.finish().toValidatorSig()
     result.add attestation
 
+proc makeSyncAggregate(
+    state: ForkedHashedBeaconState,
+    syncCommitteeRatio: float,
+    cfg: RuntimeConfig): SyncAggregate =
+  if syncCommitteeRatio <= 0.0:
+    return SyncAggregate.init()
+  let
+    syncCommittee =
+      withState(state):
+        when stateFork >= BeaconStateFork.Altair:
+          const SLOTS_PER_PERIOD =
+            EPOCHS_PER_SYNC_COMMITTEE_PERIOD * SLOTS_PER_EPOCH
+          if (state.data.slot + 1) mod SLOTS_PER_PERIOD == 0:
+            state.data.next_sync_committee
+          else:
+            state.data.current_sync_committee
+        else:
+          return SyncAggregate.init()
+    fork =
+      getStateField(state, fork)
+    genesis_validators_root =
+      getStateField(state, genesis_validators_root)
+    slot =
+      getStateField(state, slot)
+    latest_block_root =
+      withState(state): state.latest_block_root
+    syncCommitteePool = newClone(SyncCommitteeMsgPool.init())
+  type
+    Aggregator = object
+      subcommitteeIdx: SyncSubcommitteeIndex
+      validatorIdx: ValidatorIndex
+      selectionProof: ValidatorSig
+  var aggregators: seq[Aggregator]
+  for subcommitteeIdx in allSyncSubcommittees():
+    let
+      firstKeyIdx = subcommitteeIdx.int * SYNC_SUBCOMMITTEE_SIZE
+      lastKeyIdx = firstKeyIdx + SYNC_SUBCOMMITTEE_SIZE - 1
+    var processedKeys = initHashSet[ValidatorPubKey]()
+    for idx, validatorKey in syncCommittee.pubkeys[firstKeyIdx .. lastKeyIdx]:
+      if validatorKey in processedKeys: continue
+      processedKeys.incl validatorKey
+      if rand(1.0) > syncCommitteeRatio: continue
+      var positions: seq[uint64]
+      for pos, key in syncCommittee.pubkeys[firstKeyIdx + idx .. lastKeyIdx]:
+        if key == validatorKey:
+          positions.add (idx + pos).uint64
+      let
+        validatorIdx =
+          block:
+            var res = 0
+            for i, validator in getStateField(state, validators):
+              if validator.pubkey == validatorKey:
+                res = i
+                break
+            res.ValidatorIndex
+        signature = get_sync_committee_message_signature(
+          fork, genesis_validators_root,
+          slot, latest_block_root,
+          MockPrivKeys[validatorIdx])
+        selectionProofSig = get_sync_aggregator_selection_data_signature(
+          fork, genesis_validators_root,
+          slot, subcommitteeIdx.uint64,
+          MockPrivKeys[validatorIdx])
+      syncCommitteePool[].addSyncCommitteeMessage(
+        slot,
+        latest_block_root,
+        uint64 validatorIdx,
+        signature,
+        subcommitteeIdx,
+        positions)
+      if is_sync_committee_aggregator(selectionProofSig.toValidatorSig):
+        aggregators.add Aggregator(
+          subcommitteeIdx: subcommitteeIdx,
+          validatorIdx: validatorIdx,
+          selectionProof: selectionProofSig.toValidatorSig)
+  for aggregator in aggregators:
+    var contribution: SyncCommitteeContribution
+    if syncCommitteePool[].produceContribution(
+        slot, latest_block_root, aggregator.subcommitteeIdx, contribution):
+      let
+        contributionAndProof = ContributionAndProof(
+          aggregator_index: uint64 aggregator.validatorIdx,
+          contribution: contribution,
+          selection_proof: aggregator.selectionProof)
+        contributionSig = get_sync_committee_contribution_and_proof_signature(
+          fork, genesis_validators_root,
+          contributionAndProof,
+          MockPrivKeys[aggregator.validatorIdx])
+        signedContributionAndProof = SignedContributionAndProof(
+          message: contributionAndProof,
+          signature: contributionSig.toValidatorSig)
+      syncCommitteePool[].addContribution(
+        signedContributionAndProof, contribution.signature.load.get)
+  syncCommitteePool[].produceSyncAggregate(latest_block_root)
+
 iterator makeTestBlocks*(
   state: ForkedHashedBeaconState,
   cache: var StateCache,
   blocks: int,
   attested: bool,
+  syncCommitteeRatio = 0.0,
   cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
   var
     state = assignClone(state)
   for _ in 0..<blocks:
-    let parent_root = withState(state[]): state.latest_block_root()
-    let attestations = if attested:
-      makeFullAttestations(state[], parent_root, getStateField(state[], slot), cache)
-    else:
-      @[]
+    let
+      parent_root = withState(state[]): state.latest_block_root()
+      attestations =
+        if attested:
+          makeFullAttestations(
+            state[], parent_root, getStateField(state[], slot), cache)
+        else:
+          @[]
+      sync_aggregate = makeSyncAggregate(state[], syncCommitteeRatio, cfg)
 
-    yield addTestBlock(state[], cache, attestations = attestations, cfg = cfg)
+    yield addTestBlock(state[], cache,
+      attestations = attestations, sync_aggregate = sync_aggregate, cfg = cfg)

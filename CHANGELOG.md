@@ -1,3 +1,29 @@
+2021-12-03 v1.5.5
+=================
+
+Nimbus `v1.5.5` is a `medium-urgency` bugfix release which contains a number of significant optimisations; of particular note is a **6x speed-up in epoch processing** and **2x speed up in Altair block processing**.
+
+In addition, `v1.5.5` adds support for the `web3signer` protocol (currently in BETA).
+
+### We've fixed:
+
+* The potential for missed block proposals when a third-party validator client (with at least one imported validator) is used with a Nimbus beacon node (with no imported validators)
+    * The web3 connection not being enabled when running third-party validator clients
+
+* A rare condition in which the REST service becomes unavailable.
+* Inappropriate error messages produced by the REST API: when a validator client is publishing the same attestations or sync committee messages through multiple beacon nodes.
+
+### Improvements:
+
+* 6x speed-up in epoch processing: https://github.com/status-im/nimbus-eth2/pull/3089
+* 2x speed up in Altair block processing: https://github.com/status-im/nimbus-eth2/pull/3115
+* A 12% (minimum) reduction in the outgoing GossipSub traffic: https://github.com/status-im/nimbus-eth2/pull/3112
+* Across the board performance improvements in the REST API: https://github.com/status-im/nimbus-eth2/pull/3092
+* The REST API can now report sync committee information for the next sync period: https://github.com/status-im/nimbus-eth2/pull/3133
+* Added support for the web3signer protocol (beta release):
+  https://github.com/status-im/nimbus-eth2/pull/3077
+
+
 2021-11-09 v1.5.4
 =================
 
@@ -24,7 +50,7 @@ Please upgrade at your earliest convenience.
 ## Other notable changes:
 
 * The `--log-file` option is now deprecated and may be removed in a future release (if you wish to log to a file, we recommend redirecting the standard output).
-  
+
   Please note that the --log-file option was previously supported only when Nimbus was built from source. If your existing configuration used the --log-file option with a binary release, upgrading to v1.5.4 will enable the log file creation (though a deprecation warning will be printed on start-up).
 
 

@@ -66,7 +66,7 @@ proc validate_light_client_update*(snapshot: LightClientSnapshot,
 
   blsFastAggregateVerify(participant_pubkeys, signing_root.data, update.sync_committee_signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/sync-protocol.md#apply_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/sync-protocol.md#apply_light_client_update
 proc apply_light_client_update(snapshot: var LightClientSnapshot, update: LightClientUpdate) =
   let
     snapshot_period = sync_committee_period(snapshot.header.slot)
@@ -76,7 +76,7 @@ proc apply_light_client_update(snapshot: var LightClientSnapshot, update: LightC
     snapshot.next_sync_committee = update.next_sync_committee
   snapshot.header = update.header
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/sync-protocol.md#process_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/sync-protocol.md#process_light_client_update
 proc process_light_client_update*(store: var LightClientStore,
                                   update: LightClientUpdate,
                                   current_slot: Slot,
@@ -91,7 +91,7 @@ proc process_light_client_update*(store: var LightClientStore,
      not update.finality_header.isZeroMemory:
     # Apply update if (1) 2/3 quorum is reached and (2) we have a finality proof.
     # Note that (2) means that the current light client design needs finality.
-    # It may be changed to re-organizable light client design. See the on-going issue eth2.0-specs#2182.
+    # It may be changed to re-organizable light client design. See the on-going issue consensus-specs#2182.
     apply_light_client_update(store.snapshot, update)
     store.valid_updates.clear()
   elif current_slot > store.snapshot.header.slot + update_timeout:

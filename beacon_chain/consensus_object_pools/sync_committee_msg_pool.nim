@@ -8,7 +8,8 @@
 {.push raises: [Defect].}
 
 import
-  std/[hashes, sets, tables],
+  std/[sets, tables],
+  stew/shims/hashes,
   chronicles,
   ../spec/digest,
   ../spec/datatypes/altair
@@ -53,7 +54,7 @@ type
     onContributionReceived*: OnSyncContributionCallback
 
 func hash*(x: SyncCommitteeMsgKey): Hash =
-  hashData(unsafeAddr x, sizeof(x))
+  hashAllFields(x)
 
 func init*(T: type SyncCommitteeMsgPool,
            onSyncContribution: OnSyncContributionCallback = nil

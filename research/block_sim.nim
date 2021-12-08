@@ -87,7 +87,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     eth1Chain = Eth1Chain.init(cfg, db)
     merkleizer = depositContractSnapshot.createMerkleizer
     taskpool = Taskpool.new()
-    quarantine = QuarantineRef.init(keys.newRng(), taskpool)
+    verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+    quarantine = newClone(Quarantine.init())
     attPool = AttestationPool.init(dag, quarantine)
     syncCommitteePool = newClone SyncCommitteeMsgPool.init()
     timers: array[Timers, RunningStat]
@@ -302,7 +303,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     dag.withState(tmpState[], dag.head.atSlot(slot)):
       let
         newBlock = getNewBlock[phase0.SignedBeaconBlock](stateData, slot, cache)
-        added = dag.addRawBlock(quarantine, newBlock) do (
+        added = dag.addRawBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
             epochRef: EpochRef):
           # Callback add to fork choice if valid
@@ -310,7 +311,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       blck() = added[]
-      dag.updateHead(added[], quarantine)
+      dag.updateHead(added[], quarantine[])
       if dag.needStateCachesAndForkChoicePruning():
         dag.pruneStateCachesDAG()
         attPool.prune()
@@ -322,7 +323,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     dag.withState(tmpState[], dag.head.atSlot(slot)):
       let
         newBlock = getNewBlock[altair.SignedBeaconBlock](stateData, slot, cache)
-        added = dag.addRawBlock(quarantine, newBlock) do (
+        added = dag.addRawBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: altair.TrustedSignedBeaconBlock,
             epochRef: EpochRef):
           # Callback add to fork choice if valid
@@ -330,7 +331,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       blck() = added[]
-      dag.updateHead(added[], quarantine)
+      dag.updateHead(added[], quarantine[])
       if dag.needStateCachesAndForkChoicePruning():
         dag.pruneStateCachesDAG()
         attPool.prune()
@@ -342,7 +343,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     dag.withState(tmpState[], dag.head.atSlot(slot)):
       let
         newBlock = getNewBlock[merge.SignedBeaconBlock](stateData, slot, cache)
-        added = dag.addRawBlock(quarantine, newBlock) do (
+        added = dag.addRawBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: merge.TrustedSignedBeaconBlock,
             epochRef: EpochRef):
           # Callback add to fork choice if valid
@@ -350,7 +351,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             epochRef, blckRef, signedBlock.message, blckRef.slot)
 
       blck() = added[]
-      dag.updateHead(added[], quarantine)
+      dag.updateHead(added[], quarantine[])
       if dag.needStateCachesAndForkChoicePruning():
         dag.pruneStateCachesDAG()
         attPool.prune()

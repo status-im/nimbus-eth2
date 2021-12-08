@@ -10,18 +10,10 @@
 import
   # Status
   chronicles, chronos,
-  stew/results,
-  eth/keys, taskpools,
-  # Internals
-  ../spec/[helpers, signatures_batch],
-  ../spec/datatypes/base,
-  ../consensus_object_pools/[
-    blockchain_dag, block_quarantine, attestation_pool, exit_pool,
-    block_pools_types, spec_cache
-  ],
-  ".."/[beacon_clock]
+  ../spec/signatures_batch,
+  ../consensus_object_pools/[blockchain_dag, spec_cache]
 
-export BrHmacDrbgContext
+export signatures_batch, blockchain_dag
 
 logScope:
   topics = "gossip_checks"
@@ -62,15 +54,11 @@ type
     ## Eager is used to enable eager processing of attestations when it's
     ## prudent to do so (instead of leaving the CPU for other, presumably more
     ## important work like block processing)
-    sigVerifCache: BatchedBLSVerifierCache ##\
-    ## A cache for batch BLS signature verification contexts
-    rng: ref BrHmacDrbgContext  ##\
-    ## A reference to the Nimbus application-wide RNG
-    pruneTime: Moment ## :ast time we had to prune something
-    ## A pointer to the Nimbus application-wide threadpool
-    taskpool: TaskPoolPtr
+    ##
+    verifier: BatchVerifier
 
-  TaskPoolPtr* = TaskPool
+    pruneTime: Moment ## :ast time we had to prune something
+
 
 const
   # We cap waiting for an idle slot in case there's a lot of network traffic
@@ -90,7 +78,10 @@ const
 proc new*(
     T: type BatchCrypto, rng: ref BrHmacDrbgContext,
     eager: Eager, taskpool: TaskPoolPtr): ref BatchCrypto =
-  (ref BatchCrypto)(rng: rng, eager: eager, pruneTime: Moment.now(), taskpool: taskpool)
+  (ref BatchCrypto)(
+    verifier: BatchVerifier(rng: rng, taskpool: taskpool),
+    eager: eager,
+    pruneTime: Moment.now())
 
 func len(batch: Batch): int =
   doAssert batch.resultsBuffer.len() == batch.pendingBuffer.len()
@@ -148,16 +139,7 @@ proc processBatch(batchCrypto: ref BatchCrypto) =
 
   let startTick = Moment.now()
 
-  var secureRandomBytes: array[32, byte]
-  batchCrypto[].rng[].brHmacDrbgGenerate(secureRandomBytes)
-
-  let ok = try:
-    batchCrypto.taskpool.batchVerify(
-      batchCrypto.sigVerifCache,
-      batch.pendingBuffer,
-      secureRandomBytes)
-  except Exception as exc:
-    raise newException(Defect, "Unexpected exception in batchVerify.")
+  let ok = batchCrypto.verifier.batchVerify(batch.pendingBuffer)
 
   trace "batch crypto - finished",
     batchSize,

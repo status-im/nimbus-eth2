@@ -14,7 +14,7 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "8.1.6"
+      "version": "8.2.4"
     },
     {
       "type": "panel",
@@ -61,11 +61,13 @@
     ]
   },
   "editable": true,
+  "fiscalYearStartMonth": 0,
   "gnetId": null,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1634804347001,
+  "iteration": 1638968981644,
   "links": [],
+  "liveNow": false,
   "panels": [
     {
       "collapsed": false,
@@ -107,7 +109,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -208,12 +210,16 @@
           "refId": "D"
         },
         {
-          "expr": "nim_gc_mem_bytes{instance=\"${instance}\"}",
+          "exemplar": true,
+          "expr": "sum(nim_gc_mem_bytes{instance=\"${instance}\"})",
+          "interval": "",
           "legendFormat": "Nim GC mem total",
           "refId": "F"
         },
         {
-          "expr": "nim_gc_mem_occupied_bytes{instance=\"${instance}\"}",
+          "exemplar": true,
+          "expr": "sum(nim_gc_mem_occupied_bytes{instance=\"${instance}\"})",
+          "interval": "",
           "legendFormat": "Nim GC mem used",
           "refId": "G"
         }
@@ -289,7 +295,7 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "single"
+          "mode": "multi"
         }
       },
       "targets": [
@@ -299,9 +305,17 @@
           "interval": "",
           "legendFormat": "{{version}}",
           "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "network_name{instance=\"${instance}\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "{{name}}",
+          "refId": "B"
         }
       ],
-      "title": "version (${instance})",
+      "title": "version/network (${instance})",
       "type": "timeseries"
     },
     {
@@ -330,7 +344,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -416,7 +430,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -516,7 +530,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -614,7 +628,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -694,13 +708,15 @@
       "pluginVersion": "8.1.6",
       "targets": [
         {
-          "expr": "rate(beacon_blocks_received_total{instance=\"${instance}\"}[$__rate_interval]) * 12",
+          "exemplar": true,
+          "expr": "rate(beacon_blocks_received_total{instance=\"${instance}\"}[$__rate_interval])",
           "interval": "",
           "legendFormat": "received",
           "refId": "B"
         },
         {
-          "expr": "rate(beacon_blocks_proposed_total{instance=\"${instance}\"}[$__rate_interval]) * 12",
+          "exemplar": true,
+          "expr": "rate(beacon_blocks_proposed_total{instance=\"${instance}\"}[$__rate_interval])",
           "interval": "",
           "legendFormat": "proposed",
           "refId": "A"
@@ -849,7 +865,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -898,13 +914,15 @@
       "pluginVersion": "8.1.6",
       "targets": [
         {
-          "expr": "rate(beacon_attestations_received_total{instance=\"${instance}\"}[$__rate_interval]) * 12",
+          "exemplar": true,
+          "expr": "rate(beacon_attestations_received_total{instance=\"${instance}\"}[$__rate_interval])",
           "interval": "",
           "legendFormat": "received",
           "refId": "A"
         },
         {
-          "expr": "rate(beacon_attestations_sent_total{instance=\"${instance}\"}[$__rate_interval]) * 12",
+          "exemplar": true,
+          "expr": "rate(beacon_attestations_sent_total{instance=\"${instance}\"}[$__rate_interval])",
           "interval": "",
           "legendFormat": "sent",
           "refId": "B"
@@ -1054,7 +1072,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -1103,7 +1121,8 @@
       "pluginVersion": "8.1.6",
       "targets": [
         {
-          "expr": "rate(beacon_aggregates_received_total{instance=\"${instance}\"}[$__rate_interval]) * 12",
+          "exemplar": true,
+          "expr": "rate(beacon_aggregates_received_total{instance=\"${instance}\"}[$__rate_interval])",
           "interval": "",
           "legendFormat": "received",
           "refId": "A"
@@ -1253,7 +1272,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -1339,7 +1358,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -1425,7 +1444,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -1531,7 +1550,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -1654,7 +1673,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.1.6",
+      "pluginVersion": "8.2.4",
       "targets": [
         {
           "expr": "process_resident_memory_bytes{instance=\"${instance}\"}",
@@ -1728,7 +1747,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.1.6",
+      "pluginVersion": "8.2.4",
       "targets": [
         {
           "expr": "rate(process_cpu_seconds_total{instance=\"${instance}\"}[$__rate_interval]) * 100",
@@ -1802,7 +1821,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.1.6",
+      "pluginVersion": "8.2.4",
       "targets": [
         {
           "expr": "beacon_slot{instance=\"${instance}\"}",
@@ -1877,7 +1896,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.1.6",
+      "pluginVersion": "8.2.4",
       "targets": [
         {
           "expr": "sum(beacon_attestations_sent_total)",
@@ -1953,7 +1972,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.1.6",
+      "pluginVersion": "8.2.4",
       "targets": [
         {
           "expr": "beacon_attestations_received_total{instance=\"${instance}\"}",
@@ -2027,7 +2046,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.1.6",
+      "pluginVersion": "8.2.4",
       "targets": [
         {
           "expr": "beacon_current_epoch{instance=\"${instance}\"}",
@@ -2103,7 +2122,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.1.6",
+      "pluginVersion": "8.2.4",
       "targets": [
         {
           "expr": "beacon_current_justified_epoch{instance=\"${instance}\"}",
@@ -2179,7 +2198,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.1.6",
+      "pluginVersion": "8.2.4",
       "targets": [
         {
           "expr": "time() - process_start_time_seconds{instance=\"${instance}\"}",
@@ -2255,7 +2274,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.1.6",
+      "pluginVersion": "8.2.4",
       "targets": [
         {
           "expr": "nbc_peers{instance=\"${instance}\"}",
@@ -2331,7 +2350,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.1.6",
+      "pluginVersion": "8.2.4",
       "targets": [
         {
           "expr": "beacon_finalized_epoch{instance=\"${instance}\"}",
@@ -2675,7 +2694,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -2771,7 +2790,7 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -2906,7 +2925,7 @@
     }
   ],
   "refresh": false,
-  "schemaVersion": 30,
+  "schemaVersion": 32,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -2960,5 +2979,5 @@
   "timezone": "",
   "title": "NBC local testnet/sim (all nodes)",
   "uid": "pgeNfj2Wz2a",
-  "version": 51
+  "version": 9
 }

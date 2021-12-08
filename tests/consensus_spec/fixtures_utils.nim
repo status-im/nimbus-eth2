@@ -40,7 +40,7 @@ type
     rewards*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
     penalties*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#eth1block
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#eth1block
   Eth1Block* = object
     timestamp*: uint64
     deposit_root*: Eth2Digest
@@ -50,7 +50,7 @@ type
 const
   FixturesDir* =
     currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / "vendor" / "nim-eth2-scenarios"
-  SszTestsDir* = FixturesDir / "tests-v1.1.5"
+  SszTestsDir* = FixturesDir / "tests-v1.1.6"
   MaxObjectSize* = 3_000_000
 
 proc parseTest*(path: string, Format: typedesc[Json], T: typedesc): T =

@@ -6,8 +6,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition - epoch processing, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#epoch-processing and
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#epoch-processing and
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#epoch-processing
 #
 # The entry point is `process_epoch`, which is at the bottom of this file.
 #
@@ -25,8 +25,7 @@ import
   stew/bitops2, chronicles,
   ../extras,
   ./datatypes/[phase0, altair, merge],
-  "."/[beaconstate, eth2_merkleization, helpers, validator],
-  ../../nbench/bench_lab
+  "."/[beaconstate, eth2_merkleization, helpers, validator]
 
 export extras, phase0, altair
 
@@ -36,7 +35,7 @@ export extras, phase0, altair
 logScope: topics = "consens"
 
 # Accessors that implement the max condition in `get_total_balance`:
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#get_total_balance
 template current_epoch*(v: TotalBalances): Gwei =
   max(EFFECTIVE_BALANCE_INCREMENT, v.current_epoch_raw)
 template previous_epoch*(v: TotalBalances): Gwei =
@@ -168,8 +167,8 @@ func is_eligible_validator*(validator: ParticipationInfo): bool =
 # Spec
 # --------------------------------------------------------
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#get_unslashed_participating_indices
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#get_unslashed_participating_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#get_total_balance
 func get_unslashed_participating_balances*(state: altair.BeaconState | merge.BeaconState):
     UnslashedParticipatingBalances =
   let
@@ -203,6 +202,7 @@ func get_unslashed_participating_balances*(state: altair.BeaconState | merge.Bea
           res.previous_epoch[flag_index] += validator_effective_balance
 
     # Only TIMELY_TARGET_FLAG_INDEX is used with the current epoch in Altair
+    # and merge
     if is_active_current_epoch and has_flag(
         state.current_epoch_participation[validator_index],
         TIMELY_TARGET_FLAG_INDEX):
@@ -236,7 +236,7 @@ func is_unslashed_participating_index(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization*(state: var phase0.BeaconState,
-    balances: TotalBalances, flags: UpdateFlags = {}) {.nbench.} =
+    balances: TotalBalances, flags: UpdateFlags = {}) =
   # Initial FFG checkpoint values have a `0x00` stub for `root`.
   # Skip FFG updates in the first two epochs to avoid corner cases that might
   # result in modifying this stub.
@@ -256,7 +256,7 @@ proc process_justification_and_finalization*(state: var phase0.BeaconState,
   ## state.justification_bits[1:] = state.justification_bits[:-1]
   ## state.justification_bits[0] = 0b0
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#misc
   const JUSTIFICATION_BITS_LENGTH = 4
 
   state.justification_bits = (state.justification_bits shl 1) and
@@ -331,8 +331,8 @@ proc process_justification_and_finalization*(state: var phase0.BeaconState,
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#justification-and-finalization
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#justification-and-finalization
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#justification-and-finalization
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#justification-and-finalization
 # TODO merge these things -- effectively, the phase0 process_justification_and_finalization is mostly a stub in this world
 proc weigh_justification_and_finalization(state: var (altair.BeaconState | merge.BeaconState),
                                           total_active_balance: Gwei,
@@ -352,7 +352,7 @@ proc weigh_justification_and_finalization(state: var (altair.BeaconState | merge
   ## state.justification_bits[1:] = state.justification_bits[:-1]
   ## state.justification_bits[0] = 0b0
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#misc
   const JUSTIFICATION_BITS_LENGTH = 4
 
   state.justification_bits = (state.justification_bits shl 1) and
@@ -429,7 +429,7 @@ proc weigh_justification_and_finalization(state: var (altair.BeaconState | merge
 
 proc process_justification_and_finalization*(state: var (altair.BeaconState | merge.BeaconState),
     balances: UnslashedParticipatingBalances,
-    flags: UpdateFlags = {}) {.nbench.} =
+    flags: UpdateFlags = {}) =
   # Initial FFG checkpoint values have a `0x00` stub for `root`.
   # Skip FFG updates in the first two epochs to avoid corner cases that might
   # result in modifying this stub.
@@ -445,7 +445,7 @@ proc process_justification_and_finalization*(state: var (altair.BeaconState | me
     balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
     balances.current_epoch_TIMELY_TARGET, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#helpers
 func get_base_reward_sqrt*(state: phase0.BeaconState, index: ValidatorIndex,
     total_balance_sqrt: auto): Gwei =
   # Spec function recalculates total_balance every time, which creates an
@@ -464,7 +464,7 @@ func is_in_inactivity_leak(finality_delay: uint64): bool =
 func get_finality_delay(state: ForkyBeaconState): uint64 =
   get_previous_epoch(state) - state.finalized_checkpoint.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#rewards-and-penalties-1
 func is_in_inactivity_leak(state: altair.BeaconState | merge.BeaconState): bool =
   # TODO remove this, see above
   get_finality_delay(state) > MIN_EPOCHS_TO_INACTIVITY_PENALTY
@@ -567,7 +567,7 @@ func get_inactivity_penalty_delta*(validator: RewardStatus,
 
   delta
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#get_attestation_deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#get_attestation_deltas
 func get_attestation_deltas(state: phase0.BeaconState, info: var phase0.EpochInfo) =
   ## Update rewards with attestation reward/penalty deltas for each validator.
 
@@ -611,7 +611,7 @@ func get_attestation_deltas(state: phase0.BeaconState, info: var phase0.EpochInf
         info.validators[proposer_index].delta.add(
           proposer_delta.get()[1])
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#get_base_reward
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward_increment(
     state: altair.BeaconState | merge.BeaconState, index: ValidatorIndex,
     base_reward_per_increment: Gwei): Gwei =
@@ -621,7 +621,7 @@ func get_base_reward_increment(
     state.validators[index].effective_balance div EFFECTIVE_BALANCE_INCREMENT
   increments * base_reward_per_increment
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#get_flag_index_deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#get_flag_index_deltas
 iterator get_flag_index_deltas*(
     state: altair.BeaconState | merge.BeaconState, flag_index: int,
     base_reward_per_increment: Gwei,
@@ -672,7 +672,7 @@ iterator get_flag_index_deltas*(
       else:
         (vidx, RewardDelta(rewards: 0.Gwei, penalties: 0.Gwei))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#modified-get_inactivity_penalty_deltas
 iterator get_inactivity_penalty_deltas*(
     cfg: RuntimeConfig, state: altair.BeaconState, info: altair.EpochInfo):
     (ValidatorIndex, Gwei) =
@@ -718,9 +718,9 @@ iterator get_inactivity_penalty_deltas*(
           state.inactivity_scores[index]
       yield (vidx, Gwei(penalty_numerator div penalty_denominator))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#rewards-and-penalties-1
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#rewards-and-penalties-1
 func process_rewards_and_penalties(
-    state: var phase0.BeaconState, info: var phase0.EpochInfo) {.nbench.} =
+    state: var phase0.BeaconState, info: var phase0.EpochInfo) =
   # No rewards are applied at the end of `GENESIS_EPOCH` because rewards are
   # for work done in the previous epoch
   doAssert info.validators.len == state.validators.len
@@ -741,11 +741,11 @@ func process_rewards_and_penalties(
     decrease_balance(balance, v.delta.penalties)
     state.balances.asSeq()[idx] = balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#rewards-and-penalties
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#rewards-and-penalties
 func process_rewards_and_penalties(
     cfg: RuntimeConfig, state: var (altair.BeaconState | merge.BeaconState),
     info: var altair.EpochInfo)
-    {.nbench.} =
+    =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
 
@@ -775,9 +775,9 @@ func process_rewards_and_penalties(
     decrease_balance(balance, info.validators[index].delta.penalties)
     state.balances.asSeq()[index] = balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#registry-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#registry-updates
 func process_registry_updates*(
-    cfg: RuntimeConfig, state: var ForkyBeaconState, cache: var StateCache) {.nbench.} =
+    cfg: RuntimeConfig, state: var ForkyBeaconState, cache: var StateCache) =
   ## Process activation eligibility and ejections
 
   # Make visible, e.g.,
@@ -825,10 +825,10 @@ func process_registry_updates*(
     state.validators[index].activation_epoch =
       compute_activation_exit_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#slashings
-func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) {.nbench.} =
+func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) =
   let
     epoch = get_current_epoch(state)
     multiplier =
@@ -857,16 +857,16 @@ func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) {.nben
       let penalty = penalty_numerator div total_balance * increment
       decrease_balance(state, index.ValidatorIndex, penalty)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#eth1-data-votes-updates
-func process_eth1_data_reset*(state: var ForkyBeaconState) {.nbench.} =
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#eth1-data-votes-updates
+func process_eth1_data_reset*(state: var ForkyBeaconState) =
   let next_epoch = get_current_epoch(state) + 1
 
   # Reset eth1 data votes
   if next_epoch mod EPOCHS_PER_ETH1_VOTING_PERIOD == 0:
     state.eth1_data_votes = default(type state.eth1_data_votes)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#effective-balances-updates
-func process_effective_balance_updates*(state: var ForkyBeaconState) {.nbench.} =
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#effective-balances-updates
+func process_effective_balance_updates*(state: var ForkyBeaconState) =
   # Update effective balances with hysteresis
   for index in 0..<state.validators.len:
     let balance = state.balances.asSeq()[index]
@@ -887,15 +887,15 @@ func process_effective_balance_updates*(state: var ForkyBeaconState) {.nbench.} 
       if new_effective_balance != effective_balance:
         state.validators[index].effective_balance = new_effective_balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#slashings-balances-updates
-func process_slashings_reset*(state: var ForkyBeaconState) {.nbench.} =
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#slashings-balances-updates
+func process_slashings_reset*(state: var ForkyBeaconState) =
   let next_epoch = get_current_epoch(state) + 1
 
   # Reset slashings
   state.slashings[int(next_epoch mod EPOCHS_PER_SLASHINGS_VECTOR)] = 0.Gwei
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#randao-mixes-updates
-func process_randao_mixes_reset*(state: var ForkyBeaconState) {.nbench.} =
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#randao-mixes-updates
+func process_randao_mixes_reset*(state: var ForkyBeaconState) =
   let
     current_epoch = get_current_epoch(state)
     next_epoch = current_epoch + 1
@@ -904,28 +904,28 @@ func process_randao_mixes_reset*(state: var ForkyBeaconState) {.nbench.} =
   state.randao_mixes[next_epoch mod EPOCHS_PER_HISTORICAL_VECTOR] =
     get_randao_mix(state, current_epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#historical-roots-updates
-func process_historical_roots_update*(state: var ForkyBeaconState) {.nbench.} =
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#historical-roots-updates
+func process_historical_roots_update*(state: var ForkyBeaconState) =
   ## Set historical root accumulator
   let next_epoch = get_current_epoch(state) + 1
 
   if next_epoch mod (SLOTS_PER_HISTORICAL_ROOT div SLOTS_PER_EPOCH) == 0:
     # Equivalent to hash_tree_root(foo: HistoricalBatch), but without using
     # significant additional stack or heap.
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#historicalbatch
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#historicalbatch
     # In response to https://github.com/status-im/nimbus-eth2/issues/921
     if not state.historical_roots.add hash_tree_root(
         [hash_tree_root(state.block_roots), hash_tree_root(state.state_roots)]):
       raiseAssert "no more room for historical roots, so long and thanks for the fish!"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#participation-records-rotation
-func process_participation_record_updates*(state: var phase0.BeaconState) {.nbench.} =
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#participation-records-rotation
+func process_participation_record_updates*(state: var phase0.BeaconState) =
   # Rotate current/previous epoch attestations - using swap avoids copying all
   # elements using a slow genericSeqAssign
   state.previous_epoch_attestations.clear()
   swap(state.previous_epoch_attestations, state.current_epoch_attestations)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#participation-flags-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#participation-flags-updates
 func process_participation_flag_updates*(state: var (altair.BeaconState | merge.BeaconState)) =
   state.previous_epoch_participation = state.current_epoch_participation
 
@@ -939,14 +939,14 @@ func process_participation_flag_updates*(state: var (altair.BeaconState | merge.
 
   state.current_epoch_participation.resetCache()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#sync-committee-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#sync-committee-updates
 proc process_sync_committee_updates*(state: var (altair.BeaconState | merge.BeaconState)) =
   let next_epoch = get_current_epoch(state) + 1
   if next_epoch mod EPOCHS_PER_SYNC_COMMITTEE_PERIOD == 0:
     state.current_sync_committee = state.next_sync_committee
     state.next_sync_committee = get_next_sync_committee(state)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#inactivity-scores
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#inactivity-scores
 func process_inactivity_updates*(
     cfg: RuntimeConfig, state: var (altair.BeaconState | merge.BeaconState),
     info: altair.EpochInfo) =
@@ -980,10 +980,10 @@ func process_inactivity_updates*(
     if pre_inactivity_score != inactivity_score:
       state.inactivity_scores[index] = inactivity_score
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig, state: var phase0.BeaconState, flags: UpdateFlags,
-    cache: var StateCache, info: var phase0.EpochInfo) {.nbench.} =
+    cache: var StateCache, info: var phase0.EpochInfo) =
   let currentEpoch = get_current_epoch(state)
   trace "process_epoch",
     current_epoch = currentEpoch
@@ -1003,31 +1003,31 @@ proc process_epoch*(
     # the finalization rules triggered.
     doAssert state.finalized_checkpoint.epoch + 3 >= currentEpoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#rewards-and-penalties-1
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(state, info)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#registry-updates
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#registry-updates
   process_registry_updates(cfg, state, cache)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#slashings
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#slashings
   process_slashings(state, info.balances.current_epoch)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#eth1-data-votes-updates
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#eth1-data-votes-updates
   process_eth1_data_reset(state)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#effective-balances-updates
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#effective-balances-updates
   process_effective_balance_updates(state)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#slashings-balances-updates
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#slashings-balances-updates
   process_slashings_reset(state)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#randao-mixes-updates
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#randao-mixes-updates
   process_randao_mixes_reset(state)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#historical-roots-updates
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#historical-roots-updates
   process_historical_roots_update(state)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#participation-records-rotation
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#participation-records-rotation
   process_participation_record_updates(state)
 
 func init*(
@@ -1051,18 +1051,18 @@ func init*(
     T: type altair.EpochInfo, state: altair.BeaconState | merge.BeaconState): T =
   init(result, state)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig, state: var (altair.BeaconState | merge.BeaconState),
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo)
-    {.nbench.} =
+    =
   let currentEpoch = get_current_epoch(state)
   trace "process_epoch",
     current_epoch = currentEpoch
 
   info.init(state)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#justification-and-finalization
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, info.balances, flags)
 
   # state.slot hasn't been incremented yet.
@@ -1080,7 +1080,7 @@ proc process_epoch*(
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(cfg, state, info)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#registry-updates
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#registry-updates
   process_registry_updates(cfg, state, cache)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#slashings

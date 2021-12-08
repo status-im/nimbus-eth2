@@ -5,11 +5,13 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.used.}
+
 import
   # Standard library
-  std/[strformat, tables, options, json, os, strutils],
+  std/[json, options, os, strutils, tables],
   # Status libraries
-  stew/[results, endians2], snappy, chronicles,
+  stew/[results, endians2], chronicles,
   eth/keys, taskpools,
   # Internals
   ../../beacon_chain/spec/[helpers, forks],
@@ -19,7 +21,7 @@ import
   ../../beacon_chain/fork_choice/[fork_choice, fork_choice_types],
   ../../beacon_chain/beacon_chain_db,
   ../../beacon_chain/consensus_object_pools/[
-    blockchain_dag, block_quarantine, block_clearance, spec_cache],
+    blockchain_dag, block_clearance, spec_cache],
   # Third-party
   yaml,
   # Test
@@ -120,7 +122,7 @@ proc loadOps(path: string, fork: BeaconBlockFork): seq[Operation] =
         )
         result.add Operation(kind: opOnBlock,
           blk: ForkedSignedBeaconBlock.init(blk))
-      of BeaconBlockFork.Altair:  
+      of BeaconBlockFork.Altair:
         let blk = parseTest(
           path/filename & ".ssz_snappy",
           SSZ, altair.SignedBeaconBlock
@@ -158,11 +160,11 @@ proc loadOps(path: string, fork: BeaconBlockFork): seq[Operation] =
 proc stepOnBlock(
        dag: ChainDagRef,
        fkChoice: ref ForkChoice,
-       quarantine: QuarantineRef,
+       verifier: var BatchVerifier,
        state: var StateData,
        stateCache: var StateCache,
-       signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock | merge.SignedBeaconBlock,
-       time: Slot): Result[BlockRef, (ValidationResult, BlockError)] =
+       signedBlock: ForkySignedBeaconBlock,
+       time: Slot): Result[BlockRef, BlockError] =
   # 1. Move state to proper slot.
   dag.updateStateData(
     state,
@@ -179,7 +181,7 @@ proc stepOnBlock(
   else:
     type TrustedBlock = merge.TrustedSignedBeaconBlock
 
-  let blockAdded = dag.addRawBlock(quarantine, signedBlock) do (
+  let blockAdded = dag.addRawBlock(verifier, signedBlock) do (
       blckRef: BlockRef, signedBlock: TrustedBlock, epochRef: EpochRef
     ):
 
@@ -192,8 +194,8 @@ proc stepOnBlock(
       time
     )
     doAssert status.isOk()
-  
-  return blockAdded 
+
+  return blockAdded
 
 proc stepOnAttestation(
        dag: ChainDagRef,
@@ -203,7 +205,7 @@ proc stepOnAttestation(
 
   let epochRef = dag.getEpochRef(dag.head, time.compute_epoch_at_slot())
   let attesters = epochRef.get_attesting_indices(att.data, att.aggregation_bits)
-  
+
   let status = fkChoice[].on_attestation(
     dag,
     att.data.slot, att.data.beacon_block_root, attesters,
@@ -216,7 +218,7 @@ proc stepChecks(
        checks: JsonNode,
        dag: ChainDagRef,
        fkChoice: ref ForkChoice,
-       time: Slot  
+       time: Slot
      ) =
   doAssert checks.len >= 1, "No checks found"
   for check, val in checks:
@@ -246,6 +248,9 @@ proc stepChecks(
       let checkpointEpoch = fkChoice.checkpoints.best_justified.epoch
       doAssert checkpointEpoch == Epoch(val["epoch"].getInt())
       doAssert checkpointRoot == Eth2Digest.fromHex(val["root"].getStr())
+    elif check == "proposer_boost_root":
+      # TODO needs fork choice to know about BeaconTime
+      discard
     elif check == "genesis_time":
       # The fork choice is pruned regularly
       # and does not store the genesis time,
@@ -271,20 +276,20 @@ proc runTest(path: string, fork: BeaconBlockFork) =
     # of BeaconBlockFork.Altair:
     #   initialLoad(
     #     path, db,
-    #     # The tests always use phase 0 block for anchor - https://github.com/ethereum/eth2.0-specs/pull/2323
+    #     # The tests always use phase 0 block for anchor - https://github.com/ethereum/consensus-specs/pull/2323
     #     # TODO: support altair genesis state
     #     altair.BeaconState, phase0.BeaconBlock
     #   )
     # of BeaconBlockFork.Merge:
     #   initialLoad(
     #     path, db,
-    #     # The tests always use phase 0 block for anchor - https://github.com/ethereum/eth2.0-specs/pull/2323
+    #     # The tests always use phase 0 block for anchor - https://github.com/ethereum/consensus-specs/pull/2323
     #     # TODO: support merge genesis state
     #     merge.BeaconState, phase0.BeaconBlock
     #   )
-
-  let taskpool = Taskpool.new(numThreads = 1)
-  let quarantine = QuarantineRef.init(keys.newRng(), taskpool)
+  var
+    taskpool = Taskpool.new()
+    verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
 
   let steps = loadOps(path, fork)
   var time = stores.fkChoice.checkpoints.time
@@ -300,7 +305,7 @@ proc runTest(path: string, fork: BeaconBlockFork) =
       withBlck(step.blk):
         let status = stepOnBlock(
           stores.dag, stores.fkChoice,
-          quarantine,
+          verifier,
           state[], stateCache,
           blck,
           time)
@@ -322,6 +327,9 @@ suite "Ethereum Foundation - ForkChoice" & preset():
     # test: tests/fork_choice/scenarios/no_votes.nim
     #       "Ensure the head is still 4 whilst the justified epoch is 0."
     "on_block_future_block",
+
+    # TODO needs fork choice to know about BeaconTime
+    "proposer_boost_correct_head"
   ]
 
   for fork in [BeaconBlockFork.Phase0]: # TODO: init ChainDAG from Merge/Altair

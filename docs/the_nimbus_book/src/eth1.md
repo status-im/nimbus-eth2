@@ -1,8 +1,5 @@
 # Run an eth1 node
 
-> ⚠️ Warning: make sure you've copied the endpoint that starts with either `ws` or `wss` (websocket), and not `http` or `https`. Nimbus does not currently support `http` endpoints.
-
-
 In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client in parallel to your eth2 client. 
 
 Validators are responsible for including new deposits when they propose blocks. And an eth1 client is needed to ensure your validator performs this task correctly.

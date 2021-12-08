@@ -152,11 +152,13 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
       res
 
   if len(addOrReplaceItems) > 0:
-    var pending: seq[Future[ValidatorSig]]
+    var pending: seq[Future[SignatureResult]]
+    var validators: seq[AttachedValidator]
     for item in addOrReplaceItems:
       let validator = vc.attachedValidators.getValidator(item.duty.pubkey)
       let future = validator.getSlotSig(fork, genesisRoot, item.duty.slot)
       pending.add(future)
+      validators.add(validator)
 
     await allFutures(pending)
 
@@ -164,8 +166,16 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
       let item = addOrReplaceItems[index]
       let dap =
         if fut.done():
-          DutyAndProof.init(item.epoch, dependentRoot, item.duty,
-                            some(fut.read()))
+          let sigRes = fut.read()
+          if sigRes.isErr():
+            error "Unable to create slot signature using remote signer",
+                  validator = shortLog(validators[index]),
+                  error_msg = sigRes.error()
+            DutyAndProof.init(item.epoch, dependentRoot, item.duty,
+                              none[ValidatorSig]())
+          else:
+            DutyAndProof.init(item.epoch, dependentRoot, item.duty,
+                              some(sigRes.get()))
         else:
           DutyAndProof.init(item.epoch, dependentRoot, item.duty,
                             none[ValidatorSig]())

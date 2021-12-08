@@ -8,15 +8,20 @@
 {.push raises: [Defect].}
 
 import
-  std/[options, tables, json, streams],
+  std/[options, tables, json, streams, uri],
   chronos, chronicles, metrics,
   json_serialization/std/net,
-  ../spec/[keystore, signatures, helpers],
+  presto, presto/client,
+
+  ../spec/[keystore, signatures, helpers, crypto],
   ../spec/datatypes/[phase0, altair],
+  ../spec/eth2_apis/[rest_types, eth2_rest_serialization,
+                     rest_remote_signer_calls],
   ./slashing_protection
 
 export
-  streams, options, keystore, phase0, altair, tables
+  streams, options, keystore, phase0, altair, tables, uri, crypto,
+  rest_types, eth2_rest_serialization, rest_remote_signer_calls
 
 declareGauge validators,
   "Number of validators attached to the beacon node"
@@ -25,25 +30,29 @@ type
   ValidatorKind* {.pure.} = enum
     Local, Remote
 
-  ValidatorConnection* = object
-    inStream*: Stream
-    outStream*: Stream
-    pubKeyStr*: string
+  ValidatorConnection* = RestClientRef
 
   ValidatorPrivateItem* = object
-    privateKey*: ValidatorPrivKey
-    description*: Option[string]
-    path*: Option[KeyPath]
-    uuid*: Option[string]
     version*: Option[uint64]
+    description*: Option[string]
+    case kind*: ValidatorKind
+    of ValidatorKind.Local:
+      privateKey*: ValidatorPrivKey
+      path*: Option[KeyPath]
+      uuid*: Option[string]
+    of ValidatorKind.Remote:
+      publicKey*: CookedPubKey
+      remoteUrl*: Uri
+      flags*: set[RemoteKeystoreFlag]
 
   AttachedValidator* = ref object
     pubKey*: ValidatorPubKey
+    data*: ValidatorPrivateItem
     case kind*: ValidatorKind
     of ValidatorKind.Local:
-      data*: ValidatorPrivateItem
+      discard
     of ValidatorKind.Remote:
-      connection*: ValidatorConnection
+      client*: RestClientRef
 
     # The index at which this validator has been observed in the chain -
     # it does not change as long as there are no reorgs on eth1 - however, the
@@ -55,11 +64,22 @@ type
     # if the validator will be aggregating (in the near future)
     slotSignature*: Option[tuple[slot: Slot, signature: ValidatorSig]]
 
+  SignResponse* = Web3SignerDataResponse
+
+  SignatureResult* = Result[ValidatorSig, string]
+  AttestationResult* = Result[Attestation, string]
+  SyncCommitteeMessageResult* = Result[SyncCommitteeMessage, string]
+
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
     slashingProtection*: SlashingProtectionDB
 
-func shortLog*(v: AttachedValidator): string = shortLog(v.pubKey)
+func shortLog*(v: AttachedValidator): string =
+  case v.kind
+  of ValidatorKind.Local:
+    shortLog(v.pubKey)
+  of ValidatorKind.Remote:
+    shortLog(v.pubKey) & "@" & $v.client.address.getUri()
 
 func init*(T: type ValidatorPool,
             slashingProtectionDB: SlashingProtectionDB): T =
@@ -84,10 +104,14 @@ proc addLocalValidator*(pool: var ValidatorPool, item: ValidatorPrivateItem,
 proc addLocalValidator*(pool: var ValidatorPool, item: ValidatorPrivateItem) =
   addLocalValidator(pool, item, none[ValidatorIndex]())
 
-proc addRemoteValidator*(pool: var ValidatorPool, pubKey: ValidatorPubKey,
-                         v: AttachedValidator) =
+proc addRemoteValidator*(pool: var ValidatorPool, item: ValidatorPrivateItem,
+                         client: RestClientRef, index: Option[ValidatorIndex]) =
+  let pubKey = item.publicKey.toPubKey()
+  let v = AttachedValidator(kind: ValidatorKind.Remote, pubKey: pubKey,
+                            index: index, data: item, client: client)
   pool.validators[pubKey] = v
-  notice "Remote validator attached", pubKey, validator = shortLog(v)
+  notice "Remote validator attached", pubKey, validator = shortLog(v),
+         remote_signer = $item.remoteUrl
   validators.set(pool.count().int64)
 
 proc getValidator*(pool: ValidatorPool,
@@ -131,131 +155,239 @@ iterator items*(pool: ValidatorPool): AttachedValidator =
   for item in pool.validators.values():
     yield item
 
-proc signWithRemoteValidator(v: AttachedValidator,
-                             data: Eth2Digest): Future[ValidatorSig] {.async.} =
-  v.connection.inStream.writeLine(v.connection.pubKeyStr, " ", $data)
-  v.connection.inStream.flush()
-  var line = newStringOfCap(120).TaintedString
-  discard v.connection.outStream.readLine(line)
-  return ValidatorSig.fromHex(line).get()
+proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
+                              genesis_validators_root: Eth2Digest,
+                              blck: ForkedBeaconBlock): Future[SignResponse] {.
+     async.} =
+  let request = Web3SignerRequest.init(fork, genesis_validators_root, blck)
+  debug "Signing block proposal using remote signer",
+        validator = shortLog(v)
+  return await v.client.signData(v.pubKey, request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#signature
+proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
+                              genesis_validators_root: Eth2Digest,
+                              adata: AttestationData): Future[SignResponse] {.
+     async.} =
+  let request = Web3SignerRequest.init(fork, genesis_validators_root, adata)
+  debug "Signing block proposal using remote signer",
+        validator = shortLog(v)
+  return await v.client.signData(v.pubKey, request)
+
+proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
+                              genesis_validators_root: Eth2Digest,
+                              epoch: Epoch): Future[SignResponse] {.
+     async.} =
+  let request = Web3SignerRequest.init(fork, genesis_validators_root, epoch)
+  debug "Generating randao reveal signature using remote signer",
+        validator = shortLog(v)
+  return await v.client.signData(v.pubKey, request)
+
+proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
+                              genesis_validators_root: Eth2Digest,
+                              proof: AggregateAndProof): Future[SignResponse] {.
+     async.} =
+  let request = Web3SignerRequest.init(fork, genesis_validators_root, proof)
+  debug "Signing aggregate and proof using remote signer",
+        validator = shortLog(v)
+  return await v.client.signData(v.pubKey, request)
+
+proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
+                              genesis_validators_root: Eth2Digest,
+                              slot: Slot): Future[SignResponse] {.
+     async.} =
+  let request = Web3SignerRequest.init(fork, genesis_validators_root, slot)
+  debug "Signing aggregate slot using remote signer",
+        validator = shortLog(v)
+  return await v.client.signData(v.pubKey, request)
+
+proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
+                              genesis_validators_root: Eth2Digest,
+                              slot: Slot,
+                              blockRoot: Eth2Digest): Future[SignResponse] {.
+     async.} =
+  let request = Web3SignerRequest.init(fork, genesis_validators_root, blockRoot,
+                                       slot)
+  debug "Signing sync committee message using remote signer",
+        validator = shortLog(v)
+  return await v.client.signData(v.pubKey, request)
+
+proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
+                              genesis_validators_root: Eth2Digest,
+                              slot: Slot,
+                              subIndex: uint64): Future[SignResponse] {.
+     async.} =
+  let request = Web3SignerRequest.init(
+    fork, genesis_validators_root,
+    SyncAggregatorSelectionData(slot: slot, subcommittee_index: subIndex),
+  )
+  debug "Signing sync aggregator selection data using remote signer",
+        validator = shortLog(v)
+  return await v.client.signData(v.pubKey, request)
+
+proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
+                              genesis_validators_root: Eth2Digest,
+                              contribution: ContributionAndProof
+                             ): Future[SignResponse] {.
+     async.} =
+  let request = Web3SignerRequest.init(
+    fork, genesis_validators_root, contribution
+  )
+  debug "Signing sync contribution and proof message using remote signer",
+        validator = shortLog(v)
+  return await v.client.signData(v.pubKey, request)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#signature
 proc signBlockProposal*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
-                        blockRoot: Eth2Digest): Future[ValidatorSig] {.async.} =
+                        blockRoot: Eth2Digest, blck: ForkedBeaconBlock
+                        ): Future[SignatureResult] {.async.} =
   return
     case v.kind
     of ValidatorKind.Local:
-      get_block_signature(fork, genesis_validators_root, slot, blockRoot,
-                          v.data.privateKey).toValidatorSig()
+      SignatureResult.ok(
+        get_block_signature(fork, genesis_validators_root, slot, blockRoot,
+                            v.data.privateKey).toValidatorSig()
+      )
     of ValidatorKind.Remote:
-      let root = compute_block_root(fork, genesis_validators_root, slot,
-                                    blockRoot)
-      await signWithRemoteValidator(v, root)
+      let res = await signWithRemoteValidator(v, fork, genesis_validators_root,
+                                              blck)
+      if res.isErr():
+        SignatureResult.err(res.error())
+      else:
+        SignatureResult.ok(res.get().toValidatorSig())
 
 proc signAttestation*(v: AttachedValidator,
                       data: AttestationData,
                       fork: Fork, genesis_validators_root: Eth2Digest):
-                      Future[ValidatorSig] {.async.} =
+                      Future[SignatureResult] {.async.} =
   return
     case v.kind
     of ValidatorKind.Local:
-      get_attestation_signature(fork, genesis_validators_root, data,
-                                v.data.privateKey).toValidatorSig()
+      SignatureResult.ok(
+        get_attestation_signature(fork, genesis_validators_root, data,
+                                  v.data.privateKey).toValidatorSig()
+      )
     of ValidatorKind.Remote:
-      let root = compute_attestation_root(fork, genesis_validators_root, data)
-      await signWithRemoteValidator(v, root)
+      let res = await signWithRemoteValidator(v, fork, genesis_validators_root,
+                                              data)
+      if res.isErr():
+        SignatureResult.err(res.error())
+      else:
+        SignatureResult.ok(res.get().toValidatorSig())
 
 proc produceAndSignAttestation*(validator: AttachedValidator,
                                 attestationData: AttestationData,
                                 committeeLen: int, indexInCommittee: Natural,
                                 fork: Fork,
                                 genesis_validators_root: Eth2Digest):
-                                Future[Attestation] {.async.} =
+                                Future[AttestationResult] {.async.} =
   let validatorSignature =
-    await validator.signAttestation(attestationData, fork,
-                                    genesis_validators_root)
+    block:
+      let res = await validator.signAttestation(attestationData, fork,
+                                                genesis_validators_root)
+      if res.isErr():
+        return AttestationResult.err(res.error())
+      res.get()
 
   var aggregationBits = CommitteeValidatorsBits.init(committeeLen)
   aggregationBits.setBit indexInCommittee
 
-  return Attestation(data: attestationData, signature: validatorSignature,
-                     aggregation_bits: aggregationBits)
+  return AttestationResult.ok(
+    Attestation(data: attestationData, signature: validatorSignature,
+                aggregation_bits: aggregationBits)
+  )
 
 proc signAggregateAndProof*(v: AttachedValidator,
                             aggregate_and_proof: AggregateAndProof,
                             fork: Fork, genesis_validators_root: Eth2Digest):
-                            Future[ValidatorSig] {.async.} =
+                            Future[SignatureResult] {.async.} =
   return
     case v.kind
     of ValidatorKind.Local:
-      get_aggregate_and_proof_signature(fork, genesis_validators_root,
-                                        aggregate_and_proof,
-                                        v.data.privateKey).toValidatorSig()
+      SignatureResult.ok(
+        get_aggregate_and_proof_signature(fork, genesis_validators_root,
+                                          aggregate_and_proof,
+                                          v.data.privateKey).toValidatorSig()
+      )
     of ValidatorKind.Remote:
-      let root = compute_aggregate_and_proof_root(fork, genesis_validators_root,
-                                                  aggregate_and_proof)
-      await signWithRemoteValidator(v, root)
+      let res = await signWithRemoteValidator(v, fork, genesis_validators_root,
+                                              aggregate_and_proof)
+      if res.isErr():
+        SignatureResult.err(res.error())
+      else:
+        SignatureResult.ok(res.get().toValidatorSig())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/validator.md#prepare-sync-committee-message
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/validator.md#prepare-sync-committee-message
 proc signSyncCommitteeMessage*(v: AttachedValidator,
-                               slot: Slot,
-                               fork: Fork,
+                               slot: Slot, fork: Fork,
                                genesis_validators_root: Eth2Digest,
-                               block_root: Eth2Digest): Future[SyncCommitteeMessage] {.async.} =
-  let
-    signing_root = sync_committee_msg_signing_root(
-      fork, slot.epoch, genesis_validators_root, block_root)
-
+                               block_root: Eth2Digest
+                              ): Future[SyncCommitteeMessageResult] {.async.} =
   let signature =
     case v.kind
     of ValidatorKind.Local:
-      blsSign(v.data.privateKey, signing_root.data).toValidatorSig
+      let signing_root = sync_committee_msg_signing_root(
+        fork, slot.epoch, genesis_validators_root, block_root)
+      blsSign(v.data.privateKey, signing_root.data).toValidatorSig()
     of ValidatorKind.Remote:
-      await signWithRemoteValidator(v, signing_root)
+      let res = await signWithRemoteValidator(v, fork, genesis_validators_root,
+                                              slot, block_root)
+      if res.isErr():
+        return SyncCommitteeMessageResult.err(res.error())
+      res.get().toValidatorSig()
 
-  return SyncCommitteeMessage(
-    slot: slot,
-    beacon_block_root: block_root,
-    validator_index: v.index.get.uint64,
-    signature: signature)
+  return
+    SyncCommitteeMessageResult.ok(
+      SyncCommitteeMessage(
+        slot: slot,
+        beacon_block_root: block_root,
+        validator_index: uint64(v.index.get()),
+        signature: signature
+      )
+    )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/validator.md#aggregation-selection
-proc getSyncCommitteeSelectionProof*(
-    v: AttachedValidator,
-    fork: Fork,
-    genesis_validators_root: Eth2Digest,
-    slot: Slot,
-    subcommittee_index: uint64): Future[ValidatorSig] {.async.} =
-  let
-    signing_root = sync_committee_selection_proof_signing_root(
-      fork, genesis_validators_root, slot, subcommittee_index)
-
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/validator.md#aggregation-selection
+proc getSyncCommitteeSelectionProof*(v: AttachedValidator,
+                                     fork: Fork,
+                                     genesis_validators_root: Eth2Digest,
+                                     slot: Slot,
+                                     subcommittee_index: uint64
+                                    ): Future[SignatureResult] {.async.} =
   return
     case v.kind
     of ValidatorKind.Local:
-      blsSign(v.data.privateKey, signing_root.data).toValidatorSig
+      let signing_root = sync_committee_selection_proof_signing_root(
+        fork, genesis_validators_root, slot, subcommittee_index)
+      SignatureResult.ok(
+        blsSign(v.data.privateKey, signing_root.data).toValidatorSig()
+      )
     of ValidatorKind.Remote:
-      await signWithRemoteValidator(v, signing_root)
+      let res = await signWithRemoteValidator(v, fork, genesis_validators_root,
+                                              slot, subcommittee_index)
+      if res.isErr():
+        SignatureResult.err(res.error())
+      else:
+        SignatureResult.ok(res.get().toValidatorSig())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/validator.md#signature
-proc sign*(
-    v: AttachedValidator,
-    msg: ref SignedContributionAndProof,
-    fork: Fork,
-    genesis_validators_root: Eth2Digest) {.async.} =
-  let
-    signing_root = contribution_and_proof_signing_root(
-      fork, genesis_validators_root, msg.message)
-
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/validator.md#signature
+proc sign*(v: AttachedValidator, msg: ref SignedContributionAndProof,
+           fork: Fork, genesis_validators_root: Eth2Digest
+          ): Future[SignatureResult] {.async.} =
   msg.signature =
     case v.kind
     of ValidatorKind.Local:
-      blsSign(v.data.privateKey, signing_root.data).toValidatorSig
+      let signing_root = contribution_and_proof_signing_root(
+        fork, genesis_validators_root, msg.message)
+      blsSign(v.data.privateKey, signing_root.data).toValidatorSig()
     of ValidatorKind.Remote:
-      await signWithRemoteValidator(v, signing_root)
+      let res = await signWithRemoteValidator(v, fork, genesis_validators_root,
+                                              msg.message)
+      if res.isErr():
+        return SignatureResult.err(res.error())
+      res.get().toValidatorSig()
+  return SignatureResult.ok(msg.signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#randao-reveal
 func genRandaoReveal*(k: ValidatorPrivKey, fork: Fork,
                       genesis_validators_root: Eth2Digest,
                       slot: Slot): CookedSig =
@@ -264,30 +396,38 @@ func genRandaoReveal*(k: ValidatorPrivKey, fork: Fork,
 
 proc genRandaoReveal*(v: AttachedValidator, fork: Fork,
                       genesis_validators_root: Eth2Digest, slot: Slot):
-                      Future[ValidatorSig] {.async.} =
+                      Future[SignatureResult] {.async.} =
   return
     case v.kind
     of ValidatorKind.Local:
-      genRandaoReveal(v.data.privateKey, fork, genesis_validators_root,
-                      slot).toValidatorSig()
+      SignatureResult.ok(genRandaoReveal(v.data.privateKey, fork,
+                                         genesis_validators_root,
+                                         slot).toValidatorSig())
     of ValidatorKind.Remote:
-      let root = compute_epoch_root(fork, genesis_validators_root,
-                                    slot.compute_epoch_at_slot)
-      await signWithRemoteValidator(v, root)
+      let res = await signWithRemoteValidator(v, fork, genesis_validators_root,
+                                              slot.compute_epoch_at_slot())
+      if res.isErr():
+        SignatureResult.err(res.error())
+      else:
+        SignatureResult.ok(res.get().toValidatorSig())
 
 proc getSlotSig*(v: AttachedValidator, fork: Fork,
                  genesis_validators_root: Eth2Digest, slot: Slot
-                 ): Future[ValidatorSig] {.async.} =
+                ): Future[SignatureResult] {.async.} =
   if v.slotSignature.isSome() and v.slotSignature.get().slot == slot:
-    return v.slotSignature.get().signature
+    return SignatureResult.ok(v.slotSignature.get().signature)
 
   let signature =
     case v.kind
     of ValidatorKind.Local:
       get_slot_signature(fork, genesis_validators_root, slot,
-                        v.data.privateKey).toValidatorSig()
+                         v.data.privateKey).toValidatorSig()
     of ValidatorKind.Remote:
-      let root = compute_slot_root(fork, genesis_validators_root, slot)
-      await signWithRemoteValidator(v, root)
+      let res = await signWithRemoteValidator(v, fork, genesis_validators_root,
+                                              slot)
+      if res.isErr():
+        return SignatureResult.err(res.error())
+      res.get().toValidatorSig()
+
   v.slotSignature = some((slot, signature))
-  return signature
+  return SignatureResult.ok(signature)

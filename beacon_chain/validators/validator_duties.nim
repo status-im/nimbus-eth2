@@ -86,37 +86,56 @@ proc findValidator(validators: auto, pubKey: ValidatorPubKey):
 proc addLocalValidator(node: BeaconNode,
                        validators: auto,
                        item: ValidatorPrivateItem) =
-  let pubKey = item.privateKey.toPubKey()
-  node.attachedValidators[].addLocalValidator(
-    item,
-    findValidator(validators, pubKey.toPubKey()))
+  let
+    pubKey = item.privateKey.toPubKey()
+    index = findValidator(validators, pubKey.toPubKey())
+  node.attachedValidators[].addLocalValidator(item, index)
 
-proc addLocalValidators*(node: BeaconNode) =
+proc addRemoteValidator(node: BeaconNode, validators: auto,
+                        item: ValidatorPrivateItem) =
+  let httpFlags =
+    block:
+      var res: set[HttpClientFlag]
+      if RemoteKeystoreFlag.IgnoreSSLVerification in item.flags:
+        res.incl({HttpClientFlag.NoVerifyHost,
+                  HttpClientFlag.NoVerifyServerName})
+      res
+  let prestoFlags = {RestClientFlag.CommaSeparatedArray}
+  let client = RestClientRef.new($item.remoteUrl, prestoFlags, httpFlags)
+  if client.isErr():
+    warn "Unable to resolve remote signer address",
+         remote_url = $item.remoteUrl, validator = item.publicKey
+    return
+  let index = findValidator(validators, item.publicKey.toPubKey())
+  node.attachedValidators[].addRemoteValidator(item, client.get(), index)
+
+proc addLocalValidators*(node: BeaconNode,
+                         validators: openArray[ValidatorPrivateItem]) =
   withState(node.dag.headState.data):
-    for validatorItem in node.config.validatorItems():
-      node.addLocalValidator(state.data.validators.asSeq(), validatorItem)
+    for item in validators:
+      node.addLocalValidator(state.data.validators.asSeq(), item)
 
-proc addRemoteValidators*(node: BeaconNode) {.raises: [Defect, OSError, IOError].} =
-  # load all the validators from the child process - loop until `end`
-  var line = newStringOfCap(120).TaintedString
-  while line != "end" and running(node.vcProcess):
-    if node.vcProcess.outputStream.readLine(line) and line != "end":
-      let
-        key = ValidatorPubKey.fromHex(line).get()
-        index = findValidator(
-          getStateField(node.dag.headState.data, validators).asSeq, key)
-        pk = key.load()
-      if pk.isSome():
-        let v = AttachedValidator(pubKey: key,
-                                  index: index,
-                                  kind: ValidatorKind.Remote,
-                                  connection: ValidatorConnection(
-                                    inStream: node.vcProcess.inputStream,
-                                    outStream: node.vcProcess.outputStream,
-                                    pubKeyStr: $key))
-        node.attachedValidators[].addRemoteValidator(key, v)
-      else:
-        warn "Could not load public key", line
+proc addRemoteValidators*(node: BeaconNode,
+                          validators: openArray[ValidatorPrivateItem]) =
+  withState(node.dag.headState.data):
+    for item in validators:
+      node.addRemoteValidator(state.data.validators.asSeq(), item)
+
+proc addValidators*(node: BeaconNode) =
+  let (localValidators, remoteValidators) =
+    block:
+      var local, remote: seq[ValidatorPrivateItem]
+      for item in node.config.validatorItems():
+        case item.kind
+        of ValidatorKind.Local:
+          local.add(item)
+        of ValidatorKind.Remote:
+          remote.add(item)
+      (local, remote)
+  # Adding local validators.
+  node.addLocalValidators(localValidators)
+  # Adding remote validators.
+  node.addRemoteValidators(remoteValidators)
 
 proc getAttachedValidator*(node: BeaconNode,
                            pubkey: ValidatorPubKey): AttachedValidator =
@@ -341,10 +360,16 @@ proc createAndSendAttestation(node: BeaconNode,
                               indexInCommittee: int,
                               subnet_id: SubnetId) {.async.} =
   try:
-    var
-      attestation = await validator.produceAndSignAttestation(
-        attestationData, committeeLen, indexInCommittee, fork,
-        genesis_validators_root)
+    var attestation =
+      block:
+        let res = await validator.produceAndSignAttestation(
+          attestationData, committeeLen, indexInCommittee, fork,
+          genesis_validators_root)
+        if res.isErr():
+          error "Unable to sign attestation", validator = shortLog(validator),
+                error_msg = res.error()
+          return
+        res.get()
 
     let res = await node.sendAttestation(
       attestation, subnet_id, checkSignature = false)
@@ -437,32 +462,6 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       noRollback, # Temporary state - no need for rollback
       cache)
 
-proc proposeSignedBlock*(node: BeaconNode,
-                         head: BlockRef,
-                         validator: AttachedValidator,
-                         newBlock: ForkedSignedBeaconBlock):
-                         Future[BlockRef] {.async.} =
-  let wallTime = node.beaconClock.now()
-
-  return withBlck(newBlock):
-    let newBlockRef = node.blockProcessor[].storeBlock(
-      blck, wallTime.slotOrZero())
-
-    if newBlockRef.isErr:
-      warn "Unable to add proposed block to block pool",
-            newBlock = blck.message, root = blck.root
-      return head
-
-    notice "Block proposed",
-           blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-           signature = shortLog(blck.signature), validator = shortLog(validator)
-
-    node.network.broadcastBeaconBlock(blck)
-
-    beacon_blocks_proposed.inc()
-
-    newBlockRef.get()
-
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
                   validator_index: ValidatorIndex,
@@ -481,28 +480,33 @@ proc proposeBlock(node: BeaconNode,
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root =
       getStateField(node.dag.headState.data, genesis_validators_root)
-    randao = await validator.genRandaoReveal(
-      fork, genesis_validators_root, slot)
+    randao =
+      block:
+        let res = await validator.genRandaoReveal(fork, genesis_validators_root,
+                                                  slot)
+        if res.isErr():
+          error "Unable to generate randao reveal",
+                validator = shortLog(validator), error_msg = res.error()
+          return head
+        res.get()
+
   var newBlock = await makeBeaconBlockForHeadAndSlot(
     node, randao, validator_index, node.graffitiBytes, head, slot)
 
   if newBlock.isErr():
     return head # already logged elsewhere!
 
-  let blck = newBlock.get()
+  let forkedBlck = newBlock.get()
 
-  # TODO abstract this, or move it into makeBeaconBlockForHeadAndSlot, and in
-  # general this is far too much copy/paste
-  let forked = case blck.kind:
-  of BeaconBlockFork.Phase0:
-    let root = hash_tree_root(blck.phase0Data)
+  withBlck(forkedBlck):
+    let
+      blockRoot = hash_tree_root(blck)
+      signing_root = compute_block_root(
+        fork, genesis_validators_root, slot, blockRoot)
 
-    # TODO: recomputed in block proposal
-    let signing_root = compute_block_root(
-      fork, genesis_validators_root, slot, root)
-    let notSlashable = node.attachedValidators
-      .slashingProtection
-      .registerBlock(validator_index, validator.pubkey, slot, signing_root)
+      notSlashable = node.attachedValidators
+        .slashingProtection
+        .registerBlock(validator_index, validator.pubkey, slot, signing_root)
 
     if notSlashable.isErr:
       warn "Slashing protection activated",
@@ -511,62 +515,58 @@ proc proposeBlock(node: BeaconNode,
         existingProposal = notSlashable.error
       return head
 
-    let signature = await validator.signBlockProposal(
-      fork, genesis_validators_root, slot, root)
-    ForkedSignedBeaconBlock.init(
-      phase0.SignedBeaconBlock(
-        message: blck.phase0Data, root: root, signature: signature)
-    )
-  of BeaconBlockFork.Altair:
-    let root = hash_tree_root(blck.altairData)
+    let
+      signature =
+        block:
+          let res = await validator.signBlockProposal(
+            fork, genesis_validators_root, slot, blockRoot, forkedBlck)
+          if res.isErr():
+            error "Unable to sign block proposal",
+                  validator = shortLog(validator), error_msg = res.error()
+            return head
+          res.get()
+      signedBlock =
+        when blck is phase0.BeaconBlock:
+          phase0.SignedBeaconBlock(
+            message: blck, signature: signature, root: blockRoot)
+        elif blck is altair.BeaconBlock:
+          altair.SignedBeaconBlock(
+            message: blck, signature: signature, root: blockRoot)
+        elif blck is merge.BeaconBlock:
+          merge.SignedBeaconBlock(
+            message: blck, signature: signature, root: blockRoot)
+        else:
+          static: doAssert "Unkown block type"
 
-    # TODO: recomputed in block proposal
-    let signing_root = compute_block_root(
-      fork, genesis_validators_root, slot, root)
-    let notSlashable = node.attachedValidators
-      .slashingProtection
-      .registerBlock(validator_index, validator.pubkey, slot, signing_root)
+    # We produced the block using a state transition, meaning the block is valid
+    # enough that it will not be rejected by gossip - it is unlikely but
+    # possible that it will be ignored due to extreme timing conditions, for
+    # example a delay in signing.
+    # We'll start broadcasting it before integrating fully in the chaindag
+    # so that it can start propagating through the network ASAP.
+    node.network.broadcastBeaconBlock(signedBlock)
 
-    if notSlashable.isErr:
-      warn "Slashing protection activated",
-        validator = validator.pubkey,
-        slot = slot,
-        existingProposal = notSlashable.error
+    let
+      wallTime = node.beaconClock.now()
+
+      # storeBlock puts the block in the chaindag, and if accepted, takes care
+      # of side effects such as event api notification
+      newBlockRef = node.blockProcessor[].storeBlock(
+        signedBlock, wallTime.slotOrZero())
+
+    if newBlockRef.isErr:
+      warn "Unable to add proposed block to block pool",
+        blockRoot = shortLog(blockRoot), blck = shortLog(blck),
+        signature = shortLog(signature), validator = shortLog(validator)
       return head
 
-    let signature = await validator.signBlockProposal(
-      fork, genesis_validators_root, slot, root)
+    notice "Block proposed",
+      blockRoot = shortLog(blockRoot), blck = shortLog(blck),
+      signature = shortLog(signature), validator = shortLog(validator)
 
-    ForkedSignedBeaconBlock.init(
-      altair.SignedBeaconBlock(
-        message: blck.altairData, root: root, signature: signature)
-    )
-  of BeaconBlockFork.Merge:
-    let root = hash_tree_root(blck.mergeData)
+    beacon_blocks_proposed.inc()
 
-    # TODO: recomputed in block proposal
-    let signing_root = compute_block_root(
-      fork, genesis_validators_root, slot, root)
-    let notSlashable = node.attachedValidators
-      .slashingProtection
-      .registerBlock(validator_index, validator.pubkey, slot, signing_root)
-
-    if notSlashable.isErr:
-      warn "Slashing protection activated",
-        validator = validator.pubkey,
-        slot = slot,
-        existingProposal = notSlashable.error
-      return head
-
-    let signature = await validator.signBlockProposal(
-      fork, genesis_validators_root, slot, root)
-
-    ForkedSignedBeaconBlock.init(
-      merge.SignedBeaconBlock(
-        message: blck.mergeData, root: root, signature: signature)
-    )
-
-  return await node.proposeSignedBlock(head, validator, forked)
+    return newBlockRef.get()
 
 proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   ## Perform all attestations that the validators attached to this node should
@@ -600,7 +600,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#validator-assignments
+  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#validator-assignments
   let
     epochRef = node.dag.getEpochRef(
       attestationHead.blck, slot.compute_epoch_at_slot())
@@ -650,8 +650,17 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
     let
       fork = node.dag.forkAtEpoch(slot.epoch)
       genesisValidatorsRoot = node.dag.genesisValidatorsRoot
-      msg = await signSyncCommitteeMessage(validator, slot, fork,
-                                           genesisValidatorsRoot, head.root)
+      msg =
+        block:
+          let res = await signSyncCommitteeMessage(validator, slot, fork,
+                                                   genesisValidatorsRoot,
+                                                   head.root)
+          if res.isErr():
+            error "Unable to sign committee message using remote signer",
+                  validator = shortLog(validator), slot = slot,
+                  block_root = shortLog(head.root)
+            return
+          res.get()
 
     let res = await node.sendSyncCommitteeMessage(
       msg, subcommitteeIdx, checkSignature = false)
@@ -707,9 +716,14 @@ proc signAndSendContribution(node: BeaconNode,
         contribution: contribution,
         selection_proof: selectionProof))
 
-    await validator.sign(msg,
-                         node.dag.forkAtEpoch(contribution.slot.epoch),
-                         node.dag.genesisValidatorsRoot)
+    let res = await validator.sign(
+      msg, node.dag.forkAtEpoch(contribution.slot.epoch),
+      node.dag.genesisValidatorsRoot)
+
+    if res.isErr():
+      error "Unable to sign sync committee contribution usign remote signer",
+            validator = shortLog(validator), error_msg = res.error()
+      return
 
     # Failures logged in sendSyncCommitteeContribution
     discard await node.sendSyncCommitteeContribution(msg[], false)
@@ -733,7 +747,7 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
       subcommitteeIdx: SyncSubcommitteeIndex
 
   var candidateAggregators: seq[AggregatorCandidate]
-  var selectionProofs: seq[Future[ValidatorSig]]
+  var selectionProofs: seq[Future[SignatureResult]]
 
   var time = timeIt:
     for subcommitteeIdx in allSyncSubcommittees():
@@ -760,11 +774,17 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
   var contributionsSent = 0
 
   time = timeIt:
-    for i in 0 ..< selectionProofs.len:
-      if not selectionProofs[i].completed:
+    for i, proof in selectionProofs.pairs():
+      if not proof.completed:
         continue
 
-      let selectionProof = selectionProofs[i].read
+      let selectionProofRes = proof.read()
+      if selectionProofRes.isErr():
+        error "Unable to sign selection proof using remote signer",
+              validator = shortLog(candidateAggregators[i].validator),
+              slot, head, subnet_id = candidateAggregators[i].subcommitteeIdx
+        continue
+      let selectionProof = selectionProofRes.get()
       if not is_sync_committee_aggregator(selectionProof):
         continue
 
@@ -800,16 +820,17 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     proposerKey = node.dag.validatorKey(proposer.get).get().toPubKey
     validator = node.attachedValidators[].getValidator(proposerKey)
 
-  if validator != nil:
-    return await proposeBlock(node, validator, proposer.get(), head, slot)
+  return
+    if validator == nil:
+      debug "Expecting block proposal",
+        headRoot = shortLog(head.root),
+        slot = shortLog(slot),
+        proposer_index = proposer.get(),
+        proposer = shortLog(proposerKey)
 
-  debug "Expecting block proposal",
-    headRoot = shortLog(head.root),
-    slot = shortLog(slot),
-    proposer_index = proposer.get(),
-    proposer = shortLog(proposerKey)
-
-  return head
+      head
+    else:
+      await proposeBlock(node, validator, proposer.get(), head, slot)
 
 proc makeAggregateAndProof*(
     pool: var AttestationPool, epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
@@ -819,7 +840,7 @@ proc makeAggregateAndProof*(
 
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#aggregation-selection
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#aggregation-selection
   if not is_aggregator(epochRef, slot, index, slot_signature):
     return none(AggregateAndProof)
 
@@ -827,8 +848,8 @@ proc makeAggregateAndProof*(
   if maybe_slot_attestation.isNone:
     return none(AggregateAndProof)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#construct-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#construct-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#aggregateandproof
   some(AggregateAndProof(
     aggregator_index: validatorIndex.uint64,
     aggregate: maybe_slot_attestation.get,
@@ -852,7 +873,7 @@ proc sendAggregatedAttestations(
     committees_per_slot = get_committee_count_per_slot(epochRef)
 
   var
-    slotSigs: seq[Future[ValidatorSig]] = @[]
+    slotSigs: seq[Future[SignatureResult]] = @[]
     slotSigsData: seq[tuple[committee_index: uint64,
                             validator_idx: ValidatorIndex,
                             v: AttachedValidator]] = @[]
@@ -872,16 +893,29 @@ proc sendAggregatedAttestations(
   await allFutures(slotSigs)
 
   for curr in zip(slotSigsData, slotSigs):
+    let slotSig = curr[1].read()
+    if slotSig.isErr():
+      error "Unable to create slot signature using remote signer",
+            validator = shortLog(curr[0].v),
+            aggregation_slot = aggregationSlot, error_msg = slotSig.error()
+      continue
     let aggregateAndProof =
       makeAggregateAndProof(node.attestationPool[], epochRef, aggregationSlot,
                             curr[0].committee_index.CommitteeIndex,
-                             curr[0].validator_idx,
-                             curr[1].read)
+                            curr[0].validator_idx,
+                            slotSig.get())
 
     # Don't broadcast when, e.g., this node isn't aggregator
     if aggregateAndProof.isSome:
-      let sig = await signAggregateAndProof(curr[0].v,
-        aggregateAndProof.get, fork, genesis_validators_root)
+      let sig =
+        block:
+          let res = await signAggregateAndProof(curr[0].v,
+            aggregateAndProof.get, fork, genesis_validators_root)
+          if res.isErr():
+            error "Unable to sign aggregated attestation using remote signer",
+                  validator = shortLog(curr[0].v), error_msg = res.error()
+            return
+          res.get()
       var signedAP = SignedAggregateAndProof(
         message: aggregateAndProof.get,
         signature: sig)
@@ -1035,12 +1069,12 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.1.5/specs/phase0/validator.md#broadcast-aggregate
-  # If the validator is selected to aggregate (is_aggregator), then they
-  # broadcast their best aggregate as a SignedAggregateAndProof to the global
-  # aggregate channel (beacon_aggregate_and_proof) two-thirds of the way
-  # through the slot-that is, SECONDS_PER_SLOT * 2 / 3 seconds after the start
-  # of slot.
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#broadcast-aggregate
+  # If the validator is selected to aggregate (`is_aggregator`), then they
+  # broadcast their best aggregate as a `SignedAggregateAndProof` to the global
+  # aggregate channel (`beacon_aggregate_and_proof`) `2 / INTERVALS_PER_SLOT`
+  # of the way through the `slot`-that is,
+  # `SECONDS_PER_SLOT * 2 / INTERVALS_PER_SLOT` seconds after the start of `slot`.
   if slot > 2:
     static: doAssert aggregateSlotOffset == syncContributionSlotOffset
     let
@@ -1159,20 +1193,47 @@ proc sendProposerSlashing*(node: BeaconNode,
 proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
                      ): Future[SendBlockResult] {.async.} =
   # REST/JSON-RPC API helper procedure.
-  let head = node.dag.head
-  if not(node.isSynced(head)):
-    return SendBlockResult.err("Beacon node is currently syncing")
-  if head.slot >= forked.slot():
-    node.network.broadcastBeaconBlock(forked)
-    return SendBlockResult.ok(false)
+  block:
+    # Start with a quick gossip validation check such that broadcasting the
+    # block doesn't get the node into trouble
+    let res = withBlck(forked):
+      when blck isnot merge.SignedBeaconBlock:
+        validateBeaconBlock(
+          node.dag, node.quarantine, blck, node.beaconClock.now(),
+          {})
+      else:
+       return SendBlockResult.err(
+        "TODO merge block proposal via REST not implemented")
 
-  let res = await node.proposeSignedBlock(head, AttachedValidator(), forked)
-  if res == head:
-    # `res == head` means failure, in such case we need to broadcast block
-    # manually because of the specification.
-    node.network.broadcastBeaconBlock(forked)
-    return SendBlockResult.ok(false)
-  return SendBlockResult.ok(true)
+    if not res.isGoodForSending():
+      return SendBlockResult.err(res.error()[1])
+
+  # The block passed basic gossip validation - we can "safely" broadcast it now.
+  # In fact, per the spec, we should broadcast it even if it later fails to
+  # apply to our state.
+  node.network.broadcastBeaconBlock(forked)
+
+  let
+    head = node.dag.head
+    wallTime = node.beaconClock.now()
+    accepted = withBlck(forked):
+      let newBlockRef = node.blockProcessor[].storeBlock(
+        blck, wallTime.slotOrZero())
+
+      # The boolean we return tells the caller whether the block was integrated
+      # into the chain
+      if newBlockRef.isOk():
+        notice "Block published",
+          blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
+          signature = shortLog(blck.signature)
+        true
+      else:
+        warn "Unable to add proposed block to block pool",
+          blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
+          signature = shortLog(blck.signature), err = newBlockRef.error()
+
+        false
+  return SendBlockResult.ok(accepted)
 
 proc registerDuty*(
     node: BeaconNode, slot: Slot, subnet_id: SubnetId, vidx: ValidatorIndex,
@@ -1210,8 +1271,13 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
           let
             subnet_id = compute_subnet_for_attestation(
               committees_per_slot, slot, committee_index.CommitteeIndex)
-            slotSig = await getSlotSig(
-              validator, fork, genesis_validators_root, slot)
-            isAggregator = is_aggregator(committee.lenu64, slotSig)
+          let slotSigRes = await getSlotSig(validator, fork,
+                                            genesis_validators_root, slot)
+          if slotSigRes.isErr():
+            error "Unable to create slot signature using remote signer",
+                  validator = shortLog(validator),
+                  error_msg = slotSigRes.error()
+            continue
+          let isAggregator = is_aggregator(committee.lenu64, slotSigRes.get())
 
           node.registerDuty(slot, subnet_id, validatorIdx, isAggregator)

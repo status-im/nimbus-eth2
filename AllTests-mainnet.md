@@ -78,22 +78,24 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Block pool processing [Preset: mainnet]
 ```diff
-+ Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
-+ Reverse order block add & get [Preset: mainnet]                                            OK
 + Simple block add&get [Preset: mainnet]                                                     OK
 + getRef returns nil for missing blocks                                                      OK
 + loading tail block works [Preset: mainnet]                                                 OK
 + updateHead updates head and headState [Preset: mainnet]                                    OK
 + updateStateData sanity [Preset: mainnet]                                                   OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
+OK: 5/5 Fail: 0/5 Skip: 0/5
+## Block processor [Preset: mainnet]
+```diff
++ Reverse order block add & get [Preset: mainnet]                                            OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## BlockRef and helpers [Preset: mainnet]
 ```diff
-+ epochAncestor sanity [Preset: mainnet]                                                     OK
 + get_ancestor sanity [Preset: mainnet]                                                      OK
 + isAncestorOf sanity [Preset: mainnet]                                                      OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## BlockSlot and helpers [Preset: mainnet]
 ```diff
 + atSlot sanity [Preset: mainnet]                                                            OK
@@ -371,4 +373,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 207/209 Fail: 0/209 Skip: 2/209
+OK: 205/207 Fail: 0/207 Skip: 2/207

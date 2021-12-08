@@ -27,7 +27,7 @@ proc newBlockProcessor(): ref BlockProcessor =
   # Minimal block processor for test - the real block processor has an unbounded
   # queue but the tests here
   (ref BlockProcessor)(
-    blocksQueue: newAsyncQueue[BlockEntry]()
+    blockQueue: newAsyncQueue[BlockEntry]()
   )
 
 suite "SyncManager test suite":

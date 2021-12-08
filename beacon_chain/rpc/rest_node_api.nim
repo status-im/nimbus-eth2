@@ -158,6 +158,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         discovery_addresses: discoveryAddresses,
         metadata: (
           seq_number: node.network.metadata.seq_number,
+          syncnets: "0x" & ncrutils.toHex(node.network.metadata.syncnets.bytes),
           attnets: "0x" & ncrutils.toHex(node.network.metadata.attnets.bytes)
         )
       )

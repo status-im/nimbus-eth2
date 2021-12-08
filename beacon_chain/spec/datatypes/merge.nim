@@ -26,7 +26,6 @@ import
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/beacon-chain.md#execution
   MAX_BYTES_PER_TRANSACTION* = 1073741824
-  MAX_TRANSACTIONS_PER_PAYLOAD* = 1048576
   BYTES_PER_LOGS_BLOOM = 256
   MAX_EXTRA_DATA_BYTES = 32
 
@@ -84,12 +83,11 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/merge/fork-choice.md#powblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/fork-choice.md#powblock
   PowBlock* = object
     block_hash*: Eth2Digest
     parent_hash*: Eth2Digest
     total_difficulty*: Eth2Digest   # uint256
-    difficulty*: Eth2Digest         # uint256
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/beacon-chain.md#beaconstate
   BeaconState* = object
@@ -290,7 +288,7 @@ type
     # Execution
     execution_payload*: ExecutionPayload  # [New in Merge]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig

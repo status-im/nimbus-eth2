@@ -70,7 +70,7 @@ type
     ## after that, they may no longer affect fork choice.
 
     dag*: ChainDAGRef
-    quarantine*: QuarantineRef
+    quarantine*: ref Quarantine
 
     forkChoice*: ForkChoice
 
@@ -85,7 +85,7 @@ declareGauge attestation_pool_block_attestation_packing_time,
   "Time it took to create list of attestations for block"
 
 proc init*(T: type AttestationPool, dag: ChainDAGRef,
-           quarantine: QuarantineRef,
+           quarantine: ref Quarantine,
            onAttestation: OnAttestationCallback = nil): T =
   ## Initialize an AttestationPool from the dag `headState`
   ## The `finalized_root` works around the finalized_checkpoint of the genesis block
@@ -691,7 +691,7 @@ proc getAggregatedAttestation*(pool: var AttestationPool,
                                index: CommitteeIndex): Option[Attestation] =
   ## Select the attestation that has the most votes going for it in the given
   ## slot/index
-  ## https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/validator.md#construct-aggregate
+  ## https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#construct-aggregate
   let
     candidateIdx = pool.candidateIdx(slot)
   if candidateIdx.isNone:
@@ -727,7 +727,7 @@ proc selectHead*(pool: var AttestationPool, wallSlot: Slot): BlockRef =
       # get out of sync, we'll need to try to download the selected head - in
       # the meantime, return nil to indicate that no new head was chosen
       warn "Fork choice selected unknown head, trying to sync", root = newHead.get()
-      pool.quarantine.addMissing(newHead.get())
+      pool.quarantine[].addMissing(newHead.get())
 
     ret
 

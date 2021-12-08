@@ -401,28 +401,18 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       )
 
   rpcServer.rpc("post_v1_beacon_blocks") do (blck: phase0.SignedBeaconBlock) -> int:
-    if not(node.syncManager.inProgress):
-      raise newException(CatchableError,
-                         "Beacon node is currently syncing, try again later.")
-    let head = node.dag.head
-    if head.slot >= blck.message.slot:
-      node.network.broadcastBeaconBlock(blck)
-      # The block failed validation, but was successfully broadcast anyway.
-      # It was not integrated into the beacon node's database.
-      return 202
+    let res = await sendBeaconBlock(node, ForkedSignedBeaconBlock.init(blck))
+    if res.isErr():
+      raise (ref CatchableError)(msg: $res.error())
+
+    if res.get():
+      # The block was validated successfully and has been broadcast.
+      # It has also been integrated into the beacon node's database.
+      return 200
     else:
-      let res = await proposeSignedBlock(
-        node, head, AttachedValidator(),
-        ForkedSignedBeaconBlock.init(blck))
-      if res == head:
-        node.network.broadcastBeaconBlock(blck)
-        # The block failed validation, but was successfully broadcast anyway.
-        # It was not integrated into the beacon node''s database.
-        return 202
-      else:
-        # The block was validated successfully and has been broadcast.
-        # It has also been integrated into the beacon node's database.
-        return 200
+      # The block failed validation, but was successfully broadcast anyway.
+      # It was not integrated into the beacon node''s database.
+      return 202
 
   rpcServer.rpc("get_v1_beacon_blocks_blockId") do (
       blockId: string) -> phase0.TrustedSignedBeaconBlock:

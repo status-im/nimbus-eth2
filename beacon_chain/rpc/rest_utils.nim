@@ -4,192 +4,12 @@ import std/options,
        ../spec/[forks],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization],
        ../beacon_node,
-       ../consensus_object_pools/blockchain_dag
+       ../consensus_object_pools/blockchain_dag,
+       ./rest_constants
 
 export
-  options, eth2_rest_serialization, blockchain_dag, presto, rest_types
-
-const
-  MaxEpoch* = compute_epoch_at_slot(not(0'u64))
-
-  BlockValidationError* =
-    "The block failed validation, but was successfully broadcast anyway. It " &
-    "was not integrated into the beacon node's database."
-  BlockValidationSuccess* =
-    "The block was validated successfully and has been broadcast"
-  BeaconNodeInSyncError* =
-    "Beacon node is currently syncing and not serving request on that endpoint"
-  BlockNotFoundError* =
-    "Block header/data has not been found"
-  BlockProduceError* =
-    "Could not produce the block"
-  EmptyRequestBodyError* =
-    "Empty request's body"
-  InvalidBlockObjectError* =
-    "Unable to decode block object(s)"
-  InvalidAttestationObjectError* =
-    "Unable to decode attestation object(s)"
-  AttestationValidationError* =
-    "Some errors happened while validating attestation(s)"
-  AttestationValidationSuccess* =
-    "Attestation object(s) was broadcasted"
-  InvalidAttesterSlashingObjectError* =
-    "Unable to decode attester slashing object(s)"
-  AttesterSlashingValidationError* =
-    "Invalid attester slashing, it will never pass validation so it's rejected"
-  AttesterSlashingValidationSuccess* =
-    "Attester slashing object was broadcasted"
-  InvalidProposerSlashingObjectError* =
-    "Unable to decode proposer slashing object(s)"
-  ProposerSlashingValidationError* =
-    "Invalid proposer slashing, it will never pass validation so it's rejected"
-  ProposerSlashingValidationSuccess* =
-    "Proposer slashing object was broadcasted"
-  InvalidVoluntaryExitObjectError* =
-    "Unable to decode voluntary exit object(s)"
-  VoluntaryExitValidationError* =
-    "Invalid voluntary exit, it will never pass validation so it's rejected"
-  VoluntaryExitValidationSuccess* =
-    "Voluntary exit object(s) was broadcasted"
-  InvalidAggregateAndProofObjectError* =
-    "Unable to decode aggregate and proof object(s)"
-  AggregateAndProofValidationError* =
-    "Invalid aggregate and proof, it will never pass validation so it's " &
-    "rejected"
-  AggregateAndProofValidationSuccess* =
-    "Aggregate and proof object(s) was broadcasted"
-  BeaconCommitteeSubscriptionSuccess* =
-    "Beacon node processed committee subscription request(s)"
-  SyncCommitteeSubscriptionSuccess* =
-    "Beacon node processed sync committee subscription request(s)"
-  InvalidParentRootValueError* =
-    "Invalid parent root value"
-  MissingSlotValueError* =
-    "Missing `slot` value"
-  InvalidSlotValueError* =
-    "Invalid slot value"
-  MissingCommitteeIndexValueError* =
-    "Missing `committee_index` value"
-  InvalidCommitteeIndexValueError* =
-    "Invalid committee index value"
-  MissingAttestationDataRootValueError* =
-    "Missing `attestation_data_root` value"
-  InvalidAttestationDataRootValueError* =
-    "Invalid attestation data root value"
-  UnableToGetAggregatedAttestationError* =
-    "Unable to retrieve an aggregated attestation"
-  MissingRandaoRevealValue* =
-    "Missing `randao_reveal` value"
-  InvalidRandaoRevealValue* =
-    "Invalid randao reveal value"
-  InvalidGraffitiBytesValye* =
-    "Invalid graffiti bytes value"
-  InvalidEpochValueError* =
-    "Invalid epoch value"
-  EpochFromFutureError* =
-    "Epoch value is far from the future"
-  InvalidStateIdValueError* =
-    "Invalid state identifier value"
-  InvalidBlockIdValueError* =
-    "Invalid block identifier value"
-  InvalidValidatorIdValueError* =
-    "Invalid validator's identifier value(s)"
-  MaximumNumberOfValidatorIdsError* =
-    "Maximum number of validator identifier values exceeded"
-  InvalidValidatorStatusValueError* =
-    "Invalid validator's status value error"
-  InvalidValidatorIndexValueError* =
-    "Invalid validator's index value(s)"
-  EmptyValidatorIndexArrayError* =
-    "Empty validator's index array"
-  InvalidSubscriptionRequestValueError* =
-    "Invalid subscription request object(s)"
-  ValidatorNotFoundError* =
-    "Could not find validator"
-  ValidatorStatusNotFoundError* =
-    "Could not obtain validator's status"
-  TooHighValidatorIndexValueError* =
-    "Validator index exceeds maximum number of validators allowed"
-  UnsupportedValidatorIndexValueError* =
-    "Validator index exceeds maximum supported number of validators"
-  StateNotFoundError* =
-    "Could not get requested state"
-  SlotNotFoundError* =
-    "Slot number is too far away"
-  SlotNotInNextWallSlotEpochError* =
-    "Requested slot not in next wall-slot epoch"
-  SlotFromThePastError* =
-    "Requested slot from the past"
-  SlotFromTheIncorrectForkError* =
-    "Requested slot is from incorrect fork"
-  EpochFromTheIncorrectForkError* =
-    "Requested epoch is from incorrect fork"
-  ProposerNotFoundError* =
-    "Could not find proposer for the head and slot"
-  NoHeadForSlotError* =
-    "Cound not find head for slot"
-  EpochOverflowValueError* =
-    "Requesting epoch for which slot would overflow"
-  InvalidPeerStateValueError* =
-    "Invalid peer's state value(s) error"
-  InvalidPeerDirectionValueError* =
-    "Invalid peer's direction value(s) error"
-  InvalidPeerIdValueError* =
-    "Invalid peer's id value(s) error"
-  PeerNotFoundError* =
-    "Peer not found"
-  InvalidLogLevelValueError* =
-    "Invalid log level value error"
-  ContentNotAcceptableError* =
-    "Could not find out accepted content type"
-  InvalidAcceptError* =
-    "Incorrect accept response type"
-  MissingSubCommitteeIndexValueError* =
-    "Missing `subcommittee_index` value"
-  InvalidSubCommitteeIndexValueError* =
-    "Invalid `subcommittee_index` value"
-  MissingBeaconBlockRootValueError* =
-    "Missing `beacon_block_root` value"
-  InvalidBeaconBlockRootValueError* =
-    "Invalid `beacon_block_root` value"
-  EpochOutsideSyncCommitteePeriodError* =
-    "Epoch is outside the sync committee period of the state"
-  InvalidSyncCommitteeSignatureMessageError* =
-    "Unable to decode sync committee message(s)"
-  InvalidSyncCommitteeSubscriptionRequestError* =
-    "Unable to decode sync committee subscription request(s)"
-  InvalidContributionAndProofMessageError* =
-    "Unable to decode contribute and proof message(s)"
-  SyncCommitteeMessageValidationError* =
-    "Some errors happened while validating sync committee message(s)"
-  SyncCommitteeMessageValidationSuccess* =
-    "Sync committee message(s) was broadcasted"
-  ContributionAndProofValidationError* =
-    "Some errors happened while validating contribution and proof(s)"
-  ContributionAndProofValidationSuccess* =
-    "Contribution and proof(s) was broadcasted"
-  ProduceContributionError* =
-    "Unable to produce contribution using the passed parameters"
-  InternalServerError* =
-    "Internal server error"
-  NoImplementationError* =
-    "Not implemented yet"
-  KeystoreAdditionFailure* =
-    "Could not add some keystores"
-  InvalidKeystoreObjects* =
-    "Invalid keystore objects found"
-  KeystoreAdditionSuccess* =
-    "All keystores has been added"
-  KeystoreModificationFailure* =
-    "Could not change keystore(s) state"
-  KeystoreModificationSuccess* =
-    "Keystore(s) state was successfully modified"
-  KeystoreRemovalSuccess* =
-    "Keystore(s) was successfully removed"
-  KeystoreRemovalFailure* =
-    "Could not remove keystore(s)"
-  InvalidValidatorPublicKey* =
-    "Invalid validator's public key(s) found"
+  options, eth2_rest_serialization, blockchain_dag, presto, rest_types,
+  rest_constants
 
 type
   ValidatorIndexError* {.pure.} = enum
@@ -220,8 +40,22 @@ proc validate(key: string, value: string): int =
   else:
     1
 
-proc getCurrentHead*(node: BeaconNode,
-                     slot: Slot): Result[BlockRef, cstring] =
+func getCurrentSlot*(node: BeaconNode, slot: Slot):
+    Result[Slot, cstring] =
+  if slot <= (node.dag.head.slot + (SLOTS_PER_EPOCH * 2)):
+    ok(slot)
+  else:
+    err("Requesting slot too far ahead of the current head")
+
+func getCurrentBlock*(node: BeaconNode, slot: Slot):
+    Result[BlockRef, cstring] =
+  let bs = node.dag.getBlockBySlot(? node.getCurrentSlot(slot))
+  if bs.slot == bs.blck.slot:
+    ok(bs.blck)
+  else:
+    err("Block not found")
+
+proc getCurrentHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
   let res = node.dag.head
   # if not(node.isSynced(res)):
   #   return err("Cannot fulfill request until node is synced")
@@ -242,16 +76,13 @@ proc getBlockSlot*(node: BeaconNode,
                    stateIdent: StateIdent): Result[BlockSlot, cstring] =
   case stateIdent.kind
   of StateQueryKind.Slot:
-    let head = ? getCurrentHead(node, stateIdent.slot)
-    let bslot = head.atSlot(stateIdent.slot)
-    if isNil(bslot.blck):
-      return err("Block not found")
-    ok(bslot)
+    ok(node.dag.getBlockBySlot(? node.getCurrentSlot(stateIdent.slot)))
   of StateQueryKind.Root:
-    let blckRef = node.dag.getRef(stateIdent.root)
-    if isNil(blckRef):
-      return err("Block not found")
-    ok(blckRef.toBlockSlot())
+    if stateIdent.root == getStateRoot(node.dag.headState.data):
+      ok(node.dag.headState.blck.toBlockSlot())
+    else:
+      # We don't have a state root -> BlockSlot mapping
+      err("State not found")
   of StateQueryKind.Named:
     case stateIdent.value
     of StateIdentType.Head:
@@ -264,28 +95,29 @@ proc getBlockSlot*(node: BeaconNode,
       ok(node.dag.head.atEpochStart(getStateField(
         node.dag.headState.data, current_justified_checkpoint).epoch))
 
-proc getBlockDataFromBlockIdent*(node: BeaconNode,
-                                 id: BlockIdent): Result[BlockData, cstring] =
+proc getBlockRef*(node: BeaconNode,
+                   id: BlockIdent): Result[BlockRef, cstring] =
   case id.kind
   of BlockQueryKind.Named:
     case id.value
     of BlockIdentType.Head:
-      ok(node.dag.get(node.dag.head))
+      ok(node.dag.head)
     of BlockIdentType.Genesis:
-      ok(node.dag.getGenesisBlockData())
+      ok(node.dag.genesis)
     of BlockIdentType.Finalized:
-      ok(node.dag.get(node.dag.finalizedHead.blck))
+      ok(node.dag.finalizedHead.blck)
   of BlockQueryKind.Root:
-    let res = node.dag.get(id.root)
-    if res.isNone():
-      return err("Block not found")
-    ok(res.get())
+    let res = node.dag.getRef(id.root)
+    if isNil(res):
+      err("Block not found")
+    else:
+      ok(res)
   of BlockQueryKind.Slot:
-    let head = ? node.getCurrentHead(id.slot)
-    let blockSlot = head.atSlot(id.slot)
-    if isNil(blockSlot.blck):
-      return err("Block not found")
-    ok(node.dag.get(blockSlot.blck))
+    node.getCurrentBlock(id.slot)
+
+proc getBlockDataFromBlockIdent*(node: BeaconNode,
+                                 id: BlockIdent): Result[BlockData, cstring] =
+  ok(node.dag.get(? node.getBlockRef(id)))
 
 template withStateForBlockSlot*(node: BeaconNode,
                                 blockSlot: BlockSlot, body: untyped): untyped =
@@ -322,7 +154,8 @@ proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
     doAssert(false, "ValidatorIndex type size is incorrect")
 
 func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
-  epoch: Epoch): Result[seq[ValidatorPubKey], cstring] =
+                                epoch: Epoch
+                               ): Result[seq[ValidatorPubKey], cstring] =
   withState(forkedState):
     when stateFork >= BeaconStateFork.Altair:
       let

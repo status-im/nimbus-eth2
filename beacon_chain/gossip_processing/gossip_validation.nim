@@ -83,7 +83,7 @@ func check_propagation_slot_range(
   let
     pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#configuration
   # The spec value of ATTESTATION_PROPAGATION_SLOT_RANGE is 32, but it can
   # retransmit attestations on the cusp of being out of spec, and which by
   # the time they reach their destination might be out of spec.
@@ -105,7 +105,7 @@ func check_beacon_and_target_block(
   # of the block in the pool.
   let blck = pool.dag.getRef(data.beacon_block_root)
   if blck.isNil:
-    pool.quarantine.addMissing(data.beacon_block_root)
+    pool.quarantine[].addMissing(data.beacon_block_root)
     return errIgnore("Attestation block unknown")
 
   # Not in spec - check that rewinding to the state is sane
@@ -171,9 +171,9 @@ template checkedReject(error: ValidationError): untyped =
     raiseAssert $error[1]
   err(error)
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
-    dag: ChainDAGRef, quarantine: QuarantineRef,
+    dag: ChainDAGRef, quarantine: ref Quarantine,
     signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
@@ -198,7 +198,7 @@ proc validateBeaconBlock*(
   # proposer for the slot, signed_beacon_block.message.slot.
   #
   # While this condition is similar to the proposer slashing condition at
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/validator.md#proposer-slashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#proposer-slashing
   # it's not identical, and this check does not address slashing:
   #
   # (1) The beacon blocks must be conflicting, i.e. different, for the same
@@ -228,13 +228,12 @@ proc validateBeaconBlock*(
     return errIgnore("BeaconBlock: already seen")
 
   let
-    slotBlockRef = getBlockBySlot(dag, signed_beacon_block.message.slot)
+    slotBlock = getBlockBySlot(dag, signed_beacon_block.message.slot)
 
-  if not slotBlockRef.isNil:
-    let blck = dag.get(slotBlockRef).data
+  if slotBlock.slot == signed_beacon_block.message.slot:
+    let blck = dag.get(slotBlock.blck).data
     if getForkedBlockField(blck, proposer_index) ==
           signed_beacon_block.message.proposer_index and
-        getForkedBlockField(blck, slot) == signed_beacon_block.message.slot and
         blck.signature.toRaw() != signed_beacon_block.signature.toRaw():
       return errIgnore("BeaconBlock: already proposed in the same slot")
 
@@ -246,10 +245,9 @@ proc validateBeaconBlock*(
   # [REJECT] The block's parent (defined by block.parent_root) passes validation.
   let parent_ref = dag.getRef(signed_beacon_block.message.parent_root)
   if parent_ref.isNil:
-    # Pending dag gets checked via `ChainDAGRef.add(...)` later, and relevant
-    # checks are performed there. In usual paths beacon_node adds blocks via
-    # ChainDAGRef.add(...) directly, with no additional validity checks.
-    if not quarantine.add(dag, signed_beacon_block):
+    # When the parent is missing, we can't validate the block - we'll queue it
+    # in the quarantine for later processing
+    if not quarantine[].add(dag, ForkedSignedBeaconBlock.init(signed_beacon_block)):
       debug "Block quarantine full"
     return errIgnore("BeaconBlock: Parent not found")
 
@@ -300,7 +298,7 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc validateAttestation*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
@@ -461,7 +459,7 @@ proc validateAttestation*(
 
   return ok((validator_index, sig))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
@@ -645,7 +643,7 @@ proc validateAggregate*(
 
   return ok((attesting_indices, sig))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attester_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
     pool: ExitPool, attester_slashing: AttesterSlashing):
     Result[void, ValidationError] =
@@ -668,7 +666,7 @@ proc validateAttesterSlashing*(
 
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#proposer_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#proposer_slashing
 proc validateProposerSlashing*(
     pool: ExitPool, proposer_slashing: ProposerSlashing):
     Result[void, ValidationError] =
@@ -691,7 +689,7 @@ proc validateProposerSlashing*(
 
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#voluntary_exit
 proc validateVoluntaryExit*(
     pool: ExitPool, signed_voluntary_exit: SignedVoluntaryExit):
     Result[void, ValidationError] =
@@ -721,7 +719,7 @@ proc validateVoluntaryExit*(
 
   ok()
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#sync_committee_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#sync_committee_subnet_id
 proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
     syncCommitteeMsgPool: SyncCommitteeMsgPool,
@@ -785,7 +783,7 @@ proc validateSyncCommitteeMessage*(
 
   ok((positionsInSubcommittee, cookedSignature.get()))
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.5/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
 proc validateContribution*(
     dag: ChainDAGRef,
     syncCommitteeMsgPool: var SyncCommitteeMsgPool,

@@ -53,21 +53,20 @@ You'll be directed to the settings page of your newly created project
 
 If you're connecting to a testnet, in the `KEYS` section, click on the dropdown menu to the right of `ENDPOINTS`, and select `GÖRLI`
 
-![](https://i.imgur.com/D9186kv.png)
+![](https://i.imgur.com/MKZ6rVc.png)
 
 
-### 7. Copy the websocket endpoint
+### 7. Copy one of the endpoints
 
-Copy the address that starts with `wss://`
+ 
+You can use either endpoint but we recommend you copy the `wss`
 
 ![](https://i.imgur.com/fZ6Bcjy.png)
-
-> ⚠️  **Warning:** make sure you've copied the endpoint that starts with`wss` (websocket), and not the `https` endpoint. If you're connecting  to mainnet this will read `wss://mainnet.infura.io/ws/...`
 
 
 ### 8. Run the beacon node
 
-[Launch the beacon node](./start-syncing.md) on your favourite testnet, pasaing in your websocket endpoint as the [Web3 provider URL](./start-syncing.md#web3-provider-url).
+[Launch the beacon node](./start-syncing.md) on your favourite testnet, passing in your websocket endpoint as the [Web3 provider URL](./start-syncing.md#web3-provider-url).
 
 
 

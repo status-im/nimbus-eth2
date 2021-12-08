@@ -686,20 +686,16 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                          $rroot.error())
       return RestApiResponse.jsonError(Http500, NoImplementationError)
 
-    let bdata =
+    let blck =
       block:
-        let head =
-          block:
-            let res = node.getCurrentHead(qslot)
-            if res.isErr():
-              return RestApiResponse.jsonError(Http404, SlotNotFoundError,
-                                               $res.error())
-            res.get()
-        let blockSlot = head.atSlot(qslot)
-        if isNil(blockSlot.blck):
-          return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-        node.dag.get(blockSlot.blck)
+        let res = node.getCurrentBlock(qslot)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http404, BlockNotFoundError,
+                                            $res.error())
+        res.get()
 
+
+    let bdata = node.dag.get(blck)
     return
       withBlck(bdata.data):
         RestApiResponse.jsonResponse(
@@ -799,6 +795,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
     if not(res.get()):
       return RestApiResponse.jsonError(Http202, BlockValidationError)
+
     return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
@@ -870,18 +867,16 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
   router.api(MethodGet, "/api/eth/v1/beacon/blocks/{block_id}/root") do (
     block_id: BlockIdent) -> RestApiResponse:
-    let bdata =
+    let blck =
       block:
         if block_id.isErr():
           return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
                                            $block_id.error())
-        let res = node.getBlockDataFromBlockIdent(block_id.get())
+        let res = node.getBlockRef(block_id.get())
         if res.isErr():
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
         res.get()
-    return
-      withBlck(bdata.data):
-        RestApiResponse.jsonResponse((root: blck.root))
+    return RestApiResponse.jsonResponse((root: blck.root))
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockAttestations
   router.api(MethodGet,

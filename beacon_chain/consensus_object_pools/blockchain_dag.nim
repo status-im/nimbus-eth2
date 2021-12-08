@@ -137,6 +137,8 @@ func validatorKey*(
   ## non-head branch)!
   validatorKey(epochRef.dag, index)
 
+func epochAncestor*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochKey
+
 func init*(
     T: type EpochRef, dag: ChainDAGRef, state: StateData,
     cache: var StateCache): T =
@@ -144,7 +146,7 @@ func init*(
     epoch = state.data.get_current_epoch()
     epochRef = EpochRef(
       dag: dag, # This gives access to the validator pubkeys through an EpochRef
-      key: state.blck.epochAncestor(epoch),
+      key: epochAncestor(dag, state.blck, epoch),
       eth1_data: getStateField(state.data, eth1_data),
       eth1_deposit_index: getStateField(state.data, eth1_deposit_index),
       current_justified_checkpoint:
@@ -216,7 +218,7 @@ func isAncestorOf*(a, b: BlockRef): bool =
 func get_ancestor*(blck: BlockRef, slot: Slot,
     maxDepth = 100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int):
     BlockRef =
-  ## https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/fork-choice.md#get_ancestor
+  ## https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/fork-choice.md#get_ancestor
   ## Return the most recent block as of the time at `slot` that not more recent
   ## than `blck` itself
   doAssert not blck.isNil
@@ -251,7 +253,21 @@ func atEpochStart*(blck: BlockRef, epoch: Epoch): BlockSlot =
   ## Return the BlockSlot corresponding to the first slot in the given epoch
   atSlot(blck, epoch.compute_start_slot_at_epoch)
 
-func epochAncestor*(blck: BlockRef, epoch: Epoch): EpochKey =
+func getBlockBySlot*(dag: ChainDAGRef, slot: Slot): BlockSlot =
+  ## Retrieve the canonical block at the given slot, or the last block that
+  ## comes before - similar to atSlot, but without the linear scan
+  if slot > dag.finalizedHead.slot:
+    return dag.head.atSlot(slot) # Linear iteration is the fastest we have
+
+  var tmp = slot.int
+  while true:
+    if dag.finalizedBlocks[tmp] != nil:
+      return dag.finalizedBlocks[tmp].atSlot(slot)
+    if tmp == 0:
+      raiseAssert "At least the genesis block should be available!"
+    tmp = tmp - 1
+
+func epochAncestor*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochKey =
   ## The state transition works by storing information from blocks in a
   ## "working" area until the epoch transition, then batching work collected
   ## during the epoch. Thus, last block in the ancestor epochs is the block
@@ -260,15 +276,17 @@ func epochAncestor*(blck: BlockRef, epoch: Epoch): EpochKey =
   ## This function returns a BlockSlot pointing to that epoch boundary, ie the
   ## boundary where the last block has been applied to the state and epoch
   ## processing has been done.
-  var blck = blck
-  while blck.slot.epoch >= epoch and not blck.parent.isNil:
-    blck = blck.parent
+  let blck =
+    if epoch == GENESIS_EPOCH:
+      dag.genesis
+    else:
+      dag.getBlockBySlot(compute_start_slot_at_epoch(epoch) - 1).blck
 
   EpochKey(epoch: epoch, blck: blck)
 
 func findEpochRef*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef = # may return nil!
-  let ancestor = blck.epochAncestor(epoch)
+  let ancestor = epochAncestor(dag, blck, epoch)
   doAssert ancestor.blck != nil
   for i in 0..<dag.epochRefs.len:
     if dag.epochRefs[i] != nil and dag.epochRefs[i].key == ancestor:
@@ -540,6 +558,13 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
                            tailRef.slot.epoch)
   dag.finalizedHead = headRef.atEpochStart(finalizedEpoch)
 
+  block:
+    dag.finalizedBlocks.setLen(dag.finalizedHead.slot.int + 1)
+    var tmp = dag.finalizedHead.blck
+    while not isNil(tmp):
+      dag.finalizedBlocks[tmp.slot.int] = tmp
+      tmp = tmp.parent
+
   dag.clearanceState = dag.headState
 
   # Pruning metadata
@@ -605,7 +630,7 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
   beacon_state_data_cache_misses.inc
 
   let
-    ancestor = blck.epochAncestor(epoch)
+    ancestor = epochAncestor(dag, blck, epoch)
 
   dag.withState(
       dag.epochRefState, ancestor.blck.atEpochStart(ancestor.epoch)):
@@ -724,7 +749,7 @@ func getBlockRange*(
     endSlot = startSlot + extraBlocks * skipStep
 
   var
-    b = dag.head.atSlot(endSlot)
+    b = dag.getBlockBySlot(endSlot)
     o = output.len
 
   # Process all blocks that follow the start block (may be zero blocks)
@@ -742,11 +767,6 @@ func getBlockRange*(
     output[o] = b.blck
 
   o # Return the index of the first non-nil item in the output
-
-func getBlockBySlot*(dag: ChainDAGRef, slot: Slot): BlockRef =
-  ## Retrieves the first block in the current canonical chain
-  ## with slot number less or equal to `slot`.
-  dag.head.atSlot(slot).blck
 
 proc getForkedBlock*(dag: ChainDAGRef, blck: BlockRef): ForkedTrustedSignedBeaconBlock =
   case dag.cfg.blockForkAtEpoch(blck.slot.epoch)
@@ -1044,9 +1064,8 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
 iterator syncSubcommittee*(
     syncCommittee: openArray[ValidatorIndex],
     subcommitteeIdx: SyncSubcommitteeIndex): ValidatorIndex =
-  var
-    i = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
-    onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
+  var i = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
+  let onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
 
   while i < onePastEndIdx:
     yield syncCommittee[i]
@@ -1056,9 +1075,8 @@ iterator syncSubcommitteePairs*(
     syncCommittee: openArray[ValidatorIndex],
     subcommitteeIdx: SyncSubcommitteeIndex): tuple[validatorIdx: ValidatorIndex,
                                              subcommitteeIdx: int] =
-  var
-    i = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
-    onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
+  var i = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE
+  let onePastEndIdx = min(syncCommittee.len, i + SYNC_SUBCOMMITTEE_SIZE)
 
   while i < onePastEndIdx:
     yield (syncCommittee[i], i)
@@ -1072,7 +1090,7 @@ func syncCommitteeParticipants*(dag: ChainDAGRef,
         period = sync_committee_period(slot)
         curPeriod = sync_committee_period(state.data.slot)
 
-      if period  == curPeriod:
+      if period == curPeriod:
         @(dag.headSyncCommittees.current_sync_committee)
       elif period == curPeriod + 1:
         @(dag.headSyncCommittees.next_sync_committee)
@@ -1085,19 +1103,17 @@ func getSubcommitteePositionsAux(
     syncCommittee: openArray[ValidatorIndex],
     subcommitteeIdx: SyncSubcommitteeIndex,
     validatorIdx: uint64): seq[uint64] =
-  let validatorKey = dag.validatorKey(validatorIdx)
-  if validatorKey.isNone():
-    return @[]
-  let validatorPubKey = validatorKey.get().toPubKey
+  var pos = 0'u64
+  for valIdx in syncCommittee.syncSubcommittee(subcommitteeIdx):
+    if validatorIdx == uint64(valIdx):
+      result.add pos
+    inc pos
 
-  for pos, key in toSeq(syncCommittee.syncSubcommittee(subcommitteeIdx)):
-    if validatorIdx == uint64(key):
-      result.add uint64(pos)
-
-func getSubcommitteePositions*(dag: ChainDAGRef,
-                               slot: Slot,
-                               subcommitteeIdx: SyncSubcommitteeIndex,
-                               validatorIdx: uint64): seq[uint64] =
+func getSubcommitteePositions*(
+    dag: ChainDAGRef,
+    slot: Slot,
+    subcommitteeIdx: SyncSubcommitteeIndex,
+    validatorIdx: uint64): seq[uint64] =
   withState(dag.headState.data):
     when stateFork >= BeaconStateFork.Altair:
       let
@@ -1127,7 +1143,7 @@ iterator syncCommitteeParticipants*(
     slot: Slot,
     subcommitteeIdx: SyncSubcommitteeIndex,
     aggregationBits: SyncCommitteeAggregationBits): ValidatorIndex =
-  for pos, valIdx in pairs(dag.syncCommitteeParticipants(slot, subcommitteeIdx)):
+  for pos, valIdx in dag.syncCommitteeParticipants(slot, subcommitteeIdx):
     if pos < aggregationBits.bits and aggregationBits[pos]:
       yield valIdx
 
@@ -1180,7 +1196,7 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
 proc updateHead*(
       dag: ChainDAGRef,
       newHead: BlockRef,
-      quarantine: QuarantineRef) =
+      quarantine: var Quarantine) =
   ## Update what we consider to be the current head, as given by the fork
   ## choice.
   ##
@@ -1318,7 +1334,17 @@ proc updateHead*(
       finalized = shortLog(getStateField(
         dag.headState.data, finalized_checkpoint))
 
-    dag.finalizedHead = finalizedHead
+    block:
+      # Update `dag.finalizedBlocks` with all newly finalized blocks (those
+      # newer than the previous finalized head), then update `dag.finalizedHead`
+
+      dag.finalizedBlocks.setLen(finalizedHead.slot.int + 1)
+      var tmp = finalizedHead.blck
+      while not isNil(tmp) and tmp.slot >= dag.finalizedHead.slot:
+        dag.finalizedBlocks[tmp.slot.int] = tmp
+        tmp = tmp.parent
+
+      dag.finalizedHead = finalizedHead
 
     beacon_finalized_epoch.set(getStateField(
       dag.headState.data, finalized_checkpoint).epoch.toGaugeValue)

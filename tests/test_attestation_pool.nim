@@ -60,7 +60,8 @@ suite "Attestation pool processing" & preset():
     var
       dag = init(ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 6), {})
       taskpool = Taskpool.new()
-      quarantine = QuarantineRef.init(keys.newRng(), taskpool)
+      verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+      quarantine = newClone(Quarantine.init())
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()
@@ -381,7 +382,7 @@ suite "Attestation pool processing" & preset():
     var cache = StateCache()
     let
       b1 = addTestBlock(state.data, cache).phase0Data
-      b1Add = dag.addRawBlock(quarantine, b1) do (
+      b1Add = dag.addRawBlock(verifier, b1) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
@@ -394,7 +395,7 @@ suite "Attestation pool processing" & preset():
 
     let
       b2 = addTestBlock(state.data, cache).phase0Data
-      b2Add = dag.addRawBlock(quarantine, b2) do (
+      b2Add = dag.addRawBlock(verifier, b2) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
@@ -409,7 +410,7 @@ suite "Attestation pool processing" & preset():
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, cache).phase0Data
-      b10Add = dag.addRawBlock(quarantine, b10) do (
+      b10Add = dag.addRawBlock(verifier, b10) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
@@ -424,7 +425,7 @@ suite "Attestation pool processing" & preset():
       b11 = makeTestBlock(state.data, cache,
         graffiti = GraffitiBytes [1'u8, 0, 0, 0 ,0 ,0 ,0 ,0 ,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
       ).phase0Data
-      b11Add = dag.addRawBlock(quarantine, b11) do (
+      b11Add = dag.addRawBlock(verifier, b11) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
@@ -470,7 +471,7 @@ suite "Attestation pool processing" & preset():
     var cache = StateCache()
     let
       b10 = makeTestBlock(state.data, cache).phase0Data
-      b10Add = dag.addRawBlock(quarantine, b10) do (
+      b10Add = dag.addRawBlock(verifier, b10) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
@@ -484,13 +485,13 @@ suite "Attestation pool processing" & preset():
     # -------------------------------------------------------------
     # Add back the old block to ensure we have a duplicate error
     let b10_clone = b10 # Assumes deep copy
-    let b10Add_clone = dag.addRawBlock(quarantine, b10_clone) do (
+    let b10Add_clone = dag.addRawBlock(verifier, b10_clone) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
-    doAssert: b10Add_clone.error == (ValidationResult.Ignore, Duplicate)
+    doAssert: b10Add_clone.error == BlockError.Duplicate
 
   test "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
     # Note: very sensitive to stack usage
@@ -499,7 +500,7 @@ suite "Attestation pool processing" & preset():
     var cache = StateCache()
     let
       b10 = addTestBlock(state.data, cache).phase0Data
-      b10Add = dag.addRawBlock(quarantine, b10) do (
+      b10Add = dag.addRawBlock(verifier, b10) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
@@ -524,7 +525,7 @@ suite "Attestation pool processing" & preset():
         let new_block = addTestBlock(
           state.data, cache, attestations = attestations).phase0Data
 
-        let blockRef = dag.addRawBlock(quarantine, new_block) do (
+        let blockRef = dag.addRawBlock(verifier, new_block) do (
             blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
             epochRef: EpochRef):
           # Callback add to fork choice if valid
@@ -532,7 +533,7 @@ suite "Attestation pool processing" & preset():
 
         let head = pool[].selectHead(blockRef[].slot)
         doAssert: head == blockRef[]
-        dag.updateHead(head, quarantine)
+        dag.updateHead(head, quarantine[])
         pruneAtFinalization(dag, pool[])
 
         attestations.setlen(0)
@@ -566,10 +567,10 @@ suite "Attestation pool processing" & preset():
     doAssert: b10.root notin pool.forkChoice.backend
 
     # Add back the old block to ensure we have a duplicate error
-    let b10Add_clone = dag.addRawBlock(quarantine, b10_clone) do (
+    let b10Add_clone = dag.addRawBlock(verifier, b10_clone) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
 
-    doAssert: b10Add_clone.error == (ValidationResult.Ignore, Duplicate)
+    doAssert: b10Add_clone.error == BlockError.Duplicate

@@ -203,16 +203,16 @@ template init*(T: type ForkedEpochInfo, info: altair.EpochInfo): T =
 template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
   case x.kind
   of BeaconStateFork.Merge:
-    const stateFork {.inject.} = BeaconStateFork.Merge
-    template state: untyped {.inject.} = x.mergeData
+    const stateFork {.inject, used.} = BeaconStateFork.Merge
+    template state: untyped {.inject, used.} = x.mergeData
     body
   of BeaconStateFork.Altair:
-    const stateFork {.inject.} = BeaconStateFork.Altair
-    template state: untyped {.inject.} = x.altairData
+    const stateFork {.inject, used.} = BeaconStateFork.Altair
+    template state: untyped {.inject, used.} = x.altairData
     body
   of BeaconStateFork.Phase0:
-    const stateFork {.inject.} = BeaconStateFork.Phase0
-    template state: untyped {.inject.} = x.phase0Data
+    const stateFork {.inject, used.} = BeaconStateFork.Phase0
+    template state: untyped {.inject, used.} = x.phase0Data
     body
 
 template withEpochInfo*(x: ForkedEpochInfo, body: untyped): untyped =
@@ -297,15 +297,15 @@ template withBlck*(
     body: untyped): untyped =
   case x.kind
   of BeaconBlockFork.Phase0:
-    const stateFork {.inject.} = BeaconStateFork.Phase0
+    const stateFork {.inject, used.} = BeaconStateFork.Phase0
     template blck: untyped {.inject.} = x.phase0Data
     body
   of BeaconBlockFork.Altair:
-    const stateFork {.inject.} = BeaconStateFork.Altair
+    const stateFork {.inject, used.} = BeaconStateFork.Altair
     template blck: untyped {.inject.} = x.altairData
     body
   of BeaconBlockFork.Merge:
-    const stateFork {.inject.} = BeaconStateFork.Merge
+    const stateFork {.inject, used.} = BeaconStateFork.Merge
     template blck: untyped {.inject.} = x.mergeData
     body
 
@@ -471,7 +471,7 @@ func toBeaconBlockFork*(fork: BeaconStateFork): BeaconBlockFork =
   of BeaconStateFork.Altair: BeaconBlockFork.Altair
   of BeaconStateFork.Merge: BeaconBlockFork.Merge
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#compute_fork_data_root
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: Eth2Digest): Eth2Digest =
   ## Return the 32-byte fork data root for the ``current_version`` and
@@ -483,7 +483,7 @@ func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: genesis_validators_root
   ))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#compute_fork_digest
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#compute_fork_digest
 func compute_fork_digest*(current_version: Version,
                           genesis_validators_root: Eth2Digest): ForkDigest =
   ## Return the 4-byte fork digest for the ``current_version`` and

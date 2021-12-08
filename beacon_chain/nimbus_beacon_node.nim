@@ -299,7 +299,7 @@ proc init*(T: type BeaconNode,
                      else: {}
     dag = ChainDAGRef.init(cfg, db, chainDagFlags, onBlockAdded, onHeadChanged,
                            onChainReorg, onFinalization)
-    quarantine = QuarantineRef.init(rng, taskpool)
+    quarantine = newClone(Quarantine.init())
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState.data, genesis_validators_root)
 
@@ -405,7 +405,7 @@ proc init*(T: type BeaconNode,
     )
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      consensusManager, getBeaconTime)
+      rng, taskpool, consensusManager, getBeaconTime)
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, dag, attestationPool, exitPool, validatorPool,
@@ -440,20 +440,10 @@ proc init*(T: type BeaconNode,
     consensusManager: consensusManager,
     gossipState: GossipState.Disconnected,
     beaconClock: beaconClock,
-    taskpool: taskpool,
     onAttestationSent: onAttestationSent,
   )
 
-  if node.config.inProcessValidators:
-    node.addLocalValidators()
-  else:
-    let cmd = getAppDir() / "nimbus_signing_process".addFileExt(ExeExt)
-    let args = [$node.config.validatorsDir, $node.config.secretsDir]
-    let workdir = io2.getCurrentDir().tryGet()
-    node.vcProcess = try: startProcess(cmd, workdir, args)
-    except CatchableError as exc: raise exc
-    except Exception as exc: raiseAssert exc.msg
-    node.addRemoteValidators()
+  node.addValidators()
 
   block:
     # Add in-process validators to the list of "known" validators such that
@@ -496,7 +486,7 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
 func subnetLog(v: BitArray): string =
   $toSeq(v.oneIndices())
 
-# https://github.com/ethereum/eth2.0-specs/blob/v1.1.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   if node.gossipState == GossipState.Disconnected:
     # When disconnected, updateGossipState is responsible for all things
@@ -949,7 +939,7 @@ proc onSlotStart(
   await onSlotEnd(node, wallSlot)
 
 proc handleMissingBlocks(node: BeaconNode) =
-  let missingBlocks = node.quarantine.checkMissing()
+  let missingBlocks = node.quarantine[].checkMissing()
   if missingBlocks.len > 0:
     debug "Requesting detected missing blocks", blocks = shortLog(missingBlocks)
     node.requestManager.fetchAncestorBlocks(missingBlocks)
@@ -998,7 +988,7 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
     restServer.router.installValidatorManagementHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =
-  # https://github.com/ethereum/eth2.0-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
   func toValidationResult(res: ValidationRes): ValidationResult =

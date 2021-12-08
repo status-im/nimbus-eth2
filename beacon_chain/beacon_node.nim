@@ -12,7 +12,6 @@ import
 
   # Nimble packages
   chronos, json_rpc/servers/httpserver, presto,
-  taskpools,
 
   # Local modules
   "."/[beacon_clock, beacon_chain_db, conf],
@@ -34,7 +33,6 @@ export
 
 type
   RpcServer* = RpcHttpServer
-  TaskPoolPtr* = TaskPool
 
   GossipState* = enum
     Disconnected
@@ -51,7 +49,7 @@ type
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
     dag*: ChainDAGRef
-    quarantine*: QuarantineRef
+    quarantine*: ref Quarantine
     attestationPool*: ref AttestationPool
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     exitPool*: ref ExitPool
@@ -70,7 +68,6 @@ type
     attachedValidatorBalanceTotal*: uint64
     gossipState*: GossipState
     beaconClock*: BeaconClock
-    taskpool*: TaskPoolPtr
     onAttestationSent*: OnAttestationCallback
     restKeysCache*: Table[ValidatorPubKey, ValidatorIndex]
 

@@ -11,6 +11,8 @@ import
   # Status lib
   blscurve,
   stew/[byteutils, results],
+  taskpools,
+  bearssl,
   # Internal
   "."/[helpers, beaconstate, forks],
   "."/datatypes/[altair, merge, phase0]
@@ -18,7 +20,18 @@ import
 # Otherwise, error.
 import chronicles
 
-export altair, phase0
+export altair, phase0, taskpools, bearssl
+
+type
+  TaskPoolPtr* = TaskPool
+
+  BatchVerifier* = object
+    sigVerifCache*: BatchedBLSVerifierCache ##\
+    ## A cache for batch BLS signature verification contexts
+    rng*: ref BrHmacDrbgContext  ##\
+    ## A reference to the Nimbus application-wide RNG
+
+    taskpool*: TaskPoolPtr
 
 func `$`*(s: SignatureSet): string =
   "(pubkey: 0x" & s.pubkey.toHex() &
@@ -75,7 +88,7 @@ proc aggregateAttesters(
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
     # Eth2 spec requires at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
   let
@@ -282,7 +295,7 @@ proc collectSignatureSets*(
   # ----------------------------------------------------
   sigs.addSignatureSet(
           proposer_key.get(),
-          signed_block.message,
+          signed_block.root,
           signed_block.signature.loadOrExit(
             "collectSignatureSets: cannot load signature"),
           getStateField(state, fork),
@@ -459,3 +472,11 @@ proc collectSignatureSets*(
             DOMAIN_SYNC_COMMITTEE)
 
   ok()
+
+proc batchVerify*(verifier: var BatchVerifier, sigs: openArray[SignatureSet]): bool =
+  var bytes: array[32, byte]
+  verifier.rng[].brHmacDrbgGenerate(bytes)
+  try:
+    verifier.taskpool.batchVerify(verifier.sigVerifCache, sigs, bytes)
+  except Exception as exc:
+    raiseAssert exc.msg # Shouldn't happen
