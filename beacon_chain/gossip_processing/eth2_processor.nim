@@ -12,7 +12,7 @@ import
   stew/results, bearssl,
   chronicles, chronos, metrics, taskpools,
   ../spec/[helpers, forks],
-  ../spec/datatypes/[altair, phase0],
+  ../spec/datatypes/[altair, merge, phase0],
   ../consensus_object_pools/[
     block_clearance, block_quarantine, blockchain_dag, exit_pool, attestation_pool,
     sync_committee_msg_pool],
@@ -172,7 +172,8 @@ proc new*(T: type Eth2Processor,
 
 proc blockValidator*(
     self: var Eth2Processor,
-    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock): ValidationRes =
+    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                 merge.SignedBeaconBlock): ValidationRes =
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot()

@@ -355,7 +355,7 @@ proc addBlock*(chain: var Eth1Chain, newBlock: Eth1Block) =
   chain.blocksByHash[newBlock.voteData.block_hash.asBlockHash] = newBlock
   eth1_chain_len.set chain.blocks.len.int64
 
-func hash(x: Eth1Data): Hash =
+func hash*(x: Eth1Data): Hash =
   hash(x.block_hash)
 
 template awaitWithRetries*[T](lazyFutExpr: Future[T],

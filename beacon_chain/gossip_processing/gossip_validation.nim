@@ -12,7 +12,7 @@ import
   chronicles, chronos, metrics,
   stew/results,
   # Internals
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0, altair, merge],
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],
   ../consensus_object_pools/[
@@ -141,10 +141,9 @@ func check_attestation_subnet(
     epochRef: EpochRef, attestation: Attestation,
     subnet_id: SubnetId): Result[void, ValidationError] =
   let
-    expectedSubnet =
-      compute_subnet_for_attestation(
-        get_committee_count_per_slot(epochRef),
-        attestation.data.slot, attestation.data.index.CommitteeIndex)
+    expectedSubnet = compute_subnet_for_attestation(
+      get_committee_count_per_slot(epochRef),
+      attestation.data.slot, attestation.data.index.CommitteeIndex)
 
   if expectedSubnet != subnet_id:
     return errReject("Attestation not on the correct subnet")
@@ -171,10 +170,59 @@ template checkedReject(error: ValidationError): untyped =
     raiseAssert $error[1]
   err(error)
 
+template validateBeaconBlockMerge(
+       signed_beacon_block: phase0.SignedBeaconBlock |
+                            altair.SignedBeaconBlock): untyped =
+  discard
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/p2p-interface.md#beacon_block
+template validateBeaconBlockMerge(
+       signed_beacon_block: merge.SignedBeaconBlock): untyped =
+  # If the execution is enabled for the block -- i.e.
+  # is_execution_enabled(state, block.body) then validate the following:
+  let executionEnabled =
+    if signed_beacon_block.message.body.execution_payload !=
+        default(ExecutionPayload):
+      true
+    elif dag.getEpochRef(parent_ref, parent_ref.slot.epoch).merge_transition_complete:
+      # Should usually be inexpensive, but could require cache refilling
+      true
+    else:
+      # Somewhat more expensive fallback, with database I/O, but should be
+      # mostly relevant around merge transition epochs. It's possible that
+      # the previous block is phase 0 or Altair, if this is the transition
+      # block itself.
+      let blockData = dag.get(parent_ref)
+      case blockData.data.kind:
+      of BeaconBlockFork.Phase0:
+        false
+      of BeaconBlockFork.Altair:
+        false
+      of BeaconBlockFork.Merge:
+        # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#process_execution_payload
+        # shows how this gets folded into the state each block; checking this
+        # is equivalent, without ever requiring state replay or any similarly
+        # expensive computation.
+        blockData.data.mergeData.message.body.execution_payload !=
+          default(ExecutionPayload)
+
+  if executionEnabled:
+    # [REJECT] The block's execution payload timestamp is correct with respect
+    # to the slot -- i.e. execution_payload.timestamp ==
+    # compute_timestamp_at_slot(state, block.slot).
+    let timestampAtSlot =
+      withState(dag.headState.data):
+        compute_timestamp_at_slot(state.data, signed_beacon_block.message.slot)
+    if not (signed_beacon_block.message.body.execution_payload.timestamp ==
+        timestampAtSlot):
+      return errReject("BeaconBlock: Mismatched execution payload timestamp")
+
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                         merge.SignedBeaconBlock,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an
@@ -295,6 +343,8 @@ proc validateBeaconBlock*(
       dag.validatorKey(proposer.get()).get(),
       signed_beacon_block.signature):
     return errReject("Invalid proposer signature")
+
+  validateBeaconBlockMerge(signed_beacon_block)
 
   ok()
 
