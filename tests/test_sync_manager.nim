@@ -276,9 +276,9 @@ suite "SyncManager test suite":
       validatorFut =
         case kkind
         of SyncQueueKind.Forward:
-          forwardValidator(aq[].blocksQueue)
+          forwardValidator(aq[].blockQueue)
         of SyncQueueKind.Backward:
-          backwardValidator(aq[].blocksQueue)
+          backwardValidator(aq[].blockQueue)
 
     let p1 = SomeTPeer()
 
@@ -347,9 +347,9 @@ suite "SyncManager test suite":
       validatorFut =
         case kkind
         of SyncQueueKind.Forward:
-          forwardValidator(aq[].blocksQueue)
+          forwardValidator(aq[].blockQueue)
         of SyncQueueKind.Backward:
-          backwardValidator(aq[].blocksQueue)
+          backwardValidator(aq[].blockQueue)
 
     let
       p1 = SomeTPeer()
@@ -453,7 +453,7 @@ suite "SyncManager test suite":
                              startSlot, finishSlot, chunkSize,
                              getFirstSlotAtFinalizedEpoch, aq,
                              queueSize)
-      validatorFut = forwardValidator(aq[].blocksQueue)
+      validatorFut = forwardValidator(aq[].blockQueue)
 
     let
       p1 = SomeTPeer()
@@ -572,7 +572,7 @@ suite "SyncManager test suite":
       queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
                              finishSlot, startSlot, chunkSize,
                              getSafeSlot, aq, queueSize)
-      validatorFut = backwardValidator(aq[].blocksQueue)
+      validatorFut = backwardValidator(aq[].blockQueue)
 
     let
       p1 = SomeTPeer()

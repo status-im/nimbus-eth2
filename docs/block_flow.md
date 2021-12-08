@@ -94,7 +94,7 @@ How the various modules interact with block is described in a diagram:
 ![./block_flow.png](./block_flow.png)
 
 It is important to note that 3 data structures are sharing the same `AsyncQueue[BlockEntry]`:
-- Eth2Processor.blocksQueue
+- Eth2Processor.blockQueue
 - SyncManager.outQueue
 - RequestManager.outQueue
 

@@ -298,22 +298,26 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## SyncManager test suite
 ```diff
-+ [SyncQueue] Async pending and resetWait() test                                             OK
-+ [SyncQueue] Async unordered push start from zero                                           OK
-+ [SyncQueue] Async unordered push with not full start from non-zero                         OK
-+ [SyncQueue] Full and incomplete success/fail start from non-zero                           OK
-+ [SyncQueue] Full and incomplete success/fail start from zero                               OK
-+ [SyncQueue] One smart and one stupid + debt split + empty                                  OK
-+ [SyncQueue] Smart and stupid success/fail                                                  OK
-+ [SyncQueue] Start and finish slots equal                                                   OK
-+ [SyncQueue] Two full requests success/fail                                                 OK
++ [SyncQueue#Backward] Async unordered push test                                             OK
++ [SyncQueue#Backward] Async unordered push with rewind test                                 OK
++ [SyncQueue#Backward] Pass through established limits test                                  OK
++ [SyncQueue#Backward] Smoke test                                                            OK
++ [SyncQueue#Backward] Start and finish slots equal                                          OK
++ [SyncQueue#Backward] Two full requests success/fail                                        OK
++ [SyncQueue#Backward] getRewindPoint() test                                                 OK
++ [SyncQueue#Forward] Async unordered push test                                              OK
++ [SyncQueue#Forward] Async unordered push with rewind test                                  OK
++ [SyncQueue#Forward] Pass through established limits test                                   OK
++ [SyncQueue#Forward] Smoke test                                                             OK
++ [SyncQueue#Forward] Start and finish slots equal                                           OK
++ [SyncQueue#Forward] Two full requests success/fail                                         OK
++ [SyncQueue#Forward] getRewindPoint() test                                                  OK
 + [SyncQueue] checkResponse() test                                                           OK
 + [SyncQueue] contains() test                                                                OK
 + [SyncQueue] getLastNonEmptySlot() test                                                     OK
-+ [SyncQueue] getRewindPoint() test                                                          OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
+OK: 18/18 Fail: 0/18 Skip: 0/18
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
@@ -373,4 +377,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 205/207 Fail: 0/207 Skip: 2/207
+OK: 209/211 Fail: 0/211 Skip: 2/211
