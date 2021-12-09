@@ -55,7 +55,7 @@ func build_empty_execution_payload(state: merge.BeaconState): ExecutionPayload =
   var payload = ExecutionPayload(
     parent_hash: latest.block_hash,
     state_root: latest.state_root, # no changes to the state
-    receipt_root: Eth2Digest(data: cast[array[32, uint8]](
+    receipts_root: Eth2Digest(data: cast[array[32, uint8]](
       "no receipts here\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0")),
     block_number: latest.block_number + 1,
     random: randao_mix,

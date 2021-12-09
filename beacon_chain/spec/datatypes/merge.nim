@@ -44,9 +44,9 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
-    coinbase*: ExecutionAddress  # 'beneficiary' in the yellow paper
+    feeRecipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
     state_root*: Eth2Digest
-    receipt_root*: Eth2Digest # 'receipts root' in the yellow paper
+    receipts_root*: Eth2Digest # 'receipts root' in the yellow paper
     logs_bloom*: BloomLogs
     random*: Eth2Digest  # 'difficulty' in the yellow paper
     block_number*: uint64  # 'number' in the yellow paper
@@ -63,9 +63,9 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     parent_hash*: Eth2Digest
-    coinbase*: ExecutionAddress
+    feeRecipient*: ExecutionAddress
     state_root*: Eth2Digest
-    receipt_root*: Eth2Digest
+    receipts_root*: Eth2Digest
     logs_bloom*: BloomLogs
     random*: Eth2Digest
     block_number*: uint64
