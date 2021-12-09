@@ -54,7 +54,7 @@ proc mockAttestationData(
     epoch: target_epoch, root: epoch_boundary_root
   )
 
-proc signMockAttestation*(state: phase0.BeaconState, attestation: var Attestation) =
+proc signMockAttestation(state: phase0.BeaconState, attestation: var Attestation) =
   var cache = StateCache()
 
   var agg {.noInit.}: AggregateSignature

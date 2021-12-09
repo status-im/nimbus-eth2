@@ -73,18 +73,8 @@ suite "[Unit - Spec - Block processing] Attestations " & preset():
     getStateField(state[], slot) = Slot(SLOTS_PER_EPOCH - 1)
     nextEpoch(state[])
 
-  # TODO: regression BLS V0.10.1
-  echo "[Skipping] \"Empty aggregation bit\""
-
-  # valid_attestation("Empty aggregation bit"):
-  #   var attestation = mockAttestation(state)
-  #   state.data.slot += MIN_ATTESTATION_INCLUSION_DELAY
-
-  #   # Overwrite committee
-  #   attestation.aggregation_bits = init(CommitteeValidatorsBits, attestation.aggregation_bits.len)
-  #   signMockAttestation(state, attestation)
-
 # TODO - invalid attestations
+# - Empty aggregation bit
 # - Wrong end epoch
 # - Invalid signature
 # - Before inclusion delay
