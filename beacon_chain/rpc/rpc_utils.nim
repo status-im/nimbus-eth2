@@ -38,9 +38,6 @@ template withStateForStateId*(stateId: string, body: untyped): untyped =
     node.dag.withState(rpcState[], bs):
       body
 
-proc toBlockSlot*(blckRef: BlockRef): BlockSlot =
-  blckRef.atSlot(blckRef.slot)
-
 proc parseRoot*(str: string): Eth2Digest {.raises: [Defect, ValueError].} =
   Eth2Digest(data: hexToByteArray[32](str))
 
@@ -74,9 +71,9 @@ proc getBlockSlotFromString*(node: BeaconNode, slot: string): BlockSlot {.raises
 proc stateIdToBlockSlot*(node: BeaconNode, stateId: string): BlockSlot {.raises: [Defect, CatchableError].} =
   case stateId:
   of "head":
-    node.dag.head.toBlockSlot()
+    node.dag.head.atSlot()
   of "genesis":
-    node.dag.getGenesisBlockSlot()
+    node.dag.genesis.atSlot()
   of "finalized":
     node.dag.finalizedHead
   of "justified":
@@ -84,10 +81,12 @@ proc stateIdToBlockSlot*(node: BeaconNode, stateId: string): BlockSlot {.raises:
       getStateField(node.dag.headState.data, current_justified_checkpoint).epoch)
   else:
     if stateId.startsWith("0x"):
-      let blckRoot = parseRoot(stateId)
-      let blckRef = node.dag.getRef(blckRoot)
-      if blckRef.isNil:
-        raise newException(CatchableError, "Block not found")
-      blckRef.toBlockSlot()
-    else:
+      let stateRoot = parseRoot(stateId)
+      if stateRoot == getStateRoot(node.dag.headState.data):
+        node.dag.headState.blck.atSlot()
+      else:
+        # We don't have a state root -> BlockSlot mapping
+        raise (ref ValueError)(msg: "State not found")
+
+    else: # Parse as slot number
       node.getBlockSlotFromString(stateId)

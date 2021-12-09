@@ -19,8 +19,7 @@ import
     attestation_pool, blockchain_dag, block_quarantine, block_clearance],
   ./testutil, ./testdbutil, ./testblockutil
 
-func `$`(x: BlockRef): string =
-  $x.root
+func `$`(x: BlockRef): string = shortLog(x)
 
 const
   nilPhase0Callback = OnPhase0BlockAdded(nil)
@@ -30,76 +29,22 @@ proc pruneAtFinalization(dag: ChainDAGRef) =
   if dag.needStateCachesAndForkChoicePruning():
     dag.pruneStateCachesDAG()
 
-suite "BlockRef and helpers" & preset():
-  test "isAncestorOf sanity" & preset():
+suite "ChainDAG helpers":
+  test "epochAncestor sanity" & preset():
     let
-      s0 = BlockRef(slot: Slot(0))
-      s1 = BlockRef(slot: Slot(1), parent: s0)
-      s2 = BlockRef(slot: Slot(2), parent: s1)
+      s0 = BlockRef(bid: BlockId(slot: Slot(0)))
+    var cur = s0
+    for i in 1..SLOTS_PER_EPOCH * 2:
+      cur = BlockRef(bid: BlockId(slot: Slot(i)), parent: cur)
+
+    let ancestor = cur.epochAncestor(cur.slot.epoch)
 
     check:
-      s0.isAncestorOf(s0)
-      s0.isAncestorOf(s1)
-      s0.isAncestorOf(s2)
-      s1.isAncestorOf(s1)
-      s1.isAncestorOf(s2)
+      ancestor.epoch == cur.slot.epoch
+      ancestor.blck != cur # should have selected a parent
 
-      not s2.isAncestorOf(s0)
-      not s2.isAncestorOf(s1)
-      not s1.isAncestorOf(s0)
-
-  test "get_ancestor sanity" & preset():
-    let
-      s0 = BlockRef(slot: Slot(0))
-      s1 = BlockRef(slot: Slot(1), parent: s0)
-      s2 = BlockRef(slot: Slot(2), parent: s1)
-      s4 = BlockRef(slot: Slot(4), parent: s2)
-
-    check:
-      s0.get_ancestor(Slot(0)) == s0
-      s0.get_ancestor(Slot(1)) == s0
-
-      s1.get_ancestor(Slot(0)) == s0
-      s1.get_ancestor(Slot(1)) == s1
-
-      s4.get_ancestor(Slot(0)) == s0
-      s4.get_ancestor(Slot(1)) == s1
-      s4.get_ancestor(Slot(2)) == s2
-      s4.get_ancestor(Slot(3)) == s2
-      s4.get_ancestor(Slot(4)) == s4
-
-suite "BlockSlot and helpers" & preset():
-  test "atSlot sanity" & preset():
-    let
-      s0 = BlockRef(slot: Slot(0))
-      s1 = BlockRef(slot: Slot(1), parent: s0)
-      s2 = BlockRef(slot: Slot(2), parent: s1)
-      s4 = BlockRef(slot: Slot(4), parent: s2)
-
-    check:
-      s0.atSlot(Slot(0)).blck == s0
-      s0.atSlot(Slot(0)) == s1.atSlot(Slot(0))
-      s1.atSlot(Slot(1)).blck == s1
-
-      s4.atSlot(Slot(0)).blck == s0
-
-  test "parent sanity" & preset():
-    let
-      s0 = BlockRef(slot: Slot(0))
-      s00 = BlockSlot(blck: s0, slot: Slot(0))
-      s01 = BlockSlot(blck: s0, slot: Slot(1))
-      s2 = BlockRef(slot: Slot(2), parent: s0)
-      s22 = BlockSlot(blck: s2, slot: Slot(2))
-      s24 = BlockSlot(blck: s2, slot: Slot(4))
-
-    check:
-      s00.parent == BlockSlot(blck: nil, slot: Slot(0))
-      s01.parent == s00
-      s01.parentOrSlot == s00
-      s22.parent == s01
-      s22.parentOrSlot == BlockSlot(blck: s0, slot: Slot(2))
-      s24.parent == BlockSlot(blck: s2, slot: Slot(3))
-      s24.parent.parent == s22
+      ancestor.blck.epochAncestor(cur.slot.epoch) == ancestor
+      ancestor.blck.epochAncestor(ancestor.blck.slot.epoch) != ancestor
 
 suite "Block pool processing" & preset():
   setup:
@@ -601,11 +546,8 @@ suite "Diverging hardforks":
       dag = init(ChainDAGRef, phase0RuntimeConfig, db, {})
       verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
       quarantine = newClone(Quarantine.init())
-      nilPhase0Callback: OnPhase0BlockAdded
-      state = newClone(dag.headState.data)
       cache = StateCache()
       info = ForkedEpochInfo()
-      blck = makeTestBlock(dag.headState.data, cache)
       tmpState = assignClone(dag.headState.data)
 
   test "Tail block only in common":

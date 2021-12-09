@@ -161,7 +161,7 @@ proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData {.
     of "head":
       node.dag.get(node.dag.head)
     of "genesis":
-      node.dag.getGenesisBlockData()
+      node.dag.get(node.dag.genesis)
     of "finalized":
       node.dag.get(node.dag.finalizedHead.blck)
     else:

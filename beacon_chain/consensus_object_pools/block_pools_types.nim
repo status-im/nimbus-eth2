@@ -9,15 +9,16 @@
 
 import
   # Standard library
-  std/[sets, tables, hashes],
+  std/[options, sets, tables, hashes],
   # Status libraries
   stew/endians2, chronicles,
   # Internals
-  ../spec/[signatures_batch, forks],
+  ../spec/[signatures_batch, forks, helpers],
   ../spec/datatypes/[phase0, altair, merge],
-  ".."/beacon_chain_db
+  ".."/beacon_chain_db,
+  ./block_dag
 
-export sets, tables
+export options, sets, tables, hashes, helpers, beacon_chain_db, block_dag
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
 # relationships and allowing various forms of lookups
@@ -184,19 +185,6 @@ type
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
 
-  BlockRef* = ref object
-    ## Node in object graph guaranteed to lead back to tail block, and to have
-    ## a corresponding entry in database.
-    ## Block graph should form a tree - in particular, there are no cycles.
-
-    root*: Eth2Digest ##\
-    ## Root that can be used to retrieve block data from database
-
-    parent*: BlockRef ##\
-    ## Not nil, except for the tail
-
-    slot*: Slot # could calculate this by walking to root, but..
-
   BlockData* = object
     ## Body and graph in one
 
@@ -208,16 +196,6 @@ type
 
     blck*: BlockRef ##\
     ## The block associated with the state found in data
-
-  BlockSlot* = object
-    ## Unique identifier for a particular fork and time in the block chain -
-    ## normally, there's a block for every slot, but in the case a block is not
-    ## produced, the chain progresses anyway, producing a new state for every
-    ## slot.
-    blck*: BlockRef
-    slot*: Slot ##\
-      ## Slot time for this BlockSlot which may differ from blck.slot when time
-      ## has advanced without blocks
 
   OnPhase0BlockAdded* = proc(
     blckRef: BlockRef,
@@ -259,22 +237,6 @@ template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 
 template epoch*(e: EpochRef): Epoch = e.key.epoch
 
-func shortLog*(v: BlockRef): string =
-  # epoch:root when logging epoch, root:slot when logging slot!
-  if v.isNil():
-    "nil:0"
-  else:
-    shortLog(v.root) & ":" & $v.slot
-
-func shortLog*(v: BlockSlot): string =
-  # epoch:root when logging epoch, root:slot when logging slot!
-  if v.blck.isNil():
-    "nil:0@" & $v.slot
-  elif v.blck.slot == v.slot:
-    shortLog(v.blck)
-  else: # There was a gap - log it
-    shortLog(v.blck) & "@" & $v.slot
-
 func shortLog*(v: EpochKey): string =
   # epoch:root when logging epoch, root:slot when logging slot!
   $v.epoch & ":" & shortLog(v.blck)
@@ -286,8 +248,6 @@ func shortLog*(v: EpochRef): string =
   else:
     shortLog(v.key)
 
-chronicles.formatIt BlockSlot: shortLog(it)
-chronicles.formatIt BlockRef: shortLog(it)
 chronicles.formatIt EpochKey: shortLog(it)
 chronicles.formatIt EpochRef: shortLog(it)
 
@@ -299,7 +259,7 @@ func `==`*(a, b: KeyedBlockRef): bool =
 
 func asLookupKey*(T: type KeyedBlockRef, root: Eth2Digest): KeyedBlockRef =
   # Create a special, temporary BlockRef instance that just has the key set
-  KeyedBlockRef(data: BlockRef(root: root))
+  KeyedBlockRef(data: BlockRef(bid: BlockId(root: root)))
 
 func init*(T: type KeyedBlockRef, blck: BlockRef): KeyedBlockRef =
   KeyedBlockRef(data: blck)
@@ -340,3 +300,4 @@ func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
     state_root: stateRoot,
     epoch: epoch
   )
+

@@ -90,18 +90,29 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + Reverse order block add & get [Preset: mainnet]                                            OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## BlockRef and helpers [Preset: mainnet]
+## BlockId and helpers
 ```diff
-+ get_ancestor sanity [Preset: mainnet]                                                      OK
-+ isAncestorOf sanity [Preset: mainnet]                                                      OK
++ atSlot sanity                                                                              OK
++ parent sanity                                                                              OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## BlockSlot and helpers [Preset: mainnet]
+## BlockRef and helpers
 ```diff
-+ atSlot sanity [Preset: mainnet]                                                            OK
-+ parent sanity [Preset: mainnet]                                                            OK
++ get_ancestor sanity                                                                        OK
++ isAncestorOf sanity                                                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## BlockSlot and helpers
+```diff
++ atSlot sanity                                                                              OK
++ parent sanity                                                                              OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
+## ChainDAG helpers
+```diff
++ epochAncestor sanity [Preset: mainnet]                                                     OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Diverging hardforks
 ```diff
 + Non-tail block in common                                                                   OK
@@ -377,4 +388,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 209/211 Fail: 0/211 Skip: 2/211
+OK: 212/214 Fail: 0/214 Skip: 2/214
