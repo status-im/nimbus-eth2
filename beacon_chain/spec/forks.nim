@@ -450,13 +450,12 @@ func readSszForkedTrustedSignedBeaconBlock*(
     ForkedTrustedSignedBeaconBlock {.raises: [Defect, SszError].} =
   ## Helper to read a header from bytes when it's not certain what kind of block
   ## it is
-
-  if data.len() < sizeof(BeaconBlockHeader):
+  if data.len() < sizeof(ForkedBeaconBlockHeader):
     raise (ref MalformedSszError)(msg: "Not enough data for SignedBeaconBlock header")
-
   let header = SSZ.decode(
     data.toOpenArray(0, sizeof(ForkedBeaconBlockHeader) - 1),
     ForkedBeaconBlockHeader)
+
   # careful - `result` is used, RVO didn't seem to work without
   # TODO move time helpers somewhere to avoid circular imports
   result = ForkedTrustedSignedBeaconBlock(
