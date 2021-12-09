@@ -513,9 +513,9 @@ proc process_execution_payload*(
   # Cache execution payload header
   state.latest_execution_payload_header = ExecutionPayloadHeader(
     parent_hash: payload.parent_hash,
-    coinbase: payload.coinbase,
+    feeRecipient: payload.feeRecipient,
     state_root: payload.state_root,
-    receipt_root: payload.receipt_root,
+    receipts_root: payload.receipts_root,
     logs_bloom: payload.logs_bloom,
     random: payload.random,
     block_number: payload.block_number,
