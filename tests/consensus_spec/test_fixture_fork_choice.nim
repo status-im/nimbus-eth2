@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[json, options, os, strutils, tables],
+  std/[json, os, strutils, tables],
   # Status libraries
   stew/[results, endians2], chronicles,
   eth/keys, taskpools,

@@ -25,8 +25,8 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
   # TODO: signing_root is recomputed in signBlockProposal just after,
   # but not for locally attached validators.
   let signingRoot =
-    compute_attestation_root(fork, vc.beaconGenesis.genesis_validators_root,
-                             adata)
+    compute_attestation_signing_root(
+      fork, vc.beaconGenesis.genesis_validators_root, adata)
   let attestationRoot = adata.hash_tree_root()
 
   let vindex = validator.index.get()

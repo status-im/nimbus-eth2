@@ -180,11 +180,15 @@ suite "Gossip validation - Extra": # Not based on preset config
         var cfg = defaultRuntimeConfig
         cfg.ALTAIR_FORK_EPOCH = (GENESIS_EPOCH + 1).Epoch
         cfg
+      taskpool = Taskpool.new()
+      quarantine = newClone(Quarantine.init())
+      batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false, taskpool)
+    var
+      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+
       dag = block:
-        var
-          dag = ChainDAGRef.init(
-            cfg, makeTestDB(num_validators), {})
-          verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+        let
+          dag = ChainDAGRef.init(cfg, makeTestDB(num_validators), {})
           quarantine = newClone(Quarantine.init())
         var cache = StateCache()
         for blck in makeTestBlocks(
@@ -217,13 +221,13 @@ suite "Gossip validation - Extra": # Not based on preset config
       validator = AttachedValidator(pubKey: pubkey,
         kind: ValidatorKind.Local, data: privateItem, index: some(index))
       resMsg = waitFor signSyncCommitteeMessage(
-        validator, slot,
-        state[].data.fork, state[].data.genesis_validators_root, state[].root)
+        validator, state[].data.fork, state[].data.genesis_validators_root, slot,
+        state[].root)
       msg = resMsg.get()
 
       syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init())
-      res = validateSyncCommitteeMessage(
-        dag, syncCommitteeMsgPool[], msg, subcommitteeIdx,
+      res = waitFor validateSyncCommitteeMessage(
+        dag, batchCrypto, syncCommitteeMsgPool[], msg, subcommitteeIdx,
         slot.toBeaconTime(), true)
       (positions, cookedSig) = res.get()
 
@@ -257,5 +261,5 @@ suite "Gossip validation - Extra": # Not based on preset config
 
       # Same message twice should be ignored
       validateSyncCommitteeMessage(
-        dag, syncCommitteeMsgPool[], msg, subcommitteeIdx,
-        state[].data.slot.toBeaconTime(), true).isErr()
+        dag, batchCrypto, syncCommitteeMsgPool[], msg, subcommitteeIdx,
+        state[].data.slot.toBeaconTime(), true).waitFor().isErr()

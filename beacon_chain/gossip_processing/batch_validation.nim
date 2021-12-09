@@ -8,6 +8,7 @@
 {.push raises: [Defect].}
 
 import
+  std/sequtils,
   # Status
   chronicles, chronos,
   ../spec/signatures_batch,
@@ -188,6 +189,7 @@ proc getBatch(batchCrypto: ref BatchCrypto): (ref Batch, bool) =
     # len will be 0 when the batch was created but nothing added to it
     # because of early failures
     (batch, batch[].len() == 0)
+
 proc scheduleBatch(batchCrypto: ref BatchCrypto, fresh: bool) =
   if fresh:
     # Every time we start a new round of batching, we need to launch a deferred
@@ -201,12 +203,36 @@ proc scheduleBatch(batchCrypto: ref BatchCrypto, fresh: bool) =
     # If there's a full batch, process it eagerly assuming the callback allows
     batchCrypto.processBatch()
 
+template orReturnErr(v: Option, error: cstring): untyped =
+  ## Returns with given error string if the option does not have a value
+  let tmp = v
+  if tmp.isNone:
+    return err(error) # this exits the calling scope, as templates are inlined.
+  tmp.unsafeGet()
+
+template withBatch(
+    batchCrypto: ref BatchCrypto, name: cstring,
+    body: untyped): Future[BatchResult] =
+  block:
+    let
+      (batch {.inject.}, fresh) = batchCrypto.getBatch()
+
+    body
+
+    let fut = newFuture[BatchResult](name)
+
+    batch[].resultsBuffer.add(fut)
+
+    batchCrypto.scheduleBatch(fresh)
+    fut
+
+# See also verify_attestation_signature
 proc scheduleAttestationCheck*(
       batchCrypto: ref BatchCrypto,
       fork: Fork, genesis_validators_root: Eth2Digest,
-      epochRef: EpochRef,
-      attestation: Attestation
-     ): Result[(Future[BatchResult], CookedSig), cstring] =
+      attestationData: AttestationData,
+      pubkey: CookedPubKey, signature: ValidatorSig
+     ): Result[tuple[fut: Future[BatchResult], sig: CookedSig], cstring] =
   ## Schedule crypto verification of an attestation
   ##
   ## The buffer is processed:
@@ -216,37 +242,23 @@ proc scheduleAttestationCheck*(
   ## This returns an error if crypto sanity checks failed
   ## and a future with the deferred attestation check otherwise.
   ##
-  let (batch, fresh) = batchCrypto.getBatch()
+  let
+    sig = signature.load().orReturnErr("attestation: cannot load signature")
+    fut = batchCrypto.withBatch("batch_validation.scheduleAttestationCheck"):
+      batch.pendingBuffer.add_attestation_signature(
+        fork, genesis_validators_root, attestationData, pubkey, sig)
 
-  doAssert batch.pendingBuffer.len < BatchedCryptoSize
-
-  let sig = ? batch
-              .pendingBuffer
-              .addAttestation(
-                fork, genesis_validators_root, epochRef,
-                attestation
-              )
-
-  let fut = newFuture[BatchResult](
-    "batch_validation.scheduleAttestationCheck"
-  )
-
-  batch[].resultsBuffer.add(fut)
-
-  batchCrypto.scheduleBatch(fresh)
-
-  return ok((fut, sig))
+  ok((fut, sig))
 
 proc scheduleAggregateChecks*(
       batchCrypto: ref BatchCrypto,
       fork: Fork, genesis_validators_root: Eth2Digest,
+      signedAggregateAndProof: SignedAggregateAndProof,
       epochRef: EpochRef,
-      signedAggregateAndProof: SignedAggregateAndProof
-     ): Result[
-          (
-            tuple[slotCheck, aggregatorCheck, aggregateCheck: Future[BatchResult]],
-            CookedSig
-          ), cstring] =
+      attesting_indices: openArray[ValidatorIndex]
+     ): Result[tuple[
+        aggregatorFut, slotFut, aggregateFut: Future[BatchResult],
+        sig: CookedSig], cstring] =
   ## Schedule crypto verification of an aggregate
   ##
   ## This involves 3 checks:
@@ -260,72 +272,111 @@ proc scheduleAggregateChecks*(
   ##
   ## This returns None if the signatures could not be loaded.
   ## and 3 futures with the deferred aggregate checks otherwise.
-  let (batch, fresh) = batchCrypto.getBatch()
-
-  doAssert batch[].pendingBuffer.len < BatchedCryptoSize
 
   template aggregate_and_proof: untyped = signedAggregateAndProof.message
   template aggregate: untyped = aggregate_and_proof.aggregate
 
-  type R = (
-    tuple[slotCheck, aggregatorCheck, aggregateCheck:
-      Future[BatchResult]],
-    CookedSig)
+  # Do the eager steps first to avoid polluting batches with needlessly
+  let
+    aggregatorKey =
+      epochRef.validatorKey(aggregate_and_proof.aggregator_index).orReturnErr(
+        "SignedAggregateAndProof: invalid aggregator index")
+    aggregatorSig = signedAggregateAndProof.signature.load().orReturnErr(
+      "aggregateAndProof: invalid proof signature")
+    slotSig = aggregate_and_proof.selection_proof.load().orReturnErr(
+      "aggregateAndProof: invalid selection signature")
+    aggregateKey = ? aggregateAll(epochRef.dag, attesting_indices)
+    aggregateSig = aggregate.signature.load().orReturnErr(
+      "aggregateAndProof: invalid aggregate signature")
 
-  # Enqueue in the buffer
-  # ------------------------------------------------------
-  let aggregator = epochRef.validatorKey(aggregate_and_proof.aggregator_index)
-  if not aggregator.isSome():
-    return err("scheduleAggregateChecks: invalid aggregator index")
-  block:
-    if (let v = batch
-            .pendingBuffer
-            .addSlotSignature(
-              fork, genesis_validators_root,
-              aggregate.data.slot,
-              aggregator.get(),
-              aggregate_and_proof.selection_proof
-            ); v.isErr()):
-      return err(v.error())
+  let
+    aggregatorFut = batchCrypto.withBatch("scheduleAggregateChecks.aggregator"):
+      batch.pendingBuffer.add_aggregate_and_proof_signature(
+        fork, genesis_validators_root, aggregate_and_proof, aggregatorKey,
+        aggregatorSig)
+    slotFut = batchCrypto.withBatch("scheduleAggregateChecks.selection_proof"):
+      batch.pendingBuffer.add_slot_signature(
+        fork, genesis_validators_root, aggregate.data.slot, aggregatorKey,
+        slotSig)
+    aggregateFut = batchCrypto.withBatch("scheduleAggregateChecks.aggregate"):
+      batch.pendingBuffer.add_attestation_signature(
+        fork, genesis_validators_root, aggregate.data, aggregateKey,
+        aggregateSig)
 
-  let futSlot = newFuture[BatchResult](
-    "batch_validation.scheduleAggregateChecks.slotCheck"
-  )
-  batch.resultsBuffer.add(futSlot)
+  ok((aggregatorFut, slotFut, aggregateFut, aggregateSig))
 
-  block:
-    if (let v = batch
-            .pendingBuffer
-            .addAggregateAndProofSignature(
-              fork, genesis_validators_root,
-              aggregate_and_proof,
-              aggregator.get(),
-              signed_aggregate_and_proof.signature
-            ); v.isErr()):
-      batchCrypto.scheduleBatch(fresh)
-      return err(v.error())
+proc scheduleSyncCommitteeMessageCheck*(
+      batchCrypto: ref BatchCrypto,
+      fork: Fork, genesis_validators_root: Eth2Digest,
+      slot: Slot, beacon_block_root: Eth2Digest,
+      pubkey: CookedPubKey, signature: ValidatorSig
+     ): Result[tuple[fut: Future[BatchResult], sig: CookedSig], cstring] =
+  ## Schedule crypto verification of an attestation
+  ##
+  ## The buffer is processed:
+  ## - when eager processing is enabled and the batch is full
+  ## - otherwise after 10ms (BatchAttAccumTime)
+  ##
+  ## This returns an error if crypto sanity checks failed
+  ## and a future with the deferred attestation check otherwise.
+  ##
+  let
+    sig = signature.load().orReturnErr(
+      "SyncCommitteMessage: cannot load signature")
+    fut = batchCrypto.withBatch("scheduleSyncCommitteeMessageCheck"):
+      batch.pendingBuffer.add_sync_committee_message_signature(
+        fork, genesis_validators_root, slot, beacon_block_root, pubkey, sig)
 
-  let futAggregator = newFuture[BatchResult](
-    "batch_validation.scheduleAggregateChecks.aggregatorCheck"
-  )
+  ok((fut, sig))
 
-  batch.resultsBuffer.add(futAggregator)
+proc scheduleContributionChecks*(
+      batchCrypto: ref BatchCrypto,
+      fork: Fork, genesis_validators_root: Eth2Digest,
+      signedContributionAndProof: SignedContributionAndProof,
+      subcommitteeIndex: SyncSubcommitteeIndex,
+      dag: ChainDAGRef): Result[tuple[
+       aggregatorFut, proofFut, contributionFut: Future[BatchResult],
+       sig: CookedSig], cstring] =
+  ## Schedule crypto verification of all signatures in a
+  ## SignedContributionAndProof message
+  ##
+  ## The buffer is processed:
+  ## - when eager processing is enabled and the batch is full
+  ## - otherwise after 10ms (BatchAttAccumTime)
+  ##
+  ## This returns an error if crypto sanity checks failed
+  ## and a future with the deferred check otherwise.
+  ##
+  template contribution_and_proof: untyped = signedContributionAndProof.message
+  template contribution: untyped = contribution_and_proof.contribution
 
-  let sig = batch
-              .pendingBuffer
-              .addAttestation(
-                fork, genesis_validators_root, epochRef,
-                aggregate
-              )
-  if sig.isErr():
-    batchCrypto.scheduleBatch(fresh)
-    return err(sig.error())
+  # Do the eager steps first to avoid polluting batches with needlessly
+  let
+    aggregatorKey =
+      dag.validatorKey(contribution_and_proof.aggregator_index).orReturnErr(
+        "SignedAggregateAndProof: invalid contributor index")
+    aggregatorSig = signedContributionAndProof.signature.load().orReturnErr(
+      "SignedContributionAndProof: invalid proof signature")
+    proofSig = contribution_and_proof.selection_proof.load().orReturnErr(
+      "SignedContributionAndProof: invalid selection signature")
+    contributionSig = contribution.signature.load().orReturnErr(
+      "SignedContributionAndProof: invalid contribution signature")
 
-  let futAggregate = newFuture[BatchResult](
-    "batch_validation.scheduleAggregateChecks.aggregateCheck"
-  )
-  batch.resultsBuffer.add(futAggregate)
+    contributionKey = ? aggregateAll(
+      dag, dag.syncCommitteeParticipants(contribution.slot, subcommitteeIndex),
+      contribution.aggregation_bits)
+  let
+    aggregatorFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.aggregator"):
+      batch.pendingBuffer.add_contribution_and_proof_signature(
+        fork, genesis_validators_root, contribution_and_proof, aggregatorKey,
+        aggregatorSig)
+    proofFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.selection_proof"):
+      batch.pendingBuffer.add_sync_committee_selection_proof(
+        fork, genesis_validators_root, contribution.slot,
+        contribution.subcommittee_index, aggregatorKey, proofSig)
+    contributionFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.contribution"):
+      batch.pendingBuffer.add_sync_committee_message_signature(
+        fork, genesis_validators_root, contribution.slot,
+        contribution.beacon_block_root, contributionKey, contributionSig)
 
-  batchCrypto.scheduleBatch(fresh)
-
-  return ok(((futSlot, futAggregator, futAggregate), sig.get()))
+  ok((aggregatorFut, proofFut, contributionFut, contributionSig))

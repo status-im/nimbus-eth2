@@ -319,19 +319,20 @@ proc signAggregateAndProof*(v: AttachedValidator,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/validator.md#prepare-sync-committee-message
 proc signSyncCommitteeMessage*(v: AttachedValidator,
-                               slot: Slot, fork: Fork,
+                               fork: Fork,
                                genesis_validators_root: Eth2Digest,
-                               block_root: Eth2Digest
+                               slot: Slot,
+                               beacon_block_root: Eth2Digest
                               ): Future[SyncCommitteeMessageResult] {.async.} =
   let signature =
     case v.kind
     of ValidatorKind.Local:
-      let signing_root = sync_committee_msg_signing_root(
-        fork, slot.epoch, genesis_validators_root, block_root)
-      blsSign(v.data.privateKey, signing_root.data).toValidatorSig()
+      get_sync_committee_message_signature(
+        fork, genesis_validators_root, slot, beacon_block_root,
+        v.data.privateKey).toValidatorSig()
     of ValidatorKind.Remote:
       let res = await signWithRemoteValidator(v, fork, genesis_validators_root,
-                                              slot, block_root)
+                                              slot, beacon_block_root)
       if res.isErr():
         return SyncCommitteeMessageResult.err(res.error())
       res.get().toValidatorSig()
@@ -340,7 +341,7 @@ proc signSyncCommitteeMessage*(v: AttachedValidator,
     SyncCommitteeMessageResult.ok(
       SyncCommitteeMessage(
         slot: slot,
-        beacon_block_root: block_root,
+        beacon_block_root: beacon_block_root,
         validator_index: uint64(v.index.get()),
         signature: signature
       )
@@ -356,11 +357,9 @@ proc getSyncCommitteeSelectionProof*(v: AttachedValidator,
   return
     case v.kind
     of ValidatorKind.Local:
-      let signing_root = sync_committee_selection_proof_signing_root(
-        fork, genesis_validators_root, slot, subcommittee_index)
-      SignatureResult.ok(
-        blsSign(v.data.privateKey, signing_root.data).toValidatorSig()
-      )
+      SignatureResult.ok(get_sync_committee_selection_proof(
+        fork, genesis_validators_root, slot, subcommittee_index,
+        v.data.privateKey).toValidatorSig())
     of ValidatorKind.Remote:
       let res = await signWithRemoteValidator(v, fork, genesis_validators_root,
                                               slot, subcommittee_index)
@@ -376,9 +375,8 @@ proc sign*(v: AttachedValidator, msg: ref SignedContributionAndProof,
   msg.signature =
     case v.kind
     of ValidatorKind.Local:
-      let signing_root = contribution_and_proof_signing_root(
-        fork, genesis_validators_root, msg.message)
-      blsSign(v.data.privateKey, signing_root.data).toValidatorSig()
+      get_contribution_and_proof_signature(
+        fork, genesis_validators_root, msg.message, v.data.privateKey).toValidatorSig()
     of ValidatorKind.Remote:
       let res = await signWithRemoteValidator(v, fork, genesis_validators_root,
                                               msg.message)

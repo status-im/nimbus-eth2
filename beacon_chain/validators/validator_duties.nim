@@ -240,7 +240,7 @@ proc sendSyncCommitteeMessage*(
   # validation will also register the message with the sync committee
   # message pool. Notably, although libp2p calls the data handler for
   # any subscription on the subnet topic, it does not perform validation.
-  let res = node.processor.syncCommitteeMessageValidator(msg, subcommitteeIdx,
+  let res = await node.processor.syncCommitteeMessageValidator(msg, subcommitteeIdx,
                                                          checkSignature)
   return
     if res.isGoodForSending:
@@ -338,7 +338,7 @@ proc sendSyncCommitteeContribution*(
     node: BeaconNode,
     msg: SignedContributionAndProof,
     checkSignature: bool): Future[SendResult] {.async.} =
-  let res = node.processor.contributionValidator(
+  let res = await node.processor.contributionValidator(
     msg, checkSignature)
 
   return
@@ -501,7 +501,7 @@ proc proposeBlock(node: BeaconNode,
   withBlck(forkedBlck):
     let
       blockRoot = hash_tree_root(blck)
-      signing_root = compute_block_root(
+      signing_root = compute_block_signing_root(
         fork, genesis_validators_root, slot, blockRoot)
 
       notSlashable = node.attachedValidators
@@ -620,7 +620,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       let
         data = makeAttestationData(epochRef, attestationHead, committee_index)
         # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
-        signing_root = compute_attestation_root(
+        signing_root = compute_attestation_signing_root(
           fork, genesis_validators_root, data)
         registered = node.attachedValidators
           .slashingProtection
@@ -652,9 +652,9 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
       genesisValidatorsRoot = node.dag.genesisValidatorsRoot
       msg =
         block:
-          let res = await signSyncCommitteeMessage(validator, slot, fork,
+          let res = await signSyncCommitteeMessage(validator, fork,
                                                    genesisValidatorsRoot,
-                                                   head.root)
+                                                   slot, head.root)
           if res.isErr():
             error "Unable to sign committee message using remote signer",
                   validator = shortLog(validator), slot = slot,

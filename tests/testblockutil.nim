@@ -346,7 +346,7 @@ proc makeSyncAggregate(
           fork, genesis_validators_root,
           slot, latest_block_root,
           MockPrivKeys[validatorIdx])
-        selectionProofSig = get_sync_aggregator_selection_data_signature(
+        selectionProofSig = get_sync_committee_selection_proof(
           fork, genesis_validators_root,
           slot, subcommitteeIdx.uint64,
           MockPrivKeys[validatorIdx])
@@ -371,7 +371,7 @@ proc makeSyncAggregate(
           aggregator_index: uint64 aggregator.validatorIdx,
           contribution: contribution,
           selection_proof: aggregator.selectionProof)
-        contributionSig = get_sync_committee_contribution_and_proof_signature(
+        contributionSig = get_contribution_and_proof_signature(
           fork, genesis_validators_root,
           contributionAndProof,
           MockPrivKeys[aggregator.validatorIdx])

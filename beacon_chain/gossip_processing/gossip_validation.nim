@@ -34,6 +34,12 @@ declareCounter beacon_attestations_dropped_queue_full,
 declareCounter beacon_aggregates_dropped_queue_full,
   "Number of aggregates dropped because queue is full"
 
+declareCounter beacon_sync_messages_dropped_queue_full,
+  "Number of sync committee messages dropped because queue is full"
+
+declareCounter beacon_contributions_dropped_queue_full,
+  "Number of sync committee contributions dropped because queue is full"
+
 # This result is a little messy in that it returns Result.ok for
 # ValidationResult.Accept and an err for the others - this helps transport
 # an error message to callers but could arguably be done in an cleaner way.
@@ -462,29 +468,25 @@ proc validateAttestation*(
         attestation.data.target.epoch:
     return errIgnore("Attestation: Validator has already voted in epoch")
 
-  block:
-    # First pass - without cryptography
-    let v = is_valid_indexed_attestation(
-        fork, genesis_validators_root, epochRef, attestation,
-        {skipBLSValidation})
-    if v.isErr():
-      return checkedReject(v.error)
+  let pubkey = epochRef.validatorKey(validator_index)
+  if pubkey.isNone():
+    # can't happen, in theory, because we checked the aggregator index above
+    return errIgnore("Attestation: cannot find validator pubkey")
 
+  # In the spec, is_valid_indexed_attestation is used to verify the signature -
+  # here, we do a batch verification instead
   let sig =
     if checkSignature:
       # Attestation signatures are batch-verified
       let deferredCrypto = batchCrypto
-                            .scheduleAttestationCheck(
-                              fork, genesis_validators_root, epochRef,
-                              attestation
-                            )
+                             .scheduleAttestationCheck(
+                              fork, genesis_validators_root, attestation.data,
+                              pubkey.get(), attestation.signature)
       if deferredCrypto.isErr():
         return checkedReject(deferredCrypto.error)
 
+      let (cryptoFut, sig) = deferredCrypto.get()
       # Await the crypto check
-      let
-        (cryptoFut, sig) = deferredCrypto.get()
-
       var x = (await cryptoFut)
       case x
       of BatchResult.Invalid:
@@ -625,20 +627,35 @@ proc validateAggregate*(
     genesis_validators_root =
       getStateField(pool.dag.headState.data, genesis_validators_root)
 
+  let attesting_indices = get_attesting_indices(
+    epochRef, aggregate.data, aggregate.aggregation_bits)
+
   let deferredCrypto = batchCrypto
                 .scheduleAggregateChecks(
-                  fork, genesis_validators_root, epochRef,
-                  signed_aggregate_and_proof
+                  fork, genesis_validators_root,
+                  signed_aggregate_and_proof, epochRef, attesting_indices
                 )
   if deferredCrypto.isErr():
     return checkedReject(deferredCrypto.error)
 
   let
-    (cryptoFuts, sig) = deferredCrypto.get()
+    (aggregatorFut, slotFut, aggregateFut, sig) = deferredCrypto.get()
+
+  block:
+    # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
+    var x = await aggregatorFut
+    case x
+    of BatchResult.Invalid:
+      return checkedReject("Aggregate: invalid aggregator signature")
+    of BatchResult.Timeout:
+      beacon_aggregates_dropped_queue_full.inc()
+      return errIgnore("Aggregate: timeout checking aggregator signature")
+    of BatchResult.Valid:
+      discard
 
   block:
     # [REJECT] aggregate_and_proof.selection_proof
-    var x = await cryptoFuts.slotCheck
+    var x = await slotFut
     case x
     of BatchResult.Invalid:
       return checkedReject("Aggregate: invalid slot signature")
@@ -650,19 +667,7 @@ proc validateAggregate*(
 
   block:
     # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-    var x = await cryptoFuts.aggregatorCheck
-    case x
-    of BatchResult.Invalid:
-      return checkedReject("Aggregate: invalid aggregator signature")
-    of BatchResult.Timeout:
-      beacon_aggregates_dropped_queue_full.inc()
-      return errIgnore("Aggregate: timeout checking aggregator signature")
-    of BatchResult.Valid:
-      discard
-
-  block:
-    # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-    var x = await cryptoFuts.aggregateCheck
+    var x = await aggregateFut
     case x
     of BatchResult.Invalid:
       return checkedReject("Aggregate: invalid aggregate signature")
@@ -687,9 +692,6 @@ proc validateAggregate*(
       aggregate_and_proof.aggregator_index.int + 1)
   pool.nextAttestationEpoch[aggregate_and_proof.aggregator_index].aggregate =
     aggregate.data.target.epoch + 1
-
-  let attesting_indices = get_attesting_indices(
-    epochRef, aggregate.data, aggregate.aggregation_bits)
 
   return ok((attesting_indices, sig))
 
@@ -772,17 +774,20 @@ proc validateVoluntaryExit*(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#sync_committee_subnet_id
 proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
+    batchCrypto: ref BatchCrypto,
     syncCommitteeMsgPool: SyncCommitteeMsgPool,
     msg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex,
     wallTime: BeaconTime,
     checkSignature: bool):
-    Result[(seq[uint64], CookedSig), ValidationError] =
+    Future[Result[(seq[uint64], CookedSig), ValidationError]] {.async.} =
   block:
     # [IGNORE] The signature's slot is for the current slot
     # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance)
     # i.e. sync_committee_message.slot == current_slot.
-    ? check_propagation_slot_range(msg.slot, wallTime)
+    let v = check_propagation_slot_range(msg.slot, wallTime)
+    if v.isErr():
+      return err(v.error())
 
   # [REJECT] The subnet_id is valid for the given validator
   # i.e. subnet_id in compute_subnets_for_sync_committee(state, sync_committee_message.validator_index).
@@ -819,41 +824,62 @@ proc validateSyncCommitteeMessage*(
   if senderPubKey.isNone():
     return errReject("SyncCommitteeMessage: invalid validator index")
 
-  var cookedSignature = msg.signature.load
-  if cookedSignature.isNone:
-    return errReject("SyncCommitteeMessage: signature fails to load")
+  let sig =
+    if checkSignature:
+      # Attestation signatures are batch-verified
+      let deferredCrypto = batchCrypto
+                            .scheduleSyncCommitteeMessageCheck(
+                              fork, genesis_validators_root,
+                              msg.slot, msg.beacon_block_root,
+                              senderPubKey.get(), msg.signature)
+      if deferredCrypto.isErr():
+        return errReject(deferredCrypto.error)
 
-  if checkSignature and
-      not verify_sync_committee_message_signature(epoch,
-                                                  msg.beacon_block_root,
-                                                  fork, genesisValidatorsRoot,
-                                                  senderPubKey.get(),
-                                                  cookedSignature.get):
-    return errReject("SyncCommitteeMessage: signature fails to verify")
+      # Await the crypto check
+      let
+        (cryptoFut, sig) = deferredCrypto.get()
 
-  ok((positionsInSubcommittee, cookedSignature.get()))
+      var x = (await cryptoFut)
+      case x
+      of BatchResult.Invalid:
+        return errReject("SyncCommitteeMessage: invalid signature")
+      of BatchResult.Timeout:
+        beacon_sync_messages_dropped_queue_full.inc()
+        return errIgnore("SyncCommitteeMessage: timeout checking signature")
+      of BatchResult.Valid:
+        sig # keep going only in this case
+    else:
+      let sig = msg.signature.load()
+      if not sig.isSome():
+        return errReject("SyncCommitteeMessage: unable to load signature")
+      sig.get()
+
+  return ok((positionsInSubcommittee, sig))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
 proc validateContribution*(
     dag: ChainDAGRef,
-    syncCommitteeMsgPool: var SyncCommitteeMsgPool,
+    batchCrypto: ref BatchCrypto,
+    syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
     msg: SignedContributionAndProof,
     wallTime: BeaconTime,
     checkSignature: bool):
-    Result[CookedSig, ValidationError] =
+    Future[Result[CookedSig, ValidationError]] {.async.} =
+
+  let
+    syncCommitteeSlot = msg.message.contribution.slot
 
   # [IGNORE] The contribution's slot is for the current slot
   # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance)
   # i.e. contribution.slot == current_slot.
-  ? check_propagation_slot_range(msg.message.contribution.slot, wallTime)
-  let
-    aggregatorPubKey = dag.validatorKey(msg.message.aggregator_index)
-  if aggregatorPubKey.isNone():
-    return errReject("SignedContributionAndProof: invalid aggregator index")
+  block:
+    let v = check_propagation_slot_range(syncCommitteeSlot, wallTime) # [IGNORE]
+    if v.isErr():
+      return err(v.error())
 
   # [REJECT] The subcommittee index is in the allowed range
   # i.e. contribution.subcommittee_index < SYNC_COMMITTEE_SUBNET_COUNT.
-  let committeeIdx = msg.message.contribution.subcommittee_index.validateSyncCommitteeIndexOr:
+  let subcommitteeIdx = msg.message.contribution.subcommittee_index.validateSyncCommitteeIndexOr:
     return errReject("SignedContributionAndProof: subcommittee index too high")
 
   # [REJECT] contribution_and_proof.selection_proof selects the validator as an aggregator for the slot
@@ -861,14 +887,13 @@ proc validateContribution*(
   if not is_sync_committee_aggregator(msg.message.selection_proof):
     return errReject("SignedContributionAndProof: invalid selection_proof")
 
-  block:
-    # [IGNORE] The sync committee contribution is the first valid contribution
-    # received for the aggregator with index contribution_and_proof.aggregator_index
-    # for the slot contribution.slot and subcommittee index contribution.subcommittee_index
-    # (this requires maintaining a cache of size SYNC_COMMITTEE_SIZE for this
-    #  topic that can be flushed after each slot).
-    if syncCommitteeMsgPool.isSeen(msg.message):
-      return errIgnore("SignedContributionAndProof: duplicate contribution")
+  # [IGNORE] The sync committee contribution is the first valid contribution
+  # received for the aggregator with index contribution_and_proof.aggregator_index
+  # for the slot contribution.slot and subcommittee index contribution.subcommittee_index
+  # (this requires maintaining a cache of size SYNC_COMMITTEE_SIZE for this
+  #  topic that can be flushed after each slot).
+  if syncCommitteeMsgPool[].isSeen(msg.message):
+    return errIgnore("SignedContributionAndProof: duplicate contribution")
 
   # [REJECT] The aggregator's validator index is in the declared subcommittee
   # of the current sync committee.
@@ -877,70 +902,61 @@ proc validateContribution*(
   let
     epoch = msg.message.contribution.slot.epoch
     fork = dag.forkAtEpoch(epoch)
-    genesisValidatorsRoot = dag.genesisValidatorsRoot
+    genesis_validators_root = dag.genesisValidatorsRoot
 
-  # [REJECT] The aggregator signature, signed_contribution_and_proof.signature, is valid
-  if not verify_signed_contribution_and_proof_signature(msg, fork,
-                                                        genesisValidatorsRoot,
-                                                        aggregatorPubKey.get()):
-    return errReject(
-      "SignedContributionAndProof: aggregator signature fails to verify")
-
-  # [REJECT] The contribution_and_proof.selection_proof is a valid signature of the
-  # SyncAggregatorSelectionData derived from the contribution by the validator with
-  # index contribution_and_proof.aggregator_index.
-  if not verify_selection_proof_signature(msg.message, fork,
-                                          genesisValidatorsRoot,
-                                          aggregatorPubKey.get()):
-    return errReject(
-      "SignedContributionAndProof: selection proof signature fails to verify")
-
-  # [REJECT] The aggregate signature is valid for the message beacon_block_root
-  # and aggregate pubkey derived from the participation info in aggregation_bits
-  # for the subcommittee specified by the contribution.subcommittee_index.
-  var
-    committeeAggKey {.noInit.}: AggregatePublicKey
-    initialized = false
-    syncCommitteeSlot = msg.message.contribution.slot + 1
-
-  for validatorIndex in dag.syncCommitteeParticipants(
-      syncCommitteeSlot,
-      committeeIdx,
-      msg.message.contribution.aggregation_bits):
-    let validatorPubKey = dag.validatorKey(validatorIndex)
-    if not validatorPubKey.isSome():
-      # This should never happen (!)
-      warn "Invalid validator index in committee cache",
-        validatorIndex
-      return errIgnore("SignedContributionAndProof: Invalid committee cache")
-
-    if not initialized:
-      initialized = true
-      committeeAggKey.init(validatorPubKey.get())
-    else:
-      committeeAggKey.aggregate(validatorPubKey.get())
-
-  if not initialized:
+  if msg.message.contribution.aggregation_bits.countOnes() == 0:
     # [REJECT] The contribution has participants
     # that is, any(contribution.aggregation_bits).
     return errReject("SignedContributionAndProof: aggregation bits empty")
 
-  let cookedSignature = msg.message.contribution.signature.load
-  if cookedSignature.isNone:
-    return errReject(
-      "SignedContributionAndProof: aggregate signature fails to load")
+  let sig = if checkSignature:
+    let deferredCrypto = batchCrypto.scheduleContributionChecks(
+      fork, genesis_validators_root, msg, subcommitteeIdx, dag)
+    if deferredCrypto.isErr():
+      return errReject(deferredCrypto.error)
 
-  if checkSignature and
-      not verify_sync_committee_message_signature(
-        epoch, msg.message.contribution.beacon_block_root, fork,
-        genesisValidatorsRoot, committeeAggKey.finish, cookedSignature.get):
-    debug "failing_sync_contribution",
-      blk = msg.message.contribution.beacon_block_root,
-      slot = syncCommitteeSlot,
-      subnet = committeeIdx,
-      participants = $(msg.message.contribution.aggregation_bits)
+    let
+      (aggregatorFut, proofFut, contributionFut, sig) = deferredCrypto.get()
 
-    return errReject(
-      "SignedContributionAndProof: aggregate signature fails to verify")
+    block:
+      # [REJECT] The aggregator signature, signed_contribution_and_proof.signature, is valid
+      var x = await aggregatorFut
+      case x
+      of BatchResult.Invalid:
+        return errReject("SignedContributionAndProof: invalid aggregator signature")
+      of BatchResult.Timeout:
+        beacon_contributions_dropped_queue_full.inc()
+        return errIgnore("SignedContributionAndProof: timeout checking aggregator signature")
+      of BatchResult.Valid:
+        discard
 
-  ok(cookedSignature.get)
+    block:
+      var x = await proofFut
+      case x
+      of BatchResult.Invalid:
+        return errReject("SignedContributionAndProof: invalid proof")
+      of BatchResult.Timeout:
+        beacon_contributions_dropped_queue_full.inc()
+        return errIgnore("SignedContributionAndProof: timeout checking proof")
+      of BatchResult.Valid:
+        discard
+
+    block:
+      # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
+      var x = await contributionFut
+      case x
+      of BatchResult.Invalid:
+        return errReject("SignedContributionAndProof: invalid contribution signature")
+      of BatchResult.Timeout:
+        beacon_contributions_dropped_queue_full.inc()
+        return errIgnore("SignedContributionAndProof: timeout checking contribution signature")
+      of BatchResult.Valid:
+        discard
+    sig
+  else:
+    let sig = msg.message.contribution.signature.load()
+    if not sig.isSome():
+      return errReject("SyncCommitteeMessage: unable to load signature")
+    sig.get()
+
+  return ok(sig)

@@ -34,8 +34,6 @@ proc compute_aggregate_sync_committee_signature(
     root =
       if block_root != ZERO_HASH: block_root
       else: mockBlockForNextSlot(forked).altairData.message.parent_root
-    signing_root = sync_committee_msg_signing_root(
-      state.fork, state.slot.epoch, state.genesis_validators_root, root)
 
   var
     aggregateSig {.noInit.}: AggregateSignature
@@ -43,7 +41,8 @@ proc compute_aggregate_sync_committee_signature(
   for validator_index in participants:
     let
       privkey = MockPrivKeys[validator_index]
-      signature = blsSign(privkey, signing_root.data)
+      signature = get_sync_committee_message_signature(
+        state.fork, state.genesis_validators_root, state.slot, root, privkey)
     if not initialized:
       initialized = true
       aggregateSig.init(signature)

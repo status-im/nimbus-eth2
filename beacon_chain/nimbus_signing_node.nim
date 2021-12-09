@@ -303,7 +303,7 @@ proc installApiHandlers*(node: SigningNode) =
         let
           forkInfo = request.forkInfo.get()
           msg = request.syncAggregatorSelectionData
-          cooked = get_sync_aggregator_selection_data_signature(forkInfo.fork,
+          cooked = get_sync_committee_selection_proof(forkInfo.fork,
             forkInfo.genesisValidatorsRoot, msg.slot, msg.subcommittee_index,
             validator.data.privateKey)
           signature = cooked.toValidatorSig().toHex()
@@ -312,7 +312,7 @@ proc installApiHandlers*(node: SigningNode) =
         let
           forkInfo = request.forkInfo.get()
           msg = request.syncCommitteeContributionAndProof
-          cooked = get_sync_committee_contribution_and_proof_signature(
+          cooked = get_contribution_and_proof_signature(
             forkInfo.fork, forkInfo.genesisValidatorsRoot, msg,
             validator.data.privateKey)
           signature = cooked.toValidatorSig().toHex()

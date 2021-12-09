@@ -428,15 +428,11 @@ proc process_operations(cfg: RuntimeConfig,
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-processing
 proc process_sync_aggregate*(
     state: var (altair.BeaconState | merge.BeaconState),
-    aggregate: SomeSyncAggregate, total_active_balance: Gwei, cache: var StateCache):
-    Result[void, cstring] =
+    aggregate: SomeSyncAggregate, total_active_balance: Gwei,
+    cache: var StateCache):
+    Result[void, cstring]  =
   # Verify sync committee aggregate signature signing over the previous slot
   # block root
-  let
-    previous_slot = max(state.slot, Slot(1)) - 1
-    domain = get_domain(state, DOMAIN_SYNC_COMMITTEE, compute_epoch_at_slot(previous_slot))
-    signing_root = compute_signing_root(get_block_root_at_slot(state, previous_slot), domain)
-
   when aggregate.sync_committee_signature isnot TrustedSig:
     var participant_pubkeys: seq[ValidatorPubKey]
     for i in 0 ..< state.current_sync_committee.pubkeys.len:
@@ -445,14 +441,19 @@ proc process_sync_aggregate*(
 
     # p2p-interface message validators check for empty sync committees, so it
     # shouldn't run except as part of test suite.
-    if participant_pubkeys.len == 0 and
-        aggregate.sync_committee_signature != default(CookedSig).toValidatorSig():
-      return err("process_sync_aggregate: empty sync aggregates need signature of point at infinity")
-
-    # Empty participants allowed
-    if participant_pubkeys.len > 0 and not blsFastAggregateVerify(
-        participant_pubkeys, signing_root.data, aggregate.sync_committee_signature):
-      return err("process_sync_aggregate: invalid signature")
+    if participant_pubkeys.len == 0:
+      if aggregate.sync_committee_signature != ValidatorSig.infinity():
+        return err("process_sync_aggregate: empty sync aggregates need signature of point at infinity")
+    else:
+      # Empty participants allowed
+      let
+        previous_slot = max(state.slot, Slot(1)) - 1
+        beacon_block_root = get_block_root_at_slot(state, previous_slot)
+      if not verify_sync_committee_signature(
+          state.fork, state.genesis_validators_root, previous_slot,
+          beacon_block_root, participant_pubkeys,
+          aggregate.sync_committee_signature):
+        return err("process_sync_aggregate: invalid signature")
 
   # Compute participant and proposer rewards
   let
