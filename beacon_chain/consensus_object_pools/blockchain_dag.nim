@@ -191,7 +191,7 @@ func epochAncestor*(blck: BlockRef, epoch: Epoch): EpochKey =
   ## during the epoch. Thus, last block in the ancestor epochs is the block
   ## that has an impact on epoch currently considered.
   ##
-  ## This function returns an epoh key pointing to that epoch boundary, ie the
+  ## This function returns an epoch key pointing to that epoch boundary, i.e. the
   ## boundary where the last block has been applied to the state and epoch
   ## processing has been done.
   var blck = blck
