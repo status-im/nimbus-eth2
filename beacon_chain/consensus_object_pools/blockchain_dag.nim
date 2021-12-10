@@ -1679,8 +1679,20 @@ proc newExecutionPayload*(
     web3Provider: auto, executionPayload: merge.ExecutionPayload):
     Future[string] {.async.} =
   debug "executePayload: inserting block into execution engine",
-    parent_hash = executionPayload.parent_hash,
-    block_hash = executionPayload.block_hash
+    parentHash = executionPayload.parent_hash,
+    blockHash = executionPayload.block_hash,
+    stateRoot = shortLog(executionPayload.state_root),
+    receiptsRoot = shortLog(executionPayload.receipts_root),
+    random = shortLog(executionPayload.random),
+    blockNumber = executionPayload.block_number,
+    gasLimit = executionPayload.gas_limit,
+    gasUsed = executionPayload.gas_used,
+    timestamp = executionPayload.timestamp,
+    extraDataLen = executionPayload.extra_data.len,
+    blockHash = executionPayload.block_hash,
+    baseFeePerGas = UInt256.fromBytesLE(executionPayload.base_fee_per_gas.data),
+    numTransactions = executionPayload.transactions.len
+
   template getTypedTransaction(t: Transaction): TypedTransaction =
     TypedTransaction(t.distinctBase)
   let rpcExecutionPayload = (ref engine_api.ExecutionPayloadV1)(
@@ -1695,12 +1707,8 @@ proc newExecutionPayload*(
     gasUsed: Quantity(executionPayload.gas_used),
     timestamp: Quantity(executionPayload.timestamp),
     extraData: DynamicBytes[0, 32](executionPayload.extra_data),
-
-    # TODO x86 and the usual ARM ABIs are all little-endian, so this matches
-    # the spec coincidentally, but it's unportable
     baseFeePerGas:
-      UInt256.fromBytes(executionPayload.base_fee_per_gas.data),
-
+      UInt256.fromBytesLE(executionPayload.base_fee_per_gas.data),
     blockHash: executionPayload.block_hash.asBlockHash,
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction))
   try:
