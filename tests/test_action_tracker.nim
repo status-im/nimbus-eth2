@@ -6,7 +6,8 @@ import
   ../beacon_chain/validators/action_tracker
 
 suite "subnet tracker":
-  let rng = keys.newRng()
+  setup:
+    let rng = keys.newRng()
 
   test "should register stability subnets on attester duties":
     var tracker = ActionTracker.init(rng, false)

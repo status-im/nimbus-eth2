@@ -219,6 +219,9 @@ suite "Block pool processing" & preset():
       tmpState.blck == b1Add[].parent
       getStateField(tmpState.data, slot) == bs1.parent.slot
 
+when declared(GC_fullCollect): # i386 test machines seem to run low..
+  GC_fullCollect()
+
 suite "Block pool altair processing" & preset():
   setup:
     var
