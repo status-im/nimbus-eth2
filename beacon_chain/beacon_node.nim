@@ -61,6 +61,7 @@ type
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerID]
     backfiller*: SyncManager[Peer, PeerID]
+    optimisticSyncManager*: SyncManager[Peer, PeerID]
     genesisSnapshotContent*: string
     actionTracker*: ActionTracker
     processor*: ref Eth2Processor
@@ -72,13 +73,6 @@ type
     restKeysCache*: Table[ValidatorPubKey, ValidatorIndex]
     validatorMonitor*: ref ValidatorMonitor
     stateTtlCache*: StateTtlCache
-
-    # TODO
-    # https://hackmd.io/@n0ble/kintsugi-spec#Engine-API
-    # CL client software implementations may also benefit from eth_ subset of
-    # JSON-RPC API exposed on the same port as the Engine API and SHOULD
-    # migrate to using a single endpoint for both engine_ and eth_ CL needs.
-    web3Provider*: Web3DataProviderRef
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

@@ -11,6 +11,7 @@ import
   chronos,
   std/[algorithm, options, sequtils, tables, sets],
   stew/[assign2, byteutils, results],
+  eth/async_utils,
   metrics, snappy, chronicles,
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
@@ -18,11 +19,7 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   "."/[block_pools_types, block_quarantine]
 
-import stint
-import stint/endians2
-
-import web3/[engine_api, ethtypes]
-import ../eth1/eth1_monitor   # for asBlockHash only
+import web3/engine_api_types
 
 export
   eth2_merkleization, eth2_ssz_serialization,
@@ -707,7 +704,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         # finalized blocks to top up, we can stop the iteration here
         break
 
-    let newRef = BlockRef.init(blck.root, blck.summary.slot)
+    let newRef = BlockRef.init(
+      blck.root, default(Eth2Digest), blck.summary.slot)
     if headRef == nil:
       doAssert blck.root == head.root
       headRef = newRef
@@ -1871,44 +1869,35 @@ proc rebuildIndex*(dag: ChainDAGRef) =
       dag.db.delState(i[1])
 
 proc newExecutionPayload*(
-    web3Provider: auto, executionPayload: merge.ExecutionPayload):
-    Future[string] {.async.} =
-  debug "executePayload: inserting block into execution engine",
-    parent_hash = executionPayload.parent_hash,
-    block_hash = executionPayload.block_hash
-  template getTypedTransaction(t: Transaction): TypedTransaction =
-    TypedTransaction(t.distinctBase)
-  let rpcExecutionPayload = (ref engine_api.ExecutionPayloadV1)(
-    parentHash: executionPayload.parent_hash.asBlockHash,
-    feeRecipient: Address(executionPayload.feeRecipient.data),
-    stateRoot: executionPayload.state_root.asBlockHash,
-    receiptsRoot: executionPayload.receipts_root.asBlockHash,
-    logsBloom: FixedBytes[256](executionPayload.logs_bloom.data),
-    random: executionPayload.random.asBlockHash,
-    blockNumber: Quantity(executionPayload.block_number),
-    gasLimit: Quantity(executionPayload.gas_limit),
-    gasUsed: Quantity(executionPayload.gas_used),
-    timestamp: Quantity(executionPayload.timestamp),
-    extraData: DynamicBytes[0, 32](executionPayload.extra_data),
+    web3Provider: auto, executionPayload: bellatrix.ExecutionPayload):
+    Future[PayloadExecutionStatus] {.async.} =
+  debug "newPayload: inserting block into execution engine",
+    parentHash = executionPayload.parent_hash,
+    blockHash = executionPayload.block_hash,
+    stateRoot = shortLog(executionPayload.state_root),
+    receiptsRoot = shortLog(executionPayload.receipts_root),
+    random = shortLog(executionPayload.random),
+    blockNumber = executionPayload.block_number,
+    gasLimit = executionPayload.gas_limit,
+    gasUsed = executionPayload.gas_used,
+    timestamp = executionPayload.timestamp,
+    extraDataLen = executionPayload.extra_data.len,
+    blockHash = executionPayload.block_hash,
+    baseFeePerGas = UInt256.fromBytesLE(executionPayload.base_fee_per_gas.data),
+    numTransactions = executionPayload.transactions.len
 
-    # TODO x86 and the usual ARM ABIs are all little-endian, so this matches
-    # the spec coincidentally, but it's unportable
-    baseFeePerGas:
-      UInt256.fromBytes(executionPayload.base_fee_per_gas.data),
-
-    blockHash: executionPayload.block_hash.asBlockHash,
-    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction))
   try:
-    let payloadStatus =
-      await(web3Provider.executePayload(rpcExecutionPayload[])).status
-    if payloadStatus notin ["VALID", "INVALID", "SYNCING"]:
-      # TODO use a constrained abstraction; the nim-web3 attempt to create such
-      # didn't work
-      debug "newExecutionPayload: invalid status from execution layer",
-        payloadStatus
-      return "INVALID"
+    let
+      payloadResponse =
+        awaitWithTimeout(
+            web3Provider.newPayload(
+              executionPayload.asEngineExecutionPayload),
+            650.milliseconds):
+          info "newPayload: newExecutionPayload timed out"
+          PayloadStatusV1(status: PayloadExecutionStatus.syncing)
+      payloadStatus = payloadResponse.status
 
     return payloadStatus
   except CatchableError as err:
-    debug "newExecutionPayload failed", msg = err.msg
-    return "INVALID"
+    info "newExecutionPayload failed", msg = err.msg
+    return PayloadExecutionStatus.syncing

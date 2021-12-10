@@ -14,7 +14,7 @@ import
   chronos, json, metrics, chronicles/timings, stint/endians2,
   web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
   eth/common/eth_types,
-  eth/async_utils, stew/[byteutils, shims/hashes],
+  eth/async_utils, stew/[byteutils, objects, shims/hashes],
   # Local modules:
   ../spec/[eth2_merkleization, forks, helpers],
   ../spec/datatypes/[base, phase0, bellatrix],
@@ -113,7 +113,7 @@ type
     forcePolling: bool
     jwtSecret: seq[byte]
 
-    dataProvider: Web3DataProviderRef
+    dataProvider*: Web3DataProviderRef  # TODO evidently not meant for export
     latestEth1Block: Option[FullBlockId]
 
     depositsChain: Eth1Chain
@@ -452,15 +452,37 @@ proc getBlockByNumber*(p: Web3DataProviderRef,
 
 proc getPayload*(p: Web3DataProviderRef,
                  payloadId: bellatrix.PayloadID): Future[engine_api.ExecutionPayloadV1] =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.isNil:
+    var epr: Future[engine_api.ExecutionPayloadV1]
+    epr.complete(default(engine_api.ExecutionPayloadV1))
+    return epr
+
   p.web3.provider.engine_getPayloadV1(FixedBytes[8] payloadId)
 
 proc newPayload*(p: Web3DataProviderRef,
                  payload: engine_api.ExecutionPayloadV1): Future[PayloadStatusV1] =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.isNil:
+    var epr: Future[PayloadStatusV1]
+    epr.complete(PayloadStatusV1(status: PayloadExecutionStatus.syncing))
+    return epr
+
   p.web3.provider.engine_newPayloadV1(payload)
 
 proc forkchoiceUpdated*(p: Web3DataProviderRef,
                         headBlock, finalizedBlock: Eth2Digest):
                         Future[engine_api.ForkchoiceUpdatedResponse] =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.isNil:
+    var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
+    fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
+      payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
+    return fcuR
+
   p.web3.provider.engine_forkchoiceUpdatedV1(
     ForkchoiceStateV1(
       headBlockHash: headBlock.asBlockHash,
@@ -479,6 +501,14 @@ proc forkchoiceUpdated*(p: Web3DataProviderRef,
                         randomData: array[32, byte],
                         suggestedFeeRecipient: Eth1Address):
                         Future[engine_api.ForkchoiceUpdatedResponse] =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.isNil:
+    var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
+    fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
+      payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
+    return fcuR
+
   p.web3.provider.engine_forkchoiceUpdatedV1(
     ForkchoiceStateV1(
       headBlockHash: headBlock.asBlockHash,
@@ -859,11 +889,6 @@ proc new*(T: type Web3DataProvider,
     ns = web3.contractSender(DepositContract, depositContractAddress)
 
   return ok Web3DataProviderRef(url: web3Url, web3: web3, ns: ns)
-
-# route around eth1 monitor initialization gating; intentionally a bit clunky
-proc newWeb3DataProvider*(depositContractAddress: Eth1Address, web3Url: string):
-    Future[Result[Web3DataProviderRef, string]] =
-  Web3DataProvider.new(depositContractAddress, web3Url)
 
 proc putInitialDepositContractSnapshot*(db: BeaconChainDB,
                                         s: DepositContractSnapshot) =
@@ -1285,30 +1310,32 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     await m.dataProvider.onBlockHeaders(newBlockHeadersHandler,
                                         subscriptionErrorHandler)
 
-  let shouldProcessDeposits = not m.depositContractAddress.isZeroMemory
+  # Ported from amphora
+  let shouldProcessDeposits = false and not m.depositContractAddress.isZeroMemory
   var scratchMerkleizer: ref DepositsMerkleizer
   var eth1SyncedTo: Eth1BlockNumber
+  when true:
+    if shouldProcessDeposits and m.depositsChain.blocks.len == 0:
+      let startBlock = awaitWithRetries(
+        m.dataProvider.getBlockByHash(m.depositsChain.finalizedBlockHash.asBlockHash))
 
-  if shouldProcessDeposits and m.depositsChain.blocks.len == 0:
-    let startBlock = awaitWithRetries(
-      m.dataProvider.getBlockByHash(m.depositsChain.finalizedBlockHash.asBlockHash))
+      doAssert m.depositsChain.blocks.len == 0
+      m.depositsChain.addBlock Eth1Block(
+        number: Eth1BlockNumber startBlock.number,
+        timestamp: Eth1BlockTimestamp startBlock.timestamp,
+        voteData: eth1DataFromMerkleizer(
+          m.depositsChain.finalizedBlockHash,
+          m.depositsChain.finalizedDepositsMerkleizer))
 
-    m.depositsChain.addBlock Eth1Block(
-      number: Eth1BlockNumber startBlock.number,
-      timestamp: Eth1BlockTimestamp startBlock.timestamp,
-      voteData: eth1DataFromMerkleizer(
-        m.depositsChain.finalizedBlockHash,
-        m.depositsChain.finalizedDepositsMerkleizer))
+      eth1SyncedTo = Eth1BlockNumber startBlock.number
+      eth1_synced_head.set eth1SyncedTo.toGaugeValue
+      eth1_finalized_head.set eth1SyncedTo.toGaugeValue
+      eth1_finalized_deposits.set(
+        m.depositsChain.finalizedDepositsMerkleizer.getChunkCount.toGaugeValue)
 
-    eth1SyncedTo = Eth1BlockNumber m.depositsChain.blocks.peekLast.number
-    eth1_synced_head.set eth1SyncedTo.toGaugeValue
-    eth1_finalized_head.set eth1SyncedTo.toGaugeValue
-    eth1_finalized_deposits.set(
-      m.depositsChain.finalizedDepositsMerkleizer.getChunkCount.toGaugeValue)
+      scratchMerkleizer = newClone(copy m.finalizedDepositsMerkleizer)
 
-    scratchMerkleizer = newClone(copy m.finalizedDepositsMerkleizer)
-
-    debug "Starting Eth1 deposits syncing", `from` = shortLog(m.depositsChain.blocks[0])
+      debug "Starting Eth1 deposits syncing", `from` = shortLog(m.depositsChain.blocks[0])
 
   while true:
     if bnStatus == BeaconNodeStatus.Stopping:
@@ -1347,13 +1374,13 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       awaitWithRetries(
         m.dataProvider.getBlockByHash(m.latestEth1Block.get.hash))
 
-    if m.currentEpoch >= m.cfg.MERGE_FORK_EPOCH and m.terminalBlockHash.isNone:
+    if m.currentEpoch >= m.cfg.BELLATRIX_FORK_EPOCH and m.terminalBlockHash.isNone:
       # TODO why would latestEth1Block be isNone?
       var terminalBlockCandidate = nextBlock
 
-      info "FOO6",
+      info "startEth1Syncing: checking for merge terminal block",
         currentEpoch = m.currentEpoch,
-        MERGE_FORK_EPOCH = m.cfg.MERGE_FORK_EPOCH,
+        BELLATRIX_FORK_EPOCH = m.cfg.BELLATRIX_FORK_EPOCH,
         totalDifficult = nextBlock.totalDifficulty,
         ttd = m.cfg.TERMINAL_TOTAL_DIFFICULTY,
         terminalBlockHash = m.terminalBlockHash
@@ -1367,21 +1394,23 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
           terminalBlockCandidate = parentBlock
         m.terminalBlockHash = some terminalBlockCandidate.hash
 
-    if shouldProcessDeposits:
-      if m.latestEth1BlockNumber <= m.cfg.ETH1_FOLLOW_DISTANCE:
-        continue
+    when true:
+      # Ported from Amphora
+      if shouldProcessDeposits:
+        if m.latestEth1BlockNumber <= m.cfg.ETH1_FOLLOW_DISTANCE:
+          continue
 
-      let targetBlock = m.latestEth1BlockNumber - m.cfg.ETH1_FOLLOW_DISTANCE
-      if targetBlock <= eth1SyncedTo:
-        continue
+        let targetBlock = m.latestEth1BlockNumber - m.cfg.ETH1_FOLLOW_DISTANCE
+        if targetBlock <= eth1SyncedTo:
+          continue
 
-      let earliestBlockOfInterest = m.earliestBlockOfInterest()
-      await m.syncBlockRange(scratchMerkleizer,
-                             eth1SyncedTo + 1,
-                             targetBlock,
-                             earliestBlockOfInterest)
-      eth1SyncedTo = targetBlock
-      eth1_synced_head.set eth1SyncedTo.toGaugeValue
+        let earliestBlockOfInterest = m.earliestBlockOfInterest()
+        await m.syncBlockRange(scratchMerkleizer,
+                               eth1SyncedTo + 1,
+                               targetBlock,
+                               earliestBlockOfInterest)
+        eth1SyncedTo = targetBlock
+        eth1_synced_head.set eth1SyncedTo.toGaugeValue
 
 proc start(m: Eth1Monitor, delayBeforeStart: Duration) {.gcsafe.} =
   if m.runFut.isNil:

@@ -9,6 +9,7 @@
 
 import
   chronicles,
+  ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/forks
 
 export chronicles, forks
@@ -48,13 +49,12 @@ type
 template root*(blck: BlockRef): Eth2Digest = blck.bid.root
 template slot*(blck: BlockRef): Slot = blck.bid.slot
 
-func init(
+func init*(
     T: type BlockRef, root: Eth2Digest, executionPayloadRoot: Eth2Digest,
     slot: Slot): BlockRef =
   BlockRef(
-    root: root,
+    bid: BlockId(root: root, slot: slot),
     executionBlockRoot: executionPayloadRoot,
-    slot: slot
   )
 
 func init*(
