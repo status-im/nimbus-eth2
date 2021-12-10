@@ -14,7 +14,7 @@ import
   # Third-party libraries
   normalize,
   # Status libraries
-  stew/[results, bitseqs, bitops2], stew/shims/macros,
+  stew/[results, bitops2], stew/shims/macros,
   bearssl, eth/keyfile/uuid, blscurve, json_serialization,
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Local modules
