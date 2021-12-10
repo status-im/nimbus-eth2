@@ -1282,30 +1282,32 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     await m.dataProvider.onBlockHeaders(newBlockHeadersHandler,
                                         subscriptionErrorHandler)
 
-  let shouldProcessDeposits = not m.depositContractAddress.isZeroMemory
+  # Ported from amphora
+  let shouldProcessDeposits = false and not m.depositContractAddress.isZeroMemory
   var scratchMerkleizer: ref DepositsMerkleizer
   var eth1SyncedTo: Eth1BlockNumber
+  when true:
+    if shouldProcessDeposits and m.depositsChain.blocks.len == 0:
+      let startBlock = awaitWithRetries(
+        m.dataProvider.getBlockByHash(m.depositsChain.finalizedBlockHash.asBlockHash))
 
-  if shouldProcessDeposits and m.depositsChain.blocks.len == 0:
-    let startBlock = awaitWithRetries(
-      m.dataProvider.getBlockByHash(m.depositsChain.finalizedBlockHash.asBlockHash))
+      doAssert m.depositsChain.blocks.len == 0
+      m.depositsChain.addBlock Eth1Block(
+        number: Eth1BlockNumber startBlock.number,
+        timestamp: Eth1BlockTimestamp startBlock.timestamp,
+        voteData: eth1DataFromMerkleizer(
+          m.depositsChain.finalizedBlockHash,
+          m.depositsChain.finalizedDepositsMerkleizer))
 
-    m.depositsChain.addBlock Eth1Block(
-      number: Eth1BlockNumber startBlock.number,
-      timestamp: Eth1BlockTimestamp startBlock.timestamp,
-      voteData: eth1DataFromMerkleizer(
-        m.depositsChain.finalizedBlockHash,
-        m.depositsChain.finalizedDepositsMerkleizer))
+      eth1SyncedTo = Eth1BlockNumber startBlock.number
+      eth1_synced_head.set eth1SyncedTo.toGaugeValue
+      eth1_finalized_head.set eth1SyncedTo.toGaugeValue
+      eth1_finalized_deposits.set(
+        m.depositsChain.finalizedDepositsMerkleizer.getChunkCount.toGaugeValue)
 
-    eth1SyncedTo = Eth1BlockNumber m.depositsChain.blocks.peekLast.number
-    eth1_synced_head.set eth1SyncedTo.toGaugeValue
-    eth1_finalized_head.set eth1SyncedTo.toGaugeValue
-    eth1_finalized_deposits.set(
-      m.depositsChain.finalizedDepositsMerkleizer.getChunkCount.toGaugeValue)
+      scratchMerkleizer = newClone(copy m.finalizedDepositsMerkleizer)
 
-    scratchMerkleizer = newClone(copy m.finalizedDepositsMerkleizer)
-
-    debug "Starting Eth1 deposits syncing", `from` = shortLog(m.depositsChain.blocks[0])
+      debug "Starting Eth1 deposits syncing", `from` = shortLog(m.depositsChain.blocks[0])
 
   while true:
     if bnStatus == BeaconNodeStatus.Stopping:
@@ -1364,21 +1366,23 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
           terminalBlockCandidate = parentBlock
         m.terminalBlockHash = some terminalBlockCandidate.hash
 
-    if shouldProcessDeposits:
-      if m.latestEth1BlockNumber <= m.cfg.ETH1_FOLLOW_DISTANCE:
-        continue
+    when true:
+      # Ported from Amphora
+      if shouldProcessDeposits:
+        if m.latestEth1BlockNumber <= m.cfg.ETH1_FOLLOW_DISTANCE:
+          continue
 
-      let targetBlock = m.latestEth1BlockNumber - m.cfg.ETH1_FOLLOW_DISTANCE
-      if targetBlock <= eth1SyncedTo:
-        continue
+        let targetBlock = m.latestEth1BlockNumber - m.cfg.ETH1_FOLLOW_DISTANCE
+        if targetBlock <= eth1SyncedTo:
+          continue
 
-      let earliestBlockOfInterest = m.earliestBlockOfInterest()
-      await m.syncBlockRange(scratchMerkleizer,
-                             eth1SyncedTo + 1,
-                             targetBlock,
-                             earliestBlockOfInterest)
-      eth1SyncedTo = targetBlock
-      eth1_synced_head.set eth1SyncedTo.toGaugeValue
+        let earliestBlockOfInterest = m.earliestBlockOfInterest()
+        await m.syncBlockRange(scratchMerkleizer,
+                               eth1SyncedTo + 1,
+                               targetBlock,
+                               earliestBlockOfInterest)
+        eth1SyncedTo = targetBlock
+        eth1_synced_head.set eth1SyncedTo.toGaugeValue
 
 proc start(m: Eth1Monitor, delayBeforeStart: Duration) {.gcsafe.} =
   if m.runFut.isNil:
