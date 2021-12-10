@@ -150,8 +150,6 @@ XML_TEST_BINARIES := \
 
 # test suite
 TEST_BINARIES := \
-	proto_array \
-	fork_choice \
 	state_sim \
 	block_sim
 .PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES)
@@ -284,7 +282,7 @@ clean-testnet0:
 clean-testnet1:
 	rm -rf build/data/testnet1*
 
-testnet0 testnet1: | nimbus_beacon_node nimbus_signing_node
+testnet0 testnet1: | nimbus_beacon_node
 	build/nimbus_beacon_node \
 		--network=$@ \
 		--log-level="$(RUNTIME_LOG_LEVEL)" \
