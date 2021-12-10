@@ -645,6 +645,13 @@ suite "Backfill":
       dag.getBlockSlotIdBySlot(Slot(0)) == dag.genesis.bid.atSlot(Slot(0))
       dag.getBlockSlotIdBySlot(Slot(1)) == BlockSlotId()
 
+    var
+      badBlock = blocks[^2].phase0Data
+    badBlock.signature = blocks[^3].phase0Data.signature
+
+    check:
+      dag.addBackfillBlock(badBlock).error == BlockError.Invalid
+
     check:
       dag.addBackfillBlock(blocks[^3].phase0Data).error == BlockError.MissingParent
       dag.addBackfillBlock(tailBlock.phase0Data).error == BlockError.Duplicate
