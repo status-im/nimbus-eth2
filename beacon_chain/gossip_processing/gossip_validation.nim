@@ -775,7 +775,7 @@ proc validateVoluntaryExit*(
 proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
     batchCrypto: ref BatchCrypto,
-    syncCommitteeMsgPool: SyncCommitteeMsgPool,
+    syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
     msg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex,
     wallTime: BeaconTime,
@@ -810,7 +810,7 @@ proc validateSyncCommitteeMessage*(
     # Note this validation is per topic so that for a given slot, multiple
     # messages could be forwarded with the same validator_index as long as
     # the subnet_ids are distinct.
-    if syncCommitteeMsgPool.isSeen(msg, subcommitteeIdx):
+    if syncCommitteeMsgPool[].isSeen(msg, subcommitteeIdx):
       return errIgnore("SyncCommitteeMessage: duplicate message")
 
   # [REJECT] The signature is valid for the message beacon_block_root for the

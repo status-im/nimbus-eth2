@@ -171,7 +171,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
         let res = waitFor dag.validateSyncCommitteeMessage(
           batchCrypto,
-          syncCommitteePool[],
+          syncCommitteePool,
           msg,
           subcommitteeIdx,
           messagesTime,
