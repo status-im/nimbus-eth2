@@ -11,8 +11,6 @@ import
   chronicles, chronos,
   ../spec/datatypes/base,
   ../consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
-
-  # not ideal
   ../eth1/eth1_monitor
 
 # TODO: Move to "consensus_object_pools" folder
@@ -31,9 +29,9 @@ type
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
 
-    # Eth1 integration for merge
+    # Execution layer integration
     # ----------------------------------------------------------------
-    web3Provider*: Web3DataProviderRef
+    eth1Monitor*: Eth1Monitor
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -42,13 +40,13 @@ func new*(T: type ConsensusManager,
           dag: ChainDAGRef,
           attestationPool: ref AttestationPool,
           quarantine: ref Quarantine,
-          web3Provider: Web3DataProviderRef
+          eth1Monitor: Eth1Monitor
          ): ref ConsensusManager =
   (ref ConsensusManager)(
     dag: dag,
     attestationPool: attestationPool,
     quarantine: quarantine,
-    web3Provider: web3Provider
+    eth1Monitor: eth1Monitor
   )
 
 # Consensus Management

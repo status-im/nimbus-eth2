@@ -17,8 +17,8 @@ import
   chronicles, chronicles/timings,
   json_serialization/std/[options, sets, net], serialization/errors,
   eth/db/kvstore,
-  eth/keys, eth/p2p/discoveryv5/[protocol, enr],
-  web3/ethtypes,
+  eth/[async_utils, keys], eth/p2p/discoveryv5/[protocol, enr],
+  web3/[engine_api, ethtypes],
 
   # Local modules
   ../spec/datatypes/[phase0, altair, bellatrix],
@@ -34,10 +34,6 @@ import
   ../gossip_processing/[block_processor, consensus_manager],
   ".."/[conf, beacon_clock, beacon_node, version],
   "."/[slashing_protection, validator_pool, keystore_management]
-
-import stint/endians2
-import stint/private/datatypes
-import web3, web3/engine_api
 
 # Metrics for tracking attestation and beacon block loss
 const delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
@@ -424,53 +420,46 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
                         fee_recipient: ethtypes.Address,
                         execution_engine: Web3DataProviderRef):
                         Future[Option[bellatrix.PayloadId]] {.async.} =
+  const web3Timeout = 650.milliseconds
+
   let
     timestamp = compute_timestamp_at_slot(state, state.slot)
     random = get_randao_mix(state, get_current_epoch(state))
-    payloadId =
-      (await execution_engine.forkchoiceUpdated(
-        head_block_hash, finalized_block_hash, timestamp, random.data,
-        fee_recipient)).payloadId
+    # TODO have to separate out the payloadId = forkchoiceResponse.payloadId
+    # part, or else there's some Nim parsing issue
+    forkchoiceResponse =
+      awaitWithTimeout(
+        execution_engine.forkchoiceUpdated(
+          head_block_hash, finalized_block_hash, timestamp, random.data,
+          fee_recipient),
+        web3Timeout):
+          info "forkchoice_updated: forkchoiceUpdated timed out"
+          default(engine_api.ForkchoiceUpdatedResponse)
+    payloadId = forkchoiceResponse.payloadId
+
+  when false:
+    payloadId2 =
+      (awaitWithTimeout(
+        execution_engine.forkchoiceUpdated(
+          head_block_hash, finalized_block_hash, timestamp, random.data,
+          fee_recipient),
+        web3Timeout):
+          default(engine_api.ForkchoiceUpdatedResponse)).payloadId
+
   return if payloadId.isSome:
     some(bellatrix.PayloadId(payloadId.get))
   else:
     none(bellatrix.PayloadId)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/merge/validator.md#executionpayload
 proc get_execution_payload(
-    payload_id: Option[merge.PayloadId], execution_engine: Web3DataProviderRef):
-    Future[merge.ExecutionPayload] {.async.} =
+    payload_id: Option[bellatrix.PayloadId], execution_engine: Web3DataProviderRef):
+    Future[bellatrix.ExecutionPayload] {.async.} =
   return if payload_id.isNone():
     # Pre-merge, empty payload
-    default(merge.ExecutionPayload)
+    default(bellatrix.ExecutionPayload)
   else:
-    template getTransaction(t: TypedTransaction): Transaction =
-      Transaction.init(t.distinctBase)
-
-    let rpcExecutionPayload =
-      await execution_engine.getPayload(payload_id.get)
-    when false:
-      debug "get_execution_payload: execution_engine.get_payload",
-        rpcExecutionPayload
-    # TODO split these conversions out and enable round-trip testing
-    merge.ExecutionPayload(
-      parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
-      feeRecipient:
-        ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
-      state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
-      receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
-      logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
-      random: rpcExecutionPayload.random.asEth2Digest,
-      block_number: rpcExecutionPayload.blockNumber.uint64,
-      gas_limit: rpcExecutionPayload.gasLimit.uint64,
-      gas_used: rpcExecutionPayload.gasUsed.uint64,
-      timestamp: rpcExecutionPayload.timestamp.uint64,
-      extra_data: List[byte, 32].init(rpcExecutionPayload.extraData.distinctBase),
-      base_fee_per_gas:
-        Eth2Digest(data: rpcExecutionPayload.baseFeePerGas.toBytesLE),
-      block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
-      transactions: List[merge.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
-        mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
+    asConsensusExecutionPayload(
+      await execution_engine.getPayload(payload_id.get))
 
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     randao_reveal: ValidatorSig,
@@ -515,11 +504,15 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
           SyncAggregate.init()
         else:
           node.sync_committee_msg_pool[].produceSyncAggregate(head.root),
-        if slot.epoch < node.dag.cfg.MERGE_FORK_EPOCH:
+        if slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH:
           default(bellatrix.ExecutionPayload)
         else:
+          # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/validator.md#executionpayload
           # TODO a more reasonable fallback
           doAssert not node.eth1Monitor.isNil
+
+          # Minimize window for Eth1 monitor to shut down connection
+          await node.consensusManager.eth1Monitor.ensureDataProvider()
 
           # TODO the terminalBlockHash fallback exists to bootstrap this, but
           # ugliness/complexity probably avoidable
@@ -532,32 +525,38 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
               else:
                 default(Eth2Digest)
             latestHead =
-              if node.dag.head.executionBlockRoot != default(Eth2Digest):
+              if not node.dag.head.executionBlockRoot.isZero:
                 node.dag.head.executionBlockRoot
               else:
                 terminalBlockHash
             latestFinalized =
-              if node.dag.finalizedHead.blck.executionBlockRoot != default(Eth2Digest):
+              if not node.dag.finalizedHead.blck.executionBlockRoot.isZero:
                 node.dag.finalizedHead.blck.executionBlockRoot
               else:
                 terminalBlockHash
             payload_id = (await forkchoice_updated(
-              proposalState.data.mergeData.data, latestHead, latestFinalized,
-              feeRecipient, node.consensusManager.web3Provider))
+              proposalState.data.bellatrixData.data, latestHead, latestFinalized,
+              feeRecipient, node.consensusManager.eth1Monitor.dataProvider))
             payload = await get_execution_payload(
-              payload_id, node.consensusManager.web3Provider)
-          info "FOO5",
+              payload_id, node.consensusManager.eth1Monitor.dataProvider)
+            # TODO should probably ensure failure in executePayload prevents
+            # block creation
+            executionPayloadStatus =
+              await node.consensusManager.eth1Monitor.dataProvider.newExecutionPayload(
+                payload)
+          info "makeBeaconBlockForHeadAndSlot: proposed merge block",
             payload_id,
             terminalBlockHash,
             latestHead,
-            latestFinalized
+            latestFinalized,
+            executionPayloadStatus
           payload,
         noRollback, # Temporary state - no need for rollback
         cache)
     except CatchableError as err:
       # Prefer not to create block at all if it can't get ExecutionPayload
       error "Error creating beacon block", msg = err.msg
-      err(ForkedBeaconBlock)
+      Result[ForkedBeaconBlock, cstring].err("Error getting ExecutionPayload")
     if res.isErr():
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we

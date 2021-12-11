@@ -466,6 +466,28 @@ proc init*(T: type BeaconNode,
   func getBackfillSlot(): Slot =
     dag.backfill.slot
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/sync/optimistic.md#constants
+  # TODO use config settin
+  const
+    SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY = 128
+    OPTIMISTIC_SYNC_WINDOW_SLOTS = 64
+
+  proc getOptimisticStartSlot(): Slot =
+    const SLOT_OFFSET =
+      SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY + OPTIMISTIC_SYNC_WINDOW_SLOTS
+    let localWallSlot = getLocalWallSlot()
+    if localWallSlot >= SLOT_OFFSET:
+      localWallSlot - SLOT_OFFSET
+    else:
+      0.Slot
+
+  proc getOptimisticEndSlot(): Slot =
+    let localWallSlot = getLocalWallSlot()
+    if localWallSlot >= SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY:
+      localWallSlot - SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY
+    else:
+      0.Slot
+
   let
     slashingProtectionDB =
       SlashingProtectionDB.init(
@@ -473,13 +495,8 @@ proc init*(T: type BeaconNode,
           config.validatorsDir(), SlashingDbName)
     validatorPool = newClone(ValidatorPool.init(slashingProtectionDB))
 
-    # TODO waitFor etc. This is temporary init code, so fine for now
-    web3Provider = waitFor newWeb3DataProvider(
-      default(Eth1Address), if config.web3Urls.len > 0: config.web3Urls[0] else: "")
-
     consensusManager = ConsensusManager.new(
-      dag, attestationPool, quarantine, web3Provider.get
-    )
+      dag, attestationPool, quarantine, eth1Monitor)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       rng, taskpool, consensusManager, validatorMonitor, getBeaconTime)
@@ -491,6 +508,14 @@ proc init*(T: type BeaconNode,
       # that should probably be reimagined more holistically in the future.
       let resfut = newFuture[Result[void, BlockError]]("blockVerifier")
       blockProcessor[].addBlock(MsgSource.gossip, signedBlock, resfut)
+      resfut
+    optimisticBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock):
+        Future[Result[void, BlockError]] =
+      let resfut = newFuture[Result[void, BlockError]]("optimisticBlockVerifier")
+      if signedBlock.kind >= BeaconBlockFork.Bellatrix:
+        blockProcessor[].addBlock(MsgSource.optSync, signedBlock, resfut)
+      else:
+        resfut.complete(Result[void, BlockError].ok())
       resfut
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
@@ -505,6 +530,11 @@ proc init*(T: type BeaconNode,
       network.peerPool, SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       dag.backfill.slot, blockVerifier, maxHeadAge = 0)
+    optimisticSyncManager = newSyncManager[Peer, PeerID](
+      network.peerPool, SyncQueueKind.Forward, getOptimisticStartSlot,
+      getOptimisticEndSlot,
+      getOptimisticStartSlot, # match with head slot, because going back pointless
+      getBackfillSlot, dag.tail.slot, optimisticBlockVerifier)
 
   let stateTtlCache = if config.restCacheSize > 0:
     StateTtlCache.init(
@@ -538,6 +568,7 @@ proc init*(T: type BeaconNode,
     requestManager: RequestManager.init(network, blockVerifier),
     syncManager: syncManager,
     backfiller: backfiller,
+    optimisticSyncManager: optimisticSyncManager,
     actionTracker: ActionTracker.init(rng, config.subscribeAllSubnets),
     processor: processor,
     blockProcessor: blockProcessor,
@@ -1305,6 +1336,7 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
 
   node.requestManager.start()
   node.syncManager.start()
+  node.optimisticSyncManager.start()
 
   if node.dag.needsBackfill(): asyncSpawn node.startBackfillTask()
 

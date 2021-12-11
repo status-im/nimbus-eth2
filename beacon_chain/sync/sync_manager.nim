@@ -114,7 +114,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getBackfillSlotCb: GetSlotCallback,
                            progressPivot: Slot,
                            blockVerifier: BlockVerifier,
-                           maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
+                           maxHeadAge = 8'u64,
                            chunkSize = uint64(SLOTS_PER_EPOCH),
                            toleranceValue = uint64(1)
                            ): SyncManager[A, B] =
@@ -259,20 +259,6 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
     # Time passed - enough to move slots, if sleep happened
     headSlot = man.getLocalHeadSlot()
     wallSlot = man.getLocalWallSlot()
-
-    if peerSlot > wallSlot + man.toleranceValue:
-      # If the peer reports a head slot higher than our wall slot, something is
-      # wrong: our clock is off or the peer is on a different network (or
-      # dishonest)
-      peer.updateScore(PeerScoreHeadTooNew)
-
-      warn "Peer reports a head newer than our wall clock - clock out of sync?",
-            wall_clock_slot = wallSlot, remote_head_slot = peerSlot,
-            local_head_slot = headSlot, peer = peer, index = index,
-            tolerance_value = man.toleranceValue, peer_speed = peer.netKbps(),
-            peer_score = peer.getScore(), direction = man.direction,
-            topics = "syncman"
-      return
 
   if man.remainingSlots() <= man.maxHeadAge:
     case man.direction

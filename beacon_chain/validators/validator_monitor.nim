@@ -198,6 +198,7 @@ type
     # expanded in the future.
     gossip = "gossip"
     api = "api"
+    optSync = "optSync"
 
 template toGaugeValue(v: bool): int64 =
   if v: 1 else: 0

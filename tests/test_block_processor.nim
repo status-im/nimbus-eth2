@@ -36,7 +36,7 @@ suite "Block processor" & preset():
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       web3DataProvider = new Web3DataProviderRef
       consensusManager = ConsensusManager.new(
-        dag, attestationPool, quarantine, web3DataProvider)
+        dag, attestationPool, quarantine, new Eth1Monitor)
       state = newClone(dag.headState.data)
       cache = StateCache()
       b1 = addTestBlock(state[], cache).phase0Data

@@ -78,7 +78,7 @@ if defined(windows):
 # given its near-ubiquity in the x86 installed base, it renders a distribution
 # build more viable on an overall broader range of hardware.
 #
-if defined(disableMarchNative):
+if not defined(enableMarchNative):
   if defined(i386) or defined(amd64):
     if defined(macosx):
       # https://support.apple.com/kb/SP777
@@ -88,6 +88,8 @@ if defined(disableMarchNative):
       # supports instruction set extensions through SSE4.2 and POPCNT.
       switch("passC", "-march=nehalem")
       switch("passL", "-march=nehalem")
+    elif defined(i386):
+      discard
     else:
       switch("passC", "-mssse3")
       switch("passL", "-mssse3")

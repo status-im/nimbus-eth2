@@ -95,7 +95,7 @@ type
   BeaconNodeConf* = object
     logLevel* {.
       desc: "Sets the log level for process and topics (e.g. \"DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none\")"
-      defaultValue: "INFO"
+      defaultValue: "DEBUG"
       name: "log-level" }: string
 
     logStdout* {.
@@ -450,7 +450,7 @@ type
       proposerBoosting* {.
         hidden
         desc: "Enable proposer boosting; temporary option feature gate (debugging; option will be removed)",
-        defaultValue: false
+        defaultValue: true
         name: "proposer-boosting-debug" }: bool
 
       # https://github.com/ethereum/consensus-specs/blob/v1.1.9/sync/optimistic.md#fork-choice-poisoning

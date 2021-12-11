@@ -14,7 +14,7 @@ import
   chronos, json, metrics, chronicles/timings, stint/endians2,
   web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
   eth/common/eth_types,
-  eth/async_utils, stew/[byteutils, shims/hashes],
+  eth/async_utils, stew/[byteutils, objects, shims/hashes],
   # Local modules:
   ../spec/[eth2_merkleization, forks, helpers],
   ../spec/datatypes/[base, phase0, bellatrix],
@@ -112,7 +112,7 @@ type
     depositContractAddress*: Eth1Address
     forcePolling: bool
 
-    dataProvider: Web3DataProviderRef
+    dataProvider*: Web3DataProviderRef  # TODO evidently not meant for export
     latestEth1Block: Option[FullBlockId]
 
     depositsChain: Eth1Chain
@@ -451,15 +451,37 @@ proc getBlockByNumber*(p: Web3DataProviderRef,
 
 proc getPayload*(p: Web3DataProviderRef,
                  payloadId: bellatrix.PayloadID): Future[engine_api.ExecutionPayloadV1] =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.isNil:
+    var epr: Future[engine_api.ExecutionPayloadV1]
+    epr.complete(default(engine_api.ExecutionPayloadV1))
+    return epr
+
   p.web3.provider.engine_getPayloadV1(FixedBytes[8] payloadId)
 
 proc newPayload*(p: Web3DataProviderRef,
                  payload: engine_api.ExecutionPayloadV1): Future[PayloadStatusV1] =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.isNil:
+    var epr: Future[PayloadStatusV1]
+    epr.complete(PayloadStatusV1(status: PayloadExecutionStatus.syncing))
+    return epr
+
   p.web3.provider.engine_newPayloadV1(payload)
 
 proc forkchoiceUpdated*(p: Web3DataProviderRef,
                         headBlock, finalizedBlock: Eth2Digest):
                         Future[engine_api.ForkchoiceUpdatedResponse] =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.isNil:
+    var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
+    fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
+      payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
+    return fcuR
+
   p.web3.provider.engine_forkchoiceUpdatedV1(
     ForkchoiceStateV1(
       headBlockHash: headBlock.asBlockHash,
@@ -478,6 +500,14 @@ proc forkchoiceUpdated*(p: Web3DataProviderRef,
                         randomData: array[32, byte],
                         suggestedFeeRecipient: Eth1Address):
                         Future[engine_api.ForkchoiceUpdatedResponse] =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.isNil:
+    var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
+    fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
+      payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
+    return fcuR
+
   p.web3.provider.engine_forkchoiceUpdatedV1(
     ForkchoiceStateV1(
       headBlockHash: headBlock.asBlockHash,
@@ -858,11 +888,6 @@ proc new*(T: type Web3DataProvider,
     ns = web3.contractSender(DepositContract, depositContractAddress)
 
   return ok Web3DataProviderRef(url: web3Url, web3: web3, ns: ns)
-
-# route around eth1 monitor initialization gating; intentionally a bit clunky
-proc newWeb3DataProvider*(depositContractAddress: Eth1Address, web3Url: string):
-    Future[Result[Web3DataProviderRef, string]] =
-  Web3DataProvider.new(depositContractAddress, web3Url)
 
 proc putInitialDepositContractSnapshot*(db: BeaconChainDB,
                                         s: DepositContractSnapshot) =
@@ -1346,13 +1371,13 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       awaitWithRetries(
         m.dataProvider.getBlockByHash(m.latestEth1Block.get.hash))
 
-    if m.currentEpoch >= m.cfg.MERGE_FORK_EPOCH and m.terminalBlockHash.isNone:
+    if m.currentEpoch >= m.cfg.BELLATRIX_FORK_EPOCH and m.terminalBlockHash.isNone:
       # TODO why would latestEth1Block be isNone?
       var terminalBlockCandidate = nextBlock
 
-      info "FOO6",
+      info "startEth1Syncing: checking for merge terminal block",
         currentEpoch = m.currentEpoch,
-        MERGE_FORK_EPOCH = m.cfg.MERGE_FORK_EPOCH,
+        BELLATRIX_FORK_EPOCH = m.cfg.BELLATRIX_FORK_EPOCH,
         totalDifficult = nextBlock.totalDifficulty,
         ttd = m.cfg.TERMINAL_TOTAL_DIFFICULTY,
         terminalBlockHash = m.terminalBlockHash
