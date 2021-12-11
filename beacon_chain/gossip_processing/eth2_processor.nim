@@ -427,7 +427,7 @@ proc syncCommitteeMessageValidator*(
 
   # Now proceed to validation
   let v = await validateSyncCommitteeMessage(
-    self.dag, self.batchCrypto, self.syncCommitteeMsgPool[],
+    self.dag, self.batchCrypto, self.syncCommitteeMsgPool,
     syncCommitteeMsg, subcommitteeIdx, wallTime, checkSignature)
   return if v.isOk():
     trace "Sync committee message validated"

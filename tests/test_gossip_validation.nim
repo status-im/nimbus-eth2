@@ -227,7 +227,7 @@ suite "Gossip validation - Extra": # Not based on preset config
 
       syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init())
       res = waitFor validateSyncCommitteeMessage(
-        dag, batchCrypto, syncCommitteeMsgPool[], msg, subcommitteeIdx,
+        dag, batchCrypto, syncCommitteeMsgPool, msg, subcommitteeIdx,
         slot.toBeaconTime(), true)
       (positions, cookedSig) = res.get()
 
@@ -261,5 +261,5 @@ suite "Gossip validation - Extra": # Not based on preset config
 
       # Same message twice should be ignored
       validateSyncCommitteeMessage(
-        dag, batchCrypto, syncCommitteeMsgPool[], msg, subcommitteeIdx,
+        dag, batchCrypto, syncCommitteeMsgPool, msg, subcommitteeIdx,
         state[].data.slot.toBeaconTime(), true).waitFor().isErr()
