@@ -117,7 +117,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            progressPivot: Slot,
                            blockVerifier: BlockVerifier,
                            maxStatusAge = uint64(SLOTS_PER_EPOCH * 4),
-                           maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
+                           maxHeadAge = 6'u64,
                            sleepTime = (int(SLOTS_PER_EPOCH) *
                                         int(SECONDS_PER_SLOT)).seconds,
                            chunkSize = uint64(SLOTS_PER_EPOCH),

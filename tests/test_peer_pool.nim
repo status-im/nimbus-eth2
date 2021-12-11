@@ -7,6 +7,9 @@
 
 {.used.}
 
+# TODO remove when lenPeerPool logging removed
+import chronicles
+
 import std/[random, heapqueue, tables]
 import chronos
 import ../beacon_chain/networking/peer_pool

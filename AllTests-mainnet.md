@@ -102,14 +102,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + epochAncestor sanity [Preset: mainnet]                                                     OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## DeleteKeys requests [Preset: mainnet]
-```diff
-+ Deleting not existing key [Preset: mainnet]                                                OK
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Diverging hardforks
 ```diff
 + Non-tail block in common                                                                   OK
@@ -207,13 +199,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + is_aggregator                                                                              OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
-## ImportKeystores requests [Preset: mainnet]
-```diff
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
-```
-OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Interop
 ```diff
 + Interop genesis                                                                            OK
@@ -234,14 +219,6 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + [SCRYPT] Network Keystore encryption                                                       OK
 ```
 OK: 9/9 Fail: 0/9 Skip: 0/9
-## ListKeys requests [Preset: mainnet]
-```diff
-+ Correct token provided [Preset: mainnet]                                                   OK
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Message signatures
 ```diff
 + Aggregate and proof signatures                                                             OK

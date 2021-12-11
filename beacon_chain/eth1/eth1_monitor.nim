@@ -1298,13 +1298,13 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       awaitWithRetries(
         m.dataProvider.getBlockByHash(m.latestEth1Block.get.hash))
 
-    if m.currentEpoch >= m.cfg.MERGE_FORK_EPOCH and m.terminalBlockHash.isNone:
+    if m.currentEpoch >= m.cfg.BELLATRIX_FORK_EPOCH and m.terminalBlockHash.isNone:
       # TODO why would latestEth1Block be isNone?
       var terminalBlockCandidate = nextBlock
 
-      info "FOO6",
+      info "startEth1Syncing: checking for merge terminal block",
         currentEpoch = m.currentEpoch,
-        MERGE_FORK_EPOCH = m.cfg.MERGE_FORK_EPOCH,
+        BELLATRIX_FORK_EPOCH = m.cfg.BELLATRIX_FORK_EPOCH,
         totalDifficult = nextBlock.totalDifficulty,
         ttd = m.cfg.TERMINAL_TOTAL_DIFFICULTY,
         terminalBlockHash = m.terminalBlockHash
