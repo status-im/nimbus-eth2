@@ -127,8 +127,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(uint64(node.dag.cfg.ALTAIR_FORK_EPOCH)),
           BELLATRIX_FORK_VERSION:
             "0x" & $node.dag.cfg.BELLATRIX_FORK_VERSION,
-          MERGE_FORK_EPOCH:
-            Base10.toString(uint64(node.dag.cfg.MERGE_FORK_EPOCH)),
+          BELLATRIX_FORK_EPOCH:
+            Base10.toString(uint64(node.dag.cfg.BELLATRIX_FORK_EPOCH)),
           SHARDING_FORK_VERSION:
             "0x" & $node.dag.cfg.SHARDING_FORK_VERSION,
           SHARDING_FORK_EPOCH:

@@ -887,7 +887,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
       getTargetGossipState(
         slot.epoch,
         node.dag.cfg.ALTAIR_FORK_EPOCH,
-        node.dag.cfg.MERGE_FORK_EPOCH,
+        node.dag.cfg.BELLATRIX_FORK_EPOCH,
         headDistance > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER)
 
   doAssert targetGossipState.card <= 2

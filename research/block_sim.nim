@@ -72,7 +72,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     cfg = defaultRuntimeConfig
 
   cfg.ALTAIR_FORK_EPOCH = 32.Slot.epoch
-  cfg.MERGE_FORK_EPOCH = 96.Slot.epoch
+  cfg.BELLATRIX_FORK_EPOCH = 96.Slot.epoch
 
   echo "Starting simulation..."
 

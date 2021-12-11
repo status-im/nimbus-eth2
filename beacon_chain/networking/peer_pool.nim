@@ -7,6 +7,7 @@
 
 {.push raises: [Defect].}
 
+import chronicles
 import std/[tables, heapqueue]
 import chronos
 
@@ -247,6 +248,17 @@ proc lenSpace*[A, B](pool: PeerPool[A, B],
   let totalSpace = pool.maxPeersCount - curPeersCount
   let incoming = min(totalSpace, pool.maxIncPeersCount - pool.curIncPeersCount)
   let outgoing = min(totalSpace, pool.maxOutPeersCount - pool.curOutPeersCount)
+  debug "lenSpace",
+    curIncPeersCount = pool.curIncPeersCount,
+    curOutPeersCount = pool.curOutPeersCount,
+    curPeersCount,
+    totalSpace,
+    maxPeersCount = pool.maxPeersCount,
+    maxIncPeersCount = pool.maxIncPeersCount,
+    filter,
+    maxOutPeersCount = pool.maxOutPeersCount,
+    incoming,
+    outgoing
   if filter == {PeerType.Incoming, PeerType.Outgoing}:
     # To avoid overflow check we need to check by ourself.
     if uint64(incoming) + uint64(outgoing) > uint64(high(int)):
