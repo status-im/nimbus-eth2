@@ -44,6 +44,12 @@ OK: 25/25 Fail: 0/25 Skip: 0/25
 + Working with aggregates [Preset: mainnet]                                                  OK
 ```
 OK: 11/11 Fail: 0/11 Skip: 0/11
+## Backfill
+```diff
++ backfill to genesis                                                                        OK
++ reload backfill position                                                                   OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Beacon chain DB [Preset: mainnet]
 ```diff
 + empty database [Preset: mainnet]                                                           OK
@@ -389,4 +395,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 213/215 Fail: 0/215 Skip: 2/215
+OK: 215/217 Fail: 0/217 Skip: 2/217

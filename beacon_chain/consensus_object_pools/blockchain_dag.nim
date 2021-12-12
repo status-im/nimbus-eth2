@@ -173,17 +173,55 @@ func effective_balances*(epochRef: EpochRef): seq[Gwei] =
 
 func getBlockBySlot*(dag: ChainDAGRef, slot: Slot): BlockSlot =
   ## Retrieve the canonical block at the given slot, or the last block that
-  ## comes before - similar to atSlot, but without the linear scan
+  ## comes before - similar to atSlot, but without the linear scan - see
+  ## getBlockSlotIdBySlot for a version that covers backfill blocks as well
+  ## May return an empty BlockSlot (where blck is nil!)
+
+  if slot == dag.genesis.slot:
+    # There may be gaps in the
+    return dag.genesis.atSlot(slot)
+
   if slot > dag.finalizedHead.slot:
     return dag.head.atSlot(slot) # Linear iteration is the fastest we have
 
-  var tmp = slot.int
-  while true:
-    if dag.finalizedBlocks[tmp] != nil:
-      return dag.finalizedBlocks[tmp].atSlot(slot)
-    if tmp == 0:
-      raiseAssert "At least the genesis block should be available!"
-    tmp = tmp - 1
+  doAssert dag.finalizedHead.slot >= dag.tail.slot
+  doAssert dag.tail.slot >= dag.backfill.slot
+  doAssert dag.finalizedBlocks.len ==
+    (dag.finalizedHead.slot - dag.tail.slot).int + 1, "see updateHead"
+
+  if slot >= dag.tail.slot:
+    var pos = int(slot - dag.tail.slot)
+
+    while true:
+      if dag.finalizedBlocks[pos] != nil:
+        return dag.finalizedBlocks[pos].atSlot(slot)
+
+      if pos == 0:
+        break
+
+      pos -= 1
+
+  if dag.tail.slot == 0:
+    raiseAssert "Genesis missing"
+
+  BlockSlot() # nil blck!
+
+func getBlockSlotIdBySlot*(dag: ChainDAGRef, slot: Slot): BlockSlotId =
+  ## Retrieve the canonical block at the given slot, or the last block that
+  ## comes before - similar to atSlot, but without the linear scan
+  if slot == dag.genesis.slot:
+    return dag.genesis.bid.atSlot(slot)
+
+  if slot >= dag.tail.slot:
+    return dag.getBlockBySlot(slot).toBlockSlotId()
+
+  var pos = slot.int
+  while pos >= dag.backfill.slot.int:
+    if dag.backfillBlocks[pos] != Eth2Digest():
+      return BlockId(root: dag.backfillBlocks[pos], slot: Slot(pos)).atSlot(slot)
+    pos -= 1
+
+  BlockSlotId() # not backfilled yet, and not genesis
 
 func epochAncestor*(blck: BlockRef, epoch: Epoch): EpochKey =
   ## The state transition works by storing information from blocks in a
@@ -315,6 +353,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   let
     tailBlockRoot = db.getTailBlock()
     headBlockRoot = db.getHeadBlock()
+    backfillBlockRoot = db.getBackfillBlock()
 
   doAssert tailBlockRoot.isSome(), "Missing tail block, database corrupt?"
   doAssert headBlockRoot.isSome(), "Missing head block, database corrupt?"
@@ -335,6 +374,18 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         "preInit should have initialized the database with a genesis block")
     withBlck(genesisBlock): BlockRef.init(genesisBlockRoot, blck.message)
 
+  let backfill =
+    if backfillBlockRoot.isSome():
+      let backfillBlock = db.getForkedBlock(backfillBlockRoot.get()).expect(
+        "backfill block must be present in database, database corrupt?")
+      (getForkedBlockField(backfillBlock, slot),
+        getForkedBlockField(backfillBlock, parentRoot))
+    elif tailRef.slot > GENESIS_SLOT:
+      (getForkedBlockField(tailBlock, slot),
+        getForkedBlockField(tailBlock, parentRoot))
+    else:
+      (GENESIS_SLOT, Eth2Digest())
+
   var
     blocks: HashSet[KeyedBlockRef]
     headRef: BlockRef
@@ -344,38 +395,46 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   if genesisRef != tailRef:
     blocks.incl(KeyedBlockRef.init(genesisRef))
 
-  if headRoot != tailRoot:
-    var curRef: BlockRef
+  var
+    backfillBlocks = newSeq[Eth2Digest](tailRef.slot.int)
+    curRef: BlockRef
 
-    for blck in db.getAncestorSummaries(headRoot):
-      if blck.root == tailRef.root:
-        doAssert(not curRef.isNil)
+  for blck in db.getAncestorSummaries(headRoot):
+    if blck.summary.slot < tailRef.slot:
+      backfillBlocks[blck.summary.slot.int] = blck.root
+    elif blck.summary.slot == tailRef.slot:
+      if curRef == nil:
+        curRef = tailRef
+        headRef = tailRef
+      else:
         link(tailRef, curRef)
         curRef = curRef.parent
-        break
+    else:
+      if curRef == nil:
+        # When the database has been written with a pre-fork version of the
+        # software, it may happen that blocks produced using an "unforked"
+        # chain get written to the database - we need to skip such blocks
+        # when loading the database with a fork-compatible version
+        if not containsBlock(cfg, db, blck.summary.slot, blck.root):
+          continue
 
       let newRef = BlockRef.init(blck.root, blck.summary.slot)
       if curRef == nil:
         curRef = newRef
+        headRef = newRef
       else:
         link(newRef, curRef)
         curRef = curRef.parent
 
-      # Don't include blocks on incorrect hardforks
-      if headRef == nil and cfg.containsBlock(db, newRef.slot, newRef.root):
-        headRef = newRef
-
       blocks.incl(KeyedBlockRef.init(curRef))
       trace "Populating block dag", key = curRef.root, val = curRef
 
-    if curRef != tailRef:
-      fatal "Head block does not lead to tail - database corrupt?",
-        genesisRef, tailRef, headRef, curRef, tailRoot, headRoot,
-        blocks = blocks.len()
+  if curRef != tailRef:
+    fatal "Head block does not lead to tail - database corrupt?",
+      genesisRef, tailRef, headRef, curRef, tailRoot, headRoot,
+      blocks = blocks.len()
 
-      quit 1
-  else:
-    headRef = tailRef
+    quit 1
 
   # Because of incorrect hardfork check, there might be no head block, in which
   # case it's equivalent to the tail block
@@ -429,8 +488,10 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   let dag = ChainDAGRef(
     db: db,
     blocks: blocks,
+    backfillBlocks: backfillBlocks,
     genesis: genesisRef,
     tail: tailRef,
+    backfill: backfill,
     finalizedHead: tailRef.atSlot(),
     lastPrunePoint: tailRef.atSlot(),
     # Tail is implicitly finalized - we'll adjust it below when computing the
@@ -476,10 +537,11 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   dag.finalizedHead = headRef.atSlot(finalizedSlot)
 
   block:
-    dag.finalizedBlocks.setLen(dag.finalizedHead.slot.int + 1)
+    dag.finalizedBlocks.setLen((dag.finalizedHead.slot - dag.tail.slot).int + 1)
+
     var tmp = dag.finalizedHead.blck
     while not isNil(tmp):
-      dag.finalizedBlocks[tmp.slot.int] = tmp
+      dag.finalizedBlocks[(tmp.slot - dag.tail.slot).int] = tmp
       tmp = tmp.parent
 
   dag.clearanceState = dag.headState
@@ -499,7 +561,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     head = shortLog(dag.head),
     finalizedHead = shortLog(dag.finalizedHead),
     tail = shortLog(dag.tail),
-    totalBlocks = dag.blocks.len
+    totalBlocks = dag.blocks.len(),
+    backfill = (dag.backfill.slot, shortLog(dag.backfill.root))
 
   dag
 
@@ -631,9 +694,9 @@ func getRef*(dag: ChainDAGRef, root: Eth2Digest): BlockRef =
   else:
     nil
 
-func getBlockRange*(
+proc getBlockRange*(
     dag: ChainDAGRef, startSlot: Slot, skipStep: uint64,
-    output: var openArray[BlockRef]): Natural =
+    output: var openArray[BlockId]): Natural =
   ## This function populates an `output` buffer of blocks
   ## with a slots ranging from `startSlot` up to, but not including,
   ## `startSlot + skipStep * output.len`, skipping any slots that don't have
@@ -652,55 +715,63 @@ func getBlockRange*(
   trace "getBlockRange entered",
     head = shortLog(dag.head.root), requestedCount, startSlot, skipStep, headSlot
 
-  if startSlot < dag.tail.slot or headSlot <= startSlot or requestedCount == 0:
+  if startSlot < dag.backfill.slot:
+    notice "Got request for pre-backfill slot",
+      startSlot, backfillSlot = dag.backfill.slot
+    return output.len
+
+  if headSlot <= startSlot or requestedCount == 0:
     return output.len # Identical to returning an empty set of block as indicated above
 
   let
     runway = uint64(headSlot - startSlot)
 
     # This is the number of blocks that will follow the start block
-    extraBlocks = min(runway div skipStep, requestedCount - 1)
+    extraSlots = min(runway div skipStep, requestedCount - 1)
 
-    # If `skipStep` is very large, `extraBlocks` should be 0 from
+    # If `skipStep` is very large, `extraSlots` should be 0 from
     # the previous line, so `endSlot` will be equal to `startSlot`:
-    endSlot = startSlot + extraBlocks * skipStep
+    endSlot = startSlot + extraSlots * skipStep
 
   var
-    b = dag.getBlockBySlot(endSlot)
+    curSlot = endSlot
     o = output.len
 
   # Process all blocks that follow the start block (may be zero blocks)
-  for i in 1..extraBlocks:
-    if b.blck.slot == b.slot:
-      dec o
-      output[o] = b.blck
-    for j in 1..skipStep:
-      b = b.parent
+  while curSlot > startSlot:
+    let bs = dag.getBlockSlotIdBySlot(curSlot)
+    if bs.isProposed():
+      o -= 1
+      output[o] = bs.bid
+    curSlot -= skipStep
 
-  # We should now be at the start block.
-  # Like any "block slot", it may be a missing/skipped block:
-  if b.blck.slot == b.slot:
-    dec o
-    output[o] = b.blck
+  # Handle start slot separately (to avoid underflow when computing curSlot)
+  let bs = dag.getBlockSlotIdBySlot(startSlot)
+  if bs.isProposed():
+    o -= 1
+    output[o] = bs.bid
 
   o # Return the index of the first non-nil item in the output
 
-proc getForkedBlock*(dag: ChainDAGRef, blck: BlockRef): ForkedTrustedSignedBeaconBlock =
-  case dag.cfg.blockForkAtEpoch(blck.slot.epoch)
+proc getForkedBlock*(dag: ChainDAGRef, id: BlockId): Opt[ForkedTrustedSignedBeaconBlock] =
+  case dag.cfg.blockForkAtEpoch(id.slot.epoch)
   of BeaconBlockFork.Phase0:
-    let data = dag.db.getPhase0Block(blck.root)
+    let data = dag.db.getPhase0Block(id.root)
     if data.isOk():
-      return ForkedTrustedSignedBeaconBlock.init(data.get)
+      return ok ForkedTrustedSignedBeaconBlock.init(data.get)
   of BeaconBlockFork.Altair:
-    let data = dag.db.getAltairBlock(blck.root)
+    let data = dag.db.getAltairBlock(id.root)
     if data.isOk():
-      return ForkedTrustedSignedBeaconBlock.init(data.get)
+      return ok ForkedTrustedSignedBeaconBlock.init(data.get)
   of BeaconBlockFork.Merge:
-    let data = dag.db.getMergeBlock(blck.root)
+    let data = dag.db.getMergeBlock(id.root)
     if data.isOk():
-      return ForkedTrustedSignedBeaconBlock.init(data.get)
+      return ok ForkedTrustedSignedBeaconBlock.init(data.get)
 
-  raiseAssert "BlockRef without backing data, database corrupt?"
+proc getForkedBlock*(dag: ChainDAGRef, blck: BlockRef): ForkedTrustedSignedBeaconBlock =
+  let blck = dag.getForkedBlock(blck.bid)
+  if blck.isSome():
+    return blck.get()
 
 proc get*(dag: ChainDAGRef, blck: BlockRef): BlockData =
   ## Retrieve the associated block body of a block reference
@@ -1195,17 +1266,17 @@ proc updateHead*(
       let currentEpoch = epoch(newHead.slot)
       let
         currentDutyDepRoot =
-          if currentEpoch > Epoch(0):
+          if currentEpoch > dag.tail.slot.epoch:
             dag.head.atSlot(
               compute_start_slot_at_epoch(currentEpoch) - 1).blck.root
           else:
-            dag.genesis.root
+            dag.tail.root
         previousDutyDepRoot =
-          if currentEpoch > Epoch(1):
+          if currentEpoch > dag.tail.slot.epoch + 1:
             dag.head.atSlot(
               compute_start_slot_at_epoch(currentEpoch - 1) - 1).blck.root
           else:
-            dag.genesis.root
+            dag.tail.root
         epochTransition = (finalizedHead != dag.finalizedHead)
       let data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
                                            getStateRoot(dag.headState.data),
@@ -1260,10 +1331,10 @@ proc updateHead*(
       # Update `dag.finalizedBlocks` with all newly finalized blocks (those
       # newer than the previous finalized head), then update `dag.finalizedHead`
 
-      dag.finalizedBlocks.setLen(finalizedHead.slot.int + 1)
+      dag.finalizedBlocks.setLen(finalizedHead.slot - dag.tail.slot + 1)
       var tmp = finalizedHead.blck
       while not isNil(tmp) and tmp.slot >= dag.finalizedHead.slot:
-        dag.finalizedBlocks[tmp.slot.int] = tmp
+        dag.finalizedBlocks[(tmp.slot - dag.tail.slot).int] = tmp
         tmp = tmp.parent
 
       dag.finalizedHead = finalizedHead

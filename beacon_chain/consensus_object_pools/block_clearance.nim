@@ -31,7 +31,7 @@ export results, signatures_batch
 logScope:
   topics = "clearance"
 
-proc addResolvedBlock(
+proc addResolvedHeadBlock(
        dag: ChainDAGRef,
        state: var StateData,
        trustedBlock: ForkyTrustedSignedBeaconBlock,
@@ -149,7 +149,7 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
     debug "Prepared clearance state for next block",
       next, updateStateDur = Moment.now() - startTick
 
-proc addRawBlock*(
+proc addHeadBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
     onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnMergeBlockAdded
@@ -212,7 +212,7 @@ proc addRawBlock*(
     # correct - from their point of view, the head block they have is the
     # latest thing that happened on the chain and they're performing their
     # duty correctly.
-    debug "Unviable block, dropping",
+    debug "Block from unviable fork",
       finalizedHead = shortLog(dag.finalizedHead),
       tail = shortLog(dag.tail)
 
@@ -250,7 +250,7 @@ proc addRawBlock*(
   let stateVerifyTick = Moment.now()
   # Careful, clearanceState.data has been updated but not blck - we need to
   # create the BlockRef first!
-  ok addResolvedBlock(
+  ok addResolvedHeadBlock(
     dag, dag.clearanceState,
     signedBlock.asTrusted(),
     parent, cache,
@@ -258,3 +258,76 @@ proc addRawBlock*(
     stateDataDur = stateDataTick - startTick,
     sigVerifyDur = sigVerifyTick - stateDataTick,
     stateVerifyDur = stateVerifyTick - sigVerifyTick)
+
+proc addBackfillBlock*(
+    dag: ChainDAGRef,
+    signedBlock: ForkySignedBeaconBlock): Result[void, BlockError] =
+  ## When performing checkpoint sync, we need to backfill historical blocks
+  ## in order to respond to GetBlocksByRange requests. Backfill blocks are
+  ## added in backwards order, one by one, based on the `parent_root` of the
+  ## earliest block we know about.
+  ##
+  ## Because only one history is relevant when backfilling, one doesn't have to
+  ## consider forks or other finalization-related issues - a block is either
+  ## valid and finalized, or not.
+  logScope:
+    blockRoot = shortLog(signedBlock.root)
+    blck = shortLog(signedBlock.message)
+    backfill = (dag.backfill.slot, shortLog(dag.backfill.root))
+
+  template blck(): untyped = signedBlock.message # shortcuts without copy
+  template blockRoot(): untyped = signedBlock.root
+
+  if dag.backfill.slot <= signedBlock.message.slot or
+      signedBlock.message.slot <= dag.genesis.slot:
+    if blockRoot in dag:
+      debug "Block already exists"
+      return err(BlockError.Duplicate)
+
+    # The block is newer than our backfill position but not in the dag - either
+    # it sits somewhere between backfill and tail or it comes from an unviable
+    # fork. We don't have an in-memory way of checking the former condition so
+    # we return UnviableFork for that condition as well, even though `Duplicate`
+    # would be more correct
+    debug "Block unviable or duplicate"
+    return err(BlockError.UnviableFork)
+
+  if dag.backfill.root != signedBlock.root:
+    debug "Block does not match expected backfill root"
+    return err(BlockError.MissingParent) # MissingChild really, but ..
+
+  # If the hash is correct, the block itself must be correct, but the root does
+  # not cover the signature, which we check next
+
+  let proposerKey = dag.validatorKey(blck.proposer_index)
+  if proposerKey.isNone():
+    # This cannot happen, in theory, unless the checkpoint state is broken or
+    # there is a bug in our validator key caching scheme - in order not to
+    # send invalid attestations, we'll shut down defensively here - this might
+    # need revisiting in the future.
+    fatal "Invalid proposer in backfill block - checkpoint state corrupt?"
+    quit 1
+
+  if not verify_block_signature(
+      dag.forkAtEpoch(blck.slot.epoch),
+      getStateField(dag.headState.data, genesis_validators_root),
+      blck.slot,
+      signedBlock.root,
+      proposerKey.get(),
+      signedBlock.signature):
+    info "Block signature verification failed"
+    return err(BlockError.Invalid)
+
+  dag.putBlock(signedBlock.asTrusted())
+  dag.db.putBackfillBlock(signedBlock.root)
+  dag.backfill = (blck.slot, blck.parent_root)
+
+  # Invariants maintained on startup
+  doAssert dag.backfillBlocks.lenu64 == dag.tail.slot.uint64
+  doAssert dag.backfillBlocks.lenu64 > blck.slot.uint64
+
+  dag.backfillBlocks[blck.slot.int] = signedBlock.root
+
+  debug "Block backfilled"
+
+  ok()

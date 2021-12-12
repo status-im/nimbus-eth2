@@ -137,6 +137,9 @@ type
       ## only recent contract state data (i.e. only recent `deposit_roots`).
     kHashToStateDiff # Obsolete
     kHashToStateOnlyMutableValidators
+    kBackfillBlock
+      ## Pointer to the earliest block that we have backfilled - if this is not
+      ## set, backfill == tail
 
   BeaconBlockSummary* = object
     ## Cache of beacon block summaries - during startup when we construct the
@@ -588,6 +591,9 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc putGenesisBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kGenesisBlock), key)
 
+proc putBackfillBlock*(db: BeaconChainDB, key: Eth2Digest) =
+  db.keyValues.putRaw(subkey(kBackfillBlock), key)
+
 proc putEth2FinalizedTo*(db: BeaconChainDB,
                          eth1Checkpoint: DepositContractSnapshot) =
   db.keyValues.putSnappySSZ(subkey(kDepositsFinalizedByEth2), eth1Checkpoint)
@@ -790,6 +796,9 @@ proc getGenesisBlock(db: BeaconChainDBV0): Opt[Eth2Digest] =
 proc getGenesisBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.keyValues.getRaw(subkey(kGenesisBlock), Eth2Digest) or
     db.v0.getGenesisBlock()
+
+proc getBackfillBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
+  db.keyValues.getRaw(subkey(kBackfillBlock), Eth2Digest)
 
 proc getEth2FinalizedTo(db: BeaconChainDBV0): Opt[DepositContractSnapshot] =
   result.ok(DepositContractSnapshot())

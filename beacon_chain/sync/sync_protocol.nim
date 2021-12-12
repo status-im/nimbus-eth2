@@ -209,7 +209,7 @@ p2pProtocol BeaconSync(version = 1,
     trace "got range request", peer, startSlot,
                                count = reqCount, step = reqStep
     if reqCount > 0'u64 and reqStep > 0'u64:
-      var blocks: array[MAX_REQUEST_BLOCKS, BlockRef]
+      var blocks: array[MAX_REQUEST_BLOCKS, BlockId]
       let
         dag = peer.networkState.dag
         # Limit number of blocks in response
@@ -218,29 +218,29 @@ p2pProtocol BeaconSync(version = 1,
       let
         endIndex = count - 1
         startIndex =
-          dag.getBlockRange(startSlot, reqStep,
-                                 blocks.toOpenArray(0, endIndex))
+          dag.getBlockRange(startSlot, reqStep, blocks.toOpenArray(0, endIndex))
       peer.updateRequestQuota(
         blockByRangeLookupCost +
         max(0, endIndex - startIndex + 1).float * blockResponseCost)
       peer.awaitNonNegativeRequestQuota()
 
       for i in startIndex..endIndex:
-        doAssert not blocks[i].isNil, "getBlockRange should return non-nil blocks only"
         trace "wrote response block",
           slot = blocks[i].slot, roor = shortLog(blocks[i].root)
-        let blk = dag.get(blocks[i]).data
-        case blk.kind
-        of BeaconBlockFork.Phase0:
-          await response.write(blk.phase0Data.asSigned)
-        of BeaconBlockFork.Altair, BeaconBlockFork.Merge:
-          # Skipping all subsequent blocks should be OK because the spec says:
-          # "Clients MAY limit the number of blocks in the response."
-          # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyrange
-          #
-          # Also, our response would be indistinguishable from a node
-          # that have been synced exactly to the altair transition slot.
-          break
+        let blk = dag.getForkedBlock(blocks[i])
+        if blk.isSome():
+          let blck = blk.get()
+          case blck.kind
+          of BeaconBlockFork.Phase0:
+            await response.write(blck.phase0Data.asSigned)
+          of BeaconBlockFork.Altair, BeaconBlockFork.Merge:
+            # Skipping all subsequent blocks should be OK because the spec says:
+            # "Clients MAY limit the number of blocks in the response."
+            # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyrange
+            #
+            # Also, our response would be indistinguishable from a node
+            # that have been synced exactly to the altair transition slot.
+            break
 
       debug "Block range request done",
         peer, startSlot, count, reqStep, found = count - startIndex
@@ -297,7 +297,7 @@ p2pProtocol BeaconSync(version = 1,
     trace "got range request", peer, startSlot,
                                count = reqCount, step = reqStep
     if reqCount > 0'u64 and reqStep > 0'u64:
-      var blocks: array[MAX_REQUEST_BLOCKS, BlockRef]
+      var blocks: array[MAX_REQUEST_BLOCKS, BlockId]
       let
         dag = peer.networkState.dag
         # Limit number of blocks in response
@@ -314,11 +314,12 @@ p2pProtocol BeaconSync(version = 1,
       peer.awaitNonNegativeRequestQuota()
 
       for i in startIndex..endIndex:
-        doAssert not blocks[i].isNil, "getBlockRange should return non-nil blocks only"
-        trace "wrote response block",
-          slot = blocks[i].slot, roor = shortLog(blocks[i].root)
-        let blk = dag.getForkedBlock(blocks[i])
-        await response.write(blk.asSigned)
+        let
+          blk = dag.getForkedBlock(blocks[i])
+
+        if blk.isSome():
+          let blck = blk.get()
+          await response.write(blck.asSigned)
 
       debug "Block range request done",
         peer, startSlot, count, reqStep, found = count - startIndex
