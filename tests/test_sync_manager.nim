@@ -23,13 +23,23 @@ proc getFirstSlotAtFinalizedEpoch(): Slot =
 proc getSafeSlot(): Slot =
   Slot(1024)
 
-proc newBlockProcessor(): ref BlockProcessor =
-  # Minimal block processor for test - the real block processor has an unbounded
-  # queue but the tests here
-  (ref BlockProcessor)(
-    blockQueue: newAsyncQueue[BlockEntry]()
-  )
+type
+  BlockEntry = object
+    blck*: ForkedSignedBeaconBlock
+    resfut*: Future[Result[void, BlockError]]
 
+proc collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
+  # This sets up a fake block verifiation collector that simply puts the blocks
+  # in the async queue, similar to how BlockProcessor does it - as far as
+  # testing goes, this is risky because it might introduce differences between
+  # the BlockProcessor and this test
+  proc verify(signedBlock: ForkedSignedBeaconBlock): Future[Result[void, BlockError]] =
+    let fut = newFuture[Result[void, BlockError]]()
+    try: queue.addLastNoWait(BlockEntry(blck: signedBlock, resfut: fut))
+    except CatchableError as exc: raiseAssert exc.msg
+    return fut
+
+  return verify
 suite "SyncManager test suite":
   proc createChain(start, finish: Slot): seq[ForkedSignedBeaconBlock] =
     doAssert(start <= finish)
@@ -50,10 +60,11 @@ suite "SyncManager test suite":
 
   template startAndFinishSlotsEqual(kind: SyncQueueKind) =
     let p1 = SomeTPeer()
-    let aq = newBlockProcessor()
+    let aq = newAsyncQueue[BlockEntry]()
+
     var queue = SyncQueue.init(SomeTPeer, kind,
                                Slot(0), Slot(0), 1'u64,
-                               getFirstSlotAtFinalizedEpoch, aq)
+                               getFirstSlotAtFinalizedEpoch, collector(aq))
     check:
       len(queue) == 1
       pendingLen(queue) == 0
@@ -145,10 +156,10 @@ suite "SyncManager test suite":
         ]
 
     for item in Checks:
-      let aq = newBlockProcessor()
+      let aq = newAsyncQueue[BlockEntry]()
       var queue = SyncQueue.init(SomeTPeer, kind,
                                  item[0], item[1], item[2],
-                                 getFirstSlotAtFinalizedEpoch, aq)
+                                 getFirstSlotAtFinalizedEpoch, collector(aq))
       check:
         len(queue) == item[4]
         pendingLen(queue) == item[5]
@@ -167,17 +178,17 @@ suite "SyncManager test suite":
         req2.isEmpty() == true
 
   template twoFullRequests(kkind: SyncQueueKind) =
-    let aq = newBlockProcessor()
+    let aq = newAsyncQueue[BlockEntry]()
     var queue =
       case kkind
       of SyncQueueKind.Forward:
         SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
                        Slot(0), Slot(1), 1'u64,
-                       getFirstSlotAtFinalizedEpoch, aq)
+                       getFirstSlotAtFinalizedEpoch, collector(aq))
       of SyncQueueKind.Backward:
         SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
                        Slot(1), Slot(0), 1'u64,
-                       getFirstSlotAtFinalizedEpoch, aq)
+                       getFirstSlotAtFinalizedEpoch, collector(aq))
 
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
@@ -231,10 +242,14 @@ suite "SyncManager test suite":
         r21.slot == Slot(1) and r21.count == 1'u64 and r21.step == 1'u64
         r22.slot == Slot(0) and r22.count == 1'u64 and r22.step == 1'u64
 
+  template done(b: BlockEntry) =
+    b.resfut.complete(Result[void, BlockError].ok())
+  template fail(b: BlockEntry, e: untyped) =
+    b.resfut.complete(Result[void, BlockError].err(e))
+
   template smokeTest(kkind: SyncQueueKind, start, finish: Slot,
                      chunkSize: uint64) =
-    let
-      aq = newBlockProcessor()
+    let aq = newAsyncQueue[BlockEntry]()
 
     var counter =
       case kkind
@@ -267,18 +282,18 @@ suite "SyncManager test suite":
         of SyncQueueKind.Forward:
           SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
                          start, finish, chunkSize,
-                         getFirstSlotAtFinalizedEpoch, aq)
+                         getFirstSlotAtFinalizedEpoch, collector(aq))
         of SyncQueueKind.Backward:
           SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
                          finish, start, chunkSize,
-                         getFirstSlotAtFinalizedEpoch, aq)
+                         getFirstSlotAtFinalizedEpoch, collector(aq))
       chain = createChain(start, finish)
       validatorFut =
         case kkind
         of SyncQueueKind.Forward:
-          forwardValidator(aq[].blockQueue)
+          forwardValidator(aq)
         of SyncQueueKind.Backward:
-          backwardValidator(aq[].blockQueue)
+          backwardValidator(aq)
 
     let p1 = SomeTPeer()
 
@@ -299,7 +314,7 @@ suite "SyncManager test suite":
 
   template unorderedAsyncTest(kkind: SyncQueueKind, startSlot: Slot) =
     let
-      aq = newBlockProcessor()
+      aq = newAsyncQueue[BlockEntry]()
       chunkSize = 3'u64
       numberOfChunks = 3'u64
       finishSlot = Slot(startSlot + numberOfChunks * chunkSize - 1'u64)
@@ -337,19 +352,19 @@ suite "SyncManager test suite":
         of SyncQueueKind.Forward:
           SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
                          startSlot, finishSlot, chunkSize,
-                         getFirstSlotAtFinalizedEpoch, aq,
+                         getFirstSlotAtFinalizedEpoch, collector(aq),
                          queueSize)
         of SyncQueueKind.Backward:
           SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
                          finishSlot, startSlot, chunkSize,
-                         getFirstSlotAtFinalizedEpoch, aq,
+                         getFirstSlotAtFinalizedEpoch, collector(aq),
                          queueSize)
       validatorFut =
         case kkind
         of SyncQueueKind.Forward:
-          forwardValidator(aq[].blockQueue)
+          forwardValidator(aq)
         of SyncQueueKind.Backward:
-          backwardValidator(aq[].blockQueue)
+          backwardValidator(aq)
 
     let
       p1 = SomeTPeer()
@@ -425,7 +440,7 @@ suite "SyncManager test suite":
 
   test "[SyncQueue#Forward] Async unordered push with rewind test":
     let
-      aq = newBlockProcessor()
+      aq = newAsyncQueue[BlockEntry]()
       startSlot = Slot(0)
       chunkSize = SLOTS_PER_EPOCH
       numberOfChunks = 4'u64
@@ -451,9 +466,9 @@ suite "SyncManager test suite":
       chain = createChain(startSlot, finishSlot)
       queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
                              startSlot, finishSlot, chunkSize,
-                             getFirstSlotAtFinalizedEpoch, aq,
+                             getFirstSlotAtFinalizedEpoch, collector(aq),
                              queueSize)
-      validatorFut = forwardValidator(aq[].blockQueue)
+      validatorFut = forwardValidator(aq)
 
     let
       p1 = SomeTPeer()
@@ -539,7 +554,7 @@ suite "SyncManager test suite":
 
   test "[SyncQueue#Backward] Async unordered push with rewind test":
     let
-      aq = newBlockProcessor()
+      aq = newAsyncQueue[BlockEntry]()
       startSlot = Slot(0)
       chunkSize = SLOTS_PER_EPOCH
       numberOfChunks = 4'u64
@@ -571,8 +586,8 @@ suite "SyncManager test suite":
       chain = createChain(startSlot, finishSlot)
       queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
                              finishSlot, startSlot, chunkSize,
-                             getSafeSlot, aq, queueSize)
-      validatorFut = backwardValidator(aq[].blockQueue)
+                             getSafeSlot, collector(aq), queueSize)
+      validatorFut = backwardValidator(aq)
 
     let
       p1 = SomeTPeer()
@@ -771,11 +786,12 @@ suite "SyncManager test suite":
       checkResponse(r22, @[chain[3], chain[1]]) == false
 
   test "[SyncQueue#Forward] getRewindPoint() test":
-    let aq = newBlockProcessor()
+    let aq = newAsyncQueue[BlockEntry]()
     block:
       var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
                                  Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-                                 1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
+                                 1'u64, getFirstSlotAtFinalizedEpoch,
+                                 collector(aq), 2)
       let finalizedSlot = compute_start_slot_at_epoch(Epoch(0'u64))
       let startSlot = compute_start_slot_at_epoch(Epoch(0'u64)) + 1'u64
       let finishSlot = compute_start_slot_at_epoch(Epoch(2'u64))
@@ -786,7 +802,8 @@ suite "SyncManager test suite":
     block:
       var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
                                  Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-                                 1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
+                                 1'u64, getFirstSlotAtFinalizedEpoch,
+                                 collector(aq), 2)
       let finalizedSlot = compute_start_slot_at_epoch(Epoch(1'u64))
       let startSlot = compute_start_slot_at_epoch(Epoch(1'u64)) + 1'u64
       let finishSlot = compute_start_slot_at_epoch(Epoch(3'u64))
@@ -797,7 +814,8 @@ suite "SyncManager test suite":
     block:
       var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
                                  Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-                                 1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
+                                 1'u64, getFirstSlotAtFinalizedEpoch,
+                                 collector(aq), 2)
       let finalizedSlot = compute_start_slot_at_epoch(Epoch(0'u64))
       let failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
       let failEpoch = compute_epoch_at_slot(failSlot)
@@ -814,7 +832,8 @@ suite "SyncManager test suite":
     block:
       var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
                                  Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-                                 1'u64, getFirstSlotAtFinalizedEpoch, aq, 2)
+                                 1'u64, getFirstSlotAtFinalizedEpoch,
+                                 collector(aq), 2)
       let finalizedSlot = compute_start_slot_at_epoch(Epoch(1'u64))
       let failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
       let failEpoch = compute_epoch_at_slot(failSlot)
@@ -828,11 +847,11 @@ suite "SyncManager test suite":
         counter = counter shl 1
 
   test "[SyncQueue#Backward] getRewindPoint() test":
-    let aq = newBlockProcessor()
+    let aq = newAsyncQueue[BlockEntry]()
     block:
       var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
                                  Slot(1024), Slot(0),
-                                 1'u64, getSafeSlot, aq, 2)
+                                 1'u64, getSafeSlot, collector(aq), 2)
       let safeSlot = getSafeSlot()
       for i in countdown(1023, 0):
         check queue.getRewindPoint(Slot(i), safeSlot) == safeSlot

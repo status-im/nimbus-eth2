@@ -8,6 +8,7 @@
 {.push raises: [Defect].}
 
 import
+  std/math,
   chronos, chronicles,
   ./spec/helpers
 
@@ -139,6 +140,15 @@ func shortLog*(d: Duration): string =
 
 func toFloatSeconds*(d: Duration): float =
   float(milliseconds(d)) / 1000.0
+
+func fromFloatSeconds*(T: type Duration, f: float): Duration =
+  case classify(f)
+  of fcNormal:
+    if f >= float(int64.high() div 1_000_000_000): InfiniteDuration
+    elif f <= 0: ZeroDuration
+    else: nanoseconds(int64(f * 1_000_000_000))
+  of fcSubnormal, fcZero, fcNegZero, fcNan, fcNegInf: ZeroDuration
+  of fcInf: InfiniteDuration
 
 func `$`*(v: BeaconTime): string = $(Duration v)
 func shortLog*(v: BeaconTime): string = $(Duration v)
