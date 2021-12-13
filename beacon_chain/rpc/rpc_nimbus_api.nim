@@ -156,10 +156,7 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
           else:
             "<no address>",
         backoff: $(backoff - Moment.now()),
-        agent: when defined(libp2p_agents_metrics):
-            v.shortAgent
-          else:
-            "unknown",
+        agent: v.shortAgent
       )
 
     for topic, v in node.network.pubsub.gossipsub:

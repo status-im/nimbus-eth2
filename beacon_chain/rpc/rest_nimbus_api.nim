@@ -104,11 +104,7 @@ proc toNode(v: PubSubPeer, backoff: Moment): RestPubSubPeer =
       else:
         "<no address>",
     backoff: $(backoff - Moment.now()),
-    agent:
-      when defined(libp2p_agents_metrics):
-        v.shortAgent
-      else:
-        "unknown"
+    agent: v.shortAgent
   )
 
 proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
