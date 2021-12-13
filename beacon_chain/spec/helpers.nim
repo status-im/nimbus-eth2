@@ -259,7 +259,7 @@ func calculate_multi_merkle_root*(
   calculate_multi_merkle_root_impl(
     leaves, proof, indices, get_helper_indices(indices))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/ssz/merkle-proofs.md#merkle-multiproofs
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/ssz/merkle-proofs.md#merkle-multiproofs
 func verify_merkle_multiproof*(
     leaves: openArray[Eth2Digest],
     proof: openArray[Eth2Digest],
@@ -299,7 +299,7 @@ func is_valid_merkle_branch*(leaf: Eth2Digest, branch: openArray[Eth2Digest],
     value = eth2digest(buf)
   value == root
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.3/tests/core/pyspec/eth2spec/test/helpers/merkle.py#L4-L21
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/tests/core/pyspec/eth2spec/test/helpers/merkle.py#L4-L21
 func build_proof_impl(anchor: object, leaf_index: uint64,
                       proof: var openArray[Eth2Digest]) =
   let
@@ -364,7 +364,7 @@ func compute_start_slot_at_epoch*(epoch: Epoch): Slot =
   ## Return the start slot of ``epoch``.
   (epoch * SLOTS_PER_EPOCH).Slot
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#is_active_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#is_active_validator
 func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ## Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
@@ -525,7 +525,7 @@ func is_execution_enabled*(
           merge.SigVerifiedBeaconBlockBody): bool =
   is_merge_block(state, body) or is_merge_complete(state)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#compute_timestamp_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#compute_timestamp_at_slot
 func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   # Note: This function is unsafe with respect to overflows and underflows.
   let slots_since_genesis = slot - GENESIS_SLOT
