@@ -30,7 +30,7 @@ const
   MAX_EXTRA_DATA_BYTES = 32
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#custom-types
   Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
 
   ExecutionAddress* = object
@@ -79,7 +79,7 @@ type
     block_hash*: Eth2Digest  # Hash of execution block
     transactions_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#execution-engine
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#execution-engine
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
 

@@ -365,7 +365,7 @@ type
         defaultValueDesc: "50"
         name: "sync-horizon" }: uint64
 
-      # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/client-settings.md#override-terminal-total-difficulty
+      # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/client-settings.md#override-terminal-total-difficulty
       terminalTotalDifficultyOverride* {.
         hidden
         desc: "Override pre-configured TERMINAL_TOTAL_DIFFICULTY parameter"

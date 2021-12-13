@@ -296,7 +296,7 @@ func get_beacon_committee*(
   withState(state):
     get_beacon_committee(state.data, slot, index, cache)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee_len*(
     state: ForkyBeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): uint64 =
@@ -354,7 +354,7 @@ func compute_shuffled_index*(
 
   cur_idx_permuted
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#compute_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#compute_proposer_index
 func compute_proposer_index(state: ForkyBeaconState,
     indices: seq[ValidatorIndex], seed: Eth2Digest): Option[ValidatorIndex] =
   ## Return from ``indices`` a random index sampled by effective balance.
