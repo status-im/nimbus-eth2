@@ -92,13 +92,30 @@ type
 
     finalizedBlocks*: seq[BlockRef] ##\
     ## Slot -> BlockRef mapping for the canonical chain - use getBlockBySlot
-    ## to access, generally
+    ## to access, generally - coverst the slots
+    ## `tail.slot..finalizedHead.slot` (including the finalized head slot) -
+    ## indices are thus offset by tail.slot
+
+    backfillBlocks*: seq[Eth2Digest] ##\
+    ## Slot -> Eth2Digest, tail.slot entries
 
     genesis*: BlockRef ##\
     ## The genesis block of the network
 
     tail*: BlockRef ##\
-    ## The earliest finalized block we know about
+    ## The earliest finalized block for which we have a corresponding state -
+    ## when making a replay of chain history, this is as far back as we can
+    ## go - the tail block is unique in that its parent is set to `nil`, even
+    ## in the case where a later genesis block exists.
+
+    backfill*: tuple[slot: Slot, root: Eth2Digest] ##\
+    ## The backfill is root of the parent of the the earliest block that we
+    ## have synced, when performing a checkpoint sync start. Because the
+    ## `tail` BlockRef does not have a parent, we store here the root of the
+    ## block we're expecting during backfill.
+    ## When starting a checkpoint sync, `backfill` == `tail.parent_root` - we
+    ## then sync backards, moving the backfill (but not tail!) until we hit
+    ## genesis at which point we set backfill to the zero hash.
 
     heads*: seq[BlockRef] ##\
     ## Candidate heads of candidate chains

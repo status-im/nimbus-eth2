@@ -6,9 +6,6 @@ import
   ../beacon_chain/eth1/eth1_monitor,
   ./testutil
 
-suite "Eth1 Chain":
-  discard
-
 suite "Eth1 monitor":
   test "Rewrite HTTPS Infura URLs":
     var

@@ -303,7 +303,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     dag.withState(tmpState[], dag.head.atSlot(slot)):
       let
         newBlock = getNewBlock[phase0.SignedBeaconBlock](stateData, slot, cache)
-        added = dag.addRawBlock(verifier, newBlock) do (
+        added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
             epochRef: EpochRef):
           # Callback add to fork choice if valid
@@ -323,7 +323,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     dag.withState(tmpState[], dag.head.atSlot(slot)):
       let
         newBlock = getNewBlock[altair.SignedBeaconBlock](stateData, slot, cache)
-        added = dag.addRawBlock(verifier, newBlock) do (
+        added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: altair.TrustedSignedBeaconBlock,
             epochRef: EpochRef):
           # Callback add to fork choice if valid
@@ -343,7 +343,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     dag.withState(tmpState[], dag.head.atSlot(slot)):
       let
         newBlock = getNewBlock[merge.SignedBeaconBlock](stateData, slot, cache)
-        added = dag.addRawBlock(verifier, newBlock) do (
+        added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: merge.TrustedSignedBeaconBlock,
             epochRef: EpochRef):
           # Callback add to fork choice if valid

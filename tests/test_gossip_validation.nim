@@ -75,7 +75,7 @@ suite "Gossip validation " & preset():
       cache: StateCache
     for blck in makeTestBlocks(
         dag.headState.data, cache, int(SLOTS_PER_EPOCH * 5), false):
-      let added = dag.addRawBlock(verifier, blck.phase0Data) do (
+      let added = dag.addHeadBlock(verifier, blck.phase0Data) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
         # Callback add to fork choice if valid
@@ -197,13 +197,13 @@ suite "Gossip validation - Extra": # Not based on preset config
             case blck.kind
             of BeaconBlockFork.Phase0:
               const nilCallback = OnPhase0BlockAdded(nil)
-              dag.addRawBlock(verifier, blck.phase0Data, nilCallback)
+              dag.addHeadBlock(verifier, blck.phase0Data, nilCallback)
             of BeaconBlockFork.Altair:
               const nilCallback = OnAltairBlockAdded(nil)
-              dag.addRawBlock(verifier, blck.altairData, nilCallback)
+              dag.addHeadBlock(verifier, blck.altairData, nilCallback)
             of BeaconBlockFork.Merge:
               const nilCallback = OnMergeBlockAdded(nil)
-              dag.addRawBlock(verifier, blck.mergeData, nilCallback)
+              dag.addHeadBlock(verifier, blck.mergeData, nilCallback)
           check: added.isOk()
           dag.updateHead(added[], quarantine[])
         dag

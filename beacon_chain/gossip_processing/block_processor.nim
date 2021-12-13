@@ -175,7 +175,7 @@ proc storeBlock*(
   self.consensusManager.quarantine[].removeOrphan(signedBlock)
 
   type Trusted = typeof signedBlock.asTrusted()
-  let blck = dag.addRawBlock(self.verifier, signedBlock) do (
+  let blck = dag.addHeadBlock(self.verifier, signedBlock) do (
       blckRef: BlockRef, trustedBlock: Trusted, epochRef: EpochRef):
     # Callback add to fork choice if valid
     attestationPool[].addForkChoice(

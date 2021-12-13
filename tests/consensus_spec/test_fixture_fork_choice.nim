@@ -181,7 +181,7 @@ proc stepOnBlock(
   else:
     type TrustedBlock = merge.TrustedSignedBeaconBlock
 
-  let blockAdded = dag.addRawBlock(verifier, signedBlock) do (
+  let blockAdded = dag.addHeadBlock(verifier, signedBlock) do (
       blckRef: BlockRef, signedBlock: TrustedBlock, epochRef: EpochRef
     ):
 
