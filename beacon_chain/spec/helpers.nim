@@ -48,7 +48,7 @@ template epoch*(slot: Slot): Epoch =
 template isEpoch*(slot: Slot): bool =
   (slot mod SLOTS_PER_EPOCH) == 0
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/ssz/merkle-proofs.md#generalized_index_sibling
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/ssz/merkle-proofs.md#generalized_index_sibling
 template generalized_index_sibling*(
     index: GeneralizedIndex): GeneralizedIndex =
   index xor 1.GeneralizedIndex
@@ -61,7 +61,7 @@ template generalized_index_sibling_right(
     index: GeneralizedIndex): GeneralizedIndex =
   index or 1.GeneralizedIndex
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/ssz/merkle-proofs.md#generalized_index_parent
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/ssz/merkle-proofs.md#generalized_index_parent
 template generalized_index_parent*(
     index: GeneralizedIndex): GeneralizedIndex =
   index shr 1
@@ -86,7 +86,7 @@ iterator get_path_indices*(
     yield index
     index = generalized_index_parent(index)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/ssz/merkle-proofs.md#merkle-multiproofs
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/ssz/merkle-proofs.md#merkle-multiproofs
 func get_helper_indices*(
     indices: openArray[GeneralizedIndex]): seq[GeneralizedIndex] =
   ## Get the generalized indices of all "extra" chunks in the tree needed
@@ -506,8 +506,8 @@ func get_subtree_index*(idx: GeneralizedIndex): uint64 =
   doAssert idx > 0
   uint64(idx mod (type(idx)(1) shl log2trunc(idx)))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#is_merge_complete
-func is_merge_complete*(state: merge.BeaconState): bool =
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#is_merge_transition_complete
+func is_merge_transition_complete*(state: merge.BeaconState): bool =
   state.latest_execution_payload_header != default(ExecutionPayloadHeader)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#is_merge_block
@@ -515,7 +515,7 @@ func is_merge_block(
     state: merge.BeaconState,
     body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |
           merge.SigVerifiedBeaconBlockBody): bool =
-  not is_merge_complete(state) and
+  not is_merge_transition_complete(state) and
     body.execution_payload != default(merge.ExecutionPayload)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#is_execution_enabled
@@ -523,7 +523,7 @@ func is_execution_enabled*(
     state: merge.BeaconState,
     body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |
           merge.SigVerifiedBeaconBlockBody): bool =
-  is_merge_block(state, body) or is_merge_complete(state)
+  is_merge_block(state, body) or is_merge_transition_complete(state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#compute_timestamp_at_slot
 func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =

@@ -494,7 +494,7 @@ proc process_execution_payload*(
     execute_payload: ExecutePayload): Result[void, cstring] =
   ## Verify consistency of the parent hash with respect to the previous
   ## execution payload header
-  if is_merge_complete(state):
+  if is_merge_transition_complete(state):
     if not (payload.parent_hash ==
         state.latest_execution_payload_header.block_hash):
       return err("process_execution_payload: payload and state parent hash mismatch")

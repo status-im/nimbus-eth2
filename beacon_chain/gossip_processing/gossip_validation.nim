@@ -511,7 +511,7 @@ proc validateAttestation*(
 
   return ok((validator_index, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
@@ -543,14 +543,6 @@ proc validateAggregate*(
     let v = check_propagation_slot_range(aggregate.data.slot, wallTime) # [IGNORE]
     if v.isErr():
       return err(v.error())
-
-  # [IGNORE] The valid aggregate attestation defined by
-  # hash_tree_root(aggregate) has not already been seen (via aggregate gossip,
-  # within a verified block, or through the creation of an equivalent aggregate
-  # locally).
-  #
-  # This is [IGNORE] and already checked by attestation pool when aggregate is
-  # added.
 
   # [IGNORE] The aggregate is the first valid aggregate received for the
   # aggregator with index aggregate_and_proof.aggregator_index for the epoch

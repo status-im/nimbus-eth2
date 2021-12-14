@@ -24,7 +24,7 @@ import
   nimcrypto/utils
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.4/specs/merge/beacon-chain.md#execution
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#execution
   MAX_BYTES_PER_TRANSACTION* = 1073741824
   BYTES_PER_LOGS_BLOOM = 256
   MAX_EXTRA_DATA_BYTES = 32
@@ -162,7 +162,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
