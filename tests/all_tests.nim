@@ -17,7 +17,6 @@ import # Unit test
   ./test_beacon_chain_db,
   ./test_block_dag,
   ./test_block_processor,
-  ./test_blockchain_dag,
   ./test_datatypes,
   ./test_discovery,
   ./test_eth1_monitor,
@@ -28,7 +27,6 @@ import # Unit test
   ./test_helpers,
   ./test_honest_validator,
   ./test_interop,
-  ./test_keystore,
   ./test_message_signatures,
   ./test_peer_pool,
   ./test_spec,
@@ -42,6 +40,12 @@ import # Unit test
   ./slashing_protection/test_slashing_interchange,
   ./slashing_protection/test_slashing_protection_db,
   ./slashing_protection/test_migration
+
+when not defined(i386):
+  # Avoids "Out of memory" CI failures
+  import
+    ./test_blockchain_dag,
+    ./test_keystore
 
 import # Refactor state transition unit tests
   # In mainnet these take 2 minutes and are empty TODOs
