@@ -306,7 +306,7 @@ proc init*(T: type BeaconNode,
   if genesisStateContents.len != 0:
     let
       networkGenesisValidatorsRoot =
-        extractGenesisValidatorRootFromSnapshop(genesisStateContents)
+        extractGenesisValidatorRootFromSnapshot(genesisStateContents)
 
     if networkGenesisValidatorsRoot != databaseGenesisValidatorsRoot:
       fatal "The specified --data-dir contains data for a different network",

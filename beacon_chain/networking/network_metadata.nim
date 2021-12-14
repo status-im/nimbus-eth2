@@ -199,6 +199,6 @@ proc getRuntimeConfig*(
     return getMetadataForNetwork(eth2Network.get).cfg
   return defaultRuntimeConfig
 
-proc extractGenesisValidatorRootFromSnapshop*(
+proc extractGenesisValidatorRootFromSnapshot*(
     snapshot: string): Eth2Digest {.raises: [Defect, IOError, SszError].} =
   sszMount(snapshot, phase0.BeaconState).genesis_validators_root[]
