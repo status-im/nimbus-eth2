@@ -443,6 +443,8 @@ proc init*(T: type BeaconNode,
     onAttestationSent: onAttestationSent,
   )
 
+  debug "Loading validators", validatorsDir = config.validatorsDir()
+
   node.addValidators()
 
   block:

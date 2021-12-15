@@ -652,6 +652,11 @@ proc initCompatV1*(T: type SlashingProtectionDB_v2,
   # Cached queries
   result.db.setupCachedQueries()
 
+  debug "Loaded slashing protection (v2)",
+    genesis_validators_root = shortLog(genesis_validators_root),
+    requiresMigration = result.requiresMigration,
+    basePath, dbname
+
 # Resource Management
 # -------------------------------------------------------------
 
