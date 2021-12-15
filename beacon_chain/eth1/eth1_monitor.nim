@@ -422,6 +422,21 @@ proc executePayload*(p: Web3DataProviderRef,
   p.web3.provider.engine_executePayloadV1(payload)
 
 proc forkchoiceUpdated*(p: Web3DataProviderRef,
+                        headBlock, finalizedBlock: Eth2Digest):
+                        Future[engine_api.ForkchoiceUpdatedResponse] =
+  p.web3.provider.engine_forkchoiceUpdatedV1(
+    ForkchoiceStateV1(
+      headBlockHash: headBlock.asBlockHash,
+
+      # https://hackmd.io/@n0ble/kintsugi-spec#Engine-API
+      # "CL client software MUST use headBlockHash value as a stub for the
+      # safeBlockHash parameter"
+      safeBlockHash: headBlock.asBlockHash,
+
+      finalizedBlockHash: finalizedBlock.asBlockHash),
+    none(engine_api.PayloadAttributesV1))
+
+proc forkchoiceUpdated*(p: Web3DataProviderRef,
                         headBlock, finalizedBlock: Eth2Digest,
                         timestamp: uint64,
                         randomData: array[32, byte],

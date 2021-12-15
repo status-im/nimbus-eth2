@@ -18,6 +18,7 @@ import
   json_serialization/std/[options, sets, net], serialization/errors,
   eth/db/kvstore,
   eth/keys, eth/p2p/discoveryv5/[protocol, enr],
+  web3/ethtypes,
 
   # Local modules
   ../spec/datatypes/[phase0, altair, merge],
@@ -415,6 +416,24 @@ proc getBlockProposalEth1Data*(node: BeaconNode,
     result = node.eth1Monitor.getBlockProposalData(
       state, finalizedEpochRef.eth1_data,
       finalizedEpochRef.eth1_deposit_index)
+
+proc forkchoice_updated(state: merge.BeaconState,
+                        head_block_hash: Eth2Digest,
+                        finalized_block_hash: Eth2Digest,
+                        fee_recipient: ethtypes.Address,
+                        execution_engine: Web3DataProviderRef):
+                        Future[Option[merge.PayloadId]] {.async.} =
+  let
+    timestamp = compute_timestamp_at_slot(state, state.slot)
+    random = get_randao_mix(state, get_current_epoch(state))
+    payloadId =
+      (await execution_engine.forkchoiceUpdated(
+        head_block_hash, finalized_block_hash, timestamp, random.data,
+        fee_recipient)).payloadId
+  return if payloadId.isSome:
+    some(merge.PayloadId(payloadId.get))
+  else:
+    none(merge.PayloadId)
 
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     randao_reveal: ValidatorSig,
