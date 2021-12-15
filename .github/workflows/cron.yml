@@ -159,6 +159,7 @@ jobs:
       - name: Build Nim and Nimbus dependencies
         run: |
           make -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
+          ./env.sh nim --version
 
       - name: Get latest fixtures commit hash
         id: fixtures_version
