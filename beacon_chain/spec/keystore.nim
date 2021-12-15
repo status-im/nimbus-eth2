@@ -596,16 +596,17 @@ func scrypt(password: openArray[char], salt: openArray[byte],
   discard scrypt(password, salt, N, r, p, xyv, b, result)
 
 func areValid(params: Pbkdf2Params): bool =
-  # https://www.ietf.org/rfc/rfc2898.txt
-  if params.c == 0 or params.dkLen == 0 or params.salt.bytes.len == 0:
+  if params.c == 0 or params.dkLen < 32 or params.salt.bytes.len == 0:
     return false
 
+  # https://www.ietf.org/rfc/rfc2898.txt
   let hLen = case params.prf
     of HmacSha256: 256 / 8
-
   params.dklen <= high(uint32).uint64 * hLen.uint64
 
 func areValid(params: ScryptParams): bool =
+  static: doAssert scryptParams.dklen >= 32
+
   params.dklen == scryptParams.dklen and
   params.n == scryptParams.n and
   params.r == scryptParams.r and
@@ -615,6 +616,8 @@ func areValid(params: ScryptParams): bool =
 proc decryptCryptoField*(crypto: Crypto,
                          password: KeystorePass,
                          outSecret: var seq[byte]): DecryptionStatus =
+  # https://github.com/ethereum/wiki/wiki/Web3-Secret-Storage-Definition
+
   if crypto.cipher.message.bytes.len == 0:
     return InvalidKeystore
 
