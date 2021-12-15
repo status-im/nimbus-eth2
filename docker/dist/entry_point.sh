@@ -136,7 +136,7 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
     CC="${CC}" \
     LIBTOOL="arm64-apple-darwin${DARWIN_VER}-libtool" \
     OS="darwin" \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --clang.exe=${CC}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-a13' --clang.exe=${CC}" \
     nat-libs
   make \
     -j$(nproc) \
@@ -148,7 +148,7 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
     DSYMUTIL="arm64-apple-darwin${DARWIN_VER}-dsymutil" \
     FORCE_DSYMUTIL=1 \
     USE_VENDORED_LIBUNWIND=1 \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --clang.exe=${CC} --clang.linkerexe=${CC}" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:macosx --cpu:arm64 --passC:'-mcpu=apple-a13' --passL:'-mcpu=apple-a13' --clang.exe=${CC} --clang.linkerexe=${CC}" \
     ${BINARIES}
 else
   # Linux AMD64
