@@ -487,14 +487,12 @@ proc advanceInput[T](sq: SyncQueue[T], number: uint64) =
   of SyncQueueKind.Backward:
     sq.inpSlot = sq.inpSlot - number
 
-proc notInRange[T](sq: SyncQueue[T], slot: Slot): bool =
+proc notInRange[T](sq: SyncQueue[T], sr: SyncRequest[T]): bool =
   case sq.kind
   of SyncQueueKind.Forward:
-    (sq.queueSize > 0) and
-    (slot >= sq.outSlot + uint64(sq.queueSize) * sq.chunkSize)
+    (sq.queueSize > 0) and (sr.slot != sq.outSlot)
   of SyncQueueKind.Backward:
-    (sq.queueSize > 0) and
-    (uint64(sq.queueSize) * sq.chunkSize <= sq.outSlot - slot)
+    (sq.queueSize > 0) and (sr.slot + sr.count - 1'u64 != sq.outSlot)
 
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               data: seq[ForkedSignedBeaconBlock],
@@ -512,10 +510,9 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
   sq.pending.del(sr.index)
 
   # This is backpressure handling algorithm, this algorithm is blocking
-  # all pending `push` requests if `request.slot` not in range:
-  # [current_queue_slot, current_queue_slot + sq.queueSize * sq.chunkSize].
+  # all pending `push` requests if `request.slot` not in range.
   while true:
-    if sq.notInRange(sr.slot):
+    if sq.notInRange(sr):
       let reset = await sq.waitForChanges()
       if reset:
         # SyncQueue reset happens. We are exiting to wake up sync-worker.
