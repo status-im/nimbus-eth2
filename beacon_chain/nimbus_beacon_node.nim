@@ -33,7 +33,7 @@ import
   ./validators/[
     validator_duties, validator_pool,
     slashing_protection, keystore_management],
-  ./sync/[sync_manager, sync_protocol, request_manager],
+  ./sync/[sync_protocol],
   ./rpc/[rest_api, rpc_api],
   ./spec/datatypes/[altair, merge, phase0],
   ./spec/eth2_apis/rpc_beacon_client,
@@ -393,6 +393,9 @@ proc init*(T: type BeaconNode,
   func getFirstSlotAtFinalizedEpoch(): Slot =
     dag.finalizedHead.slot
 
+  func getBackfillSlot(): Slot =
+    dag.backfill.slot
+
   let
     slashingProtectionDB =
       SlashingProtectionDB.init(
@@ -406,13 +409,22 @@ proc init*(T: type BeaconNode,
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       rng, taskpool, consensusManager, getBeaconTime)
+    blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock):
+        Future[Result[void, BlockError]] =
+      # The design with a callback for block verification is unusual compared
+      # to the rest of the application, but fits with the general approach
+      # taken in the sync/request managers - this is an architectural compromise
+      # that should probably be reimagined more holistically in the future.
+      let resfut = newFuture[Result[void, BlockError]]("blockVerifier")
+      blockProcessor[].addBlock(signedBlock, resfut)
+      resfut
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, dag, attestationPool, exitPool, validatorPool,
       syncCommitteeMsgPool, quarantine, rng, getBeaconTime, taskpool)
     syncManager = newSyncManager[Peer, PeerID](
-      network.peerPool, getLocalHeadSlot, getLocalWallSlot,
-      getFirstSlotAtFinalizedEpoch, blockProcessor, chunkSize = 32)
+      network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot, getLocalWallSlot,
+      getFirstSlotAtFinalizedEpoch, getBackfillSlot, blockVerifier)
 
   var node = BeaconNode(
     nickname: nickname,
@@ -432,7 +444,7 @@ proc init*(T: type BeaconNode,
     rpcServer: rpcServer,
     restServer: restServer,
     eventBus: eventBus,
-    requestManager: RequestManager.init(network, blockProcessor),
+    requestManager: RequestManager.init(network, blockVerifier),
     syncManager: syncManager,
     actionTracker: ActionTracker.init(rng, config.subscribeAllSubnets),
     processor: processor,

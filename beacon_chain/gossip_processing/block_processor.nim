@@ -94,18 +94,6 @@ proc new*(T: type BlockProcessor,
 # Sync callbacks
 # ------------------------------------------------------------------------------
 
-proc done*(entry: BlockEntry) =
-  ## Send signal to [Sync/Request]Manager that the block ``entry`` has passed
-  ## verification successfully.
-  if entry.resfut != nil:
-    entry.resfut.complete(Result[void, BlockError].ok())
-
-proc fail*(entry: BlockEntry, error: BlockError) =
-  ## Send signal to [Sync/Request]Manager that the block ``blk`` has NOT passed
-  ## verification with specific ``error``.
-  if entry.resfut != nil:
-    entry.resfut.complete(Result[void, BlockError].err(error))
-
 proc hasBlocks*(self: BlockProcessor): bool =
   self.blockQueue.len() > 0
 
@@ -125,8 +113,15 @@ proc addBlock*(
   # - SyncManager (during sync)
   # - RequestManager (missing ancestor blocks)
 
-  # addLast doesn't fail with unbounded queues, but we'll add asyncSpawn as a
-  # sanity check
+  withBlck(blck):
+    if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
+      # let backfill blocks skip the queue - these are always "fast" to process
+      # because there are no state rewinds to deal with
+      let res = self.consensusManager.dag.addBackfillBlock(blck)
+      if resFut != nil:
+        resFut.complete(res)
+      return
+
   try:
     self.blockQueue.addLastNoWait(BlockEntry(
       blck: blck,
@@ -240,12 +235,10 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
      res = withBlck(entry.blck):
        self.storeBlock(blck, wallSlot, entry.queueTick, entry.validationDur)
 
-  if res.isOk() or res.error() == BlockError.Duplicate:
-    # Duplicate blocks are ok from a sync point of view, so we mark
-    # them as successful
-    entry.done()
-  else:
-    entry.fail(res.error())
+  if entry.resfut != nil:
+    entry.resfut.complete(
+      if res.isOk(): Result[void, BlockError].ok()
+      else: Result[void, BlockError].err(res.error()))
 
 proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
   while true:

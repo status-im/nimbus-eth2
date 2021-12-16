@@ -13,7 +13,6 @@ import
   ../spec/datatypes/[phase0, altair],
   ../spec/forks,
   ../networking/eth2_network,
-  ../gossip_processing/block_processor,
   "."/sync_protocol, "."/sync_manager
 export sync_manager
 
@@ -28,10 +27,14 @@ const
     ## Number of peers we using to resolve our request.
 
 type
+  BlockVerifier* =
+    proc(signedBlock: ForkedSignedBeaconBlock):
+      Future[Result[void, BlockError]] {.gcsafe, raises: [Defect].}
+
   RequestManager* = object
     network*: Eth2Node
     inpQueue*: AsyncQueue[FetchRecord]
-    blockProcessor: ref BlockProcessor
+    blockVerifier: BlockVerifier
     loopFuture: Future[void]
 
 func shortLog*(x: seq[Eth2Digest]): string =
@@ -41,11 +44,11 @@ func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
 proc init*(T: type RequestManager, network: Eth2Node,
-           blockProcessor: ref BlockProcessor): RequestManager =
+           blockVerifier: BlockVerifier): RequestManager =
   RequestManager(
     network: network,
     inpQueue: newAsyncQueue[FetchRecord](),
-    blockProcessor: blockProcessor
+    blockVerifier: blockVerifier
   )
 
 proc checkResponse(roots: openArray[Eth2Digest],
@@ -61,12 +64,6 @@ proc checkResponse(roots: openArray[Eth2Digest],
     else:
       checks.del(res)
   return true
-
-proc validate(rman: RequestManager,
-              b: ForkedSignedBeaconBlock): Future[Result[void, BlockError]] =
-  let resfut = newFuture[Result[void, BlockError]]("request.manager.validate")
-  rman.blockProcessor[].addBlock(b, resfut)
-  resfut
 
 proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
                                     items: seq[Eth2Digest]) {.async.} =
@@ -88,7 +85,7 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
         var res: Result[void, BlockError]
         if len(ublocks) > 0:
           for b in ublocks:
-            res = await rman.validate(b)
+            res = await rman.blockVerifier(b)
             if res.isErr():
               case res.error()
               of BlockError.MissingParent:
@@ -146,7 +143,7 @@ proc requestManagerLoop(rman: RequestManager) {.async.} =
         rootList.add(rman.inpQueue.popFirstNoWait().root)
         dec(count)
 
-      let start = SyncMoment.now(Slot(0))
+      let start = SyncMoment.now(0)
 
       for i in 0 ..< PARALLEL_REQUESTS:
         workers[i] = rman.fetchAncestorBlocksFromNetwork(rootList)
@@ -154,7 +151,7 @@ proc requestManagerLoop(rman: RequestManager) {.async.} =
       # We do not care about
       await allFutures(workers)
 
-      let finish = SyncMoment.now(Slot(0) + uint64(len(rootList)))
+      let finish = SyncMoment.now(uint64(len(rootList)))
 
       var succeed = 0
       for worker in workers:
