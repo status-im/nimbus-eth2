@@ -63,6 +63,10 @@ if defined(windows):
   # because these require direct manipulations of the stdout File object.
   switch("define", "chronicles_colors=off")
 
+  # Avoid some rare stack corruption while using exceptions with a SEH-enabled
+  # toolchain: https://github.com/status-im/nimbus-eth2/issues/3121
+  switch("define", "nimRawSetjmp")
+
 # This helps especially for 32-bit x86, which sans SSE2 and newer instructions
 # requires quite roundabout code generation for cryptography, and other 64-bit
 # and larger arithmetic use cases, along with register starvation issues. When
