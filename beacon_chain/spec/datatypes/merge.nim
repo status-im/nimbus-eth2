@@ -89,7 +89,7 @@ type
     parent_hash*: Eth2Digest
     total_difficulty*: Eth2Digest   # uint256
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -218,7 +218,7 @@ type
     state_root*: Eth2Digest ##\
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data ##\

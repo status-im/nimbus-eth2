@@ -990,7 +990,6 @@ proc process_epoch*(
   init(info, state)
   info.process_attestations(state, cache)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#justification-and-finalization
   process_justification_and_finalization(state, info.balances, flags)
 
   # state.slot hasn't been incremented yet.
@@ -1003,31 +1002,14 @@ proc process_epoch*(
     # the finalization rules triggered.
     doAssert state.finalized_checkpoint.epoch + 3 >= currentEpoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#rewards-and-penalties-1
   process_rewards_and_penalties(state, info)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#registry-updates
   process_registry_updates(cfg, state, cache)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#slashings
   process_slashings(state, info.balances.current_epoch)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#eth1-data-votes-updates
   process_eth1_data_reset(state)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#effective-balances-updates
   process_effective_balance_updates(state)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#slashings-balances-updates
   process_slashings_reset(state)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#randao-mixes-updates
   process_randao_mixes_reset(state)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#historical-roots-updates
   process_historical_roots_update(state)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#participation-records-rotation
   process_participation_record_updates(state)
 
 func init*(

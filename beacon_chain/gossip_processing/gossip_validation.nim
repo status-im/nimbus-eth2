@@ -848,7 +848,7 @@ proc validateSyncCommitteeMessage*(
 
   return ok((positionsInSubcommittee, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
 proc validateContribution*(
     dag: ChainDAGRef,
     batchCrypto: ref BatchCrypto,
