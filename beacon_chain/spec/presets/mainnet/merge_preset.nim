@@ -1,5 +1,5 @@
 # Mainnet preset - Merge
-# https://github.com/ethereum/consensus-specs/blob/v1.1.4/presets/mainnet/merge.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/presets/mainnet/merge.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------

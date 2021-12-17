@@ -52,7 +52,7 @@ const
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 16
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.3/setup.py#L478-L479
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/setup.py#L478-L479
   FINALIZED_ROOT_INDEX* = 105.GeneralizedIndex
   NEXT_SYNC_COMMITTEE_INDEX* = 55.GeneralizedIndex
 

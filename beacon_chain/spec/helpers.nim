@@ -66,7 +66,7 @@ template generalized_index_parent*(
     index: GeneralizedIndex): GeneralizedIndex =
   index shr 1
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/ssz/merkle-proofs.md#merkle-multiproofs
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/ssz/merkle-proofs.md#merkle-multiproofs
 iterator get_branch_indices*(
     tree_index: GeneralizedIndex): GeneralizedIndex =
   ## Get the generalized indices of the sister chunks along the path
@@ -76,7 +76,7 @@ iterator get_branch_indices*(
     yield generalized_index_sibling(index)
     index = generalized_index_parent(index)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/ssz/merkle-proofs.md#merkle-multiproofs
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/ssz/merkle-proofs.md#merkle-multiproofs
 iterator get_path_indices*(
     tree_index: GeneralizedIndex): GeneralizedIndex =
   ## Get the generalized indices of the chunks along the path
@@ -107,7 +107,7 @@ func get_helper_indices*(
   res.sort(SortOrder.Descending)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/ssz/merkle-proofs.md#merkle-multiproofs
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/ssz/merkle-proofs.md#merkle-multiproofs
 func check_multiproof_acceptable*(
     indices: openArray[GeneralizedIndex]): Result[void, string] =
   # Check that proof verification won't allocate excessive amounts of memory.
@@ -369,7 +369,7 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ## Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#get_active_validator_indices
 iterator get_active_validator_indices*(state: ForkyBeaconState, epoch: Epoch):
     ValidatorIndex =
   for idx in 0..<state.validators.len:
@@ -401,7 +401,7 @@ func get_current_epoch*(state: ForkyBeaconState): Epoch =
   doAssert state.slot >= GENESIS_SLOT, $state.slot
   compute_epoch_at_slot(state.slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: ForkedHashedBeaconState): Epoch =
   ## Return the current epoch.
   withState(state): state.data.slot.epoch
@@ -510,20 +510,20 @@ func get_subtree_index*(idx: GeneralizedIndex): uint64 =
 func is_merge_transition_complete*(state: merge.BeaconState): bool =
   state.latest_execution_payload_header != default(ExecutionPayloadHeader)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#is_merge_block
-func is_merge_block(
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#is_merge_transition_block
+func is_merge_transition_block(
     state: merge.BeaconState,
     body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |
           merge.SigVerifiedBeaconBlockBody): bool =
   not is_merge_transition_complete(state) and
     body.execution_payload != default(merge.ExecutionPayload)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#is_execution_enabled
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
     state: merge.BeaconState,
     body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |
           merge.SigVerifiedBeaconBlockBody): bool =
-  is_merge_block(state, body) or is_merge_transition_complete(state)
+  is_merge_transition_block(state, body) or is_merge_transition_complete(state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#compute_timestamp_at_slot
 func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =

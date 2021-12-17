@@ -80,7 +80,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
       res
     genesisState = newClone(initGenesisState(cfg = cfg))
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.4/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L22-L78
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L22-L78
   test "process_light_client_update_not_updated":
     var forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
@@ -135,7 +135,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
       store.valid_updates.pop() == update
       store.snapshot == pre_snapshot
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L81-L144
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L81-L144
   test "process_light_client_update_timeout":
     var forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
@@ -200,7 +200,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
       len(store.valid_updates) == 0
       store.snapshot.header == update.header
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.3/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L150-L218
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L150-L218
   test "process_light_client_update_finality_updated":
     var forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data

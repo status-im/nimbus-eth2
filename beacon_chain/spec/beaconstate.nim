@@ -314,7 +314,7 @@ func get_initial_beacon_block*(state: altair.HashedBeaconState):
   altair.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#testing
 func get_initial_beacon_block*(state: merge.HashedBeaconState):
     merge.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
