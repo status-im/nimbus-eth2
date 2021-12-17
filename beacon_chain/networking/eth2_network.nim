@@ -66,7 +66,6 @@ type
     wantedPeers*: int
     peerPool*: PeerPool[Peer, PeerID]
     protocolStates*: seq[RootRef]
-    libp2pTransportLoops*: seq[Future[void]]
     metadata*: altair.MetaData
     connectTimeout*: chronos.Duration
     seenThreshold*: chronos.Duration
@@ -1397,7 +1396,7 @@ proc startListening*(node: Eth2Node) {.async.} =
       quit 1
 
   try:
-    node.libp2pTransportLoops = await node.switch.start()
+    await node.switch.start()
   except CatchableError:
     fatal "Failed to start LibP2P transport. TCP port may be already in use"
     quit 1
@@ -1872,6 +1871,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
     params = GossipSubParams(
       explicit: true,
       pruneBackoff: 1.minutes,
+      unsubscribeBackoff: 10.seconds,
       floodPublish: true,
       gossipFactor: 0.05,
       d: 8,
