@@ -56,7 +56,7 @@ import
   TopicParams, validateParameters, init
 
 type
-  RpcServer* = RpcHttpServer
+  RpcServer = RpcHttpServer
 
 template init(T: type RpcHttpServer, ip: ValidIpAddress, port: Port): T =
   newRpcHttpServer([initTAddress(ip, port)])
@@ -112,14 +112,14 @@ const SlashingDbName = "slashing_protection"
 func getBeaconTimeFn(clock: BeaconClock): GetBeaconTimeFn =
   return proc(): BeaconTime = clock.now()
 
-proc init*(T: type BeaconNode,
-           cfg: RuntimeConfig,
-           rng: ref BrHmacDrbgContext,
-           config: BeaconNodeConf,
-           depositContractDeployedAt: BlockHashOrNumber,
-           eth1Network: Option[Eth1Network],
-           genesisStateContents: string,
-           genesisDepositsSnapshotContents: string): BeaconNode {.
+proc init(T: type BeaconNode,
+          cfg: RuntimeConfig,
+          rng: ref BrHmacDrbgContext,
+          config: BeaconNodeConf,
+          depositContractDeployedAt: BlockHashOrNumber,
+          eth1Network: Option[Eth1Network],
+          genesisStateContents: string,
+          genesisDepositsSnapshotContents: string): BeaconNode {.
     raises: [Defect, CatchableError].} =
 
   var taskpool: TaskpoolPtr
@@ -428,7 +428,7 @@ proc init*(T: type BeaconNode,
 
   var node = BeaconNode(
     nickname: nickname,
-    graffitiBytes: if config.graffiti.isSome: config.graffiti.get.GraffitiBytes
+    graffitiBytes: if config.graffiti.isSome: config.graffiti.get
                    else: defaultGraffitiBytes(),
     network: network,
     netKeys: netKeys,
@@ -1086,7 +1086,7 @@ proc installMessageValidators(node: BeaconNode) =
   installSyncCommitteeeValidators(node.dag.forkDigests.altair)
   installSyncCommitteeeValidators(node.dag.forkDigests.merge)
 
-proc stop*(node: BeaconNode) =
+proc stop(node: BeaconNode) =
   bnStatus = BeaconNodeStatus.Stopping
   notice "Graceful shutdown"
   if not node.config.inProcessValidators:
@@ -1103,7 +1103,7 @@ proc stop*(node: BeaconNode) =
   node.db.close()
   notice "Databases closed"
 
-proc run*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
+proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   bnStatus = BeaconNodeStatus.Running
 
   if not(isNil(node.rpcServer)):
@@ -1385,7 +1385,7 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
     keystoreDir = validatorsDir / validatorKeyAsStr
 
   if not dirExists(keystoreDir):
-    echo "The validator keystores directory '" & config.validatorsDir.string &
+    echo "The validator keystores directory '" & config.validatorsDir &
          "' does not contain a keystore for the selected validator with public " &
          "key '" & validatorKeyAsStr & "'."
     quit 1

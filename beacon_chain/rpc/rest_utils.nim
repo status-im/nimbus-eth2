@@ -123,7 +123,7 @@ template withStateForBlockSlot*(node: BeaconNode,
 
   if isState(node.dag.headState):
     withStateVars(node.dag.headState):
-      var cache {.inject.}: StateCache
+      var cache {.inject, used.}: StateCache
       body
   else:
     let rpcState = assignClone(node.dag.headState)

@@ -118,7 +118,7 @@ proc fromNow*(c: BeaconClock, slot: Slot): tuple[inFuture: bool, offset: Duratio
 proc durationToNextSlot*(c: BeaconClock): Duration =
   let (afterGenesis, slot) = c.now().toSlot()
   if afterGenesis:
-    c.fromNow(Slot(slot) + 1'u64).offset
+    c.fromNow(slot + 1'u64).offset
   else:
     c.fromNow(Slot(0)).offset
 

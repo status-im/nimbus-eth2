@@ -429,9 +429,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         ires
 
     node.withStateForBlockSlot(bslot):
-      let
-        current_epoch = getStateField(stateData.data, slot).epoch()
-        validatorsCount = lenu64(getStateField(stateData.data, validators))
+      let validatorsCount = lenu64(getStateField(stateData.data, validators))
 
       let indices =
         block:
