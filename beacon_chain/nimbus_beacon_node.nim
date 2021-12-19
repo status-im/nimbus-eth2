@@ -1002,7 +1002,7 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
     restServer.router.installValidatorManagementHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
   func toValidationResult(res: ValidationRes): ValidationResult =
@@ -1523,7 +1523,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
 
   var metadata = config.loadEth2Network()
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/merge/client-settings.md#override-terminal-total-difficulty
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/client-settings.md#override-terminal-total-difficulty
   if config.terminalTotalDifficultyOverride.isSome:
     metadata.cfg.TERMINAL_TOTAL_DIFFICULTY =
       config.terminalTotalDifficultyOverride.get.u256
