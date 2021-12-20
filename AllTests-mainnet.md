@@ -84,13 +84,14 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Block pool processing [Preset: mainnet]
 ```diff
++ Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
 + Simple block add&get [Preset: mainnet]                                                     OK
 + getRef returns nil for missing blocks                                                      OK
 + loading tail block works [Preset: mainnet]                                                 OK
 + updateHead updates head and headState [Preset: mainnet]                                    OK
 + updateStateData sanity [Preset: mainnet]                                                   OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Block processor [Preset: mainnet]
 ```diff
 + Reverse order block add & get [Preset: mainnet]                                            OK
@@ -395,4 +396,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 215/217 Fail: 0/217 Skip: 2/217
+OK: 216/218 Fail: 0/218 Skip: 2/218

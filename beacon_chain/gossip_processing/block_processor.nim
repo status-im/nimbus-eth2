@@ -35,6 +35,7 @@ type
     resfut*: Future[Result[void, BlockError]]
     queueTick*: Moment # Moment when block was enqueued
     validationDur*: Duration # Time it took to perform gossip validation
+    src*: MsgSource
 
   BlockProcessor* = object
     ## This manages the processing of blocks from different sources
@@ -67,6 +68,7 @@ type
     # Consumer
     # ----------------------------------------------------------------
     consensusManager: ref ConsensusManager
+    validatorMonitor: ref ValidatorMonitor
       ## Blockchain DAG, AttestationPool and Quarantine
     getBeaconTime: GetBeaconTimeFn
 
@@ -80,6 +82,7 @@ proc new*(T: type BlockProcessor,
           dumpDirInvalid, dumpDirIncoming: string,
           rng: ref BrHmacDrbgContext, taskpool: TaskPoolPtr,
           consensusManager: ref ConsensusManager,
+          validatorMonitor: ref ValidatorMonitor,
           getBeaconTime: GetBeaconTimeFn): ref BlockProcessor =
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
@@ -87,6 +90,7 @@ proc new*(T: type BlockProcessor,
     dumpDirIncoming: dumpDirIncoming,
     blockQueue: newAsyncQueue[BlockEntry](),
     consensusManager: consensusManager,
+    validatorMonitor: validatorMonitor,
     getBeaconTime: getBeaconTime,
     verifier: BatchVerifier(rng: rng, taskpool: taskpool)
   )
@@ -101,7 +105,7 @@ proc hasBlocks*(self: BlockProcessor): bool =
 # ------------------------------------------------------------------------------
 
 proc addBlock*(
-    self: var BlockProcessor, blck: ForkedSignedBeaconBlock,
+    self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
     resfut: Future[Result[void, BlockError]] = nil,
     validationDur = Duration()) =
   ## Enqueue a Gossip-validated block for consensus verification
@@ -126,7 +130,8 @@ proc addBlock*(
     self.blockQueue.addLastNoWait(BlockEntry(
       blck: blck,
       resfut: resfut, queueTick: Moment.now(),
-      validationDur: validationDur))
+      validationDur: validationDur,
+      src: src))
   except AsyncQueueFullError:
     raiseAssert "unbounded queue"
 
@@ -153,12 +158,18 @@ proc dumpBlock*[T](
 
 proc storeBlock*(
     self: var BlockProcessor,
-    signedBlock: ForkySignedBeaconBlock,
-    wallSlot: Slot, queueTick: Moment = Moment.now(),
+    src: MsgSource, wallTime: BeaconTime,
+    signedBlock: ForkySignedBeaconBlock, queueTick: Moment = Moment.now(),
     validationDur = Duration()): Result[BlockRef, BlockError] =
+  ## storeBlock is the main entry point for unvalidated blocks - all untrusted
+  ## blocks, regardless of origin, pass through here. When storing a block,
+  ## we will add it to the dag and pass it to all block consumers that need
+  ## to know about it, such as the fork choice and the monitoring
   let
     attestationPool = self.consensusManager.attestationPool
     startTick = Moment.now()
+    wallSlot = wallTime.slotOrZero()
+    vm = self.validatorMonitor
     dag = self.consensusManager.dag
 
   # The block is certainly not missing any more
@@ -175,6 +186,23 @@ proc storeBlock*(
     # Callback add to fork choice if valid
     attestationPool[].addForkChoice(
       epochRef, blckRef, trustedBlock.message, wallSlot)
+
+    vm[].registerBeaconBlock(
+      src, wallTime, trustedBlock.message)
+
+    for attestation in trustedBlock.message.body.attestations:
+      for idx in get_attesting_indices(
+          epochRef, attestation.data, attestation.aggregation_bits):
+        vm[].registerAttestationInBlock(attestation.data, idx,
+          trustedBlock.message)
+
+    withState(dag[].clearanceState.data):
+      when stateFork >= BeaconStateFork.Altair and
+          Trusted isnot phase0.TrustedSignedBeaconBlock: # altair+
+        for i in trustedBlock.message.body.sync_aggregate.sync_committee_bits.oneIndices():
+          vm[].registerSyncAggregateInBlock(
+            trustedBlock.message.slot, trustedBlock.root,
+            state.data.current_sync_committee.pubkeys.data[i])
 
   self.dumpBlock(signedBlock, blck)
 
@@ -212,7 +240,7 @@ proc storeBlock*(
 
   for quarantined in self.consensusManager.quarantine[].pop(blck.get().root):
     # Process the blocks that had the newly accepted block as parent
-    self.addBlock(quarantined)
+    self.addBlock(MsgSource.gossip, quarantined)
 
   blck
 
@@ -233,7 +261,7 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
 
   let
      res = withBlck(entry.blck):
-       self.storeBlock(blck, wallSlot, entry.queueTick, entry.validationDur)
+       self.storeBlock(entry.src, wallTime, blck, entry.queueTick, entry.validationDur)
 
   if entry.resfut != nil:
     entry.resfut.complete(

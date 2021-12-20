@@ -27,7 +27,8 @@ suite "Block processor" & preset():
   setup:
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
       quarantine = newClone(Quarantine.init())
@@ -40,11 +41,11 @@ suite "Block processor" & preset():
       getTimeFn = proc(): BeaconTime = b2.message.slot.toBeaconTime()
       processor = BlockProcessor.new(
         false, "", "", keys.newRng(), taskpool, consensusManager,
-        getTimeFn)
+        validatorMonitor, getTimeFn)
 
   test "Reverse order block add & get" & preset():
     let missing = processor[].storeBlock(
-      b2, b2.message.slot)
+      MsgSource.gossip, b2.message.slot.toBeaconTime(), b2)
     check: missing.error == BlockError.MissingParent
 
     check:
@@ -54,7 +55,7 @@ suite "Block processor" & preset():
 
     let
       status = processor[].storeBlock(
-        b1, b2.message.slot)
+        MsgSource.gossip, b2.message.slot.toBeaconTime(), b1)
       b1Get = dag.get(b1.root)
 
     check:
@@ -84,7 +85,8 @@ suite "Block processor" & preset():
 
     # check that init also reloads block graph
     var
-      dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, {})
+      validatorMonitor2 = newClone(ValidatorMonitor.init())
+      dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor2, {})
 
     check:
       # ensure we loaded the correct head state

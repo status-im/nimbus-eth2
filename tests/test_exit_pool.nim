@@ -17,8 +17,10 @@ import "."/[testutil, testdbutil]
 suite "Exit pool testing suite":
   setup:
     let
+      validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(
-        ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3), {})
+        ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3),
+        validatorMonitor, {})
       pool = newClone(ExitPool.init(dag))
 
   test "addExitMessage/getProposerSlashingMessage":

@@ -23,7 +23,8 @@ suite "state diff tests" & preset():
   setup:
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
 
   test "random slot differences" & preset():
     let testStates = getTestStates(dag.headState.data, BeaconStateFork.Altair)

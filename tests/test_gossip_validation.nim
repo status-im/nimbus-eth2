@@ -36,7 +36,10 @@ suite "Gossip validation " & preset():
   setup:
     # Genesis state that results in 3 members per committee
     var
-      dag = init(ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3), {})
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(
+        ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3),
+        validatorMonitor, {})
       taskpool = Taskpool.new()
       verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
       quarantine = newClone(Quarantine.init())
@@ -185,11 +188,11 @@ suite "Gossip validation - Extra": # Not based on preset config
       batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false, taskpool)
     var
       verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
-
       dag = block:
         let
-          dag = ChainDAGRef.init(cfg, makeTestDB(num_validators), {})
-          quarantine = newClone(Quarantine.init())
+          validatorMonitor = newClone(ValidatorMonitor.init())
+          dag = ChainDAGRef.init(
+            cfg, makeTestDB(num_validators), validatorMonitor, {})
         var cache = StateCache()
         for blck in makeTestBlocks(
             dag.headState.data, cache, int(SLOTS_PER_EPOCH), false, cfg = cfg):

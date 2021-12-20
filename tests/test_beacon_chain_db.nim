@@ -66,7 +66,8 @@ func withDigest(blck: merge.TrustedBeaconBlock):
 proc getTestStates(stateFork: BeaconStateFork): auto =
   let
     db = makeTestDB(SLOTS_PER_EPOCH)
-    dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
+    validatorMonitor = newClone(ValidatorMonitor.init())
+    dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
   var testStates = getTestStates(dag.headState.data, stateFork)
 
   # Ensure transitions beyond just adding validators and increasing slots
@@ -312,7 +313,8 @@ suite "Beacon chain DB" & preset():
   test "sanity check phase 0 getState rollback" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
         kind: BeaconStateFork.Phase0,
         phase0Data: phase0.HashedBeaconState(data: phase0.BeaconState(
@@ -334,7 +336,8 @@ suite "Beacon chain DB" & preset():
   test "sanity check Altair and cross-fork getState rollback" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
         kind: BeaconStateFork.Altair,
         altairData: altair.HashedBeaconState(data: altair.BeaconState(
@@ -359,7 +362,8 @@ suite "Beacon chain DB" & preset():
   test "sanity check Merge and cross-fork getState rollback" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
         kind: BeaconStateFork.Merge,
         mergeData: merge.HashedBeaconState(data: merge.BeaconState(

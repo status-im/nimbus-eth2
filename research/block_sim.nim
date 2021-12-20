@@ -83,7 +83,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   putInitialDepositContractSnapshot(db, depositContractSnapshot)
 
   var
-    dag = ChainDAGRef.init(cfg, db, {})
+    validatorMonitor = newClone(ValidatorMonitor.init())
+    dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
     eth1Chain = Eth1Chain.init(cfg, db)
     merkleizer = depositContractSnapshot.createMerkleizer
     taskpool = Taskpool.new()
@@ -231,7 +232,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         doAssert res.isOk
 
         syncCommitteePool[].addContribution(
-          signedContributionAndProof, res.get())
+          signedContributionAndProof, res.get()[0])
 
   proc getNewBlock[T](
       stateData: var StateData, slot: Slot, cache: var StateCache): T =

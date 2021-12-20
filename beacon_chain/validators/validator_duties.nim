@@ -218,7 +218,7 @@ proc sendAttestation*(
   # libp2p calls the data handler for any subscription on the subnet
   # topic, it does not perform validation.
   let res = await node.processor.attestationValidator(
-    attestation, subnet_id, checkSignature)
+    MsgSource.api, attestation, subnet_id, checkSignature)
 
   return
     if res.isGoodForSending:
@@ -241,8 +241,9 @@ proc sendSyncCommitteeMessage*(
   # validation will also register the message with the sync committee
   # message pool. Notably, although libp2p calls the data handler for
   # any subscription on the subnet topic, it does not perform validation.
-  let res = await node.processor.syncCommitteeMessageValidator(msg, subcommitteeIdx,
-                                                         checkSignature)
+  let res = await node.processor.syncCommitteeMessageValidator(
+    MsgSource.api, msg, subcommitteeIdx, checkSignature)
+
   return
     if res.isGoodForSending:
       node.network.broadcastSyncCommitteeMessage(msg, subcommitteeIdx)
@@ -340,7 +341,7 @@ proc sendSyncCommitteeContribution*(
     msg: SignedContributionAndProof,
     checkSignature: bool): Future[SendResult] {.async.} =
   let res = await node.processor.contributionValidator(
-    msg, checkSignature)
+    MsgSource.api, msg, checkSignature)
 
   return
     if res.isGoodForSending:
@@ -571,7 +572,7 @@ proc proposeBlock(node: BeaconNode,
       # storeBlock puts the block in the chaindag, and if accepted, takes care
       # of side effects such as event api notification
       newBlockRef = node.blockProcessor[].storeBlock(
-        signedBlock, wallTime.slotOrZero())
+        MsgSource.api, wallTime, signedBlock)
 
     if newBlockRef.isErr:
       warn "Unable to add proposed block to block pool",
@@ -1156,7 +1157,7 @@ proc sendAggregateAndProof*(node: BeaconNode,
                             proof: SignedAggregateAndProof): Future[SendResult] {.
      async.} =
   # REST/JSON-RPC API helper procedure.
-  let res = await node.processor.aggregateValidator(proof)
+  let res = await node.processor.aggregateValidator(MsgSource.api, proof)
   return
     if res.isGoodForSending:
       node.network.broadcastAggregateAndProof(proof)
@@ -1176,7 +1177,7 @@ proc sendAggregateAndProof*(node: BeaconNode,
 proc sendVoluntaryExit*(node: BeaconNode,
                         exit: SignedVoluntaryExit): SendResult =
   # REST/JSON-RPC API helper procedure.
-  let res = node.processor[].voluntaryExitValidator(exit)
+  let res = node.processor[].voluntaryExitValidator(MsgSource.api, exit)
   if res.isGoodForSending:
     node.network.broadcastVoluntaryExit(exit)
     ok()
@@ -1188,7 +1189,7 @@ proc sendVoluntaryExit*(node: BeaconNode,
 proc sendAttesterSlashing*(node: BeaconNode,
                            slashing: AttesterSlashing): SendResult =
   # REST/JSON-RPC API helper procedure.
-  let res = node.processor[].attesterSlashingValidator(slashing)
+  let res = node.processor[].attesterSlashingValidator(MsgSource.api, slashing)
   if res.isGoodForSending:
     node.network.broadcastAttesterSlashing(slashing)
     ok()
@@ -1200,7 +1201,7 @@ proc sendAttesterSlashing*(node: BeaconNode,
 proc sendProposerSlashing*(node: BeaconNode,
                            slashing: ProposerSlashing): SendResult =
   # REST/JSON-RPC API helper procedure.
-  let res = node.processor[].proposerSlashingValidator(slashing)
+  let res = node.processor[].proposerSlashingValidator(MsgSource.api, slashing)
   if res.isGoodForSending:
     node.network.broadcastProposerSlashing(slashing)
     ok()
@@ -1236,7 +1237,7 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
     wallTime = node.beaconClock.now()
     accepted = withBlck(forked):
       let newBlockRef = node.blockProcessor[].storeBlock(
-        blck, wallTime.slotOrZero())
+        MsgSource.api, wallTime, blck)
 
       # The boolean we return tells the caller whether the block was integrated
       # into the chain

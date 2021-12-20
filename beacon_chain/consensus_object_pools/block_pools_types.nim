@@ -16,9 +16,12 @@ import
   ../spec/[signatures_batch, forks, helpers],
   ../spec/datatypes/[phase0, altair, merge],
   ".."/beacon_chain_db,
+  ../validators/validator_monitor,
   ./block_dag
 
-export options, sets, tables, hashes, helpers, beacon_chain_db, block_dag
+export
+  options, sets, tables, hashes, helpers, beacon_chain_db, block_dag,
+  validator_monitor
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
 # relationships and allowing various forms of lookups
@@ -82,6 +85,8 @@ type
 
     db*: BeaconChainDB ##\
       ## ColdDB - Stores the canonical chain
+
+    validatorMonitor*: ref ValidatorMonitor
 
     # -----------------------------------
     # ChainDAGRef - DAG of candidate chains
@@ -317,4 +322,3 @@ func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
     state_root: stateRoot,
     epoch: epoch
   )
-

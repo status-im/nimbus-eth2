@@ -543,6 +543,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         request.slot, subnet_id, request.validator_index,
         request.is_aggregator)
 
+      let validator_pubkey = getStateField(
+        node.dag.headState.data, validators).asSeq()[request.validator_index].pubkey
+
+      node.validatorMonitor[].addAutoMonitor(
+        validator_pubkey, ValidatorIndex(request.validator_index))
+
     return RestApiResponse.jsonMsgResponse(BeaconCommitteeSubscriptionSuccess)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/prepareSyncCommitteeSubnets
@@ -569,6 +575,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
              lenu64(getStateField(node.dag.headState.data, validators)):
             return RestApiResponse.jsonError(Http400,
                                              InvalidValidatorIndexValueError)
+          let validator_pubkey = getStateField(
+            node.dag.headState.data, validators).asSeq()[item.validator_index].pubkey
+
+          node.validatorMonitor[].addAutoMonitor(
+            validator_pubkey, ValidatorIndex(item.validator_index))
+
         subs
 
     warn "Sync committee subscription request served, but not implemented"
