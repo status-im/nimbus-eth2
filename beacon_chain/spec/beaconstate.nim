@@ -244,7 +244,7 @@ proc initialize_beacon_state_from_eth1*(
 
     pubkeyToIndex.withValue(pubkey, foundIdx) do:
       # Increase balance by deposit amount
-      increase_balance(state, ValidatorIndex foundIdx[], amount)
+      increase_balance(state, foundIdx[], amount)
     do:
       if skipBlsValidation in flags or
          verify_deposit_signature(cfg, deposit):

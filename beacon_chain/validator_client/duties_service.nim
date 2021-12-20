@@ -21,7 +21,6 @@ proc checkDuty(duty: RestAttesterDuty): bool =
   (uint64(duty.validator_index) <= VALIDATOR_REGISTRY_LIMIT)
 
 proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
-  let stateIdent = StateIdent.init(StateIdentType.Head)
   let validatorIdents =
     block:
       var res: seq[ValidatorIdent]
@@ -332,7 +331,6 @@ template checkAndRestart(serviceLoop: DutiesServiceLoop,
 
 proc mainLoop(service: DutiesServiceRef) {.async.} =
   service.state = ServiceState.Running
-  let vc = service.client
 
   try:
     var

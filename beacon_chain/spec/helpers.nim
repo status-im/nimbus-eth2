@@ -381,7 +381,7 @@ func get_active_validator_indices*(state: ForkyBeaconState, epoch: Epoch):
   ## Return the sequence of active validator indices at ``epoch``.
   var res = newSeqOfCap[ValidatorIndex](state.validators.len)
   for idx in get_active_validator_indices(state, epoch):
-    res.add idx.ValidatorIndex
+    res.add idx
   res
 
 func get_active_validator_indices_len*(state: ForkyBeaconState, epoch: Epoch):

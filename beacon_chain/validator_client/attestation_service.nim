@@ -217,7 +217,6 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
     slot = adata.slot
     committeeIndex = CommitteeIndex(adata.index)
     attestationRoot = adata.hash_tree_root()
-    genesisRoot = vc.beaconGenesis.genesis_validators_root
 
   let aggregateItems =
     block:

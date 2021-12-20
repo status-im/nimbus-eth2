@@ -163,10 +163,10 @@ proc getAttachedValidator*(node: BeaconNode,
   let key = epochRef.validatorKey(idx)
   if key.isSome():
     let validator = node.getAttachedValidator(key.get().toPubKey())
-    if validator != nil and validator.index != some(idx.ValidatorIndex):
+    if validator != nil and validator.index != some(idx):
       # Update index, in case the validator was activated!
       notice "Validator activated", pubkey = validator.pubkey, index = idx
-      validator.index  = some(idx.ValidatorIndex)
+      validator.index = some(idx)
     validator
   else:
     warn "Validator key not found",
@@ -1233,7 +1233,6 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
   node.network.broadcastBeaconBlock(forked)
 
   let
-    head = node.dag.head
     wallTime = node.beaconClock.now()
     accepted = withBlck(forked):
       let newBlockRef = node.blockProcessor[].storeBlock(

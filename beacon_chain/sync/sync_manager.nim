@@ -171,9 +171,6 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
 template headAge(): uint64 =
   wallSlot - headSlot
 
-template queueAge(): uint64 =
-  wallSlot - man.queue.outSlot
-
 template peerStatusAge(): Duration =
   Moment.now() - peer.state(BeaconSync).statusLastTime
 

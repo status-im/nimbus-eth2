@@ -21,9 +21,6 @@ logScope: topics = "configapi"
 type
   RpcServer = RpcHttpServer
 
-template unimplemented() =
-  raise (ref CatchableError)(msg: "Unimplemented")
-
 proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     raises: [Defect, CatchableError].} =
   rpcServer.rpc("get_v1_config_fork_schedule") do () -> seq[Fork]:
