@@ -137,9 +137,7 @@ type
       ## only recent contract state data (i.e. only recent `deposit_roots`).
     kHashToStateDiff # Obsolete
     kHashToStateOnlyMutableValidators
-    kBackfillBlock
-      ## Pointer to the earliest block that we have backfilled - if this is not
-      ## set, backfill == tail
+    kBackfillBlock # Obsolete, was in `unstable` for a while, but never released
 
   BeaconBlockSummary* = object
     ## Cache of beacon block summaries - during startup when we construct the
@@ -477,7 +475,7 @@ proc close*(db: BeaconchainDB) =
 
   db.db = nil
 
-func toBeaconBlockSummary(v: SomeSomeBeaconBlock): BeaconBlockSummary =
+func toBeaconBlockSummary*(v: SomeSomeBeaconBlock): BeaconBlockSummary =
   BeaconBlockSummary(
     slot: v.slot,
     parent_root: v.parent_root,
@@ -590,9 +588,6 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 
 proc putGenesisBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kGenesisBlock), key)
-
-proc putBackfillBlock*(db: BeaconChainDB, key: Eth2Digest) =
-  db.keyValues.putRaw(subkey(kBackfillBlock), key)
 
 proc putEth2FinalizedTo*(db: BeaconChainDB,
                          eth1Checkpoint: DepositContractSnapshot) =
@@ -797,9 +792,6 @@ proc getGenesisBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.keyValues.getRaw(subkey(kGenesisBlock), Eth2Digest) or
     db.v0.getGenesisBlock()
 
-proc getBackfillBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
-  db.keyValues.getRaw(subkey(kBackfillBlock), Eth2Digest)
-
 proc getEth2FinalizedTo(db: BeaconChainDBV0): Opt[DepositContractSnapshot] =
   result.ok(DepositContractSnapshot())
   let r = db.backend.getSnappySSZ(subkey(kDepositsFinalizedByEth2), result.get)
@@ -856,7 +848,7 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     yield res
     root = res.message.parent_root
 
-proc loadSummaries(db: BeaconChainDB): Table[Eth2Digest, BeaconBlockSummary] =
+proc loadSummaries*(db: BeaconChainDB): Table[Eth2Digest, BeaconBlockSummary] =
   # Load summaries into table - there's no telling what order they're in so we
   # load them all - bugs in nim prevent this code from living in the iterator.
   var summaries = initTable[Eth2Digest, BeaconBlockSummary](1024*1024)

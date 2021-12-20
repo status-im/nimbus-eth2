@@ -199,7 +199,7 @@ proc init(T: type BeaconNode,
     quit 1
 
   var eth1Monitor: Eth1Monitor
-  if not ChainDAGRef.isInitialized(db):
+  if not ChainDAGRef.isInitialized(db).isOk():
     var
       tailState: ref ForkedHashedBeaconState
       tailBlock: ForkedTrustedSignedBeaconBlock
@@ -279,7 +279,7 @@ proc init(T: type BeaconNode,
 
     try:
       ChainDAGRef.preInit(db, genesisState[], tailState[], tailBlock)
-      doAssert ChainDAGRef.isInitialized(db), "preInit should have initialized db"
+      doAssert ChainDAGRef.isInitialized(db).isOk(), "preInit should have initialized db"
     except CatchableError as exc:
       error "Failed to initialize database", err = exc.msg
       quit 1

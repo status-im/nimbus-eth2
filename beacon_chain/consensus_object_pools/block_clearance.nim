@@ -273,7 +273,7 @@ proc addBackfillBlock*(
   logScope:
     blockRoot = shortLog(signedBlock.root)
     blck = shortLog(signedBlock.message)
-    backfill = (dag.backfill.slot, shortLog(dag.backfill.root))
+    backfill = (dag.backfill.slot, shortLog(dag.backfill.parent_root))
 
   template blck(): untyped = signedBlock.message # shortcuts without copy
   template blockRoot(): untyped = signedBlock.root
@@ -292,7 +292,7 @@ proc addBackfillBlock*(
     debug "Block unviable or duplicate"
     return err(BlockError.UnviableFork)
 
-  if dag.backfill.root != signedBlock.root:
+  if dag.backfill.parent_root != signedBlock.root:
     debug "Block does not match expected backfill root"
     return err(BlockError.MissingParent) # MissingChild really, but ..
 
@@ -319,8 +319,7 @@ proc addBackfillBlock*(
     return err(BlockError.Invalid)
 
   dag.putBlock(signedBlock.asTrusted())
-  dag.db.putBackfillBlock(signedBlock.root)
-  dag.backfill = (blck.slot, blck.parent_root)
+  dag.backfill = blck.toBeaconBlockSummary()
 
   # Invariants maintained on startup
   doAssert dag.backfillBlocks.lenu64 == dag.tail.slot.uint64

@@ -353,7 +353,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   let
     tailBlockRoot = db.getTailBlock()
     headBlockRoot = db.getHeadBlock()
-    backfillBlockRoot = db.getBackfillBlock()
 
   doAssert tailBlockRoot.isSome(), "Missing tail block, database corrupt?"
   doAssert headBlockRoot.isSome(), "Missing head block, database corrupt?"
@@ -374,18 +373,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         "preInit should have initialized the database with a genesis block")
     withBlck(genesisBlock): BlockRef.init(genesisBlockRoot, blck.message)
 
-  let backfill =
-    if backfillBlockRoot.isSome():
-      let backfillBlock = db.getForkedBlock(backfillBlockRoot.get()).expect(
-        "backfill block must be present in database, database corrupt?")
-      (getForkedBlockField(backfillBlock, slot),
-        getForkedBlockField(backfillBlock, parentRoot))
-    elif tailRef.slot > GENESIS_SLOT:
-      (getForkedBlockField(tailBlock, slot),
-        getForkedBlockField(tailBlock, parentRoot))
-    else:
-      (GENESIS_SLOT, Eth2Digest())
-
   var
     blocks: HashSet[KeyedBlockRef]
     headRef: BlockRef
@@ -398,11 +385,15 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   var
     backfillBlocks = newSeq[Eth2Digest](tailRef.slot.int)
     curRef: BlockRef
+    backfill = BeaconBlockSummary(slot: GENESIS_SLOT)
 
   for blck in db.getAncestorSummaries(headRoot):
     if blck.summary.slot < tailRef.slot:
       backfillBlocks[blck.summary.slot.int] = blck.root
+      backfill = blck.summary
     elif blck.summary.slot == tailRef.slot:
+      backfill = blck.summary
+
       if curRef == nil:
         curRef = tailRef
         headRef = tailRef
@@ -562,7 +553,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     finalizedHead = shortLog(dag.finalizedHead),
     tail = shortLog(dag.tail),
     totalBlocks = dag.blocks.len(),
-    backfill = (dag.backfill.slot, shortLog(dag.backfill.root))
+    backfill = (dag.backfill.slot, shortLog(dag.backfill.parent_root))
 
   dag
 
@@ -1366,33 +1357,45 @@ proc updateHead*(
         dag.finalizedHead.slot.epoch)
       dag.onFinHappened(data)
 
-proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): bool =
+proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =
   # Lightweight check to see if we have the minimal information needed to
   # load up a database - we don't check head here - if something is wrong with
   # head, it's likely an initialized, but corrupt database - init will detect
   # that
   let
     genesisBlockRoot = db.getGenesisBlock()
-    tailBlockRoot = db.getTailBlock()
 
-  if not (genesisBlockRoot.isSome() and tailBlockRoot.isSome()):
-    return false
+  if not genesisBlockRoot.isSome():
+    return err("Genesis block root missing")
 
   let
     genesisBlock = db.getForkedBlock(genesisBlockRoot.get())
-    tailBlock = db.getForkedBlock(tailBlockRoot.get())
+  if not genesisBlock.isSome():
+    return err("Genesis block missing")
 
-  if not (genesisBlock.isSome() and tailBlock.isSome()):
-    return false
   let
     genesisStateRoot = withBlck(genesisBlock.get()): blck.message.state_root
+
+  if not db.containsState(genesisStateRoot):
+    return err("Genesis state missing")
+
+  let
+    tailBlockRoot = db.getTailBlock()
+  if not tailBlockRoot.isSome():
+    return err("Tail block root missing")
+
+  let
+    tailBlock = db.getForkedBlock(tailBlockRoot.get())
+  if not tailBlock.isSome():
+    return err("Tail block missing")
+
+  let
     tailStateRoot = withBlck(tailBlock.get()): blck.message.state_root
 
-  if not (
-      db.containsState(genesisStateRoot) and db.containsState(tailStateRoot)):
-    return false
+  if not db.containsState(tailStateRoot):
+    return err("Tail state missing")
 
-  true
+  ok()
 
 proc preInit*(
     T: type ChainDAGRef, db: BeaconChainDB,
