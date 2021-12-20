@@ -34,11 +34,7 @@ export
 type
   RpcServer* = RpcHttpServer
 
-  GossipState* = enum
-    Disconnected
-    ConnectedToPhase0
-    InTransitionToAltair
-    ConnectedToAltair
+  GossipState* = set[BeaconStateFork]
 
   BeaconNode* = ref object
     nickname*: string

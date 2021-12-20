@@ -186,6 +186,11 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + should raise on unknown data                                                               OK
 ```
 OK: 7/7 Fail: 0/7 Skip: 0/7
+## Gossip fork transition
+```diff
++ Gossip fork transition                                                                     OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Gossip validation  [Preset: mainnet]
 ```diff
 + Any committee index is valid                                                               OK
@@ -395,4 +400,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 215/217 Fail: 0/217 Skip: 2/217
+OK: 216/218 Fail: 0/218 Skip: 2/218

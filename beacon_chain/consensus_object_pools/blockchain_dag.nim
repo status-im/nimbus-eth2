@@ -516,10 +516,14 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     onFinHappened: onFinCb
   )
 
-  doAssert cfg.GENESIS_FORK_VERSION != cfg.ALTAIR_FORK_VERSION
-  doAssert cfg.GENESIS_FORK_VERSION != cfg.MERGE_FORK_VERSION
-  doAssert cfg.ALTAIR_FORK_VERSION != cfg.MERGE_FORK_VERSION
+  let forkVersions =
+    [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION, cfg.MERGE_FORK_VERSION,
+     cfg.SHARDING_FORK_VERSION]
+  for i in 0 ..< forkVersions.len:
+    for j in i+1 ..< forkVersions.len:
+      doAssert forkVersions[i] != forkVersions[j]
   doAssert cfg.ALTAIR_FORK_EPOCH <= cfg.MERGE_FORK_EPOCH
+  doAssert cfg.MERGE_FORK_EPOCH <= cfg.SHARDING_FORK_EPOCH
   doAssert dag.updateFlags in [{}, {verifyFinalization}]
 
   var cache: StateCache

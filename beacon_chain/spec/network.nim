@@ -125,3 +125,44 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
       fork_digest: fork_digest,
       next_fork_version: current_fork_version,
       next_fork_epoch: FAR_FUTURE_EPOCH)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/p2p-interface.md#transitioning-the-gossip
+func getTargetGossipState*(
+    epoch, ALTAIR_FORK_EPOCH, MERGE_FORK_EPOCH: Epoch, isBehind: bool):
+    set[BeaconStateFork] =
+  if isBehind:
+    {}
+
+  # The order of these checks doesn't matter.
+  elif epoch >= MERGE_FORK_EPOCH:
+    {BeaconStateFork.Merge}
+  elif epoch + 1 < ALTAIR_FORK_EPOCH:
+    {BeaconStateFork.Phase0}
+
+  # Order remaining checks so ALTAIR_FORK_EPOCH == MERGE_FORK_EPOCH works
+  # and when the transition zones align contiguously, or are separated by
+  # intermediate pure-Altair epochs.
+  #
+  # In the first case, should never enable Altair, and there's also never
+  # any Phase -> Altair or Altair -> Merge gossip transition epoch. Given
+  # contiguous Phase0 -> Altair and Altair -> Merge gossip transitions, a
+  # pure Altair state gossip state never occurs, but it works without any
+  # special cases so long as one checks for transition-to-fork+1 before a
+  # pure fork gossip state.
+  #
+  # Therefore, check for transition-to-merge before pure-Altair.
+  elif epoch + 1 >= MERGE_FORK_EPOCH:
+    # As there are only two fork epochs and there's no transition to phase0
+    {if ALTAIR_FORK_EPOCH == MERGE_FORK_EPOCH:
+       BeaconStateFork.Phase0
+     else:
+       BeaconStateFork.Altair,
+     BeaconStateFork.Merge}
+  elif epoch >= ALTAIR_FORK_EPOCH:
+    {BeaconStateFork.Altair}
+
+  # Must be after the case which catches phase0 => merge
+  elif epoch + 1 >= ALTAIR_FORK_EPOCH:
+    {BeaconStateFork.Phase0, BeaconStateFork.Altair}
+  else:
+    raiseAssert "Unknown target gossip state"
