@@ -133,8 +133,15 @@ func process_attestation_queue(self: var ForkChoice) {.gcsafe.}
 
 proc update_time(self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime):
     FcResult[void] =
+  const step_size = seconds(SECONDS_PER_SLOT.int)
   if time > self.checkpoints.time:
-    ? on_tick(self.checkpoints, dag, time)
+    # Call on_tick at least once per slot.
+    while time >= self.checkpoints.time + step_size:
+      ? on_tick(self.checkpoints, dag, self.checkpoints.time + step_size)
+
+    if self.checkpoints.time < time:
+      # Might create two ticks for the last slot.
+      ? on_tick(self.checkpoints, dag, time)
 
     self.process_attestation_queue() # Only run if time changed!
 
