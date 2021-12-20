@@ -7,7 +7,7 @@
 
 {.push raises: [Defect].}
 
-import std/[options, heapqueue, tables, strutils, sequtils, algorithm]
+import std/[options, heapqueue, tables, strutils, sequtils, algorithm, math]
 import stew/results, chronos, chronicles
 import
   ../spec/datatypes/[phase0, altair, merge],
@@ -494,9 +494,23 @@ proc toTimeLeftString(d: Duration): string =
       res = res & "00m"
     res
 
+# Curve(s) fitted to data collected while syncing mainnet on an old desktop -
+# i.e.: the "reference system".
+func referenceCurveSlotsToSeconds(slots: float): float =
+  if slots < 751597:
+    -3.910e-15 * slots^3 + 4.547e-08 * slots^2 + 2.173e-02 * slots + 6.760e+01
+  else:
+    1.436e-15 * slots^3 + 2.510e-08 * slots^2 + 1.743e-02 * slots + 1.314e+04
+
 proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
   mixin getKey, getScore
-  var pauseTime = 0
+
+  let
+    # Offset it a little, to improve the initial estimate.
+    startTime = chronos.Moment.now() + chronos.seconds(5)
+    initialProgress = man.getLocalHeadSlot().float
+    # We don't want the ETA or syncing speed to jump all over the place too often.
+    updateInterval = chronos.seconds(10)
 
   asyncSpawn man.guardTask()
 
@@ -510,15 +524,12 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 
       await man.notInSyncEvent.wait()
 
-      # Give the node time to connect to peers and get the sync process started
-      await sleepAsync(seconds(SECONDS_PER_SLOT.int64))
-
       var
         stamp = SyncMoment.now(man.queue.progress())
         syncCount = 0
 
       while man.inProgress:
-        await sleepAsync(seconds(SECONDS_PER_SLOT.int64))
+        await sleepAsync(updateInterval)
 
         let
           newStamp = SyncMoment.now(man.queue.progress())
@@ -545,25 +556,46 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
           waiting_workers_count = waiting,
           pending_workers_count = pending,
           wall_head_slot = wallSlot, local_head_slot = headSlot,
-          pause_time = $chronos.seconds(pauseTime),
           avg_sync_speed = man.avgSyncSpeed, ins_sync_speed = man.insSyncSpeed,
           direction = man.direction, topics = "syncman"
 
+    # This ETA algorithm only works for the initial forward sync. When
+    # checkpoint sync is added, and if we still want to display the backfill
+    # sync status in the status bar, the "total" and "progress" variables need
+    # to be adjusted accordingly.
     let
-      progress = float(man.queue.progress())
-      total = float(man.queue.total())
-      remaining = total - progress
+      progress = headSlot.float
+      total = wallSlot.float
       done = if total > 0.0: progress / total else: 1.0
+      elapsedSeconds = (chronos.Moment.now() - startTime).seconds.float
+      # How long would it have taken the reference system to sync up to this
+      # point?
+      referenceDuration = referenceCurveSlotsToSeconds(progress) -
+        referenceCurveSlotsToSeconds(initialProgress)
+      # Assume a linear relation between CPU performance and syncing speed and
+      # compute a correction factor between this system and the reference one.
+      correctionFactor =
+        if referenceDuration > 0.0 and elapsedSeconds > 0.0:
+          elapsedSeconds / referenceDuration
+        else:
+          1.0
+      # Now it's easy to get a credible ETA.
+      estimatedTotalDuration = (referenceCurveSlotsToSeconds(total) * correctionFactor)
       timeleft =
-        if man.avgSyncSpeed >= 0.001:
-          Duration.fromFloatSeconds(remaining / man.avgSyncSpeed)
+        if man.avgSyncSpeed >= 0.001 and elapsedSeconds > 0.0:
+          # Complicated a little by the fact that a node can be restarted
+          # during initial sync. We need to also estimate the time needed to
+          # sync up to the number of slots this instance already had when
+          # it started.
+          Duration.fromFloatSeconds(estimatedTotalDuration - elapsedSeconds -
+            (referenceCurveSlotsToSeconds(initialProgress) * correctionFactor))
         else: InfiniteDuration
 
     # Update status string
     man.syncStatus = timeLeft.toTimeLeftString() & " (" &
                     (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
-                    man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) &
-                    "slots/s (" & map & ":" & $man.queue.outSlot & ")"
+                    man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 2) &
+                    "slt/s (" & map & ")"
 
     if headAge <= man.maxHeadAge:
       man.notInSyncEvent.clear()
@@ -594,7 +626,7 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
         man.notInSyncEvent.fire()
         man.inProgress = true
 
-    await sleepAsync(chronos.seconds(2))
+    await sleepAsync(updateInterval)
 
 proc start*[A, B](man: SyncManager[A, B]) =
   ## Starts SyncManager's main loop.

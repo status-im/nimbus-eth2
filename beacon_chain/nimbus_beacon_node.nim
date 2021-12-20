@@ -1248,24 +1248,30 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
     # arbitrary expression that is resolvable through this API.
     case expr.toLowerAscii
     of "connected_peers":
-      $(node.connectedPeersCount)
+      try:
+        fmt("{(node.connectedPeersCount):>3}")
+      except ValueError:
+        "N/A"
 
     of "head_root":
       shortLog(node.dag.head.root)
     of "head_epoch":
       $(node.dag.head.slot.epoch)
     of "head_epoch_slot":
-      $(node.dag.head.slot mod SLOTS_PER_EPOCH)
+      try:
+        fmt("{(node.dag.head.slot mod SLOTS_PER_EPOCH):02}")
+      except ValueError:
+        "N/A"
     of "head_slot":
       $(node.dag.head.slot)
 
-    of "justifed_root":
+    of "justified_root":
       shortLog(justified.blck.root)
-    of "justifed_epoch":
+    of "justified_epoch":
       $(justified.slot.epoch)
-    of "justifed_epoch_slot":
+    of "justified_epoch_slot":
       $(justified.slot mod SLOTS_PER_EPOCH)
-    of "justifed_slot":
+    of "justified_slot":
       $(justified.slot)
 
     of "finalized_root":
@@ -1281,7 +1287,10 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
       $node.currentSlot.epoch
 
     of "epoch_slot":
-      $(node.currentSlot mod SLOTS_PER_EPOCH)
+      try:
+        fmt("{(node.currentSlot mod SLOTS_PER_EPOCH):02}")
+      except ValueError:
+        "N/A"
 
     of "slot":
       $node.currentSlot
