@@ -112,6 +112,9 @@ type
     # ----------------------------------------------------------------
     blockProcessor: ref BlockProcessor
 
+    # Validator monitoring
+    validatorMonitor: ref ValidatorMonitor
+
     # Validated with no further verification required
     # ----------------------------------------------------------------
     exitPool: ref ExitPool
@@ -135,6 +138,7 @@ type
 proc new*(T: type Eth2Processor,
           doppelGangerDetectionEnabled: bool,
           blockProcessor: ref BlockProcessor,
+          validatorMonitor: ref ValidatorMonitor,
           dag: ChainDAGRef,
           attestationPool: ref AttestationPool,
           exitPool: ref ExitPool,
@@ -150,6 +154,7 @@ proc new*(T: type Eth2Processor,
     doppelgangerDetection: DoppelgangerProtection(
       nodeLaunchSlot: getBeaconTime().slotOrZero),
     blockProcessor: blockProcessor,
+    validatorMonitor: validatorMonitor,
     dag: dag,
     attestationPool: attestationPool,
     exitPool: exitPool,
@@ -171,9 +176,8 @@ proc new*(T: type Eth2Processor,
 # could be used to push out valid messages.
 
 proc blockValidator*(
-    self: var Eth2Processor,
-    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                 merge.SignedBeaconBlock): ValidationRes =
+    self: var Eth2Processor, src: MsgSource,
+    signedBlock: ForkySignedBeaconBlock): ValidationRes =
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot()
@@ -207,7 +211,7 @@ proc blockValidator*(
     trace "Block validated"
 
     self.blockProcessor[].addBlock(
-      ForkedSignedBeaconBlock.init(signedBlock),
+      src, ForkedSignedBeaconBlock.init(signedBlock),
       validationDur = self.getCurrentBeaconTime() - wallTime)
 
     # Validator monitor registration for blocks is done by the processor
@@ -250,9 +254,8 @@ proc checkForPotentialDoppelganger(
         quit QuitFailure
 
 proc attestationValidator*(
-    self: ref Eth2Processor,
-    attestation: Attestation,
-    subnet_id: SubnetId,
+    self: ref Eth2Processor, src: MsgSource,
+    attestation: Attestation, subnet_id: SubnetId,
     checkSignature: bool = true): Future[ValidationRes] {.async.} =
   let wallTime = self.getCurrentBeaconTime()
   var (afterGenesis, wallSlot) = wallTime.toSlot()
@@ -286,8 +289,12 @@ proc attestationValidator*(
     self.attestationPool[].addAttestation(
       attestation, [attester_index], sig, wallSlot)
 
+    self.validatorMonitor[].registerAttestation(
+      src, wallTime, attestation, attester_index)
+
     beacon_attestations_received.inc()
     beacon_attestation_delay.observe(delay.toFloatSeconds())
+
     ok()
   else:
     debug "Dropping attestation", validationError = v.error
@@ -295,7 +302,7 @@ proc attestationValidator*(
     err(v.error())
 
 proc aggregateValidator*(
-    self: ref Eth2Processor,
+    self: ref Eth2Processor, src: MsgSource,
     signedAggregateAndProof: SignedAggregateAndProof): Future[ValidationRes] {.async.} =
   let wallTime = self.getCurrentBeaconTime()
   var (afterGenesis, wallSlot) = wallTime.toSlot()
@@ -334,6 +341,9 @@ proc aggregateValidator*(
     self.attestationPool[].addAttestation(
       signedAggregateAndProof.message.aggregate, attesting_indices, sig, wallSlot)
 
+    self.validatorMonitor[].registerAggregate(
+      src, wallTime, signedAggregateAndProof, attesting_indices)
+
     beacon_aggregates_received.inc()
     beacon_aggregate_delay.observe(delay.toFloatSeconds())
 
@@ -345,8 +355,8 @@ proc aggregateValidator*(
     err(v.error())
 
 proc attesterSlashingValidator*(
-    self: var Eth2Processor, attesterSlashing: AttesterSlashing):
-    ValidationRes =
+    self: var Eth2Processor, src: MsgSource,
+    attesterSlashing: AttesterSlashing): ValidationRes =
   logScope:
     attesterSlashing = shortLog(attesterSlashing)
 
@@ -359,6 +369,8 @@ proc attesterSlashingValidator*(
 
     self.exitPool[].addMessage(attesterSlashing)
 
+    self.validatorMonitor[].registerAttesterSlashing(src, attesterSlashing)
+
     beacon_attester_slashings_received.inc()
   else:
     debug "Dropping attester slashing", validationError = v.error
@@ -367,8 +379,8 @@ proc attesterSlashingValidator*(
   v
 
 proc proposerSlashingValidator*(
-    self: var Eth2Processor, proposerSlashing: ProposerSlashing):
-    Result[void, ValidationError] =
+    self: var Eth2Processor, src: MsgSource,
+    proposerSlashing: ProposerSlashing): Result[void, ValidationError] =
   logScope:
     proposerSlashing = shortLog(proposerSlashing)
 
@@ -377,18 +389,21 @@ proc proposerSlashingValidator*(
   let v = self.exitPool[].validateProposerSlashing(proposerSlashing)
   if v.isOk():
     trace "Proposer slashing validated"
-    beacon_proposer_slashings_received.inc()
-  else:
-    debug "Dropping proposer slashing", validationError = v.error
 
     self.exitPool[].addMessage(proposerSlashing)
 
+    self.validatorMonitor[].registerProposerSlashing(src, proposerSlashing)
+
+    beacon_proposer_slashings_received.inc()
+  else:
+    debug "Dropping proposer slashing", validationError = v.error
     beacon_proposer_slashings_dropped.inc(1, [$v.error[0]])
+
   v
 
 proc voluntaryExitValidator*(
-    self: var Eth2Processor, signedVoluntaryExit: SignedVoluntaryExit):
-    Result[void, ValidationError] =
+    self: var Eth2Processor, src: MsgSource,
+    signedVoluntaryExit: SignedVoluntaryExit): Result[void, ValidationError] =
   logScope:
     signedVoluntaryExit = shortLog(signedVoluntaryExit)
 
@@ -400,6 +415,9 @@ proc voluntaryExitValidator*(
 
     self.exitPool[].addMessage(signedVoluntaryExit)
 
+    self.validatorMonitor[].registerVoluntaryExit(
+      src, signedVoluntaryExit.message)
+
     beacon_voluntary_exits_received.inc()
   else:
     debug "Dropping voluntary exit", error = v.error
@@ -408,7 +426,7 @@ proc voluntaryExitValidator*(
   v
 
 proc syncCommitteeMessageValidator*(
-    self: ref Eth2Processor,
+    self: ref Eth2Processor, src: MsgSource,
     syncCommitteeMsg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex,
     checkSignature: bool = true): Future[Result[void, ValidationError]] {.async.} =
@@ -441,6 +459,9 @@ proc syncCommitteeMessageValidator*(
       subcommitteeIdx,
       positions)
 
+    self.validatorMonitor[].registerSyncCommitteeMessage(
+      src, wallTime, syncCommitteeMsg)
+
     beacon_sync_committee_messages_received.inc()
 
     ok()
@@ -450,7 +471,7 @@ proc syncCommitteeMessageValidator*(
     err(v.error())
 
 proc contributionValidator*(
-    self: ref Eth2Processor,
+    self: ref Eth2Processor, src: MsgSource,
     contributionAndProof: SignedContributionAndProof,
     checkSignature: bool = true): Future[Result[void, ValidationError]] {.async.} =
   let
@@ -475,7 +496,12 @@ proc contributionValidator*(
 
   return if v.isOk():
     trace "Contribution validated"
-    self.syncCommitteeMsgPool[].addContribution(contributionAndProof, v.get)
+    self.syncCommitteeMsgPool[].addContribution(
+      contributionAndProof, v.get()[0])
+
+    self.validatorMonitor[].registerSyncContribution(
+      src, wallTime, contributionAndProof, v.get()[1])
+
     beacon_sync_committee_contributions_received.inc()
 
     ok()

@@ -24,6 +24,7 @@
 - [Perform a voluntary exit](./voluntary-exit.md)
 - [Add an additional validator](./additional-validator.md)
 - [Monitor attestation performance](./attestation-performance.md)
+- [Monitor specific validators](./validator-monitor.md)
 
 # How-to (misc)
 - [Upgrade / downgrade Nimbus](./keep-updated.md)

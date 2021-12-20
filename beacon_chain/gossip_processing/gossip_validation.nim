@@ -856,8 +856,7 @@ proc validateContribution*(
     msg: SignedContributionAndProof,
     wallTime: BeaconTime,
     checkSignature: bool):
-    Future[Result[CookedSig, ValidationError]] {.async.} =
-
+    Future[Result[(CookedSig, seq[ValidatorIndex]), ValidationError]] {.async.} =
   let
     syncCommitteeSlot = msg.message.contribution.slot
 
@@ -900,6 +899,12 @@ proc validateContribution*(
     # [REJECT] The contribution has participants
     # that is, any(contribution.aggregation_bits).
     return errReject("SignedContributionAndProof: aggregation bits empty")
+
+  # TODO we take a copy of the participants to avoid the data going stale
+  #      between validation and use - nonetheless, a design that avoids it and
+  #      stays safe would be nice
+  let participants = dag.syncCommitteeParticipants(
+    msg.message.contribution.slot, subcommitteeIdx)
 
   let sig = if checkSignature:
     let deferredCrypto = batchCrypto.scheduleContributionChecks(
@@ -951,4 +956,4 @@ proc validateContribution*(
       return errReject("SyncCommitteeMessage: unable to load signature")
     sig.get()
 
-  return ok(sig)
+  return ok((sig, participants))

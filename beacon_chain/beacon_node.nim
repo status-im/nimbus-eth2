@@ -23,13 +23,14 @@ import
     sync_committee_msg_pool],
   ./spec/datatypes/base,
   ./sync/[sync_manager, request_manager],
-  ./validators/[action_tracker, validator_pool]
+  ./validators/[action_tracker, validator_monitor, validator_pool]
 
 export
   osproc, chronos, httpserver, presto, action_tracker, beacon_clock,
   beacon_chain_db, conf, attestation_pool, sync_committee_msg_pool,
   validator_pool, eth2_network, eth1_monitor, request_manager, sync_manager,
-  eth2_processor, blockchain_dag, block_quarantine, base, exit_pool
+  eth2_processor, blockchain_dag, block_quarantine, base, exit_pool,
+  validator_monitor
 
 type
   RpcServer* = RpcHttpServer
@@ -70,6 +71,7 @@ type
     beaconClock*: BeaconClock
     onAttestationSent*: OnAttestationCallback
     restKeysCache*: Table[ValidatorPubKey, ValidatorIndex]
+    validatorMonitor*: ref ValidatorMonitor
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

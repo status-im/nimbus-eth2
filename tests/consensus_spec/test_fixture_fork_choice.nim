@@ -92,15 +92,15 @@ proc initialLoad(
     forkedState[], forkedState[],
     asTrusted(signedBlock)
   )
-  let dag = ChainDAGRef.init(
-    defaultRuntimeConfig,
-    db,
-    updateFlags = {}
-  )
-  let fkChoice = newClone(ForkChoice.init(
-    dag.getFinalizedEpochRef(),
-    dag.finalizedHead.blck
-  ))
+
+  let
+    validatorMonitor = newClone(ValidatorMonitor.init())
+    dag = ChainDAGRef.init(
+      defaultRuntimeConfig, db, validatorMonitor, {})
+    fkChoice = newClone(ForkChoice.init(
+      dag.getFinalizedEpochRef(),
+      dag.finalizedHead.blck
+    ))
 
   (dag, fkChoice)
 

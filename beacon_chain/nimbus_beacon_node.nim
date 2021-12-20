@@ -31,7 +31,7 @@ import
   ./networking/[eth2_discovery, eth2_network, network_metadata],
   ./gossip_processing/[eth2_processor, block_processor, consensus_manager],
   ./validators/[
-    validator_duties, validator_pool,
+    validator_duties, validator_monitor, validator_pool,
     slashing_protection, keystore_management],
   ./sync/[sync_protocol],
   ./rpc/[rest_api, rpc_api],
@@ -295,10 +295,18 @@ proc init(T: type BeaconNode,
   info "Loading block dag from database", path = config.databaseDir
 
   let
+    validatorMonitor = newClone(ValidatorMonitor.init(
+      config.validatorMonitorAuto))
+
+  for key in config.validatorMonitorPubkeys:
+    validatorMonitor[].addMonitor(key, none(ValidatorIndex))
+
+  let
     chainDagFlags = if config.verifyFinalization: {verifyFinalization}
                      else: {}
-    dag = ChainDAGRef.init(cfg, db, chainDagFlags, onBlockAdded, onHeadChanged,
-                           onChainReorg, onFinalization)
+    dag = ChainDAGRef.init(
+      cfg, db, validatorMonitor, chainDagFlags, onBlockAdded, onHeadChanged,
+      onChainReorg, onFinalization)
     quarantine = newClone(Quarantine.init())
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState.data, genesis_validators_root)
@@ -408,7 +416,7 @@ proc init(T: type BeaconNode,
     )
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      rng, taskpool, consensusManager, getBeaconTime)
+      rng, taskpool, consensusManager, validatorMonitor, getBeaconTime)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock):
         Future[Result[void, BlockError]] =
       # The design with a callback for block verification is unusual compared
@@ -416,12 +424,13 @@ proc init(T: type BeaconNode,
       # taken in the sync/request managers - this is an architectural compromise
       # that should probably be reimagined more holistically in the future.
       let resfut = newFuture[Result[void, BlockError]]("blockVerifier")
-      blockProcessor[].addBlock(signedBlock, resfut)
+      blockProcessor[].addBlock(MsgSource.gossip, signedBlock, resfut)
       resfut
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
-      blockProcessor, dag, attestationPool, exitPool, validatorPool,
-      syncCommitteeMsgPool, quarantine, rng, getBeaconTime, taskpool)
+      blockProcessor, validatorMonitor, dag, attestationPool, exitPool,
+      validatorPool, syncCommitteeMsgPool, quarantine, rng, getBeaconTime,
+      taskpool)
     syncManager = newSyncManager[Peer, PeerID](
       network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot, getLocalWallSlot,
       getFirstSlotAtFinalizedEpoch, getBackfillSlot, blockVerifier)
@@ -453,6 +462,7 @@ proc init(T: type BeaconNode,
     gossipState: GossipState.Disconnected,
     beaconClock: beaconClock,
     onAttestationSent: onAttestationSent,
+    validatorMonitor: validatorMonitor
   )
 
   debug "Loading validators", validatorsDir = config.validatorsDir()
@@ -464,9 +474,11 @@ proc init(T: type BeaconNode,
     # we start with a reasonable ENR
     let wallSlot = node.beaconClock.now().slotOrZero()
     for validator in node.attachedValidators[].validators.values():
+      if config.validatorMonitorAuto:
+        validatorMonitor[].addMonitor(validator.pubkey, validator.index)
+
       if validator.index.isSome():
         node.actionTracker.knownValidators[validator.index.get()] = wallSlot
-
     let
       stabilitySubnets = node.actionTracker.stabilitySubnets(wallSlot)
     # Here, we also set the correct ENR should we be in all subnets mode!
@@ -1011,7 +1023,8 @@ proc installMessageValidators(node: BeaconNode) =
   node.network.addValidator(
     getBeaconBlocksTopic(node.dag.forkDigests.phase0),
     proc (signedBlock: phase0.SignedBeaconBlock): ValidationResult =
-      toValidationResult(node.processor[].blockValidator(signedBlock)))
+      toValidationResult(node.processor[].blockValidator(
+        MsgSource.gossip, signedBlock)))
 
   template installPhase0Validators(digest: auto) =
     for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
@@ -1022,32 +1035,37 @@ proc installMessageValidators(node: BeaconNode) =
           # This proc needs to be within closureScope; don't lift out of loop.
           proc(attestation: Attestation): Future[ValidationResult] {.async.} =
             return toValidationResult(
-              await node.processor.attestationValidator(attestation, subnet_id)))
+              await node.processor.attestationValidator(
+                MsgSource.gossip, attestation, subnet_id)))
 
     node.network.addAsyncValidator(
       getAggregateAndProofsTopic(digest),
       proc(signedAggregateAndProof: SignedAggregateAndProof):
           Future[ValidationResult] {.async.} =
         return toValidationResult(
-          await node.processor.aggregateValidator(signedAggregateAndProof)))
+          await node.processor.aggregateValidator(
+            MsgSource.gossip, signedAggregateAndProof)))
 
     node.network.addValidator(
       getAttesterSlashingsTopic(digest),
       proc (attesterSlashing: AttesterSlashing): ValidationResult =
         toValidationResult(
-          node.processor[].attesterSlashingValidator(attesterSlashing)))
+          node.processor[].attesterSlashingValidator(
+            MsgSource.gossip, attesterSlashing)))
 
     node.network.addValidator(
       getProposerSlashingsTopic(digest),
       proc (proposerSlashing: ProposerSlashing): ValidationResult =
         toValidationResult(
-          node.processor[].proposerSlashingValidator(proposerSlashing)))
+          node.processor[].proposerSlashingValidator(
+            MsgSource.gossip, proposerSlashing)))
 
     node.network.addValidator(
       getVoluntaryExitsTopic(digest),
       proc (signedVoluntaryExit: SignedVoluntaryExit): ValidationResult =
         toValidationResult(
-          node.processor[].voluntaryExitValidator(signedVoluntaryExit)))
+          node.processor[].voluntaryExitValidator(
+            MsgSource.gossip, signedVoluntaryExit)))
 
   installPhase0Validators(node.dag.forkDigests.phase0)
 
@@ -1059,12 +1077,14 @@ proc installMessageValidators(node: BeaconNode) =
   node.network.addValidator(
     getBeaconBlocksTopic(node.dag.forkDigests.altair),
     proc (signedBlock: altair.SignedBeaconBlock): ValidationResult =
-      toValidationResult(node.processor[].blockValidator(signedBlock)))
+      toValidationResult(node.processor[].blockValidator(
+        MsgSource.gossip, signedBlock)))
 
   node.network.addValidator(
     getBeaconBlocksTopic(node.dag.forkDigests.merge),
     proc (signedBlock: merge.SignedBeaconBlock): ValidationResult =
-      toValidationResult(node.processor[].blockValidator(signedBlock)))
+      toValidationResult(node.processor[].blockValidator(
+        MsgSource.gossip, signedBlock)))
 
   template installSyncCommitteeeValidators(digest: auto) =
     for committeeIdx in allSyncSubcommittees():
@@ -1075,13 +1095,14 @@ proc installMessageValidators(node: BeaconNode) =
           # This proc needs to be within closureScope; don't lift out of loop.
           proc(msg: SyncCommitteeMessage): Future[ValidationResult] {.async.} =
             return toValidationResult(
-              await node.processor.syncCommitteeMessageValidator(msg, idx)))
+              await node.processor.syncCommitteeMessageValidator(
+                MsgSource.gossip, msg, idx)))
 
     node.network.addAsyncValidator(
       getSyncCommitteeContributionAndProofTopic(digest),
       proc(msg: SignedContributionAndProof): Future[ValidationResult] {.async.} =
         return toValidationResult(
-          await node.processor.contributionValidator(msg)))
+          await node.processor.contributionValidator(MsgSource.gossip, msg)))
 
   installSyncCommitteeeValidators(node.dag.forkDigests.altair)
   installSyncCommitteeeValidators(node.dag.forkDigests.merge)

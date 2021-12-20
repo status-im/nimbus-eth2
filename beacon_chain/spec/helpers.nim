@@ -369,6 +369,13 @@ func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ## Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
+func is_exited_validator*(validator: Validator, epoch: Epoch): bool =
+  ## Check if ``validator`` is exited
+  validator.exit_epoch <= epoch
+
+func is_withdrawable_validator*(validator: Validator, epoch: Epoch): bool =
+  epoch >= validator.withdrawable_epoch
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#get_active_validator_indices
 iterator get_active_validator_indices*(state: ForkyBeaconState, epoch: Epoch):
     ValidatorIndex =
