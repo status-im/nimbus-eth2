@@ -201,7 +201,7 @@ func isProposed*(bid: BlockId, slot: Slot): bool =
 
 func isProposed*(blck: BlockRef, slot: Slot): bool =
   ## Return true if `blck` was proposed in the given slot
-  not isNil(blck) and blck.isProposed(slot)
+  not isNil(blck) and blck.bid.isProposed(slot)
 
 func isProposed*(bs: BlockSlot): bool =
   ## Return true if `bs` represents the proposed block (as opposed to an empty

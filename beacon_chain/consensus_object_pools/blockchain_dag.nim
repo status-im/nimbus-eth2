@@ -792,6 +792,7 @@ proc advanceSlots(
   # processing - the state must be positions at a slot before or equal to the
   # target
   doAssert getStateField(state.data, slot) <= slot
+
   while getStateField(state.data, slot) < slot:
     let preEpoch = getStateField(state.data, slot).epoch
     loadStateCache(dag, cache, state.blck, getStateField(state.data, slot).epoch)
@@ -874,15 +875,19 @@ proc updateStateData*(
   # it also avoids `hash_tree_root` for slot processing
   if exactMatch(state, cur):
     found = true
-  elif exactMatch(dag.headState, cur):
-    assign(state, dag.headState)
-    found = true
-  elif exactMatch(dag.clearanceState, cur):
-    assign(state, dag.clearanceState)
-    found = true
-  elif exactMatch(dag.epochRefState, cur):
-    assign(state, dag.epochRefState)
-    found = true
+  elif not save:
+    # When required to save states, we cannot rely on the caches because that
+    # would skip the extra processing that save does - not all information that
+    # goes into the database is cached
+    if exactMatch(dag.headState, cur):
+      assign(state, dag.headState)
+      found = true
+    elif exactMatch(dag.clearanceState, cur):
+      assign(state, dag.clearanceState)
+      found = true
+    elif exactMatch(dag.epochRefState, cur):
+      assign(state, dag.epochRefState)
+      found = true
 
   # First, run a quick check if we can simply apply a few blocks to an in-memory
   # state - any in-memory state will be faster than loading from database.
@@ -893,24 +898,25 @@ proc updateStateData*(
   # sequentially to grab their votes.
   const RewindBlockThreshold = 64
   while not found and ancestors.len < RewindBlockThreshold:
-    if canAdvance(state, cur):
+    if canAdvance(state, cur): # Typical case / fast path when there's no reorg
       found = true
       break
 
-    if canAdvance(dag.headState, cur):
-      assign(state, dag.headState)
-      found = true
-      break
+    if not save: # See above
+      if canAdvance(dag.headState, cur):
+        assign(state, dag.headState)
+        found = true
+        break
 
-    if canAdvance(dag.clearanceState, cur):
-      assign(state, dag.clearanceState)
-      found = true
-      break
+      if canAdvance(dag.clearanceState, cur):
+        assign(state, dag.clearanceState)
+        found = true
+        break
 
-    if canAdvance(dag.epochRefState, cur):
-      assign(state, dag.epochRefState)
-      found = true
-      break
+      if canAdvance(dag.epochRefState, cur):
+        assign(state, dag.epochRefState)
+        found = true
+        break
 
     if cur.slot == cur.blck.slot:
       # This is not an empty slot, so the block will need to be applied to

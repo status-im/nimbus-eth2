@@ -87,6 +87,9 @@ suite "BlockSlot and helpers":
       s24.parent == BlockSlot(blck: s2, slot: Slot(3))
       s24.parent.parent == s22
 
+      s22.isProposed()
+      not s24.isProposed()
+
 suite "BlockId and helpers":
   test "atSlot sanity":
     let
