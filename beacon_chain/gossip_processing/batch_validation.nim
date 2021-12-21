@@ -89,7 +89,7 @@ const
   # (RNG for blinding and Final Exponentiation)
   # are amortized,
   # but not too big as we need to redo checks one-by-one if one failed.
-  BatchedCryptoSize = 24
+  BatchedCryptoSize = 32
 
 proc new*(
     T: type BatchCrypto, rng: ref BrHmacDrbgContext,
