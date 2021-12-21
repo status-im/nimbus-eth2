@@ -404,13 +404,13 @@ proc nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   of BeaconStateFork.Altair: cfg.MERGE_FORK_EPOCH
   of BeaconStateFork.Phase0: cfg.ALTAIR_FORK_EPOCH
 
-func getForkSchedule*(cfg: RuntimeConfig): array[2, Fork] =
+func getForkSchedule*(cfg: RuntimeConfig): array[3, Fork] =
   ## This procedure returns list of known and/or scheduled forks.
   ##
   ## This procedure is used by HTTP REST framework and validator client.
   ##
   ## NOTE: Update this procedure when new fork will be scheduled.
-  [cfg.genesisFork(), cfg.altairFork()]
+  [cfg.genesisFork(), cfg.altairFork(), cfg.mergeFork()]
 
 type
   # The first few fields of a state, shared across all forks

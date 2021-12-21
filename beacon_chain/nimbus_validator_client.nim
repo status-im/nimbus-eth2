@@ -7,7 +7,7 @@
 import validator_client/[common, fallback_service, duties_service,
                          attestation_service, fork_service]
 
-proc initGenesis*(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
+proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
   info "Initializing genesis", nodes_count = len(vc.beaconNodes)
   var nodes = vc.beaconNodes
   while true:
@@ -73,7 +73,7 @@ proc initGenesis*(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
             dec(counter)
       return melem
 
-proc initValidators*(vc: ValidatorClientRef): Future[bool] {.async.} =
+proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
   info "Initializaing validators", path = vc.config.validatorsDir()
   var duplicates: seq[ValidatorPubKey]
   for item in vc.config.validatorItems():
@@ -86,7 +86,7 @@ proc initValidators*(vc: ValidatorClientRef): Future[bool] {.async.} =
       vc.attachedValidators.addLocalValidator(item)
   return true
 
-proc initClock*(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
+proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
   # This procedure performs initialization of BeaconClock using current genesis
   # information. It also performs waiting for genesis.
   let res = BeaconClock.init(vc.beaconGenesis.genesis_time)
@@ -101,7 +101,7 @@ proc initClock*(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
     await sleepAsync(genesisTime.offset)
   return res
 
-proc asyncInit*(vc: ValidatorClientRef) {.async.} =
+proc asyncInit(vc: ValidatorClientRef) {.async.} =
   vc.beaconGenesis = await vc.initGenesis()
   info "Genesis information", genesis_time = vc.beaconGenesis.genesis_time,
     genesis_fork_version = vc.beaconGenesis.genesis_fork_version,
@@ -151,7 +151,7 @@ proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
     blockIn = vc.getDurationToNextBlock(wallSlot.slot),
     delay = shortLog(delay)
 
-proc asyncRun*(vc: ValidatorClientRef) {.async.} =
+proc asyncRun(vc: ValidatorClientRef) {.async.} =
   vc.fallbackService.start()
   vc.forkService.start()
   vc.dutiesService.start()

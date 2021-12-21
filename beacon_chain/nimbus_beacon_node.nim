@@ -459,7 +459,7 @@ proc init(T: type BeaconNode,
     processor: processor,
     blockProcessor: blockProcessor,
     consensusManager: consensusManager,
-    gossipState: GossipState.Disconnected,
+    gossipState: {},
     beaconClock: beaconClock,
     onAttestationSent: onAttestationSent,
     validatorMonitor: validatorMonitor
@@ -512,9 +512,9 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
 func subnetLog(v: BitArray): string =
   $toSeq(v.oneIndices())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
-  if node.gossipState == GossipState.Disconnected:
+  if node.gossipState.card == 0:
     # When disconnected, updateGossipState is responsible for all things
     # subnets - in particular, it will remove subscriptions on the edge where
     # we enter the disconnected state.
@@ -536,20 +536,16 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   # Remember what we subscribed to, so we can unsubscribe later
   node.actionTracker.subscribedSubnets = subnets
 
-  case node.gossipState
-  of GossipState.Disconnected:
-    raiseAssert "Checked above"
-  of GossipState.ConnectedToPhase0:
-    node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, node.dag.forkDigests.phase0)
-    node.network.subscribeAttestationSubnets(subscribeSubnets, node.dag.forkDigests.phase0)
-  of GossipState.InTransitionToAltair:
-    node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, node.dag.forkDigests.phase0)
-    node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, node.dag.forkDigests.altair)
-    node.network.subscribeAttestationSubnets(subscribeSubnets, node.dag.forkDigests.phase0)
-    node.network.subscribeAttestationSubnets(subscribeSubnets, node.dag.forkDigests.altair)
-  of GossipState.ConnectedToAltair:
-    node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, node.dag.forkDigests.altair)
-    node.network.subscribeAttestationSubnets(subscribeSubnets, node.dag.forkDigests.altair)
+  let forkDigests: array[BeaconStateFork, auto] = [
+    node.dag.forkDigests.phase0,
+    node.dag.forkDigests.altair,
+    node.dag.forkDigests.merge
+  ]
+
+  for gossipFork in node.gossipState:
+    let forkDigest = forkDigests[gossipFork]
+    node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, forkDigest)
+    node.network.subscribeAttestationSubnets(subscribeSubnets, forkDigest)
 
   debug "Attestation subnets",
     slot, epoch = slot.epoch, gossipState = node.gossipState,
@@ -557,7 +553,8 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
     aggregateSubnets = subnetLog(aggregateSubnets),
     prevSubnets = subnetLog(prevSubnets),
     subscribeSubnets = subnetLog(subscribeSubnets),
-    unsubscribeSubnets = subnetLog(unsubscribeSubnets)
+    unsubscribeSubnets = subnetLog(unsubscribeSubnets),
+    gossipState = node.gossipState
 
 # inspired by lighthouse research here
 # https://gist.github.com/blacktemplar/5c1862cb3f0e32a1a7fb0b25e79e6e2c#file-generate-scoring-params-py
@@ -608,17 +605,19 @@ static:
   aggregateTopicParams.validateParameters().tryGet()
   basicParams.validateParameters.tryGet()
 
-proc addPhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.network.subscribe(getBeaconBlocksTopic(forkDigest), blocksTopicParams, enableTopicMetrics = true)
+proc addPhase0MessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
+  node.network.subscribe(
+    getBeaconBlocksTopic(forkDigest), blocksTopicParams,
+    enableTopicMetrics = true)
   node.network.subscribe(getAttesterSlashingsTopic(forkDigest), basicParams)
   node.network.subscribe(getProposerSlashingsTopic(forkDigest), basicParams)
   node.network.subscribe(getVoluntaryExitsTopic(forkDigest), basicParams)
-  node.network.subscribe(getAggregateAndProofsTopic(forkDigest), aggregateTopicParams, enableTopicMetrics = true)
+  node.network.subscribe(
+    getAggregateAndProofsTopic(forkDigest), aggregateTopicParams,
+    enableTopicMetrics = true)
 
   # updateAttestationSubnetHandlers subscribes attestation subnets
-
-proc addPhase0MessageHandlers(node: BeaconNode, slot: Slot) =
-  addPhase0MessageHandlers(node, node.dag.forkDigests.phase0, slot)
 
 proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
@@ -632,9 +631,6 @@ proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
       getAttestationTopic(forkDigest, SubnetId(subnet_id)))
 
   node.actionTracker.subscribedSubnets = default(AttnetBits)
-
-proc removePhase0MessageHandlers(node: BeaconNode) =
-  removePhase0MessageHandlers(node, node.dag.forkDigests.phase0)
 
 proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addPhase0MessageHandlers(forkDigest, slot)
@@ -653,9 +649,6 @@ proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Sl
     getSyncCommitteeContributionAndProofTopic(forkDigest), basicParams)
   node.network.updateSyncnetsMetadata(syncnets)
 
-proc addAltairMessageHandlers(node: BeaconNode, slot: Slot) =
-  addAltairMessageHandlers(node, node.dag.forkDigests.altair, slot)
-
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -667,20 +660,6 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
   node.network.unsubscribe(
     getSyncCommitteeContributionAndProofTopic(forkDigest))
-
-proc removeAltairMessageHandlers(node: BeaconNode) =
-  removeAltairMessageHandlers(node, node.dag.forkDigests.altair)
-
-proc addMergeMessageHandlers(node: BeaconNode, slot: Slot) =
-  addAltairMessageHandlers(node, node.dag.forkDigests.merge, slot)
-
-proc removeMergeMessageHandlers(node: BeaconNode) =
-  removeAltairMessageHandlers(node, node.dag.forkDigests.merge)
-
-proc removeAllMessageHandlers(node: BeaconNode) =
-  node.removePhase0MessageHandlers()
-  node.removeAltairMessageHandlers()
-  node.removeMergeMessageHandlers()
 
 proc setupDoppelgangerDetection(node: BeaconNode, slot: Slot) =
   # When another client's already running, this is very likely to detect
@@ -726,17 +705,34 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
       if slot > head.slot: (slot - head.slot).uint64
       else: 0'u64
     targetGossipState =
-      if headDistance > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER:
-        GossipState.Disconnected
-      elif slot.epoch + 1 < node.dag.cfg.ALTAIR_FORK_EPOCH:
-        GossipState.ConnectedToPhase0
-      elif slot.epoch >= node.dag.cfg.ALTAIR_FORK_EPOCH:
-        GossipState.ConnectedToAltair
-      else:
-        GossipState.InTransitionToAltair
+      getTargetGossipState(
+        slot.epoch,
+        node.dag.cfg.ALTAIR_FORK_EPOCH,
+        node.dag.cfg.MERGE_FORK_EPOCH,
+        headDistance > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER)
 
-  if node.gossipState == GossipState.Disconnected and
-     targetGossipState != GossipState.Disconnected:
+  doAssert targetGossipState.card <= 2
+
+  let
+    newGossipForks = targetGossipState - node.gossipState
+    oldGossipForks = node.gossipState - targetGossipState
+
+  doAssert newGossipForks.card <= 2
+  doAssert oldGossipForks.card <= 2
+
+  func maxGossipFork(gossipState: GossipState): int =
+    var res = -1
+    for gossipFork in gossipState:
+      res = max(res, gossipFork.int)
+    res
+
+  if  maxGossipFork(targetGossipState) < maxGossipFork(node.gossipState) and
+      targetGossipState != {}:
+    warn "Unexpected clock regression during transition",
+      targetGossipState,
+      gossipState = node.gossipState
+
+  if node.gossipState.card == 0 and targetGossipState.card > 0:
     # We are synced, so we will connect
     debug "Enabling topic subscriptions",
       wallSlot = slot,
@@ -755,53 +751,36 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
       node.actionTracker.updateActions(
         node.dag.getEpochRef(head, slot.epoch + 1))
 
-  case targetGossipState
-  of GossipState.Disconnected:
-    case node.gossipState:
-    of GossipState.Disconnected: discard
-    else:
-      debug "Disabling topic subscriptions",
-        wallSlot = slot,
-        headSlot = head.slot,
-        headDistance
-      node.removeAllMessageHandlers()
-      node.gossipState = GossipState.Disconnected
+  if node.gossipState.card > 0 and targetGossipState.card == 0:
+    debug "Disabling topic subscriptions",
+      wallSlot = slot,
+      headSlot = head.slot,
+      headDistance
 
-  of GossipState.ConnectedToPhase0:
-    case node.gossipState:
-    of GossipState.ConnectedToPhase0: discard
-    of GossipState.Disconnected:
-      node.addPhase0MessageHandlers(slot)
-    of GossipState.InTransitionToAltair:
-      warn "Unexpected clock regression during altair transition"
-      node.removeAltairMessageHandlers()
-    of GossipState.ConnectedToAltair:
-      warn "Unexpected clock regression during altair transition"
-      node.removeAltairMessageHandlers()
-      node.addPhase0MessageHandlers(slot)
+  # These depend on forks.BeaconStateFork being properly ordered
+  let forkDigests: array[BeaconStateFork, auto] = [
+    node.dag.forkDigests.phase0,
+    node.dag.forkDigests.altair,
+    node.dag.forkDigests.merge
+  ]
 
-  of GossipState.InTransitionToAltair:
-    case node.gossipState:
-    of GossipState.InTransitionToAltair: discard
-    of GossipState.Disconnected:
-      node.addPhase0MessageHandlers(slot)
-      node.addAltairMessageHandlers(slot)
-    of GossipState.ConnectedToPhase0:
-      node.addAltairMessageHandlers(slot)
-    of GossipState.ConnectedToAltair:
-      warn "Unexpected clock regression during altair transition"
-      node.addPhase0MessageHandlers(slot)
+  const removeMessageHandlers: array[BeaconStateFork, auto] = [
+    removePhase0MessageHandlers,
+    removeAltairMessageHandlers,
+    removeAltairMessageHandlers  # with different forkDigest
+  ]
 
-  of GossipState.ConnectedToAltair:
-    case node.gossipState:
-    of GossipState.ConnectedToAltair: discard
-    of GossipState.Disconnected:
-      node.addAltairMessageHandlers(slot)
-    of GossipState.ConnectedToPhase0:
-      node.removePhase0MessageHandlers()
-      node.addAltairMessageHandlers(slot)
-    of GossipState.InTransitionToAltair:
-      node.removePhase0MessageHandlers()
+  for gossipFork in oldGossipForks:
+    removeMessageHandlers[gossipFork](node, forkDigests[gossipFork])
+
+  const addMessageHandlers: array[BeaconStateFork, auto] = [
+    addPhase0MessageHandlers,
+    addAltairMessageHandlers,
+    addAltairMessageHandlers  # with different forkDigest
+  ]
+
+  for gossipFork in newGossipForks:
+    addMessageHandlers[gossipFork](node, forkDigests[gossipFork], slot)
 
   node.gossipState = targetGossipState
   node.updateAttestationSubnetHandlers(slot)
