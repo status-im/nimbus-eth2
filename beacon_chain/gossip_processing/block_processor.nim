@@ -185,7 +185,7 @@ proc storeBlock*(
       blckRef: BlockRef, trustedBlock: Trusted, epochRef: EpochRef):
     # Callback add to fork choice if valid
     attestationPool[].addForkChoice(
-      epochRef, blckRef, trustedBlock.message, wallSlot)
+      epochRef, blckRef, trustedBlock.message, wallTime)
 
     vm[].registerBeaconBlock(
       src, wallTime, trustedBlock.message)
@@ -223,7 +223,7 @@ proc storeBlock*(
   let storeBlockTick = Moment.now()
 
   # Eagerly update head: the incoming block "should" get selected
-  self.consensusManager[].updateHead(wallSlot)
+  self.consensusManager[].updateHead(wallTime.slotOrZero)
 
   let
     updateHeadTick = Moment.now()

@@ -114,7 +114,7 @@ const
   DefaultDutyAndProof* = DutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
   SlotDuration* = int64(SECONDS_PER_SLOT).seconds
   EpochDuration* = int64(SLOTS_PER_EPOCH * SECONDS_PER_SLOT).seconds
-  OneThirdDuration* = int64(SECONDS_PER_SLOT div 3).seconds
+  OneThirdDuration* = int64(SECONDS_PER_SLOT div INTERVALS_PER_SLOT).seconds
 
 proc `$`*(bn: BeaconNodeServerRef): string =
   if bn.ident.isSome():

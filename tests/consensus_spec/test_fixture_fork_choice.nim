@@ -19,7 +19,7 @@ import
     base,
     phase0, altair, merge],
   ../../beacon_chain/fork_choice/[fork_choice, fork_choice_types],
-  ../../beacon_chain/beacon_chain_db,
+  ../../beacon_chain/[beacon_chain_db, beacon_clock],
   ../../beacon_chain/consensus_object_pools/[
     blockchain_dag, block_clearance, spec_cache],
   # Third-party
@@ -164,11 +164,11 @@ proc stepOnBlock(
        state: var StateData,
        stateCache: var StateCache,
        signedBlock: ForkySignedBeaconBlock,
-       time: Slot): Result[BlockRef, BlockError] =
+       time: BeaconTime): Result[BlockRef, BlockError] =
   # 1. Move state to proper slot.
   dag.updateStateData(
     state,
-    dag.head.atSlot(time),
+    dag.head.atSlot(time.slotOrZero),
     save = false,
     stateCache
   )
@@ -201,9 +201,9 @@ proc stepOnAttestation(
        dag: ChainDagRef,
        fkChoice: ref ForkChoice,
        att: Attestation,
-       time: Slot): FcResult[void] =
-
-  let epochRef = dag.getEpochRef(dag.head, time.compute_epoch_at_slot())
+       time: BeaconTime): FcResult[void] =
+  let epochRef =
+    dag.getEpochRef(dag.head, time.slotOrZero.compute_epoch_at_slot())
   let attesters = epochRef.get_attesting_indices(att.data, att.aggregation_bits)
 
   let status = fkChoice[].on_attestation(
@@ -218,13 +218,13 @@ proc stepChecks(
        checks: JsonNode,
        dag: ChainDagRef,
        fkChoice: ref ForkChoice,
-       time: Slot
+       time: BeaconTime
      ) =
   doAssert checks.len >= 1, "No checks found"
   for check, val in checks:
     if check == "time":
-      doAssert time == Slot(val.getInt())
-      doAssert fkChoice.checkpoints.time == time
+      doAssert time.Duration == val.getInt().seconds
+      doAssert fkChoice.checkpoints.time.slotOrZero == time.slotOrZero
     elif check == "head":
       let headRoot = fkChoice[].get_head(dag, time).get()
       let headRef = dag.getRef(headRoot)
@@ -249,8 +249,8 @@ proc stepChecks(
       doAssert checkpointEpoch == Epoch(val["epoch"].getInt())
       doAssert checkpointRoot == Eth2Digest.fromHex(val["root"].getStr())
     elif check == "proposer_boost_root":
-      # TODO needs fork choice to know about BeaconTime
-      discard
+      doAssert fkChoice.checkpoints.proposer_boost_root ==
+        Eth2Digest.fromHex(val.getStr())
     elif check == "genesis_time":
       # The fork choice is pruned regularly
       # and does not store the genesis time,
@@ -300,7 +300,8 @@ proc runTest(path: string, fork: BeaconBlockFork) =
   for step in steps:
     case step.kind
     of opOnTick:
-      time = Slot(step.tick)
+      time = step.tick.seconds.BeaconTime
+      doAssert stores.fkChoice.checkpoints.on_tick(time).isOk
     of opOnBlock:
       withBlck(step.blk):
         let status = stepOnBlock(
@@ -328,7 +329,7 @@ suite "Ethereum Foundation - ForkChoice" & preset():
     #       "Ensure the head is still 4 whilst the justified epoch is 0."
     "on_block_future_block",
 
-    # TODO needs fork choice to know about BeaconTime
+    # TODO needs the actual proposer boost enabled
     "proposer_boost_correct_head"
   ]
 
