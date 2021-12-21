@@ -113,14 +113,9 @@ type
     ## go - the tail block is unique in that its parent is set to `nil`, even
     ## in the case where a later genesis block exists.
 
-    backfill*: tuple[slot: Slot, root: Eth2Digest] ##\
-    ## The backfill is root of the parent of the the earliest block that we
-    ## have synced, when performing a checkpoint sync start. Because the
-    ## `tail` BlockRef does not have a parent, we store here the root of the
-    ## block we're expecting during backfill.
-    ## When starting a checkpoint sync, `backfill` == `tail.parent_root` - we
-    ## then sync backards, moving the backfill (but not tail!) until we hit
-    ## genesis at which point we set backfill to the zero hash.
+    backfill*: BeaconBlockSummary ##\
+    ## The backfill points to the oldest block that we have, in the database -
+    ## when backfilling, we'll be fetching its parent first
 
     heads*: seq[BlockRef] ##\
     ## Candidate heads of candidate chains

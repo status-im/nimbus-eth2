@@ -195,8 +195,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     db.close()
     dbBenchmark.close()
 
-  if not ChainDAGRef.isInitialized(db):
-    echo "Database not initialized"
+  if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
+    echo "Database not initialized: ", v.error()
     quit 1
 
   echo "Initializing block pool..."
@@ -470,8 +470,8 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   let db = BeaconChainDB.new(conf.databaseDir.string)
   defer: db.close()
 
-  if not ChainDAGRef.isInitialized(db):
-    echo "Database not initialized"
+  if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
+    echo "Database not initialized: ", v.error()
     quit 1
 
   echo "Initializing block pool..."
@@ -501,8 +501,8 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
   let db = BeaconChainDB.new(conf.databaseDir.string)
   defer: db.close()
 
-  if not ChainDAGRef.isInitialized(db):
-    echo "Database not initialized"
+  if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
+    echo "Database not initialized: ", v.error()
     quit 1
 
   echo "Initializing block pool..."
@@ -565,8 +565,8 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   defer:
     db.close()
 
-  if not ChainDAGRef.isInitialized(db):
-    echo "Database not initialized"
+  if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
+    echo "Database not initialized: ", v.error()
     quit 1
 
   echo "# Initializing block pool..."
@@ -705,8 +705,8 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   defer:
     db.close()
 
-  if not ChainDAGRef.isInitialized(db):
-    echo "Database not initialized"
+  if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
+    echo "Database not initialized: ", v.error()
     quit 1
 
   echo "Initializing block pool..."
