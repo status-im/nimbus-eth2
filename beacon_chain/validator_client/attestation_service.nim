@@ -335,7 +335,7 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
   let aggregateTime =
     # chronos.Duration substraction could not return negative value, in such
     # case it will return `ZeroDuration`.
-    vc.beaconClock.durationToNextSlot() - seconds(int64(SECONDS_PER_SLOT) div 3)
+    vc.beaconClock.durationToNextSlot() - OneThirdDuration
   if aggregateTime != ZeroDuration:
     await sleepAsync(aggregateTime)
 

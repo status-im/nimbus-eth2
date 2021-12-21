@@ -150,8 +150,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       syncCommittee = @(dag.syncCommitteeParticipants(slot + 1))
       genesis_validators_root = dag.genesisValidatorsRoot
       fork = dag.forkAtEpoch(slot.epoch)
-      messagesTime = slot.toBeaconTime(seconds(SECONDS_PER_SLOT div 3))
-      contributionsTime = slot.toBeaconTime(seconds(2 * SECONDS_PER_SLOT div 3))
+      messagesTime = slot.toBeaconTime(attestationSlotOffset)
+      contributionsTime = slot.toBeaconTime(aggregateSlotOffset)
 
     var aggregators: seq[Aggregator]
 

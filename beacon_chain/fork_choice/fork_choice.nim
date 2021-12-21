@@ -347,8 +347,7 @@ proc process_block*(self: var ForkChoice,
   let
     time_into_slot =
       self.checkpoints.time - self.checkpoints.time.slotOrZero.toBeaconTime
-    is_before_attesting_interval =
-      time_into_slot < (SECONDS_PER_SLOT div INTERVALS_PER_SLOT).int64.seconds
+    is_before_attesting_interval = time_into_slot < attestationSlotOffset
   if  self.checkpoints.time.slotOrZero == blck.slot and
       is_before_attesting_interval:
     self.checkpoints.proposer_boost_root = blckRef.root
