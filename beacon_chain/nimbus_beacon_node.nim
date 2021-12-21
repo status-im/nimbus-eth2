@@ -524,14 +524,14 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   # Remember what we subscribed to, so we can unsubscribe later
   node.actionTracker.subscribedSubnets = subnets
 
-  let forkDigests = [
+  let forkDigests: array[BeaconStateFork, auto] = [
     node.dag.forkDigests.phase0,
     node.dag.forkDigests.altair,
     node.dag.forkDigests.merge
   ]
 
   for gossipFork in node.gossipState:
-    let forkDigest = forkDigests[gossipFork.int]
+    let forkDigest = forkDigests[gossipFork]
     node.network.unsubscribeAttestationSubnets(unsubscribeSubnets, forkDigest)
     node.network.subscribeAttestationSubnets(subscribeSubnets, forkDigest)
 
@@ -746,31 +746,29 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
       headDistance
 
   # These depend on forks.BeaconStateFork being properly ordered
-  let forkDigests = [
+  let forkDigests: array[BeaconStateFork, auto] = [
     node.dag.forkDigests.phase0,
     node.dag.forkDigests.altair,
     node.dag.forkDigests.merge
   ]
 
-  const removeMessageHandlers = [
+  const removeMessageHandlers: array[BeaconStateFork, auto] = [
     removePhase0MessageHandlers,
     removeAltairMessageHandlers,
     removeAltairMessageHandlers  # with different forkDigest
   ]
 
   for gossipFork in oldGossipForks:
-    let forkIndex = gossipFork.int
-    removeMessageHandlers[forkIndex](node, forkDigests[forkIndex])
+    removeMessageHandlers[gossipFork](node, forkDigests[gossipFork])
 
-  const addMessageHandlers = [
+  const addMessageHandlers: array[BeaconStateFork, auto] = [
     addPhase0MessageHandlers,
     addAltairMessageHandlers,
     addAltairMessageHandlers  # with different forkDigest
   ]
 
   for gossipFork in newGossipForks:
-    let forkIndex = gossipFork.int
-    addMessageHandlers[forkIndex](node, forkDigests[forkIndex], slot)
+    addMessageHandlers[gossipFork](node, forkDigests[gossipFork], slot)
 
   node.gossipState = targetGossipState
   node.updateAttestationSubnetHandlers(slot)

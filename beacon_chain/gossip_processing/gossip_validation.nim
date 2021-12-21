@@ -619,10 +619,6 @@ proc validateAggregate*(
     genesis_validators_root =
       getStateField(pool.dag.headState.data, genesis_validators_root)
 
-  info "FOO5",
-    fork,
-    aggregate_data_slot = aggregate.data.slot
-
   let attesting_indices = get_attesting_indices(
     epochRef, aggregate.data, aggregate.aggregation_bits)
 

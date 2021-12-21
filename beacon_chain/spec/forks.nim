@@ -36,10 +36,9 @@ export
 
 type
   BeaconStateFork* {.pure.} = enum
-    # Used to index arrays, so ensure correct indices.
-    Phase0 = 0,
-    Altair = 1,
-    Merge = 2
+    Phase0,
+    Altair,
+    Merge
 
   ForkyBeaconState* =
     phase0.BeaconState |
