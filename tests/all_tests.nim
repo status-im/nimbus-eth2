@@ -42,16 +42,18 @@ import # Unit test
   ./slashing_protection/test_slashing_protection_db,
   ./slashing_protection/test_migration
 
-when not defined(i386):
-  # Avoids "Out of memory" CI failures
-  import
-    ./test_blockchain_dag,
-    ./test_keystore
-
 import # Refactor state transition unit tests
   # In mainnet these take 2 minutes and are empty TODOs
   ./spec_block_processing/test_process_deposits,
   ./spec_block_processing/test_process_attestation,
   ./spec_epoch_processing/test_process_justification_and_finalization
+
+when not defined(i386):
+  # Avoids "Out of memory" CI failures
+  import
+    ./test_blockchain_dag,
+    ./test_keystore,
+    ./test_keystore_management,
+    ./test_keymanager_api
 
 summarizeLongTests("AllTests")

@@ -76,14 +76,14 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
 proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
   info "Initializaing validators", path = vc.config.validatorsDir()
   var duplicates: seq[ValidatorPubKey]
-  for item in vc.config.validatorItems():
-    let pubkey = item.privateKey.toPubKey().toPubKey()
+  for keystore in listLoadableKeystores(vc.config):
+    let pubkey = keystore.pubkey
     if pubkey in duplicates:
       error "Duplicate validator's key found", validator_pubkey = pubkey
       return false
     else:
       duplicates.add(pubkey)
-      vc.attachedValidators.addLocalValidator(item)
+      vc.attachedValidators.addLocalValidator(keystore)
   return true
 
 proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =

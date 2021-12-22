@@ -1,17 +1,12 @@
 {.used.}
 
 import
-  unittest2,
+  testutils/unittests,
   chronos, stew/shims/net, eth/keys, eth/p2p/discoveryv5/enr,
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/network,
   ../beacon_chain/networking/[eth2_network, eth2_discovery],
   ./testutil
-
-template asyncTest(name, body: untyped) =
-  test name:
-    proc scenario {.async.} = {.gcsafe.}: body
-    waitFor scenario()
 
 proc new(T: type Eth2DiscoveryProtocol,
     pk: keys.PrivateKey,
@@ -33,7 +28,7 @@ proc generateNode(rng: ref BrHmacDrbgContext, port: Port,
 # TODO: Add tests with a syncnets preference
 const noSyncnetsPreference = SyncnetBits()
 
-suite "Eth2 specific discovery tests":
+procSuite "Eth2 specific discovery tests":
   let
     rng = keys.newRng()
     enrForkId = ENRForkID(

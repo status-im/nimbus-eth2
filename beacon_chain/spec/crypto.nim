@@ -368,6 +368,12 @@ template hash*(x: ValidatorPubKey | ValidatorSig): Hash =
   # the entropy is found
   cast[ptr Hash](unsafeAddr x.blob[x.blob.len div 2])[]
 
+# Comparison/Sorting
+# ----------------------------------------------------------------------
+
+template `<`*(x, y: ValidatorPubKey): bool =
+  x.blob < y.blob
+
 # Serialization
 # ----------------------------------------------------------------------
 

@@ -3345,4 +3345,63 @@
       "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
     }
   },
+  {
+      "topics": ["key_management", "list_keys"],
+      "request": {
+        "url": "/eth/v1/keystores",
+        "headers": {"Accept": "application/json", "Authorization": "Bearer testToken"}
+      },
+      "response": {
+        "status": {"operator": "equals", "value": "200"},
+        "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+        "body": [{"operator": "jstructcmps", "value": {"data": [{"validating_pubkey": "", "derivation_path": "", "readonly": false}]}}]}
+      },
+  {
+    "topics": ["key_management", "delete_keys"],
+    "request": {
+      "url": "/eth/v1/keystores/delete",
+      "method": "POST",
+      "headers": {"Accept": "application/json", "Authorization": "Bearer testToken"},
+      "body": {"content-type": "application/json", "data": "{\"pubkeys\":[\"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001\"]}"
+      }
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {
+        "data": [{
+          "status": "",
+          "message": ""
+        }],
+        "slashing_protection":
+        {
+          "metadata": {
+            "interchange_format_version": "",
+            "genesis_validators_root": ""
+            },
+          "data":[{
+            "pubkey": "",
+            "signed_blocks": [
+            {
+              "slot": "",
+              "signing_root": ""},
+            {
+              "slot": ""
+            }],
+            "signed_attestations": [
+              {
+                "source_epoch": "",
+                "target_epoch": "",
+                "signing_root": ""
+              },
+              {
+                "source_epoch": "",
+                "target_epoch": ""
+              }
+            ]
+          }
+        ]
+      }}}]
+    }
+  }
 ]
