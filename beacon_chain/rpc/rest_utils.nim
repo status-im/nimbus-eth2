@@ -5,7 +5,7 @@ import std/options,
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization],
        ../beacon_node,
        ../consensus_object_pools/blockchain_dag,
-       ./rest_constants
+       "."/[rest_constants, state_ttl_cache]
 
 export
   options, eth2_rest_serialization, blockchain_dag, presto, rest_types,
@@ -116,19 +116,50 @@ proc getBlockDataFromBlockIdent*(node: BeaconNode,
                                  id: BlockIdent): Result[BlockData, cstring] =
   ok(node.dag.get(? node.getBlockRef(id)))
 
-template withStateForBlockSlot*(node: BeaconNode,
-                                blockSlot: BlockSlot, body: untyped): untyped =
-  template isState(state: StateData): bool =
-    state.blck.atSlot(getStateField(state.data, slot)) == blockSlot
+template withStateForBlockSlot*(nodeParam: BeaconNode,
+                                blockSlotParam: BlockSlot, body: untyped): untyped =
+  block:
+    let
+      node = nodeParam
+      blockSlot = blockSlotParam
 
-  if isState(node.dag.headState):
-    withStateVars(node.dag.headState):
-      var cache {.inject, used.}: StateCache
-      body
-  else:
-    let rpcState = assignClone(node.dag.headState)
-    node.dag.withState(rpcState[], blockSlot):
-      body
+    template isState(state: StateData): bool =
+      state.blck.atSlot(getStateField(state.data, slot)) == blockSlot
+
+    var cache {.inject, used.}: StateCache
+
+    # TODO view-types
+    # Avoid the code bloat produced by the double `body` reference through a lent var
+    if isState(node.dag.headState):
+      withStateVars(node.dag.headState):
+        body
+    else:
+      let cachedState = if node.stateTtlCache != nil:
+        node.stateTtlCache.getClosestState(blockSlot)
+      else:
+        nil
+
+      let stateToAdvance = if cachedState != nil:
+        cachedState
+      else:
+        assignClone(node.dag.headState)
+
+      node.dag.updateStateData(stateToAdvance[], blockSlot, false, cache)
+
+      let providedState = if cachedState == nil and node.stateTtlCache != nil:
+        # This was not a cached state, we can cache it now
+        node.stateTtlCache.add(stateToAdvance)
+        stateToAdvance
+      else:
+        # If we have a cache hit, there is a concern that the REST request
+        # handler may continue executing asynchronously while we hit the same
+        # advanced state is another request. We don't want the two requests
+        # to work over the same state object because mutations to it will be
+        # visible in both, so we must create a fresh clone for each handler:
+        assignClone(stateToAdvance[])
+
+      withStateVars(providedState[]):
+        body
 
 proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
                                                           ValidatorIndexError] =

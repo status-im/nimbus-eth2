@@ -609,6 +609,7 @@ proc getEpochRef*(dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): EpochRef =
   let
     ancestor = epochAncestor(blck, epoch)
 
+  dag.epochRefState.blck = BlockRef()
   dag.withState(
       dag.epochRefState, ancestor.blck.atEpochStart(ancestor.epoch)):
     dag.getEpochRef(stateData, cache)
@@ -944,8 +945,10 @@ proc updateStateData*(
 
     # Look for a state in the database and load it - as long as it cannot be
     # found, keep track of the blocks that are needed to reach it from the
-    # state that eventually will be found
-    while not dag.getState(state, cur):
+    # state that eventually will be found. Besides finding the state in the
+    # database we may also reach the input state provided to the function.
+    # It can also act as a viable starting point for the block replay later.
+    while not canAdvance(state, cur) and not dag.getState(state, cur):
       # There's no state saved for this particular BlockSlot combination, keep
       # looking...
       if cur.slot == cur.blck.slot:

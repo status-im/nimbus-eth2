@@ -34,7 +34,7 @@ import
     validator_duties, validator_monitor, validator_pool,
     slashing_protection, keystore_management],
   ./sync/[sync_protocol],
-  ./rpc/[rest_api, rpc_api],
+  ./rpc/[rest_api, rpc_api, state_ttl_cache],
   ./spec/datatypes/[altair, merge, phase0],
   ./spec/eth2_apis/rpc_beacon_client,
   ./spec/[
@@ -469,6 +469,13 @@ proc init*(T: type BeaconNode,
       network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot, getLocalWallSlot,
       getFirstSlotAtFinalizedEpoch, getBackfillSlot, blockVerifier)
 
+  let stateTtlCache = if config.restCacheSize > 0:
+    StateTtlCache.init(
+      cacheSize = config.restCacheSize,
+      cacheTtl = chronos.seconds(config.restCacheTtl))
+  else:
+    nil
+
   var node = BeaconNode(
     nickname: nickname,
     graffitiBytes: if config.graffiti.isSome: config.graffiti.get
@@ -498,7 +505,8 @@ proc init*(T: type BeaconNode,
     gossipState: {},
     beaconClock: beaconClock,
     onAttestationSent: onAttestationSent,
-    validatorMonitor: validatorMonitor
+    validatorMonitor: validatorMonitor,
+    stateTtlCache: stateTtlCache
   )
 
   debug "Loading validators", validatorsDir = config.validatorsDir()

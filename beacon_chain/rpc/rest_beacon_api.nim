@@ -15,7 +15,8 @@ import
   ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
   ../validators/validator_duties,
   ../spec/[eth2_merkleization, forks, network, validator],
-  ../spec/datatypes/[phase0, altair]
+  ../spec/datatypes/[phase0, altair],
+  ./state_ttl_cache
 
 export rest_utils
 
