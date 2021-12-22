@@ -97,15 +97,14 @@ proc loadTLSKey(pathName: InputFile): Result[TLSPrivateKey, cstring] =
 proc initValidators(sn: var SigningNode): bool =
   info "Initializaing validators", path = sn.config.validatorsDir()
   var publicKeyIdents: seq[string]
-  for item in sn.config.validatorItems():
-    case item.kind
-    of ValidatorKind.Local:
-      let pubkey = item.privateKey.toPubKey().toPubKey()
-      sn.attachedValidators.addLocalValidator(item)
-      publicKeyIdents.add("\"0x" & pubkey.toHex() & "\"")
-    of ValidatorKind.Remote:
+  for keystore in listLoadableKeystores(sn.config):
+    case keystore.kind
+    of KeystoreKind.Local:
+      sn.attachedValidators.addLocalValidator(keystore)
+      publicKeyIdents.add("\"0x" & keystore.pubkey.toHex() & "\"")
+    of KeystoreKind.Remote:
       error "Signing node do not support remote validators",
-            validator_pubkey = item.publicKey
+            validator_pubkey = keystore.pubkey
       return false
   sn.keysList = "[" & publicKeyIdents.join(", ") & "]"
   true

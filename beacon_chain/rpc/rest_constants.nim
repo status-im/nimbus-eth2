@@ -183,3 +183,5 @@ const
     "Invalid validator's public key(s) found"
   BadRequestFormatError* =
     "Bad request format"
+  InvalidAuthorization* =
+    "Invalid Authorization Header"

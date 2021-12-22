@@ -32,22 +32,9 @@ type
 
   ValidatorConnection* = RestClientRef
 
-  ValidatorPrivateItem* = object
-    version*: Option[uint64]
-    description*: Option[string]
-    case kind*: ValidatorKind
-    of ValidatorKind.Local:
-      privateKey*: ValidatorPrivKey
-      path*: Option[KeyPath]
-      uuid*: Option[string]
-    of ValidatorKind.Remote:
-      publicKey*: CookedPubKey
-      remoteUrl*: Uri
-      flags*: set[RemoteKeystoreFlag]
-
   AttachedValidator* = ref object
-    pubKey*: ValidatorPubKey
-    data*: ValidatorPrivateItem
+    pubkey*: ValidatorPubKey
+    data*: KeystoreData
     case kind*: ValidatorKind
     of ValidatorKind.Local:
       discard
@@ -77,9 +64,9 @@ type
 func shortLog*(v: AttachedValidator): string =
   case v.kind
   of ValidatorKind.Local:
-    shortLog(v.pubKey)
+    shortLog(v.pubkey)
   of ValidatorKind.Remote:
-    shortLog(v.pubKey) & "@" & $v.client.address.getUri()
+    shortLog(v.pubkey) & "@" & $v.client.address.getUri()
 
 func init*(T: type ValidatorPool,
             slashingProtectionDB: SlashingProtectionDB): T =
@@ -92,25 +79,25 @@ func init*(T: type ValidatorPool,
 template count*(pool: ValidatorPool): int =
   len(pool.validators)
 
-proc addLocalValidator*(pool: var ValidatorPool, item: ValidatorPrivateItem,
+proc addLocalValidator*(pool: var ValidatorPool, item: KeystoreData,
                         index: Option[ValidatorIndex]) =
-  let pubKey = item.privateKey.toPubKey().toPubKey()
-  let v = AttachedValidator(kind: ValidatorKind.Local, pubKey: pubKey,
+  let pubkey = item.pubkey
+  let v = AttachedValidator(kind: ValidatorKind.Local, pubkey: pubkey,
                             index: index, data: item)
-  pool.validators[pubKey] = v
-  notice "Local validator attached", pubKey, validator = shortLog(v)
+  pool.validators[pubkey] = v
+  notice "Local validator attached", pubkey, validator = shortLog(v)
   validators.set(pool.count().int64)
 
-proc addLocalValidator*(pool: var ValidatorPool, item: ValidatorPrivateItem) =
+proc addLocalValidator*(pool: var ValidatorPool, item: KeystoreData) =
   addLocalValidator(pool, item, none[ValidatorIndex]())
 
-proc addRemoteValidator*(pool: var ValidatorPool, item: ValidatorPrivateItem,
+proc addRemoteValidator*(pool: var ValidatorPool, item: KeystoreData,
                          client: RestClientRef, index: Option[ValidatorIndex]) =
-  let pubKey = item.publicKey.toPubKey()
-  let v = AttachedValidator(kind: ValidatorKind.Remote, pubKey: pubKey,
+  let pubkey = item.pubkey
+  let v = AttachedValidator(kind: ValidatorKind.Remote, pubkey: pubkey,
                             index: index, data: item, client: client)
-  pool.validators[pubKey] = v
-  notice "Remote validator attached", pubKey, validator = shortLog(v),
+  pool.validators[pubkey] = v
+  notice "Remote validator attached", pubkey, validator = shortLog(v),
          remote_signer = $item.remoteUrl
   validators.set(pool.count().int64)
 
@@ -118,29 +105,29 @@ proc getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =
   pool.validators.getOrDefault(validatorKey)
 
-proc contains*(pool: ValidatorPool, pubKey: ValidatorPubKey): bool =
-  ## Returns ``true`` if validator with key ``pubKey`` present in ``pool``.
-  pool.validators.contains(pubKey)
+proc contains*(pool: ValidatorPool, pubkey: ValidatorPubKey): bool =
+  ## Returns ``true`` if validator with key ``pubkey`` present in ``pool``.
+  pool.validators.contains(pubkey)
 
-proc removeValidator*(pool: var ValidatorPool, validatorKey: ValidatorPubKey) =
-  ## Delete validator with public key ``pubKey`` from ``pool``.
-  let validator = pool.validators.getOrDefault(validatorKey)
+proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
+  ## Delete validator with public key ``pubkey`` from ``pool``.
+  let validator = pool.validators.getOrDefault(pubkey)
   if not(isNil(validator)):
-    pool.validators.del(validatorKey)
-    notice "Local or remote validator detached", validatorKey,
+    pool.validators.del(pubkey)
+    notice "Local or remote validator detached", pubkey,
            validator = shortLog(validator)
     validators.set(pool.count().int64)
 
-proc updateValidator*(pool: var ValidatorPool, pubKey: ValidatorPubKey,
+proc updateValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey,
                       index: ValidatorIndex) =
-  ## Set validator ``index`` to validator with public key ``pubKey`` stored
+  ## Set validator ``index`` to validator with public key ``pubkey`` stored
   ## in ``pool``.
-  ## This procedure will not raise if validator with public key ``pubKey`` is
+  ## This procedure will not raise if validator with public key ``pubkey`` is
   ## not present in the pool.
   var v: AttachedValidator
-  if pool.validators.pop(pubKey, v):
+  if pool.validators.pop(pubkey, v):
     v.index = some(index)
-    pool.validators[pubKey] = v
+    pool.validators[pubkey] = v
 
 iterator publicKeys*(pool: ValidatorPool): ValidatorPubKey =
   for item in pool.validators.keys():
@@ -162,7 +149,7 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
   let request = Web3SignerRequest.init(fork, genesis_validators_root, blck)
   debug "Signing block proposal using remote signer",
         validator = shortLog(v)
-  return await v.client.signData(v.pubKey, request)
+  return await v.client.signData(v.pubkey, request)
 
 proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
@@ -171,7 +158,7 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
   let request = Web3SignerRequest.init(fork, genesis_validators_root, adata)
   debug "Signing block proposal using remote signer",
         validator = shortLog(v)
-  return await v.client.signData(v.pubKey, request)
+  return await v.client.signData(v.pubkey, request)
 
 proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
@@ -180,7 +167,7 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
   let request = Web3SignerRequest.init(fork, genesis_validators_root, epoch)
   debug "Generating randao reveal signature using remote signer",
         validator = shortLog(v)
-  return await v.client.signData(v.pubKey, request)
+  return await v.client.signData(v.pubkey, request)
 
 proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
@@ -189,7 +176,7 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
   let request = Web3SignerRequest.init(fork, genesis_validators_root, proof)
   debug "Signing aggregate and proof using remote signer",
         validator = shortLog(v)
-  return await v.client.signData(v.pubKey, request)
+  return await v.client.signData(v.pubkey, request)
 
 proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
@@ -198,7 +185,7 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
   let request = Web3SignerRequest.init(fork, genesis_validators_root, slot)
   debug "Signing aggregate slot using remote signer",
         validator = shortLog(v)
-  return await v.client.signData(v.pubKey, request)
+  return await v.client.signData(v.pubkey, request)
 
 proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
@@ -209,7 +196,7 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
                                        slot)
   debug "Signing sync committee message using remote signer",
         validator = shortLog(v)
-  return await v.client.signData(v.pubKey, request)
+  return await v.client.signData(v.pubkey, request)
 
 proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
@@ -222,7 +209,7 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
   )
   debug "Signing sync aggregator selection data using remote signer",
         validator = shortLog(v)
-  return await v.client.signData(v.pubKey, request)
+  return await v.client.signData(v.pubkey, request)
 
 proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
@@ -234,7 +221,7 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
   )
   debug "Signing sync contribution and proof message using remote signer",
         validator = shortLog(v)
-  return await v.client.signData(v.pubKey, request)
+  return await v.client.signData(v.pubkey, request)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#signature
 proc signBlockProposal*(v: AttachedValidator, fork: Fork,

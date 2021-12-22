@@ -6,12 +6,11 @@
 
 import std/typetraits
 import stew/[assign2, results, base10, byteutils, endians2], presto/common,
-       libp2p/peerid, nimcrypto/utils as ncrutils
-import "."/rest_types,
-       ".."/[eth2_ssz_serialization, forks],
-       ".."/datatypes/[phase0, altair, merge]
-
-import serialization, json_serialization, json_serialization/std/[options, net, sets]
+       libp2p/peerid, nimcrypto/utils as ncrutils,
+       serialization, json_serialization, json_serialization/std/[options, net, sets]
+import ".."/[eth2_ssz_serialization, forks],
+       ".."/datatypes/[phase0, altair, merge],
+       "."/[rest_types, rest_keymanager_types]
 
 export
   eth2_ssz_serialization, results, peerid, common, serialization,
@@ -54,7 +53,9 @@ type
     altair.SignedBeaconBlock |
     SignedVoluntaryExit |
     SyncSubcommitteeIndex |
-    Web3SignerRequest
+    Web3SignerRequest |
+    KeystoresAndSlashingProtection |
+    DeleteKeystoresBody
 
   EncodeArrays* =
     seq[ValidatorIndex] |
@@ -67,17 +68,18 @@ type
 
   DecodeTypes* =
     DataEnclosedObject |
-    ProduceBlockResponseV2 |
     DataMetaEnclosedObject |
     DataRootEnclosedObject |
+    GetBlockV2Response |
+    GetKeystoresResponse |
+    GetStateV2Response |
+    ProduceBlockResponseV2 |
     RestAttestationError |
     RestGenericError |
-    GetBlockV2Response |
-    GetStateV2Response |
-    Web3SignerStatusResponse |
+    Web3SignerErrorResponse |
     Web3SignerKeysResponse |
     Web3SignerSignatureResponse |
-    Web3SignerErrorResponse
+    Web3SignerStatusResponse
 
   # These types may be extended with additional fields in the future.
   # Locally unknown fields are silently ignored when decoding them.
@@ -210,7 +212,7 @@ proc jsonMsgResponse*(t: typedesc[RestApiResponse],
         writer.beginRecord()
         writer.writeField("code", "200")
         writer.writeField("message", msg)
-        writer.writeField("stacktrace", defstrings)
+        writer.writeField("stacktraces", defstrings)
         writer.endRecord()
         stream.getOutput(seq[byte])
       except SerializationError:
@@ -231,7 +233,7 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
         writer.beginRecord()
         writer.writeField("code", Base10.toString(uint64(status.toInt())))
         writer.writeField("message", msg)
-        writer.writeField("stacktrace", defstrings)
+        writer.writeField("stacktraces", defstrings)
         writer.endRecord()
         stream.getOutput(string)
       except SerializationError:
@@ -253,9 +255,9 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
         writer.writeField("code", Base10.toString(uint64(status.toInt())))
         writer.writeField("message", msg)
         if len(stacktrace) > 0:
-          writer.writeField("stacktrace", [stacktrace])
+          writer.writeField("stacktraces", [stacktrace])
         else:
-          writer.writeField("stacktrace", defstrings)
+          writer.writeField("stacktraces", defstrings)
         writer.endRecord()
         stream.getOutput(string)
       except SerializationError:
@@ -276,7 +278,7 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
         writer.beginRecord()
         writer.writeField("code", Base10.toString(uint64(status.toInt())))
         writer.writeField("message", msg)
-        writer.writeField("stacktrace", stacktraces)
+        writer.writeField("stacktraces", stacktraces)
         writer.endRecord()
         stream.getOutput(string)
       except SerializationError:

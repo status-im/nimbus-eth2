@@ -73,27 +73,27 @@ type
   SendBlockResult* = Result[bool, cstring]
   ForkedBlockResult* = Result[ForkedBeaconBlock, string]
 
-proc findValidator(validators: auto, pubKey: ValidatorPubKey):
+proc findValidator(validators: auto, pubkey: ValidatorPubKey):
     Option[ValidatorIndex] =
-  let idx = validators.findIt(it.pubKey == pubKey)
+  let idx = validators.findIt(it.pubkey == pubkey)
   if idx == -1:
     # We allow adding a validator even if its key is not in the state registry:
     # it might be that the deposit for this validator has not yet been processed
-    notice "Validator deposit not yet processed, monitoring", pubKey
+    notice "Validator deposit not yet processed, monitoring", pubkey
     none(ValidatorIndex)
   else:
     some(idx.ValidatorIndex)
 
 proc addLocalValidator(node: BeaconNode,
                        validators: auto,
-                       item: ValidatorPrivateItem) =
+                       item: KeystoreData) =
   let
-    pubKey = item.privateKey.toPubKey()
-    index = findValidator(validators, pubKey.toPubKey())
+    pubkey = item.pubkey
+    index = findValidator(validators, pubkey)
   node.attachedValidators[].addLocalValidator(item, index)
 
 proc addRemoteValidator(node: BeaconNode, validators: auto,
-                        item: ValidatorPrivateItem) =
+                        item: KeystoreData) =
   let httpFlags =
     block:
       var res: set[HttpClientFlag]
@@ -105,19 +105,19 @@ proc addRemoteValidator(node: BeaconNode, validators: auto,
   let client = RestClientRef.new($item.remoteUrl, prestoFlags, httpFlags)
   if client.isErr():
     warn "Unable to resolve remote signer address",
-         remote_url = $item.remoteUrl, validator = item.publicKey
+         remote_url = $item.remoteUrl, validator = item.pubkey
     return
-  let index = findValidator(validators, item.publicKey.toPubKey())
+  let index = findValidator(validators, item.pubkey)
   node.attachedValidators[].addRemoteValidator(item, client.get(), index)
 
 proc addLocalValidators*(node: BeaconNode,
-                         validators: openArray[ValidatorPrivateItem]) =
+                         validators: openArray[KeystoreData]) =
   withState(node.dag.headState.data):
     for item in validators:
       node.addLocalValidator(state.data.validators.asSeq(), item)
 
 proc addRemoteValidators*(node: BeaconNode,
-                          validators: openArray[ValidatorPrivateItem]) =
+                          validators: openArray[KeystoreData]) =
   withState(node.dag.headState.data):
     for item in validators:
       node.addRemoteValidator(state.data.validators.asSeq(), item)
@@ -125,17 +125,15 @@ proc addRemoteValidators*(node: BeaconNode,
 proc addValidators*(node: BeaconNode) =
   let (localValidators, remoteValidators) =
     block:
-      var local, remote: seq[ValidatorPrivateItem]
-      for item in node.config.validatorItems():
-        case item.kind
-        of ValidatorKind.Local:
-          local.add(item)
-        of ValidatorKind.Remote:
-          remote.add(item)
+      var local, remote: seq[KeystoreData]
+      for keystore in listLoadableKeystores(node.config):
+        case keystore.kind
+        of KeystoreKind.Local:
+          local.add(keystore)
+        of KeystoreKind.Remote:
+          remote.add(keystore)
       (local, remote)
-  # Adding local validators.
   node.addLocalValidators(localValidators)
-  # Adding remote validators.
   node.addRemoteValidators(remoteValidators)
 
 proc getAttachedValidator*(node: BeaconNode,
@@ -380,7 +378,7 @@ proc createAndSendAttestation(node: BeaconNode,
 
     if node.config.dumpEnabled:
       dump(node.config.dumpDirOutgoing, attestation.data,
-           validator.pubKey)
+           validator.pubkey)
 
     let wallTime = node.beaconClock.now()
     let deadline = attestationData.slot.toBeaconTime(attestationSlotOffset)
@@ -689,7 +687,7 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
       return
 
     if node.config.dumpEnabled:
-      dump(node.config.dumpDirOutgoing, msg, validator.pubKey)
+      dump(node.config.dumpDirOutgoing, msg, validator.pubkey)
 
     let
       wallTime = node.beaconClock.now()

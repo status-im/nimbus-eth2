@@ -329,7 +329,7 @@ INF 2020-12-01 11:25:34.556+01:00 Loading block dag from database            top
 INF 2020-12-01 11:25:35.921+01:00 Block dag initialized
 INF 2020-12-01 11:25:37.073+01:00 Generating new networking key
 ...
-NOT 2020-12-01 11:25:45.267+00:00 Local validator attached                   tid=22009 file=validator_pool.nim:33 pubKey=95e3cbe88c71ab2d0e3053b7b12ead329a37e9fb8358bdb4e56251993ab68e46b9f9fa61035fe4cf2abf4c07dfad6c45 validator=95e3cbe8
+NOT 2020-12-01 11:25:45.267+00:00 Local validator attached                   tid=22009 file=validator_pool.nim:33 pubkey=95e3cbe88c71ab2d0e3053b7b12ead329a37e9fb8358bdb4e56251993ab68e46b9f9fa61035fe4cf2abf4c07dfad6c45 validator=95e3cbe8
 ...
 NOT 2020-12-01 11:25:59.512+00:00 Eth1 sync progress                         topics="eth1" tid=21914 file=eth1_monitor.nim:705 blockNumber=3836397 depositsProcessed=106147
 NOT 2020-12-01 11:26:02.574+00:00 Eth1 sync progress                         topics="eth1" tid=21914 file=eth1_monitor.nim:705 blockNumber=3841412 depositsProcessed=106391

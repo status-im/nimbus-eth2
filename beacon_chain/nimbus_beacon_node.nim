@@ -112,14 +112,14 @@ const SlashingDbName = "slashing_protection"
 func getBeaconTimeFn(clock: BeaconClock): GetBeaconTimeFn =
   return proc(): BeaconTime = clock.now()
 
-proc init(T: type BeaconNode,
-          cfg: RuntimeConfig,
-          rng: ref BrHmacDrbgContext,
-          config: BeaconNodeConf,
-          depositContractDeployedAt: BlockHashOrNumber,
-          eth1Network: Option[Eth1Network],
-          genesisStateContents: string,
-          genesisDepositsSnapshotContents: string): BeaconNode {.
+proc init*(T: type BeaconNode,
+           cfg: RuntimeConfig,
+           rng: ref BrHmacDrbgContext,
+           config: BeaconNodeConf,
+           depositContractDeployedAt: BlockHashOrNumber,
+           eth1Network: Option[Eth1Network],
+           genesisStateContents: string,
+           genesisDepositsSnapshotContents: string): BeaconNode {.
     raises: [Defect, CatchableError].} =
 
   var taskpool: TaskpoolPtr
@@ -368,6 +368,36 @@ proc init(T: type BeaconNode,
   else:
     nil
 
+  var keymanagerToken: Option[string]
+  let keymanagerServer = if config.keymanagerEnabled:
+    if config.keymanagerTokenFile.isNone:
+      echo "To enable the Keymanager API, you must also specify " &
+           "the --keymanager-token-file option."
+      quit 1
+
+    let
+      tokenFilePath = config.keymanagerTokenFile.get.string
+      tokenFileReadRes = readAllChars(tokenFilePath)
+
+    if tokenFileReadRes.isErr:
+      fatal "Failed to read the keymanager token file",
+            error = $tokenFileReadRes.error
+      quit 1
+
+    keymanagerToken = some tokenFileReadRes.value.strip
+    if keymanagerToken.get.len == 0:
+      fatal "The keymanager token should not be empty", tokenFilePath
+      quit 1
+
+    if restServer != nil and
+       config.restAddress == config.keymanagerAddress and
+       config.restPort == config.keymanagerPort:
+      restServer
+    else:
+      RestServerRef.init(config.keymanagerAddress, config.keymanagerPort)
+  else:
+    nil
+
   let
     netKeys = getPersistentNetKeys(rng[], config)
     nickname = if config.nodeName == "auto": shortForm(netKeys)
@@ -456,6 +486,8 @@ proc init(T: type BeaconNode,
     eth1Monitor: eth1Monitor,
     rpcServer: rpcServer,
     restServer: restServer,
+    keymanagerServer: keymanagerServer,
+    keymanagerToken: keymanagerToken,
     eventBus: eventBus,
     requestManager: RequestManager.init(network, blockVerifier),
     syncManager: syncManager,
@@ -993,8 +1025,6 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installNimbusApiHandlers(node)
   restServer.router.installNodeApiHandlers(node)
   restServer.router.installValidatorApiHandlers(node)
-  if node.config.validatorApiEnabled:
-    restServer.router.installValidatorManagementHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/p2p-interface.md#attestations-and-aggregation
@@ -1118,6 +1148,11 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     node.restServer.installRestHandlers(node)
     node.restServer.start()
 
+  if not(isNil(node.keymanagerServer)):
+    node.keymanagerServer.router.installKeymanagerHandlers(node)
+    if node.keymanagerServer != node.restServer:
+      node.keymanagerServer.start()
+
   let
     wallTime = node.beaconClock.now()
     wallSlot = wallTime.slotOrZero()
@@ -1176,7 +1211,7 @@ proc initializeNetworking(node: BeaconNode) {.async.} =
 
   await node.network.start()
 
-proc start(node: BeaconNode) {.raises: [Defect, CatchableError].} =
+proc start*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   let
     head = node.dag.head
     finalizedHead = node.dag.finalizedHead
@@ -1556,7 +1591,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
   else:
     node.start()
 
-proc doCreateTestnet(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raises: [Defect, CatchableError].} =
+proc doCreateTestnet*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raises: [Defect, CatchableError].} =
   let launchPadDeposits = try:
     Json.loadFile(config.testnetDepositsFile.string, seq[LaunchPadDeposit])
   except SerializationError as err:

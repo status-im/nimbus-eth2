@@ -31,7 +31,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
 
   let vindex = validator.index.get()
   let notSlashable = vc.attachedValidators.slashingProtection
-                       .registerAttestation(vindex, validator.pubKey,
+                       .registerAttestation(vindex, validator.pubkey,
                                             adata.source.epoch,
                                             adata.target.epoch, signingRoot)
   if notSlashable.isErr():

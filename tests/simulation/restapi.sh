@@ -112,8 +112,10 @@ DEPOSITS_FILE="${TEST_DIR}/deposits.json"
 REST_ADDRESS="127.0.0.1"
 METRICS_ADDRESS="127.0.0.1"
 MKDIR_SCRIPT="${GIT_ROOT}/scripts/makedir.sh"
+TOKEN_FILE="${TEST_DIR}/testTokenFile.txt"
 
 $MKDIR_SCRIPT "${TEST_DIR}"
+printf "testToken" > "${TOKEN_FILE}"
 
 HAVE_LSOF=0
 
@@ -219,6 +221,10 @@ ${NIMBUS_BEACON_NODE_BIN} \
   --rest \
   --rest-address=${REST_ADDRESS} \
   --rest-port=${BASE_REST_PORT} \
+  --keymanager \
+  --keymanager-address=${REST_ADDRESS} \
+  --keymanager-port=${BASE_REST_PORT} \
+  --keymanager-token-file="${TOKEN_FILE}" \
   --discv5=no \
   ${ADDITIONAL_BEACON_NODE_ARGS} \
   "$@" > ${LOG_NODE_FILE} 2>&1 &

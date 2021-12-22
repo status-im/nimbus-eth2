@@ -120,6 +120,14 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + epochAncestor sanity [Preset: mainnet]                                                     OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## DeleteKeys requests [Preset: mainnet]
+```diff
++ Deleting not existing key [Preset: mainnet]                                                OK
++ Invalid Authorization Header [Preset: mainnet]                                             OK
++ Invalid Authorization Token [Preset: mainnet]                                              OK
++ Missing Authorization header [Preset: mainnet]                                             OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Diverging hardforks
 ```diff
 + Non-tail block in common                                                                   OK
@@ -210,6 +218,13 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + is_aggregator                                                                              OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## ImportKeystores requests [Preset: mainnet]
+```diff
++ Invalid Authorization Header [Preset: mainnet]                                             OK
++ Invalid Authorization Token [Preset: mainnet]                                              OK
++ Missing Authorization header [Preset: mainnet]                                             OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Interop
 ```diff
 + Interop genesis                                                                            OK
@@ -230,6 +245,14 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + [SCRYPT] Network Keystore encryption                                                       OK
 ```
 OK: 9/9 Fail: 0/9 Skip: 0/9
+## ListKeys requests [Preset: mainnet]
+```diff
++ Correct token provided [Preset: mainnet]                                                   OK
++ Invalid Authorization Header [Preset: mainnet]                                             OK
++ Invalid Authorization Token [Preset: mainnet]                                              OK
++ Missing Authorization header [Preset: mainnet]                                             OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Message signatures
 ```diff
 + Aggregate and proof signatures                                                             OK
@@ -383,12 +406,29 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + prune heads on finalization [Preset: mainnet]                                              OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## createValidatorFiles
+```diff
++ Add keystore files                                                                         OK
++ Add keystore files twice                                                                   OK
++ `createValidatorFiles` with `keystoreDir` without permissions                              OK
++ `createValidatorFiles` with `secretsDir` without permissions                               OK
++ `createValidatorFiles` with `validatorsDir` without permissions                            OK
++ `createValidatorFiles` with already existing dirs and any error                            OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## eth2.0-deposits-cli compatibility
 ```diff
 + restoring mnemonic with password                                                           OK
 + restoring mnemonic without password                                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## removeValidatorFiles
+```diff
++ Remove nonexistent validator                                                               OK
++ Remove validator files                                                                     OK
++ Remove validator files twice                                                               OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## state diff tests [Preset: mainnet]
 ```diff
 + random slot differences [Preset: mainnet]                                                  OK
@@ -401,4 +441,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 217/219 Fail: 0/219 Skip: 2/219
+OK: 237/239 Fail: 0/239 Skip: 2/239

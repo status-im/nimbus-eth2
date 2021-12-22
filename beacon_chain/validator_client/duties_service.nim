@@ -63,10 +63,10 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
   for item in validators:
     if item.validator.pubkey notin vc.attachedValidators:
       warn "Beacon node returned missing validator",
-           pubKey = item.validator.pubKey, index = item.index
+           pubkey = item.validator.pubkey, index = item.index
     else:
       debug "Local validator updated with index",
-            pubKey = item.validator.pubkey, index = item.index
+            pubkey = item.validator.pubkey, index = item.index
       vc.attachedValidators.updateValidator(item.validator.pubkey,
                                             item.index)
 
