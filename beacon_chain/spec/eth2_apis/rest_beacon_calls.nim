@@ -61,18 +61,17 @@ proc getStateValidatorBalances*(state_id: StateIdent
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators
 
-proc getEpochCommittees*(state_id: StateIdent
+proc getEpochCommittees*(state_id: StateIdent, epoch: Option[Epoch],
                         ): RestResponse[GetEpochCommitteesResponse] {.
      rest, endpoint: "/eth/v1/beacon/states/{state_id}/committees",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochCommittees
 
-# TODO altair
-# proc getEpochSyncCommittees*(state_id: StateIdent
-#                         ): RestResponse[GetEpochSyncCommitteesResponse] {.
-#      rest, endpoint: "/eth/v1/beacon/states/{state_id}/sync_committees",
-#      meth: MethodGet.}
-#   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochSyncCommittees
+proc getEpochSyncCommittees*(state_id: StateIdent, epoch: Option[Epoch],
+                        ): RestResponse[GetEpochSyncCommitteesResponse] {.
+     rest, endpoint: "/eth/v1/beacon/states/{state_id}/sync_committees",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getEpochSyncCommittees
 
 proc getBlockHeaders*(slot: Option[Slot], parent_root: Option[Eth2Digest]
                         ): RestResponse[GetBlockHeadersResponse] {.

@@ -219,6 +219,7 @@ type
 
   RestMetadata* = object
     seq_number*: string
+    syncnets*: string
     attnets*: string
 
   RestNetworkIdentity* = object
@@ -502,16 +503,19 @@ type
   GetPhase0BlockSszResponse* = phase0.SignedBeaconBlock
   GetAltairBlockSszResponse* = altair.SignedBeaconBlock
 
+  RestRoot* = object
+    root*: Eth2Digest
+
   # Types based on the OAPI yaml file - used in responses to requests
   GetAggregatedAttestationResponse* = DataEnclosedObject[Attestation]
   GetAttesterDutiesResponse* = DataRootEnclosedObject[seq[RestAttesterDuty]]
   GetBlockAttestationsResponse* = DataEnclosedObject[seq[Attestation]]
   GetBlockHeaderResponse* = DataEnclosedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
-  GetBlockRootResponse* = DataEnclosedObject[Eth2Digest]
+  GetBlockRootResponse* = DataEnclosedObject[RestRoot]
   GetDebugChainHeadsResponse* = DataEnclosedObject[seq[RestChainHead]]
   GetDepositContractResponse* = DataEnclosedObject[RestDepositContract]
-  GetEpochCommitteesResponse* = DataEnclosedObject[RestGenesis]
+  GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
@@ -528,7 +532,7 @@ type
   GetSpecVCResponse* = DataEnclosedObject[RestSpecVC]
   GetStateFinalityCheckpointsResponse* = DataEnclosedObject[RestBeaconStatesFinalityCheckpoints]
   GetStateForkResponse* = DataEnclosedObject[Fork]
-  GetStateRootResponse* = DataEnclosedObject[Eth2Digest]
+  GetStateRootResponse* = DataEnclosedObject[RestRoot]
   GetStateValidatorBalancesResponse* = DataEnclosedObject[seq[RestValidatorBalance]]
   GetStateValidatorResponse* = DataEnclosedObject[RestValidator]
   GetStateValidatorsResponse* = DataEnclosedObject[seq[RestValidator]]
