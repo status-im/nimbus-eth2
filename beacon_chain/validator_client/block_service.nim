@@ -50,7 +50,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     let notSlashable = vc.attachedValidators
       .slashingProtection
       .registerBlock(ValidatorIndex(beaconBlock.proposer_index),
-                     validator.pubKey, slot, signing_root)
+                     validator.pubkey, slot, signing_root)
 
     if notSlashable.isOk():
       let signature =

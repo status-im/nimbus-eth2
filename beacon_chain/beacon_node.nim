@@ -53,6 +53,8 @@ type
     eth1Monitor*: Eth1Monitor
     rpcServer*: RpcServer
     restServer*: RestServerRef
+    keymanagerServer*: RestServerRef
+    keymanagerToken*: Option[string]
     eventBus*: AsyncEventBus
     vcProcess*: Process
     requestManager*: RequestManager

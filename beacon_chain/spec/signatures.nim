@@ -139,7 +139,7 @@ proc verify_aggregate_and_proof_signature*(
     let signing_root = compute_aggregate_and_proof_signing_root(
       fork, genesis_validators_root, aggregate_and_proof)
 
-    blsVerify(pubKey, signing_root.data, signature)
+    blsVerify(pubkey, signing_root.data, signature)
 
 func compute_attestation_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,

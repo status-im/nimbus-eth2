@@ -44,6 +44,18 @@ type
     walletPath*: WalletPathPair
     seed*: KeySeed
 
+  AnyConf* = BeaconNodeConf | ValidatorClientConf | SigningNodeConf
+
+  KmResult*[T] = Result[T, cstring]
+
+  RemoveValidatorStatus* = enum
+    deleted = "Deleted"
+    missingDir = "Could not find keystore directory to remove"
+
+  AddValidatorStatus* = enum
+    added = "Validator added"
+    existingArtifacts = "Keystore artifacts already exists"
+
 const
   minPasswordLen = 12
   minPasswordEntropy = 60.0
@@ -58,33 +70,35 @@ proc echoP*(msg: string) =
   echo ""
   echo wrapWords(msg, 80)
 
-func init*(t: typedesc[ValidatorPrivateItem], privateKey: ValidatorPrivKey,
-           keystore: Keystore): ValidatorPrivateItem =
-  ValidatorPrivateItem(
-    kind: ValidatorKind.Local,
+func init*(T: type KeystoreData,
+           privateKey: ValidatorPrivKey,
+           keystore: Keystore): T =
+  KeystoreData(
+    kind: KeystoreKind.Local,
     privateKey: privateKey,
     description: if keystore.description == nil: none(string)
                  else: some(keystore.description[]),
-    path: some(keystore.path),
-    uuid: some(keystore.uuid),
-    version: some(uint64(keystore.version))
+    path: keystore.path,
+    uuid: keystore.uuid,
+    version: uint64(keystore.version),
+    pubkey: privateKey.toPubKey().toPubKey()
   )
 
-func init*(t: typedesc[ValidatorPrivateItem],
-           keystore: RemoteKeystore): Result[ValidatorPrivateItem, cstring] =
+func init*(T: type KeystoreData,
+           keystore: RemoteKeystore): Result[T, cstring] =
   let cookedKey =
     block:
       let res = keystore.pubkey.load()
       if res.isNone():
         return err("Invalid validator's public key")
       res.get()
-  ok(ValidatorPrivateItem(
-    kind: ValidatorKind.Remote,
-    publicKey: cookedKey,
+  ok KeystoreData(
+    kind: KeystoreKind.Remote,
+    pubkey: cookedKey.toPubKey,
     description: keystore.description,
     version: keystore.version,
     remoteUrl: keystore.remote
-  ))
+  )
 
 proc checkAndCreateDataDir*(dataDir: string): bool =
   when defined(posix):
@@ -312,7 +326,7 @@ proc loadSecretFile*(path: string): KsResult[KeystorePass] {.
     return err("Could not read password file")
 
 proc loadKeystoreUnsafe*(validatorsDir, secretsDir,
-                         keyName: string): KsResult[ValidatorPrivateItem] =
+                         keyName: string): KsResult[KeystoreData] =
   ## Load keystore without any checks on keystore/secret permissions.
   let
     keystorePath = validatorsDir / keyName / KeystoreFileName
@@ -324,12 +338,12 @@ proc loadKeystoreUnsafe*(validatorsDir, secretsDir,
 
   let res = decryptKeystore(keystore, passphrase)
   if res.isOk():
-    ok(ValidatorPrivateItem.init(res.get(), keystore))
+    ok(KeystoreData.init(res.get(), keystore))
   else:
     err("Failed to decrypt keystore")
 
 proc loadRemoteKeystoreImpl(validatorsDir,
-                            keyName: string): Option[ValidatorPrivateItem] =
+                            keyName: string): Option[KeystoreData] =
   let remoteKeystorePath = validatorsDir / keyName / RemoteKeystoreFileName
   let privateItem =
     block:
@@ -341,7 +355,7 @@ proc loadRemoteKeystoreImpl(validatorsDir,
                 keystore_path = remoteKeystorePath,
                 err_msg = e.formatMsg(remoteKeystorePath)
           return
-      let res = ValidatorPrivateItem.init(keystore)
+      let res = init(KeystoreData, keystore)
       if res.isErr():
         error "Invalid validator's public key in keystore file",
               keystore_path = remoteKeystorePath
@@ -350,7 +364,7 @@ proc loadRemoteKeystoreImpl(validatorsDir,
   some(privateItem)
 
 proc loadKeystoreImpl(validatorsDir, secretsDir, keyName: string,
-                      nonInteractive: bool): Option[ValidatorPrivateItem] =
+                      nonInteractive: bool): Option[KeystoreData] =
   let
     keystorePath = validatorsDir / keyName / KeystoreFileName
     keystore =
@@ -379,7 +393,7 @@ proc loadKeystoreImpl(validatorsDir, secretsDir, keyName: string,
 
     let res = decryptKeystore(keystore, passphrase)
     if res.isOk():
-      return some(ValidatorPrivateItem.init(res.get(), keystore))
+      return some(KeystoreData.init(res.get(), keystore))
     else:
       error "Failed to decrypt keystore", keystorePath, passphrasePath
       return
@@ -400,12 +414,12 @@ proc loadKeystoreImpl(validatorsDir, secretsDir, keyName: string,
   )
 
   if res.isOk():
-    some(ValidatorPrivateItem.init(res.get(), keystore))
+    some(KeystoreData.init(res.get(), keystore))
   else:
     return
 
 proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
-                   nonInteractive: bool): Option[ValidatorPrivateItem] =
+                   nonInteractive: bool): Option[KeystoreData] =
   let
     keystorePath = validatorsDir / keyName
     localKeystorePath = keystorePath / KeystoreFileName
@@ -417,81 +431,105 @@ proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
     loadRemoteKeystoreImpl(validatorsDir, keyName)
   else:
     error "Unable to find any keystore files", keystorePath
-    none[ValidatorPrivateItem]()
+    none[KeystoreData]()
 
-proc isEnabled*(validatorsDir, keyName: string): bool {.
+proc removeValidatorFiles*(validatorsDir,
+                           secretsDir ,
+                           publicKeyDir: string): KmResult[RemoveValidatorStatus] {.
      raises: [Defect].} =
-  ## Returns ``true`` if specific validator with key ``keyName`` in validators
-  ## directory ``validatorsDir`` is not disabled.
-  let keystorePath = validatorsDir / keyName
-  let disableFile = keystorePath / DisableFileName
-  if dirExists(keystorePath):
-    if fileExists(disableFile):
-      false
-    else:
-      true
-  else:
-    false
+  let keystoreDir = validatorsDir / publicKeyDir
+  let keystoreFile = keystoreDir / KeystoreFileName
+  let secretFile = secretsDir / publicKeyDir
 
-proc isEnabled*(conf: AnyConf, keyName: string): bool {.
-     raises: [Defect].} =
-  ## Returns ``true`` if specific validator with key ``keyName`` is not
-  ## disabled.
-  isEnabled(conf.validatorsDir(), keyName)
-
-proc isEnabled*(conf: AnyConf, publicKey: ValidatorPubKey): bool {.
-     raises:[Defect].} =
-  ## Returns ``true`` if specific validator with public key ``publicKey`` is
-  ## not disabled.
-  isEnabled(conf, publicKey.toHex())
-
-iterator validatorKeysFromDirs*(validatorsDir,
-                                secretsDir: string): ValidatorPrivateItem =
+  if not (dirExists(keystoreDir)):
+    return ok(missingDir)
   try:
-    for kind, file in walkDir(validatorsDir):
-      if kind == pcDir:
-        let keyName = splitFile(file).name
-        if isEnabled(validatorsDir, keyName):
-          let item = loadKeystore(validatorsDir, secretsDir, keyName, true)
-          if item.isSome():
-            yield item.get()
-          else:
-            quit 1
+    removeDir(keystoreDir, false)
   except OSError:
-    quit 1
+    return err("Could not remove keystore directory")
 
-iterator validatorItems*(config: AnyConf): ValidatorPrivateItem =
-  let validatorsDir = config.validatorsDir()
-  let secretsDir = config.secretsDir()
+  let res = io2.removeFile(secretFile)
+  if res.isErr():
+    return err("Could not remove password file")
+
+  ok deleted
+
+proc removeValidator*(pool: var ValidatorPool, conf: AnyConf,
+                      publicKey: ValidatorPubKey): KmResult[RemoveValidatorStatus] {.
+     raises: [Defect].} =
+  let publicKeyHex: string = "0x" & publicKey.toHex()
+  let res = removeValidatorFiles(conf.validatorsDir(),
+                                 conf.secretsDir(),
+                                 publicKeyHex)
+  if res.isErr():
+    return err(res.error())
+
+  pool.removeValidator(publicKey)
+  ok res.value()
+
+iterator listLoadableKeystores*(validatorsDir,
+                                secretsDir: string,
+                                nonInteractive: bool): KeystoreData =
   try:
     for kind, file in walkDir(validatorsDir):
       if kind == pcDir:
-        let keyName = splitFile(file).name
-        if isEnabled(config, keyName):
-          let item = loadKeystore(validatorsDir, secretsDir, keyName,
-                                  config.nonInteractive)
-          if item.isSome():
-            yield item.get()
-          else:
-            quit 1
+
+        let
+          keyName = splitFile(file).name
+          keystoreDir = validatorsDir / keyName
+          keystoreFile = keystoreDir / KeystoreFileName
+
+        if not(fileExists(keystoreFile)):
+          # Skip folders which do not have keystore file inside.
+          continue
+
+        let
+          secretFile = secretsDir / keyName
+          keystore = loadKeystore(validatorsDir, secretsDir, keyName, nonInteractive)
+
+        if keystore.isSome():
+          let pubkey = keystore.get().privateKey.toPubKey().toPubKey()
+
+          yield KeystoreData(kind: KeystoreKind.Local,
+                             privateKey: keystore.get().privateKey,
+                             description: keystore.get().description,
+                             path: keystore.get().path,
+                             uuid: keystore.get().uuid,
+                             version: keystore.get().version,
+                             pubkey: pubkey)
+        else:
+          fatal "Unable to load keystore", keystore_file = keystoreFile
+          quit 1
+
   except OSError as err:
     error "Validator keystores directory not accessible",
           path = validatorsDir, err = err.msg
     quit 1
 
+iterator listLoadableKeystores*(config: AnyConf): KeystoreData =
+  for el in listLoadableKeystores(config.validatorsDir(),
+                                  config.secretsDir(),
+                                  config.nonInteractive):
+    yield el
+
 type
-  KeystoreGenerationErrorKind = enum
-    FailedToCreateValidatorDir
+  KeystoreGenerationErrorKind* = enum
+    FailedToCreateValidatorsDir
+    FailedToCreateKeystoreDir
     FailedToCreateSecretsDir
     FailedToCreateSecretFile
     FailedToCreateKeystoreFile
+
   KeystoreGenerationError* = object
     case kind*: KeystoreGenerationErrorKind
-    of FailedToCreateValidatorDir, FailedToCreateSecretsDir,
-        FailedToCreateSecretFile, FailedToCreateKeystoreFile:
+    of FailedToCreateKeystoreDir,
+       FailedToCreateValidatorsDir,
+       FailedToCreateSecretsDir,
+       FailedToCreateSecretFile,
+       FailedToCreateKeystoreFile:
       error*: string
 
-proc mapErrTo[T, E](r: Result[T, E], v: static KeystoreGenerationErrorKind):
+proc mapErrTo*[T, E](r: Result[T, E], v: static KeystoreGenerationErrorKind):
     Result[T, KeystoreGenerationError] =
   r.mapErr(proc (e: E): KeystoreGenerationError =
     KeystoreGenerationError(kind: v, error: $e))
@@ -569,22 +607,70 @@ proc saveNetKeystore*(rng: var BrHmacDrbgContext, keyStorePath: string,
           key_path = keyStorePath
     res.mapErrTo(FailedToCreateKeystoreFile)
 
-proc saveKeystore(rng: var BrHmacDrbgContext,
-                  validatorsDir, secretsDir: string,
-                  signingKey: ValidatorPrivKey, signingPubKey: CookedPubKey,
-                  signingKeyPath: KeyPath): Result[void, KeystoreGenerationError] =
-  let
-    keyName = "0x" & $signingPubKey
-    validatorDir = validatorsDir / keyName
+proc createValidatorFiles*(
+    secretsDir, validatorsDir,
+    keystoreDir, secretFile,
+    passwordAsString, keystoreFile,
+    encodedStorage: string): Result[void, KeystoreGenerationError] =
 
-  if not existsDir(validatorDir):
-    var password = KeystorePass.init ncrutils.toHex(getRandomBytes(rng, 32))
-    defer: burnMem(password)
+  var
+    success = false # becomes true when everything is created successfully
+    cleanupSecretsDir = true # becomes false if secretsDir already existed
+    cleanupValidatorsDir = true # becomes false if validatorsDir already existed
+
+  # secretsDir:
+  let secretsDirExisted: bool = dirExists(secretsDir)
+  if not(secretsDirExisted):
+    ? secureCreatePath(secretsDir).mapErrTo(FailedToCreateSecretsDir)
+  defer:
+     if not (success or secretsDirExisted):
+      discard io2.removeDir(secretsDir)
+
+  # validatorsDir:
+  let validatorsDirExisted: bool = dirExists(validatorsDir)
+  if not(validatorsDirExisted):
+    ? secureCreatePath(validatorsDir).mapErrTo(FailedToCreateValidatorsDir)
+  defer:
+     if not (success or validatorsDirExisted):
+      discard io2.removeDir(validatorsDir)
+
+  # keystoreDir:
+  ? secureCreatePath(keystoreDir).mapErrTo(FailedToCreateKeystoreDir)
+  defer:
+    if not success:
+      discard io2.removeDir(keystoreDir)
+
+  # secretFile:
+  ? secureWriteFile(secretFile, passwordAsString).mapErrTo(FailedToCreateSecretFile)
+  defer:
+    if not success:
+      discard io2.removeFile(secretFile)
+
+  # keystoreFile:
+  ? secureWriteFile(keystoreFile, encodedStorage).mapErrTo(FailedToCreateKeystoreFile)
+
+  success = true
+  ok()
+
+proc saveKeystore*(rng: var BrHmacDrbgContext,
+                   validatorsDir, secretsDir: string,
+                   signingKey: ValidatorPrivKey,
+                   signingPubKey: CookedPubKey,
+                   signingKeyPath: KeyPath,
+                   password: string,
+                   mode = Secure): Result[void, KeystoreGenerationError] =
+  let
+    keypass = KeystorePass.init(password)
+    keyName = "0x" & signingPubKey.toHex()
+    keystoreDir = validatorsDir / keyName
+
+  if not existsDir(keystoreDir):
 
     let
       keyStore = createKeystore(kdfPbkdf2, rng, signingKey,
-                                password, signingKeyPath)
-      keystoreFile = validatorDir / KeystoreFileName
+                                keypass, signingKeyPath,
+                                mode = mode)
+      keystoreFile = keystoreDir / KeystoreFileName
 
     var encodedStorage: string
     try:
@@ -594,21 +680,58 @@ proc saveKeystore(rng: var BrHmacDrbgContext,
       return err(KeystoreGenerationError(
         kind: FailedToCreateKeystoreFile, error: e.msg))
 
-    ? secureCreatePath(validatorDir).mapErrTo(FailedToCreateValidatorDir)
-    ? secureCreatePath(secretsDir).mapErrTo(FailedToCreateSecretsDir)
-    ? secureWriteFile(secretsDir / keyName, password.str).mapErrTo(
-      FailedToCreateSecretFile)
-    ? secureWriteFile(keystoreFile, encodedStorage).mapErrTo(
-      FailedToCreateKeystoreFile)
+    ? createValidatorFiles(secretsDir, validatorsDir,
+                           keystoreDir,
+                           secretsDir / keyName, keypass.str,
+                           keystoreFile, encodedStorage)
 
   ok()
+
+proc importKeystore*(pool: var ValidatorPool,
+                     rng: var BrHmacDrbgContext,
+                     conf: AnyConf, keystore: Keystore,
+                     password: string): KmResult[AddValidatorStatus]
+                    {.raises: [Defect].} =
+  let keypass = KeystorePass.init(password)
+  let privateKey =
+    block:
+      let res = decryptKeystore(keystore, keypass)
+      if res.isOk():
+        res.get()
+      else:
+        return err("Keystore decryption failed")
+
+  let publicKey = privateKey.toPubKey()
+  let keyName = "0x" & publicKey.toHex()
+
+  let validatorsDir = conf.validatorsDir()
+  let secretsDir = conf.secretsDir()
+
+  let secretFile = secretsDir / keyName
+  let keystoreDir = validatorsDir / keyName
+  let keystoreFile = keystoreDir / KeystoreFileName
+
+  if fileExists(keystoreFile) or fileExists(secretFile):
+    return ok(AddValidatorStatus.existingArtifacts)
+
+  let res = saveKeystore(rng,
+                         validatorsDir, secretsDir,
+                         privateKey, publicKey,
+                         keystoreDir.KeyPath, password)
+
+  if res.isErr():
+    return err("Keystore Generation Error")
+
+  pool.addLocalValidator(KeystoreData.init(privateKey, keystore))
+  ok AddValidatorStatus.added
 
 proc generateDeposits*(cfg: RuntimeConfig,
                        rng: var BrHmacDrbgContext,
                        seed: KeySeed,
                        firstValidatorIdx, totalNewValidators: int,
                        validatorsDir: string,
-                       secretsDir: string): Result[seq[DepositData], KeystoreGenerationError] =
+                       secretsDir: string,
+                       mode = Secure): Result[seq[DepositData], KeystoreGenerationError] =
   var deposits: seq[DepositData]
 
   notice "Generating deposits", totalNewValidators, validatorsDir, secretsDir
@@ -631,10 +754,12 @@ proc generateDeposits*(cfg: RuntimeConfig,
     let withdrawalPubKey = derivedKey.toPubKey
     derivedKey = deriveChildKey(derivedKey, 0) # This is the signing key
     let signingPubKey = derivedKey.toPubKey
-
+    var password = KeystorePass.init ncrutils.toHex(getRandomBytes(rng, 32))
+    defer: burnMem(password)
     ? saveKeystore(rng, validatorsDir, secretsDir,
                    derivedKey, signingPubKey,
-                   makeKeyPath(validatorIdx, signingKeyKind))
+                   makeKeyPath(validatorIdx, signingKeyKind), password.str,
+                   mode)
 
     deposits.add prepareDeposit(
       cfg, withdrawalPubKey, derivedKey, signingPubKey)
@@ -735,10 +860,12 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
         of DecryptionStatus.Success:
           let privKey = ValidatorPrivKey.fromRaw(secret)
           if privKey.isOk:
-            let pubKey = privKey.value.toPubKey
+            let pubkey = privKey.value.toPubKey
+            var password = KeystorePass.init ncrutils.toHex(getRandomBytes(rng, 32))
+            defer: burnMem(password)
             let status = saveKeystore(rng, validatorsDir, secretsDir,
-                                      privKey.value, pubKey,
-                                      keystore.path)
+                                      privKey.value, pubkey,
+                                      keystore.path, password.str)
             if status.isOk:
               notice "Keystore imported", file
             else:

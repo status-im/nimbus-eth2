@@ -8,11 +8,16 @@
 
 import
   chronos, presto/client, chronicles,
-  ".."/[helpers, forks], ".."/datatypes/[phase0, altair, merge],
-  ".."/eth2_ssz_serialization,
-  "."/[rest_types, eth2_rest_serialization]
+  ".."/".."/validators/slashing_protection_common,
+  ".."/datatypes/[phase0, altair, merge],
+  ".."/[helpers, forks, keystore, eth2_ssz_serialization],
+  "."/[rest_types, rest_keymanager_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization
+
+UUID.serializesAsBaseIn RestJson
+KeyPath.serializesAsBaseIn RestJson
+WalletName.serializesAsBaseIn RestJson
 
 proc getGenesis*(): RestResponse[GetGenesisResponse] {.
      rest, endpoint: "/eth/v1/beacon/genesis",
@@ -96,6 +101,24 @@ proc getBlockPlain*(block_id: BlockIdent): RestPlainResponse {.
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
 
+proc raiseGenericError(resp: RestPlainResponse)
+                      {.noreturn, raises: [RestError, Defect].} =
+  let error =
+    block:
+      let res = decodeBytes(RestGenericError, resp.data, resp.contentType)
+      if res.isErr():
+        let msg = "Incorrect response error format (" & $resp.status &
+                  ") [" & $res.error() & "]"
+        raise newException(RestError, msg)
+      res.get()
+  let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
+  raise newException(RestError, msg)
+
+proc raiseUnknownStatusError(resp: RestPlainResponse)
+                            {.noreturn, raises: [RestError, Defect].} =
+  let msg = "Unknown response status error (" & $resp.status & ")"
+  raise newException(RestError, msg)
+
 proc getBlock*(client: RestClientRef, block_id: BlockIdent,
                restAccept = ""): Future[ForkedSignedBeaconBlock] {.async.} =
   let resp =
@@ -128,19 +151,9 @@ proc getBlock*(client: RestClientRef, block_id: BlockIdent,
       else:
         raise newException(RestError, "Unsupported content-type")
     of 400, 404, 500:
-      let error =
-        block:
-          let res = decodeBytes(RestGenericError, resp.data, resp.contentType)
-          if res.isErr():
-            let msg = "Incorrect response error format (" & $resp.status &
-                      ") [" & $res.error() & "]"
-            raise newException(RestError, msg)
-          res.get()
-      let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
-      raise newException(RestError, msg)
+      raiseGenericError(resp)
     else:
-      let msg = "Unknown response status error (" & $resp.status & ")"
-      raise newException(RestError, msg)
+      raiseUnknownStatusError(resp)
   return data
 
 proc getBlockV2Plain*(block_id: BlockIdent): RestPlainResponse {.
@@ -229,7 +242,7 @@ proc getPoolAttestations*(
     slot: Option[Slot],
     committee_index: Option[CommitteeIndex]
               ): RestResponse[GetPoolAttestationsResponse] {.
-     rest, endpoint: "/api/eth/v1/beacon/pool/attestations",
+     rest, endpoint: "/eth/v1/beacon/pool/attestations",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttestations
 
@@ -239,22 +252,22 @@ proc submitPoolAttestations*(body: seq[Attestation]): RestPlainResponse {.
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttestations
 
 proc getPoolAttesterSlashings*(): RestResponse[GetPoolAttesterSlashingsResponse] {.
-     rest, endpoint: "/api/eth/v1/beacon/pool/attester_slashings",
+     rest, endpoint: "/eth/v1/beacon/pool/attester_slashings",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttesterSlashings
 
 proc submitPoolAttesterSlashings*(body: AttesterSlashing): RestPlainResponse {.
-     rest, endpoint: "/api/eth/v1/beacon/pool/attester_slashings",
+     rest, endpoint: "/eth/v1/beacon/pool/attester_slashings",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttesterSlashings
 
 proc getPoolProposerSlashings*(): RestResponse[GetPoolProposerSlashingsResponse] {.
-     rest, endpoint: "/api/eth/v1/beacon/pool/proposer_slashings",
+     rest, endpoint: "/eth/v1/beacon/pool/proposer_slashings",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolProposerSlashings
 
 proc submitPoolProposerSlashings*(body: ProposerSlashing): RestPlainResponse {.
-     rest, endpoint: "/api/eth/v1/beacon/pool/proposer_slashings",
+     rest, endpoint: "/eth/v1/beacon/pool/proposer_slashings",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolProposerSlashings
 
@@ -264,11 +277,43 @@ proc submitPoolSyncCommitteeSignatures*(body: seq[RestSyncCommitteeMessage]): Re
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolSyncCommitteeSignatures
 
 proc getPoolVoluntaryExits*(): RestResponse[GetPoolVoluntaryExitsResponse] {.
-     rest, endpoint: "/api/eth/v1/beacon/pool/voluntary_exits",
+     rest, endpoint: "/eth/v1/beacon/pool/voluntary_exits",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolVoluntaryExits
 
 proc submitPoolVoluntaryExit*(body: SignedVoluntaryExit): RestPlainResponse {.
-     rest, endpoint: "/api/eth/v1/beacon/pool/voluntary_exits",
+     rest, endpoint: "/eth/v1/beacon/pool/voluntary_exits",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit
+
+proc listKeysPlain*(): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/keystores",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/keymanager-APIs/#/Keymanager/ListKeys
+
+proc importKeystoresPlain*(body: KeystoresAndSlashingProtection): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/keystores",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/keymanager-APIs/#/Keymanager/ImportKeystores
+
+proc deleteKeysPlain*(body: DeleteKeystoresBody): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/keystores/delete",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/keymanager-APIs/#/Keymanager/DeleteKeys
+
+proc listKeys*(client: RestClientRef,
+               token: string): Future[GetKeystoresResponse] {.async.} =
+  let resp = await client.listKeysPlain(
+    extraHeaders = @[("Authorization", "Bearer " & token)])
+
+  case resp.status:
+  of 200:
+    let keystoresRes = decodeBytes(
+      GetKeystoresResponse, resp.data, resp.contentType)
+    if keystoresRes.isErr():
+      raise newException(RestError, $keystoresRes.error)
+    return keystoresRes.get()
+  of 401, 403, 500:
+    raiseGenericError(resp)
+  else:
+    raiseUnknownStatusError(resp)

@@ -32,6 +32,9 @@ export
 {.localPassC: "-fno-lto".} # no LTO for crypto
 
 type
+  KeystoreMode* = enum
+    Secure, Fast
+
   ChecksumFunctionKind* = enum
     sha256Checksum = "sha256"
 
@@ -121,6 +124,25 @@ type
     uuid*: string
     version*: int
 
+  KeystoreKind* = enum
+    Local, Remote
+
+  RemoteKeystoreFlag* {.pure.} = enum
+    IgnoreSSLVerification
+
+  KeystoreData* = object
+    version*: uint64
+    pubkey*: ValidatorPubKey
+    description*: Option[string]
+    case kind*: KeystoreKind
+    of KeystoreKind.Local:
+      privateKey*: ValidatorPrivKey
+      path*: KeyPath
+      uuid*: string
+    of KeystoreKind.Remote:
+      remoteUrl*: Uri
+      flags*: set[RemoteKeystoreFlag]
+
   NetKeystore* = object
     crypto*: Crypto
     description*: ref string
@@ -128,14 +150,11 @@ type
     uuid*: string
     version*: int
 
-  RemoteKeystoreFlag* {.pure.} = enum
-    IgnoreSSLVerification
-
   RemoteSignerType* {.pure.} = enum
     Web3Signer
 
   RemoteKeystore* = object
-    version*: Option[uint64]
+    version*: uint64
     description*: Option[string]
     remoteType*: RemoteSignerType
     pubkey*: ValidatorPubKey
@@ -515,7 +534,7 @@ proc readValue*(r: var JsonReader, value: var Kdf)
 proc readValue*(r: var JsonReader, value: var RemoteKeystore)
                {.raises: [SerializationError, IOError, Defect].} =
   var
-    version: Option[uint64]
+    versionWasPresent = false
     description: Option[string]
     remote: Option[Uri]
     remoteType: Option[string]
@@ -538,10 +557,11 @@ proc readValue*(r: var JsonReader, value: var RemoteKeystore)
       remote = some(res)
       value.remote = res
     of "version":
-      if version.isSome():
+      if versionWasPresent:
         r.raiseUnexpectedField("Multiple `version` fields found",
                                "RemoteKeystore")
-      value.version = some(r.readValue(uint64))
+      value.version = r.readValue(uint64)
+      versionWasPresent = true
     of "description":
       let res = r.readValue(string)
       if value.description.isSome():
@@ -573,6 +593,8 @@ proc readValue*(r: var JsonReader, value: var RemoteKeystore)
       # Ignore unknown field names.
       discard
 
+  if not versionWasPresent:
+    r.raiseUnexpectedValue("Field version is missing")
   if remote.isNone():
     r.raiseUnexpectedValue("Field remote is missing")
   if pubkey.isNone():
@@ -589,7 +611,7 @@ template bytes(value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv): seq[byte] =
   distinctBase value
 
 func scrypt(password: openArray[char], salt: openArray[byte],
-            N, r, p, keyLen: static[int]): array[keyLen, byte] =
+            N, r, p: int; keyLen: static[int]): array[keyLen, byte] =
   let (xyvLen, bLen) = scryptCalc(N, r, p)
   var xyv = newSeq[uint32](xyvLen)
   var b = newSeq[byte](bLen)
@@ -717,7 +739,8 @@ proc createCryptoField(kdfKind: KdfKind,
                        secret: openArray[byte],
                        password = KeystorePass.init "",
                        salt: openArray[byte] = @[],
-                       iv: openArray[byte] = @[]): Crypto =
+                       iv: openArray[byte] = @[],
+                       mode = Secure): Crypto =
   type AES = aes128
 
   let kdfSalt =
@@ -736,18 +759,20 @@ proc createCryptoField(kdfKind: KdfKind,
   var decKey: seq[byte]
   let kdf = case kdfKind
     of kdfPbkdf2:
-      decKey = sha256.pbkdf2(password.str,
-                             kdfSalt,
-                             int pbkdf2Params.c,
-                             int pbkdf2Params.dklen)
       var params = pbkdf2Params
       params.salt = Pbkdf2Salt kdfSalt
+      if mode == Fast: params.c = 1
+      decKey = sha256.pbkdf2(password.str,
+                             kdfSalt,
+                             int params.c,
+                             int params.dklen)
       Kdf(function: kdfPbkdf2, pbkdf2Params: params, message: "")
     of kdfScrypt:
-      decKey = @(scrypt(password.str, kdfSalt,
-                        scryptParams.n, scryptParams.r, scryptParams.p, keyLen))
       var params = scryptParams
       params.salt = ScryptSalt kdfSalt
+      if mode == Fast: params.n = 1
+      decKey = @(scrypt(password.str, kdfSalt,
+                        params.n, params.r, params.p, keyLen))
       Kdf(function: kdfScrypt, scryptParams: params, message: "")
 
   var
@@ -780,12 +805,12 @@ proc createNetKeystore*(kdfKind: KdfKind,
   let
     secret = privKey.getBytes().get()
     cryptoField = createCryptoField(kdfKind, rng, secret, password, salt, iv)
-    pubKey = privKey.getPublicKey().get()
+    pubkey = privKey.getPublicKey().get()
     uuid = uuidGenerate().expect("Random bytes should be available")
 
   NetKeystore(
     crypto: cryptoField,
-    pubkey: pubKey,
+    pubkey: pubkey,
     description: newClone(description),
     uuid: $uuid,
     version: 1
@@ -798,10 +823,11 @@ proc createKeystore*(kdfKind: KdfKind,
                      path = KeyPath "",
                      description = "",
                      salt: openArray[byte] = @[],
-                     iv: openArray[byte] = @[]): Keystore =
+                     iv: openArray[byte] = @[],
+                     mode = Secure): Keystore =
   let
     secret = privKey.toRaw[^32..^1]
-    cryptoField = createCryptoField(kdfKind, rng, secret, password, salt, iv)
+    cryptoField = createCryptoField(kdfKind, rng, secret, password, salt, iv, mode)
     pubkey = privKey.toPubKey()
     uuid = uuidGenerate().expect("Random bytes should be available")
 

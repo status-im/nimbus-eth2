@@ -15,7 +15,7 @@ You can even create an account ([testnet link](https://prater.beaconcha.in/regis
 
 ## Make sure your validator is attached
 
-On startup, you should see a log message that reads `Local validator attached`. This has a `pubKey` field which should the public key of your validator.
+On startup, you should see a log message that reads `Local validator attached`. This has a `pubkey` field which should the public key of your validator.
 
 ## Check your IP address
 
