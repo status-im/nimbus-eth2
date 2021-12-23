@@ -320,7 +320,7 @@ func get_initial_beacon_block*(state: merge.HashedBeaconState):
   # The genesis block is implicitly trusted
   let message = merge.TrustedBeaconBlock(
     slot: state.data.slot,
-    state_root: state.root,)
+    state_root: state.root)
     # parent_root, randao_reveal, eth1_data, signature, and body automatically
     # initialized to default values.
   merge.TrustedSignedBeaconBlock(

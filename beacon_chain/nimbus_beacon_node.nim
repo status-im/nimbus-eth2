@@ -206,7 +206,7 @@ proc init(T: type BeaconNode,
 
     if genesisStateContents.len == 0 and checkpointState == nil:
       when hasGenesisDetection:
-        if genesisDepositsSnapshotContents != nil:
+        if genesisDepositsSnapshotContents.len > 0:
           fatal "A deposits snapshot cannot be provided without also providing a matching beacon state snapshot"
           quit 1
 
@@ -236,7 +236,11 @@ proc init(T: type BeaconNode,
         else:
           eth1Monitor = eth1MonitorRes.get
 
-        genesisState = waitFor eth1Monitor.waitGenesis()
+        let phase0Genesis = waitFor eth1Monitor.waitGenesis()
+        genesisState = newClone ForkedHashedBeaconState.init(
+          phase0.HashedBeaconState(data: phase0Genesis[],
+                                   root: hash_tree_root(phase0Genesis[])))
+
         if bnStatus == BeaconNodeStatus.Stopping:
           return nil
 
@@ -244,9 +248,9 @@ proc init(T: type BeaconNode,
         tailBlock = get_initial_beacon_block(genesisState[])
 
         notice "Eth2 genesis state detected",
-          genesisTime = genesisState.genesisTime,
-          eth1Block = genesisState.eth1_data.block_hash,
-          totalDeposits = genesisState.eth1_data.deposit_count
+          genesisTime = phase0Genesis.genesisTime,
+          eth1Block = phase0Genesis.eth1_data.block_hash,
+          totalDeposits = phase0Genesis.eth1_data.deposit_count
       else:
         fatal "No database and no genesis snapshot found: supply a genesis.ssz " &
               "with the network configuration, or compile the beacon node with " &

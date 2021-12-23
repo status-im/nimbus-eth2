@@ -17,7 +17,7 @@ import
   eth/async_utils, stew/[objects, byteutils, shims/hashes],
   # Local modules:
   ../spec/[eth2_merkleization, forks, helpers],
-  ../spec/datatypes/[base, merge],
+  ../spec/datatypes/[base, phase0, merge],
   ../networking/network_metadata,
   ../consensus_object_pools/block_pools_types,
   ".."/[beacon_chain_db, beacon_node_status],
@@ -60,7 +60,7 @@ type
   Eth1BlockTimestamp* = uint64
   Eth1BlockHeader = web3Types.BlockHeader
 
-  Database* = object
+  GenesisStateRef = ref phase0.BeaconState
 
   Eth1Block* = ref object
     number*: Eth1BlockNumber
@@ -110,7 +110,7 @@ type
     when hasGenesisDetection:
       genesisValidators: seq[ImmutableValidatorData]
       genesisValidatorKeyToIndex: Table[ValidatorPubKey, ValidatorIndex]
-      genesisState: NilableBeaconStateRef
+      genesisState: GenesisStateRef
       genesisStateFut: Future[void]
 
   Web3DataProvider* = object
@@ -168,18 +168,17 @@ func depositCountU64(s: DepositContractState): uint64 =
 
   uint64.fromBytesBE s.deposit_count[24..31]
 
+template cfg(m: Eth1Monitor): auto =
+  m.depositsChain.cfg
+
 when hasGenesisDetection:
-  import spec/[beaconstate, signatures]
+  import ../spec/[beaconstate, signatures]
 
   template hasEnoughValidators(m: Eth1Monitor, blk: Eth1Block): bool =
     blk.activeValidatorsCount >= m.cfg.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT
 
   func chainHasEnoughValidators(m: Eth1Monitor): bool =
-    if m.depositsChain.blocks.len > 0:
-      m.hasEnoughValidators(m.depositsChain.blocks[^1])
-    else:
-      m.knownStart.depositContractState.depositCountU64 >=
-        m.cfg.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT
+    m.depositsChain.blocks.len > 0 and m.hasEnoughValidators(m.depositsChain.blocks[^1])
 
   func isAfterMinGenesisTime(m: Eth1Monitor, blk: Eth1Block): bool =
     doAssert blk.timestamp != 0
@@ -189,10 +188,10 @@ when hasGenesisDetection:
   func isGenesisCandidate(m: Eth1Monitor, blk: Eth1Block): bool =
     m.hasEnoughValidators(blk) and m.isAfterMinGenesisTime(blk)
 
-  func findGenesisBlockInRange(m: Eth1Monitor, startBlock, endBlock: Eth1Block):
-                               Future[Eth1Block] {.async, gcsafe.}
+  proc findGenesisBlockInRange(m: Eth1Monitor, startBlock, endBlock: Eth1Block):
+                               Future[Eth1Block] {.gcsafe.}
 
-  func signalGenesis(m: Eth1Monitor, genesisState: BeaconStateRef) =
+  proc signalGenesis(m: Eth1Monitor, genesisState: GenesisStateRef) =
     m.genesisState = genesisState
 
     if not m.genesisStateFut.isNil:
@@ -200,10 +199,10 @@ when hasGenesisDetection:
       m.genesisStateFut = nil
 
   func allGenesisDepositsUpTo(m: Eth1Monitor, totalDeposits: uint64): seq[DepositData] =
-    for i in 0'u64 ..< totalDeposits:
-      result.add m.db.genesisDeposits.get(i)
+    for i in 0 ..< int64(totalDeposits):
+      result.add m.depositsChain.db.genesisDeposits.get(i)
 
-  func createGenesisState(m: Eth1Monitor, eth1Block: Eth1Block): BeaconStateRef =
+  proc createGenesisState(m: Eth1Monitor, eth1Block: Eth1Block): GenesisStateRef =
     notice "Generating genesis state",
       blockNum = eth1Block.number,
       blockHash = eth1Block.voteData.block_hash,
@@ -222,7 +221,7 @@ when hasGenesisDetection:
     if eth1Block.activeValidatorsCount != 0:
       doAssert result.validators.lenu64 == eth1Block.activeValidatorsCount
 
-  func produceDerivedData(m: Eth1Monitor, deposit: DepositData) =
+  proc produceDerivedData(m: Eth1Monitor, deposit: DepositData) =
     let htr = hash_tree_root(deposit)
 
     if verify_deposit_signature(m.cfg, deposit):
@@ -234,15 +233,12 @@ when hasGenesisDetection:
           withdrawal_credentials: deposit.withdrawal_credentials)
         m.genesisValidatorKeyToIndex[pubkey] = idx
 
-  func processGenesisDeposit*(m: Eth1Monitor, newDeposit: DepositData) =
-    m.db.genesisDeposits.add newDeposit
+  proc processGenesisDeposit*(m: Eth1Monitor, newDeposit: DepositData) =
+    m.depositsChain.db.genesisDeposits.add newDeposit
     m.produceDerivedData(newDeposit)
 
 template blocks*(m: Eth1Monitor): Deque[Eth1Block] =
   m.depositsChain.blocks
-
-template cfg(m: Eth1Monitor): auto =
-  m.depositsChain.cfg
 
 template finalizedDepositsMerkleizer(m: Eth1Monitor): auto =
   m.depositsChain.finalizedDepositsMerkleizer
@@ -1014,7 +1010,7 @@ proc syncBlockRange(m: Eth1Monitor,
           eth1Block: blocksWithDeposits[^1].voteData.block_hash,
           depositContractState: merkleizer[].toDepositContractState)
 
-        m.db.putEth2FinalizedTo depositContractState
+        m.depositsChain.db.putEth2FinalizedTo depositContractState
 
       if m.genesisStateFut != nil and m.chainHasEnoughValidators:
         let lastIdx = m.depositsChain.blocks.len - 1
@@ -1255,17 +1251,16 @@ proc testWeb3Provider*(web3Url: Uri,
 
 when hasGenesisDetection:
   proc init*(T: type Eth1Monitor,
-             db: BeaconChainDB,
              cfg: RuntimeConfig,
+             db: BeaconChainDB,
              web3Urls: seq[string],
-             depositContractAddress: Eth1Address,
              depositContractDeployedAt: BlockHashOrNumber,
              eth1Network: Option[Eth1Network],
              forcePolling: bool): Future[Result[T, string]] {.async.} =
     doAssert web3Urls.len > 0
     try:
       var urlIdx = 0
-      let dataProviderRes = await Web3DataProvider.new(depositContractAddress, web3Urls[urlIdx])
+      let dataProviderRes = await Web3DataProvider.new(cfg.DEPOSIT_CONTRACT_ADDRESS, web3Urls[urlIdx])
       if dataProviderRes.isErr:
         return err(dataProviderRes.error)
       var dataProvider = dataProviderRes.get
@@ -1292,7 +1287,7 @@ when hasGenesisDetection:
             #       the Eth1Monitor will be restarted.
             inc urlIdx
             dataProvider = tryGet(
-              await Web3DataProvider.new(depositContractAddress,
+              await Web3DataProvider.new(cfg.DEPOSIT_CONTRACT_ADDRESS,
                                          web3Urls[urlIdx mod web3Urls.len]))
           blk.hash.asEth2Digest
 
@@ -1300,10 +1295,9 @@ when hasGenesisDetection:
         eth1Block: knownStartBlockHash)
 
       var monitor = Eth1Monitor.init(
-        db,
         cfg,
+        db,
         web3Urls,
-        depositContractAddress,
         depositContractSnapshot,
         eth1Network,
         forcePolling)
@@ -1362,7 +1356,7 @@ when hasGenesisDetection:
 
     return endBlock
 
-  proc waitGenesis*(m: Eth1Monitor): Future[BeaconStateRef] {.async.} =
+  proc waitGenesis*(m: Eth1Monitor): Future[GenesisStateRef] {.async.} =
     if m.genesisState.isNil:
       m.start()
 
@@ -1377,4 +1371,4 @@ when hasGenesisDetection:
       return m.genesisState
     else:
       doAssert bnStatus == BeaconNodeStatus.Stopping
-      return new BeaconStateRef # cannot return nil...
+      return nil
