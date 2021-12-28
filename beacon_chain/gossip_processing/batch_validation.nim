@@ -29,6 +29,28 @@ declareCounter batch_verification_aggregates,
 
 # Batched gossip validation
 # ----------------------------------------------------------------
+# Batching in the context of BLS means collecting the signatures of several
+# messages and verifying them all at once - this can be done more efficiently
+# than verifying each message one by one, but the downside is that we get an
+# all-or-nothing response - in case of an invalid signature, we must re-check
+# each message separately.
+#
+# In addition to batching, we also perform lazy aggregation:
+#
+# * batching speeds up the verification of multiple signatures over different
+#   messages, by a decent amount
+# * lazy aggregation speeds up the verification of multiple signatures over the
+#   same message, by a lot
+#
+# Due to the nature of gossip validation in eth2, it is common for messages
+# to arrive in bursts - because most traffic on the network is valid (honest
+# nodes don't re-broadcast invalid traffic and dishonest nodes quickly get
+# disconnected), valid messages by far make up the bulk of traffic.
+#
+# Further, traffic is divided into topics - on a single topic it will be
+# highly likely that the same message appears over and over again, but with
+# different signatures, as most validators have the same view of the network -
+# at least 2/3 or we're in deep trouble :)
 
 type
   BatchResult* {.pure.} = enum
@@ -51,10 +73,10 @@ type
     items: seq[BatchItem]
 
   BatchCrypto* = object
-    # Each batch is bounded by BatchedCryptoSize (16) which was chosen:
+    # Each batch is bounded by BatchedCryptoSize which was chosen:
     # - based on "nimble bench" in nim-blscurve
     #   so that low power devices like Raspberry Pi 4 can process
-    #   that many batched verifications within 30ms
+    #   that many batched verifications within ~30ms on average
     # - based on the accumulation rate of attestations and aggregates
     #   in large instances which were 12000 per slot (12s)
     #   hence 1 per ms (but the pattern is bursty around the 4s mark)
@@ -87,9 +109,16 @@ const
   # A balance between throughput and worst case latency.
   # At least 6 so that the constant factors
   # (RNG for blinding and Final Exponentiation)
-  # are amortized,
-  # but not too big as we need to redo checks one-by-one if one failed.
-  BatchedCryptoSize = 36
+  # are amortized, but not too big as we need to redo checks one-by-one if one
+  # failed.
+  # The current value is based on experiments, where 72 gives an average batch
+  # size of ~30 signatures per batch, or 2.5 signatures per aggregate (meaning
+  # an average of 12 verifications per batch which on a raspberry should be
+  # doable in less than 30ms). In the same experiment, a value of 36 resulted
+  # in 17-18 signatures per batch and 1.7-1.9 signatures per aggregate - this
+  # node was running on mainnet with `--subscribe-all-subnets` turned on -
+  # typical nodes will see smaller batches.
+  BatchedCryptoSize = 72
 
 proc new*(
     T: type BatchCrypto, rng: ref BrHmacDrbgContext,
