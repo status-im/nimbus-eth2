@@ -561,9 +561,10 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # Pruning metadata
   dag.lastPrunePoint = dag.finalizedHead
 
-  # Fill validator key cache in case we're loading an old database that doesn't
-  # have a cache
-  dag.updateValidatorKeys(getStateField(dag.headState.data, validators).asSeq())
+  if not dag.db.db.readOnly:
+    # Fill validator key cache in case we're loading an old database that doesn't
+    # have a cache
+    dag.updateValidatorKeys(getStateField(dag.headState.data, validators).asSeq())
 
   withState(dag.headState.data):
     when stateFork >= BeaconStateFork.Altair:

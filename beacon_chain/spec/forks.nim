@@ -234,9 +234,11 @@ template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
 template withEpochInfo*(x: ForkedEpochInfo, body: untyped): untyped =
   case x.kind
   of EpochInfoFork.Phase0:
+    const infoFork {.inject.} = EpochInfoFork.Phase0
     template info: untyped {.inject.} = x.phase0Data
     body
   of EpochInfoFork.Altair:
+    const infoFork {.inject.} = EpochInfoFork.Altair
     template info: untyped {.inject.} = x.altairData
     body
 

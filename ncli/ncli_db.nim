@@ -6,7 +6,8 @@ import
   ../beacon_chain/consensus_object_pools/[blockchain_dag],
   ../beacon_chain/spec/datatypes/[phase0, altair, merge],
   ../beacon_chain/spec/[
-    beaconstate, helpers, state_transition, state_transition_epoch, validator],
+    beaconstate, helpers, state_transition, state_transition_epoch, validator,
+    state_transition_block, signatures],
   ../beacon_chain/sszdump,
   ../research/simutils, ./e2store
 
@@ -152,6 +153,11 @@ type
         defaultValue: false
         name: "perfect"
         desc: "Include perfect records (full rewards)".}: bool
+      startEpoch* {.
+        defaultValue: 0
+        name: "start-epoch"
+        desc: "Epoch from which to start recording statistics. " &
+              "By default one more than the last epoch in the database.".}: uint
 
 proc putState(db: BeaconChainDB, state: ForkedHashedBeaconState) =
   withState(state):
@@ -216,7 +222,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
   echo &"Loaded {dag.blocks.len} blocks, head slot {dag.head.slot}, selected {blockRefs.len} blocks"
   doAssert blockRefs.len() > 0, "Must select at least one block"
 
-  for b in 0..<blockRefs.len:
+  for b in 0 ..< blockRefs.len:
     let blck = blockRefs[blockRefs.len - b - 1]
     withTimer(timers[tLoadBlock]):
       case cfg.blockForkAtEpoch(blck.slot.epoch)
@@ -520,7 +526,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
     tmp: seq[byte]
     timers: array[Timers, RunningStat]
 
-  for era in conf.era..<conf.era + conf.eraCount:
+  for era in conf.era ..< conf.era + conf.eraCount:
     let
       firstSlot =
         if era == 0: none(Slot)
@@ -657,7 +663,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
     of EpochInfoFork.Altair:
       echo "TODO altair"
 
-  for bi in 0..<blockRefs.len:
+  for bi in 0 ..< blockRefs.len:
     blck = db.getPhase0Block(blockRefs[blockRefs.len - bi - 1].root).get()
     while getStateField(state[].data, slot) < blck.message.slot:
       let
@@ -708,36 +714,17 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
       perf.first_slot_head_attester_when_first_slot_empty,",",
       perf.first_slot_head_attester_when_first_slot_not_empty
 
-proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
-  # Create a database with performance information for every epoch
-  echo "Opening database..."
-  let
-    db = BeaconChainDB.new(conf.databaseDir.string,)
-  defer:
-    db.close()
-
-  if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
-    echo "Database not initialized: ", v.error()
-    quit 1
-
-  echo "Initializing block pool..."
-  let
-    validatorMonitor = newClone(ValidatorMonitor.init())
-    dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
-
-  let outDb = SqStoreRef.init(conf.outDir, "validatorDb").expect("DB")
-  defer: outDb.close()
-
-  outDb.exec("""
+proc createValidatorsRawTable(db: SqStoreRef) =
+  db.exec("""
     CREATE TABLE IF NOT EXISTS validators_raw(
       validator_index INTEGER PRIMARY KEY,
-      pubkey BLOB NOT NULL,
+      pubkey BLOB NOT NULL UNIQUE,
       withdrawal_credentials BLOB NOT NULL
     );
   """).expect("DB")
 
-  # For convenient viewing
-  outDb.exec("""
+proc createValidatorsView(db: SqStoreRef) =
+  db.exec("""
     CREATE VIEW IF NOT EXISTS validators AS
     SELECT
       validator_index,
@@ -746,8 +733,9 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
     FROM validators_raw;
   """).expect("DB")
 
-  outDb.exec("""
-    CREATE TABLE IF NOT EXISTS epoch_info(
+proc createPhase0EpochInfoTable(db: SqStoreRef) =
+  db.exec("""
+    CREATE TABLE IF NOT EXISTS phase0_epoch_info(
       epoch INTEGER PRIMARY KEY,
       current_epoch_raw INTEGER NOT NULL,
       previous_epoch_raw INTEGER NOT NULL,
@@ -758,77 +746,515 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
       previous_epoch_head_attesters_raw INTEGER NOT NULL
     );
   """).expect("DB")
-  outDb.exec("""
+
+proc createAltairEpochInfoTable(db: SqStoreRef) =
+  db.exec("""
+    CREATE TABLE IF NOT EXISTS altair_epoch_info(
+      epoch INTEGER PRIMARY KEY,
+      previous_epoch_timely_source_balance INTEGER NOT NULL,
+      previous_epoch_timely_target_balance INTEGER NOT NULL,
+      previous_epoch_timely_head_balance INTEGER NOT NULL,
+      current_epoch_timely_target_balance INTEGER NOT NULL,
+      current_epoch_total_active_balance INTEGER NOT NULL
+    );
+  """).expect("DB")
+
+proc createValidatorEpochInfoTable(db: SqStoreRef) =
+  db.exec("""
     CREATE TABLE IF NOT EXISTS validator_epoch_info(
       validator_index INTEGER,
       epoch INTEGER,
-      rewards INTEGER NOT NULL,
-      penalties INTEGER NOT NULL,
-      source_attester INTEGER NOT NULL,
-      target_attester INTEGER NOT NULL,
-      head_attester INTEGER NOT NULL,
+      source_outcome INTEGER NOT NULL,
+      max_source_reward INTEGER NOT NULL,
+      target_outcome INTEGER NOT NULL,
+      max_target_reward INTEGER NOT NULL,
+      head_outcome INTEGER NOT NULL,
+      max_head_reward INTEGER NOT NULL,
+      inclusion_delay_outcome INTEGER NOT NULL,
+      max_inclusion_delay_reward INTEGER NOT NULL,
+      sync_committee_outcome INTEGER NOT NULL,
+      max_sync_committee_reward INTEGER NOT NULL,
+      proposer_outcome INTEGER NOT NULL,
+      inactivity_penalty INTEGER NOT NULL,
+      slashing_outcome INTEGER NOT NULL,
       inclusion_delay INTEGER NULL,
       PRIMARY KEY(validator_index, epoch)
     );
   """).expect("DB")
 
+proc createInsertValidatorProc(db: SqStoreRef): auto =
+  db.prepareStmt("""
+    INSERT OR IGNORE INTO validators_raw(
+      validator_index,
+      pubkey,
+      withdrawal_credentials)
+    VALUES(?, ?, ?);""",
+    (int64, array[48, byte], array[32, byte]), void).expect("DB")
+
+proc createInsertPhase0EpochInfoProc(db: SqStoreRef): auto =
+  db.prepareStmt("""
+    INSERT OR IGNORE INTO phase0_epoch_info(
+      epoch,
+      current_epoch_raw,
+      previous_epoch_raw,
+      current_epoch_attesters_raw,
+      current_epoch_target_attesters_raw,
+      previous_epoch_attesters_raw,
+      previous_epoch_target_attesters_raw,
+      previous_epoch_head_attesters_raw)
+    VALUES(?, ?, ?, ?, ?, ?, ?, ?);""",
+    (int64, int64, int64, int64, int64, int64, int64, int64), void).expect("DB")
+
+proc createInsertAltairEpochInfoProc(db: SqStoreRef): auto =
+  db.prepareStmt("""
+    INSERT OR IGNORE INTO altair_epoch_info(
+      epoch,
+      previous_epoch_timely_source_balance,
+      previous_epoch_timely_target_balance,
+      previous_epoch_timely_head_balance,
+      current_epoch_timely_target_balance,
+      current_epoch_total_active_balance)
+    VALUES(?, ?, ?, ?, ?, ?);""",
+    (int64, int64, int64, int64, int64, int64), void).expect("DB")
+
+proc createInsertValidatorEpochInfoProc(db: SqStoreRef): auto =
+  db.prepareStmt("""
+    INSERT OR IGNORE INTO validator_epoch_info(
+      validator_index,
+      epoch,
+      source_outcome,
+      max_source_reward,
+      target_outcome,
+      max_target_reward,
+      head_outcome,
+      max_head_reward,
+      inclusion_delay_outcome,
+      max_inclusion_delay_reward,
+      sync_committee_outcome,
+      max_sync_committee_reward,
+      proposer_outcome,
+      inactivity_penalty,
+      slashing_outcome,
+      inclusion_delay)
+    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""",
+    (int64, int64, int64, int64, int64, int64, int64, int64, int64, int64,
+     int64, int64, int64, int64, int64, Option[int64]), void).expect("DB")
+
+type
+  RewardsAndPenalties = object
+    source_outcome: int64
+    max_source_reward: Gwei
+    target_outcome: int64
+    max_target_reward: Gwei
+    head_outcome: int64
+    max_head_reward: Gwei
+    inclusion_delay_outcome: int64
+    max_inclusion_delay_reward: Gwei
+    sync_committee_outcome: int64
+    max_sync_committee_reward: Gwei
+    proposer_outcome: int64
+    inactivity_penalty: Gwei
+    slashing_outcome: int64
+    deposits: Gwei
+    inclusion_delay: Option[int64]
+
+  ParticipationFlags = object
+    currentEpochParticipation: EpochParticipationFlags
+    previousEpochParticipation: EpochParticipationFlags
+
+  PubkeyToIndexTable = Table[ValidatorPubKey, int]
+
+  AuxiliaryState = object
+    epochParticipationFlags: ParticipationFlags
+    pubkeyToIndex: PubkeyToIndexTable
+
+proc copyParticipationFlags(auxiliaryState: var AuxiliaryState,
+                            forkedState: ForkedHashedBeaconState) =
+  withState(forkedState):
+    when stateFork > BeaconStateFork.Phase0:
+      template flags: untyped = auxiliaryState.epochParticipationFlags
+      flags.currentEpochParticipation = state.data.current_epoch_participation
+      flags.previousEpochParticipation = state.data.previous_epoch_participation
+
+proc isPerfect(info: RewardsAndPenalties): bool =
+  info.slashing_outcome >= 0 and
+  info.source_outcome == info.max_source_reward.int64 and
+  info.target_outcome == info.max_target_reward.int64 and
+  info.head_outcome == info.max_head_reward.int64 and
+  info.inclusion_delay_outcome == info.max_inclusion_delay_reward.int64 and
+  info.sync_committee_outcome == info.max_sync_committee_reward.int64
+
+proc getMaxEpochFromDbTable(db: SqStoreRef, tableName: string): int64 =
+  var queryResult: int64
+  discard db.exec(&"SELECT MAX(epoch) FROM {tableName}", ()) do (res: int64):
+    queryResult = res
+  return queryResult
+
+proc collectBalances(balances: var seq[uint64], forkedState: ForkedHashedBeaconState) =
+  withState(forkedState):
+    balances = seq[uint64](state.data.balances.data)
+
+proc calculateDelta(info: RewardsAndPenalties): int64 =
+  info.source_outcome +
+  info.target_outcome +
+  info.head_outcome +
+  info.inclusion_delay_outcome +
+  info.sync_committee_outcome +
+  info.proposer_outcome +
+  info.slashing_outcome -
+  info.inactivity_penalty.int64 +
+  info.deposits.int64
+
+proc printComponents(info: RewardsAndPenalties) =
+  echo "Components:"
+  echo "Source outcome: ", info.source_outcome
+  echo "Target outcome: ", info.target_outcome
+  echo "Head outcome: ", info.head_outcome
+  echo "Inclusion delay outcome: ", info.inclusion_delay_outcome
+  echo "Sync committee outcome: ", info.sync_committee_outcome
+  echo "Proposer outcome: ", info.proposer_outcome
+  echo "Slashing outcome: ", info.slashing_outcome
+  echo "Inactivity penalty: ", info.inactivity_penalty
+  echo "Deposits: ", info.deposits
+
+proc checkBalance(validatorIndex: int64,
+                  validator: RewardStatus | ParticipationInfo,
+                  currentEpochBalance, previousEpochBalance: Gwei,
+                  validatorInfo: RewardsAndPenalties) =
+  let delta = validatorInfo.calculateDelta
+  if currentEpochBalance.int64 == previousEpochBalance.int64 + delta:
+    return
+  echo "Validator: ", validatorIndex
+  echo "Is eligible: ", is_eligible_validator(validator)
+  echo "Current epoch balance: ", currentEpochBalance
+  echo "Previous epoch balance: ", previousEpochBalance
+  echo "State delta: ", currentEpochBalance - previousEpochBalance
+  echo "Computed delta: ", delta
+  printComponents(validatorInfo)
+  raiseAssert("Validator's previous epoch balance plus computed validator's " &
+              "delta is not equal to the validator's current epoch balance.")
+
+proc getDbValidatorsCount(db: SqStoreRef): int64 =
+  var res: int64
+  discard db.exec("SELECT count(*) FROM validators", ()) do (r: int64):
+    res = r
+  return res
+
+template inTransaction(db: SqStoreRef, dbName: string, body: untyped) =
+  try:
+    db.exec("BEGIN TRANSACTION;").expect(dbName)
+    body
+  finally:
+    db.exec("END TRANSACTION;").expect(dbName)
+
+proc insertValidators(db: SqStoreRef, state: ForkedHashedBeaconState,
+                      startIndex, endIndex: int64) =
+  var insertValidator {.global.}: SqliteStmt[
+    (int64, array[48, byte], array[32, byte]), void]
+  once: insertValidator = db.createInsertValidatorProc
+  withState(state):
+    db.inTransaction("DB"):
+      for i in startIndex ..< endIndex:
+        insertValidator.exec((i, state.data.validators[i].pubkey.toRaw,
+          state.data.validators[i].withdrawal_credentials.data)).expect("DB")
+
+proc getOutcome(delta: RewardDelta): int64 =
+  delta.rewards.int64 - delta.penalties.int64
+
+proc collectSlashings(
+    rewardsAndPenalties: var seq[RewardsAndPenalties],
+    state: ForkyBeaconState, total_balance: Gwei) =
   let
-    insertValidator = outDb.prepareStmt("""
-      INSERT INTO validators_raw(
-        validator_index,
-        pubkey,
-        withdrawal_credentials)
-      VALUES(?, ?, ?);""",
-      (int64, array[48, byte], array[32, byte]), void).expect("DB")
-    insertEpochInfo = outDb.prepareStmt("""
-      INSERT INTO epoch_info(
-        epoch,
-        current_epoch_raw,
-        previous_epoch_raw,
-        current_epoch_attesters_raw,
-        current_epoch_target_attesters_raw,
-        previous_epoch_attesters_raw,
-        previous_epoch_target_attesters_raw,
-        previous_epoch_head_attesters_raw)
-      VALUES(?, ?, ?, ?, ?, ?, ?, ?);""",
-      (int64, int64, int64, int64, int64, int64, int64, int64), void).expect("DB")
-    insertValidatorInfo = outDb.prepareStmt("""
-        INSERT INTO validator_epoch_info(
-          validator_index,
-          epoch,
-          rewards,
-          penalties,
-          source_attester,
-          target_attester,
-          head_attester,
-          inclusion_delay)
-        VALUES(?, ?, ?, ?, ?, ?, ?, ?);""",
-      (int64, int64, int64, int64, int64, int64, int64, Option[int64]), void).expect("DB")
+    epoch = get_current_epoch(state)
+    adjusted_total_slashing_balance = get_adjusted_total_slashing_balance(
+      state, total_balance)
 
-  var vals: int64
-  discard outDb.exec("SELECT count(*) FROM validators", ()) do (res: int64):
-    vals = res
+  for index in 0 ..< state.validators.len:
+    let validator = unsafeAddr state.validators.asSeq()[index]
+    if slashing_penalty_applies(validator[], epoch):
+      rewardsAndPenalties[index].slashing_outcome +=
+        validator[].get_slashing_penalty(
+          adjusted_total_slashing_balance, total_balance).int64
 
-  outDb.exec("BEGIN TRANSACTION;").expect("DB")
+proc collectEpochRewardsAndPenalties(
+    rewardsAndPenalties: var seq[RewardsAndPenalties],
+    state: phase0.BeaconState, cache: var StateCache, cfg: RuntimeConfig) =
+  if get_current_epoch(state) == GENESIS_EPOCH:
+    return
 
-  for i in vals..<getStateField(dag.headState.data, validators).len():
-    insertValidator.exec((
-      i,
-      getStateField(dag.headState.data, validators).data[i].pubkey.toRaw(),
-      getStateField(dag.headState.data, validators).data[i].withdrawal_credentials.data)).expect("DB")
+  var info: phase0.EpochInfo
 
-  outDb.exec("COMMIT;").expect("DB")
-
-  var minEpoch: Epoch
-  discard outDb.exec("SELECT MAX(epoch) FROM epoch_info", ()) do (res: int64):
-    minEpoch = (res + 1).Epoch
-
-  var
-    cache = StateCache()
-    info = ForkedEpochInfo()
-    blck: phase0.TrustedSignedBeaconBlock
+  info.init(state)
+  info.processAttestations(state, cache)
+  doAssert info.validators.len == state.validators.len
+  rewardsAndPenalties.setLen(state.validators.len)
 
   let
+    finality_delay = get_finality_delay(state)
+    total_balance = info.balances.current_epoch
+    total_balance_sqrt = integer_squareroot(total_balance)
+
+  for index, validator in info.validators.pairs:
+    if not is_eligible_validator(validator):
+      continue
+
+    let base_reward  = get_base_reward_sqrt(
+      state, index.ValidatorIndex, total_balance_sqrt)
+
+    template get_attestation_component_reward_helper(attesting_balance: Gwei): Gwei =
+      get_attestation_component_reward(attesting_balance,
+        info.balances.current_epoch, base_reward.uint64, finality_delay)
+
+    template rp: untyped = rewardsAndPenalties[index]
+
+    rp.source_outcome = get_source_delta(
+      validator, base_reward, info.balances, finality_delay).getOutcome
+    rp.max_source_reward = get_attestation_component_reward_helper(
+      info.balances.previous_epoch_attesters)
+
+    rp.target_outcome = get_target_delta(
+      validator, base_reward, info.balances, finality_delay).getOutcome
+    rp.max_target_reward = get_attestation_component_reward_helper(
+      info.balances.previous_epoch_target_attesters)
+
+    rp.head_outcome = get_head_delta(
+       validator, base_reward, info.balances, finality_delay).getOutcome
+    rp.max_head_reward = get_attestation_component_reward_helper(
+      info.balances.previous_epoch_head_attesters)
+
+    let (inclusion_delay_delta, proposer_delta) = get_inclusion_delay_delta(
+      validator, base_reward)
+    rp.inclusion_delay_outcome = inclusion_delay_delta.getOutcome
+    rp.max_inclusion_delay_reward =
+      base_reward - state_transition_epoch.get_proposer_reward(base_reward)
+
+    rp.inactivity_penalty = get_inactivity_penalty_delta(
+      validator, base_reward, finality_delay).penalties
+
+    if proposer_delta.isSome:
+      let proposer_index = proposer_delta.get[0]
+      if proposer_index < info.validators.lenu64:
+        rewardsAndPenalties[proposer_index].proposer_outcome +=
+          proposer_delta.get[1].getOutcome
+
+  rewardsAndPenalties.collectSlashings(state, info.balances.current_epoch)
+
+proc collectEpochRewardsAndPenalties(
+    rewardsAndPenalties: var seq[RewardsAndPenalties],
+    state: altair.BeaconState | merge.BeaconState,
+    cache: var StateCache, cfg: RuntimeConfig) =
+  if get_current_epoch(state) == GENESIS_EPOCH:
+    return
+
+  var info: altair.EpochInfo
+  info.init(state)
+  doAssert info.validators.len == state.validators.len
+  rewardsAndPenalties.setLen(state.validators.len)
+
+  let
+    total_active_balance = info.balances.current_epoch
+    base_reward_per_increment = get_base_reward_per_increment(
+      total_active_balance)
+
+  for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
+    for validator_index, delta in get_flag_index_deltas(
+        state, flag_index, base_reward_per_increment, info):
+      template rp: untyped = rewardsAndPenalties[validator_index]
+
+      let
+        base_reward = get_base_reward_increment(
+          state, validator_index, base_reward_per_increment)
+        active_increments = get_active_increments(info)
+        unslashed_participating_increment =
+          get_unslashed_participating_increment(info, flag_index)
+        max_flag_index_reward = get_flag_index_reward(
+          state, base_reward, active_increments,
+          unslashed_participating_increment,
+          PARTICIPATION_FLAG_WEIGHTS[flag_index].uint64)
+
+      case flag_index
+      of TIMELY_SOURCE_FLAG_INDEX:
+        rp.source_outcome = delta.getOutcome
+        rp.max_source_reward = max_flag_index_reward
+      of TIMELY_TARGET_FLAG_INDEX:
+        rp.target_outcome = delta.getOutcome
+        rp.max_target_reward = max_flag_index_reward
+      of TIMELY_HEAD_FLAG_INDEX:
+        rp.head_outcome = delta.getOutcome
+        rp.max_head_reward = max_flag_index_reward
+      else:
+        raiseAssert(&"Unknown flag index {flag_index}.")
+
+  for validator_index, penalty in get_inactivity_penalty_deltas(
+      cfg, state, info):
+    rewardsAndPenalties[validator_index].inactivity_penalty += penalty
+
+  rewardsAndPenalties.collectSlashings(state, info.balances.current_epoch)
+
+proc collectFromSlashedValidator(
+    rewardsAndPenalties: var seq[RewardsAndPenalties],
+    state: ForkyBeaconState, slashedIndex, proposerIndex: ValidatorIndex) =
+  template slashed_validator: untyped = state.validators[slashedIndex]
+  let slashingPenalty = get_slashing_penalty(state, slashed_validator.effective_balance)
+  let whistleblowerReward = get_whistleblower_reward(slashed_validator.effective_balance)
+  rewardsAndPenalties[slashedIndex].slashing_outcome -= slashingPenalty.int64
+  rewardsAndPenalties[proposerIndex].slashing_outcome += whistleblowerReward.int64
+
+proc collectFromProposerSlashings(
+    rewardsAndPenalties: var seq[RewardsAndPenalties],
+    forkedState: ForkedHashedBeaconState,
+    forkedBlock: ForkedTrustedSignedBeaconBlock) =
+  withStateAndBlck(forkedState, forkedBlock):
+    for proposer_slashing in blck.message.body.proposer_slashings:
+      doAssert check_proposer_slashing(state.data, proposer_slashing, {}).isOk
+      let slashedIndex = proposer_slashing.signed_header_1.message.proposer_index
+      rewardsAndPenalties.collectFromSlashedValidator(state.data,
+        slashedIndex.ValidatorIndex, blck.message.proposer_index.ValidatorIndex)
+
+proc collectFromAttesterSlashings(
+    rewardsAndPenalties: var seq[RewardsAndPenalties],
+    forkedState: ForkedHashedBeaconState,
+    forkedBlock: ForkedTrustedSignedBeaconBlock) =
+  withStateAndBlck(forkedState, forkedBlock):
+    for attester_slashing in blck.message.body.attester_slashings:
+      let attester_slashing_validity = check_attester_slashing(
+        state.data, attester_slashing, {})
+      doAssert attester_slashing_validity.isOk
+      for slashedIndex in attester_slashing_validity.value:
+        rewardsAndPenalties.collectFromSlashedValidator(
+          state.data, slashedIndex, blck.message.proposer_index.ValidatorIndex)
+
+proc collectFromAttestations(
+    rewardsAndPenalties: var seq[RewardsAndPenalties],
+    forkedState: ForkedHashedBeaconState,
+    forkedBlock: ForkedTrustedSignedBeaconBlock,
+    epochParticipationFlags: var ParticipationFlags,
+    cache: var StateCache) =
+  withStateAndBlck(forkedState, forkedBlock):
+    when stateFork > BeaconStateFork.Phase0:
+      let base_reward_per_increment = get_base_reward_per_increment(
+        get_total_active_balance(state.data, cache))
+      doAssert base_reward_per_increment > 0
+      for attestation in blck.message.body.attestations:
+        doAssert check_attestation(state.data, attestation, {}, cache).isOk
+        let proposerReward =
+          if attestation.data.target.epoch == get_current_epoch(state.data):
+            get_proposer_reward(
+              state.data, attestation, base_reward_per_increment, cache,
+              epochParticipationFlags.currentEpochParticipation)
+          else:
+            get_proposer_reward(
+              state.data, attestation, base_reward_per_increment, cache,
+              epochParticipationFlags.previousEpochParticipation)
+        rewardsAndPenalties[blck.message.proposer_index].proposer_outcome +=
+          proposerReward.int64
+        let inclusionDelay = state.data.slot - attestation.data.slot
+        for index in get_attesting_indices(
+            state.data, attestation.data, attestation.aggregation_bits, cache):
+          rewardsAndPenalties[index].inclusion_delay = some(inclusionDelay.int64)
+
+proc collectFromDeposits(
+    rewardsAndPenalties: var seq[RewardsAndPenalties],
+    forkedState: ForkedHashedBeaconState,
+    forkedBlock: ForkedTrustedSignedBeaconBlock,
+    pubkeyToIndex: var PubkeyToIndexTable,
+    cfg: RuntimeConfig) =
+  withStateAndBlck(forkedState, forkedBlock):
+    for deposit in blck.message.body.deposits:
+      let pubkey = deposit.data.pubkey
+      let amount = deposit.data.amount
+      var index = findValidatorIndex(state.data, pubkey)
+      if index == -1:
+        index = pubkeyToIndex.getOrDefault(pubkey, -1)
+      if index != -1:
+        rewardsAndPenalties[index].deposits += amount
+      elif verify_deposit_signature(cfg, deposit.data):
+        pubkeyToIndex[pubkey] = rewardsAndPenalties.len
+        rewardsAndPenalties.add(
+          RewardsAndPenalties(deposits: amount))
+
+proc collectFromSyncAggregate(
+    rewardsAndPenalties: var seq[RewardsAndPenalties],
+    forkedState: ForkedHashedBeaconState,
+    forkedBlock: ForkedTrustedSignedBeaconBlock,
+    cache: var StateCache) =
+  withStateAndBlck(forkedState, forkedBlock):
+    when stateFork > BeaconStateFork.Phase0:
+      let total_active_balance = get_total_active_balance(state.data, cache)
+      let participant_reward = get_participant_reward(total_active_balance)
+      let proposer_reward =
+        state_transition_block.get_proposer_reward(participant_reward)
+      let indices = get_sync_committee_cache(state.data, cache).current_sync_committee
+
+      template aggregate: untyped = blck.message.body.sync_aggregate
+
+      doAssert indices.len == SYNC_COMMITTEE_SIZE
+      doAssert aggregate.sync_committee_bits.len == SYNC_COMMITTEE_SIZE
+      doAssert state.data.current_sync_committee.pubkeys.len == SYNC_COMMITTEE_SIZE
+
+      for i in 0 ..< SYNC_COMMITTEE_SIZE:
+        rewardsAndPenalties[indices[i]].max_sync_committee_reward +=
+          participant_reward
+        if aggregate.sync_committee_bits[i]:
+          rewardsAndPenalties[indices[i]].sync_committee_outcome +=
+            participant_reward.int64
+          rewardsAndPenalties[blck.message.proposer_index].proposer_outcome +=
+            proposer_reward.int64
+        else:
+          rewardsAndPenalties[indices[i]].sync_committee_outcome -=
+            participant_reward.int64
+
+proc collectBlockRewardsAndPenalties(
+    rewardsAndPenalties: var seq[RewardsAndPenalties],
+    forkedState: ForkedHashedBeaconState,
+    forkedBlock: ForkedTrustedSignedBeaconBlock,
+    auxiliaryState: var AuxiliaryState,
+    cache: var StateCache, cfg: RuntimeConfig) =
+  rewardsAndPenalties.collectFromProposerSlashings(forkedState, forkedBlock)
+  rewardsAndPenalties.collectFromAttesterSlashings(forkedState, forkedBlock)
+  rewardsAndPenalties.collectFromAttestations(
+    forkedState, forkedBlock, auxiliaryState.epochParticipationFlags, cache)
+  rewardsAndPenalties.collectFromDeposits(
+    forkedState, forkedBlock, auxiliaryState.pubkeyToIndex, cfg)
+  # This table is needed only to resolve double deposits in the same block, so
+  # it can be cleared after processing all deposits for the current block.
+  auxiliaryState.pubkeyToIndex.clear
+  rewardsAndPenalties.collectFromSyncAggregate(forkedState, forkedBlock, cache)
+
+proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
+  # Create a database with performance information for every epoch
+  echo "Opening database..."
+  let db = BeaconChainDB.new(conf.databaseDir.string, false, true)
+  defer: db.close()
+
+  if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
+    echo "Database not initialized"
+    quit 1
+
+  echo "Initializing block pool..."
+  let
+    validatorMonitor = newClone(ValidatorMonitor.init())
+    dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
+
+  let outDb = SqStoreRef.init(conf.outDir, "validatorDb").expect("DB")
+  defer: outDb.close()
+
+  outDb.createValidatorsRawTable
+  outDb.createValidatorsView
+  outDb.createPhase0EpochInfoTable
+  outDb.createAltairEpochInfoTable
+  outDb.createValidatorEpochInfoTable
+
+  let
+    insertPhase0EpochInfo = outDb.createInsertPhase0EpochInfoProc
+    insertAltairEpochInfo = outDb.createInsertAltairEpochInfoProc
+    insertValidatorInfo = outDb.createInsertValidatorEpochInfoProc
+    minEpoch =
+      if conf.startEpoch == 0:
+        Epoch(max(outDb.getMaxEpochFromDbTable("phase0_epoch_info"),
+                  outDb.getMaxEpochFromDbTable("altair_epoch_info")) + 1)
+      else:
+        Epoch(conf.startEpoch)
     start = minEpoch.start_slot()
     ends = dag.finalizedHead.slot # Avoid dealing with changes
 
@@ -841,22 +1267,80 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   echo "Analyzing performance for epochs ",
     start.epoch, " - ", ends.epoch
 
-  let state = newClone(dag.headState)
-  doAssert dag.updateStateData(
-    state[], blockRefs[^1].atSlot(if start > 0: start - 1 else: 0.Slot),
-    false, cache)
+  let tmpState = newClone(dag.headState)
+  var cache = StateCache()
+  let slot = if start > 0: start - 1 else: 0.Slot
+  if blockRefs.len > 0:
+    dag.updateStateData(tmpState[], blockRefs[^1].atSlot(slot), false, cache)
+  else:
+    dag.updateStateData(tmpState[], dag.head.atSlot(slot), false, cache)
 
-  var inTxn = false
+  let dbValidatorsCount = outDb.getDbValidatorsCount()
+  var validatorsCount = getStateField(tmpState[].data, validators).len
+  outDb.insertValidators(tmpState[].data, dbValidatorsCount, validatorsCount)
+
+  var previousEpochBalances: seq[uint64]
+  collectBalances(previousEpochBalances, tmpState[].data)
+
+  var forkedInfo = ForkedEpochInfo()
+  var rewardsAndPenalties: seq[RewardsAndPenalties]
+  rewardsAndPenalties.setLen(validatorsCount)
+
+  var auxiliaryState: AuxiliaryState
+  auxiliaryState.copyParticipationFlags(tmpState[].data)
+
   proc processEpoch() =
-    echo getStateField(state[].data, slot).epoch
-    if not inTxn:
-      outDb.exec("BEGIN TRANSACTION;").expect("DB")
-      inTxn = true
-    case info.kind
+    let epoch = getStateField(tmpState[].data, slot).epoch.int64
+    echo epoch
+
+    withState(tmpState[].data):
+      withEpochInfo(forkedInfo):
+        doAssert state.data.balances.len == info.validators.len
+        doAssert state.data.balances.len == previousEpochBalances.len
+        doAssert state.data.balances.len == rewardsAndPenalties.len
+
+        for index, validator in info.validators.pairs:
+          template outputInfo: untyped = rewardsAndPenalties[index]
+
+          checkBalance(index, validator, state.data.balances[index],
+                       previousEpochBalances[index], outputInfo)
+
+          let delay =
+            when infoFork == EpochInfoFork.Phase0:
+              let notSlashed = (RewardFlags.isSlashed notin validator.flags)
+              if notSlashed and validator.is_previous_epoch_attester.isSome():
+                some(int64(validator.is_previous_epoch_attester.get().delay))
+              else:
+                none(int64)
+            else:
+              rewardsAndPenalties[index].inclusion_delay
+
+          if conf.perfect or not outputInfo.isPerfect:
+            insertValidatorInfo.exec((
+              index.int64,
+              epoch,
+              outputInfo.source_outcome,
+              outputInfo.max_source_reward.int64,
+              outputInfo.target_outcome,
+              outputInfo.max_target_reward.int64,
+              outputInfo.head_outcome,
+              outputInfo.max_head_reward.int64,
+              outputInfo.inclusion_delay_outcome,
+              outputInfo.max_inclusion_delay_reward.int64,
+              outputInfo.sync_committee_outcome,
+              outputInfo.max_sync_committee_reward.int64,
+              outputInfo.proposer_outcome,
+              outputInfo.inactivity_penalty.int64,
+              outputInfo.slashing_outcome,
+              delay)).expect("DB")
+
+    collectBalances(previousEpochBalances, tmpState[].data)
+
+    case forkedInfo.kind
     of EpochInfoFork.Phase0:
-      template info: untyped = info.phase0Data
-      insertEpochInfo.exec(
-        (getStateField(state[].data, slot).epoch.int64,
+      template info: untyped = forkedInfo.phase0Data
+      insertPhase0EpochInfo.exec((
+        epoch,
         info.balances.current_epoch_raw.int64,
         info.balances.previous_epoch_raw.int64,
         info.balances.current_epoch_attesters_raw.int64,
@@ -865,77 +1349,67 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
         info.balances.previous_epoch_target_attesters_raw.int64,
         info.balances.previous_epoch_head_attesters_raw.int64)
         ).expect("DB")
-
-      for index, status in info.validators.pairs():
-        if not is_eligible_validator(status):
-          continue
-        let
-          notSlashed = (RewardFlags.isSlashed notin status.flags)
-          source_attester =
-            notSlashed and status.is_previous_epoch_attester.isSome()
-          target_attester =
-            notSlashed and RewardFlags.isPreviousEpochTargetAttester in status.flags
-          head_attester =
-            notSlashed and RewardFlags.isPreviousEpochHeadAttester in status.flags
-          delay =
-            if notSlashed and status.is_previous_epoch_attester.isSome():
-              some(int64(status.is_previous_epoch_attester.get().delay))
-            else:
-              none(int64)
-
-        if conf.perfect or not
-            (source_attester and target_attester and head_attester and
-              delay.isSome() and delay.get() == 1):
-          insertValidatorInfo.exec(
-            (index.int64,
-            getStateField(state[].data, slot).epoch.int64,
-            status.delta.rewards.int64,
-            status.delta.penalties.int64,
-            int64(source_attester), # Source delta
-            int64(target_attester), # Target delta
-            int64(head_attester), # Head delta
-            delay)).expect("DB")
     of EpochInfoFork.Altair:
-      echo "TODO altair support"
+      template info: untyped = forkedInfo.altairData
+      insertAltairEpochInfo.exec((
+        epoch,
+        info.balances.previous_epoch[0].int64,
+        info.balances.previous_epoch[1].int64,
+        info.balances.previous_epoch[2].int64,
+        info.balances.current_epoch_TIMELY_TARGET.int64,
+        info.balances.current_epoch.int64)).expect("DB")
 
-    if getStateField(state[].data, slot).epoch.int64 mod 16 == 0:
-      inTxn = false
-      outDb.exec("COMMIT;").expect("DB")
+  proc processSlots(ends: Slot, endsFlags: UpdateFlags) =
+    var currentSlot = getStateField(tmpState[].data, slot)
+    while currentSlot < ends:
+      let nextSlot = currentSlot + 1
+      let flags = if nextSlot == ends: endsFlags else: {}
 
-  for bi in 0..<blockRefs.len:
-    blck = db.getPhase0Block(blockRefs[blockRefs.len - bi - 1].root).get()
-    while getStateField(state[].data, slot) < blck.message.slot:
-      let
-        nextSlot = getStateField(state[].data, slot) + 1
-        flags =
-          if nextSlot == blck.message.slot: {skipLastStateRootCalculation}
-          else: {}
+      if nextSlot.isEpoch:
+        withState(tmpState[].data):
+          rewardsAndPenalties.collectEpochRewardsAndPenalties(
+            state.data, cache, cfg)
 
-      process_slots(cfg, state[].data, nextSlot, cache, info, flags).expect(
-        "Slot processing can't fail with correct inputs")
+      let ok = process_slots(cfg, tmpState[].data, nextSlot, cache, forkedInfo, flags)
+      doAssert ok, "Slot processing can't fail with correct inputs"
 
-      if getStateField(state[].data, slot).is_epoch():
-        processEpoch()
+      currentSlot = nextSlot
 
-    let res = state_transition_block(
-        cfg, state[].data, blck, cache, {}, noRollback)
-    if res.isErr():
-      echo "State transition failed (!) ", res.error()
-      quit 1
+      if currentSlot.isEpoch:
+        outDb.inTransaction("DB"):
+          processEpoch()
+        rewardsAndPenalties.setLen(0)
+        rewardsAndPenalties.setLen(validatorsCount)
+        auxiliaryState.copyParticipationFlags(tmpState[].data)
+
+  for bi in 0 ..< blockRefs.len:
+    let forkedBlock = dag.getForkedBlock(blockRefs[blockRefs.len - bi - 1])
+    withBlck(forkedBlock):
+      processSlots(blck.message.slot, {skipLastStateRootCalculation})
+
+      rewardsAndPenalties.collectBlockRewardsAndPenalties(
+        tmpState[].data, forkedBlock, auxiliaryState, cache, cfg)
+
+      let res = state_transition_block(
+        cfg, tmpState[].data, blck, cache, {}, noRollback)
+      if res.isErr:
+        echo "State transition failed (!)"
+        quit 1
+
+      let newValidatorsCount = getStateField(tmpState[].data, validators).len
+      if newValidatorsCount > validatorsCount:
+        # Resize the structures in case a new validator has appeared after
+        # the state_transition_block procedure call ...
+        rewardsAndPenalties.setLen(newValidatorsCount)
+        previousEpochBalances.setLen(newValidatorsCount)
+        # ... and add the new validators to the database.
+        outDb.insertValidators(tmpState[].data, validatorsCount, newValidatorsCount)
+        validatorsCount = newValidatorsCount
 
   # Capture rewards of empty slots as well, including the epoch that got
   # finalized
-  while getStateField(state[].data, slot) <= ends:
-    process_slots(
-      cfg, state[].data, getStateField(state[].data, slot) + 1, cache,
-      info, {}).expect("Slot processing can't fail with correct inputs")
-
-    if getStateField(state[].data, slot).is_epoch():
-      processEpoch()
-
-  if inTxn:
-    inTxn = false
-    outDb.exec("COMMIT;").expect("DB")
+  let ok = processSlots(ends, {})
+  doAssert ok, "Slot processing can't fail with correct inputs"
 
 when isMainModule:
   var
