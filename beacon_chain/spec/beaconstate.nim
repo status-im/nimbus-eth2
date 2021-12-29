@@ -121,7 +121,40 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var ForkyBeaconState,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#modified-slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/merge/beacon-chain.md#modified-slash_validator
+proc get_slashing_penalty*(state: ForkyBeaconState,
+                           validator_effective_balance: Gwei): Gwei =
+  # TODO Consider whether this is better than splitting the functions apart; in
+  # each case, tradeoffs. Here, it's just changing a couple of constants.
+  when state is phase0.BeaconState:
+      validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT
+  elif state is altair.BeaconState:
+      validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR
+  elif state is merge.BeaconState:
+      validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_MERGE
+  else:
+    raiseAssert "invalid BeaconState type"
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#modified-slash_validator
+proc get_whistleblower_reward*(validator_effective_balance: Gwei): Gwei =
+  validator_effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#modified-slash_validator
+proc get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): Gwei =
+  when state is phase0.BeaconState:
+    whistleblower_reward div PROPOSER_REWARD_QUOTIENT
+  elif state is altair.BeaconState or state is merge.BeaconState:
+    whistleblower_reward * PROPOSER_WEIGHT div WEIGHT_DENOMINATOR
+  else:
+    raiseAssert "invalid BeaconState type"
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     slashed_index: ValidatorIndex, cache: var StateCache) =
@@ -145,19 +178,8 @@ proc slash_validator*(
   state.slashings[int(epoch mod EPOCHS_PER_SLASHINGS_VECTOR)] +=
     validator.effective_balance
 
-  # TODO Consider whether this is better than splitting the functions apart; in
-  # each case, tradeoffs. Here, it's just changing a couple of constants.
-  when state is phase0.BeaconState:
-    decrease_balance(state, slashed_index,
-      validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
-  elif state is altair.BeaconState:
-    decrease_balance(state, slashed_index,
-      validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR)
-  elif state is bellatrix.BeaconState:
-    decrease_balance(state, slashed_index,
-      validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_MERGE)
-  else:
-    raiseAssert "invalid BeaconState type"
+  decrease_balance(state, slashed_index,
+    get_slashing_penalty(state, validator.effective_balance))
 
   # The rest doesn't make sense without there being any proposer index, so skip
   let proposer_index = get_beacon_proposer_index(state, cache)
@@ -169,15 +191,8 @@ proc slash_validator*(
   let
     # Spec has whistleblower_index as optional param, but it's never used.
     whistleblower_index = proposer_index.get
-    whistleblower_reward =
-      (validator.effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT).Gwei
-    proposer_reward =
-      when state is phase0.BeaconState:
-        whistleblower_reward div PROPOSER_REWARD_QUOTIENT
-      elif state is altair.BeaconState or state is bellatrix.BeaconState:
-        whistleblower_reward * PROPOSER_WEIGHT div WEIGHT_DENOMINATOR
-      else:
-        raiseAssert "invalid BeaconState type"
+    whistleblower_reward = get_whistleblower_reward(validator.effective_balance)
+    proposer_reward = get_proposer_reward(state, whistleblower_reward)
 
   increase_balance(state, proposer_index.get, proposer_reward)
   # TODO: evaluate if spec bug / underflow can be triggered
@@ -626,6 +641,31 @@ proc check_attestation*(
 
   ok()
 
+proc get_proposer_reward*(state: ForkyBeaconState,
+                          attestation: SomeAttestation,
+                          base_reward_per_increment: Gwei,
+                          cache: var StateCache,
+                          epoch_participation: var EpochParticipationFlags): uint64 =
+  let participation_flag_indices = get_attestation_participation_flag_indices(
+    state, attestation.data, state.slot - attestation.data.slot)
+  for index in get_attesting_indices(
+      state, attestation.data, attestation.aggregation_bits, cache):
+    for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
+      if flag_index in participation_flag_indices and
+         not has_flag(epoch_participation.asSeq[index], flag_index):
+        epoch_participation.asSeq[index] =
+          add_flag(epoch_participation.asSeq[index], flag_index)
+        # these are all valid; TODO statically verify or do it type-safely
+        result += get_base_reward(
+          state, index, base_reward_per_increment) * weight.uint64
+  epoch_participation.clearCache()
+
+  let proposer_reward_denominator =
+    (WEIGHT_DENOMINATOR.uint64 - PROPOSER_WEIGHT.uint64) *
+    WEIGHT_DENOMINATOR.uint64 div PROPOSER_WEIGHT.uint64
+
+  return result div proposer_reward_denominator
+
 proc process_attestation*(
     state: var ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
     base_reward_per_increment: Gwei, cache: var StateCache):
@@ -659,31 +699,8 @@ proc process_attestation*(
 
   # Altair and Merge
   template updateParticipationFlags(epoch_participation: untyped) =
-    var proposer_reward_numerator = 0'u64
-
-    # Participation flag indices
-    let participation_flag_indices =
-      get_attestation_participation_flag_indices(
-        state, attestation.data, state.slot - attestation.data.slot)
-
-    for index in get_attesting_indices(
-        state, attestation.data, attestation.aggregation_bits, cache):
-      for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
-        if flag_index in participation_flag_indices and
-            not has_flag(epoch_participation.asSeq[index], flag_index):
-          epoch_participation.asSeq[index] =
-            add_flag(epoch_participation.asSeq[index], flag_index)
-
-          # these are all valid; TODO statically verify or do it type-safely
-          proposer_reward_numerator += get_base_reward(
-            state, index, base_reward_per_increment) * weight.uint64
-    epoch_participation.clearCache()
-
-    # Reward proposer
-    let
-      # TODO use correct type at source
-      proposer_reward_denominator = (WEIGHT_DENOMINATOR.uint64 - PROPOSER_WEIGHT.uint64) * WEIGHT_DENOMINATOR.uint64 div PROPOSER_WEIGHT.uint64
-      proposer_reward = Gwei(proposer_reward_numerator div proposer_reward_denominator)
+    let proposer_reward = get_proposer_reward(
+      state, attestation, base_reward_per_increment, cache, epoch_participation)
     increase_balance(state, proposer_index.get, proposer_reward)
 
   when state is phase0.BeaconState:
@@ -780,8 +797,7 @@ func translate_participation(
 
 proc upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState): ref altair.BeaconState =
   var
-    empty_participation =
-      HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]()
+    empty_participation = EpochParticipationFlags()
     inactivity_scores = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]()
 
   doAssert empty_participation.data.setLen(pre.validators.len)

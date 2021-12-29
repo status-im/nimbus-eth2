@@ -124,7 +124,7 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#proposer-slashings
 proc check_proposer_slashing*(
-    state: var ForkyBeaconState, proposer_slashing: SomeProposerSlashing,
+    state: ForkyBeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags):
     Result[void, cstring] =
 
@@ -198,7 +198,7 @@ func is_slashable_attestation_data(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#attester-slashings
 proc check_attester_slashing*(
-       state: var ForkyBeaconState,
+       state: ForkyBeaconState,
        attester_slashing: SomeAttesterSlashing,
        flags: UpdateFlags
      ): Result[seq[ValidatorIndex], cstring] =
@@ -255,6 +255,17 @@ proc process_attester_slashing*(
 
   ok()
 
+proc findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey): int =
+  # This linear scan is unfortunate, but should be fairly fast as we do a simple
+  # byte comparison of the key. The alternative would be to build a Table, but
+  # given that each block can hold no more than 16 deposits, it's slower to
+  # build the table and use it for lookups than to scan it like this.
+  # Once we have a reusable, long-lived cache, this should be revisited
+  for i in 0 ..< state.validators.len:
+    if state.validators.asSeq[i].pubkey == pubkey:
+      return i
+  return -1
+
 proc process_deposit*(cfg: RuntimeConfig,
                       state: var ForkyBeaconState,
                       deposit: Deposit,
@@ -277,18 +288,7 @@ proc process_deposit*(cfg: RuntimeConfig,
   let
     pubkey = deposit.data.pubkey
     amount = deposit.data.amount
-
-  var index = -1
-
-  # This linear scan is unfortunate, but should be fairly fast as we do a simple
-  # byte comparison of the key. The alternative would be to build a Table, but
-  # given that each block can hold no more than 16 deposits, it's slower to
-  # build the table and use it for lookups than to scan it like this.
-  # Once we have a reusable, long-lived cache, this should be revisited
-  for i in 0..<state.validators.len():
-    if state.validators.asSeq()[i].pubkey == pubkey:
-      index = i
-      break
+    index = findValidatorIndex(state, pubkey)
 
   if index != -1:
     # Increase balance by deposit amount
@@ -425,7 +425,22 @@ proc process_operations(cfg: RuntimeConfig,
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#sync-aggregate-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#sync-committee-processing
+func get_participant_reward*(total_active_balance: Gwei): Gwei =
+  let
+    total_active_increments =
+      total_active_balance div EFFECTIVE_BALANCE_INCREMENT
+    total_base_rewards =
+      get_base_reward_per_increment(total_active_balance) * total_active_increments
+    max_participant_rewards =
+      total_base_rewards * SYNC_REWARD_WEIGHT div WEIGHT_DENOMINATOR div SLOTS_PER_EPOCH
+  return max_participant_rewards div SYNC_COMMITTEE_SIZE
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-processing
+func get_proposer_reward*(participant_reward: Gwei): Gwei =
+  participant_reward * PROPOSER_WEIGHT div (WEIGHT_DENOMINATOR - PROPOSER_WEIGHT)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#sync-committee-processing
 proc process_sync_aggregate*(
     state: var (altair.BeaconState | bellatrix.BeaconState),
     sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
@@ -457,15 +472,8 @@ proc process_sync_aggregate*(
 
   # Compute participant and proposer rewards
   let
-    total_active_increments =
-      total_active_balance div EFFECTIVE_BALANCE_INCREMENT
-    total_base_rewards =
-      get_base_reward_per_increment(total_active_balance) * total_active_increments
-    max_participant_rewards =
-      total_base_rewards * SYNC_REWARD_WEIGHT div WEIGHT_DENOMINATOR div SLOTS_PER_EPOCH
-    participant_reward = max_participant_rewards div SYNC_COMMITTEE_SIZE
-    proposer_reward =
-      participant_reward * PROPOSER_WEIGHT div (WEIGHT_DENOMINATOR - PROPOSER_WEIGHT)
+    participant_reward = get_participant_reward(total_active_balance)
+    proposer_reward = state_transition_block.get_proposer_reward(participant_reward)
     proposer_index = get_beacon_proposer_index(state, cache)
 
   if proposer_index.isNone:

@@ -81,6 +81,9 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#custom-types
   ParticipationFlags* = uint8
 
+  EpochParticipationFlags* =
+    HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#syncaggregate
   SyncAggregate* = object
     sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
@@ -225,10 +228,8 @@ type
     ## Per-epoch sums of slashed effective balances
 
     # Participation
-    previous_epoch_participation*:
-      HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
-    current_epoch_participation*:
-      HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+    previous_epoch_participation*: EpochParticipationFlags
+    current_epoch_participation*: EpochParticipationFlags
 
     # Finality
     justification_bits*: JustificationBits

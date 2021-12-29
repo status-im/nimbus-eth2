@@ -116,10 +116,8 @@ type
     ## Per-epoch sums of slashed effective balances
 
     # Participation
-    previous_epoch_participation*:
-      HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
-    current_epoch_participation*:
-      HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+    previous_epoch_participation*: EpochParticipationFlags
+    current_epoch_participation*: EpochParticipationFlags
 
     # Finality
     justification_bits*: JustificationBits
