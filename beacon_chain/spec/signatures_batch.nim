@@ -55,17 +55,16 @@ template loadOrExit(signature: ValidatorSig, error: cstring):
     return err(error) # this exits the calling scope, as templates are inlined.
   sig.unsafeGet()
 
-func addSignatureSet(
-    sigs: var seq[SignatureSet], pubkey: CookedPubKey, signing_root: Eth2Digest,
-    signature: CookedSig) =
+func init(T: type SignatureSet,
+    pubkey: CookedPubKey, signing_root: Eth2Digest,
+    signature: CookedSig): T =
   ## Add a new signature set triplet (pubkey, message, signature)
   ## to a collection of signature sets for batch verification.
-
-  sigs.add((
+  (
     blscurve.PublicKey(pubkey),
     signing_root.data,
     blscurve.Signature(signature)
-  ))
+  )
 
 proc aggregateAttesters(
       validatorIndices: openArray[uint64|ValidatorIndex],
@@ -130,100 +129,91 @@ proc aggregateAttesters(
 # ------------------------------------------------------
 
 # See also: verify_slot_signature
-proc add_slot_signature*(
-    sigs: var seq[SignatureSet],
+proc slot_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    pubkey: CookedPubKey, signature: CookedSig) =
+    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_slot_signing_root(
     fork, genesis_validators_root, slot)
 
-  sigs.addSignatureSet(pubkey, signing_root, signature)
+  SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_epoch_signature
-proc add_epoch_signature*(
-    sigs: var seq[SignatureSet],
-    fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
-    pubkey: CookedPubKey, signature: CookedSig) =
+proc epoch_signature_set*(
+   fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
+    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_epoch_signing_root(
     fork, genesis_validators_root, epoch)
 
-  sigs.addSignatureSet(pubkey, signing_root, signature)
+  SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_block_signature
-proc add_block_signature*(
-    sigs: var seq[SignatureSet],
+proc block_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     blck: Eth2Digest | SomeSomeBeaconBlock | BeaconBlockHeader,
-    pubkey: CookedPubKey, signature: CookedSig) =
+    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_block_signing_root(
     fork, genesis_validators_root, slot, blck)
 
-  sigs.addSignatureSet(pubkey, signing_root, signature)
+  SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_aggregate_and_proof_signature
-proc add_aggregate_and_proof_signature*(
-    sigs: var seq[SignatureSet],
+proc aggregate_and_proof_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     aggregate_and_proof: AggregateAndProof,
-    pubkey: CookedPubKey, signature: CookedSig) =
+    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_aggregate_and_proof_signing_root(
     fork, genesis_validators_root, aggregate_and_proof)
 
-  sigs.addSignatureSet(pubkey, signing_root, signature)
+  SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_attestation_signature
-proc add_attestation_signature*(
-    sigs: var seq[SignatureSet],
+proc attestation_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     attestation_data: AttestationData,
-    pubkey: CookedPubKey, signature: CookedSig) =
+    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_attestation_signing_root(
     fork, genesis_validators_root, attestation_data)
 
-  sigs.addSignatureSet(pubkey, signing_root, signature)
+  SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_voluntary_exit_signature
-proc add_voluntary_exit_signature*(
-    sigs: var seq[SignatureSet],
+proc voluntary_exit_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     voluntary_exit: VoluntaryExit,
-    pubkey: CookedPubKey, signature: CookedSig) =
+    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_voluntary_exit_signing_root(
     fork, genesis_validators_root, voluntary_exit)
 
-  sigs.addSignatureSet(pubkey, signing_root, signature)
+  SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_sync_committee_message_signature
-proc add_sync_committee_message_signature*(
-    sigs: var seq[SignatureSet],
+proc sync_committee_message_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     slot: Slot, block_root: Eth2Digest,
-    pubkey: CookedPubKey, signature: CookedSig) =
+    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_sync_committee_message_signing_root(
     fork, genesis_validators_root, slot, block_root)
 
-  sigs.addSignatureSet(pubkey, signing_root, signature)
+  SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_sync_committee_selection_proof
-proc add_sync_committee_selection_proof*(
-    sigs: var seq[SignatureSet],
+proc sync_committee_selection_proof_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     slot: Slot, subcommittee_index: uint64,
-    pubkey: CookedPubKey, signature: CookedSig) =
+    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_sync_committee_selection_proof_signing_root(
     fork, genesis_validators_root, slot, subcommittee_index)
 
-  sigs.addSignatureSet(pubkey, signing_root, signature)
+  SignatureSet.init(pubkey, signing_root, signature)
 
-proc add_contribution_and_proof_signature*(
-    sigs: var seq[SignatureSet],
+proc contribution_and_proof_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     msg: ContributionAndProof,
-    pubkey: CookedPubKey, signature: CookedSig) =
+    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_contribution_and_proof_signing_root(
     fork, genesis_validators_root, msg)
 
-  sigs.addSignatureSet(pubkey, signing_root, signature)
+  SignatureSet.init(pubkey, signing_root, signature)
 
 proc collectSignatureSets*(
        sigs: var seq[SignatureSet],
@@ -264,7 +254,7 @@ proc collectSignatureSets*(
 
   # 1. Block proposer
   # ----------------------------------------------------
-  sigs.add_block_signature(
+  sigs.add block_signature_set(
     fork, genesis_validators_root,
     signed_block.message.slot, signed_block.root,
     proposer_key.get(), signed_block.signature.loadOrExit(
@@ -272,7 +262,7 @@ proc collectSignatureSets*(
 
   # 2. Randao Reveal
   # ----------------------------------------------------
-  sigs.add_epoch_signature(
+  sigs.add epoch_signature_set(
     fork, genesis_validators_root, epoch, proposer_key.get(),
     signed_block.message.body.randao_reveal.loadOrExit(
       "collectSignatureSets: cannot load randao"))
@@ -299,7 +289,7 @@ proc collectSignatureSets*(
       if not key.isSome():
         return err("collectSignatureSets: invalid slashing proposer index 1")
 
-      sigs.add_block_signature(
+      sigs.add block_signature_set(
         fork, genesis_validators_root, header.message.slot, header.message,
         key.get(), header.signature.loadOrExit(
           "collectSignatureSets: cannot load proposer slashing 1 signature"))
@@ -312,7 +302,7 @@ proc collectSignatureSets*(
       if not key.isSome():
         return err("collectSignatureSets: invalid slashing proposer index 2")
 
-      sigs.add_block_signature(
+      sigs.add block_signature_set(
         fork, genesis_validators_root, header.message.slot, header.message,
         key.get(), header.signature.loadOrExit(
           "collectSignatureSets: cannot load proposer slashing 2 signature"))
@@ -337,7 +327,7 @@ proc collectSignatureSets*(
         key = ? aggregateAttesters(
           slashing.attestation_1.attesting_indices.asSeq(), validatorKeys)
         sig = slashing.attestation_1.signature.loadOrExit("")
-      sigs.add_attestation_signature(
+      sigs.add attestation_signature_set(
         fork, genesis_validators_root, slashing.attestation_1.data, key, sig)
 
     # Conflicting attestation 2
@@ -346,7 +336,7 @@ proc collectSignatureSets*(
         key = ? aggregateAttesters(
           slashing.attestation_2.attesting_indices.asSeq(), validatorKeys)
         sig = slashing.attestation_2.signature.loadOrExit("")
-      sigs.add_attestation_signature(
+      sigs.add attestation_signature_set(
         fork, genesis_validators_root, slashing.attestation_2.data, key, sig)
 
   # 5. Attestations
@@ -368,7 +358,7 @@ proc collectSignatureSets*(
         validatorKeys)
       sig = attestation.signature.loadOrExit("")
 
-    sigs.add_attestation_signature(
+    sigs.add attestation_signature_set(
       fork, genesis_validators_root, attestation.data, key, sig)
 
   # 6. VoluntaryExits
@@ -386,7 +376,7 @@ proc collectSignatureSets*(
     if not key.isSome():
       return err("collectSignatureSets: invalid voluntary exit")
 
-    sigs.add_voluntary_exit_signature(
+    sigs.add voluntary_exit_signature_set(
       fork, genesis_validators_root, volex.message, key.get(),
       volex.signature.loadOrExit(
         "collectSignatureSets: cannot load voluntary exit signature"))
@@ -412,7 +402,7 @@ proc collectSignatureSets*(
               signed_block.message.body.sync_aggregate.sync_committee_bits,
               validatorKeys)
 
-          sigs.add_sync_committee_message_signature(
+          sigs.add sync_committee_message_signature_set(
             fork, genesis_validators_root, previous_slot, beacon_block_root,
             pubkey,
             signed_block.message.body.sync_aggregate.sync_committee_signature.loadOrExit(
