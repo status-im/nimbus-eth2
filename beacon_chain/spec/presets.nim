@@ -36,6 +36,8 @@ type
 
     PRESET_BASE*: string
 
+    CONFIG_NAME*: string
+
     # Transition
     TERMINAL_TOTAL_DIFFICULTY*: UInt256
     TERMINAL_BLOCK_HASH*: BlockHash
@@ -147,8 +149,6 @@ const
     "DOMAIN_SYNC_COMMITTEE",
     "DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF",
     "DOMAIN_CONTRIBUTION_AND_PROOF",
-
-    "CONFIG_NAME",
 
     "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
   ]
@@ -444,3 +444,9 @@ proc readRuntimeConfig*(
       msg: "Config not compatible with binary, compile with -d:const_preset=" & cfg.PRESET_BASE)
 
   (cfg, unknowns)
+
+template name*(cfg: RuntimeConfig): string =
+  if cfg.CONFIG_NAME.len() > 0:
+    cfg.CONFIG_NAME
+  else:
+    const_preset

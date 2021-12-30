@@ -23,8 +23,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
       RestApiResponse.prepareJsonResponse(
         (
           # https://github.com/ethereum/consensus-specs/blob/v1.0.1/configs/mainnet/phase0.yaml
-          CONFIG_NAME:
-            const_preset,
+          CONFIG_NAME: node.dag.cfg.name(),
 
           # https://github.com/ethereum/consensus-specs/blob/v1.1.3/presets/mainnet/phase0.yaml
           MAX_COMMITTEES_PER_SLOT:

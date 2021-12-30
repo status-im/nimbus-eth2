@@ -32,33 +32,38 @@ The following python code can be used to read an e2 file:
 ```python
 import sys, struct
 
-with open(sys.argv[1], "rb") as f:
+def read_entry(f):
   header = f.read(8)
-  typ = header[0:2] # First 2 bytes for type
+  if not header: return None
 
-  if typ != b"e2":
-    raise RuntimeError("this is not an e2store file")
+  typ = header[0:2] # 2 bytes of type
+  dlen = struct.unpack("<q", header[2:8] + b"\0\0")[0] # 6 bytes of little-endian length
 
-  while True:
-    header = f.read(8) # Header is 8 bytes
-    if not header: break
+  data = f.read(dlen)
 
-    typ = header[0:2] # First 2 bytes for type
-    dlen = struct.unpack("<q", header[2:8] + b"\0\0")[0] # 6 bytes of little-endian length
+  return (typ, data)
 
-    print("typ:", "".join("{:02x}".format(x) for x in typ), "len:", dlen)
+def print_stats(name):
+  with open(name, "rb") as f:
+    sizes = {}
+    entries = 0
 
-    data = f.read(dlen)
-    if len(data) != dlen: # Don't trust the given length, specially when pre-allocating
-      print("Missing data", len(data), dlen)
-      break
+    while True:
+      (typ, data) = read_entry(f)
 
-    if typ == b"i2":
-      print("Index header")
-      break
-    elif typ == b"e2":
-      print("e2 header") # May appear
+      if not typ:
+        break
+      entries += 1
+
+      old = sizes.get(typ, (0, 0))
+      sizes[typ] = (old[0] + len(data), old[1] + 1)
+
+    print("Entries", entries)
+
+    for k, v in dict(sorted(sizes.items())).items():
+      print("type", k.hex(), "bytes", v[0], "count", v[1], "average", v[0] / v[1])
 ```
+
 
 ## Writing
 
@@ -100,61 +105,183 @@ type: [0x00, 0x00]
 
 The `Empty` type contains no data, but may have a length. The corresponding amount of data should be skiped while reading the file.
 
-# Slot Index files
-
-Index files are files that store indices to linear histories of entries. They consist of offsets that point the the beginning of the corresponding record. Index files start with an 8-byte header and a starting offset followed by a series of `uint64` encoded as little endian bytes. An index of 0 idicates that there is no data for the given slot.
-
-Each entry in the slot index is fixed-length, meaning that the entry for slot `N` can be found at index `(N * 8) + 16` in the index file. Index files only support linear histories.
-
-By convention, slot index files have the name `.e2i`.
-
-```
-header | starting-slot | index | index | index ...
-```
-
-## IndexVersion
+## SlotIndex
 
 ```
 type: [0x69, 0x32]
+data: starting-slot | index | index | index ... | count
 ```
 
-The `version` header of an index file consists of the bytes `[0x69, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]`.
+`SlotIndex` records store offsets, in bytes, from the beginning of the index record to the beginning of the corresponding data at that slot. An offset of `0` indicates that no data is present for the given slot.
 
-## Reading
+Each entry in the slot index is a fixed-length 8-byte signed integer, meaning that the entry for slot `N` can be found at index `(N * 8) + 16` in the index. The length of a `SlotIndex` record can be computed as `count * 8 + 24` - one entry for every slot and 8 bytes each for type header, starting slot and count. In particular, knowing where the slot index ends allows finding its beginning as well.
+
+Only one entry per slot is supported, meaning that only one canonical history can be indexed this way.
+
+A `SlotIndex` record may appear in a stand-alone file which by convention ends with `.e2i` - in this case, the offset is counted as if the index was appened to its corresponding data file - offsets are thus negative and counted from the end of the data file. In particular, if the index is simply appended to the data file, it does not change in contents.
+
+### Reading
 
 ```python
-def find_offset(name, slot):
-  # Find the offset of a given slot
-  with open(name, "rb") as f:
-    header = f.read(8)
-    typ = header[0:2] # First 2 bytes for type
+def read_slot_index(f):
+  # Read a slot index, assuming `f` is positioned at the end of the record
+  record_end = f.tell()
+  f.seek(-8, 1) # Relative seek to get count
 
-    if typ != b"i2":
-      raise RuntimeError("this is not an e2store file")
+  count = struct.unpack("<q", f.read(8))[0]
 
-    start_slot = struct.unpack("<q", f.read(8))[0]
+  record_start = record_end - (8 * count + 24)
+  if record_start < 0:
+    raise RuntimeError("Record count out of bounds")
 
-    f.seek(8 * (slot - start_slot) + 16)
+  f.seek(record_start) # Absolute seek
 
-    return struct.unpack("<q", f.read(8))[0]
+  (typ, data) = read_entry(f)
 
+  if typ != b"i2":
+    raise RuntimeError("this is not an e2store index record")
+
+  start_slot = struct.unpack("<q", data[0:8])[0]
+
+  # Convert slot indices to absolute file offsets
+  slot_entries = (data[(i+1) * 8:(i+2)*8] for i in range(0, (len(data)//8 - 2)))
+  slot_offsets = [struct.unpack("<q", entry)[0] for entry in slot_entries]
+
+  return (start_slot, record_start, slot_offsets)
 ```
 
 # Era files
 
 `.era` files are special instances of `.e2s` files that follow a more strict content format optimised for reading and long-term storage and distribution. Era files contain groups consisting of a state and the blocks that led up to it, limited to `SLOTS_PER_HISTORICAL_ROOT` slots each, allowing quick verification of the data contained in the file.
 
-Each era is identified by when it ends. Thus, the genesis era is era 0, followed by era 1 which ends before slot 8192 etc.
+Each era is identified by when it ends. Thus, the genesis era is era 0, followed by era 1 which ends when slot 8192 has been processed, but the block that potentially exists at slot 8192 has not yet been applied.
 
-`.era` files MAY follow a simple naming convention: `eth2-<network>-<era-number>-<era-count>.era` with era and count hex-encoded to 8 digits.
+## File name
+
+`.era` file names follow a simple convention: `<config-name>-<era-number>-<era-count>-<short-historical-root>.era`:
+
+* `config-name` is the `CONFIG_NAME` field of the runtime configation (`mainnet`, `prater`, etc)
+* `era-number` is the number of the _last_ era stored in the file - for example, the genesis era file has number 0 - as a 5-digit 0-filled decimal integer
+* `era-count` is the number of eras stored in the file, as a 5-digit 0-filled decimal integer
+* `short-historical-root` is the first 4 bytes of the last historical root in the last state in the era file, lower-case hex-encoded (8 characters), except the genesis era which instead uses the `genesis_validators_root` field from the genesis state.
+  * The root is available as `state.historical_roots[era - 1]` except genesis, whose historical root is all `0`
+
+An era file containing the mainnet genesis is thus named `mainnet-00000000-0000-0001.era`, and the era after that `mainnet-40cf2f3c-0001-0001.era`.
+
+## Structure
 
 An `.era` file is structured in the following way:
 
 ```
 era := group+
-group := canonical-state | blocks*
+group := Version | block* | canonical-state | other-entries* | slot-index(block)? | slot-index(state)
+block := CompressedSignedBeaconBlock
+canonical-state := CompressedBeaconState
 ```
 
-The `canonical-state` is the state of the slot that immediately follows the end of the era without applying blocks from the next era. For example, for the era that covers the first 8192 slots will have all blocks applied up to slot 8191 and will `process_slots` up to 8192. The genesis group contains only the genesis state but no blocks.
+The `block` entries of a group include all blocks pertaining to an era. For example, the group representing era one will have all blocks from slot 0 up to and including block 8191.
 
-Era files place the state first for a number of reasons: the state is then guaranteed to contain all public keys and block roots needed to verify the blocks in the file. A special case is the genesis era file - this file contains only the genesis state.
+The `canonical-state` is the state of the slot that immediately follows the end of the era without applying blocks from the next era. For example, era 1 that covers the first 8192 slots will have all blocks applied up to slot 8191 and will `process_slots` up to 8192. The genesis group contains only the genesis state but no blocks.
+
+`slot-index(state)` is a `SlotIndex` entry with `count = 1` for the `CompressedBeaconState` entry of that era, pointing out the offset where the state entry begins. (TODO: consider count > 1 for files that cover multiple eras - breaks trivial composability of each era snippet but allows instant lookup in multi-era files)
+
+`slot-index(block)` is a `SlotIndex` entry with `count = SLOTS_PER_HISTORICAL_ROOT` for the `CompressedSignedBeaconBlock` entries in that era, pointing out the offsets of each block in the era. It is omitted for the genesis era.
+
+`other-entries` is the extension point for future record types in the era file. The positioning of these allows the indices to continue to be looked up from the back.
+
+The structure of the era file gives it the following properties:
+
+* the indices at the end are fixed-length: they can be used to discover the beginning of an era if the end of it is known
+* the start slot field of the state slot index idenfifies which era the group pertains to
+* the state in the era file is the end state after having applied all the blocks in the era - the `block_roots` entries in the state can be used to discover the digest of the blocks - either to verify the intergrity of the era file or to quickly load block roots without computing them
+* each group in the era file is full, indendent era file - eras can freely be split and combined
+
+## Reading era files
+
+```python
+def read_era_file(name):
+  # Print contents of an era file, backwards
+  with open(name, "rb") as f:
+
+    # Seek to end of file to figure out the indices of the state and blocks
+    f.seek(0, 2)
+
+    groups = 0
+    while True:
+      if f.tell() < 8:
+        break
+
+      (start_slot, state_index_start, state_slot_offsets) = read_slot_index(f)
+
+      print(
+        "State slot:", start_slot,
+        "state index start:", state_index_start,
+        "offsets", state_slot_offsets)
+
+      # The start of the state index record is the end of the block index record, if any
+      f.seek(state_index_start)
+
+      # This can underflow! Python should complain when seeking - ymmv
+      prev_group = state_index_start + state_slot_offsets[0] - 8
+      if start_slot > 0:
+        (block_slot, block_index_start, block_slot_offsets) = read_slot_index(f)
+
+        print(
+          "Block start slot:", block_slot,
+          "block index start:", block_index_start,
+          "offsets", len(block_slot_offsets))
+
+        if any((x for x in block_slot_offsets if x != 0)):
+          # This can underflow! Python should complain when seeking - ymmv
+          prev_group = block_index_start + [x for x in block_slot_offsets if x != 0][0] - 8
+
+      print("Previous group starts at:", prev_group)
+      # The beginning of the first block (or the state, if there are no blocks)
+      # is the end of the previous group
+      f.seek(prev_group) # Skip header
+
+      groups += 1
+    print("Groups in file:", groups)
+```
+
+# FAQ
+
+## Why snappy framed compression?
+
+* The networking protocol uses snappy framed compression, avoiding the need to re-compress data to serve blocks
+* Each entry can be decompressed separately
+* It's fast and compresses decently - some compression stats for the first 100 eras:
+  * Uncompressed: 8.4gb
+  * Snappy compression: 4.7gb
+  * `xz` of uncompressed: 3.8gb
+
+## Why SLOTS_PER_HISTORICAL_ROOT blocks per state?
+
+The state stores the block root of the latest `SLOTS_PER_HISTORICAL_ROOT` blocks - storing one state per that many blocks allows verifying the integrity of the blocks easily against the given state, and ensures that all block and state root information remains available, for example to validate states and blocks against `historical_roots`.
+
+## Why include the state at all?
+
+This is a tradeoff between being able to access state data such as validator keys and balances directly vs and recreating it by applying each block one by one from from genesis. Given an era file, you can always start processing the chain from there onwards.
+
+## Why the weird file name?
+
+Historical roots for the entire beacon chain history are stored in the state - thus, with a recent state one can quickly judge if an era file is part of the same history - this is useful for example when performing checkpoint sync.
+
+The genesis era file uses the genesis validators root for two reasons: it allows disambiguating otherwise similar chains and the genesis state does not yet have a historical root to use.
+
+The era numbers are zero-filled so that they trivially can be sorted - 5 digits is enough for 99999 eras or ~312 years
+
+## How long is an era?
+
+An era is typically 8192 slots, or roughly 27.3 hours - a bit more than a day.
+
+## What happens after the merge?
+
+Era files will store execution block contents, but not execution states (these are too large) - a full era history thus gives the full ethereum history from the merge onwards, for convenient cold storage.
+
+## What is a "canonical state" and why use it?
+
+The state transition function in ethereum does 3 things: slot processing, epoch processing and block processing, in that order. In particular, the slot and epoch processing is done for every slot and epoch, but the block processing may be skipped. When epoch processing is done, all the epoch-related fields in the state have been written, and a new epoch can begin - it's thus reasonable to say that the epoch processing is the last thing that happens in an epoch and the block processing happens in the context of the new epoch.
+
+Storing the "canonical state" without the block applied means that any block from the new epoch can be applied to it - if two histories exist, one that skips the first block in the epoch and one that includes it, one can use the same canonical state in both cases.
+
