@@ -160,6 +160,30 @@ suite "Block pool processing" & preset():
       dag.getBlockRange(Slot(3), 2, blocks.toOpenArray(0, 1)) == 2
       blocks[2..<2].len == 0
 
+    # A fork forces the clearance state to a point where it cannot be advanced
+    let
+      nextEpoch = dag.head.slot.epoch + 1
+      nextEpochSlot = nextEpoch.compute_start_slot_at_epoch()
+      stateCheckpoint = dag.head.parent.atSlot(nextEpochSlot).stateCheckpoint
+
+    check:
+      not dag.getEpochRef(dag.head.parent, nextEpoch).isNil
+
+      # Getting an EpochRef should not result in states being stored
+      db.getStateRoot(stateCheckpoint.blck.root, stateCheckpoint.slot).isErr()
+      # this is required for the test to work - it's not a "public"
+      # post-condition of getEpochRef
+      getStateField(dag.epochRefState.data, slot) == nextEpochSlot
+    assign(state[], dag.epochRefState.data)
+
+    let
+      bnext = addTestBlock(state[], cache).phase0Data
+      bnextAdd = dag.addHeadBlock(verifier, bnext, nilPhase0Callback)
+
+    check:
+      # Getting an EpochRef should not result in states being stored
+      db.getStateRoot(stateCheckpoint.blck.root, stateCheckpoint.slot).isOk()
+
   test "Adding the same block twice returns a Duplicate error" & preset():
     let
       b10 = dag.addHeadBlock(verifier, b1, nilPhase0Callback)

@@ -222,6 +222,12 @@ proc addHeadBlock*(
   # blocks we add to the database are clean for the given state
   let startTick = Moment.now()
 
+  # The clearance state works as the canonical
+  # "let's make things permanent" point and saves things to the database -
+  # storing things is slow, so we don't want to do so before there's a
+  # reasonable chance that the information will become more permanently useful -
+  # by the time a new block reaches this point, the parent block will already
+  # have "established" itself in the network to some degree at least.
   var cache = StateCache()
   updateStateData(
     dag, dag.clearanceState, parent.atSlot(signedBlock.message.slot), true, cache)
