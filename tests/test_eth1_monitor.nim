@@ -459,6 +459,5 @@ suite "Eth1 monitor":
 
     for executionPayload in executionPayloads:
       check:
-        executionPayload ==
-          asConsensusExecutionPayload(
-            asEngineExecutionPayload(executionPayload)[])[]
+        executionPayload == asConsensusExecutionPayload(
+          asEngineExecutionPayload(executionPayload))

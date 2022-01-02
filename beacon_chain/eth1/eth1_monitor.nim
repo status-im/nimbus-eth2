@@ -324,13 +324,11 @@ template asBlockHash(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
 
 func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
-    ref merge.ExecutionPayload =
+    merge.ExecutionPayload =
   template getTransaction(t: TypedTransaction): merge.Transaction =
     merge.Transaction.init(t.distinctBase)
 
-  # Blocks can be up to GOSSIP_MAX_SIZE_MERGE, 10MiB, too large for the stack,
-  # of which most in large cases are transactions also in ExecutionPayload
-  (ref merge.ExecutionPayload)(
+  merge.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
     feeRecipient:
       ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
@@ -352,13 +350,11 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
 
 func asEngineExecutionPayload*(executionPayload: merge.ExecutionPayload):
-    ref ExecutionPayloadV1 =
+    ExecutionPayloadV1 =
   template getTypedTransaction(t: merge.Transaction): TypedTransaction =
     TypedTransaction(t.distinctBase)
 
-  # Blocks can be up to GOSSIP_MAX_SIZE_MERGE, 10MiB, too large for the stack,
-  # of which most in large cases are transactions also in ExecutionPayload
-  (ref engine_api.ExecutionPayloadV1)(
+  engine_api.ExecutionPayloadV1(
     parentHash: executionPayload.parent_hash.asBlockHash,
     feeRecipient: Address(executionPayload.feeRecipient.data),
     stateRoot: executionPayload.state_root.asBlockHash,
