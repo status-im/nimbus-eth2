@@ -1530,7 +1530,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
   # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/client-settings.md#override-terminal-total-difficulty
   if config.terminalTotalDifficultyOverride.isSome:
     metadata.cfg.TERMINAL_TOTAL_DIFFICULTY =
-      config.terminalTotalDifficultyOverride.get.u256
+      parse(config.terminalTotalDifficultyOverride.get, UInt256, 10)
 
   # Updating the config based on the metadata certainly is not beautiful but it
   # works

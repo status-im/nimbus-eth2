@@ -366,11 +366,14 @@ type
         name: "sync-horizon" }: uint64
 
       # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/client-settings.md#override-terminal-total-difficulty
+      # TODO nim-confutils on 32-bit platforms overflows decoding integers
+      # requiring 64-bit representations and doesn't build when specifying
+      # UInt256 directly, so pass this through for decoding elsewhere.
       terminalTotalDifficultyOverride* {.
         hidden
         desc: "Override pre-configured TERMINAL_TOTAL_DIFFICULTY parameter"
         name: "terminal-total-difficulty-override"
-      }: Option[uint64]
+      }: Option[string]
 
       validatorMonitorAuto* {.
         desc: "Automatically monitor locally active validators (BETA)"

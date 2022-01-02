@@ -514,7 +514,7 @@ proc process_execution_payload*(
   # Cache execution payload header
   state.latest_execution_payload_header = ExecutionPayloadHeader(
     parent_hash: payload.parent_hash,
-    feeRecipient: payload.feeRecipient,
+    fee_recipient: payload.fee_recipient,
     state_root: payload.state_root,
     receipts_root: payload.receipts_root,
     logs_bloom: payload.logs_bloom,
@@ -525,6 +525,7 @@ proc process_execution_payload*(
     timestamp: payload.timestamp,
     base_fee_per_gas: payload.base_fee_per_gas,
     block_hash: payload.block_hash,
+    extra_data: payload.extra_data,
     transactions_root: hash_tree_root(payload.transactions))
 
   ok()

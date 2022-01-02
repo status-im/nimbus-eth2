@@ -11,7 +11,7 @@ import
   std/[deques, options, strformat, strutils, sequtils, tables,
        typetraits, uri, json],
   # Nimble packages:
-  chronos, json, metrics, chronicles/timings,
+  chronos, json, metrics, chronicles/timings, stint/endians2,
   web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
   eth/common/eth_types,
   eth/async_utils, stew/[objects, byteutils, shims/hashes],
@@ -76,10 +76,19 @@ type
   Eth1Chain* = object
     db: BeaconChainDB
     cfg: RuntimeConfig
-    blocks: Deque[Eth1Block]
-    blocksByHash: Table[BlockHash, Eth1Block]
     finalizedBlockHash: Eth2Digest
     finalizedDepositsMerkleizer: DepositsMerkleizer
+
+      ## The latest block that reached a 50% majority vote from
+      ## the Eth2 validators according to the follow distance and
+      ## the ETH1_VOTING_PERIOD
+
+    blocks: Deque[Eth1Block]
+      ## A non-forkable chain of blocks ending at the block with
+      ## ETH1_FOLLOW_DISTANCE offset from the head.
+
+    blocksByHash: Table[BlockHash, Eth1Block]
+
     hasConsensusViolation: bool
       ## The local chain contradicts the observed consensus on the network
 
@@ -237,7 +246,7 @@ when hasGenesisDetection:
     m.depositsChain.db.genesisDeposits.add newDeposit
     m.produceDerivedData(newDeposit)
 
-template blocks*(m: Eth1Monitor): Deque[Eth1Block] =
+template depositChainBlocks*(m: Eth1Monitor): Deque[Eth1Block] =
   m.depositsChain.blocks
 
 template finalizedDepositsMerkleizer(m: Eth1Monitor): auto =
@@ -313,6 +322,60 @@ func asEth2Digest*(x: BlockHash): Eth2Digest =
 
 template asBlockHash(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
+
+func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
+    ref merge.ExecutionPayload =
+  template getTransaction(t: TypedTransaction): merge.Transaction =
+    merge.Transaction.init(t.distinctBase)
+
+  # Blocks can be up to GOSSIP_MAX_SIZE_MERGE, 10MiB, too large for the stack,
+  # of which most in large cases are transactions also in ExecutionPayload
+  (ref merge.ExecutionPayload)(
+    parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
+    feeRecipient:
+      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+    state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
+    receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
+    logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
+    random: rpcExecutionPayload.random.asEth2Digest,
+    block_number: rpcExecutionPayload.blockNumber.uint64,
+    gas_limit: rpcExecutionPayload.gasLimit.uint64,
+    gas_used: rpcExecutionPayload.gasUsed.uint64,
+    timestamp: rpcExecutionPayload.timestamp.uint64,
+    extra_data:
+      List[byte, MAX_EXTRA_DATA_BYTES].init(
+        rpcExecutionPayload.extraData.distinctBase),
+    base_fee_per_gas:
+      Eth2Digest(data: rpcExecutionPayload.baseFeePerGas.toBytesLE),
+    block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
+    transactions: List[merge.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
+
+func asEngineExecutionPayload*(executionPayload: merge.ExecutionPayload):
+    ref ExecutionPayloadV1 =
+  template getTypedTransaction(t: merge.Transaction): TypedTransaction =
+    TypedTransaction(t.distinctBase)
+
+  # Blocks can be up to GOSSIP_MAX_SIZE_MERGE, 10MiB, too large for the stack,
+  # of which most in large cases are transactions also in ExecutionPayload
+  (ref engine_api.ExecutionPayloadV1)(
+    parentHash: executionPayload.parent_hash.asBlockHash,
+    feeRecipient: Address(executionPayload.feeRecipient.data),
+    stateRoot: executionPayload.state_root.asBlockHash,
+    receiptsRoot: executionPayload.receipts_root.asBlockHash,
+    logsBloom:
+      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+    random: executionPayload.random.asBlockHash,
+    blockNumber: Quantity(executionPayload.block_number),
+    gasLimit: Quantity(executionPayload.gas_limit),
+    gasUsed: Quantity(executionPayload.gas_used),
+    timestamp: Quantity(executionPayload.timestamp),
+    extraData:
+      DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+    baseFeePerGas:
+      UInt256.fromBytesLE(executionPayload.base_fee_per_gas.data),
+    blockHash: executionPayload.block_hash.asBlockHash,
+    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction))
 
 func shortLog*(b: Eth1Block): string =
   try:
