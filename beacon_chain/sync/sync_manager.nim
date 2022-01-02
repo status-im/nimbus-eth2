@@ -468,7 +468,7 @@ proc guardTask[A, B](man: SyncManager[A, B]) {.async.} =
     man.workers[index].future = future
     pending[index] = future
 
-proc toTimeLeftString(d: Duration): string =
+proc toTimeLeftString*(d: Duration): string =
   if d == InfiniteDuration:
     "--h--m"
   else:
