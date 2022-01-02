@@ -218,7 +218,7 @@
 	path = vendor/nim-websock
 	url = https://github.com/status-im/nim-websock.git
 	ignore = untracked
-	branch = master
+	branch = main
 [submodule "vendor/nim-zlib"]
 	path = vendor/nim-zlib
 	url = https://github.com/status-im/nim-zlib.git
