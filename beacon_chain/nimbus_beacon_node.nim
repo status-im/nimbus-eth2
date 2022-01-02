@@ -468,8 +468,11 @@ proc init*(T: type BeaconNode,
       taskpool)
     syncManager = newSyncManager[Peer, PeerID](
       network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot, getLocalWallSlot,
-      getFirstSlotAtFinalizedEpoch, getBackfillSlot, dag.tail.slot,
-      blockVerifier)
+      getFirstSlotAtFinalizedEpoch, getBackfillSlot, blockVerifier)
+    backfiller = newSyncManager[Peer, PeerID](
+      network.peerPool, SyncQueueKind.Backward, getLocalHeadSlot, getLocalWallSlot,
+      getFirstSlotAtFinalizedEpoch, getBackfillSlot, blockVerifier,
+      maxHeadAge = 0)
 
   let stateTtlCache = if config.restCacheSize > 0:
     StateTtlCache.init(
@@ -500,6 +503,7 @@ proc init*(T: type BeaconNode,
     eventBus: eventBus,
     requestManager: RequestManager.init(network, blockVerifier),
     syncManager: syncManager,
+    backfiller: backfiller,
     actionTracker: ActionTracker.init(rng, config.subscribeAllSubnets),
     processor: processor,
     blockProcessor: blockProcessor,
@@ -917,6 +921,11 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # above, this will be done just before the next slot starts
   await node.updateGossipStatus(slot + 1)
 
+proc syncStatus(node: BeaconNode): string =
+  if node.syncManager.inProgress: node.syncManager.syncStatus
+  elif node.backfiller.inProgress: "backfill: " & node.backfiller.syncStatus
+  else: "synced"
+
 proc onSlotStart(
     node: BeaconNode, wallTime: BeaconTime, lastSlot: Slot) {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -936,9 +945,7 @@ proc onSlotStart(
   info "Slot start",
     slot = shortLog(wallSlot),
     epoch = shortLog(wallSlot.epoch),
-    sync =
-      if node.syncManager.inProgress: node.syncManager.syncStatus
-      else: "synced",
+    sync = node.syncStatus(),
     peers = len(node.network.peerPool),
     head = shortLog(node.dag.head),
     finalized = shortLog(getStateField(
@@ -1127,6 +1134,18 @@ proc stop(node: BeaconNode) =
   node.db.close()
   notice "Databases closed"
 
+proc startBackfillTask(node: BeaconNode) {.async.} =
+  while node.dag.needsBackfill:
+    if not node.syncManager.inProgress:
+      # Only start the backfiller if it's needed _and_ head sync has completed -
+      # if we lose sync after having synced head, we could stop the backfilller,
+      # but this should be a fringe case - might as well keep the logic simple for
+      # now
+      node.backfiller.start()
+      return
+
+    await sleepAsync(chronos.seconds(2))
+
 proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   bnStatus = BeaconNodeStatus.Running
 
@@ -1149,6 +1168,8 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
 
   node.requestManager.start()
   node.syncManager.start()
+
+  if node.dag.needsBackfill(): asyncSpawn node.startBackfillTask()
 
   waitFor node.updateGossipStatus(wallSlot)
 
@@ -1327,13 +1348,7 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
       formatGwei(node.attachedValidatorBalanceTotal)
 
     of "sync_status":
-      if isNil(node.syncManager):
-        "pending"
-      else:
-        if node.syncManager.inProgress:
-          node.syncManager.syncStatus
-        else:
-          "synced"
+      node.syncStatus()
     else:
       # We ignore typos for now and just render the expression
       # as it was written. TODO: come up with a good way to show

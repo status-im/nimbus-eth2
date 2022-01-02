@@ -491,7 +491,7 @@ proc notInRange[T](sq: SyncQueue[T], sr: SyncRequest[T]): bool =
   of SyncQueueKind.Forward:
     (sq.queueSize > 0) and (sr.slot != sq.outSlot)
   of SyncQueueKind.Backward:
-    (sq.queueSize > 0) and (sr.slot + sr.count - 1'u64 != sq.outSlot)
+    (sq.queueSize > 0) and (sr.slot + sr.count != sq.outSlot)
 
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               data: seq[ForkedSignedBeaconBlock],
@@ -532,7 +532,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           some(sq.readyQueue.pop())
       of SyncQueueKind.Backward:
         let maxSlot = sq.readyQueue[0].request.slot +
-                      (sq.readyQueue[0].request.count - 1'u64)
+                      sq.readyQueue[0].request.count
         if sq.outSlot != maxSlot:
           none[SyncResult[T]]()
         else:
@@ -630,7 +630,8 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         of SyncQueueKind.Backward:
           if safeSlot > req.slot:
             let rewindSlot = sq.getRewindPoint(failSlot.get(), safeSlot)
-            warn "Unexpected missing parent, rewind happens",
+            # It's quite common peers give us fewer blocks than we ask for
+            info "Gap in block range response, rewinding",
                  peer = req.item, rewind_to_slot = rewindSlot,
                  rewind_fail_slot = failSlot.get(),
                  finalized_slot = safeSlot,
@@ -716,11 +717,11 @@ proc pop*[T](sq: SyncQueue[T], maxslot: Slot, item: T): SyncRequest[T] =
     of SyncQueueKind.Backward:
       if sq.inpSlot == 0xFFFF_FFFF_FFFF_FFFF'u64:
         return SyncRequest.empty(sq.kind, T)
-      if sq.inpSlot < sq.finalSlot:
+      if sq.inpSlot <= sq.finalSlot:
         return SyncRequest.empty(sq.kind, T)
       let (slot, count) =
         block:
-          let baseSlot = sq.inpSlot + 1'u64
+          let baseSlot = sq.inpSlot
           if baseSlot - sq.finalSlot < sq.chunkSize:
             let count = uint64(baseSlot - sq.finalSlot)
             (baseSlot - count, count)
