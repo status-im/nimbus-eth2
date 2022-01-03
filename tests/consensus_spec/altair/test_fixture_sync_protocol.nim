@@ -72,6 +72,18 @@ let full_sync_committee_bits = block:
   res.bytes.fill(byte.high)
   res
 
+# https://github.com/ethereum/consensus-specs/blob/v1.1.7/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L24-L33
+func initialize_light_client_store(state: auto): LightClientStore =
+  LightClientStore(
+    finalized_header: BeaconBlockHeader(),
+    current_sync_committee: state.current_sync_committee,
+    next_sync_committee: state.next_sync_committee,
+    best_valid_update: none(LightClientUpdate),
+    optimistic_header: BeaconBlockHeader(),
+    previous_max_active_participants: 0,
+    current_max_active_participants: 0,
+  )
+
 suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
   let
     cfg = block:
@@ -80,15 +92,11 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
       res
     genesisState = newClone(initGenesisState(cfg = cfg))
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L22-L78
-  test "process_light_client_update_not_updated":
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L36-L90
+  test "test_process_light_client_update_not_timeout":
     var forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
-
-    let pre_snapshot = LightClientSnapshot(
-      current_sync_committee: state.current_sync_committee,
-      next_sync_committee: state.next_sync_committee)
-    var store = LightClientStore(snapshot: pre_snapshot)
+    var store = initialize_light_client_store(state)
 
     # Block at slot 1 doesn't increase sync committee period,
     # so it won't update snapshot
@@ -108,52 +116,55 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
       sync_committee_bits = full_sync_committee_bits
       sync_committee_signature = compute_aggregate_sync_committee_signature(
         forked[], committee)
+      sync_committee_aggregate = SyncAggregate(
+        sync_committee_bits: sync_committee_bits,
+        sync_committee_signature: sync_committee_signature)
+
     var next_sync_committee_branch:
       array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
 
     # Ensure that finality checkpoint is genesis
     check: state.finalized_checkpoint.epoch == 0
     # Finality is unchanged
-    let finality_header = BeaconBlockHeader()
+    let
+      finality_header = BeaconBlockHeader()
+      pre_store_finalized_header = store.finalized_header
     var finality_branch: array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
 
     let update = LightClientUpdate(
-      header: block_header,
+      attested_header: block_header,
       next_sync_committee: state.next_sync_committee,
       next_sync_committee_branch: next_sync_committee_branch,
-      finality_header: finality_header,
+      finalized_header: finality_header,
       finality_branch: finality_branch,
-      sync_committee_bits: sync_committee_bits,
-      sync_committee_signature: sync_committee_signature,
+      sync_committee_aggregate: sync_committee_aggregate,
       fork_version: state.fork.current_version)
 
     check:
       process_light_client_update(
         store, update, state.slot, state.genesis_validators_root)
 
-      len(store.valid_updates) == 1
-      store.valid_updates.pop() == update
-      store.snapshot == pre_snapshot
+      store.current_max_active_participants > 0
+      store.optimistic_header == update.attested_header
+      store.finalized_header == pre_store_finalized_header
+      store.best_valid_update.get == update
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L81-L144
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L93-L154
   test "process_light_client_update_timeout":
     var forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
-
-    let pre_snapshot = LightClientSnapshot(
-      current_sync_committee: state.current_sync_committee,
-      next_sync_committee: state.next_sync_committee)
-    var store = LightClientStore(snapshot: pre_snapshot)
+    var store = initialize_light_client_store(state)
 
     # Forward to next sync committee period
     var
       cache = StateCache()
       info = ForkedEpochInfo()
     doAssert process_slots(
-      cfg, forked[], Slot(SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD),
-      cache, info, flags = {})
+      cfg, forked[], Slot(UPDATE_TIMEOUT), cache, info, flags = {})
     let
-      snapshot_period = sync_committee_period(pre_snapshot.header.slot)
+      snapshot_period =
+        compute_epoch_at_slot(store.optimistic_header.slot) div
+          EPOCHS_PER_SYNC_COMMITTEE_PERIOD
       update_period = sync_committee_period(state.slot)
     check: snapshot_period + 1 == update_period
 
@@ -173,23 +184,27 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
       sync_committee_bits = full_sync_committee_bits
       sync_committee_signature = compute_aggregate_sync_committee_signature(
         forked[], committee, block_root = block_header.hash_tree_root())
+      sync_committee_aggregate = SyncAggregate(
+        sync_committee_bits: sync_committee_bits,
+        sync_committee_signature: sync_committee_signature)
 
     # Sync committee is updated
     var next_sync_committee_branch {.noinit.}:
       array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
     build_proof(state, NEXT_SYNC_COMMITTEE_INDEX, next_sync_committee_branch)
     # Finality is unchanged
-    let finality_header = BeaconBlockHeader()
+    let
+      finality_header = BeaconBlockHeader()
+      pre_store_finalized_header = store.finalized_header
     var finality_branch: array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
 
     let update = LightClientUpdate(
-      header: block_header,
+      attested_header: block_header,
       next_sync_committee: state.next_sync_committee,
       next_sync_committee_branch: next_sync_committee_branch,
-      finality_header: finality_header,
+      finalized_header: finality_header,
       finality_branch: finality_branch,
-      sync_committee_bits: sync_committee_bits,
-      sync_committee_signature: sync_committee_signature,
+      sync_committee_aggregate: sync_committee_aggregate,
       fork_version: state.fork.current_version)
 
     check:
@@ -197,18 +212,16 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
         store, update, state.slot, state.genesis_validators_root)
 
       # snapshot has been updated
-      len(store.valid_updates) == 0
-      store.snapshot.header == update.header
+      store.current_max_active_participants > 0
+      store.optimistic_header == update.attested_header
+      store.best_valid_update.get == update
+      store.finalized_header == pre_store_finalized_header
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L150-L218
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L157-L224
   test "process_light_client_update_finality_updated":
     var forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
-
-    let pre_snapshot = LightClientSnapshot(
-      current_sync_committee: state.current_sync_committee,
-      next_sync_committee: state.next_sync_committee)
-    var store = LightClientStore(snapshot: pre_snapshot)
+    var store = initialize_light_client_store(state)
 
     # Change finality
     var
@@ -225,8 +238,11 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
     check: state.finalized_checkpoint.epoch == 3
     # Ensure that it's same period
     let
-      snapshot_period = sync_committee_period(pre_snapshot.header.slot)
-      update_period = sync_committee_period(state.slot)
+      snapshot_period =
+        compute_epoch_at_slot(store.optimistic_header.slot) div
+          EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+      update_period =
+        compute_epoch_at_slot(state.slot) div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
     check: snapshot_period == update_period
 
     # Updated sync_committee and finality
@@ -266,15 +282,17 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
       sync_committee_bits = full_sync_committee_bits
       sync_committee_signature = compute_aggregate_sync_committee_signature(
         forked[], committee, block_root = block_header.hash_tree_root())
+      sync_committee_aggregate = SyncAggregate(
+        sync_committee_bits: sync_committee_bits,
+        sync_committee_signature: sync_committee_signature)
 
       update = LightClientUpdate(
-        header: finalized_block_header,
+        attested_header: block_header,
         next_sync_committee: state.next_sync_committee,
         next_sync_committee_branch: next_sync_committee_branch,
-        finality_header: block_header,
+        finalized_header: finalized_block_header,
         finality_branch: finality_branch,
-        sync_committee_bits: sync_committee_bits,
-        sync_committee_signature: sync_committee_signature,
+        sync_committee_aggregate: sync_committee_aggregate,
         fork_version: state.fork.current_version)
 
     check:
@@ -282,5 +300,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
         store, update, state.slot, state.genesis_validators_root)
 
       # snapshot has been updated
-      len(store.valid_updates) == 0
-      store.snapshot.header == update.header
+      store.current_max_active_participants > 0
+      store.optimistic_header == update.attested_header
+      store.finalized_header == update.finalized_header
+      store.best_valid_update.isNone

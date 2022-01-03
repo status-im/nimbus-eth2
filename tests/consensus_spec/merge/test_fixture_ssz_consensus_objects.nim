@@ -117,7 +117,6 @@ suite "Ethereum Foundation - Merge - SSZ consensus objects " & preset():
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
-          of "LightClientSnapshot": checkSSZ(LightClientSnapshot, path, hash)
           of "LightClientUpdate": checkSSZ(LightClientUpdate, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "PowBlock": checkSSZ(PowBlock, path, hash)
