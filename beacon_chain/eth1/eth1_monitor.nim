@@ -175,7 +175,7 @@ func depositCountU64(s: DepositContractState): uint64 =
   for i in 0 .. 23:
     doAssert s.deposit_count[i] == 0
 
-  uint64.fromBytesBE s.deposit_count[24..31]
+  uint64.fromBytesBE s.deposit_count.toOpenArray(24, 31)
 
 template cfg(m: Eth1Monitor): auto =
   m.depositsChain.cfg
