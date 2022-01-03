@@ -26,7 +26,7 @@ type
     ## which blocks are valid - in particular, blocks are not valid if they
     ## come from the future as seen from the local clock.
     ##
-    ## https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/fork-choice.md#fork-choice
+    ## https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/fork-choice.md#fork-choice
     ##
     # TODO consider NTP and network-adjusted timestamps as outlined here:
     #      https://ethresear.ch/t/network-adjusted-timestamps/4187
@@ -39,15 +39,15 @@ type
 const
   # Offsets from the start of the slot to when the corresponding message should
   # be sent
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#attesting
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/validator.md#attesting
   attestationSlotOffset* = seconds(SECONDS_PER_SLOT.int) div INTERVALS_PER_SLOT
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/validator.md#broadcast-aggregate
   aggregateSlotOffset* =
     seconds(SECONDS_PER_SLOT.int) * 2 div INTERVALS_PER_SLOT
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/validator.md#prepare-sync-committee-message
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#prepare-sync-committee-message
   syncCommitteeMessageSlotOffset* =
     seconds(SECONDS_PER_SLOT.int) div INTERVALS_PER_SLOT
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#broadcast-sync-committee-contribution
   syncContributionSlotOffset* =
     seconds(SECONDS_PER_SLOT.int) * 2 div INTERVALS_PER_SLOT
 
