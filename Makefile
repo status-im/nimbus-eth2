@@ -55,7 +55,6 @@ TOOLS := \
 TOOLS_DIRS := \
 	beacon_chain \
 	beacon_chain/eth1 \
-	benchmarks \
 	ncli \
 	research \
 	tools
@@ -82,8 +81,7 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	dist-win64 \
 	dist-macos \
 	dist-macos-arm64 \
-	dist \
-	benchmarks
+	dist
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
