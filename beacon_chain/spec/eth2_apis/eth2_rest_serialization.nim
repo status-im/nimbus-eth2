@@ -384,10 +384,10 @@ proc writeValue*(w: var JsonWriter[RestJson], value: DomainType) {.
 
 proc readValue*(reader: var JsonReader[RestJson], value: var DomainType) {.
      raises: [IOError, SerializationError, Defect].} =
-  var data: array[4, byte]
   try:
-    hexToByteArray(reader.readValue(string), data)
-    let res = uint32.fromBytesLE(data)
+    let
+      data = hexToByteArray(reader.readValue(string), 4)
+      res = uint32.fromBytesLE(data)
     if res >= uint32(low(DomainType)) and res <= uint32(high(DomainType)):
       value = cast[DomainType](res)
     else:
