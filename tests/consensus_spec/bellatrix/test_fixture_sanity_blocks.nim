@@ -9,7 +9,9 @@
 
 import
   # Standard library
-  os, sequtils, chronicles,
+  std/[os, sequtils, strutils],
+  # Nimble
+  chronicles,
   # Beacon chain internals
   ../../../beacon_chain/spec/[forks, state_transition],
   ../../../beacon_chain/spec/datatypes/merge,
@@ -19,8 +21,8 @@ import
   ../fixtures_utils
 
 const
-  FinalityDir = SszTestsDir/const_preset/"merge"/"finality"/"finality"/"pyspec_tests"
-  SanityBlocksDir = SszTestsDir/const_preset/"merge"/"sanity"/"blocks"/"pyspec_tests"
+  FinalityDir = SszTestsDir/const_preset/"bellatrix"/"finality"/"finality"/"pyspec_tests"
+  SanityBlocksDir = SszTestsDir/const_preset/"bellatrix"/"sanity"/"blocks"/"pyspec_tests"
 
 proc runTest(testName, testDir, unitTestName: string) =
   let testPath = testDir / unitTestName
@@ -66,10 +68,13 @@ proc runTest(testName, testDir, unitTestName: string) =
 
   `testImpl _ blck _ testName`()
 
-suite "Ethereum Foundation - Merge - Sanity - Blocks " & preset():
+suite "Ethereum Foundation - Bellatrix - Sanity - Blocks " & preset():
  for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
-   runTest("Ethereum Foundation - Merge - Sanity - Blocks", SanityBlocksDir, path)
+   if path.contains("DS_Store"):
+     # https://github.com/ethereum/consensus-spec-tests/issues/27
+     continue
+   runTest("Ethereum Foundation - Bellatrix - Sanity - Blocks", SanityBlocksDir, path)
 
-suite "Ethereum Foundation - Merge - Finality " & preset():
+suite "Ethereum Foundation - Bellatrix - Finality " & preset():
  for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
-   runTest("Ethereum Foundation - Merge - Finality", FinalityDir, path)
+   runTest("Ethereum Foundation - Bellatrix - Finality", FinalityDir, path)

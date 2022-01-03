@@ -18,7 +18,7 @@ import
   ../fixtures_utils,
   ../../helpers/debug_state
 
-const SanitySlotsDir = SszTestsDir/const_preset/"merge"/"sanity"/"slots"/"pyspec_tests"
+const SanitySlotsDir = SszTestsDir/const_preset/"bellatrix"/"sanity"/"slots"/"pyspec_tests"
 
 proc runTest(identifier: string) =
   let
@@ -48,6 +48,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ slots _ identifier`()
 
-suite "Ethereum Foundation - Merge - Sanity - Slots " & preset():
+suite "Ethereum Foundation - Bellatrix - Sanity - Slots " & preset():
   for kind, path in walkDir(SanitySlotsDir, relative = true, checkDir = true):
     runTest(path)

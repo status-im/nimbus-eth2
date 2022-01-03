@@ -23,7 +23,7 @@ import
   ../../helpers/debug_state
 
 const
-  OpDir                 = SszTestsDir/const_preset/"merge"/"operations"
+  OpDir                 = SszTestsDir/const_preset/"bellatrix"/"operations"
   OpAttestationsDir     = OpDir/"attestation"
   OpAttSlashingDir      = OpDir/"attester_slashing"
   OpBlockHeaderDir      = OpDir/"block_header"
@@ -33,9 +33,10 @@ const
   OpSyncAggregateDir    = OpDir/"sync_aggregate"
   OpVoluntaryExitDir    = OpDir/"voluntary_exit"
 
-  baseDescription = "Ethereum Foundation - Merge - Operations - "
+  baseDescription = "Ethereum Foundation - Bellatrix - Operations - "
 
-doAssert toHashSet(mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) ==
+# DS_Store issue: https://github.com/ethereum/consensus-spec-tests/issues/27
+doAssert toHashSet(filterIt(mapIt(toSeq(walkDir(OpDir, relative = false)), it.path), not it.contains("DS_Store"))) ==
   toHashSet([OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
              OpDepositsDir, OpExecutionPayloadDir, OpProposerSlashingDir,
              OpSyncAggregateDir, OpVoluntaryExitDir])

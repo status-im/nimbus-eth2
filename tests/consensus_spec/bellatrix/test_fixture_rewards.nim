@@ -20,7 +20,7 @@ import
   ../fixtures_utils
 
 const
-  RewardsDirBase = SszTestsDir/const_preset/"merge"/"rewards"
+  RewardsDirBase = SszTestsDir/const_preset/"bellatrix"/"rewards"
   RewardsDirBasic = RewardsDirBase/"basic"/"pyspec_tests"
   RewardsDirLeak = RewardsDirBase/"leak"/"pyspec_tests"
   RewardsDirRandom = RewardsDirBase/"random"/"pyspec_tests"
@@ -35,7 +35,7 @@ proc runTest(rewardsDir, identifier: string) =
   let testDir = rewardsDir / identifier
 
   proc `testImpl _ rewards _ identifier`() =
-    test "Ethereum Foundation - Merge - Rewards - " & identifier & preset():
+    test "Ethereum Foundation - Bellatrix - Rewards - " & identifier & preset():
       var info: altair.EpochInfo
 
       let
@@ -79,7 +79,7 @@ proc runTest(rewardsDir, identifier: string) =
 
   `testImpl _ rewards _ identifier`()
 
-suite "Ethereum Foundation - Merge - Rewards " & preset():
+suite "Ethereum Foundation - Bellatrix - Rewards " & preset():
   for rewardsDir in [RewardsDirBasic, RewardsDirLeak, RewardsDirRandom]:
     for kind, path in walkDir(rewardsDir, relative = true, checkDir = true):
       runTest(rewardsDir, path)

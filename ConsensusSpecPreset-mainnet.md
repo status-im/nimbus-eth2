@@ -55,40 +55,40 @@ ConsensusSpecPreset-mainnet
 + Ethereum Foundation - Altair - Transition - transition_with_proposer_slashing_right_before OK
 + Ethereum Foundation - Altair - Transition - transition_with_random_half_participation [Pre OK
 + Ethereum Foundation - Altair - Transition - transition_with_random_three_quarters_particip OK
-+ Ethereum Foundation - Merge - Rewards - all_balances_too_low_for_reward [Preset: mainnet]  OK
-+ Ethereum Foundation - Merge - Rewards - empty [Preset: mainnet]                            OK
-+ Ethereum Foundation - Merge - Rewards - empty_leak [Preset: mainnet]                       OK
-+ Ethereum Foundation - Merge - Rewards - full_all_correct [Preset: mainnet]                 OK
-+ Ethereum Foundation - Merge - Rewards - full_but_partial_participation [Preset: mainnet]   OK
-+ Ethereum Foundation - Merge - Rewards - full_but_partial_participation_leak [Preset: mainn OK
-+ Ethereum Foundation - Merge - Rewards - full_leak [Preset: mainnet]                        OK
-+ Ethereum Foundation - Merge - Rewards - full_random_0 [Preset: mainnet]                    OK
-+ Ethereum Foundation - Merge - Rewards - full_random_1 [Preset: mainnet]                    OK
-+ Ethereum Foundation - Merge - Rewards - full_random_2 [Preset: mainnet]                    OK
-+ Ethereum Foundation - Merge - Rewards - full_random_3 [Preset: mainnet]                    OK
-+ Ethereum Foundation - Merge - Rewards - full_random_4 [Preset: mainnet]                    OK
-+ Ethereum Foundation - Merge - Rewards - full_random_leak [Preset: mainnet]                 OK
-+ Ethereum Foundation - Merge - Rewards - full_random_low_balances_0 [Preset: mainnet]       OK
-+ Ethereum Foundation - Merge - Rewards - full_random_low_balances_1 [Preset: mainnet]       OK
-+ Ethereum Foundation - Merge - Rewards - full_random_misc_balances [Preset: mainnet]        OK
-+ Ethereum Foundation - Merge - Rewards - full_random_seven_epoch_leak [Preset: mainnet]     OK
-+ Ethereum Foundation - Merge - Rewards - full_random_ten_epoch_leak [Preset: mainnet]       OK
-+ Ethereum Foundation - Merge - Rewards - full_random_without_leak_0 [Preset: mainnet]       OK
-+ Ethereum Foundation - Merge - Rewards - full_random_without_leak_and_current_exit_0 [Prese OK
-+ Ethereum Foundation - Merge - Rewards - half_full [Preset: mainnet]                        OK
-+ Ethereum Foundation - Merge - Rewards - half_full_leak [Preset: mainnet]                   OK
-+ Ethereum Foundation - Merge - Rewards - quarter_full [Preset: mainnet]                     OK
-+ Ethereum Foundation - Merge - Rewards - quarter_full_leak [Preset: mainnet]                OK
-+ Ethereum Foundation - Merge - Rewards - some_very_low_effective_balances_that_attested [Pr OK
-+ Ethereum Foundation - Merge - Rewards - some_very_low_effective_balances_that_attested_lea OK
-+ Ethereum Foundation - Merge - Rewards - some_very_low_effective_balances_that_did_not_atte OK
-+ Ethereum Foundation - Merge - Rewards - some_very_low_effective_balances_that_did_not_atte OK
-+ Ethereum Foundation - Merge - Rewards - with_exited_validators [Preset: mainnet]           OK
-+ Ethereum Foundation - Merge - Rewards - with_exited_validators_leak [Preset: mainnet]      OK
-+ Ethereum Foundation - Merge - Rewards - with_not_yet_activated_validators [Preset: mainnet OK
-+ Ethereum Foundation - Merge - Rewards - with_not_yet_activated_validators_leak [Preset: ma OK
-+ Ethereum Foundation - Merge - Rewards - with_slashed_validators [Preset: mainnet]          OK
-+ Ethereum Foundation - Merge - Rewards - with_slashed_validators_leak [Preset: mainnet]     OK
++ Ethereum Foundation - Bellatrix - Rewards - all_balances_too_low_for_reward [Preset: mainn OK
++ Ethereum Foundation - Bellatrix - Rewards - empty [Preset: mainnet]                        OK
++ Ethereum Foundation - Bellatrix - Rewards - empty_leak [Preset: mainnet]                   OK
++ Ethereum Foundation - Bellatrix - Rewards - full_all_correct [Preset: mainnet]             OK
++ Ethereum Foundation - Bellatrix - Rewards - full_but_partial_participation [Preset: mainne OK
++ Ethereum Foundation - Bellatrix - Rewards - full_but_partial_participation_leak [Preset: m OK
++ Ethereum Foundation - Bellatrix - Rewards - full_leak [Preset: mainnet]                    OK
++ Ethereum Foundation - Bellatrix - Rewards - full_random_0 [Preset: mainnet]                OK
++ Ethereum Foundation - Bellatrix - Rewards - full_random_1 [Preset: mainnet]                OK
++ Ethereum Foundation - Bellatrix - Rewards - full_random_2 [Preset: mainnet]                OK
++ Ethereum Foundation - Bellatrix - Rewards - full_random_3 [Preset: mainnet]                OK
++ Ethereum Foundation - Bellatrix - Rewards - full_random_4 [Preset: mainnet]                OK
++ Ethereum Foundation - Bellatrix - Rewards - full_random_leak [Preset: mainnet]             OK
++ Ethereum Foundation - Bellatrix - Rewards - full_random_low_balances_0 [Preset: mainnet]   OK
++ Ethereum Foundation - Bellatrix - Rewards - full_random_low_balances_1 [Preset: mainnet]   OK
++ Ethereum Foundation - Bellatrix - Rewards - full_random_misc_balances [Preset: mainnet]    OK
++ Ethereum Foundation - Bellatrix - Rewards - full_random_seven_epoch_leak [Preset: mainnet] OK
++ Ethereum Foundation - Bellatrix - Rewards - full_random_ten_epoch_leak [Preset: mainnet]   OK
++ Ethereum Foundation - Bellatrix - Rewards - full_random_without_leak_0 [Preset: mainnet]   OK
++ Ethereum Foundation - Bellatrix - Rewards - full_random_without_leak_and_current_exit_0 [P OK
++ Ethereum Foundation - Bellatrix - Rewards - half_full [Preset: mainnet]                    OK
++ Ethereum Foundation - Bellatrix - Rewards - half_full_leak [Preset: mainnet]               OK
++ Ethereum Foundation - Bellatrix - Rewards - quarter_full [Preset: mainnet]                 OK
++ Ethereum Foundation - Bellatrix - Rewards - quarter_full_leak [Preset: mainnet]            OK
++ Ethereum Foundation - Bellatrix - Rewards - some_very_low_effective_balances_that_attested OK
++ Ethereum Foundation - Bellatrix - Rewards - some_very_low_effective_balances_that_attested OK
++ Ethereum Foundation - Bellatrix - Rewards - some_very_low_effective_balances_that_did_not_ OK
++ Ethereum Foundation - Bellatrix - Rewards - some_very_low_effective_balances_that_did_not_ OK
++ Ethereum Foundation - Bellatrix - Rewards - with_exited_validators [Preset: mainnet]       OK
++ Ethereum Foundation - Bellatrix - Rewards - with_exited_validators_leak [Preset: mainnet]  OK
++ Ethereum Foundation - Bellatrix - Rewards - with_not_yet_activated_validators [Preset: mai OK
++ Ethereum Foundation - Bellatrix - Rewards - with_not_yet_activated_validators_leak [Preset OK
++ Ethereum Foundation - Bellatrix - Rewards - with_slashed_validators [Preset: mainnet]      OK
++ Ethereum Foundation - Bellatrix - Rewards - with_slashed_validators_leak [Preset: mainnet] OK
 + Ethereum Foundation - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: mainnet OK
 + Ethereum Foundation - Phase 0 - Rewards - duplicate_attestations_at_later_slots [Preset: m OK
 + Ethereum Foundation - Phase 0 - Rewards - empty [Preset: mainnet]                          OK
@@ -157,20 +157,20 @@ ConsensusSpecPreset-mainnet
 + [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - same_slot_block_transition [Pre OK
 + [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - slash_and_exit_same_index [Pres OK
 + [Invalid] Ethereum Foundation - Altair - Sanity - Blocks - zero_block_sig [Preset: mainnet OK
-+ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - double_same_proposer_slashings_s OK
-+ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - double_similar_proposer_slashing OK
-+ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - double_validator_exit_same_block OK
-+ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - duplicate_attester_slashing [Pre OK
-+ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - expected_deposit_in_block [Prese OK
-+ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - invalid_block_sig [Preset: mainn OK
-+ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - invalid_proposer_index_sig_from_ OK
-+ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - invalid_proposer_index_sig_from_ OK
-+ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - invalid_state_root [Preset: main OK
-+ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - parent_from_same_slot [Preset: m OK
-+ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - prev_slot_block_transition [Pres OK
-+ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - same_slot_block_transition [Pres OK
-+ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - slash_and_exit_same_index [Prese OK
-+ [Invalid] Ethereum Foundation - Merge - Sanity - Blocks - zero_block_sig [Preset: mainnet] OK
++ [Invalid] Ethereum Foundation - Bellatrix - Sanity - Blocks - double_same_proposer_slashin OK
++ [Invalid] Ethereum Foundation - Bellatrix - Sanity - Blocks - double_similar_proposer_slas OK
++ [Invalid] Ethereum Foundation - Bellatrix - Sanity - Blocks - double_validator_exit_same_b OK
++ [Invalid] Ethereum Foundation - Bellatrix - Sanity - Blocks - duplicate_attester_slashing  OK
++ [Invalid] Ethereum Foundation - Bellatrix - Sanity - Blocks - expected_deposit_in_block [P OK
++ [Invalid] Ethereum Foundation - Bellatrix - Sanity - Blocks - invalid_block_sig [Preset: m OK
++ [Invalid] Ethereum Foundation - Bellatrix - Sanity - Blocks - invalid_proposer_index_sig_f OK
++ [Invalid] Ethereum Foundation - Bellatrix - Sanity - Blocks - invalid_proposer_index_sig_f OK
++ [Invalid] Ethereum Foundation - Bellatrix - Sanity - Blocks - invalid_state_root [Preset:  OK
++ [Invalid] Ethereum Foundation - Bellatrix - Sanity - Blocks - parent_from_same_slot [Prese OK
++ [Invalid] Ethereum Foundation - Bellatrix - Sanity - Blocks - prev_slot_block_transition [ OK
++ [Invalid] Ethereum Foundation - Bellatrix - Sanity - Blocks - same_slot_block_transition [ OK
++ [Invalid] Ethereum Foundation - Bellatrix - Sanity - Blocks - slash_and_exit_same_index [P OK
++ [Invalid] Ethereum Foundation - Bellatrix - Sanity - Blocks - zero_block_sig [Preset: main OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_same_proposer_slashings OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_similar_proposer_slashi OK
 + [Invalid] Ethereum Foundation - Phase 0 - Sanity - Blocks - double_validator_exit_same_blo OK
@@ -238,44 +238,44 @@ ConsensusSpecPreset-mainnet
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - skipped_slots [Preset: mainnet] OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - slash_and_exit_diff_index [Pres OK
 + [Valid]   Ethereum Foundation - Altair - Sanity - Blocks - voluntary_exit [Preset: mainnet OK
-+ [Valid]   Ethereum Foundation - Merge - Finality - finality_no_updates_at_genesis [Preset: OK
-+ [Valid]   Ethereum Foundation - Merge - Finality - finality_rule_1 [Preset: mainnet]       OK
-+ [Valid]   Ethereum Foundation - Merge - Finality - finality_rule_2 [Preset: mainnet]       OK
-+ [Valid]   Ethereum Foundation - Merge - Finality - finality_rule_3 [Preset: mainnet]       OK
-+ [Valid]   Ethereum Foundation - Merge - Finality - finality_rule_4 [Preset: mainnet]       OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - attestation [Preset: mainnet]    OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - attester_slashing [Preset: mainn OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - balance_driven_status_transition OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - deposit_in_block [Preset: mainne OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - deposit_top_up [Preset: mainnet] OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_block_transition [Preset:  OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_block_transition_no_tx [Pr OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_epoch_transition [Preset:  OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_sync_committee_committee [ OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - empty_sync_committee_committee_g OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_0 [Preset OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_1 [Preset OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_2 [Preset OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_random_operations_3 [Preset OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_sync_committee_committee [P OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - full_sync_committee_committee_ge OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - half_sync_committee_committee [P OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - half_sync_committee_committee_ge OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - high_proposer_index [Preset: mai OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - historical_batch [Preset: mainne OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - inactivity_scores_full_participa OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - inactivity_scores_leaking [Prese OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - is_execution_enabled_false [Pres OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_attester_slashings_no_o OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_attester_slashings_part OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_different_proposer_slas OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - multiple_different_validator_exi OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - proposer_after_inactive_index [P OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - proposer_self_slashing [Preset:  OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - proposer_slashing [Preset: mainn OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - skipped_slots [Preset: mainnet]  OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - slash_and_exit_diff_index [Prese OK
-+ [Valid]   Ethereum Foundation - Merge - Sanity - Blocks - voluntary_exit [Preset: mainnet] OK
++ [Valid]   Ethereum Foundation - Bellatrix - Finality - finality_no_updates_at_genesis [Pre OK
++ [Valid]   Ethereum Foundation - Bellatrix - Finality - finality_rule_1 [Preset: mainnet]   OK
++ [Valid]   Ethereum Foundation - Bellatrix - Finality - finality_rule_2 [Preset: mainnet]   OK
++ [Valid]   Ethereum Foundation - Bellatrix - Finality - finality_rule_3 [Preset: mainnet]   OK
++ [Valid]   Ethereum Foundation - Bellatrix - Finality - finality_rule_4 [Preset: mainnet]   OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - attestation [Preset: mainnet OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - attester_slashing [Preset: m OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - balance_driven_status_transi OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - deposit_in_block [Preset: ma OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - deposit_top_up [Preset: main OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - empty_block_transition [Pres OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - empty_block_transition_no_tx OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - empty_epoch_transition [Pres OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - empty_sync_committee_committ OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - empty_sync_committee_committ OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - full_random_operations_0 [Pr OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - full_random_operations_1 [Pr OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - full_random_operations_2 [Pr OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - full_random_operations_3 [Pr OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - full_sync_committee_committe OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - full_sync_committee_committe OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - half_sync_committee_committe OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - half_sync_committee_committe OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - high_proposer_index [Preset: OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - historical_batch [Preset: ma OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - inactivity_scores_full_parti OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - inactivity_scores_leaking [P OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - is_execution_enabled_false [ OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - multiple_attester_slashings_ OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - multiple_attester_slashings_ OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - multiple_different_proposer_ OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - multiple_different_validator OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - proposer_after_inactive_inde OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - proposer_self_slashing [Pres OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - proposer_slashing [Preset: m OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - skipped_slots [Preset: mainn OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - slash_and_exit_diff_index [P OK
++ [Valid]   Ethereum Foundation - Bellatrix - Sanity - Blocks - voluntary_exit [Preset: main OK
 + [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_no_updates_at_genesis [Prese OK
 + [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_1 [Preset: mainnet]     OK
 + [Valid]   Ethereum Foundation - Phase 0 - Finality - finality_rule_2 [Preset: mainnet]     OK
@@ -364,30 +364,30 @@ OK: 334/334 Fail: 0/334 Skip: 0/334
 + [Invalid] Ethereum Foundation - Altair - Operations - Attestation - wrong_index_for_commit OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Attestation - wrong_index_for_slot_0 OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Attestation - wrong_index_for_slot_1 OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - after_epoch_slots       OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - bad_source_root         OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - before_inclusion_delay  OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - correct_after_epoch_del OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - empty_participants_seem OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - empty_participants_zero OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - future_target_epoch     OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_after_ep OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_and_targ OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - incorrect_target_after_ OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - invalid_attestation_sig OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - invalid_current_source_ OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - invalid_index           OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - invalid_previous_source OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - mismatched_target_and_s OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - new_source_epoch        OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - old_source_epoch        OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - old_target_epoch        OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - source_root_is_target_r OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - too_few_aggregation_bit OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - too_many_aggregation_bi OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - wrong_index_for_committ OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - wrong_index_for_slot_0  OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attestation - wrong_index_for_slot_1  OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - after_epoch_slots   OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - bad_source_root     OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - before_inclusion_de OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - correct_after_epoch OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - empty_participants_ OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - empty_participants_ OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - future_target_epoch OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - incorrect_head_afte OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - incorrect_head_and_ OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - incorrect_target_af OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - invalid_attestation OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - invalid_current_sou OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - invalid_index       OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - invalid_previous_so OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - mismatched_target_a OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - new_source_epoch    OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - old_source_epoch    OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - old_target_epoch    OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - source_root_is_targ OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - too_few_aggregation OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - too_many_aggregatio OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - wrong_index_for_com OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - wrong_index_for_slo OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attestation - wrong_index_for_slo OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - after_epoch_slots     OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - bad_source_root       OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Attestation - before_inclusion_dela OK
@@ -427,21 +427,21 @@ OK: 334/334 Fail: 0/334 Skip: 0/334
 + [Valid]   Ethereum Foundation - Altair - Operations - Attestation - success                OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Attestation - success_multi_proposer OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Attestation - success_previous_epoch OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - correct_epoch_delay     OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - correct_min_inclusion_d OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - correct_sqrt_epoch_dela OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_and_targ OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_and_targ OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_and_targ OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_epoch_de OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_min_incl OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_head_sqrt_epo OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_target_epoch_ OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_target_min_in OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - incorrect_target_sqrt_e OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - success                 OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - success_multi_proposer_ OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attestation - success_previous_epoch  OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attestation - correct_epoch_delay OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attestation - correct_min_inclusi OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attestation - correct_sqrt_epoch_ OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attestation - incorrect_head_and_ OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attestation - incorrect_head_and_ OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attestation - incorrect_head_and_ OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attestation - incorrect_head_epoc OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attestation - incorrect_head_min_ OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attestation - incorrect_head_sqrt OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attestation - incorrect_target_ep OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attestation - incorrect_target_mi OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attestation - incorrect_target_sq OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attestation - success             OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attestation - success_multi_propo OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attestation - success_previous_ep OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - correct_epoch_delay   OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - correct_min_inclusion OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Attestation - correct_sqrt_epoch_de OK
@@ -482,27 +482,27 @@ OK: 117/117 Fail: 0/117 Skip: 0/117
 + [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - same_data        OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - unsorted_att_1   OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Attester Slashing - unsorted_att_2   OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - all_empty_indices OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att1_bad_extra_in OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att1_bad_replaced OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att1_duplicate_in OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att1_duplicate_in OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att1_empty_indice OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att1_high_index   OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att2_bad_extra_in OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att2_bad_replaced OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att2_duplicate_in OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att2_duplicate_in OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att2_empty_indice OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - att2_high_index   OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - invalid_sig_1     OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - invalid_sig_1_and OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - invalid_sig_2     OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - no_double_or_surr OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - participants_alre OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - same_data         OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - unsorted_att_1    OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Attester Slashing - unsorted_att_2    OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - all_empty_ind OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - att1_bad_extr OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - att1_bad_repl OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - att1_duplicat OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - att1_duplicat OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - att1_empty_in OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - att1_high_ind OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - att2_bad_extr OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - att2_bad_repl OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - att2_duplicat OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - att2_duplicat OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - att2_empty_in OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - att2_high_ind OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - invalid_sig_1 OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - invalid_sig_1 OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - invalid_sig_2 OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - no_double_or_ OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - participants_ OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - same_data     OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - unsorted_att_ OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Attester Slashing - unsorted_att_ OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - all_empty_indic OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - att1_bad_extra_ OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Attester Slashing - att1_bad_replac OK
@@ -533,15 +533,15 @@ OK: 117/117 Fail: 0/117 Skip: 0/117
 + [Valid]   Ethereum Foundation - Altair - Operations - Attester Slashing - success_proposer OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Attester Slashing - success_surround OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Attester Slashing - success_with_eff OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_already_e OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_already_e OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_attestati OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_double    OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_low_balan OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_misc_bala OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_proposer_ OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_surround  OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Attester Slashing - success_with_effe OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attester Slashing - success_alrea OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attester Slashing - success_alrea OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attester Slashing - success_attes OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attester Slashing - success_doubl OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attester Slashing - success_low_b OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attester Slashing - success_misc_ OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attester Slashing - success_propo OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attester Slashing - success_surro OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Attester Slashing - success_with_ OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Attester Slashing - success_already OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Attester Slashing - success_already OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Attester Slashing - success_attesta OK
@@ -560,18 +560,18 @@ OK: 90/90 Fail: 0/90 Skip: 0/90
 + [Invalid] Ethereum Foundation - Altair - Operations - Block Header - invalid_proposer_inde OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Block Header - invalid_slot_block_he OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Block Header - proposer_slashed      OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Block Header - invalid_multiple_block OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Block Header - invalid_parent_root    OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Block Header - invalid_proposer_index OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Block Header - invalid_slot_block_hea OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Block Header - proposer_slashed       OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Block Header - invalid_multiple_b OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Block Header - invalid_parent_roo OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Block Header - invalid_proposer_i OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Block Header - invalid_slot_block OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Block Header - proposer_slashed   OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Block Header - invalid_multiple_blo OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Block Header - invalid_parent_root  OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Block Header - invalid_proposer_ind OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Block Header - invalid_slot_block_h OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Block Header - proposer_slashed     OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Block Header - success_block_header  OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Block Header - success_block_header   OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Block Header - success_block_head OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Block Header - success_block_header OK
 ```
 OK: 18/18 Fail: 0/18 Skip: 0/18
@@ -579,8 +579,8 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 ```diff
 + [Invalid] Ethereum Foundation - Altair - Operations - Deposit - bad_merkle_proof           OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Deposit - wrong_deposit_for_deposit_ OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Deposit - bad_merkle_proof            OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Deposit - wrong_deposit_for_deposit_c OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Deposit - bad_merkle_proof        OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Deposit - wrong_deposit_for_depos OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Deposit - bad_merkle_proof          OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Deposit - wrong_deposit_for_deposit OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Deposit - invalid_sig_new_deposit    OK
@@ -594,17 +594,17 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   Ethereum Foundation - Altair - Operations - Deposit - new_deposit_under_max      OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Deposit - success_top_up             OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Deposit - valid_sig_but_forked_state OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - invalid_sig_new_deposit     OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - invalid_sig_other_version   OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - invalid_sig_top_up          OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - invalid_withdrawal_credenti OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - new_deposit_eth1_withdrawal OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - new_deposit_max             OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - new_deposit_non_versioned_w OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - new_deposit_over_max        OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - new_deposit_under_max       OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - success_top_up              OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Deposit - valid_sig_but_forked_state  OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Deposit - invalid_sig_new_deposit OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Deposit - invalid_sig_other_versi OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Deposit - invalid_sig_top_up      OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Deposit - invalid_withdrawal_cred OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Deposit - new_deposit_eth1_withdr OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Deposit - new_deposit_max         OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Deposit - new_deposit_non_version OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Deposit - new_deposit_over_max    OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Deposit - new_deposit_under_max   OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Deposit - success_top_up          OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Deposit - valid_sig_but_forked_st OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Deposit - invalid_sig_new_deposit   OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Deposit - invalid_sig_other_version OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Deposit - invalid_sig_top_up        OK
@@ -764,37 +764,23 @@ OK: 35/35 Fail: 0/35 Skip: 0/35
 + test_process_light_client_update_not_timeout                                               OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
-## Ethereum Foundation - ForkChoice [Preset: mainnet]
-```diff
-+ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
-+ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/genesis                      OK
-  ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  Skip
-+ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
-+ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
-+ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/basic                        OK
-+ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
-  ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
-+ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               OK
-+ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
-```
-OK: 8/10 Fail: 0/10 Skip: 2/10
-## Ethereum Foundation - Merge - Epoch Processing - Effective balance updates [Preset: mainnet]
+## Ethereum Foundation - Bellatrix - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Ethereum Foundation - Merge - Epoch Processing - Eth1 data reset [Preset: mainnet]
+## Ethereum Foundation - Bellatrix - Epoch Processing - Eth1 data reset [Preset: mainnet]
 ```diff
 + Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
 + Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Ethereum Foundation - Merge - Epoch Processing - Historical roots update [Preset: mainnet]
+## Ethereum Foundation - Bellatrix - Epoch Processing - Historical roots update [Preset: mainnet]
 ```diff
 + Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Ethereum Foundation - Merge - Epoch Processing - Inactivity [Preset: mainnet]
+## Ethereum Foundation - Bellatrix - Epoch Processing - Inactivity [Preset: mainnet]
 ```diff
 + Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
 + Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
@@ -817,7 +803,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
 ```
 OK: 19/19 Fail: 0/19 Skip: 0/19
-## Ethereum Foundation - Merge - Epoch Processing - Justification & Finalization [Preset: mainnet]
+## Ethereum Foundation - Bellatrix - Epoch Processing - Justification & Finalization [Preset: mainnet]
 ```diff
 + Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
 + Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
@@ -831,7 +817,7 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
 ```
 OK: 10/10 Fail: 0/10 Skip: 0/10
-## Ethereum Foundation - Merge - Epoch Processing - Participation flag updates [Preset: mainnet]
+## Ethereum Foundation - Bellatrix - Epoch Processing - Participation flag updates [Preset: mainnet]
 ```diff
 + Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
 + Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
@@ -845,12 +831,12 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Participation flag updates - random_genesis [Preset: mainnet]                              OK
 ```
 OK: 10/10 Fail: 0/10 Skip: 0/10
-## Ethereum Foundation - Merge - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+## Ethereum Foundation - Bellatrix - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
 ```diff
 + RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Ethereum Foundation - Merge - Epoch Processing - Registry updates [Preset: mainnet]
+## Ethereum Foundation - Bellatrix - Epoch Processing - Registry updates [Preset: mainnet]
 ```diff
 + Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
 + Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
@@ -864,7 +850,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
 ```
 OK: 10/10 Fail: 0/10 Skip: 0/10
-## Ethereum Foundation - Merge - Epoch Processing - Slashings [Preset: mainnet]
+## Ethereum Foundation - Bellatrix - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
 + Slashings - max_penalties [Preset: mainnet]                                                OK
@@ -873,12 +859,12 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
-## Ethereum Foundation - Merge - Epoch Processing - Slashings reset [Preset: mainnet]
+## Ethereum Foundation - Bellatrix - Epoch Processing - Slashings reset [Preset: mainnet]
 ```diff
 + Slashings reset - flush_slashings [Preset: mainnet]                                        OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Ethereum Foundation - Merge - SSZ consensus objects  [Preset: mainnet]
+## Ethereum Foundation - Bellatrix - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
 +   Testing    Attestation                                                                   OK
@@ -920,6 +906,20 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 38/38 Fail: 0/38 Skip: 0/38
+## Ethereum Foundation - ForkChoice [Preset: mainnet]
+```diff
++ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
++ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/genesis                      OK
+  ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  Skip
++ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
++ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
++ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/basic                        OK
++ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
+  ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
++ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               OK
++ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
+```
+OK: 8/10 Fail: 0/10 Skip: 2/10
 ## Ethereum Foundation - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -1021,18 +1021,18 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 ## Execution Payload
 ```diff
-+ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_everything_re OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_execution_fir OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_execution_reg OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_parent_hash_r OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_random_first_ OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_random_regula OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_timestamp_fir OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Execution Payload - bad_timestamp_reg OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - success_first_pay OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - success_first_pay OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - success_regular_p OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Execution Payload - success_regular_p OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Execution Payload - bad_everythin OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Execution Payload - bad_execution OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Execution Payload - bad_execution OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Execution Payload - bad_parent_ha OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Execution Payload - bad_random_fi OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Execution Payload - bad_random_re OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Execution Payload - bad_timestamp OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Execution Payload - bad_timestamp OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Execution Payload - success_first OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Execution Payload - success_first OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Execution Payload - success_regul OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Execution Payload - success_regul OK
 ```
 OK: 12/12 Fail: 0/12 Skip: 0/12
 ## Proposer Slashing
@@ -1049,18 +1049,18 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - proposer_is_not_ OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - proposer_is_slas OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Proposer Slashing - proposer_is_with OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - epochs_are_differ OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - headers_are_same_ OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - headers_are_same_ OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - invalid_different OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - invalid_proposer_ OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - invalid_sig_1     OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - invalid_sig_1_and OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - invalid_sig_1_and OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - invalid_sig_2     OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - proposer_is_not_a OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - proposer_is_slash OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Proposer Slashing - proposer_is_withd OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Proposer Slashing - epochs_are_di OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Proposer Slashing - headers_are_s OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Proposer Slashing - headers_are_s OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Proposer Slashing - invalid_diffe OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Proposer Slashing - invalid_propo OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Proposer Slashing - invalid_sig_1 OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Proposer Slashing - invalid_sig_1 OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Proposer Slashing - invalid_sig_1 OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Proposer Slashing - invalid_sig_2 OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Proposer Slashing - proposer_is_n OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Proposer Slashing - proposer_is_s OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Proposer Slashing - proposer_is_w OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - epochs_are_diff OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - headers_are_sam OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - headers_are_sam OK
@@ -1076,9 +1076,9 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + [Valid]   Ethereum Foundation - Altair - Operations - Proposer Slashing - success          OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Proposer Slashing - success_block_he OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Proposer Slashing - success_slashed_ OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Proposer Slashing - success           OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Proposer Slashing - success_block_hea OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Proposer Slashing - success_slashed_a OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Proposer Slashing - success       OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Proposer Slashing - success_block OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Proposer Slashing - success_slash OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - success         OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - success_block_h OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Proposer Slashing - success_slashed OK
@@ -1093,13 +1093,13 @@ OK: 45/45 Fail: 0/45 Skip: 0/45
 + [Invalid] Ethereum Foundation - Altair - Operations - Sync Aggregate - invalid_signature_m OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Sync Aggregate - invalid_signature_n OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Sync Aggregate - invalid_signature_p OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Sync Aggregate - invalid_signature_ba OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Sync Aggregate - invalid_signature_ex OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Sync Aggregate - invalid_signature_in OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Sync Aggregate - invalid_signature_in OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Sync Aggregate - invalid_signature_mi OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Sync Aggregate - invalid_signature_no OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Sync Aggregate - invalid_signature_pa OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - invalid_signatur OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - invalid_signatur OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - invalid_signatur OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - invalid_signatur OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - invalid_signatur OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - invalid_signatur OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - invalid_signatur OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - random_all_but_one_ OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - random_high_partici OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - random_low_particip OK
@@ -1115,21 +1115,21 @@ OK: 45/45 Fail: 0/45 Skip: 0/45
 + [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - sync_committee_with OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - sync_committee_with OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Sync Aggregate - sync_committee_with OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - random_all_but_one_p OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - random_high_particip OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - random_low_participa OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - random_misc_balances OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - random_only_one_part OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - random_with_exits_wi OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_rewar OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_rewar OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_rewar OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_rewar OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_rewar OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_with_ OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_with_ OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_with_ OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Sync Aggregate - sync_committee_with_ OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - random_all_but_o OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - random_high_part OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - random_low_parti OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - random_misc_bala OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - random_only_one_ OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - random_with_exit OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - sync_committee_r OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - sync_committee_r OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - sync_committee_r OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - sync_committee_r OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - sync_committee_r OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - sync_committee_w OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - sync_committee_w OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - sync_committee_w OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Sync Aggregate - sync_committee_w OK
 ```
 OK: 44/44 Fail: 0/44 Skip: 0/44
 ## Voluntary Exit
@@ -1140,12 +1140,12 @@ OK: 44/44 Fail: 0/44 Skip: 0/44
 + [Invalid] Ethereum Foundation - Altair - Operations - Voluntary Exit - validator_invalid_v OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Voluntary Exit - validator_not_activ OK
 + [Invalid] Ethereum Foundation - Altair - Operations - Voluntary Exit - validator_not_activ OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Voluntary Exit - invalid_signature    OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Voluntary Exit - validator_already_ex OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Voluntary Exit - validator_exit_in_fu OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Voluntary Exit - validator_invalid_va OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Voluntary Exit - validator_not_active OK
-+ [Invalid] Ethereum Foundation - Merge - Operations - Voluntary Exit - validator_not_active OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Voluntary Exit - invalid_signatur OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Voluntary Exit - validator_alread OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Voluntary Exit - validator_exit_i OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Voluntary Exit - validator_invali OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Voluntary Exit - validator_not_ac OK
++ [Invalid] Ethereum Foundation - Bellatrix - Operations - Voluntary Exit - validator_not_ac OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - invalid_signature  OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - validator_already_ OK
 + [Invalid] Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - validator_exit_in_ OK
@@ -1155,9 +1155,9 @@ OK: 44/44 Fail: 0/44 Skip: 0/44
 + [Valid]   Ethereum Foundation - Altair - Operations - Voluntary Exit - default_exit_epoch_ OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Voluntary Exit - success             OK
 + [Valid]   Ethereum Foundation - Altair - Operations - Voluntary Exit - success_exit_queue_ OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Voluntary Exit - default_exit_epoch_s OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Voluntary Exit - success              OK
-+ [Valid]   Ethereum Foundation - Merge - Operations - Voluntary Exit - success_exit_queue__ OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Voluntary Exit - default_exit_epo OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Voluntary Exit - success          OK
++ [Valid]   Ethereum Foundation - Bellatrix - Operations - Voluntary Exit - success_exit_que OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - default_exit_epoch OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - success            OK
 + [Valid]   Ethereum Foundation - Phase 0 - Operations - Voluntary Exit - success_exit_queue OK

@@ -19,11 +19,11 @@ import
   ./test_fixture_rewards,
   ../../helpers/debug_state
 
-const RootDir = SszTestsDir/const_preset/"merge"/"epoch_processing"
+const RootDir = SszTestsDir/const_preset/"bellatrix"/"epoch_processing"
 
 template runSuite(
     suiteDir, testName: string, transitionProc: untyped): untyped =
-  suite "Ethereum Foundation - Merge - Epoch Processing - " & testName & preset():
+  suite "Ethereum Foundation - Bellatrix - Epoch Processing - " & testName & preset():
     for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}, checkDir = true):
 
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
