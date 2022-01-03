@@ -57,7 +57,7 @@ export
 # Eventually, we could also differentiate between user/tainted data and
 # internal state that's gone through sanity checks already.
 
-const SPEC_VERSION* = "1.1.6"
+const SPEC_VERSION* = "1.1.7"
 ## Spec version we're aiming to be compatible with, right now
 
 const

@@ -775,7 +775,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    ForkData                                                                      OK
 +   Testing    HistoricalBatch                                                               OK
 +   Testing    IndexedAttestation                                                            OK
-+   Testing    LightClientSnapshot                                                           OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    PendingAttestation                                                            OK
 +   Testing    ProposerSlashing                                                              OK
@@ -793,12 +792,12 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 36/36 Fail: 0/36 Skip: 0/36
+OK: 35/35 Fail: 0/35 Skip: 0/35
 ## Ethereum Foundation - Altair - Unittests - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
-+ process_light_client_update_not_updated                                                    OK
 + process_light_client_update_timeout                                                        OK
++ test_process_light_client_update_not_timeout                                               OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Ethereum Foundation - ForkChoice [Preset: minimal]
@@ -963,7 +962,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    ForkData                                                                      OK
 +   Testing    HistoricalBatch                                                               OK
 +   Testing    IndexedAttestation                                                            OK
-+   Testing    LightClientSnapshot                                                           OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    PendingAttestation                                                            OK
 +   Testing    PowBlock                                                                      OK
@@ -982,7 +980,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 39/39 Fail: 0/39 Skip: 0/39
+OK: 38/38 Fail: 0/38 Skip: 0/38
 ## Ethereum Foundation - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -1239,4 +1237,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 30/30 Fail: 0/30 Skip: 0/30
 
 ---TOTAL---
-OK: 1037/1057 Fail: 0/1057 Skip: 20/1057
+OK: 1035/1055 Fail: 0/1055 Skip: 20/1055

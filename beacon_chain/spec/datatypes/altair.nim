@@ -65,6 +65,10 @@ const
   INACTIVITY_SCORE_BIAS* = 4
   INACTIVITY_SCORE_RECOVERY_RATE* = 16
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/altair/sync-protocol.md#misc
+  # MIN_SYNC_COMMITTEE_PARTICIPANTS defined in presets
+  UPDATE_TIMEOUT* = SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+
   SYNC_SUBCOMMITTEE_SIZE* = SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_SUBNET_COUNT
 
 # "Note: The sum of the weights equal WEIGHT_DENOMINATOR."
@@ -146,41 +150,45 @@ type
 
   ### Modified/overloaded
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/sync-protocol.md#lightclientsnapshot
-  LightClientSnapshot* = object
-    header*: BeaconBlockHeader ##\
-    ## Beacon block header
-
-    current_sync_committee*: SyncCommittee ##\
-    ## Sync committees corresponding to the header
-
-    next_sync_committee*: SyncCommittee
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/sync-protocol.md#lightclientupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/altair/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
-    header*: BeaconBlockHeader  ##\
-    ## Update beacon block header
+    attested_header*: BeaconBlockHeader ##\
+    ## The beacon block header that is attested to by the sync committee
 
-    # Next sync committee corresponding to the header
+    # Next sync committee corresponding to the active header
     next_sync_committee*: SyncCommittee
-    next_sync_committee_branch*: array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
+    next_sync_committee_branch*:
+      array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
 
-    # Finality proof for the update header
-    finality_header*: BeaconBlockHeader
+    # The finalized beacon block header attested to by Merkle branch
+    finalized_header*: BeaconBlockHeader
     finality_branch*: array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
 
     # Sync committee aggregate signature
-    sync_committee_bits*: BitArray[SYNC_COMMITTEE_SIZE]
-    sync_committee_signature*: ValidatorSig
+    sync_committee_aggregate*: SyncAggregate
 
     fork_version*: Version ##\
     ## Fork version for the aggregate signature
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/sync-protocol.md#lightclientstore
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/altair/sync-protocol.md#lightclientstore
   LightClientStore* = object
-    snapshot*: LightClientSnapshot
-    valid_updates*: HashSet[LightClientUpdate]
-      ## TODO: This will benefit from being an ordered set
+    finalized_header*: BeaconBlockHeader ##\
+    ## Beacon block header that is finalized
+
+    # Sync committees corresponding to the header
+    current_sync_committee*: SyncCommittee
+    next_sync_committee*: SyncCommittee
+
+    best_valid_update*: Option[LightClientUpdate] ##\
+    ## Best available header to switch finalized head to if we see nothing else
+
+    optimistic_header*: BeaconBlockHeader ##\
+    ## Most recent available reasonably-safe header
+
+    # Max number of active participants in a sync committee (used to calculate
+    # safety threshold)
+    previous_max_active_participants*: uint64
+    current_max_active_participants*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#beaconstate
   BeaconState* = object
