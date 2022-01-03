@@ -853,7 +853,9 @@ proc updateStateData*(
   # an earlier state must be loaded since there's no way to undo the slot
   # transitions
 
-  let startTick = Moment.now()
+  let
+    startTick = Moment.now()
+    current {.used.} = state.blck.atSlot(getStateField(state.data, slot))
 
   var
     ancestors: seq[BlockRef]
@@ -931,7 +933,7 @@ proc updateStateData*(
 
   if not found:
     debug "UpdateStateData cache miss",
-      bs, stateBlock = state.blck, stateSlot = getStateField(state.data, slot)
+      current = shortLog(current), target = shortLog(bs)
 
     # Either the state is too new or was created by applying a different block.
     # We'll now resort to loading the state from the database then reapplying
@@ -967,8 +969,9 @@ proc updateStateData*(
   # Starting state has been assigned, either from memory or database
   let
     assignTick = Moment.now()
-    startSlot {.used.} = getStateField(state.data, slot) # used in logs below
-    startRoot {.used.} = getStateRoot(state.data)
+    ancestor {.used.} = state.blck.atSlot(getStateField(state.data, slot))
+    ancestorRoot {.used.} = getStateRoot(state.data)
+
   var info: ForkedEpochInfo
   # Time to replay all the blocks between then and now
   for i in countdown(ancestors.len - 1, 0):
@@ -990,27 +993,47 @@ proc updateStateData*(
     assignDur = assignTick - startTick
     replayDur = Moment.now() - assignTick
 
-  logScope:
-    blocks = ancestors.len
-    slots = getStateField(state.data, slot) - startSlot
-    stateRoot = shortLog(getStateRoot(state.data))
-    stateSlot = getStateField(state.data, slot)
-    startRoot = shortLog(startRoot)
-    startSlot
-    blck = shortLog(bs)
-    found
-    assignDur
-    replayDur
-
+  # TODO https://github.com/status-im/nim-chronicles/issues/108
   if (assignDur + replayDur) >= 250.millis:
     # This might indicate there's a cache that's not in order or a disk that is
     # too slow - for now, it's here for investigative purposes and the cutoff
     # time might need tuning
-    info "State replayed"
+    info "State replayed",
+      blocks = ancestors.len,
+      slots = getStateField(state.data, slot) - ancestor.slot,
+      current = shortLog(current),
+      ancestor = shortLog(ancestor),
+      target = shortLog(bs),
+      ancestorStateRoot = shortLog(ancestorRoot),
+      targetStateRoot = shortLog(getStateRoot(state.data)),
+      found,
+      assignDur,
+      replayDur
+
   elif ancestors.len > 0:
-    debug "State replayed"
-  else:
-    trace "State advanced" # Normal case!
+    debug "State replayed",
+      blocks = ancestors.len,
+      slots = getStateField(state.data, slot) - ancestor.slot,
+      current = shortLog(current),
+      ancestor = shortLog(ancestor),
+      target = shortLog(bs),
+      ancestorStateRoot = shortLog(ancestorRoot),
+      targetStateRoot = shortLog(getStateRoot(state.data)),
+      found,
+      assignDur,
+      replayDur
+  else: # Normal case!
+    trace "State advanced",
+      blocks = ancestors.len,
+      slots = getStateField(state.data, slot) - ancestor.slot,
+      current = shortLog(current),
+      ancestor = shortLog(ancestor),
+      target = shortLog(bs),
+      ancestorStateRoot = shortLog(ancestorRoot),
+      targetStateRoot = shortLog(getStateRoot(state.data)),
+      found,
+      assignDur,
+      replayDur
 
 proc delState(dag: ChainDAGRef, bs: BlockSlot) =
   # Delete state state and mapping for a particular block+slot
@@ -1340,7 +1363,7 @@ proc updateHead*(
     beacon_current_active_validators.set(number_of_active_validators)
 
   if finalizedHead != dag.finalizedHead:
-    info "Reached new finalization checkpoint",
+    debug "Reached new finalization checkpoint",
       head = shortLog(dag.headState.blck),
       stateRoot = shortLog(getStateRoot(dag.headState.data)),
       justified = shortLog(getStateField(

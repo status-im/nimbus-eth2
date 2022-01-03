@@ -995,8 +995,15 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   # await calls, thus we use a local variable to keep the logic straight here
   var head = node.dag.head
   if not node.isSynced(head):
-    notice "Syncing in progress; skipping validator duties for now",
-      slot, headSlot = head.slot
+    let
+      nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot)
+      nextProposalSlot = node.actionTracker.getNextProposalSlot(slot)
+    if slot in [nextAttestationSlot, nextProposalSlot]:
+      notice "Syncing in progress; skipping validator duties for now",
+        slot, headSlot = head.slot
+    else:
+      debug "Syncing in progress; skipping validator duties for now",
+        slot, headSlot = head.slot
 
     # Rewards will be growing though, as we sync..
     updateValidatorMetrics(node)
@@ -1007,12 +1014,24 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   # If broadcastStartEpoch is 0, it hasn't had time to initialize yet, which
   # means that it'd be okay not to continue, but it won't gossip regardless.
-  if  curSlot.epoch <
+  if curSlot.epoch <
         node.processor[].doppelgangerDetection.broadcastStartEpoch and
       node.config.doppelgangerDetection:
-    debug "Waiting to gossip out to detect potential duplicate validators",
-      broadcastStartEpoch =
-        node.processor[].doppelgangerDetection.broadcastStartEpoch
+    let
+      nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot)
+      nextProposalSlot = node.actionTracker.getNextProposalSlot(slot)
+
+    if slot in [nextAttestationSlot, nextProposalSlot]:
+      notice "Doppelganger detection active - skipping validator duties while observing activity on the network",
+        slot, epoch = slot.epoch, nextAttestationSlot, nextProposalSlot,
+        broadcastStartEpoch =
+          node.processor[].doppelgangerDetection.broadcastStartEpoch
+    else:
+      debug "Doppelganger detection active - skipping validator duties while observing activity on the network",
+        slot, epoch = slot.epoch, nextAttestationSlot, nextProposalSlot,
+        broadcastStartEpoch =
+          node.processor[].doppelgangerDetection.broadcastStartEpoch
+
     return
 
   # Start by checking if there's work we should have done in the past that we

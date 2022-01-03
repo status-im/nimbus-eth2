@@ -665,23 +665,6 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.network.unsubscribe(
     getSyncCommitteeContributionAndProofTopic(forkDigest))
 
-proc setupDoppelgangerDetection(node: BeaconNode, slot: Slot) =
-  # When another client's already running, this is very likely to detect
-  # potential duplicate validators, which can trigger slashing.
-  #
-  # Every missed attestation costs approximately 3*get_base_reward(), which
-  # can be up to around 10,000 Wei. Thus, skipping attestations isn't cheap
-  # and one should gauge the likelihood of this simultaneous launch to tune
-  # the epoch delay to one's perceived risk.
-  const duplicateValidatorEpochs = 2
-
-  node.processor.doppelgangerDetection.broadcastStartEpoch =
-    slot.epoch + duplicateValidatorEpochs
-  debug "Setting up doppelganger protection",
-    epoch = slot.epoch,
-    broadcastStartEpoch =
-      node.processor.doppelgangerDetection.broadcastStartEpoch
-
 proc trackSyncCommitteeTopics*(node: BeaconNode) =
   # TODO
   discard
@@ -743,7 +726,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
       headSlot = head.slot,
       headDistance, targetGossipState
 
-    node.setupDoppelgangerDetection(slot)
+    node.processor[].setupDoppelgangerDetection(slot)
 
     # Specially when waiting for genesis, we'll already be synced on startup -
     # it might also happen on a sufficiently fast restart
@@ -836,12 +819,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     node.actionTracker.updateActions(epochRef)
 
   let
-    nextAttestationSlot = getNextValidatorAction(
-      node.actionTracker.attestingSlots,
-      node.actionTracker.lastCalculatedEpoch, slot)
-    nextProposalSlot = getNextValidatorAction(
-      node.actionTracker.proposingSlots,
-      node.actionTracker.lastCalculatedEpoch, slot)
+    nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot)
+    nextProposalSlot = node.actionTracker.getNextProposalSlot(slot)
     nextActionWaitTime = saturate(fromNow(
       node.beaconClock, min(nextAttestationSlot, nextProposalSlot)))
 

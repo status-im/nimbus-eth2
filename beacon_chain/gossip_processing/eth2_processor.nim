@@ -152,7 +152,8 @@ proc new*(T: type Eth2Processor,
   (ref Eth2Processor)(
     doppelGangerDetectionEnabled: doppelGangerDetectionEnabled,
     doppelgangerDetection: DoppelgangerProtection(
-      nodeLaunchSlot: getBeaconTime().slotOrZero),
+      nodeLaunchSlot: getBeaconTime().slotOrZero,
+      broadcastStartEpoch: FAR_FUTURE_EPOCH),
     blockProcessor: blockProcessor,
     validatorMonitor: validatorMonitor,
     dag: dag,
@@ -225,6 +226,25 @@ proc blockValidator*(
     beacon_blocks_dropped.inc(1, [$v.error[0]])
 
   v
+
+proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
+  # When another client's already running, this is very likely to detect
+  # potential duplicate validators, which can trigger slashing.
+  #
+  # Every missed attestation costs approximately 3*get_base_reward(), which
+  # can be up to around 10,000 Wei. Thus, skipping attestations isn't cheap
+  # and one should gauge the likelihood of this simultaneous launch to tune
+  # the epoch delay to one's perceived risk.
+
+  if self.validatorPool[].count() > 0:
+    const duplicateValidatorEpochs = 2
+
+    self.doppelgangerDetection.broadcastStartEpoch =
+      slot.epoch + duplicateValidatorEpochs
+    notice "Setting up doppelganger protection",
+      epoch = slot.epoch,
+      broadcastStartEpoch =
+        self.doppelgangerDetection.broadcastStartEpoch
 
 proc checkForPotentialDoppelganger(
     self: var Eth2Processor, attestation: Attestation,
