@@ -1054,7 +1054,7 @@ proc syncBlockRange(m: Eth1Monitor,
       else:
         discard
 
-      notice "Eth1 sync progress",
+      info "Eth1 sync progress",
         blockNumber = lastBlock.number,
         depositsProcessed = lastBlock.voteData.deposit_count
 

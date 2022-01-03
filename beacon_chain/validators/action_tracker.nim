@@ -186,6 +186,16 @@ func getNextValidatorAction*(
 
   FAR_FUTURE_SLOT
 
+func getNextAttestationSlot*(tracker: ActionTracker, slot: Slot): Slot =
+  getNextValidatorAction(
+    tracker.attestingSlots,
+    tracker.lastCalculatedEpoch, slot)
+
+func getNextProposalSlot*(tracker: ActionTracker, slot: Slot): Slot =
+  getNextValidatorAction(
+    tracker.proposingSlots,
+    tracker.lastCalculatedEpoch, slot)
+
 proc updateActions*(tracker: var ActionTracker, epochRef: EpochRef) =
   # Updates the schedule for upcoming attestation and proposal work
   let
