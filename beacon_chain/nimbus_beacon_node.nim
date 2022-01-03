@@ -1005,16 +1005,18 @@ proc installMessageValidators(node: BeaconNode) =
 
   node.network.addValidator(
     getBeaconBlocksTopic(node.dag.forkDigests.phase0),
+    BeaconBlockFork.Phase0,
     proc (signedBlock: phase0.SignedBeaconBlock): ValidationResult =
       toValidationResult(node.processor[].blockValidator(
         MsgSource.gossip, signedBlock)))
 
-  template installPhase0Validators(digest: auto) =
+  template installPhase0Validators(msgFork, digest: auto) =
     for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
       closureScope:
         let subnet_id = SubnetId(it)
         node.network.addAsyncValidator(
           getAttestationTopic(digest, subnet_id),
+          msgFork,
           # This proc needs to be within closureScope; don't lift out of loop.
           proc(attestation: Attestation): Future[ValidationResult] {.async.} =
             return toValidationResult(
@@ -1023,6 +1025,7 @@ proc installMessageValidators(node: BeaconNode) =
 
     node.network.addAsyncValidator(
       getAggregateAndProofsTopic(digest),
+      msgFork,
       proc(signedAggregateAndProof: SignedAggregateAndProof):
           Future[ValidationResult] {.async.} =
         return toValidationResult(
@@ -1031,6 +1034,7 @@ proc installMessageValidators(node: BeaconNode) =
 
     node.network.addValidator(
       getAttesterSlashingsTopic(digest),
+      msgFork,
       proc (attesterSlashing: AttesterSlashing): ValidationResult =
         toValidationResult(
           node.processor[].attesterSlashingValidator(
@@ -1038,6 +1042,7 @@ proc installMessageValidators(node: BeaconNode) =
 
     node.network.addValidator(
       getProposerSlashingsTopic(digest),
+      msgFork,
       proc (proposerSlashing: ProposerSlashing): ValidationResult =
         toValidationResult(
           node.processor[].proposerSlashingValidator(
@@ -1045,36 +1050,40 @@ proc installMessageValidators(node: BeaconNode) =
 
     node.network.addValidator(
       getVoluntaryExitsTopic(digest),
+      msgFork,
       proc (signedVoluntaryExit: SignedVoluntaryExit): ValidationResult =
         toValidationResult(
           node.processor[].voluntaryExitValidator(
             MsgSource.gossip, signedVoluntaryExit)))
 
-  installPhase0Validators(node.dag.forkDigests.phase0)
+  installPhase0Validators(BeaconBlockFork.Phase0, node.dag.forkDigests.phase0)
 
   # Validators introduced in phase0 are also used in altair and merge, but with
   # different fork digest
-  installPhase0Validators(node.dag.forkDigests.altair)
-  installPhase0Validators(node.dag.forkDigests.merge)
+  installPhase0Validators(BeaconBlockFork.Altair, node.dag.forkDigests.altair)
+  installPhase0Validators(BeaconBlockFork.Merge, node.dag.forkDigests.merge)
 
   node.network.addValidator(
     getBeaconBlocksTopic(node.dag.forkDigests.altair),
+    BeaconBlockFork.Altair,
     proc (signedBlock: altair.SignedBeaconBlock): ValidationResult =
       toValidationResult(node.processor[].blockValidator(
         MsgSource.gossip, signedBlock)))
 
   node.network.addValidator(
     getBeaconBlocksTopic(node.dag.forkDigests.merge),
+    BeaconBlockFork.Merge,
     proc (signedBlock: merge.SignedBeaconBlock): ValidationResult =
       toValidationResult(node.processor[].blockValidator(
         MsgSource.gossip, signedBlock)))
 
-  template installSyncCommitteeeValidators(digest: auto) =
+  template installSyncCommitteeeValidators(msgFork, digest: auto) =
     for committeeIdx in allSyncSubcommittees():
       closureScope:
         let idx = committeeIdx
         node.network.addAsyncValidator(
           getSyncCommitteeTopic(digest, idx),
+          msgFork,
           # This proc needs to be within closureScope; don't lift out of loop.
           proc(msg: SyncCommitteeMessage): Future[ValidationResult] {.async.} =
             return toValidationResult(
@@ -1083,12 +1092,15 @@ proc installMessageValidators(node: BeaconNode) =
 
     node.network.addAsyncValidator(
       getSyncCommitteeContributionAndProofTopic(digest),
+      msgFork,
       proc(msg: SignedContributionAndProof): Future[ValidationResult] {.async.} =
         return toValidationResult(
           await node.processor.contributionValidator(MsgSource.gossip, msg)))
 
-  installSyncCommitteeeValidators(node.dag.forkDigests.altair)
-  installSyncCommitteeeValidators(node.dag.forkDigests.merge)
+  installSyncCommitteeeValidators(
+    BeaconBlockFork.Altair, node.dag.forkDigests.altair)
+  installSyncCommitteeeValidators(
+    BeaconBlockFork.Merge, node.dag.forkDigests.merge)
 
 proc stop(node: BeaconNode) =
   bnStatus = BeaconNodeStatus.Stopping

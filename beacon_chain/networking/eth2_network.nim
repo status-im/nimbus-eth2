@@ -1822,6 +1822,19 @@ proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
     .withTcpTransport({ServerFlags.ReuseAddr})
     .build()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/p2p-interface.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/p2p-interface.md#configuration
+template getMaxGossipMaxSize(): auto =
+  max(GOSSIP_MAX_SIZE, GOSSIP_MAX_SIZE_MERGE)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/p2p-interface.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/p2p-interface.md#configuration
+template getForkGossipMaxSize(msgFork: BeaconBlockFork): auto =
+  if msgFork >= BeaconBlockFork.Merge:
+    GOSSIP_MAX_SIZE_MERGE
+  else:
+    GOSSIP_MAX_SIZE
+
 proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      config: BeaconNodeConf,
                      netKeys: NetKeyPair,
@@ -1862,7 +1875,9 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       if m.topicIDs.len > 0: m.topicIDs[0] else: ""
 
     try:
-      let decoded = snappy.decode(m.data, GOSSIP_MAX_SIZE)
+      # This doesn't have to be a tight bound, just enough to avoid denial of
+      # service attacks.
+      let decoded = snappy.decode(m.data, getMaxGossipMaxSize())
       gossipId(decoded, altairPrefix, topic, true)
     except CatchableError:
       gossipId(m.data, altairPrefix, topic, false)
@@ -1958,6 +1973,7 @@ proc newValidationResultFuture(v: ValidationResult): Future[ValidationResult] =
 
 proc addValidator*[MsgType](node: Eth2Node,
                             topic: string,
+                            msgFork: BeaconBlockFork,
                             msgValidator: proc(msg: MsgType):
                             ValidationResult {.gcsafe, raises: [Defect].} ) =
   # Message validators run when subscriptions are enabled - they validate the
@@ -1969,7 +1985,8 @@ proc addValidator*[MsgType](node: Eth2Node,
     inc nbc_gossip_messages_received
     trace "Validating incoming gossip message", len = message.data.len, topic
 
-    var decompressed = snappy.decode(message.data, GOSSIP_MAX_SIZE)
+    var decompressed =
+      snappy.decode(message.data, getForkGossipMaxSize(msgFork))
     let res = if decompressed.len > 0:
       try:
         let decoded = SSZ.decode(decompressed, MsgType)
@@ -1993,6 +2010,7 @@ proc addValidator*[MsgType](node: Eth2Node,
 
 proc addAsyncValidator*[MsgType](node: Eth2Node,
                             topic: string,
+                            msgFork: BeaconBlockFork,
                             msgValidator: proc(msg: MsgType):
                             Future[ValidationResult] {.gcsafe, raises: [Defect].} ) =
   proc execValidator(topic: string, message: GossipMsg):
@@ -2000,7 +2018,8 @@ proc addAsyncValidator*[MsgType](node: Eth2Node,
     inc nbc_gossip_messages_received
     trace "Validating incoming gossip message", len = message.data.len, topic
 
-    var decompressed = snappy.decode(message.data, GOSSIP_MAX_SIZE)
+    var decompressed = snappy.decode(
+      message.data, getForkGossipMaxSize(msgFork))
     if decompressed.len > 0:
       try:
         let decoded = SSZ.decode(decompressed, MsgType)
@@ -2045,7 +2064,7 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
 
     # This is only for messages we create. A message this large amounts to an
     # internal logic error.
-    doAssert uncompressed.len <= GOSSIP_MAX_SIZE
+    doAssert uncompressed.len <= getMaxGossipMaxSize()
     inc nbc_gossip_messages_sent
 
     var futSnappy = node.pubsub.publish(topic, compressed)
