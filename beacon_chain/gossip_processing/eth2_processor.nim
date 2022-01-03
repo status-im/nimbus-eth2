@@ -278,7 +278,7 @@ proc attestationValidator*(
     await self.attestationPool.validateAttestation(
       self.batchCrypto, attestation, wallTime, subnet_id, checkSignature)
   return if v.isOk():
-    # Due to async validation the wallSlot here might have changed
+    # Due to async validation the wallTime here might have changed
     wallTime = self.getCurrentBeaconTime()
 
     let (attester_index, sig) = v.get()
@@ -304,8 +304,8 @@ proc attestationValidator*(
 proc aggregateValidator*(
     self: ref Eth2Processor, src: MsgSource,
     signedAggregateAndProof: SignedAggregateAndProof): Future[ValidationRes] {.async.} =
-  let wallTime = self.getCurrentBeaconTime()
-  var (afterGenesis, wallSlot) = wallTime.toSlot()
+  var wallTime = self.getCurrentBeaconTime()
+  let (afterGenesis, wallSlot) = wallTime.toSlot()
 
   logScope:
     aggregate = shortLog(signedAggregateAndProof.message.aggregate)
@@ -328,8 +328,8 @@ proc aggregateValidator*(
       self.batchCrypto, signedAggregateAndProof, wallTime)
 
   return if v.isOk():
-    # Due to async validation the wallSlot here might have changed
-    wallSlot = self.getCurrentBeaconTime().slotOrZero()
+    # Due to async validation the wallTime here might have changed
+    wallTime = self.getCurrentBeaconTime()
 
     let (attesting_indices, sig) = v.get()
 
