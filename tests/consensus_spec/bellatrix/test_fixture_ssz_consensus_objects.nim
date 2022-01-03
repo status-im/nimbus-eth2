@@ -26,7 +26,7 @@ import
 # ----------------------------------------------------------------
 
 const
-  SSZDir = SszTestsDir/const_preset/"merge"/"ssz_static"
+  SSZDir = SszTestsDir/const_preset/"bellatrix"/"ssz_static"
 
 type
   SSZHashTreeRoot = object
@@ -78,7 +78,7 @@ proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
 # Test runner
 # ----------------------------------------------------------------
 
-suite "Ethereum Foundation - Merge - SSZ consensus objects " & preset():
+suite "Ethereum Foundation - Bellatrix - SSZ consensus objects " & preset():
   doAssert existsDir(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir
