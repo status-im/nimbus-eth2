@@ -98,7 +98,7 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("getEth1Chain") do () -> seq[Eth1Block]:
     result = if node.eth1Monitor != nil:
-      mapIt(node.eth1Monitor.blocks, it)
+      mapIt(node.eth1Monitor.depositChainBlocks, it)
     else:
       @[]
 

@@ -194,7 +194,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     ) -> RestApiResponse:
     let res =
       if not(isNil(node.eth1Monitor)):
-        mapIt(node.eth1Monitor.blocks, it)
+        mapIt(node.eth1Monitor.depositChainBlocks, it)
       else:
         @[]
     return RestApiResponse.jsonResponse(res)

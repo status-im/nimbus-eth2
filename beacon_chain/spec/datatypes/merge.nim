@@ -20,14 +20,7 @@ import
   ssz_serialization/types as sszTypes,
   ../digest,
   ./phase0, ./altair,
-  #web3/ethtypes,
   nimcrypto/utils
-
-const
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#execution
-  MAX_BYTES_PER_TRANSACTION* = 1073741824
-  BYTES_PER_LOGS_BLOOM = 256
-  MAX_EXTRA_DATA_BYTES = 32
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#custom-types
@@ -41,10 +34,10 @@ type
 
   PayloadID* = array[8, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
-    feeRecipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
+    fee_recipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
     state_root*: Eth2Digest
     receipts_root*: Eth2Digest # 'receipts root' in the yellow paper
     logs_bloom*: BloomLogs
@@ -60,10 +53,10 @@ type
     block_hash*: Eth2Digest # Hash of execution block
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     parent_hash*: Eth2Digest
-    feeRecipient*: ExecutionAddress
+    fee_recipient*: ExecutionAddress
     state_root*: Eth2Digest
     receipts_root*: Eth2Digest
     logs_bloom*: BloomLogs
