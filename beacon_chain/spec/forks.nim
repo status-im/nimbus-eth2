@@ -446,9 +446,9 @@ type
     signature*: ValidatorSig
     slot: Slot # start of BeaconBlock
 
-func readSszForkedTrustedSignedBeaconBlock*(
+func readSszForkedSignedBeaconBlock*(
     cfg: RuntimeConfig, data: openArray[byte]):
-    ForkedTrustedSignedBeaconBlock {.raises: [Defect, SszError].} =
+    ForkedSignedBeaconBlock {.raises: [Defect, SszError].} =
   ## Helper to read a header from bytes when it's not certain what kind of block
   ## it is
   if data.len() < sizeof(ForkedBeaconBlockHeader):
@@ -459,7 +459,7 @@ func readSszForkedTrustedSignedBeaconBlock*(
 
   # careful - `result` is used, RVO didn't seem to work without
   # TODO move time helpers somewhere to avoid circular imports
-  result = ForkedTrustedSignedBeaconBlock(
+  result = ForkedSignedBeaconBlock(
     kind: cfg.blockForkAtEpoch(Epoch(header.slot div SLOTS_PER_EPOCH)))
 
   withBlck(result):

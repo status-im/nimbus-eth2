@@ -44,11 +44,11 @@ proc finalizeOn234(
   # Mock the state
   getStateField(state, previous_justified_checkpoint) = c4
   getStateField(state, current_justified_checkpoint) = c3
-  getStateField(state, justification_bits) = 0'u8 # Bitvector of length 4
+  getStateField(state, justification_bits) = JustificationBits(0'u8) # Bitvector of length 4
   # mock 3rd and 4th latest epochs as justified
   # indices are pre-shift
-  getStateField(state, justification_bits).setBit 1
-  getStateField(state, justification_bits).setBit 2
+  uint8(getStateField(state, justification_bits)).setBit 1
+  uint8(getStateField(state, justification_bits)).setBit 2
   # mock the 2nd latest epoch as justifiable, with 4th as the source
   addMockAttestations(
     state.phase0Data.data,
@@ -90,10 +90,10 @@ proc finalizeOn23(state: var ForkedHashedBeaconState, epoch: Epoch, sufficient_s
   # Mock the state
   getStateField(state, previous_justified_checkpoint) = c3
   getStateField(state, current_justified_checkpoint) = c3
-  getStateField(state, justification_bits) = 0'u8 # Bitvector of length 4
+  getStateField(state, justification_bits) = JustificationBits(0'u8) # Bitvector of length 4
   # mock 3rd as justified
   # indices are pre-shift
-  getStateField(state, justification_bits).setBit 1
+  uint8(getStateField(state, justification_bits)).setBit 1
   # mock the 2nd latest epoch as justifiable, with 3rd as the source
   addMockAttestations(
     state.phase0Data.data,
@@ -135,10 +135,10 @@ proc finalizeOn123(state: var ForkedHashedBeaconState, epoch: Epoch, sufficient_
   # Mock the state
   getStateField(state, previous_justified_checkpoint) = c5
   getStateField(state, current_justified_checkpoint) = c3
-  getStateField(state, justification_bits) = 0'u8 # Bitvector of length 4
+  getStateField(state, justification_bits) = JustificationBits(0'u8) # Bitvector of length 4
   # mock 3rd as justified
   # indices are pre-shift
-  getStateField(state, justification_bits).setBit 1
+  uint8(getStateField(state, justification_bits)).setBit 1
   # mock the 2nd latest epoch as justifiable, with 5th as the source
   addMockAttestations(
     state.phase0Data.data,
@@ -188,10 +188,10 @@ proc finalizeOn12(state: var ForkedHashedBeaconState, epoch: Epoch, sufficient_s
   # Mock the state
   getStateField(state, previous_justified_checkpoint) = c2
   getStateField(state, current_justified_checkpoint) = c2
-  getStateField(state, justification_bits) = 0'u8 # Bitvector of length 4
+  getStateField(state, justification_bits) = JustificationBits(0'u8) # Bitvector of length 4
   # mock 3rd as justified
   # indices are pre-shift
-  getStateField(state, justification_bits).setBit 0
+  uint8(getStateField(state, justification_bits)).setBit 0
   # mock the 2nd latest epoch as justifiable, with 3rd as the source
   addMockAttestations(
     state.phase0Data.data,

@@ -22,7 +22,7 @@
 
 import
   # Standard library
-  std/[tables, typetraits],
+  std/[typetraits],
 
   # Nimble packages
   stew/byteutils,
@@ -74,6 +74,10 @@ proc `%`*(value: TrustedSig): JsonNode =
 proc fromJson*(n: JsonNode, argName: string, result: var Version) {.raises: [Defect, ValueError].} =
   n.kind.expect(JString, argName)
   hexToByteArray(n.getStr(), array[4, byte](result))
+
+proc fromJson*(n: JsonNode, argName: string, result: var JustificationBits) {.raises: [Defect, ValueError].} =
+  n.kind.expect(JString, argName)
+  result = JustificationBits(hexToByteArray(n.getStr(), 1)[0])
 
 proc `%`*(value: Version): JsonNode =
   newJString(toJsonHex(distinctBase(value)))
@@ -141,3 +145,6 @@ proc `%`*(value: BitSeq): JsonNode =
 proc fromJson*(n: JsonNode, argName: string, result: var BitSeq) {.raises: [Defect, ValueError].} =
   n.kind.expect(JString, argName)
   result = BitSeq(hexToSeqByte(n.getStr()))
+
+proc `%`*(value: JustificationBits): JsonNode =
+  newJString(toJsonHex([distinctBase(value)]))

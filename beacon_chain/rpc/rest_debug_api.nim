@@ -18,7 +18,7 @@ logScope: topics = "rest_debug"
 proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Debug/getState
   router.api(MethodGet,
-             "/api/eth/v1/debug/beacon/states/{state_id}") do (
+             "/eth/v1/debug/beacon/states/{state_id}") do (
     state_id: StateIdent) -> RestApiResponse:
     let bslot =
       block:
@@ -54,7 +54,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2
   router.api(MethodGet,
-             "/api/eth/v2/debug/beacon/states/{state_id}") do (
+             "/eth/v2/debug/beacon/states/{state_id}") do (
     state_id: StateIdent) -> RestApiResponse:
     let bslot =
       block:
@@ -87,23 +87,25 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeads
   router.api(MethodGet,
-             "/api/eth/v1/debug/beacon/heads") do () -> RestApiResponse:
+             "/eth/v1/debug/beacon/heads") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(
       node.dag.heads.mapIt((root: it.root, slot: it.slot))
     )
 
+  # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
+  # `/api` path component
   router.redirect(
     MethodGet,
-    "/eth/v1/debug/beacon/states/{state_id}",
-    "/api/eth/v1/debug/beacon/states/{state_id}"
+    "/api/eth/v1/debug/beacon/states/{state_id}",
+    "/eth/v1/debug/beacon/states/{state_id}"
   )
   router.redirect(
     MethodGet,
-    "/eth/v2/debug/beacon/states/{state_id}",
-    "/api/eth/v2/debug/beacon/states/{state_id}"
+    "/api/eth/v2/debug/beacon/states/{state_id}",
+    "/eth/v2/debug/beacon/states/{state_id}"
   )
   router.redirect(
     MethodGet,
-    "/eth/v1/debug/beacon/heads",
-    "/api/eth/v1/debug/beacon/heads"
+    "/api/eth/v1/debug/beacon/heads",
+    "/eth/v1/debug/beacon/heads"
   )

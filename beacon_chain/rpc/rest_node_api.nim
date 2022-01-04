@@ -133,7 +133,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
       RestApiResponse.prepareJsonResponse((version: "Nimbus/" & fullVersionStr))
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getNetworkIdentity
-  router.api(MethodGet, "/api/eth/v1/node/identity") do () -> RestApiResponse:
+  router.api(MethodGet, "/eth/v1/node/identity") do () -> RestApiResponse:
     let discoveryAddresses =
       block:
         let res = node.getDiscoveryAddresses()
@@ -165,7 +165,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
     )
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getPeers
-  router.api(MethodGet, "/api/eth/v1/node/peers") do (
+  router.api(MethodGet, "/eth/v1/node/peers") do (
     state: seq[PeerStateKind],
     direction: seq[PeerDirectKind]) -> RestApiResponse:
     let connectionMask =
@@ -208,7 +208,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponseWMeta(res, (count: uint64(len(res))))
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getPeerCount
-  router.api(MethodGet, "/api/eth/v1/node/peer_count") do () -> RestApiResponse:
+  router.api(MethodGet, "/eth/v1/node/peer_count") do () -> RestApiResponse:
     var res: RestNodePeerCount
     for item in node.network.peers.values():
       case item.connectionState
@@ -225,7 +225,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponse(res)
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getPeer
-  router.api(MethodGet, "/api/eth/v1/node/peers/{peer_id}") do (
+  router.api(MethodGet, "/eth/v1/node/peers/{peer_id}") do (
     peer_id: PeerID) -> RestApiResponse:
     let peer =
       block:
@@ -249,16 +249,16 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
     )
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getNodeVersion
-  router.api(MethodGet, "/api/eth/v1/node/version") do () -> RestApiResponse:
+  router.api(MethodGet, "/eth/v1/node/version") do () -> RestApiResponse:
     return RestApiResponse.response(cachedVersion, Http200,
                                     "application/json")
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getSyncingStatus
-  router.api(MethodGet, "/api/eth/v1/node/syncing") do () -> RestApiResponse:
+  router.api(MethodGet, "/eth/v1/node/syncing") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(node.syncManager.getInfo())
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getHealth
-  router.api(MethodGet, "/api/eth/v1/node/health") do () -> RestApiResponse:
+  router.api(MethodGet, "/eth/v1/node/health") do () -> RestApiResponse:
     # TODO: Add ability to detect node's issues and return 503 error according
     # to specification.
     let res =
@@ -268,38 +268,40 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         (health: 200)
     return RestApiResponse.jsonResponse(res)
 
+  # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
+  # `/api` path component
   router.redirect(
     MethodGet,
-    "/eth/v1/node/identity",
-    "/api/eth/v1/node/identity"
+    "/api/eth/v1/node/identity",
+    "/eth/v1/node/identity"
   )
   router.redirect(
     MethodGet,
-    "/eth/v1/node/peers",
-    "/api/eth/v1/node/peers"
+    "/api/eth/v1/node/peers",
+    "/eth/v1/node/peers"
   )
   router.redirect(
     MethodGet,
-    "/eth/v1/node/peer_count",
-    "/api/eth/v1/node/peer_count"
+    "/api/eth/v1/node/peer_count",
+    "/eth/v1/node/peer_count"
   )
   router.redirect(
     MethodGet,
-    "/eth/v1/node/peers/{peer_id}",
-    "/api/eth/v1/node/peers/{peer_id}"
+    "/api/eth/v1/node/peers/{peer_id}",
+    "/eth/v1/node/peers/{peer_id}"
   )
   router.redirect(
     MethodGet,
-    "/eth/v1/node/version",
-    "/api/eth/v1/node/version"
+    "/api/eth/v1/node/version",
+    "/eth/v1/node/version"
   )
   router.redirect(
     MethodGet,
-    "/eth/v1/node/syncing",
-    "/api/eth/v1/node/syncing"
+    "/api/eth/v1/node/syncing",
+    "/eth/v1/node/syncing"
   )
   router.redirect(
     MethodGet,
-    "/eth/v1/node/health",
-    "/api/eth/v1/node/health"
+    "/api/eth/v1/node/health",
+    "/eth/v1/node/health"
   )

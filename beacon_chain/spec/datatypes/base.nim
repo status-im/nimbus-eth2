@@ -163,6 +163,10 @@ type
 
   Gwei* = uint64
 
+  # BitVector[4] in the spec, ie 4 bits which end up encoded as a byte for
+  # SSZ / hashing purposes
+  JustificationBits* = distinct uint8
+
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     signed_header_1*: SignedBeaconBlockHeader
@@ -622,6 +626,21 @@ proc readValue*(reader: var JsonReader, value: var ForkDigest)
   except ValueError:
     raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
+proc `$`*(x: JustificationBits): string =
+  "0x" & toHex(uint8(x))
+
+proc readValue*(reader: var JsonReader, value: var JustificationBits)
+    {.raises: [IOError, SerializationError, Defect].} =
+  let hex = reader.readValue(string)
+  try:
+    value = JustificationBits(hexToByteArray(hex, 1)[0])
+  except ValueError:
+    raiseUnexpectedValue(reader, "Hex string of 1 byte expected")
+
+proc writeValue*(writer: var JsonWriter, value: JustificationBits)
+    {.raises: [IOError, Defect].} =
+  writer.writeValue $value
+
 # In general, ValidatorIndex is assumed to be convertible to/from an int. This
 # should be valid for a long time, because
 # https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md#configuration
@@ -673,6 +692,9 @@ template `$`*(x: CommitteeIndex): auto =
   $ distinctBase(x)
 
 template `==`*(x, y: SubnetId): bool =
+  distinctBase(x) == distinctBase(y)
+
+template `==`*(x, y: JustificationBits): bool =
   distinctBase(x) == distinctBase(y)
 
 template `$`*(x: SubnetId): string =

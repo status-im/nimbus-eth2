@@ -25,13 +25,12 @@
 {.push raises: [Defect].}
 
 import
-  std/[macros, typetraits, sets, hashes],
+  std/[typetraits, sets, hashes],
   chronicles,
   stew/[assign2, bitops2],
-  json_serialization/types as jsonTypes
+  "."/[base, phase0]
 
-import ./base, ./phase0
-export base
+export base, sets
 
 from ssz_serialization/merkleization import GeneralizedIndex
 export merkleization.GeneralizedIndex
@@ -232,10 +231,7 @@ type
       HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Finality
-    justification_bits*: uint8 ##\
-    ## Bit set for every recent justified epoch
-    ## Model a Bitvector[4] as a one-byte uint, which should remain consistent
-    ## with ssz/hashing.
+    justification_bits*: JustificationBits
 
     previous_justified_checkpoint*: Checkpoint ##\
     ## Previous epoch snapshot
@@ -491,7 +487,7 @@ type
     current_epoch_participation*:
       List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
 
-    justification_bits*: uint8
+    justification_bits*: JustificationBits
     previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
@@ -535,21 +531,6 @@ template validateSyncCommitteeIndexOr*(
     elseBody
 
 template asUInt8*(x: SyncSubcommitteeIndex): uint8 = uint8(x)
-
-Json.useCustomSerialization(BeaconState.justification_bits):
-  read:
-    let s = reader.readValue(string)
-
-    if s.len != 4:
-      raiseUnexpectedValue(reader, "A string with 4 characters expected")
-
-    try:
-      s.parseHexInt.uint8
-    except ValueError:
-      raiseUnexpectedValue(reader, "The `justification_bits` value must be a hex string")
-
-  write:
-    writer.writeValue "0x" & value.toHex
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (

@@ -95,7 +95,7 @@ proc eventHandler*(response: HttpResponseRef, node: BeaconNode,
 
 proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Events/eventstream
-  router.api(MethodGet, "/api/eth/v1/events") do (
+  router.api(MethodGet, "/eth/v1/events") do (
     topics: seq[EventTopic]) -> RestApiResponse:
     let eventTopics =
       block:
@@ -175,8 +175,10 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
     await allFutures(pending)
     return
 
+  # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
+  # `/api` path component
   router.redirect(
     MethodGet,
-    "/eth/v1/events",
-    "/api/eth/v1/events"
+    "/api/eth/v1/events",
+    "/eth/v1/events"
   )

@@ -112,10 +112,10 @@ proc toNode(v: PubSubPeer, backoff: Moment): RestPubSubPeer =
   )
 
 proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
-  router.api(MethodGet, "/api/nimbus/v1/beacon/head") do () -> RestApiResponse:
+  router.api(MethodGet, "/nimbus/v1/beacon/head") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(node.dag.head.slot)
 
-  router.api(MethodGet, "/api/nimbus/v1/chain/head") do() -> RestApiResponse:
+  router.api(MethodGet, "/nimbus/v1/chain/head") do() -> RestApiResponse:
     let
       head = node.dag.head
       finalized = getStateField(node.dag.headState.data, finalized_checkpoint)
@@ -132,26 +132,26 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       )
     )
 
-  router.api(MethodGet, "/api/nimbus/v1/syncmanager/status") do (
+  router.api(MethodGet, "/nimbus/v1/syncmanager/status") do (
     ) -> RestApiResponse:
     return RestApiResponse.jsonResponse(node.syncManager.inProgress)
 
-  router.api(MethodGet, "/api/nimbus/v1/node/peerid") do (
+  router.api(MethodGet, "/nimbus/v1/node/peerid") do (
     ) -> RestApiResponse:
     return RestApiResponse.jsonResponse((peerid: $node.network.peerId()))
 
-  router.api(MethodGet, "/api/nimbus/v1/node/version") do (
+  router.api(MethodGet, "/nimbus/v1/node/version") do (
     ) -> RestApiResponse:
     return RestApiResponse.jsonResponse((version: "Nimbus/" & fullVersionStr))
 
-  router.api(MethodGet, "/api/nimbus/v1/network/ids") do (
+  router.api(MethodGet, "/nimbus/v1/network/ids") do (
     ) -> RestApiResponse:
     var res: seq[PeerID]
     for peerId, peer in node.network.peerPool:
       res.add(peerId)
     return RestApiResponse.jsonResponse((peerids: res))
 
-  router.api(MethodGet, "/api/nimbus/v1/network/peers") do (
+  router.api(MethodGet, "/nimbus/v1/network/peers") do (
     ) -> RestApiResponse:
     var res: seq[RestSimplePeer]
     for id, peer in node.network.peerPool:
@@ -164,7 +164,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       )
     return RestApiResponse.jsonResponse((peers: res))
 
-  router.api(MethodPost, "/api/nimbus/v1/graffiti") do (
+  router.api(MethodPost, "/nimbus/v1/graffiti") do (
     value: Option[GraffitiBytes]) -> RestApiResponse:
     if value.isSome() and value.get().isOk():
       node.graffitiBytes = value.get().get()
@@ -172,11 +172,11 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     else:
       return RestApiResponse.jsonError(Http400, InvalidGraffitiBytesValye)
 
-  router.api(MethodGet, "/api/nimbus/v1/graffiti") do (
+  router.api(MethodGet, "/nimbus/v1/graffiti") do (
     ) -> RestApiResponse:
     return RestApiResponse.jsonResponse(node.graffitiBytes)
 
-  router.api(MethodPost, "/api/nimbus/v1/chronicles/settings") do (
+  router.api(MethodPost, "/nimbus/v1/chronicles/settings") do (
     log_level: Option[string]) -> RestApiResponse:
     if log_level.isSome():
       let level =
@@ -190,7 +190,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         updateLogLevel(level)
     return RestApiResponse.jsonResponse((result: true))
 
-  router.api(MethodGet, "/api/nimbus/v1/eth1/chain") do (
+  router.api(MethodGet, "/nimbus/v1/eth1/chain") do (
     ) -> RestApiResponse:
     let res =
       if not(isNil(node.eth1Monitor)):
@@ -199,7 +199,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         @[]
     return RestApiResponse.jsonResponse(res)
 
-  router.api(MethodGet, "/api/nimbus/v1/eth1/proposal_data") do (
+  router.api(MethodGet, "/nimbus/v1/eth1/proposal_data") do (
     ) -> RestApiResponse:
     let wallSlot = node.beaconClock.now.slotOrZero
     let head =
@@ -215,7 +215,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     do:
       return RestApiResponse.jsonError(Http400, PrunedStateError)
 
-  router.api(MethodGet, "/api/nimbus/v1/debug/chronos/futures") do (
+  router.api(MethodGet, "/nimbus/v1/debug/chronos/futures") do (
     ) -> RestApiResponse:
     when defined(chronosFutureTracking):
       var res: seq[RestFutureInfo]
@@ -240,7 +240,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http503,
         "Compile with '-d:chronosFutureTracking' to get this request working")
 
-  router.api(MethodGet, "/api/nimbus/v1/debug/gossip/peers") do (
+  router.api(MethodGet, "/nimbus/v1/debug/gossip/peers") do (
     ) -> RestApiResponse:
 
     let gossipPeers =
@@ -302,3 +302,62 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         all_peers: allPeers
       )
     )
+
+  # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
+  # `/api` path component
+  router.redirect(
+    MethodGet,
+    "/api/nimbus/v1/beacon/head",
+    "/nimbus/v1/beacon/head")
+  router.redirect(
+    MethodGet,
+    "/api/nimbus/v1/chain/head",
+    "/nimbus/v1/chain/head")
+  router.redirect(
+    MethodGet,
+    "/api/nimbus/v1/syncmanager/status",
+    "/nimbus/v1/syncmanager/status")
+  router.redirect(
+    MethodGet,
+    "/api/nimbus/v1/node/peerid",
+    "/nimbus/v1/node/peerid")
+  router.redirect(
+    MethodGet,
+    "/api/nimbus/v1/node/version",
+    "/nimbus/v1/node/version")
+  router.redirect(
+    MethodGet,
+    "/api/nimbus/v1/network/ids",
+    "/nimbus/v1/network/ids")
+  router.redirect(
+    MethodGet,
+    "/api/nimbus/v1/network/peers",
+    "/nimbus/v1/network/peers")
+  router.redirect(
+    MethodPost,
+    "/api/nimbus/v1/graffiti",
+    "/nimbus/v1/graffiti")
+  router.redirect(
+    MethodGet,
+    "/api/nimbus/v1/graffiti",
+    "/nimbus/v1/graffiti")
+  router.redirect(
+    MethodPost,
+    "/api/nimbus/v1/chronicles/settings",
+    "/nimbus/v1/chronicles/settings")
+  router.redirect(
+    MethodGet,
+    "/api/nimbus/v1/eth1/chain",
+    "/nimbus/v1/eth1/chain")
+  router.redirect(
+    MethodGet,
+    "/api/nimbus/v1/eth1/proposal_data",
+    "/nimbus/v1/eth1/proposal_data")
+  router.redirect(
+    MethodGet,
+    "/api/nimbus/v1/debug/chronos/futures",
+    "/nimbus/v1/debug/chronos/futures")
+  router.redirect(
+    MethodGet,
+    "/api/nimbus/v1/debug/gossip/peers",
+    "/nimbus/v1/debug/gossip/peers")
