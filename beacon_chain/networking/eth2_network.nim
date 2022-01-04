@@ -1035,7 +1035,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
   # Returns the subnets required to have a healthy mesh
   # The subnets are computed, to, in order:
   # - Have 0 subnet with < `dLow` peers from topic subscription
-  # - Have 0 subscribed subnet below `d`
+  # - Have 0 subscribed subnet below `dLow`
   # - Have 0 subscribed subnet below `dOut` outgoing peers
   # - Have 0 subnet with < `dHigh` peers from topic subscription
 
@@ -1061,7 +1061,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
       # Not subscribed
       if topic notin node.pubsub.mesh: continue
 
-      if node.pubsub.mesh.peers(topic) < node.pubsub.parameters.d:
+      if node.pubsub.mesh.peers(topic) < node.pubsub.parameters.dLow:
         belowDSubnets.setBit(subNetId)
 
       let outPeers = node.pubsub.mesh.getOrDefault(topic).countIt(it.outbound)
