@@ -1037,12 +1037,14 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
   # - Have 0 subnet with < `dLow` peers from topic subscription
   # - Have 0 subscribed subnet below `d`
   # - Have 0 subscribed subnet below `dOut` outgoing peers
+  # - Have 0 subnet with < `dHigh` peers from topic subscription
 
   template findLowSubnets(topicNameGenerator: untyped,
                           SubnetIdType: type,
                           totalSubnets: static int): auto =
     var
       lowOutgoingSubnets: BitArray[totalSubnets]
+      notHighOutgoingSubnets: BitArray[totalSubnets]
       belowDSubnets: BitArray[totalSubnets]
       belowDOutSubnets: BitArray[totalSubnets]
 
@@ -1052,6 +1054,9 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
 
       if node.pubsub.gossipsub.peers(topic) < node.pubsub.parameters.dLow:
         lowOutgoingSubnets.setBit(subNetId)
+
+      if node.pubsub.gossipsub.peers(topic) < node.pubsub.parameters.dHigh:
+        notHighOutgoingSubnets.setBit(subNetId)
 
       # Not subscribed
       if topic notin node.pubsub.mesh: continue
@@ -1067,8 +1072,10 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
       lowOutgoingSubnets
     elif belowDSubnets.countOnes() > 0:
       belowDSubnets
-    else:
+    elif belowDOutSubnets.countOnes() > 0:
       belowDOutSubnets
+    else:
+      notHighOutgoingSubnets
 
   return (
     findLowSubnets(getAttestationTopic, SubnetId, ATTESTATION_SUBNET_COUNT),
