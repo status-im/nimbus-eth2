@@ -1034,41 +1034,48 @@ proc trimConnections(node: Eth2Node, count: int) {.async.} =
 proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
   # Returns the subnets required to have a healthy mesh
   # The subnets are computed, to, in order:
+  # - Have 0 subnet with < `dLow` peers from topic subscription
   # - Have 0 subscribed subnet below `dLow`
-  # - Have 0 subnet with < `d` peers from topic subscription
   # - Have 0 subscribed subnet below `dOut` outgoing peers
+  # - Have 0 subnet with < `dHigh` peers from topic subscription
 
   template findLowSubnets(topicNameGenerator: untyped,
                           SubnetIdType: type,
                           totalSubnets: static int): auto =
     var
       lowOutgoingSubnets: BitArray[totalSubnets]
-      belowDLowSubnets: BitArray[totalSubnets]
+      notHighOutgoingSubnets: BitArray[totalSubnets]
+      belowDSubnets: BitArray[totalSubnets]
       belowDOutSubnets: BitArray[totalSubnets]
 
     for subNetId in 0 ..< totalSubnets:
       let topic =
         topicNameGenerator(node.forkId.forkDigest, SubnetIdType(subNetId))
 
-      if node.pubsub.gossipsub.peers(topic) < node.pubsub.parameters.d:
+      if node.pubsub.gossipsub.peers(topic) < node.pubsub.parameters.dLow:
         lowOutgoingSubnets.setBit(subNetId)
+
+      if node.pubsub.gossipsub.peers(topic) < node.pubsub.parameters.dHigh:
+        notHighOutgoingSubnets.setBit(subNetId)
 
       # Not subscribed
       if topic notin node.pubsub.mesh: continue
 
       if node.pubsub.mesh.peers(topic) < node.pubsub.parameters.dLow:
-        belowDlowSubnets.setBit(subNetId)
+        belowDSubnets.setBit(subNetId)
 
       let outPeers = node.pubsub.mesh.getOrDefault(topic).countIt(it.outbound)
       if outPeers < node.pubsub.parameters.dOut:
         belowDOutSubnets.setBit(subNetId)
 
-    if belowDLowSubnets.countOnes() > 0:
-      belowDLowSubnets
-    elif lowOutgoingSubnets.countOnes() > 0:
+    if lowOutgoingSubnets.countOnes() > 0:
       lowOutgoingSubnets
-    else:
+    elif belowDSubnets.countOnes() > 0:
+      belowDSubnets
+    elif belowDOutSubnets.countOnes() > 0:
       belowDOutSubnets
+    else:
+      notHighOutgoingSubnets
 
   return (
     findLowSubnets(getAttestationTopic, SubnetId, ATTESTATION_SUBNET_COUNT),
