@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -135,7 +135,7 @@ func getTargetGossipState*(
 
   # The order of these checks doesn't matter.
   elif epoch >= MERGE_FORK_EPOCH:
-    {BeaconStateFork.Merge}
+    {BeaconStateFork.Bellatrix}
   elif epoch + 1 < ALTAIR_FORK_EPOCH:
     {BeaconStateFork.Phase0}
 
@@ -144,8 +144,8 @@ func getTargetGossipState*(
   # intermediate pure-Altair epochs.
   #
   # In the first case, should never enable Altair, and there's also never
-  # any Phase -> Altair or Altair -> Merge gossip transition epoch. Given
-  # contiguous Phase0 -> Altair and Altair -> Merge gossip transitions, a
+  # a Phase -> Altair, or Altair -> Bellatrix gossip transition epoch. In
+  # contiguous Phase0 -> Altair and Altair -> Bellatrix transitions, that
   # pure Altair state gossip state never occurs, but it works without any
   # special cases so long as one checks for transition-to-fork+1 before a
   # pure fork gossip state.
@@ -157,7 +157,7 @@ func getTargetGossipState*(
        BeaconStateFork.Phase0
      else:
        BeaconStateFork.Altair,
-     BeaconStateFork.Merge}
+     BeaconStateFork.Bellatrix}
   elif epoch >= ALTAIR_FORK_EPOCH:
     {BeaconStateFork.Altair}
 

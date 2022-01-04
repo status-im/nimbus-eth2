@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -135,7 +135,7 @@ func init*(
         case state.data.kind:
         of BeaconStateFork.Phase0: false
         of BeaconStateFork.Altair: false
-        of BeaconStateFork.Merge:
+        of BeaconStateFork.Bellatrix:
           # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#is_merge_transition_complete
           state.data.mergeData.data.latest_execution_payload_header !=
             ExecutionPayloadHeader()
@@ -281,9 +281,9 @@ func contains*(dag: ChainDAGRef, root: Eth2Digest): bool =
 proc containsBlock(
     cfg: RuntimeConfig, db: BeaconChainDB, slot: Slot, root: Eth2Digest): bool =
   case cfg.blockForkAtEpoch(slot.epoch)
-  of BeaconBlockFork.Phase0: db.containsBlockPhase0(root)
-  of BeaconBlockFork.Altair: db.containsBlockAltair(root)
-  of BeaconBlockFork.Merge: db.containsBlockMerge(root)
+  of BeaconBlockFork.Phase0:    db.containsBlockPhase0(root)
+  of BeaconBlockFork.Altair:    db.containsBlockAltair(root)
+  of BeaconBlockFork.Bellatrix: db.containsBlockMerge(root)
 
 func isStateCheckpoint(bs: BlockSlot): bool =
   ## State checkpoints are the points in time for which we store full state
@@ -315,7 +315,7 @@ proc getStateData(
     state.data = (ref ForkedHashedBeaconState)(kind: expectedFork)[]
 
   case expectedFork
-  of BeaconStateFork.Merge:
+  of BeaconStateFork.Bellatrix:
     if not db.getState(root.get(), state.data.mergeData.data, rollback):
       return false
   of BeaconStateFork.Altair:
@@ -468,7 +468,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         stateFork = tmpState.data.altairData.data.fork,
         configFork = altairFork(cfg)
       quit 1
-  of BeaconStateFork.Merge:
+  of BeaconStateFork.Bellatrix:
     if tmpState.data.mergeData.data.fork != mergeFork(cfg):
       error "State from database does not match network, check --network parameter",
         genesisRef, tailRef, headRef, tailRoot, headRoot,
@@ -628,9 +628,9 @@ template forkAtEpoch*(dag: ChainDAGRef, epoch: Epoch): Fork =
 
 proc forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
   case dag.cfg.stateForkAtEpoch(epoch)
-  of BeaconStateFork.Merge:  dag.forkDigests.merge
-  of BeaconStateFork.Altair: dag.forkDigests.altair
-  of BeaconStateFork.Phase0: dag.forkDigests.phase0
+  of BeaconStateFork.Bellatrix: dag.forkDigests.merge
+  of BeaconStateFork.Altair:    dag.forkDigests.altair
+  of BeaconStateFork.Phase0:    dag.forkDigests.phase0
 
 proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
   ## Load a state from the database given a block and a slot - this will first
@@ -760,7 +760,7 @@ proc getForkedBlock*(dag: ChainDAGRef, id: BlockId): Opt[ForkedTrustedSignedBeac
     let data = dag.db.getAltairBlock(id.root)
     if data.isOk():
       return ok ForkedTrustedSignedBeaconBlock.init(data.get)
-  of BeaconBlockFork.Merge:
+  of BeaconBlockFork.Bellatrix:
     let data = dag.db.getMergeBlock(id.root)
     if data.isOk():
       return ok ForkedTrustedSignedBeaconBlock.init(data.get)

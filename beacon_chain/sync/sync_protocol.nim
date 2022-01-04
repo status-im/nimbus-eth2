@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -101,7 +101,7 @@ proc sendResponseChunk*(response: UntypedResponse,
     response.stream.writeChunk(some ResponseCode.Success,
                                SSZ.encode(val.altairData),
                                response.peer.network.forkDigests.altair.bytes)
-  of BeaconBlockFork.Merge:
+  of BeaconBlockFork.Bellatrix:
     response.stream.writeChunk(some ResponseCode.Success,
                                SSZ.encode(val.mergeData),
                                response.peer.network.forkDigests.merge.bytes)
@@ -233,7 +233,7 @@ p2pProtocol BeaconSync(version = 1,
           case blck.kind
           of BeaconBlockFork.Phase0:
             await response.write(blck.phase0Data.asSigned)
-          of BeaconBlockFork.Altair, BeaconBlockFork.Merge:
+          of BeaconBlockFork.Altair, BeaconBlockFork.Bellatrix:
             # Skipping all subsequent blocks should be OK because the spec says:
             # "Clients MAY limit the number of blocks in the response."
             # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyrange
@@ -273,7 +273,7 @@ p2pProtocol BeaconSync(version = 1,
         of BeaconBlockFork.Phase0:
           await response.write(blk.phase0Data.asSigned)
           inc found
-        of BeaconBlockFork.Altair, BeaconBlockFork.Merge:
+        of BeaconBlockFork.Altair, BeaconBlockFork.Bellatrix:
           # Skipping this block should be fine because the spec says:
           # "Clients MAY limit the number of blocks in the response."
           # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyroot

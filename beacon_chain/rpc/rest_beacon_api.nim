@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -825,7 +825,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           RestApiResponse.jsonResponse(bdata.data.phase0Data)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
-      of BeaconBlockFork.Altair, BeaconBlockFork.Merge:
+      of BeaconBlockFork.Altair, BeaconBlockFork.Bellatrix:
         RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
@@ -855,7 +855,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           RestApiResponse.sszResponse(bdata.data.phase0Data)
         of BeaconBlockFork.Altair:
           RestApiResponse.sszResponse(bdata.data.altairData)
-        of BeaconBlockFork.Merge:
+        of BeaconBlockFork.Bellatrix:
           RestApiResponse.sszResponse(bdata.data.mergeData)
       of "application/json":
         RestApiResponse.jsonResponsePlain(bdata.data.asSigned())

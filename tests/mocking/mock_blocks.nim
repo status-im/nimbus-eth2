@@ -85,9 +85,9 @@ proc mockBlock*(
     doAssert process_slots(cfg, tmpState[], slot, cache, info, flags = {})
 
   result.kind = case tmpState[].kind
-                of BeaconStateFork.Phase0: BeaconBlockFork.Phase0
-                of BeaconStateFork.Altair: BeaconBlockFork.Altair
-                of BeaconStateFork.Merge:  BeaconBlockFork.Merge
+                of BeaconStateFork.Phase0:    BeaconBlockFork.Phase0
+                of BeaconStateFork.Altair:    BeaconBlockFork.Altair
+                of BeaconStateFork.Bellatrix: BeaconBlockFork.Bellatrix
   withStateAndBlck(tmpState[], result):
     blck.message.slot = slot
     blck.message.proposer_index =
@@ -104,7 +104,7 @@ proc mockBlock*(
     when stateFork >= BeaconStateFork.Altair:
       blck.message.body.sync_aggregate = SyncAggregate.init()
 
-    when stateFork >= BeaconStateFork.Merge:
+    when stateFork >= BeaconStateFork.Bellatrix:
       blck.message.body.execution_payload =
         build_empty_execution_payload(state.data)
 

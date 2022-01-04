@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -700,7 +700,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       of "altair":
         version = some(BeaconBlockFork.Altair)
       of "merge":
-        version = some(BeaconBlockFork.Merge)
+        version = some(BeaconBlockFork.Bellatrix)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
@@ -737,7 +737,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect altair block format")
     value = ForkedBeaconBlock.init(res.get())
-  of BeaconBlockFork.Merge:
+  of BeaconBlockFork.Bellatrix:
     let res =
       try:
         some(RestJson.decode(string(data.get()), merge.BeaconBlock,
@@ -758,7 +758,7 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconBlock) {.
   of BeaconBlockFork.Altair:
     writer.writeField("version", "altair")
     writer.writeField("data", value.altairData)
-  of BeaconBlockFork.Merge:
+  of BeaconBlockFork.Bellatrix:
     writer.writeField("version", "merge")
     when false:
       # TODO SerializationError
@@ -786,7 +786,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       of "altair":
         version = some(BeaconBlockFork.Altair)
       of "merge":
-        version = some(BeaconBlockFork.Merge)
+        version = some(BeaconBlockFork.Bellatrix)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
@@ -823,7 +823,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect altair block format")
     value = ForkedSignedBeaconBlock.init(res.get())
-  of BeaconBlockFork.Merge:
+  of BeaconBlockFork.Bellatrix:
     let res =
       try:
         some(RestJson.decode(string(data.get()), merge.SignedBeaconBlock,
@@ -845,7 +845,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   of BeaconBlockFork.Altair:
     writer.writeField("version", "altair")
     writer.writeField("data", value.altairData)
-  of BeaconBlockFork.Merge:
+  of BeaconBlockFork.Bellatrix:
     writer.writeField("version", "merge")
     when false:
       # TODO SerializationError
@@ -871,7 +871,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       version = case vres
       of "phase0": some(BeaconStateFork.Phase0)
       of "altair": some(BeaconStateFork.Altair)
-      of "merge": some(BeaconStateFork.Merge)
+      of "merge": some(BeaconStateFork.Bellatrix)
       else: reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       if data.isSome():
@@ -915,7 +915,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       reader.raiseUnexpectedValue("Incorrect altair beacon state format")
 
     toValue(altairData)
-  of BeaconStateFork.Merge:
+  of BeaconStateFork.Bellatrix:
     try:
       tmp[].mergeData.data = RestJson.decode(
         string(data.get()), merge.BeaconState, requireAllFields = true)
@@ -933,7 +933,7 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
   of BeaconStateFork.Altair:
     writer.writeField("version", "altair")
     writer.writeField("data", value.altairData.data)
-  of BeaconStateFork.Merge:
+  of BeaconStateFork.Bellatrix:
     writer.writeField("version", "merge")
     when false:
       # TODO SerializationError

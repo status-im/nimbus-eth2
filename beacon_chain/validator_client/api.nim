@@ -773,7 +773,7 @@ proc publishBlock*(vc: ValidatorClientRef,
       publishBlock(it, data.phase0Data)
     of BeaconBlockFork.Altair:
       publishBlock(it, data.altairData)
-    of BeaconBlockFork.Merge:
+    of BeaconBlockFork.Bellatrix:
       raiseAssert "trying to publish merge block"
       # TODO this doesn't build due to some nim-presto error
       # publishBlock(it, data.mergeData)

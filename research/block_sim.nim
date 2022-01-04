@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2021 Status Research & Development GmbH
+# Copyright (c) 2019-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -337,7 +337,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         dag.pruneStateCachesDAG()
         attPool.prune()
 
-  proc proposeMergeBlock(slot: Slot) =
+  proc proposeBellatrixBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
       return
 
@@ -398,9 +398,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     if blockRatio > 0.0:
       withTimer(timers[t]):
         case dag.cfg.stateForkAtEpoch(slot.epoch)
-        of BeaconStateFork.Merge:  proposeMergeBlock(slot)
-        of BeaconStateFork.Altair: proposeAltairBlock(slot)
-        of BeaconStateFork.Phase0: proposePhase0Block(slot)
+        of BeaconStateFork.Bellatrix: proposeBellatrixBlock(slot)
+        of BeaconStateFork.Altair:    proposeAltairBlock(slot)
+        of BeaconStateFork.Phase0:    proposePhase0Block(slot)
     if attesterRatio > 0.0:
       withTimer(timers[tAttest]):
         handleAttestations(slot)

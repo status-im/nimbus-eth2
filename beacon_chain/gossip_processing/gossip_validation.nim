@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2021 Status Research & Development GmbH
+# Copyright (c) 2019-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -176,13 +176,13 @@ template checkedReject(error: ValidationError): untyped =
     raiseAssert $error[1]
   err(error)
 
-template validateBeaconBlockMerge(
+template validateBeaconBlockBellatrix(
        signed_beacon_block: phase0.SignedBeaconBlock |
                             altair.SignedBeaconBlock): untyped =
   discard
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/p2p-interface.md#beacon_block
-template validateBeaconBlockMerge(
+template validateBeaconBlockBellatrix(
        signed_beacon_block: merge.SignedBeaconBlock): untyped =
   # If the execution is enabled for the block -- i.e.
   # is_execution_enabled(state, block.body) then validate the following:
@@ -204,7 +204,7 @@ template validateBeaconBlockMerge(
         false
       of BeaconBlockFork.Altair:
         false
-      of BeaconBlockFork.Merge:
+      of BeaconBlockFork.Bellatrix:
         # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#process_execution_payload
         # shows how this gets folded into the state each block; checking this
         # is equivalent, without ever requiring state replay or any similarly
@@ -350,7 +350,7 @@ proc validateBeaconBlock*(
       signed_beacon_block.signature):
     return errReject("Invalid proposer signature")
 
-  validateBeaconBlockMerge(signed_beacon_block)
+  validateBeaconBlockBellatrix(signed_beacon_block)
 
   ok()
 
