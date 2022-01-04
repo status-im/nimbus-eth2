@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021 Status Research & Development GmbH
+# Copyright (c) 2021-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -48,7 +48,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
               RestApiResponse.jsonResponse(stateData.data.phase0Data.data)
             else:
               RestApiResponse.jsonError(Http500, InvalidAcceptError)
-        of BeaconStateFork.Altair, BeaconStateFork.Merge:
+        of BeaconStateFork.Altair, BeaconStateFork.Bellatrix:
           RestApiResponse.jsonError(Http404, StateNotFoundError)
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 

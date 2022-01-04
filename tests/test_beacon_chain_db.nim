@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
@@ -79,9 +79,9 @@ proc getTestStates(stateFork: BeaconStateFork): auto =
 # Each of phase 0/altair/merge states gets used twice, so make them global to
 # module
 let
-  testStatesPhase0 = getTestStates(BeaconStateFork.Phase0)
-  testStatesAltair = getTestStates(BeaconStateFork.Altair)
-  testStatesMerge  = getTestStates(BeaconStateFork.Merge)
+  testStatesPhase0    = getTestStates(BeaconStateFork.Phase0)
+  testStatesAltair    = getTestStates(BeaconStateFork.Altair)
+  testStatesBellatrix = getTestStates(BeaconStateFork.Bellatrix)
 
 suite "Beacon chain DB" & preset():
   test "empty database" & preset():
@@ -235,7 +235,7 @@ suite "Beacon chain DB" & preset():
   test "sanity check Merge states" & preset():
     var db = makeTestDB(SLOTS_PER_EPOCH)
 
-    for state in testStatesMerge:
+    for state in testStatesBellatrix:
       let root = state[].mergeData.root
       db.putState(root, state[].mergeData.data)
 
@@ -294,7 +294,7 @@ suite "Beacon chain DB" & preset():
     var db = makeTestDB(SLOTS_PER_EPOCH)
     let stateBuffer = (merge.BeaconStateRef)()
 
-    for state in testStatesMerge:
+    for state in testStatesBellatrix:
       let root = state[].mergeData.root
       db.putState(root, state[].mergeData.data)
 
@@ -365,7 +365,7 @@ suite "Beacon chain DB" & preset():
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Merge,
+        kind: BeaconStateFork.Bellatrix,
         mergeData: merge.HashedBeaconState(data: merge.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()

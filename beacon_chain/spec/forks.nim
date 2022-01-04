@@ -38,7 +38,7 @@ type
   BeaconStateFork* {.pure.} = enum
     Phase0,
     Altair,
-    Merge
+    Bellatrix
 
   ForkyBeaconState* =
     phase0.BeaconState |
@@ -52,14 +52,14 @@ type
 
   ForkedHashedBeaconState* = object
     case kind*: BeaconStateFork
-    of BeaconStateFork.Phase0: phase0Data*: phase0.HashedBeaconState
-    of BeaconStateFork.Altair: altairData*: altair.HashedBeaconState
-    of BeaconStateFork.Merge:  mergeData*:  merge.HashedBeaconState
+    of BeaconStateFork.Phase0:    phase0Data*: phase0.HashedBeaconState
+    of BeaconStateFork.Altair:    altairData*: altair.HashedBeaconState
+    of BeaconStateFork.Bellatrix: mergeData*:  merge.HashedBeaconState
 
   BeaconBlockFork* {.pure.} = enum
     Phase0
     Altair
-    Merge
+    Bellatrix
 
   ForkyBeaconBlock* =
     phase0.BeaconBlock |
@@ -73,15 +73,15 @@ type
 
   ForkedBeaconBlock* = object
     case kind*: BeaconBlockFork
-    of BeaconBlockFork.Phase0: phase0Data*: phase0.BeaconBlock
-    of BeaconBlockFork.Altair: altairData*: altair.BeaconBlock
-    of BeaconBlockFork.Merge:  mergeData*:  merge.BeaconBlock
+    of BeaconBlockFork.Phase0:     phase0Data*: phase0.BeaconBlock
+    of BeaconBlockFork.Altair:     altairData*: altair.BeaconBlock
+    of BeaconBlockFork.Bellatrix: mergeData*:  merge.BeaconBlock
 
   ForkedTrustedBeaconBlock* = object
     case kind*: BeaconBlockFork
-    of BeaconBlockFork.Phase0: phase0Data*: phase0.TrustedBeaconBlock
-    of BeaconBlockFork.Altair: altairData*: altair.TrustedBeaconBlock
-    of BeaconBlockFork.Merge:  mergeData*:  merge.TrustedBeaconBlock
+    of BeaconBlockFork.Phase0:    phase0Data*: phase0.TrustedBeaconBlock
+    of BeaconBlockFork.Altair:    altairData*: altair.TrustedBeaconBlock
+    of BeaconBlockFork.Bellatrix: mergeData*:  merge.TrustedBeaconBlock
 
   ForkySignedBeaconBlock* =
     phase0.SignedBeaconBlock |
@@ -90,9 +90,9 @@ type
 
   ForkedSignedBeaconBlock* = object
     case kind*: BeaconBlockFork
-    of BeaconBlockFork.Phase0: phase0Data*: phase0.SignedBeaconBlock
-    of BeaconBlockFork.Altair: altairData*: altair.SignedBeaconBlock
-    of BeaconBlockFork.Merge:  mergeData*:  merge.SignedBeaconBlock
+    of BeaconBlockFork.Phase0:    phase0Data*: phase0.SignedBeaconBlock
+    of BeaconBlockFork.Altair:    altairData*: altair.SignedBeaconBlock
+    of BeaconBlockFork.Bellatrix: mergeData*:  merge.SignedBeaconBlock
 
   ForkyTrustedSignedBeaconBlock* =
     phase0.TrustedSignedBeaconBlock |
@@ -101,9 +101,9 @@ type
 
   ForkedTrustedSignedBeaconBlock* = object
     case kind*: BeaconBlockFork
-    of BeaconBlockFork.Phase0: phase0Data*: phase0.TrustedSignedBeaconBlock
-    of BeaconBlockFork.Altair: altairData*: altair.TrustedSignedBeaconBlock
-    of BeaconBlockFork.Merge:  mergeData*:  merge.TrustedSignedBeaconBlock
+    of BeaconBlockFork.Phase0:    phase0Data*: phase0.TrustedSignedBeaconBlock
+    of BeaconBlockFork.Altair:    altairData*: altair.TrustedSignedBeaconBlock
+    of BeaconBlockFork.Bellatrix: mergeData*:  merge.TrustedSignedBeaconBlock
 
   EpochInfoFork* {.pure.} = enum
     Phase0
@@ -129,35 +129,35 @@ template toFork*[T: altair.BeaconState | altair.HashedBeaconState](
   BeaconStateFork.Altair
 template toFork*[T: merge.BeaconState | merge.HashedBeaconState](
     t: type T): BeaconStateFork =
-  BeaconStateFork.Merge
+  BeaconStateFork.Bellatrix
 
 template init*(T: type ForkedHashedBeaconState, data: phase0.HashedBeaconState): T =
   T(kind: BeaconStateFork.Phase0, phase0Data: data)
 template init*(T: type ForkedHashedBeaconState, data: altair.HashedBeaconState): T =
   T(kind: BeaconStateFork.Altair, altairData: data)
 template init*(T: type ForkedHashedBeaconState, data: merge.HashedBeaconState): T =
-  T(kind: BeaconStateFork.Merge, mergeData: data)
+  T(kind: BeaconStateFork.Bellatrix, mergeData: data)
 
 template init*(T: type ForkedBeaconBlock, blck: phase0.BeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
 template init*(T: type ForkedBeaconBlock, blck: altair.BeaconBlock): T =
   T(kind: BeaconBlockFork.Altair, altairData: blck)
 template init*(T: type ForkedBeaconBlock, blck: merge.BeaconBlock): T =
-  T(kind: BeaconBlockFork.Merge, mergeData: blck)
+  T(kind: BeaconBlockFork.Bellatrix, mergeData: blck)
 
 template init*(T: type ForkedTrustedBeaconBlock, blck: phase0.TrustedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
 template init*(T: type ForkedTrustedBeaconBlock, blck: altair.TrustedBeaconBlock): T =
   T(kind: BeaconBlockFork.Altair, altairData: blck)
 template init*(T: type ForkedTrustedBeaconBlock, blck: merge.TrustedBeaconBlock): T =
-  T(kind: BeaconBlockFork.Merge, mergeData: blck)
+  T(kind: BeaconBlockFork.Bellatrix, mergeData: blck)
 
 template init*(T: type ForkedSignedBeaconBlock, blck: phase0.SignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
 template init*(T: type ForkedSignedBeaconBlock, blck: altair.SignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Altair, altairData: blck)
 template init*(T: type ForkedSignedBeaconBlock, blck: merge.SignedBeaconBlock): T =
-  T(kind: BeaconBlockFork.Merge, mergeData: blck)
+  T(kind: BeaconBlockFork.Bellatrix, mergeData: blck)
 
 template init*(T: type ForkedSignedBeaconBlock, forked: ForkedBeaconBlock,
                blockRoot: Eth2Digest, signature: ValidatorSig): T =
@@ -172,8 +172,8 @@ template init*(T: type ForkedSignedBeaconBlock, forked: ForkedBeaconBlock,
       altairData: altair.SignedBeaconBlock(message: forked.altairData,
                                            root: blockRoot,
                                            signature: signature))
-  of BeaconBlockFork.Merge:
-    T(kind: BeaconBlockFork.Merge,
+  of BeaconBlockFork.Bellatrix:
+    T(kind: BeaconBlockFork.Bellatrix,
       mergeData: merge.SignedBeaconBlock(message: forked.mergeData,
                                           root: blockRoot,
                                           signature: signature))
@@ -183,7 +183,7 @@ template init*(T: type ForkedTrustedSignedBeaconBlock, blck: phase0.TrustedSigne
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: altair.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Altair, altairData: blck)
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: merge.TrustedSignedBeaconBlock): T =
-  T(kind: BeaconBlockFork.Merge,  mergeData: blck)
+  T(kind: BeaconBlockFork.Bellatrix,  mergeData: blck)
 
 template toFork*[T: phase0.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
@@ -193,7 +193,7 @@ template toFork*[T: altair.TrustedSignedBeaconBlock](
   BeaconBlockFork.Altair
 template toFork*[T: merge.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
-  BeaconBlockFork.Merge
+  BeaconBlockFork.Bellatrix
 
 template init*(T: type ForkedEpochInfo, info: phase0.EpochInfo): T =
   T(kind: EpochInfoFork.Phase0, phase0Data: info)
@@ -202,8 +202,8 @@ template init*(T: type ForkedEpochInfo, info: altair.EpochInfo): T =
 
 template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
   case x.kind
-  of BeaconStateFork.Merge:
-    const stateFork {.inject, used.} = BeaconStateFork.Merge
+  of BeaconStateFork.Bellatrix:
+    const stateFork {.inject, used.} = BeaconStateFork.Bellatrix
     template state: untyped {.inject, used.} = x.mergeData
     body
   of BeaconStateFork.Altair:
@@ -240,7 +240,7 @@ template withEpochInfo*(
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
   if tgt.kind == src.kind:
     case tgt.kind
-    of BeaconStateFork.Merge:
+    of BeaconStateFork.Bellatrix:
       assign(tgt.mergeData,  src.mergeData):
     of BeaconStateFork.Altair:
       assign(tgt.altairData, src.altairData):
@@ -258,9 +258,9 @@ template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
   # ```
   # Without `unsafeAddr`, the `validators` list would be copied to a temporary variable.
   (case x.kind
-  of BeaconStateFork.Merge: unsafeAddr x.mergeData.data.y
-  of BeaconStateFork.Altair: unsafeAddr x.altairData.data.y
-  of BeaconStateFork.Phase0: unsafeAddr x.phase0Data.data.y)[]
+  of BeaconStateFork.Bellatrix: unsafeAddr x.mergeData.data.y
+  of BeaconStateFork.Altair:    unsafeAddr x.altairData.data.y
+  of BeaconStateFork.Phase0:    unsafeAddr x.phase0Data.data.y)[]
 
 func getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
   withState(x): state.root
@@ -271,17 +271,17 @@ func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
 func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconStateFork =
   ## Return the current fork for the given epoch.
   static:
-    doAssert BeaconStateFork.Merge  > BeaconStateFork.Altair
-    doAssert BeaconStateFork.Altair > BeaconStateFork.Phase0
+    doAssert BeaconStateFork.Bellatrix > BeaconStateFork.Altair
+    doAssert BeaconStateFork.Altair    > BeaconStateFork.Phase0
     doAssert GENESIS_EPOCH == 0
 
-  if   epoch >= cfg.MERGE_FORK_EPOCH:  BeaconStateFork.Merge
+  if   epoch >= cfg.MERGE_FORK_EPOCH:  BeaconStateFork.Bellatrix
   elif epoch >= cfg.ALTAIR_FORK_EPOCH: BeaconStateFork.Altair
   else:                                BeaconStateFork.Phase0
 
 func blockForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconBlockFork =
   ## Return the current fork for the given epoch.
-  if   epoch >= cfg.MERGE_FORK_EPOCH:  BeaconBlockFork.Merge
+  if   epoch >= cfg.MERGE_FORK_EPOCH:  BeaconBlockFork.Bellatrix
   elif epoch >= cfg.ALTAIR_FORK_EPOCH: BeaconBlockFork.Altair
   else:                                BeaconBlockFork.Phase0
 
@@ -304,8 +304,8 @@ template withBlck*(
     const stateFork {.inject, used.} = BeaconStateFork.Altair
     template blck: untyped {.inject.} = x.altairData
     body
-  of BeaconBlockFork.Merge:
-    const stateFork {.inject, used.} = BeaconStateFork.Merge
+  of BeaconBlockFork.Bellatrix:
+    const stateFork {.inject, used.} = BeaconStateFork.Bellatrix
     template blck: untyped {.inject.} = x.mergeData
     body
 
@@ -318,9 +318,9 @@ func hash_tree_root*(x: ForkedBeaconBlock): Eth2Digest =
 template getForkedBlockField*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock, y: untyped): untyped =
   # unsafeAddr avoids a copy of the field in some cases
   (case x.kind
-  of BeaconBlockFork.Phase0: unsafeAddr x.phase0Data.message.y
-  of BeaconBlockFork.Altair: unsafeAddr x.altairData.message.y
-  of BeaconBlockFork.Merge: unsafeAddr x.mergeData.message.y)[]
+  of BeaconBlockFork.Phase0:    unsafeAddr x.phase0Data.message.y
+  of BeaconBlockFork.Altair:    unsafeAddr x.altairData.message.y
+  of BeaconBlockFork.Bellatrix: unsafeAddr x.mergeData.message.y)[]
 
 template signature*(x: ForkedSignedBeaconBlock): ValidatorSig =
   withBlck(x): blck.signature
@@ -350,8 +350,8 @@ template withStateAndBlck*(
        ForkedTrustedSignedBeaconBlock,
     body: untyped): untyped =
   case s.kind
-  of BeaconStateFork.Merge:
-    const stateFork {.inject.} = BeaconStateFork.Merge
+  of BeaconStateFork.Bellatrix:
+    const stateFork {.inject.} = BeaconStateFork.Bellatrix
     template state: untyped {.inject.} = s.mergeData
     template blck: untyped {.inject.} = b.mergeData
     body
@@ -388,21 +388,21 @@ func mergeFork*(cfg: RuntimeConfig): Fork =
 
 proc forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
   case cfg.stateForkAtEpoch(epoch)
-  of BeaconStateFork.Merge:  cfg.mergeFork
-  of BeaconStateFork.Altair: cfg.altairFork
-  of BeaconStateFork.Phase0: cfg.genesisFork
+  of BeaconStateFork.Bellatrix: cfg.mergeFork
+  of BeaconStateFork.Altair:    cfg.altairFork
+  of BeaconStateFork.Phase0:    cfg.genesisFork
 
 proc forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
   case cfg.stateForkAtEpoch(epoch)
-  of BeaconStateFork.Merge:  cfg.MERGE_FORK_VERSION
-  of BeaconStateFork.Altair: cfg.ALTAIR_FORK_VERSION
-  of BeaconStateFork.Phase0: cfg.GENESIS_FORK_VERSION
+  of BeaconStateFork.Bellatrix: cfg.MERGE_FORK_VERSION
+  of BeaconStateFork.Altair:    cfg.ALTAIR_FORK_VERSION
+  of BeaconStateFork.Phase0:    cfg.GENESIS_FORK_VERSION
 
 proc nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   case cfg.stateForkAtEpoch(epoch)
-  of BeaconStateFork.Merge:  FAR_FUTURE_EPOCH
-  of BeaconStateFork.Altair: cfg.MERGE_FORK_EPOCH
-  of BeaconStateFork.Phase0: cfg.ALTAIR_FORK_EPOCH
+  of BeaconStateFork.Bellatrix: FAR_FUTURE_EPOCH
+  of BeaconStateFork.Altair:    cfg.MERGE_FORK_EPOCH
+  of BeaconStateFork.Phase0:    cfg.ALTAIR_FORK_EPOCH
 
 func getForkSchedule*(cfg: RuntimeConfig): array[3, Fork] =
   ## This procedure returns list of known and/or scheduled forks.
@@ -466,9 +466,9 @@ func readSszForkedTrustedSignedBeaconBlock*(
 
 func toBeaconBlockFork*(fork: BeaconStateFork): BeaconBlockFork =
   case fork
-  of BeaconStateFork.Phase0: BeaconBlockFork.Phase0
-  of BeaconStateFork.Altair: BeaconBlockFork.Altair
-  of BeaconStateFork.Merge: BeaconBlockFork.Merge
+  of BeaconStateFork.Phase0:    BeaconBlockFork.Phase0
+  of BeaconStateFork.Altair:    BeaconBlockFork.Altair
+  of BeaconStateFork.Bellatrix: BeaconBlockFork.Bellatrix
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root*(current_version: Version,

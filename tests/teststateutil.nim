@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2021 Status Research & Development GmbH
+# Copyright (c) 2021-2022 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
@@ -64,10 +64,10 @@ proc getTestStates*(
     info = ForkedEpochInfo()
     cfg = defaultRuntimeConfig
 
-  if stateFork in [BeaconStateFork.Altair, BeaconStateFork.Merge]:
+  if stateFork in [BeaconStateFork.Altair, BeaconStateFork.Bellatrix]:
     cfg.ALTAIR_FORK_EPOCH = 1.Epoch
 
-  if stateFork == BeaconStateFork.Merge:
+  if stateFork == BeaconStateFork.Bellatrix:
     cfg.MERGE_FORK_EPOCH = 1.Epoch
 
   for i, epoch in stateEpochs:

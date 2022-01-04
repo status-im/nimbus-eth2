@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -201,7 +201,7 @@ proc maybeUpgradeStateToAltair(
       altairData: altair.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
-func maybeUpgradeStateToMerge(
+func maybeUpgradeStateToBellatrix(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
@@ -209,14 +209,14 @@ func maybeUpgradeStateToMerge(
       state.kind == BeaconStateFork.Altair:
     var newState = upgrade_to_merge(cfg, state.altairData.data)
     state = (ref ForkedHashedBeaconState)(
-      kind: BeaconStateFork.Merge,
+      kind: BeaconStateFork.Bellatrix,
       mergeData: merge.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
 proc maybeUpgradeState*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   cfg.maybeUpgradeStateToAltair(state)
-  cfg.maybeUpgradeStateToMerge(state)
+  cfg.maybeUpgradeStateToBellatrix(state)
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
@@ -614,6 +614,6 @@ proc makeBeaconBlock*(
     ok(blck)
 
   case state.kind
-  of BeaconStateFork.Phase0: makeBeaconBlock(phase0)
-  of BeaconStateFork.Altair: makeBeaconBlock(altair)
-  of BeaconStateFork.Merge:  makeBeaconBlock(merge)
+  of BeaconStateFork.Phase0:    makeBeaconBlock(phase0)
+  of BeaconStateFork.Altair:    makeBeaconBlock(altair)
+  of BeaconStateFork.Bellatrix: makeBeaconBlock(merge)

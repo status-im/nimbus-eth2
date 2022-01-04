@@ -224,7 +224,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
         blocks[0].add dag.db.getPhase0Block(blck.root).get()
       of BeaconBlockFork.Altair:
         blocks[1].add dag.db.getAltairBlock(blck.root).get()
-      of BeaconBlockFork.Merge:
+      of BeaconBlockFork.Bellatrix:
         blocks[2].add dag.db.getMergeBlock(blck.root).get()
 
   let stateData = newClone(dag.headState)
@@ -284,15 +284,15 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of BeaconStateFork.Altair:
                 doAssert dbBenchmark.getState(
                   state.root, loadedState[1][].data, noRollback)
-              of BeaconStateFork.Merge:
+              of BeaconStateFork.Bellatrix:
                 doAssert dbBenchmark.getState(
                   state.root, loadedState[2][].data, noRollback)
 
             if state.data.slot.epoch mod 16 == 0:
               let loadedRoot = case stateFork
-                of BeaconStateFork.Phase0: hash_tree_root(loadedState[0][].data)
-                of BeaconStateFork.Altair: hash_tree_root(loadedState[1][].data)
-                of BeaconStateFork.Merge: hash_tree_root(loadedState[2][].data)
+                of BeaconStateFork.Phase0:    hash_tree_root(loadedState[0][].data)
+                of BeaconStateFork.Altair:    hash_tree_root(loadedState[1][].data)
+                of BeaconStateFork.Bellatrix: hash_tree_root(loadedState[2][].data)
               doAssert hash_tree_root(state.data) == loadedRoot
 
   processBlocks(blocks[0])

@@ -2157,9 +2157,9 @@ proc updateForkId*(node: Eth2Node, epoch: Epoch, genesisValidatorsRoot: Eth2Dige
 
 func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
   case node.cfg.stateForkAtEpoch(epoch)
-  of BeaconStateFork.Merge:  node.forkDigests.merge
-  of BeaconStateFork.Altair: node.forkDigests.altair
-  of BeaconStateFork.Phase0: node.forkDigests.phase0
+  of BeaconStateFork.Bellatrix: node.forkDigests.merge
+  of BeaconStateFork.Altair:    node.forkDigests.altair
+  of BeaconStateFork.Phase0:    node.forkDigests.phase0
 
 proc getWallEpoch(node: Eth2Node): Epoch =
   node.getBeaconTime().slotOrZero.epoch
