@@ -4,7 +4,7 @@ import
   datatypes/altair,
   helpers
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/altair/sync-protocol.md#get_active_header
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#get_active_header
 func get_active_header(update: LightClientUpdate): BeaconBlockHeader =
   # The "active header" is the header that the update is trying to convince
   # us to accept. If a finalized header is present, it's the finalized

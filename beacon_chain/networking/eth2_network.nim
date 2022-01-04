@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1822,12 +1822,12 @@ proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
     .withTcpTransport({ServerFlags.ReuseAddr})
     .build()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/phase0/p2p-interface.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/p2p-interface.md#configuration
 # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/p2p-interface.md#configuration
 func maxGossipMaxSize(): auto {.compileTime.} =
   max(GOSSIP_MAX_SIZE, GOSSIP_MAX_SIZE_MERGE)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/phase0/p2p-interface.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/p2p-interface.md#configuration
 # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/p2p-interface.md#configuration
 template gossipMaxSize(T: untyped): uint32 =
   const maxSize = static:
