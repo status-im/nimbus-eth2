@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021 Status Research & Development GmbH
+# Copyright (c) 2021-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -149,7 +149,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
       store.finalized_header == pre_store_finalized_header
       store.best_valid_update.get == update
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L93-L154
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L93-L154
   test "process_light_client_update_timeout":
     var forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
@@ -217,7 +217,7 @@ suite "Ethereum Foundation - Altair - Unittests - Sync protocol" & preset():
       store.best_valid_update.get == update
       store.finalized_header == pre_store_finalized_header
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L157-L224
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L157-L224
   test "process_light_client_update_finality_updated":
     var forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
