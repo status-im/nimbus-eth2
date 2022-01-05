@@ -103,7 +103,7 @@ func check_propagation_slot_range(
 
 func check_beacon_and_target_block(
     pool: var AttestationPool, data: AttestationData):
-    Result[BlockRef, ValidationError] =
+    Result[BlockSlot, ValidationError] =
   # The block being voted for (data.beacon_block_root) passes validation - by
   # extension, the target block must at that point also pass validation.
   # The target block is returned.
@@ -122,13 +122,18 @@ func check_beacon_and_target_block(
   # attestation.data.beacon_block_root,
   # compute_start_slot_at_epoch(attestation.data.target.epoch)) ==
   # attestation.data.target.root
+  # the sanity of target.epoch has been checked by check_attestation_slot_target
   let
-    target = get_ancestor(
-      blck, compute_start_slot_at_epoch(data.target.epoch), SLOTS_PER_EPOCH.int)
+    target = blck.atSlot(compute_start_slot_at_epoch(data.target.epoch))
 
-  if not (target.root == data.target.root):
-    return errIgnore(
-      "Attestation's target block not an ancestor of LMD vote block")
+  if isNil(target.blck):
+    # Shouldn't happen - we've checked that the target epoch is within range
+    # already
+    return errReject("Attestation target block not found")
+
+  if not (target.blck.root == data.target.root):
+    return errReject(
+      "Attestation target block not the correct ancestor of LMD vote block")
 
   ok(target)
 
@@ -190,8 +195,10 @@ template validateBeaconBlockBellatrix(
     if signed_beacon_block.message.body.execution_payload !=
         default(ExecutionPayload):
       true
-    elif dag.getEpochRef(parent_ref, parent_ref.slot.epoch).merge_transition_complete:
-      # Should usually be inexpensive, but could require cache refilling
+    elif dag.getEpochRef(parent_ref, parent_ref.slot.epoch, true).expect(
+        "parent EpochRef doesn't fail").merge_transition_complete:
+      # Should usually be inexpensive, but could require cache refilling - the
+      # parent block can be no older than the latest finalized block
       true
     else:
       # Somewhat more expensive fallback, with database I/O, but should be
@@ -284,7 +291,8 @@ proc validateBeaconBlock*(
   let
     slotBlock = getBlockBySlot(dag, signed_beacon_block.message.slot)
 
-  if slotBlock.slot == signed_beacon_block.message.slot:
+  if slotBlock.isProposed() and
+      slotBlock.blck.slot == signed_beacon_block.message.slot:
     let blck = dag.get(slotBlock.blck).data
     if getForkedBlockField(blck, proposer_index) ==
           signed_beacon_block.message.proposer_index and
@@ -416,7 +424,13 @@ proc validateAttestation*(
   # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
   # store.finalized_checkpoint.root
   let
-    epochRef = pool.dag.getEpochRef(target, attestation.data.target.epoch)
+    epochRef = block:
+      let tmp = pool.dag.getEpochRef(target.blck, target.slot.epoch, false)
+      if isErr(tmp): # shouldn't happen since we verified target
+        warn "No EpochRef for attestation",
+          attestation = shortLog(attestation), target = shortLog(target)
+        return errIgnore("Attestation:  no EpochRef")
+      tmp.get()
 
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
@@ -587,7 +601,13 @@ proc validateAggregate*(
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
   # aggregate.data.index, aggregate_and_proof.selection_proof) returns True.
   let
-    epochRef = pool.dag.getEpochRef(target, aggregate.data.target.epoch)
+    epochRef = block:
+      let tmp = pool.dag.getEpochRef(target.blck, target.slot.epoch, false)
+      if tmp.isErr: # shouldn't happen since we verified target
+        warn "No EpochRef for attestation - report bug",
+          aggregate = shortLog(aggregate), target = shortLog(target)
+        return errIgnore("Aggregate: no EpochRef")
+      tmp.get()
 
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).

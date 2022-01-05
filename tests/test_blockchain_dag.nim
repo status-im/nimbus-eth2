@@ -46,6 +46,15 @@ suite "ChainDAG helpers":
       ancestor.blck.epochAncestor(cur.slot.epoch) == ancestor
       ancestor.blck.epochAncestor(ancestor.blck.slot.epoch) != ancestor
 
+    let
+      farEpoch = Epoch(42)
+      farTail = BlockRef(
+        bid: BlockId(slot: farEpoch.compute_start_slot_at_epoch() + 5))
+    check:
+
+      not isNil(epochAncestor(farTail, farEpoch).blck)
+      isNil(epochAncestor(farTail, farEpoch - 1).blck)
+
 suite "Block pool processing" & preset():
   setup:
     var
@@ -95,15 +104,15 @@ suite "Block pool processing" & preset():
       b2Add[].root == b2Get.get().refs.root
       dag.heads.len == 1
       dag.heads[0] == b2Add[]
-      not er.isNil
+      not er.isErr()
       # Same epoch - same epochRef
-      er == dag.findEpochRef(b2Add[], b2Add[].slot.epoch)
+      er[] == dag.findEpochRef(b2Add[], b2Add[].slot.epoch)[]
       # Different epoch that was never processed
-      dag.findEpochRef(b1Add[], b1Add[].slot.epoch + 1).isNil
+      dag.findEpochRef(b1Add[], b1Add[].slot.epoch + 1).isErr()
 
-      er.validatorKey(0'u64).isSome()
-      er.validatorKey(validators - 1).isSome()
-      er.validatorKey(validators).isNone()
+      er[].validatorKey(0'u64).isSome()
+      er[].validatorKey(validators - 1).isSome()
+      er[].validatorKey(validators).isNone()
 
     # Skip one slot to get a gap
     check:
@@ -167,7 +176,7 @@ suite "Block pool processing" & preset():
       stateCheckpoint = dag.head.parent.atSlot(nextEpochSlot).stateCheckpoint
 
     check:
-      not dag.getEpochRef(dag.head.parent, nextEpoch).isNil
+      dag.getEpochRef(dag.head.parent, nextEpoch, true).isOk()
 
       # Getting an EpochRef should not result in states being stored
       db.getStateRoot(stateCheckpoint.blck.root, stateCheckpoint.slot).isErr()
@@ -216,40 +225,38 @@ suite "Block pool processing" & preset():
 
     # move to specific block
     var cache = StateCache()
-    dag.updateStateData(tmpState[], bs1, false, cache)
-
     check:
+      dag.updateStateData(tmpState[], bs1, false, cache)
       tmpState.blck == b1Add[]
       getStateField(tmpState.data, slot) == bs1.slot
 
     # Skip slots
-    dag.updateStateData(tmpState[], bs1_3, false, cache) # skip slots
-
     check:
+      dag.updateStateData(tmpState[], bs1_3, false, cache) # skip slots
       tmpState.blck == b1Add[]
       getStateField(tmpState.data, slot) == bs1_3.slot
 
     # Move back slots, but not blocks
-    dag.updateStateData(tmpState[], bs1_3.parent(), false, cache)
     check:
+      dag.updateStateData(tmpState[], bs1_3.parent(), false, cache)
       tmpState.blck == b1Add[]
       getStateField(tmpState.data, slot) == bs1_3.parent().slot
 
     # Move to different block and slot
-    dag.updateStateData(tmpState[], bs2_3, false, cache)
     check:
+      dag.updateStateData(tmpState[], bs2_3, false, cache)
       tmpState.blck == b2Add[]
       getStateField(tmpState.data, slot) == bs2_3.slot
 
     # Move back slot and block
-    dag.updateStateData(tmpState[], bs1, false, cache)
     check:
+      dag.updateStateData(tmpState[], bs1, false, cache)
       tmpState.blck == b1Add[]
       getStateField(tmpState.data, slot) == bs1.slot
 
     # Move back to genesis
-    dag.updateStateData(tmpState[], bs1.parent(), false, cache)
     check:
+      dag.updateStateData(tmpState[], bs1.parent(), false, cache)
       tmpState.blck == b1Add[].parent
       getStateField(tmpState.data, slot) == bs1.parent.slot
 
@@ -391,12 +398,13 @@ suite "chain DAG finalization tests" & preset():
       dag.db.immutableValidators.len() == getStateField(dag.headState.data, validators).len()
 
     let
-      finalER = dag.findEpochRef(dag.finalizedHead.blck, dag.finalizedHead.slot.epoch)
+      finalER = dag.getEpochRef(
+        dag.finalizedHead.blck, dag.finalizedHead.slot.epoch, false)
 
       # The EpochRef for the finalized block is needed for eth1 voting, so we
       # should never drop it!
     check:
-      not finalER.isNil
+      not finalER.isErr()
 
     block:
       for er in dag.epochRefs:
@@ -409,7 +417,7 @@ suite "chain DAG finalization tests" & preset():
       # just processed the head the relevant epochrefs should not have been
       # evicted yet
       cache = StateCache()
-      updateStateData(
+      check: updateStateData(
         dag, tmpStateData[], dag.head.atSlot(dag.head.slot), false, cache)
 
       check:
@@ -514,8 +522,8 @@ suite "chain DAG finalization tests" & preset():
         tmpStateData = assignClone(dag.headState)
       while cur.slot >= dag.finalizedHead.slot:
         assign(tmpStateData[], dag.headState)
-        dag.updateStateData(tmpStateData[], cur.atSlot(cur.slot), false, cache)
         check:
+          dag.updateStateData(tmpStateData[], cur.atSlot(cur.slot), false, cache)
           dag.get(cur).data.phase0Data.message.state_root ==
             getStateRoot(tmpStateData[].data)
           getStateRoot(tmpStateData[].data) == hash_tree_root(
@@ -665,7 +673,7 @@ suite "Backfill":
       blocks = block:
         var blocks: seq[ForkedSignedBeaconBlock]
         var cache: StateCache
-        for i in 0..<SLOTS_PER_EPOCH:
+        for i in 0..<SLOTS_PER_EPOCH * 2:
           blocks.add addTestBlock(tailState[], cache)
         blocks
 
@@ -693,6 +701,9 @@ suite "Backfill":
       dag.getBlockBySlot(Slot(0)).blck == dag.genesis
       dag.getBlockSlotIdBySlot(Slot(0)) == dag.genesis.bid.atSlot(Slot(0))
       dag.getBlockSlotIdBySlot(Slot(1)) == BlockSlotId()
+
+      # No epochref for pre-tail epochs
+      dag.getEpochRef(dag.tail, dag.tail.slot.epoch - 1, true).isErr()
 
     var
       badBlock = blocks[^2].phase0Data

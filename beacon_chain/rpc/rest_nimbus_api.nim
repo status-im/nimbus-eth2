@@ -209,9 +209,11 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
     let proposalState = assignClone(node.dag.headState)
-    node.dag.withState(proposalState[], head.atSlot(wallSlot)):
+    node.dag.withUpdatedState(proposalState[], head.atSlot(wallSlot)) do:
       return RestApiResponse.jsonResponse(
         node.getBlockProposalEth1Data(stateData.data))
+    do:
+      return RestApiResponse.jsonError(Http400, PrunedStateError)
 
   router.api(MethodGet, "/api/nimbus/v1/debug/chronos/futures") do (
     ) -> RestApiResponse:

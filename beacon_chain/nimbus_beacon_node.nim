@@ -774,9 +774,11 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     # We "know" the actions for the current and the next epoch
     if node.isSynced(head):
       node.actionTracker.updateActions(
-        node.dag.getEpochRef(head, slot.epoch))
+        node.dag.getEpochRef(head, slot.epoch, false).expect(
+          "Getting head EpochRef should never fail"))
       node.actionTracker.updateActions(
-        node.dag.getEpochRef(head, slot.epoch + 1))
+        node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
+          "Getting head EpochRef should never fail"))
 
   if node.gossipState.card > 0 and targetGossipState.card == 0:
     debug "Disabling topic subscriptions",
@@ -855,8 +857,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     #      pessimistically with respect to the shuffling - this needs fixing
     #      at EpochRef level by not mixing balances and shufflings in the same
     #      place
-    let epochRef = node.dag.getEpochRef(node.dag.head, slot.epoch + 1)
-    node.actionTracker.updateActions(epochRef)
+    node.actionTracker.updateActions(node.dag.getEpochRef(
+      node.dag.head, slot.epoch + 1, false).expect(
+        "Getting head EpochRef should never fail"))
 
   let
     nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot)

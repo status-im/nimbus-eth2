@@ -258,10 +258,16 @@ proc checkForPotentialDoppelganger(
   if attestation.data.slot.epoch <
       self.doppelgangerDetection.broadcastStartEpoch:
     let tgtBlck = self.dag.getRef(attestation.data.target.root)
+
     doAssert not tgtBlck.isNil  # because attestation is valid above
 
+    # We expect the EpochRef not to have been pruned between validating the
+    # attestation and checking for doppelgangers - this may need to be revisited
+    # when online pruning of states is implemented
     let epochRef = self.dag.getEpochRef(
-      tgtBlck, attestation.data.target.epoch)
+      tgtBlck, attestation.data.target.epoch, true).expect(
+        "Target block EpochRef must be valid")
+
     for validatorIndex in attesterIndices:
       let validatorPubkey = epochRef.validatorKey(validatorIndex).get().toPubKey()
       if  self.doppelgangerDetectionEnabled and

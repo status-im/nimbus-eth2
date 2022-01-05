@@ -166,7 +166,7 @@ proc stepOnBlock(
        signedBlock: ForkySignedBeaconBlock,
        time: BeaconTime): Result[BlockRef, BlockError] =
   # 1. Move state to proper slot.
-  dag.updateStateData(
+  doAssert dag.updateStateData(
     state,
     dag.head.atSlot(time.slotOrZero),
     save = false,
@@ -203,7 +203,9 @@ proc stepOnAttestation(
        att: Attestation,
        time: BeaconTime): FcResult[void] =
   let epochRef =
-    dag.getEpochRef(dag.head, time.slotOrZero.compute_epoch_at_slot())
+    dag.getEpochRef(
+      dag.head, time.slotOrZero().compute_epoch_at_slot(),
+      false).expect("no pruning in test")
   let attesters = epochRef.get_attesting_indices(att.data, att.aggregation_bits)
 
   let status = fkChoice[].on_attestation(

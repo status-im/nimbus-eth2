@@ -35,8 +35,10 @@ template withStateForStateId*(stateId: string, body: untyped): untyped =
       body
   else:
     let rpcState = assignClone(node.dag.headState)
-    node.dag.withState(rpcState[], bs):
+    node.dag.withUpdatedState(rpcState[], bs) do:
       body
+    do:
+      raise (ref CatchableError)(msg: "Trying to access pruned state")
 
 proc parseRoot*(str: string): Eth2Digest {.raises: [Defect, ValueError].} =
   Eth2Digest(data: hexToByteArray[32](str))

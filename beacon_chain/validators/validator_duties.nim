@@ -444,7 +444,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
   let
     proposalState = assignClone(node.dag.headState)
 
-  node.dag.withState(proposalState[], head.atSlot(slot - 1)):
+  node.dag.withUpdatedState(proposalState[], head.atSlot(slot - 1)) do:
     # Advance to the given slot without calculating state root - we'll only
     # need a state root _with_ the block applied
     var info: ForkedEpochInfo
@@ -479,6 +479,10 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       default(merge.ExecutionPayload),
       noRollback, # Temporary state - no need for rollback
       cache)
+  do:
+    warn "Cannot get proposal state - skipping block productioon, database corrupt?",
+      head = shortLog(head),
+      slot
 
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
@@ -597,7 +601,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     #      finalized epoch.. also, it seems that posting very old attestations
     #      is risky from a slashing perspective. More work is needed here.
     warn "Skipping attestation, head is too recent",
-      headSlot = shortLog(head.slot),
+      head = shortLog(head),
       slot = shortLog(slot)
     return
 
@@ -607,21 +611,25 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     # attesting to a past state - we must then recreate the world as it looked
     # like back then
     notice "Attesting to a state in the past, falling behind?",
-      headSlot = shortLog(head.slot),
-      attestationHeadSlot = shortLog(attestationHead.slot),
-      attestationSlot = shortLog(slot)
+      attestationHead = shortLog(attestationHead),
+      head = shortLog(head)
 
   trace "Checking attestations",
-    attestationHeadRoot = shortLog(attestationHead.blck.root),
-    attestationSlot = shortLog(slot)
+    attestationHead = shortLog(attestationHead),
+    head = shortLog(head)
 
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/validator.md#validator-assignments
   let
-    epochRef = node.dag.getEpochRef(
-      attestationHead.blck, slot.compute_epoch_at_slot())
+    epochRef = block:
+      let tmp = node.dag.getEpochRef(attestationHead.blck, slot.epoch, false)
+      if isErr(tmp):
+        warn "Cannot construct EpochRef for attestation head, report bug",
+          attestationHead = shortLog(attestationHead), slot
+        return
+      tmp.get()
     committees_per_slot = get_committee_count_per_slot(epochRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root =
@@ -874,18 +882,20 @@ proc makeAggregateAndProof*(
     selection_proof: slot_signature))
 
 proc sendAggregatedAttestations(
-    node: BeaconNode, aggregationHead: BlockRef, aggregationSlot: Slot) {.async.} =
-  # The index is via a
-  # locally attested validator. Unlike in handleAttestations(...) there's a
-  # single one at most per slot (because that's how aggregation attestation
-  # works), so the machinery that has to handle looping across, basically a
-  # set of locally attached validators is in principle not necessary, but a
-  # way to organize this. Then the private key for that validator should be
-  # the corresponding one -- whatver they are, they match.
+    node: BeaconNode, head: BlockRef, slot: Slot) {.async.} =
+  # Aggregated attestations must be sent by members of the beacon committees for
+  # the given slot, for which `is_aggregator` returns `true.
 
   let
-    epochRef = node.dag.getEpochRef(aggregationHead, aggregationSlot.epoch)
-    fork = node.dag.forkAtEpoch(aggregationSlot.epoch)
+    epochRef = block:
+      let tmp = node.dag.getEpochRef(head, slot.epoch, false)
+      if isErr(tmp): # Some unusual race condition perhaps?
+        warn "Cannot construct EpochRef for head, report bug",
+          head = shortLog(head), slot
+        return
+      tmp.get()
+
+    fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root =
       getStateField(node.dag.headState.data, genesis_validators_root)
     committees_per_slot = get_committee_count_per_slot(epochRef)
@@ -898,14 +908,14 @@ proc sendAggregatedAttestations(
 
   for committee_index in 0'u64..<committees_per_slot:
     let committee = get_beacon_committee(
-      epochRef, aggregationSlot, committee_index.CommitteeIndex)
+      epochRef, slot, committee_index.CommitteeIndex)
 
     for index_in_committee, validatorIdx in committee:
       let validator = node.getAttachedValidator(epochRef, validatorIdx)
       if validator != nil:
         # the validator index and private key pair.
         slotSigs.add getSlotSig(validator, fork,
-          genesis_validators_root, aggregationSlot)
+          genesis_validators_root, slot)
         slotSigsData.add (committee_index, validatorIdx, validator)
 
   await allFutures(slotSigs)
@@ -915,10 +925,10 @@ proc sendAggregatedAttestations(
     if slotSig.isErr():
       error "Unable to create slot signature using remote signer",
             validator = shortLog(curr[0].v),
-            aggregation_slot = aggregationSlot, error_msg = slotSig.error()
+            slot, error_msg = slotSig.error()
       continue
     let aggregateAndProof =
-      makeAggregateAndProof(node.attestationPool[], epochRef, aggregationSlot,
+      makeAggregateAndProof(node.attestationPool[], epochRef, slot,
                             curr[0].committee_index.CommitteeIndex,
                             curr[0].validator_idx,
                             slotSig.get())
@@ -1134,18 +1144,26 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 proc sendAttestation*(node: BeaconNode,
                       attestation: Attestation): Future[SendResult] {.async.} =
   # REST/JSON-RPC API helper procedure.
-  let attestationBlock =
-    block:
-      let res = node.dag.getRef(attestation.data.beacon_block_root)
-      if isNil(res):
-        debug "Attempt to send attestation without corresponding block",
-              attestation = shortLog(attestation)
-        return SendResult.err(
-          "Attempt to send attestation without corresponding block")
-      res
   let
-    epochRef = node.dag.getEpochRef(
-      attestationBlock, attestation.data.target.epoch)
+    blck =
+      block:
+        let res = node.dag.getRef(attestation.data.beacon_block_root)
+        if isNil(res):
+          notice "Attempt to send attestation for unknown block",
+                attestation = shortLog(attestation)
+          return SendResult.err(
+            "Attempt to send attestation for unknown block")
+        res
+    epochRef = block:
+      let tmp = node.dag.getEpochRef(
+        blck, attestation.data.target.epoch, false)
+      if tmp.isErr(): # Shouldn't happen
+        warn "Cannot construct EpochRef for attestation, skipping send - report bug",
+          blck = shortLog(blck),
+          attestation = shortLog(attestation)
+        return
+      tmp.get()
+
     subnet_id = compute_subnet_for_attestation(
       get_committee_count_per_slot(epochRef), attestation.data.slot,
       attestation.data.index.CommitteeIndex)
@@ -1293,7 +1311,14 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
   # be getting the duties one slot at a time
   for slot in wallSlot ..< wallSlot + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS:
     let
-      epochRef = node.dag.getEpochRef(head, slot.epoch)
+      epochRef = block:
+        let tmp = node.dag.getEpochRef(head, slot.epoch, false)
+        if tmp.isErr(): # Shouldn't happen
+          warn "Cannot construct EpochRef for duties - report bug",
+            head = shortLog(head), slot
+          return
+        tmp.get()
+    let
       fork = node.dag.forkAtEpoch(slot.epoch)
       committees_per_slot = get_committee_count_per_slot(epochRef)
 

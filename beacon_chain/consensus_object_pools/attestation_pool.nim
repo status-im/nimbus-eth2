@@ -134,7 +134,9 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
             epochRef.current_justified_checkpoint,
             epochRef.finalized_checkpoint)
         else:
-          epochRef = dag.getEpochRef(blckRef, blckRef.slot.epoch)
+          epochRef = dag.getEpochRef(blckRef, blckRef.slot.epoch, false).expect(
+            "Getting an EpochRef should always work for non-finalized blocks")
+
           withBlck(dag.get(blckRef).data):
             forkChoice.process_block(
               dag, epochRef, blckRef, blck.message, blckRef.slot.toBeaconTime)

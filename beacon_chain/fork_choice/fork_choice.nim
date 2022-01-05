@@ -120,13 +120,21 @@ proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: BeaconTime):
       return err ForkChoiceError(
         kind: fcJustifiedNodeUnknown,
         blockRoot: self.best_justified.root)
-    
+
     let ancestor = blck.atEpochStart(self.finalized.epoch)
     if ancestor.blck.root == self.finalized.root:
-      let epochRef = dag.getEpochRef(blck, self.best_justified.epoch)
-      self.justified = BalanceCheckpoint(
-        checkpoint: Checkpoint(root: blck.root, epoch: epochRef.epoch),
-        balances: epochRef.effective_balances)
+      let epochRef = dag.getEpochRef(blck, self.best_justified.epoch, false)
+      if epochRef.isSome():
+        self.justified = BalanceCheckpoint(
+          checkpoint: Checkpoint(root: blck.root, epoch: epochRef[].epoch),
+          balances: epochRef[].effective_balances)
+      else:
+        # Shouldn't happen for justified data unless fork choice is out of sync
+        # with ChainDAG
+        warn "No `EpochRef` for justified epoch, skipping update - report bug",
+          justified = shortLog(self.justified.checkpoint),
+          best = shortLog(self.best_justified.epoch),
+          blck = shortLog(blck)
   ok()
 
 func process_attestation_queue(self: var ForkChoice) {.gcsafe.}
@@ -266,15 +274,23 @@ proc process_state(self: var Checkpoints,
     if ? should_update_justified_checkpoint(self, dag, epochRef):
       let
         justifiedBlck = blck.atEpochStart(state_justified_epoch)
-        justifiedEpochRef = dag.getEpochRef(justifiedBlck.blck, state_justified_epoch)
-
-      self.justified =
-        BalanceCheckpoint(
-          checkpoint: Checkpoint(
-            root: justifiedBlck.blck.root,
-            epoch: justifiedEpochRef.epoch
-          ),
-          balances: justifiedEpochRef.effective_balances)
+        justifiedEpochRef = dag.getEpochRef(
+          justifiedBlck.blck, state_justified_epoch, false)
+      if justifiedEpochRef.isOk():
+        self.justified =
+          BalanceCheckpoint(
+            checkpoint: Checkpoint(
+              root: justifiedBlck.blck.root,
+              epoch: state_justified_epoch
+            ),
+            balances: justifiedEpochRef[].effective_balances)
+      else:
+        # Shouldn't happen, unless fork choice is out of sync with ChainDAG
+        warn "Skipping justified checkpoint update, no EpochRef - report bug",
+          epoch = epochRef.epoch,
+          justifiedBlck = shortLog(justifiedBlck),
+          state_justified = shortLog(epochRef.current_justified_checkpoint),
+          state_finalized = shortLog(epochRef.finalized_checkpoint)
 
   if state_finalized_epoch > self.finalized.epoch:
     self.finalized = epochRef.finalized_checkpoint
@@ -288,15 +304,22 @@ proc process_state(self: var Checkpoints,
 
         let
           justifiedBlck = blck.atEpochStart(state_justified_epoch)
-          justifiedEpochRef = dag.getEpochRef(justifiedBlck.blck, state_justified_epoch)
-
-        self.justified =
-          BalanceCheckpoint(
-            checkpoint: Checkpoint(
-              root: justifiedBlck.blck.root,
-              epoch: justifiedEpochRef.epoch
-            ),
-            balances: justifiedEpochRef.effective_balances)
+          justifiedEpochRef = dag.getEpochRef(
+            justifiedBlck.blck, state_justified_epoch, false)
+        if justifiedEpochRef.isOk():
+          self.justified =
+            BalanceCheckpoint(
+              checkpoint: Checkpoint(
+                root: justifiedBlck.blck.root,
+                epoch: justifiedEpochRef[].epoch
+              ),
+              balances: justifiedEpochRef[].effective_balances)
+        else:
+          warn "Skipping justified checkpoint update, no EpochRef - report bug",
+            epoch = epochRef.epoch,
+            justifiedBlck = shortLog(justifiedBlck),
+            state_justified = shortLog(epochRef.current_justified_checkpoint),
+            state_finalized = shortLog(epochRef.finalized_checkpoint)
   ok()
 
 func process_block*(self: var ForkChoiceBackend,
