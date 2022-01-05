@@ -1,5 +1,4 @@
 import
-  std/sets,
   stew/[bitops2, objects],
   datatypes/altair,
   helpers
@@ -9,12 +8,12 @@ func get_active_header(update: LightClientUpdate): BeaconBlockHeader =
   # The "active header" is the header that the update is trying to convince
   # us to accept. If a finalized header is present, it's the finalized
   # header, otherwise it's the attested header
-  if update.finalized_header != BeaconBlockHeader():
+  if not update.finalized_header.isZeroMemory:
     update.finalized_header
   else:
     update.attested_header
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/altair/sync-protocol.md#validate_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#validate_light_client_update
 proc validate_light_client_update*(store: LightClientStore,
                                    update: LightClientUpdate,
                                    current_slot: Slot,
@@ -86,7 +85,7 @@ proc validate_light_client_update*(store: LightClientStore,
   blsFastAggregateVerify(
     participant_pubkeys, signing_root.data, sync_aggregate.sync_committee_signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/altair/sync-protocol.md#apply_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#apply_light_client_update
 func apply_light_client_update(
     store: var LightClientStore, update: LightClientUpdate) =
   let
@@ -102,14 +101,14 @@ func apply_light_client_update(
     store.next_sync_committee = update.next_sync_committee
   store.finalized_header = active_header
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/altair/sync-protocol.md#get_safety_threshold
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#get_safety_threshold
 func get_safety_threshold(store: LightClientStore): uint64 =
   max(
     store.previous_max_active_participants,
     store.current_max_active_participants
   ) div 2
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/altair/sync-protocol.md#process_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#process_light_client_update
 proc process_light_client_update*(store: var LightClientStore,
                                   update: LightClientUpdate,
                                   current_slot: Slot,
@@ -142,7 +141,7 @@ proc process_light_client_update*(store: var LightClientStore,
 
   # Update finalized header
   if  sum_sync_committee_bits * 3 >= len(sync_committee_bits) * 2 and
-      update.finalized_header != default(BeaconBlockHeader):
+      not update.finalized_header.isZeroMemory:
     # Normal update through 2/3 threshold
     apply_light_client_update(store, update)
     store.best_valid_update = none(LightClientUpdate)

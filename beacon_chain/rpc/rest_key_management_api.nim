@@ -1,4 +1,4 @@
-# Copyright (c) 2021 Status Research & Development GmbH
+# Copyright (c) 2021-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -6,7 +6,7 @@
 
 import std/[tables, os, strutils]
 import chronos, chronicles, confutils,
-       stew/[base10, results, byteutils, io2], bearssl, blscurve
+       stew/[base10, results, io2], bearssl, blscurve
 import ".."/validators/slashing_protection
 import ".."/[conf, version, filepath, beacon_node]
 import ".."/spec/[keystore, crypto]
