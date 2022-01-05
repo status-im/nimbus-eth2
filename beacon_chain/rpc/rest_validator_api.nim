@@ -313,7 +313,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             let res = graffiti.get()
             if res.isErr():
               return RestApiResponse.jsonError(Http400,
-                                               InvalidGraffitiBytesValye,
+                                               InvalidGraffitiBytesValue,
                                                $res.error())
             res.get()
         let qhead =
@@ -371,7 +371,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             let res = graffiti.get()
             if res.isErr():
               return RestApiResponse.jsonError(Http400,
-                                               InvalidGraffitiBytesValye,
+                                               InvalidGraffitiBytesValue,
                                                $res.error())
             res.get()
         let qhead =

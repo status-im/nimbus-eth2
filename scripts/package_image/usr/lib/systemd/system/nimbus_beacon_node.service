@@ -4,7 +4,7 @@
 # Environment="WEB3_URL=wss://provider/"
 #
 # To completely override the start command (to add custom parameters such as
-# graffitti), override the `ExecStart` value instead:
+# graffiti), override the `ExecStart` value instead:
 #
 # [Service]
 # ExecStart=/usr/bin/nimbus_beacon_node --network=${NETWORK} \

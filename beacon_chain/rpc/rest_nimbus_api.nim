@@ -165,12 +165,33 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponse((peers: res))
 
   router.api(MethodPost, "/nimbus/v1/graffiti") do (
-    value: Option[GraffitiBytes]) -> RestApiResponse:
-    if value.isSome() and value.get().isOk():
-      node.graffitiBytes = value.get().get()
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    if contentBody.isNone:
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+
+    template setGraffitiAux(node: BeaconNode, graffitiStr: string): RestApiResponse =
+      node.graffitiBytes = try:
+        GraffitiBytes.init(graffitiStr)
+      except CatchableError as err:
+        return RestApiResponse.jsonError(Http400, InvalidGraffitiBytesValue,
+                                         err.msg)
+      RestApiResponse.jsonResponse((result: true))
+
+    case contentBody.get.contentType
+    of "application/json":
+      let graffitiBytes = decodeBody(GraffitiBytes, contentBody.get)
+      if graffitiBytes.isErr:
+        return RestApiResponse.jsonError(Http400, InvalidGraffitiBytesValue,
+                                         $graffitiBytes.error)
+      node.graffitiBytes = graffitiBytes.get
       return RestApiResponse.jsonResponse((result: true))
+    of "text/plain":
+      return node.setGraffitiAux contentBody.get.strData
+    of "application/x-www-form-urlencoded":
+      return node.setGraffitiAux decodeUrl(contentBody.get.strData)
     else:
-      return RestApiResponse.jsonError(Http400, InvalidGraffitiBytesValye)
+      return RestApiResponse.jsonError(Http400, "Unsupported content type: " &
+                                                $contentBody.get.contentType)
 
   router.api(MethodGet, "/nimbus/v1/graffiti") do (
     ) -> RestApiResponse:

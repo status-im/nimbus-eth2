@@ -17,7 +17,7 @@ const
   versionMinor* = 5
   versionBuild* = 5
 
-  versionBlob* = "stateofus" # Single word - ends up in the default graffitti
+  versionBlob* = "stateofus" # Single word - ends up in the default graffiti
 
   gitRevision* = strip(staticExec("git rev-parse --short HEAD"))[0..5]
 
