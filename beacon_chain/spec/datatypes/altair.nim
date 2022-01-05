@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021 Status Research & Development GmbH
+# Copyright (c) 2021-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -52,7 +52,7 @@ const
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 16
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/setup.py#L478-L479
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/setup.py#L478-L479
   FINALIZED_ROOT_INDEX* = 105.GeneralizedIndex
   NEXT_SYNC_COMMITTEE_INDEX* = 55.GeneralizedIndex
 
@@ -150,7 +150,7 @@ type
 
   ### Modified/overloaded
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/altair/sync-protocol.md#lightclientupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
     attested_header*: BeaconBlockHeader ##\
     ## The beacon block header that is attested to by the sync committee
@@ -170,7 +170,7 @@ type
     fork_version*: Version ##\
     ## Fork version for the aggregate signature
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/altair/sync-protocol.md#lightclientstore
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#lightclientstore
   LightClientStore* = object
     finalized_header*: BeaconBlockHeader ##\
     ## Beacon block header that is finalized

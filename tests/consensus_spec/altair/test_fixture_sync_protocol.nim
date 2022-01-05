@@ -20,7 +20,7 @@ import
   # Test utilities
   ../../testutil, ../../testblockutil
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.4/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
 proc compute_aggregate_sync_committee_signature(
     forked: ForkedHashedBeaconState,
     participants: openArray[ValidatorIndex],
@@ -72,7 +72,7 @@ let full_sync_committee_bits = block:
   res.bytes.fill(byte.high)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L24-L33
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L24-L33
 func initialize_light_client_store(state: auto): LightClientStore =
   LightClientStore(
     finalized_header: BeaconBlockHeader(),
@@ -92,7 +92,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       res
     genesisState = newClone(initGenesisState(cfg = cfg))
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L36-L90
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L36-L90
   test "test_process_light_client_update_not_timeout":
     var forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
