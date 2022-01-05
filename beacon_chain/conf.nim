@@ -328,6 +328,18 @@ type
         defaultValueDesc: "127.0.0.1"
         name: "rest-address" }: ValidIpAddress
 
+      restCacheSize* {.
+        defaultValue: 3
+        desc: "The maximum number of recently accessed states that are kept in " &
+              "memory. Speeds up requests obtaining information for consecutive " &
+              "slots or epochs."
+        name: "rest-statecache-size" }: Natural
+
+      restCacheTtl* {.
+        defaultValue: 60
+        desc: "The number of seconds to keep recently accessed states in memory"
+        name: "rest-statecache-ttl" }: Natural
+
       keymanagerEnabled* {.
         desc: "Enable the REST keymanager API (BETA version)"
         defaultValue: false
