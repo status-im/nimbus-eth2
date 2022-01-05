@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -575,7 +575,7 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   let forkDigests: array[BeaconStateFork, auto] = [
     node.dag.forkDigests.phase0,
     node.dag.forkDigests.altair,
-    node.dag.forkDigests.merge
+    node.dag.forkDigests.bellatrix
   ]
 
   for gossipFork in node.gossipState:
@@ -780,7 +780,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   let forkDigests: array[BeaconStateFork, auto] = [
     node.dag.forkDigests.phase0,
     node.dag.forkDigests.altair,
-    node.dag.forkDigests.merge
+    node.dag.forkDigests.bellatrix
   ]
 
   const removeMessageHandlers: array[BeaconStateFork, auto] = [
@@ -1064,7 +1064,7 @@ proc installMessageValidators(node: BeaconNode) =
   # Validators introduced in phase0 are also used in altair and merge, but with
   # different fork digest
   installPhase0Validators(node.dag.forkDigests.altair)
-  installPhase0Validators(node.dag.forkDigests.merge)
+  installPhase0Validators(node.dag.forkDigests.bellatrix)
 
   node.network.addValidator(
     getBeaconBlocksTopic(node.dag.forkDigests.altair),
@@ -1073,7 +1073,7 @@ proc installMessageValidators(node: BeaconNode) =
         MsgSource.gossip, signedBlock)))
 
   node.network.addValidator(
-    getBeaconBlocksTopic(node.dag.forkDigests.merge),
+    getBeaconBlocksTopic(node.dag.forkDigests.bellatrix),
     proc (signedBlock: merge.SignedBeaconBlock): ValidationResult =
       toValidationResult(node.processor[].blockValidator(
         MsgSource.gossip, signedBlock)))
@@ -1097,7 +1097,7 @@ proc installMessageValidators(node: BeaconNode) =
           await node.processor.contributionValidator(MsgSource.gossip, msg)))
 
   installSyncCommitteeeValidators(node.dag.forkDigests.altair)
-  installSyncCommitteeeValidators(node.dag.forkDigests.merge)
+  installSyncCommitteeeValidators(node.dag.forkDigests.bellatrix)
 
 proc stop(node: BeaconNode) =
   bnStatus = BeaconNodeStatus.Stopping

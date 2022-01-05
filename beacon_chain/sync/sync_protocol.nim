@@ -79,7 +79,7 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
       return ok ForkedSignedBeaconBlock.init(res.get)
     else:
       return err(res.error)
-  elif contextBytes == peer.network.forkDigests.merge:
+  elif contextBytes == peer.network.forkDigests.bellatrix:
     let res = await readChunkPayload(conn, peer, merge.SignedBeaconBlock)
     if res.isOk:
       return ok ForkedSignedBeaconBlock.init(res.get)
@@ -104,7 +104,7 @@ proc sendResponseChunk*(response: UntypedResponse,
   of BeaconBlockFork.Bellatrix:
     response.stream.writeChunk(some ResponseCode.Success,
                                SSZ.encode(val.mergeData),
-                               response.peer.network.forkDigests.merge.bytes)
+                               response.peer.network.forkDigests.bellatrix.bytes)
 
 func shortLog*(s: StatusMsg): auto =
   (
