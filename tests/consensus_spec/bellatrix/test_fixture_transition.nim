@@ -10,19 +10,19 @@
 import
   yaml,
   # Standard library
-  os, sequtils,
+  std/[os, sequtils, strutils],
   # Status internal
   chronicles,
   faststreams, streams,
   # Beacon chain internals
   ../../../beacon_chain/spec/[state_transition, forks, helpers],
-  ../../../beacon_chain/spec/datatypes/[phase0, altair],
+  ../../../beacon_chain/spec/datatypes/[altair, merge],
   # Test utilities
   ../../testutil,
   ../fixtures_utils
 
 const
-  TransitionDir = SszTestsDir/const_preset/"altair"/"transition"/"core"/"pyspec_tests"
+  TransitionDir = SszTestsDir/const_preset/"bellatrix"/"transition"/"core"/"pyspec_tests"
 
 type
   TransitionInfo = object
@@ -43,40 +43,43 @@ proc runTest(testName, testDir, unitTestName: string) =
   proc `testImpl _ blck _ testName`() =
     test testName & " - " & unitTestName & preset():
       var
-        preState = newClone(parseTest(testPath/"pre.ssz_snappy", SSZ, phase0.BeaconState))
-        fhPreState = (ref ForkedHashedBeaconState)(phase0Data: phase0.HashedBeaconState(
-          data: preState[], root: hash_tree_root(preState[])), kind: BeaconStateFork.Phase0)
+        preState = newClone(parseTest(testPath/"pre.ssz_snappy", SSZ, altair.BeaconState))
+        fhPreState = (ref ForkedHashedBeaconState)(altairData: altair.HashedBeaconState(
+          data: preState[], root: hash_tree_root(preState[])), kind: BeaconStateFork.Altair)
         cache = StateCache()
         info = ForkedEpochInfo()
         cfg = defaultRuntimeConfig
-      cfg.ALTAIR_FORK_EPOCH = transitionInfo.fork_epoch.Epoch
+      cfg.MERGE_FORK_EPOCH = transitionInfo.fork_epoch.Epoch
 
       # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
       # so purely lexicographic sorting wouldn't sort properly.
       let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
       for i in 0 ..< numBlocks:
         if i <= transitionInfo.fork_block:
-          let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, phase0.SignedBeaconBlock)
-
-          let success = state_transition(
-            cfg, fhPreState[], blck, cache, info,
-            flags = {skipStateRootValidation}, noRollback)
-          doAssert success, "Failure when applying block " & $i
-        else:
           let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, altair.SignedBeaconBlock)
 
           let success = state_transition(
             cfg, fhPreState[], blck, cache, info,
             flags = {skipStateRootValidation}, noRollback)
           doAssert success, "Failure when applying block " & $i
+        else:
+          let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, merge.SignedBeaconBlock)
 
-      let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, altair.BeaconState))
+          let success = state_transition(
+            cfg, fhPreState[], blck, cache, info,
+            flags = {skipStateRootValidation}, noRollback)
+          doAssert success, "Failure when applying block " & $i
+
+      let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, merge.BeaconState))
       when false:
         reportDiff(fhPreState.data, postState)
       doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()
 
   `testImpl _ blck _ testName`()
 
-suite "EF - Altair - Transition " & preset():
+suite "EF - Bellatrix - Transition " & preset():
   for kind, path in walkDir(TransitionDir, relative = true, checkDir = true):
-    runTest("EF - Altair - Transition", TransitionDir, path)
+    # TODO https://github.com/ethereum/consensus-spec-tests/issues/27
+    if path.contains("DS_Store"):
+      continue
+    runTest("EF - Bellatrix - Transition", TransitionDir, path)

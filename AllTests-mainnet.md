@@ -134,20 +134,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Tail block only in common                                                                  OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Eth1 monitor
-```diff
-+ Rewrite HTTPS Infura URLs                                                                  OK
-+ Roundtrip engine RPC and consensus ExecutionPayload representations                        OK
-```
-OK: 2/2 Fail: 0/2 Skip: 0/2
-## Eth2 specific discovery tests
-```diff
-+ Invalid attnets field                                                                      OK
-+ Subnet query                                                                               OK
-+ Subnet query after ENR update                                                              OK
-```
-OK: 3/3 Fail: 0/3 Skip: 0/3
-## Ethereum Foundation - SSZ generic types
+## EF - SSZ generic types
 ```diff
   Testing basic_vector inputs - invalid                                                      Skip
 + Testing basic_vector inputs - valid                                                        OK
@@ -163,6 +150,19 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Testing uints        inputs - valid                                                        OK
 ```
 OK: 10/12 Fail: 0/12 Skip: 2/12
+## Eth1 monitor
+```diff
++ Rewrite HTTPS Infura URLs                                                                  OK
++ Roundtrip engine RPC and consensus ExecutionPayload representations                        OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
+## Eth2 specific discovery tests
+```diff
++ Invalid attnets field                                                                      OK
++ Subnet query                                                                               OK
++ Subnet query after ENR update                                                              OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Exit pool testing suite
 ```diff
 + addExitMessage/getAttesterSlashingMessage                                                  OK
@@ -442,4 +442,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 238/240 Fail: 0/239 Skip: 2/239
+OK: 238/240 Fail: 0/240 Skip: 2/240

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -23,7 +23,7 @@ import
 const RootDir = SszTestsDir/const_preset/"phase0"/"epoch_processing"
 
 template runSuite(suiteDir, testName: string, transitionProc: untyped): untyped =
-  suite "Ethereum Foundation - Phase 0 - Epoch Processing - " & testName & preset():
+  suite "EF - Phase 0 - Epoch Processing - " & testName & preset():
     for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}, checkDir = true):
 
       let unitTestName = testDir.rsplit(DirSep, 1)[1]

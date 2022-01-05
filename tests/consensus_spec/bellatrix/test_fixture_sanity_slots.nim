@@ -48,6 +48,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ slots _ identifier`()
 
-suite "Ethereum Foundation - Bellatrix - Sanity - Slots " & preset():
+suite "EF - Bellatrix - Sanity - Slots " & preset():
   for kind, path in walkDir(SanitySlotsDir, relative = true, checkDir = true):
     runTest(path)

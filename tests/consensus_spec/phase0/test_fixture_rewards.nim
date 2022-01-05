@@ -39,7 +39,7 @@ proc runTest(rewardsDir, identifier: string) =
   let testDir = rewardsDir / identifier
 
   proc `testImpl _ rewards _ identifier`() =
-    test "Ethereum Foundation - Phase 0 - Rewards - " & identifier & preset():
+    test "EF - Phase 0 - Rewards - " & identifier & preset():
       let
         state = newClone(
           parseTest(testDir/"pre.ssz_snappy", SSZ, phase0.BeaconState))
@@ -107,7 +107,7 @@ proc runTest(rewardsDir, identifier: string) =
 
   `testImpl _ rewards _ identifier`()
 
-suite "Ethereum Foundation - Phase 0 - Rewards " & preset():
+suite "EF - Phase 0 - Rewards " & preset():
   for rewardsDir in [RewardsDirBasic, RewardsDirLeak, RewardsDirRandom]:
     for kind, path in walkDir(rewardsDir, relative = true, checkDir = true):
       runTest(rewardsDir, path)
