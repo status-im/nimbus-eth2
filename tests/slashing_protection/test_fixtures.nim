@@ -79,7 +79,7 @@ proc sqlite3db_delete(basepath, dbname: string) =
   removeFile(basepath / dbname&".sqlite3-wal")
   removeFile(basepath / dbname&".sqlite3")
 
-const InterchangeTestsDir = FixturesDir / "tests-slashing-v5.0.0" / "generated"
+const InterchangeTestsDir = FixturesDir / "tests-slashing-v5.0.0" / "tests" / "generated"
 const TestDir = ""
 const TestDbPrefix = "test_slashprot_"
 

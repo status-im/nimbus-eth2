@@ -69,13 +69,13 @@ proc runTest(testName, testDir, unitTestName: string) =
 
   `testImpl _ blck _ testName`()
 
-suite "Ethereum Foundation - Bellatrix - Sanity - Blocks " & preset():
+suite "EF - Bellatrix - Sanity - Blocks " & preset():
  for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
    if path.contains("DS_Store"):
      # https://github.com/ethereum/consensus-spec-tests/issues/27
      continue
-   runTest("Ethereum Foundation - Bellatrix - Sanity - Blocks", SanityBlocksDir, path)
+   runTest("EF - Bellatrix - Sanity - Blocks", SanityBlocksDir, path)
 
-suite "Ethereum Foundation - Bellatrix - Finality " & preset():
+suite "EF - Bellatrix - Finality " & preset():
  for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
-   runTest("Ethereum Foundation - Bellatrix - Finality", FinalityDir, path)
+   runTest("EF - Bellatrix - Finality", FinalityDir, path)

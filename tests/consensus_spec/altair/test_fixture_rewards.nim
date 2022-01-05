@@ -35,7 +35,7 @@ proc runTest(rewardsDir, identifier: string) =
   let testDir = rewardsDir / identifier
 
   proc `testImpl _ rewards _ identifier`() =
-    test "Ethereum Foundation - Altair - Rewards - " & identifier & preset():
+    test "EF - Altair - Rewards - " & identifier & preset():
       var info: altair.EpochInfo
 
       let
@@ -79,7 +79,7 @@ proc runTest(rewardsDir, identifier: string) =
 
   `testImpl _ rewards _ identifier`()
 
-suite "Ethereum Foundation - Altair - Rewards " & preset():
+suite "EF - Altair - Rewards " & preset():
   for rewardsDir in [RewardsDirBasic, RewardsDirLeak, RewardsDirRandom]:
     for kind, path in walkDir(rewardsDir, relative = true, checkDir = true):
       runTest(rewardsDir, path)

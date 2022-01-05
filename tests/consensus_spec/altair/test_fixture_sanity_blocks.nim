@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -64,14 +64,14 @@ proc runTest(testName, testDir, unitTestName: string) =
 
   `testImpl _ blck _ testName`()
 
-suite "Ethereum Foundation - Altair - Sanity - Blocks " & preset():
+suite "EF - Altair - Sanity - Blocks " & preset():
  for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
-   runTest("Ethereum Foundation - Altair - Sanity - Blocks", SanityBlocksDir, path)
+   runTest("EF - Altair - Sanity - Blocks", SanityBlocksDir, path)
 
-suite "Ethereum Foundation - Altair - Finality " & preset():
+suite "EF - Altair - Finality " & preset():
  for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
-   runTest("Ethereum Foundation - Altair - Finality", FinalityDir, path)
+   runTest("EF - Altair - Finality", FinalityDir, path)
 
-suite "Ethereum Foundation - Altair - Random" & preset():
+suite "EF - Altair - Random" & preset():
  for kind, path in walkDir(RandomDir, relative = true, checkDir = true):
-   runTest("Ethereum Foundation - Altair - Random", RandomDir, path)
+   runTest("EF - Altair - Random", RandomDir, path)

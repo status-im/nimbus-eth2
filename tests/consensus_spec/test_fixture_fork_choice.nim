@@ -321,7 +321,7 @@ proc runTest(path: string, fork: BeaconBlockFork) =
     else:
       doAssert false, "Unsupported"
 
-suite "Ethereum Foundation - ForkChoice" & preset():
+suite "EF - ForkChoice" & preset():
   const SKIP = [
     # protoArray can handle blocks in the future gracefully
     # spec: https://github.com/ethereum/consensus-specs/blame/v1.1.3/specs/phase0/fork-choice.md#L349
