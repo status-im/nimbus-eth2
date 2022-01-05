@@ -1,5 +1,5 @@
 import std/[options, macros],
-       presto,
+       stew/byteutils, presto,
        nimcrypto/utils as ncrutils,
        ../spec/[forks],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization],
@@ -190,6 +190,10 @@ template withStateForBlockSlot*(nodeParam: BeaconNode,
 
         withStateVars(stateToAdvance[]):
           body
+
+template strData*(body: ContentBody): string =
+  bind fromBytes
+  string.fromBytes(body.data)
 
 proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
                                                           ValidatorIndexError] =

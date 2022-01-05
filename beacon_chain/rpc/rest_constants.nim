@@ -73,7 +73,7 @@ const
     "Missing `randao_reveal` value"
   InvalidRandaoRevealValue* =
     "Invalid randao reveal value"
-  InvalidGraffitiBytesValye* =
+  InvalidGraffitiBytesValue* =
     "Invalid graffiti bytes value"
   InvalidEpochValueError* =
     "Invalid epoch value"
