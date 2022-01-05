@@ -144,10 +144,14 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
 
     let startTick = Moment.now()
     var cache = StateCache()
-    updateStateData(dag, dag.clearanceState, next, true, cache)
-
-    debug "Prepared clearance state for next block",
-      next, updateStateDur = Moment.now() - startTick
+    if not updateStateData(dag, dag.clearanceState, next, true, cache):
+      # The next head update will likely fail - something is very wrong here
+      error "Cannot advance to next slot, database corrupt?",
+        clearance = shortLog(dag.clearanceState.blck),
+        next = shortLog(next)
+    else:
+      debug "Prepared clearance state for next block",
+        next, updateStateDur = Moment.now() - startTick
 
 proc addHeadBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
@@ -229,8 +233,17 @@ proc addHeadBlock*(
   # by the time a new block reaches this point, the parent block will already
   # have "established" itself in the network to some degree at least.
   var cache = StateCache()
-  updateStateData(
-    dag, dag.clearanceState, parent.atSlot(signedBlock.message.slot), true, cache)
+  if not updateStateData(
+      dag, dag.clearanceState, parent.atSlot(signedBlock.message.slot), true,
+      cache):
+    # We should never end up here - the parent must be a block no older than and
+    # rooted in the finalized checkpoint, hence we should always be able to
+    # load its corresponding state
+    error "Unable to load clearance state for parent block, database corrupt?",
+      parent = shortLog(parent.atSlot(signedBlock.message.slot)),
+      clearance = shortLog(dag.clearanceState.blck)
+    return err(BlockError.MissingParent)
+
   let stateDataTick = Moment.now()
 
   # First, batch-verify all signatures in block

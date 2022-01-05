@@ -50,7 +50,7 @@ func getCurrentSlot*(node: BeaconNode, slot: Slot):
 func getCurrentBlock*(node: BeaconNode, slot: Slot):
     Result[BlockRef, cstring] =
   let bs = node.dag.getBlockBySlot(? node.getCurrentSlot(slot))
-  if bs.slot == bs.blck.slot:
+  if bs.isProposed():
     ok(bs.blck)
   else:
     err("Block not found")
@@ -73,13 +73,17 @@ proc getBlockSlot*(node: BeaconNode,
                    stateIdent: StateIdent): Result[BlockSlot, cstring] =
   case stateIdent.kind
   of StateQueryKind.Slot:
-    ok(node.dag.getBlockBySlot(? node.getCurrentSlot(stateIdent.slot)))
+    let bs = node.dag.getBlockBySlot(? node.getCurrentSlot(stateIdent.slot))
+    if not isNil(bs.blck):
+      ok(bs)
+    else:
+      err("State for given slot not found, history not available?")
   of StateQueryKind.Root:
     if stateIdent.root == getStateRoot(node.dag.headState.data):
       ok(node.dag.headState.blck.atSlot())
     else:
       # We don't have a state root -> BlockSlot mapping
-      err("State not found")
+      err("State for given root not found")
   of StateQueryKind.Named:
     case stateIdent.value
     of StateIdentType.Head:
@@ -179,14 +183,13 @@ template withStateForBlockSlot*(nodeParam: BeaconNode,
       else:
         assignClone(node.dag.headState)
 
-      node.dag.updateStateData(stateToAdvance[], blockSlot, false, cache)
+      if node.dag.updateStateData(stateToAdvance[], blockSlot, false, cache):
+        if cachedState == nil and node.stateTtlCache != nil:
+          # This was not a cached state, we can cache it now
+          node.stateTtlCache.add(stateToAdvance)
 
-      if cachedState == nil and node.stateTtlCache != nil:
-        # This was not a cached state, we can cache it now
-        node.stateTtlCache.add(stateToAdvance)
-
-      withStateVars(stateToAdvance[]):
-        body
+        withStateVars(stateToAdvance[]):
+          body
 
 proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
                                                           ValidatorIndexError] =

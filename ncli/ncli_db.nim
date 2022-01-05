@@ -238,7 +238,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       (ref merge.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
-    dag.updateStateData(
+    doAssert dag.updateStateData(
       stateData[], blockRefs[^1].atSlot(blockRefs[^1].slot - 1), false, cache)
 
   template processBlocks(blocks: auto) =
@@ -486,10 +486,11 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
     return
 
   let tmpState = assignClone(dag.headState)
-  dag.withState(tmpState[], blckRef.atSlot(Slot(conf.slot))):
+  dag.withUpdatedState(tmpState[], blckRef.atSlot(Slot(conf.slot))) do:
     echo "Writing state..."
     withState(stateData.data):
       dump("./", state)
+  do: raiseAssert "withUpdatedState failed"
 
 func atCanonicalSlot(blck: BlockRef, slot: Slot): BlockSlot =
   if slot == 0:
@@ -527,8 +528,9 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
     var e2s = E2Store.open(".", name, firstSlot).get()
     defer: e2s.close()
 
-    dag.withState(tmpState[], canonical):
+    dag.withUpdatedState(tmpState[], canonical) do:
       e2s.appendRecord(stateData.data.phase0Data.data).get()
+    do: raiseAssert "withUpdatedState failed"
 
     var
       ancestors: seq[BlockRef]
@@ -589,7 +591,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
     blockRefs[^1].slot.epoch, " - ", blockRefs[0].slot.epoch
 
   let state = newClone(dag.headState)
-  dag.updateStateData(
+  doAssert dag.updateStateData(
     state[], blockRefs[^1].atSlot(blockRefs[^1].slot - 1), false, cache)
 
   proc processEpoch() =
@@ -831,7 +833,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
     start.epoch, " - ", ends.epoch
 
   let state = newClone(dag.headState)
-  dag.updateStateData(
+  doAssert dag.updateStateData(
     state[], blockRefs[^1].atSlot(if start > 0: start - 1 else: 0.Slot),
     false, cache)
 

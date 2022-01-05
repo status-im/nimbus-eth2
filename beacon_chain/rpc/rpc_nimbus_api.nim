@@ -108,8 +108,10 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       head = node.doChecksAndGetCurrentHead(wallSlot)
 
     let proposalState = assignClone(node.dag.headState)
-    node.dag.withState(proposalState[], head.atSlot(wallSlot)):
+    node.dag.withUpdatedState(proposalState[], head.atSlot(wallSlot)):
       return node.getBlockProposalEth1Data(stateData.data)
+    do:
+      raise (ref CatchableError)(msg: "Trying to access pruned state")
 
   rpcServer.rpc("debug_getChronosFutures") do () -> seq[FutureInfo]:
     when defined(chronosFutureTracking):

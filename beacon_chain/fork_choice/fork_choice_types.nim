@@ -46,6 +46,7 @@ type
     fcInconsistentTick
     fcUnknownParent
     fcPruningFromOutdatedFinalizedRoot
+    fcInvalidEpochRef
 
   Index* = int
   Delta* = int64
@@ -56,7 +57,7 @@ type
     of fcFinalizedNodeUnknown,
        fcJustifiedNodeUnknown:
          blockRoot*: Eth2Digest
-    of fcInconsistentTick:
+    of fcInconsistentTick, fcInvalidEpochRef:
       discard
     of fcInvalidNodeIndex,
        fcInvalidJustifiedIndex,

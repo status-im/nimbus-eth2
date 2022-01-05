@@ -112,7 +112,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     let
       attestationHead = dag.head.atSlot(slot)
 
-    dag.withState(tmpState[], attestationHead):
+    dag.withUpdatedState(tmpState[], attestationHead) do:
       let committees_per_slot =
         get_committee_count_per_slot(stateData.data, slot.epoch, cache)
 
@@ -138,6 +138,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
                 aggregation_bits: aggregation_bits,
                 signature: sig.toValidatorSig()
               ), [validatorIdx], sig, data.slot.toBeaconTime)
+    do:
+      raiseAssert "withUpdatedState failed"
 
   proc handleSyncCommitteeActions(slot: Slot) =
     type
@@ -301,7 +303,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     if rand(r, 1.0) > blockRatio:
       return
 
-    dag.withState(tmpState[], dag.head.atSlot(slot)):
+    dag.withUpdatedState(tmpState[], dag.head.atSlot(slot)) do:
       let
         newBlock = getNewBlock[phase0.SignedBeaconBlock](stateData, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
@@ -316,12 +318,14 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       if dag.needStateCachesAndForkChoicePruning():
         dag.pruneStateCachesDAG()
         attPool.prune()
+    do:
+      raiseAssert "withUpdatedState failed"
 
   proc proposeAltairBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
       return
 
-    dag.withState(tmpState[], dag.head.atSlot(slot)):
+    dag.withUpdatedState(tmpState[], dag.head.atSlot(slot)) do:
       let
         newBlock = getNewBlock[altair.SignedBeaconBlock](stateData, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
@@ -336,12 +340,14 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       if dag.needStateCachesAndForkChoicePruning():
         dag.pruneStateCachesDAG()
         attPool.prune()
+    do:
+      raiseAssert "withUpdatedState failed"
 
   proc proposeBellatrixBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
       return
 
-    dag.withState(tmpState[], dag.head.atSlot(slot)):
+    dag.withUpdatedState(tmpState[], dag.head.atSlot(slot)) do:
       let
         newBlock = getNewBlock[merge.SignedBeaconBlock](stateData, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
@@ -356,6 +362,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       if dag.needStateCachesAndForkChoicePruning():
         dag.pruneStateCachesDAG()
         attPool.prune()
+    do:
+      raiseAssert "withUpdatedState failed"
 
   var
     lastEth1BlockAt = genesisTime
@@ -424,7 +432,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   if replay:
     withTimer(timers[tReplay]):
       var cache = StateCache()
-      dag.updateStateData(
+      doAssert dag.updateStateData(
         replayState[], dag.head.atSlot(Slot(slots)), false, cache)
 
   echo "Done!"

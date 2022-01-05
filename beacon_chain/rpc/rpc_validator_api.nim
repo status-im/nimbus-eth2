@@ -58,7 +58,12 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     debug "get_v1_validator_attestation_data", slot = slot
     let
       head = node.doChecksAndGetCurrentHead(slot)
-      epochRef = node.dag.getEpochRef(head, slot.epoch)
+      epochRef = block:
+        let tmp = node.dag.getEpochRef(head, slot.epoch, true)
+        if isErr(tmp):
+          raise (ref CatchableError)(msg: "Trying to access pruned state")
+        tmp.get()
+
     return makeAttestationData(epochRef, head.atSlot(slot), committee_index)
 
   rpcServer.rpc("get_v1_validator_aggregate_attestation") do (
@@ -79,7 +84,13 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     debug "get_v1_validator_duties_attester", epoch = epoch
     let
       head = node.doChecksAndGetCurrentHead(epoch)
-      epochRef = node.dag.getEpochRef(head, epoch)
+      epochRef = block:
+        let tmp = node.dag.getEpochRef(head, epoch, true)
+        if isErr(tmp):
+          raise (ref CatchableError)(msg: "Trying to access pruned state")
+        tmp.get()
+
+    let
       committees_per_slot = get_committee_count_per_slot(epochRef)
     for i in 0 ..< SLOTS_PER_EPOCH:
       let slot = compute_start_slot_at_epoch(epoch) + i
@@ -102,7 +113,12 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     debug "get_v1_validator_duties_proposer", epoch = epoch
     let
       head = node.doChecksAndGetCurrentHead(epoch)
-      epochRef = node.dag.getEpochRef(head, epoch)
+      epochRef = block:
+        let tmp = node.dag.getEpochRef(head, epoch, true)
+        if isErr(tmp):
+          raise (ref CatchableError)(msg: "Trying to access pruned state")
+        tmp.get()
+
     for i, bp in epochRef.beacon_proposers:
       if bp.isSome():
         result.add((public_key: epochRef.validatorKey(bp.get).get().toPubKey,
@@ -141,7 +157,12 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
     let
       head = node.doChecksAndGetCurrentHead(epoch)
-      epochRef = node.dag.getEpochRef(head, epoch)
+      epochRef = block:
+        let tmp = node.dag.getEpochRef(head, epoch, true)
+        if isErr(tmp):
+          raise (ref CatchableError)(msg: "Trying to access pruned state")
+        tmp.get()
+    let
       subnet_id = compute_subnet_for_attestation(
         get_committee_count_per_slot(epochRef), slot, committee_index)
 

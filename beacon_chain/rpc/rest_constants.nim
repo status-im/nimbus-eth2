@@ -185,3 +185,5 @@ const
     "Bad request format"
   InvalidAuthorization* =
     "Invalid Authorization Header"
+  PrunedStateError* =
+    "Trying to access a pruned historical state"
