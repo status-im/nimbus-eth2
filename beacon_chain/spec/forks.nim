@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021 Status Research & Development GmbH
+# Copyright (c) 2021-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  stew/[assign2],
+  stew/assign2,
   chronicles,
   ../extras,
   "."/[eth2_merkleization, eth2_ssz_serialization, presets],
@@ -73,8 +73,8 @@ type
 
   ForkedBeaconBlock* = object
     case kind*: BeaconBlockFork
-    of BeaconBlockFork.Phase0:     phase0Data*: phase0.BeaconBlock
-    of BeaconBlockFork.Altair:     altairData*: altair.BeaconBlock
+    of BeaconBlockFork.Phase0:    phase0Data*: phase0.BeaconBlock
+    of BeaconBlockFork.Altair:    altairData*: altair.BeaconBlock
     of BeaconBlockFork.Bellatrix: mergeData*:  merge.BeaconBlock
 
   ForkedTrustedBeaconBlock* = object
@@ -117,9 +117,10 @@ type
   ForkyEpochInfo* = phase0.EpochInfo | altair.EpochInfo
 
   ForkDigests* = object
-    phase0*: ForkDigest
-    altair*: ForkDigest
-    merge*:  ForkDigest
+    phase0*:    ForkDigest
+    altair*:    ForkDigest
+    bellatrix*: ForkDigest
+    sharding*:  ForkDigest
 
 template toFork*[T: phase0.BeaconState | phase0.HashedBeaconState](
     t: type T): BeaconStateFork =
@@ -501,6 +502,8 @@ func init*(T: type ForkDigests,
       compute_fork_digest(cfg.GENESIS_FORK_VERSION, genesisValidatorsRoot),
     altair:
       compute_fork_digest(cfg.ALTAIR_FORK_VERSION, genesisValidatorsRoot),
-    merge:
+    bellatrix:
       compute_fork_digest(cfg.MERGE_FORK_VERSION, genesisValidatorsRoot),
+    sharding:
+      compute_fork_digest(cfg.SHARDING_FORK_VERSION, genesisValidatorsRoot),
   )

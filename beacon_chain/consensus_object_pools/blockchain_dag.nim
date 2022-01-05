@@ -628,7 +628,7 @@ template forkAtEpoch*(dag: ChainDAGRef, epoch: Epoch): Fork =
 
 proc forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
   case dag.cfg.stateForkAtEpoch(epoch)
-  of BeaconStateFork.Bellatrix: dag.forkDigests.merge
+  of BeaconStateFork.Bellatrix: dag.forkDigests.bellatrix
   of BeaconStateFork.Altair:    dag.forkDigests.altair
   of BeaconStateFork.Phase0:    dag.forkDigests.phase0
 

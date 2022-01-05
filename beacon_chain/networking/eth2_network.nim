@@ -2164,7 +2164,7 @@ proc updateForkId*(node: Eth2Node, epoch: Epoch, genesisValidatorsRoot: Eth2Dige
 
 func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
   case node.cfg.stateForkAtEpoch(epoch)
-  of BeaconStateFork.Bellatrix: node.forkDigests.merge
+  of BeaconStateFork.Bellatrix: node.forkDigests.bellatrix
   of BeaconStateFork.Altair:    node.forkDigests.altair
   of BeaconStateFork.Phase0:    node.forkDigests.phase0
 
@@ -2213,7 +2213,7 @@ proc broadcastBeaconBlock*(node: Eth2Node, blck: altair.SignedBeaconBlock) =
   node.broadcast(topic, blck)
 
 proc broadcastBeaconBlock*(node: Eth2Node, blck: merge.SignedBeaconBlock) =
-  let topic = getBeaconBlocksTopic(node.forkDigests.merge)
+  let topic = getBeaconBlocksTopic(node.forkDigests.bellatrix)
   node.broadcast(topic, blck)
 
 proc broadcastBeaconBlock*(node: Eth2Node, forked: ForkedSignedBeaconBlock) =
