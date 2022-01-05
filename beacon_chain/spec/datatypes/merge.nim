@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021 Status Research & Development GmbH
+# Copyright (c) 2021-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -23,7 +23,7 @@ import
   nimcrypto/utils
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/beacon-chain.md#custom-types
   Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
 
   ExecutionAddress* = object
@@ -72,11 +72,10 @@ type
     block_hash*: Eth2Digest  # Hash of execution block
     transactions_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#execution-engine
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/fork-choice.md#powblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/fork-choice.md#powblock
   PowBlock* = object
     block_hash*: Eth2Digest
     parent_hash*: Eth2Digest
