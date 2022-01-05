@@ -1,4 +1,4 @@
-import std/options,
+import std/[options, macros],
        presto,
        nimcrypto/utils as ncrutils,
        ../spec/[forks],
@@ -116,8 +116,29 @@ proc getBlockDataFromBlockIdent*(node: BeaconNode,
                                  id: BlockIdent): Result[BlockData, cstring] =
   ok(node.dag.get(? node.getBlockRef(id)))
 
+proc disallowInterruptionsAux(body: NimNode) =
+  for n in body:
+    const because =
+      "because the `state` variable may be mutated (and thus invalidated) " &
+      "before the function resumes execution."
+
+    if n.kind == nnkYieldStmt:
+      macros.error "You cannot use yield in this block " & because, n
+
+    if (n.kind in {nnkCall, nnkCommand} and
+       n[0].kind in {nnkIdent, nnkSym} and
+       $n[0] == "await"):
+      macros.error "You cannot use await in this block " & because, n
+
+    disallowInterruptionsAux(n)
+
+macro disallowInterruptions(body: untyped) =
+  disallowInterruptionsAux(body)
+
 template withStateForBlockSlot*(nodeParam: BeaconNode,
-                                blockSlotParam: BlockSlot, body: untyped): untyped =
+                                blockSlotParam: BlockSlot,
+                                body: untyped): untyped =
+
   block:
     let
       node = nodeParam
@@ -127,6 +148,20 @@ template withStateForBlockSlot*(nodeParam: BeaconNode,
       state.blck.atSlot(getStateField(state.data, slot)) == blockSlot
 
     var cache {.inject, used.}: StateCache
+
+    # If we have a cache hit, there is a concern that the REST request
+    # handler may continue executing asynchronously while we hit the same
+    # advanced state is another request. We don't want the two requests
+    # to work over the same state object because mutations to it will be
+    # visible in both, so we must outlaw yielding within the `body` block.
+    # Please note that the problem is not limited to the situations where
+    # we have a cache hit. Working with the `headState` will result in the
+    # same problem as it may change while the request is executing.
+    #
+    # TODO
+    # The solution below is only partion, because it theory yields or awaits
+    # can still be hidden in the body through the use of helper templates
+    disallowInterruptions(body)
 
     # TODO view-types
     # Avoid the code bloat produced by the double `body` reference through a lent var
@@ -146,19 +181,11 @@ template withStateForBlockSlot*(nodeParam: BeaconNode,
 
       node.dag.updateStateData(stateToAdvance[], blockSlot, false, cache)
 
-      let providedState = if cachedState == nil and node.stateTtlCache != nil:
+      if cachedState == nil and node.stateTtlCache != nil:
         # This was not a cached state, we can cache it now
         node.stateTtlCache.add(stateToAdvance)
-        stateToAdvance
-      else:
-        # If we have a cache hit, there is a concern that the REST request
-        # handler may continue executing asynchronously while we hit the same
-        # advanced state is another request. We don't want the two requests
-        # to work over the same state object because mutations to it will be
-        # visible in both, so we must create a fresh clone for each handler:
-        assignClone(stateToAdvance[])
 
-      withStateVars(providedState[]):
+      withStateVars(stateToAdvance[]):
         body
 
 proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
