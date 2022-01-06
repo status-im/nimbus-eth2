@@ -121,7 +121,7 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var ForkyBeaconState,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#modified-slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     slashed_index: ValidatorIndex, cache: var StateCache) =
@@ -314,7 +314,7 @@ func get_initial_beacon_block*(state: altair.HashedBeaconState):
   altair.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#testing
 func get_initial_beacon_block*(state: bellatrix.HashedBeaconState):
     bellatrix.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
@@ -840,7 +840,7 @@ proc upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState): ref altair
 
   post
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/fork.md#upgrading-the-state
 func upgrade_to_merge*(cfg: RuntimeConfig, pre: altair.BeaconState):
     ref bellatrix.BeaconState =
   let epoch = get_current_epoch(pre)

@@ -64,7 +64,7 @@ const
   INACTIVITY_SCORE_BIAS* = 4
   INACTIVITY_SCORE_RECOVERY_RATE* = 16
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/altair/sync-protocol.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#misc
   # MIN_SYNC_COMMITTEE_PARTICIPANTS defined in presets
   UPDATE_TIMEOUT* = SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
 
