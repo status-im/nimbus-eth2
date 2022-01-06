@@ -8,10 +8,9 @@
 {.push raises: [Defect].}
 
 import
-  stew/endians2,
+  stew/[byteutils],
   json_rpc/servers/httpserver,
   chronicles,
-  nimcrypto/utils as ncrutils,
   ../beacon_node,
   ../eth1/eth1_monitor,
   ../spec/forks
@@ -59,7 +58,7 @@ proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       "EFFECTIVE_BALANCE_INCREMENT": $EFFECTIVE_BALANCE_INCREMENT,
       "GENESIS_FORK_VERSION":
         "0x" & $node.dag.cfg.GENESIS_FORK_VERSION,
-      "BLS_WITHDRAWAL_PREFIX": "0x" & ncrutils.toHex([BLS_WITHDRAWAL_PREFIX]),
+      "BLS_WITHDRAWAL_PREFIX": to0xHex([BLS_WITHDRAWAL_PREFIX]),
       "GENESIS_DELAY": $node.dag.cfg.GENESIS_DELAY,
       "SECONDS_PER_SLOT": $SECONDS_PER_SLOT,
       "MIN_ATTESTATION_INCLUSION_DELAY": $MIN_ATTESTATION_INCLUSION_DELAY,
@@ -88,19 +87,19 @@ proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       "MAX_DEPOSITS": $MAX_DEPOSITS,
       "MAX_VOLUNTARY_EXITS": $MAX_VOLUNTARY_EXITS,
       "DOMAIN_BEACON_PROPOSER":
-        "0x" & ncrutils.toHex(uint32(DOMAIN_BEACON_PROPOSER).toBytesLE()),
+        to0xHex(DOMAIN_BEACON_PROPOSER.data),
       "DOMAIN_BEACON_ATTESTER":
-        "0x" & ncrutils.toHex(uint32(DOMAIN_BEACON_ATTESTER).toBytesLE()),
+        to0xHex(DOMAIN_BEACON_ATTESTER.data),
       "DOMAIN_RANDAO":
-        "0x" & ncrutils.toHex(uint32(DOMAIN_RANDAO).toBytesLE()),
+        to0xHex(DOMAIN_RANDAO.data),
       "DOMAIN_DEPOSIT":
-        "0x" & ncrutils.toHex(uint32(DOMAIN_DEPOSIT).toBytesLE()),
+        to0xHex(DOMAIN_DEPOSIT.data),
       "DOMAIN_VOLUNTARY_EXIT":
-        "0x" & ncrutils.toHex(uint32(DOMAIN_VOLUNTARY_EXIT).toBytesLE()),
+        to0xHex(DOMAIN_VOLUNTARY_EXIT.data),
       "DOMAIN_SELECTION_PROOF":
-        "0x" & ncrutils.toHex(uint32(DOMAIN_SELECTION_PROOF).toBytesLE()),
+        to0xHex(DOMAIN_SELECTION_PROOF.data),
       "DOMAIN_AGGREGATE_AND_PROOF":
-        "0x" & ncrutils.toHex(uint32(DOMAIN_AGGREGATE_AND_PROOF).toBytesLE())
+        to0xHex(DOMAIN_AGGREGATE_AND_PROOF.data)
     }
 
   rpcServer.rpc("get_v1_config_deposit_contract") do () -> JsonNode:

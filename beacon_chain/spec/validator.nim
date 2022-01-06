@@ -48,7 +48,7 @@ func shuffle_list*(input: var seq[ValidatorIndex], seed: Eth2Digest) =
     # and take a uint64 from it, and modulo it to get a pivot within range.
     let
       pivotDigest = eth2digest(buf.toOpenArray(0, PIVOT_VIEW_SIZE - 1))
-      pivot = bytes_to_uint64(pivotDigest.data.toOpenArray(0, 7)) mod listSize
+      pivot = bytes_to_uint64(pivotDigest.data.toOpenArray(0, 7)) mod list_size
 
     # Split up the for-loop in two:
     #  1. Handle the part from 0 (incl) to pivot (incl). This is mirrored around
@@ -77,7 +77,7 @@ func shuffle_list*(input: var seq[ValidatorIndex], seed: Eth2Digest) =
     # (of the part left to the pivot).
     # This makes us process each pear exactly once (instead of unnecessarily
     # twice, like in the spec)
-    buf[33..<37] = uint_to_bytes4(pivot shr 8)
+    buf[33..<37] = uint_to_bytes(uint32(pivot shr 8))
 
     var
       mirror = (pivot + 1) shr 1
@@ -92,7 +92,7 @@ func shuffle_list*(input: var seq[ValidatorIndex], seed: Eth2Digest) =
         # Every 256th bit (aligned to j).
         if (j and 0xff) == 0xff:
           # just overwrite the last part of the buffer, reuse the start (seed, round)
-          buf[33..<37] = uint_to_bytes4(j shr 8)
+          buf[33..<37] = uint_to_bytes(uint32(j shr 8))
           source = eth2digest(buf)
 
         # Same trick with byte retrieval. Only every 8th.
@@ -116,7 +116,7 @@ func shuffle_list*(input: var seq[ValidatorIndex], seed: Eth2Digest) =
     # Again, seed and round input is in place, just update the position.
     # We start at the end, and work back to the mirror point.
     # This makes us process each pear exactly once (instead of unnecessarily twice, like in the spec)
-    buf[33..<37] = uint_to_bytes4(lend shr 8)
+    buf[33..<37] = uint_to_bytes(uint32(lend shr 8))
 
     source = eth2digest(buf)
     byteV = source.data[(lend and 0xff) shr 3]
@@ -344,7 +344,7 @@ func compute_shuffled_index*(
 
       flip = ((index_count + pivot) - cur_idx_permuted) mod index_count
       position = max(cur_idx_permuted, flip)
-    source_buffer[33..36] = uint_to_bytes4((position shr 8))
+    source_buffer[33..36] = uint_to_bytes(uint32(position shr 8))
     let
       source = eth2digest(source_buffer).data
       byte_value = source[(position mod 256) shr 3]
@@ -370,7 +370,7 @@ func compute_proposer_index(state: ForkyBeaconState,
     buffer: array[32+8, byte]
   buffer[0..31] = seed.data
   while true:
-    buffer[32..39] = uint_to_bytes8(i div 32)
+    buffer[32..39] = uint_to_bytes(i div 32)
     let
       candidate_index =
         indices[compute_shuffled_index(i mod seq_len, seq_len, seed)]
@@ -411,7 +411,7 @@ func get_beacon_proposer_index*(
 
     var res: Option[ValidatorIndex]
     for i in 0..<SLOTS_PER_EPOCH:
-      buffer[32..39] = uint_to_bytes8((start + i).uint64)
+      buffer[32..39] = uint_to_bytes((start + i).uint64)
       let seed = eth2digest(buffer)
       let pi = compute_proposer_index(state, indices, seed)
       if start + i == slot:

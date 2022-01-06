@@ -1,10 +1,9 @@
 import
   std/[sequtils],
-  stew/results,
+  stew/[byteutils, results],
   chronicles,
   eth/p2p/discoveryv5/enr,
   libp2p/[multiaddress, multicodec, peerstore],
-  nimcrypto/utils as ncrutils,
   ../version, ../beacon_node, ../sync/sync_manager,
   ../networking/[eth2_network, peer_pool],
   ../spec/datatypes/base,
@@ -158,8 +157,8 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         discovery_addresses: discoveryAddresses,
         metadata: (
           seq_number: node.network.metadata.seq_number,
-          syncnets: "0x" & ncrutils.toHex(node.network.metadata.syncnets.bytes),
-          attnets: "0x" & ncrutils.toHex(node.network.metadata.attnets.bytes)
+          syncnets: to0xHex(node.network.metadata.syncnets.bytes),
+          attnets: to0xHex(node.network.metadata.attnets.bytes)
         )
       )
     )

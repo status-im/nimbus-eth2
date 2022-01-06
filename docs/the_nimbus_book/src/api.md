@@ -2,9 +2,11 @@
 
 The `JSON-RPC API` is a collection of APIs for querying the state of the application at runtime.
 
-The API is based on the common [eth2 APIs](https://github.com/ethereum/eth2.0-APIs) with the exception that `JSON-RPC` is used instead of [http `REST`](./rest-api.md) (the method names, parameters and results are all the same except for the encoding / access method).
+The API is based on an early version of the common [beacon APIs](https://github.com/ethereum/beacon-APIs) with the exception that `JSON-RPC` is used instead of [http `REST`](./rest-api.md) (the method names, parameters and results are all the same except for the encoding / access method).
 
 Nimbus also implements the [common REST API](./rest-api.md) - new applications should consider using it instead of JSON RPC.
+
+The `JSON-RPC API` should not be exposed to the public internet.
 
 ## Introduction
 

@@ -120,20 +120,7 @@ template maxSize*(n: int) {.pragma.}
 type
   # Domains
   # ---------------------------------------------------------------
-  DomainType* = enum
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#domain-types
-    DOMAIN_BEACON_PROPOSER = 0
-    DOMAIN_BEACON_ATTESTER = 1
-    DOMAIN_RANDAO = 2
-    DOMAIN_DEPOSIT = 3
-    DOMAIN_VOLUNTARY_EXIT = 4
-    DOMAIN_SELECTION_PROOF = 5
-    DOMAIN_AGGREGATE_AND_PROOF = 6
-
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#domain-types
-    DOMAIN_SYNC_COMMITTEE = 7
-    DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF = 8
-    DOMAIN_CONTRIBUTION_AND_PROOF = 9
+  DomainType* = distinct array[4, byte]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#custom-types
   Eth2Domain* = array[32, byte]
@@ -526,6 +513,21 @@ type
     # time of attestation.
     previous_epoch_head_attesters_raw*: Gwei
 
+const
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#domain-types
+  DOMAIN_BEACON_PROPOSER* = DomainType([byte 0x00, 0x00, 0x00, 0x00])
+  DOMAIN_BEACON_ATTESTER* = DomainType([byte 0x01, 0x00, 0x00, 0x00])
+  DOMAIN_RANDAO* = DomainType([byte 0x02, 0x00, 0x00, 0x00])
+  DOMAIN_DEPOSIT* = DomainType([byte 0x03, 0x00, 0x00, 0x00])
+  DOMAIN_VOLUNTARY_EXIT* = DomainType([byte 0x04, 0x00, 0x00, 0x00])
+  DOMAIN_SELECTION_PROOF* = DomainType([byte 0x05, 0x00, 0x00, 0x00])
+  DOMAIN_AGGREGATE_AND_PROOF* = DomainType([byte 0x06, 0x00, 0x00, 0x00])
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#domain-types
+  DOMAIN_SYNC_COMMITTEE* = DomainType([byte 0x07, 0x00, 0x00, 0x00])
+  DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF* = DomainType([byte 0x08, 0x00, 0x00, 0x00])
+  DOMAIN_CONTRIBUTION_AND_PROOF* = DomainType([byte 0x09, 0x00, 0x00, 0x00])
+
 func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
   let cookedKey = validator.pubkey.load() # Loading the pubkey is slow!
   doAssert cookedKey.isSome,
@@ -607,22 +609,16 @@ proc readValue*(reader: var JsonReader, value: var SubnetId)
       reader, "Subnet id must be <= " & $ATTESTATION_SUBNET_COUNT)
   value = SubnetId(v)
 
-template writeValue*(writer: var JsonWriter, value: Version | ForkDigest) =
-  writeValue(writer, $value)
+template writeValue*(
+    writer: var JsonWriter, value: Version | ForkDigest | DomainType) =
+  writeValue(writer, to0xHex(distinctBase(value)))
 
-proc readValue*(reader: var JsonReader, value: var Version)
+proc readValue*(
+    reader: var JsonReader, value: var (Version | ForkDigest | DomainType))
                {.raises: [IOError, SerializationError, Defect].} =
   let hex = reader.readValue(string)
   try:
-    hexToByteArray(hex, array[4, byte](value))
-  except ValueError:
-    raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
-
-proc readValue*(reader: var JsonReader, value: var ForkDigest)
-               {.raises: [IOError, SerializationError, Defect].} =
-  let hex = reader.readValue(string)
-  try:
-    hexToByteArray(hex, array[4, byte](value))
+    hexToByteArray(hex, distinctBase(value))
   except ValueError:
     raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
@@ -734,8 +730,8 @@ template newClone*[T](x: ref T not nil): ref T =
 template lenu64*(x: untyped): untyped =
   uint64(len(x))
 
-func `$`*(v: ForkDigest | Version): string =
-  toHex(array[4, byte](v))
+func `$`*(v: ForkDigest | Version | DomainType): string =
+  toHex(distinctBase(v))
 
 func toGaugeValue*(x: uint64 | Epoch | Slot): int64 =
   if x > uint64(int64.high):
@@ -744,16 +740,17 @@ func toGaugeValue*(x: uint64 | Epoch | Slot): int64 =
     int64(x)
 
 # TODO where's borrow support when you need it
-func `==`*(a, b: ForkDigest | Version): bool =
+func `==`*(a, b: ForkDigest | Version | DomainType): bool =
   array[4, byte](a) == array[4, byte](b)
 func `<`*(a, b: ForkDigest | Version): bool =
   uint32.fromBytesBE(array[4, byte](a)) < uint32.fromBytesBE(array[4, byte](b))
-func len*(v: ForkDigest | Version): int = sizeof(v)
+func len*(v: ForkDigest | Version | DomainType): int = sizeof(v)
 func low*(v: ForkDigest | Version): int = 0
 func high*(v: ForkDigest | Version): int = len(v) - 1
-func `[]`*(v: ForkDigest | Version, idx: int): byte = array[4, byte](v)[idx]
+func `[]`*(v: ForkDigest | Version | DomainType, idx: int): byte =
+  array[4, byte](v)[idx]
 
-template bytes*(v: ForkDigest): array[4, byte] =
+template data*(v: ForkDigest | Version | DomainType): array[4, byte] =
   distinctBase(v)
 
 func shortLog*(s: Slot): uint64 =

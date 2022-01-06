@@ -1,6 +1,5 @@
 import std/[options, macros],
        stew/byteutils, presto,
-       nimcrypto/utils as ncrutils,
        ../spec/[forks],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization],
        ../beacon_node,

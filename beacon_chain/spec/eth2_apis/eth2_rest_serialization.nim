@@ -5,8 +5,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import std/typetraits
-import stew/[assign2, results, base10, byteutils, endians2], presto/common,
-       libp2p/peerid, nimcrypto/utils as ncrutils,
+import stew/[assign2, results, base10, byteutils], presto/common,
+       libp2p/peerid,
        serialization, json_serialization, json_serialization/std/[options, net, sets]
 import ".."/[eth2_ssz_serialization, forks],
        ".."/datatypes/[phase0, altair, bellatrix],
@@ -320,7 +320,7 @@ proc sszResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
   RestApiResponse.response(res, Http200, "application/octet-stream")
 
 template hexOriginal(data: openarray[byte]): string =
-  "0x" & ncrutils.toHex(data, true)
+  to0xHex(data)
 
 proc decodeJsonString*[T](t: typedesc[T],
                           data: JsonString,
@@ -383,25 +383,6 @@ proc readValue*(reader: var JsonReader[RestJson], value: var UInt256) {.
   except ValueError:
     raiseUnexpectedValue(reader,
                          "UInt256 value should be a valid decimal string")
-
-## DomainType
-proc writeValue*(w: var JsonWriter[RestJson], value: DomainType) {.
-     raises: [IOError, Defect].} =
-  writeValue(w, hexOriginal(uint32(value).toBytesLE()))
-
-proc readValue*(reader: var JsonReader[RestJson], value: var DomainType) {.
-     raises: [IOError, SerializationError, Defect].} =
-  try:
-    let
-      data = hexToByteArray(reader.readValue(string), 4)
-      res = uint32.fromBytesLE(data)
-    if res >= uint32(low(DomainType)) and res <= uint32(high(DomainType)):
-      value = cast[DomainType](res)
-    else:
-      raiseUnexpectedValue(reader, "Incorrect DomainType value")
-  except ValueError:
-    raiseUnexpectedValue(reader,
-                         "DomainType value should be a valid hex string")
 
 ## Slot
 proc writeValue*(writer: var JsonWriter[RestJson], value: Slot) {.
@@ -648,43 +629,15 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: Eth1Address) {.
   writeValue(writer, hexOriginal(distinctBase(value)))
 
 ## Version
-proc readValue*(reader: var JsonReader[RestJson], value: var Version) {.
+proc readValue*(
+    reader: var JsonReader[RestJson],
+    value: var (Version | ForkDigest | DomainType | GraffitiBytes)) {.
      raises: [IOError, SerializationError, Defect].} =
   try:
     hexToByteArray(reader.readValue(string), distinctBase(value))
   except ValueError:
-    raiseUnexpectedValue(reader,
-                         "Version value should be a valid hex string")
-
-proc writeValue*(writer: var JsonWriter[RestJson], value: Version) {.
-     raises: [IOError, Defect].} =
-  writeValue(writer, hexOriginal(distinctBase(value)))
-
-## ForkDigest
-proc readValue*(reader: var JsonReader[RestJson], value: var ForkDigest) {.
-     raises: [IOError, SerializationError, Defect].} =
-  try:
-    hexToByteArray(reader.readValue(string), distinctBase(value))
-  except ValueError:
-    raiseUnexpectedValue(reader,
-                         "ForkDigest value should be a valid hex string")
-
-proc writeValue*(writer: var JsonWriter[RestJson], value: ForkDigest) {.
-     raises: [IOError, Defect].} =
-  writeValue(writer, hexOriginal(distinctBase(value)))
-
-## GraffitiBytes
-proc readValue*(reader: var JsonReader[RestJson], value: var GraffitiBytes) {.
-     raises: [IOError, SerializationError, Defect].} =
-  try:
-    hexToByteArray(reader.readValue(string), distinctBase(value))
-  except ValueError:
-    raiseUnexpectedValue(reader,
-                         "GraffitiBytes value should be a valid hex string")
-
-proc writeValue*(writer: var JsonWriter[RestJson], value: GraffitiBytes) {.
-     raises: [IOError, Defect].} =
-  writeValue(writer, hexOriginal(distinctBase(value)))
+    raiseUnexpectedValue(
+      reader, "Expected a valid hex string with " & $value.len() & " bytes")
 
 ## ForkedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],

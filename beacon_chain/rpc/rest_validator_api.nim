@@ -4,8 +4,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 import std/[typetraits, strutils, sets]
-import stew/[results, base10], chronicles,
-       nimcrypto/utils as ncrutils
+import stew/[results, base10], chronicles
 import ".."/[beacon_chain_db, beacon_node],
        ".."/networking/eth2_network,
        ".."/consensus_object_pools/[blockchain_dag, spec_cache,
@@ -54,9 +53,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if epoch.isErr():
           return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
                                            $epoch.error())
-        let res = epoch.get()
-        if res > MaxEpoch:
-          return RestApiResponse.jsonError(Http400, EpochOverflowValueError)
+        let
+          res = epoch.get()
+          wallTime = node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+          wallEpoch = wallTime.slotOrZero().epoch
+        if res > wallEpoch + 1:
+          return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                           "Cannot request duties past next epoch")
         res
     let qhead =
       block:
@@ -112,9 +115,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if epoch.isErr():
           return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
                                            $epoch.error())
-        let res = epoch.get()
-        if res > MaxEpoch:
-          return RestApiResponse.jsonError(Http400, EpochOverflowValueError)
+        let
+          res = epoch.get()
+          wallTime = node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+          wallEpoch = wallTime.slotOrZero().epoch
+        if res > wallEpoch + 1:
+          return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                           "Cannot request duties past next epoch")
         res
     let qhead =
       block:
@@ -123,8 +130,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
     let droot =
-      if qepoch >= Epoch(2):
-        qhead.atSlot(compute_start_slot_at_epoch(qepoch - 1) - 1).blck.root
+      if qepoch >= Epoch(1):
+        qhead.atSlot(compute_start_slot_at_epoch(qepoch - 1)).blck.root
       else:
         node.dag.genesis.root
     let duties =
@@ -504,8 +511,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodPost,
              "/eth/v1/validator/beacon_committee_subscriptions") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
-    # TODO (cheatfate): This call could not be finished because more complex
-    # peer manager implementation needed.
     let requests =
       block:
         if contentBody.isNone():
@@ -605,7 +610,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
         subs
 
-    warn "Sync committee subscription request served, but not implemented"
+    # TODO because we subscribe to all sync committee subnets, we don not need
+    #      to remember which ones are requested by validator clients
     return RestApiResponse.jsonMsgResponse(SyncCommitteeSubscriptionSuccess)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceSyncCommitteeContribution

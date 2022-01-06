@@ -4,8 +4,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import stew/[endians2, base10], chronicles,
-       nimcrypto/utils as ncrutils
+import stew/[byteutils, base10], chronicles
 import ".."/beacon_node,
        ".."/eth1/eth1_monitor,
        ".."/spec/forks,
@@ -171,38 +170,31 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           # JUSTIFICATION_BITS_LENGTH
           # ENDIANNESS
           BLS_WITHDRAWAL_PREFIX:
-            "0x" & ncrutils.toHex([BLS_WITHDRAWAL_PREFIX]),
+            to0xHex([BLS_WITHDRAWAL_PREFIX]),
           ETH1_ADDRESS_WITHDRAWAL_PREFIX:
-            "0x" & ncrutils.toHex([ETH1_ADDRESS_WITHDRAWAL_PREFIX]),
+            to0xHex([ETH1_ADDRESS_WITHDRAWAL_PREFIX]),
           DOMAIN_BEACON_PROPOSER:
-            "0x" & ncrutils.toHex(
-              uint32(DOMAIN_BEACON_PROPOSER).toBytesLE()),
+            to0xHex(DOMAIN_BEACON_PROPOSER.data),
           DOMAIN_BEACON_ATTESTER:
-            "0x" & ncrutils.toHex(
-              uint32(DOMAIN_BEACON_ATTESTER).toBytesLE()),
+            to0xHex(DOMAIN_BEACON_ATTESTER.data),
           DOMAIN_RANDAO:
-            "0x" & ncrutils.toHex(
-              uint32(DOMAIN_RANDAO).toBytesLE()),
+            to0xHex(DOMAIN_RANDAO.data),
           DOMAIN_DEPOSIT:
-            "0x" & ncrutils.toHex(
-              uint32(DOMAIN_DEPOSIT).toBytesLE()),
+            to0xHex(DOMAIN_DEPOSIT.data),
           DOMAIN_VOLUNTARY_EXIT:
-            "0x" & ncrutils.toHex(
-              uint32(DOMAIN_VOLUNTARY_EXIT).toBytesLE()),
+            to0xHex(DOMAIN_VOLUNTARY_EXIT.data),
           DOMAIN_SELECTION_PROOF:
-            "0x" & ncrutils.toHex(
-              uint32(DOMAIN_SELECTION_PROOF).toBytesLE()),
+            to0xHex(DOMAIN_SELECTION_PROOF.data),
           DOMAIN_AGGREGATE_AND_PROOF:
-            "0x" & ncrutils.toHex(
-              uint32(DOMAIN_AGGREGATE_AND_PROOF).toBytesLE()),
+            to0xHex(DOMAIN_AGGREGATE_AND_PROOF.data),
 
           # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#constants
           TIMELY_SOURCE_FLAG_INDEX:
-            "0x" & ncrutils.toHex([byte(TIMELY_SOURCE_FLAG_INDEX)]),
+            to0xHex([byte(TIMELY_SOURCE_FLAG_INDEX)]),
           TIMELY_TARGET_FLAG_INDEX:
-            "0x" & ncrutils.toHex([byte(TIMELY_TARGET_FLAG_INDEX)]),
+            to0xHex([byte(TIMELY_TARGET_FLAG_INDEX)]),
           TIMELY_HEAD_FLAG_INDEX:
-            "0x" & ncrutils.toHex([byte(TIMELY_HEAD_FLAG_INDEX)]),
+            to0xHex([byte(TIMELY_HEAD_FLAG_INDEX)]),
           TIMELY_SOURCE_WEIGHT:
             Base10.toString(uint64(TIMELY_SOURCE_WEIGHT)),
           TIMELY_TARGET_WEIGHT:
@@ -216,14 +208,11 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           WEIGHT_DENOMINATOR:
             Base10.toString(uint64(WEIGHT_DENOMINATOR)),
           DOMAIN_SYNC_COMMITTEE:
-            "0x" & ncrutils.toHex(
-              uint32(DOMAIN_SYNC_COMMITTEE).toBytesLE()),
+            to0xHex(DOMAIN_SYNC_COMMITTEE.data),
           DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF:
-            "0x" & ncrutils.toHex(
-              uint32(DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF).toBytesLE()),
+            to0xHex(DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF.data),
           DOMAIN_CONTRIBUTION_AND_PROOF:
-            "0x" & ncrutils.toHex(
-              uint32(DOMAIN_CONTRIBUTION_AND_PROOF).toBytesLE()),
+            to0xHex(DOMAIN_CONTRIBUTION_AND_PROOF.data),
           # PARTICIPATION_FLAG_WEIGHTS
 
           # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/validator.md#constants

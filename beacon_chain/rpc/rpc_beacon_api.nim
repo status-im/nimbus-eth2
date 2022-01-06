@@ -9,10 +9,9 @@
 
 import
   std/[parseutils, sequtils, strutils, sets],
-  stew/results,
+  stew/[byteutils, results],
   json_rpc/servers/httpserver,
   chronicles,
-  nimcrypto/utils as ncrutils,
   ../beacon_node,
   ../networking/eth2_network,
   ../validators/validator_duties,
@@ -452,7 +451,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
     for item in node.attestationPool[].attestations(qslot, qindex):
       let atuple = (
-        aggregation_bits: "0x" & ncrutils.toHex(item.aggregation_bits.bytes),
+        aggregation_bits: to0xHex(item.aggregation_bits.bytes),
         data: item.data,
         signature: item.signature
       )
