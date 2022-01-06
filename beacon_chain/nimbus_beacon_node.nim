@@ -122,6 +122,9 @@ proc init*(T: type BeaconNode,
            genesisDepositsSnapshotContents: string): BeaconNode {.
     raises: [Defect, CatchableError].} =
 
+  var bn: array[50, phase0.BeaconState]
+  echo bn
+
   var taskpool: TaskpoolPtr
 
   try:
