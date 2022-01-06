@@ -9,7 +9,7 @@ import stew/[assign2, results, base10, byteutils, endians2], presto/common,
        libp2p/peerid, nimcrypto/utils as ncrutils,
        serialization, json_serialization, json_serialization/std/[options, net, sets]
 import ".."/[eth2_ssz_serialization, forks],
-       ".."/datatypes/[phase0, altair, merge],
+       ".."/datatypes/[phase0, altair, bellatrix],
        "."/[rest_types, rest_keymanager_types]
 
 export
@@ -747,10 +747,10 @@ proc readValue*(reader: var JsonReader[RestJson],
   of BeaconBlockFork.Bellatrix:
     let res =
       try:
-        some(RestJson.decode(string(data.get()), merge.BeaconBlock,
+        some(RestJson.decode(string(data.get()), bellatrix.BeaconBlock,
                              requireAllFields = true))
       except SerializationError:
-        none[merge.BeaconBlock]()
+        none[bellatrix.BeaconBlock]()
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect merge block format")
     value = ForkedBeaconBlock.init(res.get())
@@ -833,10 +833,10 @@ proc readValue*(reader: var JsonReader[RestJson],
   of BeaconBlockFork.Bellatrix:
     let res =
       try:
-        some(RestJson.decode(string(data.get()), merge.SignedBeaconBlock,
+        some(RestJson.decode(string(data.get()), bellatrix.SignedBeaconBlock,
                              requireAllFields = true))
       except SerializationError:
-        none[merge.SignedBeaconBlock]()
+        none[bellatrix.SignedBeaconBlock]()
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect merge block format")
     value = ForkedSignedBeaconBlock.init(res.get())
@@ -925,7 +925,7 @@ proc readValue*(reader: var JsonReader[RestJson],
   of BeaconStateFork.Bellatrix:
     try:
       tmp[].mergeData.data = RestJson.decode(
-        string(data.get()), merge.BeaconState, requireAllFields = true)
+        string(data.get()), bellatrix.BeaconState, requireAllFields = true)
     except SerializationError:
       reader.raiseUnexpectedValue("Incorrect altair beacon state format")
     toValue(mergeData)

@@ -9,7 +9,7 @@ import
   # Beacon chain internals
   ../../beacon_chain/spec/
     [forks, helpers, signatures, state_transition, validator],
-  ../../beacon_chain/spec/datatypes/[phase0, altair, merge],
+  ../../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   # Test utilities
   ../testblockutil
 
@@ -44,7 +44,7 @@ func sign_block(state: ForkyBeaconState, blck: var ForkySignedBeaconBlock) =
     privkey).toValidatorSig()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/tests/core/pyspec/eth2spec/test/helpers/execution_payload.py#L1-L31
-func build_empty_execution_payload(state: merge.BeaconState): ExecutionPayload =
+func build_empty_execution_payload(state: bellatrix.BeaconState): ExecutionPayload =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions.
   let

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,7 +13,7 @@ import
   json_serialization/std/sets,
   chronicles,
   ../extras,
-  ./datatypes/[phase0, altair, merge],
+  ./datatypes/[phase0, altair, bellatrix],
   "."/[eth2_merkleization, forks, signatures, validator]
 
 export extras, forks, validator
@@ -153,7 +153,7 @@ proc slash_validator*(
   elif state is altair.BeaconState:
     decrease_balance(state, slashed_index,
       validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR)
-  elif state is merge.BeaconState:
+  elif state is bellatrix.BeaconState:
     decrease_balance(state, slashed_index,
       validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_MERGE)
   else:
@@ -174,7 +174,7 @@ proc slash_validator*(
     proposer_reward =
       when state is phase0.BeaconState:
         whistleblower_reward div PROPOSER_REWARD_QUOTIENT
-      elif state is altair.BeaconState or state is merge.BeaconState:
+      elif state is altair.BeaconState or state is bellatrix.BeaconState:
         whistleblower_reward * PROPOSER_WEIGHT div WEIGHT_DENOMINATOR
       else:
         raiseAssert "invalid BeaconState type"
@@ -315,15 +315,15 @@ func get_initial_beacon_block*(state: altair.HashedBeaconState):
     message: message, root: hash_tree_root(message))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#testing
-func get_initial_beacon_block*(state: merge.HashedBeaconState):
-    merge.TrustedSignedBeaconBlock =
+func get_initial_beacon_block*(state: bellatrix.HashedBeaconState):
+    bellatrix.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
-  let message = merge.TrustedBeaconBlock(
+  let message = bellatrix.TrustedBeaconBlock(
     slot: state.data.slot,
     state_root: state.root)
     # parent_root, randao_reveal, eth1_data, signature, and body automatically
     # initialized to default values.
-  merge.TrustedSignedBeaconBlock(
+  bellatrix.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
 func get_initial_beacon_block*(state: ForkedHashedBeaconState):
@@ -525,7 +525,7 @@ func check_attestation_index(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
-func get_attestation_participation_flag_indices(state: altair.BeaconState | merge.BeaconState,
+func get_attestation_participation_flag_indices(state: altair.BeaconState | bellatrix.BeaconState,
                                                 data: AttestationData,
                                                 inclusion_delay: uint64): seq[int] =
   ## Return the flag indices that are satisfied by an attestation.
@@ -580,7 +580,7 @@ func get_base_reward_per_increment*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
-    state: altair.BeaconState | merge.BeaconState, index: ValidatorIndex,
+    state: altair.BeaconState | bellatrix.BeaconState, index: ValidatorIndex,
     base_reward_per_increment: Gwei): Gwei =
   ## Return the base reward for the validator defined by ``index`` with respect
   ## to the current ``state``.
@@ -689,7 +689,7 @@ proc process_attestation*(
       addPendingAttestation(state.current_epoch_attestations)
     else:
       addPendingAttestation(state.previous_epoch_attestations)
-  elif state is altair.BeaconState or state is merge.BeaconState:
+  elif state is altair.BeaconState or state is bellatrix.BeaconState:
     doAssert base_reward_per_increment > 0.Gwei
     if attestation.data.target.epoch == get_current_epoch(state):
       updateParticipationFlags(state.current_epoch_participation)
@@ -701,7 +701,7 @@ proc process_attestation*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#get_next_sync_committee_indices
-func get_next_sync_committee_keys(state: altair.BeaconState | merge.BeaconState):
+func get_next_sync_committee_keys(state: altair.BeaconState | bellatrix.BeaconState):
     array[SYNC_COMMITTEE_SIZE, ValidatorPubKey] =
   ## Return the sequence of sync committee indices (which may include
   ## duplicate indices) for the next sync committee, given a ``state`` at a
@@ -737,7 +737,7 @@ func get_next_sync_committee_keys(state: altair.BeaconState | merge.BeaconState)
   res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#get_next_sync_committee
-proc get_next_sync_committee*(state: altair.BeaconState | merge.BeaconState):
+proc get_next_sync_committee*(state: altair.BeaconState | bellatrix.BeaconState):
     SyncCommittee =
   ## Return the *next* sync committee for a given ``state``.
   var res: SyncCommittee
@@ -842,9 +842,9 @@ proc upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState): ref altair
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/fork.md#upgrading-the-state
 func upgrade_to_merge*(cfg: RuntimeConfig, pre: altair.BeaconState):
-    ref merge.BeaconState =
+    ref bellatrix.BeaconState =
   let epoch = get_current_epoch(pre)
-  (ref merge.BeaconState)(
+  (ref bellatrix.BeaconState)(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
@@ -926,7 +926,7 @@ func latest_block_root*(state: ForkyHashedBeaconState): Eth2Digest =
   latest_block_root(state.data, state.root)
 
 func get_sync_committee_cache*(
-    state: altair.BeaconState | merge.BeaconState, cache: var StateCache):
+    state: altair.BeaconState | bellatrix.BeaconState, cache: var StateCache):
     SyncCommitteeCache =
   let period = state.slot.sync_committee_period()
 

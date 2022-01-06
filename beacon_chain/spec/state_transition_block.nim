@@ -23,7 +23,7 @@ import
   std/[algorithm, options, sequtils, sets, tables],
   chronicles, metrics,
   ../extras,
-  ./datatypes/[phase0, altair, merge],
+  ./datatypes/[phase0, altair, bellatrix],
   "."/[beaconstate, eth2_merkleization, helpers, validator, signatures]
 
 export extras, phase0, altair
@@ -304,7 +304,7 @@ proc process_deposit*(cfg: RuntimeConfig,
         static: doAssert state.balances.maxLen == state.validators.maxLen
         raiseAssert "adding validator succeeded, so should balances"
 
-      when state is altair.BeaconState or state is merge.BeaconState:
+      when state is altair.BeaconState or state is bellatrix.BeaconState:
         if not state.previous_epoch_participation.add(ParticipationFlags(0)):
           return err("process_deposit: too many validators (previous_epoch_participation)")
         if not state.current_epoch_participation.add(ParticipationFlags(0)):
@@ -427,7 +427,7 @@ proc process_operations(cfg: RuntimeConfig,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-processing
 proc process_sync_aggregate*(
-    state: var (altair.BeaconState | merge.BeaconState),
+    state: var (altair.BeaconState | bellatrix.BeaconState),
     aggregate: SomeSyncAggregate, total_active_balance: Gwei,
     cache: var StateCache):
     Result[void, cstring]  =
@@ -490,7 +490,7 @@ proc process_sync_aggregate*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
-    state: var merge.BeaconState, payload: ExecutionPayload,
+    state: var bellatrix.BeaconState, payload: ExecutionPayload,
     execute_payload: ExecutePayload): Result[void, cstring] =
   ## Verify consistency of the parent hash with respect to the previous
   ## execution payload header
@@ -558,7 +558,7 @@ proc process_block*(
 
 proc process_block*(
     cfg: RuntimeConfig,
-    state: var merge.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
+    state: var bellatrix.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   err("process_block: Merge state with Phase 0 block")
 
@@ -593,10 +593,10 @@ proc process_block*(
 
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeMergeBlock =
-  merge.BeaconBlock | merge.SigVerifiedBeaconBlock | merge.TrustedBeaconBlock
+  bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock
 proc process_block*(
     cfg: RuntimeConfig,
-    state: var merge.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
+    state: var bellatrix.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring]=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
@@ -642,6 +642,6 @@ proc process_block*(
 
 proc process_block*(
     cfg: RuntimeConfig,
-    state: var merge.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
+    state: var bellatrix.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring]=
   err("process_block: Merge state with Altair block")
