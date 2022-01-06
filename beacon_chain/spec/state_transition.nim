@@ -46,14 +46,14 @@ import
   stew/results,
   metrics,
   ../extras,
-  ./datatypes/[phase0, altair, merge],
+  ./datatypes/[phase0, altair, bellatrix],
   "."/[
     beaconstate, eth2_merkleization, forks, helpers, signatures,
     state_transition_block, state_transition_epoch, validator]
 
 export extras, phase0, altair
 
-type Foo = phase0.SignedBeaconBlock | altair.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock | merge.TrustedSignedBeaconBlock | merge.SigVerifiedSignedBeaconBlock | merge.SignedBeaconBlock
+type Foo = phase0.SignedBeaconBlock | altair.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock | bellatrix.SigVerifiedSignedBeaconBlock | bellatrix.SignedBeaconBlock
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
@@ -78,7 +78,7 @@ proc verify_block_signature(
   true
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc verifyStateRoot(state: ForkyBeaconState, blck: phase0.BeaconBlock or phase0.SigVerifiedBeaconBlock or altair.BeaconBlock or altair.SigVerifiedBeaconBlock or merge.BeaconBlock or merge.SigVerifiedBeaconBlock or merge.TrustedBeaconBlock): bool =
+proc verifyStateRoot(state: ForkyBeaconState, blck: phase0.BeaconBlock or phase0.SigVerifiedBeaconBlock or altair.BeaconBlock or altair.SigVerifiedBeaconBlock or bellatrix.BeaconBlock or bellatrix.SigVerifiedBeaconBlock or bellatrix.TrustedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:
@@ -96,7 +96,7 @@ func verifyStateRoot(state: altair.BeaconState, blck: altair.TrustedBeaconBlock)
   # This is inlined in state_transition(...) in spec.
   true
 
-func verifyStateRoot(state: merge.BeaconState, blck: merge.TrustedBeaconBlock): bool =
+func verifyStateRoot(state: bellatrix.BeaconState, blck: bellatrix.TrustedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   true
 
@@ -106,11 +106,11 @@ func verifyStateRoot(state: altair.BeaconState, blck: phase0.TrustedBeaconBlock)
   # This is inlined in state_transition(...) in spec.
   true
 
-func verifyStateRoot(state: merge.BeaconState, blck: phase0.TrustedBeaconBlock): bool =
+func verifyStateRoot(state: bellatrix.BeaconState, blck: phase0.TrustedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   true
 
-func verifyStateRoot(state: merge.BeaconState, blck: altair.TrustedBeaconBlock): bool =
+func verifyStateRoot(state: bellatrix.BeaconState, blck: altair.TrustedBeaconBlock): bool =
   # This is inlined in state_transition(...) in spec.
   true
 
@@ -125,9 +125,9 @@ func noRollback*() =
   trace "Skipping rollback of broken state"
 
 type
-  RollbackHashedProc* =       proc(state: var phase0.HashedBeaconState) {.gcsafe, raises: [Defect].}
-  RollbackAltairHashedProc* = proc(state: var altair.HashedBeaconState) {.gcsafe, raises: [Defect].}
-  RollbackMergeHashedProc* =  proc(state: var merge.HashedBeaconState)  {.gcsafe, raises: [Defect].}
+  RollbackHashedProc* =       proc(state: var phase0.HashedBeaconState)    {.gcsafe, raises: [Defect].}
+  RollbackAltairHashedProc* = proc(state: var altair.HashedBeaconState)    {.gcsafe, raises: [Defect].}
+  RollbackMergeHashedProc* =  proc(state: var bellatrix.HashedBeaconState) {.gcsafe, raises: [Defect].}
 
 # Hashed-state transition functions
 # ---------------------------------------------------------------
@@ -186,8 +186,8 @@ func noRollback*(state: var phase0.HashedBeaconState) =
 func noRollback*(state: var altair.HashedBeaconState) =
   trace "Skipping rollback of broken Altair state"
 
-func noRollback*(state: var merge.HashedBeaconState) =
-  trace "Skipping rollback of broken Merge state"
+func noRollback*(state: var bellatrix.HashedBeaconState) =
+  trace "Skipping rollback of broken Bellatrix state"
 
 proc maybeUpgradeStateToAltair(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
@@ -210,7 +210,7 @@ func maybeUpgradeStateToBellatrix(
     var newState = upgrade_to_merge(cfg, state.altairData.data)
     state = (ref ForkedHashedBeaconState)(
       kind: BeaconStateFork.Bellatrix,
-      mergeData: merge.HashedBeaconState(
+      mergeData: bellatrix.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
 proc maybeUpgradeState*(
@@ -252,8 +252,8 @@ proc state_transition_block_aux(
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
                  phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock |
                  altair.SigVerifiedSignedBeaconBlock | altair.TrustedSignedBeaconBlock |
-                 merge.TrustedSignedBeaconBlock | merge.SigVerifiedSignedBeaconBlock |
-                 merge.SignedBeaconBlock,
+                 bellatrix.TrustedSignedBeaconBlock | bellatrix.SigVerifiedSignedBeaconBlock |
+                 bellatrix.SignedBeaconBlock,
     cache: var StateCache, flags: UpdateFlags): bool =
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
@@ -303,8 +303,8 @@ proc state_transition_block*(
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
                  phase0.TrustedSignedBeaconBlock |
                  altair.SignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock |
-                 altair.TrustedSignedBeaconBlock | merge.TrustedSignedBeaconBlock |
-                 merge.SigVerifiedSignedBeaconBlock | merge.SignedBeaconBlock,
+                 altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
+                 bellatrix.SigVerifiedSignedBeaconBlock | bellatrix.SignedBeaconBlock,
     cache: var StateCache, flags: UpdateFlags,
     rollback: RollbackForkedHashedProc): bool =
   ## `rollback` is called if the transition fails and the given state has been
@@ -331,8 +331,8 @@ proc state_transition*(
     state: var ForkedHashedBeaconState,
     signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
                  phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock |
-                 altair.TrustedSignedBeaconBlock | merge.TrustedSignedBeaconBlock |
-                 merge.SignedBeaconBlock,
+                 altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
+                 bellatrix.SignedBeaconBlock,
     cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags,
     rollback: RollbackForkedHashedProc): bool =
   ## Apply a block to the state, advancing the slot counter as necessary. The
@@ -499,7 +499,7 @@ proc makeBeaconBlock*(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/validator.md#block-proposal
 template partialBeaconBlock(
     cfg: RuntimeConfig,
-    state: var merge.HashedBeaconState,
+    state: var bellatrix.HashedBeaconState,
     proposer_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
@@ -508,12 +508,12 @@ template partialBeaconBlock(
     deposits: seq[Deposit],
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
-    executionPayload: ExecutionPayload): merge.BeaconBlock =
-  merge.BeaconBlock(
+    executionPayload: ExecutionPayload): bellatrix.BeaconBlock =
+  bellatrix.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
     parent_root: state.latest_block_root(),
-    body: merge.BeaconBlockBody(
+    body: bellatrix.BeaconBlockBody(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
@@ -527,7 +527,7 @@ template partialBeaconBlock(
 
 proc makeBeaconBlock*(
     cfg: RuntimeConfig,
-    state: var merge.HashedBeaconState,
+    state: var bellatrix.HashedBeaconState,
     proposer_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
@@ -538,7 +538,7 @@ proc makeBeaconBlock*(
     sync_aggregate: SyncAggregate,
     executionPayload: ExecutionPayload,
     rollback: RollbackMergeHashedProc,
-    cache: var StateCache): Result[merge.BeaconBlock, string] =
+    cache: var StateCache): Result[bellatrix.BeaconBlock, string] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
   ## state.slot meaning process_slots must be called up to the slot for which

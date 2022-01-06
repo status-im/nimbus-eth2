@@ -11,7 +11,7 @@ import
   options, stew/endians2,
   ../beacon_chain/consensus_object_pools/sync_committee_msg_pool,
   ../beacon_chain/validators/validator_pool,
-  ../beacon_chain/spec/datatypes/merge,
+  ../beacon_chain/spec/datatypes/bellatrix,
   ../beacon_chain/spec/[
     beaconstate, helpers, keystore, signatures, state_transition, validator]
 

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,7 +13,7 @@
 import
   ssz_serialization,
   ./ssz_codec,
-  ./datatypes/[phase0, altair, merge],
+  ./datatypes/[phase0, altair, bellatrix],
   ./eth2_merkleization
 
 export phase0, altair, ssz_codec, ssz_serialization, eth2_merkleization
@@ -40,10 +40,10 @@ template readSszBytes*(
     data: openArray[byte], val: var altair.TrustedSignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
 template readSszBytes*(
-    data: openArray[byte], val: var merge.SignedBeaconBlock, updateRoot = true) =
+    data: openArray[byte], val: var bellatrix.SignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
 template readSszBytes*(
-    data: openArray[byte], val: var merge.TrustedSignedBeaconBlock, updateRoot = true) =
+    data: openArray[byte], val: var bellatrix.TrustedSignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
 
 template readSszBytes*(

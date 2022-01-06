@@ -16,7 +16,7 @@ import
   stew/[bitops2, byteutils, endians2],
   chronicles,
   # Internal
-  ./datatypes/[phase0, altair, merge],
+  ./datatypes/[phase0, altair, bellatrix],
   "."/[eth2_merkleization, forks, ssz_codec]
 
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
@@ -514,22 +514,22 @@ func get_subtree_index*(idx: GeneralizedIndex): uint64 =
   uint64(idx mod (type(idx)(1) shl log2trunc(idx)))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
-func is_merge_transition_complete*(state: merge.BeaconState): bool =
+func is_merge_transition_complete*(state: bellatrix.BeaconState): bool =
   state.latest_execution_payload_header != default(ExecutionPayloadHeader)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/beacon-chain.md#is_merge_transition_block
 func is_merge_transition_block(
-    state: merge.BeaconState,
-    body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |
-          merge.SigVerifiedBeaconBlockBody): bool =
+    state: bellatrix.BeaconState,
+    body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
+          bellatrix.SigVerifiedBeaconBlockBody): bool =
   not is_merge_transition_complete(state) and
-    body.execution_payload != default(merge.ExecutionPayload)
+    body.execution_payload != default(bellatrix.ExecutionPayload)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
-    state: merge.BeaconState,
-    body: merge.BeaconBlockBody | merge.TrustedBeaconBlockBody |
-          merge.SigVerifiedBeaconBlockBody): bool =
+    state: bellatrix.BeaconState,
+    body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
+          bellatrix.SigVerifiedBeaconBlockBody): bool =
   is_merge_transition_block(state, body) or is_merge_transition_complete(state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot

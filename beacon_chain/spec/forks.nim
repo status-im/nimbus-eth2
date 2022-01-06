@@ -12,10 +12,10 @@ import
   chronicles,
   ../extras,
   "."/[eth2_merkleization, eth2_ssz_serialization, presets],
-  ./datatypes/[phase0, altair, merge]
+  ./datatypes/[phase0, altair, bellatrix]
 
 export
-  extras, phase0, altair, merge, eth2_merkleization, eth2_ssz_serialization,
+  extras, phase0, altair, bellatrix, eth2_merkleization, eth2_ssz_serialization,
   presets
 
 # This file contains helpers for dealing with forks - we have two ways we can
@@ -43,18 +43,18 @@ type
   ForkyBeaconState* =
     phase0.BeaconState |
     altair.BeaconState |
-    merge.BeaconState
+    bellatrix.BeaconState
 
   ForkyHashedBeaconState* =
     phase0.HashedBeaconState |
     altair.HashedBeaconState |
-    merge.HashedBeaconState
+    bellatrix.HashedBeaconState
 
   ForkedHashedBeaconState* = object
     case kind*: BeaconStateFork
     of BeaconStateFork.Phase0:    phase0Data*: phase0.HashedBeaconState
     of BeaconStateFork.Altair:    altairData*: altair.HashedBeaconState
-    of BeaconStateFork.Bellatrix: mergeData*:  merge.HashedBeaconState
+    of BeaconStateFork.Bellatrix: mergeData*:  bellatrix.HashedBeaconState
 
   BeaconBlockFork* {.pure.} = enum
     Phase0
@@ -64,46 +64,46 @@ type
   ForkyBeaconBlock* =
     phase0.BeaconBlock |
     altair.BeaconBlock |
-    merge.BeaconBlock
+    bellatrix.BeaconBlock
 
   ForkyTrustedBeaconBlock* =
     phase0.TrustedBeaconBlock |
     altair.TrustedBeaconBlock |
-    merge.TrustedBeaconBlock
+    bellatrix.TrustedBeaconBlock
 
   ForkedBeaconBlock* = object
     case kind*: BeaconBlockFork
     of BeaconBlockFork.Phase0:    phase0Data*: phase0.BeaconBlock
     of BeaconBlockFork.Altair:    altairData*: altair.BeaconBlock
-    of BeaconBlockFork.Bellatrix: mergeData*:  merge.BeaconBlock
+    of BeaconBlockFork.Bellatrix: mergeData*:  bellatrix.BeaconBlock
 
   ForkedTrustedBeaconBlock* = object
     case kind*: BeaconBlockFork
     of BeaconBlockFork.Phase0:    phase0Data*: phase0.TrustedBeaconBlock
     of BeaconBlockFork.Altair:    altairData*: altair.TrustedBeaconBlock
-    of BeaconBlockFork.Bellatrix: mergeData*:  merge.TrustedBeaconBlock
+    of BeaconBlockFork.Bellatrix: mergeData*:  bellatrix.TrustedBeaconBlock
 
   ForkySignedBeaconBlock* =
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
-    merge.SignedBeaconBlock
+    bellatrix.SignedBeaconBlock
 
   ForkedSignedBeaconBlock* = object
     case kind*: BeaconBlockFork
     of BeaconBlockFork.Phase0:    phase0Data*: phase0.SignedBeaconBlock
     of BeaconBlockFork.Altair:    altairData*: altair.SignedBeaconBlock
-    of BeaconBlockFork.Bellatrix: mergeData*:  merge.SignedBeaconBlock
+    of BeaconBlockFork.Bellatrix: mergeData*:  bellatrix.SignedBeaconBlock
 
   ForkyTrustedSignedBeaconBlock* =
     phase0.TrustedSignedBeaconBlock |
     altair.TrustedSignedBeaconBlock |
-    merge.TrustedSignedBeaconBlock
+    bellatrix.TrustedSignedBeaconBlock
 
   ForkedTrustedSignedBeaconBlock* = object
     case kind*: BeaconBlockFork
     of BeaconBlockFork.Phase0:    phase0Data*: phase0.TrustedSignedBeaconBlock
     of BeaconBlockFork.Altair:    altairData*: altair.TrustedSignedBeaconBlock
-    of BeaconBlockFork.Bellatrix: mergeData*:  merge.TrustedSignedBeaconBlock
+    of BeaconBlockFork.Bellatrix: mergeData*:  bellatrix.TrustedSignedBeaconBlock
 
   EpochInfoFork* {.pure.} = enum
     Phase0
@@ -128,7 +128,7 @@ template toFork*[T: phase0.BeaconState | phase0.HashedBeaconState](
 template toFork*[T: altair.BeaconState | altair.HashedBeaconState](
     t: type T): BeaconStateFork =
   BeaconStateFork.Altair
-template toFork*[T: merge.BeaconState | merge.HashedBeaconState](
+template toFork*[T: bellatrix.BeaconState | bellatrix.HashedBeaconState](
     t: type T): BeaconStateFork =
   BeaconStateFork.Bellatrix
 
@@ -136,28 +136,28 @@ template init*(T: type ForkedHashedBeaconState, data: phase0.HashedBeaconState):
   T(kind: BeaconStateFork.Phase0, phase0Data: data)
 template init*(T: type ForkedHashedBeaconState, data: altair.HashedBeaconState): T =
   T(kind: BeaconStateFork.Altair, altairData: data)
-template init*(T: type ForkedHashedBeaconState, data: merge.HashedBeaconState): T =
+template init*(T: type ForkedHashedBeaconState, data: bellatrix.HashedBeaconState): T =
   T(kind: BeaconStateFork.Bellatrix, mergeData: data)
 
 template init*(T: type ForkedBeaconBlock, blck: phase0.BeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
 template init*(T: type ForkedBeaconBlock, blck: altair.BeaconBlock): T =
   T(kind: BeaconBlockFork.Altair, altairData: blck)
-template init*(T: type ForkedBeaconBlock, blck: merge.BeaconBlock): T =
+template init*(T: type ForkedBeaconBlock, blck: bellatrix.BeaconBlock): T =
   T(kind: BeaconBlockFork.Bellatrix, mergeData: blck)
 
 template init*(T: type ForkedTrustedBeaconBlock, blck: phase0.TrustedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
 template init*(T: type ForkedTrustedBeaconBlock, blck: altair.TrustedBeaconBlock): T =
   T(kind: BeaconBlockFork.Altair, altairData: blck)
-template init*(T: type ForkedTrustedBeaconBlock, blck: merge.TrustedBeaconBlock): T =
+template init*(T: type ForkedTrustedBeaconBlock, blck: bellatrix.TrustedBeaconBlock): T =
   T(kind: BeaconBlockFork.Bellatrix, mergeData: blck)
 
 template init*(T: type ForkedSignedBeaconBlock, blck: phase0.SignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
 template init*(T: type ForkedSignedBeaconBlock, blck: altair.SignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Altair, altairData: blck)
-template init*(T: type ForkedSignedBeaconBlock, blck: merge.SignedBeaconBlock): T =
+template init*(T: type ForkedSignedBeaconBlock, blck: bellatrix.SignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Bellatrix, mergeData: blck)
 
 template init*(T: type ForkedSignedBeaconBlock, forked: ForkedBeaconBlock,
@@ -175,15 +175,15 @@ template init*(T: type ForkedSignedBeaconBlock, forked: ForkedBeaconBlock,
                                            signature: signature))
   of BeaconBlockFork.Bellatrix:
     T(kind: BeaconBlockFork.Bellatrix,
-      mergeData: merge.SignedBeaconBlock(message: forked.mergeData,
-                                          root: blockRoot,
-                                          signature: signature))
+      mergeData: bellatrix.SignedBeaconBlock(message: forked.mergeData,
+                                             root: blockRoot,
+                                             signature: signature))
 
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: phase0.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: altair.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Altair, altairData: blck)
-template init*(T: type ForkedTrustedSignedBeaconBlock, blck: merge.TrustedSignedBeaconBlock): T =
+template init*(T: type ForkedTrustedSignedBeaconBlock, blck: bellatrix.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Bellatrix,  mergeData: blck)
 
 template toFork*[T: phase0.TrustedSignedBeaconBlock](
@@ -192,7 +192,7 @@ template toFork*[T: phase0.TrustedSignedBeaconBlock](
 template toFork*[T: altair.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Altair
-template toFork*[T: merge.TrustedSignedBeaconBlock](
+template toFork*[T: bellatrix.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Bellatrix
 
@@ -232,7 +232,7 @@ template withEpochInfo*(
   body
 
 template withEpochInfo*(
-    state: altair.BeaconState | merge.BeaconState, x: var ForkedEpochInfo,
+    state: altair.BeaconState | bellatrix.BeaconState, x: var ForkedEpochInfo,
     body: untyped): untyped =
   x.kind = EpochInfoFork.Altair
   template info: untyped {.inject.} = x.altairData
