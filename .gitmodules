@@ -205,7 +205,7 @@
 	branch = master
 [submodule "vendor/eth2-networks"]
 	path = vendor/eth2-networks
-	url = https://github.com/eth2-clients/eth2-networks.git
+	url = https://github.com/eth-clients/eth2-networks.git
 [submodule "vendor/nim-taskpools"]
 	path = vendor/nim-taskpools
 	url = https://github.com/status-im/nim-taskpools
