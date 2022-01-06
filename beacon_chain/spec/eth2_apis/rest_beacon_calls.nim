@@ -36,7 +36,7 @@ proc getStateFork*(state_id: StateIdent): RestResponse[GetStateForkResponse] {.
 
 proc getStateFinalityCheckpoints*(state_id: StateIdent
           ): RestResponse[GetStateFinalityCheckpointsResponse] {.
-     rest, endpoint: "/api/eth/v1/beacon/states/{state_id}/finality_checkpoints",
+     rest, endpoint: "/eth/v1/beacon/states/{state_id}/finality_checkpoints",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateFinalityCheckpoints
 
@@ -75,12 +75,12 @@ proc getEpochSyncCommittees*(state_id: StateIdent, epoch: Option[Epoch],
 
 proc getBlockHeaders*(slot: Option[Slot], parent_root: Option[Eth2Digest]
                         ): RestResponse[GetBlockHeadersResponse] {.
-     rest, endpoint: "/api/eth/v1/beacon/headers",
+     rest, endpoint: "/eth/v1/beacon/headers",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeaders
 
 proc getBlockHeader*(block_id: BlockIdent): RestResponse[GetBlockHeaderResponse] {.
-     rest, endpoint: "/api/eth/v1/beacon/headers/{block_id}",
+     rest, endpoint: "/eth/v1/beacon/headers/{block_id}",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
 
@@ -95,7 +95,7 @@ proc publishBlock*(body: altair.SignedBeaconBlock): RestPlainResponse {.
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
 
 proc getBlockPlain*(block_id: BlockIdent): RestPlainResponse {.
-     rest, endpoint: "/api/eth/v1/beacon/blocks/{block_id}",
+     rest, endpoint: "/eth/v1/beacon/blocks/{block_id}",
      accept: "application/octet-stream,application-json;q=0.9",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
@@ -156,21 +156,24 @@ proc getBlock*(client: RestClientRef, block_id: BlockIdent,
   return data
 
 proc getBlockV2Plain*(block_id: BlockIdent): RestPlainResponse {.
-     rest, endpoint: "/api/eth/v2/beacon/blocks/{block_id}",
+     rest, endpoint: "/eth/v2/beacon/blocks/{block_id}",
      accept: "application/octet-stream,application-json;q=0.9",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
 
 proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
-                 forks: array[2, Fork],
-                 restAccept = ""): Future[ForkedSignedBeaconBlock] {.
+                 cfg: RuntimeConfig,
+                 restAccept = ""): Future[Option[ForkedSignedBeaconBlock]] {.
      async.} =
+  # Return the asked-for block, or None in case 404 is returned from the server.
+  # Raises on other errors
   let resp =
     if len(restAccept) > 0:
       await client.getBlockV2Plain(block_id, restAcceptType = restAccept)
     else:
       await client.getBlockV2Plain(block_id)
-  let data =
+
+  return
     case resp.status
     of 200:
       case resp.contentType
@@ -182,35 +185,18 @@ proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
             if res.isErr():
               raise newException(RestError, $res.error())
             res.get()
-        blck
+        some blck
       of "application/octet-stream":
-        let header =
-          block:
-            let res = decodeBytes(GetBlockV2Header, resp.data, resp.contentType)
-            if res.isErr():
-              raise newException(RestError, $res.error())
-            res.get()
-        if header.slot.epoch() < forks[1].epoch:
-          let blck =
-            block:
-              let res = decodeBytes(GetPhase0BlockSszResponse, resp.data,
-                                    resp.contentType)
-              if res.isErr():
-                raise newException(RestError, $res.error())
-              res.get()
-          ForkedSignedBeaconBlock.init(blck)
-        else:
-          let blck =
-            block:
-              let res = decodeBytes(GetAltairBlockSszResponse, resp.data,
-                                    resp.contentType)
-              if res.isErr():
-                raise newException(RestError, $res.error())
-              res.get()
-          ForkedSignedBeaconBlock.init(blck)
+        try:
+          some readSszForkedSignedBeaconBlock(cfg, resp.data)
+        except CatchableError as exc:
+          raise newException(RestError, exc.msg)
       else:
         raise newException(RestError, "Unsupported content-type")
-    of 400, 404, 500:
+    of 404:
+      none(ForkedSignedBeaconBlock)
+
+    of 400, 500:
       let error =
         block:
           let res = decodeBytes(RestGenericError, resp.data, resp.contentType)
@@ -224,7 +210,6 @@ proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
     else:
       let msg = "Unknown response status error (" & $resp.status & ")"
       raise newException(RestError, msg)
-  return data
 
 proc getBlockRoot*(block_id: BlockIdent): RestResponse[GetBlockRootResponse] {.
      rest, endpoint: "/eth/v1/beacon/blocks/{block_id}/root",

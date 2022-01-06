@@ -21,7 +21,7 @@ logScope: topics = "rest_validatorapi"
 
 proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Validator/getAttesterDuties
-  router.api(MethodPost, "/api/eth/v1/validator/duties/attester/{epoch}") do (
+  router.api(MethodPost, "/eth/v1/validator/duties/attester/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
     let indexList =
       block:
@@ -105,7 +105,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponseWRoot(duties, droot)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties
-  router.api(MethodGet, "/api/eth/v1/validator/duties/proposer/{epoch}") do (
+  router.api(MethodGet, "/eth/v1/validator/duties/proposer/{epoch}") do (
     epoch: Epoch) -> RestApiResponse:
     let qepoch =
       block:
@@ -152,7 +152,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     return RestApiResponse.jsonResponseWRoot(duties, droot)
 
-  router.api(MethodPost, "/api/eth/v1/validator/duties/sync/{epoch}") do (
+  router.api(MethodPost, "/eth/v1/validator/duties/sync/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
     let indexList =
       block:
@@ -285,7 +285,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlock
-  router.api(MethodGet, "/api/eth/v1/validator/blocks/{slot}") do (
+  router.api(MethodGet, "/eth/v1/validator/blocks/{slot}") do (
     slot: Slot, randao_reveal: Option[ValidatorSig],
     graffiti: Option[GraffitiBytes]) -> RestApiResponse:
     let message =
@@ -343,7 +343,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                   "Unable to produce block for altair fork")
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV2
-  router.api(MethodGet, "/api/eth/v2/validator/blocks/{slot}") do (
+  router.api(MethodGet, "/eth/v2/validator/blocks/{slot}") do (
     slot: Slot, randao_reveal: Option[ValidatorSig],
     graffiti: Option[GraffitiBytes]) -> RestApiResponse:
     let message =
@@ -395,7 +395,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponsePlain(message)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
-  router.api(MethodGet, "/api/eth/v1/validator/attestation_data") do (
+  router.api(MethodGet, "/eth/v1/validator/attestation_data") do (
     slot: Option[Slot],
     committee_index: Option[CommitteeIndex]) -> RestApiResponse:
     let adata =
@@ -435,7 +435,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponse(adata)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/getAggregatedAttestation
-  router.api(MethodGet, "/api/eth/v1/validator/aggregate_attestation") do (
+  router.api(MethodGet, "/eth/v1/validator/aggregate_attestation") do (
     attestation_data_root: Option[Eth2Digest],
     slot: Option[Slot]) -> RestApiResponse:
     let attestation =
@@ -467,7 +467,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponse(attestation)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/publishAggregateAndProofs
-  router.api(MethodPost, "/api/eth/v1/validator/aggregate_and_proofs") do (
+  router.api(MethodPost, "/eth/v1/validator/aggregate_and_proofs") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let proofs =
       block:
@@ -502,7 +502,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/prepareBeaconCommitteeSubnet
   router.api(MethodPost,
-             "/api/eth/v1/validator/beacon_committee_subscriptions") do (
+             "/eth/v1/validator/beacon_committee_subscriptions") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     # TODO (cheatfate): This call could not be finished because more complex
     # peer manager implementation needed.
@@ -575,7 +575,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/prepareSyncCommitteeSubnets
   router.api(MethodPost,
-             "/api/eth/v1/validator/sync_committee_subscriptions") do (
+             "/eth/v1/validator/sync_committee_subscriptions") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let subscriptions =
       block:
@@ -610,7 +610,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceSyncCommitteeContribution
   router.api(MethodGet,
-             "/api/eth/v1/validator/sync_committee_contribution") do (
+             "/eth/v1/validator/sync_committee_contribution") do (
     slot: Option[Slot], subcommittee_index: Option[uint64],
     beacon_block_root: Option[Eth2Digest]) -> RestApiResponse:
     # We doing this check to avoid any confusion in future.
@@ -670,7 +670,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/publishContributionAndProofs
   router.api(MethodPost,
-             "/api/eth/v1/validator/contribution_and_proofs") do (
+             "/eth/v1/validator/contribution_and_proofs") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let proofs =
       block:
@@ -718,63 +718,65 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         ContributionAndProofValidationSuccess
       )
 
+  # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
+  # `/api` path component
   router.redirect(
     MethodPost,
-    "/eth/v1/validator/duties/attester/{epoch}",
-    "/api/eth/v1/validator/duties/attester/{epoch}"
+    "/api/eth/v1/validator/duties/attester/{epoch}",
+    "/eth/v1/validator/duties/attester/{epoch}"
   )
   router.redirect(
     MethodGet,
-    "/eth/v1/validator/duties/proposer/{epoch}",
-    "/api/eth/v1/validator/duties/proposer/{epoch}"
+    "/api/eth/v1/validator/duties/proposer/{epoch}",
+    "/eth/v1/validator/duties/proposer/{epoch}"
   )
   router.redirect(
     MethodPost,
-    "/eth/v1/validator/duties/sync/{epoch}",
-    "/api/eth/v1/validator/duties/sync/{epoch}"
+    "/api/eth/v1/validator/duties/sync/{epoch}",
+    "/eth/v1/validator/duties/sync/{epoch}"
   )
   router.redirect(
     MethodGet,
-    "/eth/v1/validator/blocks/{slot}",
-    "/api/eth/v1/validator/blocks/{slot}"
+    "/api/eth/v1/validator/blocks/{slot}",
+    "/eth/v1/validator/blocks/{slot}"
   )
   router.redirect(
     MethodGet,
-    "/eth/v2/validator/blocks/{slot}",
-    "/api/eth/v2/validator/blocks/{slot}"
+    "/api/eth/v2/validator/blocks/{slot}",
+    "/eth/v2/validator/blocks/{slot}"
   )
   router.redirect(
     MethodGet,
-    "/eth/v1/validator/attestation_data",
-    "/api/eth/v1/validator/attestation_data"
+    "/api/eth/v1/validator/attestation_data",
+    "/eth/v1/validator/attestation_data"
   )
   router.redirect(
     MethodGet,
-    "/eth/v1/validator/aggregate_attestation",
-    "/api/eth/v1/validator/aggregate_attestation"
+    "/api/eth/v1/validator/aggregate_attestation",
+    "/eth/v1/validator/aggregate_attestation"
   )
   router.redirect(
     MethodPost,
-    "/eth/v1/validator/aggregate_and_proofs",
-    "/api/eth/v1/validator/aggregate_and_proofs"
+    "/api/eth/v1/validator/aggregate_and_proofs",
+    "/eth/v1/validator/aggregate_and_proofs"
   )
   router.redirect(
     MethodPost,
-    "/eth/v1/validator/beacon_committee_subscriptions",
-    "/api/eth/v1/validator/beacon_committee_subscriptions"
+    "/api/eth/v1/validator/beacon_committee_subscriptions",
+    "/eth/v1/validator/beacon_committee_subscriptions"
   )
   router.redirect(
     MethodPost,
-    "/eth/v1/validator/sync_committee_subscriptions",
-    "/api/eth/v1/validator/sync_committee_subscriptions"
+    "/api/eth/v1/validator/sync_committee_subscriptions",
+    "/eth/v1/validator/sync_committee_subscriptions"
   )
   router.redirect(
     MethodGet,
-    "/eth/v1/validator/sync_committee_contribution",
-    "/api/eth/v1/validator/sync_committee_contribution"
+    "/api/eth/v1/validator/sync_committee_contribution",
+    "/eth/v1/validator/sync_committee_contribution"
   )
   router.redirect(
     MethodPost,
-    "/eth/v1/validator/contribution_and_proofs",
-    "/api/eth/v1/validator/contribution_and_proofs"
+    "/api/eth/v1/validator/contribution_and_proofs",
+    "/eth/v1/validator/contribution_and_proofs"
   )

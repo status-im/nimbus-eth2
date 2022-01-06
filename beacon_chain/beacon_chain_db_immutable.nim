@@ -58,10 +58,7 @@ type
       HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
 
     # Finality
-    justification_bits*: uint8 ##\
-    ## Bit set for every recent justified epoch
-    ## Model a Bitvector[4] as a one-byte uint, which should remain consistent
-    ## with ssz/hashing.
+    justification_bits*: JustificationBits
 
     previous_justified_checkpoint*: Checkpoint ##\
     ## Previous epoch snapshot
@@ -113,10 +110,7 @@ type
       HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Finality
-    justification_bits*: uint8 ##\
-    ## Bit set for every recent justified epoch
-    ## Model a Bitvector[4] as a one-byte uint, which should remain consistent
-    ## with ssz/hashing.
+    justification_bits*: JustificationBits
 
     previous_justified_checkpoint*: Checkpoint ##\
     ## Previous epoch snapshot
@@ -175,10 +169,7 @@ type
       HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Finality
-    justification_bits*: uint8 ##\
-    ## Bit set for every recent justified epoch
-    ## Model a Bitvector[4] as a one-byte uint, which should remain consistent
-    ## with ssz/hashing.
+    justification_bits*: JustificationBits
 
     previous_justified_checkpoint*: Checkpoint ##\
     ## Previous epoch snapshot

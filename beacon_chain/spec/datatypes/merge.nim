@@ -13,14 +13,13 @@
 {.push raises: [Defect].}
 
 import
-  std/macros,
-  stew/assign2,
+  stew/[assign2, byteutils],
   json_serialization,
-  json_serialization/types as jsonTypes,
   ssz_serialization/types as sszTypes,
   ../digest,
-  ./phase0, ./altair,
-  nimcrypto/utils
+  "."/[base, phase0, altair]
+
+export json_serialization, base
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/beacon-chain.md#custom-types
@@ -123,10 +122,7 @@ type
       HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Finality
-    justification_bits*: uint8 ##\
-    ## Bit set for every recent justified epoch
-    ## Model a Bitvector[4] as a one-byte uint, which should remain consistent
-    ## with ssz/hashing.
+    justification_bits*: JustificationBits
 
     previous_justified_checkpoint*: Checkpoint ##\
     ## Previous epoch snapshot
@@ -345,11 +341,11 @@ type
 func encodeQuantityHex*(x: auto): string =
   "0x" & x.toHex
 
-proc fromHex*(T: typedesc[BloomLogs], s: string): T =
-  hexToBytes(s, result.data)
+proc fromHex*(T: typedesc[BloomLogs], s: string): T {.raises: [Defect, ValueError].} =
+  hexToByteArray(s, result.data)
 
-proc fromHex*(T: typedesc[ExecutionAddress], s: string): T =
-  hexToBytes(s, result.data)
+proc fromHex*(T: typedesc[ExecutionAddress], s: string): T {.raises: [Defect, ValueError].} =
+  hexToByteArray(s, result.data)
 
 proc writeValue*(w: var JsonWriter, a: ExecutionAddress) {.raises: [Defect, IOError, SerializationError].} =
   w.writeValue $a

@@ -184,8 +184,9 @@ proc init*(T: type BeaconNode,
       try:
         # Checkpoint block might come from an earlier fork than the state with
         # the state having empty slots processed past the fork epoch.
-        checkpointBlock = readSszForkedTrustedSignedBeaconBlock(
+        let tmp = readSszForkedSignedBeaconBlock(
           cfg, readAllBytes(checkpointBlockPath).tryGet())
+        checkpointBlock = tmp.asTrusted()
       except SszError as err:
         fatal "Invalid checkpoint block", err = err.formatMsg(checkpointBlockPath)
         quit 1

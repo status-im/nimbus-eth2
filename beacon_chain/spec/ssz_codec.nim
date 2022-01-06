@@ -11,10 +11,9 @@
 import
   std/[typetraits],
   ssz_serialization/codec,
-  ../spec/datatypes/[phase0, altair],
-  ./eth2_merkleization
+  ./datatypes/base
 
-export codec, phase0, altair, typetraits, eth2_merkleization
+export codec, base, typetraits
 
 # Coding and decoding of SSZ to spec-specific types
 
@@ -22,6 +21,7 @@ template toSszType*(v: Slot|Epoch): auto = uint64(v)
 template toSszType*(v: BlsCurveType): auto = toRaw(v)
 template toSszType*(v: ForkDigest|GraffitiBytes): auto = distinctBase(v)
 template toSszType*(v: Version): auto = distinctBase(v)
+template toSszType*(v: JustificationBits): auto = distinctBase(v)
 
 func fromSszBytes*(T: type GraffitiBytes, data: openArray[byte]): T {.raisesssz.} =
   if data.len != sizeof(result):
@@ -40,6 +40,11 @@ func fromSszBytes*(T: type ForkDigest, bytes: openArray[byte]): T {.raisesssz.} 
   copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
 
 func fromSszBytes*(T: type Version, bytes: openArray[byte]): T {.raisesssz.} =
+  if bytes.len != sizeof(result):
+    raiseIncorrectSize T
+  copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
+
+func fromSszBytes*(T: type JustificationBits, bytes: openArray[byte]): T {.raisesssz.} =
   if bytes.len != sizeof(result):
     raiseIncorrectSize T
   copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))

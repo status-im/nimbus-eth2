@@ -408,11 +408,6 @@ type
     signature*: ValidatorSig
     slot*: Slot
 
-  ForkedBeaconStateHeader* = object
-    genesis_time*: uint64
-    genesis_validators_root*: Eth2Digest
-    slot*: Slot
-
   Web3SignerKeysResponse* = object
     keys*: seq[ValidatorPubKey]
 
@@ -495,9 +490,7 @@ type
   GetBlockResponse* = DataEnclosedObject[phase0.SignedBeaconBlock]
   GetStateResponse* = DataEnclosedObject[phase0.BeaconState]
   GetBlockV2Response* = ForkedSignedBeaconBlock
-  GetBlockV2Header* = ForkedSignedBlockHeader
-  GetStateV2Response* = ForkedHashedBeaconState
-  GetStateV2Header* = ForkedBeaconStateHeader
+  GetStateV2Response* = ref ForkedHashedBeaconState
   GetPhase0StateSszResponse* = phase0.BeaconState
   GetAltairStateSszResponse* = altair.BeaconState
   GetPhase0BlockSszResponse* = phase0.SignedBeaconBlock

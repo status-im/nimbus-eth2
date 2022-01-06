@@ -259,8 +259,9 @@ proc process_justification_and_finalization*(state: var phase0.BeaconState,
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#misc
   const JUSTIFICATION_BITS_LENGTH = 4
 
-  state.justification_bits = (state.justification_bits shl 1) and
-    cast[uint8]((2^JUSTIFICATION_BITS_LENGTH) - 1)
+  state.justification_bits = JustificationBits(
+    (uint8(state.justification_bits) shl 1) and
+    uint8((2^JUSTIFICATION_BITS_LENGTH) - 1))
 
   let total_active_balance = balances.current_epoch
   if balances.previous_epoch_target_attesters * 3 >=
@@ -268,7 +269,7 @@ proc process_justification_and_finalization*(state: var phase0.BeaconState,
     state.current_justified_checkpoint =
       Checkpoint(epoch: previous_epoch,
                  root: get_block_root(state, previous_epoch))
-    state.justification_bits.setBit 1
+    uint8(state.justification_bits).setBit 1
 
     trace "Justified with previous epoch",
       current_epoch = current_epoch,
@@ -282,14 +283,14 @@ proc process_justification_and_finalization*(state: var phase0.BeaconState,
     state.current_justified_checkpoint =
       Checkpoint(epoch: current_epoch,
                  root: get_block_root(state, current_epoch))
-    state.justification_bits.setBit 0
+    uint8(state.justification_bits).setBit 0
 
     trace "Justified with current epoch",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.current_justified_checkpoint)
 
   # Process finalizations
-  let bitfield = state.justification_bits
+  let bitfield = uint8(state.justification_bits)
 
   ## The 2nd/3rd/4th most recent epochs are justified, the 2nd using the 4th
   ## as source
@@ -355,14 +356,15 @@ proc weigh_justification_and_finalization(state: var (altair.BeaconState | merge
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#misc
   const JUSTIFICATION_BITS_LENGTH = 4
 
-  state.justification_bits = (state.justification_bits shl 1) and
-    cast[uint8]((2^JUSTIFICATION_BITS_LENGTH) - 1)
+  state.justification_bits = JustificationBits(
+    (uint8(state.justification_bits) shl 1) and
+    uint8((2^JUSTIFICATION_BITS_LENGTH) - 1))
 
   if previous_epoch_target_balance * 3 >= total_active_balance * 2:
     state.current_justified_checkpoint =
       Checkpoint(epoch: previous_epoch,
                  root: get_block_root(state, previous_epoch))
-    state.justification_bits.setBit 1
+    uint8(state.justification_bits).setBit 1
 
     trace "Justified with previous epoch",
       current_epoch = current_epoch,
@@ -378,14 +380,14 @@ proc weigh_justification_and_finalization(state: var (altair.BeaconState | merge
     state.current_justified_checkpoint =
       Checkpoint(epoch: current_epoch,
                  root: get_block_root(state, current_epoch))
-    state.justification_bits.setBit 0
+    uint8(state.justification_bits).setBit 0
 
     trace "Justified with current epoch",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.current_justified_checkpoint)
 
   # Process finalizations
-  let bitfield = state.justification_bits
+  let bitfield = uint8(state.justification_bits)
 
   ## The 2nd/3rd/4th most recent epochs are justified, the 2nd using the 4th
   ## as source

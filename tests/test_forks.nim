@@ -27,9 +27,9 @@ template testTrustedSignedBeaconBlock(T: type, s: Slot) =
 
   let
     bytes = SSZ.encode(blck[])
-    forked = (ref ForkedTrustedSignedBeaconBlock)()
+    forked = (ref ForkedSignedBeaconBlock)()
 
-  forked[] = readSszForkedTrustedSignedBeaconBlock(cfg, bytes)
+  forked[] = readSszForkedSignedBeaconBlock(cfg, bytes)
 
   check:
     forked.kind == T.toFork()
@@ -97,4 +97,4 @@ suite "Forked SSZ readers":
     let
       bytes = SSZ.encode(AttestationData())
     expect(SszError):
-      discard newClone(readSszForkedTrustedSignedBeaconBlock(cfg, bytes))
+      discard newClone(readSszForkedSignedBeaconBlock(cfg, bytes))

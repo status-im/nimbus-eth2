@@ -359,10 +359,10 @@ proc cmdPutBlock(conf: DbConf, cfg: RuntimeConfig) =
   defer: db.close()
 
   for file in conf.blckFile:
-    let blck = readSszForkedTrustedSignedBeaconBlock(
+    let blck = readSszForkedSignedBeaconBlock(
         cfg, readAllBytes(file).tryGet())
 
-    withBlck(blck):
+    withBlck(blck.asTrusted()):
       db.putBlock(blck)
       if conf.setHead:
         db.putHeadBlock(blck.root)

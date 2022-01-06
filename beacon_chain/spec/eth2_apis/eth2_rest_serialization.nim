@@ -89,11 +89,7 @@ type
 
   SszDecodeTypes* =
     GetPhase0StateSszResponse |
-    GetAltairStateSszResponse |
-    GetPhase0BlockSszResponse |
-    GetAltairBlockSszResponse |
-    GetBlockV2Header |
-    GetStateV2Header
+    GetPhase0BlockSszResponse
 
 {.push raises: [Defect].}
 
@@ -346,7 +342,33 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint64) {.
   if res.isOk():
     value = res.get()
   else:
-    reader.raiseUnexpectedValue($res.error())
+    reader.raiseUnexpectedValue($res.error() & ": " & svalue)
+
+proc writeValue*(w: var JsonWriter[RestJson], value: uint8) {.
+     raises: [IOError, Defect].} =
+  writeValue(w, Base10.toString(value))
+
+proc readValue*(reader: var JsonReader[RestJson], value: var uint8) {.
+     raises: [IOError, SerializationError, Defect].} =
+  let svalue = reader.readValue(string)
+  let res = Base10.decode(uint8, svalue)
+  if res.isOk():
+    value = res.get()
+  else:
+    reader.raiseUnexpectedValue($res.error() & ": " & svalue)
+
+proc writeValue*(w: var JsonWriter[RestJson], value: JustificationBits) {.
+    raises: [IOError, Defect].} =
+  w.writeValue hexOriginal([uint8(value)])
+
+proc readValue*(reader: var JsonReader[RestJson], value: var JustificationBits) {.
+    raises: [IOError, SerializationError, Defect].} =
+  let hex = reader.readValue(string)
+  try:
+    value = JustificationBits(hexToByteArray(hex, 1)[0])
+  except ValueError:
+    raiseUnexpectedValue(reader,
+                        "The `justification_bits` value must be a hex string")
 
 ## UInt256
 proc writeValue*(w: var JsonWriter[RestJson], value: UInt256) {.
@@ -361,23 +383,6 @@ proc readValue*(reader: var JsonReader[RestJson], value: var UInt256) {.
   except ValueError:
     raiseUnexpectedValue(reader,
                          "UInt256 value should be a valid decimal string")
-
-## byte
-proc writeValue*(w: var JsonWriter[RestJson], value: byte) {.
-     raises: [IOError, Defect].} =
-  var data: array[1, byte]
-  data[0] = value
-  writeValue(w, hexOriginal(data))
-
-proc readValue*(reader: var JsonReader[RestJson], value: var byte) {.
-     raises: [IOError, SerializationError, Defect].} =
-  var data: array[1, byte]
-  try:
-    hexToByteArray(reader.readValue(string), data)
-    value = data[0]
-  except ValueError:
-    raiseUnexpectedValue(reader,
-                         "byte value should be a valid hex string")
 
 ## DomainType
 proc writeValue*(w: var JsonWriter[RestJson], value: DomainType) {.
@@ -898,7 +903,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       assign(value.field, tmp[].field)
     else:
       value = tmp[] # slow, but rare (hopefully)
-      value.field.root = hash_tree_root(value.field.data)
+    value.field.root = hash_tree_root(value.field.data)
 
   case version.get():
   of BeaconStateFork.Phase0:
@@ -1327,19 +1332,6 @@ proc decodeBody*[T](t: typedesc[T],
     except CatchableError:
       return err("Unexpected deserialization error")
   ok(data)
-
-RestJson.useCustomSerialization(phase0.BeaconState.justification_bits):
-  read:
-    let s = reader.readValue(string)
-    if s.len != 4:
-      raiseUnexpectedValue(reader, "A string with 4 characters expected")
-    try:
-      hexToByteArray(s, 1)[0]
-    except ValueError:
-      raiseUnexpectedValue(reader,
-                          "The `justification_bits` value must be a hex string")
-  write:
-    writer.writeValue "0x" & toHex([value])
 
 proc encodeBytes*[T: EncodeTypes](value: T,
                                   contentType: string): RestResult[seq[byte]] =

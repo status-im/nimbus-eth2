@@ -24,13 +24,12 @@
 
 {.push raises: [Defect].}
 
-import ./base
-export base
-
 import
-  std/[macros, json, strutils, tables],
-  stew/[assign2, byteutils], chronicles,
-  json_serialization/types as jsonTypes
+  stew/[assign2],
+  chronicles,
+  ./base
+
+export base
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#beaconstate
@@ -75,10 +74,7 @@ type
       HashList[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
 
     # Finality
-    justification_bits*: uint8 ##\
-    ## Bit set for every recent justified epoch
-    ## Model a Bitvector[4] as a one-byte uint, which should remain consistent
-    ## with ssz/hashing.
+    justification_bits*: JustificationBits
 
     previous_justified_checkpoint*: Checkpoint ##\
     ## Previous epoch snapshot
@@ -252,21 +248,6 @@ chronicles.formatIt BeaconBlock: it.shortLog
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)
   info.balances = TotalBalances()
-
-Json.useCustomSerialization(BeaconState.justification_bits):
-  read:
-    let s = reader.readValue(string)
-
-    if s.len != 4:
-      raiseUnexpectedValue(reader, "A string with 4 characters expected")
-
-    try:
-      s.parseHexInt.uint8
-    except ValueError:
-      raiseUnexpectedValue(reader, "The `justification_bits` value must be a hex string")
-
-  write:
-    writer.writeValue "0x" & value.toHex
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (
