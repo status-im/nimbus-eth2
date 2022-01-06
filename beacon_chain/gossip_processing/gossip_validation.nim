@@ -186,7 +186,7 @@ template validateBeaconBlockBellatrix(
                             altair.SignedBeaconBlock): untyped =
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
        signed_beacon_block: merge.SignedBeaconBlock): untyped =
   # If the execution is enabled for the block -- i.e.
@@ -212,7 +212,7 @@ template validateBeaconBlockBellatrix(
       of BeaconBlockFork.Altair:
         false
       of BeaconBlockFork.Bellatrix:
-        # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#process_execution_payload
+        # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#process_execution_payload
         # shows how this gets folded into the state each block; checking this
         # is equivalent, without ever requiring state replay or any similarly
         # expensive computation.
@@ -231,7 +231,7 @@ template validateBeaconBlockBellatrix(
       return errReject("BeaconBlock: Mismatched execution payload timestamp")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
-# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
