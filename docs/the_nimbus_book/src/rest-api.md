@@ -8,7 +8,9 @@ The API can be used with any conforming consumer, including alternative validato
 
 ## Configuration
 
-By default, the REST interace is disabled. To enable it, use the `--rest` option when starting the beacon node, then access the API from http://localhost:5052/.
+By default, the REST interface is disabled. To enable it, start the beacon node with the `--rest` option, then access the API from http://localhost:5052/.
+
+> **Warning:** If you are using a validator client with a Nimbus beacon node, and running a Nimbus version prior to `v1.5.5`,  then you will need to launch the node with the `--subscribe-all-subnets` option enabled.
 
 By default, only connections from the same machine are entertained. The port and listening address can be further configured through the options `--rest-port` and `--rest-address`.
 
