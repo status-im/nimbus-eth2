@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -15,12 +15,12 @@ import
   chronicles, stew/byteutils,
   # Internal
   ../spec/[beaconstate, eth2_merkleization, forks, helpers, validator],
-  ../spec/datatypes/[phase0, altair, merge],
+  ../spec/datatypes/[phase0, altair, bellatrix],
   "."/[spec_cache, blockchain_dag, block_quarantine],
   ../fork_choice/fork_choice,
   ../beacon_clock
 
-export options, tables, phase0, altair, merge, blockchain_dag, fork_choice
+export options, tables, phase0, altair, bellatrix, blockchain_dag, fork_choice
 
 const
   ATTESTATION_LOOKBACK* =
@@ -450,7 +450,7 @@ func init(T: type AttestationCache, state: phase0.HashedBeaconState): T =
 
 func init(
     T: type AttestationCache,
-    state: altair.HashedBeaconState | merge.HashedBeaconState,
+    state: altair.HashedBeaconState | bellatrix.HashedBeaconState,
     cache: var StateCache): T =
   # Load attestations that are scheduled for being given rewards for
   let
@@ -533,7 +533,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
     attCache =
       when state is phase0.HashedBeaconState:
         AttestationCache.init(state)
-      elif state is altair.HashedBeaconState or state is merge.HashedBeaconState:
+      elif state is altair.HashedBeaconState or state is bellatrix.HashedBeaconState:
         AttestationCache.init(state, cache)
       else:
         static: doAssert false
@@ -588,7 +588,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   var
     prevEpoch = state.data.get_previous_epoch()
     prevEpochSpace =
-      when state is altair.HashedBeaconState or state is merge.HashedBeaconState:
+      when state is altair.HashedBeaconState or state is bellatrix.HashedBeaconState:
         MAX_ATTESTATIONS
       elif state is phase0.HashedBeaconState:
         state.data.previous_epoch_attestations.maxLen -

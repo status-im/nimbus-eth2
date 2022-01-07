@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -14,7 +14,7 @@ import
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./beacon_chain_db_immutable,
   ./spec/[eth2_ssz_serialization, eth2_merkleization, forks, state_transition],
-  ./spec/datatypes/[phase0, altair, merge],
+  ./spec/datatypes/[phase0, altair, bellatrix],
   ./filepath
 
 export
@@ -91,7 +91,7 @@ type
     keyValues: KvStoreRef # Random stuff using DbKeyKind - suitable for small values mainly!
     blocks: KvStoreRef # BlockRoot -> phase0.TrustedBeaconBlock
     altairBlocks: KvStoreRef # BlockRoot -> altair.TrustedBeaconBlock
-    mergeBlocks: KvStoreRef # BlockRoot -> merge.TrustedBeaconBlock
+    mergeBlocks: KvStoreRef # BlockRoot -> bellatrix.TrustedBeaconBlock
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
     statesNoVal: KvStoreRef # StateRoot -> Phase0BeaconStateNoImmutableValidators
     altairStatesNoVal: KvStoreRef # StateRoot -> AltairBeaconStateNoImmutableValidators
@@ -494,7 +494,7 @@ proc putBlock*(db: BeaconChainDB, value: altair.TrustedSignedBeaconBlock) =
   db.altairBlocks.putSnappySSZ(value.root.data, value)
   db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
-proc putBlock*(db: BeaconChainDB, value: merge.TrustedSignedBeaconBlock) =
+proc putBlock*(db: BeaconChainDB, value: bellatrix.TrustedSignedBeaconBlock) =
   db.mergeBlocks.putSnappySSZ(value.root.data, value)
   db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
@@ -519,7 +519,7 @@ template toBeaconStateNoImmutableValidators(state: altair.BeaconState):
     AltairBeaconStateNoImmutableValidators =
   isomorphicCast[AltairBeaconStateNoImmutableValidators](state)
 
-template toBeaconStateNoImmutableValidators(state: merge.BeaconState):
+template toBeaconStateNoImmutableValidators(state: bellatrix.BeaconState):
     MergeBeaconStateNoImmutableValidators =
   isomorphicCast[MergeBeaconStateNoImmutableValidators](state)
 
@@ -533,7 +533,7 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: altair.BeaconState) =
   db.altairStatesNoVal.putSnappySSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
 
-proc putState*(db: BeaconChainDB, key: Eth2Digest, value: merge.BeaconState) =
+proc putState*(db: BeaconChainDB, key: Eth2Digest, value: bellatrix.BeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
   db.mergeStatesNoVal.putSnappySSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
@@ -624,9 +624,9 @@ proc getAltairBlock*(db: BeaconChainDB, key: Eth2Digest):
     result.err()
 
 proc getMergeBlock*(db: BeaconChainDB, key: Eth2Digest):
-    Opt[merge.TrustedSignedBeaconBlock] =
+    Opt[bellatrix.TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
-  result.ok(default(merge.TrustedSignedBeaconBlock))
+  result.ok(default(bellatrix.TrustedSignedBeaconBlock))
   if db.mergeBlocks.getSnappySSZ(key.data, result.get) == GetResult.found:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
@@ -773,7 +773,7 @@ proc getState*(
     db.immutableValidators, db.altairStatesNoVal, key.data, output, rollback)
 
 proc getState*(
-    db: BeaconChainDB, key: Eth2Digest, output: var merge.BeaconState,
+    db: BeaconChainDB, key: Eth2Digest, output: var bellatrix.BeaconState,
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible

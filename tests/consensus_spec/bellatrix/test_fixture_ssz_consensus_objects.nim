@@ -14,7 +14,7 @@ import
   # Third-party
   yaml,
   # Beacon chain internals
-  ../../beacon_chain/spec/datatypes/merge,
+  ../../beacon_chain/spec/datatypes/bellatrix,
   # Status libraries
   snappy,
   # Test utilities
@@ -39,7 +39,7 @@ type
 # Note this only tracks HashTreeRoot
 # Checking the values against the yaml file is TODO (require more flexible Yaml parser)
 
-proc checkSSZ(T: type merge.SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeRoot) =
+proc checkSSZ(T: type bellatrix.SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeRoot) =
    # Deserialize into a ref object to not fill Nim stack
    let encoded = snappy.decode(
      readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
@@ -99,10 +99,10 @@ suite "EF - Bellatrix - SSZ consensus objects " & preset():
           of "Attestation": checkSSZ(Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
           of "AttesterSlashing": checkSSZ(AttesterSlashing, path, hash)
-          of "BeaconBlock": checkSSZ(merge.BeaconBlock, path, hash)
-          of "BeaconBlockBody": checkSSZ(merge.BeaconBlockBody, path, hash)
+          of "BeaconBlock": checkSSZ(bellatrix.BeaconBlock, path, hash)
+          of "BeaconBlockBody": checkSSZ(bellatrix.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
-          of "BeaconState": checkSSZ(merge.BeaconState, path, hash)
+          of "BeaconState": checkSSZ(bellatrix.BeaconState, path, hash)
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
           of "ContributionAndProof": checkSSZ(ContributionAndProof, path, hash)
           of "Deposit": checkSSZ(Deposit, path, hash)
@@ -123,7 +123,8 @@ suite "EF - Bellatrix - SSZ consensus objects " & preset():
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
             checkSSZ(SignedAggregateAndProof, path, hash)
-          of "SignedBeaconBlock": checkSSZ(merge.SignedBeaconBlock, path, hash)
+          of "SignedBeaconBlock":
+            checkSSZ(bellatrix.SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockHeader":
             checkSSZ(SignedBeaconBlockHeader, path, hash)
           of "SignedContributionAndProof":

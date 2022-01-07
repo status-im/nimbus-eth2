@@ -14,7 +14,7 @@ import
   chronicles,
   # Beacon chain internals
   ../../../beacon_chain/spec/[forks, state_transition],
-  ../../../beacon_chain/spec/datatypes/merge,
+  ../../../beacon_chain/spec/datatypes/bellatrix,
   # Test utilities
   ../../testutil,
   ../../helpers/debug_state,
@@ -34,8 +34,9 @@ proc runTest(testName, testDir, unitTestName: string) =
 
     test prefix & testName & " - " & unitTestName & preset():
       var
-        preState = newClone(parseTest(testPath/"pre.ssz_snappy", SSZ, merge.BeaconState))
-        fhPreState = (ref ForkedHashedBeaconState)(mergeData: merge.HashedBeaconState(
+        preState = newClone(parseTest(
+          testPath/"pre.ssz_snappy", SSZ, bellatrix.BeaconState))
+        fhPreState = (ref ForkedHashedBeaconState)(mergeData: bellatrix.HashedBeaconState(
           data: preState[], root: hash_tree_root(preState[])),
           kind: BeaconStateFork.Bellatrix)
         cache = StateCache()
@@ -47,7 +48,9 @@ proc runTest(testName, testDir, unitTestName: string) =
       if numBlocks > 1:
         return
       for i in 0 ..< numBlocks:
-        let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, merge.SignedBeaconBlock)
+        let blck = parseTest(
+          testPath/"blocks_" & $i & ".ssz_snappy", SSZ,
+          bellatrix.SignedBeaconBlock)
 
         if hasPostState:
           let success = state_transition(
@@ -62,7 +65,8 @@ proc runTest(testName, testDir, unitTestName: string) =
             "We didn't expect these invalid blocks to be processed"
 
       if hasPostState:
-        let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, merge.BeaconState))
+        let postState = newClone(parseTest(
+          testPath/"post.ssz_snappy", SSZ, bellatrix.BeaconState))
         when false:
           reportDiff(fhPreState.mergeData.data, postState)
         doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()

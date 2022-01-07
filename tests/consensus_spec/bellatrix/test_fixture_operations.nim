@@ -16,7 +16,7 @@ import
   stew/results,
   # Beacon chain internals
   ../../../beacon_chain/spec/[beaconstate, state_transition_block],
-  ../../../beacon_chain/spec/datatypes/merge,
+  ../../../beacon_chain/spec/datatypes/bellatrix,
   # Test utilities
   ../../testutil,
   ../fixtures_utils,
@@ -55,13 +55,14 @@ proc runTest[T, U](
 
     test prefix & baseDescription & testSuiteName & " - " & identifier:
       var preState = newClone(
-        parseTest(testDir/"pre.ssz_snappy", SSZ, merge.BeaconState))
+        parseTest(testDir/"pre.ssz_snappy", SSZ, bellatrix.BeaconState))
       let done = applyProc(
         preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
 
       if existsFile(testDir/"post.ssz_snappy"):
         let postState =
-          newClone(parseTest(testDir/"post.ssz_snappy", SSZ, merge.BeaconState))
+          newClone(parseTest(
+            testDir/"post.ssz_snappy", SSZ, bellatrix.BeaconState))
 
         check:
           done.isOk()
@@ -74,7 +75,7 @@ proc runTest[T, U](
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
-      preState: var merge.BeaconState, attestation: Attestation):
+      preState: var bellatrix.BeaconState, attestation: Attestation):
       Result[void, cstring] =
     var cache = StateCache()
     let
@@ -91,7 +92,7 @@ suite baseDescription & "Attestation " & preset():
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
-      preState: var merge.BeaconState, attesterSlashing: AttesterSlashing):
+      preState: var bellatrix.BeaconState, attesterSlashing: AttesterSlashing):
       Result[void, cstring] =
     var cache = StateCache()
     process_attester_slashing(
@@ -104,18 +105,18 @@ suite baseDescription & "Attester Slashing " & preset():
 
 suite baseDescription & "Block Header " & preset():
   func applyBlockHeader(
-      preState: var merge.BeaconState, blck: merge.BeaconBlock):
+      preState: var bellatrix.BeaconState, blck: bellatrix.BeaconBlock):
       Result[void, cstring] =
     var cache = StateCache()
     process_block_header(preState, blck, {}, cache)
 
   for path in walkTests(OpBlockHeaderDir):
-    runTest[merge.BeaconBlock, typeof applyBlockHeader](
+    runTest[bellatrix.BeaconBlock, typeof applyBlockHeader](
       OpBlockHeaderDir, "Block Header", "block", applyBlockHeader, path)
 
 suite baseDescription & "Deposit " & preset():
   proc applyDeposit(
-      preState: var merge.BeaconState, deposit: Deposit):
+      preState: var bellatrix.BeaconState, deposit: Deposit):
       Result[void, cstring] =
     process_deposit(defaultRuntimeConfig, preState, deposit, {})
 
@@ -126,7 +127,8 @@ suite baseDescription & "Deposit " & preset():
 suite baseDescription & "Execution Payload " & preset():
   for path in walkTests(OpExecutionPayloadDir):
     proc applyExecutionPayload(
-        preState: var merge.BeaconState, executionPayload: ExecutionPayload):
+        preState: var bellatrix.BeaconState,
+        executionPayload: ExecutionPayload):
         Result[void, cstring] =
       let payloadValid =
         readFile(OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml").
@@ -141,7 +143,7 @@ suite baseDescription & "Execution Payload " & preset():
 
 suite baseDescription & "Proposer Slashing " & preset():
   proc applyProposerSlashing(
-      preState: var merge.BeaconState, proposerSlashing: ProposerSlashing):
+      preState: var bellatrix.BeaconState, proposerSlashing: ProposerSlashing):
       Result[void, cstring] =
     var cache = StateCache()
     process_proposer_slashing(
@@ -154,7 +156,7 @@ suite baseDescription & "Proposer Slashing " & preset():
 
 suite baseDescription & "Sync Aggregate " & preset():
   proc applySyncAggregate(
-      preState: var merge.BeaconState, syncAggregate: SyncAggregate):
+      preState: var bellatrix.BeaconState, syncAggregate: SyncAggregate):
       Result[void, cstring] =
     var cache = StateCache()
     process_sync_aggregate(
@@ -167,7 +169,7 @@ suite baseDescription & "Sync Aggregate " & preset():
 
 suite baseDescription & "Voluntary Exit " & preset():
   proc applyVoluntaryExit(
-      preState: var merge.BeaconState, voluntaryExit: SignedVoluntaryExit):
+      preState: var bellatrix.BeaconState, voluntaryExit: SignedVoluntaryExit):
       Result[void, cstring] =
     var cache = StateCache()
     process_voluntary_exit(
