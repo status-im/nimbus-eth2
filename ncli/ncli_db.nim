@@ -506,44 +506,53 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
     echo "Database not initialized: ", v.error()
     quit 1
 
+  type Timers = enum
+    tState
+    tBlocks
+
   echo "Initializing block pool..."
   let
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
 
   let tmpState = assignClone(dag.headState)
+  var
+    tmp: seq[byte]
+    timers: array[Timers, RunningStat]
 
   for era in conf.era..<conf.era + conf.eraCount:
     let
-      firstSlot = if era == 0: Slot(0) else: Slot((era - 1) * SLOTS_PER_HISTORICAL_ROOT)
+      firstSlot =
+        if era == 0: none(Slot)
+        else: some(Slot((era - 1) * SLOTS_PER_HISTORICAL_ROOT))
       endSlot = Slot(era * SLOTS_PER_HISTORICAL_ROOT)
-      slotCount = endSlot - firstSlot
-      name = &"ethereum2-mainnet-{era.int:08x}-{1:08x}"
       canonical = dag.head.atCanonicalSlot(endSlot)
 
     if endSlot > dag.head.slot:
       echo "Written all complete eras"
       break
 
-    var e2s = E2Store.open(".", name, firstSlot).get()
-    defer: e2s.close()
+    let name = withState(dag.headState.data): eraFileName(cfg, state.data, era)
+    echo "Writing ", name
 
-    dag.withUpdatedState(tmpState[], canonical) do:
-      e2s.appendRecord(stateData.data.phase0Data.data).get()
-    do: raiseAssert "withUpdatedState failed"
+    let e2 = openFile(name, {OpenFlags.Write, OpenFlags.Create}).get()
+    defer: discard closeFile(e2)
 
-    var
-      ancestors: seq[BlockRef]
-      cur = canonical.blck
-    if era != 0:
-      while cur != nil and cur.slot >= firstSlot:
-        ancestors.add(cur)
-        cur = cur.parent
+    var group = EraGroup.init(e2, firstSlot).get()
+    if firstSlot.isSome():
+      withTimer(timers[tBlocks]):
+        var blocks: array[SLOTS_PER_HISTORICAL_ROOT.int, BlockId]
+        for i in dag.getBlockRange(firstSlot.get(), 1, blocks)..<blocks.len:
+          if dag.getBlockSSZ(blocks[i], tmp):
+            group.update(e2, blocks[i].slot, tmp).get()
 
-      for i in 0..<ancestors.len():
-        let
-          ancestor = ancestors[ancestors.len - 1 - i]
-        e2s.appendRecord(db.getPhase0Block(ancestor.root).get()).get()
+    withTimer(timers[tState]):
+      dag.withUpdatedState(tmpState[], canonical) do:
+        withState(stateData.data):
+          group.finish(e2, state.data).get()
+      do: raiseAssert "withUpdatedState failed"
+
+  printTimers(true, timers)
 
 type
   # Validator performance metrics tool based on

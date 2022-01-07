@@ -633,6 +633,40 @@ proc getMergeBlock*(db: BeaconChainDB, key: Eth2Digest):
   else:
     result.err()
 
+proc getPhase0BlockSSZ(db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]): bool =
+  let dataPtr = unsafeAddr data # Short-lived
+  var success = true
+  proc decode(data: openArray[byte]) =
+    try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
+    except CatchableError: success = false
+  db.backend.get(subkey(phase0.SignedBeaconBlock, key), decode).expectDb() and success
+
+proc getPhase0BlockSSZ*(db: BeaconChainDB, key: Eth2Digest, data: var seq[byte]): bool =
+  let dataPtr = unsafeAddr data # Short-lived
+  var success = true
+  proc decode(data: openArray[byte]) =
+    try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
+    except CatchableError: success = false
+  db.blocks.get(key.data, decode).expectDb() and success or
+    db.v0.getPhase0BlockSSZ(key, data)
+
+proc getAltairBlockSSZ*(db: BeaconChainDB, key: Eth2Digest, data: var seq[byte]): bool =
+  let dataPtr = unsafeAddr data # Short-lived
+  var success = true
+  proc decode(data: openArray[byte]) =
+    try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
+    except CatchableError: success = false
+  db.altairBlocks.get(key.data, decode).expectDb() and success
+
+proc getMergeBlockSSZ*(db: BeaconChainDB, key: Eth2Digest, data: var seq[byte]): bool =
+  let dataPtr = unsafeAddr data # Short-lived
+  var success = true
+  proc decode(data: openArray[byte]) =
+    try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
+    except CatchableError: success = false
+
+  db.mergeBlocks.get(key.data, decode).expectDb() and success
+
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
     store: KvStoreRef, key: openArray[byte], output: var ForkyBeaconState,

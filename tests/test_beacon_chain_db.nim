@@ -100,12 +100,15 @@ suite "Beacon chain DB" & preset():
 
     db.putBlock(signedBlock)
 
+    var tmp: seq[byte]
     check:
       db.containsBlock(root)
       db.containsBlockPhase0(root)
       not db.containsBlockAltair(root)
       not db.containsBlockMerge(root)
       db.getPhase0Block(root).get() == signedBlock
+      db.getPhase0BlockSSZ(root, tmp)
+      tmp == SSZ.encode(signedBlock)
 
     db.delBlock(root)
     check:
@@ -114,6 +117,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlockAltair(root)
       not db.containsBlockMerge(root)
       db.getPhase0Block(root).isErr()
+      not db.getPhase0BlockSSZ(root, tmp)
 
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root
@@ -135,12 +139,15 @@ suite "Beacon chain DB" & preset():
 
     db.putBlock(signedBlock)
 
+    var tmp: seq[byte]
     check:
       db.containsBlock(root)
       not db.containsBlockPhase0(root)
       db.containsBlockAltair(root)
       not db.containsBlockMerge(root)
       db.getAltairBlock(root).get() == signedBlock
+      db.getAltairBlockSSZ(root, tmp)
+      tmp == SSZ.encode(signedBlock)
 
     db.delBlock(root)
     check:
@@ -149,6 +156,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlockAltair(root)
       not db.containsBlockMerge(root)
       db.getAltairBlock(root).isErr()
+      not db.getAltairBlockSSZ(root, tmp)
 
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root
@@ -170,12 +178,15 @@ suite "Beacon chain DB" & preset():
 
     db.putBlock(signedBlock)
 
+    var tmp: seq[byte]
     check:
       db.containsBlock(root)
       not db.containsBlockPhase0(root)
       not db.containsBlockAltair(root)
       db.containsBlockMerge(root)
       db.getMergeBlock(root).get() == signedBlock
+      db.getMergeBlockSSZ(root, tmp)
+      tmp == SSZ.encode(signedBlock)
 
     db.delBlock(root)
     check:
@@ -184,6 +195,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlockAltair(root)
       not db.containsBlockMerge(root)
       db.getMergeBlock(root).isErr()
+      not db.getMergeBlockSSZ(root, tmp)
 
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root

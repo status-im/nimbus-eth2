@@ -1661,3 +1661,16 @@ proc aggregateAll*(
     err("aggregate: no attesting keys")
   else:
     ok(finish(aggregateKey))
+
+proc getBlockSSZ*(dag: ChainDAGRef, id: BlockId, bytes: var seq[byte]): bool =
+  # Load the SSZ-encoded data of a block into `bytes`, overwriting the existing
+  # content
+  # careful: there are two snappy encodings in use, with and without framing!
+  # Returns true if the block is found, false if not
+  case dag.cfg.blockForkAtEpoch(id.slot.epoch)
+  of BeaconBlockFork.Phase0:
+    dag.db.getPhase0BlockSSZ(id.root, bytes)
+  of BeaconBlockFork.Altair:
+    dag.db.getAltairBlockSSZ(id.root, bytes)
+  of BeaconBlockFork.Bellatrix:
+    dag.db.getMergeBlockSSZ(id.root, bytes)
