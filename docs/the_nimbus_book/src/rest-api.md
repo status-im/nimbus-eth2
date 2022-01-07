@@ -2,7 +2,7 @@
 
 Nimbus exposes a high-performance implementation of the [Beacon Node API](https://ethereum.github.io/beacon-APIs/).
 
-The API is a `REST` interface accessed via `HTTP`. The API should not, unless protected by additional security layers, be exposed to the public Internet as the API includes multiple endpoints which could open your node to denial-of-service (DoS) attacks through endpoints triggering heavy processing.
+The API is a `REST` interface accessed via `HTTP`. The API should not, unless protected by additional security layers, be exposed to the public Internet as the API includes multiple endpoints which could open your node to denial-of-service (DoS) attacks.
 
 The API can be used with any conforming consumer, including alternative validator client implementations, explorers and tooling.
 
