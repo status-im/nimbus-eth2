@@ -243,16 +243,6 @@ proc syncBackwardStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.
       peer.updateScore(PeerScoreGoodStatus)
       peerSlot = newPeerSlot
 
-  if headAge <= man.maxHeadAge:
-    info "We are in sync with network", wall_clock_slot = wallSlot,
-          remote_head_slot = peerSlot, local_head_slot = headSlot,
-          peer = peer, peer_score = peer.getScore(), index = index,
-          peer_speed = peer.netKbps(), topics = "syncman"
-    # We clear SyncManager's `notInSyncEvent` so all the workers will become
-    # sleeping soon.
-    man.notInSyncEvent.clear()
-    return
-
   let firstSlot = man.getFirstSlot()
 
   if firstSlot == man.getLastSlot():
