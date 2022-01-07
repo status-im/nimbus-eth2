@@ -1037,7 +1037,7 @@
     },
     "response": {
       "status": {"operator": "oneof", "value": ["404", "200"]},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}]
     }
   },
   {
@@ -1139,7 +1139,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
+      "status": {"operator": "equals", "value": "400"}
     }
   },
   {
@@ -1150,7 +1150,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
+      "status": {"operator": "equals", "value": "400"}
     }
   },
   {
@@ -1161,7 +1161,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
+      "status": {"operator": "equals", "value": "400"}
     }
   },
   {
@@ -1172,7 +1172,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
+      "status": {"operator": "equals", "value": "400"}
     }
   },
   {
@@ -1183,7 +1183,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
+      "status": {"operator": "equals", "value": "400"}
     }
   },
   {
@@ -1270,7 +1270,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "oneof", "value": ["400", "200"]},
+      "status": {"operator": "oneof", "value": ["400", "200"]}
     }
   },
   {
@@ -1492,18 +1492,6 @@
   {
     "topics": ["beacon", "states_committees"],
     "request": {
-      "url": "/eth/v1/beacon/states/head/committees?slot=18446744073709551615",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "slot": "", "validators": [""]}]}]
-    }
-  },
-  {
-    "topics": ["beacon", "states_committees"],
-    "request": {
       "url": "/eth/v1/beacon/states/head/committees?slot=18446744073709551616",
       "headers": {"Accept": "application/json"}
     },
@@ -1517,18 +1505,6 @@
     "topics": ["beacon", "states_committees"],
     "request": {
       "url": "/eth/v1/beacon/states/head/committees?epoch=0",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "200"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "slot": "", "validators": [""]}]}]
-    }
-  },
-  {
-    "topics": ["beacon", "states_committees"],
-    "request": {
-      "url": "/eth/v1/beacon/states/head/committees?epoch=576460752303423487",
       "headers": {"Accept": "application/json"}
     },
     "response": {
@@ -2941,19 +2917,6 @@
   },
   {
     "topics": ["validator", "proposer_duties", "mainnet"],
-    "comment": "Maximum epoch for mainnet parameters",
-    "request": {
-      "url": "/eth/v1/validator/duties/proposer/576460752303423487",
-      "headers": {"Accept": "application/json"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "503"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
-    }
-  },
-  {
-    "topics": ["validator", "proposer_duties", "mainnet"],
     "comment": "Maximum epoch + 1 for mainnet parameters",
     "request": {
       "url": "/eth/v1/validator/duties/proposer/576460752303423488",
@@ -3138,7 +3101,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "oneof", "value": ["400", "200"]},
+      "status": {"operator": "oneof", "value": ["400", "200"]}
     }
   },
   {
@@ -3188,24 +3151,10 @@
     "request": {
       "method": "POST",
       "url": "/eth/v1/validator/duties/attester/0",
-      "headers": {"Accept": "application/json"},
+      "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "400"},
-    }
-  },
-  {
-    "topics": ["validator", "attester_duties"],
-    "request": {
-      "url": "/eth/v1/validator/duties/attester/576460752303423487",
-      "method": "POST",
-      "headers": {"Accept": "application/json"},
-      "body": {"content-type": "application/json", "data": "[\"0\"]"}
-    },
-    "response": {
-      "status": {"operator": "equals", "value": "503"},
-      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "status": {"operator": "equals", "value": "400"}
     }
   },
   {
@@ -3255,7 +3204,7 @@
     "request": {
       "url": "/eth/v1/validator/duties/attester/foobar",
       "method": "POST",
-      "headers": {"Accept": "application/json"},
+      "headers": {"Accept": "application/json"}
     },
     "response": {
       "status": {"operator": "equals", "value": "400"}

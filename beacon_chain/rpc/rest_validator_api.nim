@@ -67,11 +67,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
-    let droot =
-      if qepoch >= Epoch(2):
-        qhead.atSlot(compute_start_slot_at_epoch(qepoch - 1) - 1).blck.root
-      else:
-        node.dag.genesis.root
+    let droot = qhead.prevDependentBlock(node.dag.tail, qepoch).root
     let duties =
       block:
         var res: seq[RestAttesterDuty]
@@ -129,11 +125,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
-    let droot =
-      if qepoch >= Epoch(1):
-        qhead.atSlot(compute_start_slot_at_epoch(qepoch - 1)).blck.root
-      else:
-        node.dag.genesis.root
+    let droot = qhead.dependentBlock(node.dag.tail, qepoch).root
     let duties =
       block:
         var res: seq[RestProposerDuty]

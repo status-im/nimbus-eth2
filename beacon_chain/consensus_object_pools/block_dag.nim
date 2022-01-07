@@ -57,7 +57,6 @@ type
       ## Slot time for this BlockSlot which may differ from blck.slot when time
       ## has advanced without blocks
 
-
 template root*(blck: BlockRef): Eth2Digest = blck.bid.root
 template slot*(blck: BlockRef): Slot = blck.bid.slot
 
@@ -212,6 +211,20 @@ func isProposed*(bsi: BlockSlotId): bool =
   ## Return true if `bs` represents the proposed block (as opposed to an empty
   ## slot)
   bsi.bid.isProposed(bsi.slot)
+
+func dependentBlock*(head, tail: BlockRef, epoch: Epoch): BlockRef =
+  ## The block that determined the proposer shuffling in the given epoch
+  let dependentSlot =
+    if epoch >= Epoch(1): epoch.compute_start_slot_at_epoch() - 1
+    else: Slot(0)
+  let res = head.atSlot(dependentSlot)
+  if isNil(res.blck): tail
+  else: res.blck
+
+func prevDependentBlock*(head, tail: BlockRef, epoch: Epoch): BlockRef =
+  ## The block that determined the attester shuffling in the given epoch
+  if epoch >= 1: head.dependentBlock(tail, epoch - 1)
+  else: head.dependentBlock(tail, epoch)
 
 func shortLog*(v: BlockId): string =
   # epoch:root when logging epoch, root:slot when logging slot!
