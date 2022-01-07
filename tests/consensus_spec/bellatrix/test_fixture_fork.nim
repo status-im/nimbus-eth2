@@ -12,7 +12,7 @@ import
   os,
   # Beacon chain internals
   ../../../beacon_chain/spec/[beaconstate, helpers],
-  ../../../beacon_chain/spec/datatypes/[altair, merge],
+  ../../../beacon_chain/spec/datatypes/[altair, bellatrix],
   # Test utilities
   ../../testutil,
   ../fixtures_utils,
@@ -29,7 +29,7 @@ proc runTest(identifier: string) =
         preState = newClone(
           parseTest(testDir/"pre.ssz_snappy", SSZ, altair.BeaconState))
         postState = newClone(
-          parseTest(testDir/"post.ssz_snappy", SSZ, merge.BeaconState))
+          parseTest(testDir/"post.ssz_snappy", SSZ, bellatrix.BeaconState))
 
       var cfg = defaultRuntimeConfig
 

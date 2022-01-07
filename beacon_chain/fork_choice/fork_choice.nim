@@ -15,7 +15,7 @@ import
   # Internal
   ../beacon_clock,
   ../spec/[beaconstate, helpers],
-  ../spec/datatypes/[phase0, altair, merge],
+  ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
   ./fork_choice_types, ./proto_array,
   ../consensus_object_pools/[spec_cache, blockchain_dag]
@@ -337,9 +337,9 @@ func process_block*(self: var ForkChoiceBackend,
 # blck: SomeSomeBeaconBlock
 # as comes up. Other types can be added as needed.
 type ReallyAnyBeaconBlock =
-  phase0.BeaconBlock | altair.BeaconBlock | merge.BeaconBlock |
+  phase0.BeaconBlock | altair.BeaconBlock | bellatrix.BeaconBlock |
   phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock |
-  merge.TrustedBeaconBlock
+  bellatrix.TrustedBeaconBlock
 proc process_block*(self: var ForkChoice,
                     dag: ChainDAGRef,
                     epochRef: EpochRef,

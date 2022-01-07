@@ -12,7 +12,7 @@ import
   os, strutils,
   # Beacon chain internals
   ../../../beacon_chain/spec/[forks, state_transition],
-  ../../../beacon_chain/spec/datatypes/merge,
+  ../../../beacon_chain/spec/datatypes/bellatrix,
   # Test utilities
   ../../testutil,
   ../fixtures_utils,
@@ -28,14 +28,16 @@ proc runTest(identifier: string) =
   proc `testImpl _ slots _ identifier`() =
     test "Slots - " & identifier:
       var
-        preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, merge.BeaconState))
+        preState = newClone(parseTest(
+          testDir/"pre.ssz_snappy", SSZ, bellatrix.BeaconState))
         fhPreState = (ref ForkedHashedBeaconState)(
-          mergeData: merge.HashedBeaconState(
+          mergeData: bellatrix.HashedBeaconState(
             data: preState[], root: hash_tree_root(preState[])),
           kind: BeaconStateFork.Bellatrix)
         cache = StateCache()
         info = ForkedEpochInfo()
-      let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, merge.BeaconState))
+      let postState = newClone(parseTest(
+        testDir/"post.ssz_snappy", SSZ, bellatrix.BeaconState))
 
       check:
         process_slots(
