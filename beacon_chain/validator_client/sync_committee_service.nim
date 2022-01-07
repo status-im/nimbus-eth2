@@ -8,24 +8,15 @@
 import
   std/sets,
   metrics, chronicles,
-  "."/[common, api, block_service],
   ../spec/datatypes/[phase0, altair, bellatrix],
-  ../spec/eth2_apis/rest_types
+  ../spec/eth2_apis/rest_types,
+  ../validators/activity_metrics,
+  "."/[common, api, block_service]
 
 const
   ServiceName = "sync_committee_service"
 
 logScope: service = ServiceName
-
-declareCounter beacon_sync_committee_messages_sent,
-  "Number of sync committee messages sent by the node"
-
-declareHistogram beacon_sync_committee_message_sent_delay,
-  "Time(s) between expected and actual sync committee message send moment",
-  buckets = DelayBuckets
-
-declareCounter beacon_sync_committee_contributions_sent,
-  "Number of sync committee contributions sent by the node"
 
 type
   ContributionItem* = object
@@ -226,7 +217,7 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
       block:
         var res: seq[ContributionItem]
         for duty in duties:
-          let validator = vc.attachedValidators.getValidator(duty.data.pubkey)
+          let validator = vc.attachedValidators[].getValidator(duty.data.pubkey)
           if not isNil(validator):
             if duty.slotSig.isSome:
               template slotSignature: auto = duty.slotSig.get

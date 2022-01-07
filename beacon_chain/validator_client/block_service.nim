@@ -5,18 +5,13 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import ".."/spec/forks
-import common, api
-import chronicles, metrics
+import
+  chronicles,
+  ".."/validators/activity_metrics,
+  ".."/spec/forks,
+  common, api
 
 logScope: service = "block_service"
-
-declareCounter beacon_blocks_sent,
-  "Number of beacon blocks sent by this node"
-
-declareHistogram beacon_blocks_sent_delay,
-  "Time(s) between expected and actual block send moment",
-  buckets = DelayBuckets
 
 proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                   validator: AttachedValidator) {.async.} =
@@ -77,7 +72,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
   # TODO: signing_root is recomputed in getBlockSignature just after
   let signing_root = compute_block_signing_root(fork, genesisRoot, slot,
                                                 blockRoot)
-  let notSlashable = vc.attachedValidators
+  let notSlashable = vc.attachedValidators[]
     .slashingProtection
     .registerBlock(ValidatorIndex(beaconBlock.proposer_index),
                    validator.pubkey, slot, signing_root)

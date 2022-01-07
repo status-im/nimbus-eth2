@@ -5,24 +5,16 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import std/sets
-import metrics, chronicles
-import "."/[common, api, block_service]
+import
+  std/sets,
+  chronicles,
+  ../validators/activity_metrics,
+  "."/[common, api, block_service]
 
 const
   ServiceName = "attestation_service"
 
 logScope: service = ServiceName
-
-declareCounter beacon_attestations_sent,
-  "Number of attestations sent by the node"
-
-declareCounter beacon_aggregates_sent,
-  "Number of beacon chain attestations sent by the node"
-
-declareHistogram beacon_attestation_sent_delay,
-  "Time(s) between expected and actual attestation send moment",
-  buckets = DelayBuckets
 
 type
   AggregateItem* = object
@@ -57,7 +49,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
       fork, vc.beaconGenesis.genesis_validators_root, adata)
   let attestationRoot = adata.hash_tree_root()
 
-  let notSlashable = vc.attachedValidators.slashingProtection
+  let notSlashable = vc.attachedValidators[].slashingProtection
                        .registerAttestation(vindex, validator.pubkey,
                                             adata.source.epoch,
                                             adata.target.epoch, signingRoot)
@@ -286,7 +278,7 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
     block:
       var res: seq[AggregateItem]
       for duty in duties:
-        let validator = vc.attachedValidators.getValidator(duty.data.pubkey)
+        let validator = vc.attachedValidators[].getValidator(duty.data.pubkey)
         if not(isNil(validator)):
           if (duty.data.slot != slot) or
              (duty.data.committee_index != committeeIndex):

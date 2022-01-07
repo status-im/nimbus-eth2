@@ -10,7 +10,6 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-
 import chronicles
 import stew/io2
 import spec/keystore

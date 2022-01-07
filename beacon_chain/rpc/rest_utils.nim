@@ -14,9 +14,9 @@ import std/[options, macros],
        stew/byteutils, presto,
        ../spec/[forks],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization],
-       ../beacon_node,
        ../validators/validator_duties,
        ../consensus_object_pools/blockchain_dag,
+       ../beacon_node,
        "."/[rest_constants, state_ttl_cache]
 
 export
@@ -33,29 +33,6 @@ func match(data: openArray[char], charset: set[char]): int =
       return 1
   0
 
-proc validate(key: string, value: string): int =
-  ## This is rough validation procedure which should be simple and fast,
-  ## because it will be used for query routing.
-  case key
-  of "{epoch}":
-    0
-  of "{slot}":
-    0
-  of "{peer_id}":
-    0
-  of "{state_id}":
-    0
-  of "{block_id}":
-    0
-  of "{validator_id}":
-    0
-  of "{block_root}":
-    0
-  of "{pubkey}":
-    int(value.len != 98)
-  else:
-    1
-
 proc getSyncedHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
   let head = node.dag.head
 
@@ -63,6 +40,13 @@ proc getSyncedHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
     return err("Requesting way ahead of the current head")
 
   ok(head)
+
+func getCurrentSlot*(node: BeaconNode, slot: Slot):
+    Result[Slot, cstring] =
+  if slot <= (node.dag.head.slot + (SLOTS_PER_EPOCH * 2)):
+    ok(slot)
+  else:
+    err("Requesting slot too far ahead of the current head")
 
 proc getSyncedHead*(node: BeaconNode,
                     epoch: Epoch): Result[BlockRef, cstring] =
@@ -273,9 +257,6 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
         # Fill result sequence.
         indices[listIndex[]] = some(ValidatorIndex(validatorIndex))
   indices
-
-proc getRouter*(allowedOrigin: Option[string]): RestRouter =
-  RestRouter.init(validate, allowedOrigin = allowedOrigin)
 
 proc getStateOptimistic*(node: BeaconNode,
                          state: ForkedHashedBeaconState): Option[bool] =

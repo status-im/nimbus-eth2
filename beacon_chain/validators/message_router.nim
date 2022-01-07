@@ -17,43 +17,10 @@ import
   ../spec/network,
   ../consensus_object_pools/spec_cache,
   ../gossip_processing/eth2_processor,
-  ../networking/eth2_network
+  ../networking/eth2_network,
+  ./activity_metrics
 
 export eth2_processor, eth2_network
-
-# The "sent" counters capture messages that were sent via this beacon node
-# regardless if they were produced internally or received via the REST API.
-#
-# Counters and histograms for timing-sensitive messages, only counters for
-# the rest (aggregates don't affect rewards, so timing is less important)
-const delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
-                      0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
-declareCounter beacon_blocks_sent,
-  "Number of beacon blocks sent by this node"
-
-declareHistogram beacon_blocks_sent_delay,
-  "Time(s) between expected and actual block send moment",
-  buckets = delayBuckets
-
-declareCounter beacon_attestations_sent,
-  "Number of attestations sent by the node"
-
-declareCounter beacon_aggregates_sent,
-  "Number of beacon chain attestations sent by the node"
-
-declareHistogram beacon_attestation_sent_delay,
-  "Time(s) between expected and actual attestation send moment",
-  buckets = delayBuckets
-
-declareCounter beacon_sync_committee_messages_sent,
-  "Number of sync committee messages sent by the node"
-
-declareHistogram beacon_sync_committee_message_sent_delay,
-  "Time(s) between expected and actual sync committee message send moment",
-  buckets = delayBuckets
-
-declareCounter beacon_sync_committee_contributions_sent,
-  "Number of sync committee contributions sent by the node"
 
 declareCounter beacon_voluntary_exits_sent,
   "Number of beacon voluntary sent by this node"

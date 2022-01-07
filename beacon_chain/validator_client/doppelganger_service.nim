@@ -104,7 +104,7 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
     if breakLoop:
       break
 
-proc init*(t: typedesc[DoppelgangerServiceRef],
+proc init*(t: type DoppelgangerServiceRef,
            vc: ValidatorClientRef): Future[DoppelgangerServiceRef] {.async.} =
   logScope: service = ServiceName
   let res = DoppelgangerServiceRef(name: ServiceName,

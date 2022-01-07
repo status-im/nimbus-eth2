@@ -296,11 +296,9 @@ declareGauge nbc_gossipsub_good_fanout,
 declareGauge nbc_gossipsub_healthy_fanout,
   "numbers of topics with dHigh fanout"
 
-const delayBuckets = [1.0, 5.0, 10.0, 20.0, 40.0, 60.0]
-
 declareHistogram nbc_resolve_time,
   "Time(s) used while resolving peer information",
-   buckets = delayBuckets
+   buckets = [1.0, 5.0, 10.0, 20.0, 40.0, 60.0]
 
 const
   libp2p_pki_schemes {.strdefine.} = ""

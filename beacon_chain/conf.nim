@@ -807,6 +807,30 @@ type
       desc: "A directory containing validator keystore passwords"
       name: "secrets-dir" .}: Option[InputDir]
 
+    restRequestTimeout* {.
+      defaultValue: 0
+      defaultValueDesc: "infinite"
+      desc: "The number of seconds to wait until complete REST request " &
+            "will be received"
+      name: "rest-request-timeout" .}: Natural
+
+    restMaxRequestBodySize* {.
+      defaultValue: 16_384
+      desc: "Maximum size of REST request body (kilobytes)"
+      name: "rest-max-body-size" .}: Natural
+
+    restMaxRequestHeadersSize* {.
+      defaultValue: 64
+      desc: "Maximum size of REST request headers (kilobytes)"
+      name: "rest-max-headers-size" .}: Natural
+
+    # Same option as appears in Lighthouse and Prysm
+    # https://lighthouse-book.sigmaprime.io/suggested-fee-recipient.html
+    # https://github.com/prysmaticlabs/prysm/pull/10312
+    suggestedFeeRecipient* {.
+      desc: "Suggested fee recipient"
+      name: "suggested-fee-recipient" .}: Option[Address]
+
     keymanagerEnabled* {.
       desc: "Enable the REST keymanager API (BETA version)"
       defaultValue: false
@@ -823,6 +847,11 @@ type
       defaultValue: defaultAdminListenAddress
       defaultValueDesc: $defaultAdminListenAddressDesc
       name: "keymanager-address" .}: ValidIpAddress
+
+    keymanagerAllowedOrigin* {.
+      desc: "Limit the access to the Keymanager API to a particular hostname " &
+            "(for CORS-enabled clients such as browsers)"
+      name: "keymanager-allow-origin" .}: Option[string]
 
     keymanagerTokenFile* {.
       desc: "A file specifying the authorizition token required for accessing the keymanager API"
@@ -1203,6 +1232,13 @@ proc loadEth2Network*(
 
 template loadEth2Network*(config: BeaconNodeConf): Eth2NetworkMetadata =
   loadEth2Network(config.eth2Network)
+
+func defaultFeeRecipient*(conf: AnyConf): Eth1Address =
+  if conf.suggestedFeeRecipient.isSome:
+    conf.suggestedFeeRecipient.get
+  else:
+    # https://github.com/nim-lang/Nim/issues/19802
+    (static(default(Eth1Address)))
 
 proc loadJwtSecret*(
     rng: var HmacDrbgContext,
