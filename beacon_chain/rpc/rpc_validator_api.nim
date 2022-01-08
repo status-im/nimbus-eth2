@@ -92,18 +92,17 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
     let
       committees_per_slot = get_committee_count_per_slot(epochRef)
-    for i in 0 ..< SLOTS_PER_EPOCH:
-      let slot = compute_start_slot_at_epoch(epoch) + i
-      for committee_index in 0'u64..<committees_per_slot:
-        let committee = get_beacon_committee(
-          epochRef, slot, committee_index.CommitteeIndex)
-        for index_in_committee, validatorIdx in committee:
-          let curr_val_pubkey = epochRef.validatorKey(validatorIdx)
+      start_slot = compute_start_slot_at_epoch(epoch)
+    for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
+      for committee_index in get_committee_indices(committees_per_slot):
+        let committee = get_beacon_committee(epochRef, slot, committee_index)
+        for index_in_committee, validator_index in committee:
+          let curr_val_pubkey = epochRef.validatorKey(validator_index)
           if curr_val_pubkey.isSome():
             if public_keys.findIt(it == curr_val_pubkey.get().toPubKey()) != -1:
               result.add((public_key: curr_val_pubkey.get().toPubKey(),
-                          validator_index: validatorIdx,
-                          committee_index: committee_index.CommitteeIndex,
+                          validator_index: validator_index,
+                          committee_index: committee_index,
                           committee_length: committee.lenu64,
                           validator_committee_index: index_in_committee.uint64,
                           slot: slot))

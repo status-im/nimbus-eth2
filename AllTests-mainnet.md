@@ -203,7 +203,7 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Gossip validation  [Preset: mainnet]
 ```diff
-+ Any committee index is valid                                                               OK
++ Empty committee when no committee for slot                                                 OK
 + validateAttestation                                                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2

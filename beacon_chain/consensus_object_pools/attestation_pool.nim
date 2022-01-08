@@ -390,7 +390,7 @@ proc addForkChoice*(pool: var AttestationPool,
       blck = shortLog(blck), err = state.error
 
 iterator attestations*(pool: AttestationPool, slot: Option[Slot],
-                       index: Option[CommitteeIndex]): Attestation =
+                       committee_index: Option[CommitteeIndex]): Attestation =
   let candidateIndices =
     if slot.isSome():
       let candidateIdx = pool.candidateIdx(slot.get())
@@ -403,7 +403,7 @@ iterator attestations*(pool: AttestationPool, slot: Option[Slot],
 
   for candidateIndex in candidateIndices:
     for _, entry in pool.candidates[candidateIndex]:
-      if index.isNone() or entry.data.index == index.get().uint64:
+      if committee_index.isNone() or entry.data.index == committee_index.get():
         var singleAttestation = Attestation(
           aggregation_bits: CommitteeValidatorsBits.init(entry.committee_len),
           data: entry.data)
@@ -458,36 +458,27 @@ func init(
     cur_epoch = state.data.get_current_epoch()
 
   template update_attestation_pool_cache(
-      epoch: Epoch, slot: Slot, participation_bitmap: untyped) =
-    for slot_committee_index in 0'u64 ..< get_committee_count_per_slot(
-        state.data, epoch, cache):
-      var
-        validator_bits =
-          CommitteeValidatorsBits.init(
-            get_beacon_committee_len(
-              state.data, slot, slot_committee_index.CommitteeIndex, cache).int)
-        i = 0
-      for index in get_beacon_committee(
-          state.data, slot, slot_committee_index.CommitteeIndex, cache):
-        if participation_bitmap[index] != 0:
-          # If any flag got set, there was an attestation from this validator.
-          validator_bits[i] = true
-        i += 1
-      result.add(
-        (slot, slot_committee_index),
-        validator_bits)
+      epoch: Epoch, participation_bitmap: untyped) =
+    let
+      start_slot = epoch.compute_start_slot_at_epoch()
+
+    for committee_index in get_committee_indices(state.data, epoch, cache):
+      for slot in start_slot..<start_slot + SLOTS_PER_EPOCH:
+        let committee = get_beacon_committee(
+            state.data, slot, committee_index, cache)
+        var
+          validator_bits = CommitteeValidatorsBits.init(committee.len)
+        for index_in_committee, validator_index in committee:
+          if participation_bitmap[validator_index] != 0:
+            # If any flag got set, there was an attestation from this validator.
+            validator_bits[index_in_committee] = true
+        result.add((slot, committee_index.uint64), validator_bits)
 
   # This treats all types of rewards as equivalent, which isn't ideal
-  for slot_offset in 0 ..< SLOTS_PER_EPOCH:
-    update_attestation_pool_cache(
-      state.data.get_previous_epoch(),
-      prev_epoch.compute_start_slot_at_epoch + slot_offset,
-      state.data.previous_epoch_participation)
-
-    update_attestation_pool_cache(
-      state.data.get_current_epoch(),
-      cur_epoch.compute_start_slot_at_epoch + slot_offset,
-      state.data.current_epoch_participation)
+  update_attestation_pool_cache(
+    prev_epoch, state.data.previous_epoch_participation)
+  update_attestation_pool_cache(
+    cur_epoch, state.data.current_epoch_participation)
 
 proc score(
     attCache: var AttestationCache, data: AttestationData,
@@ -702,7 +693,7 @@ proc getAggregatedAttestation*(pool: var AttestationPool,
   var res: Option[Attestation]
   for _, entry in pool.candidates[candidateIdx.get].mpairs():
     doAssert entry.data.slot == slot
-    if index.uint64 != entry.data.index:
+    if index != entry.data.index:
       continue
 
     entry.updateAggregates()

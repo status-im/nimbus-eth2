@@ -77,14 +77,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(Http400, PrunedStateError)
           tmp.get()
 
-        let committees_per_slot = get_committee_count_per_slot(epochRef)
-        for i in 0 ..< SLOTS_PER_EPOCH:
-          let slot = compute_start_slot_at_epoch(qepoch) + i
-          for committee_index in 0'u64 ..< committees_per_slot:
-            let commitee = get_beacon_committee(
-              epochRef, slot, CommitteeIndex(committee_index)
-            )
-            for index_in_committee, validator_index in commitee:
+        let
+          committees_per_slot = get_committee_count_per_slot(epochRef)
+          start_slot = qepoch.compute_start_slot_at_epoch()
+        for committee_index in get_committee_indices(committees_per_slot):
+          for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
+            let committee = get_beacon_committee(epochRef, slot, committee_index)
+            for index_in_committee, validator_index in committee:
               if validator_index in indexList:
                 let validator_key = epochRef.validatorKey(validator_index)
                 if validator_key.isSome():
@@ -92,11 +91,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                     RestAttesterDuty(
                       pubkey: validator_key.get().toPubKey(),
                       validator_index: validator_index,
-                      committee_index: CommitteeIndex(committee_index),
-                      committee_length: lenu64(commitee),
+                      committee_index: committee_index,
+                      committee_length: lenu64(committee),
                       committees_at_slot: committees_per_slot,
-                      validator_committee_index:
-                        ValidatorIndex(index_in_committee),
+                      validator_committee_index: uint64(index_in_committee),
                       slot: slot
                     )
                   )
@@ -611,8 +609,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v1/validator/sync_committee_contribution") do (
     slot: Option[Slot], subcommittee_index: Option[uint64],
     beacon_block_root: Option[Eth2Digest]) -> RestApiResponse:
-    # We doing this check to avoid any confusion in future.
-    static: doAssert(SYNC_COMMITTEE_SUBNET_COUNT <= high(uint8))
     let qslot =
       if slot.isNone():
         return RestApiResponse.jsonError(Http400, MissingSlotValueError)
@@ -631,17 +627,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400,
                                          MissingSubCommitteeIndexValueError)
       else:
-        let res = subcommittee_index.get()
+        let v = subcommittee_index.get()
+        let res = (v and SyncSubcommitteeIndex.init(v.get()))
         if res.isErr():
           return RestApiResponse.jsonError(Http400,
-                                           InvalidSubCommitteeIndexValueError,
-                                           $res.error())
-        let value = res.get().validateSyncCommitteeIndexOr:
-          return RestApiResponse.jsonError(Http400,
-                                           InvalidSubCommitteeIndexValueError,
-                                           "subcommittee_index exceeds " &
-                                           "maximum allowed value")
-        value
+                                            InvalidSubCommitteeIndexValueError,
+                                            $res.error())
+        res.get()
     let qroot =
       if beacon_block_root.isNone():
         return RestApiResponse.jsonError(Http400,

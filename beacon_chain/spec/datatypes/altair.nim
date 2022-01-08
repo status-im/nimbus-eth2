@@ -503,10 +503,6 @@ type
 chronicles.formatIt BeaconBlock: it.shortLog
 chronicles.formatIt SyncSubcommitteeIndex: uint8(it)
 
-template asInt*(x: SyncSubcommitteeIndex): int = int(x)
-template asUInt8*(x: SyncSubcommitteeIndex): uint8 = uint8(x)
-template asUInt64*(x: SyncSubcommitteeIndex): uint64 = uint64(x)
-
 template `[]`*(a: auto; i: SyncSubcommitteeIndex): auto =
   a[i.asInt]
 
@@ -514,23 +510,7 @@ template `[]`*(arr: array[SYNC_COMMITTEE_SIZE, any] | seq;
                idx: IndexInSyncCommittee): auto =
   arr[int idx]
 
-template `==`*(x, y: SyncSubcommitteeIndex): bool =
-  distinctBase(x) == distinctBase(y)
-
-iterator allSyncSubcommittees*: SyncSubcommitteeIndex =
-  for subcommitteeIdx in 0 ..< SYNC_COMMITTEE_SUBNET_COUNT:
-    yield SyncSubcommitteeIndex(subcommitteeIdx)
-
-template validateSyncCommitteeIndexOr*(
-    networkValParam: uint64,
-    elseBody: untyped): SyncSubcommitteeIndex =
-  let networkVal = networkValParam
-  if networkVal < SYNC_COMMITTEE_SUBNET_COUNT:
-    SyncSubcommitteeIndex(networkVal)
-  else:
-    elseBody
-
-template asUInt8*(x: SyncSubcommitteeIndex): uint8 = uint8(x)
+makeLimitedU64(SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (

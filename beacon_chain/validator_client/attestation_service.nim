@@ -215,7 +215,7 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
   let
     vc = service.client
     slot = adata.slot
-    committeeIndex = CommitteeIndex(adata.index)
+    committeeIndex = adata.index
     attestationRoot = adata.hash_tree_root()
 
   let aggregateItems =

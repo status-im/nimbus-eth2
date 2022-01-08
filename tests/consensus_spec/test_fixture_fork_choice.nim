@@ -206,8 +206,8 @@ proc stepOnAttestation(
     dag.getEpochRef(
       dag.head, time.slotOrZero().compute_epoch_at_slot(),
       false).expect("no pruning in test")
-  let attesters = epochRef.get_attesting_indices(att.data, att.aggregation_bits)
-
+  let attesters = epochRef.get_attesting_indices(
+    att.data.slot, CommitteeIndex(att.data.index), att.aggregation_bits)
   let status = fkChoice[].on_attestation(
     dag,
     att.data.slot, att.data.beacon_block_root, attesters,

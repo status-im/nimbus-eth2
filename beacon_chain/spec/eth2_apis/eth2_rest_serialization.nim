@@ -469,14 +469,16 @@ proc readValue*(reader: var JsonReader[RestJson],
 ## CommitteeIndex
 proc writeValue*(writer: var JsonWriter[RestJson], value: CommitteeIndex) {.
      raises: [IOError, Defect].} =
-  writeValue(writer, Base10.toString(uint64(value)))
+  writeValue(writer, value.asUInt64)
 
 proc readValue*(reader: var JsonReader[RestJson], value: var CommitteeIndex) {.
      raises: [IOError, SerializationError, Defect].} =
-  let svalue = reader.readValue(string)
-  let res = Base10.decode(uint64, svalue)
+  var v: uint64
+  reader.readValue(v)
+
+  let res = CommitteeIndex.init(v)
   if res.isOk():
-    value = CommitteeIndex(res.get())
+    value = res.get()
   else:
     reader.raiseUnexpectedValue($res.error())
 
@@ -904,17 +906,17 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: SyncSubcommitteeIndex) {.
      raises: [IOError, Defect].} =
-  writeValue(writer, Base10.toString(uint8(value)))
+  writeValue(writer, value.asUInt64)
 
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var SyncSubcommitteeIndex) {.
      raises: [IOError, SerializationError, Defect].} =
-  let res = Base10.decode(uint8, reader.readValue(string))
+  var v: uint64
+  reader.readValue(v)
+
+  let res = SyncSubcommitteeIndex.init(v)
   if res.isOk():
-    if res.get() < SYNC_COMMITTEE_SUBNET_COUNT:
-      value = SyncSubcommitteeIndex(res.get())
-    else:
-      reader.raiseUnexpectedValue("Sync sub-committee index out of rage")
+    value = res.get()
   else:
     reader.raiseUnexpectedValue($res.error())
 
@@ -1601,15 +1603,12 @@ proc decodeString*(t: typedesc[PeerID],
 proc decodeString*(t: typedesc[CommitteeIndex],
                    value: string): Result[CommitteeIndex, cstring] =
   let res = ? Base10.decode(uint64, value)
-  ok(CommitteeIndex(res))
+  CommitteeIndex.init(res)
 
 proc decodeString*(t: typedesc[SyncSubcommitteeIndex],
                    value: string): Result[SyncSubcommitteeIndex, cstring] =
-  let res = ? Base10.decode(uint8, value)
-  if res.get < SYNC_COMMITTEE_SUBNET_COUNT:
-    ok(CommitteeIndex(res))
-  else:
-    err("sync subcommittee index out of range")
+  let res = ? Base10.decode(uint64, value)
+  SyncSubcommitteeIndex.init(res)
 
 proc decodeString*(t: typedesc[Eth2Digest],
                    value: string): Result[Eth2Digest, cstring] =

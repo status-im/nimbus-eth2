@@ -9,14 +9,15 @@
 
 import
   std/sequtils,
+  stew/results,
   chronicles,
   ../extras,
-  ../spec/[helpers, network, signatures, validator],
+  ../spec/[beaconstate, helpers, network, signatures, validator],
   ../spec/datatypes/base,
   ./block_pools_types, blockchain_dag
 
 export
-  base, extras, block_pools_types
+  base, extras, block_pools_types, results
 
 # Spec functions implemented based on cached values instead of the full state
 func count_active_validators*(epochInfo: EpochRef): uint64 =
@@ -27,91 +28,89 @@ func get_committee_count_per_slot*(epochInfo: EpochRef): uint64 =
   get_committee_count_per_slot(count_active_validators(epochInfo))
 
 iterator get_committee_indices*(epochRef: EpochRef): CommitteeIndex =
-  for i in 0'u64..<get_committee_count_per_slot(epochRef):
-    yield CommitteeIndex(i)
+  let committees_per_slot = get_committee_count_per_slot(epochRef)
+  for committee_index in get_committee_indices(committees_per_slot):
+    yield committee_index
+
+func get_committee_index*(epochRef: EpochRef, index: uint64):
+    Result[CommitteeIndex, cstring] =
+  check_attestation_index(index, get_committee_count_per_slot(epochRef))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#get_beacon_committee
 iterator get_beacon_committee*(
-    epochRef: EpochRef, slot: Slot, index: CommitteeIndex): ValidatorIndex =
+    epochRef: EpochRef, slot: Slot, committee_index: CommitteeIndex):
+    (int, ValidatorIndex) =
   ## Return the beacon committee at ``slot`` for ``index``.
   let
     committees_per_slot = get_committee_count_per_slot(epochRef)
-  for idx in compute_committee(
+  for index_in_committee, idx in compute_committee(
     epochRef.shuffled_active_validator_indices,
-    (slot mod SLOTS_PER_EPOCH) * committees_per_slot +
-      index.uint64,
+    (slot mod SLOTS_PER_EPOCH) * committees_per_slot + committee_index.asUInt64,
     committees_per_slot * SLOTS_PER_EPOCH
-  ): yield idx
+  ): yield (index_in_committee, idx)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee*(
-    epochRef: EpochRef, slot: Slot, index: CommitteeIndex): seq[ValidatorIndex] =
+    epochRef: EpochRef, slot: Slot, committee_index: CommitteeIndex):
+    seq[ValidatorIndex] =
   ## Return the beacon committee at ``slot`` for ``index``.
   let
     committees_per_slot = get_committee_count_per_slot(epochRef)
   compute_committee(
     epochRef.shuffled_active_validator_indices,
-    (slot mod SLOTS_PER_EPOCH) * committees_per_slot +
-      index.uint64,
+    (slot mod SLOTS_PER_EPOCH) * committees_per_slot + committee_index.asUInt64,
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee_len*(
-    epochRef: EpochRef, slot: Slot, index: CommitteeIndex): uint64 =
+    epochRef: EpochRef, slot: Slot, committee_index: CommitteeIndex): uint64 =
   ## Return the number of members in the beacon committee at ``slot`` for ``index``.
   let
     committees_per_slot = get_committee_count_per_slot(epochRef)
 
   compute_committee_len(
     count_active_validators(epochRef),
-    (slot mod SLOTS_PER_EPOCH) * committees_per_slot +
-      index.uint64,
+    (slot mod SLOTS_PER_EPOCH) * committees_per_slot + committee_index.asUInt64,
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#get_attesting_indices
 iterator get_attesting_indices*(epochRef: EpochRef,
-                                data: AttestationData,
+                                slot: Slot,
+                                committee_index: CommitteeIndex,
                                 bits: CommitteeValidatorsBits):
                                   ValidatorIndex =
-  if bits.lenu64 != get_beacon_committee_len(epochRef, data.slot, data.index.CommitteeIndex):
+  if bits.lenu64 != get_beacon_committee_len(epochRef, slot, committee_index):
     trace "get_attesting_indices: inconsistent aggregation and committee length"
   else:
-    var i = 0
-    for index in get_beacon_committee(epochRef, data.slot, data.index.CommitteeIndex):
-      if bits[i]:
-        yield index
-      inc i
+    for index_in_committee, validator_index in get_beacon_committee(
+        epochRef, slot, committee_index).pairs():
+      if bits[index_in_committee]:
+        yield validator_index
 
 func get_attesting_indices_one*(epochRef: EpochRef,
-                                data: AttestationData,
+                                slot: Slot,
+                                committee_index: CommitteeIndex,
                                 bits: CommitteeValidatorsBits):
                                   Option[ValidatorIndex] =
   # A variation on get_attesting_indices that returns the validator index only
   # if only one validator index is set
-  if bits.lenu64 != get_beacon_committee_len(epochRef, data.slot, data.index.CommitteeIndex):
-    trace "get_attesting_indices: inconsistent aggregation and committee length"
-    none(ValidatorIndex)
-  else:
-    var res = none(ValidatorIndex)
-    var i = 0
-    for index in get_beacon_committee(epochRef, data.slot, data.index.CommitteeIndex):
-      if bits[i]:
-        if res.isNone():
-          res = some(index)
-        else:
-          return none(ValidatorIndex)
-      inc i
-    res
+  var res = none(ValidatorIndex)
+  for validator_index in get_attesting_indices(
+      epochRef, slot, committee_index, bits):
+    if res.isSome(): return none(ValidatorIndex)
+    res = some(validator_index)
+  res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(epochRef: EpochRef,
-                            data: AttestationData,
+                            slot: Slot,
+                            committee_index: CommitteeIndex,
                             bits: CommitteeValidatorsBits):
                               seq[ValidatorIndex] =
   # TODO sequtils2 mapIt
-  for idx in get_attesting_indices(epochRef, data, bits):
+  for idx in get_attesting_indices(epochRef, slot, committee_index, bits):
     result.add(idx)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
@@ -162,7 +161,7 @@ func makeAttestationData*(
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
-    index: committee_index.uint64,
+    index: committee_index.asUInt64,
     beacon_block_root: bs.blck.root,
     source: epochRef.current_justified_checkpoint,
     target: Checkpoint(
@@ -174,7 +173,7 @@ func makeAttestationData*(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/validator.md#validator-assignments
 iterator get_committee_assignments*(
     epochRef: EpochRef, validator_indices: HashSet[ValidatorIndex]):
-    tuple[subcommitteeIdx: CommitteeIndex,
+    tuple[committee_index: CommitteeIndex,
       subnet_id: SubnetId, slot: Slot] =
   let
     committees_per_slot = get_committee_count_per_slot(epochRef)
@@ -182,14 +181,11 @@ iterator get_committee_assignments*(
     start_slot = compute_start_slot_at_epoch(epoch)
 
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
-    for index in 0'u64 ..< committees_per_slot:
-      let
-        idx = index.CommitteeIndex
-      if anyIt(
-          get_beacon_committee(epochRef, slot, idx), it in validator_indices):
+    for committee_index in get_committee_indices(committees_per_slot):
+      if anyIt(get_beacon_committee(epochRef, slot, committee_index), it in validator_indices):
         yield (
-          idx,
-          compute_subnet_for_attestation(committees_per_slot, slot, idx),
+          committee_index,
+          compute_subnet_for_attestation(committees_per_slot, slot, committee_index),
           slot)
 
 func is_aggregator*(epochRef: EpochRef, slot: Slot, index: CommitteeIndex,

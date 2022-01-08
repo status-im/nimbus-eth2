@@ -25,11 +25,11 @@ type
   SyncCommitteeMsgKey = object
     originator: uint64 # ValidatorIndex avoiding mess with invalid values
     slot: Slot
-    subcommitteeIndex: uint64 # SyncSubcommitteeIndex avoiding mess with invalid values
+    subcommitteeIdx: uint64 # SyncSubcommitteeIndex avoiding mess with invalid values
 
   TrustedSyncCommitteeMsg* = object
     slot*: Slot
-    subcommitteeIndex*: SyncSubcommitteeIndex
+    subcommitteeIdx*: SyncSubcommitteeIndex
     positionInCommittee*: uint64
     signature*: CookedSig
 
@@ -90,11 +90,11 @@ func pruneData*(pool: var SyncCommitteeMsgPool, slot: Slot) =
 func isSeen*(
     pool: SyncCommitteeMsgPool,
     msg: SyncCommitteeMessage,
-    subcommitteeIndex: SyncSubcommitteeIndex): bool =
+    subcommitteeIdx: SyncSubcommitteeIndex): bool =
   let seenKey = SyncCommitteeMsgKey(
     originator: msg.validator_index, # Might be unvalidated at this point
     slot: msg.slot,
-    subcommitteeIndex: subcommitteeIndex.uint64)
+    subcommitteeIdx: subcommitteeIdx.uint64)
   seenKey in pool.seenSyncMsgByAuthor
 
 proc addSyncCommitteeMessage*(
@@ -103,21 +103,21 @@ proc addSyncCommitteeMessage*(
     blockRoot: Eth2Digest,
     validatorIndex: uint64,
     signature: CookedSig,
-    subcommitteeIndex: SyncSubcommitteeIndex,
+    subcommitteeIdx: SyncSubcommitteeIndex,
     positionsInCommittee: openArray[uint64]) =
 
   let
     seenKey = SyncCommitteeMsgKey(
       originator: validatorIndex,
       slot: slot,
-      subcommitteeIndex: subcommitteeIndex.uint64)
+      subcommitteeIdx: subcommitteeIdx.uint64)
 
   pool.seenSyncMsgByAuthor.incl seenKey
 
   for position in positionsInCommittee:
     pool.syncMessages.mgetOrPut(blockRoot, @[]).add TrustedSyncCommitteeMsg(
       slot: slot,
-      subcommitteeIndex: subcommitteeIndex,
+      subcommitteeIdx: subcommitteeIdx,
       positionInCommittee: position,
       signature: signature)
 
@@ -125,14 +125,14 @@ proc addSyncCommitteeMessage*(
     slot = slot, blockRoot = shortLog(blockRoot), validatorIndex
 
 func computeAggregateSig(votes: seq[TrustedSyncCommitteeMsg],
-                         subcommitteeIndex: SyncSubcommitteeIndex,
+                         subcommitteeIdx: SyncSubcommitteeIndex,
                          contribution: var SyncCommitteeContribution): bool =
   var
     aggregateSig {.noInit.}: AggregateSignature
     initialized = false
 
   for vote in votes:
-    if vote.subcommitteeIndex != subcommitteeIndex:
+    if vote.subcommitteeIdx != subcommitteeIdx:
       continue
 
     if not contribution.aggregation_bits[vote.positionInCommittee]:
@@ -153,15 +153,15 @@ func produceContribution*(
     pool: SyncCommitteeMsgPool,
     slot: Slot,
     headRoot: Eth2Digest,
-    subcommitteeIndex: SyncSubcommitteeIndex,
+    subcommitteeIdx: SyncSubcommitteeIndex,
     outContribution: var SyncCommitteeContribution): bool =
   if headRoot in pool.syncMessages:
     outContribution.slot = slot
     outContribution.beacon_block_root = headRoot
-    outContribution.subcommittee_index = subcommitteeIndex.asUInt64
+    outContribution.subcommittee_index = subcommitteeIdx.asUInt64
     try:
       computeAggregateSig(pool.syncMessages[headRoot],
-                          subcommitteeIndex,
+                          subcommitteeIdx,
                           outContribution)
     except KeyError:
       raiseAssert "We have checked for the key upfront"
@@ -188,7 +188,7 @@ func isSeen*(
   let seenKey = SyncCommitteeMsgKey(
     originator: msg.aggregator_index,
     slot: msg.contribution.slot,
-    subcommitteeIndex: msg.contribution.subcommittee_index)
+    subcommitteeIdx: msg.contribution.subcommittee_index)
   seenKey in pool.seenContributionByAuthor
 
 proc addContribution(pool: var SyncCommitteeMsgPool,
@@ -198,7 +198,7 @@ proc addContribution(pool: var SyncCommitteeMsgPool,
   let seenKey = SyncCommitteeMsgKey(
     originator: aggregator_index,
     slot: contribution.slot,
-    subcommitteeIndex: contribution.subcommittee_index)
+    subcommitteeIdx: contribution.subcommittee_index)
   pool.seenContributionByAuthor.incl seenKey
 
   template blockRoot: auto = contribution.beacon_block_root
@@ -237,20 +237,20 @@ proc produceSyncAggregateAux(
     initialized = false
     startTime = Moment.now
 
-  for subnetId in allSyncSubcommittees():
-    if bestContributions.subnets[subnetId].totalParticipants == 0:
+  for subcommitteeIdx in SyncSubcommitteeIndex:
+    if bestContributions.subnets[subcommitteeIdx].totalParticipants == 0:
       continue
 
-    for pos, value in bestContributions.subnets[subnetId].participationBits:
+    for pos, value in bestContributions.subnets[subcommitteeIdx].participationBits:
       if value:
-        let globalPos = subnetId.asInt * SYNC_SUBCOMMITTEE_SIZE + pos
+        let globalPos = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE + pos
         result.sync_committee_bits.setBit globalPos
 
     if not initialized:
       initialized = true
-      aggregateSig.init(bestContributions.subnets[subnetId].signature)
+      aggregateSig.init(bestContributions.subnets[subcommitteeIdx].signature)
     else:
-      aggregateSig.aggregate(bestContributions.subnets[subnetId].signature)
+      aggregateSig.aggregate(bestContributions.subnets[subcommitteeIdx].signature)
 
   if initialized:
     result.sync_committee_signature = aggregateSig.finish.toValidatorSig

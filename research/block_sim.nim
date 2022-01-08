@@ -116,19 +116,19 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       let committees_per_slot =
         get_committee_count_per_slot(stateData.data, slot.epoch, cache)
 
-      for committee_index in 0'u64..<committees_per_slot:
+      for committee_index in get_committee_indices(committees_per_slot):
         let committee = get_beacon_committee(
-          stateData.data, slot, committee_index.CommitteeIndex, cache)
+          stateData.data, slot, committee_index, cache)
 
-        for index_in_committee, validatorIdx in committee:
+        for index_in_committee, validator_index in committee:
           if rand(r, 1.0) <= attesterRatio:
             let
               data = makeAttestationData(
-                stateData.data, slot, committee_index.CommitteeIndex, blck.root)
+                stateData.data, slot, committee_index, blck.root)
               sig =
                 get_attestation_signature(getStateField(stateData.data, fork),
                   getStateField(stateData.data, genesis_validators_root),
-                  data, MockPrivKeys[validatorIdx])
+                  data, MockPrivKeys[validator_index])
             var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
             aggregation_bits.setBit index_in_committee
 
@@ -137,7 +137,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
                 data: data,
                 aggregation_bits: aggregation_bits,
                 signature: sig.toValidatorSig()
-              ), [validatorIdx], sig, data.slot.toBeaconTime)
+              ), [validator_index], sig, data.slot.toBeaconTime)
     do:
       raiseAssert "withUpdatedState failed"
 
@@ -157,7 +157,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     var aggregators: seq[Aggregator]
 
-    for subcommitteeIdx in allSyncSubcommittees():
+    for subcommitteeIdx in SyncSubcommitteeIndex:
       for validatorIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
         if rand(r, 1.0) > syncCommitteeRatio:
           continue
