@@ -864,7 +864,10 @@ proc new*(T: type Web3DataProvider,
   yield web3Fut or sleepAsync(chronos.seconds(10))
   if (not web3Fut.finished) or web3Fut.failed:
     await cancelAndWait(web3Fut)
-    return err "Failed to setup web3 connection"
+    if web3Fut.failed:
+      return err "Failed to setup web3 connection: " & web3Fut.readError.msg
+    else:
+      return err "Failed to setup web3 connection"
 
   let
     web3 = web3Fut.read
@@ -1141,11 +1144,12 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   info "Starting Eth1 deposit contract monitoring",
     contract = $m.depositContractAddress, url = web3Url
 
-  let dataProviderRes = await Web3DataProvider.new(
-    m.depositContractAddress,
-    web3Url)
+  m.dataProvider = block:
+    let v = await Web3DataProvider.new(m.depositContractAddress, web3Url)
+    if v.isErr():
+      raise (ref CatchableError)(msg: v.error())
+    v.get()
 
-  m.dataProvider = dataProviderRes.tryGet()
   let web3 = m.dataProvider.web3
 
   if m.state == Initialized and m.eth1Network.isSome:
@@ -1338,6 +1342,7 @@ when hasGenesisDetection:
               error "Failed to obtain details for the starting block " &
                     "of the deposit contract sync. The Web3 provider " &
                     "may still be not fully synced", error = err.msg
+
             await sleepAsync(chronos.seconds(10))
             # TODO: After a single failure, the web3 object may enter a state
             #       where it's no longer possible to make additional requests.
@@ -1345,9 +1350,13 @@ when hasGenesisDetection:
             #       the web3 provider before retrying. In case this fails,
             #       the Eth1Monitor will be restarted.
             inc urlIdx
-            dataProvider = tryGet(
-              await Web3DataProvider.new(cfg.DEPOSIT_CONTRACT_ADDRESS,
-                                         web3Urls[urlIdx mod web3Urls.len]))
+            dataProvider = block:
+              let v = await Web3DataProvider.new(
+                cfg.DEPOSIT_CONTRACT_ADDRESS,
+                web3Urls[urlIdx mod web3Urls.len])
+              if v.isErr(): raise (ref CatchableError)(msg: v.error())
+              v.get()
+
           blk.hash.asEth2Digest
 
       let depositContractSnapshot = DepositContractSnapshot(
