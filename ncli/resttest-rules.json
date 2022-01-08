@@ -1460,9 +1460,9 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "200"},
+      "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"], "value": [{"index": "", "slot": "", "validators": [""]}]}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
     }
   },
   {
@@ -2512,9 +2512,9 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "200"},
+      "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
     }
   },
   {
@@ -2572,9 +2572,9 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "200"},
+      "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"],"value": [{"aggregation_bits": "", "signature": "", "data": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
     }
   },
   {
@@ -3017,7 +3017,7 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
-      "status": {"operator": "equals", "value": "503"},
+      "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
       "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
     }
