@@ -375,7 +375,38 @@ proc importInterchangeV5Impl*(
             status.error.existingAttestation == A.signing_root.Eth2Digest:
           warn "Attestation already exists in the DB",
             pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
-            candidateAttestation = A
+            candidateAttestation = A,
+            conflict = status.error()
+          continue
+
+        elif status.error.kind == SurroundVote:
+          doAssert A.source_epoch.Epoch == status.error.sourceSlashable
+          doAssert A.target_epoch.Epoch == status.error.targetSlashable
+
+          # Formal proof of correctness: https://github.com/michaelsproul/slashing-proofs
+          let synth = SPDIR_SignedAttestation(
+            source_epoch: EpochString max(status.error.sourceSlashable, status.error.sourceExisting),
+            target_epoch: EpochString max(status.error.targetSlashable, status.error.targetExisting)
+          )
+
+          warn "Slashable surround vote. Constructing a synthetic attestation to reconcile DB and import",
+            pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex(),
+            candidateAttestation = A,
+            conflict = status.error(),
+            syntheticAttestation = synth
+          
+          db.registerSyntheticAttestation(
+            parsedKey,
+            synth.source_epoch.Epoch,
+            synth.target_epoch.Epoch
+          )
+
+          if synth.source_epoch.int > maxValidSourceEpochSeen:
+            maxValidSourceEpochSeen = synth.source_epoch.int
+          if synth.target_epoch.int > maxValidTargetEpochSeen:
+            maxValidTargetEpochSeen = synth.target_epoch.int
+
+          result = siPartial
           continue
         else:
           error "Slashable vote. Skipping its import.",

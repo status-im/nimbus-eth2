@@ -33,9 +33,18 @@ type
   TestStep = object
     should_succeed: bool
       ## Is "interchange" given a valid import
-    allow_partial_import: bool
+    contains_slashable_data: bool
       ## Does "interchange" contain slashable data either as standalone
       ## or with regards to previous steps
+      ## If contains_slashable_data is false, then the given interchange must be imported
+      ## successfully, and the given block/attestation checks must pass.
+      ## If contains_slashable_data is true, then implementations have the option to do one of two
+      ## things:
+      ##     - Import the interchange successfully, working around the slashable data by minification
+      ##       or some other mechanism. If the import succeeds, all checks must pass and the test
+      ##       should continue to the next step.
+      ##     - Reject the interchange (or partially import it), in which case the block/attestation
+      ##       checks and all future steps should be ignored.
     interchange: SPDIR
     blocks: seq[CandidateBlock]
       ## Blocks to try as proposer after DB is imported
@@ -79,7 +88,7 @@ proc sqlite3db_delete(basepath, dbname: string) =
   removeFile(basepath / dbname&".sqlite3-wal")
   removeFile(basepath / dbname&".sqlite3")
 
-const InterchangeTestsDir = FixturesDir / "tests-slashing-v5.0.0" / "tests" / "generated"
+const InterchangeTestsDir = FixturesDir / "tests-slashing-v5.2.1" / "tests" / "generated"
 const TestDir = ""
 const TestDbPrefix = "test_slashprot_"
 
@@ -164,7 +173,7 @@ proc runTest(identifier: string) =
         doAssert siFailure == status,
           "Unexpected error:\n" &
           "    " & $status & "\n"
-      elif step.allow_partial_import:
+      elif step.contains_slashable_data:
         doAssert siPartial == status,
           "Unexpected error:\n" &
           "    " & $status & "\n"
@@ -186,7 +195,7 @@ proc runTest(identifier: string) =
         else:
           doAssert status.isErr(),
             "Unexpected success:\n" &
-            "    " & $status & "\n" &
+            "    status: " & $status & "\n" &
             "    for " & $toHexLogs(blck)
 
       for att in step.attestations:
