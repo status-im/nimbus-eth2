@@ -9,10 +9,7 @@
 
 import
   std/[macros, strutils, parseutils, tables],
-  stew/endians2, stint, web3/[ethtypes]
-
-export
-  toBytesBE
+  stew/[byteutils], stint, web3/[ethtypes]
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#withdrawal-prefixes
@@ -376,7 +373,7 @@ template parse(T: type byte, input: string): T =
 
 func parse(T: type Version, input: string): T
            {.raises: [ValueError, Defect].} =
-  Version toBytesBE(uint32 parse(uint64, input))
+  Version hexToByteArray(input, 4)
 
 template parse(T: type Slot, input: string): T =
   Slot parse(uint64, input)

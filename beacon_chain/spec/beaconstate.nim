@@ -724,7 +724,7 @@ func get_next_sync_committee_keys(state: altair.BeaconState | bellatrix.BeaconSt
     hash_buffer: array[40, byte]
   hash_buffer[0..31] = seed.data
   while index < SYNC_COMMITTEE_SIZE:
-    hash_buffer[32..39] = uint_to_bytes8(uint64(i div 32))
+    hash_buffer[32..39] = uint_to_bytes(uint64(i div 32))
     let
       shuffled_index = compute_shuffled_index(uint64(i mod active_validator_count), active_validator_count, seed)
       candidate_index = active_validator_indices[shuffled_index]

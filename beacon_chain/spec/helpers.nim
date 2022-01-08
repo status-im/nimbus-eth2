@@ -424,19 +424,10 @@ func bytes_to_uint64*(data: openArray[byte]): uint64 =
   # Little-endian data representation
   uint64.fromBytesLE(data)
 
-# Have 1, 4, and 8-byte versions. Spec only defines 8-byte version, but useful
-# to check invariants on rest.
-func uint_to_bytes8*(x: uint64): array[8, byte] =
-  x.toBytesLE()
-
-func uint_to_bytes4*(x: uint64): array[4, byte] =
-  doAssert x < 2'u64^32
-
-  # Little-endian data representation
-  result[0] = ((x shr  0) and 0xff).byte
-  result[1] = ((x shr  8) and 0xff).byte
-  result[2] = ((x shr 16) and 0xff).byte
-  result[3] = ((x shr 24) and 0xff).byte
+func uint_to_bytes*(x: uint64): array[8, byte] = toBytesLE(x)
+func uint_to_bytes*(x: uint32): array[4, byte] = toBytesLE(x)
+func uint_to_bytes*(x: uint16): array[2, byte] = toBytesLE(x)
+func uint_to_bytes*(x: uint8): array[1, byte] = toBytesLE(x)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#compute_domain
 func compute_domain*(
@@ -446,7 +437,7 @@ func compute_domain*(
   ## Return the domain for the ``domain_type`` and ``fork_version``.
   let fork_data_root =
     compute_fork_data_root(fork_version, genesis_validators_root)
-  result[0..3] = uint_to_bytes4(domain_type.uint64)
+  result[0..3] = domain_type.data
   result[4..31] = fork_data_root.data.toOpenArray(0, 27)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#get_domain
@@ -491,8 +482,8 @@ func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
   static:
     doAssert EPOCHS_PER_HISTORICAL_VECTOR > MIN_SEED_LOOKAHEAD
 
-  seed_input[0..3] = uint_to_bytes4(domain_type.uint64)
-  seed_input[4..11] = uint_to_bytes8(epoch.uint64)
+  seed_input[0..3] = domain_type.data
+  seed_input[4..11] = uint_to_bytes(epoch.uint64)
   seed_input[12..43] =
     get_randao_mix(state, # Avoid underflow
       epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1).data

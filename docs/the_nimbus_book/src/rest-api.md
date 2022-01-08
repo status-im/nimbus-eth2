@@ -1,31 +1,31 @@
 # REST API
 
-Nimbus supports the [common REST API](https://ethereum.github.io/beacon-APIs/) for runtime communication. To enable it, use the `--rest` option when starting the beacon node, then access the API from http://localhost:5052/. The port and listening address can be further configured through the options `--rest-port` and `--rest-address`.
+Nimbus exposes a high-performance implementation of the [Beacon Node API](https://ethereum.github.io/beacon-APIs/).
 
-The API is a REST interface, accessed via HTTP. The API should not, unless protected by additional security layers, be exposed to the public Internet as the API includes multiple endpoints which could open your node to denial-of-service (DoS) attacks through endpoints triggering heavy processing.
+The API is a `REST` interface accessed via `HTTP`. The API should not, unless protected by additional security layers, be exposed to the public Internet as the API includes multiple endpoints which could open your node to denial-of-service (DoS) attacks.
 
-The beacon node (BN) maintains the state of the beacon chain by communicating with other beacon nodes in the Ethereum network. Conceptually, it does not maintain keypairs that participate with the beacon chain.
+The API can be used with any conforming consumer, including alternative validator client implementations, explorers and tooling.
 
-The validator client (VC) is a conceptually separate entity which utilizes private keys to perform validator related tasks, called "duties", on the beacon chain. These duties include the production of beacon blocks and signing of attestations.
+## Configuration
 
-> Please note that using a validator client with a Nimbus beacon node requires the node to be launched with the `--subscribe-all-subnets` option. This limitation will be removed in Nimbus 1.6.
+By default, the REST interface is disabled. To enable it, start the beacon node with the `--rest` option, then access the API from http://localhost:5052/.
 
-The goal of this specification is to promote interoperability between various beacon node implementations.
+> **Warning:** If you are using a validator client with a Nimbus beacon node, and running a Nimbus version prior to `v1.5.5`,  then you will need to launch the node with the `--subscribe-all-subnets` option enabled.
+
+By default, only connections from the same machine are entertained. The port and listening address can be further configured through the options `--rest-port` and `--rest-address`.
 
 ## Specification
+
 The specification is documented [here](https://ethereum.github.io/beacon-APIs/).
 
-See the Readme [here](https://github.com/ethereum/beacon-apis).
+See the Readme [here](https://github.com/ethereum/beacon-APIs).
 
 ## Quickly test your tooling against Nimbus
 
  The [Nimbus REST api](https://nimbus.guide/rest-api.html) is now available from:
- 
+
 * http://testing.mainnet.beacon-api.nimbus.team/
 * http://unstable.mainnet.beacon-api.nimbus.team/
 * http://unstable.prater.beacon-api.nimbus.team/
 
-
 Note that right now these are very much unstable testing instances. They may be unresponsive at times - so **please do not rely on them for validation**. We may also disable them at any time.
-
-

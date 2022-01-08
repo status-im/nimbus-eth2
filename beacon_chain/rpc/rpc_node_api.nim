@@ -7,12 +7,13 @@
 
 {.push raises: [Defect].}
 
-import std/[options, sequtils],
+import
+  std/[options, sequtils],
+  stew/byteutils,
   chronicles,
   json_rpc/servers/httpserver,
   eth/p2p/discoveryv5/enr,
   libp2p/[multiaddress, multicodec, peerstore],
-  nimcrypto/utils as ncrutils,
   ../beacon_node, ../version,
   ../networking/[eth2_network, peer_pool],
   ../sync/sync_manager,
@@ -174,7 +175,7 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       p2p_addresses: p2pAddresses,
       discovery_addresses: discoveryAddresses,
       metadata: (node.network.metadata.seq_number,
-                 "0x" & ncrutils.toHex(node.network.metadata.attnets.bytes))
+                 to0xHex(node.network.metadata.attnets.bytes))
     )
 
   rpcServer.rpc("get_v1_node_peers") do (state: Option[seq[string]],

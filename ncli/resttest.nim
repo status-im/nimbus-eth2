@@ -1041,7 +1041,8 @@ proc startTests(conf: RestTesterConf, uri: Uri,
 
             let tcaseRes = fut.read()
             results[tcaseRes.index] = tcaseRes.data
-            notice "Got test result", index = tcaseRes.index,
+            notice "Got test result", name = rules[tcaseRes.index].getTestName(),
+                                      index = tcaseRes.index,
                                       value = tcaseRes.data.kind
             pending[i] = nil
 

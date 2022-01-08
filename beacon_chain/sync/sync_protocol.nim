@@ -96,15 +96,15 @@ proc sendResponseChunk*(response: UntypedResponse,
   of BeaconBlockFork.Phase0:
     response.stream.writeChunk(some ResponseCode.Success,
                                SSZ.encode(val.phase0Data),
-                               response.peer.network.forkDigests.phase0.bytes)
+                               response.peer.network.forkDigests.phase0.data)
   of BeaconBlockFork.Altair:
     response.stream.writeChunk(some ResponseCode.Success,
                                SSZ.encode(val.altairData),
-                               response.peer.network.forkDigests.altair.bytes)
+                               response.peer.network.forkDigests.altair.data)
   of BeaconBlockFork.Bellatrix:
     response.stream.writeChunk(some ResponseCode.Success,
                                SSZ.encode(val.mergeData),
-                               response.peer.network.forkDigests.bellatrix.bytes)
+                               response.peer.network.forkDigests.bellatrix.data)
 
 func shortLog*(s: StatusMsg): auto =
   (

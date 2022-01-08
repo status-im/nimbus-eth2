@@ -11,7 +11,7 @@ import
   # Standard library
   std/[options, sets, tables, hashes],
   # Status libraries
-  stew/endians2, chronicles,
+  chronicles,
   # Internals
   ../spec/[signatures_batch, forks, helpers],
   ../spec/datatypes/[phase0, altair, bellatrix],

@@ -30,8 +30,9 @@ import
   stew/[endians2, objects, results, byteutils],
   blscurve,
   chronicles,
-  json_serialization,
-  nimcrypto/utils as ncrutils
+  json_serialization
+
+from nimcrypto/utils import burnMem
 
 export options, results, json_serialization, blscurve
 
@@ -474,4 +475,4 @@ func infinity*(T: type ValidatorSig): T =
   result.blob[0] = byte 0xC0
 
 proc burnMem*(key: var ValidatorPrivKey) =
-  ncrutils.burnMem(addr key, sizeof(ValidatorPrivKey))
+  burnMem(addr key, sizeof(ValidatorPrivKey))

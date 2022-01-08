@@ -1274,9 +1274,9 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
     epochRefPruneDur = epochRefPruneTick - statePruneTick
 
 proc updateHead*(
-      dag: ChainDAGRef,
-      newHead: BlockRef,
-      quarantine: var Quarantine) =
+    dag: ChainDAGRef,
+    newHead: BlockRef,
+    quarantine: var Quarantine) =
   ## Update what we consider to be the current head, as given by the fork
   ## choice.
   ##
@@ -1362,25 +1362,15 @@ proc updateHead*(
         dag.headState.data, finalized_checkpoint))
 
     if not(isNil(dag.onHeadChanged)):
-      let currentEpoch = epoch(newHead.slot)
       let
-        currentDutyDepRoot =
-          if currentEpoch > dag.tail.slot.epoch:
-            dag.head.atSlot(
-              compute_start_slot_at_epoch(currentEpoch) - 1).blck.root
-          else:
-            dag.tail.root
-        previousDutyDepRoot =
-          if currentEpoch > dag.tail.slot.epoch + 1:
-            dag.head.atSlot(
-              compute_start_slot_at_epoch(currentEpoch - 1) - 1).blck.root
-          else:
-            dag.tail.root
+        currentEpoch = epoch(newHead.slot)
+        depBlock = dag.head.dependentBlock(dag.tail, currentEpoch)
+        prevDepBlock = dag.head.prevDependentBlock(dag.tail, currentEpoch)
         epochTransition = (finalizedHead != dag.finalizedHead)
       let data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
                                            getStateRoot(dag.headState.data),
-                                           epochTransition, previousDutyDepRoot,
-                                           currentDutyDepRoot)
+                                           epochTransition, depBlock.root,
+                                           prevDepBlock.root)
       dag.onHeadChanged(data)
 
   # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
