@@ -415,7 +415,7 @@ proc scheduleContributionChecks*(
       batchCrypto: ref BatchCrypto,
       fork: Fork, genesis_validators_root: Eth2Digest,
       signedContributionAndProof: SignedContributionAndProof,
-      subcommitteeIndex: SyncSubcommitteeIndex,
+      subcommitteeIdx: SyncSubcommitteeIndex,
       dag: ChainDAGRef): Result[tuple[
        aggregatorFut, proofFut, contributionFut: Future[BatchResult],
        sig: CookedSig], cstring] =
@@ -445,7 +445,7 @@ proc scheduleContributionChecks*(
       "SignedContributionAndProof: invalid contribution signature")
 
     contributionKey = ? aggregateAll(
-      dag, dag.syncCommitteeParticipants(contribution.slot, subcommitteeIndex),
+      dag, dag.syncCommitteeParticipants(contribution.slot, subcommitteeIdx),
       contribution.aggregation_bits)
   let
     aggregatorFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.aggregator"):

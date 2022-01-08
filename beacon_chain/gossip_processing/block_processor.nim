@@ -191,9 +191,12 @@ proc storeBlock*(
       src, wallTime, trustedBlock.message)
 
     for attestation in trustedBlock.message.body.attestations:
-      for idx in get_attesting_indices(
-          epochRef, attestation.data, attestation.aggregation_bits):
-        vm[].registerAttestationInBlock(attestation.data, idx,
+      for validator_index in get_attesting_indices(
+          epochRef, attestation.data.slot,
+          CommitteeIndex.init(attestation.data.index).expect(
+            "index has been checked"),
+          attestation.aggregation_bits):
+        vm[].registerAttestationInBlock(attestation.data, validator_index,
           trustedBlock.message)
 
     withState(dag[].clearanceState.data):

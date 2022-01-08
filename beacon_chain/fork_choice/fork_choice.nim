@@ -330,21 +330,11 @@ func process_block*(self: var ForkChoiceBackend,
   self.proto_array.onBlock(
     block_root, parent_root, justified_checkpoint, finalized_checkpoint)
 
-# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-# it expresses as much of:
-# blck: phase0.SomeBeaconBlock | altair.SomeBeaconBlock
-# or
-# blck: SomeSomeBeaconBlock
-# as comes up. Other types can be added as needed.
-type ReallyAnyBeaconBlock =
-  phase0.BeaconBlock | altair.BeaconBlock | bellatrix.BeaconBlock |
-  phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock |
-  bellatrix.TrustedBeaconBlock
 proc process_block*(self: var ForkChoice,
                     dag: ChainDAGRef,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
-                    blck: ReallyAnyBeaconBlock,
+                    blck: ForkyTrustedBeaconBlock,
                     wallTime: BeaconTime): FcResult[void] =
   ? update_time(self, dag, wallTime)
   ? process_state(self.checkpoints, dag, epochRef, blckRef)
@@ -355,12 +345,19 @@ proc process_block*(self: var ForkChoice,
     let targetBlck = dag.getRef(attestation.data.target.root)
     if targetBlck.isNil:
       continue
-    if attestation.data.beacon_block_root in self.backend and
-        # TODO not-actually-correct hotfix for crash
-        # https://github.com/status-im/nimbus-eth2/issues/1879
-        attestation.data.index < committees_per_slot:
+    let committee_index = block:
+      let v = CommitteeIndex.init(attestation.data.index, committees_per_slot)
+      if v.isErr():
+        warn "Unexpected committee index in block attestation",
+          blck = shortLog(blck),
+          data = shortLog(attestation.data)
+        continue
+      v.get()
+
+    if attestation.data.beacon_block_root in self.backend:
       for validator in get_attesting_indices(
-          epochRef, attestation.data, attestation.aggregation_bits):
+          epochRef, attestation.data.slot, committee_index,
+          attestation.aggregation_bits):
         self.backend.process_attestation(
           validator,
           attestation.data.beacon_block_root,

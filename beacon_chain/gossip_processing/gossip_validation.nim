@@ -79,7 +79,7 @@ func check_attestation_block(
   ok()
 
 func check_propagation_slot_range(
-    msgSlot: Slot, wallTime: BeaconTime): Result[void, ValidationError] =
+    msgSlot: Slot, wallTime: BeaconTime): Result[Slot, ValidationError] =
   let
     futureSlot = (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
@@ -99,7 +99,7 @@ func check_propagation_slot_range(
       msgSlot + ATTESTATION_PROPAGATION_SLOT_RANGE < pastSlot.slot:
     return errIgnore("Attestation slot in the past")
 
-  ok()
+  ok(msgSlot)
 
 func check_beacon_and_target_block(
     pool: var AttestationPool, data: AttestationData):
@@ -149,12 +149,11 @@ func check_aggregation_count(
   ok()
 
 func check_attestation_subnet(
-    epochRef: EpochRef, attestation: Attestation,
+    epochRef: EpochRef, slot: Slot, committee_index: CommitteeIndex,
     subnet_id: SubnetId): Result[void, ValidationError] =
   let
     expectedSubnet = compute_subnet_for_attestation(
-      get_committee_count_per_slot(epochRef),
-      attestation.data.slot, attestation.data.index.CommitteeIndex)
+      get_committee_count_per_slot(epochRef), slot, committee_index)
 
   if expectedSubnet != subnet_id:
     return errReject("Attestation not on the correct subnet")
@@ -380,10 +379,11 @@ proc validateAttestation*(
   # [REJECT] The attestation's epoch matches its target -- i.e.
   # attestation.data.target.epoch ==
   # compute_epoch_at_slot(attestation.data.slot)
-  block:
+  let slot = block:
     let v = check_attestation_slot_target(attestation.data)
     if v.isErr():
       return errReject(v.error())
+    v.get()
 
   # attestation.data.slot is within the last ATTESTATION_PROPAGATION_SLOT_RANGE
   # slots (within a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
@@ -391,7 +391,7 @@ proc validateAttestation*(
   # >= attestation.data.slot (a client MAY queue future attestations for
   # processing at the appropriate slot).
   block:
-    let v = check_propagation_slot_range(attestation.data.slot, wallTime) # [IGNORE]
+    let v = check_propagation_slot_range(slot, wallTime) # [IGNORE]
     if v.isErr():
       return err(v.error())
 
@@ -434,8 +434,11 @@ proc validateAttestation*(
 
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
-  if not (attestation.data.index < get_committee_count_per_slot(epochRef)):
-    return checkedReject("Attestation: committee index not within expected range")
+  let committee_index = block:
+    let idx = epochRef.get_committee_index(attestation.data.index)
+    if idx.isErr():
+      return checkedReject("Attestation: committee index not within expected range")
+    idx.get()
 
   # [REJECT] The attestation is for the correct subnet -- i.e.
   # compute_subnet_for_attestation(committees_per_slot,
@@ -444,7 +447,8 @@ proc validateAttestation*(
   # attestation.data.target.epoch), which may be pre-computed along with the
   # committee information for the signature check.
   block:
-    let v = check_attestation_subnet(epochRef, attestation, subnet_id) # [REJECT]
+    let v = check_attestation_subnet(
+      epochRef, attestation.data.slot, committee_index, subnet_id) # [REJECT]
     if v.isErr():
       return err(v.error)
 
@@ -456,7 +460,7 @@ proc validateAttestation*(
   # epoch matches its target and attestation.data.target.root is an ancestor of
   # attestation.data.beacon_block_root.
   if not (attestation.aggregation_bits.lenu64 == get_beacon_committee_len(
-      epochRef, attestation.data.slot, attestation.data.index.CommitteeIndex)):
+      epochRef, attestation.data.slot, committee_index)):
     return checkedReject(
       "Attestation: number of aggregation bits and committee size mismatch")
 
@@ -465,7 +469,7 @@ proc validateAttestation*(
     genesis_validators_root =
       getStateField(pool.dag.headState.data, genesis_validators_root)
     attesting_index = get_attesting_indices_one(
-      epochRef, attestation.data, attestation.aggregation_bits)
+      epochRef, slot, committee_index, attestation.aggregation_bits)
 
   # The number of aggregation bits matches the committee size, which ensures
   # this condition holds.
@@ -544,17 +548,18 @@ proc validateAggregate*(
 
   # [REJECT] The aggregate attestation's epoch matches its target -- i.e.
   # `aggregate.data.target.epoch == compute_epoch_at_slot(aggregate.data.slot)`
-  block:
+  let slot = block:
     let v = check_attestation_slot_target(aggregate.data)
     if v.isErr():
       return checkedReject(v.error)
+    v.get()
 
   # [IGNORE] aggregate.data.slot is within the last
   # ATTESTATION_PROPAGATION_SLOT_RANGE slots (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. aggregate.data.slot +
   # ATTESTATION_PROPAGATION_SLOT_RANGE >= current_slot >= aggregate.data.slot
   block:
-    let v = check_propagation_slot_range(aggregate.data.slot, wallTime) # [IGNORE]
+    let v = check_propagation_slot_range(slot, wallTime) # [IGNORE]
     if v.isErr():
       return err(v.error())
 
@@ -611,20 +616,21 @@ proc validateAggregate*(
 
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
-  if not (aggregate.data.index < get_committee_count_per_slot(epochRef)):
-    return checkedReject("Aggregate: committee index not within expected range")
+  let committee_index = block:
+    let idx = epochRef.get_committee_index(aggregate.data.index)
+    if idx.isErr():
+      return checkedReject("Attestation: committee index not within expected range")
+    idx.get()
 
   if not is_aggregator(
-      epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex,
-      aggregate_and_proof.selection_proof):
+      epochRef, slot, committee_index, aggregate_and_proof.selection_proof):
     return checkedReject("Aggregate: incorrect aggregator")
 
   # [REJECT] The aggregator's validator index is within the committee -- i.e.
   # aggregate_and_proof.aggregator_index in get_beacon_committee(state,
   # aggregate.data.slot, aggregate.data.index).
   if aggregate_and_proof.aggregator_index.ValidatorIndex notin
-      get_beacon_committee(
-        epochRef, aggregate.data.slot, aggregate.data.index.CommitteeIndex):
+      get_beacon_committee(epochRef, slot, committee_index):
     return checkedReject("Aggregate: aggregator's validator index not in committee")
 
   # 1. [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
@@ -638,9 +644,8 @@ proc validateAggregate*(
     fork = pool.dag.forkAtEpoch(aggregate.data.slot.epoch)
     genesis_validators_root =
       getStateField(pool.dag.headState.data, genesis_validators_root)
-
-  let attesting_indices = get_attesting_indices(
-    epochRef, aggregate.data, aggregate.aggregation_bits)
+    attesting_indices = get_attesting_indices(
+      epochRef, slot, committee_index, aggregate.aggregation_bits)
 
   let deferredCrypto = batchCrypto
                 .scheduleAggregateChecks(
@@ -890,8 +895,11 @@ proc validateContribution*(
 
   # [REJECT] The subcommittee index is in the allowed range
   # i.e. contribution.subcommittee_index < SYNC_COMMITTEE_SUBNET_COUNT.
-  let subcommitteeIdx = msg.message.contribution.subcommittee_index.validateSyncCommitteeIndexOr:
-    return errReject("SignedContributionAndProof: subcommittee index too high")
+  let subcommitteeIdx = block:
+    let v = SyncSubcommitteeIndex.init(msg.message.contribution.subcommittee_index)
+    if v.isErr():
+      return errReject("SignedContributionAndProof: subcommittee index too high")
+    v.get()
 
   # [REJECT] contribution_and_proof.selection_proof selects the validator as an aggregator for the slot
   # i.e. is_sync_committee_aggregator(contribution_and_proof.selection_proof) returns True.

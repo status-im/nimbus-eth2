@@ -352,11 +352,13 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
           get_committee_count_per_slot(stateData.data, slot.epoch, cache)
 
         if index.isNone:
-          for committee_index in 0'u64..<committees_per_slot:
-            res.add(getCommittee(slot, committee_index.CommitteeIndex))
+          for committee_index in get_committee_indices(committees_per_slot):
+            res.add(getCommittee(slot, committee_index))
         else:
           if index.get() < committees_per_slot:
-            res.add(getCommittee(slot, CommitteeIndex(index.get())))
+            let cindex = CommitteeIndex.init(index.get()).expect(
+              "valid because verified against committees_per_slot")
+            res.add(getCommittee(slot, cindex))
 
       var res: seq[RpcBeaconStatesCommittees]
 
@@ -367,8 +369,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
           Epoch(epoch.get())
 
       if slot.isNone:
-        for i in 0 ..< SLOTS_PER_EPOCH:
-          forSlot(compute_start_slot_at_epoch(qepoch) + i, res)
+        let start_slot = qepoch.compute_start_slot_at_epoch()
+        for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
+          forSlot(slot, res)
       else:
         forSlot(Slot(slot.get()), res)
 

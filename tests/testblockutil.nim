@@ -190,7 +190,7 @@ func makeAttestationData*(
 
 func makeAttestation*(
     state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
-    committee: seq[ValidatorIndex], slot: Slot, index: CommitteeIndex,
+    committee: seq[ValidatorIndex], slot: Slot, committee_index: CommitteeIndex,
     validator_index: ValidatorIndex, cache: var StateCache,
     flags: UpdateFlags = {}): Attestation =
   # Avoids state_sim silliness; as it's responsible for all validators,
@@ -199,7 +199,7 @@ func makeAttestation*(
   # want ValidatorIndex, so that's supported too.
   let
     sac_index = committee.find(validator_index)
-    data = makeAttestationData(state, slot, index, beacon_block_root)
+    data = makeAttestationData(state, slot, committee_index, beacon_block_root)
 
   doAssert sac_index != -1, "find_beacon_committee should guarantee this"
 
@@ -251,15 +251,10 @@ func makeFullAttestations*(
     flags: UpdateFlags = {}): seq[Attestation] =
   # Create attestations in which the full committee participates for each shard
   # that should be attested to during a particular slot
-  let committees_per_slot =
-    get_committee_count_per_slot(state, slot.epoch, cache)
-
-  for index in 0'u64..<committees_per_slot:
+  for committee_index in get_committee_indices(state, slot.epoch, cache):
     let
-      committee = get_beacon_committee(
-        state, slot, index.CommitteeIndex, cache)
-      data = makeAttestationData(
-        state, slot, index.CommitteeIndex, beacon_block_root)
+      committee = get_beacon_committee(state, slot, committee_index, cache)
+      data = makeAttestationData(state, slot, committee_index, beacon_block_root)
 
     doAssert committee.len() >= 1
     # Initial attestation
@@ -320,7 +315,7 @@ proc makeSyncAggregate(
       validatorIdx: ValidatorIndex
       selectionProof: ValidatorSig
   var aggregators: seq[Aggregator]
-  for subcommitteeIdx in allSyncSubcommittees():
+  for subcommitteeIdx in SyncSubcommitteeIndex:
     let
       firstKeyIdx = subcommitteeIdx.int * SYNC_SUBCOMMITTEE_SIZE
       lastKeyIdx = firstKeyIdx + SYNC_SUBCOMMITTEE_SIZE - 1

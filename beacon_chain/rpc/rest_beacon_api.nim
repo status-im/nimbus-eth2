@@ -566,21 +566,24 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       proc getCommittee(slot: Slot,
                         index: CommitteeIndex): RestBeaconStatesCommittees =
         let validators = get_beacon_committee(stateData.data, slot, index,
-                                              cache).mapIt(it)
+                                              cache)
         RestBeaconStatesCommittees(index: index, slot: slot,
                                    validators: validators)
 
       proc forSlot(slot: Slot, cindex: Option[CommitteeIndex],
                    res: var seq[RestBeaconStatesCommittees]) =
-        let committees_per_slot =
-          get_committee_count_per_slot(stateData.data, Epoch(slot), cache)
 
         if cindex.isNone:
-          for committee_index in 0'u64 ..< committees_per_slot:
-            res.add(getCommittee(slot, CommitteeIndex(committee_index)))
+          for committee_index in
+              get_committee_indices(stateData.data, slot.epoch, cache):
+            res.add(getCommittee(slot, committee_index))
         else:
-          let idx = cindex.get()
-          if uint64(idx) < committees_per_slot:
+          let
+            idx = cindex.get()
+            committees_per_slot = get_committee_count_per_slot(
+              stateData.data, slot.epoch, cache)
+
+          if idx < committees_per_slot:
             res.add(getCommittee(slot, idx))
 
       var res: seq[RestBeaconStatesCommittees]
@@ -591,8 +594,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           vepoch.get()
 
       if vslot.isNone():
-        for i in 0 ..< SLOTS_PER_EPOCH:
-          forSlot(compute_start_slot_at_epoch(qepoch) + i, vindex, res)
+        let start_slot = qepoch.compute_start_slot_at_epoch()
+        for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
+          forSlot(slot, vindex, res)
       else:
         forSlot(vslot.get(), vindex, res)
 

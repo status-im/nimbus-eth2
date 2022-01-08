@@ -287,22 +287,22 @@ proc sendSyncCommitteeMessages*(node: BeaconNode,
       let (pending, indices) = block:
         var resFutures: seq[Future[SendResult]]
         var resIndices: seq[int]
-        for committeeIdx in allSyncSubcommittees():
+        for subcommitteeIdx in SyncSubcommitteeIndex:
           for valKey in syncSubcommittee(
-              node.dag.headSyncCommittees.current_sync_committee, committeeIdx):
+              node.dag.headSyncCommittees.current_sync_committee, subcommitteeIdx):
             let index = keysCur.getOrDefault(uint64(valKey), -1)
             if index >= 0:
               resIndices.add(index)
               resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
-                                                          committeeIdx, true))
-        for committeeIdx in allSyncSubcommittees():
+                                                          subcommitteeIdx, true))
+        for subcommitteeIdx in SyncSubcommitteeIndex:
           for valKey in syncSubcommittee(
-              node.dag.headSyncCommittees.next_sync_committee, committeeIdx):
+              node.dag.headSyncCommittees.next_sync_committee, subcommitteeIdx):
             let index = keysNxt.getOrDefault(uint64(valKey), -1)
             if index >= 0:
               resIndices.add(index)
               resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
-                                                          committeeIdx, true))
+                                                          subcommitteeIdx, true))
         (resFutures, resIndices)
 
       await allFutures(pending)
@@ -635,7 +635,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     genesis_validators_root =
       getStateField(node.dag.headState.data, genesis_validators_root)
 
-  for committee_index in get_committee_indices(epochRef):
+  for committee_index in get_committee_indices(committees_per_slot):
     let committee = get_beacon_committee(epochRef, slot, committee_index)
 
     for index_in_committee, validator_index in committee:
@@ -658,7 +658,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
             signing_root)
       if registered.isOk():
         let subnet_id = compute_subnet_for_attestation(
-          committees_per_slot, data.slot, data.index.CommitteeIndex)
+          committees_per_slot, data.slot, committee_index)
         asyncSpawn createAndSendAttestation(
           node, fork, genesis_validators_root, validator, data,
           committee.len(), index_in_committee, subnet_id)
@@ -722,14 +722,14 @@ proc handleSyncCommitteeMessages(node: BeaconNode, head: BlockRef, slot: Slot) =
   # TODO Use a view type to avoid the copy
   var syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
 
-  for committeeIdx in allSyncSubcommittees():
-    for valIdx in syncSubcommittee(syncCommittee, committeeIdx):
+  for subcommitteeIdx in SyncSubcommitteeIndex:
+    for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
       let validator = node.getAttachedValidator(
         getStateField(node.dag.headState.data, validators), valIdx)
       if isNil(validator) or validator.index.isNone():
         continue
       asyncSpawn createAndSendSyncCommitteeMessage(node, slot, validator,
-                                                   committeeIdx, head)
+                                                   subcommitteeIdx, head)
 
 proc signAndSendContribution(node: BeaconNode,
                              validator: AttachedValidator,
@@ -776,7 +776,7 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
   var selectionProofs: seq[Future[SignatureResult]]
 
   var time = timeIt:
-    for subcommitteeIdx in allSyncSubcommittees():
+    for subcommitteeIdx in SyncSubcommitteeIndex:
       # TODO Hoist outside of the loop with a view type
       #      to avoid the repeated offset calculations
       for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
@@ -862,7 +862,6 @@ proc makeAggregateAndProof*(
     pool: var AttestationPool, epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
     validatorIndex: ValidatorIndex, slot_signature: ValidatorSig): Option[AggregateAndProof] =
   doAssert validatorIndex in get_beacon_committee(epochRef, slot, index)
-  doAssert index.uint64 < get_committee_count_per_slot(epochRef)
 
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation
@@ -902,46 +901,45 @@ proc sendAggregatedAttestations(
 
   var
     slotSigs: seq[Future[SignatureResult]] = @[]
-    slotSigsData: seq[tuple[committee_index: uint64,
-                            validator_idx: ValidatorIndex,
+    slotSigsData: seq[tuple[committee_index: CommitteeIndex,
+                            validator_index: ValidatorIndex,
                             v: AttachedValidator]] = @[]
 
-  for committee_index in 0'u64..<committees_per_slot:
-    let committee = get_beacon_committee(
-      epochRef, slot, committee_index.CommitteeIndex)
+  for committee_index in get_committee_indices(committees_per_slot):
+    let committee = get_beacon_committee(epochRef, slot, committee_index)
 
-    for index_in_committee, validatorIdx in committee:
-      let validator = node.getAttachedValidator(epochRef, validatorIdx)
+    for index_in_committee, validator_index in committee:
+      let validator = node.getAttachedValidator(epochRef, validator_index)
       if validator != nil:
         # the validator index and private key pair.
         slotSigs.add getSlotSig(validator, fork,
           genesis_validators_root, slot)
-        slotSigsData.add (committee_index, validatorIdx, validator)
+        slotSigsData.add (committee_index, validator_index, validator)
 
   await allFutures(slotSigs)
 
-  for curr in zip(slotSigsData, slotSigs):
-    let slotSig = curr[1].read()
+  for data, fut in zip(slotSigsData, slotSigs).items():
+    let slotSig = fut.read()
     if slotSig.isErr():
       error "Unable to create slot signature using remote signer",
-            validator = shortLog(curr[0].v),
+            validator = shortLog(data.v),
             slot, error_msg = slotSig.error()
       continue
     let aggregateAndProof =
       makeAggregateAndProof(node.attestationPool[], epochRef, slot,
-                            curr[0].committee_index.CommitteeIndex,
-                            curr[0].validator_idx,
+                            data.committee_index,
+                            data.validator_index,
                             slotSig.get())
 
     # Don't broadcast when, e.g., this node isn't aggregator
     if aggregateAndProof.isSome:
       let sig =
         block:
-          let res = await signAggregateAndProof(curr[0].v,
+          let res = await signAggregateAndProof(data.v,
             aggregateAndProof.get, fork, genesis_validators_root)
           if res.isErr():
             error "Unable to sign aggregated attestation using remote signer",
-                  validator = shortLog(curr[0].v), error_msg = res.error()
+                  validator = shortLog(data.v), error_msg = res.error()
             return
           res.get()
       var signedAP = SignedAggregateAndProof(
@@ -950,13 +948,12 @@ proc sendAggregatedAttestations(
       node.network.broadcastAggregateAndProof(signedAP)
       # The subnet on which the attestations (should have) arrived
       let subnet_id = compute_subnet_for_attestation(
-        committees_per_slot, signedAP.message.aggregate.data.slot,
-        signedAP.message.aggregate.data.index.CommitteeIndex)
+        committees_per_slot, slot, data.committee_index)
       notice "Aggregated attestation sent",
         attestation = shortLog(signedAP.message.aggregate),
         aggregator_index = signedAP.message.aggregator_index,
         signature = shortLog(signedAP.signature),
-        validator = shortLog(curr[0].v),
+        validator = shortLog(data.v),
         subnet_id
 
 proc updateValidatorMetrics*(node: BeaconNode) =
@@ -1145,28 +1142,35 @@ proc sendAttestation*(node: BeaconNode,
                       attestation: Attestation): Future[SendResult] {.async.} =
   # REST/JSON-RPC API helper procedure.
   let
-    blck =
+    target =
       block:
-        let res = node.dag.getRef(attestation.data.beacon_block_root)
+        let res = node.dag.getRef(attestation.data.target.root)
         if isNil(res):
-          notice "Attempt to send attestation for unknown block",
+          notice "Attempt to send attestation for unknown target",
                 attestation = shortLog(attestation)
           return SendResult.err(
             "Attempt to send attestation for unknown block")
         res
     epochRef = block:
       let tmp = node.dag.getEpochRef(
-        blck, attestation.data.target.epoch, false)
+        target, attestation.data.target.epoch, false)
       if tmp.isErr(): # Shouldn't happen
         warn "Cannot construct EpochRef for attestation, skipping send - report bug",
-          blck = shortLog(blck),
+          target = shortLog(target),
           attestation = shortLog(attestation)
         return
       tmp.get()
+    committee_index = block:
+      let v = epochRef.get_committee_index(attestation.data.index)
+      if v.isErr():
+        notice "Invalid committee index in attestation",
+          attestation = shortLog(attestation)
+        return SendResult.err("Invalid committee index in attestation")
+      v.get()
 
     subnet_id = compute_subnet_for_attestation(
       get_committee_count_per_slot(epochRef), attestation.data.slot,
-      attestation.data.index.CommitteeIndex)
+      committee_index)
     res = await node.sendAttestation(attestation, subnet_id,
                                      checkSignature = true)
   if not res.isOk():
@@ -1322,16 +1326,15 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
       fork = node.dag.forkAtEpoch(slot.epoch)
       committees_per_slot = get_committee_count_per_slot(epochRef)
 
-    for committee_index in 0'u64..<committees_per_slot:
-      let committee = get_beacon_committee(
-        epochRef, slot, committee_index.CommitteeIndex)
+    for committee_index in get_committee_indices(committees_per_slot):
+      let committee = get_beacon_committee(epochRef, slot, committee_index)
 
-      for index_in_committee, validatorIdx in committee:
-        let validator = node.getAttachedValidator(epochRef, validatorIdx)
+      for index_in_committee, validator_index in committee:
+        let validator = node.getAttachedValidator(epochRef, validator_index)
         if validator != nil:
           let
             subnet_id = compute_subnet_for_attestation(
-              committees_per_slot, slot, committee_index.CommitteeIndex)
+              committees_per_slot, slot, committee_index)
           let slotSigRes = await getSlotSig(validator, fork,
                                             genesis_validators_root, slot)
           if slotSigRes.isErr():
@@ -1341,4 +1344,4 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
             continue
           let isAggregator = is_aggregator(committee.lenu64, slotSigRes.get())
 
-          node.registerDuty(slot, subnet_id, validatorIdx, isAggregator)
+          node.registerDuty(slot, subnet_id, validator_index, isAggregator)

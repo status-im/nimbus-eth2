@@ -469,14 +469,18 @@ proc readValue*(reader: var JsonReader[RestJson],
 ## CommitteeIndex
 proc writeValue*(writer: var JsonWriter[RestJson], value: CommitteeIndex) {.
      raises: [IOError, Defect].} =
-  writeValue(writer, Base10.toString(uint64(value)))
+  writeValue(writer, Base10.toString(uint8(value)))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var CommitteeIndex) {.
      raises: [IOError, SerializationError, Defect].} =
   let svalue = reader.readValue(string)
   let res = Base10.decode(uint64, svalue)
   if res.isOk():
-    value = CommitteeIndex(res.get())
+    let committee_index = CommitteeIndex.init(res.get())
+    if committee_index.isOk():
+      value = committee_index.get()
+    else:
+      reader.raiseUnexpectedValue($committee_index.error())
   else:
     reader.raiseUnexpectedValue($res.error())
 
@@ -911,8 +915,9 @@ proc readValue*(reader: var JsonReader[RestJson],
      raises: [IOError, SerializationError, Defect].} =
   let res = Base10.decode(uint8, reader.readValue(string))
   if res.isOk():
-    if res.get() < SYNC_COMMITTEE_SUBNET_COUNT:
-      value = SyncSubcommitteeIndex(res.get())
+    let subcommittteeIdx = SyncSubcommitteeIndex.init(res.get())
+    if subcommittteeIdx.isOk():
+      value = subcommittteeIdx.get()
     else:
       reader.raiseUnexpectedValue("Sync sub-committee index out of rage")
   else:
@@ -1601,15 +1606,12 @@ proc decodeString*(t: typedesc[PeerID],
 proc decodeString*(t: typedesc[CommitteeIndex],
                    value: string): Result[CommitteeIndex, cstring] =
   let res = ? Base10.decode(uint64, value)
-  ok(CommitteeIndex(res))
+  CommitteeIndex.init(res)
 
 proc decodeString*(t: typedesc[SyncSubcommitteeIndex],
                    value: string): Result[SyncSubcommitteeIndex, cstring] =
-  let res = ? Base10.decode(uint8, value)
-  if res.get < SYNC_COMMITTEE_SUBNET_COUNT:
-    ok(CommitteeIndex(res))
-  else:
-    err("sync subcommittee index out of range")
+  let res = ? Base10.decode(uint64, value)
+  SyncSubcommitteeIndex.init(res)
 
 proc decodeString*(t: typedesc[Eth2Digest],
                    value: string): Result[Eth2Digest, cstring] =

@@ -54,7 +54,7 @@ suite "Gossip validation " & preset():
         defaultRuntimeConfig, state.data, getStateField(state.data, slot) + 1,
         cache, info, {})
 
-  test "Any committee index is valid":
+  test "Empty committee when no committee for slot":
     template committee(idx: uint64): untyped =
       get_beacon_committee(
         dag.headState.data, dag.head.slot, idx.CommitteeIndex, cache)
@@ -65,13 +65,11 @@ suite "Gossip validation " & preset():
 
     check:
       committee(0).len > 0
-      committee(10000).len == 0
-      committee(uint64.high).len == 0
+      committee(63).len == 0
 
     check:
       committeeLen(2) > 0
-      committeeLen(10000) == 0
-      committeeLen(uint64.high) == 0
+      committeeLen(63) == 0
 
   test "validateAttestation":
     var

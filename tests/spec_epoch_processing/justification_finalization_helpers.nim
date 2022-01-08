@@ -42,11 +42,9 @@ func addMockAttestations*(
     start_slot = compute_start_slot_at_epoch(epoch)
     committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
 
-  # for-loop of distinct type is broken: https://github.com/nim-lang/Nim/issues/12074
-  for slot in start_slot.uint64 ..< start_slot.uint64 + SLOTS_PER_EPOCH:
-    for index in 0'u64 ..< committees_per_slot:
-      let committee = get_beacon_committee(
-                        state, slot.Slot, index.CommitteeIndex, cache)
+  for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
+    for committee_index in get_committee_indices(committees_per_slot):
+      let committee = get_beacon_committee(state, slot, committee_index, cache)
 
       # Create a bitfield filled with the given count per attestation,
       # exactly on the right-most part of the committee field.
@@ -70,7 +68,7 @@ func addMockAttestations*(
         aggregation_bits: aggregation_bits,
         data: AttestationData(
           slot: slot.Slot,
-          index: index,
+          index: committee_index.uint64,
           beacon_block_root: [byte 0xFF] * 32, # Irrelevant for testing
           source: source,
           target: target,

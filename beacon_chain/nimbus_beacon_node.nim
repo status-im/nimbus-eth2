@@ -671,9 +671,8 @@ proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.network.unsubscribe(getAttesterSlashingsTopic(forkDigest))
   node.network.unsubscribe(getAggregateAndProofsTopic(forkDigest))
 
-  for subnet_id in 0'u64 ..< ATTESTATION_SUBNET_COUNT:
-    node.network.unsubscribe(
-      getAttestationTopic(forkDigest, SubnetId(subnet_id)))
+  for subnet_id in SubnetId:
+    node.network.unsubscribe(getAttestationTopic(forkDigest, subnet_id))
 
   node.actionTracker.subscribedSubnets = default(AttnetBits)
 
@@ -683,9 +682,9 @@ proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Sl
   var syncnets: SyncnetBits
 
   # TODO: What are the best topic params for this?
-  for committeeIdx in allSyncSubcommittees():
+  for subcommitteeIdx in SyncSubcommitteeIndex:
     closureScope:
-      let idx = committeeIdx
+      let idx = subcommitteeIdx
       # TODO This should be done in dynamic way in trackSyncCommitteeTopics
       node.network.subscribe(getSyncCommitteeTopic(forkDigest, idx), basicParams)
       syncnets.setBit(idx.asInt)
@@ -697,9 +696,9 @@ proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Sl
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
-  for committeeIdx in allSyncSubcommittees():
+  for subcommitteeIdx in SyncSubcommitteeIndex:
     closureScope:
-      let idx = committeeIdx
+      let idx = subcommitteeIdx
       # TODO This should be done in dynamic way in trackSyncCommitteeTopics
       node.network.unsubscribe(getSyncCommitteeTopic(forkDigest, idx))
 
@@ -1031,9 +1030,9 @@ proc installMessageValidators(node: BeaconNode) =
         MsgSource.gossip, signedBlock)))
 
   template installPhase0Validators(digest: auto) =
-    for it in 0'u64 ..< ATTESTATION_SUBNET_COUNT.uint64:
+    for it in SubnetId:
       closureScope:
-        let subnet_id = SubnetId(it)
+        let subnet_id = it
         node.network.addAsyncValidator(
           getAttestationTopic(digest, subnet_id),
           # This proc needs to be within closureScope; don't lift out of loop.
@@ -1091,9 +1090,9 @@ proc installMessageValidators(node: BeaconNode) =
         MsgSource.gossip, signedBlock)))
 
   template installSyncCommitteeeValidators(digest: auto) =
-    for committeeIdx in allSyncSubcommittees():
+    for subcommitteeIdx in SyncSubcommitteeIndex:
       closureScope:
-        let idx = committeeIdx
+        let idx = subcommitteeIdx
         node.network.addAsyncValidator(
           getSyncCommitteeTopic(digest, idx),
           # This proc needs to be within closureScope; don't lift out of loop.

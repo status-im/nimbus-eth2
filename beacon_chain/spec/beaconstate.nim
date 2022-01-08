@@ -424,24 +424,24 @@ func get_attesting_indices*(state: ForkyBeaconState,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits,
                             cache: var StateCache): seq[ValidatorIndex] =
-  ## Return the set of attesting indices corresponding to ``data`` and ``bits``.
+  ## Return the set of attesting indices corresponding to ``data`` and ``bits``
+  ## or nothing if `data` is invalid
 
   var res: seq[ValidatorIndex]
   # Can't be an iterator due to https://github.com/nim-lang/Nim/issues/18188
-  if bits.lenu64 != get_beacon_committee_len(
-      state, data.slot, data.index.CommitteeIndex, cache):
-    trace "get_attesting_indices: inconsistent aggregation and committee length"
+  let committee_index = CommitteeIndex.init(data.index)
+  if committee_index.isErr() or bits.lenu64 != get_beacon_committee_len(
+      state, data.slot, committee_index.get(), cache):
+    trace "get_attesting_indices: invalid attestation data"
   else:
-    var i = 0
-    for index in get_beacon_committee(
-        state, data.slot, data.index.CommitteeIndex, cache):
-      if bits[i]:
-        res.add index
-      inc i
+    for index_in_committee, validator_index in get_beacon_committee(
+        state, data.slot, committee_index.get(), cache).pairs():
+      if bits[index_in_committee]:
+        res.add validator_index
 
   res
 
-proc get_attesting_indices*(state: ForkedHashedBeaconState;
+func get_attesting_indices*(state: ForkedHashedBeaconState;
                             data: AttestationData;
                             bits: CommitteeValidatorsBits;
                             cache: var StateCache): seq[ValidatorIndex] =
@@ -487,42 +487,45 @@ proc is_valid_indexed_attestation*(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#attestations
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 
-func check_attestation_slot_target*(data: AttestationData): Result[void, cstring] =
+func check_attestation_slot_target*(data: AttestationData): Result[Slot, cstring] =
   if not (data.target.epoch == compute_epoch_at_slot(data.slot)):
     return err("Target epoch doesn't match attestation slot")
 
-  ok()
+  ok(data.slot)
 
 func check_attestation_target_epoch(
-    data: AttestationData, current_epoch: Epoch): Result[void, cstring] =
+    data: AttestationData, current_epoch: Epoch): Result[Epoch, cstring] =
   if not (data.target.epoch == get_previous_epoch(current_epoch) or
       data.target.epoch == current_epoch):
     return err("Target epoch not current or previous epoch")
 
-  ok()
+  ok(data.target.epoch)
 
-func check_attestation_inclusion(data: AttestationData,
+func check_attestation_inclusion(attestation_slot: Slot,
                                  current_slot: Slot): Result[void, cstring] =
   # Check for overflow
   static:
     doAssert SLOTS_PER_EPOCH >= MIN_ATTESTATION_INCLUSION_DELAY
-  if data.slot + SLOTS_PER_EPOCH <= data.slot:
+  if attestation_slot + SLOTS_PER_EPOCH <= attestation_slot:
     return err("attestation data.slot overflow, malicious?")
 
-  if not (data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= current_slot):
+  if not (attestation_slot + MIN_ATTESTATION_INCLUSION_DELAY <= current_slot):
     return err("Attestation too new")
 
-  if not (current_slot <= data.slot + SLOTS_PER_EPOCH):
+  if not (current_slot <= attestation_slot + SLOTS_PER_EPOCH):
     return err("Attestation too old")
 
   ok()
 
-func check_attestation_index(
-    data: AttestationData, committees_per_slot: uint64): Result[void, cstring] =
-  if not (data.index < committees_per_slot):
-    return err("Data index exceeds committee count")
+func check_attestation_index*(
+    index, committees_per_slot: uint64):
+    Result[CommitteeIndex, cstring] =
+  CommitteeIndex.init(index, committees_per_slot)
 
-  ok()
+func check_attestation_index*(
+    data: AttestationData, committees_per_slot: uint64):
+    Result[CommitteeIndex, cstring] =
+  check_attestation_index(data.index, committees_per_slot)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(state: altair.BeaconState | bellatrix.BeaconState,
@@ -598,21 +601,21 @@ proc check_attestation*(
 
   let
     data = attestation.data
-
-  ? check_attestation_target_epoch(data, state.get_current_epoch())
-  ? check_attestation_slot_target(data)
-  ? check_attestation_inclusion(data, state.slot)
-  ? check_attestation_index(
+    epoch = ? check_attestation_target_epoch(data, state.get_current_epoch())
+    slot = ? check_attestation_slot_target(data)
+    committee_index = ? check_attestation_index(
       data,
-      get_committee_count_per_slot(state, data.target.epoch, cache))
+      get_committee_count_per_slot(state, epoch, cache))
+
+  ? check_attestation_inclusion(slot, state.slot)
 
   let committee_len = get_beacon_committee_len(
-    state, data.slot, data.index.CommitteeIndex, cache)
+    state, slot, committee_index, cache)
 
   if attestation.aggregation_bits.lenu64 != committee_len:
     return err("Inconsistent aggregation and committee length")
 
-  if data.target.epoch == get_current_epoch(state):
+  if epoch == get_current_epoch(state):
     if not (data.source == state.current_justified_checkpoint):
       return err("FFG data not matching current justified epoch")
   else:

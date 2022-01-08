@@ -169,13 +169,9 @@ func get_committee_count_per_slot*(state: ForkyBeaconState,
                                    epoch: Epoch,
                                    cache: var StateCache): uint64 =
   ## Return the number of committees at ``slot``.
-
   let
     active_validator_count = count_active_validators(state, epoch, cache)
-  result = get_committee_count_per_slot(active_validator_count)
-
-  # Otherwise, get_beacon_committee(...) cannot access some committees.
-  doAssert (SLOTS_PER_EPOCH * MAX_COMMITTEES_PER_SLOT) >= uint64(result)
+  get_committee_count_per_slot(active_validator_count)
 
 func get_committee_count_per_slot*(state: ForkedHashedBeaconState,
                                    epoch: Epoch,
@@ -183,16 +179,19 @@ func get_committee_count_per_slot*(state: ForkedHashedBeaconState,
   withState(state):
     get_committee_count_per_slot(state.data, epoch, cache)
 
-iterator committee_indices_per_slot*(state: ForkyBeaconState,
-                                     epoch: Epoch,
-                                     cache: var StateCache): CommitteeIndex =
-  for idx in 0'u64 ..< get_committee_count_per_slot(state, epoch, cache):
-    yield CommitteeIndex.verifiedValue(idx)
+iterator get_committee_indices*(committee_count_per_slot: uint64): CommitteeIndex =
+  for idx in 0'u64..<min(committee_count_per_slot, MAX_COMMITTEES_PER_SLOT):
+    let committee_index = CommitteeIndex.init(idx).expect("value clamped")
+    yield committee_index
 
-func get_committee_count_per_slot*(state: ForkyBeaconState,
-                                   slot: Slot,
-                                   cache: var StateCache): uint64 =
-  get_committee_count_per_slot(state, slot.compute_epoch_at_slot, cache)
+iterator get_committee_indices*(state: ForkyBeaconState | ForkedHashedBeaconState,
+                                epoch: Epoch,
+                                cache: var StateCache): CommitteeIndex =
+  let committee_count_per_slot =
+    get_committee_count_per_slot(state, epoch, cache)
+
+  for committee_index in get_committee_indices(committee_count_per_slot):
+    yield committee_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(current_epoch: Epoch): Epoch =
@@ -227,11 +226,13 @@ func compute_committee_slice*(
     0 .. -1
 
 iterator compute_committee*(shuffled_indices: seq[ValidatorIndex],
-    index: uint64, count: uint64): ValidatorIndex =
+    index: uint64, count: uint64): (int, ValidatorIndex) =
   let
     slice = compute_committee_slice(shuffled_indices.lenu64, index, count)
+  var idx = 0
   for i in slice:
-    yield shuffled_indices[i]
+    yield (idx, shuffled_indices[i])
+    idx += 1
 
 func compute_committee*(shuffled_indices: seq[ValidatorIndex],
     index: uint64, count: uint64): seq[ValidatorIndex] =
@@ -259,17 +260,17 @@ func compute_committee_len*(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#get_beacon_committee
 iterator get_beacon_committee*(
     state: ForkyBeaconState, slot: Slot, index: CommitteeIndex,
-    cache: var StateCache): ValidatorIndex =
+    cache: var StateCache): (int, ValidatorIndex) =
   ## Return the beacon committee at ``slot`` for ``index``.
   let
     epoch = compute_epoch_at_slot(slot)
     committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
-  for idx in compute_committee(
+  for index_in_committee, idx in compute_committee(
     cache.get_shuffled_active_validator_indices(state, epoch),
     (slot mod SLOTS_PER_EPOCH) * committees_per_slot +
       index.uint64,
     committees_per_slot * SLOTS_PER_EPOCH
-  ): yield idx
+  ): yield (index_in_committee, idx)
 
 func get_beacon_committee*(
     state: ForkyBeaconState, slot: Slot, index: CommitteeIndex,

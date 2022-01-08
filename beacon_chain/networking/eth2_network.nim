@@ -962,7 +962,7 @@ proc queryRandom*(
             peer = n.record.toURI(), exception = e.name, msg = e.msg
           continue
 
-      for i in allSyncSubcommittees():
+      for i in SyncSubcommitteeIndex:
         if wantedSyncnets[i] and syncnetsNode[i]:
           score += 10 # connecting to the right syncnet is urgent
 
@@ -2220,8 +2220,9 @@ proc broadcastBeaconBlock*(node: Eth2Node, forked: ForkedSignedBeaconBlock) =
   withBlck(forked): node.broadcastBeaconBlock(blck)
 
 proc broadcastSyncCommitteeMessage*(
-    node: Eth2Node, msg: SyncCommitteeMessage, committeeIdx: SyncSubcommitteeIndex) =
-  let topic = getSyncCommitteeTopic(node.forkDigests.altair, committeeIdx)
+    node: Eth2Node, msg: SyncCommitteeMessage,
+    subcommitteeIdx: SyncSubcommitteeIndex) =
+  let topic = getSyncCommitteeTopic(node.forkDigests.altair, subcommitteeIdx)
   node.broadcast(topic, msg)
 
 proc broadcastSignedContributionAndProof*(

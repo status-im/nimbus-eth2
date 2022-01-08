@@ -94,7 +94,7 @@ type
     committee_index*: CommitteeIndex
     committee_length*: uint64
     committees_at_slot*: uint64
-    validator_committee_index*: ValidatorIndex
+    validator_committee_index*: uint64
     slot*: Slot
 
   RestProposerDuty* = object

@@ -566,9 +566,9 @@ suite "Attestation pool processing" & preset():
         pruneAtFinalization(dag, pool[])
 
         attestations.setlen(0)
-        for index in 0'u64 ..< committees_per_slot:
+        for committee_index in get_committee_indices(committees_per_slot):
           let committee = get_beacon_committee(
-            state[].data, getStateField(state.data, slot), index.CommitteeIndex,
+            state[].data, getStateField(state.data, slot), committee_index,
             cache)
 
           # Create a bitfield filled with the given count per attestation,
@@ -581,7 +581,7 @@ suite "Attestation pool processing" & preset():
             aggregation_bits: aggregation_bits,
             data: makeAttestationData(
               state[].data, getStateField(state.data, slot),
-              index.CommitteeIndex, blockRef.get().root)
+              committee_index, blockRef.get().root)
             # signature: ValidatorSig()
           )
 

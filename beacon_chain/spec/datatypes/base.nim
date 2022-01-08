@@ -32,7 +32,7 @@ export
 
 import
   std/[macros, hashes, strutils, tables, typetraits],
-  stew/[assign2, byteutils],
+  stew/[assign2, byteutils, results],
   chronicles,
   chronos/timer,
   ssz_serialization/types as sszTypes,
@@ -40,7 +40,7 @@ import
   ".."/[crypto, digest, presets]
 
 export
-  timer, crypto, digest, sszTypes, presets
+  timer, crypto, digest, sszTypes, presets, results
 
 # Presently, we're reusing the data types from the serialization (uint64) in the
 # objects we pass around to the beacon chain logic, thus keeping the two
@@ -139,14 +139,25 @@ type
   # Nim seq constraints.
   ValidatorIndex* = distinct uint32
 
-  # Though in theory the committee index would fit in a uint8, it is not used
-  # in a way that would significantly benefit from the smaller type, thus we
-  # leave it at spec size
-  CommitteeIndex* = distinct uint64
+  CommitteeIndex* = distinct uint8
+    ## Index identifying a per-slot committee - depending on the active
+    ## validator count, there may be up to `MAX_COMMITTEES_PER_SLOT` committees
+    ## working in each slot.
+    ##
+    ## The `CommitteeIndex` type is constrained to values in the range
+    ## `[0, MAX_COMMITTEES_PER_SLOT)` during initialization - to find out if
+    ## a committee index is valid for a particular state, see
+    ## `check_attestation_index`.
+    ##
+    ## `CommitteeIndex` is not used in `datatypes` to allow reading invalid data
+    ## (validation happens on use instead, via `init`).
 
-  # The subnet id maps which gossip subscription to use to publish an
-  # attestation - it is distinct from the CommitteeIndex in particular
   SubnetId* = distinct uint8
+    ## The subnet id maps which gossip subscription to use to publish an
+    ## attestation - it is distinct from the CommitteeIndex in particular
+    ##
+    ## The `SubnetId` type is constrained to values in the range
+    ## `[0, ATTESTATION_SUBNET_COUNT)` during initialization.
 
   Gwei* = uint64
 
@@ -581,6 +592,60 @@ template ethTimeUnit(typ: type) {.dirty.} =
                  {.raises: [IOError, SerializationError, Defect].} =
     value = typ reader.readValue(uint64)
 
+template makeLimitedU64*(T: untyped, limit: uint64) =
+  # A "tigher" type is often used for T, but for the range check to be effective
+  # it must make sense..
+
+  static: doAssert limit <= distinctBase(T).high()
+  # Many `uint64` values in the spec have a more limited range of valid values
+  func init*(t: type T, value: uint64): Result[T, cstring] =
+    if value < limit:
+      ok(Result[T, cstring], T(value))
+    else:
+      err(Result[T, cstring], name(T) & " out of range")
+
+  iterator items*(t: type T): T =
+    for i in 0'u64..<limit:
+      yield T(i)
+
+  proc writeValue*(writer: var JsonWriter, value: T)
+                  {.raises: [IOError, Defect].} =
+    writeValue(writer, distinctBase value)
+
+  proc readValue*(reader: var JsonReader, value: var T)
+                {.raises: [IOError, SerializationError, Defect].} =
+    let v = T.init(reader.readValue(uint64))
+    if v.isSome():
+      value = v.get()
+    else:
+      raiseUnexpectedValue(reader, $v.error())
+
+  template `==`*(x, y: T): bool = distinctBase(x) == distinctBase(y)
+  template `==`*(x: T, y: uint64): bool = distinctBase(x) == y
+  template `==`*(x: uint64, y: T): bool = x == distinctBase(y)
+
+  template `<`*(x, y: T): bool = distinctBase(x) < distinctBase(y)
+  template `<`*(x: T, y: uint64): bool = distinctBase(x) < y
+  template `<`*(x: uint64, y: T): bool = x < distinctBase(y)
+
+  template hash*(x: T): Hash =
+    hash distinctBase(x)
+
+  template `$`*(x: T): string = $ distinctBase(x)
+
+  template asInt*(x: T): int = int(distinctBase(x))
+  template asUInt64*(x: T): uint64 = uint64(distinctBase(x))
+
+makeLimitedU64(CommitteeIndex, MAX_COMMITTEES_PER_SLOT)
+makeLimitedU64(SubnetId, ATTESTATION_SUBNET_COUNT)
+
+func init*(T: type CommitteeIndex, index, committees_per_slot: uint64):
+    Result[CommitteeIndex, cstring] =
+  if index < min(committees_per_slot, MAX_COMMITTEES_PER_SLOT):
+    ok(CommitteeIndex(index))
+  else:
+    err("Committee index out of range for epoch")
+
 proc writeValue*(writer: var JsonWriter, value: ValidatorIndex)
                 {.raises: [IOError, Defect].} =
   writeValue(writer, distinctBase value)
@@ -588,26 +653,6 @@ proc writeValue*(writer: var JsonWriter, value: ValidatorIndex)
 proc readValue*(reader: var JsonReader, value: var ValidatorIndex)
                {.raises: [IOError, SerializationError, Defect].} =
   value = ValidatorIndex reader.readValue(distinctBase ValidatorIndex)
-
-proc writeValue*(writer: var JsonWriter, value: CommitteeIndex)
-                {.raises: [IOError, Defect].} =
-  writeValue(writer, distinctBase value)
-
-proc readValue*(reader: var JsonReader, value: var CommitteeIndex)
-               {.raises: [IOError, SerializationError, Defect].} =
-  value = CommitteeIndex reader.readValue(distinctBase CommitteeIndex)
-
-proc writeValue*(writer: var JsonWriter, value: SubnetId)
-                {.raises: [IOError, Defect].} =
-  writeValue(writer, distinctBase value)
-
-proc readValue*(reader: var JsonReader, value: var SubnetId)
-               {.raises: [IOError, SerializationError, Defect].} =
-  let v = reader.readValue(distinctBase SubnetId)
-  if v > ATTESTATION_SUBNET_COUNT:
-    raiseUnexpectedValue(
-      reader, "Subnet id must be <= " & $ATTESTATION_SUBNET_COUNT)
-  value = SubnetId(v)
 
 template writeValue*(
     writer: var JsonWriter, value: Version | ForkDigest | DomainType) =
@@ -666,7 +711,7 @@ template `<`*(x, y: ValidatorIndex): bool =
 template hash*(x: ValidatorIndex): Hash =
   hash distinctBase(x)
 
-template `$`*(x: ValidatorIndex): auto =
+template `$`*(x: ValidatorIndex): string =
   $ distinctBase(x)
 
 template `==`*(x: uint64, y: ValidatorIndex): bool =
@@ -675,26 +720,8 @@ template `==`*(x: uint64, y: ValidatorIndex): bool =
 template `==`*(x: ValidatorIndex, y: uint64): bool =
   uint64(x) == y
 
-template `==`*(x, y: CommitteeIndex): bool =
-  distinctBase(x) == distinctBase(y)
-
-template `<`*(x, y: CommitteeIndex): bool =
-  distinctBase(x) < distinctBase(y)
-
-template hash*(x: CommitteeIndex): Hash =
-  hash distinctBase(x)
-
-template `$`*(x: CommitteeIndex): auto =
-  $ distinctBase(x)
-
-template `==`*(x, y: SubnetId): bool =
-  distinctBase(x) == distinctBase(y)
-
 template `==`*(x, y: JustificationBits): bool =
   distinctBase(x) == distinctBase(y)
-
-template `$`*(x: SubnetId): string =
-  $ distinctBase(x)
 
 func `as`*(d: DepositData, T: type DepositMessage): T =
   T(pubkey: d.pubkey,
