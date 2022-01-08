@@ -373,12 +373,6 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + default initialization of signatures                                                       OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
-## [Unit - Spec - Block processing] Attestations  [Preset: mainnet]
-```diff
-+ Valid attestation                                                                          OK
-+ Valid attestation from previous epoch                                                      OK
-```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## [Unit - Spec - Block processing] Deposits  [Preset: mainnet]
 ```diff
 + Deposit at MAX_EFFECTIVE_BALANCE balance (32 ETH)                                          OK
@@ -442,4 +436,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 238/240 Fail: 0/240 Skip: 2/240
+OK: 236/238 Fail: 0/238 Skip: 2/238

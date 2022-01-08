@@ -45,7 +45,6 @@ import # Unit test
 import # Refactor state transition unit tests
   # In mainnet these take 2 minutes and are empty TODOs
   ./spec_block_processing/test_process_deposits,
-  ./spec_block_processing/test_process_attestation,
   ./spec_epoch_processing/test_process_justification_and_finalization
 
 when not defined(i386):
