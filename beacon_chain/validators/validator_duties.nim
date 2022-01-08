@@ -918,8 +918,11 @@ proc sendAggregatedAttestations(
 
   await allFutures(slotSigs)
 
-  for data, fut in zip(slotSigsData, slotSigs).items():
-    let slotSig = fut.read()
+  doAssert slotSigsData.len == slotSigs.len
+  for i in 0..<slotSigs.len:
+    let
+      slotSig = slotSigs[i].read()
+      data = slotSigsData[i]
     if slotSig.isErr():
       error "Unable to create slot signature using remote signer",
             validator = shortLog(data.v),
