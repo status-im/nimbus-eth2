@@ -469,18 +469,16 @@ proc readValue*(reader: var JsonReader[RestJson],
 ## CommitteeIndex
 proc writeValue*(writer: var JsonWriter[RestJson], value: CommitteeIndex) {.
      raises: [IOError, Defect].} =
-  writeValue(writer, Base10.toString(uint8(value)))
+  writeValue(writer, value.asUInt64)
 
 proc readValue*(reader: var JsonReader[RestJson], value: var CommitteeIndex) {.
      raises: [IOError, SerializationError, Defect].} =
-  let svalue = reader.readValue(string)
-  let res = Base10.decode(uint64, svalue)
+  var v: uint64
+  reader.readValue(v)
+
+  let res = CommitteeIndex.init(v)
   if res.isOk():
-    let committee_index = CommitteeIndex.init(res.get())
-    if committee_index.isOk():
-      value = committee_index.get()
-    else:
-      reader.raiseUnexpectedValue($committee_index.error())
+    value = res.get()
   else:
     reader.raiseUnexpectedValue($res.error())
 
@@ -908,18 +906,17 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: SyncSubcommitteeIndex) {.
      raises: [IOError, Defect].} =
-  writeValue(writer, Base10.toString(uint8(value)))
+  writeValue(writer, value.asUInt64)
 
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var SyncSubcommitteeIndex) {.
      raises: [IOError, SerializationError, Defect].} =
-  let res = Base10.decode(uint8, reader.readValue(string))
+  var v: uint64
+  reader.readValue(v)
+
+  let res = SyncSubcommitteeIndex.init(v)
   if res.isOk():
-    let subcommittteeIdx = SyncSubcommitteeIndex.init(res.get())
-    if subcommittteeIdx.isOk():
-      value = subcommittteeIdx.get()
-    else:
-      reader.raiseUnexpectedValue("Sync sub-committee index out of rage")
+    value = res.get()
   else:
     reader.raiseUnexpectedValue($res.error())
 
