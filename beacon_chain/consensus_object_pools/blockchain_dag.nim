@@ -145,7 +145,7 @@ func init*(
           state.data.mergeData.data.latest_execution_payload_header !=
             ExecutionPayloadHeader()
     )
-    epochStart = epoch.compute_start_slot_at_epoch()
+    epochStart = epoch.start_slot()
 
   doAssert epochRef.key.blck != nil, "epochAncestor should not fail for state block"
 
@@ -278,10 +278,9 @@ func loadStateCache(
         if epochRef.isSome():
           cache.shuffled_active_validator_indices[epoch] =
             epochRef[].shuffled_active_validator_indices
-
+          let start_slot = epoch.start_slot()
           for i, idx in epochRef[].beacon_proposers:
-            cache.beacon_proposer_indices[
-              epoch.compute_start_slot_at_epoch + i] = idx
+            cache.beacon_proposer_indices[start_slot + i] = idx
 
   load(epoch)
 
@@ -311,7 +310,7 @@ func isStateCheckpoint(bs: BlockSlot): bool =
 
   # The tail block also counts as a state checkpoint!
   (bs.slot == bs.blck.slot and bs.blck.parent == nil) or
-  (bs.slot.isEpoch and bs.slot.epoch == (bs.blck.slot.epoch + 1))
+  (bs.slot.is_epoch and bs.slot.epoch == (bs.blck.slot.epoch + 1))
 
 proc getStateData(
     db: BeaconChainDB, cfg: RuntimeConfig, state: var StateData, bs: BlockSlot,
@@ -545,8 +544,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   let
     finalized_checkpoint =
       getStateField(dag.headState.data, finalized_checkpoint)
-    finalizedSlot = max(
-      finalized_checkpoint.epoch.compute_start_slot_at_epoch(), tailRef.slot)
+    finalizedSlot = max(finalized_checkpoint.epoch.start_slot(), tailRef.slot)
 
   dag.finalizedHead = headRef.atSlot(finalizedSlot)
 
@@ -1319,10 +1317,7 @@ proc updateHead*(
   let
     finalized_checkpoint =
       getStateField(dag.headState.data, finalized_checkpoint)
-    finalizedSlot = max(
-      finalized_checkpoint.epoch.compute_start_slot_at_epoch(),
-      dag.tail.slot)
-
+    finalizedSlot = max(finalized_checkpoint.epoch.start_slot(), dag.tail.slot)
     finalizedHead = newHead.atSlot(finalizedSlot)
 
   doAssert (not finalizedHead.blck.isNil),
@@ -1578,11 +1573,11 @@ proc getProposer*(
     dag: ChainDAGRef, head: BlockRef, slot: Slot): Option[ValidatorIndex] =
   let
     epochRef = block:
-      let tmp = dag.getEpochRef(head, slot.compute_epoch_at_slot(), false)
+      let tmp = dag.getEpochRef(head, slot.epoch(), false)
       if tmp.isErr():
         return none(ValidatorIndex)
       tmp.get()
-    slotInEpoch = slot - slot.compute_epoch_at_slot().compute_start_slot_at_epoch()
+    slotInEpoch = slot.since_epoch_start()
 
   let proposer = epochRef.beacon_proposers[slotInEpoch]
   if proposer.isSome():

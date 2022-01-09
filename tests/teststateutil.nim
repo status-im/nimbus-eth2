@@ -71,7 +71,7 @@ proc getTestStates*(
     cfg.MERGE_FORK_EPOCH = 1.Epoch
 
   for i, epoch in stateEpochs:
-    let slot = epoch.Epoch.compute_start_slot_at_epoch
+    let slot = epoch.Epoch.start_slot
     if getStateField(tmpState[], slot) < slot:
       doAssert process_slots(
         cfg, tmpState[], slot, cache, info, {})

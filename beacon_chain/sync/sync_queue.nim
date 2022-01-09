@@ -378,10 +378,10 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
   case sq.kind
   of SyncQueueKind.Forward:
     # Calculate the latest finalized epoch.
-    let finalizedEpoch = compute_epoch_at_slot(safeSlot)
+    let finalizedEpoch = epoch(safeSlot)
 
     # Calculate failure epoch.
-    let failEpoch = compute_epoch_at_slot(failSlot)
+    let failEpoch = epoch(failSlot)
 
     # Calculate exponential rewind point in number of epochs.
     let epochCount =
@@ -445,16 +445,15 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
         if sq.rewind.isNone():
           finalizedEpoch
         else:
-          compute_epoch_at_slot(sq.rewind.get().failSlot) -
-            sq.rewind.get().epochCount
-      compute_start_slot_at_epoch(rewindEpoch)
+          epoch(sq.rewind.get().failSlot) - sq.rewind.get().epochCount
+      rewindEpoch.start_slot()
     else:
       # Calculate the rewind epoch, which should not be less than the latest
       # finalized epoch.
       let rewindEpoch = failEpoch - epochCount
       # Update and save new rewind point in SyncQueue.
       sq.rewind = some(RewindPoint(failSlot: failSlot, epochCount: epochCount))
-      compute_start_slot_at_epoch(rewindEpoch)
+      rewindEpoch.start_slot()
   of SyncQueueKind.Backward:
     # While we perform backward sync, the only possible slot we could rewind is
     # latest stored block.

@@ -69,12 +69,12 @@ func compute_subnet_for_attestation*(
   # Note, this mimics expected Phase 1 behavior where attestations will be
   # mapped to their shard subnet.
   let
-    slots_since_epoch_start = slot mod SLOTS_PER_EPOCH
+    slots_since_epoch_start = slot.since_epoch_start()
     committees_since_epoch_start =
       committees_per_slot * slots_since_epoch_start
 
   SubnetId(
-    (committees_since_epoch_start + committee_index.uint64) mod
+    (committees_since_epoch_start + committee_index.asUInt64) mod
     ATTESTATION_SUBNET_COUNT)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/validator.md#broadcast-attestation

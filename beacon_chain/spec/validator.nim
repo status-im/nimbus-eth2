@@ -193,14 +193,6 @@ iterator get_committee_indices*(state: ForkyBeaconState | ForkedHashedBeaconStat
   for committee_index in get_committee_indices(committee_count_per_slot):
     yield committee_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#get_previous_epoch
-func get_previous_epoch*(current_epoch: Epoch): Epoch =
-  ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
-  if current_epoch == GENESIS_EPOCH:
-    current_epoch
-  else:
-    current_epoch - 1
-
 func get_previous_epoch*(state: ForkyBeaconState): Epoch =
   ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   # Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
@@ -263,7 +255,7 @@ iterator get_beacon_committee*(
     cache: var StateCache): (int, ValidatorIndex) =
   ## Return the beacon committee at ``slot`` for ``index``.
   let
-    epoch = compute_epoch_at_slot(slot)
+    epoch = epoch(slot)
     committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
   for index_in_committee, idx in compute_committee(
     cache.get_shuffled_active_validator_indices(state, epoch),
@@ -277,7 +269,7 @@ func get_beacon_committee*(
     cache: var StateCache): seq[ValidatorIndex] =
   ## Return the beacon committee at ``slot`` for ``index``.
   let
-    epoch = compute_epoch_at_slot(slot)
+    epoch = epoch(slot)
     committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
   compute_committee(
     cache.get_shuffled_active_validator_indices(state, epoch),
@@ -303,7 +295,7 @@ func get_beacon_committee_len*(
     cache: var StateCache): uint64 =
   # Return the number of members in the beacon committee at ``slot`` for ``index``.
   let
-    epoch = compute_epoch_at_slot(slot)
+    epoch = epoch(slot)
     committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
 
   compute_committee_len(
@@ -408,16 +400,15 @@ func get_beacon_proposer_index*(
       # active validator indices are kept in cache but sorting them takes
       # quite a while
       indices = get_active_validator_indices(state, epoch)
-      start = epoch.compute_start_slot_at_epoch()
 
     var res: Option[ValidatorIndex]
-    for i in 0..<SLOTS_PER_EPOCH:
-      buffer[32..39] = uint_to_bytes((start + i).uint64)
+    for epoch_slot in epoch.slots():
+      buffer[32..39] = uint_to_bytes(epoch_slot.asUInt64)
       let seed = eth2digest(buffer)
       let pi = compute_proposer_index(state, indices, seed)
-      if start + i == slot:
+      if epoch_slot == slot:
         res = pi
-      cache.beacon_proposer_indices[start + i] = pi
+      cache.beacon_proposer_indices[epoch_slot] = pi
 
     return res
 

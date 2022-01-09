@@ -194,7 +194,7 @@ proc blockValidator*(
     return errIgnore("Block before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - signedBlock.message.slot.toBeaconTime
+  let delay = wallTime - signedBlock.message.slot.start_beacon_time
 
   # Start of block processing - in reality, we have already gone through SSZ
   # decoding at this stage, which may be significant
@@ -213,7 +213,8 @@ proc blockValidator*(
 
     self.blockProcessor[].addBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
-      validationDur = self.getCurrentBeaconTime() - wallTime)
+      validationDur = nanoseconds(
+        (self.getCurrentBeaconTime() - wallTime).nanoseconds))
 
     # Validator monitor registration for blocks is done by the processor
     beacon_blocks_received.inc()
@@ -296,7 +297,7 @@ proc attestationValidator*(
     return errIgnore("Attestation before genesis")
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - attestation.data.slot.toBeaconTime
+  let delay = wallTime - attestation.data.slot.start_beacon_time
   debug "Attestation received", delay
 
   # Now proceed to validation
@@ -346,7 +347,7 @@ proc aggregateValidator*(
 
   # Potential under/overflows are fine; would just create odd logs
   let delay =
-    wallTime - signedAggregateAndProof.message.aggregate.data.slot.toBeaconTime
+    wallTime - signedAggregateAndProof.message.aggregate.data.slot.start_beacon_time
   debug "Aggregate received", delay
 
   let v =
@@ -467,7 +468,7 @@ proc syncCommitteeMessageValidator*(
     wallSlot
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - syncCommitteeMsg.slot.toBeaconTime
+  let delay = wallTime - syncCommitteeMsg.slot.start_beacon_time
   debug "Sync committee message received", delay
 
   # Now proceed to validation
@@ -513,7 +514,7 @@ proc contributionValidator*(
     wallSlot
 
   # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - contributionAndProof.message.contribution.slot.toBeaconTime
+  let delay = wallTime - contributionAndProof.message.contribution.slot.start_beacon_time
   debug "Contribution received", delay
 
   # Now proceed to validation

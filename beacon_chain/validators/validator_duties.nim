@@ -381,7 +381,7 @@ proc createAndSendAttestation(node: BeaconNode,
            validator.pubkey)
 
     let wallTime = node.beaconClock.now()
-    let deadline = attestationData.slot.toBeaconTime(attestationSlotOffset)
+    let deadline = attestationData.slot.attestation_deadline()
 
     let (delayStr, delaySecs) =
       if wallTime < deadline:
@@ -699,7 +699,7 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
 
     let
       wallTime = node.beaconClock.now()
-      deadline = msg.slot.toBeaconTime(syncCommitteeMessageSlotOffset)
+      deadline = msg.slot.start_beacon_time() + syncCommitteeMessageSlotOffset
 
     let (delayStr, delaySecs) =
       if wallTime < deadline:
@@ -1067,8 +1067,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   let
     # The latest point in time when we'll be sending out attestations
-    attestationCutoffTime = slot.toBeaconTime(attestationSlotOffset)
-    attestationCutoff = node.beaconClock.fromNow(attestationCutoffTime)
+    attestationCutoff = node.beaconClock.fromNow(slot.attestation_deadline())
 
   if attestationCutoff.inFuture:
     debug "Waiting to send attestations",
@@ -1096,7 +1095,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       let
         afterBlockTime = node.beaconClock.now() + millis(afterBlockDelay)
         afterBlockCutoff = node.beaconClock.fromNow(
-          min(afterBlockTime, attestationCutoffTime + millis(afterBlockDelay)))
+          min(afterBlockTime, slot.attestation_deadline() + millis(afterBlockDelay)))
 
       if afterBlockCutoff.inFuture:
         debug "Got block, waiting to send attestations",
@@ -1123,10 +1122,9 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   # of the way through the `slot`-that is,
   # `SECONDS_PER_SLOT * 2 / INTERVALS_PER_SLOT` seconds after the start of `slot`.
   if slot > 2:
-    static: doAssert aggregateSlotOffset == syncContributionSlotOffset
+    doAssert slot.aggregate_deadline() == slot.sync_contribution_deadline()
     let
-      aggregateCutoffTime = slot.toBeaconTime(aggregateSlotOffset)
-      aggregateCutoff = node.beaconClock.fromNow(aggregateCutoffTime)
+      aggregateCutoff = node.beaconClock.fromNow(slot.aggregate_deadline())
     if aggregateCutoff.inFuture:
       debug "Waiting to send aggregate attestations",
         aggregateCutoff = shortLog(aggregateCutoff.offset)
@@ -1181,7 +1179,7 @@ proc sendAttestation*(node: BeaconNode,
 
   let
     wallTime = node.processor.getCurrentBeaconTime()
-    deadline = attestation.data.slot.toBeaconTime(attestationSlotOffset)
+    deadline = attestation.data.slot.attestation_deadline()
     (delayStr, delaySecs) =
       if wallTime < deadline:
         ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))

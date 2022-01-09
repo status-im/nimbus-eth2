@@ -50,20 +50,20 @@ suite "Forked SSZ readers":
       testHashedBeaconState(merge.BeaconState, 0.Slot)
 
   test "load altair state":
-    testHashedBeaconState(altair.BeaconState, cfg.ALTAIR_FORK_EPOCH.compute_start_slot_at_epoch)
+    testHashedBeaconState(altair.BeaconState, cfg.ALTAIR_FORK_EPOCH.start_slot)
 
     expect(SszError):
-      testHashedBeaconState(phase0.BeaconState, cfg.ALTAIR_FORK_EPOCH.compute_start_slot_at_epoch)
+      testHashedBeaconState(phase0.BeaconState, cfg.ALTAIR_FORK_EPOCH.start_slot)
     expect(SszError):
-      testHashedBeaconState(merge.BeaconState, cfg.ALTAIR_FORK_EPOCH.compute_start_slot_at_epoch)
+      testHashedBeaconState(merge.BeaconState, cfg.ALTAIR_FORK_EPOCH.start_slot)
 
   test "load merge state":
-    testHashedBeaconState(merge.BeaconState, cfg.MERGE_FORK_EPOCH.compute_start_slot_at_epoch)
+    testHashedBeaconState(merge.BeaconState, cfg.MERGE_FORK_EPOCH.start_slot)
 
     expect(SszError):
-      testHashedBeaconState(phase0.BeaconState, cfg.MERGE_FORK_EPOCH.compute_start_slot_at_epoch)
+      testHashedBeaconState(phase0.BeaconState, cfg.MERGE_FORK_EPOCH.start_slot)
     expect(SszError):
-      testHashedBeaconState(altair.BeaconState, cfg.MERGE_FORK_EPOCH.compute_start_slot_at_epoch)
+      testHashedBeaconState(altair.BeaconState, cfg.MERGE_FORK_EPOCH.start_slot)
 
   test "should raise on unknown data":
     let
@@ -79,19 +79,19 @@ suite "Forked SSZ readers":
       testTrustedSignedBeaconBlock(merge.TrustedSignedBeaconBlock, 0.Slot)
 
   test "load altair block":
-    testTrustedSignedBeaconBlock(altair.TrustedSignedBeaconBlock, cfg.ALTAIR_FORK_EPOCH.compute_start_slot_at_epoch)
+    testTrustedSignedBeaconBlock(altair.TrustedSignedBeaconBlock, cfg.ALTAIR_FORK_EPOCH.start_slot)
     expect(SszError):
-      testTrustedSignedBeaconBlock(phase0.TrustedSignedBeaconBlock, cfg.ALTAIR_FORK_EPOCH.compute_start_slot_at_epoch)
+      testTrustedSignedBeaconBlock(phase0.TrustedSignedBeaconBlock, cfg.ALTAIR_FORK_EPOCH.start_slot)
     expect(SszError):
-      testTrustedSignedBeaconBlock(merge.TrustedSignedBeaconBlock, cfg.ALTAIR_FORK_EPOCH.compute_start_slot_at_epoch)
+      testTrustedSignedBeaconBlock(merge.TrustedSignedBeaconBlock, cfg.ALTAIR_FORK_EPOCH.start_slot)
 
   test "load merge block":
-    testTrustedSignedBeaconBlock(merge.TrustedSignedBeaconBlock, cfg.MERGE_FORK_EPOCH.compute_start_slot_at_epoch)
+    testTrustedSignedBeaconBlock(merge.TrustedSignedBeaconBlock, cfg.MERGE_FORK_EPOCH.start_slot)
 
     expect(SszError):
-      testTrustedSignedBeaconBlock(phase0.TrustedSignedBeaconBlock, cfg.MERGE_FORK_EPOCH.compute_start_slot_at_epoch)
+      testTrustedSignedBeaconBlock(phase0.TrustedSignedBeaconBlock, cfg.MERGE_FORK_EPOCH.start_slot)
     expect(SszError):
-      testTrustedSignedBeaconBlock(altair.TrustedSignedBeaconBlock, cfg.MERGE_FORK_EPOCH.compute_start_slot_at_epoch)
+      testTrustedSignedBeaconBlock(altair.TrustedSignedBeaconBlock, cfg.MERGE_FORK_EPOCH.start_slot)
 
   test "should raise on unknown data":
     let

@@ -41,7 +41,6 @@
 {.push raises: [Defect].}
 
 import
-  std/tables,
   chronicles,
   stew/results,
   metrics,
@@ -51,15 +50,12 @@ import
     beaconstate, eth2_merkleization, forks, helpers, signatures,
     state_transition_block, state_transition_epoch, validator]
 
-export extras, phase0, altair
-
-type Foo = phase0.SignedBeaconBlock | altair.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock | bellatrix.SigVerifiedSignedBeaconBlock | bellatrix.SignedBeaconBlock
+export extras, phase0, altair, bellatrix
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
     #state: ForkyBeaconState, signed_block: SomeSomeSignedBeaconBlock): bool =
-    state: ForkyBeaconState, signed_block: Foo): bool =
-    #state: ForkyBeaconState, signed_block: phase0.SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock): bool =
+    state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock): bool =
   let
     proposer_index = signed_block.message.proposer_index
   if proposer_index >= state.validators.lenu64:
@@ -153,12 +149,9 @@ func process_slot*(
 
 func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
   cache.shuffled_active_validator_indices.del epoch
-  let
-    start_slot = epoch.compute_start_slot_at_epoch
-    end_slot = (epoch + 1).compute_start_slot_at_epoch
 
-  for i in start_slot ..< end_slot:
-    cache.beacon_proposer_indices.del i
+  for slot in epoch.slots():
+    cache.beacon_proposer_indices.del slot
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot(
@@ -172,11 +165,11 @@ proc advance_slot(
 
   info.clear()
 
-  let is_epoch_transition = (state.slot + 1).isEpoch
+  let is_epoch_transition = (state.slot + 1).is_epoch
   if is_epoch_transition:
     # Note: Genesis epoch = 0, no need to test if before Genesis
     process_epoch(cfg, state, flags, cache, info)
-    clear_epoch_from_cache(cache, (state.slot + 1).compute_epoch_at_slot)
+    clear_epoch_from_cache(cache, (state.slot + 1).epoch)
 
   state.slot += 1
 
@@ -329,10 +322,7 @@ proc state_transition_block*(
 proc state_transition*(
     cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
-    signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
-                 phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock |
-                 altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
-                 bellatrix.SignedBeaconBlock,
+    signedBlock: SomeForkySignedBeaconBlock,
     cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags,
     rollback: RollbackForkedHashedProc): bool =
   ## Apply a block to the state, advancing the slot counter as necessary. The

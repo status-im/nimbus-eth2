@@ -10,7 +10,7 @@
 import
   std/math,
   chronos, chronicles,
-  ./spec/helpers
+  ./spec/beacon_time
 
 from times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
 
@@ -32,24 +32,7 @@ type
     #      https://ethresear.ch/t/network-adjusted-timestamps/4187
     genesis: Time
 
-  BeaconTime* = distinct Duration ## Nanoseconds from beacon genesis time
-
   GetBeaconTimeFn* = proc(): BeaconTime {.gcsafe, raises: [Defect].}
-
-const
-  # Offsets from the start of the slot to when the corresponding message should
-  # be sent
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/validator.md#attesting
-  attestationSlotOffset* = seconds(SECONDS_PER_SLOT.int) div INTERVALS_PER_SLOT
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/validator.md#broadcast-aggregate
-  aggregateSlotOffset* =
-    seconds(SECONDS_PER_SLOT.int) * 2 div INTERVALS_PER_SLOT
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#prepare-sync-committee-message
-  syncCommitteeMessageSlotOffset* =
-    seconds(SECONDS_PER_SLOT.int) div INTERVALS_PER_SLOT
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#broadcast-sync-committee-contribution
-  syncContributionSlotOffset* =
-    seconds(SECONDS_PER_SLOT.int) * 2 div INTERVALS_PER_SLOT
 
 proc init*(T: type BeaconClock, genesis_time: uint64): T =
   # ~290 billion years into the future
@@ -63,46 +46,11 @@ proc init*(T: type BeaconClock, genesis_time: uint64): T =
 
   T(genesis: unixGenesis - unixGenesisOffset)
 
-template `<`*(a, b: BeaconTime): bool =
-  Duration(a) < Duration(b)
-
-template `<=`*(a, b: BeaconTime): bool =
-  Duration(a) <= Duration(b)
-
-template `+`*(t: BeaconTime, offset: Duration): BeaconTime =
-  BeaconTime(Duration(t) + offset)
-
-template `-`*(t: BeaconTime, offset: Duration): BeaconTime =
-  BeaconTime(nanoseconds(nanoseconds(Duration(t)) - nanoseconds(offset)))
-
-template `-`*(a, b: BeaconTime): Duration =
-  nanoseconds(nanoseconds(Duration(a)) - nanoseconds(Duration(b)))
-
-func toSlot*(t: BeaconTime): tuple[afterGenesis: bool, slot: Slot] =
-  let ti = seconds(Duration(t))
-  if ti >= 0:
-    (true, Slot(uint64(ti) div SECONDS_PER_SLOT))
-  else:
-    (false, Slot(uint64(-ti) div SECONDS_PER_SLOT))
-
-func slotOrZero*(time: BeaconTime): Slot =
-  let exSlot = time.toSlot
-  if exSlot.afterGenesis: exSlot.slot
-  else: Slot(0)
-
 func toBeaconTime*(c: BeaconClock, t: Time): BeaconTime =
-  BeaconTime(nanoseconds(inNanoseconds(t - c.genesis)))
+  BeaconTime(ns_since_genesis: inNanoseconds(t - c.genesis))
 
 func toSlot*(c: BeaconClock, t: Time): tuple[afterGenesis: bool, slot: Slot] =
   c.toBeaconTime(t).toSlot()
-
-func toBeaconTime*(s: Slot, offset = Duration()): BeaconTime =
-  # BeaconTime/Duration stores nanoseconds, internally
-  const maxSlot = (not 0'u64 div 2 div SECONDS_PER_SLOT div 1_000_000_000).Slot
-  var slot = s
-  if slot > maxSlot:
-    slot = maxSlot
-  BeaconTime(seconds(int64(uint64(slot) * SECONDS_PER_SLOT)) + offset)
 
 proc now*(c: BeaconClock): BeaconTime =
   ## Current time, in slots - this may end up being less than GENESIS_SLOT(!)
@@ -111,12 +59,12 @@ proc now*(c: BeaconClock): BeaconTime =
 proc fromNow*(c: BeaconClock, t: BeaconTime): tuple[inFuture: bool, offset: Duration] =
   let now = c.now()
   if t > now:
-    (true, t - now)
+    (true, chronos.nanoseconds((t - now).nanoseconds))
   else:
-    (false, now - t)
+    (false, chronos.nanoseconds((now - t).nanoseconds))
 
 proc fromNow*(c: BeaconClock, slot: Slot): tuple[inFuture: bool, offset: Duration] =
-  c.fromNow(slot.toBeaconTime())
+  c.fromNow(slot.start_beacon_time())
 
 proc durationToNextSlot*(c: BeaconClock): Duration =
   let (afterGenesis, slot) = c.now().toSlot()
@@ -128,15 +76,16 @@ proc durationToNextSlot*(c: BeaconClock): Duration =
 proc durationToNextEpoch*(c: BeaconClock): Duration =
   let (afterGenesis, slot) = c.now().toSlot()
   if afterGenesis:
-    c.fromNow(compute_start_slot_at_epoch(slot.epoch() + 1'u64)).offset
+    c.fromNow((slot.epoch + 1).start_slot()).offset
   else:
-    c.fromNow(compute_start_slot_at_epoch(Epoch(0))).offset
+    c.fromNow(Epoch(0).start_slot()).offset
 
 func saturate*(d: tuple[inFuture: bool, offset: Duration]): Duration =
   if d.inFuture: d.offset else: seconds(0)
 
-proc addTimer*(fromNow: Duration, cb: CallbackFunc, udata: pointer = nil) =
-  discard setTimer(Moment.now() + fromNow, cb, udata)
+proc sleepAsync*(t: TimeDiff): Future[void] =
+  sleepAsync(chronos.nanoseconds(
+    if t.nanoseconds < 0: 0'i64 else: t.nanoseconds))
 
 func shortLog*(d: Duration): string =
   $d
@@ -153,8 +102,4 @@ func fromFloatSeconds*(T: type Duration, f: float): Duration =
   of fcSubnormal, fcZero, fcNegZero, fcNan, fcNegInf: ZeroDuration
   of fcInf: InfiniteDuration
 
-func `$`*(v: BeaconTime): string = $(Duration v)
-func shortLog*(v: BeaconTime): string = $(Duration v)
-
 chronicles.formatIt Duration: $it
-chronicles.formatIt BeaconTime: $(Duration it)

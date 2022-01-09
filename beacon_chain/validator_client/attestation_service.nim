@@ -56,7 +56,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
   debug "Sending attestation", attestation = shortLog(attestation),
         validator = shortLog(validator), validator_index = vindex,
         attestation_root = shortLog(attestationRoot),
-        delay = vc.getDelay(attestationSlotOffset)
+        delay = vc.getDelay(adata.slot.attestation_deadline())
 
   let res =
     try:
@@ -75,7 +75,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
             err_name = exc.name, err_msg = exc.msg
       return false
 
-  let delay = vc.getDelay(attestationSlotOffset)
+  let delay = vc.getDelay(adata.slot.attestation_deadline())
   if res:
     notice "Attestation published", attestation = shortLog(attestation),
                                     validator = shortLog(validator),
@@ -105,21 +105,20 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
       if res.isErr():
         error "Unable to sign aggregate and proof using remote signer",
               validator = shortLog(validator),
-              aggregationSlot = proof.aggregate.data.slot,
+              attestation = shortLog(proof.aggregate),
               error_msg = res.error()
         return false
       res.get()
   let signedProof = SignedAggregateAndProof(message: proof,
                                             signature: signature)
 
-  let aggregationSlot = proof.aggregate.data.slot
+  let slot = proof.aggregate.data.slot
   let vindex = validator.index.get()
 
   debug "Sending aggregated attestation",
         attestation = shortLog(signedProof.message.aggregate),
         validator = shortLog(validator), validator_index = vindex,
-        aggregationSlot = aggregationSlot,
-        delay = vc.getDelay(aggregateSlotOffset)
+        delay = vc.getDelay(slot.aggregate_deadline())
 
   let res =
     try:
@@ -128,15 +127,12 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
       error "Unable to publish aggregated attestation",
             attestation = shortLog(signedProof.message.aggregate),
             validator = shortLog(validator),
-            aggregationSlot = aggregationSlot,
             validator_index = vindex
       return false
     except CatchableError as exc:
       error "Unexpected error occured while publishing aggregated attestation",
             attestation = shortLog(signedProof.message.aggregate),
             validator = shortLog(validator),
-            aggregationSlot = aggregationSlot,
-            validator_index = vindex,
             err_name = exc.name, err_msg = exc.msg
       return false
 
@@ -144,12 +140,12 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
     notice "Aggregated attestation published",
            attestation = shortLog(signedProof.message.aggregate),
            validator = shortLog(validator),
-           aggregationSlot = aggregationSlot, validator_index = vindex
+           validator_index = vindex
   else:
     warn "Aggregated attestation was not accepted by beacon node",
          attestation = shortLog(signedProof.message.aggregate),
          validator = shortLog(validator),
-         aggregationSlot = aggregationSlot, validator_index = vindex
+         validator_index = vindex
   return res
 
 proc produceAndPublishAttestations*(service: AttestationServiceRef,
@@ -201,7 +197,7 @@ proc produceAndPublishAttestations*(service: AttestationServiceRef,
           inc(errored)
       (succeed, errored, failed)
 
-  let delay = vc.getDelay(attestationSlotOffset)
+  let delay = vc.getDelay(slot.attestation_deadline())
   debug "Attestation statistics", total = len(pendingAttestations),
          succeed = statistics[0], failed_to_deliver = statistics[1],
          not_accepted = statistics[2], delay = delay, slot = slot,
@@ -288,7 +284,7 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
             inc(errored)
         (succeed, errored, failed)
 
-    let delay = vc.getDelay(aggregateSlotOffset)
+    let delay = vc.getDelay(slot.aggregate_deadline())
     debug "Aggregated attestation statistics", total = len(pendingAggregates),
           succeed = statistics[0], failed_to_deliver = statistics[1],
           not_accepted = statistics[2], delay = delay, slot = slot,
@@ -307,7 +303,7 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
   let startTime = Moment.now()
   try:
     let timeout = attestationSlotOffset # 4.seconds in mainnet
-    await vc.waitForBlockPublished(slot).wait(timeout)
+    await vc.waitForBlockPublished(slot).wait(nanoseconds(timeout.nanoseconds))
     let dur = Moment.now() - startTime
     debug "Block proposal awaited", slot = slot, duration = dur
   except AsyncTimeoutError:
@@ -315,7 +311,7 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
     debug "Block was not produced in time", slot = slot, duration = dur
 
   block:
-    let delay = vc.getDelay(attestationSlotOffset)
+    let delay = vc.getDelay(slot.attestation_deadline())
     debug "Producing attestations", delay = delay, slot = slot,
                                     committee_index = committee_index,
                                     duties_count = len(duties)
@@ -340,7 +336,7 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
     await sleepAsync(aggregateTime)
 
   block:
-    let delay = vc.getDelay(aggregateSlotOffset)
+    let delay = vc.getDelay(slot.aggregate_deadline())
     debug "Producing aggregate and proofs", delay = delay
   await service.produceAndPublishAggregates(ad, duties)
 
@@ -364,8 +360,9 @@ proc mainLoop(service: AttestationServiceRef) {.async.} =
   service.state = ServiceState.Running
   try:
     while true:
-      let sleepTime = vc.beaconClock.durationToNextSlot() +
-                        attestationSlotOffset
+      let sleepTime =
+        attestationSlotOffset + vc.beaconClock.durationToNextSlot()
+
       let sres = vc.getCurrentSlot()
       if sres.isSome():
         let currentSlot = sres.get()

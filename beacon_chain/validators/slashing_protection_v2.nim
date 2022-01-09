@@ -1193,7 +1193,7 @@ proc pruneAfterFinalization*(
   ## slashing protection can fallback to the minimal / high-watermark protection mode.
 
   block: # Prune blocks
-    let finalizedSlot = compute_start_slot_at_epoch(finalizedEpoch)
+    let finalizedSlot = start_slot(finalizedEpoch)
     let status = db.sqlPruneAfterFinalizationBlocks
                    .exec(int64 finalizedSlot)
     doAssert status.isOk(),

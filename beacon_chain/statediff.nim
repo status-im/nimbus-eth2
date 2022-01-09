@@ -98,7 +98,7 @@ func getMutableValidatorStatuses(state: altair.BeaconState):
 
 func diffStates*(state0, state1: altair.BeaconState): BeaconStateDiff =
   doAssert state1.slot > state0.slot
-  doAssert state0.slot.isEpoch
+  doAssert state0.slot.is_epoch
   doAssert state1.slot == state0.slot + SLOTS_PER_EPOCH
   # TODO not here, but in dag, an isancestorof check
 
@@ -134,9 +134,9 @@ func diffStates*(state0, state1: altair.BeaconState): BeaconStateDiff =
     balances: state1.balances.data,
 
     # RANDAO mixes gets updated every block, in place
-    randao_mix: state1.randao_mixes[state0.slot.compute_epoch_at_slot.uint64 mod
+    randao_mix: state1.randao_mixes[state0.slot.epoch.uint64 mod
       EPOCHS_PER_HISTORICAL_VECTOR.uint64],
-    slashing: state1.slashings[state0.slot.compute_epoch_at_slot.uint64 mod
+    slashing: state1.slashings[state0.slot.epoch.uint64 mod
       EPOCHS_PER_HISTORICAL_VECTOR.uint64],
 
     previous_epoch_participation: state1.previous_epoch_participation.data,

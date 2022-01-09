@@ -589,13 +589,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       var res: seq[RestBeaconStatesCommittees]
       let qepoch =
         if vepoch.isNone:
-          compute_epoch_at_slot(getStateField(stateData.data, slot))
+          epoch(getStateField(stateData.data, slot))
         else:
           vepoch.get()
 
       if vslot.isNone():
-        let start_slot = qepoch.compute_start_slot_at_epoch()
-        for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
+        for slot in qepoch.slots():
           forSlot(slot, vindex, res)
       else:
         forSlot(vslot.get(), vindex, res)

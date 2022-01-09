@@ -138,22 +138,22 @@ type
     ## nature of gossip processing: in particular, old messages may reappear
     ## on the network and therefore be double-counted.
     attestations: int64
-    attestation_min_delay: Option[Duration]
+    attestation_min_delay: Option[TimeDiff]
     attestation_aggregate_inclusions: int64
     attestation_block_inclusions: int64
     attestation_min_block_inclusion_distance: Option[uint64]
 
     aggregates: int64
-    aggregate_min_delay: Option[Duration]
+    aggregate_min_delay: Option[TimeDiff]
 
     sync_committee_messages: int64
-    sync_committee_message_min_delay: Option[Duration]
+    sync_committee_message_min_delay: Option[TimeDiff]
 
     sync_signature_block_inclusions: int64
     sync_signature_contribution_inclusions: int64
 
     sync_contributions: int64
-    sync_contribution_min_delay: Option[Duration]
+    sync_contribution_min_delay: Option[TimeDiff]
 
     exits: int64
     proposer_slashings: int64
@@ -510,9 +510,6 @@ template withMonitor(self: var ValidatorMonitor, idx: uint64, body: untyped): un
 template withMonitor(self: var ValidatorMonitor, idx: ValidatorIndex, body: untyped): untyped =
   withMonitor(self, idx.uint64, body)
 
-proc delay(slot: Slot, time: BeaconTime, offset: Duration): Duration =
-  time - slot.toBeaconTime(offset)
-
 proc registerAttestation*(
     self: var ValidatorMonitor,
     src: MsgSource,
@@ -521,7 +518,7 @@ proc registerAttestation*(
     idx: ValidatorIndex) =
   let
     slot = attestation.data.slot
-    delay = delay(slot, seen_timestamp, attestationSlotOffset)
+    delay = seen_timestamp - slot.attestation_deadline()
 
   self.withMonitor(idx):
     let id = monitor.id
@@ -545,7 +542,7 @@ proc registerAggregate*(
     attesting_indices: openArray[ValidatorIndex]) =
   let
     slot = signed_aggregate_and_proof.message.aggregate.data.slot
-    delay = delay(slot, seen_timestamp, aggregateSlotOffset)
+    delay = seen_timestamp - slot.aggregate_deadline()
     aggregator_index = signed_aggregate_and_proof.message.aggregator_index
 
   self.withMonitor(aggregator_index):
@@ -610,7 +607,7 @@ proc registerBeaconBlock*(
     let
       id = monitor.id
       slot = blck.slot
-      delay = delay(slot, seen_timestamp, seconds(0))
+      delay = seen_timestamp - slot.block_deadline()
 
     validator_monitor_beacon_block_total.inc(1, [$src, metricId])
     validator_monitor_beacon_block_delay_seconds.observe(
@@ -628,7 +625,7 @@ proc registerSyncCommitteeMessage*(
     let
       id = monitor.id
       slot = sync_committee_message.slot
-      delay = delay(slot, seen_timestamp, syncCommitteeMessageSlotOffset)
+      delay = seen_timestamp - slot.sync_committee_message_deadline()
 
     validator_monitor_sync_committee_messages_total.inc(1, [$src, metricId])
     validator_monitor_sync_committee_messages_delay_seconds.observe(
@@ -651,7 +648,7 @@ proc registerSyncContribution*(
   let
     slot = sync_contribution.message.contribution.slot
     beacon_block_root = sync_contribution.message.contribution.beacon_block_root
-    delay = delay(slot, seen_timestamp, syncContributionSlotOffset)
+    delay = seen_timestamp - slot.sync_contribution_deadline()
 
   let aggregator_index = sync_contribution.message.aggregator_index
   self.withMonitor(aggregator_index):

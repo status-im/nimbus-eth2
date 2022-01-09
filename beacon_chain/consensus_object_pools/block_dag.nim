@@ -171,7 +171,7 @@ func atSlot*(bid: BlockId): BlockSlotId =
 
 func atEpochStart*(blck: BlockRef, epoch: Epoch): BlockSlot =
   ## Return the BlockSlot corresponding to the first slot in the given epoch
-  atSlot(blck, epoch.compute_start_slot_at_epoch())
+  atSlot(blck, epoch.start_slot())
 
 func atSlotEpoch*(blck: BlockRef, epoch: Epoch): BlockSlot =
   ## Return the last block that was included in the chain leading
@@ -181,8 +181,9 @@ func atSlotEpoch*(blck: BlockRef, epoch: Epoch): BlockSlot =
   if epoch == GENESIS_EPOCH:
     blck.atEpochStart(epoch)
   else:
-    let start = epoch.compute_start_slot_at_epoch()
-    let tmp = blck.atSlot(start - 1)
+    let
+      start = epoch.start_slot()
+      tmp = blck.atSlot(start - 1)
     if isNil(tmp.blck):
       BlockSlot()
     else:
@@ -215,7 +216,7 @@ func isProposed*(bsi: BlockSlotId): bool =
 func dependentBlock*(head, tail: BlockRef, epoch: Epoch): BlockRef =
   ## The block that determined the proposer shuffling in the given epoch
   let dependentSlot =
-    if epoch >= Epoch(1): epoch.compute_start_slot_at_epoch() - 1
+    if epoch >= Epoch(1): epoch.start_slot() - 1
     else: Slot(0)
   let res = head.atSlot(dependentSlot)
   if isNil(res.blck): tail

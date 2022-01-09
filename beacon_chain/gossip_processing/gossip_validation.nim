@@ -124,7 +124,7 @@ func check_beacon_and_target_block(
   # attestation.data.target.root
   # the sanity of target.epoch has been checked by check_attestation_slot_target
   let
-    target = blck.atSlot(compute_start_slot_at_epoch(data.target.epoch))
+    target = blck.atSlot(data.target.epoch.start_slot())
 
   if isNil(target.blck):
     # Shouldn't happen - we've checked that the target epoch is within range
@@ -319,8 +319,7 @@ proc validateBeaconBlock*(
   let
     finalized_checkpoint = getStateField(
       dag.headState.data, finalized_checkpoint)
-    ancestor = get_ancestor(
-      parent_ref, compute_start_slot_at_epoch(finalized_checkpoint.epoch))
+    ancestor = get_ancestor(parent_ref, finalized_checkpoint.epoch.start_slot)
 
   if ancestor.isNil:
     # This shouldn't happen: we should always be able to trace the parent back

@@ -81,7 +81,7 @@ suite "Gossip validation " & preset():
           epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(
-          epochRef, blckRef, signedBlock.message, blckRef.slot.toBeaconTime)
+          epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
 
       check: added.isOk()
       dag.updateHead(added[], quarantine[])
@@ -104,7 +104,7 @@ suite "Gossip validation " & preset():
         committees_per_slot,
         att_1_0.data.slot, att_1_0.data.index.CommitteeIndex)
 
-      beaconTime = att_1_0.data.slot.toBeaconTime()
+      beaconTime = att_1_0.data.slot.start_beacon_time()
 
     check:
       validateAttestation(pool, batchCrypto, att_1_0, beaconTime, subnet, true).waitFor().isOk
@@ -230,7 +230,7 @@ suite "Gossip validation - Extra": # Not based on preset config
       syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init())
       res = waitFor validateSyncCommitteeMessage(
         dag, batchCrypto, syncCommitteeMsgPool, msg, subcommitteeIdx,
-        slot.toBeaconTime(), true)
+        slot.start_beacon_time(), true)
       (positions, cookedSig) = res.get()
 
     syncCommitteeMsgPool[].addSyncCommitteeMessage(
@@ -264,4 +264,4 @@ suite "Gossip validation - Extra": # Not based on preset config
       # Same message twice should be ignored
       validateSyncCommitteeMessage(
         dag, batchCrypto, syncCommitteeMsgPool, msg, subcommitteeIdx,
-        state[].data.slot.toBeaconTime(), true).waitFor().isErr()
+        state[].data.slot.start_beacon_time(), true).waitFor().isErr()

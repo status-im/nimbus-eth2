@@ -660,7 +660,7 @@ suite "Slashing Protection DB" & preset():
       ).error.kind == DoubleProposal
 
       db.pruneAfterFinalization(
-        compute_epoch_at_slot(Slot 1000)
+        epoch(Slot 1000)
       )
 
       doAssert db.checkSlashableBlockProposal(
@@ -702,7 +702,7 @@ suite "Slashing Protection DB" & preset():
 
       # Pruning far in the future
       db.pruneAfterFinalization(
-        compute_epoch_at_slot(Slot 10000)
+        epoch(Slot 10000)
       )
 
       # Last block is still there
@@ -815,7 +815,7 @@ suite "Slashing Protection DB" & preset():
 
       # --------------------------------
       db.pruneAfterFinalization(
-        compute_epoch_at_slot(Slot 10000)
+        epoch(Slot 10000)
       )
       # --------------------------------
 

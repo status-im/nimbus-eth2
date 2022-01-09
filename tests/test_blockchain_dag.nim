@@ -49,7 +49,7 @@ suite "ChainDAG helpers":
     let
       farEpoch = Epoch(42)
       farTail = BlockRef(
-        bid: BlockId(slot: farEpoch.compute_start_slot_at_epoch() + 5))
+        bid: BlockId(slot: farEpoch.start_slot() + 5))
     check:
 
       not isNil(epochAncestor(farTail, farEpoch).blck)
@@ -172,7 +172,7 @@ suite "Block pool processing" & preset():
     # A fork forces the clearance state to a point where it cannot be advanced
     let
       nextEpoch = dag.head.slot.epoch + 1
-      nextEpochSlot = nextEpoch.compute_start_slot_at_epoch()
+      nextEpochSlot = nextEpoch.start_slot()
       stateCheckpoint = dag.head.parent.atSlot(nextEpochSlot).stateCheckpoint
 
     check:
@@ -282,7 +282,7 @@ suite "Block pool altair processing" & preset():
     # Advance to altair
     check:
       process_slots(
-        cfg, state[], cfg.ALTAIR_FORK_EPOCH.compute_start_slot_at_epoch(), cache,
+        cfg, state[], cfg.ALTAIR_FORK_EPOCH.start_slot(), cache,
         info, {})
 
       state[].kind == BeaconStateFork.Altair

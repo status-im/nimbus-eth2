@@ -37,17 +37,6 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#compute_epoch_at_slot
-func compute_epoch_at_slot*(slot: Slot|uint64): Epoch =
-  ## Return the epoch number at ``slot``.
-  (slot div SLOTS_PER_EPOCH).Epoch
-
-template epoch*(slot: Slot): Epoch =
-  compute_epoch_at_slot(slot)
-
-template isEpoch*(slot: Slot): bool =
-  (slot mod SLOTS_PER_EPOCH) == 0
-
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/ssz/merkle-proofs.md#generalized_index_sibling
 template generalized_index_sibling*(
     index: GeneralizedIndex): GeneralizedIndex =
@@ -352,18 +341,6 @@ func build_proof*(anchor: object, leaf_index: uint64,
   doAssert proof.len == log2trunc(leaf_index)
   build_proof_impl(anchor, leaf_index, proof)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#sync-committee
-template sync_committee_period*(epoch: Epoch): SyncCommitteePeriod =
-  (epoch div EPOCHS_PER_SYNC_COMMITTEE_PERIOD).SyncCommitteePeriod
-
-template sync_committee_period*(slot: Slot): SyncCommitteePeriod =
-  sync_committee_period(epoch(slot))
-
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#compute_start_slot_at_epoch
-func compute_start_slot_at_epoch*(epoch: Epoch): Slot =
-  ## Return the start slot of ``epoch``.
-  (epoch * SLOTS_PER_EPOCH).Slot
-
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#is_active_validator
 func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ## Check if ``validator`` is active
@@ -405,13 +382,12 @@ func get_active_validator_indices_len*(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: ForkyBeaconState): Epoch =
   ## Return the current epoch.
-  doAssert state.slot >= GENESIS_SLOT, $state.slot
-  compute_epoch_at_slot(state.slot)
+  state.slot.epoch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: ForkedHashedBeaconState): Epoch =
   ## Return the current epoch.
-  withState(state): state.data.slot.epoch
+  withState(state): get_current_epoch(state.data)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =

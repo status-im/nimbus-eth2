@@ -250,7 +250,7 @@ proc collectSignatureSets*(
   if not proposer_key.isSome():
     return err("collectSignatureSets: invalid proposer index")
 
-  let epoch = signed_block.message.slot.compute_epoch_at_slot()
+  let epoch = signed_block.message.slot.epoch()
 
   # 1. Block proposer
   # ----------------------------------------------------

@@ -63,14 +63,14 @@ suite "Beacon state" & preset():
     check:
       get_beacon_proposer_index(state[].phase0Data.data, cache, Slot 1).isSome()
       get_beacon_proposer_index(
-        state[].phase0Data.data, cache, Epoch(1).compute_start_slot_at_epoch()).isNone()
+        state[].phase0Data.data, cache, Epoch(1).start_slot()).isNone()
       get_beacon_proposer_index(
-        state[].phase0Data.data, cache, Epoch(2).compute_start_slot_at_epoch()).isNone()
+        state[].phase0Data.data, cache, Epoch(2).start_slot()).isNone()
 
     check:
-      process_slots(cfg, state[], Epoch(1).compute_start_slot_at_epoch(), cache, info, {})
+      process_slots(cfg, state[], Epoch(1).start_slot(), cache, info, {})
       get_beacon_proposer_index(state[].phase0Data.data, cache, Slot 1).isNone()
       get_beacon_proposer_index(
-        state[].phase0Data.data, cache, Epoch(1).compute_start_slot_at_epoch()).isSome()
+        state[].phase0Data.data, cache, Epoch(1).start_slot()).isSome()
       get_beacon_proposer_index(
-        state[].phase0Data.data, cache, Epoch(2).compute_start_slot_at_epoch()).isNone()
+        state[].phase0Data.data, cache, Epoch(2).start_slot()).isNone()

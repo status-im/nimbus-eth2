@@ -178,8 +178,7 @@ func getNextValidatorAction*(
       return FAR_FUTURE_SLOT
 
     for slotOffset in 0 ..< SLOTS_PER_EPOCH:
-      let nextActionSlot =
-        compute_start_slot_at_epoch(bitmapEpoch) + slotOffset
+      let nextActionSlot = start_slot(bitmapEpoch) + slotOffset
       if ((orderedActionSlots[i] and (1'u32 shl slotOffset)) != 0) and
           nextActionSlot > slot:
         return nextActionSlot
@@ -222,7 +221,7 @@ proc updateActions*(tracker: var ActionTracker, epochRef: EpochRef) =
   for (committeeIndex, subnet_id, slot) in
       get_committee_assignments(epochRef, validatorIndices):
 
-    doAssert compute_epoch_at_slot(slot) == epoch
+    doAssert epoch(slot) == epoch
 
     # Each get_committee_assignments() call here is on the next epoch. At any
     # given time, only care about two epochs, the current and next epoch. So,

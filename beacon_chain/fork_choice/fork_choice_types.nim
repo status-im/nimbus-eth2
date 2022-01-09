@@ -15,10 +15,7 @@ import
 
   chronicles,
   # Internal
-  ../beacon_clock,
-  ../spec/datatypes/base,
-  ../consensus_object_pools/block_pools_types
-
+  ../spec/datatypes/base
 # https://github.com/ethereum/consensus-specs/blob/v0.11.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost

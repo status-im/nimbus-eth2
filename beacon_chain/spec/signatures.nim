@@ -37,7 +37,7 @@ func compute_slot_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot
     ): Eth2Digest =
   let
-    epoch = compute_epoch_at_slot(slot)
+    epoch = epoch(slot)
     domain = get_domain(
       fork, DOMAIN_SELECTION_PROOF, epoch, genesis_validators_root)
   compute_signing_root(slot, domain)
@@ -88,7 +88,7 @@ func compute_block_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     blck: Eth2Digest | SomeSomeBeaconBlock | BeaconBlockHeader): Eth2Digest =
   let
-    epoch = compute_epoch_at_slot(slot)
+    epoch = epoch(slot)
     domain = get_domain(
       fork, DOMAIN_BEACON_PROPOSER, epoch, genesis_validators_root)
   compute_signing_root(blck, domain)
@@ -117,7 +117,7 @@ func compute_aggregate_and_proof_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     aggregate_and_proof: AggregateAndProof): Eth2Digest =
   let
-    epoch = compute_epoch_at_slot(aggregate_and_proof.aggregate.data.slot)
+    epoch = epoch(aggregate_and_proof.aggregate.data.slot)
     domain = get_domain(
       fork, DOMAIN_AGGREGATE_AND_PROOF, epoch, genesis_validators_root)
   compute_signing_root(aggregate_and_proof, domain)

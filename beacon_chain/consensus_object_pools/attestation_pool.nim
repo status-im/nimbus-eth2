@@ -139,7 +139,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
 
           withBlck(dag.get(blckRef).data):
             forkChoice.process_block(
-              dag, epochRef, blckRef, blck.message, blckRef.slot.toBeaconTime)
+              dag, epochRef, blckRef, blck.message, blckRef.slot.start_beacon_time)
 
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
@@ -459,11 +459,8 @@ func init(
 
   template update_attestation_pool_cache(
       epoch: Epoch, participation_bitmap: untyped) =
-    let
-      start_slot = epoch.compute_start_slot_at_epoch()
-
     for committee_index in get_committee_indices(state.data, epoch, cache):
-      for slot in start_slot..<start_slot + SLOTS_PER_EPOCH:
+      for slot in epoch.slots():
         let committee = get_beacon_committee(
             state.data, slot, committee_index, cache)
         var

@@ -152,8 +152,8 @@ func makeAttestationData*(
 
   let
     slot = bs.slot
-    current_epoch = slot.compute_epoch_at_slot()
-    epoch_boundary_slot = compute_start_slot_at_epoch(current_epoch)
+    current_epoch = slot.epoch()
+    epoch_boundary_slot = current_epoch.start_slot()
     epoch_boundary_block = bs.blck.atSlot(epoch_boundary_slot)
 
   doAssert current_epoch == epochRef.epoch
@@ -178,9 +178,8 @@ iterator get_committee_assignments*(
   let
     committees_per_slot = get_committee_count_per_slot(epochRef)
     epoch = epochRef.epoch
-    start_slot = compute_start_slot_at_epoch(epoch)
 
-  for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
+  for slot in epoch.slots():
     for committee_index in get_committee_indices(committees_per_slot):
       if anyIt(get_beacon_committee(epochRef, slot, committee_index), it in validator_indices):
         yield (

@@ -204,8 +204,7 @@ proc stepOnAttestation(
        time: BeaconTime): FcResult[void] =
   let epochRef =
     dag.getEpochRef(
-      dag.head, time.slotOrZero().compute_epoch_at_slot(),
-      false).expect("no pruning in test")
+      dag.head, time.slotOrZero().epoch(), false).expect("no pruning in test")
   let attesters = epochRef.get_attesting_indices(
     att.data.slot, CommitteeIndex(att.data.index), att.aggregation_bits)
   let status = fkChoice[].on_attestation(
@@ -225,7 +224,7 @@ proc stepChecks(
   doAssert checks.len >= 1, "No checks found"
   for check, val in checks:
     if check == "time":
-      doAssert time.Duration == val.getInt().seconds
+      doAssert time.ns_since_genesis == val.getInt().seconds.nanoseconds()
       doAssert fkChoice.checkpoints.time.slotOrZero == time.slotOrZero
     elif check == "head":
       let headRoot = fkChoice[].get_head(dag, time).get()
@@ -302,7 +301,7 @@ proc runTest(path: string, fork: BeaconBlockFork) =
   for step in steps:
     case step.kind
     of opOnTick:
-      time = step.tick.seconds.BeaconTime
+      time = BeaconTime(ns_since_genesis: step.tick.seconds.nanoseconds)
       doAssert stores.fkChoice.checkpoints.on_tick(time).isOk
     of opOnBlock:
       withBlck(step.blk):

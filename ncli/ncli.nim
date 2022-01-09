@@ -124,7 +124,7 @@ proc doSlots(conf: NcliConf) =
     cache = StateCache()
     info = ForkedEpochInfo()
   for i in 0'u64..<conf.slot:
-    let isEpoch = (getStateField(stateY[], slot) + 1).isEpoch
+    let isEpoch = (getStateField(stateY[], slot) + 1).is_epoch
     withTimer(timers[if isEpoch: tApplyEpochSlot else: tApplySlot]):
       doAssert process_slots(
         defaultRuntimeConfig, stateY[], getStateField(stateY[], slot) + 1,
