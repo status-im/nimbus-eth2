@@ -1,6 +1,13 @@
+# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
+
 import
   std/[os],
-
   stew/[assign2, base10],
   chronicles, chronos,
   ./sync/sync_manager,
@@ -8,8 +15,6 @@ import
   ./spec/eth2_apis/rest_beacon_client,
   ./spec/[beaconstate, eth2_merkleization, forks, presets, state_transition],
   "."/[beacon_clock, beacon_chain_db]
-
-{.push raises: [Defect].}
 
 type
   DbCache = object
@@ -22,7 +27,8 @@ const
 proc updateSlots(cache: var DbCache, root: Eth2Digest, slot: Slot) =
   # The slots mapping stores one linear block history - we construct it by
   # starting from a given root/slot and walking the known parents as far back
-  # as possible - this ensures that
+  # as possible which ensures that all blocks belong to the same history
+
   if cache.slots.len() < slot.int + 1:
     cache.slots.setLen(slot.int + 1)
 
@@ -57,14 +63,14 @@ proc update(cache: var DbCache, blck: ForkySignedBeaconBlock) =
   cache.updateSlots(blck.root, blck.message.slot)
 
 proc isKnown(cache: DbCache, slot: Slot): bool =
-  slot.int < cache.slots.len and cache.slots[slot.int].isSome()
+  slot < cache.slots.lenu64 and cache.slots[slot.int].isSome()
 
 proc doTrustedNodeSync*(
     cfg: RuntimeConfig, databaseDir: string, restUrl: string,
     blockId: string, backfill: bool,
     genesisState: ref ForkedHashedBeaconState = nil) {.async.} =
   notice "Starting trusted node sync",
-    databaseDir, restUrl, blockId
+    databaseDir, restUrl, blockId, backfill
 
   let
     db = BeaconChainDB.new(databaseDir, inMemory = false)
@@ -80,6 +86,7 @@ proc doTrustedNodeSync*(
         # over in this case
         error "Database missing head block summary - database too old or corrupt"
         quit 1
+
       let slot =  dbCache.summaries[dbHead.get()].slot
       dbCache.updateSlots(dbHead.get(), slot)
       slot
@@ -101,7 +108,7 @@ proc doTrustedNodeSync*(
         warn "Retrying download of block", slot, err = exc.msg
         client = RestClientRef.new(restUrl).get()
 
-    error "Unable to download block",
+    error "Unable to download block - backfill incomplete, but will resume when you start the beacon node",
       slot, error = lastError.msg, url = client.address
 
     quit 1
@@ -131,7 +138,8 @@ proc doTrustedNodeSync*(
 
       withState(genesisState[]):
         info "Writing genesis state",
-          stateRoot = shortLog(state.root)
+          stateRoot = shortLog(state.root),
+          genesis_validators_root = shortLog(state.data.genesis_validators_root)
 
         db.putStateRoot(state.latest_block_root(), state.data.slot, state.root)
         db.putState(state.root, state.data)
@@ -154,10 +162,11 @@ proc doTrustedNodeSync*(
       error "Unable to download genesis header",
         error = exc.msg, restUrl
       quit 1
+
   if genesisHeader.root != genesisRoot:
     error "Server genesis block root does not match local genesis",
-      localGenesis = shortLog(genesisRoot),
-      remoteGenesis = shortLog(genesisHeader.root)
+      localGenesisRoot = shortLog(genesisRoot),
+      remoteGenesisRoot = shortLog(genesisHeader.root)
     quit 1
 
   notice "Downloading checkpoint block", restUrl, blockId
@@ -191,7 +200,7 @@ proc doTrustedNodeSync*(
       checkpointSlot, checkpointRoot = shortLog(checkpointBlock.root), headSlot
     quit 1
 
-  if checkpointSlot.uint64 mod SLOTS_PER_EPOCH != 0:
+  if not checkpointSlot.is_epoch():
     # Else the ChainDAG logic might get messed up - this constraint could
     # potentially be avoided with appropriate refactoring
     error "Checkpoint block must fall on an epoch boundary",
@@ -205,7 +214,7 @@ proc doTrustedNodeSync*(
       dbCache.updateSlots(blck.root, blck.message.slot)
 
   else:
-    notice "Downloading checkpoint state", restUrl, blockId, checkpointSlot
+    notice "Downloading checkpoint state", restUrl, checkpointSlot
 
     let
       state = try:
@@ -220,6 +229,15 @@ proc doTrustedNodeSync*(
       quit 1
 
     withState(state[]):
+      let latest_block_root = state.latest_block_root
+
+      if latest_block_root != checkpointBlock.root:
+        error "Checkpoint state does not match checkpoint block, server error?",
+          blockRoot = shortLog(checkpointBlock.root),
+          blck = shortLog(checkpointBlock),
+          stateBlockRoot = shortLog(latest_block_root)
+        quit 1
+
       info "Writing checkpoint state",
         stateRoot = shortLog(state.root)
       db.putStateRoot(state.latest_block_root(), state.data.slot, state.root)
@@ -253,7 +271,7 @@ proc doTrustedNodeSync*(
   if missingSlots == 0:
     info "Database fully backfilled"
   elif backfill:
-    notice "Backfilling historical blocks",
+    notice "Downloading historical blocks - you can interrupt this process at any time and it automatically be completed when you start the beacon node",
       checkpointSlot, missingSlots
 
     var # Same averaging as SyncManager
@@ -262,6 +280,7 @@ proc doTrustedNodeSync*(
       avgSyncSpeed = 0.0
       stamp = SyncMoment.now(0)
 
+    # Download several blocks in parallel but process them serially
     var gets: array[8, Future[Option[ForkedSignedBeaconBlock]]]
     proc processBlock(fut: Future[Option[ForkedSignedBeaconBlock]], slot: Slot) {.async.} =
       processed += 1
@@ -278,7 +297,7 @@ proc doTrustedNodeSync*(
 
         var childSlot = blck.message.slot + 1
         while true:
-          if childSlot.int >= dbCache.slots.len():
+          if childSlot >= dbCache.slots.lenu64():
             error "Downloaded block does not match checkpoint history"
             quit 1
 
@@ -332,23 +351,24 @@ proc doTrustedNodeSync*(
     # Download blocks backwards from the checkpoint slot, skipping the ones we
     # already have in the database. We'll do a few downloads in parallel which
     # risks having some redundant downloads going on, but speeds things up
-    for i in 0..checkpointSlot.int64 + gets.len():
-      if not isNil(gets[i mod gets.len]):
-        await processBlock(gets[i mod gets.len], Slot(
-          gets.len().int64 + checkpointSlot.int64 - i))
-        gets[i mod gets.len] = nil
+    for i in 0'u64..<(checkpointSlot.uint64 + gets.lenu64()):
+      if not isNil(gets[int(i mod gets.lenu64)]):
+        await processBlock(
+          gets[int(i mod gets.lenu64)],
+          checkpointSlot + gets.lenu64() - uint64(i))
+        gets[int(i mod gets.lenu64)] = nil
 
-      if i < checkpointSlot.int64:
-        let slot = Slot(checkpointSlot.int64 - i)
+      if i < checkpointSlot:
+        let slot = checkpointSlot - i
         if dbCache.isKnown(slot):
           continue
 
-        gets[i mod gets.len] = downloadBlock(slot)
+        gets[int(i mod gets.lenu64)] = downloadBlock(slot)
   else:
     notice "Database initialized, historical blocks will be backfilled when starting the node",
       missingSlots
 
-  notice "Done, your beacon node is ready to serve you! Don't forget to check that you're on the canoncial chain by comparing the checkpoint root with other online sources. See https://nimbus.guide/trusted-node-sync.html for more infromation.",
+  notice "Done, your beacon node is ready to serve you! Don't forget to check that you're on the canoncial chain by comparing the checkpoint root with other online sources. See https://nimbus.guide/trusted-node-sync.html for more information.",
     checkpointRoot = checkpointBlock.root
 
 when isMainModule:

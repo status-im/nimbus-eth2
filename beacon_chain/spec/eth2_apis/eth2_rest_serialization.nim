@@ -795,6 +795,8 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect merge block format")
     value = ForkedSignedBeaconBlock.init(res.get())
+  withBlck(value):
+    blck.root = hash_tree_root(blck.message)
 
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: ForkedSignedBeaconBlock) {.

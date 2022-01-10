@@ -1927,10 +1927,20 @@ programMain:
   of BNStartUpCmd.web3: doWeb3Cmd(config)
   of BNStartUpCmd.slashingdb: doSlashingInterchange(config)
   of BNStartupCmd.trustedNodeSync:
-    # TODO use genesis state from metadata
+    let
+      network = loadEth2Network(config)
+      cfg = network.cfg
+      genesis =
+        if network.genesisData.len > 0:
+          newClone(readSszForkedHashedBeaconState(
+            cfg,
+            network.genesisData.toOpenArrayByte(0, network.genesisData.high())))
+        else: nil
+
     waitFor doTrustedNodeSync(
-      getRuntimeConfig(config.eth2Network),
+      cfg,
       config.databaseDir,
       config.trustedNodeUrl,
       config.blockId,
-      config.backfillBlocks)
+      config.backfillBlocks,
+      genesis)
