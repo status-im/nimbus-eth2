@@ -258,7 +258,7 @@ proc validateBeaconBlock*(
   # proposer for the slot, signed_beacon_block.message.slot.
   #
   # While this condition is similar to the proposer slashing condition at
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#proposer-slashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/validator.md#proposer-slashing
   # it's not identical, and this check does not address slashing:
   #
   # (1) The beacon blocks must be conflicting, i.e. different, for the same
@@ -712,7 +712,7 @@ proc validateAggregate*(
 
   return ok((attesting_indices, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attester_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
     pool: ExitPool, attester_slashing: AttesterSlashing):
     Result[void, ValidationError] =
@@ -735,7 +735,7 @@ proc validateAttesterSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#proposer_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/p2p-interface.md#proposer_slashing
 proc validateProposerSlashing*(
     pool: ExitPool, proposer_slashing: ProposerSlashing):
     Result[void, ValidationError] =
@@ -758,7 +758,7 @@ proc validateProposerSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/p2p-interface.md#voluntary_exit
 proc validateVoluntaryExit*(
     pool: ExitPool, signed_voluntary_exit: SignedVoluntaryExit):
     Result[void, ValidationError] =
