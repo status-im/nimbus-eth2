@@ -33,7 +33,7 @@ proc runTest(identifier: string) =
 
       var cfg = defaultRuntimeConfig
 
-      let upgradedState = upgrade_to_merge(cfg, preState[])
+      let upgradedState = upgrade_to_bellatrix(cfg, preState[])
       check: upgradedState[].hash_tree_root() == postState[].hash_tree_root()
       reportDiff(upgradedState, postState)
 

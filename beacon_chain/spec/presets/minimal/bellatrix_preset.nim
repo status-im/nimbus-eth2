@@ -1,5 +1,5 @@
 # Minimal preset - Merge
-# https://github.com/ethereum/consensus-specs/blob/v1.1.4/presets/minimal/merge.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.1.7/presets/minimal/merge.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------
