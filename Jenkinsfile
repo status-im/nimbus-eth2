@@ -94,18 +94,22 @@ def runStages() {
 parallel(
 	"Linux": {
 		throttle(['nimbus-eth2']) {
-			node("linux") {
-				withEnv(["NPROC=${sh(returnStdout: true, script: 'nproc').trim()}"]) {
-					runStages()
+			timeout(time: 3, unit: 'HOURS') {
+				node("linux") {
+					withEnv(["NPROC=${sh(returnStdout: true, script: 'nproc').trim()}"]) {
+						runStages()
+					}
 				}
 			}
 		}
 	},
 	"macOS": {
 		throttle(['nimbus-eth2']) {
-			node("macos && x86_64") {
-				withEnv(["NPROC=${sh(returnStdout: true, script: 'sysctl -n hw.logicalcpu').trim()}"]) {
-					runStages()
+			timeout(time: 3, unit: 'HOURS') {
+				node("macos && x86_64") {
+					withEnv(["NPROC=${sh(returnStdout: true, script: 'sysctl -n hw.logicalcpu').trim()}"]) {
+						runStages()
+					}
 				}
 			}
 		}
