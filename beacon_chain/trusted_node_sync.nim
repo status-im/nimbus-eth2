@@ -115,7 +115,7 @@ proc doTrustedNodeSync*(
 
   let
     dbGenesis = db.getGenesisBlock()
-    genesisRoot = if dbGenesis.isSome():
+    localGenesisRoot = if dbGenesis.isSome():
       dbGenesis.get()
     else:
       let genesisState = if genesisState != nil:
@@ -155,58 +155,90 @@ proc doTrustedNodeSync*(
         dbCache.update(blck.asSigned())
         blck.root
 
-  let genesisHeader =
-    try:
-      (await client.getBlockHeader(BlockIdent.init(BlockIdentType.Genesis))).data.data
+    remoteGenesisRoot = try:
+      (await client.getBlockRoot(
+        BlockIdent.init(BlockIdentType.Genesis))).data.data.root
     except CatchableError as exc:
-      error "Unable to download genesis header",
+      error "Unable to download genesis block root",
         error = exc.msg, restUrl
       quit 1
 
-  if genesisHeader.root != genesisRoot:
-    error "Server genesis block root does not match local genesis",
-      localGenesisRoot = shortLog(genesisRoot),
-      remoteGenesisRoot = shortLog(genesisHeader.root)
+  if remoteGenesisRoot != localGenesisRoot:
+    error "Server genesis block root does not match local genesis, is the server serving the same chain?",
+      localGenesisRoot = shortLog(localGenesisRoot),
+      remoteGenesisRoot = shortLog(remoteGenesisRoot)
     quit 1
 
   notice "Downloading checkpoint block", restUrl, blockId
-  let
-    checkpointBlock = block:
-      let blck =
-        try:
-          await client.getBlockV2(BlockIdent.decodeString(blockId).tryGet(), cfg)
-        except CatchableError as exc:
-          error "Unable to download checkpoint block",
-            error = exc.msg, restUrl
-          quit 1
 
-      if blck.isNone():
-        # TODO we could walk backwards in time here and get an earlier block
-        error "No block found at the given slot, try a different slot",
+  let checkpointBlock = block:
+    # Finding a checkpoint block is tricky: we need the block to fall on an
+    # epoch boundary and when making the first request, we don't know exactly
+    # what slot we'll get - to find it, we'll keep walking backwards for a
+    # reasonable number of tries
+    var
+      checkpointBlock: ForkedSignedBeaconBlock
+      id = BlockIdent.decodeString(blockId).valueOr:
+        error "Cannot decode checkpoint block id, must be a slot, hash, 'finalized' or 'head'",
           blockId
         quit 1
+      found = false
 
-      blck.get()
+    for i in 0..<10:
+      let blck = try:
+        await client.getBlockV2(id, cfg)
+      except CatchableError as exc:
+        error "Unable to download checkpoint block",
+          error = exc.msg, restUrl
+        quit 1
 
-    checkpointSlot = getForkedBlockField(checkpointBlock, slot)
+      if blck.isNone():
+        # Server returned 404 - no block was found at the given id, so we need
+        # to try an earlier slot - assuming we know of one!
+        if id.kind == BlockQueryKind.Slot:
+          let slot = id.slot
+          id = BlockIdent.init((id.slot.epoch() - 1).start_slot)
 
-  if checkpointSlot > headSlot:
-    # When the checkpoint is newer than the head, we run into trouble: the
-    # current backfill in ChainDAG does not support filling in arbitrary gaps.
-    # If we were to update the backfill pointer in this case, the ChainDAG
-    # backfiller would re-download the entire backfill history.
-    # For now, we'll abort and let the user choose what to do.
-    error "Checkpoint block is newer than head slot - start with a new database or use a checkpoint no more recent than the head",
-      checkpointSlot, checkpointRoot = shortLog(checkpointBlock.root), headSlot
-    quit 1
+          info "No block found at given slot, trying an earlier epoch",
+            slot, id
+          continue
+        else:
+          error "Cannot find a block at given block id, and cannot compute an earlier slot",
+            id, blockId
+          quit 1
 
-  if not checkpointSlot.is_epoch():
-    # Else the ChainDAG logic might get messed up - this constraint could
-    # potentially be avoided with appropriate refactoring
-    error "Checkpoint block must fall on an epoch boundary",
-      checkpointSlot, checkpointRoot = shortLog(checkpointBlock.root), headSlot
-    quit 1
+      checkpointBlock = blck.get()
 
+      let checkpointSlot = getForkedBlockField(checkpointBlock, slot)
+      if checkpointSlot > headSlot:
+        # When the checkpoint is newer than the head, we run into trouble: the
+        # current backfill in ChainDAG does not support filling in arbitrary gaps.
+        # If we were to update the backfill pointer in this case, the ChainDAG
+        # backfiller would re-download the entire backfill history.
+        # For now, we'll abort and let the user choose what to do.
+        error "Checkpoint block is newer than head slot - start with a new database or use a checkpoint no more recent than the head",
+          checkpointSlot, checkpointRoot = shortLog(checkpointBlock.root), headSlot
+        quit 1
+
+      if checkpointSlot.is_epoch():
+        found = true
+        break
+
+      id = BlockIdent.init((checkpointSlot.epoch() - 1).start_slot)
+
+      info "Downloaded checkpoint block does not fall on epoch boundary, trying an earlier epoch",
+        checkpointSlot, id
+
+    if not found:
+      # The ChainDAG requires that the tail falls on an epoch boundary, or it
+      # will be unable to load the corresponding state - this could be fixed, but
+      # for now, we ask the user to fix it instead
+      error "A checkpoint block from the first slot of an epoch could not be found with the given block id - pass an epoch slot with a block using the --block-id parameter",
+        blockId
+      quit 1
+    checkpointBlock
+
+  let checkpointSlot = getForkedBlockField(checkpointBlock, slot)
   if checkpointBlock.root in dbCache.summaries:
     notice "Checkpoint block is already known, skipping checkpoint state download"
 
