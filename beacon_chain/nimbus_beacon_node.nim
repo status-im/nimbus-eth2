@@ -538,7 +538,7 @@ proc init*(T: type BeaconNode,
 func verifyFinalization(node: BeaconNode, slot: Slot) =
   # Epoch must be >= 4 to check finalization
   const SETTLING_TIME_OFFSET = 1'u64
-  let epoch = slot.compute_epoch_at_slot()
+  let epoch = slot.epoch()
 
   # Don't static-assert this -- if this isn't called, don't require it
   doAssert SLOTS_PER_EPOCH > SETTLING_TIME_OFFSET
@@ -547,7 +547,7 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
   # during testing.
   if epoch >= 4 and slot mod SLOTS_PER_EPOCH > SETTLING_TIME_OFFSET:
     let finalizedEpoch =
-      node.dag.finalizedHead.slot.compute_epoch_at_slot()
+      node.dag.finalizedHead.slot.epoch()
     # Finalization rule 234, that has the most lag slots among the cases, sets
     # state.finalized_checkpoint = old_previous_justified_checkpoint.epoch + 3
     # and then state.slot gets incremented, to increase the maximum offset, if
@@ -824,7 +824,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
           .slashingProtection
           # pruning is only done if the DB is set to pruning mode.
           .pruneAfterFinalization(
-            node.dag.finalizedHead.slot.compute_epoch_at_slot()
+            node.dag.finalizedHead.slot.epoch()
           )
 
   # Delay part of pruning until latency critical duties are done.
@@ -899,7 +899,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # slot end since the nextActionWaitTime can be short
   let
     advanceCutoff = node.beaconClock.fromNow(
-      slot.toBeaconTime(chronos.seconds(int(SECONDS_PER_SLOT - 1))))
+      slot.start_beacon_time() + chronos.seconds(int(SECONDS_PER_SLOT - 1)))
   if advanceCutoff.inFuture:
     # We wait until there's only a second left before the next slot begins, then
     # we advance the clearance state to the next slot - this gives us a high
@@ -929,9 +929,8 @@ proc onSlotStart(
     wallSlot = wallTime.slotOrZero
     # If everything was working perfectly, the slot that we should be processing
     expectedSlot = lastSlot + 1
-    finalizedEpoch =
-      node.dag.finalizedHead.blck.slot.compute_epoch_at_slot()
-    delay = wallTime - expectedSlot.toBeaconTime()
+    finalizedEpoch = node.dag.finalizedHead.blck.slot.epoch()
+    delay = wallTime - expectedSlot.start_beacon_time()
 
   info "Slot start",
     slot = shortLog(wallSlot),
@@ -1205,14 +1204,14 @@ proc start*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   let
     head = node.dag.head
     finalizedHead = node.dag.finalizedHead
-    genesisTime = node.beaconClock.fromNow(toBeaconTime(Slot 0))
+    genesisTime = node.beaconClock.fromNow(start_beacon_time(Slot 0))
 
   notice "Starting beacon node",
     version = fullVersionStr,
     enr = node.network.announcedENR.toURI,
     peerId = $node.network.switch.peerInfo.peerId,
     timeSinceFinalization =
-      node.beaconClock.now() - finalizedHead.slot.toBeaconTime(),
+      node.beaconClock.now() - finalizedHead.slot.start_beacon_time(),
     head = shortLog(head),
     justified = shortLog(getStateField(
       node.dag.headState.data, current_justified_checkpoint)),
@@ -1284,7 +1283,7 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
     of "head_epoch":
       $(node.dag.head.slot.epoch)
     of "head_epoch_slot":
-      $(node.dag.head.slot mod SLOTS_PER_EPOCH)
+      $(node.dag.head.slot.since_epoch_start)
     of "head_slot":
       $(node.dag.head.slot)
 
@@ -1293,7 +1292,7 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
     of "justifed_epoch":
       $(justified.slot.epoch)
     of "justifed_epoch_slot":
-      $(justified.slot mod SLOTS_PER_EPOCH)
+      $(justified.slot.since_epoch_start)
     of "justifed_slot":
       $(justified.slot)
 
@@ -1302,7 +1301,7 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
     of "finalized_epoch":
       $(node.dag.finalizedHead.slot.epoch)
     of "finalized_epoch_slot":
-      $(node.dag.finalizedHead.slot mod SLOTS_PER_EPOCH)
+      $(node.dag.finalizedHead.slot.since_epoch_start)
     of "finalized_slot":
       $(node.dag.finalizedHead.slot)
 
@@ -1310,7 +1309,7 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
       $node.currentSlot.epoch
 
     of "epoch_slot":
-      $(node.currentSlot mod SLOTS_PER_EPOCH)
+      $(node.currentSlot.since_epoch_start)
 
     of "slot":
       $node.currentSlot

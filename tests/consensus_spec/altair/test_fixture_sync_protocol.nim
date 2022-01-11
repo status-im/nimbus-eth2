@@ -162,9 +162,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
     doAssert process_slots(
       cfg, forked[], Slot(UPDATE_TIMEOUT), cache, info, flags = {})
     let
-      snapshot_period =
-        compute_epoch_at_slot(store.optimistic_header.slot) div
-          EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+      snapshot_period = sync_committee_period(store.optimistic_header.slot)
       update_period = sync_committee_period(state.slot)
     check: snapshot_period + 1 == update_period
 
@@ -238,11 +236,8 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
     check: state.finalized_checkpoint.epoch == 3
     # Ensure that it's same period
     let
-      snapshot_period =
-        compute_epoch_at_slot(store.optimistic_header.slot) div
-          EPOCHS_PER_SYNC_COMMITTEE_PERIOD
-      update_period =
-        compute_epoch_at_slot(state.slot) div EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+      snapshot_period = sync_committee_period(store.optimistic_header.slot)
+      update_period = sync_committee_period(state.slot)
     check: snapshot_period == update_period
 
     # Updated sync_committee and finality
@@ -258,7 +253,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
         body_root: finalized_block.message.body.hash_tree_root())
     check:
       finalized_block_header.slot ==
-        compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
+        start_slot(state.finalized_checkpoint.epoch)
       finalized_block_header.hash_tree_root() ==
         state.finalized_checkpoint.root
     var finality_branch {.noinit.}:

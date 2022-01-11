@@ -91,7 +91,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
     let t =
       if (getStateField(state[], slot) > GENESIS_SLOT and
-        (getStateField(state[], slot) + 1).isEpoch): tEpoch
+        (getStateField(state[], slot) + 1).is_epoch): tEpoch
       else: tBlock
 
     withTimer(timers[t]):
@@ -158,7 +158,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
     flushFile(stdout)
 
-    if getStateField(state[], slot).isEpoch:
+    if getStateField(state[], slot).is_epoch:
       echo &" slot: {shortLog(getStateField(state[], slot))} ",
         &"epoch: {shortLog(state[].get_current_epoch())}"
 

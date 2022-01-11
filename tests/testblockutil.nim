@@ -157,13 +157,13 @@ func makeAttestationData*(
     beacon_block_root: Eth2Digest): AttestationData =
   let
     current_epoch = get_current_epoch(state)
-    start_slot = compute_start_slot_at_epoch(current_epoch)
+    start_slot = start_slot(current_epoch)
     epoch_boundary_block_root =
       if start_slot == state.slot: beacon_block_root
       else: get_block_root_at_slot(state, start_slot)
 
-  doAssert slot.compute_epoch_at_slot == current_epoch,
-    "Computed epoch was " & $slot.compute_epoch_at_slot &
+  doAssert slot.epoch == current_epoch,
+    "Computed epoch was " & $slot.epoch &
     "  while the state current_epoch was " & $current_epoch
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/validator.md#attestation-data
@@ -225,12 +225,12 @@ func makeAttestation*(
 func find_beacon_committee(
     state: ForkedHashedBeaconState, validator_index: ValidatorIndex,
     cache: var StateCache): auto =
-  let epoch = compute_epoch_at_slot(getStateField(state, slot))
+  let epoch = epoch(getStateField(state, slot))
   for epoch_committee_index in 0'u64 ..< get_committee_count_per_slot(
       state, epoch, cache) * SLOTS_PER_EPOCH:
     let
       slot = ((epoch_committee_index mod SLOTS_PER_EPOCH) +
-        epoch.compute_start_slot_at_epoch.uint64).Slot
+        epoch.start_slot.uint64).Slot
       index = CommitteeIndex(epoch_committee_index div SLOTS_PER_EPOCH)
       committee = get_beacon_committee(state, slot, index, cache)
     if validator_index in committee:
@@ -292,9 +292,7 @@ proc makeSyncAggregate(
     syncCommittee =
       withState(state):
         when stateFork >= BeaconStateFork.Altair:
-          const SLOTS_PER_PERIOD =
-            EPOCHS_PER_SYNC_COMMITTEE_PERIOD * SLOTS_PER_EPOCH
-          if (state.data.slot + 1) mod SLOTS_PER_PERIOD == 0:
+          if (state.data.slot + 1).is_sync_committee_period():
             state.data.next_sync_committee
           else:
             state.data.current_sync_committee

@@ -95,7 +95,7 @@ proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
   info "Initializing beacon clock",
        genesis_time = vc.beaconGenesis.genesis_time,
        current_slot = currentSlot, current_epoch = currentEpoch
-  let genesisTime = res.fromNow(toBeaconTime(Slot(0)))
+  let genesisTime = res.fromNow(start_beacon_time(Slot(0)))
   if genesisTime.inFuture:
     notice "Waiting for genesis", genesisIn = genesisTime.offset
     await sleepAsync(genesisTime.offset)
@@ -141,7 +141,7 @@ proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
   let
     # If everything was working perfectly, the slot that we should be processing
     expectedSlot = lastSlot + 1
-    delay = wallTime - expectedSlot.toBeaconTime()
+    delay = wallTime - expectedSlot.start_beacon_time()
 
   checkIfShouldStopAtEpoch(wallSlot.slot, vc.config.stopAtEpoch)
 

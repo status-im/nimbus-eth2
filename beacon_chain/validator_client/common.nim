@@ -113,7 +113,6 @@ type
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
   SlotDuration* = int64(SECONDS_PER_SLOT).seconds
-  EpochDuration* = int64(SLOTS_PER_EPOCH * SECONDS_PER_SLOT).seconds
   OneThirdDuration* = int64(SECONDS_PER_SLOT).seconds div INTERVALS_PER_SLOT
 
 proc `$`*(bn: BeaconNodeServerRef): string =
@@ -165,7 +164,7 @@ proc getCurrentSlot*(vc: ValidatorClientRef): Option[Slot] =
     wallSlot = wallTime.toSlot()
 
   if not(wallSlot.afterGenesis):
-    let checkGenesisTime = vc.beaconClock.fromNow(toBeaconTime(Slot(0)))
+    let checkGenesisTime = vc.beaconClock.fromNow(start_beacon_time(Slot(0)))
     warn "Jump in time detected, something wrong with wallclock",
          wall_time = wallTime, genesisIn = checkGenesisTime.offset
     none[Slot]()
@@ -186,45 +185,39 @@ proc getAttesterDutiesForSlot*(vc: ValidatorClientRef,
 
 proc getDurationToNextAttestation*(vc: ValidatorClientRef,
                                    slot: Slot): string =
-  var minimumDuration = InfiniteDuration
-  let currentSlotTime = Duration(slot.toBeaconTime())
+  var minSlot = FAR_FUTURE_SLOT
   let currentEpoch = slot.epoch()
   for epoch in [currentEpoch, currentEpoch + 1'u64]:
     for key, item in vc.attesters.pairs():
       let duty = item.duties.getOrDefault(epoch, DefaultDutyAndProof)
       if not(duty.isDefault()):
-        let dutySlotTime = Duration(duty.data.slot.toBeaconTime())
-        if dutySlotTime >= currentSlotTime:
-          let timeLeft = dutySlotTime - currentSlotTime
-          if timeLeft < minimumDuration:
-            minimumDuration = timeLeft
-    if minimumDuration != InfiniteDuration:
+        let dutySlotTime = duty.data.slot
+        if duty.data.slot < minSlot:
+          minSlot = duty.data.slot
+    if minSlot != FAR_FUTURE_SLOT:
       break
-  if minimumDuration == InfiniteDuration:
+
+  if minSlot == FAR_FUTURE_SLOT:
     "<unknown>"
   else:
-    $(minimumDuration + seconds(int64(SECONDS_PER_SLOT) div 3))
+    $(minSlot.attestation_deadline() - slot.start_beacon_time())
 
 proc getDurationToNextBlock*(vc: ValidatorClientRef, slot: Slot): string =
-  var minimumDuration = InfiniteDuration
-  var currentSlotTime = Duration(slot.toBeaconTime())
+  var minSlot = FAR_FUTURE_SLOT
   let currentEpoch = slot.epoch()
   for epoch in [currentEpoch, currentEpoch + 1'u64]:
     let data = vc.proposers.getOrDefault(epoch)
     if not(data.isDefault()):
       for item in data.duties:
         if item.duty.pubkey in vc.attachedValidators:
-          let proposalSlotTime = Duration(item.duty.slot.toBeaconTime())
-          if proposalSlotTime >= currentSlotTime:
-            let timeLeft = proposalSlotTime - currentSlotTime
-            if timeLeft < minimumDuration:
-              minimumDuration = timeLeft
-    if minimumDuration != InfiniteDuration:
+          if item.duty.slot < minSlot:
+            minSlot = item.duty.slot
+    if minSlot != FAR_FUTURE_SLOT:
       break
-  if minimumDuration == InfiniteDuration:
+  if minSlot == FAR_FUTURE_SLOT:
     "<unknown>"
   else:
-    $minimumDuration
+    $(minSlot.block_deadline() - slot.start_beacon_time())
 
 iterator attesterDutiesForEpoch*(vc: ValidatorClientRef,
                                  epoch: Epoch): DutyAndProof =
@@ -233,12 +226,8 @@ iterator attesterDutiesForEpoch*(vc: ValidatorClientRef,
     if not(isDefault(epochDuties)):
       yield epochDuties
 
-proc getDelay*(vc: ValidatorClientRef, instant: Duration): Duration =
-  let currentBeaconTime = vc.beaconClock.now()
-  let currentTime = Duration(currentBeaconTime)
-  let slotStartTime = currentBeaconTime.slotOrZero().toBeaconTime()
-  let idealTime = Duration(slotStartTime) + instant
-  currentTime - idealTime
+proc getDelay*(vc: ValidatorClientRef, deadline: BeaconTime): TimeDiff =
+  vc.beaconClock.now() - deadline
 
 proc getValidator*(vc: ValidatorClientRef,
                    key: ValidatorPubkey): Option[AttachedValidator] =

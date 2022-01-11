@@ -244,7 +244,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
   template processBlocks(blocks: auto) =
     for b in blocks.mitems():
       while getStateField(stateData[].data, slot) < b.message.slot:
-        let isEpoch = (getStateField(stateData[].data, slot) + 1).isEpoch()
+        let isEpoch = (getStateField(stateData[].data, slot) + 1).is_epoch()
         withTimer(timers[if isEpoch: tAdvanceEpoch else: tAdvanceSlot]):
           let ok = process_slots(
             dag.cfg, stateData[].data, getStateField(stateData[].data, slot) + 1, cache,
@@ -267,7 +267,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
           dbBenchmark.putBlock(b)
 
       withState(stateData[].data):
-        if state.data.slot.isEpoch and conf.storeStates:
+        if state.data.slot.is_epoch and conf.storeStates:
           if state.data.slot.epoch < 2:
             dbBenchmark.putState(state.root, state.data)
             dbBenchmark.checkpoint()
@@ -606,7 +606,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   proc processEpoch() =
     let
       prev_epoch_target_slot =
-        state[].data.get_previous_epoch().compute_start_slot_at_epoch()
+        state[].data.get_previous_epoch().start_slot()
       penultimate_epoch_end_slot =
         if prev_epoch_target_slot == 0: Slot(0)
         else: prev_epoch_target_slot - 1
@@ -669,7 +669,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
         dag.cfg, state[].data, nextSlot, cache, info, flags)
       doAssert ok, "Slot processing can't fail with correct inputs"
 
-      if getStateField(state[].data, slot).isEpoch():
+      if getStateField(state[].data, slot).is_epoch():
         processEpoch()
 
     if not state_transition_block(
@@ -684,7 +684,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
       info, {})
     doAssert ok, "Slot processing can't fail with correct inputs"
 
-    if getStateField(state[].data, slot).isEpoch():
+    if getStateField(state[].data, slot).is_epoch():
       processEpoch()
 
   echo "validator_index,attestation_hits,attestation_misses,head_attestation_hits,head_attestation_misses,target_attestation_hits,target_attestation_misses,delay_avg,first_slot_head_attester_when_first_slot_empty,first_slot_head_attester_when_first_slot_not_empty"
@@ -829,7 +829,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
     blck: phase0.TrustedSignedBeaconBlock
 
   let
-    start = minEpoch.compute_start_slot_at_epoch()
+    start = minEpoch.start_slot()
     ends = dag.finalizedHead.slot # Avoid dealing with changes
 
   if start > ends:
@@ -914,7 +914,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
       let ok = process_slots(cfg, state[].data, nextSlot, cache, info, flags)
       doAssert ok, "Slot processing can't fail with correct inputs"
 
-      if getStateField(state[].data, slot).isEpoch():
+      if getStateField(state[].data, slot).is_epoch():
         processEpoch()
 
     if not state_transition_block(
@@ -930,7 +930,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
       info, {})
     doAssert ok, "Slot processing can't fail with correct inputs"
 
-    if getStateField(state[].data, slot).isEpoch():
+    if getStateField(state[].data, slot).is_epoch():
       processEpoch()
 
   if inTxn:

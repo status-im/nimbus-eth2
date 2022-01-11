@@ -26,7 +26,7 @@ func apply_randao_reveal(state: ForkyBeaconState, blck: var ForkySignedBeaconBlo
   blck.message.body.randao_reveal = get_epoch_signature(
     state.fork,
     state.genesis_validators_root,
-    blck.message.slot.compute_epoch_at_slot,
+    blck.message.slot.epoch,
     privkey).toValidatorSig()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/tests/core/pyspec/eth2spec/test/helpers/block.py#L38-L54

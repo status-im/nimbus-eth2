@@ -137,7 +137,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
                 data: data,
                 aggregation_bits: aggregation_bits,
                 signature: sig.toValidatorSig()
-              ), [validator_index], sig, data.slot.toBeaconTime)
+              ), [validator_index], sig, data.slot.start_beacon_time)
     do:
       raiseAssert "withUpdatedState failed"
 
@@ -152,8 +152,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       syncCommittee = @(dag.syncCommitteeParticipants(slot + 1))
       genesis_validators_root = dag.genesisValidatorsRoot
       fork = dag.forkAtEpoch(slot.epoch)
-      messagesTime = slot.toBeaconTime(attestationSlotOffset)
-      contributionsTime = slot.toBeaconTime(syncContributionSlotOffset)
+      messagesTime = slot.attestation_deadline()
+      contributionsTime = slot.sync_contribution_deadline()
 
     var aggregators: seq[Aggregator]
 
@@ -311,7 +311,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             epochRef: EpochRef):
           # Callback add to fork choice if valid
           attPool.addForkChoice(
-            epochRef, blckRef, signedBlock.message, blckRef.slot.toBeaconTime)
+            epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
 
       blck() = added[]
       dag.updateHead(added[], quarantine[])
@@ -333,7 +333,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             epochRef: EpochRef):
           # Callback add to fork choice if valid
           attPool.addForkChoice(
-            epochRef, blckRef, signedBlock.message, blckRef.slot.toBeaconTime)
+            epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
 
       blck() = added[]
       dag.updateHead(added[], quarantine[])
@@ -355,7 +355,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             epochRef: EpochRef):
           # Callback add to fork choice if valid
           attPool.addForkChoice(
-            epochRef, blckRef, signedBlock.message, blckRef.slot.toBeaconTime)
+            epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
 
       blck() = added[]
       dag.updateHead(added[], quarantine[])
@@ -373,7 +373,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     let
       slot = Slot(i + 1)
       t =
-        if slot.isEpoch: tEpoch
+        if slot.is_epoch: tEpoch
         else: tBlock
       now = genesisTime + float(slot * SECONDS_PER_SLOT)
 
@@ -424,7 +424,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     if t == tEpoch:
       echo &". slot: {shortLog(slot)} ",
-        &"epoch: {shortLog(slot.compute_epoch_at_slot)}"
+        &"epoch: {shortLog(slot.epoch)}"
     else:
       write(stdout, ".")
       flushFile(stdout)

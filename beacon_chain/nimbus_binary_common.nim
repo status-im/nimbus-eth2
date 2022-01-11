@@ -188,28 +188,13 @@ template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
   {.pop.}
   config
 
-# TODO not sure if this belongs here but it doesn't belong in `beacon_clock.nim` either
-proc sleepToSlotOffset*(clock: BeaconClock, extra: chronos.Duration,
-                        slot: Slot, msg: static string): Future[bool] {.async.} =
-  let
-    fromNow = clock.fromNow(slot.toBeaconTime(extra))
-
-  if fromNow.inFuture:
-    trace msg,
-      slot = shortLog(slot),
-      fromNow = shortLog(fromNow.offset)
-
-    await sleepAsync(fromNow.offset)
-    return true
-  return false
-
 proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot, stopAtEpoch: uint64) =
   # Offset backwards slightly to allow this epoch's finalization check to occur
   if scheduledSlot > 3 and stopAtEpoch > 0'u64 and
-      (scheduledSlot - 3).compute_epoch_at_slot() >= stopAtEpoch:
+      (scheduledSlot - 3).epoch() >= stopAtEpoch:
     info "Stopping at pre-chosen epoch",
       chosenEpoch = stopAtEpoch,
-      epoch = scheduledSlot.compute_epoch_at_slot(),
+      epoch = scheduledSlot.epoch(),
       slot = scheduledSlot
 
     # Brute-force, but ensure it's reliable enough to run in CI.
@@ -229,7 +214,7 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
   var
     curSlot = startTime.slotOrZero()
     nextSlot = curSlot + 1 # No earlier than GENESIS_SLOT + 1
-    timeToNextSlot = nextSlot.toBeaconTime() - startTime
+    timeToNextSlot = nextSlot.start_beacon_time() - startTime
 
   info "Scheduling first slot action",
     startTime = shortLog(startTime),
@@ -268,7 +253,7 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
         wallSlot = shortLog(wallSlot)
 
       # cur & next slot remain the same
-      timeToNextSlot = nextSlot.toBeaconTime() - wallTime
+      timeToNextSlot = nextSlot.start_beacon_time() - wallTime
       continue
 
     if wallSlot > nextSlot + SLOTS_PER_EPOCH:
@@ -285,7 +270,7 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
 
     elif wallSlot > nextSlot:
         notice "Missed expected slot start, catching up",
-          delay = shortLog(wallTime - nextSlot.toBeaconTime()),
+          delay = shortLog(wallTime - nextSlot.start_beacon_time()),
           curSlot = shortLog(curSlot),
           nextSlot = shortLog(curSlot)
 
@@ -293,4 +278,4 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
 
     curSlot = wallSlot
     nextSlot = wallSlot + 1
-    timeToNextSlot = saturate(node.beaconClock.fromNow(nextSlot))
+    timeToNextSlot = nextSlot.start_beacon_time() - node.beaconClock.now()

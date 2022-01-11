@@ -352,7 +352,7 @@ func get_block_root_at_slot*(state: ForkedHashedBeaconState,
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#get_block_root
 func get_block_root*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the block root at the start of a recent ``epoch``.
-  get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
+  get_block_root_at_slot(state, epoch.start_slot())
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#get_total_balance
 template get_total_balance(
@@ -488,7 +488,7 @@ proc is_valid_indexed_attestation*(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 
 func check_attestation_slot_target*(data: AttestationData): Result[Slot, cstring] =
-  if not (data.target.epoch == compute_epoch_at_slot(data.slot)):
+  if not (data.target.epoch == epoch(data.slot)):
     return err("Target epoch doesn't match attestation slot")
 
   ok(data.slot)

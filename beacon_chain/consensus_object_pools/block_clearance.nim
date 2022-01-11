@@ -12,7 +12,6 @@ import
   chronicles,
   stew/[assign2, results],
   eth/keys,
-  ".."/[beacon_clock],
   ../spec/[
     eth2_merkleization, forks, helpers, signatures, signatures_batch,
     state_transition],
@@ -99,16 +98,8 @@ proc addResolvedHeadBlock(
 
   blockRef
 
-# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-type SomeSignedBlock =
-  phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
-  phase0.TrustedSignedBeaconBlock |
-  altair.SignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock |
-  altair.TrustedSignedBeaconBlock |
-  merge.SignedBeaconBlock | merge.SigVerifiedSignedBeaconBlock |
-  merge.TrustedSignedBeaconBlock
 proc checkStateTransition(
-       dag: ChainDAGRef, signedBlock: SomeSignedBlock,
+       dag: ChainDAGRef, signedBlock: SomeForkySignedBeaconBlock,
        cache: var StateCache): Result[void, BlockError] =
   ## Ensure block can be applied on a state
   func restore(v: var ForkedHashedBeaconState) =

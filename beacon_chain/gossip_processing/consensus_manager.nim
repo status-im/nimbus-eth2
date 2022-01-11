@@ -10,7 +10,6 @@
 import
   chronicles, chronos,
   ../spec/datatypes/base,
-  ../beacon_clock,
   ../consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool]
 
 # TODO: Move to "consensus_object_pools" folder
@@ -80,7 +79,7 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
   ## `pruneFinalized` must be called for pruning.
 
   # Grab the new head according to our latest attestation data
-  let newHead = self.attestationPool[].selectHead(wallSlot.toBeaconTime)
+  let newHead = self.attestationPool[].selectHead(wallSlot.start_beacon_time)
   if newHead.isNil():
     warn "Head selection failed, using previous head",
       head = shortLog(self.dag.head), wallSlot

@@ -79,9 +79,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
         let
           committees_per_slot = get_committee_count_per_slot(epochRef)
-          start_slot = qepoch.compute_start_slot_at_epoch()
         for committee_index in get_committee_indices(committees_per_slot):
-          for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
+          for slot in qepoch.slots():
             let committee = get_beacon_committee(epochRef, slot, committee_index)
             for index_in_committee, validator_index in committee:
               if validator_index in indexList:
@@ -143,7 +142,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               RestProposerDuty(
                 pubkey: epochRef.validatorKey(bp.get()).get().toPubKey(),
                 validator_index: bp.get(),
-                slot: compute_start_slot_at_epoch(qepoch) + i
+                slot: qepoch.start_slot() + i
               )
             )
         res

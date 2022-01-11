@@ -25,22 +25,18 @@
 {.push raises: [Defect].}
 
 import
-  json_serialization
-
-export
-  json_serialization
-
-import
   std/[macros, hashes, strutils, tables, typetraits],
   stew/[assign2, byteutils, results],
   chronicles,
+  json_serialization,
   chronos/timer,
   ssz_serialization/types as sszTypes,
   ../../version,
-  ".."/[crypto, digest, presets]
+  ".."/[beacon_time, crypto, digest, presets]
 
 export
-  timer, crypto, digest, sszTypes, presets, results
+  tables, results, json_serialization, timer, sszTypes, beacon_time, crypto,
+  digest, presets
 
 # Presently, we're reusing the data types from the serialization (uint64) in the
 # objects we pass around to the beacon chain logic, thus keeping the two
@@ -61,14 +57,9 @@ const SPEC_VERSION* = "1.1.8"
 ## Spec version we're aiming to be compatible with, right now
 
 const
-  GENESIS_SLOT* = Slot(0)
-  GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
-  ## compute_epoch_at_slot(GENESIS_SLOT)
-
   # Not part of spec. Still useful, pending removing usage if appropriate.
   ZERO_HASH* = Eth2Digest()
   MAX_GRAFFITI_SIZE* = 32
-  FAR_FUTURE_SLOT* = (not 0'u64).Slot
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/p2p-interface.md#configuration
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
@@ -81,9 +72,6 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/validator.md#misc
   ATTESTATION_SUBNET_COUNT* = 64
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/fork-choice.md#constant
-  INTERVALS_PER_SLOT* = 3
 
 template maxSize*(n: int) {.pragma.}
 
@@ -547,51 +535,6 @@ func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
     pubkey: cookedKey.get(),
     withdrawal_credentials: validator.withdrawal_credentials)
 
-# TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
-# switch proc {.noSideEffect.} to func.
-template ethTimeUnit(typ: type) {.dirty.} =
-  proc `+`*(x: typ, y: uint64): typ {.borrow, noSideEffect.}
-  proc `-`*(x: typ, y: uint64): typ {.borrow, noSideEffect.}
-  proc `-`*(x: uint64, y: typ): typ {.borrow, noSideEffect.}
-
-  # Not closed over type in question (Slot or Epoch)
-  proc `mod`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
-  proc `div`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
-  proc `div`*(x: uint64, y: typ): uint64 {.borrow, noSideEffect.}
-  proc `-`*(x: typ, y: typ): uint64 {.borrow, noSideEffect.}
-
-  proc `*`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
-
-  proc `+=`*(x: var typ, y: typ) {.borrow, noSideEffect.}
-  proc `+=`*(x: var typ, y: uint64) {.borrow, noSideEffect.}
-  proc `-=`*(x: var typ, y: typ) {.borrow, noSideEffect.}
-  proc `-=`*(x: var typ, y: uint64) {.borrow, noSideEffect.}
-
-  # Comparison operators
-  proc `<`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
-  proc `<`*(x: typ, y: uint64): bool {.borrow, noSideEffect.}
-  proc `<`*(x: uint64, y: typ): bool {.borrow, noSideEffect.}
-  proc `<=`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
-  proc `<=`*(x: typ, y: uint64): bool {.borrow, noSideEffect.}
-  proc `<=`*(x: uint64, y: typ): bool {.borrow, noSideEffect.}
-
-  proc `==`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
-  proc `==`*(x: typ, y: uint64): bool {.borrow, noSideEffect.}
-  proc `==`*(x: uint64, y: typ): bool {.borrow, noSideEffect.}
-
-  # Nim integration
-  proc `$`*(x: typ): string {.borrow, noSideEffect.}
-  proc hash*(x: typ): Hash {.borrow, noSideEffect.}
-
-  # Serialization
-  proc writeValue*(writer: var JsonWriter, value: typ)
-                  {.raises: [IOError, Defect].}=
-    writeValue(writer, uint64 value)
-
-  proc readValue*(reader: var JsonReader, value: var typ)
-                 {.raises: [IOError, SerializationError, Defect].} =
-    value = typ reader.readValue(uint64)
-
 template makeLimitedU64*(T: untyped, limit: uint64) =
   # A "tigher" type is often used for T, but for the range check to be effective
   # it must make sense..
@@ -728,10 +671,6 @@ func `as`*(d: DepositData, T: type DepositMessage): T =
     withdrawal_credentials: d.withdrawal_credentials,
     amount: d.amount)
 
-ethTimeUnit Slot
-ethTimeUnit Epoch
-ethTimeUnit SyncCommitteePeriod
-
 template newClone*[T: not ref](x: T): ref T =
   # TODO not nil in return type: https://github.com/nim-lang/Nim/issues/14146
   # TODO use only when x is a function call that returns a new instance!
@@ -779,12 +718,6 @@ func `[]`*(v: ForkDigest | Version | DomainType, idx: int): byte =
 
 template data*(v: ForkDigest | Version | DomainType): array[4, byte] =
   distinctBase(v)
-
-func shortLog*(s: Slot): uint64 =
-  s - GENESIS_SLOT
-
-func shortLog*(e: Epoch): uint64 =
-  e - GENESIS_EPOCH
 
 func shortLog*(v: BeaconBlockHeader): auto =
   (
@@ -867,8 +800,6 @@ func shortLog*(v: SomeSignedVoluntaryExit): auto =
     signature: shortLog(v.signature)
   )
 
-chronicles.formatIt Slot: it.shortLog
-chronicles.formatIt Epoch: it.shortLog
 chronicles.formatIt AttestationData: it.shortLog
 chronicles.formatIt Attestation: it.shortLog
 chronicles.formatIt Checkpoint: it.shortLog

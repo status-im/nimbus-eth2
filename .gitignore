@@ -50,3 +50,4 @@ build/
 /dist
 /benchmark_results
 /.update.timestamp
+resttest0_data

@@ -1,7 +1,10 @@
-import ../spec/helpers
+import
+  ../spec/beacon_time
+
+export beacon_time
 
 const
-  MaxEpoch* = compute_epoch_at_slot(not(0'u64))
+  MaxEpoch* = epoch(FAR_FUTURE_SLOT)
 
   BlockValidationError* =
     "The block failed validation, but was successfully broadcast anyway. It " &

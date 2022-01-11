@@ -792,9 +792,9 @@ suite "SyncManager test suite":
                                  Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
                                  1'u64, getFirstSlotAtFinalizedEpoch,
                                  collector(aq), 2)
-      let finalizedSlot = compute_start_slot_at_epoch(Epoch(0'u64))
-      let startSlot = compute_start_slot_at_epoch(Epoch(0'u64)) + 1'u64
-      let finishSlot = compute_start_slot_at_epoch(Epoch(2'u64))
+      let finalizedSlot = start_slot(Epoch(0'u64))
+      let startSlot = start_slot(Epoch(0'u64)) + 1'u64
+      let finishSlot = start_slot(Epoch(2'u64))
 
       for i in uint64(startSlot) ..< uint64(finishSlot):
         check queue.getRewindPoint(Slot(i), finalizedSlot) == finalizedSlot
@@ -804,9 +804,9 @@ suite "SyncManager test suite":
                                  Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
                                  1'u64, getFirstSlotAtFinalizedEpoch,
                                  collector(aq), 2)
-      let finalizedSlot = compute_start_slot_at_epoch(Epoch(1'u64))
-      let startSlot = compute_start_slot_at_epoch(Epoch(1'u64)) + 1'u64
-      let finishSlot = compute_start_slot_at_epoch(Epoch(3'u64))
+      let finalizedSlot = start_slot(Epoch(1'u64))
+      let startSlot = start_slot(Epoch(1'u64)) + 1'u64
+      let finishSlot = start_slot(Epoch(3'u64))
 
       for i in uint64(startSlot) ..< uint64(finishSlot) :
         check queue.getRewindPoint(Slot(i), finalizedSlot) == finalizedSlot
@@ -816,16 +816,16 @@ suite "SyncManager test suite":
                                  Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
                                  1'u64, getFirstSlotAtFinalizedEpoch,
                                  collector(aq), 2)
-      let finalizedSlot = compute_start_slot_at_epoch(Epoch(0'u64))
+      let finalizedSlot = start_slot(Epoch(0'u64))
       let failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
-      let failEpoch = compute_epoch_at_slot(failSlot)
+      let failEpoch = epoch(failSlot)
 
       var counter = 1'u64
       for i in 0 ..< 64:
         if counter >= failEpoch:
           break
         let rewindEpoch = failEpoch - counter
-        let rewindSlot = compute_start_slot_at_epoch(rewindEpoch)
+        let rewindSlot = start_slot(rewindEpoch)
         check queue.getRewindPoint(failSlot, finalizedSlot) == rewindSlot
         counter = counter shl 1
 
@@ -834,15 +834,15 @@ suite "SyncManager test suite":
                                  Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
                                  1'u64, getFirstSlotAtFinalizedEpoch,
                                  collector(aq), 2)
-      let finalizedSlot = compute_start_slot_at_epoch(Epoch(1'u64))
+      let finalizedSlot = start_slot(Epoch(1'u64))
       let failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
-      let failEpoch = compute_epoch_at_slot(failSlot)
+      let failEpoch = epoch(failSlot)
       var counter = 1'u64
       for i in 0 ..< 64:
         if counter >= failEpoch:
           break
         let rewindEpoch = failEpoch - counter
-        let rewindSlot = compute_start_slot_at_epoch(rewindEpoch)
+        let rewindSlot = start_slot(rewindEpoch)
         check queue.getRewindPoint(failSlot, finalizedSlot) == rewindSlot
         counter = counter shl 1
 

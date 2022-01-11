@@ -94,6 +94,11 @@ type
     of BeaconBlockFork.Altair:    altairData*: altair.SignedBeaconBlock
     of BeaconBlockFork.Bellatrix: mergeData*:  bellatrix.SignedBeaconBlock
 
+  ForkySigVerifiedSignedBeaconBlock* =
+    phase0.SigVerifiedSignedBeaconBlock |
+    altair.SigVerifiedSignedBeaconBlock |
+    bellatrix.SigVerifiedSignedBeaconBlock
+
   ForkyTrustedSignedBeaconBlock* =
     phase0.TrustedSignedBeaconBlock |
     altair.TrustedSignedBeaconBlock |
@@ -104,6 +109,11 @@ type
     of BeaconBlockFork.Phase0:    phase0Data*: phase0.TrustedSignedBeaconBlock
     of BeaconBlockFork.Altair:    altairData*: altair.TrustedSignedBeaconBlock
     of BeaconBlockFork.Bellatrix: mergeData*:  bellatrix.TrustedSignedBeaconBlock
+
+  SomeForkySignedBeaconBlock* =
+    ForkySignedBeaconBlock |
+    ForkySigVerifiedSignedBeaconBlock |
+    ForkyTrustedSignedBeaconBlock
 
   EpochInfoFork* {.pure.} = enum
     Phase0
@@ -418,7 +428,7 @@ type
   BeaconStateHeader = object
     genesis_time: uint64
     genesis_validators_root: Eth2Digest
-    slot: uint64
+    slot: Slot
 
 func readSszForkedHashedBeaconState*(cfg: RuntimeConfig, data: openArray[byte]):
     ForkedHashedBeaconState {.raises: [Defect, SszError].} =
@@ -432,9 +442,8 @@ func readSszForkedHashedBeaconState*(cfg: RuntimeConfig, data: openArray[byte]):
     BeaconStateHeader)
 
   # careful - `result` is used, RVO didn't seem to work without
-  # TODO move time helpers somewhere to avoid circular imports
   result = ForkedHashedBeaconState(
-    kind: cfg.stateForkAtEpoch(Epoch(header.slot div SLOTS_PER_EPOCH)))
+    kind: cfg.stateForkAtEpoch(header.slot.epoch()))
 
   withState(result):
     readSszBytes(data, state.data)
@@ -460,7 +469,7 @@ func readSszForkedSignedBeaconBlock*(
   # careful - `result` is used, RVO didn't seem to work without
   # TODO move time helpers somewhere to avoid circular imports
   result = ForkedSignedBeaconBlock(
-    kind: cfg.blockForkAtEpoch(Epoch(header.slot div SLOTS_PER_EPOCH)))
+    kind: cfg.blockForkAtEpoch(header.slot.epoch()))
 
   withBlck(result):
     readSszBytes(data, blck)

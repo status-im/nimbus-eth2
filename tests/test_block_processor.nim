@@ -38,14 +38,14 @@ suite "Block processor" & preset():
       cache = StateCache()
       b1 = addTestBlock(state[], cache).phase0Data
       b2 = addTestBlock(state[], cache).phase0Data
-      getTimeFn = proc(): BeaconTime = b2.message.slot.toBeaconTime()
+      getTimeFn = proc(): BeaconTime = b2.message.slot.start_beacon_time()
       processor = BlockProcessor.new(
         false, "", "", keys.newRng(), taskpool, consensusManager,
         validatorMonitor, getTimeFn)
 
   test "Reverse order block add & get" & preset():
     let missing = processor[].storeBlock(
-      MsgSource.gossip, b2.message.slot.toBeaconTime(), b2)
+      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2)
     check: missing.error == BlockError.MissingParent
 
     check:
@@ -55,7 +55,7 @@ suite "Block processor" & preset():
 
     let
       status = processor[].storeBlock(
-        MsgSource.gossip, b2.message.slot.toBeaconTime(), b1)
+        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1)
       b1Get = dag.get(b1.root)
 
     check:

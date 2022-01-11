@@ -77,6 +77,11 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + latest_block_root                                                                          OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Beacon time
+```diff
++ basics                                                                                     OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
@@ -436,4 +441,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 236/238 Fail: 0/238 Skip: 2/238
+OK: 237/239 Fail: 0/239 Skip: 2/239

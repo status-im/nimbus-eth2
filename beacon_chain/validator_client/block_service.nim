@@ -16,7 +16,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     fork = vc.fork.get()
 
   debug "Publishing block", validator = shortLog(validator),
-                            delay = vc.getDelay(ZeroDuration),
+                            delay = vc.getDelay(slot.block_deadline()),
                             wall_slot = currentSlot,
                             genesis_root = genesisRoot,
                             graffiti = graffiti, fork = fork, slot = slot,
@@ -152,7 +152,7 @@ proc contains(data: openArray[ProposerTask], duty: RestProposerDuty): bool =
   false
 
 proc checkDuty(duty: RestProposerDuty, epoch: Epoch, slot: Slot): bool =
-  let lastSlot = compute_start_slot_at_epoch(epoch + 1'u64)
+  let lastSlot = start_slot(epoch + 1'u64)
   if duty.slot >= slot:
     if duty.slot < lastSlot:
       true

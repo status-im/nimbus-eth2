@@ -376,8 +376,7 @@ proc sign*(v: AttachedValidator, msg: ref SignedContributionAndProof,
 func genRandaoReveal*(k: ValidatorPrivKey, fork: Fork,
                       genesis_validators_root: Eth2Digest,
                       slot: Slot): CookedSig =
-  get_epoch_signature(fork, genesis_validators_root,
-                      slot.compute_epoch_at_slot, k)
+  get_epoch_signature(fork, genesis_validators_root, slot.epoch, k)
 
 proc genRandaoReveal*(v: AttachedValidator, fork: Fork,
                       genesis_validators_root: Eth2Digest, slot: Slot):
@@ -390,7 +389,7 @@ proc genRandaoReveal*(v: AttachedValidator, fork: Fork,
                                          slot).toValidatorSig())
     of ValidatorKind.Remote:
       let res = await signWithRemoteValidator(v, fork, genesis_validators_root,
-                                              slot.compute_epoch_at_slot())
+                                              slot.epoch())
       if res.isErr():
         SignatureResult.err(res.error())
       else:

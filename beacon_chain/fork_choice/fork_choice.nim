@@ -13,7 +13,6 @@ import
   # Status libraries
   stew/results, chronicles,
   # Internal
-  ../beacon_clock,
   ../spec/[beaconstate, helpers],
   ../spec/datatypes/[phase0, altair, bellatrix],
   # Fork choice
@@ -89,9 +88,6 @@ func extend[T](s: var seq[T], minLen: int) =
   ## The extension is zero-initialized
   if s.len < minLen:
     s.setLen(minLen)
-
-func compute_slots_since_epoch_start(slot: Slot): uint64 =
-    slot - slot.epoch().compute_start_slot_at_epoch()
 
 func on_tick*(self: var Checkpoints, time: BeaconTime): FcResult[void] =
   if self.time > time:
@@ -231,12 +227,11 @@ func should_update_justified_checkpoint(
         self: var Checkpoints,
         dag: ChainDAGRef,
         epochRef: EpochRef): FcResult[bool] =
-  if compute_slots_since_epoch_start(self.time.slotOrZero) <
-      SAFE_SLOTS_TO_UPDATE_JUSTIFIED:
+  if self.time.slotOrZero.since_epoch_start() < SAFE_SLOTS_TO_UPDATE_JUSTIFIED:
     return ok(true)
 
   let
-    justified_slot = compute_start_slot_at_epoch(self.justified.checkpoint.epoch)
+    justified_slot = self.justified.checkpoint.epoch.start_slot()
     new_justified_checkpoint = epochRef.current_justified_checkpoint
     justified_blck = dag.getRef(new_justified_checkpoint.root)
 
@@ -366,7 +361,7 @@ proc process_block*(self: var ForkChoice,
   # Add proposer score boost if the block is timely
   let
     time_into_slot =
-      self.checkpoints.time - self.checkpoints.time.slotOrZero.toBeaconTime
+      self.checkpoints.time - self.checkpoints.time.slotOrZero.start_beacon_time
     is_before_attesting_interval = time_into_slot < attestationSlotOffset
   if  self.checkpoints.time.slotOrZero == blck.slot and
       is_before_attesting_interval:

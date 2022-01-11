@@ -44,7 +44,7 @@ proc parseRoot*(str: string): Eth2Digest {.raises: [Defect, ValueError].} =
   Eth2Digest(data: hexToByteArray[32](str))
 
 func checkEpochToSlotOverflow*(epoch: Epoch) {.raises: [Defect, ValueError].} =
-  const maxEpoch = compute_epoch_at_slot(not 0'u64)
+  const maxEpoch = epoch(FAR_FUTURE_SLOT)
   if epoch >= maxEpoch:
     raise newException(
       ValueError, "Requesting epoch for which slot would overflow")
@@ -59,7 +59,7 @@ proc doChecksAndGetCurrentHead*(node: BeaconNode, slot: Slot): BlockRef {.raises
 
 proc doChecksAndGetCurrentHead*(node: BeaconNode, epoch: Epoch): BlockRef {.raises: [Defect, CatchableError].} =
   checkEpochToSlotOverflow(epoch)
-  node.doChecksAndGetCurrentHead(epoch.compute_start_slot_at_epoch)
+  node.doChecksAndGetCurrentHead(epoch.start_slot())
 
 proc getBlockSlotFromString*(node: BeaconNode, slot: string): BlockSlot {.raises: [Defect, CatchableError].} =
   if slot.len == 0:

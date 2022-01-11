@@ -15,6 +15,7 @@ import # Unit test
   ./test_action_tracker,
   ./test_attestation_pool,
   ./test_beacon_chain_db,
+  ./test_beacon_time,
   ./test_block_dag,
   ./test_block_processor,
   ./test_datatypes,
