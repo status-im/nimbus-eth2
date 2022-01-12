@@ -17,7 +17,7 @@ import
   ../../beacon_chain/spec/[helpers, forks],
   ../../beacon_chain/spec/datatypes/[
     base,
-    phase0, altair, merge],
+    phase0, altair, bellatrix],
   ../../beacon_chain/fork_choice/[fork_choice, fork_choice_types],
   ../../beacon_chain/[beacon_chain_db, beacon_clock],
   ../../beacon_chain/consensus_object_pools/[
@@ -132,7 +132,7 @@ proc loadOps(path: string, fork: BeaconBlockFork): seq[Operation] =
       of BeaconBlockFork.Bellatrix:
         let blk = parseTest(
           path/filename & ".ssz_snappy",
-          SSZ, merge.SignedBeaconBlock
+          SSZ, bellatrix.SignedBeaconBlock
         )
         result.add Operation(kind: opOnBlock,
           blk: ForkedSignedBeaconBlock.init(blk))
@@ -179,7 +179,7 @@ proc stepOnBlock(
   elif signedBlock is altair.SignedBeaconBlock:
     type TrustedBlock = altair.TrustedSignedBeaconBlock
   else:
-    type TrustedBlock = merge.TrustedSignedBeaconBlock
+    type TrustedBlock = bellatrix.TrustedSignedBeaconBlock
 
   let blockAdded = dag.addHeadBlock(verifier, signedBlock) do (
       blckRef: BlockRef, signedBlock: TrustedBlock, epochRef: EpochRef
@@ -286,7 +286,7 @@ proc runTest(path: string, fork: BeaconBlockFork) =
     #     path, db,
     #     # The tests always use phase 0 block for anchor - https://github.com/ethereum/consensus-specs/pull/2323
     #     # TODO: support merge genesis state
-    #     merge.BeaconState, phase0.BeaconBlock
+    #     bellatrix.BeaconState, phase0.BeaconBlock
     #   )
   var
     taskpool = Taskpool.new()

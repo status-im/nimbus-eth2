@@ -14,7 +14,7 @@ import
   stew/results,
   # Beacon chain internals
   ../../beacon_chain/spec/[beaconstate, validator, helpers, state_transition_epoch],
-  ../../beacon_chain/spec/datatypes/[altair, merge],
+  ../../beacon_chain/spec/datatypes/[altair, bellatrix],
   # Test utilities
   ../../testutil,
   ../fixtures_utils
@@ -40,7 +40,7 @@ proc runTest(rewardsDir, identifier: string) =
 
       let
         state = newClone(
-          parseTest(testDir/"pre.ssz_snappy", SSZ, merge.BeaconState))
+          parseTest(testDir/"pre.ssz_snappy", SSZ, bellatrix.BeaconState))
         flagDeltas = [
           parseTest(testDir/"source_deltas.ssz_snappy", SSZ, Deltas),
           parseTest(testDir/"target_deltas.ssz_snappy", SSZ, Deltas),

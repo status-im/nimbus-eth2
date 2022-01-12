@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -17,7 +17,7 @@ import
   eth/async_utils, stew/[objects, byteutils, shims/hashes],
   # Local modules:
   ../spec/[eth2_merkleization, forks, helpers],
-  ../spec/datatypes/[base, phase0, merge],
+  ../spec/datatypes/[base, phase0, bellatrix],
   ../networking/network_metadata,
   ../consensus_object_pools/block_pools_types,
   ".."/[beacon_chain_db, beacon_node_status],
@@ -324,11 +324,11 @@ template asBlockHash(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
 
 func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
-    merge.ExecutionPayload =
-  template getTransaction(t: TypedTransaction): merge.Transaction =
-    merge.Transaction.init(t.distinctBase)
+    bellatrix.ExecutionPayload =
+  template getTransaction(t: TypedTransaction): bellatrix.Transaction =
+    bellatrix.Transaction.init(t.distinctBase)
 
-  merge.ExecutionPayload(
+  bellatrix.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
     feeRecipient:
       ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
@@ -346,12 +346,12 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
     base_fee_per_gas:
       Eth2Digest(data: rpcExecutionPayload.baseFeePerGas.toBytesLE),
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
-    transactions: List[merge.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
 
-func asEngineExecutionPayload*(executionPayload: merge.ExecutionPayload):
+func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =
-  template getTypedTransaction(t: merge.Transaction): TypedTransaction =
+  template getTypedTransaction(t: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(t.distinctBase)
 
   engine_api.ExecutionPayloadV1(
@@ -469,7 +469,7 @@ proc getBlockByNumber(p: Web3DataProviderRef,
   p.web3.provider.eth_getBlockByNumber(hexNumber, false)
 
 proc getPayload*(p: Web3DataProviderRef,
-                 payloadId: merge.PayloadID): Future[engine_api.ExecutionPayloadV1] =
+                 payloadId: bellatrix.PayloadID): Future[engine_api.ExecutionPayloadV1] =
   p.web3.provider.engine_getPayloadV1(FixedBytes[8] payloadId)
 
 proc executePayload*(p: Web3DataProviderRef,
