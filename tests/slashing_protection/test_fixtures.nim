@@ -115,7 +115,7 @@ proc statusOkOrDuplicateOrMinSlotViolation(
     # Note: we tested the codepath without pruning.
     # Furthermore it's better to be to eager on MinSlotViolation
     # than allow slashing (unless the MinSlot is too far in the future)
-    warn "Block violates low watermark requirement. It's likely a duplicate though.",
+    warn "Block violates low watermark requirement. It might be an already pruned block.",
       candidateBlock = candidate,
       error = status.error
     return true
@@ -139,7 +139,7 @@ proc statusOkOrDuplicateOrMinEpochViolation(
     # Note: we tested the codepath without pruning.
     # Furthermore it's better to be to eager on MinSlotViolation
     # than allow slashing (unless the MinSlot is too far in the future)
-    warn "Attestation violates low watermark requirement. It's likely a duplicate though.",
+    warn "Attestation violates low watermark requirement. It might be an already pruned attestation.",
       candidateAttestation = candidate,
       error = status.error
     return true

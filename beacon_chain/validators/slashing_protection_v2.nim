@@ -208,7 +208,10 @@ type
     sqlPruneValidatorAttestations: SqliteStmt[(ValidatorInternalID, int64, int64), void]
     sqlPruneAfterFinalizationBlocks: SqliteStmt[int64, void]
     sqlPruneAfterFinalizationAttestations: SqliteStmt[(int64, int64), void]
-    sqlSynthesizeAttestation: SqliteStmt[(ValidatorInternalID, int64, int64, Hash32), void]
+    # Synthetic attestations
+    sqlBeginTransaction: SqliteStmt[NoParams, void]
+    sqlDeleteValidatorAtt: SqliteStmt[ValidatorInternalID, void]
+    sqlCommitTransaction: SqliteStmt[NoParams, void]
     # Cached queries - read
     sqlGetValidatorInternalID: SqliteStmt[PubKeyBytes, ValidatorInternalID]
     sqlAttForSameTargetEpoch: SqliteStmt[(ValidatorInternalID, int64), Hash32]
@@ -580,22 +583,12 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
   # Creating or updating a source/target epoch synthetic attestation
   # might introduce duplicates or run afoul of slashing conditions
   # so it's easier to cleanup and introduce a max source/target epoch synthetic attestation
-  db.sqlSynthesizeAttestation = db.backend.prepareStmt("""
-    BEGIN TRANSACTION;
-
+  db.sqlBeginTransaction = db.backend.prepareStmt("""BEGIN TRANSACTION;""", NoParams, void).get()
+  db.sqlDeleteValidatorAtt = db.backend.prepareStmt("""
     DELETE FROM signed_attestations
-    WHERE validator_id = ?1;
-
-    INSERT INTO signed_attestations(
-      validator_id,
-      source_epoch,
-      target_epoch,
-      signing_root)
-    VALUES
-      (?1,?2,?3,?4);
-      
-    COMMIT TRANSACTION;
-  """, (ValidatorInternalID, int64, int64, Hash32), void).get()
+    where validator_id = ?;
+  """, ValidatorInternalID, void).get()
+  db.sqlCommitTransaction = db.backend.prepareStmt("""COMMIT TRANSACTION;""", NoParams, void).get()
 
 # DB Multiversioning
 # -------------------------------------------------------------
@@ -1255,12 +1248,26 @@ proc registerSyntheticAttestation*(
   doAssert source <= high(int64).uint64
   doAssert target <= high(int64).uint64
 
-  let status = db.sqlSynthesizeAttestation.exec(
-    (valID, int64 source, int64 target, Eth2Digest().data))
-  doAssert status.isOk(),
-    "SQLite error when synthesizing an attestation: " & $status.error & "\n" &
-    "for validatorID " & $valID & " (0x" & $validator & ")\n" &
-    "sourceEpoch: " & $source & ", targetEpoch:" & $target & '\n'
+  template checkStatus: untyped =
+    doAssert status.isOk(),
+      "SQLite error when synthesizing an attestation: " & $status.error & "\n" &
+      "for validatorID " & $valID & " (0x" & $validator & ")\n" &
+      "sourceEpoch: " & $source & ", targetEpoch:" & $target & '\n'
+
+  block:
+    let status = db.sqlBeginTransaction.exec()
+    checkStatus()
+  block:
+    let status = db.sqlDeleteValidatorAtt.exec(valID)
+    checkStatus()
+  block:
+    let status = db.sqlInsertAtt.exec(
+      (valID, int64 source, int64 target,
+      Eth2Digest().data))
+    checkStatus()
+  block:
+    let status = db.sqlCommitTransaction.exec()
+    checkStatus()
 
 proc toSPDIR*(db: SlashingProtectionDB_v2): SPDIR
              {.raises: [IOError, Defect].} =
