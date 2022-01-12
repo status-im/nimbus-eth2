@@ -97,7 +97,7 @@ proc statusOkOrDuplicateOrMinSlotViolation(
   # 1. We might be importing a duplicate which EIP-3076 allows
   #    there is no reason during normal operation to integrate
   #    a duplicate so checkSlashableBlockProposal would have rejected it.
-  # 2. The last test "multiple_interchanges_single_validator_single_message_gap"
+  # 2. The test "multiple_interchanges_single_validator_single_message_gap"
   #    requires implementing pruning in-between import to keep the
   #    MinSlotViolation check relevant.
   #    That check prevents duplicate because it doesn't keep history.

@@ -425,6 +425,7 @@ proc importInterchangeV5Impl*(
     # this interchange file max slot
     if maxValidSourceEpochSeen < 0 or maxValidTargetEpochSeen < 0:
       doAssert maxValidSourceEpochSeen == -1 and maxValidTargetEpochSeen == -1
-      notice "No attestation found in slashing interchange file"
-      return
+      notice "No attestation found in slashing interchange file for validator",
+        pubkey = spdir.data[v].pubkey.PubKeyBytes.toHex()
+      continue
     db.pruneAttestations(parsedKey, maxValidSourceEpochSeen, maxValidTargetEpochSeen)
