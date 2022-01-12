@@ -16,7 +16,7 @@ import
   faststreams, streams,
   # Beacon chain internals
   ../../../beacon_chain/spec/[state_transition, forks, helpers],
-  ../../../beacon_chain/spec/datatypes/[altair, merge],
+  ../../../beacon_chain/spec/datatypes/[altair, bellatrix],
   # Test utilities
   ../../testutil,
   ../fixtures_utils
@@ -56,21 +56,26 @@ proc runTest(testName, testDir, unitTestName: string) =
       let numBlocks = toSeq(walkPattern(testPath/"blocks_*.ssz_snappy")).len
       for i in 0 ..< numBlocks:
         if i <= transitionInfo.fork_block:
-          let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, altair.SignedBeaconBlock)
+          let blck = parseTest(
+            testPath/"blocks_" & $i & ".ssz_snappy", SSZ,
+            altair.SignedBeaconBlock)
 
           let success = state_transition(
             cfg, fhPreState[], blck, cache, info,
             flags = {skipStateRootValidation}, noRollback)
           doAssert success, "Failure when applying block " & $i
         else:
-          let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, merge.SignedBeaconBlock)
+          let blck = parseTest(
+            testPath/"blocks_" & $i & ".ssz_snappy", SSZ,
+            bellatrix.SignedBeaconBlock)
 
           let success = state_transition(
             cfg, fhPreState[], blck, cache, info,
             flags = {skipStateRootValidation}, noRollback)
           doAssert success, "Failure when applying block " & $i
 
-      let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, merge.BeaconState))
+      let postState = newClone(parseTest(
+        testPath/"post.ssz_snappy", SSZ, bellatrix.BeaconState))
       when false:
         reportDiff(fhPreState.data, postState)
       doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()

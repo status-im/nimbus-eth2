@@ -27,7 +27,7 @@ import
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
   ".."/[version, conf, beacon_clock],
-  ../spec/datatypes/[phase0, altair, merge],
+  ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
   ../validators/keystore_management,
   ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
@@ -1840,7 +1840,7 @@ template gossipMaxSize(T: untyped): uint32 =
   const maxSize = static:
     when isFixedSize(T):
       fixedPortionSize(T)
-    elif T is merge.SignedBeaconBlock:
+    elif T is bellatrix.SignedBeaconBlock:
       GOSSIP_MAX_SIZE_MERGE
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -2212,7 +2212,7 @@ proc broadcastBeaconBlock*(node: Eth2Node, blck: altair.SignedBeaconBlock) =
   let topic = getBeaconBlocksTopic(node.forkDigests.altair)
   node.broadcast(topic, blck)
 
-proc broadcastBeaconBlock*(node: Eth2Node, blck: merge.SignedBeaconBlock) =
+proc broadcastBeaconBlock*(node: Eth2Node, blck: bellatrix.SignedBeaconBlock) =
   let topic = getBeaconBlocksTopic(node.forkDigests.bellatrix)
   node.broadcast(topic, blck)
 

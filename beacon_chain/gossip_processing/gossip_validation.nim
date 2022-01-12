@@ -12,7 +12,7 @@ import
   chronicles, chronos, metrics,
   stew/results,
   # Internals
-  ../spec/datatypes/[phase0, altair, merge],
+  ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],
   ../consensus_object_pools/[
@@ -187,7 +187,7 @@ template validateBeaconBlockBellatrix(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
-       signed_beacon_block: merge.SignedBeaconBlock): untyped =
+       signed_beacon_block: bellatrix.SignedBeaconBlock): untyped =
   # If the execution is enabled for the block -- i.e.
   # is_execution_enabled(state, block.body) then validate the following:
   let executionEnabled =
@@ -234,7 +234,7 @@ template validateBeaconBlockBellatrix(
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                         merge.SignedBeaconBlock,
+                         bellatrix.SignedBeaconBlock,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an

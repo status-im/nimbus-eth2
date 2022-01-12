@@ -12,7 +12,7 @@ import
   unittest2,
   ../beacon_chain/[beacon_chain_db, interop],
   ../beacon_chain/spec/[beaconstate, forks, state_transition],
-  ../beacon_chain/spec/datatypes/[phase0, altair, merge],
+  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
   eth/db/kvstore,
   # test utilies
@@ -36,9 +36,9 @@ proc getAltairStateRef(db: BeaconChainDB, root: Eth2Digest):
     return res
 
 proc getMergeStateRef(db: BeaconChainDB, root: Eth2Digest):
-    merge.NilableBeaconStateRef =
+    bellatrix.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
-  let res = (merge.BeaconStateRef)()
+  let res = (bellatrix.BeaconStateRef)()
   if db.getState(root, res[], noRollback):
     return res
 
@@ -56,9 +56,9 @@ func withDigest(blck: altair.TrustedBeaconBlock):
     root: hash_tree_root(blck)
   )
 
-func withDigest(blck: merge.TrustedBeaconBlock):
-    merge.TrustedSignedBeaconBlock =
-  merge.TrustedSignedBeaconBlock(
+func withDigest(blck: bellatrix.TrustedBeaconBlock):
+    bellatrix.TrustedSignedBeaconBlock =
+  bellatrix.TrustedSignedBeaconBlock(
     message: blck,
     root: hash_tree_root(blck)
   )
@@ -173,7 +173,7 @@ suite "Beacon chain DB" & preset():
     var db = BeaconChainDB.new("", inMemory = true)
 
     let
-      signedBlock = withDigest((merge.TrustedBeaconBlock)())
+      signedBlock = withDigest((bellatrix.TrustedBeaconBlock)())
       root = hash_tree_root(signedBlock.message)
 
     db.putBlock(signedBlock)
@@ -304,7 +304,7 @@ suite "Beacon chain DB" & preset():
 
   test "sanity check Merge states, reusing buffers" & preset():
     var db = makeTestDB(SLOTS_PER_EPOCH)
-    let stateBuffer = (merge.BeaconStateRef)()
+    let stateBuffer = (bellatrix.BeaconStateRef)()
 
     for state in testStatesBellatrix:
       let root = state[].mergeData.root
@@ -378,7 +378,7 @@ suite "Beacon chain DB" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
         kind: BeaconStateFork.Bellatrix,
-        mergeData: merge.HashedBeaconState(data: merge.BeaconState(
+        mergeData: bellatrix.HashedBeaconState(data: bellatrix.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 

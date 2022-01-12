@@ -12,7 +12,7 @@ import
   os, strutils,
   # Beacon chain internals
   ../../../beacon_chain/spec/[beaconstate, presets, state_transition_epoch],
-  ../../../beacon_chain/spec/datatypes/[altair, merge],
+  ../../../beacon_chain/spec/datatypes/[altair, bellatrix],
   # Test utilities
   ../../testutil,
   ../fixtures_utils,
@@ -29,7 +29,7 @@ template runSuite(
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
       test testName & " - " & unitTestName & preset():
         # BeaconState objects are stored on the heap to avoid stack overflow
-        type T = merge.BeaconState
+        type T = bellatrix.BeaconState
         var preState {.inject.} = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
         let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, T))
         var cache {.inject, used.} = StateCache()
