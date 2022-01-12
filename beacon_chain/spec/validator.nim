@@ -184,15 +184,6 @@ iterator get_committee_indices*(committee_count_per_slot: uint64): CommitteeInde
     let committee_index = CommitteeIndex.init(idx).expect("value clamped")
     yield committee_index
 
-iterator get_committee_indices*(state: ForkyBeaconState | ForkedHashedBeaconState,
-                                epoch: Epoch,
-                                cache: var StateCache): CommitteeIndex =
-  let committee_count_per_slot =
-    get_committee_count_per_slot(state, epoch, cache)
-
-  for committee_index in get_committee_indices(committee_count_per_slot):
-    yield committee_index
-
 func get_previous_epoch*(state: ForkyBeaconState): Epoch =
   ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   # Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).

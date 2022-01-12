@@ -178,6 +178,32 @@ func makeAttestationData*(
     )
   )
 
+func makeAttestationSig*(
+    fork: Fork, genesis_validators_root: Eth2Digest, data: AttestationData,
+    committee: openArray[ValidatorIndex],
+    bits: CommitteeValidatorsBits): ValidatorSig =
+  let signing_root = compute_attestation_signing_root(
+    fork, genesis_validators_root, data)
+
+  var
+    agg {.noInit.}: AggregateSignature
+    first = true
+
+  for i in 0..<bits.len():
+    if not bits[i]: continue
+    let sig = blsSign(MockPrivKeys[committee[i]], signing_root.data)
+
+    if first:
+      agg.init(sig)
+      first = false
+    else:
+      agg.aggregate(sig)
+
+  if first:
+    ValidatorSig.infinity()
+  else:
+    agg.finish().toValidatorSig()
+
 func makeAttestationData*(
     state: ForkedHashedBeaconState, slot: Slot, committee_index: CommitteeIndex,
     beacon_block_root: Eth2Digest): AttestationData =
@@ -206,15 +232,13 @@ func makeAttestation*(
   var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
   aggregation_bits.setBit sac_index
 
-  let
-    sig =
-      if skipBLSValidation notin flags:
-        get_attestation_signature(
-          getStateField(state, fork),
-          getStateField(state, genesis_validators_root),
-          data, MockPrivKeys[validator_index]).toValidatorSig()
-      else:
-        ValidatorSig()
+  let sig = if skipBLSValidation in flags:
+    ValidatorSig()
+  else:
+    makeAttestationSig(
+      getStateField(state, fork),
+      getStateField(state, genesis_validators_root),
+      data, committee, aggregation_bits)
 
   Attestation(
     data: data,
@@ -251,35 +275,25 @@ func makeFullAttestations*(
     flags: UpdateFlags = {}): seq[Attestation] =
   # Create attestations in which the full committee participates for each shard
   # that should be attested to during a particular slot
-  for committee_index in get_committee_indices(state, slot.epoch, cache):
+  let committees_per_slot = get_committee_count_per_slot(
+    state, slot.epoch, cache)
+  for committee_index in get_committee_indices(committees_per_slot):
     let
       committee = get_beacon_committee(state, slot, committee_index, cache)
       data = makeAttestationData(state, slot, committee_index, beacon_block_root)
 
     doAssert committee.len() >= 1
-    # Initial attestation
     var attestation = Attestation(
       aggregation_bits: CommitteeValidatorsBits.init(committee.len),
       data: data)
+    for i in 0..<committee.len:
+      attestation.aggregation_bits.setBit(i)
 
-    var agg {.noInit.}: AggregateSignature
-    agg.init(get_attestation_signature(
+    attestation.signature = makeAttestationSig(
         getStateField(state, fork),
-        getStateField(state, genesis_validators_root), data,
-        MockPrivKeys[committee[0]]))
+        getStateField(state, genesis_validators_root), data, committee,
+        attestation.aggregation_bits)
 
-    # Aggregate the remainder
-    attestation.aggregation_bits.setBit 0
-    for j in 1 ..< committee.len():
-      attestation.aggregation_bits.setBit j
-      if skipBLSValidation notin flags:
-        agg.aggregate(get_attestation_signature(
-          getStateField(state, fork),
-          getStateField(state, genesis_validators_root), data,
-          MockPrivKeys[committee[j]]
-        ))
-
-    attestation.signature = agg.finish().toValidatorSig()
     result.add attestation
 
 proc makeSyncAggregate(
