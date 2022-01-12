@@ -459,7 +459,9 @@ func init(
 
   template update_attestation_pool_cache(
       epoch: Epoch, participation_bitmap: untyped) =
-    for committee_index in get_committee_indices(state.data, epoch, cache):
+    let committees_per_slot = get_committee_count_per_slot(
+      state.data, epoch, cache)
+    for committee_index in get_committee_indices(committees_per_slot):
       for slot in epoch.slots():
         let committee = get_beacon_committee(
             state.data, slot, committee_index, cache)

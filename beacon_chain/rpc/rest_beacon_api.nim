@@ -572,17 +572,15 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       proc forSlot(slot: Slot, cindex: Option[CommitteeIndex],
                    res: var seq[RestBeaconStatesCommittees]) =
+        let committees_per_slot = get_committee_count_per_slot(
+          stateData.data, slot.epoch, cache)
 
         if cindex.isNone:
-          for committee_index in
-              get_committee_indices(stateData.data, slot.epoch, cache):
+          for committee_index in get_committee_indices(committees_per_slot):
             res.add(getCommittee(slot, committee_index))
         else:
           let
             idx = cindex.get()
-            committees_per_slot = get_committee_count_per_slot(
-              stateData.data, slot.epoch, cache)
-
           if idx < committees_per_slot:
             res.add(getCommittee(slot, idx))
 

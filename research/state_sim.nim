@@ -9,20 +9,18 @@
 # and attesting to them as if the network was running as a whole.
 
 import
-  confutils, stats, times,
-  strformat,
-  options, sequtils, random, tables,
+  std/[stats, times, strformat, random, tables],
+  confutils,
   ../tests/testblockutil,
   ../beacon_chain/spec/datatypes/phase0,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
-  ../beacon_chain/spec/[beaconstate, forks, helpers],
+  ../beacon_chain/spec/[beaconstate, forks, helpers, signatures],
   ./simutils
 
 type Timers = enum
   tBlock = "Process non-epoch slot with block"
   tEpoch = "Process epoch slot with block"
   tHashBlock = "Tree-hash block"
-  tShuffle = "Retrieve committee once using get_beacon_committee"
   tAttest = "Combine committee attestations"
 
 func jsonName(prefix, slot: auto): string =
@@ -44,6 +42,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
     flags = if validate: {} else: {skipBlsValidation}
     (state, _) = loadGenesis(validators, validate)
     genesisBlock = get_initial_beacon_block(state[])
+    genesis_validators_root = getStateField(state[], genesis_validators_root)
 
   echo "Starting simulation..."
 
@@ -105,56 +104,44 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
       # attesterRatio is the fraction of attesters that actually do their
       # work for every slot - we'll randomize it deterministically to give
       # some variation
-      let
-        target_slot = getStateField(state[], slot) + MIN_ATTESTATION_INCLUSION_DELAY - 1
-        committees_per_slot =
-          get_committee_count_per_slot(state[], target_slot.epoch, cache)
 
-      let
-        scass = withTimerRet(timers[tShuffle]):
-          mapIt(
-            0 ..< committees_per_slot.int,
-            get_beacon_committee(state[], target_slot, it.CommitteeIndex, cache))
+      withState(state[]):
+        let
+          slot = state.data.slot
+          epoch = slot.epoch
+          committees_per_slot =
+            get_committee_count_per_slot(state.data, epoch, cache)
+        for committee_index in get_committee_indices(committees_per_slot):
+          let committee = get_beacon_committee(
+            state.data, slot, committee_index, cache)
+          var
+            attestation = Attestation(
+              aggregation_bits: CommitteeValidatorsBits.init(committee.len),
+              data: makeAttestationData(
+                state.data, slot, committee_index, latest_block_root),
+            )
+            first = true
 
-      for i, scas in scass:
-        var
-          attestation: Attestation
-          first = true
+          attesters.push committee.len()
 
-        attesters.push scas.len()
+          withTimer(timers[tAttest]):
+            for index_in_committee, validator_index in committee:
+              if (rand(r, high(int)).float * attesterRatio).int <= high(int):
+                attestation.aggregation_bits.setBit index_in_committee
 
-        withTimer(timers[tAttest]):
-          var agg {.noInit.}: AggregateSignature
-          for v in scas:
-            if (rand(r, high(int)).float * attesterRatio).int <= high(int):
-              if first:
-                attestation =
-                  makeAttestation(state[], latest_block_root, scas, target_slot,
-                    i.CommitteeIndex, v, cache, flags)
-                agg.init(attestation.signature.load.get())
-                first = false
-              else:
-                let att2 =
-                  makeAttestation(state[], latest_block_root, scas, target_slot,
-                    i.CommitteeIndex, v, cache, flags)
-                if not att2.aggregation_bits.overlaps(attestation.aggregation_bits):
-                  attestation.aggregation_bits.incl(att2.aggregation_bits)
-                  if skipBlsValidation notin flags:
-                    agg.aggregate(att2.signature.load.get())
-          attestation.signature = agg.finish().toValidatorSig()
+            if attestation.aggregation_bits.countOnes() > 0:
+              if validate:
+                attestation.signature = makeAttestationSig(
+                  state.data.fork, genesis_validators_root, attestation.data,
+                  committee, attestation.aggregation_bits)
 
-        if not first:
-          # add the attestation if any of the validators attested, as given
-          # by the randomness. We have to delay when the attestation is
-          # actually added to the block per the attestation delay rule!
-          let target_slot =
-            attestation.data.slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
-
-          doAssert target_slot > attestations_idx
-          var target_slot_attestations =
-            getOrDefault(attestations, target_slot)
-          target_slot_attestations.add attestation
-          attestations[target_slot] = target_slot_attestations
+              # add the attestation if any of the validators attested, as given
+              # by the randomness. We have to delay when the attestation is
+              # actually added to the block per the attestation delay rule!
+              let
+                target_slot = slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
+              attestations.mGetOrPut(target_slot, default(seq[Attestation])).add(
+                attestation)
 
     flushFile(stdout)
 
@@ -167,4 +154,4 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
   echo "Done!"
 
-  printTimers(state[], attesters, validate, timers)
+  printTimers(state[], attesters, true, timers)
