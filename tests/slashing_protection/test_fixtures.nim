@@ -222,4 +222,11 @@ proc runTest(identifier: string) =
 suite "Slashing Interchange tests " & preset():
   for kind, path in walkDir(
       InterchangeTestsDir, relative = true, checkDir = true):
+    
+    # TODO: test relying on undocumented behavior (if signing a test block is possible import it)
+    #       https://github.com/eth-clients/slashing-protection-interchange-tests/pull/12#issuecomment-1011158701
+    if path == "multiple_interchanges_single_validator_multiple_blocks_out_of_order":
+      continue
+
+
     runTest(path)
