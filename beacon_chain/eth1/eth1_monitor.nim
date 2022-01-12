@@ -868,11 +868,35 @@ proc init*(T: type Eth1Chain, cfg: RuntimeConfig, db: BeaconChainDB): T =
     finalizedBlockHash: finalizedDeposits.eth1Block,
     finalizedDepositsMerkleizer: finalizedDeposits.createMerkleizer)
 
+proc createInitialDepositSnapshot*(
+    depositContractAddress: Eth1Address,
+    depositContractDeployedAt: BlockHashOrNumber,
+    web3Url: string): Future[Result[DepositContractSnapshot, string]] {.async.} =
+
+  let dataProviderRes =
+    await Web3DataProvider.new(depositContractAddress, web3Url)
+  if dataProviderRes.isErr:
+    return err(dataProviderRes.error)
+  var dataProvider = dataProviderRes.get
+
+  let knownStartBlockHash =
+    if depositContractDeployedAt.isHash:
+      depositContractDeployedAt.hash
+    else:
+      try:
+        var blk = awaitWithRetries(
+          dataProvider.getBlockByNumber(depositContractDeployedAt.number))
+        blk.hash.asEth2Digest
+      except CatchableError as err:
+        return err(err.msg)
+
+  return ok DepositContractSnapshot(eth1Block: knownStartBlockHash)
+
 proc init*(T: type Eth1Monitor,
            cfg: RuntimeConfig,
            db: BeaconChainDB,
            web3Urls: seq[string],
-           depositContractSnapshot: DepositContractSnapshot,
+           depositContractSnapshot: Option[DepositContractSnapshot],
            eth1Network: Option[Eth1Network],
            forcePolling: bool): T =
   doAssert web3Urls.len > 0
@@ -881,7 +905,8 @@ proc init*(T: type Eth1Monitor,
   for url in mitems(web3Urls):
     fixupWeb3Urls url
 
-  putInitialDepositContractSnapshot(db, depositContractSnapshot)
+  if depositContractSnapshot.isSome:
+    putInitialDepositContractSnapshot(db, depositContractSnapshot.get)
 
   T(state: Initialized,
     depositsChain: Eth1Chain.init(cfg, db),
@@ -910,6 +935,19 @@ proc resetState(m: Eth1Monitor) {.async.} =
   if m.dataProvider != nil:
     await m.dataProvider.close()
     m.dataProvider = nil
+
+proc ensureDataProvider*(m: Eth1Monitor) {.async.} =
+  if not m.dataProvider.isNil:
+    return
+
+  let web3Url = m.web3Urls[m.startIdx mod m.web3Urls.len]
+  inc m.startIdx
+
+  m.dataProvider = block:
+    let v = await Web3DataProvider.new(m.depositContractAddress, web3Url)
+    if v.isErr():
+      raise (ref CatchableError)(msg: v.error())
+    v.get()
 
 proc stop(m: Eth1Monitor) {.async.} =
   if m.state == Started:
@@ -1112,19 +1150,13 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   if delayBeforeStart != ZeroDuration:
     await sleepAsync(delayBeforeStart)
 
-  let web3Url = m.web3Urls[m.startIdx mod m.web3Urls.len]
-  inc m.startIdx
+  await m.ensureDataProvider()
+  let
+    web3Url = m.web3Urls[(m.startIdx + m.web3Urls.len - 1) mod m.web3Urls.len]
+    web3 = m.dataProvider.web3
 
   info "Starting Eth1 deposit contract monitoring",
     contract = $m.depositContractAddress, url = web3Url
-
-  m.dataProvider = block:
-    let v = await Web3DataProvider.new(m.depositContractAddress, web3Url)
-    if v.isErr():
-      raise (ref CatchableError)(msg: v.error())
-    v.get()
-
-  let web3 = m.dataProvider.web3
 
   if m.state == Initialized and m.eth1Network.isSome:
     let
