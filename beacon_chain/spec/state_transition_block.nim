@@ -425,24 +425,24 @@ proc process_operations(cfg: RuntimeConfig,
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#sync-aggregate-processing
 proc process_sync_aggregate*(
     state: var (altair.BeaconState | bellatrix.BeaconState),
-    aggregate: SomeSyncAggregate, total_active_balance: Gwei,
+    sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
     cache: var StateCache):
     Result[void, cstring]  =
   # Verify sync committee aggregate signature signing over the previous slot
   # block root
-  when aggregate.sync_committee_signature isnot TrustedSig:
+  when sync_aggregate.sync_committee_signature isnot TrustedSig:
     var participant_pubkeys: seq[ValidatorPubKey]
     for i in 0 ..< state.current_sync_committee.pubkeys.len:
-      if aggregate.sync_committee_bits[i]:
+      if sync_aggregate.sync_committee_bits[i]:
         participant_pubkeys.add state.current_sync_committee.pubkeys[i]
 
     # p2p-interface message validators check for empty sync committees, so it
     # shouldn't run except as part of test suite.
     if participant_pubkeys.len == 0:
-      if aggregate.sync_committee_signature != ValidatorSig.infinity():
+      if sync_aggregate.sync_committee_signature != ValidatorSig.infinity():
         return err("process_sync_aggregate: empty sync aggregates need signature of point at infinity")
     else:
       # Empty participants allowed
@@ -452,7 +452,7 @@ proc process_sync_aggregate*(
       if not verify_sync_committee_signature(
           state.fork, state.genesis_validators_root, previous_slot,
           beacon_block_root, participant_pubkeys,
-          aggregate.sync_committee_signature):
+          sync_aggregate.sync_committee_signature):
         return err("process_sync_aggregate: invalid signature")
 
   # Compute participant and proposer rewards
@@ -478,9 +478,9 @@ proc process_sync_aggregate*(
   # TODO could use a sequtils2 zipIt
   for i in 0 ..< min(
     state.current_sync_committee.pubkeys.len,
-    aggregate.sync_committee_bits.len):
+    sync_aggregate.sync_committee_bits.len):
     let participant_index = indices[i]
-    if aggregate.sync_committee_bits[i]:
+    if sync_aggregate.sync_committee_bits[i]:
       increase_balance(state, participant_index, participant_reward)
       increase_balance(state, proposer_index.get, proposer_reward)
     else:
