@@ -55,6 +55,7 @@
 # Reference
 - [JSON-RPC API](./api.md)
 - [REST API](./rest-api.md)
+- [Keymanager API](./keymanager-api.md)
 - [Help / Command line options](./options.md)
 - [Advanced migration options](./migration-options.md)
 - [Troubleshooting](./troubleshooting.md)
