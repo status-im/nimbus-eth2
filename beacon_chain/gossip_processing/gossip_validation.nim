@@ -211,7 +211,7 @@ template validateBeaconBlockBellatrix(
       of BeaconBlockFork.Altair:
         false
       of BeaconBlockFork.Bellatrix:
-        # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#process_execution_payload
+        # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/beacon-chain.md#process_execution_payload
         # shows how this gets folded into the state each block; checking this
         # is equivalent, without ever requiring state replay or any similarly
         # expensive computation.
@@ -360,7 +360,7 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc validateAttestation*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
@@ -787,7 +787,7 @@ proc validateVoluntaryExit*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.8/specs/altair/p2p-interface.md#sync_committee_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/p2p-interface.md#sync_committee_subnet_id
 proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
     batchCrypto: ref BatchCrypto,
@@ -798,9 +798,9 @@ proc validateSyncCommitteeMessage*(
     checkSignature: bool):
     Future[Result[(seq[uint64], CookedSig), ValidationError]] {.async.} =
   block:
-    # [IGNORE] The signature's slot is for the current slot
-    # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance)
-    # i.e. sync_committee_message.slot == current_slot.
+    # [IGNORE] The message's slot is for the current slot (with a
+    # `MAXIMUM_GOSSIP_CLOCK_DISPARITY` allowance), i.e.
+    # `sync_committee_message.slot == current_slot`.
     let v = check_propagation_slot_range(msg.slot, wallTime)
     if v.isErr():
       return err(v.error())
@@ -818,10 +818,9 @@ proc validateSyncCommitteeMessage*(
       "SyncCommitteeMessage: originator not part of sync committee")
 
   block:
-    # [IGNORE] There has been no other valid sync committee signature for the
-    # declared slot for the validator referenced by sync_committee_message.validator_index
-    # (this requires maintaining a cache of size SYNC_COMMITTEE_SIZE // SYNC_COMMITTEE_SUBNET_COUNT
-    # for each subnet that can be flushed after each slot).
+    # [IGNORE] There has been no other valid sync committee message for the
+    # declared `slot` for the validator referenced by
+    # `sync_committee_message.validator_index`
     #
     # Note this validation is per topic so that for a given slot, multiple
     # messages could be forwarded with the same validator_index as long as
