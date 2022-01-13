@@ -468,7 +468,8 @@ proc init*(T: type BeaconNode,
       taskpool)
     syncManager = newSyncManager[Peer, PeerID](
       network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot, getLocalWallSlot,
-      getFirstSlotAtFinalizedEpoch, getBackfillSlot, blockVerifier)
+      getFirstSlotAtFinalizedEpoch, getBackfillSlot, dag.tail.slot,
+      blockVerifier)
 
   let stateTtlCache = if config.restCacheSize > 0:
     StateTtlCache.init(

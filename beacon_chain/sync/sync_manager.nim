@@ -54,6 +54,7 @@ type
     getSafeSlot: GetSlotCallback
     getFirstSlot: GetSlotCallback
     getLastSlot: GetSlotCallback
+    progressPivot: Slot
     workers: array[SyncWorkersCount, SyncWorker[A, B]]
     notInSyncEvent: AsyncEvent
     rangeAge: uint64
@@ -98,6 +99,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getLocalWallSlotCb: GetSlotCallback,
                            getFinalizedSlotCb: GetSlotCallback,
                            getBackfillSlotCb: GetSlotCallback,
+                           progressPivot: Slot,
                            blockVerifier: BlockVerifier,
                            maxStatusAge = uint64(SLOTS_PER_EPOCH * 4),
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
@@ -120,6 +122,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     getSafeSlot: getSafeSlot,
     getFirstSlot: getFirstSlot,
     getLastSlot: getLastSlot,
+    progressPivot: progressPivot,
     maxHeadAge: maxHeadAge,
     sleepTime: sleepTime,
     chunkSize: chunkSize,
@@ -550,8 +553,13 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
           direction = man.direction, topics = "syncman"
 
     let
-      progress = float(man.queue.progress())
-      total = float(man.queue.total())
+      pivot = man.progressPivot
+      progress = float(
+        if man.queue.kind == SyncQueueKind.Forward: man.queue.outSlot - pivot
+        else: pivot - man.queue.outSlot)
+      total = float(
+        if man.queue.kind == SyncQueueKind.Forward: man.queue.finalSlot - pivot
+        else: pivot - man.queue.finalSlot)
       remaining = total - progress
       done = if total > 0.0: progress / total else: 1.0
       timeleft =
