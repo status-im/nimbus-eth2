@@ -147,16 +147,24 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="keymanager-api"><a class="header" href="#keymanager-api">Keymanager API</a></h1>
-<p>The standardized <a href="https://ethereum.github.io/keymanager-APIs/">Keymanager API</a> can be used to add, remove or migrate validators on the fly on a running beacon node.</p>
-<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
-<p>By default, the Keymanager API is disabled. To enable it, start the beacon node with the <code>--keymanager</code> option, then access the API from http://localhost:5052/. All requests must be authorized through the <code>Authorization: Bearer</code> scheme with a token matching the contents of a file provided at the start of the node through the <code>--keymanager-token-file</code> parameter.</p>
-<p>By default, only connections from the same machine are entertained. The port and listening address can be further configured through the options <code>--keymanager-port</code> and <code>--keymanager-address</code>.</p>
 <blockquote>
-<p><strong>Warning:</strong> The Keymanager API port SHOULD be exposed through a secure channel, such as with HTTPs, an SSH tunnel, a VPN, etc.</p>
+<p>⚠️ This feature is currently in BETA - we are still testing it and implementation details may change in response to community feedback. <strong>We strongly advise against using it on mainnet</strong> - your validators may get slashed</p>
+</blockquote>
+<p>The standardized <a href="https://ethereum.github.io/keymanager-APIs/">Keymanager API</a> can be used to add, remove, or <a href="./migration.html">migrate</a> validators on the fly while the beacon node is running.</p>
+<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
+<p>By default, we disable the Keymanager API. To enable it, start the beacon node with the <code>--keymanager</code> option enabled:</p>
+<pre><code>./run-prater-beacon-node.sh --keymanager
+</code></pre>
+<p>Once the node is running, you'll be able to access the API from <a href="http://localhost:5052/">http://localhost:5052/</a></p>
+<h3 id="authorization-bearer-scheme"><a class="header" href="#authorization-bearer-scheme">Authorization: Bearer scheme</a></h3>
+<p>All requests must be authorized through the <code>Authorization: Bearer</code> scheme with a token matching the contents of a file provided at the start of the node through the <code>--keymanager-token-file</code> parameter.</p>
+<h3 id="enabling-connections-from-outside-machines"><a class="header" href="#enabling-connections-from-outside-machines">Enabling connections from outside machines</a></h3>
+<p>By default, only connections from the same machine are entertained. If you wish to change this you can configure the port and listening address with the <code>--keymanager-port</code> and <code>--keymanager-address</code> options respectively.</p>
+<blockquote>
+<p>⚠️ The Keymanager API port should only be exposed through a secure channel (e.g. HTTPS, an SSH tunnel, a VPN, etc.)</p>
 </blockquote>
 <h2 id="specification"><a class="header" href="#specification">Specification</a></h2>
-<p>The specification is documented <a href="https://ethereum.github.io/keymanager-APIs/">here</a>.</p>
-<p>See the Readme <a href="https://github.com/ethereum/keymanager-APIs/">here</a>.</p>
+<p>The specification is documented <a href="https://ethereum.github.io/keymanager-APIs/">here</a>. The  README is also extremely useful and is documented <a href="https://github.com/ethereum/keymanager-APIs/">here</a>.</p>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/keymanager-api.md">Edit this file on GitHub.</a></footer>
                     </main>
 
