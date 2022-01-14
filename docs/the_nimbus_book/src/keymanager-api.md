@@ -1,6 +1,6 @@
 # Keymanager API
 
-> ⚠️ This feature is currently in BETA - we are still testing it and implementation details may change in response to community feedback. **We strongly advise against using it on mainnet** for the time being
+> ⚠️ This feature is currently in BETA - we are still testing it and implementation details may change in response to community feedback. **We strongly advise against using it on mainnet** - your validators may get slashed
 
 The standardized [Keymanager API](https://ethereum.github.io/keymanager-APIs/) can be used to add, remove, or [migrate](./migration.md) validators on the fly while the beacon node is running.
 
