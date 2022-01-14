@@ -344,7 +344,9 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest
+
     deposit_count*: uint64
+
     block_hash*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#signedvoluntaryexit
