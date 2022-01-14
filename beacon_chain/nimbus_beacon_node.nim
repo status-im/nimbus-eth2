@@ -301,7 +301,7 @@ proc init*(T: type BeaconNode,
 
   let
     validatorMonitor = newClone(ValidatorMonitor.init(
-      config.validatorMonitorAuto))
+      config.validatorMonitorAuto, config.validatorMonitorTotals))
 
   for key in config.validatorMonitorPubkeys:
     validatorMonitor[].addMonitor(key, none(ValidatorIndex))
