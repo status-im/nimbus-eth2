@@ -1,8 +1,10 @@
 # Validator monitoring
 
-> ⚠️ This feature is currently in BETA - the details of its implementation may change in response to community feedback.
+> ⚠️ This feature is currently in BETA - implementation details may change in response to community feedback.
 
-The validator monitoring feature allows for tracking the life-cycle and performance of one or more validators in detail. Monitoring can be carried out for any validator, with slightly more detail for validators that are running through the same beacon node.
+The validator monitoring feature allows for tracking the life-cycle and performance of one or more validators in detail.
+
+Monitoring can be carried out for any validator, with slightly more detail for validators that are running through the same beacon node.
 
 Every time the validator performs a duty, the duty is recorded and the monitor keeps track of the reward-related events for having performed it. For example:
 
