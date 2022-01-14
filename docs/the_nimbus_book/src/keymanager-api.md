@@ -15,7 +15,7 @@ By default, we disable the Keymanager API. To enable it, start the beacon node w
 Once the node is running, you'll be able to access the API from [http://localhost:5052/](http://localhost:5052/)
 
 ### Authorization: Bearer scheme
-All requests must be authorized through the `Authorization: Bearer` scheme. with a token matching the contents of a file provided at the start of the node through the `--keymanager-token-file` parameter.
+All requests must be authorized through the `Authorization: Bearer` scheme with a token matching the contents of a file provided at the start of the node through the `--keymanager-token-file` parameter.
 
 ### Enabling connections from outside machines
 By default, only connections from the same machine are entertained. If you wish to change this you can configure the port and listening address with the `--keymanager-port` and `--keymanager-address` options respectively.
