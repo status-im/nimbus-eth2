@@ -1,3 +1,29 @@
+2022-01-14 v1.6.0
+=================
+
+Nimbus `v1.6.0` is a `low-urgency` performance optimisation release with improved peer management.
+
+`v1.6.0` adds support for the `Keymanager` API (currently in BETA):
+
+https://nimbus.guide/keymanager-api.html
+
+As well as a comprehensive set of metrics for  validator performance monitoring:
+
+https://nimbus.guide/validator-monitor.html 
+
+### Improvements: 
+
+* Tuned peer management: reduces the likelihood of missed attestations
+    * If you've seen frequent "No peers for topic" in your logs, this release will help
+* Improved buffer management in the networking layer: reduces both CPU and memory usage.
+* Further optimised batch verification of gossip messages: provides a 2-fold improvement in throughput.
+* Comprehensive set of metrics for live validator performance monitoring in Grafana and support for producing detailed historic reward analysis in `ncli_db` (note that `ncli_db` is available only when compiling from source at the moment).
+* Support for the new Keymanager API: add, remove, and migrate validators on the fly (BETA).
+*  Blazingly fast historical traversals in the REST API for beacon chain data mining: state caching brings up to a 10x speed-up in some common usage patterns (e.g. obtaining historic data slot by slot or epoch by epoch).
+* 3x speed-up in snappy compression and decompression.
+* Support for obtaining JSON payloads from the REST API.
+
+
 2021-12-03 v1.5.5
 =================
 
