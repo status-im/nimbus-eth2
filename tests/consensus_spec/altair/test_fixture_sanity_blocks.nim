@@ -45,15 +45,15 @@ proc runTest(testName, testDir, unitTestName: string) =
         let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, altair.SignedBeaconBlock)
 
         if hasPostState:
-          let success = state_transition(
+          let res = state_transition(
             defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
             noRollback)
-          doAssert success, "Failure when applying block " & $i
+          res.expect("block should apply: " & $i)
         else:
-          let success = state_transition(
+          let res = state_transition(
             defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
             noRollback)
-          doAssert (i + 1 < numBlocks) or not success,
+          doAssert (i + 1 < numBlocks) or not res.isOk(),
             "We didn't expect these invalid blocks to be processed"
 
       if hasPostState:

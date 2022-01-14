@@ -95,9 +95,11 @@ proc doTransition(conf: NcliConf) =
   var
     cache = StateCache()
     info = ForkedEpochInfo()
-  if not state_transition(getRuntimeConfig(conf.eth2Network),
-                          stateY[], blckX, cache, info, flags, noRollback):
-    error "State transition failed"
+  let res = state_transition(
+    getRuntimeConfig(conf.eth2Network), stateY[], blckX, cache, info,
+    flags, noRollback)
+  if res.isErr():
+    error "State transition failed", error = res.error()
     quit 1
   else:
     saveSSZFile(conf.postState, stateY[])
@@ -126,9 +128,9 @@ proc doSlots(conf: NcliConf) =
   for i in 0'u64..<conf.slot:
     let isEpoch = (getStateField(stateY[], slot) + 1).is_epoch
     withTimer(timers[if isEpoch: tApplyEpochSlot else: tApplySlot]):
-      doAssert process_slots(
+      process_slots(
         defaultRuntimeConfig, stateY[], getStateField(stateY[], slot) + 1,
-        cache, info, {})
+        cache, info, {}).expect("should be able to advance slot")
 
   withTimer(timers[tSaveState]):
     saveSSZFile(conf.postState, stateY[])

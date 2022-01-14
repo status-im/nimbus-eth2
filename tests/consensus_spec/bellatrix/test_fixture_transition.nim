@@ -60,19 +60,19 @@ proc runTest(testName, testDir, unitTestName: string) =
             testPath/"blocks_" & $i & ".ssz_snappy", SSZ,
             altair.SignedBeaconBlock)
 
-          let success = state_transition(
+          let res = state_transition(
             cfg, fhPreState[], blck, cache, info,
             flags = {skipStateRootValidation}, noRollback)
-          doAssert success, "Failure when applying block " & $i
+          res.expect("no failure when applying block " & $i)
         else:
           let blck = parseTest(
             testPath/"blocks_" & $i & ".ssz_snappy", SSZ,
             bellatrix.SignedBeaconBlock)
 
-          let success = state_transition(
+          let res = state_transition(
             cfg, fhPreState[], blck, cache, info,
             flags = {skipStateRootValidation}, noRollback)
-          doAssert success, "Failure when applying block " & $i
+          res.expect("no failure when applying block " & $i)
 
       let postState = newClone(parseTest(
         testPath/"post.ssz_snappy", SSZ, bellatrix.BeaconState))

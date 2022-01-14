@@ -32,8 +32,9 @@ suite "Spec helpers":
       forked = newClone(initGenesisState())
       cache = StateCache()
       info = ForkedEpochInfo()
-    doAssert process_slots(defaultRuntimeConfig, forked[],
-                           Slot(100), cache, info, flags = {})
+    process_slots(
+      defaultRuntimeConfig, forked[], Slot(100), cache, info,
+      flags = {}).expect("no failure")
 
     let
       state = forked[].phase0Data.data

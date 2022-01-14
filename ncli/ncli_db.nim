@@ -246,19 +246,19 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       while getStateField(stateData[].data, slot) < b.message.slot:
         let isEpoch = (getStateField(stateData[].data, slot) + 1).is_epoch()
         withTimer(timers[if isEpoch: tAdvanceEpoch else: tAdvanceSlot]):
-          let ok = process_slots(
+          process_slots(
             dag.cfg, stateData[].data, getStateField(stateData[].data, slot) + 1, cache,
-            info, {})
-          doAssert ok, "Slot processing can't fail with correct inputs"
+            info, {}).expect("Slot processing can't fail with correct inputs")
 
       var start = Moment.now()
       withTimer(timers[tApplyBlock]):
         if conf.resetCache:
           cache = StateCache()
-        if not state_transition_block(
-            dag.cfg, stateData[].data, b, cache, {}, noRollback):
+        let res = state_transition_block(
+            dag.cfg, stateData[].data, b, cache, {}, noRollback)
+        if res.isErr():
           dump("./", b)
-          echo "State transition failed (!)"
+          echo "State transition failed (!) ", res.error()
           quit 1
       if conf.printTimes:
         echo b.message.slot, ",", toHex(b.root.data), ",", nanoseconds(Moment.now() - start)
@@ -665,24 +665,24 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
         flags =
           if nextSlot == blck.message.slot: {skipLastStateRootCalculation}
           else: {}
-      let ok = process_slots(
-        dag.cfg, state[].data, nextSlot, cache, info, flags)
-      doAssert ok, "Slot processing can't fail with correct inputs"
+      process_slots(
+        dag.cfg, state[].data, nextSlot, cache, info, flags).expect(
+          "Slot processing can't fail with correct inputs")
 
       if getStateField(state[].data, slot).is_epoch():
         processEpoch()
 
-    if not state_transition_block(
-        dag.cfg, state[].data, blck, cache, {}, noRollback):
-      echo "State transition failed (!)"
+    let res = state_transition_block(
+        dag.cfg, state[].data, blck, cache, {}, noRollback)
+    if res.isErr:
+      echo "State transition failed (!) ", res.error()
       quit 1
 
   # Capture rewards of empty slots as well
   while getStateField(state[].data, slot) < ends:
-    let ok = process_slots(
+    process_slots(
       dag.cfg, state[].data, getStateField(state[].data, slot) + 1, cache,
-      info, {})
-    doAssert ok, "Slot processing can't fail with correct inputs"
+      info, {}).expect("Slot processing can't fail with correct inputs")
 
     if getStateField(state[].data, slot).is_epoch():
       processEpoch()
@@ -911,24 +911,24 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
           if nextSlot == blck.message.slot: {skipLastStateRootCalculation}
           else: {}
 
-      let ok = process_slots(cfg, state[].data, nextSlot, cache, info, flags)
-      doAssert ok, "Slot processing can't fail with correct inputs"
+      process_slots(cfg, state[].data, nextSlot, cache, info, flags).expect(
+        "Slot processing can't fail with correct inputs")
 
       if getStateField(state[].data, slot).is_epoch():
         processEpoch()
 
-    if not state_transition_block(
-        cfg, state[].data, blck, cache, {}, noRollback):
-      echo "State transition failed (!)"
+    let res = state_transition_block(
+        cfg, state[].data, blck, cache, {}, noRollback)
+    if res.isErr():
+      echo "State transition failed (!) ", res.error()
       quit 1
 
   # Capture rewards of empty slots as well, including the epoch that got
   # finalized
   while getStateField(state[].data, slot) <= ends:
-    let ok = process_slots(
+    process_slots(
       cfg, state[].data, getStateField(state[].data, slot) + 1, cache,
-      info, {})
-    doAssert ok, "Slot processing can't fail with correct inputs"
+      info, {}).expect("Slot processing can't fail with correct inputs")
 
     if getStateField(state[].data, slot).is_epoch():
       processEpoch()

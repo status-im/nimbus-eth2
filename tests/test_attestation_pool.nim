@@ -74,7 +74,7 @@ suite "Attestation pool processing" & preset():
     check:
       process_slots(
         dag.cfg, state.data, getStateField(state.data, slot) + 1, cache, info,
-        {})
+        {}).isOk()
 
   test "Can add and retrieve simple attestations" & preset():
     let
@@ -106,7 +106,7 @@ suite "Attestation pool processing" & preset():
       process_slots(
         defaultRuntimeConfig, state.data,
         getStateField(state.data, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
-        info, {})
+        info, {}).isOk()
 
     let attestations = pool[].getAttestationsForBlock(state.data, cache)
 
@@ -128,7 +128,7 @@ suite "Attestation pool processing" & preset():
       process_slots(
         defaultRuntimeConfig, state.data,
         getStateField(state.data, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
-        info, {})
+        info, {}).isOk()
 
       withState(state.data): state.latest_block_root == root1
 
@@ -211,7 +211,7 @@ suite "Attestation pool processing" & preset():
       process_slots(
         defaultRuntimeConfig, state.data,
         getStateField(state.data, slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
-        info, {})
+        info, {}).isOk()
 
     check:
       pool[].getAttestationsForBlock(state.data, cache).len() == 2
@@ -261,7 +261,7 @@ suite "Attestation pool processing" & preset():
       check:
         process_slots(
           defaultRuntimeConfig, state.data,
-          getStateField(state.data, slot) + 1, cache, info, {})
+          getStateField(state.data, slot) + 1, cache, info, {}).isOk()
 
     doAssert attestations.uint64 > MAX_ATTESTATIONS,
       "6*SLOTS_PER_EPOCH validators > 128 mainnet MAX_ATTESTATIONS"
@@ -283,7 +283,7 @@ suite "Attestation pool processing" & preset():
     check:
       process_slots(
         defaultRuntimeConfig, state.data, getStateField(state.data, slot) + 1,
-        cache, info, {})
+        cache, info, {}).isOk()
 
     let
       bc1 = get_beacon_committee(state[].data,
@@ -297,10 +297,6 @@ suite "Attestation pool processing" & preset():
     pool[].addAttestation(
       attestation0, @[bc0[0]], attestation0.loadSig,
       attestation0.data.slot.start_beacon_time)
-
-    discard process_slots(
-      defaultRuntimeConfig, state.data,
-      MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, info, {})
 
     let attestations = pool[].getAttestationsForBlock(state.data, cache)
 
@@ -328,7 +324,7 @@ suite "Attestation pool processing" & preset():
     check:
       process_slots(
         defaultRuntimeConfig, state.data,
-        MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, info, {})
+        MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, info, {}).isOk()
 
     let attestations = pool[].getAttestationsForBlock(state.data, cache)
 
@@ -359,7 +355,7 @@ suite "Attestation pool processing" & preset():
     check:
       process_slots(
         defaultRuntimeConfig, state.data,
-        MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, info, {})
+        MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, info, {}).isOk()
 
     let attestations = pool[].getAttestationsForBlock(state.data, cache)
 
@@ -389,7 +385,7 @@ suite "Attestation pool processing" & preset():
     check:
       process_slots(
         defaultRuntimeConfig, state.data,
-        MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, info, {})
+        MIN_ATTESTATION_INCLUSION_DELAY.Slot + 1, cache, info, {}).isOk()
 
     let attestations = pool[].getAttestationsForBlock(state.data, cache)
 

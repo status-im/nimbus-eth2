@@ -88,8 +88,9 @@ proc addTestBlock*(
   # Create and add a block to state - state will advance by one slot!
   if nextSlot:
     var info = ForkedEpochInfo()
-    doAssert process_slots(
-      cfg, state, getStateField(state, slot) + 1, cache, info, flags)
+    process_slots(
+      cfg, state, getStateField(state, slot) + 1, cache, info, flags).expect(
+        "can advance 1")
 
   let
     proposer_index = get_beacon_proposer_index(

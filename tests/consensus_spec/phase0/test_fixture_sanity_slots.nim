@@ -39,7 +39,7 @@ proc runTest(identifier: string) =
         process_slots(
           defaultRuntimeConfig,
           fhPreState[], getStateField(fhPreState[], slot) + num_slots, cache,
-          info, {})
+          info, {}).isOk()
 
         getStateRoot(fhPreState[]) == postState[].hash_tree_root()
       let newPreState = newClone(fhPreState.phase0Data.data)

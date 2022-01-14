@@ -109,14 +109,14 @@ proc checkStateTransition(
     doAssert v.addr == addr dag.clearanceState.data
     assign(dag.clearanceState, dag.headState)
 
-  logScope:
-    blockRoot = shortLog(signedBlock.root)
-    blck = shortLog(signedBlock.message)
-
-  if not state_transition_block(
+  let res = state_transition_block(
       dag.cfg, dag.clearanceState.data, signedBlock,
-      cache, dag.updateFlags, restore):
-    info "Invalid block"
+      cache, dag.updateFlags, restore)
+  if res.isErr():
+    info "Invalid block",
+      blockRoot = shortLog(signedBlock.root),
+      blck = shortLog(signedBlock.message),
+      error = res.error()
 
     err(BlockError.Invalid)
   else:

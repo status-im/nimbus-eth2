@@ -73,8 +73,8 @@ proc getTestStates*(
   for i, epoch in stateEpochs:
     let slot = epoch.Epoch.start_slot
     if getStateField(tmpState[], slot) < slot:
-      doAssert process_slots(
-        cfg, tmpState[], slot, cache, info, {})
+      process_slots(
+        cfg, tmpState[], slot, cache, info, {}).expect("no failure")
 
     if i mod 3 == 0:
       withState(tmpState[]):
