@@ -1,6 +1,6 @@
 # Keymanager API
 
-> ⚠️ This feature is currently in BETA - implementation details may change in response to community feedback.
+> ⚠️ This feature is currently in BETA - we are still testing it and implementation details may change in response to community feedback. **We strongly advise against using it on mainnet** for the time being
 
 The standardized [Keymanager API](https://ethereum.github.io/keymanager-APIs/) can be used to add, remove, or [migrate](./migration.md) validators on the fly while the beacon node is running.
 
@@ -9,7 +9,7 @@ The standardized [Keymanager API](https://ethereum.github.io/keymanager-APIs/) c
 By default, we disable the Keymanager API. To enable it, start the beacon node with the `--keymanager` option enabled:
 
 ```
-./run-mainnet-beacon-node.sh --keymanager
+./run-prater-beacon-node.sh --keymanager
 ```
 
 Once the node is running, you'll be able to access the API from [http://localhost:5052/](http://localhost:5052/)
