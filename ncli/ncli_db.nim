@@ -211,7 +211,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       seq[altair.TrustedSignedBeaconBlock],
       seq[bellatrix.TrustedSignedBeaconBlock])
 
-  echo &"Loaded {dag.blocks.len} blocks, head slot {dag.head.slot}, selected {blockRefs.len} blocks"
+  echo &"Loaded head slot {dag.head.slot}, selected {blockRefs.len} blocks"
   doAssert blockRefs.len() > 0, "Must select at least one block"
 
   for b in 0 ..< blockRefs.len:
