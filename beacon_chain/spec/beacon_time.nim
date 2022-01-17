@@ -236,17 +236,19 @@ template start_epoch*(period: SyncCommitteePeriod): Epoch =
   if period >= maxPeriod: FAR_FUTURE_EPOCH
   else: Epoch(period * EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
 
-func shortLog*(t: BeaconTime): string =
+func `$`*(t: BeaconTime): string =
   if t.ns_since_genesis >= 0:
     $(timer.nanoseconds(t.ns_since_genesis))
   else:
     "-" & $(timer.nanoseconds(-t.ns_since_genesis))
 
-func shortLog*(t: TimeDiff): string =
+func `$`*(t: TimeDiff): string =
   if t.nanoseconds >= 0:
     $(timer.nanoseconds(t.nanoseconds))
   else:
     "-" & $(timer.nanoseconds(-t.nanoseconds))
+
+func shortLog*(t: BeaconTime | TimeDiff): string = $t
 
 chronicles.formatIt BeaconTime: it.shortLog
 chronicles.formatIt TimeDiff: it.shortLog
