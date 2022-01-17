@@ -138,7 +138,7 @@ type
 
   RestSyncCommitteeSubscription* = object
     validator_index*: ValidatorIndex
-    sync_committee_indices*: seq[SyncSubcommitteeIndex]
+    sync_committee_indices*: seq[IndexInSyncCommittee]
     until_epoch*: Epoch
 
   RestBeaconStatesFinalityCheckpoints* = object
