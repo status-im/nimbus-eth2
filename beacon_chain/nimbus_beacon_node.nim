@@ -26,7 +26,7 @@ import
   # Local modules
   "."/[
     beacon_clock, beacon_chain_db, beacon_node, beacon_node_status,
-    conf, filepath, interop, nimbus_binary_common, statusbar,
+    conf, filepath, interop, nimbus_binary_common, statusbar, trusted_node_sync,
     version],
   ./networking/[eth2_discovery, eth2_network, network_metadata],
   ./gossip_processing/[eth2_processor, block_processor, consensus_manager],
@@ -1874,7 +1874,6 @@ proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOErr
   echo "Import finished: '", interchange, "' into '", dir/filetrunc & ".sqlite3", "'"
 
 proc doSlashingInterchange(conf: BeaconNodeConf) {.raises: [Defect, CatchableError].} =
-  doAssert conf.cmd == slashingdb
   case conf.slashingdbCmd
   of SlashProtCmd.`export`:
     conf.doSlashingExport()
@@ -1921,10 +1920,28 @@ programMain:
   let rng = keys.newRng()
 
   case config.cmd
-  of createTestnet: doCreateTestnet(config, rng[])
-  of noCommand: doRunBeaconNode(config, rng)
-  of deposits: doDeposits(config, rng[])
-  of wallets: doWallets(config, rng[])
-  of record: doRecord(config, rng[])
-  of web3: doWeb3Cmd(config)
-  of slashingdb: doSlashingInterchange(config)
+  of BNStartUpCmd.createTestnet: doCreateTestnet(config, rng[])
+  of BNStartUpCmd.noCommand: doRunBeaconNode(config, rng)
+  of BNStartUpCmd.deposits: doDeposits(config, rng[])
+  of BNStartUpCmd.wallets: doWallets(config, rng[])
+  of BNStartUpCmd.record: doRecord(config, rng[])
+  of BNStartUpCmd.web3: doWeb3Cmd(config)
+  of BNStartUpCmd.slashingdb: doSlashingInterchange(config)
+  of BNStartupCmd.trustedNodeSync:
+    let
+      network = loadEth2Network(config)
+      cfg = network.cfg
+      genesis =
+        if network.genesisData.len > 0:
+          newClone(readSszForkedHashedBeaconState(
+            cfg,
+            network.genesisData.toOpenArrayByte(0, network.genesisData.high())))
+        else: nil
+
+    waitFor doTrustedNodeSync(
+      cfg,
+      config.databaseDir,
+      config.trustedNodeUrl,
+      config.blockId,
+      config.backfillBlocks,
+      genesis)
