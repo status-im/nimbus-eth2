@@ -606,7 +606,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceSyncCommitteeContribution
   router.api(MethodGet,
              "/eth/v1/validator/sync_committee_contribution") do (
-    slot: Option[Slot], subcommittee_index: Option[uint64],
+    slot: Option[Slot], subcommittee_index: Option[SyncSubCommitteeIndex],
     beacon_block_root: Option[Eth2Digest]) -> RestApiResponse:
     let qslot =
       if slot.isNone():
@@ -626,8 +626,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400,
                                          MissingSubCommitteeIndexValueError)
       else:
-        let v = subcommittee_index.get()
-        let res = (v and SyncSubcommitteeIndex.init(v.get()))
+        let res = subcommittee_index.get()
         if res.isErr():
           return RestApiResponse.jsonError(Http400,
                                             InvalidSubCommitteeIndexValueError,

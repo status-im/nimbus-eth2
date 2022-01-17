@@ -52,7 +52,6 @@ type
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
     SignedVoluntaryExit |
-    SyncSubcommitteeIndex |
     Web3SignerRequest |
     KeystoresAndSlashingProtection |
     DeleteKeystoresBody
@@ -903,24 +902,6 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
       # TODO SerializationError
       writer.writeField("data", value.mergeData.data)
   writer.endRecord()
-
-# SyncSubcommitteeIndex
-proc writeValue*(writer: var JsonWriter[RestJson],
-                 value: SyncSubcommitteeIndex) {.
-     raises: [IOError, Defect].} =
-  writeValue(writer, value.asUInt64)
-
-proc readValue*(reader: var JsonReader[RestJson],
-                value: var SyncSubcommitteeIndex) {.
-     raises: [IOError, SerializationError, Defect].} =
-  var v: uint64
-  reader.readValue(v)
-
-  let res = SyncSubcommitteeIndex.init(v)
-  if res.isOk():
-    value = res.get()
-  else:
-    reader.raiseUnexpectedValue($res.error())
 
 # Web3SignerRequest
 proc writeValue*(writer: var JsonWriter[RestJson],
