@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[typetraits, sharedtables],
+  std/[typetraits, tables],
   stew/[arrayops, assign2, byteutils, endians2, io2, objects, results],
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
@@ -882,35 +882,21 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     yield res
     root = res.message.parent_root
 
-# BEWARE
-# There is an opportunistic hack here. Since we are allocating a large table
-# that is used briefly during start-up, we would like to avoid involving the
-# Nim allocator because at the moment it doesn't ever return allocated pages
-# to the OS. Once you reach a certain "high watermark" of used memory, the
-# memory consumption will stay the same until the end of the program.
-# The allocation here is large enough to leave such a lasting effect on the
-# program as demonstrated in:
-# https://github.com/status-im/nimbus-eth2/pull/3164
-#
-# By using `SharedTable`, we avoid the problem because it uses `malloc` and
-# `free` behind the scenes.
-#
-# TODO The hack we'll be removed in the future after further reforms in the
-# DAG that will make it unnecessary to populate such a table altogether.
-proc loadSummaries(db: BeaconChainDB): SharedTable[Eth2Digest, BeaconBlockSummary] =
+proc loadSummaries*(db: BeaconChainDB): Table[Eth2Digest, BeaconBlockSummary] =
   # Load summaries into table - there's no telling what order they're in so we
   # load them all - bugs in nim prevent this code from living in the iterator.
-  result.init 1024*1024
-  let resultAddr = addr result # used only locally in the closure
+  var summaries = initTable[Eth2Digest, BeaconBlockSummary](1024*1024)
 
   discard db.summaries.find([], proc(k, v: openArray[byte]) =
     var output: BeaconBlockSummary
 
-    if k.len() == sizeof(Eth2Digest) and decodeSSZ(v, output):
-      resultAddr[][Eth2Digest(data: toArray(sizeof(Eth2Digest), k))] = output
+    if k.len() == sizeof(Eth2Digest) and decodeSSz(v, output):
+      summaries[Eth2Digest(data: toArray(sizeof(Eth2Digest), k))] = output
     else:
       warn "Invalid summary in database", klen = k.len(), vlen = v.len()
   )
+
+  summaries
 
 type RootedSummary = tuple[root: Eth2Digest, summary: BeaconBlockSummary]
 iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
@@ -931,9 +917,6 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
     res: RootedSummary
     blck: phase0.TrustedSignedBeaconBlock
     newSummaries: seq[RootedSummary]
-
-  defer:
-    deinitSharedTable summaries
 
   res.root = root
 
