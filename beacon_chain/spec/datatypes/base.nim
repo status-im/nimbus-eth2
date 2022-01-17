@@ -892,3 +892,8 @@ template isomorphicCast*[T, U](x: U): T =
     doAssert sizeof(T) == sizeof(U)
     doAssert getSizeofSig(T()) == getSizeofSig(U())
   cast[ptr T](unsafeAddr x)[]
+
+proc clear*(cache: var StateCache) =
+  cache.shuffled_active_validator_indices.clear
+  cache.beacon_proposer_indices.clear
+  cache.sync_committees.clear

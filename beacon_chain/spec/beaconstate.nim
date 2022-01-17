@@ -130,27 +130,27 @@ proc get_slashing_penalty*(state: ForkyBeaconState,
       validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT
   elif state is altair.BeaconState:
       validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR
-  elif state is merge.BeaconState:
+  elif state is bellatrix.BeaconState:
       validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_MERGE
   else:
-    raiseAssert "invalid BeaconState type"
+    {.fatal: "invalid BeaconState type".}
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#modified-slash_validator
-proc get_whistleblower_reward*(validator_effective_balance: Gwei): Gwei =
+func get_whistleblower_reward*(validator_effective_balance: Gwei): Gwei =
   validator_effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#modified-slash_validator
-proc get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): Gwei =
+func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): Gwei =
   when state is phase0.BeaconState:
     whistleblower_reward div PROPOSER_REWARD_QUOTIENT
-  elif state is altair.BeaconState or state is merge.BeaconState:
+  elif state is altair.BeaconState or state is bellatrix.BeaconState:
     whistleblower_reward * PROPOSER_WEIGHT div WEIGHT_DENOMINATOR
   else:
-    raiseAssert "invalid BeaconState type"
+    {.fatal: "invalid BeaconState type".}
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#modified-slash_validator

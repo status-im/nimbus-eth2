@@ -859,22 +859,22 @@ func get_adjusted_total_slashing_balance*(
   let multiplier =
     # tradeoff here about interleaving phase0/altair, but for these
     # single-constant changes...
-    uint64(when state is phase0.BeaconState:
+    when state is phase0.BeaconState:
       PROPORTIONAL_SLASHING_MULTIPLIER
     elif state is altair.BeaconState:
       PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR
     elif state is bellatrix.BeaconState:
       PROPORTIONAL_SLASHING_MULTIPLIER_MERGE
     else:
-      raiseAssert "process_slashings: incorrect BeaconState type")
-  return min(sum(state.slashings.data) * multiplier, total_balance)
+      {.fatal: "process_slashings: incorrect BeaconState type".}
+  min(sum(state.slashings.data) * multiplier, total_balance)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/merge/beacon-chain.md#slashings
 func slashing_penalty_applies*(validator: Validator, epoch: Epoch): bool =
-  return validator.slashed and
-         epoch + EPOCHS_PER_SLASHINGS_VECTOR div 2 == validator.withdrawable_epoch
+  validator.slashed and
+  epoch + EPOCHS_PER_SLASHINGS_VECTOR div 2 == validator.withdrawable_epoch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#slashings
@@ -886,7 +886,7 @@ func get_slashing_penalty*(validator: Validator,
                                                 # numerator to avoid uint64 overflow
   let penalty_numerator = validator.effective_balance div increment *
                           adjusted_total_slashing_balance
-  return penalty_numerator div total_balance * increment
+  penalty_numerator div total_balance * increment
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#slashings

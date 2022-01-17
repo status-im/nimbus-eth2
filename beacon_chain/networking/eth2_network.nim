@@ -1851,7 +1851,7 @@ template gossipMaxSize(T: untyped): uint32 =
          T is altair.SignedBeaconBlock:
       GOSSIP_MAX_SIZE
     else:
-      static: raiseAssert "unknown type"
+      {.fatal: "unknown type".}
   static: doAssert maxSize <= maxGossipMaxSize()
   maxSize.uint32
 
