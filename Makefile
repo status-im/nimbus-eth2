@@ -47,7 +47,8 @@ TOOLS := \
 	ncli_db \
 	stack_sizes \
 	nimbus_validator_client \
-	nimbus_signing_node
+	nimbus_signing_node \
+	validator_db_aggregator
 .PHONY: $(TOOLS)
 
 # bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes

@@ -342,7 +342,7 @@ proc getStateData(
 
   true
 
-proc getForkedBlock(db: BeaconChainDB, root: Eth2Digest):
+proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
