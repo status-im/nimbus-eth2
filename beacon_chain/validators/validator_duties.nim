@@ -448,21 +448,21 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
     # Advance to the given slot without calculating state root - we'll only
     # need a state root _with_ the block applied
     var info: ForkedEpochInfo
-    if not process_slots(
-        node.dag.cfg, stateData.data, slot, cache, info,
-        {skipLastStateRootCalculation}):
-      return ForkedBlockResult.err("Unable to advance state to slot")
+
+    process_slots(
+      node.dag.cfg, stateData.data, slot, cache, info,
+      {skipLastStateRootCalculation}).expect("advancing 1 slot should not fail")
 
     let
       eth1Proposal = node.getBlockProposalEth1Data(stateData.data)
 
     if eth1Proposal.hasMissingDeposits:
-      error "Eth1 deposits not available. Skipping block proposal", slot
+      warn "Eth1 deposits not available. Skipping block proposal", slot
       return ForkedBlockResult.err("Eth1 deposits not available")
 
     let exits = withState(stateData.data):
       node.exitPool[].getBeaconBlockExits(state.data)
-    return makeBeaconBlock(
+    let res = makeBeaconBlock(
       node.dag.cfg,
       stateData.data,
       validator_index,
@@ -479,8 +479,16 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       default(merge.ExecutionPayload),
       noRollback, # Temporary state - no need for rollback
       cache)
+    if res.isErr():
+      # This is almost certainly a bug, but it's complex enough that there's a
+      # small risk it might happen even when most proposals succeed - thus we
+      # log instead of asserting
+      error "Cannot create block for proposal",
+        slot, head = shortLog(head), error = res.error()
+      return err($res.error)
+    return ok(res.get())
   do:
-    warn "Cannot get proposal state - skipping block productioon, database corrupt?",
+    error "Cannot get proposal state - skipping block production, database corrupt?",
       head = shortLog(head),
       slot
 

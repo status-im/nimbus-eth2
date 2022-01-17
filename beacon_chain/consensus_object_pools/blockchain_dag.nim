@@ -810,9 +810,8 @@ proc getForkedBlock*(dag: ChainDAGRef, id: BlockId): Opt[ForkedTrustedSignedBeac
       return ok ForkedTrustedSignedBeaconBlock.init(data.get)
 
 proc getForkedBlock*(dag: ChainDAGRef, blck: BlockRef): ForkedTrustedSignedBeaconBlock =
-  let blck = dag.getForkedBlock(blck.bid)
-  if blck.isSome():
-    return blck.get()
+  dag.getForkedBlock(blck.bid).expect(
+    "BlockRef block should always load, database corrupt?")
 
 proc get*(dag: ChainDAGRef, blck: BlockRef): BlockData =
   ## Retrieve the associated block body of a block reference
@@ -841,10 +840,9 @@ proc advanceSlots(
     let preEpoch = getStateField(state.data, slot).epoch
     loadStateCache(dag, cache, state.blck, getStateField(state.data, slot).epoch)
 
-    doAssert process_slots(
-        dag.cfg, state.data, getStateField(state.data, slot) + 1, cache, info,
-        dag.updateFlags),
-      "process_slots shouldn't fail when state slot is correct"
+    process_slots(
+      dag.cfg, state.data, getStateField(state.data, slot) + 1, cache, info,
+      dag.updateFlags).expect("process_slots shouldn't fail when state slot is correct")
     if save:
       dag.putState(state)
 
@@ -860,28 +858,36 @@ proc advanceSlots(
 
 proc applyBlock(
     dag: ChainDAGRef,
-    state: var StateData, blck: BlockData, flags: UpdateFlags,
-    cache: var StateCache, info: var ForkedEpochInfo): bool =
+    state: var StateData, blck: BlockRef, flags: UpdateFlags,
+    cache: var StateCache, info: var ForkedEpochInfo) =
   # Apply a single block to the state - the state must be positioned at the
   # parent of the block with a slot lower than the one of the block being
   # applied
-  doAssert state.blck == blck.refs.parent
-
-  var statePtr = unsafeAddr state # safe because `restore` is locally scoped
-  func restore(v: var ForkedHashedBeaconState) =
-    doAssert (addr(statePtr.data) == addr v)
-    assign(statePtr[], dag.headState)
+  doAssert state.blck == blck.parent
 
   loadStateCache(dag, cache, state.blck, getStateField(state.data, slot).epoch)
 
-  let ok = withBlck(blck.data):
+  case dag.cfg.blockForkAtEpoch(blck.slot.epoch)
+  of BeaconBlockFork.Phase0:
+    let data = dag.db.getPhase0Block(blck.root).expect("block loaded")
     state_transition(
-      dag.cfg, state.data, blck, cache, info,
-      flags + dag.updateFlags + {slotProcessed}, restore)
-  if ok:
-    state.blck = blck.refs
+      dag.cfg, state.data, data, cache, info,
+      flags + dag.updateFlags + {slotProcessed}, noRollback).expect(
+        "Blocks from database must not fail to apply")
+  of BeaconBlockFork.Altair:
+    let data = dag.db.getAltairBlock(blck.root).expect("block loaded")
+    state_transition(
+      dag.cfg, state.data, data, cache, info,
+      flags + dag.updateFlags + {slotProcessed}, noRollback).expect(
+        "Blocks from database must not fail to apply")
+  of BeaconBlockFork.Bellatrix:
+    let data = dag.db.getMergeBlock(blck.root).expect("block loaded")
+    state_transition(
+      dag.cfg, state.data, data, cache, info,
+      flags + dag.updateFlags + {slotProcessed}, noRollback).expect(
+        "Blocks from database must not fail to apply")
 
-  ok
+  state.blck = blck
 
 proc updateStateData*(
     dag: ChainDAGRef, state: var StateData, bs: BlockSlot, save: bool,
@@ -1034,9 +1040,7 @@ proc updateStateData*(
     # again. Also, because we're applying blocks that were loaded from the
     # database, we can skip certain checks that have already been performed
     # before adding the block to the database.
-    let ok =
-      dag.applyBlock(state, dag.get(ancestors[i]), {}, cache, info)
-    doAssert ok, "Blocks in database should never fail to apply.."
+    dag.applyBlock(state, ancestors[i], {}, cache, info)
 
   # ...and make sure to process empty slots as requested
   dag.advanceSlots(state, bs.slot, save, cache, info)

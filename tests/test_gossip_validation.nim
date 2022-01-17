@@ -52,7 +52,7 @@ suite "Gossip validation " & preset():
     check:
       process_slots(
         defaultRuntimeConfig, state.data, getStateField(state.data, slot) + 1,
-        cache, info, {})
+        cache, info, {}).isOk()
 
   test "Empty committee when no committee for slot":
     template committee(idx: uint64): untyped =

@@ -53,15 +53,15 @@ proc runTest(testName, testDir, unitTestName: string) =
           bellatrix.SignedBeaconBlock)
 
         if hasPostState:
-          let success = state_transition(
+          let res = state_transition(
             defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
             noRollback)
-          doAssert success, "Failure when applying block " & $i
+          res.expect("no failure when applying block " & $i)
         else:
-          let success = state_transition(
+          let res = state_transition(
             defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
             noRollback)
-          doAssert (i + 1 < numBlocks) or not success,
+          doAssert (i + 1 < numBlocks) or not res.isOk,
             "We didn't expect these invalid blocks to be processed"
 
       if hasPostState:

@@ -24,6 +24,21 @@ suite "Beacon state" & preset():
       makeInitialDeposits(SLOTS_PER_EPOCH, {}), {}))
     check: state.validators.lenu64 == SLOTS_PER_EPOCH
 
+  test "process_slots":
+    var
+      cfg = defaultRuntimeConfig
+      state = (ref ForkedHashedBeaconState)(
+        kind: BeaconStateFork.Phase0,
+        phase0Data: initialize_hashed_beacon_state_from_eth1(
+          defaultRuntimeConfig, Eth2Digest(), 0,
+          makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
+      cache: StateCache
+      info: ForkedEpochInfo
+    check:
+      process_slots(cfg, state[], Slot 1, cache, info, {}).isOk()
+      process_slots(cfg, state[], Slot 1, cache, info, {}).isErr()
+      process_slots(cfg, state[], Slot 1, cache, info, {slotProcessed}).isOk()
+
   test "latest_block_root":
     var
       cfg = defaultRuntimeConfig
@@ -38,7 +53,7 @@ suite "Beacon state" & preset():
 
     check: # Works for genesis block
       state[].phase0Data.latest_block_root() == genBlock.root
-      process_slots(cfg, state[], Slot 1, cache, info, {})
+      process_slots(cfg, state[], Slot 1, cache, info, {}).isOk()
       state[].phase0Data.latest_block_root() == genBlock.root
 
     let blck = addTestBlock(
@@ -46,7 +61,7 @@ suite "Beacon state" & preset():
 
     check: # Works for random blocks
       state[].phase0Data.latest_block_root() == blck.root
-      process_slots(cfg, state[], Slot 2, cache, info, {})
+      process_slots(cfg, state[], Slot 2, cache, info, {}).isOk()
       state[].phase0Data.latest_block_root() == blck.root
 
   test "get_beacon_proposer_index":
@@ -68,7 +83,7 @@ suite "Beacon state" & preset():
         state[].phase0Data.data, cache, Epoch(2).start_slot()).isNone()
 
     check:
-      process_slots(cfg, state[], Epoch(1).start_slot(), cache, info, {})
+      process_slots(cfg, state[], Epoch(1).start_slot(), cache, info, {}).isOk()
       get_beacon_proposer_index(state[].phase0Data.data, cache, Slot 1).isNone()
       get_beacon_proposer_index(
         state[].phase0Data.data, cache, Epoch(1).start_slot()).isSome()

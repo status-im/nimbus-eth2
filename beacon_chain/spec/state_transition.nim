@@ -43,76 +43,47 @@
 import
   chronicles,
   stew/results,
-  metrics,
   ../extras,
   ./datatypes/[phase0, altair, bellatrix],
   "."/[
     beaconstate, eth2_merkleization, forks, helpers, signatures,
     state_transition_block, state_transition_epoch, validator]
 
-export extras, phase0, altair, bellatrix
+export results, extras, phase0, altair, bellatrix
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
-    #state: ForkyBeaconState, signed_block: SomeSomeSignedBeaconBlock): bool =
-    state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock): bool =
+    state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock):
+    Result[void, cstring] =
   let
     proposer_index = signed_block.message.proposer_index
   if proposer_index >= state.validators.lenu64:
-    notice "Invalid proposer index in block",
-      blck = shortLog(signed_block.message)
-    return false
+   return err("block: invalid proposer index")
 
   if not verify_block_signature(
       state.fork, state.genesis_validators_root, signed_block.message.slot,
       signed_block.root, state.validators[proposer_index].pubkey,
       signed_block.signature):
-    notice "Block: signature verification failed",
-      blck = shortLog(signedBlock)
-    return false
+    return err("block: signature verification failed")
 
-  true
+  ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc verifyStateRoot(state: ForkyBeaconState, blck: phase0.BeaconBlock or phase0.SigVerifiedBeaconBlock or altair.BeaconBlock or altair.SigVerifiedBeaconBlock or bellatrix.BeaconBlock or bellatrix.SigVerifiedBeaconBlock or bellatrix.TrustedBeaconBlock): bool =
+proc verifyStateRoot(
+    state: ForkyBeaconState, blck: ForkyBeaconBlock | ForkySigVerifiedBeaconBlock):
+    Result[void, cstring] =
   # This is inlined in state_transition(...) in spec.
   let state_root = hash_tree_root(state)
   if state_root != blck.state_root:
-    notice "Block: root verification failed",
-      block_state_root = shortLog(blck.state_root), state_root = shortLog(state_root)
-    false
+    err("block: state root verification failed")
   else:
-    true
+    ok()
 
-func verifyStateRoot(state: phase0.BeaconState, blck: phase0.TrustedBeaconBlock): bool =
+func verifyStateRoot(
+    state: ForkyBeaconState, blck: ForkyTrustedBeaconBlock):
+    Result[void, cstring] =
   # This is inlined in state_transition(...) in spec.
-  true
-
-func verifyStateRoot(state: altair.BeaconState, blck: altair.TrustedBeaconBlock): bool =
-  # This is inlined in state_transition(...) in spec.
-  true
-
-func verifyStateRoot(state: bellatrix.BeaconState, blck: bellatrix.TrustedBeaconBlock): bool =
-  # This is inlined in state_transition(...) in spec.
-  true
-
-# one of these can happen on the fork block itself (it's a phase 0 block which
-# creates an Altair state)
-func verifyStateRoot(state: altair.BeaconState, blck: phase0.TrustedBeaconBlock): bool =
-  # This is inlined in state_transition(...) in spec.
-  true
-
-func verifyStateRoot(state: bellatrix.BeaconState, blck: phase0.TrustedBeaconBlock): bool =
-  # This is inlined in state_transition(...) in spec.
-  true
-
-func verifyStateRoot(state: bellatrix.BeaconState, blck: altair.TrustedBeaconBlock): bool =
-  # This is inlined in state_transition(...) in spec.
-  true
-
-func verifyStateRoot(state: phase0.BeaconState, blck: altair.TrustedBeaconBlock): bool =
-  # This is inlined in state_transition(...) in spec.
-  true
+  ok()
 
 type
   RollbackProc* = proc() {.gcsafe, raises: [Defect].}
@@ -213,14 +184,11 @@ proc maybeUpgradeState*(
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
-    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags): bool =
+    cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags):
+    Result[void, cstring] =
   if not (getStateField(state, slot) < slot):
     if slotProcessed notin flags or getStateField(state, slot) != slot:
-      notice "Unusual request for a slot in the past",
-        state_root = shortLog(getStateRoot(state)),
-        current_slot = getStateField(state, slot),
-        target_slot = slot
-      return false
+      return err("process_slots: cannot rewind state to past slot")
 
   # Update the state so its slot matches that of the block
   while getStateField(state, slot) < slot:
@@ -237,43 +205,28 @@ proc process_slots*(
 
     maybeUpgradeState(cfg, state)
 
-  true
+  ok()
 
 proc state_transition_block_aux(
     cfg: RuntimeConfig,
     state: var ForkyHashedBeaconState,
-    signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
-                 phase0.TrustedSignedBeaconBlock | altair.SignedBeaconBlock |
-                 altair.SigVerifiedSignedBeaconBlock | altair.TrustedSignedBeaconBlock |
-                 bellatrix.TrustedSignedBeaconBlock | bellatrix.SigVerifiedSignedBeaconBlock |
-                 bellatrix.SignedBeaconBlock,
-    cache: var StateCache, flags: UpdateFlags): bool =
+    signedBlock: SomeForkySignedBeaconBlock,
+    cache: var StateCache, flags: UpdateFlags): Result[void, cstring] =
   # Block updates - these happen when there's a new block being suggested
   # by the block proposer. Every actor in the network will update its state
   # according to the contents of this block - but first they will validate
   # that the block is sane.
-  if not (skipBLSValidation in flags or
-      verify_block_signature(state.data, signedBlock)):
-    return false
+  if skipBLSValidation notin flags:
+    ? verify_block_signature(state.data, signedBlock)
 
   trace "state_transition: processing block, signature passed",
     signature = shortLog(signedBlock.signature),
     blockRoot = shortLog(signedBlock.root)
 
-  let res = process_block(cfg, state.data, signedBlock.message, flags, cache)
+  ? process_block(cfg, state.data, signedBlock.message, flags, cache)
 
-  if not res.isOk():
-    debug "state_transition: process_block failed",
-      blck = shortLog(signedBlock.message),
-      slot = state.data.slot,
-      eth1_deposit_index = state.data.eth1_deposit_index,
-      deposit_root = shortLog(state.data.eth1_data.deposit_root),
-      error = res.error
-    return false
-
-  if not (skipStateRootValidation in flags or
-        verifyStateRoot(state.data, signedBlock.message)):
-    return false
+  if skipStateRootValidation notin flags:
+    ? verifyStateRoot(state.data, signedBlock.message)
 
   # only blocks currently being produced have an empty state root - we use a
   # separate function for those
@@ -281,7 +234,7 @@ proc state_transition_block_aux(
     "see makeBeaconBlock for block production"
   state.root = signedBlock.message.state_root
 
-  true
+  ok()
 
 type
   RollbackForkedHashedProc* =
@@ -293,13 +246,9 @@ func noRollback*(state: var ForkedHashedBeaconState) =
 proc state_transition_block*(
     cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
-    signedBlock: phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
-                 phase0.TrustedSignedBeaconBlock |
-                 altair.SignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock |
-                 altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
-                 bellatrix.SigVerifiedSignedBeaconBlock | bellatrix.SignedBeaconBlock,
+    signedBlock: SomeForkySignedBeaconBlock,
     cache: var StateCache, flags: UpdateFlags,
-    rollback: RollbackForkedHashedProc): bool =
+    rollback: RollbackForkedHashedProc): Result[void, cstring] =
   ## `rollback` is called if the transition fails and the given state has been
   ## partially changed. If a temporary state was given to `state_transition`,
   ## it is safe to use `noRollback` and leave it broken, else the state
@@ -310,21 +259,20 @@ proc state_transition_block*(
   # Ensure state_transition_block()-only callers trigger this
   maybeUpgradeStateToAltair(cfg, state)
 
-  let success = withState(state):
+  let res = withState(state):
     state_transition_block_aux(cfg, state, signedBlock, cache, flags)
 
-  if not success:
+  if res.isErr():
     rollback(state)
-    return false
 
-  true
+  res
 
 proc state_transition*(
     cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
     signedBlock: SomeForkySignedBeaconBlock,
     cache: var StateCache, info: var ForkedEpochInfo, flags: UpdateFlags,
-    rollback: RollbackForkedHashedProc): bool =
+    rollback: RollbackForkedHashedProc): Result[void, cstring] =
   ## Apply a block to the state, advancing the slot counter as necessary. The
   ## given state must be of a lower slot, or, in case the `slotProcessed` flag
   ## is set, can be the slot state of the same slot as the block (where the
@@ -340,10 +288,10 @@ proc state_transition*(
   ## it is safe to use `noRollback` and leave it broken, else the state
   ## object should be rolled back to a consistent state. If the transition fails
   ## before the state has been updated, `rollback` will not be called.
-  if not process_slots(
+  ? process_slots(
       cfg, state, signedBlock.message.slot, cache, info,
-      flags + {skipLastStateRootCalculation}):
-    return false
+      flags + {skipLastStateRootCalculation})
+
   state_transition_block(
     cfg, state, signedBlock, cache, flags, rollback)
 
@@ -359,7 +307,7 @@ template partialBeaconBlock(
     deposits: seq[Deposit],
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
-    executionPayload: ExecutionPayload): phase0.BeaconBlock =
+    execution_payload: ExecutionPayload): phase0.BeaconBlock =
   phase0.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
@@ -385,9 +333,9 @@ proc makeBeaconBlock*(
     deposits: seq[Deposit],
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
-    executionPayload: ExecutionPayload,
+    execution_payload: ExecutionPayload,
     rollback: RollbackHashedProc,
-    cache: var StateCache): Result[phase0.BeaconBlock, string] =
+    cache: var StateCache): Result[phase0.BeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
   ## state.slot meaning process_slots must be called up to the slot for which
@@ -403,17 +351,12 @@ proc makeBeaconBlock*(
   let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
 
   if res.isErr:
-    warn "Unable to apply new block to state",
-      blck = shortLog(blck),
-      slot = state.data.slot,
-      eth1_deposit_index = state.data.eth1_deposit_index,
-      deposit_root = shortLog(state.data.eth1_data.deposit_root),
-      error = res.error
     rollback(state)
-    return err("Unable to apply new block to state: " & $res.error())
+    return err(res.error())
 
   state.root = hash_tree_root(state.data)
   blck.state_root = state.root
+
   ok(blck)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#preparing-a-beaconblock
@@ -428,7 +371,7 @@ template partialBeaconBlock(
     deposits: seq[Deposit],
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
-    executionPayload: ExecutionPayload): altair.BeaconBlock =
+    execution_payload: ExecutionPayload): altair.BeaconBlock =
   altair.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
@@ -455,9 +398,9 @@ proc makeBeaconBlock*(
     deposits: seq[Deposit],
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
-    executionPayload: ExecutionPayload,
+    execution_payload: ExecutionPayload,
     rollback: RollbackAltairHashedProc,
-    cache: var StateCache): Result[altair.BeaconBlock, string] =
+    cache: var StateCache): Result[altair.BeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
   ## state.slot meaning process_slots must be called up to the slot for which
@@ -468,22 +411,17 @@ proc makeBeaconBlock*(
 
   var blck = partialBeaconBlock(cfg, state, proposer_index,
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
-                                exits, sync_aggregate, executionPayload)
+                                exits, sync_aggregate, execution_payload)
 
   let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
 
   if res.isErr:
-    warn "Unable to apply new block to state",
-      blck = shortLog(blck),
-      slot = state.data.slot,
-      eth1_deposit_index = state.data.eth1_deposit_index,
-      deposit_root = shortLog(state.data.eth1_data.deposit_root),
-      error = res.error
     rollback(state)
-    return err("Unable to apply new block to state: " & $res.error())
+    return err(res.error())
 
   state.root = hash_tree_root(state.data)
   blck.state_root = state.root
+
   ok(blck)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/validator.md#block-proposal
@@ -498,7 +436,7 @@ template partialBeaconBlock(
     deposits: seq[Deposit],
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
-    executionPayload: ExecutionPayload): bellatrix.BeaconBlock =
+    execution_payload: ExecutionPayload): bellatrix.BeaconBlock =
   bellatrix.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
@@ -513,7 +451,7 @@ template partialBeaconBlock(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits: exits.voluntary_exits,
       sync_aggregate: sync_aggregate,
-      execution_payload: executionPayload))
+      execution_payload: execution_payload))
 
 proc makeBeaconBlock*(
     cfg: RuntimeConfig,
@@ -526,9 +464,9 @@ proc makeBeaconBlock*(
     deposits: seq[Deposit],
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
-    executionPayload: ExecutionPayload,
+    execution_payload: ExecutionPayload,
     rollback: RollbackMergeHashedProc,
-    cache: var StateCache): Result[bellatrix.BeaconBlock, string] =
+    cache: var StateCache): Result[bellatrix.BeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
   ## state.slot meaning process_slots must be called up to the slot for which
@@ -539,22 +477,17 @@ proc makeBeaconBlock*(
 
   var blck = partialBeaconBlock(cfg, state, proposer_index,
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
-                                exits, sync_aggregate, executionPayload)
+                                exits, sync_aggregate, execution_payload)
 
   let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
 
   if res.isErr:
-    warn "Unable to apply new block to state",
-      blck = shortLog(blck),
-      slot = state.data.slot,
-      eth1_deposit_index = state.data.eth1_deposit_index,
-      deposit_root = shortLog(state.data.eth1_data.deposit_root),
-      error = res.error
     rollback(state)
-    return err("Unable to apply new block to state: " & $res.error())
+    return err(res.error())
 
   state.root = hash_tree_root(state.data)
   blck.state_root = state.root
+
   ok(blck)
 
 proc makeBeaconBlock*(
@@ -570,13 +503,13 @@ proc makeBeaconBlock*(
     sync_aggregate: SyncAggregate,
     executionPayload: ExecutionPayload,
     rollback: RollbackForkedHashedProc,
-    cache: var StateCache): Result[ForkedBeaconBlock, string] =
+    cache: var StateCache): Result[ForkedBeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
   ## state.slot meaning process_slots must be called up to the slot for which
   ## the block is to be created.
 
-  template makeBeaconBlock(kind: untyped): Result[ForkedBeaconBlock, string] =
+  template makeBeaconBlock(kind: untyped): Result[ForkedBeaconBlock, cstring] =
     # To create a block, we'll first apply a partial block to the state, skipping
     # some validations.
 
@@ -590,17 +523,12 @@ proc makeBeaconBlock*(
                             {skipBlsValidation}, cache)
 
     if res.isErr:
-      warn "Unable to apply new block to state",
-        blck = shortLog(blck),
-        slot = state.`kind Data`.data.slot,
-        eth1_deposit_index = state.`kind Data`.data.eth1_deposit_index,
-        deposit_root = shortLog(state.`kind Data`.data.eth1_data.deposit_root),
-        error = res.error
       rollback(state)
-      return err("Unable to apply new block to state: " & $res.error())
+      return err(res.error())
 
     state.`kind Data`.root = hash_tree_root(state.`kind Data`.data)
     blck.`kind Data`.state_root = state.`kind Data`.root
+
     ok(blck)
 
   case state.kind

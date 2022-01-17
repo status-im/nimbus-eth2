@@ -42,7 +42,7 @@ proc runTest(identifier: string) =
       check:
         process_slots(
           defaultRuntimeConfig, fhPreState[],
-          getStateField(fhPreState[], slot) + num_slots, cache, info, {})
+          getStateField(fhPreState[], slot) + num_slots, cache, info, {}).isOk()
 
         getStateRoot(fhPreState[]) == postState[].hash_tree_root()
       let newPreState = newClone(fhPreState.mergeData.data)

@@ -118,7 +118,7 @@ suite "Block pool processing" & preset():
     check:
       process_slots(
         defaultRuntimeConfig, state[], getStateField(state[], slot) + 1, cache,
-        info, {})
+        info, {}).isOk()
 
     let
       b4 = addTestBlock(state[], cache).phase0Data
@@ -283,7 +283,7 @@ suite "Block pool altair processing" & preset():
     check:
       process_slots(
         cfg, state[], cfg.ALTAIR_FORK_EPOCH.start_slot(), cache,
-        info, {})
+        info, {}).isOk()
 
       state[].kind == BeaconStateFork.Altair
 
@@ -362,7 +362,7 @@ suite "chain DAG finalization tests" & preset():
       process_slots(
         defaultRuntimeConfig, tmpState[],
         getStateField(tmpState[], slot) + (5 * SLOTS_PER_EPOCH).uint64,
-        cache, info, {})
+        cache, info, {}).isOk()
 
     let lateBlock = addTestBlock(tmpState[], cache).phase0Data
     block:
@@ -472,7 +472,7 @@ suite "chain DAG finalization tests" & preset():
 
     doAssert process_slots(
       defaultRuntimeConfig, prestate[], getStateField(prestate[], slot) + 1,
-      cache, info, {})
+      cache, info, {}).isOk()
 
     # create another block, orphaning the head
     let blck = makeTestBlock(prestate[], cache).phase0Data
@@ -502,7 +502,7 @@ suite "chain DAG finalization tests" & preset():
     check:
       process_slots(
         defaultRuntimeConfig, dag.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2),
-        cache, info, {})
+        cache, info, {}).isOk()
 
     var blck = makeTestBlock(
       dag.headState.data, cache,
@@ -607,7 +607,7 @@ suite "Diverging hardforks":
       process_slots(
         phase0RuntimeConfig, tmpState[],
         getStateField(tmpState[], slot) + (3 * SLOTS_PER_EPOCH).uint64,
-        cache, info, {})
+        cache, info, {}).isOk()
 
     # Because the first block is after the Altair transition, the only block in
     # common is the tail block
@@ -629,7 +629,7 @@ suite "Diverging hardforks":
       process_slots(
         phase0RuntimeConfig, tmpState[],
         getStateField(tmpState[], slot) + SLOTS_PER_EPOCH.uint64,
-        cache, info, {})
+        cache, info, {}).isOk()
 
     # There's a block in the shared-correct phase0 hardfork, before epoch 2
     var
@@ -641,7 +641,7 @@ suite "Diverging hardforks":
       process_slots(
         phase0RuntimeConfig, tmpState[],
         getStateField(tmpState[], slot) + (3 * SLOTS_PER_EPOCH).uint64,
-        cache, info, {})
+        cache, info, {}).isOk()
 
     var
       b2 = addTestBlock(tmpState[], cache).phase0Data

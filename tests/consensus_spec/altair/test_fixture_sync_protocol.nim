@@ -159,8 +159,8 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
     var
       cache = StateCache()
       info = ForkedEpochInfo()
-    doAssert process_slots(
-      cfg, forked[], Slot(UPDATE_TIMEOUT), cache, info, flags = {})
+    process_slots(
+      cfg, forked[], Slot(UPDATE_TIMEOUT), cache, info, flags = {}).expect("no failure")
     let
       snapshot_period = sync_committee_period(store.optimistic_header.slot)
       update_period = sync_committee_period(state.slot)
@@ -226,8 +226,8 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       cache = StateCache()
       info = ForkedEpochInfo()
       blocks = newSeq[ForkedSignedBeaconBlock]()
-    doAssert process_slots(
-      cfg, forked[], Slot(SLOTS_PER_EPOCH * 2), cache, info, flags = {})
+    process_slots(
+      cfg, forked[], Slot(SLOTS_PER_EPOCH * 2), cache, info, flags = {}).expect("no failure")
     for epoch in 0 ..< 3:
       for slot in 0 ..< SLOTS_PER_EPOCH:
         blocks.add block_for_next_slot(cfg, forked[], cache,

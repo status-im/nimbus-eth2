@@ -125,7 +125,8 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
     data.state = fhState.phase0Data.data
 
   decodeAndProcess(BlockInput):
-    state_transition(defaultRuntimeConfig, data, data.beaconBlock, flags, noRollback)
+    state_transition(
+      defaultRuntimeConfig, data, data.beaconBlock, flags, noRollback).isOk
 
 proc nfuzz_block_header(input: openArray[byte], xoutput: ptr byte,
     xoutput_size: ptr uint, disable_bls: bool): bool {.exportc, raises: [FuzzCrashError, Defect].} =

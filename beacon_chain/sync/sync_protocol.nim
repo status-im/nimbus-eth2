@@ -233,7 +233,7 @@ p2pProtocol BeaconSync(version = 1,
           case blck.kind
           of BeaconBlockFork.Phase0:
             await response.write(blck.phase0Data.asSigned)
-          of BeaconBlockFork.Altair, BeaconBlockFork.Bellatrix:
+          else:
             # Skipping all subsequent blocks should be OK because the spec says:
             # "Clients MAY limit the number of blocks in the response."
             # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyrange

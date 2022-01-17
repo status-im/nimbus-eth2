@@ -66,6 +66,11 @@ type
     altair.BeaconBlock |
     bellatrix.BeaconBlock
 
+  ForkySigVerifiedBeaconBlock* =
+    phase0.SigVerifiedBeaconBlock |
+    altair.SigVerifiedBeaconBlock |
+    bellatrix.SigVerifiedBeaconBlock
+
   ForkyTrustedBeaconBlock* =
     phase0.TrustedBeaconBlock |
     altair.TrustedBeaconBlock |
