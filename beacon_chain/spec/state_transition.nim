@@ -359,7 +359,7 @@ proc makeBeaconBlock*(
 
   ok(blck)
 
-# https://git3hub.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#preparing-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#preparing-a-beaconblock
 template partialBeaconBlock(
     cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,
