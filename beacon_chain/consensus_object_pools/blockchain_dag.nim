@@ -13,7 +13,7 @@ import
   metrics, snappy, chronicles,
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
-  ../spec/datatypes/[phase0, altair, merge],
+  ../spec/datatypes/[phase0, altair],
   ".."/beacon_chain_db,
   "."/[block_pools_types, block_quarantine]
 

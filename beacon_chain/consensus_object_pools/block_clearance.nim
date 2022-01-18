@@ -15,7 +15,7 @@ import
   ../spec/[
     eth2_merkleization, forks, helpers, signatures, signatures_batch,
     state_transition],
-  ../spec/datatypes/[phase0, altair, merge],
+  ../spec/datatypes/[phase0, altair],
   "."/[blockchain_dag]
 
 export results, signatures_batch

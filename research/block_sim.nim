@@ -22,7 +22,7 @@ import
   ../tests/testblockutil,
   ../beacon_chain/spec/[
     beaconstate, forks, helpers, signatures, state_transition],
-  ../beacon_chain/spec/datatypes/[phase0, altair, merge],
+  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/[beacon_chain_db, beacon_clock],
   ../beacon_chain/eth1/eth1_monitor,
   ../beacon_chain/validators/validator_pool,
@@ -250,7 +250,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       sync_aggregate =
         when T is phase0.SignedBeaconBlock:
           SyncAggregate.init()
-        elif T is altair.SignedBeaconBlock or T is merge.SignedBeaconBlock:
+        elif T is altair.SignedBeaconBlock or T is bellatrix.SignedBeaconBlock:
           syncCommitteePool[].produceSyncAggregate(dag.head.root)
         else:
           static: doAssert false
@@ -259,7 +259,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           addr stateData.data.phase0Data
         elif T is altair.SignedBeaconBlock:
           addr stateData.data.altairData
-        elif T is merge.SignedBeaconBlock:
+        elif T is bellatrix.SignedBeaconBlock:
           addr stateData.data.mergeData
         else:
           static: doAssert false
@@ -349,9 +349,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     dag.withUpdatedState(tmpState[], dag.head.atSlot(slot)) do:
       let
-        newBlock = getNewBlock[merge.SignedBeaconBlock](stateData, slot, cache)
+        newBlock = getNewBlock[bellatrix.SignedBeaconBlock](stateData, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
-            blckRef: BlockRef, signedBlock: merge.TrustedSignedBeaconBlock,
+            blckRef: BlockRef, signedBlock: bellatrix.TrustedSignedBeaconBlock,
             epochRef: EpochRef):
           # Callback add to fork choice if valid
           attPool.addForkChoice(

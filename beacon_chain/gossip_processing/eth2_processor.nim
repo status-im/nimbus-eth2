@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,7 +12,7 @@ import
   stew/results, bearssl,
   chronicles, chronos, metrics, taskpools,
   ../spec/[helpers, forks],
-  ../spec/datatypes/[altair, merge, phase0],
+  ../spec/datatypes/[altair, phase0],
   ../consensus_object_pools/[
     block_clearance, block_quarantine, blockchain_dag, exit_pool, attestation_pool,
     sync_committee_msg_pool],

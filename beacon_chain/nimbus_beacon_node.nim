@@ -35,7 +35,7 @@ import
     slashing_protection, keystore_management],
   ./sync/[sync_protocol],
   ./rpc/[rest_api, rpc_api, state_ttl_cache],
-  ./spec/datatypes/[altair, merge, phase0],
+  ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/eth2_apis/rpc_beacon_client,
   ./spec/[
     beaconstate, forks, helpers, network, weak_subjectivity, signatures,
@@ -1085,7 +1085,7 @@ proc installMessageValidators(node: BeaconNode) =
 
   node.network.addValidator(
     getBeaconBlocksTopic(node.dag.forkDigests.bellatrix),
-    proc (signedBlock: merge.SignedBeaconBlock): ValidationResult =
+    proc (signedBlock: bellatrix.SignedBeaconBlock): ValidationResult =
       toValidationResult(node.processor[].blockValidator(
         MsgSource.gossip, signedBlock)))
 

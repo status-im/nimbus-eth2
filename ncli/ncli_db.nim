@@ -4,7 +4,7 @@ import
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db],
   ../beacon_chain/consensus_object_pools/[blockchain_dag],
-  ../beacon_chain/spec/datatypes/[phase0, altair, merge],
+  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/spec/[
     beaconstate, helpers, state_transition, state_transition_epoch, validator,
     ssz_codec],
@@ -209,7 +209,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     blocks: (
       seq[phase0.TrustedSignedBeaconBlock],
       seq[altair.TrustedSignedBeaconBlock],
-      seq[merge.TrustedSignedBeaconBlock])
+      seq[bellatrix.TrustedSignedBeaconBlock])
 
   echo &"Loaded {dag.blocks.len} blocks, head slot {dag.head.slot}, selected {blockRefs.len} blocks"
   doAssert blockRefs.len() > 0, "Must select at least one block"
@@ -233,7 +233,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     loadedState = (
       (ref phase0.HashedBeaconState)(),
       (ref altair.HashedBeaconState)(),
-      (ref merge.HashedBeaconState)())
+      (ref bellatrix.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateStateData(
@@ -307,7 +307,7 @@ proc cmdDumpState(conf: DbConf) =
   let
     phase0State = (ref phase0.HashedBeaconState)()
     altairState = (ref altair.HashedBeaconState)()
-    mergeState = (ref merge.HashedBeaconState)()
+    mergeState = (ref bellatrix.HashedBeaconState)()
 
   for stateRoot in conf.stateRoot:
     if shouldShutDown: quit QuitSuccess
