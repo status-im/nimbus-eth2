@@ -1,14 +1,14 @@
-# Minimal preset - Merge
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/presets/minimal/merge.yaml
+# Minimal preset - Bellatrix
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/presets/minimal/bellatrix.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------
   # 2**24 (= 16,777,216)
-  INACTIVITY_PENALTY_QUOTIENT_MERGE*: uint64 = 16777216
+  INACTIVITY_PENALTY_QUOTIENT_BELLATRIX*: uint64 = 16777216
   # 2**5 (= 32)
-  MIN_SLASHING_PENALTY_QUOTIENT_MERGE*: uint64 = 32
+  MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX*: uint64 = 32
   # 3
-  PROPORTIONAL_SLASHING_MULTIPLIER_MERGE*: uint64 = 3
+  PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX*: uint64 = 3
 
 
   # Execution
