@@ -1829,19 +1829,15 @@ proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
     .withTcpTransport({ServerFlags.ReuseAddr})
     .build()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/p2p-interface.md#configuration
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/p2p-interface.md#configuration
 func maxGossipMaxSize(): auto {.compileTime.} =
-  max(GOSSIP_MAX_SIZE, GOSSIP_MAX_SIZE_MERGE)
+  max(GOSSIP_MAX_SIZE, GOSSIP_MAX_SIZE_BELLATRIX)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/p2p-interface.md#configuration
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/p2p-interface.md#configuration
 template gossipMaxSize(T: untyped): uint32 =
   const maxSize = static:
     when isFixedSize(T):
       fixedPortionSize(T)
     elif T is bellatrix.SignedBeaconBlock:
-      GOSSIP_MAX_SIZE_MERGE
+      GOSSIP_MAX_SIZE_BELLATRIX
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
     # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus

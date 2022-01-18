@@ -121,7 +121,7 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var ForkyBeaconState,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#modified-slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/merge/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/beacon-chain.md#modified-slash_validator
 proc get_slashing_penalty*(state: ForkyBeaconState,
                            validator_effective_balance: Gwei): Gwei =
   # TODO Consider whether this is better than splitting the functions apart; in
@@ -131,7 +131,7 @@ proc get_slashing_penalty*(state: ForkyBeaconState,
   elif state is altair.BeaconState:
       validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR
   elif state is bellatrix.BeaconState:
-      validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_MERGE
+      validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX
   else:
     {.fatal: "invalid BeaconState type".}
 

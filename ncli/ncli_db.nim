@@ -305,9 +305,9 @@ proc cmdDumpState(conf: DbConf) =
   defer: db.close()
 
   let
-    phase0State = (ref phase0.HashedBeaconState)()
-    altairState = (ref altair.HashedBeaconState)()
-    mergeState = (ref bellatrix.HashedBeaconState)()
+    phase0State    = (ref phase0.HashedBeaconState)()
+    altairState    = (ref altair.HashedBeaconState)()
+    bellatrixState = (ref bellatrix.HashedBeaconState)()
 
   for stateRoot in conf.stateRoot:
     if shouldShutDown: quit QuitSuccess
@@ -323,7 +323,7 @@ proc cmdDumpState(conf: DbConf) =
 
     doit(phase0State[])
     doit(altairState[])
-    doit(mergeState[])
+    doit(bellatrixState[])
 
     echo "Couldn't load ", stateRoot
 
