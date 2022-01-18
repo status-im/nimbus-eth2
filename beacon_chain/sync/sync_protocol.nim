@@ -266,9 +266,9 @@ p2pProtocol BeaconSync(version = 1,
 
     var found = 0
     for i in 0..<count:
-      let blockRef = dag.getRef(blockRoots[i])
-      if not isNil(blockRef):
-        let blk = dag.get(blockRef).data
+      let blockRef = dag.getBlockRef(blockRoots[i])
+      if blockRef.isSome():
+        let blk = dag.getForkedBlock(blockRef[])
         case blk.kind
         of BeaconBlockFork.Phase0:
           await response.write(blk.phase0Data.asSigned)
@@ -315,11 +315,10 @@ p2pProtocol BeaconSync(version = 1,
 
       for i in startIndex..endIndex:
         let
-          blk = dag.getForkedBlock(blocks[i])
+          blck = dag.getForkedBlock(blocks[i]).valueOr:
+            continue
 
-        if blk.isSome():
-          let blck = blk.get()
-          await response.write(blck.asSigned)
+        await response.write(blck.asSigned)
 
       debug "Block range request done",
         peer, startSlot, count, reqStep, found = count - startIndex
@@ -346,9 +345,9 @@ p2pProtocol BeaconSync(version = 1,
 
     var found = 0
     for i in 0..<count:
-      let blockRef = dag.getRef(blockRoots[i])
-      if not isNil(blockRef):
-        let blk = dag.getForkedBlock(blockRef)
+      let blockRef = dag.getBlockRef(blockRoots[i])
+      if blockRef.isSome():
+        let blk = dag.getForkedBlock(blockRef[])
         await response.write(blk.asSigned)
         inc found
 

@@ -61,14 +61,27 @@ proc doChecksAndGetCurrentHead*(node: BeaconNode, epoch: Epoch): BlockRef {.rais
   checkEpochToSlotOverflow(epoch)
   node.doChecksAndGetCurrentHead(epoch.start_slot())
 
-proc getBlockSlotFromString*(node: BeaconNode, slot: string): BlockSlot {.raises: [Defect, CatchableError].} =
+proc parseSlot(slot: string): Slot {.raises: [Defect, CatchableError].} =
   if slot.len == 0:
     raise newException(ValueError, "Empty slot number not allowed")
   var parsed: BiggestUInt
   if parseBiggestUInt(slot, parsed) != slot.len:
     raise newException(ValueError, "Not a valid slot number")
-  let head = node.doChecksAndGetCurrentHead(parsed.Slot)
-  head.atSlot(parsed.Slot)
+  Slot parsed
+
+proc getBlockSlotFromString*(node: BeaconNode, slot: string): BlockSlot {.raises: [Defect, CatchableError].} =
+  let parsed = parseSlot(slot)
+  discard node.doChecksAndGetCurrentHead(parsed)
+  node.dag.getBlockAtSlot(parsed)
+
+proc getBlockIdFromString*(node: BeaconNode, slot: string): BlockId {.raises: [Defect, CatchableError].} =
+  let parsed = parseSlot(slot)
+  discard node.doChecksAndGetCurrentHead(parsed)
+  let bsid = node.dag.getBlockIdAtSlot(parsed)
+  if bsid.isProposed():
+    bsid.bid
+  else:
+    raise (ref ValueError)(msg: "Block not found")
 
 proc stateIdToBlockSlot*(node: BeaconNode, stateId: string): BlockSlot {.raises: [Defect, CatchableError].} =
   case stateId:

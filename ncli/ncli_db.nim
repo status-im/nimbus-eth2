@@ -485,8 +485,7 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
 
-  let blckRef = dag.getRef(fromHex(Eth2Digest, conf.blockRoot))
-  if blckRef == nil:
+  let blckRef = dag.getBlockRef(fromHex(Eth2Digest, conf.blockRoot)).valueOr:
     echo "Block not found in database"
     return
 

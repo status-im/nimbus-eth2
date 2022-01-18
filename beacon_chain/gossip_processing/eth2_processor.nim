@@ -253,27 +253,17 @@ proc checkForPotentialDoppelganger(
   # Only check for attestations after node launch. There might be one slot of
   # overlap in quick intra-slot restarts so trade off a few true negatives in
   # the service of avoiding more likely false positives.
+  if not self.doppelgangerDetectionEnabled:
+    return
+
   if attestation.data.slot <= self.doppelgangerDetection.nodeLaunchSlot + 1:
     return
 
   if attestation.data.slot.epoch <
       self.doppelgangerDetection.broadcastStartEpoch:
-    let tgtBlck = self.dag.getRef(attestation.data.target.root)
-
-    doAssert not tgtBlck.isNil  # because attestation is valid above
-
-    # We expect the EpochRef not to have been pruned between validating the
-    # attestation and checking for doppelgangers - this may need to be revisited
-    # when online pruning of states is implemented
-    let epochRef = self.dag.getEpochRef(
-      tgtBlck, attestation.data.target.epoch, true).expect(
-        "Target block EpochRef must be valid")
-
     for validatorIndex in attesterIndices:
-      let validatorPubkey = epochRef.validatorKey(validatorIndex).get().toPubKey()
-      if  self.doppelgangerDetectionEnabled and
-          self.validatorPool[].getValidator(validatorPubkey) !=
-            default(AttachedValidator):
+      let validatorPubkey = self.dag.validatorKey(validatorIndex).get().toPubKey()
+      if not isNil(self.validatorPool[].getValidator(validatorPubkey)):
         warn "We believe you are currently running another instance of the same validator. We've disconnected you from the network as this presents a significant slashing risk. Possible next steps are (a) making sure you've disconnected your validator from your old machine before restarting the client; and (b) running the client again with the gossip-slashing-protection option disabled, only if you are absolutely sure this is the only instance of your validator running, and reporting the issue at https://github.com/status-im/nimbus-eth2/issues.",
           validatorIndex,
           validatorPubkey,

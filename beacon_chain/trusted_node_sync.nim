@@ -7,7 +7,6 @@
 {.push raises: [Defect].}
 
 import
-  std/[os],
   stew/[assign2, base10],
   chronicles, chronos,
   ./sync/sync_manager,
@@ -404,6 +403,8 @@ proc doTrustedNodeSync*(
     checkpointRoot = checkpointBlock.root
 
 when isMainModule:
+  import std/[os]
+
   let backfill = os.paramCount() > 3 and os.paramStr(4) == "true"
 
   waitFor doTrustedNodeSync(

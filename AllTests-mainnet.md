@@ -92,7 +92,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ```diff
 + Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
 + Simple block add&get [Preset: mainnet]                                                     OK
-+ getRef returns nil for missing blocks                                                      OK
++ getBlockRef returns none for missing blocks                                                OK
 + loading tail block works [Preset: mainnet]                                                 OK
 + updateHead updates head and headState [Preset: mainnet]                                    OK
 + updateStateData sanity [Preset: mainnet]                                                   OK
