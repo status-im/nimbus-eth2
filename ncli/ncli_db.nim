@@ -832,7 +832,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
   let
     startEpoch =
-      if conf.startEpoch.isNone:
+      if conf.startEpoch.isSome:
         Epoch(conf.startEpoch.get)
       else:
         getStartEpoch(conf.outDir)
