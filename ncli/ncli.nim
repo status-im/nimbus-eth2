@@ -4,7 +4,7 @@ import
   stew/byteutils,
   ../research/simutils,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
-  ../beacon_chain/spec/datatypes/[phase0, altair, merge],
+  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/spec/[
     eth2_ssz_serialization, forks, helpers, state_transition],
   ../beacon_chain/networking/network_metadata
@@ -176,20 +176,20 @@ proc doSSZ(conf: NcliConf) =
   of "attestation": printit(Attestation)
   of "phase0_signed_block": printit(phase0.SignedBeaconBlock)
   of "altair_signed_block": printit(altair.SignedBeaconBlock)
-  of "merge_signed_block": printit(merge.SignedBeaconBlock)
+  of "merge_signed_block": printit(bellatrix.SignedBeaconBlock)
   of "phase0_block": printit(phase0.BeaconBlock)
   of "altair_block": printit(altair.BeaconBlock)
-  of "merge_block": printit(merge.BeaconBlock)
+  of "merge_block": printit(bellatrix.BeaconBlock)
   of "phase0_block_body": printit(phase0.BeaconBlockBody)
   of "altair_block_body": printit(altair.BeaconBlockBody)
-  of "merge_block_body": printit(merge.BeaconBlockBody)
+  of "merge_block_body": printit(bellatrix.BeaconBlockBody)
   of "block_header": printit(BeaconBlockHeader)
   of "deposit": printit(Deposit)
   of "deposit_data": printit(DepositData)
   of "eth1_data": printit(Eth1Data)
   of "phase0_state": printit(phase0.BeaconState)
   of "altiar_state": printit(altair.BeaconState)
-  of "merge_state": printit(merge.BeaconState)
+  of "merge_state": printit(bellatrix.BeaconState)
   of "proposer_slashing": printit(ProposerSlashing)
   of "voluntary_exit": printit(VoluntaryExit)
 

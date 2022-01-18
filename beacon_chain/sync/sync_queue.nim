@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,7 +10,7 @@
 import std/[options, heapqueue, tables, strutils, sequtils, math, algorithm]
 import stew/results, chronos, chronicles
 import
-  ../spec/datatypes/[base, phase0, altair, merge],
+  ../spec/datatypes/[base, phase0, altair],
   ../spec/eth2_apis/rpc_types,
   ../spec/[helpers, forks],
   ../networking/[peer_pool, eth2_network],
