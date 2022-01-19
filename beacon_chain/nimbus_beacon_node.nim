@@ -467,12 +467,13 @@ proc init*(T: type BeaconNode,
       validatorPool, syncCommitteeMsgPool, quarantine, rng, getBeaconTime,
       taskpool)
     syncManager = newSyncManager[Peer, PeerID](
-      network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot, getLocalWallSlot,
-      getFirstSlotAtFinalizedEpoch, getBackfillSlot, blockVerifier)
+      network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot,
+      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
+      dag.tail.slot, blockVerifier)
     backfiller = newSyncManager[Peer, PeerID](
-      network.peerPool, SyncQueueKind.Backward, getLocalHeadSlot, getLocalWallSlot,
-      getFirstSlotAtFinalizedEpoch, getBackfillSlot, blockVerifier,
-      maxHeadAge = 0)
+      network.peerPool, SyncQueueKind.Backward, getLocalHeadSlot,
+      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
+      blockVerifier, dag.tail.slot, maxHeadAge = 0)
 
   let stateTtlCache = if config.restCacheSize > 0:
     StateTtlCache.init(
