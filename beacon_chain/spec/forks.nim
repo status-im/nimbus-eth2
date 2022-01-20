@@ -401,7 +401,7 @@ func mergeFork*(cfg: RuntimeConfig): Fork =
   # previous fork version would be the GENESIS_FORK_VERSION
   Fork(
     previous_version: cfg.ALTAIR_FORK_VERSION,
-    current_version: cfg.MERGE_FORK_VERSION,
+    current_version: cfg.BELLATRIX_FORK_VERSION,
     epoch: cfg.MERGE_FORK_EPOCH)
 
 proc forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
@@ -412,7 +412,7 @@ proc forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
 
 proc forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
   case cfg.stateForkAtEpoch(epoch)
-  of BeaconStateFork.Bellatrix: cfg.MERGE_FORK_VERSION
+  of BeaconStateFork.Bellatrix: cfg.BELLATRIX_FORK_VERSION
   of BeaconStateFork.Altair:    cfg.ALTAIR_FORK_VERSION
   of BeaconStateFork.Phase0:    cfg.GENESIS_FORK_VERSION
 
@@ -519,7 +519,7 @@ func init*(T: type ForkDigests,
     altair:
       compute_fork_digest(cfg.ALTAIR_FORK_VERSION, genesisValidatorsRoot),
     bellatrix:
-      compute_fork_digest(cfg.MERGE_FORK_VERSION, genesisValidatorsRoot),
+      compute_fork_digest(cfg.BELLATRIX_FORK_VERSION, genesisValidatorsRoot),
     sharding:
       compute_fork_digest(cfg.SHARDING_FORK_VERSION, genesisValidatorsRoot),
   )
