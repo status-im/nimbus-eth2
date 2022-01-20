@@ -870,7 +870,7 @@ func upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
     slot: pre.slot,
     fork: Fork(
         previous_version: pre.fork.current_version,
-        current_version: cfg.MERGE_FORK_VERSION,
+        current_version: cfg.BELLATRIX_FORK_VERSION,
         epoch: epoch,
     ),
 
