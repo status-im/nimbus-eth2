@@ -21,6 +21,10 @@ import
 
 export json_serialization, base
 
+const
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/beacon-chain.md#transition-settings
+  TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH* = FAR_FUTURE_EPOCH
+
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/beacon-chain.md#custom-types
   Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]

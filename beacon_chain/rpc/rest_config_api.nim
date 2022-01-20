@@ -229,6 +229,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(uint64(TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE)),
           SYNC_COMMITTEE_SUBNET_COUNT:
             Base10.toString(uint64(SYNC_COMMITTEE_SUBNET_COUNT)),
+
+          # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/beacon-chain.md#transition-settings
+          TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH:
+            Base10.toString(uint64(TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH)),
         )
       )
     cachedDepositContract =
