@@ -1271,6 +1271,7 @@ proc start(m: Eth1Monitor, delayBeforeStart: Duration) =
         if runFut.error[] of CatchableError:
           if runFut == m.runFut:
             warn "Eth1 chain monitoring failure, restarting", err = runFut.error.msg
+            m.dataProvider = nil
             m.state = Failed
         else:
           fatal "Fatal exception reached", err = runFut.error.msg
