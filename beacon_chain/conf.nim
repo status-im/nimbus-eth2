@@ -233,12 +233,10 @@ type
         name: "weak-subjectivity-checkpoint" }: Option[Checkpoint]
 
       finalizedCheckpointState* {.
-        hidden # TODO unhide when backfilling is done
         desc: "SSZ file specifying a recent finalized state"
         name: "finalized-checkpoint-state" }: Option[InputFile]
 
       finalizedCheckpointBlock* {.
-        hidden # TODO unhide when backfilling is done
         desc: "SSZ file specifying a recent finalized block"
         name: "finalized-checkpoint-block" }: Option[InputFile]
 

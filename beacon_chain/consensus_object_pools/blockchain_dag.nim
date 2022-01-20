@@ -1664,3 +1664,6 @@ proc getBlockSSZ*(dag: ChainDAGRef, id: BlockId, bytes: var seq[byte]): bool =
     dag.db.getAltairBlockSSZ(id.root, bytes)
   of BeaconBlockFork.Bellatrix:
     dag.db.getMergeBlockSSZ(id.root, bytes)
+
+func needsBackfill*(dag: ChainDAGRef): bool =
+  dag.backfill.slot > dag.genesis.slot
