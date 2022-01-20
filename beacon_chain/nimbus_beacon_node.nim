@@ -473,7 +473,7 @@ proc init*(T: type BeaconNode,
     backfiller = newSyncManager[Peer, PeerID](
       network.peerPool, SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      blockVerifier, dag.tail.slot, maxHeadAge = 0)
+      dag.backfill.slot, blockVerifier, maxHeadAge = 0)
 
   let stateTtlCache = if config.restCacheSize > 0:
     StateTtlCache.init(
