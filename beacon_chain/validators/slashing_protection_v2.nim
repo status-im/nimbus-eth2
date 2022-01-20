@@ -208,6 +208,10 @@ type
     sqlPruneValidatorAttestations: SqliteStmt[(ValidatorInternalID, int64, int64), void]
     sqlPruneAfterFinalizationBlocks: SqliteStmt[int64, void]
     sqlPruneAfterFinalizationAttestations: SqliteStmt[(int64, int64), void]
+    # Synthetic attestations
+    sqlBeginTransaction: SqliteStmt[NoParams, void]
+    sqlDeleteValidatorAtt: SqliteStmt[ValidatorInternalID, void]
+    sqlCommitTransaction: SqliteStmt[NoParams, void]
     # Cached queries - read
     sqlGetValidatorInternalID: SqliteStmt[PubKeyBytes, ValidatorInternalID]
     sqlAttForSameTargetEpoch: SqliteStmt[(ValidatorInternalID, int64), Hash32]
@@ -567,6 +571,24 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
     )
      """, (int64, int64), void
   ).get()
+
+  # Synthetic attestation
+  # --------------------------------------------------------
+
+  # Assuming pruning, we can:
+  # - keep 1 attestation
+  # - 2 attestations, with max source epoch and different target epoch
+  #   for example 10->15 and 10->20 (unique constraint on target but not source epoch)
+  # - many attestations post-finalization epochs
+  # Creating or updating a source/target epoch synthetic attestation
+  # might introduce duplicates or run afoul of slashing conditions
+  # so it's easier to cleanup and introduce a max source/target epoch synthetic attestation
+  db.sqlBeginTransaction = db.backend.prepareStmt("""BEGIN TRANSACTION;""", NoParams, void).get()
+  db.sqlDeleteValidatorAtt = db.backend.prepareStmt("""
+    DELETE FROM signed_attestations
+    where validator_id = ?;
+  """, ValidatorInternalID, void).get()
+  db.sqlCommitTransaction = db.backend.prepareStmt("""COMMIT TRANSACTION;""", NoParams, void).get()
 
 # DB Multiversioning
 # -------------------------------------------------------------
@@ -1131,6 +1153,7 @@ proc registerAttestation*(
        attestation_root: Eth2Digest): Result[void, BadVote] =
   registerAttestation(
     db, none(ValidatorIndex), validator, source, target, attestation_root)
+
 # DB maintenance
 # --------------------------------------------
 proc pruneBlocks*(
@@ -1211,6 +1234,40 @@ proc pruneAfterFinalization*(
 
 # Interchange
 # --------------------------------------------
+
+proc registerSyntheticAttestation*(
+       db: SlashingProtectionDB_v2,
+       validator: ValidatorPubKey,
+       source, target: Epoch) =
+  ## Add a synthetic attestation to the slashing protection DB
+  doAssert source < target
+
+  let valID = db.getOrRegisterValidator(none(ValidatorIndex), validator)
+
+  # Overflows in 14 trillion years (minimal) or 112 trillion years (mainnet)
+  doAssert source <= high(int64).uint64
+  doAssert target <= high(int64).uint64
+
+  template checkStatus: untyped =
+    doAssert status.isOk(),
+      "SQLite error when synthesizing an attestation: " & $status.error & "\n" &
+      "for validatorID " & $valID & " (0x" & $validator & ")\n" &
+      "sourceEpoch: " & $source & ", targetEpoch:" & $target & '\n'
+
+  block:
+    let status = db.sqlBeginTransaction.exec()
+    checkStatus()
+  block:
+    let status = db.sqlDeleteValidatorAtt.exec(valID)
+    checkStatus()
+  block:
+    let status = db.sqlInsertAtt.exec(
+      (valID, int64 source, int64 target,
+      Eth2Digest().data))
+    checkStatus()
+  block:
+    let status = db.sqlCommitTransaction.exec()
+    checkStatus()
 
 proc toSPDIR*(db: SlashingProtectionDB_v2): SPDIR
              {.raises: [IOError, Defect].} =
