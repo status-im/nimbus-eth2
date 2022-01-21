@@ -32,8 +32,8 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         bres.get()
     let contentType =
       block:
-        let res = preferredContentType("application/octet-stream",
-                                       "application/json")
+        let res = preferredContentType(jsonMediaType,
+                                       sszMediaType)
         if res.isErr():
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
@@ -41,13 +41,12 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return
         case stateData.data.kind
         of BeaconStateFork.Phase0:
-          case contentType
-            of "application/octet-stream":
-              RestApiResponse.sszResponse(stateData.data.phase0Data.data)
-            of "application/json":
-              RestApiResponse.jsonResponse(stateData.data.phase0Data.data)
-            else:
-              RestApiResponse.jsonError(Http500, InvalidAcceptError)
+          if contentType == sszMediaType:
+            RestApiResponse.sszResponse(stateData.data.phase0Data.data)
+          elif contentType == jsonMediaType:
+            RestApiResponse.jsonResponse(stateData.data.phase0Data.data)
+          else:
+            RestApiResponse.jsonError(Http500, InvalidAcceptError)
         of BeaconStateFork.Altair, BeaconStateFork.Bellatrix:
           RestApiResponse.jsonError(Http404, StateNotFoundError)
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
@@ -68,17 +67,16 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         bres.get()
     let contentType =
       block:
-        let res = preferredContentType("application/octet-stream",
-                                       "application/json")
+        let res = preferredContentType(jsonMediaType,
+                                       sszMediaType)
         if res.isErr():
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
     node.withStateForBlockSlot(bslot):
       return
-        case contentType
-        of "application/json":
+        if contentType == jsonMediaType:
           RestApiResponse.jsonResponsePlain(stateData.data)
-        of "application/octet-stream":
+        elif contentType == sszMediaType:
           withState(stateData.data):
             RestApiResponse.sszResponse(state.data)
         else:

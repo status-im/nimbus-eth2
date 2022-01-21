@@ -806,18 +806,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let contentType =
       block:
-        let res = preferredContentType("application/octet-stream",
-                                       "application/json")
+        let res = preferredContentType(jsonMediaType,
+                                       sszMediaType)
         if res.isErr():
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
     return
       case bdata.kind
       of BeaconBlockFork.Phase0:
-        case contentType
-        of "application/octet-stream":
+        if contentType == sszMediaType:
           RestApiResponse.sszResponse(bdata.phase0Data)
-        of "application/json":
+        elif contentType == jsonMediaType:
           RestApiResponse.jsonResponse(bdata.phase0Data)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
@@ -836,17 +835,16 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http404, BlockNotFoundError)
     let contentType =
       block:
-        let res = preferredContentType("application/octet-stream",
-                                       "application/json")
+        let res = preferredContentType(jsonMediaType,
+                                       sszMediaType)
         if res.isErr():
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
     return
-      case contentType
-      of "application/octet-stream":
+      if contentType == sszMediaType:
         withBlck(bdata):
           RestApiResponse.sszResponse(blck)
-      of "application/json":
+      elif contentType == jsonMediaType:
         RestApiResponse.jsonResponsePlain(bdata.asSigned())
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)

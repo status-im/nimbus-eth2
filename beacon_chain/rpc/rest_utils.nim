@@ -273,3 +273,8 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
 
 proc getRouter*(): RestRouter =
   RestRouter.init(validate)
+
+const
+  jsonMediaType* = MediaType.init("application/json")
+  sszMediaType* = MediaType.init("application/octet-stream")
+  textEventStreamMediaType* = MediaType.init("text/event-stream")
