@@ -972,7 +972,7 @@ proc queryRandom*(
   d.rng[].shuffle(filtered)
   return filtered.sortedByIt(-it[0]).mapIt(it[1])
 
-proc trimConnections(node: Eth2Node, count: int) {.async.} =
+proc getPeersScores*(node: Eth2Node): OrderedTable[PeerId, int] =
   # Kill `count` peers, scoring them to remove the least useful ones
 
   var scores = initOrderedTable[PeerID, int]()
@@ -1004,7 +1004,7 @@ proc trimConnections(node: Eth2Node, count: int) {.async.} =
 
     if peerCount == 0: continue
 
-    for peer in node.pubsub.mesh[topic]:
+    for peer in node.pubsub.mesh.getOrDefault(topic):
       if peer.peerId notin scores: continue
 
       # Divide by the number of connections
@@ -1013,13 +1013,21 @@ proc trimConnections(node: Eth2Node, count: int) {.async.} =
         connCount = node.switch.connmanager.connCount(peer.peerId)
         thisPeersScore = scorePerPeer div max(1, connCount)
 
-      scores[peer.peerId] = scores[peer.peerId] + thisPeersScore
+      scores[peer.peerId] =
+        scores.getOrDefault(peer.peerId) + thisPeersScore
 
   proc sortPerScore(a, b: (PeerID, int)): int =
     system.cmp(a[1], b[1])
 
   scores.sort(sortPerScore)
 
+  return scores
+
+
+proc trimConnections(node: Eth2Node, count: int) {.async.} =
+  # Kill `count` peers, scoring them to remove the least useful ones
+
+  var scores = node.getPeersScores()
   var toKick = count
 
   for peerId in scores.keys:

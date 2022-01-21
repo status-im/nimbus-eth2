@@ -191,6 +191,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         dres.get()
 
     var res: seq[RpcNodePeer]
+    let scores = node.network.getPeersScores()
     for peer in node.network.peers.values():
       if (peer.connectionState in connectionMask) and
          (peer.direction in directionMask):
@@ -200,8 +201,9 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           last_seen_p2p_address: getLastSeenAddress(node, peer.peerId),
           state: peer.connectionState.toString(),
           direction: peer.direction.toString(),
-          agent: node.network.switch.peerStore.agentBook.get(peer.peerId),       # Fields `agent` and `proto` are not
-          proto: node.network.switch.peerStore.protoVersionBook.get(peer.peerId) # part of specification
+          agent: node.network.switch.peerStore.agentBook.get(peer.peerId),       # Fields `agent` and `proto`, `score`
+          proto: node.network.switch.peerStore.protoVersionBook.get(peer.peerId),# are not part of specification
+          score: scores.getOrDefault(peer.peerId)
         )
         res.add(peer)
     return RestApiResponse.jsonResponseWMeta(res, (count: uint64(len(res))))
