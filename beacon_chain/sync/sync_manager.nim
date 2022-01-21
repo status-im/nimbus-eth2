@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import std/[options, heapqueue, tables, strutils, sequtils, algorithm]
-import stew/results, chronos, chronicles
+import stew/[results, base10], chronos, chronicles
 import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rpc_types,
@@ -614,12 +614,18 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
         if man.avgSyncSpeed >= 0.001:
           Duration.fromFloatSeconds(remaining / man.avgSyncSpeed)
         else: InfiniteDuration
+      currentSlot = Base10.toString(
+        if man.queue.kind == SyncQueueKind.Forward:
+          min(uint64(man.queue.outSlot) - 1'u64, 0'u64)
+        else:
+          uint64(man.queue.outSlot) + 1'u64
+      )
 
     # Update status string
     man.syncStatus = timeLeft.toTimeLeftString() & " (" &
                     (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
                     man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) &
-                    "slots/s (" & map & ":" & $man.queue.outSlot & ")"
+                    "slots/s (" & map & ":" & currentSlot & ")"
 
     if man.remainingSlots() <= man.maxHeadAge:
       man.notInSyncEvent.clear()
@@ -671,6 +677,7 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
                 res.add(worker.future)
               res
           await allFutures(pendingTasks)
+          man.inProgress = false
           debug "Backward synchronization process finished, exiting",
                 wall_head_slot = wallSlot, local_head_slot = headSlot,
                 backfill_slot = man.getLastSlot(),
