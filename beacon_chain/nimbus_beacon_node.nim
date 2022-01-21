@@ -119,10 +119,19 @@ proc init*(T: type BeaconNode,
            depositContractDeployedAt: BlockHashOrNumber,
            eth1Network: Option[Eth1Network],
            genesisStateContents: string,
-           genesisDepositsSnapshotContents: string): BeaconNode {.
+           depositContractSnapshotContents: string): BeaconNode {.
     raises: [Defect, CatchableError].} =
 
   var taskpool: TaskpoolPtr
+
+  let depositContractSnapshot = if depositContractSnapshotContents.len > 0:
+    try:
+      some SSZ.decode(depositContractSnapshotContents, DepositContractSnapshot)
+    except CatchableError as err:
+      fatal "Invalid deposit contract snapshot", err = err.msg
+      quit 1
+  else:
+    none DepositContractSnapshot
 
   try:
     if config.numThreads < 0:
@@ -199,6 +208,24 @@ proc init*(T: type BeaconNode,
     fatal "--finalized-checkpoint-block cannot be specified without --finalized-checkpoint-state"
     quit 1
 
+  template getDepositContractSnapshot: auto =
+    if depositContractSnapshot.isSome:
+      depositContractSnapshot
+    elif not cfg.DEPOSIT_CONTRACT_ADDRESS.isZeroMemory:
+      let snapshotRes = waitFor createInitialDepositSnapshot(
+        cfg.DEPOSIT_CONTRACT_ADDRESS,
+        depositContractDeployedAt,
+        config.web3Urls[0])
+      if snapshotRes.isErr:
+        fatal "Failed to locate the deposit contract deployment block",
+              depositContract = cfg.DEPOSIT_CONTRACT_ADDRESS,
+              deploymentBlock = $depositContractDeployedAt
+        quit 1
+      else:
+        some snapshotRes.get
+    else:
+      none(DepositContractSnapshot)
+
   var eth1Monitor: Eth1Monitor
   if not ChainDAGRef.isInitialized(db).isOk():
     var
@@ -207,7 +234,7 @@ proc init*(T: type BeaconNode,
 
     if genesisStateContents.len == 0 and checkpointState == nil:
       when hasGenesisDetection:
-        if genesisDepositsSnapshotContents.len > 0:
+        if depositContractSnapshotContents.len > 0:
           fatal "A deposits snapshot cannot be provided without also providing a matching beacon state snapshot"
           quit 1
 
@@ -224,7 +251,7 @@ proc init*(T: type BeaconNode,
           cfg,
           db,
           config.web3Urls,
-          depositContractDeployedAt,
+          getDepositContractSnapshot(),
           eth1Network,
           config.web3ForcePolling)
 
@@ -346,16 +373,12 @@ proc init*(T: type BeaconNode,
             headStateSlot = getStateField(dag.headState.data, slot)
       quit 1
 
-  if eth1Monitor.isNil and
-     config.web3Urls.len > 0 and
-     genesisDepositsSnapshotContents.len > 0:
-    let genesisDepositsSnapshot = SSZ.decode(genesisDepositsSnapshotContents,
-                                             DepositContractSnapshot)
+  if eth1Monitor.isNil and config.web3Urls.len > 0:
     eth1Monitor = Eth1Monitor.init(
       cfg,
       db,
       config.web3Urls,
-      genesisDepositsSnapshot,
+      getDepositContractSnapshot(),
       eth1Network,
       config.web3ForcePolling)
 
