@@ -166,3 +166,26 @@ func getTargetGossipState*(
     {BeaconStateFork.Phase0, BeaconStateFork.Altair}
   else:
     raiseAssert "Unknown target gossip state"
+
+func nearSyncCommitteePeriod*(epoch: Epoch): Option[uint64] =
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#sync-committee-subnet-stability
+  for epochsBefore in 0'u64 .. SYNC_COMMITTEE_SUBNET_COUNT:
+    if (epoch + epochsBefore).is_sync_committee_period():
+      return some epochsBefore
+
+  none(uint64)
+
+func getSyncSubnets*(
+    nodeHasPubkey: proc(pubkey: ValidatorPubKey): bool {.noSideEffect.},
+    syncCommittee: SyncCommittee): SyncnetBits =
+  var res: SyncnetBits
+  for i, pubkey in syncCommittee.pubkeys:
+    if not nodeHasPubKey(pubkey):
+      continue
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#broadcast-sync-committee-message
+    # The first quarter of the pubkeys map to subnet 0, the second quarter to
+    # subnet 1, the third quarter to subnet 2 and the final quarter to subnet
+    # 3.
+    res.setBit(i div (SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_SUBNET_COUNT))
+  res

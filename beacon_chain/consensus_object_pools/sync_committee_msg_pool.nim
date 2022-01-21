@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -10,6 +10,8 @@
 import
   std/[sets, tables],
   stew/shims/hashes,
+  bearssl,
+  eth/p2p/discoveryv5/random2,
   chronicles,
   ../spec/[crypto, digest],
   ../spec/datatypes/altair
@@ -53,13 +55,17 @@ type
     bestContributions*: Table[Eth2Digest, BestSyncSubcommitteeContributions]
     onContributionReceived*: OnSyncContributionCallback
 
+    rng: ref BrHmacDrbgContext
+    syncCommitteeSubscriptions*: Table[ValidatorPubKey, Epoch]
+
 func hash*(x: SyncCommitteeMsgKey): Hash =
   hashAllFields(x)
 
 func init*(T: type SyncCommitteeMsgPool,
+           rng: ref BrHmacDrbgContext,
            onSyncContribution: OnSyncContributionCallback = nil
           ): SyncCommitteeMsgPool =
-  T(onContributionReceived: onSyncContribution)
+  T(rng: rng, onContributionReceived: onSyncContribution)
 
 func pruneData*(pool: var SyncCommitteeMsgPool, slot: Slot) =
   ## This should be called at the end of slot.
@@ -271,3 +277,14 @@ proc produceSyncAggregate*(
       raiseAssert "We have checked for the key upfront"
   else:
     SyncAggregate.init()
+
+proc isEpochLeadTime*(
+    pool: SyncCommitteeMsgPool, epochsToSyncPeriod: uint64): bool =
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#sync-committee-subnet-stability
+  # This ensures a uniform distribution without requiring additional state:
+  # (1/4)                         = 1/4, 4 slots out
+  # (3/4) * (1/3)                 = 1/4, 3 slots out
+  # (3/4) * (2/3) * (1/2)         = 1/4, 2 slots out
+  # (3/4) * (2/3) * (1/2) * (1/1) = 1/4, 1 slot out
+  doAssert epochsToSyncPeriod > 0
+  pool.rng[].rand(epochsToSyncPeriod - 1) == 0
