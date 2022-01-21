@@ -137,9 +137,10 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
           epochRef = dag.getEpochRef(blckRef, blckRef.slot.epoch, false).expect(
             "Getting an EpochRef should always work for non-finalized blocks")
 
-          withBlck(dag.get(blckRef).data):
+          withBlck(dag.getForkedBlock(blckRef)):
             forkChoice.process_block(
-              dag, epochRef, blckRef, blck.message, blckRef.slot.start_beacon_time)
+              dag, epochRef, blckRef, blck.message,
+              blckRef.slot.start_beacon_time)
 
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
 
@@ -704,17 +705,17 @@ proc getAggregatedAttestation*(pool: var AttestationPool,
 
   res
 
-proc selectHead*(pool: var AttestationPool, wallTime: BeaconTime): BlockRef =
+proc selectHead*(pool: var AttestationPool, wallTime: BeaconTime): Opt[BlockRef] =
   ## Trigger fork choice and returns the new head block.
   ## Can return `nil`
   let newHead = pool.forkChoice.get_head(pool.dag, wallTime)
 
   if newHead.isErr:
     error "Couldn't select head", err = newHead.error
-    nil
+    err()
   else:
-    let ret = pool.dag.getRef(newHead.get())
-    if ret.isNil:
+    let ret = pool.dag.getBlockRef(newHead.get())
+    if ret.isErr():
       # This should normally not happen, but if the chain dag and fork choice
       # get out of sync, we'll need to try to download the selected head - in
       # the meantime, return nil to indicate that no new head was chosen

@@ -1151,32 +1151,23 @@ proc sendAttestation*(node: BeaconNode,
                       attestation: Attestation): Future[SendResult] {.async.} =
   # REST/JSON-RPC API helper procedure.
   let
-    target =
-      block:
-        let res = node.dag.getRef(attestation.data.target.root)
-        if isNil(res):
-          notice "Attempt to send attestation for unknown target",
-                attestation = shortLog(attestation)
-          return SendResult.err(
-            "Attempt to send attestation for unknown block")
-        res
-    epochRef = block:
-      let tmp = node.dag.getEpochRef(
-        target, attestation.data.target.epoch, false)
-      if tmp.isErr(): # Shouldn't happen
-        warn "Cannot construct EpochRef for attestation, skipping send - report bug",
-          target = shortLog(target),
-          attestation = shortLog(attestation)
-        return
-      tmp.get()
-    committee_index = block:
-      let v = epochRef.get_committee_index(attestation.data.index)
-      if v.isErr():
+    target = node.dag.getBlockRef(attestation.data.target.root).valueOr:
+      notice "Attempt to send attestation for unknown target",
+            attestation = shortLog(attestation)
+      return SendResult.err(
+        "Attempt to send attestation for unknown block")
+
+    epochRef = node.dag.getEpochRef(
+        target, attestation.data.target.epoch, false).valueOr:
+      warn "Cannot construct EpochRef for attestation, skipping send - report bug",
+        target = shortLog(target),
+        attestation = shortLog(attestation)
+      return
+    committee_index =
+      epochRef.get_committee_index(attestation.data.index).valueOr:
         notice "Invalid committee index in attestation",
           attestation = shortLog(attestation)
         return SendResult.err("Invalid committee index in attestation")
-      v.get()
-
     subnet_id = compute_subnet_for_attestation(
       get_committee_count_per_slot(epochRef), attestation.data.slot,
       committee_index)

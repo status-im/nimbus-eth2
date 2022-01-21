@@ -109,8 +109,7 @@ func check_beacon_and_target_block(
   # The target block is returned.
   # We rely on the chain DAG to have been validated, so check for the existence
   # of the block in the pool.
-  let blck = pool.dag.getRef(data.beacon_block_root)
-  if blck.isNil:
+  let blck = pool.dag.getBlockRef(data.beacon_block_root).valueOr:
     pool.quarantine[].addMissing(data.beacon_block_root)
     return errIgnore("Attestation block unknown")
 
@@ -182,19 +181,21 @@ template checkedReject(error: ValidationError): untyped =
 
 template validateBeaconBlockBellatrix(
        signed_beacon_block: phase0.SignedBeaconBlock |
-                            altair.SignedBeaconBlock): untyped =
+                            altair.SignedBeaconBlock,
+       parent: BlockRef): untyped =
   discard
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
-       signed_beacon_block: bellatrix.SignedBeaconBlock): untyped =
+       signed_beacon_block: bellatrix.SignedBeaconBlock,
+       parent: BlockRef): untyped =
   # If the execution is enabled for the block -- i.e.
   # is_execution_enabled(state, block.body) then validate the following:
   let executionEnabled =
     if signed_beacon_block.message.body.execution_payload !=
         default(ExecutionPayload):
       true
-    elif dag.getEpochRef(parent_ref, parent_ref.slot.epoch, true).expect(
+    elif dag.getEpochRef(parent, parent.slot.epoch, true).expect(
         "parent EpochRef doesn't fail").merge_transition_complete:
       # Should usually be inexpensive, but could require cache refilling - the
       # parent block can be no older than the latest finalized block
@@ -204,8 +205,8 @@ template validateBeaconBlockBellatrix(
       # mostly relevant around merge transition epochs. It's possible that
       # the previous block is phase 0 or Altair, if this is the transition
       # block itself.
-      let blockData = dag.get(parent_ref)
-      case blockData.data.kind:
+      let blockData = dag.getForkedBlock(parent)
+      case blockData.kind:
       of BeaconBlockFork.Phase0:
         false
       of BeaconBlockFork.Altair:
@@ -215,7 +216,7 @@ template validateBeaconBlockBellatrix(
         # shows how this gets folded into the state each block; checking this
         # is equivalent, without ever requiring state replay or any similarly
         # expensive computation.
-        blockData.data.mergeData.message.body.execution_payload !=
+        blockData.mergeData.message.body.execution_payload !=
           default(ExecutionPayload)
 
   if executionEnabled:
@@ -280,7 +281,7 @@ proc validateBeaconBlock*(
   # TODO might check unresolved/orphaned blocks too, and this might not see all
   # blocks at a given slot (though, in theory, those get checked elsewhere), or
   # adding metrics that count how often these conditions occur.
-  if signed_beacon_block.root in dag:
+  if dag.containsForkBlock(signed_beacon_block.root):
     # The gossip algorithm itself already does one round of hashing to find
     # already-seen data, but it is fairly aggressive about forgetting about
     # what it has seen already
@@ -288,14 +289,14 @@ proc validateBeaconBlock*(
     return errIgnore("BeaconBlock: already seen")
 
   let
-    slotBlock = getBlockBySlot(dag, signed_beacon_block.message.slot)
+    slotBlock = getBlockAtSlot(dag, signed_beacon_block.message.slot)
 
   if slotBlock.isProposed() and
       slotBlock.blck.slot == signed_beacon_block.message.slot:
-    let blck = dag.get(slotBlock.blck).data
-    if getForkedBlockField(blck, proposer_index) ==
+    let data = dag.getForkedBlock(slotBlock.blck)
+    if getForkedBlockField(data, proposer_index) ==
           signed_beacon_block.message.proposer_index and
-        blck.signature.toRaw() != signed_beacon_block.signature.toRaw():
+        data.signature.toRaw() != signed_beacon_block.signature.toRaw():
       return errIgnore("BeaconBlock: already proposed in the same slot")
 
   # [IGNORE] The block's parent (defined by block.parent_root) has been seen
@@ -304,12 +305,12 @@ proc validateBeaconBlock*(
   #
   # And implicitly:
   # [REJECT] The block's parent (defined by block.parent_root) passes validation.
-  let parent_ref = dag.getRef(signed_beacon_block.message.parent_root)
-  if parent_ref.isNil:
+  let parent = dag.getBlockRef(signed_beacon_block.message.parent_root).valueOr:
     # When the parent is missing, we can't validate the block - we'll queue it
     # in the quarantine for later processing
     if not quarantine[].add(dag, ForkedSignedBeaconBlock.init(signed_beacon_block)):
       debug "Block quarantine full"
+
     return errIgnore("BeaconBlock: Parent not found")
 
   # [REJECT] The current finalized_checkpoint is an ancestor of block -- i.e.
@@ -319,7 +320,7 @@ proc validateBeaconBlock*(
   let
     finalized_checkpoint = getStateField(
       dag.headState.data, finalized_checkpoint)
-    ancestor = get_ancestor(parent_ref, finalized_checkpoint.epoch.start_slot)
+    ancestor = get_ancestor(parent, finalized_checkpoint.epoch.start_slot)
 
   if ancestor.isNil:
     # This shouldn't happen: we should always be able to trace the parent back
@@ -336,7 +337,7 @@ proc validateBeaconBlock*(
   # processing while proposers for the block's branch are calculated -- in such
   # a case do not REJECT, instead IGNORE this message.
   let
-    proposer = getProposer(dag, parent_ref, signed_beacon_block.message.slot)
+    proposer = getProposer(dag, parent, signed_beacon_block.message.slot)
 
   if proposer.isNone:
     warn "cannot compute proposer for message"
@@ -354,9 +355,9 @@ proc validateBeaconBlock*(
       signed_beacon_block.root,
       dag.validatorKey(proposer.get()).get(),
       signed_beacon_block.signature):
-    return errReject("Invalid proposer signature")
+    return errReject("BeaconBlock: Invalid proposer signature")
 
-  validateBeaconBlockBellatrix(signed_beacon_block)
+  validateBeaconBlockBellatrix(signed_beacon_block, parent)
 
   ok()
 

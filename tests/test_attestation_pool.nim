@@ -403,8 +403,7 @@ suite "Attestation pool processing" & preset():
         pool[].addForkChoice(
           epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
 
-    let head = pool[].selectHead(b1Add[].slot.start_beacon_time)
-
+    let head = pool[].selectHead(b1Add[].slot.start_beacon_time).get()
     check:
       head == b1Add[]
 
@@ -417,7 +416,7 @@ suite "Attestation pool processing" & preset():
         pool[].addForkChoice(
           epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
 
-    let head2 = pool[].selectHead(b2Add[].slot.start_beacon_time)
+    let head2 = pool[].selectHead(b2Add[].slot.start_beacon_time).get()
 
     check:
       head2 == b2Add[]
@@ -433,7 +432,7 @@ suite "Attestation pool processing" & preset():
         pool[].addForkChoice(
           epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
 
-    let head = pool[].selectHead(b10Add[].slot.start_beacon_time)
+    let head = pool[].selectHead(b10Add[].slot.start_beacon_time).get()
 
     check:
       head == b10Add[]
@@ -458,7 +457,7 @@ suite "Attestation pool processing" & preset():
       attestation0, @[bc1[0]], attestation0.loadSig,
       attestation0.data.slot.start_beacon_time)
 
-    let head2 = pool[].selectHead(b10Add[].slot.start_beacon_time)
+    let head2 = pool[].selectHead(b10Add[].slot.start_beacon_time).get()
 
     check:
       # Single vote for b10 and no votes for b11
@@ -471,7 +470,7 @@ suite "Attestation pool processing" & preset():
       attestation1, @[bc1[1]], attestation1.loadSig,
       attestation1.data.slot.start_beacon_time)
 
-    let head3 = pool[].selectHead(b10Add[].slot.start_beacon_time)
+    let head3 = pool[].selectHead(b10Add[].slot.start_beacon_time).get()
     let bigger = if b11.root.data < b10.root.data: b10Add else: b11Add
 
     check:
@@ -482,7 +481,7 @@ suite "Attestation pool processing" & preset():
       attestation2, @[bc1[2]], attestation2.loadSig,
       attestation2.data.slot.start_beacon_time)
 
-    let head4 = pool[].selectHead(b11Add[].slot.start_beacon_time)
+    let head4 = pool[].selectHead(b11Add[].slot.start_beacon_time).get()
 
     check:
       # Two votes for b11
@@ -499,7 +498,7 @@ suite "Attestation pool processing" & preset():
         pool[].addForkChoice(epochRef, blckRef, signedBlock.message,
         blckRef.slot.start_beacon_time)
 
-    let head = pool[].selectHead(b10Add[].slot.start_beacon_time)
+    let head = pool[].selectHead(b10Add[].slot.start_beacon_time).get()
 
     check:
       head == b10Add[]
@@ -530,7 +529,7 @@ suite "Attestation pool processing" & preset():
         pool[].addForkChoice(
           epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
 
-    let head = pool[].selectHead(b10Add[].slot.start_beacon_time)
+    let head = pool[].selectHead(b10Add[].slot.start_beacon_time).get()
 
     doAssert: head == b10Add[]
 
@@ -556,7 +555,7 @@ suite "Attestation pool processing" & preset():
           pool[].addForkChoice(
             epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
 
-        let head = pool[].selectHead(blockRef[].slot.start_beacon_time)
+        let head = pool[].selectHead(blockRef[].slot.start_beacon_time).get()
         doAssert: head == blockRef[]
         dag.updateHead(head, quarantine[])
         pruneAtFinalization(dag, pool[])

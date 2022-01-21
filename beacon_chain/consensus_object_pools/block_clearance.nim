@@ -8,17 +8,12 @@
 {.push raises: [Defect].}
 
 import
-  std/tables,
   chronicles,
   stew/[assign2, results],
-  eth/keys,
-  ../spec/[
-    eth2_merkleization, forks, helpers, signatures, signatures_batch,
-    state_transition],
-  ../spec/datatypes/[phase0, altair],
-  "."/[blockchain_dag]
+  ../spec/[forks, signatures, signatures_batch, state_transition],
+  "."/[block_dag, blockchain_dag]
 
-export results, signatures_batch
+export results, signatures_batch, block_dag, blockchain_dag
 
 # Clearance
 # ---------------------------------------------
@@ -50,7 +45,7 @@ proc addResolvedHeadBlock(
 
   link(parent, blockRef)
 
-  dag.blocks.incl(KeyedBlockRef.init(blockRef))
+  dag.forkBlocks.incl(KeyedBlockRef.init(blockRef))
 
   # Resolved blocks should be stored in database
   dag.putBlock(trustedBlock)
@@ -160,58 +155,51 @@ proc addHeadBlock*(
   template blck(): untyped = signedBlock.message # shortcuts without copy
   template blockRoot(): untyped = signedBlock.root
 
-  if blockRoot in dag:
-    debug "Block already exists"
-
-    # We should not call the block added callback for blocks that already
-    # existed in the pool, as that may confuse consumers such as the fork
-    # choice. While the validation result won't be accessed, it's IGNORE,
-    # according to the spec.
-    return err(BlockError.Duplicate)
-
   # If the block we get is older than what we finalized already, we drop it.
   # One way this can happen is that we start request a block and finalization
   # happens in the meantime - the block we requested will then be stale
   # by the time it gets here.
   if blck.slot <= dag.finalizedHead.slot:
-    debug "Old block, dropping",
-      finalizedHead = shortLog(dag.finalizedHead),
-      tail = shortLog(dag.tail)
+    let previous = dag.getBlockIdAtSlot(blck.slot)
+    if previous.isProposed() and blockRoot == previous.bid.root:
+      # We should not call the block added callback for blocks that already
+      # existed in the pool, as that may confuse consumers such as the fork
+      # choice.
+      debug "Duplicate block"
+      return err(BlockError.Duplicate)
 
-    # Doesn't correspond to any specific validation condition, and still won't
-    # be used, but certainly would be IGNORE.
-    return err(BlockError.UnviableFork)
-
-  let parent = dag.getRef(blck.parent_root)
-
-  if parent == nil:
-    debug "Block parent unknown"
-    return err(BlockError.MissingParent)
-
-  if parent.slot >= signedBlock.message.slot:
-    # A block whose parent is newer than the block itself is clearly invalid -
-    # discard it immediately
-    debug "Block with invalid parent, dropping",
-      parentBlock = shortLog(parent)
-
-    return err(BlockError.Invalid)
-
-  if (parent.slot < dag.finalizedHead.slot) or
-      (parent.slot == dag.finalizedHead.slot and
-        parent != dag.finalizedHead.blck):
-    # We finalized a block that's newer than the parent of this block - this
-    # block, although recent, is thus building on a history we're no longer
-    # interested in pursuing. This can happen if a client produces a block
-    # while syncing - ie it's own head block will be old, but it'll create
-    # a block according to the wall clock, in its own little world - this is
-    # correct - from their point of view, the head block they have is the
-    # latest thing that happened on the chain and they're performing their
-    # duty correctly.
+    # Block is older than finalized, but different from the block in our
+    # canonical history: it must be from an unviable branch
     debug "Block from unviable fork",
       finalizedHead = shortLog(dag.finalizedHead),
       tail = shortLog(dag.tail)
 
     return err(BlockError.UnviableFork)
+
+  # Check non-finalized blocks as well
+  if dag.containsForkBlock(blockRoot):
+    return err(BlockError.Duplicate)
+
+  let parent = dag.getBlockRef(blck.parent_root).valueOr:
+    # There are two cases where the parent won't be found: we don't have it or
+    # it has been finalized already, and as a result the branch the new block
+    # is on is no longer a viable fork candidate - we can't tell which is which
+    # at this stage, but we can check if we've seen the parent block previously
+    # and thus prevent requests for it to be downloaded again.
+    if dag.db.containsBlock(blck.parent_root):
+      debug "Block unviable due to pre-finalized-checkpoint parent"
+      return err(BlockError.UnviableFork)
+
+    debug "Block parent unknown or finalized already"
+    return err(BlockError.MissingParent)
+
+  if parent.slot >= signedBlock.message.slot:
+    # A block whose parent is newer than the block itself is clearly invalid -
+    # discard it immediately
+    debug "Block with invalid parent",
+      parentBlock = shortLog(parent)
+
+    return err(BlockError.Invalid)
 
   # The block is resolved, now it's time to validate it to ensure that the
   # blocks we add to the database are clean for the given state
@@ -244,13 +232,14 @@ proc addHeadBlock*(
     if (let e = sigs.collectSignatureSets(
         signedBlock, dag.db.immutableValidators,
         dag.clearanceState.data, cache); e.isErr()):
+      # A PublicKey or Signature isn't on the BLS12-381 curve
       info "Unable to load signature sets",
         err = e.error()
 
-      # A PublicKey or Signature isn't on the BLS12-381 curve
       return err(BlockError.Invalid)
     if not verifier.batchVerify(sigs):
-      info "Block signature verification failed"
+      info "Block signature verification failed",
+        signature = shortLog(signedBlock.signature)
       return err(BlockError.Invalid)
 
   let sigVerifyTick = Moment.now()
@@ -288,21 +277,47 @@ proc addBackfillBlock*(
   template blck(): untyped = signedBlock.message # shortcuts without copy
   template blockRoot(): untyped = signedBlock.root
 
-  if dag.backfill.slot <= signedBlock.message.slot or
-      signedBlock.message.slot <= dag.genesis.slot:
-    if blockRoot in dag:
-      debug "Block already exists"
+  let startTick = Moment.now()
+
+  if blck.slot >= dag.backfill.slot:
+    let previous = dag.getBlockIdAtSlot(blck.slot)
+    if previous.isProposed() and blockRoot == previous.bid.root:
+      # We should not call the block added callback for blocks that already
+      # existed in the pool, as that may confuse consumers such as the fork
+      # choice. While the validation result won't be accessed, it's IGNORE,
+      # according to the spec.
       return err(BlockError.Duplicate)
 
-    # The block is newer than our backfill position but not in the dag - either
-    # it sits somewhere between backfill and tail or it comes from an unviable
-    # fork. We don't have an in-memory way of checking the former condition so
-    # we return UnviableFork for that condition as well, even though `Duplicate`
-    # would be more correct
-    debug "Block unviable or duplicate"
+    # Block is older than finalized, but different from the block in our
+    # canonical history: it must be from an unviable branch
+    debug "Block from unviable fork",
+      finalizedHead = shortLog(dag.finalizedHead),
+      backfill = shortLog(dag.backfill)
+
     return err(BlockError.UnviableFork)
 
-  if dag.backfill.parent_root != signedBlock.root:
+  if blck.slot == dag.genesis.slot and
+      dag.backfill.parent_root == dag.genesis.root:
+    if blockRoot != dag.genesis.root:
+      # We've matched the backfill blocks all the way back to genesis via the
+      # `parent_root` chain and ended up at a different genesis - one way this
+      # can happen is when an invalid `--network` parameter is given during
+      # startup (though in theory, we check that - maybe the database was
+      # swapped or something?).
+      fatal "Checkpoint given during initial startup inconsistent with genesis - wrong network used when starting the node?"
+      quit 1
+
+    dag.backfillBlocks[blck.slot.int] = blockRoot
+    dag.backfill = blck.toBeaconBlockSummary()
+
+    notice "Received matching genesis block during backfill, backfill complete"
+
+    # Backfill done - dag.backfill.slot now points to genesis block just like
+    # it would if we loaded a fully backfilled database - returning duplicate
+    # here is appropriate, though one could also call it ... ok?
+    return err(BlockError.Duplicate)
+
+  if dag.backfill.parent_root != blockRoot:
     debug "Block does not match expected backfill root"
     return err(BlockError.MissingParent) # MissingChild really, but ..
 
@@ -325,18 +340,23 @@ proc addBackfillBlock*(
       signedBlock.root,
       proposerKey.get(),
       signedBlock.signature):
-    info "Block signature verification failed"
+    info "Block signature verification failed",
+      signature = shortLog(signedBlock.signature)
     return err(BlockError.Invalid)
+  let sigVerifyTick = Moment.now
 
   dag.putBlock(signedBlock.asTrusted())
-  dag.backfill = blck.toBeaconBlockSummary()
 
   # Invariants maintained on startup
   doAssert dag.backfillBlocks.lenu64 == dag.tail.slot.uint64
   doAssert dag.backfillBlocks.lenu64 > blck.slot.uint64
 
-  dag.backfillBlocks[blck.slot.int] = signedBlock.root
+  dag.backfillBlocks[blck.slot.int] = blockRoot
+  dag.backfill = blck.toBeaconBlockSummary()
 
-  debug "Block backfilled"
+  let putBlockTick = Moment.now
+  debug "Block backfilled",
+    sigVerifyDur = sigVerifyTick - startTick,
+    putBlockDur = putBlocktick - sigVerifyTick
 
   ok()

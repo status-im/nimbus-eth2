@@ -211,7 +211,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       seq[altair.TrustedSignedBeaconBlock],
       seq[bellatrix.TrustedSignedBeaconBlock])
 
-  echo &"Loaded {dag.blocks.len} blocks, head slot {dag.head.slot}, selected {blockRefs.len} blocks"
+  echo &"Loaded head slot {dag.head.slot}, selected {blockRefs.len} blocks"
   doAssert blockRefs.len() > 0, "Must select at least one block"
 
   for b in 0 ..< blockRefs.len:
@@ -485,8 +485,7 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
 
-  let blckRef = dag.getRef(fromHex(Eth2Digest, conf.blockRoot))
-  if blckRef == nil:
+  let blckRef = dag.getBlockRef(fromHex(Eth2Digest, conf.blockRoot)).valueOr:
     echo "Block not found in database"
     return
 

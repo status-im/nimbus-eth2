@@ -228,7 +228,7 @@ proc stepChecks(
       doAssert fkChoice.checkpoints.time.slotOrZero == time.slotOrZero
     elif check == "head":
       let headRoot = fkChoice[].get_head(dag, time).get()
-      let headRef = dag.getRef(headRoot)
+      let headRef = dag.getBlockRef(headRoot).get()
       doAssert headRef.slot == Slot(val["slot"].getInt())
       doAssert headRef.root == Eth2Digest.fromHex(val["root"].getStr())
     elif check == "justified_checkpoint":

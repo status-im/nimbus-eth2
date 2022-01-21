@@ -28,20 +28,20 @@ export
 
 type
   BlockError* {.pure.} = enum
-    Invalid ##\
+    Invalid
       ## Block is broken / doesn't apply cleanly - whoever sent it is fishy (or
       ## we're buggy)
 
-    MissingParent ##\
+    MissingParent
       ## We don't know the parent of this block so we can't tell if it's valid
       ## or not - it'll go into the quarantine and be reexamined when the parent
       ## appears or be discarded if finality obsoletes it
 
-    UnviableFork ##\
+    UnviableFork
       ## Block is from a different history / fork than the one we're interested
       ## in (based on our finalized checkpoint)
 
-    Duplicate ##\
+    Duplicate
       ## We've seen this block already, can't add again
 
   OnBlockCallback* =
@@ -83,7 +83,7 @@ type
     # -----------------------------------
     # ColdDB - Canonical chain
 
-    db*: BeaconChainDB ##\
+    db*: BeaconChainDB
       ## ColdDB - Stores the canonical chain
 
     validatorMonitor*: ref ValidatorMonitor
@@ -91,58 +91,59 @@ type
     # -----------------------------------
     # ChainDAGRef - DAG of candidate chains
 
-    blocks*: HashSet[KeyedBlockRef] ##\
-    ## Directed acyclic graph of blocks pointing back to a finalized block on the chain we're
-    ## interested in - we call that block the tail
+    forkBlocks*: HashSet[KeyedBlockRef]
+      ## root -> BlockRef mapping of blocks still relevant to fork choice, ie
+      ## those that have not yet been finalized - covers the slots
+      ## `finalizedHead.slot..head.slot` (inclusive)
 
-    finalizedBlocks*: seq[BlockRef] ##\
-    ## Slot -> BlockRef mapping for the canonical chain - use getBlockBySlot
-    ## to access, generally - coverst the slots
-    ## `tail.slot..finalizedHead.slot` (including the finalized head slot) -
-    ## indices are thus offset by tail.slot
+    finalizedBlocks*: seq[BlockRef]
+      ## Slot -> BlockRef mapping for the canonical chain - use getBlockAtSlot
+      ## to access, generally - covers the slots
+      ## `tail.slot..finalizedHead.slot` (including the finalized head block) -
+      ## indices are thus offset by tail.slot
 
-    backfillBlocks*: seq[Eth2Digest] ##\
-    ## Slot -> Eth2Digest, tail.slot entries
+    backfillBlocks*: seq[Eth2Digest]
+    ## Slot -> Eth2Digest, covers genesis.slot..tail.slot - 1 (inclusive)
 
-    genesis*: BlockRef ##\
+    genesis*: BlockRef
     ## The genesis block of the network
 
-    tail*: BlockRef ##\
+    tail*: BlockRef
     ## The earliest finalized block for which we have a corresponding state -
     ## when making a replay of chain history, this is as far back as we can
     ## go - the tail block is unique in that its parent is set to `nil`, even
-    ## in the case where a later genesis block exists.
+    ## in the case where an earlier genesis block exists.
 
-    backfill*: BeaconBlockSummary ##\
-    ## The backfill points to the oldest block that we have, in the database -
-    ## when backfilling, we'll be fetching its parent first
+    backfill*: BeaconBlockSummary
+    ## The backfill points to the oldest block that we have in the database -
+    ## when backfilling, the first block to download is the parent of this block
 
-    heads*: seq[BlockRef] ##\
+    heads*: seq[BlockRef]
     ## Candidate heads of candidate chains
 
-    finalizedHead*: BlockSlot ##\
+    finalizedHead*: BlockSlot
     ## The latest block that was finalized according to the block in head
     ## Ancestors of this block are guaranteed to have 1 child only.
 
     # -----------------------------------
     # Pruning metadata
 
-    lastPrunePoint*: BlockSlot ##\
+    lastPrunePoint*: BlockSlot
     ## The last prune point
     ## We can prune up to finalizedHead
 
     # -----------------------------------
     # Rewinder - Mutable state processing
 
-    headState*: StateData ##\
+    headState*: StateData
     ## State given by the head block - must only be updated in `updateHead` -
     ## always matches dag.head
 
-    epochRefState*: StateData ##\
+    epochRefState*: StateData
       ## State used to produce epochRef instances - must only be used in
       ## `getEpochRef`
 
-    clearanceState*: StateData ##\
+    clearanceState*: StateData
       ## Cached state used during block clearance - must only be used in
       ## clearance module
 
@@ -150,7 +151,7 @@ type
 
     cfg*: RuntimeConfig
 
-    epochRefs*: array[32, EpochRef] ##\
+    epochRefs*: array[32, EpochRef]
       ## Cached information about a particular epoch ending with the given
       ## block - we limit the number of held EpochRefs to put a cap on
       ## memory usage
@@ -170,7 +171,7 @@ type
     onFinHappened*: OnFinalizedCallback
       ## On finalization callback
 
-    headSyncCommittees*: SyncCommitteeCache ##\
+    headSyncCommittees*: SyncCommitteeCache
       ## A cache of the sync committees, as they appear in the head state -
       ## using the head state is slightly wrong - if a reorg deeper than
       ## EPOCHS_PER_SYNC_COMMITTEE_PERIOD is happening, some valid sync
@@ -202,16 +203,10 @@ type
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
 
-  BlockData* = object
-    ## Body and graph in one
-
-    data*: ForkedTrustedSignedBeaconBlock # We trust all blocks we have a ref for
-    refs*: BlockRef
-
   StateData* = object
     data*: ForkedHashedBeaconState
 
-    blck*: BlockRef ##\
+    blck*: BlockRef
     ## The block associated with the state found in data
 
   OnPhase0BlockAdded* = proc(

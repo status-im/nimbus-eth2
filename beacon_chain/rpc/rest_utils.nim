@@ -48,7 +48,7 @@ func getCurrentSlot*(node: BeaconNode, slot: Slot):
 
 func getCurrentBlock*(node: BeaconNode, slot: Slot):
     Result[BlockRef, cstring] =
-  let bs = node.dag.getBlockBySlot(? node.getCurrentSlot(slot))
+  let bs = node.dag.getBlockAtSlot(? node.getCurrentSlot(slot))
   if bs.isProposed():
     ok(bs.blck)
   else:
@@ -72,7 +72,7 @@ proc getBlockSlot*(node: BeaconNode,
                    stateIdent: StateIdent): Result[BlockSlot, cstring] =
   case stateIdent.kind
   of StateQueryKind.Slot:
-    let bs = node.dag.getBlockBySlot(? node.getCurrentSlot(stateIdent.slot))
+    let bs = node.dag.getBlockAtSlot(? node.getCurrentSlot(stateIdent.slot))
     if not isNil(bs.blck):
       ok(bs)
     else:
@@ -95,29 +95,44 @@ proc getBlockSlot*(node: BeaconNode,
       ok(node.dag.head.atEpochStart(getStateField(
         node.dag.headState.data, current_justified_checkpoint).epoch))
 
-proc getBlockRef*(node: BeaconNode,
-                   id: BlockIdent): Result[BlockRef, cstring] =
+proc getBlockId*(node: BeaconNode, id: BlockIdent): Result[BlockId, cstring] =
   case id.kind
   of BlockQueryKind.Named:
     case id.value
     of BlockIdentType.Head:
-      ok(node.dag.head)
+      ok(node.dag.head.bid)
     of BlockIdentType.Genesis:
-      ok(node.dag.genesis)
+      ok(node.dag.genesis.bid)
     of BlockIdentType.Finalized:
-      ok(node.dag.finalizedHead.blck)
+      ok(node.dag.finalizedHead.blck.bid)
   of BlockQueryKind.Root:
-    let res = node.dag.getRef(id.root)
-    if isNil(res):
-      err("Block not found")
-    else:
-      ok(res)
+    node.dag.getBlockId(id.root).orErr(cstring("Block not found"))
   of BlockQueryKind.Slot:
-    node.getCurrentBlock(id.slot)
+    let bsid = node.dag.getBlockIdAtSlot(id.slot)
+    if bsid.isProposed():
+      ok bsid.bid
+    else:
+      err("Block not found")
 
-proc getBlockDataFromBlockIdent*(node: BeaconNode,
-                                 id: BlockIdent): Result[BlockData, cstring] =
-  ok(node.dag.get(? node.getBlockRef(id)))
+proc getForkedBlock*(node: BeaconNode, id: BlockIdent):
+    Result[ForkedTrustedSignedBeaconBlock, cstring] =
+  case id.kind
+  of BlockQueryKind.Named:
+    case id.value
+    of BlockIdentType.Head:
+      ok(node.dag.getForkedBlock(node.dag.head))
+    of BlockIdentType.Genesis:
+      ok(node.dag.getForkedBlock(node.dag.genesis))
+    of BlockIdentType.Finalized:
+      ok(node.dag.getForkedBlock(node.dag.finalizedHead.blck))
+  of BlockQueryKind.Root:
+    node.dag.getForkedBlock(id.root).orErr(cstring("Block not found"))
+  of BlockQueryKind.Slot:
+    let bsid = node.dag.getBlockIdAtSlot(id.slot)
+    if bsid.isProposed():
+      node.dag.getForkedBlock(bsid.bid).orErr(cstring("Block not found"))
+    else:
+      err("Block not found")
 
 proc disallowInterruptionsAux(body: NimNode) =
   for n in body:

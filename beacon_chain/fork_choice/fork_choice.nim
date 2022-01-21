@@ -111,8 +111,7 @@ proc on_tick(self: var Checkpoints, dag: ChainDAGRef, time: BeaconTime):
 
   if newEpoch and
       self.best_justified.epoch > self.justified.checkpoint.epoch:
-    let blck = dag.getRef(self.best_justified.root)
-    if blck.isNil:
+    let blck = dag.getBlockRef(self.best_justified.root).valueOr:
       return err ForkChoiceError(
         kind: fcJustifiedNodeUnknown,
         blockRoot: self.best_justified.root)
@@ -233,12 +232,10 @@ func should_update_justified_checkpoint(
   let
     justified_slot = self.justified.checkpoint.epoch.start_slot()
     new_justified_checkpoint = epochRef.current_justified_checkpoint
-    justified_blck = dag.getRef(new_justified_checkpoint.root)
-
-  if justified_blck.isNil:
-    return err ForkChoiceError(
-      kind: fcJustifiedNodeUnknown,
-      blockRoot: new_justified_checkpoint.root)
+    justified_blck = dag.getBlockRef(new_justified_checkpoint.root).valueOr:
+      return err ForkChoiceError(
+        kind: fcJustifiedNodeUnknown,
+        blockRoot: new_justified_checkpoint.root)
 
   let justified_ancestor = justified_blck.atSlot(justified_slot)
 
@@ -294,8 +291,11 @@ proc process_state(self: var Checkpoints,
       self.justified.checkpoint.root != epochRef.current_justified_checkpoint.root:
 
       if (state_justified_epoch > self.justified.checkpoint.epoch) or
-          (dag.getRef(self.justified.checkpoint.root).atEpochStart(self.finalized.epoch).blck.root !=
-            self.finalized.root):
+          ((? dag.getBlockRef(self.justified.checkpoint.root).orErr(
+            ForkChoiceError(
+              kind: fcJustifiedNodeUnknown,
+              blockRoot: self.justified.checkpoint.root))).atEpochStart(
+            self.finalized.epoch).blck.root != self.finalized.root):
 
         let
           justifiedBlck = blck.atEpochStart(state_justified_epoch)
@@ -337,9 +337,9 @@ proc process_block*(self: var ForkChoice,
   let committees_per_slot = get_committee_count_per_slot(epochRef)
 
   for attestation in blck.body.attestations:
-    let targetBlck = dag.getRef(attestation.data.target.root)
-    if targetBlck.isNil:
+    let targetBlck = dag.getBlockRef(attestation.data.target.root).valueOr:
       continue
+
     let committee_index = block:
       let v = CommitteeIndex.init(attestation.data.index, committees_per_slot)
       if v.isErr():
