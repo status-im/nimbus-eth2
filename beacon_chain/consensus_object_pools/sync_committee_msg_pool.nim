@@ -287,4 +287,4 @@ proc isEpochLeadTime*(
   # (3/4) * (2/3) * (1/2)         = 1/4, 2 slots out
   # (3/4) * (2/3) * (1/2) * (1/1) = 1/4, 1 slot out
   doAssert epochsToSyncPeriod > 0
-  pool.rng[].rand(epochsToSyncPeriod - 1) == 0
+  epochsToSyncPeriod == 1 or pool.rng[].rand(epochsToSyncPeriod - 1) == 0
