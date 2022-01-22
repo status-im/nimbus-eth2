@@ -53,9 +53,6 @@ type
   OnFinalizedCallback* =
     proc(data: FinalizationInfoObject) {.gcsafe, raises: [Defect].}
 
-  FetchRecord* = object
-    root*: Eth2Digest
-
   KeyedBlockRef* = object
     # Special wrapper for BlockRef used in ChainDAG.blocks that allows lookup
     # by root without keeping a Table that keeps a separate copy of the digest

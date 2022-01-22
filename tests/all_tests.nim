@@ -18,6 +18,7 @@ import # Unit test
   ./test_beacon_time,
   ./test_block_dag,
   ./test_block_processor,
+  ./test_block_quarantine,
   ./test_datatypes,
   ./test_discovery,
   ./test_eth1_monitor,

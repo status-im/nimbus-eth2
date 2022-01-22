@@ -63,13 +63,13 @@ type
 
     # Producers
     # ----------------------------------------------------------------
-    blockQueue*: AsyncQueue[BlockEntry] # Exported for "test_sync_manager"
+    blockQueue: AsyncQueue[BlockEntry]
 
     # Consumer
     # ----------------------------------------------------------------
     consensusManager: ref ConsensusManager
-    validatorMonitor: ref ValidatorMonitor
       ## Blockchain DAG, AttestationPool and Quarantine
+    validatorMonitor: ref ValidatorMonitor
     getBeaconTime: GetBeaconTimeFn
 
     verifier: BatchVerifier
@@ -101,40 +101,6 @@ proc new*(T: type BlockProcessor,
 proc hasBlocks*(self: BlockProcessor): bool =
   self.blockQueue.len() > 0
 
-# Enqueue
-# ------------------------------------------------------------------------------
-
-proc addBlock*(
-    self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    resfut: Future[Result[void, BlockError]] = nil,
-    validationDur = Duration()) =
-  ## Enqueue a Gossip-validated block for consensus verification
-  # Backpressure:
-  #   There is no backpressure here - producers must wait for `resfut` to
-  #   constrain their own processing
-  # Producers:
-  # - Gossip (when synced)
-  # - SyncManager (during sync)
-  # - RequestManager (missing ancestor blocks)
-
-  withBlck(blck):
-    if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
-      # let backfill blocks skip the queue - these are always "fast" to process
-      # because there are no state rewinds to deal with
-      let res = self.consensusManager.dag.addBackfillBlock(blck)
-      if resFut != nil:
-        resFut.complete(res)
-      return
-
-  try:
-    self.blockQueue.addLastNoWait(BlockEntry(
-      blck: blck,
-      resfut: resfut, queueTick: Moment.now(),
-      validationDur: validationDur,
-      src: src))
-  except AsyncQueueFullError:
-    raiseAssert "unbounded queue"
-
 # Storage
 # ------------------------------------------------------------------------------
 
@@ -143,7 +109,7 @@ proc dumpInvalidBlock*(
   if self.dumpEnabled:
     dump(self.dumpDirInvalid, signedBlock)
 
-proc dumpBlock*[T](
+proc dumpBlock[T](
     self: BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
     res: Result[T, BlockError]) =
@@ -155,6 +121,32 @@ proc dumpBlock*[T](
       dump(self.dumpDirIncoming, signedBlock)
     else:
       discard
+
+proc storeBackfillBlock(
+    self: var BlockProcessor,
+    signedBlock: ForkySignedBeaconBlock): Result[void, BlockError] =
+
+  # The block is certainly not missing any more
+  self.consensusManager.quarantine[].missing.del(signedBlock.root)
+
+  let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
+
+  if res.isErr():
+    case res.error
+    of BlockError.MissingParent:
+      if signedBlock.message.parent_root in
+          self.consensusManager.quarantine[].unviable:
+        # DAG doesn't know about unviable ancestor blocks - we do! Translate
+        # this to the appropriate error so that sync etc doesn't retry the block
+        self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+
+        return err(BlockError.UnviableFork)
+    of BlockError.UnviableFork:
+      # Track unviables so that descendants can be discarded properly
+      self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+    else: discard
+
+  res
 
 proc storeBlock*(
     self: var BlockProcessor,
@@ -213,13 +205,26 @@ proc storeBlock*(
   # However this block was before the last finalized epoch and so its parent
   # was pruned from the ForkChoice.
   if blck.isErr():
-    if blck.error() == BlockError.MissingParent:
-      if not self.consensusManager.quarantine[].add(
-          dag, ForkedSignedBeaconBlock.init(signedBlock)):
+    case blck.error()
+    of BlockError.MissingParent:
+      if signedBlock.message.parent_root in
+          self.consensusManager.quarantine[].unviable:
+        # DAG doesn't know about unviable ancestor blocks - we do! Translate
+        # this to the appropriate error so that sync etc doesn't retry the block
+        self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+
+        return err(BlockError.UnviableFork)
+
+      if not self.consensusManager.quarantine[].addOrphan(
+          dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock)):
         debug "Block quarantine full",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
           signature = shortLog(signedBlock.signature)
+    of BlockError.UnviableFork:
+      # Track unviables so that descendants can be discarded properly
+      self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+    else: discard
 
     return blck
 
@@ -246,6 +251,41 @@ proc storeBlock*(
     self.addBlock(MsgSource.gossip, quarantined)
 
   blck
+
+# Enqueue
+# ------------------------------------------------------------------------------
+
+proc addBlock*(
+    self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
+    resfut: Future[Result[void, BlockError]] = nil,
+    validationDur = Duration()) =
+  ## Enqueue a Gossip-validated block for consensus verification
+  # Backpressure:
+  #   There is no backpressure here - producers must wait for `resfut` to
+  #   constrain their own processing
+  # Producers:
+  # - Gossip (when synced)
+  # - SyncManager (during sync)
+  # - RequestManager (missing ancestor blocks)
+
+  withBlck(blck):
+    if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
+      # let backfill blocks skip the queue - these are always "fast" to process
+      # because there are no state rewinds to deal with
+      let res = self.storeBackfillBlock(blck)
+
+      if resFut != nil:
+        resFut.complete(res)
+      return
+
+  try:
+    self.blockQueue.addLastNoWait(BlockEntry(
+      blck: blck,
+      resfut: resfut, queueTick: Moment.now(),
+      validationDur: validationDur,
+      src: src))
+  except AsyncQueueFullError:
+    raiseAssert "unbounded queue"
 
 # Event Loop
 # ------------------------------------------------------------------------------

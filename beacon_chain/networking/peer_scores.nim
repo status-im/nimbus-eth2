@@ -8,6 +8,15 @@
 {.push raises: [Defect].}
 
 const
+  NewPeerScore* = 300
+    ## Score which will be assigned to new connected Peer
+  PeerScoreLowLimit* = 0
+    ## Score after which peer will be kicked
+  PeerScoreHighLimit* = 1000
+    ## Max value of peer's score
+  PeerScoreInvalidRequest* = -500
+    ## This peer is sending malformed or nonsensical data
+
   PeerScoreHeadTooNew* = -100
     ## The peer reports a head newer than our wall clock slot
   PeerScoreNoStatus* = -100
@@ -26,5 +35,11 @@ const
     ## Peer's response contains incorrect blocks.
   PeerScoreBadResponse* = -1000
     ## Peer's response is not in requested range.
-  PeerScoreMissingBlocks* = -200
-    ## Peer response contains too many empty blocks.
+  PeerScoreMissingBlocks* = -25
+    ## Peer response contains too many empty blocks - this can happen either
+    ## because a long reorg happened or the peer is falsely trying to convince
+    ## us that a long reorg happened.
+    ## Peer's `blocksByRange` answer is fine.
+  PeerScoreUnviableFork* = -200
+    ## Peer responded with blocks from an unviable fork - are they on a
+    ## different chain?
