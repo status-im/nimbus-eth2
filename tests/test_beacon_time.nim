@@ -5,6 +5,8 @@ import
 
   ../beacon_chain/spec/beacon_time
 
+{.used.}
+
 suite "Beacon time":
   test "basics":
     let
