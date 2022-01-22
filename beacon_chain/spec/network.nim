@@ -176,7 +176,8 @@ func nearSyncCommitteePeriod*(epoch: Epoch): Option[uint64] =
   none(uint64)
 
 func getSyncSubnets*(
-    nodeHasPubkey: proc(pubkey: ValidatorPubKey): bool {.noSideEffect.},
+    nodeHasPubkey: proc(pubkey: ValidatorPubKey):
+      bool {.noSideEffect, raises: [Defect].},
     syncCommittee: SyncCommittee): SyncnetBits =
   var res: SyncnetBits
   for i, pubkey in syncCommittee.pubkeys:

@@ -789,11 +789,11 @@ proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) {.async.} =
     doAssert not (newSyncSubnets[subcommitteeIdx] and
                   oldSyncSubnets[subcommitteeIdx])
     for gossipFork in node.gossipState:
-      let topic =
+      template topic(): auto =
         getSyncCommitteeTopic(forkDigests[gossipFork], subcommitteeIdx)
       if oldSyncSubnets[subcommitteeIdx]:
         node.network.unsubscribe(topic)
-      if newSyncSubnets[subcommitteeIdx]:
+      elif newSyncSubnets[subcommitteeIdx]:
         node.network.subscribe(topic, basicParams)
 
   node.network.updateSyncnetsMetadata(currentSyncCommitteeSubnets)
@@ -804,7 +804,7 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) {.async.} =
     epochToSyncPeriod = nearSyncCommitteePeriod(epoch)
 
   if  epochToSyncPeriod.isNone or
-      forkVersionAtEpoch(node.dag.cfg, epoch + 1) ==
+      forkVersionAtEpoch(node.dag.cfg, epoch + epochToSyncPeriod.get) ==
         node.dag.cfg.GENESIS_FORK_VERSION:
     return
 
@@ -819,19 +819,19 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) {.async.} =
           state.data.next_sync_committee
         else:
           default(SyncCommittee)
-    nextSyncCommitteeSubnets =
-      getSyncSubnets(node.hasSyncPubKey(epoch + 1), syncCommittee)
-
-  let forkDigests = node.forkDigests()
+    nextSyncCommitteeSubnets = getSyncSubnets(
+      node.hasSyncPubKey(epoch + epochToSyncPeriod.get), syncCommittee)
+    forkDigests = node.forkDigests()
 
   debug "trackNextSyncCommitteeTopics: subscribing to sync committee subnets",
     metadata_syncnets = node.network.metadata.syncnets,
     nextSyncCommitteeSubnets,
-    gossipState = node.gossipState
+    gossipState = node.gossipState,
+    epochsToSyncPeriod = epochToSyncPeriod.get
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#sync-committee-subnet-stability
   for subcommitteeIdx in SyncSubcommitteeIndex:
-    if (not node.network.metadata.syncnets[subcommitteeIdx]) and
+    if  (not node.network.metadata.syncnets[subcommitteeIdx]) and
         nextSyncCommitteeSubnets[subcommitteeIdx] and
         node.syncCommitteeMsgPool[].isEpochLeadTime(epochToSyncPeriod.get):
       for gossipFork in node.gossipState:
