@@ -586,7 +586,7 @@ func verifyFinalization(node: BeaconNode, slot: Slot) =
 func subnetLog(v: BitArray): string =
   $toSeq(v.oneIndices())
 
-template forkDigests(node: BeaconNode): auto =
+func forkDigests(node: BeaconNode): auto =
   let forkDigestsArray: array[BeaconStateFork, auto] = [
     node.dag.forkDigests.phase0,
     node.dag.forkDigests.altair,
@@ -799,9 +799,6 @@ proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) {.async.} =
   node.network.updateSyncnetsMetadata(currentSyncCommitteeSubnets)
 
 proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) {.async.} =
-  if not slot.is_epoch:
-    return
-
   let
     epoch = slot.epoch
     epochToSyncPeriod = nearSyncCommitteePeriod(epoch)
@@ -977,7 +974,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   node.db.checkpoint()
 
   node.syncCommitteeMsgPool[].pruneData(slot)
-  await node.trackNextSyncCommitteeTopics(slot)
+  if slot.is_epoch:
+    await node.trackNextSyncCommitteeTopics(slot)
 
   # Update upcoming actions - we do this every slot in case a reorg happens
   if node.isSynced(node.dag.head) and
