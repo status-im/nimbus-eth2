@@ -1,5 +1,6 @@
 import
-  re, strutils, os,
+  re, strutils, os, math,
+  stew/bitops2,
   ../beacon_chain/spec/[
     datatypes/base,
     datatypes/phase0,
@@ -110,9 +111,67 @@ proc collectSlashings(
         validator[].get_slashing_penalty(
           adjusted_total_slashing_balance, total_balance).int64
 
+proc getFinalizedCheckpoint(state: phase0.BeaconState, balances: TotalBalances):
+    Checkpoint =
+  if get_current_epoch(state) <= GENESIS_EPOCH + 1:
+    return state.finalized_checkpoint
+
+  let
+    current_epoch = get_current_epoch(state)
+    old_previous_justified_checkpoint = state.previous_justified_checkpoint
+    old_current_justified_checkpoint = state.current_justified_checkpoint
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#misc
+  const JUSTIFICATION_BITS_LENGTH = 4
+
+  var justification_bits = JustificationBits(
+    (uint8(state.justification_bits) shl 1) and
+    uint8((2^JUSTIFICATION_BITS_LENGTH) - 1))
+
+  let total_active_balance = balances.current_epoch
+  if balances.previous_epoch_target_attesters * 3 >= total_active_balance * 2:
+    uint8(justification_bits).setBit 1
+
+  if balances.current_epoch_target_attesters * 3 >= total_active_balance * 2:
+    uint8(justification_bits).setBit 0
+
+  # Process finalizations
+  let bitfield = uint8(justification_bits)
+
+  ## The 2nd/3rd/4th most recent epochs are justified, the 2nd using the 4th
+  ## as source
+  if (bitfield and 0b1110) == 0b1110 and
+     old_previous_justified_checkpoint.epoch + 3 == current_epoch:
+    return old_previous_justified_checkpoint
+
+  ## The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as
+  ## source
+  if (bitfield and 0b110) == 0b110 and
+     old_previous_justified_checkpoint.epoch + 2 == current_epoch:
+    return old_previous_justified_checkpoint
+
+  ## The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as
+  ## source
+  if (bitfield and 0b111) == 0b111 and
+     old_current_justified_checkpoint.epoch + 2 == current_epoch:
+    return old_current_justified_checkpoint
+
+  ## The 1st/2nd most recent epochs are justified, the 1st using the 2nd as
+  ## source
+  if (bitfield and 0b11) == 0b11 and
+     old_current_justified_checkpoint.epoch + 1 == current_epoch:
+    return old_current_justified_checkpoint
+
+  return state.finalized_checkpoint
+
+func getFinalityDelay*(state: ForkyBeaconState,
+                       finalizedCheckpoint: Checkpoint): uint64 =
+  state.get_previous_epoch - finalizedCheckpoint.epoch
+
 proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
-    state: phase0.BeaconState, cache: var StateCache, cfg: RuntimeConfig) =
+    state: phase0.BeaconState, cache: var StateCache, cfg: RuntimeConfig,
+    flags: UpdateFlags) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
 
@@ -124,7 +183,8 @@ proc collectEpochRewardsAndPenalties*(
   rewardsAndPenalties.setLen(state.validators.len)
 
   let
-    finality_delay = get_finality_delay(state)
+    finalized_checkpoint = state.getFinalizedCheckpoint(info.balances)
+    finality_delay = getFinalityDelay(state, finalized_checkpoint)
     total_balance = info.balances.current_epoch
     total_balance_sqrt = integer_squareroot(total_balance)
 
@@ -176,7 +236,7 @@ proc collectEpochRewardsAndPenalties*(
 proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     state: altair.BeaconState | bellatrix.BeaconState,
-    cache: var StateCache, cfg: RuntimeConfig) =
+    cache: var StateCache, cfg: RuntimeConfig, flags: UpdateFlags) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
 

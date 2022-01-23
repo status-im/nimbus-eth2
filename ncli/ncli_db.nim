@@ -921,7 +921,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
       if nextSlot.isEpoch:
         withState(tmpState[].data):
           rewardsAndPenalties.collectEpochRewardsAndPenalties(
-            state.data, cache, cfg)
+            state.data, cache, cfg, flags)
 
       let res = process_slots(cfg, tmpState[].data, nextSlot, cache, forkedInfo, flags)
       doAssert res.isOk, "Slot processing can't fail with correct inputs"
