@@ -766,6 +766,11 @@ proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) {.async.} =
     currentSyncCommitteeSubnets =
       getSyncSubnets(node.hasSyncPubKey(slot.epoch), syncCommittee)
 
+  debug "trackCurrentSyncCommitteeTopics: aligning with sync committee subnets",
+    currentSyncCommitteeSubnets,
+    metadata_syncnets = node.network.metadata.syncnets,
+    gossipState = node.gossipState
+
   # Assume that different gossip fork sync committee setups are in sync; this
   # only remains relevant, currently, for one gossip transition epoch, so the
   # consequences of this not being true aren't exceptionally dire, while this
@@ -779,11 +784,6 @@ proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) {.async.} =
     oldSyncSubnets =
       node.network.metadata.syncnets - currentSyncCommitteeSubnets
     forkDigests = node.forkDigests()
-
-  debug "trackCurrentSyncCommitteeTopics: aligning with sync committee subnets",
-    currentSyncCommitteeSubnets,
-    metadata_syncnets = node.network.metadata.syncnets,
-    gossipState = node.gossipState
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     doAssert not (newSyncSubnets[subcommitteeIdx] and
@@ -823,11 +823,7 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) {.async.} =
       node.hasSyncPubKey(epoch + epochToSyncPeriod.get), syncCommittee)
     forkDigests = node.forkDigests()
 
-  debug "trackNextSyncCommitteeTopics: subscribing to sync committee subnets",
-    metadata_syncnets = node.network.metadata.syncnets,
-    nextSyncCommitteeSubnets,
-    gossipState = node.gossipState,
-    epochsToSyncPeriod = epochToSyncPeriod.get
+  var newSubcommittees: SyncnetBits
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#sync-committee-subnet-stability
   for subcommitteeIdx in SyncSubcommitteeIndex:
@@ -837,8 +833,17 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) {.async.} =
       for gossipFork in node.gossipState:
         node.network.subscribe(getSyncCommitteeTopic(
           forkDigests[gossipFork], subcommitteeIdx), basicParams)
+      newSubcommittees.setBit(distinctBase(subcommitteeIdx))
 
-  node.network.updateSyncnetsMetadata(nextSyncCommitteeSubnets)
+  debug "trackNextSyncCommitteeTopics: subscribing to sync committee subnets",
+    metadata_syncnets = node.network.metadata.syncnets,
+    nextSyncCommitteeSubnets,
+    gossipState = node.gossipState,
+    epochsToSyncPeriod = epochToSyncPeriod.get,
+    newSubcommittees
+
+  node.network.updateSyncnetsMetadata(
+    node.network.metadata.syncnets + newSubcommittees)
 
 proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   ## Subscribe to subnets that we are providing stability for or aggregating

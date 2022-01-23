@@ -182,7 +182,8 @@ suite "Honest validator":
       for j in 0'u64 .. SYNC_COMMITTEE_SUBNET_COUNT:
         check: nearSyncCommitteePeriod((EPOCHS_PER_SYNC_COMMITTEE_PERIOD * i - j).Epoch).get == j
 
-    # Smaller values here mean the wraparound cause false test failures here
+    # Smaller values EPOCHS_PER_SYNC_COMMITTEE_PERIOD would mean the wrap-around
+    # causes false test failures
     static: doAssert EPOCHS_PER_SYNC_COMMITTEE_PERIOD >= 8
     for i in 1'u64 .. 20'u64:
       for j in (SYNC_COMMITTEE_SUBNET_COUNT + 1'u64) .. 7'u64:
