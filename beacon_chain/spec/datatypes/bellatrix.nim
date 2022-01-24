@@ -326,14 +326,14 @@ type
 
   SomeSomeSignedBeaconBlock* = SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock | phase0.SomeSignedBeaconBlock
 
-  BlockParams* = object
+  BlockParams = object
     parentHash*: string
     timestamp*: string
 
-  BoolReturnValidRPC* = object
+  BoolReturnValidRPC = object
     valid*: bool
 
-  BoolReturnSuccessRPC* = object
+  BoolReturnSuccessRPC = object
     success*: bool
 
 func encodeQuantityHex*(x: auto): string =
