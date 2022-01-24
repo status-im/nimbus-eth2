@@ -51,9 +51,15 @@ const
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 16
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/setup.py#L478-L479
-  FINALIZED_ROOT_INDEX* = 105.GeneralizedIndex
-  NEXT_SYNC_COMMITTEE_INDEX* = 55.GeneralizedIndex
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#constants
+  # All of these indices are rooted in `BeaconState`.
+  # The first member (`genesis_time`) is 32, subsequent members +1 each.
+  # If there are ever more than 32 members in `BeaconState`, indices change!
+  # `FINALIZED_ROOT_INDEX` is one layer deeper, i.e., `52 * 2 + 1`.
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/ssz/merkle-proofs.md 
+  FINALIZED_ROOT_INDEX* = 105.GeneralizedIndex # `finalized_checkpoint` > `root`
+  CURRENT_SYNC_COMMITTEE_INDEX* = 54.GeneralizedIndex # `current_sync_committee`
+  NEXT_SYNC_COMMITTEE_INDEX* = 55.GeneralizedIndex # `next_sync_committee`
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/beacon-chain.md#participation-flag-indices
   TIMELY_SOURCE_FLAG_INDEX* = 0
@@ -152,12 +158,23 @@ type
 
   ### Modified/overloaded
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#lightclientbootstrap
+  LightClientBootstrap* = object
+    header*: BeaconBlockHeader ##\
+    ## The requested beacon block header
+
+    # Current sync committee corresponding to the requested header
+    current_sync_committee*: SyncCommittee
+    current_sync_committee_branch*:
+      array[log2trunc(CURRENT_SYNC_COMMITTEE_INDEX), Eth2Digest]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
     attested_header*: BeaconBlockHeader ##\
     ## The beacon block header that is attested to by the sync committee
 
-    # Next sync committee corresponding to the active header
+    # Next sync committee corresponding to the active header,
+    # if signature is from current sync committee
     next_sync_committee*: SyncCommittee
     next_sync_committee_branch*:
       array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
@@ -171,6 +188,20 @@ type
 
     fork_version*: Version ##\
     ## Fork version for the aggregate signature
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#optimisticlightclientupdate
+  OptimisticLightClientUpdate* = object
+    attested_header*: BeaconBlockHeader ##\
+    ## The beacon block header that is attested to by the sync committee
+
+    sync_aggregate*: SyncAggregate ##\
+    ## Sync committee aggregate signature
+
+    fork_version*: Version ##\
+    ## Fork version for the aggregate signature
+
+    is_signed_by_next_sync_committee*: bool ##\
+    ## Whether the signature was produced by `attested_header`'s next sync committee
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#lightclientstore
   LightClientStore* = object

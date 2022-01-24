@@ -403,9 +403,10 @@ ConsensusSpecPreset-minimal
 + fork_random_large_validator_set                                                            OK
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
++ light_client_sync                                                                          OK
 + next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 402/402 Fail: 0/402 Skip: 0/402
+OK: 403/403 Fail: 0/403 Skip: 0/403
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -844,9 +845,10 @@ OK: 35/35 Fail: 0/35 Skip: 0/35
 ```diff
 + process_light_client_update_finality_updated                                               OK
 + process_light_client_update_timeout                                                        OK
++ test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Bellatrix - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -1286,4 +1288,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 30/30 Fail: 0/30 Skip: 0/30
 
 ---TOTAL---
-OK: 1084/1104 Fail: 0/1104 Skip: 20/1104
+OK: 1086/1106 Fail: 0/1106 Skip: 20/1106
