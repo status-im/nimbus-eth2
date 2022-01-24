@@ -3,21 +3,21 @@
 
 *See [here](./migration-options.md) for advanced options*
 
-## Step 1 - Sync the beacon node
+## Step 1 - Sync the Nimbus beacon node
 No matter which client you are migrating over from, the first step is to sync the Nimbus beacon node.
 
 The easiest way to do this is to follow the [beacon node quick start guide](./quick-start.md).  Syncing the beacon node might take up to 30h depending on your hardware - you should keep validating using your current setup until it completes.
 
+Once your Nimbus beacon node has synced and you're satisfied that it's working, move to Step 2.
 
 ## Step 2 - Export your slashing protection history
-> Hat tip to Michael Sproul for his [wonderful guide](https://lighthouse.sigmaprime.io/switch-to-lighthouse.html) on how to migrate from Prysm to Lighthouse.
 
 
 ### Export from Prysm
 
 #### 1. Disable the Prysm validator client
 
-Once your Nimbus beacon node has synced and you're satisfied that it's working, stop and disable the Prysm validator client (you can also stop the Prysm beacon node if you wish).
+Stop and disable the Prysm validator client (you can also stop the Prysm beacon node if you wish).
 
 
 If you're using systemd and your service is called `prysmvalidator`, run the following commands to stop and disable the service:
@@ -38,8 +38,6 @@ prysm.sh validator slashing-protection export \
  --datadir=/your/prysm/wallet \ 
  --slashing-protection-export-dir=/path/to/export_dir
 ```
-
-To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check [beaconcha.in](https://beaconcha.in/)).
 
 ### Export from Lighthouse
 
@@ -63,6 +61,8 @@ lighthouse account validator slashing-protection export lighthouse_interchange.j
 
 This will export your history in the correct format to `lighthouse_interchange.json`.
 
+To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
+
 
 ### Export from Teku
 
@@ -83,8 +83,8 @@ Where:
 - `--data-path` specifies the location of the Teku data directory.
 - `--to` specifies the file to export the slashing-protection data to (in this case `/home/slash/slashing-interchange-format-minimal.json`).
 
-You're now ready to import the slashing-protection file into Nimbus.
 
+To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
 
 
 ## Step 3 - Import your validator key(s) into Nimbus
@@ -118,9 +118,7 @@ For a quick guide on how to set up a systemd service, see [here](./beacon-node-s
 
 If you are unsure of the safety of a step, please get in touch with us directly on [discord](https://discord.gg/nnNEBvHu3m). Additionally, we recommend testing the migration works correctly on a testnet before going ahead on mainnet.
 
-## P.S.
-
-### Export from Nimbus
+### Addendum: Export from Nimbus
 
 #### 1. Disable the Nimbus validator client
 
