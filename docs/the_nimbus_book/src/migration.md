@@ -1,14 +1,18 @@
 # Migrate from another client
 
 
-*See [here](./migration-options.md) for advanced options*
+This guide will take you through the basics of how to migrate to Nimbus from another client. *See [here](./migration-options.md) for advanced options*.
+
+The main pain point involves the exporting and importing of the [slashing protection database](https://eips.ethereum.org/EIPS/eip-3076), since each client takes a slightly different approach here.
+
+> **Please take your time to get this right.** Don't hesitate to reach out to us in the `#helpdesk` channel of [our discord](https://discord.gg/j3nYBUeEad) if you come across a stumbling block. We are more than happy to help guide you through the migration process. Given what's at stake, there is no such thing as a stupid question.
 
 ## Step 1 - Sync the Nimbus beacon node
 No matter which client you are migrating over from, the first step is to sync the Nimbus beacon node.
 
-The easiest way to do this is to follow the [beacon node quick start guide](./quick-start.md).  Syncing the beacon node might take up to 30h depending on your hardware - you should keep validating using your current setup until it completes.
+The easiest way to do this is to follow the [beacon node quick start guide](./quick-start.md).  Syncing the beacon node might take up to 30 hours depending on your hardware - you should keep validating using your current setup until it completes.
 
-Once your Nimbus beacon node has synced and you're satisfied that it's working, move to Step 2.
+Once your Nimbus beacon node has synced and you're satisfied that it's working, move to **Step 2**.
 
 ## Step 2 - Export your slashing protection history
 
@@ -45,12 +49,21 @@ prysm.sh validator slashing-protection export \
 
 The validator client needs to be stopped in order to export, to guarantee that the data exported is up to date.
 
-To stop both the validator client and the beacon node, run:
+If you're using systemd and your service is called `lighthousevalidator`, run the following command to stop and disable the service:
+
 
 ```
 sudo systemctl stop lighthousevalidator
-sudo systemctl stop lighthousebeacon
+sudo systemctl disable lighthousevalidator
 ```
+
+You may also wish to stop the beacon node:
+```
+sudo systemctl stop lighthousebeacon
+sudo systemctl disable lighthousebeacon
+```
+
+*It's important that you disable the service as well as stopping it, to prevent it from starting up again on reboot.*
 
 #### 2. Export slashing protection history
 
@@ -68,12 +81,20 @@ To be extra sure that your validator has stopped, wait a few epochs and confirm 
 
 #### 1. Disable Teku 
 
+If you're using systemd and your service is called `teku`, run the following command to stop and disable the service:
 
 ```
 sudo systemctl stop teku
+sudo systemctl disable teku
 ```
 
+*It's important that you disable the service as well as stopping it, to prevent it from starting up again on reboot.*
+
+
 #### 2. Export slashing protection history
+
+You can export Teku's database with this command:
+
 ```
 teku slashing-protection export --data-path=/home/me/me_node --to=/home/slash/slashing-interchange-format-minimal.json
 ```
@@ -85,6 +106,34 @@ Where:
 
 
 To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
+
+### Export from Nimbus
+
+#### 1. Disable the Nimbus validator client
+
+Once your Nimbus beacon node on your new setup has synced and you're satisfied that it's working, stop and disable the Nimbus validator client on your current setup. 
+
+If you're using systemd and your service is called `nimbus-eth2-mainnet`, run the following commands to stop and disable the service:
+
+```
+sudo systemctl stop nimbus-eth2-mainnet.service
+sudo systemctl disable nimbus-eth2-mainnet.service
+```
+
+*It's important that you disable the service as well as stopping it, to prevent it from starting up again on reboot.*
+
+#### 2. Export slashing protection history
+
+Run the following to export your Nimbus validator's [slashing protection](https://eips.ethereum.org/EIPS/eip-3076) history:
+
+```
+build/nimbus_beacon_node slashingdb export database.json
+```
+
+This will export your history in the correct format to `database.json`.
+
+To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check `beaconcha.in`). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
+
 
 
 ## Step 3 - Import your validator key(s) into Nimbus
@@ -118,32 +167,6 @@ For a quick guide on how to set up a systemd service, see [here](./beacon-node-s
 
 If you are unsure of the safety of a step, please get in touch with us directly on [discord](https://discord.gg/nnNEBvHu3m). Additionally, we recommend testing the migration works correctly on a testnet before going ahead on mainnet.
 
-### Addendum: Export from Nimbus
-
-#### 1. Disable the Nimbus validator client
-
-Once your Nimbus beacon node on your new setup has synced and you're satisfied that it's working, stop and disable the Nimbus validator client on your current setup. 
-
-If you're using systemd and your service is called `nimbus-eth2-mainnet`, run the following commands to stop and disable the service:
-
-```
-sudo systemctl stop nimbus-eth2-mainnet.service
-sudo systemctl disable nimbus-eth2-mainnet.service
-```
-
-It's important that you disable the service as well as stopping it, to prevent it from starting up again on reboot.
-
-#### 2. Export slashing protection history
-
-Run the following to export your Nimbus validator's [slashing protection](https://eips.ethereum.org/EIPS/eip-3076) history:
-
-```
-build/nimbus_beacon_node slashingdb export database.json
-```
-
-This will export your history in the correct format to `database.json`.
-
-To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check `beaconcha.in`).
 
 
 
