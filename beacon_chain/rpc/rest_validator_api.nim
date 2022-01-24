@@ -594,6 +594,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           let validator_pubkey = getStateField(
             node.dag.headState.data, validators).asSeq()[item.validator_index].pubkey
 
+          node.syncCommitteeMsgPool.syncCommitteeSubscriptions[validator_pubkey] =
+            item.until_epoch
+
           node.validatorMonitor[].addAutoMonitor(
             validator_pubkey, ValidatorIndex(item.validator_index))
 

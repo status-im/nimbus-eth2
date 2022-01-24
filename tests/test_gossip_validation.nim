@@ -227,7 +227,7 @@ suite "Gossip validation - Extra": # Not based on preset config
         state[].root)
       msg = resMsg.get()
 
-      syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init())
+      syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init(keys.newRng()))
       res = waitFor validateSyncCommitteeMessage(
         dag, batchCrypto, syncCommitteeMsgPool, msg, subcommitteeIdx,
         slot.start_beacon_time(), true)

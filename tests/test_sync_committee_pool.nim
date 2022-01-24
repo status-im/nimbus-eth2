@@ -2,6 +2,7 @@
 
 import
   unittest2,
+  eth/keys,
   ../beacon_chain/spec/[beaconstate, helpers, signatures],
   ../beacon_chain/consensus_object_pools/sync_committee_msg_pool,
   ./testblockutil
@@ -15,7 +16,7 @@ func aggregate(sigs: openarray[CookedSig]): CookedSig =
 
 suite "Sync committee pool":
   setup:
-    var pool = SyncCommitteeMsgPool.init()
+    var pool = SyncCommitteeMsgPool.init(keys.newRng())
 
   test "An empty pool is safe to use":
     let headRoot = eth2digest(@[1.byte, 2, 3])

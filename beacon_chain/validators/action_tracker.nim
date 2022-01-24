@@ -32,7 +32,7 @@ type
   ActionTracker* = object
     rng: ref BrHmacDrbgContext
 
-    subscribeAllSubnets*: bool
+    subscribeAllAttnets*: bool
 
     currentSlot*: Slot ##\
       ## Duties that we accept are limited to a range around the current slot
@@ -109,7 +109,7 @@ func aggregateSubnets*(tracker: ActionTracker, wallSlot: Slot): AttnetBits =
   res
 
 func stabilitySubnets*(tracker: ActionTracker, slot: Slot): AttnetBits =
-  if tracker.subscribeAllSubnets:
+  if tracker.subscribeAllAttnets:
     allSubnetBits
   else:
     var res: AttnetBits
@@ -240,8 +240,10 @@ proc updateActions*(tracker: var ActionTracker, epochRef: EpochRef) =
       tracker.attestingSlots[epoch mod 2] or
         (1'u32 shl (slot mod SLOTS_PER_EPOCH))
 
-proc init*(T: type ActionTracker, rng: ref BrHmacDrbgContext, subscribeAllSubnets: bool): T =
+proc init*(
+    T: type ActionTracker, rng: ref BrHmacDrbgContext,
+    subscribeAllAttnets: bool): T =
   T(
     rng: rng,
-    subscribeAllSubnets: subscribeAllSubnets
+    subscribeAllAttnets: subscribeAllAttnets
   )

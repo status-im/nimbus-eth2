@@ -1,34 +1,5 @@
 AllTests-mainnet
 ===
-## 
-```diff
-+ Slashing test: duplicate_pubkey_not_slashable.json                                         OK
-+ Slashing test: multiple_interchanges_single_validator_single_message_gap.json              OK
-+ Slashing test: multiple_interchanges_single_validator_single_message_out_of_order.json     OK
-+ Slashing test: multiple_validators_multiple_blocks_and_attestations.json                   OK
-+ Slashing test: multiple_validators_same_slot_blocks.json                                   OK
-+ Slashing test: single_validator_genesis_attestation.json                                   OK
-+ Slashing test: single_validator_import_only.json                                           OK
-+ Slashing test: single_validator_multiple_block_attempts.json                               OK
-+ Slashing test: single_validator_multiple_blocks_and_attestations.json                      OK
-+ Slashing test: single_validator_out_of_order_attestations.json                             OK
-+ Slashing test: single_validator_out_of_order_blocks.json                                   OK
-+ Slashing test: single_validator_resign_attestation.json                                    OK
-+ Slashing test: single_validator_resign_block.json                                          OK
-+ Slashing test: single_validator_single_attestation.json                                    OK
-+ Slashing test: single_validator_single_block.json                                          OK
-+ Slashing test: single_validator_single_block_and_attestation.json                          OK
-+ Slashing test: single_validator_single_block_and_attestation_signing_root.json             OK
-+ Slashing test: single_validator_slashable_attestations_double_vote.json                    OK
-+ Slashing test: single_validator_slashable_attestations_surrounded_by_existing.json         OK
-+ Slashing test: single_validator_slashable_attestations_surrounds_existing.json             OK
-+ Slashing test: single_validator_slashable_blocks.json                                      OK
-+ Slashing test: single_validator_slashable_blocks_no_root.json                              OK
-+ Slashing test: single_validator_source_greater_than_target.json                            OK
-+ Slashing test: single_validator_two_blocks_no_signing_root.json                            OK
-+ Slashing test: wrong_genesis_validators_root.json                                          OK
-```
-OK: 25/25 Fail: 0/25 Skip: 0/25
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestations may arrive in any order [Preset: mainnet]                                     OK
@@ -222,9 +193,10 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ```diff
 + General pubsub topics                                                                      OK
 + Mainnet attestation topics                                                                 OK
++ isNearSyncCommitteePeriod                                                                  OK
 + is_aggregator                                                                              OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## ImportKeystores requests [Preset: mainnet]
 ```diff
 + Invalid Authorization Header [Preset: mainnet]                                             OK
@@ -293,17 +265,54 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + deletePeer() test                                                                          OK
 ```
 OK: 12/12 Fail: 0/12 Skip: 0/12
+## Slashing Interchange tests  [Preset: mainnet]
+```diff
++ Slashing test: duplicate_pubkey_not_slashable.json                                         OK
++ Slashing test: duplicate_pubkey_slashable_attestation.json                                 OK
++ Slashing test: duplicate_pubkey_slashable_block.json                                       OK
++ Slashing test: multiple_interchanges_multiple_validators_repeat_idem.json                  OK
++ Slashing test: multiple_interchanges_overlapping_validators_merge_stale.json               OK
++ Slashing test: multiple_interchanges_overlapping_validators_repeat_idem.json               OK
++ Slashing test: multiple_interchanges_single_validator_fail_iff_imported.json               OK
++ Slashing test: multiple_interchanges_single_validator_first_surrounds_second.json          OK
+  Slashing test: multiple_interchanges_single_validator_multiple_blocks_out_of_order.json    Skip
++ Slashing test: multiple_interchanges_single_validator_second_surrounds_first.json          OK
++ Slashing test: multiple_interchanges_single_validator_single_att_out_of_order.json         OK
++ Slashing test: multiple_interchanges_single_validator_single_block_out_of_order.json       OK
++ Slashing test: multiple_interchanges_single_validator_single_message_gap.json              OK
++ Slashing test: multiple_validators_multiple_blocks_and_attestations.json                   OK
++ Slashing test: multiple_validators_same_slot_blocks.json                                   OK
++ Slashing test: single_validator_genesis_attestation.json                                   OK
++ Slashing test: single_validator_import_only.json                                           OK
++ Slashing test: single_validator_multiple_block_attempts.json                               OK
++ Slashing test: single_validator_multiple_blocks_and_attestations.json                      OK
++ Slashing test: single_validator_out_of_order_attestations.json                             OK
++ Slashing test: single_validator_out_of_order_blocks.json                                   OK
++ Slashing test: single_validator_resign_attestation.json                                    OK
++ Slashing test: single_validator_resign_block.json                                          OK
++ Slashing test: single_validator_single_attestation.json                                    OK
++ Slashing test: single_validator_single_block.json                                          OK
++ Slashing test: single_validator_single_block_and_attestation.json                          OK
++ Slashing test: single_validator_single_block_and_attestation_signing_root.json             OK
++ Slashing test: single_validator_slashable_attestations_double_vote.json                    OK
++ Slashing test: single_validator_slashable_attestations_surrounded_by_existing.json         OK
++ Slashing test: single_validator_slashable_attestations_surrounds_existing.json             OK
++ Slashing test: single_validator_slashable_blocks.json                                      OK
++ Slashing test: single_validator_slashable_blocks_no_root.json                              OK
++ Slashing test: single_validator_source_greater_than_target.json                            OK
++ Slashing test: single_validator_source_greater_than_target_sensible_iff_minified.json      OK
++ Slashing test: single_validator_source_greater_than_target_surrounded.json                 OK
+  Slashing test: single_validator_source_greater_than_target_surrounding.json                Skip
++ Slashing test: single_validator_two_blocks_no_signing_root.json                            OK
++ Slashing test: wrong_genesis_validators_root.json                                          OK
+```
+OK: 36/38 Fail: 0/38 Skip: 2/38
 ## Slashing Protection DB - Interchange [Preset: mainnet]
 ```diff
 + Smoke test - Complete format - Invalid database is refused [Preset: mainnet]               OK
 + Smoke test - Complete format [Preset: mainnet]                                             OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Slashing Protection DB - v1 and v2 migration [Preset: mainnet]
-```diff
-+ Minimal format migration [Preset: mainnet]                                                 OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Protection DB [Preset: mainnet]
 ```diff
 + Attestation ordering #1698                                                                 OK
@@ -442,4 +451,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 238/240 Fail: 0/240 Skip: 2/240
+OK: 249/253 Fail: 0/253 Skip: 4/253

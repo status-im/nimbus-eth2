@@ -6,9 +6,10 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  random,
+  std/[options, random],
   chronicles,
-  options, stew/endians2,
+  eth/keys,
+  stew/endians2,
   ../beacon_chain/consensus_object_pools/sync_committee_msg_pool,
   ../beacon_chain/validators/validator_pool,
   ../beacon_chain/spec/datatypes/bellatrix,
@@ -321,7 +322,7 @@ proc makeSyncAggregate(
       getStateField(state, slot)
     latest_block_root =
       withState(state): state.latest_block_root
-    syncCommitteePool = newClone(SyncCommitteeMsgPool.init())
+    syncCommitteePool = newClone(SyncCommitteeMsgPool.init(keys.newRng()))
   type
     Aggregator = object
       subcommitteeIdx: SyncSubcommitteeIndex
