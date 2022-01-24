@@ -761,8 +761,7 @@ proc putState(dag: ChainDAGRef, state: StateData) =
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
   withState(state.data):
-    dag.db.putStateRoot(state.latest_block_root(), state.data.slot, state.root)
-    dag.db.putState(state.root, state.data)
+    dag.db.putState(state)
 
   debug "Stored state", putStateDur = Moment.now() - startTick
 
@@ -1537,11 +1536,11 @@ proc preInit*(
         quit 1
 
       let blck = get_initial_beacon_block(state)
-      db.putGenesisBlock(blck.root)
       db.putBlock(blck)
+      db.putState(state)
 
-      db.putStateRoot(state.latest_block_root(), state.data.slot, state.root)
-      db.putState(state.root, state.data)
+      db.putGenesisBlock(blck.root)
+
       blck.root
     else: # tail and genesis are the same
       withBlck(tailBlock):
@@ -1561,11 +1560,10 @@ proc preInit*(
         quit 1
 
       db.putBlock(blck)
+      db.putState(state)
+
       db.putTailBlock(blck.root)
       db.putHeadBlock(blck.root)
-
-      db.putStateRoot(state.latest_block_root(), state.data.slot, state.root)
-      db.putState(state.root, state.data)
 
       notice "New database from snapshot",
         genesisBlockRoot = shortLog(genesisBlockRoot),
