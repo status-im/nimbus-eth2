@@ -1,6 +1,6 @@
 # REST API
 
-Nimbus exposes a high-performance implementation of the standard [Beacon Node API](https://ethereum.github.io/beacon-APIs/). The goal of a standard API is to improve interoperability between various beacon node implementations.
+Nimbus exposes an **extremely fast** and high-performance implementation of the standard [Beacon Node API](https://ethereum.github.io/beacon-APIs/). The goal of a standard API is to improve interoperability between various beacon node implementations.
 
 The API is a `REST` interface accessed via `HTTP`. **The API should not**, unless protected by additional security layers, **be exposed to the public Internet** as the API includes multiple endpoints which could open your node to denial-of-service (DoS) attacks.
 
