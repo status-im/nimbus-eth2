@@ -49,6 +49,7 @@ curl -X GET http://localhost:5052/eth/v1/node/version
 ```
 
 By default, only connections from the same machine are entertained. The port and listening address can be further configured through the options `--rest-port` and `--rest-address`.
+
 > **Warning:** If you are using a validator client with a Nimbus beacon node, and running a Nimbus version prior to `v1.5.5`,  then you will need to launch the node with the `--subscribe-all-subnets` option enabled (in addition to the `--rest` option).
 
 ## Some useful commands
