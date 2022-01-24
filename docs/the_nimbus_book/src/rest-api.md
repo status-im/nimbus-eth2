@@ -38,12 +38,10 @@ They may also be unresponsive at times - so **please do not rely on them for val
 
 ## Configure your node to run a local REST server
 
-> **Warning:** If you are using a validator client with a Nimbus beacon node, and running a Nimbus version prior to `v1.5.5`,  then you will need to launch the node with the `--subscribe-all-subnets` option enabled (in addition to the `--rest` option).
-
 By default, the REST interface is disabled. To enable it, start the beacon node with the `--rest` option:
 
 ```
-./run-prater-beacon-node.sh --rest
+./run-mainnet-beacon-node.sh --rest
 ```
 
 Then access the API from `http://localhost:5052/`. For example, to get the version of the Nimbus software your node is running:
@@ -54,6 +52,7 @@ curl -X GET http://localhost:5052/eth/v1/node/version
 
 By default, only connections from the same machine are entertained. The port and listening address can be further configured through the options `--rest-port` and `--rest-address`.
 
+> **Warning:** If you are using a validator client with a Nimbus beacon node, and running a Nimbus version prior to `v1.5.5`,  then you will need to launch the node with the `--subscribe-all-subnets` option enabled (in addition to the `--rest` option).
 
 ## Some useful commands
 
