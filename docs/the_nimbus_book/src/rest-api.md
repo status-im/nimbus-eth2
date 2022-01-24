@@ -1,18 +1,9 @@
 # REST API
 
-<<<<<<< HEAD
-Nimbus exposes an **extremely fast** and high-performance implementation of the standard [Beacon Node API](https://ethereum.github.io/beacon-APIs/). The goal of a standard API is to improve interoperability between various beacon node implementations.
-
-The API is a `REST` interface accessed via `HTTP`. **The API should not**, unless protected by additional security layers, **be exposed to the public Internet** as the API includes multiple endpoints which could open your node to denial-of-service (DoS) attacks.
-=======
 Nimbus exposes an **extremely fast** and high-performance implementation of the standard [Beacon Node API](https://ethereum.github.io/beacon-APIs/). The API allows you to use Nimbus together with third-party tooling such as validator clients, block explorers as well as your own monitoring infrastructure.
 
 The API is a `REST` interface accessed via `HTTP`. **The API should not be exposed to the public Internet** unless protected by additional security: it includes multiple endpoints which could open your node to denial-of-service (DoS) attacks.
->>>>>>> unstable
 
-## Test your tooling against our servers
-
-<<<<<<< HEAD
 ## Test your tooling against our servers
 
  The API is available from:
@@ -21,14 +12,6 @@ The API is a `REST` interface accessed via `HTTP`. **The API should not be expos
 * `http://unstable.mainnet.beacon-api.nimbus.team/`
 * `http://unstable.prater.beacon-api.nimbus.team/`
 
-=======
- The API is available from:
-
-* `http://testing.mainnet.beacon-api.nimbus.team/`
-* `http://unstable.mainnet.beacon-api.nimbus.team/`
-* `http://unstable.prater.beacon-api.nimbus.team/`
-
->>>>>>> unstable
 You can make requests as follows (here we are requesting the version the Nimbus software version of the node in question):
 
 #### Mainnet testing branch
