@@ -4,8 +4,6 @@ Nimbus exposes an **extremely fast** and high-performance implementation of the 
 
 The API is a `REST` interface accessed via `HTTP`. **The API should not be exposed to the public Internet** unless protected by additional security: it includes multiple endpoints which could open your node to denial-of-service (DoS) attacks.
 
-The API can be used with any conforming consumer, including alternative validator client implementations, explorers and tooling.
-
 ## Test your tooling against our servers
 
  The API is available from:
