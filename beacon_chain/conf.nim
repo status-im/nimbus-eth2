@@ -341,19 +341,20 @@ type
 
       restRequestTimeout* {.
         defaultValue: 0
+        defaultValueDesc: "infinite"
         desc: "The number of seconds to wait until complete REST request " &
               "will be received"
-        name: "rest-request-timeout".}: Natural
+        name: "rest-request-timeout" }: Natural
 
       restMaxRequestBodySize* {.
         defaultValue: 16_384
         desc: "Maximum size of REST request body (kilobytes)"
-        name: "rest-max-body-size" .}: Natural
+        name: "rest-max-body-size" }: Natural
 
       restMaxRequestHeadersSize* {.
         defaultValue: 64
         desc: "Maximum size of REST request headers (kilobytes)"
-        name: "rest-max-headers-size" .}: Natural
+        name: "rest-max-headers-size" }: Natural
 
       keymanagerEnabled* {.
         desc: "Enable the REST keymanager API (BETA version)"
