@@ -49,39 +49,40 @@ suite "Block processor" & preset():
     check: missing.error == BlockError.MissingParent
 
     check:
-      dag.get(b2.root).isNone() # Unresolved, shouldn't show up
+      not dag.containsForkBlock(b2.root) # Unresolved, shouldn't show up
 
       FetchRecord(root: b1.root) in quarantine[].checkMissing()
 
     let
       status = processor[].storeBlock(
         MsgSource.gossip, b2.message.slot.start_beacon_time(), b1)
-      b1Get = dag.get(b1.root)
+      b1Get = dag.getBlockRef(b1.root)
 
     check:
       status.isOk
       b1Get.isSome()
-      dag.get(b2.root).isNone() # Async pipeline must still run
+      dag.containsForkBlock(b1.root)
+      not dag.containsForkBlock(b2.root) # Async pipeline must still run
 
     discard processor.runQueueProcessingLoop()
     while processor[].hasBlocks():
       poll()
 
     let
-      b2Get = dag.get(b2.root)
+      b2Get = dag.getBlockRef(b2.root)
 
     check:
       b2Get.isSome()
 
-      b2Get.get().refs.parent == b1Get.get().refs
+      b2Get.get().parent == b1Get.get()
 
-    dag.updateHead(b2Get.get().refs, quarantine[])
+    dag.updateHead(b2Get.get(), quarantine[])
     dag.pruneAtFinalization()
 
     # The heads structure should have been updated to contain only the new
     # b2 head
     check:
-      dag.heads.mapIt(it) == @[b2Get.get().refs]
+      dag.heads.mapIt(it) == @[b2Get.get()]
 
     # check that init also reloads block graph
     var
@@ -92,7 +93,7 @@ suite "Block processor" & preset():
       # ensure we loaded the correct head state
       dag2.head.root == b2.root
       getStateRoot(dag2.headState.data) == b2.message.state_root
-      dag2.get(b1.root).isSome()
-      dag2.get(b2.root).isSome()
+      dag2.getBlockRef(b1.root).isSome()
+      dag2.getBlockRef(b2.root).isSome()
       dag2.heads.len == 1
       dag2.heads[0].root == b2.root

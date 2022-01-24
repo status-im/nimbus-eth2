@@ -115,43 +115,38 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getStateRoot
   router.api(MethodGet, "/eth/v1/beacon/states/{state_id}/root") do (
     state_id: StateIdent) -> RestApiResponse:
-    let bslot =
-      block:
-        if state_id.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
-                                           $state_id.error())
-        let sid = state_id.get()
-        let bres = node.getBlockSlot(sid)
-        if bres.isErr():
-          if sid.kind == StateQueryKind.Root:
-            # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-            # in current version of database.
-            return RestApiResponse.jsonError(Http500, NoImplementationError)
-          return RestApiResponse.jsonError(Http404, StateNotFoundError,
-                                           $bres.error())
-        bres.get()
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlot(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                          $error)
+
     node.withStateForBlockSlot(bslot):
       return RestApiResponse.jsonResponse((root: stateRoot))
+
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getStateFork
   router.api(MethodGet, "/eth/v1/beacon/states/{state_id}/fork") do (
     state_id: StateIdent) -> RestApiResponse:
-    let bslot =
-      block:
-        if state_id.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
-                                           $state_id.error())
-        let sid = state_id.get()
-        let bres = node.getBlockSlot(sid)
-        if bres.isErr():
-          if sid.kind == StateQueryKind.Root:
-            # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-            # in current version of database.
-            return RestApiResponse.jsonError(Http500, NoImplementationError)
-          return RestApiResponse.jsonError(Http404, StateNotFoundError,
-                                           $bres.error())
-        bres.get()
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlot(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                          $error)
+
     node.withStateForBlockSlot(bslot):
       return RestApiResponse.jsonResponse(
         (
@@ -169,21 +164,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/eth/v1/beacon/states/{state_id}/finality_checkpoints") do (
     state_id: StateIdent) -> RestApiResponse:
-    let bslot =
-      block:
-        if state_id.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
-                                           $state_id.error())
-        let sid = state_id.get()
-        let bres = node.getBlockSlot(sid)
-        if bres.isErr():
-          if sid.kind == StateQueryKind.Root:
-            # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-            # in current version of database.
-            return RestApiResponse.jsonError(Http500, NoImplementationError)
-          return RestApiResponse.jsonError(Http404, StateNotFoundError,
-                                           $bres.error())
-        bres.get()
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlot(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                          $error)
+
     node.withStateForBlockSlot(bslot):
       return RestApiResponse.jsonResponse(
         (
@@ -200,21 +192,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v1/beacon/states/{state_id}/validators") do (
     state_id: StateIdent, id: seq[ValidatorIdent],
     status: seq[ValidatorFilter]) -> RestApiResponse:
-    let bslot =
-      block:
-        if state_id.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
-                                           $state_id.error())
-        let sid = state_id.get()
-        let bres = node.getBlockSlot(sid)
-        if bres.isErr():
-          if sid.kind == StateQueryKind.Root:
-            # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-            # in current version of database.
-            return RestApiResponse.jsonError(Http500, NoImplementationError)
-          return RestApiResponse.jsonError(Http404, StateNotFoundError,
-                                           $bres.error())
-        bres.get()
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlot(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                          $error)
     let validatorIds =
       block:
         if id.isErr():
@@ -328,24 +316,21 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
           "/eth/v1/beacon/states/{state_id}/validators/{validator_id}") do (
     state_id: StateIdent, validator_id: ValidatorIdent) -> RestApiResponse:
-    let bslot =
-      block:
-        if state_id.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
-                                           $state_id.error())
-        let sid = state_id.get()
-        let bres = node.getBlockSlot(sid)
-        if bres.isErr():
-          if sid.kind == StateQueryKind.Root:
-            # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-            # in current version of database.
-            return RestApiResponse.jsonError(Http500, NoImplementationError)
-          return RestApiResponse.jsonError(Http404, StateNotFoundError,
-                                           $bres.error())
-        bres.get()
-    if validator_id.isErr():
-      return RestApiResponse.jsonError(Http400, InvalidValidatorIdValueError,
-                                       $validator_id.error())
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      vid = validator_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidValidatorIdValueError,
+                                         $error)
+      bslot = node.getBlockSlot(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                          $error)
+
     node.withStateForBlockSlot(bslot):
       let
         current_epoch = getStateField(stateData.data, slot).epoch()
@@ -396,21 +381,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/eth/v1/beacon/states/{state_id}/validator_balances") do (
     state_id: StateIdent, id: seq[ValidatorIdent]) -> RestApiResponse:
-    let bslot =
-      block:
-        if state_id.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
-                                           $state_id.error())
-        let sid = state_id.get()
-        let bres = node.getBlockSlot(sid)
-        if bres.isErr():
-          if sid.kind == StateQueryKind.Root:
-            # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-            # in current version of database.
-            return RestApiResponse.jsonError(Http500, NoImplementationError)
-          return RestApiResponse.jsonError(Http404, StateNotFoundError,
-                                           $bres.error())
-        bres.get()
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlot(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                          $error)
+
     let validatorIds =
       block:
         if id.isErr():
@@ -489,21 +471,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v1/beacon/states/{state_id}/committees") do (
     state_id: StateIdent, epoch: Option[Epoch], index: Option[CommitteeIndex],
     slot: Option[Slot]) -> RestApiResponse:
-    let bslot =
-      block:
-        if state_id.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
-                                           $state_id.error())
-        let sid = state_id.get()
-        let bres = node.getBlockSlot(sid)
-        if bres.isErr():
-          if sid.kind == StateQueryKind.Root:
-            # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-            # in current version of database.
-            return RestApiResponse.jsonError(Http500, NoImplementationError)
-          return RestApiResponse.jsonError(Http404, StateNotFoundError,
-                                           $bres.error())
-        bres.get()
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlot(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                          $error)
+
     let vepoch =
       if epoch.isSome():
         let repoch = epoch.get()
@@ -605,21 +584,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/eth/v1/beacon/states/{state_id}/sync_committees") do (
     state_id: StateIdent, epoch: Option[Epoch]) -> RestApiResponse:
-    let bslot =
-      block:
-        if state_id.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
-                                           $state_id.error())
-        let sid = state_id.get()
-        let bres = node.getBlockSlot(sid)
-        if bres.isErr():
-          if sid.kind == StateQueryKind.Root:
-            # TODO (cheatfate): Its impossible to retrieve state by `state_root`
-            # in current version of database.
-            return RestApiResponse.jsonError(Http500, NoImplementationError)
-          return RestApiResponse.jsonError(Http404, StateNotFoundError,
-                                           $bres.error())
-        bres.get()
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlot(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                          $error)
 
     let qepoch =
       if epoch.isSome():
@@ -715,15 +690,15 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                             $res.error())
         res.get()
 
-
-    let bdata = node.dag.get(blck)
+    let bdata = node.dag.getForkedBlock(blck)
     return
-      withBlck(bdata.data):
+      withBlck(bdata):
         RestApiResponse.jsonResponse(
           [
             (
               root: blck.root,
-              canonical: bdata.refs.isAncestorOf(node.dag.head),
+              canonical: node.dag.isCanonical(
+                BlockId(root: blck.root, slot: blck.message.slot)),
               header: (
                 message: (
                   slot: blck.message.slot,
@@ -741,22 +716,21 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
   router.api(MethodGet, "/eth/v1/beacon/headers/{block_id}") do (
     block_id: BlockIdent) -> RestApiResponse:
-    let bdata =
-      block:
-        if block_id.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
-                                           $block_id.error())
-        let res = node.getBlockDataFromBlockIdent(block_id.get())
-        if res.isErr():
-          return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-        res.get()
+    let
+      bid = block_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
+                                         $error)
+
+      bdata = node.getForkedBlock(bid).valueOr:
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
     return
-      withBlck(bdata.data):
+      withBlck(bdata):
         RestApiResponse.jsonResponse(
           (
             root: blck.root,
-            canonical: bdata.refs.isAncestorOf(node.dag.head),
+            canonical: node.dag.isCanonical(
+              BlockId(root: blck.root, slot: blck.message.slot)),
             header: (
               message: (
                 slot: blck.message.slot,
@@ -822,15 +796,14 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
   router.api(MethodGet, "/eth/v1/beacon/blocks/{block_id}") do (
     block_id: BlockIdent) -> RestApiResponse:
-    let bdata =
-      block:
-        if block_id.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
-                                           $block_id.error())
-        let res = node.getBlockDataFromBlockIdent(block_id.get())
-        if res.isErr():
-          return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-        res.get()
+    let
+      bid = block_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
+                                         $error)
+
+      bdata = node.getForkedBlock(bid).valueOr:
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+
     let contentType =
       block:
         let res = preferredContentType("application/octet-stream",
@@ -839,13 +812,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
     return
-      case bdata.data.kind
+      case bdata.kind
       of BeaconBlockFork.Phase0:
         case contentType
         of "application/octet-stream":
-          RestApiResponse.sszResponse(bdata.data.phase0Data)
+          RestApiResponse.sszResponse(bdata.phase0Data)
         of "application/json":
-          RestApiResponse.jsonResponse(bdata.data.phase0Data)
+          RestApiResponse.jsonResponse(bdata.phase0Data)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
       of BeaconBlockFork.Altair, BeaconBlockFork.Bellatrix:
@@ -854,15 +827,13 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
   router.api(MethodGet, "/eth/v2/beacon/blocks/{block_id}") do (
     block_id: BlockIdent) -> RestApiResponse:
-    let bdata =
-      block:
-        if block_id.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
-                                           $block_id.error())
-        let res = node.getBlockDataFromBlockIdent(block_id.get())
-        if res.isErr():
-          return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-        res.get()
+    let
+      bid = block_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
+                                         $error)
+
+      bdata = node.getForkedBlock(bid).valueOr:
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
     let contentType =
       block:
         let res = preferredContentType("application/octet-stream",
@@ -873,47 +844,40 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return
       case contentType
       of "application/octet-stream":
-        case bdata.data.kind
-        of BeaconBlockFork.Phase0:
-          RestApiResponse.sszResponse(bdata.data.phase0Data)
-        of BeaconBlockFork.Altair:
-          RestApiResponse.sszResponse(bdata.data.altairData)
-        of BeaconBlockFork.Bellatrix:
-          RestApiResponse.sszResponse(bdata.data.mergeData)
+        withBlck(bdata):
+          RestApiResponse.sszResponse(blck)
       of "application/json":
-        RestApiResponse.jsonResponsePlain(bdata.data.asSigned())
+        RestApiResponse.jsonResponsePlain(bdata.asSigned())
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
   router.api(MethodGet, "/eth/v1/beacon/blocks/{block_id}/root") do (
     block_id: BlockIdent) -> RestApiResponse:
-    let blck =
-      block:
-        if block_id.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
-                                           $block_id.error())
-        let res = node.getBlockRef(block_id.get())
-        if res.isErr():
-          return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-        res.get()
+    let
+      bid = block_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
+                                         $error)
+
+      blck = node.getBlockId(bid).valueOr:
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+
     return RestApiResponse.jsonResponse((root: blck.root))
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockAttestations
   router.api(MethodGet,
              "/eth/v1/beacon/blocks/{block_id}/attestations") do (
     block_id: BlockIdent) -> RestApiResponse:
-    let bdata =
-      block:
-        if block_id.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
-                                           $block_id.error())
-        let res = node.getBlockDataFromBlockIdent(block_id.get())
-        if res.isErr():
-          return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-        res.get()
+    let
+      bid = block_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
+                                         $error)
+
+      bdata = node.getForkedBlock(bid).valueOr:
+        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
+
     return
-      withBlck(bdata.data):
+      withBlck(bdata):
         RestApiResponse.jsonResponse(blck.message.body.attestations.asSeq())
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttestations

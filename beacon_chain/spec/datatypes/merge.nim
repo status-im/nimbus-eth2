@@ -1,2 +1,0 @@
-import ./bellatrix
-export bellatrix

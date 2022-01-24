@@ -45,6 +45,7 @@ TOOLS := \
 	logtrace \
 	ncli \
 	ncli_db \
+	wss_sim \
 	stack_sizes \
 	nimbus_validator_client \
 	nimbus_signing_node \

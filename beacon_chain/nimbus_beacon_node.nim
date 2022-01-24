@@ -35,7 +35,7 @@ import
     slashing_protection, keystore_management],
   ./sync/[sync_protocol],
   ./rpc/[rest_api, rpc_api, state_ttl_cache],
-  ./spec/datatypes/[altair, merge, phase0],
+  ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/eth2_apis/rpc_beacon_client,
   ./spec/[
     beaconstate, forks, helpers, network, weak_subjectivity, signatures,
@@ -119,10 +119,19 @@ proc init*(T: type BeaconNode,
            depositContractDeployedAt: BlockHashOrNumber,
            eth1Network: Option[Eth1Network],
            genesisStateContents: string,
-           genesisDepositsSnapshotContents: string): BeaconNode {.
+           depositContractSnapshotContents: string): BeaconNode {.
     raises: [Defect, CatchableError].} =
 
   var taskpool: TaskpoolPtr
+
+  let depositContractSnapshot = if depositContractSnapshotContents.len > 0:
+    try:
+      some SSZ.decode(depositContractSnapshotContents, DepositContractSnapshot)
+    except CatchableError as err:
+      fatal "Invalid deposit contract snapshot", err = err.msg
+      quit 1
+  else:
+    none DepositContractSnapshot
 
   try:
     if config.numThreads < 0:
@@ -199,6 +208,24 @@ proc init*(T: type BeaconNode,
     fatal "--finalized-checkpoint-block cannot be specified without --finalized-checkpoint-state"
     quit 1
 
+  template getDepositContractSnapshot: auto =
+    if depositContractSnapshot.isSome:
+      depositContractSnapshot
+    elif not cfg.DEPOSIT_CONTRACT_ADDRESS.isZeroMemory:
+      let snapshotRes = waitFor createInitialDepositSnapshot(
+        cfg.DEPOSIT_CONTRACT_ADDRESS,
+        depositContractDeployedAt,
+        config.web3Urls[0])
+      if snapshotRes.isErr:
+        fatal "Failed to locate the deposit contract deployment block",
+              depositContract = cfg.DEPOSIT_CONTRACT_ADDRESS,
+              deploymentBlock = $depositContractDeployedAt
+        quit 1
+      else:
+        some snapshotRes.get
+    else:
+      none(DepositContractSnapshot)
+
   var eth1Monitor: Eth1Monitor
   if not ChainDAGRef.isInitialized(db).isOk():
     var
@@ -207,7 +234,7 @@ proc init*(T: type BeaconNode,
 
     if genesisStateContents.len == 0 and checkpointState == nil:
       when hasGenesisDetection:
-        if genesisDepositsSnapshotContents.len > 0:
+        if depositContractSnapshotContents.len > 0:
           fatal "A deposits snapshot cannot be provided without also providing a matching beacon state snapshot"
           quit 1
 
@@ -224,7 +251,7 @@ proc init*(T: type BeaconNode,
           cfg,
           db,
           config.web3Urls,
-          depositContractDeployedAt,
+          getDepositContractSnapshot(),
           eth1Network,
           config.web3ForcePolling)
 
@@ -346,16 +373,12 @@ proc init*(T: type BeaconNode,
             headStateSlot = getStateField(dag.headState.data, slot)
       quit 1
 
-  if eth1Monitor.isNil and
-     config.web3Urls.len > 0 and
-     genesisDepositsSnapshotContents.len > 0:
-    let genesisDepositsSnapshot = SSZ.decode(genesisDepositsSnapshotContents,
-                                             DepositContractSnapshot)
+  if eth1Monitor.isNil and config.web3Urls.len > 0:
     eth1Monitor = Eth1Monitor.init(
       cfg,
       db,
       config.web3Urls,
-      genesisDepositsSnapshot,
+      getDepositContractSnapshot(),
       eth1Network,
       config.web3ForcePolling)
 
@@ -467,9 +490,13 @@ proc init*(T: type BeaconNode,
       validatorPool, syncCommitteeMsgPool, quarantine, rng, getBeaconTime,
       taskpool)
     syncManager = newSyncManager[Peer, PeerID](
-      network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot, getLocalWallSlot,
-      getFirstSlotAtFinalizedEpoch, getBackfillSlot, dag.tail.slot,
-      blockVerifier)
+      network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot,
+      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
+      dag.tail.slot, blockVerifier)
+    backfiller = newSyncManager[Peer, PeerID](
+      network.peerPool, SyncQueueKind.Backward, getLocalHeadSlot,
+      getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
+      dag.backfill.slot, blockVerifier, maxHeadAge = 0)
 
   let stateTtlCache = if config.restCacheSize > 0:
     StateTtlCache.init(
@@ -500,6 +527,7 @@ proc init*(T: type BeaconNode,
     eventBus: eventBus,
     requestManager: RequestManager.init(network, blockVerifier),
     syncManager: syncManager,
+    backfiller: backfiller,
     actionTracker: ActionTracker.init(rng, config.subscribeAllSubnets),
     processor: processor,
     blockProcessor: blockProcessor,
@@ -917,6 +945,11 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # above, this will be done just before the next slot starts
   await node.updateGossipStatus(slot + 1)
 
+proc syncStatus(node: BeaconNode): string =
+  if node.syncManager.inProgress: node.syncManager.syncStatus
+  elif node.backfiller.inProgress: "backfill: " & node.backfiller.syncStatus
+  else: "synced"
+
 proc onSlotStart(
     node: BeaconNode, wallTime: BeaconTime, lastSlot: Slot) {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -936,9 +969,7 @@ proc onSlotStart(
   info "Slot start",
     slot = shortLog(wallSlot),
     epoch = shortLog(wallSlot.epoch),
-    sync =
-      if node.syncManager.inProgress: node.syncManager.syncStatus
-      else: "synced",
+    sync = node.syncStatus(),
     peers = len(node.network.peerPool),
     head = shortLog(node.dag.head),
     finalized = shortLog(getStateField(
@@ -1085,7 +1116,7 @@ proc installMessageValidators(node: BeaconNode) =
 
   node.network.addValidator(
     getBeaconBlocksTopic(node.dag.forkDigests.bellatrix),
-    proc (signedBlock: merge.SignedBeaconBlock): ValidationResult =
+    proc (signedBlock: bellatrix.SignedBeaconBlock): ValidationResult =
       toValidationResult(node.processor[].blockValidator(
         MsgSource.gossip, signedBlock)))
 
@@ -1127,6 +1158,18 @@ proc stop(node: BeaconNode) =
   node.db.close()
   notice "Databases closed"
 
+proc startBackfillTask(node: BeaconNode) {.async.} =
+  while node.dag.needsBackfill:
+    if not node.syncManager.inProgress:
+      # Only start the backfiller if it's needed _and_ head sync has completed -
+      # if we lose sync after having synced head, we could stop the backfilller,
+      # but this should be a fringe case - might as well keep the logic simple for
+      # now
+      node.backfiller.start()
+      return
+
+    await sleepAsync(chronos.seconds(2))
+
 proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   bnStatus = BeaconNodeStatus.Running
 
@@ -1149,6 +1192,8 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
 
   node.requestManager.start()
   node.syncManager.start()
+
+  if node.dag.needsBackfill(): asyncSpawn node.startBackfillTask()
 
   waitFor node.updateGossipStatus(wallSlot)
 
@@ -1327,13 +1372,7 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
       formatGwei(node.attachedValidatorBalanceTotal)
 
     of "sync_status":
-      if isNil(node.syncManager):
-        "pending"
-      else:
-        if node.syncManager.inProgress:
-          node.syncManager.syncStatus
-        else:
-          "synced"
+      node.syncStatus()
     else:
       # We ignore typos for now and just render the expression
       # as it was written. TODO: come up with a good way to show

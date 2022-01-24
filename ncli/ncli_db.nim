@@ -4,7 +4,7 @@ import
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db],
   ../beacon_chain/consensus_object_pools/[blockchain_dag],
-  ../beacon_chain/spec/datatypes/[phase0, altair, merge],
+  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/spec/[
     beaconstate, helpers, state_transition, state_transition_epoch, validator,
     ssz_codec],
@@ -209,9 +209,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     blocks: (
       seq[phase0.TrustedSignedBeaconBlock],
       seq[altair.TrustedSignedBeaconBlock],
-      seq[merge.TrustedSignedBeaconBlock])
+      seq[bellatrix.TrustedSignedBeaconBlock])
 
-  echo &"Loaded {dag.blocks.len} blocks, head slot {dag.head.slot}, selected {blockRefs.len} blocks"
+  echo &"Loaded head slot {dag.head.slot}, selected {blockRefs.len} blocks"
   doAssert blockRefs.len() > 0, "Must select at least one block"
 
   for b in 0 ..< blockRefs.len:
@@ -233,7 +233,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     loadedState = (
       (ref phase0.HashedBeaconState)(),
       (ref altair.HashedBeaconState)(),
-      (ref merge.HashedBeaconState)())
+      (ref bellatrix.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateStateData(
@@ -305,9 +305,9 @@ proc cmdDumpState(conf: DbConf) =
   defer: db.close()
 
   let
-    phase0State = (ref phase0.HashedBeaconState)()
-    altairState = (ref altair.HashedBeaconState)()
-    mergeState = (ref merge.HashedBeaconState)()
+    phase0State    = (ref phase0.HashedBeaconState)()
+    altairState    = (ref altair.HashedBeaconState)()
+    bellatrixState = (ref bellatrix.HashedBeaconState)()
 
   for stateRoot in conf.stateRoot:
     if shouldShutDown: quit QuitSuccess
@@ -323,7 +323,7 @@ proc cmdDumpState(conf: DbConf) =
 
     doit(phase0State[])
     doit(altairState[])
-    doit(mergeState[])
+    doit(bellatrixState[])
 
     echo "Couldn't load ", stateRoot
 
@@ -485,8 +485,7 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
 
-  let blckRef = dag.getRef(fromHex(Eth2Digest, conf.blockRoot))
-  if blckRef == nil:
+  let blckRef = dag.getBlockRef(fromHex(Eth2Digest, conf.blockRoot)).valueOr:
     echo "Block not found in database"
     return
 
@@ -832,7 +831,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
   let
     startEpoch =
-      if conf.startEpoch.isNone:
+      if conf.startEpoch.isSome:
         Epoch(conf.startEpoch.get)
       else:
         getStartEpoch(conf.outDir)
@@ -922,7 +921,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
       if nextSlot.isEpoch:
         withState(tmpState[].data):
           rewardsAndPenalties.collectEpochRewardsAndPenalties(
-            state.data, cache, cfg)
+            state.data, cache, cfg, flags)
 
       let res = process_slots(cfg, tmpState[].data, nextSlot, cache, forkedInfo, flags)
       doAssert res.isOk, "Slot processing can't fail with correct inputs"

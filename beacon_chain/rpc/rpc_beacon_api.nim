@@ -154,27 +154,26 @@ proc getStatus(validator: Validator,
   else:
     err("Invalid validator status")
 
-proc getBlockDataFromBlockId(node: BeaconNode, blockId: string): BlockData {.
+proc getForkedBlockFromBlockId(
+    node: BeaconNode, blockId: string): ForkedTrustedSignedBeaconBlock {.
     raises: [Defect, CatchableError].} =
-  result = case blockId:
+  case blockId:
     of "head":
-      node.dag.get(node.dag.head)
+      node.dag.getForkedBlock(node.dag.head)
     of "genesis":
-      node.dag.get(node.dag.genesis)
+      node.dag.getForkedBlock(node.dag.genesis)
     of "finalized":
-      node.dag.get(node.dag.finalizedHead.blck)
+      node.dag.getForkedBlock(node.dag.finalizedHead.blck)
     else:
       if blockId.startsWith("0x"):
-        let blckRoot = parseRoot(blockId)
-        let blockData = node.dag.get(blckRoot)
-        if blockData.isNone:
+        let
+          blckRoot = parseRoot(blockId)
+        node.dag.getForkedBlock(blckRoot).valueOr:
           raise newException(CatchableError, "Block not found")
-        blockData.get()
       else:
-        let blockSlot = node.getBlockSlotFromString(blockId)
-        if blockSlot.blck.isNil:
+        let bid = node.getBlockIdFromString(blockId)
+        node.dag.getForkedBlock(bid).valueOr:
           raise newException(CatchableError, "Block not found")
-        node.dag.get(blockSlot.blck)
 
 proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     raises: [Defect, CatchableError].} =
@@ -384,12 +383,13 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("get_v1_beacon_headers_blockId") do (
       blockId: string) ->
       tuple[canonical: bool, header: SignedBeaconBlockHeader]:
-    let bd = node.getBlockDataFromBlockId(blockId)
-    return withBlck(bd.data):
+    let bd = node.getForkedBlockFromBlockId(blockId)
+    return withBlck(bd):
       static: doAssert blck.signature is TrustedSig and
                 sizeof(ValidatorSig) == sizeof(blck.signature)
       (
-        canonical: bd.refs.isAncestorOf(node.dag.head),
+        canonical: node.dag.isCanonical(
+          BlockId(root: blck.root, slot: blck.message.slot)),
         header: SignedBeaconBlockHeader(
           message: BeaconBlockHeader(
             slot: blck.message.slot,
@@ -417,7 +417,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("get_v1_beacon_blocks_blockId") do (
       blockId: string) -> phase0.TrustedSignedBeaconBlock:
-    let blck = node.getBlockDataFromBlockId(blockId).data
+    let blck = node.getForkedBlockFromBlockId(blockId)
     if blck.kind == BeaconBlockFork.Phase0:
       return blck.phase0Data
     else:
@@ -425,12 +425,12 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("get_v1_beacon_blocks_blockId_root") do (
       blockId: string) -> Eth2Digest:
-    return withBlck(node.getBlockDataFromBlockId(blockId).data):
-      blck.message.state_root
+    return withBlck(node.getForkedBlockFromBlockId(blockId)):
+      blck.root
 
   rpcServer.rpc("get_v1_beacon_blocks_blockId_attestations") do (
       blockId: string) -> seq[TrustedAttestation]:
-    return withBlck(node.getBlockDataFromBlockId(blockId).data):
+    return withBlck(node.getForkedBlockFromBlockId(blockId)):
       blck.message.body.attestations.asSeq
 
   rpcServer.rpc("get_v1_beacon_pool_attestations") do (

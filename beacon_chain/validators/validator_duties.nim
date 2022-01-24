@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -21,7 +21,7 @@ import
   web3/ethtypes,
 
   # Local modules
-  ../spec/datatypes/[phase0, altair, merge],
+  ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[
     eth2_merkleization, forks, helpers, network, signatures, state_transition,
     validator],
@@ -416,12 +416,12 @@ proc getBlockProposalEth1Data*(node: BeaconNode,
       state, finalizedEpochRef.eth1_data,
       finalizedEpochRef.eth1_deposit_index)
 
-proc forkchoice_updated(state: merge.BeaconState,
+proc forkchoice_updated(state: bellatrix.BeaconState,
                         head_block_hash: Eth2Digest,
                         finalized_block_hash: Eth2Digest,
                         fee_recipient: ethtypes.Address,
                         execution_engine: Web3DataProviderRef):
-                        Future[Option[merge.PayloadId]] {.async.} =
+                        Future[Option[bellatrix.PayloadId]] {.async.} =
   let
     timestamp = compute_timestamp_at_slot(state, state.slot)
     random = get_randao_mix(state, get_current_epoch(state))
@@ -430,9 +430,9 @@ proc forkchoice_updated(state: merge.BeaconState,
         head_block_hash, finalized_block_hash, timestamp, random.data,
         fee_recipient)).payloadId
   return if payloadId.isSome:
-    some(merge.PayloadId(payloadId.get))
+    some(bellatrix.PayloadId(payloadId.get))
   else:
-    none(merge.PayloadId)
+    none(bellatrix.PayloadId)
 
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     randao_reveal: ValidatorSig,
@@ -476,7 +476,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
         SyncAggregate.init()
       else:
         node.sync_committee_msg_pool[].produceSyncAggregate(head.root),
-      default(merge.ExecutionPayload),
+      default(bellatrix.ExecutionPayload),
       noRollback, # Temporary state - no need for rollback
       cache)
     if res.isErr():
@@ -562,8 +562,8 @@ proc proposeBlock(node: BeaconNode,
         elif blck is altair.BeaconBlock:
           altair.SignedBeaconBlock(
             message: blck, signature: signature, root: blockRoot)
-        elif blck is merge.BeaconBlock:
-          merge.SignedBeaconBlock(
+        elif blck is bellatrix.BeaconBlock:
+          bellatrix.SignedBeaconBlock(
             message: blck, signature: signature, root: blockRoot)
         else:
           static: doAssert "Unkown block type"
@@ -1151,32 +1151,23 @@ proc sendAttestation*(node: BeaconNode,
                       attestation: Attestation): Future[SendResult] {.async.} =
   # REST/JSON-RPC API helper procedure.
   let
-    target =
-      block:
-        let res = node.dag.getRef(attestation.data.target.root)
-        if isNil(res):
-          notice "Attempt to send attestation for unknown target",
-                attestation = shortLog(attestation)
-          return SendResult.err(
-            "Attempt to send attestation for unknown block")
-        res
-    epochRef = block:
-      let tmp = node.dag.getEpochRef(
-        target, attestation.data.target.epoch, false)
-      if tmp.isErr(): # Shouldn't happen
-        warn "Cannot construct EpochRef for attestation, skipping send - report bug",
-          target = shortLog(target),
-          attestation = shortLog(attestation)
-        return
-      tmp.get()
-    committee_index = block:
-      let v = epochRef.get_committee_index(attestation.data.index)
-      if v.isErr():
+    target = node.dag.getBlockRef(attestation.data.target.root).valueOr:
+      notice "Attempt to send attestation for unknown target",
+            attestation = shortLog(attestation)
+      return SendResult.err(
+        "Attempt to send attestation for unknown block")
+
+    epochRef = node.dag.getEpochRef(
+        target, attestation.data.target.epoch, false).valueOr:
+      warn "Cannot construct EpochRef for attestation, skipping send - report bug",
+        target = shortLog(target),
+        attestation = shortLog(attestation)
+      return
+    committee_index =
+      epochRef.get_committee_index(attestation.data.index).valueOr:
         notice "Invalid committee index in attestation",
           attestation = shortLog(attestation)
         return SendResult.err("Invalid committee index in attestation")
-      v.get()
-
     subnet_id = compute_subnet_for_attestation(
       get_committee_count_per_slot(epochRef), attestation.data.slot,
       committee_index)
@@ -1265,7 +1256,7 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
     # Start with a quick gossip validation check such that broadcasting the
     # block doesn't get the node into trouble
     let res = withBlck(forked):
-      when blck isnot merge.SignedBeaconBlock:
+      when blck isnot bellatrix.SignedBeaconBlock:
         validateBeaconBlock(
           node.dag, node.quarantine, blck, node.beaconClock.now(),
           {})

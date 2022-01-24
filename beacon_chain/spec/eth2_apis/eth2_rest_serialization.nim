@@ -629,6 +629,17 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: Eth1Address) {.
      raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
+proc writeValue*(writer: var JsonWriter[RestJson], value: GraffitiBytes)
+                {.raises: [IOError, Defect].} =
+  writeValue(writer, hexOriginal(distinctBase(value)))
+
+proc readValue*(reader: var JsonReader[RestJson], T: type GraffitiBytes): T
+               {.raises: [IOError, SerializationError, Defect].} =
+  try:
+    init(GraffitiBytes, reader.readValue(string))
+  except ValueError as err:
+    reader.raiseUnexpectedValue err.msg
+
 ## Version
 proc readValue*(
     reader: var JsonReader[RestJson],

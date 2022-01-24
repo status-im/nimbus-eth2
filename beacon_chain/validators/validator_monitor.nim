@@ -584,8 +584,8 @@ proc registerAttestationInBlock*(
       inclusion_lag = (blck.slot - data.slot) - MIN_ATTESTATION_INCLUSION_DELAY
       epoch = data.slot.epoch
 
-    validator_monitor_attestation_in_block_total.inc(1, ["block", id])
-    validator_monitor_attestation_in_block_delay_slots.set(inclusion_lag.int64, ["block", id])
+    validator_monitor_attestation_in_block_total.inc(1, ["block", metricId])
+    validator_monitor_attestation_in_block_delay_slots.set(inclusion_lag.int64, ["block", metricId])
 
     info "Attestation included in block",
       attestation_data = shortLog(data),
@@ -682,7 +682,7 @@ proc registerSyncAggregateInBlock*(
     pubkey: ValidatorPubKey) =
   self.withMonitor(pubkey):
     let id = monitor.id
-    validator_monitor_sync_committee_message_in_block_total.inc(1, ["block", id])
+    validator_monitor_sync_committee_message_in_block_total.inc(1, ["block", metricId])
 
     info "Sync signature included in block",
       head = beacon_block_root, slot = slot, validator = id

@@ -1,11 +1,18 @@
 # REST API
 
+<<<<<<< HEAD
 Nimbus exposes an **extremely fast** and high-performance implementation of the standard [Beacon Node API](https://ethereum.github.io/beacon-APIs/). The goal of a standard API is to improve interoperability between various beacon node implementations.
 
 The API is a `REST` interface accessed via `HTTP`. **The API should not**, unless protected by additional security layers, **be exposed to the public Internet** as the API includes multiple endpoints which could open your node to denial-of-service (DoS) attacks.
+=======
+Nimbus exposes an **extremely fast** and high-performance implementation of the standard [Beacon Node API](https://ethereum.github.io/beacon-APIs/). The API allows you to use Nimbus together with third-party tooling such as validator clients, block explorers as well as your own monitoring infrastructure.
 
-The API can be used with any conforming consumer, including alternative validator client implementations, explorers and tooling.
+The API is a `REST` interface accessed via `HTTP`. **The API should not be exposed to the public Internet** unless protected by additional security: it includes multiple endpoints which could open your node to denial-of-service (DoS) attacks.
+>>>>>>> unstable
 
+## Test your tooling against our servers
+
+<<<<<<< HEAD
 ## Test your tooling against our servers
 
  The API is available from:
@@ -14,6 +21,14 @@ The API can be used with any conforming consumer, including alternative validato
 * `http://unstable.mainnet.beacon-api.nimbus.team/`
 * `http://unstable.prater.beacon-api.nimbus.team/`
 
+=======
+ The API is available from:
+
+* `http://testing.mainnet.beacon-api.nimbus.team/`
+* `http://unstable.mainnet.beacon-api.nimbus.team/`
+* `http://unstable.prater.beacon-api.nimbus.team/`
+
+>>>>>>> unstable
 You can make requests as follows (here we are requesting the version the Nimbus software version of the node in question):
 
 #### Mainnet testing branch
@@ -31,17 +46,17 @@ curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/node/version
 curl -X GET  http://unstable.prater.beacon-api.nimbus.team/eth/v1/node/version
 ```
 
-Note that right now these are very much unstable testing instances. They may be unresponsive at times - so **please do not rely on them for validation**. We may also disable them at any time without warning.
+The test endpoints are part of pre-release testing and run an unstable version of Nimbus - we welcome reports about any problems you might have with them.
+
+They may also be unresponsive at times - so **please do not rely on them for validation**. We may also disable them at any time without warning.
 
 
 ## Configure your node to run a local REST server
 
-> **Warning:** If you are using a validator client with a Nimbus beacon node, and running a Nimbus version prior to `v1.5.5`,  then you will need to launch the node with the `--subscribe-all-subnets` option enabled (in addition to the `--rest` option).
-
 By default, the REST interface is disabled. To enable it, start the beacon node with the `--rest` option:
 
 ```
-./run-prater-beacon-node.sh --rest
+./run-mainnet-beacon-node.sh --rest
 ```
 
 Then access the API from `http://localhost:5052/`. For example, to get the version of the Nimbus software your node is running:
@@ -51,7 +66,7 @@ curl -X GET http://localhost:5052/eth/v1/node/version
 ```
 
 By default, only connections from the same machine are entertained. The port and listening address can be further configured through the options `--rest-port` and `--rest-address`.
-
+> **Warning:** If you are using a validator client with a Nimbus beacon node, and running a Nimbus version prior to `v1.5.5`,  then you will need to launch the node with the `--subscribe-all-subnets` option enabled (in addition to the `--rest` option).
 
 ## Some useful commands
 

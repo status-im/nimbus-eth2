@@ -60,6 +60,7 @@ type
     vcProcess*: Process
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerID]
+    backfiller*: SyncManager[Peer, PeerID]
     genesisSnapshotContent*: string
     actionTracker*: ActionTracker
     processor*: ref Eth2Processor
