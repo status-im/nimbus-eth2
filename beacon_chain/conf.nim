@@ -160,9 +160,19 @@ type
       desc: "Node agent string which is used as identifier in network"
       name: "agent-string" }: string
 
-    subscribeAllSubnets* {.
+    subscribeAllAttnets* {.
       defaultValue: false,
       desc: "Subscribe to all attestation subnet topics when gossiping"
+      name: "subscribe-all-attnets" }: bool
+
+    subscribeAllSyncnets* {.
+      defaultValue: false,
+      desc: "Subscribe to all sync subnet topics when gossiping"
+      name: "subscribe-all-syncnets" }: bool
+
+    subscribeAllSubnets* {.
+      defaultValue: false,
+      desc: "Subscribe to all subnet topics when gossiping; implies subscribe-all-attnets and subscribe-all-syncnets"
       name: "subscribe-all-subnets" }: bool
 
     slashingDbKind* {.

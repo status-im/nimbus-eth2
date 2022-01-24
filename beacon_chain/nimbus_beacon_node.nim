@@ -528,7 +528,8 @@ proc init*(T: type BeaconNode,
     requestManager: RequestManager.init(network, blockVerifier),
     syncManager: syncManager,
     backfiller: backfiller,
-    actionTracker: ActionTracker.init(rng, config.subscribeAllSubnets),
+    actionTracker: ActionTracker.init(
+      rng, config.subscribeAllAttnets or config.subscribeAllSubnets),
     processor: processor,
     blockProcessor: blockProcessor,
     consensusManager: consensusManager,
@@ -709,10 +710,14 @@ proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.actionTracker.subscribedSubnets = default(AttnetBits)
 
 func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
-  return func(pubkey: ValidatorPubKey): bool =
-    node.syncCommitteeMsgPool.syncCommitteeSubscriptions.getOrDefault(
-        pubkey, GENESIS_EPOCH) >= epoch or
-      pubkey in node.attachedValidators.validators
+  # Only used to determine which gossip topics to which to subscribe
+  if node.config.subscribeAllSubnets or node.config.subscribeAllSyncnets:
+    (func(pubkey: ValidatorPubKey): bool {.closure.} = true)
+  else:
+    (func(pubkey: ValidatorPubKey): bool =
+       node.syncCommitteeMsgPool.syncCommitteeSubscriptions.getOrDefault(
+           pubkey, GENESIS_EPOCH) >= epoch or
+         pubkey in node.attachedValidators.validators)
 
 proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addPhase0MessageHandlers(forkDigest, slot)
