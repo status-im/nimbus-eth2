@@ -142,7 +142,7 @@ func init*(
         of BeaconStateFork.Altair: false
         of BeaconStateFork.Bellatrix:
           # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#is_merge_transition_complete
-          state.data.mergeData.data.latest_execution_payload_header !=
+          state.data.bellatrixData.data.latest_execution_payload_header !=
             ExecutionPayloadHeader()
     )
     epochStart = epoch.start_slot()
@@ -349,7 +349,7 @@ proc getStateData(
 
   case expectedFork
   of BeaconStateFork.Bellatrix:
-    if not db.getState(root.get(), state.data.mergeData.data, rollback):
+    if not db.getState(root.get(), state.data.bellatrixData.data, rollback):
       return false
   of BeaconStateFork.Altair:
     if not db.getState(root.get(), state.data.altairData.data, rollback):
@@ -516,11 +516,11 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         configFork = altairFork(cfg)
       quit 1
   of BeaconStateFork.Bellatrix:
-    if tmpState.data.mergeData.data.fork != mergeFork(cfg):
+    if tmpState.data.bellatrixData.data.fork != bellatrixFork(cfg):
       error "State from database does not match network, check --network parameter",
         genesisRef, tailRef, headRef, tailRoot, headRoot,
-        stateFork = tmpState.data.mergeData.data.fork,
-        configFork = mergeFork(cfg)
+        stateFork = tmpState.data.bellatrixData.data.fork,
+        configFork = bellatrixFork(cfg)
       quit 1
 
   let dag = ChainDAGRef(

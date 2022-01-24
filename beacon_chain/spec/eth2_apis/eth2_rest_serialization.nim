@@ -734,7 +734,7 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconBlock) {.
     writer.writeField("version", "merge")
     when false:
       # TODO SerializationError
-      writer.writeField("data", value.mergeData)
+      writer.writeField("data", value.bellatrixData)
   writer.endRecord()
 
 ## ForkedSignedBeaconBlock
@@ -823,7 +823,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("version", "merge")
     when false:
       # TODO SerializationError
-      writer.writeField("data", value.mergeData)
+      writer.writeField("data", value.bellatrixData)
   writer.endRecord()
 
 # ForkedHashedBeaconState is used where a `ForkedBeaconState` normally would
@@ -891,11 +891,11 @@ proc readValue*(reader: var JsonReader[RestJson],
     toValue(altairData)
   of BeaconStateFork.Bellatrix:
     try:
-      tmp[].mergeData.data = RestJson.decode(
+      tmp[].bellatrixData.data = RestJson.decode(
         string(data.get()), bellatrix.BeaconState, requireAllFields = true)
     except SerializationError:
       reader.raiseUnexpectedValue("Incorrect altair beacon state format")
-    toValue(mergeData)
+    toValue(bellatrixData)
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState) {.
      raises: [IOError, Defect].} =
@@ -911,7 +911,7 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
     writer.writeField("version", "merge")
     when false:
       # TODO SerializationError
-      writer.writeField("data", value.mergeData.data)
+      writer.writeField("data", value.bellatrixData.data)
   writer.endRecord()
 
 # Web3SignerRequest

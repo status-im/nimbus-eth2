@@ -78,7 +78,7 @@ template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
   case value.kind:
   of BeaconStateFork.Phase0:    SSZ.saveFile(filename, value.phase0Data.data)
   of BeaconStateFork.Altair:    SSZ.saveFile(filename, value.altairData.data)
-  of BeaconStateFork.Bellatrix: SSZ.saveFile(filename, value.mergeData.data)
+  of BeaconStateFork.Bellatrix: SSZ.saveFile(filename, value.bellatrixData.data)
 
 proc doTransition(conf: NcliConf) =
   let

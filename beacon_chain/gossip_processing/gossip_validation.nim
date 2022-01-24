@@ -216,7 +216,7 @@ template validateBeaconBlockBellatrix(
         # shows how this gets folded into the state each block; checking this
         # is equivalent, without ever requiring state replay or any similarly
         # expensive computation.
-        blockData.mergeData.message.body.execution_payload !=
+        blockData.bellatrixData.message.body.execution_payload !=
           default(ExecutionPayload)
 
   if executionEnabled:
