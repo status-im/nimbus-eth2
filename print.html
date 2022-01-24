@@ -316,8 +316,8 @@ cd nimbus-eth2
 <pre><code>make nimbus_beacon_node
 </code></pre>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/build.md">Edit this file on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="start-syncing"><a class="header" href="#start-syncing">Start syncing</a></h1>
-<p>If you're joining a network that has already launched, you need to ensure that your beacon node is <a href="./keep-an-eye.html#keep-track-of-your-syncing-progress">completely synced</a> before submitting your deposit.</p>
-<p>This is particularly important if you are joining a network that's been running for a while.</p>
+<p>To minimize the amount of downtime, you should ensure that your beacon node is <a href="./keep-an-eye.html#keep-track-of-your-syncing-progress">completely synced</a> before submitting your deposit.  If it's not fully synced you will miss attestations and proposals until it becomes synced.</p>
+<p>This is particularly important if you are joining a network that's been running for a while since the sync could take some time.</p>
 <blockquote>
 <p><strong>N.B.</strong> In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client (<strong>web3 provider</strong>) in parallel to your eth2 client. See <a href="./eth1.html">here</a> for instructions on how to do so.</p>
 </blockquote>
@@ -1825,32 +1825,112 @@ specified as an UTF-8 encoded string or as an 0x-prefixed hex string specifying 
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;debug_getGossipSubPeers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
 </code></pre>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/api.md">Edit this file on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="rest-api"><a class="header" href="#rest-api">REST API</a></h1>
-<p>Nimbus exposes a high-performance implementation of the <a href="https://ethereum.github.io/beacon-APIs/">Beacon Node API</a>.</p>
-<p>The API is a <code>REST</code> interface accessed via <code>HTTP</code>. The API should not, unless protected by additional security layers, be exposed to the public Internet as the API includes multiple endpoints which could open your node to denial-of-service (DoS) attacks.</p>
+<p>Nimbus exposes an <strong>extremely fast</strong> and high-performance implementation of the standard <a href="https://ethereum.github.io/beacon-APIs/">Beacon Node API</a>. The API allows you to use Nimbus together with third-party tooling such as validator clients, block explorers as well as your own monitoring infrastructure.</p>
+<p>The API is a <code>REST</code> interface accessed via <code>HTTP</code>. <strong>The API should not be exposed to the public Internet</strong> unless protected by additional security: it includes multiple endpoints which could open your node to denial-of-service (DoS) attacks.</p>
 <p>The API can be used with any conforming consumer, including alternative validator client implementations, explorers and tooling.</p>
-<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
-<p>By default, the REST interface is disabled. To enable it, start the beacon node with the <code>--rest</code> option, then access the API from http://localhost:5052/.</p>
-<blockquote>
-<p><strong>Warning:</strong> If you are using a validator client with a Nimbus beacon node, and running a Nimbus version prior to <code>v1.5.5</code>,  then you will need to launch the node with the <code>--subscribe-all-subnets</code> option enabled.</p>
-</blockquote>
-<p>By default, only connections from the same machine are entertained. The port and listening address can be further configured through the options <code>--rest-port</code> and <code>--rest-address</code>.</p>
-<h2 id="specification"><a class="header" href="#specification">Specification</a></h2>
-<p>The specification is documented <a href="https://ethereum.github.io/beacon-APIs/">here</a>.</p>
-<p>See the Readme <a href="https://github.com/ethereum/beacon-APIs">here</a>.</p>
-<h2 id="quickly-test-your-tooling-against-nimbus"><a class="header" href="#quickly-test-your-tooling-against-nimbus">Quickly test your tooling against Nimbus</a></h2>
-<p>The <a href="https://nimbus.guide/rest-api.html">Nimbus REST api</a> is now available from:</p>
+<h2 id="test-your-tooling-against-our-servers"><a class="header" href="#test-your-tooling-against-our-servers">Test your tooling against our servers</a></h2>
+<p>The API is available from:</p>
 <ul>
-<li>http://testing.mainnet.beacon-api.nimbus.team/</li>
-<li>http://unstable.mainnet.beacon-api.nimbus.team/</li>
-<li>http://unstable.prater.beacon-api.nimbus.team/</li>
+<li><code>http://testing.mainnet.beacon-api.nimbus.team/</code></li>
+<li><code>http://unstable.mainnet.beacon-api.nimbus.team/</code></li>
+<li><code>http://unstable.prater.beacon-api.nimbus.team/</code></li>
 </ul>
-<p>Note that right now these are very much unstable testing instances. They may be unresponsive at times - so <strong>please do not rely on them for validation</strong>. We may also disable them at any time.</p>
+<p>You can make requests as follows (here we are requesting the version the Nimbus software version of the node in question):</p>
+<h4 id="mainnet-testing-branch"><a class="header" href="#mainnet-testing-branch">Mainnet testing branch</a></h4>
+<pre><code>curl -X GET http://testing.mainnet.beacon-api.nimbus.team/eth/v1/node/version
+</code></pre>
+<h4 id="mainnet-unstable-branch"><a class="header" href="#mainnet-unstable-branch">Mainnet unstable branch</a></h4>
+<pre><code>curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/node/version
+</code></pre>
+<h4 id="prater-unstable-branch"><a class="header" href="#prater-unstable-branch">Prater unstable branch</a></h4>
+<pre><code>curl -X GET  http://unstable.prater.beacon-api.nimbus.team/eth/v1/node/version
+</code></pre>
+<p>The test endpoints are part of pre-release testing and run an unstable version of Nimbus - we welcome reports about any problems you might have with them.</p>
+<p>They may also be unresponsive at times - so <strong>please do not rely on them for validation</strong>. We may also disable them at any time without warning.</p>
+<h2 id="configure-your-node-to-run-a-local-rest-server"><a class="header" href="#configure-your-node-to-run-a-local-rest-server">Configure your node to run a local REST server</a></h2>
+<p>By default, the REST interface is disabled. To enable it, start the beacon node with the <code>--rest</code> option:</p>
+<pre><code>./run-mainnet-beacon-node.sh --rest
+</code></pre>
+<p>Then access the API from <code>http://localhost:5052/</code>. For example, to get the version of the Nimbus software your node is running:</p>
+<pre><code>curl -X GET http://localhost:5052/eth/v1/node/version
+</code></pre>
+<p>By default, only connections from the same machine are entertained. The port and listening address can be further configured through the options <code>--rest-port</code> and <code>--rest-address</code>.</p>
+<blockquote>
+<p><strong>Warning:</strong> If you are using a validator client with a Nimbus beacon node, and running a Nimbus version prior to <code>v1.5.5</code>,  then you will need to launch the node with the <code>--subscribe-all-subnets</code> option enabled (in addition to the <code>--rest</code> option).</p>
+</blockquote>
+<h2 id="some-useful-commands"><a class="header" href="#some-useful-commands">Some useful commands</a></h2>
+<h3 id="standard-endpoints"><a class="header" href="#standard-endpoints">Standard endpoints</a></h3>
+<p>While these are all well documented in the <a href="https://ethereum.github.io/beacon-APIs/">official docs</a> here are a handful of simple examples to get you started:</p>
+<h4 id="genesis"><a class="header" href="#genesis">Genesis</a></h4>
+<p>Retrieve details of the chain's genesis which can be used to identify chain.</p>
+<p><em>With our mainnet testing server</em></p>
+<pre><code>curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/beacon/genesis
+</code></pre>
+<p><em>With your own local server</em></p>
+<pre><code>curl -X GET http://localhost:5052/eth/v1/beacon/genesis
+</code></pre>
+<h4 id="deposit-contract"><a class="header" href="#deposit-contract">Deposit contract</a></h4>
+<p>Get deposit contract address (retrieve Eth1 deposit contract address and chain ID).</p>
+<p><em>With our mainnet testing server</em></p>
+<pre><code>curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/config/deposit_contract
+</code></pre>
+<p><em>With your own local server</em></p>
+<pre><code>curl -X GET http://localhost:5052/eth/v1/config/deposit_contract
+</code></pre>
+<h4 id="peer-count"><a class="header" href="#peer-count">Peer count</a></h4>
+<p>Get peer count</p>
+<p><em>With our mainnet testing server</em></p>
+<pre><code>curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/node/peer_count
+</code></pre>
+<p><em>With your own local server</em></p>
+<pre><code>curl -X GET http://localhost:5052/eth/v1/node/peer_count
+</code></pre>
+<h4 id="syncing-status"><a class="header" href="#syncing-status">Syncing status</a></h4>
+<p>Get node syncing status (requests the beacon node to describe if it's currently syncing or not, and if it is, what block it is up to)</p>
+<p><em>With our mainnet testing server</em></p>
+<pre><code>curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/node/syncing
+</code></pre>
+<p><em>With your own local server</em></p>
+<pre><code>curl -X GET http://localhost:5052/eth/v1/node/syncing
+</code></pre>
+<h4 id="fork-schedule"><a class="header" href="#fork-schedule">Fork schedule</a></h4>
+<p>Get scheduled upcoming forks (retrieve all forks, past present and future, of which this node is aware)</p>
+<p><em>With our mainnet testing server</em></p>
+<pre><code>curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/config/fork_schedule
+</code></pre>
+<p><em>With your own local server</em></p>
+<pre><code>curl -X GET http://localhost:5052/eth/v1/config/fork_schedule
+</code></pre>
+<h3 id="nimbus-specific-endpoints"><a class="header" href="#nimbus-specific-endpoints">Nimbus specific endpoints</a></h3>
+<p>In addition to supporting the standard endpoints, Nimbus has a set of specific endpoints which augment the standard API.</p>
+<h4 id="check-graffiti-string"><a class="header" href="#check-graffiti-string">Check Graffiti String</a></h4>
+<p><em>With our mainnet testing server</em></p>
+<pre><code>curl -X GET http://testing.mainnet.beacon-api.nimbus.team/nimbus/v1/graffiti
+</code></pre>
+<p><em>With your own local server</em></p>
+<pre><code>curl -X GET http://localhost:5052/nimbus/v1/graffiti
+</code></pre>
+<h4 id="set-graffiti-string"><a class="header" href="#set-graffiti-string">Set Graffiti String</a></h4>
+<p><em>With your own local server</em></p>
+<pre><code>curl -X POST http://localhost:5052/nimbus/v1/graffiti -H  &quot;Content-Type: text/plain&quot; -d &quot;new graffiti&quot;
+</code></pre>
+<h4 id="set-log-level"><a class="header" href="#set-log-level">Set Log Level</a></h4>
+<p><em>TBA</em></p>
+<h2 id="specification"><a class="header" href="#specification">Specification</a></h2>
+<ul>
+<li>
+<p>The complete API specification is well documented <a href="https://ethereum.github.io/beacon-APIs/">here</a></p>
+</li>
+<li>
+<p>See the repository Readme <a href="https://github.com/ethereum/beacon-APIs">here</a></p>
+</li>
+</ul>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/rest-api.md">Edit this file on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="keymanager-api"><a class="header" href="#keymanager-api">Keymanager API</a></h1>
 <blockquote>
 <p>⚠️ This feature is currently in BETA - we are still testing it and implementation details may change in response to community feedback. <strong>We strongly advise against using it on mainnet</strong> - your validators may get slashed</p>
 </blockquote>
 <p>The standardized <a href="https://ethereum.github.io/keymanager-APIs/">Keymanager API</a> can be used to add, remove, or <a href="./migration.html">migrate</a> validators on the fly while the beacon node is running.</p>
-<h2 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h2>
+<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
 <p>By default, we disable the Keymanager API. To enable it, start the beacon node with the <code>--keymanager</code> option enabled:</p>
 <pre><code>./run-prater-beacon-node.sh --keymanager
 </code></pre>
