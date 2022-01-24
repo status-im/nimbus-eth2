@@ -31,7 +31,9 @@ curl -X GET http://unstable.mainnet.beacon-api.nimbus.team/eth/v1/node/version
 curl -X GET  http://unstable.prater.beacon-api.nimbus.team/eth/v1/node/version
 ```
 
-Note that right now these are very much unstable testing instances. They may be unresponsive at times - so **please do not rely on them for validation**. We may also disable them at any time without warning.
+The test endpoints are part of pre-release testing and run an unstable version of Nimbus - we welcome reports about any problems you might have with them.
+
+They may also be unresponsive at times - so **please do not rely on them for validation**. We may also disable them at any time without warning.
 
 
 ## Configure your node to run a local REST server
