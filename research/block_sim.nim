@@ -260,7 +260,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         elif T is altair.SignedBeaconBlock:
           addr stateData.data.altairData
         elif T is bellatrix.SignedBeaconBlock:
-          addr stateData.data.mergeData
+          addr stateData.data.bellatrixData
         else:
           static: doAssert false
       message = makeBeaconBlock(

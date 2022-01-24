@@ -36,9 +36,10 @@ proc runTest(testName, testDir, unitTestName: string) =
       var
         preState = newClone(parseTest(
           testPath/"pre.ssz_snappy", SSZ, bellatrix.BeaconState))
-        fhPreState = (ref ForkedHashedBeaconState)(mergeData: bellatrix.HashedBeaconState(
-          data: preState[], root: hash_tree_root(preState[])),
-          kind: BeaconStateFork.Bellatrix)
+        fhPreState = (ref ForkedHashedBeaconState)(
+          bellatrixData: bellatrix.HashedBeaconState(
+            data: preState[], root: hash_tree_root(preState[])),
+            kind: BeaconStateFork.Bellatrix)
         cache = StateCache()
         info = ForkedEpochInfo()
 
@@ -68,7 +69,7 @@ proc runTest(testName, testDir, unitTestName: string) =
         let postState = newClone(parseTest(
           testPath/"post.ssz_snappy", SSZ, bellatrix.BeaconState))
         when false:
-          reportDiff(fhPreState.mergeData.data, postState)
+          reportDiff(fhPreState.bellatrixData.data, postState)
         doAssert getStateRoot(fhPreState[]) == postState[].hash_tree_root()
 
   `testImpl _ blck _ testName`()

@@ -205,7 +205,7 @@ suite "Gossip validation - Extra": # Not based on preset config
               dag.addHeadBlock(verifier, blck.altairData, nilCallback)
             of BeaconBlockFork.Bellatrix:
               const nilCallback = OnMergeBlockAdded(nil)
-              dag.addHeadBlock(verifier, blck.mergeData, nilCallback)
+              dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
           check: added.isOk()
           dag.updateHead(added[], quarantine[])
         dag

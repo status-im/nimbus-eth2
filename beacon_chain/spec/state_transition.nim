@@ -174,7 +174,7 @@ func maybeUpgradeStateToBellatrix(
     var newState = upgrade_to_bellatrix(cfg, state.altairData.data)
     state = (ref ForkedHashedBeaconState)(
       kind: BeaconStateFork.Bellatrix,
-      mergeData: bellatrix.HashedBeaconState(
+      bellatrixData: bellatrix.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
 proc maybeUpgradeState*(
@@ -534,4 +534,4 @@ proc makeBeaconBlock*(
   case state.kind
   of BeaconStateFork.Phase0:    makeBeaconBlock(phase0)
   of BeaconStateFork.Altair:    makeBeaconBlock(altair)
-  of BeaconStateFork.Bellatrix: makeBeaconBlock(merge)
+  of BeaconStateFork.Bellatrix: makeBeaconBlock(bellatrix)

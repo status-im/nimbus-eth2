@@ -248,8 +248,8 @@ suite "Beacon chain DB" & preset():
     var db = makeTestDB(SLOTS_PER_EPOCH)
 
     for state in testStatesBellatrix:
-      let root = state[].mergeData.root
-      db.putState(root, state[].mergeData.data)
+      let root = state[].bellatrixData.root
+      db.putState(root, state[].bellatrixData.data)
 
       check:
         db.containsState(root)
@@ -307,8 +307,8 @@ suite "Beacon chain DB" & preset():
     let stateBuffer = (bellatrix.BeaconStateRef)()
 
     for state in testStatesBellatrix:
-      let root = state[].mergeData.root
-      db.putState(root, state[].mergeData.data)
+      let root = state[].bellatrixData.root
+      db.putState(root, state[].bellatrixData.data)
 
       check:
         db.getState(root, stateBuffer[], noRollback)
@@ -378,7 +378,7 @@ suite "Beacon chain DB" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
         kind: BeaconStateFork.Bellatrix,
-        mergeData: bellatrix.HashedBeaconState(data: bellatrix.BeaconState(
+        bellatrixData: bellatrix.HashedBeaconState(data: bellatrix.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 
@@ -390,8 +390,8 @@ suite "Beacon chain DB" & preset():
       assign(state[], restoreAddr[].data)
 
     check:
-      state[].mergeData.data.slot == 10.Slot
-      not db.getState(root, state[].mergeData.data, restore)
+      state[].bellatrixData.data.slot == 10.Slot
+      not db.getState(root, state[].bellatrixData.data, restore)
 
       # assign() has switched the case object fork
       state[].kind == BeaconStateFork.Phase0

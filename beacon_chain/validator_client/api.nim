@@ -776,7 +776,7 @@ proc publishBlock*(vc: ValidatorClientRef,
     of BeaconBlockFork.Bellatrix:
       raiseAssert "trying to publish merge block"
       # TODO this doesn't build due to some nim-presto error
-      # publishBlock(it, data.mergeData)
+      # publishBlock(it, data.bellatrixData)
   do:
     if apiResponse.isErr():
       debug "Unable to publish block", endpoint = node,

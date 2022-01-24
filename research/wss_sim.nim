@@ -181,9 +181,9 @@ cli do(validatorsDir: string, secretsDir: string,
             validators[proposer]).toValidatorSig())
         dump(".", signedBlock)
       of BeaconBlockFork.Bellatrix:
-        blockRoot = hash_tree_root(message.mergeData)
+        blockRoot = hash_tree_root(message.bellatrixData)
         let signedBlock = bellatrix.SignedBeaconBlock(
-          message: message.mergeData,
+          message: message.bellatrixData,
           root: blockRoot,
           signature: get_block_signature(
             fork, genesis_validators_root, slot, blockRoot,
