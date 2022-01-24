@@ -29,8 +29,6 @@ sudo systemctl disable prysmvalidator.service
 
 It's important that you disable the Prysm validator as well as stopping it, to prevent it from starting up again on reboot.
 
-</br>
-
 **2. Export slashing protection history**
 
 Run the following to export your Prysm validator's [slashing protection](https://eips.ethereum.org/EIPS/eip-3076) history:
@@ -43,7 +41,33 @@ prysm.sh validator slashing-protection export \
 
 To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check [beaconcha.in](https://beaconcha.in/)).
 
-</br>
+### Export from Lighthouse
+
+**1. Disable the Lighthouse validator client**
+
+The validator client needs to be stopped in order to export, to guarantee that the data exported is up to date.
+
+To stop both the validator client and the beacon node, run:
+
+```
+sudo systemctl stop lighthousevalidator
+sudo systemctl stop lighthousebeacon
+```
+
+
+
+**2. Export slashing protection history**
+
+You can export Lighthouse's database with this command:
+```
+lighthouse account validator slashing-protection export lighthouse_interchange.json
+```
+
+This will export your history in the correct format to `lighthouse_interchange.json`.
+
+
+### Export from Teku
+*coming soon*
 
 ### Export from Nimbus
 
@@ -60,8 +84,6 @@ sudo systemctl disable nimbus-eth2-mainnet.service
 
 It's important that you disable the service as well as stopping it, to prevent it from starting up again on reboot.
 
-</br>
-
 **2. Export slashing protection history**
 
 Run the following to export your Nimbus validator's [slashing protection](https://eips.ethereum.org/EIPS/eip-3076) history:
@@ -73,12 +95,6 @@ build/nimbus_beacon_node slashingdb export database.json
 This will export your history in the correct format to `database.json`.
 
 To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check `beaconcha.in`).
-
-### Export from Lighthouse
-*coming soon*
-
-### Export from Teku
-*coming soon*
 
 
 ## Step 3 - Import your validator key(s) into Nimbus
