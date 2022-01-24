@@ -756,7 +756,7 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.network.unsubscribe(
     getSyncCommitteeContributionAndProofTopic(forkDigest))
 
-proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) {.async.} =
+proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   # Unlike trackNextSyncCommitteeTopics, just snap to the currently correct
   # set of subscriptions, and use current_sync_committee. Furthermore, this
   # is potentially useful at arbitrary times, so don't guard it by checking
@@ -803,7 +803,7 @@ proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) {.async.} =
 
   node.network.updateSyncnetsMetadata(currentSyncCommitteeSubnets)
 
-proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) {.async.} =
+proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   let
     epoch = slot.epoch
     epochToSyncPeriod = nearSyncCommitteePeriod(epoch)
@@ -814,7 +814,7 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) {.async.} =
     return
 
   if epochToSyncPeriod.get == 0:
-    await node.trackCurrentSyncCommitteeTopics(slot)
+    node.trackCurrentSyncCommitteeTopics(slot)
     return
 
   let
@@ -985,7 +985,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   node.syncCommitteeMsgPool[].pruneData(slot)
   if slot.is_epoch:
-    await node.trackNextSyncCommitteeTopics(slot)
+    node.trackNextSyncCommitteeTopics(slot)
 
   # Update upcoming actions - we do this every slot in case a reorg happens
   if node.isSynced(node.dag.head) and
