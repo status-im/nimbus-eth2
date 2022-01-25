@@ -39,7 +39,7 @@ type
 
     UnviableFork
       ## Block is from a history / fork that does not include our most current
-      ## finalied checkpoint
+      ## finalized checkpoint
 
     Duplicate
       ## We've seen this block already, can't add again
