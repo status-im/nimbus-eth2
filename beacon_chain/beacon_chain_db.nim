@@ -72,10 +72,16 @@ type
     ## revisited in the future, when/if the calling code safely can handle
     ## corruption of this kind.
     ##
-    ## We do however make an effort not to crash on invalid data inside the
-    ## database - this may have a number of "natural" causes such as switching
-    ## between different versions of the client and accidentally using an old
-    ## database.
+    ## The database follows an "mostly-consistent" model where it's possible
+    ## that some data has been lost to crashes and restarts - for example,
+    ## the state root table might contain entries that don't lead to a state
+    ## etc - this makes it easier to defer certain operations such as pruning
+    ## and cleanup, but also means that some amount of "junk" is left behind
+    ## when the application is restarted or crashes in the wrong moment.
+    ##
+    ## Generally, sqlite performs a commit at the end of every write, meaning
+    ## that data write order is respected - the strategy thus becomes to write
+    ## bulk data first, then update pointers like the `head root` entry.
     db*: SqStoreRef
 
     v0: BeaconChainDBV0
@@ -265,6 +271,24 @@ proc loadImmutableValidators(vals: DbSeq[ImmutableValidatorDataDb2]): seq[Immuta
     result.add ImmutableValidatorData2(
       pubkey: tmp.pubkey.loadValid(),
       withdrawal_credentials: tmp.withdrawal_credentials)
+
+template withManyWrites*(db: BeaconChainDB, body: untyped) =
+  # We don't enforce strong ordering or atomicity requirements in the beacon
+  # chain db in general, relying instead on readers to be able to deal with
+  # minor inconsistencies - however, putting writes in a transaction is orders
+  # of magnitude faster when doing many small writes, so we use this as an
+  # optimization technique and the templace is named accordingly.
+  mixin expectDb
+  db.db.exec("BEGIN TRANSACTION;").expectDb()
+  var commit = false
+  try:
+    body
+    commit = true
+  finally:
+    if commit:
+      db.db.exec("COMMIT TRANSACTION;").expectDb()
+    else:
+      db.db.exec("ROLLBACK TRANSACTION;").expectDb()
 
 proc new*(T: type BeaconChainDB,
           dir: string,
@@ -489,16 +513,19 @@ proc putBeaconBlockSummary(
   db.summaries.putSSZ(root.data, value)
 
 proc putBlock*(db: BeaconChainDB, value: phase0.TrustedSignedBeaconBlock) =
-  db.blocks.putSnappySSZ(value.root.data, value)
-  db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
+  db.withManyWrites:
+    db.blocks.putSnappySSZ(value.root.data, value)
+    db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
 proc putBlock*(db: BeaconChainDB, value: altair.TrustedSignedBeaconBlock) =
-  db.altairBlocks.putSnappySSZ(value.root.data, value)
-  db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
+  db.withManyWrites:
+    db.altairBlocks.putSnappySSZ(value.root.data, value)
+    db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
 proc putBlock*(db: BeaconChainDB, value: bellatrix.TrustedSignedBeaconBlock) =
-  db.mergeBlocks.putSnappySSZ(value.root.data, value)
-  db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
+  db.withManyWrites:
+    db.mergeBlocks.putSnappySSZ(value.root.data, value)
+    db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
@@ -540,6 +567,10 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: bellatrix.BeaconState)
   db.mergeStatesNoVal.putSnappySSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
 
+proc putState*(db: BeaconChainDB, state: ForkyHashedBeaconState) =
+  db.withManyWrites:
+    db.putStateRoot(state.latest_block_root(), state.data.slot, state.root)
+    db.putState(state.root, state.data)
 # For testing rollback
 proc putCorruptPhase0State*(db: BeaconChainDB, key: Eth2Digest) =
   db.statesNoVal.putSnappySSZ(key.data, Validator())
@@ -926,10 +957,9 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
     # Write the newly found summaries in a single transaction - on first migration
     # from the old format, this brings down the write from minutes to seconds
     if newSummaries.len() > 0:
-      db.db.exec("BEGIN TRANSACTION;").expectDb()
-      for s in newSummaries:
-        db.putBeaconBlockSummary(s.root, s.summary)
-      db.db.exec("COMMIT;").expectDb()
+      db.withManyWrites:
+        for s in newSummaries:
+          db.putBeaconBlockSummary(s.root, s.summary)
 
     if false:
       # When the current version has been online for a bit, we can safely remove

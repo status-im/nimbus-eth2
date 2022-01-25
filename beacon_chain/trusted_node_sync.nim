@@ -140,8 +140,7 @@ proc doTrustedNodeSync*(
           stateRoot = shortLog(state.root),
           genesis_validators_root = shortLog(state.data.genesis_validators_root)
 
-        db.putStateRoot(state.latest_block_root(), state.data.slot, state.root)
-        db.putState(state.root, state.data)
+        db.putState(state)
 
         let blck = get_initial_beacon_block(state)
 
@@ -271,8 +270,7 @@ proc doTrustedNodeSync*(
 
       info "Writing checkpoint state",
         stateRoot = shortLog(state.root)
-      db.putStateRoot(state.latest_block_root(), state.data.slot, state.root)
-      db.putState(state.root, state.data)
+      db.putState(state)
 
     withBlck(checkpointBlock):
       info "Writing checkpoint block",

@@ -132,7 +132,7 @@ proc readHeader(f: IoHandle): Result[Header, string] =
 
   ok(Header(typ: typ, len: int(len)))
 
-proc readRecord(f: IoHandle, data: var seq[byte]): Result[Header, string] =
+proc readRecord*(f: IoHandle, data: var seq[byte]): Result[Header, string] =
   let header = ? readHeader(f)
   if header.len > 0:
     ? f.checkBytesLeft(header.len)

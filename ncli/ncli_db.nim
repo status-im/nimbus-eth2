@@ -1,12 +1,13 @@
 import
-  os, stats, strformat, tables, snappy,
+  std/[os, stats, strformat, tables],
+  snappy, snappy/framing,
   chronicles, confutils, stew/[byteutils, io2], eth/db/kvstore_sqlite3,
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db],
   ../beacon_chain/consensus_object_pools/[blockchain_dag],
   ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/spec/[
-    beaconstate, helpers, state_transition, state_transition_epoch, validator,
+    beaconstate, state_transition, state_transition_epoch, validator,
     ssz_codec],
   ../beacon_chain/sszdump,
   ../research/simutils,
@@ -35,6 +36,7 @@ type
     pruneDatabase
     rewindState = "Extract any state from the database based on a given block and slot, replaying if needed"
     exportEra = "Write an experimental era file"
+    importEra = "Import era files to the database"
     validatorPerf
     validatorDb = "Create or update attestation performance database"
 
@@ -69,18 +71,22 @@ type
         desc: "Store each read block back into a separate database".}: bool
       storeStates* {.
         defaultValue: false
+        name: "store-states"
         desc: "Store a state each epoch into a separate database".}: bool
       printTimes* {.
         defaultValue: true
+        name: "print-times"
         desc: "Print csv of block processing time".}: bool
       resetCache* {.
         defaultValue: false
+        name: "reset-cache"
         desc: "Process each block with a fresh cache".}: bool
 
     of DbCmd.dumpState:
       stateRoot* {.
         argument
-        desc: "State roots to save".}: seq[string]
+        name: "state-root"
+        desc: "State root(s) to save".}: seq[string]
 
     of DbCmd.putState:
       stateFile {.
@@ -91,7 +97,8 @@ type
     of DbCmd.dumpBlock:
       blockRootx* {.
         argument
-        desc: "Block roots to save".}: seq[string]
+        name: "block-root"
+        desc: "Block root(s) to save".}: seq[string]
 
     of DbCmd.putBlock:
       blckFile {.
@@ -114,9 +121,11 @@ type
     of DbCmd.pruneDatabase:
       dryRun* {.
         defaultValue: false
+        name: "dry-run"
         desc: "Don't write to the database copy; only simulate actions; default false".}: bool
       keepOldStates* {.
         defaultValue: true
+        name: "keep-old"
         desc: "Keep pre-finalization states; default true".}: bool
       verbose* {.
         defaultValue: false
@@ -125,6 +134,7 @@ type
     of DbCmd.rewindState:
       blockRoot* {.
         argument
+        name: "block-root"
         desc: "Block root".}: string
 
       slot* {.
@@ -137,7 +147,14 @@ type
         desc: "The era number to write".}: uint64
       eraCount* {.
         defaultValue: 1
+        name: "count"
         desc: "Number of eras to write".}: uint64
+
+    of DbCmd.importEra:
+      eraFiles* {.
+        argument
+        name: "file"
+        desc: "The name of the era file(s) to import".}: seq[string]
 
     of DbCmd.validatorPerf:
       perfSlot* {.
@@ -165,11 +182,6 @@ type
               "By default the last epoch in the input database".}: Option[uint]
 
 var shouldShutDown = false
-
-proc putState(db: BeaconChainDB, state: ForkedHashedBeaconState) =
-  withState(state):
-    db.putStateRoot(state.latest_block_root(), state.data.slot, state.root)
-    db.putState(state.root, state.data)
 
 func getSlotRange(dag: ChainDAGRef, startSlot: int64, count: uint64): (Slot, Slot) =
   let
@@ -335,7 +347,8 @@ proc cmdPutState(conf: DbConf, cfg: RuntimeConfig) =
     if shouldShutDown: quit QuitSuccess
     let state = newClone(readSszForkedHashedBeaconState(
         cfg, readAllBytes(file).tryGet()))
-    db.putState(state[])
+    withState(state[]):
+      db.putState(state)
 
 proc cmdDumpBlock(conf: DbConf) =
   let db = BeaconChainDB.new(conf.databaseDir.string)
@@ -557,6 +570,60 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
           group.finish(e2, state.data).get()
       do: raiseAssert "withUpdatedState failed"
 
+  printTimers(true, timers)
+
+proc cmdImportEra(conf: DbConf, cfg: RuntimeConfig) =
+  let db = BeaconChainDB.new(conf.databaseDir.string)
+  defer: db.close()
+
+  type Timers = enum
+    tBlock
+    tState
+
+  var
+    blocks = 0
+    states = 0
+    others = 0
+    timers: array[Timers, RunningStat]
+
+  var data: seq[byte]
+  for file in conf.eraFiles:
+    let f = openFile(file, {OpenFlags.Read}).valueOr:
+      warn "Can't open ", file
+      continue
+    defer: discard closeFile(f)
+
+    while true:
+      let header = readRecord(f, data).valueOr:
+        break
+
+      if header.typ ==  SnappyBeaconBlock:
+        withTimer(timers[tBlock]):
+          let uncompressed = framingFormatUncompress(data)
+          let blck = try: readSszForkedSignedBeaconBlock(cfg, uncompressed)
+          except CatchableError as exc:
+            error "Invalid snappy block", msg = exc.msg, file
+            continue
+
+          withBlck(blck.asTrusted()):
+            db.putBlock(blck)
+        blocks += 1
+      elif header.typ == SnappyBeaconState:
+        withTimer(timers[tState]):
+          let uncompressed = framingFormatUncompress(data)
+          let state = try: newClone(
+            readSszForkedHashedBeaconState(cfg, uncompressed))
+          except CatchableError as exc:
+            error "Invalid snappy state", msg = exc.msg, file
+            continue
+          withState(state[]):
+            db.putState(state)
+        states += 1
+      else:
+        info "Skipping record", typ = toHex(header.typ)
+        others += 1
+
+  notice "Done", blocks, states, others
   printTimers(true, timers)
 
 type
@@ -998,6 +1065,8 @@ when isMainModule:
     cmdRewindState(conf, cfg)
   of DbCmd.exportEra:
     cmdExportEra(conf, cfg)
+  of DbCmd.importEra:
+    cmdImportEra(conf, cfg)
   of DbCmd.validatorPerf:
     cmdValidatorPerf(conf, cfg)
   of DbCmd.validatorDb:
