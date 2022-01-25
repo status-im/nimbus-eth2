@@ -5,6 +5,8 @@ This guide will take you through the basics of how to migrate to Nimbus from ano
 
 The main pain point involves the exporting and importing of the [slashing protection database](https://eips.ethereum.org/EIPS/eip-3076), since each client takes a slightly different approach here.
 
+**The most important takeaway is that you ensure that two clients will never validate with the same keys at the same time.** In other words, you must ensure that your original client is stopped, and no longer validating, before importing your keys into Nimbus.
+
 > **Please take your time to get this right.** Don't hesitate to reach out to us in the `#helpdesk` channel of [our discord](https://discord.gg/j3nYBUeEad) if you come across a stumbling block. We are more than happy to help guide you through the migration process. Given what's at stake, there is no such thing as a stupid question.
 
 ## Step 1 - Sync the Nimbus beacon node
@@ -14,10 +16,20 @@ The easiest way to do this is to follow the [beacon node quick start guide](./qu
 
 Once your Nimbus beacon node has synced and you're satisfied that it's working, move to **Step 2**.
 
-## Step 2 - Export your slashing protection history
+> **Tip:** See here for how to [keep track of your syncing progress](keep-an-eye.md#keep-track-of-your-syncing-progress).
+> 
+> Alternatively, If you run the Nimbus beacon node with the `--rest` option enabled (e.g. `./run-mainnet-beacon-node.sh --rest`), you can obtain your node's syncing status by running:
+> 
+> ```
+> curl -X GET http://localhost:5052/eth/v1/node/syncing
+> ```
+>
+> Look for an `"is_syncing":false` in the response to confirm that your node has synced.
+
+## Step 2 - Stop your existing client and export your slashing protection history
 
 
-### Export from Prysm
+### From Prysm
 
 #### 1. Disable the Prysm validator client
 
@@ -43,7 +55,11 @@ prysm.sh validator slashing-protection export \
  --slashing-protection-export-dir=/path/to/export_dir
 ```
 
-### Export from Lighthouse
+You will then find the `slashing-protection.json` file in your specified `/path/to/export_dir` folder.
+
+> **Tip:** To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check it's recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
+
+### From Lighthouse
 
 #### 1. Disable the Lighthouse validator client
 
@@ -69,15 +85,14 @@ sudo systemctl disable lighthousebeacon
 
 You can export Lighthouse's database with this command:
 ```
-lighthouse account validator slashing-protection export lighthouse_interchange.json
+lighthouse account validator slashing-protection export slashing-protection.json
 ```
 
-This will export your history in the correct format to `lighthouse_interchange.json`.
+This will export your history in the correct format to `slashing-protection.json`.
 
-To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
+> **Tip:** To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check it's recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
 
-
-### Export from Teku
+### From Teku
 
 #### 1. Disable Teku 
 
@@ -96,18 +111,17 @@ sudo systemctl disable teku
 You can export Teku's database with this command:
 
 ```
-teku slashing-protection export --data-path=/home/me/me_node --to=/home/slash/slashing-interchange-format-minimal.json
+teku slashing-protection export --data-path=/home/me/me_node --to=/home/slash/slashing-protection.json
 ```
 
 Where:
 
 - `--data-path` specifies the location of the Teku data directory.
-- `--to` specifies the file to export the slashing-protection data to (in this case `/home/slash/slashing-interchange-format-minimal.json`).
+- `--to` specifies the file to export the slashing-protection data to (in this case `/home/slash/slashing-protection.json`).
 
+> **Tip:** To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check it's recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
 
-To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
-
-### Export from Nimbus
+### From Nimbus
 
 #### 1. Disable the Nimbus validator client
 
@@ -127,13 +141,12 @@ sudo systemctl disable nimbus-eth2-mainnet.service
 Run the following to export your Nimbus validator's [slashing protection](https://eips.ethereum.org/EIPS/eip-3076) history:
 
 ```
-build/nimbus_beacon_node slashingdb export database.json
+build/nimbus_beacon_node slashingdb export slashing-protection.json
 ```
 
-This will export your history in the correct format to `database.json`.
+This will export your history in the correct format to `slashing-protection.json`.
 
-To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator have stopped attesting (check `beaconcha.in`). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
-
+> **Tip:** To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check it's recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
 
 
 ## Step 3 - Import your validator key(s) into Nimbus
