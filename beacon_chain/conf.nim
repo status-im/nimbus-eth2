@@ -542,15 +542,15 @@ type
           name: "validator"
           desc: "Validator index or a public key of the exited validator" }: string
 
-        rpcUrlForExit* {.
-          desc: "URL of the beacon node JSON-RPC service"
-          defaultValue: parseUri("http://localhost:" & $defaultEth2RpcPort)
-          defaultValueDesc: "http://localhost:9190"
-          name: "rpc-url" }: Uri
-
         exitAtEpoch* {.
           name: "epoch"
           desc: "The desired exit epoch" }: Option[uint64]
+
+        restUrlForExit* {.
+          desc: "URL of the beacon node REST service"
+          defaultValue: parseUri("http://localhost" & $DefaultEth2RestPort)
+          defaultValueDesc: "http://localhost:5052"
+          name: "rest-url" }: Uri
 
     of BNStartUpCmd.record:
       case recordCmd* {.command.}: RecordCmd

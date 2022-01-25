@@ -333,37 +333,37 @@ proc check_voluntary_exit*(
 
   # Not in spec. Check that validator_index is in range
   if voluntary_exit.validator_index >= state.validators.lenu64:
-    return err("Exit: invalid validator index")
+    return err("Invalid validator index")
 
   let validator = unsafeAddr state.validators.asSeq()[voluntary_exit.validator_index]
 
   # Verify the validator is active
   if not is_active_validator(validator[], get_current_epoch(state)):
-    return err("Exit: validator not active")
+    return err("Validator not active")
 
   # Verify exit has not been initiated
   if validator[].exit_epoch != FAR_FUTURE_EPOCH:
-    return err("Exit: validator has exited")
+    return err("Validator has exited")
 
   # Exits must specify an epoch when they become valid; they are not valid
   # before then
   if not (get_current_epoch(state) >= voluntary_exit.epoch):
-    return err("Exit: exit epoch not passed")
+    return err("Exit epoch not passed")
 
   # Verify the validator has been active long enough
   if not (get_current_epoch(state) >= validator[].activation_epoch +
       cfg.SHARD_COMMITTEE_PERIOD):
-    return err("Exit: not in validator set long enough")
+    return err("Not in validator set long enough")
 
   # Verify signature
   if skipBlsValidation notin flags:
     if not verify_voluntary_exit_signature(
         state.fork, state.genesis_validators_root, voluntary_exit,
         validator[].pubkey, signed_voluntary_exit.signature):
-      return err("Exit: invalid signature")
+      return err("Invalid signature")
 
   # Initiate exit
-  debug "Exit: checking voluntary exit (validator_leaving)",
+  debug "Checking voluntary exit (validator_leaving)",
     index = voluntary_exit.validator_index,
     num_validators = state.validators.len,
     epoch = voluntary_exit.epoch,

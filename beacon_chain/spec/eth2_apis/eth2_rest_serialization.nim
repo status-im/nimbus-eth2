@@ -72,8 +72,10 @@ type
     GetBlockV2Response |
     GetKeystoresResponse |
     GetStateV2Response |
+    GetStateForkResponse |
     ProduceBlockResponseV2 |
     RestAttestationError |
+    RestValidator |
     RestGenericError |
     Web3SignerErrorResponse |
     Web3SignerKeysResponse |

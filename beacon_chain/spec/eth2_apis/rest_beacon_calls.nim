@@ -24,12 +24,22 @@ proc getGenesis*(): RestResponse[GetGenesisResponse] {.
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
 
+proc getGenesisPlain*(): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/genesis",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
+
 proc getStateRoot*(state_id: StateIdent): RestResponse[GetStateRootResponse] {.
      rest, endpoint: "/eth/v1/beacon/states/{state_id}/root",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateRoot
 
 proc getStateFork*(state_id: StateIdent): RestResponse[GetStateForkResponse] {.
+     rest, endpoint: "/eth/v1/beacon/states/{state_id}/fork",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateFork
+
+proc getStateForkPlain*(state_id: StateIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/states/{state_id}/fork",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateFork
@@ -54,6 +64,15 @@ proc getStateValidator*(state_id: StateIdent,
      endpoint: "/eth/v1/beacon/states/{state_id}/validators/{validator_id}",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidator
+
+proc getStateValidatorPlain*(state_id: StateIdent,
+                        validator_id: ValidatorIdent
+                       ): RestPlainResponse {.
+     rest,
+     endpoint: "/eth/v1/beacon/states/{state_id}/validators/{validator_id}",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidator
+  ##
 
 proc getStateValidatorBalances*(state_id: StateIdent
                         ): RestResponse[GetStateValidatorBalancesResponse] {.
@@ -100,7 +119,7 @@ proc getBlockPlain*(block_id: BlockIdent): RestPlainResponse {.
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
 
-proc raiseGenericError(resp: RestPlainResponse)
+proc raiseGenericError*(resp: RestPlainResponse)
                       {.noreturn, raises: [RestError, Defect].} =
   let error =
     block:

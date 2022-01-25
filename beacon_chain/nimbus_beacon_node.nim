@@ -10,7 +10,6 @@ import
   # Standard library
   std/[math, os, osproc, random, sequtils, strformat, strutils,
        tables, times, terminal],
-
   # Nimble packages
   stew/io2,
   spec/eth2_apis/eth2_rest_serialization,
@@ -43,7 +42,8 @@ import
   ./consensus_object_pools/[
     blockchain_dag, block_quarantine, block_clearance, attestation_pool,
     sync_committee_msg_pool, exit_pool, spec_cache],
-  ./eth1/eth1_monitor
+  ./eth1/eth1_monitor,
+  ./spec/eth2_apis/rest_beacon_calls
 
 from eth/common/eth_types import BlockHashOrNumber
 
@@ -1520,41 +1520,73 @@ proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
   asyncSpawn statusBarUpdatesPollingLoop()
 
 proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
-  let port = try:
-    let value = parseInt(config.rpcUrlForExit.port)
-    if value < Port.low.int or value > Port.high.int:
-      raise newException(ValueError,
-        "The port number must be between " & $Port.low & " and " & $Port.high)
-    Port value
-  except CatchableError as err:
-    fatal "Invalid port number", err = err.msg
+  let
+    client = RestClientRef.new(
+      try:
+        resolveTAddress($config.restUrlForExit.hostname &
+                        ":" &
+                        $config.restUrlForExit.port)[0]
+      except CatchableError as err:
+        fatal "Failed to resolve address", err = err.msg
+        quit 1)
+
+    stateIdHead = StateIdent(kind: StateQueryKind.Named,
+                             value: StateIdentType.Head)
+    blockIdentHead = BlockIdent(kind: BlockQueryKind.Named,
+                                value: BlockIdentType.Head)
+    validatorIdent = ValidatorIdent.decodeString(config.exitedValidator)
+
+  if validatorIdent.isErr():
+    fatal "Incorrect validator index or key specified",
+           err = $validatorIdent.error()
     quit 1
 
-  let rpcClient = newRpcHttpClient()
-
-  try:
-    await connect(rpcClient, config.rpcUrlForExit.hostname, port,
-                  secure = config.rpcUrlForExit.scheme in ["https", "wss"])
-  except CatchableError as err:
-    fatal "Failed to connect to the beacon node RPC service", err = err.msg
-    quit 1
-
-  let (validator, validatorIdx, _, _) = try:
-    await rpcClient.get_v1_beacon_states_stateId_validators_validatorId(
-      "head", config.exitedValidator)
+  let restValidator = try:
+    let response = await client.getStateValidatorPlain(stateIdHead,
+                                                       validatorIdent.get())
+    if response.status == 200:
+      let validator = decodeBytes(GetStateValidatorResponse,
+                                  response.data,
+                                  response.contentType)
+      if validator.isErr():
+        raise newException(RestError, $validator.error)
+      validator.get().data
+    else:
+      raiseGenericError(response)
   except CatchableError as err:
     fatal "Failed to obtain information for validator", err = err.msg
+    quit 1
+
+  let
+    validator = restValidator.validator
+    validatorIdx = restValidator.index.uint64
+
+  let genesis = try:
+    let response = await client.getGenesisPlain()
+    if response.status == 200:
+      let genesis = decodeBytes(GetGenesisResponse,
+                                response.data,
+                                response.contentType)
+      if genesis.isErr():
+        raise newException(RestError, $genesis.error)
+      genesis.get().data
+    else:
+      raiseGenericError(response)
+  except CatchableError as err:
+    fatal "Failed to obtain the genesis validators root of the network",
+           err = err.msg
     quit 1
 
   let exitAtEpoch = if config.exitAtEpoch.isSome:
     Epoch config.exitAtEpoch.get
   else:
-    let headSlot = try:
-      await rpcClient.getBeaconHead()
-    except CatchableError as err:
-      fatal "Failed to obtain the current head slot", err = err.msg
-      quit 1
-    headSlot.epoch
+    let
+      genesisTime =  genesis.genesis_time
+      beaconClock = BeaconClock.init(genesisTime)
+      time = getTime()
+      slot = beaconClock.toSlot(time).slot
+      epoch = slot.uint64 div 32
+    Epoch epoch
 
   let
     validatorsDir = config.validatorsDir
@@ -1578,17 +1610,22 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
     quit 1
 
   let fork = try:
-    await rpcClient.get_v1_beacon_states_fork("head")
+    let response = await client.getStateForkPlain(stateIdHead)
+    if response.status == 200:
+      let fork = decodeBytes(GetStateForkResponse,
+                             response.data,
+                             response.contentType)
+      if fork.isErr():
+        raise newException(RestError, $fork.error)
+      fork.get().data
+    else:
+      raiseGenericError(response)
   except CatchableError as err:
-    fatal "Failed to obtain the fork id of the head state", err = err.msg
-    quit 1
-
-  let genesisValidatorsRoot = try:
-    (await rpcClient.get_v1_beacon_genesis()).genesis_validators_root
-  except CatchableError as err:
-    fatal "Failed to obtain the genesis validators root of the network",
+    fatal "Failed to obtain the fork id of the head state",
            err = err.msg
     quit 1
+
+  let genesisValidatorsRoot = genesis.genesis_validators_root
 
   var signedExit = SignedVoluntaryExit(
     message: VoluntaryExit(
@@ -1648,14 +1685,32 @@ proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
       if choice == "q":
         quit 0
       elif choice == confirmation:
-        let success = await rpcClient.post_v1_beacon_pool_voluntary_exits(signedExit)
+        let
+          response = await client.submitPoolVoluntaryExit(signedExit)
+          success = response.status == 200
         if success:
           echo "Successfully published voluntary exit for validator " &
                 $validatorIdx & "(" & validatorKeyAsStr[0..9] & ")."
           quit 0
         else:
-          echo "The voluntary exit was not submitted successfully. Please try again."
+          let responseError = try:
+               Json.decode(response.data, RestGenericError)
+          except CatchableError as err:
+            fatal "Failed to decode invalid error server response on `submitPoolVoluntaryExit` request",
+             err = err.msg
+            quit 1
+
+          let
+            responseMessage = responseError.message
+            responseStacktraces = responseError.stacktraces
+
+          echo "The voluntary exit was not submitted successfully."
+          echo responseMessage & ":"
+          for el in responseStacktraces.get():
+            echo el
+          echoP "Please try again."
           quit 1
+
   except CatchableError as err:
     fatal "Failed to send the signed exit message to the beacon node RPC",
            err = err.msg
