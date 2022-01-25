@@ -38,8 +38,8 @@ type
       ## appears or be discarded if finality obsoletes it
 
     UnviableFork
-      ## Block is from a different history / fork than the one we're interested
-      ## in (based on our finalized checkpoint)
+      ## Block is from a history / fork that does not include our most current
+      ## finalied checkpoint
 
     Duplicate
       ## We've seen this block already, can't add again

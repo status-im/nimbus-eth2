@@ -45,10 +45,18 @@ type
       ## with a valid signature to be dropped
 
     unviable*: OrderedTable[Eth2Digest, tuple[]]
-      ## Unviable blocks are those from a different fork - we keep their hash
+      ## Unviable blocks are those that come from a history that does not
+      ## include the finalized checkpoint we're currently following, and can
+      ## therefore never be included in our canonical chain - we keep their hash
       ## around so that we can avoid cluttering the orphans table with their
-      ## descendants - an ordered table is used to keep them in FIFO order more
-      ## or less..
+      ## descendants - the ChainDAG only keeps track blocks that make up the
+      ## valid and canonical history.
+      ##
+      ## Entries are evicted in FIFO order - recent entries are more likely to
+      ## appear again in attestations and blocks - however, the unviable block
+      ## table is not a complete directory of all unviable blocks circulating -
+      ## only those we have observed, been able to verify as unviable and fit
+      ## in this cache.
 
     missing*: Table[Eth2Digest, MissingBlock]
       ## Roots of blocks that we would like to have (either parent_root of
