@@ -552,6 +552,52 @@ suite "SyncManager test suite":
 
     check waitFor(runTest()) == true
 
+  test "Process all unviable blocks":
+    let
+      aq = newAsyncQueue[BlockEntry]()
+      startSlot = Slot(0)
+      chunkSize = SLOTS_PER_EPOCH
+      numberOfChunks = 1'u64
+      finishSlot = Slot(startSlot + numberOfChunks * chunkSize - 1'u64)
+      queueSize = 1
+
+    var counter = int(startSlot)
+
+    proc forwardValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
+      while true:
+        let sblock = await aq.popFirst()
+        withBlck(sblock.blck):
+          sblock.fail(BlockError.UnviableFork)
+          inc(counter)
+
+    var
+      chain = createChain(startSlot, finishSlot)
+      queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
+                             startSlot, finishSlot, chunkSize,
+                             getFirstSlotAtFinalizedEpoch, collector(aq),
+                             queueSize)
+      validatorFut = forwardValidator(aq)
+
+    let
+      p1 = SomeTPeer()
+
+    proc runTest(): Future[bool] {.async.} =
+      var r11 = queue.pop(finishSlot, p1)
+
+      # Push a single request that will fail with all blocks being unviable
+      var f11 = queue.push(r11, chain.getSlice(startSlot, r11))
+      discard await f11.withTimeout(100.milliseconds)
+
+      check:
+        f11.finished == true
+        counter == int(startSlot + chunkSize) # should process all unviable blocks
+        debtLen(queue) == chunkSize # The range must be retried
+
+      await validatorFut.cancelAndWait()
+      return true
+
+    check waitFor(runTest()) == true
+
   test "[SyncQueue#Backward] Async unordered push with rewind test":
     let
       aq = newAsyncQueue[BlockEntry]()

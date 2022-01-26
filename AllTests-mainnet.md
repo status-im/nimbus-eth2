@@ -74,6 +74,11 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + Reverse order block add & get [Preset: mainnet]                                            OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## Block quarantine
+```diff
++ Unviable smoke test                                                                        OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## BlockId and helpers
 ```diff
 + atSlot sanity                                                                              OK
@@ -361,6 +366,7 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## SyncManager test suite
 ```diff
++ Process all unviable blocks                                                                OK
 + [SyncQueue#Backward] Async unordered push test                                             OK
 + [SyncQueue#Backward] Async unordered push with rewind test                                 OK
 + [SyncQueue#Backward] Pass through established limits test                                  OK
@@ -380,7 +386,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + [SyncQueue] getLastNonEmptySlot() test                                                     OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
-OK: 18/18 Fail: 0/18 Skip: 0/18
+OK: 19/19 Fail: 0/19 Skip: 0/19
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
@@ -451,4 +457,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 249/253 Fail: 0/253 Skip: 4/253
+OK: 251/255 Fail: 0/255 Skip: 4/255
