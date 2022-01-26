@@ -123,25 +123,44 @@ func disconnectReasonName(reason: uint64): string =
   elif reason == uint64(FaultOrError): "Fault or error"
   else: "Disconnected (" & $reason & ")"
 
-proc getCurrentStatus*(state: BeaconSyncNetworkState): StatusMsg {.gcsafe.} =
+proc getCurrentStatus(state: BeaconSyncNetworkState): StatusMsg =
   let
     dag = state.dag
-    headBlock = dag.head
-    wallTimeSlot = state.getBeaconTime().slotOrZero
+    wallSlot = state.getBeaconTime().slotOrZero
 
   StatusMsg(
-    forkDigest: state.dag.forkDigestAtEpoch(wallTimeSlot.epoch),
-    finalizedRoot:
-      getStateField(dag.headState.data, finalized_checkpoint).root,
-    finalizedEpoch:
-      getStateField(dag.headState.data, finalized_checkpoint).epoch,
-    headRoot: headBlock.root,
-    headSlot: headBlock.slot)
+    forkDigest: dag.forkDigestAtEpoch(wallSlot.epoch),
+    finalizedRoot: dag.finalizedHead.blck.root,
+    finalizedEpoch: dag.finalizedHead.slot.epoch,
+    headRoot: dag.head.root,
+    headSlot: dag.head.slot)
+
+proc checkStatusMsg(state: BeaconSyncNetworkState, status: StatusMsg):
+    Result[void, cstring] =
+  let
+    dag = state.dag
+    wallSlot = (state.getBeaconTime() + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero
+
+  if status.finalizedEpoch > status.headSlot.epoch:
+    # Can be equal during genesis or checkpoint start
+    return err("finalized epoch newer than head")
+
+  if status.headSlot > wallSlot:
+    return err("head more recent than wall clock")
+
+  if dag.forkDigestAtEpoch(wallSlot.epoch) != status.forkDigest:
+    return err("fork digests differ")
+
+  if status.finalizedEpoch <= dag.finalizedHead.slot.epoch:
+    let blockId = dag.getBlockIdAtSlot(status.finalizedEpoch.start_slot())
+    if status.finalizedRoot != blockId.bid.root and blockId.bid.root != Eth2Digest():
+      return err("peer following different finality")
+
+  ok()
 
 proc handleStatus(peer: Peer,
                   state: BeaconSyncNetworkState,
-                  ourStatus: StatusMsg,
-                  theirStatus: StatusMsg): Future[void] {.gcsafe.}
+                  theirStatus: StatusMsg): Future[bool] {.gcsafe.}
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) {.gcsafe.}
 
@@ -171,8 +190,7 @@ p2pProtocol BeaconSync(version = 1,
       theirStatus = await peer.status(ourStatus, timeout = RESP_TIMEOUT)
 
     if theirStatus.isOk:
-      await peer.handleStatus(peer.networkState,
-                              ourStatus, theirStatus.get())
+      discard await peer.handleStatus(peer.networkState, theirStatus.get())
     else:
       debug "Status response not received in time",
             peer, errorKind = theirStatus.error.kind
@@ -185,7 +203,7 @@ p2pProtocol BeaconSync(version = 1,
     let ourStatus = peer.networkState.getCurrentStatus()
     trace "Sending status message", peer = peer, status = ourStatus
     await response.send(ourStatus)
-    await peer.handleStatus(peer.networkState, ourStatus, theirStatus)
+    discard await peer.handleStatus(peer.networkState, theirStatus)
 
   proc ping(peer: Peer, value: uint64): uint64
     {.libp2pProtocol("ping", 1).} =
@@ -375,6 +393,25 @@ proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
   peer.state(BeaconSync).statusMsg = statusMsg
   peer.state(BeaconSync).statusLastTime = Moment.now()
 
+proc handleStatus(peer: Peer,
+                  state: BeaconSyncNetworkState,
+                  theirStatus: StatusMsg): Future[bool] {.async, gcsafe.} =
+  let
+    res = checkStatusMsg(state, theirStatus)
+
+  return if res.isErr():
+    debug "Irrelevant peer", peer, theirStatus, err = res.error()
+    await peer.disconnect(IrrelevantNetwork)
+    false
+  else:
+    peer.setStatusMsg(theirStatus)
+
+    if peer.connectionState == Connecting:
+      # As soon as we get here it means that we passed handshake succesfully. So
+      # we can add this peer to PeerPool.
+      await peer.handlePeer()
+    true
+
 proc updateStatus*(peer: Peer): Future[bool] {.async.} =
   ## Request `status` of remote peer ``peer``.
   let
@@ -387,28 +424,13 @@ proc updateStatus*(peer: Peer): Future[bool] {.async.} =
   else:
     let theirStatus = theirFut.read()
     if theirStatus.isOk:
-      peer.setStatusMsg(theirStatus.get)
-      return true
+      return await peer.handleStatus(nstate, theirStatus.get())
     else:
       return false
 
 proc getHeadSlot*(peer: Peer): Slot =
   ## Returns head slot for specific peer ``peer``.
   peer.state(BeaconSync).statusMsg.headSlot
-
-proc handleStatus(peer: Peer,
-                  state: BeaconSyncNetworkState,
-                  ourStatus: StatusMsg,
-                  theirStatus: StatusMsg) {.async, gcsafe.} =
-  if theirStatus.forkDigest != ourStatus.forkDigest:
-    debug "Irrelevant peer", peer, theirStatus, ourStatus
-    await peer.disconnect(IrrelevantNetwork)
-  else:
-    peer.setStatusMsg(theirStatus)
-    if peer.connectionState == Connecting:
-      # As soon as we get here it means that we passed handshake succesfully. So
-      # we can add this peer to PeerPool.
-      await peer.handlePeer()
 
 proc initBeaconSync*(network: Eth2Node, dag: ChainDAGRef,
                      getBeaconTime: GetBeaconTimeFn) =
