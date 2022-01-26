@@ -152,6 +152,11 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + addExitMessage/getVoluntaryExitMessage                                                     OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## FinalizedBlocks [Preset: mainnet]
+```diff
++ Basic ops [Preset: mainnet]                                                                OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Fork Choice + Finality  [Preset: mainnet]
 ```diff
 + fork_choice - testing finality #01                                                         OK
@@ -457,4 +462,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 251/255 Fail: 0/255 Skip: 4/255
+OK: 252/256 Fail: 0/256 Skip: 4/256

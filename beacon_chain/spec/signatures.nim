@@ -86,7 +86,7 @@ proc verify_epoch_signature*(
 
 func compute_block_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    blck: Eth2Digest | SomeSomeBeaconBlock | BeaconBlockHeader): Eth2Digest =
+    blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader): Eth2Digest =
   let
     epoch = epoch(slot)
     domain = get_domain(
@@ -104,7 +104,7 @@ func get_block_signature*(
 
 proc verify_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    blck: Eth2Digest | SomeSomeBeaconBlock | BeaconBlockHeader,
+    blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   withTrust(signature):
     let

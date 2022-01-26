@@ -414,6 +414,7 @@ suite "Beacon chain DB" & preset():
 
     doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
     doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 0
+    doAssert db.getBeaconBlockSummary(a2.root).isNone()
 
     db.putBlock(a2)
 
@@ -422,6 +423,7 @@ suite "Beacon chain DB" & preset():
 
     doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
     doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 1
+    doAssert db.getBeaconBlockSummary(a2.root).get().slot == a2.message.slot
 
     db.putBlock(a1)
 
@@ -481,3 +483,32 @@ suite "Beacon chain DB" & preset():
 
     check:
       hash_tree_root(state2[]) == root
+
+suite "FinalizedBlocks" & preset():
+  test "Basic ops" & preset():
+    var
+      db = SqStoreRef.init("", "test", inMemory = true).expect(
+        "working database (out of memory?)")
+
+    var s = FinalizedBlocks.init(db, "finalized_blocks").get()
+
+    check:
+      s.low.isNone
+      s.high.isNone
+
+    s.insert(Slot 0, Eth2Digest())
+    check:
+      s.low.get() == Slot 0
+      s.high.get() == Slot 0
+
+    s.insert(Slot 5, Eth2Digest())
+    check:
+      s.low.get() == Slot 0
+      s.high.get() == Slot 5
+
+    var items = 0
+    for k, v in s:
+      check: k in [Slot 0, Slot 5]
+      items += 1
+
+    check: items == 2

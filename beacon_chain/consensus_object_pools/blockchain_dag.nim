@@ -105,6 +105,27 @@ proc updateValidatorKeys*(dag: ChainDAGRef, validators: openArray[Validator]) =
   # data (but no earlier than that the whole block as been validated)
   dag.db.updateImmutableValidators(validators)
 
+proc updateFinalizedBlocks*(dag: ChainDAGRef) =
+  template update(s: Slot) =
+    if s < dag.tail.slot:
+      if dag.backfillBlocks[s.int] != Eth2Digest():
+        dag.db.finalizedBlocks.insert(s, dag.backfillBlocks[s.int])
+    else:
+      let dagIndex = int(s - dag.tail.slot)
+      if not isNil(dag.finalizedBlocks[dagIndex]):
+        dag.db.finalizedBlocks.insert(s, dag.finalizedBlocks[dagIndex].root)
+
+  if not dag.db.db.readOnly: # TODO abstraction leak - where to put this?
+    dag.db.withManyWrites:
+      if dag.db.finalizedBlocks.low.isNone():
+        for s in dag.backfill.slot .. dag.finalizedHead.slot:
+          update(s)
+      else:
+        for s in dag.backfill.slot ..< dag.db.finalizedBlocks.low.get():
+          update(s)
+        for s in dag.db.finalizedBlocks.high.get() + 1 .. dag.finalizedHead.slot:
+          update(s)
+
 func validatorKey*(
     dag: ChainDAGRef, index: ValidatorIndex or uint64): Option[CookedPubKey] =
   ## Returns the validator pubkey for the index, assuming it's been observed
@@ -433,19 +454,59 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     withBlck(genesisBlock): BlockRef.init(genesisBlockRoot, blck.message)
 
   var
-    headRef: BlockRef
+    backfillBlocks = newSeq[Eth2Digest](tailRef.slot.int)
+    backfill = BeaconBlockSummary(slot: GENESIS_SLOT)
+    midRef: BlockRef
+    backRoot: Option[Eth2Digest]
+    startTick = Moment.now()
+
+  # Loads blocks in the forward direction - these may or may not be available
+  # in the database
+  for slot, root in db.finalizedBlocks:
+    if slot < tailRef.slot:
+      backfillBlocks[slot.int] = root
+      if backRoot.isNone():
+        backRoot = some(root)
+    elif slot == tailRef.slot:
+      midRef = tailRef
+    elif slot > tailRef.slot:
+      let next = BlockRef.init(root, slot)
+      link(midRef, next)
+      midRef = next
+
+  let finalizedTick = Moment.now()
 
   var
-    backfillBlocks = newSeq[Eth2Digest](tailRef.slot.int)
+    headRef: BlockRef
     curRef: BlockRef
-    backfill = BeaconBlockSummary(slot: GENESIS_SLOT)
 
+  # Now load the part from head to finalized in the other direction - these
+  # should meet at the midpoint if we loaded any finalized blocks
   for blck in db.getAncestorSummaries(headRoot):
+    if midRef != nil and blck.summary.slot == midRef.slot:
+      if midRef.root != blck.root:
+        fatal "Finalized block table does not match ancestor summaries, database corrupt?"
+        quit 1
+
+      if curRef == nil:
+        # When starting from checkpoint, head == tail and there won't be any
+        # blocks in between
+        headRef = tailRef
+      else:
+        link(midRef, curRef)
+
+       # The finalized blocks form a linear history by definition - we can skip
+       # straight to the tail
+      curRef = tailRef
+      break
+
     if blck.summary.slot < tailRef.slot:
       backfillBlocks[blck.summary.slot.int] = blck.root
-      backfill = blck.summary
+      if backRoot.isNone():
+        backfill = blck.summary
     elif blck.summary.slot == tailRef.slot:
-      backfill = blck.summary
+      if backRoot.isNone():
+        backfill = blck.summary
 
       if curRef == nil:
         curRef = tailRef
@@ -454,14 +515,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         link(tailRef, curRef)
         curRef = curRef.parent
     else:
-      if curRef == nil:
-        # When the database has been written with a pre-fork version of the
-        # software, it may happen that blocks produced using an "unforked"
-        # chain get written to the database - we need to skip such blocks
-        # when loading the database with a fork-compatible version
-        if not containsBlock(cfg, db, blck.summary.slot, blck.root):
-          continue
-
       let newRef = BlockRef.init(blck.root, blck.summary.slot)
       if curRef == nil:
         curRef = newRef
@@ -472,61 +525,37 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
       trace "Populating block dag", key = curRef.root, val = curRef
 
+  if backRoot.isSome():
+    backfill = db.getBeaconBlockSummary(backRoot.get()).expect(
+      "Backfill block must have a summary")
+
+  let summariesTick = Moment.now()
+
   if curRef != tailRef:
     fatal "Head block does not lead to tail - database corrupt?",
       genesisRef, tailRef, headRef, curRef, tailRoot, headRoot
 
     quit 1
 
+  while not containsBlock(cfg, db, headRef.slot, headRef.root):
+    # When the database has been written with a pre-fork version of the
+    # software, it may happen that blocks produced using an "unforked"
+    # chain get written to the database - we need to skip such blocks
+    # when loading the database with a fork-compatible version
+    if isNil(headRef.parent):
+      fatal "Cannot find block for head root - database corrupt?",
+        headRef = shortLog(headRef)
+
+    headRef = headRef.parent
+
   # Because of incorrect hardfork check, there might be no head block, in which
   # case it's equivalent to the tail block
   if headRef == nil:
     headRef = tailRef
 
-  var
-    cur = headRef.atSlot()
-    tmpState = (ref StateData)()
-
-  # Now that we have a head block, we need to find the most recent state that
-  # we have saved in the database
-  while cur.blck != nil and
-      not getStateData(db, cfg, tmpState[], cur, noRollback):
-    cur = cur.parentOrSlot()
-
-  if tmpState.blck == nil:
-    fatal "No state found in head history, database corrupt?",
-      genesisRef, tailRef, headRef, tailRoot, headRoot
-    # TODO Potentially we could recover from here instead of crashing - what
-    #      would be a good recovery model?
-    quit 1
-
-  case tmpState.data.kind
-  of BeaconStateFork.Phase0:
-    if tmpState.data.phase0Data.data.fork != genesisFork(cfg):
-      error "State from database does not match network, check --network parameter",
-        genesisRef, tailRef, headRef, tailRoot, headRoot,
-        stateFork = tmpState.data.phase0Data.data.fork,
-        configFork = genesisFork(cfg)
-      quit 1
-  of BeaconStateFork.Altair:
-    if tmpState.data.altairData.data.fork != altairFork(cfg):
-      error "State from database does not match network, check --network parameter",
-        genesisRef, tailRef, headRef, tailRoot, headRoot,
-        stateFork = tmpState.data.altairData.data.fork,
-        configFork = altairFork(cfg)
-      quit 1
-  of BeaconStateFork.Bellatrix:
-    if tmpState.data.bellatrixData.data.fork != bellatrixFork(cfg):
-      error "State from database does not match network, check --network parameter",
-        genesisRef, tailRef, headRef, tailRoot, headRoot,
-        stateFork = tmpState.data.bellatrixData.data.fork,
-        configFork = bellatrixFork(cfg)
-      quit 1
-
   let dag = ChainDAGRef(
     db: db,
     validatorMonitor: validatorMonitor,
-    backfillBlocks: backfillBlocks,
     genesis: genesisRef,
     tail: tailRef,
     backfill: backfill,
@@ -535,24 +564,55 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     # Tail is implicitly finalized - we'll adjust it below when computing the
     # head state
     heads: @[headRef],
-    headState: tmpState[],
-    epochRefState: tmpState[],
-    clearanceState: tmpState[],
 
     # The only allowed flag right now is verifyFinalization, as the others all
     # allow skipping some validation.
     updateFlags: {verifyFinalization} * updateFlags,
     cfg: cfg,
 
-    forkDigests: newClone ForkDigests.init(
-      cfg,
-      getStateField(tmpState.data, genesis_validators_root)),
-
     onBlockAdded: onBlockCb,
     onHeadChanged: onHeadCb,
     onReorgHappened: onReorgCb,
     onFinHappened: onFinCb
   )
+
+  block: # Initialize dag states
+    var
+      cur = headRef.atSlot()
+
+    # Now that we have a head block, we need to find the most recent state that
+    # we have saved in the database
+    while cur.blck != nil and
+        not getStateData(db, cfg, dag.headState, cur, noRollback):
+      cur = cur.parentOrSlot()
+
+    if dag.headState.blck == nil:
+      fatal "No state found in head history, database corrupt?",
+        genesisRef, tailRef, headRef, tailRoot, headRoot
+      # TODO Potentially we could recover from here instead of crashing - what
+      #      would be a good recovery model?
+      quit 1
+
+    let
+      configFork = case dag.headState.data.kind
+        of BeaconStateFork.Phase0: genesisFork(cfg)
+        of BeaconStateFork.Altair: altairFork(cfg)
+        of BeaconStateFork.Bellatrix: bellatrixFork(cfg)
+      statefork = getStateField(dag.headState.data, fork)
+
+    if stateFork != configFork:
+      error "State from database does not match network, check --network parameter",
+        genesisRef, tailRef, headRef, tailRoot, headRoot, stateFork, configFork
+      quit 1
+
+  assign(dag.clearanceState, dag.headState)
+  assign(dag.epochRefState, dag.headState)
+
+  dag.forkDigests = newClone ForkDigests.init(
+    cfg,
+    getStateField(dag.headState.data, genesis_validators_root))
+
+  swap(dag.backfillBlocks, backfillBlocks) # avoid allocating a full copy
 
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
@@ -596,27 +656,31 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       dag.finalizedBlocks[(tmp.slot - dag.tail.slot).int] = tmp
       tmp = tmp.parent
 
+  let stateTick = Moment.now()
+
   dag.clearanceState = dag.headState
 
   # Pruning metadata
   dag.lastPrunePoint = dag.finalizedHead
 
-  if not dag.db.db.readOnly:
-    # Fill validator key cache in case we're loading an old database that doesn't
-    # have a cache
-    dag.updateValidatorKeys(getStateField(dag.headState.data, validators).asSeq())
+  # Fill validator key cache in case we're loading an old database that doesn't
+  # have a cache
+  dag.updateValidatorKeys(getStateField(dag.headState.data, validators).asSeq())
+  dag.updateFinalizedBlocks()
 
   withState(dag.headState.data):
     when stateFork >= BeaconStateFork.Altair:
       dag.headSyncCommittees = state.data.get_sync_committee_cache(cache)
 
-  info "Block dag initialized",
+  info "Block DAG initialized",
     head = shortLog(dag.head),
     finalizedHead = shortLog(dag.finalizedHead),
     tail = shortLog(dag.tail),
-    finalizedBlocks = dag.finalizedBlocks.len(),
-    forkBlocks = dag.forkBlocks.len(),
-    backfill = (dag.backfill.slot, shortLog(dag.backfill.parent_root))
+    backfill = (dag.backfill.slot, shortLog(dag.backfill.parent_root)),
+    finalizedDur = finalizedTick - startTick,
+    summariesDur = summariesTick - finalizedTick,
+    stateDur = stateTick - summariesTick,
+    indexDur = Moment.now() - stateTick
 
   dag
 
@@ -1437,6 +1501,8 @@ proc updateHead*(
         tmp = tmp.parent
 
       dag.finalizedHead = finalizedHead
+
+      dag.updateFinalizedBlocks()
 
     beacon_finalized_epoch.set(getStateField(
       dag.headState.data, finalized_checkpoint).epoch.toGaugeValue)

@@ -314,13 +314,6 @@ type
   SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
   SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
 
-  # TODO why does this fail?
-  #SomeSomeBeaconBlock* = SomeBeaconBlock | phase0.SomeBeaconBlock
-  SomeSomeBeaconBlock* =
-    BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock |
-    altair.BeaconBlock | altair.SigVerifiedBeaconBlock | altair.TrustedBeaconBlock |
-    phase0.BeaconBlock | phase0.SigVerifiedBeaconBlock | phase0.TrustedBeaconBlock
-
   # TODO see above, re why does it fail
   SomeSomeBeaconBlockBody* =
     BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody |

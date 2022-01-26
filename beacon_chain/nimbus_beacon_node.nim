@@ -327,14 +327,14 @@ proc init*(T: type BeaconNode,
   # Doesn't use std/random directly, but dependencies might
   randomize(rng[].rand(high(int)))
 
-  info "Loading block dag from database", path = config.databaseDir
-
   let
     validatorMonitor = newClone(ValidatorMonitor.init(
       config.validatorMonitorAuto, config.validatorMonitorTotals))
 
   for key in config.validatorMonitorPubkeys:
     validatorMonitor[].addMonitor(key, none(ValidatorIndex))
+
+  info "Loading block DAG from database", path = config.databaseDir
 
   let
     chainDagFlags = if config.verifyFinalization: {verifyFinalization}

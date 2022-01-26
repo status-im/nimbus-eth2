@@ -149,7 +149,7 @@ proc epoch_signature_set*(
 # See also: verify_block_signature
 proc block_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    blck: Eth2Digest | SomeSomeBeaconBlock | BeaconBlockHeader,
+    blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_block_signing_root(
     fork, genesis_validators_root, slot, blck)

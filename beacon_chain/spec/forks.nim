@@ -76,6 +76,11 @@ type
     altair.TrustedBeaconBlock |
     bellatrix.TrustedBeaconBlock
 
+  SomeForkyBeaconBlock* =
+    ForkyBeaconBlock |
+    ForkySigVerifiedBeaconBlock |
+    ForkyTrustedBeaconBlock
+
   ForkedBeaconBlock* = object
     case kind*: BeaconBlockFork
     of BeaconBlockFork.Phase0:    phase0Data*:    phase0.BeaconBlock

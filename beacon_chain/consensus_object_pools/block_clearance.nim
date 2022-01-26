@@ -355,6 +355,7 @@ proc addBackfillBlock*(
 
   dag.backfillBlocks[blck.slot.int] = blockRoot
   dag.backfill = blck.toBeaconBlockSummary()
+  dag.db.finalizedBlocks.insert(blck.slot, blockRoot)
 
   let putBlockTick = Moment.now
   debug "Block backfilled",
