@@ -219,7 +219,7 @@ type
     blck: altair.TrustedSignedBeaconBlock,
     epochRef: EpochRef) {.gcsafe, raises: [Defect].}
 
-  OnMergeBlockAdded* = proc(
+  OnBellatrixBlockAdded* = proc(
     blckRef: BlockRef,
     blck: bellatrix.TrustedSignedBeaconBlock,
     epochRef: EpochRef) {.gcsafe, raises: [Defect].}

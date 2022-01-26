@@ -29,10 +29,10 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + sanity check Altair blocks [Preset: mainnet]                                               OK
 + sanity check Altair states [Preset: mainnet]                                               OK
 + sanity check Altair states, reusing buffers [Preset: mainnet]                              OK
-+ sanity check Merge and cross-fork getState rollback [Preset: mainnet]                      OK
-+ sanity check Merge blocks [Preset: mainnet]                                                OK
-+ sanity check Merge states [Preset: mainnet]                                                OK
-+ sanity check Merge states, reusing buffers [Preset: mainnet]                               OK
++ sanity check Bellatrix and cross-fork getState rollback [Preset: mainnet]                  OK
++ sanity check Bellatrix blocks [Preset: mainnet]                                            OK
++ sanity check Bellatrix states [Preset: mainnet]                                            OK
++ sanity check Bellatrix states, reusing buffers [Preset: mainnet]                           OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
 + sanity check phase 0 getState rollback [Preset: mainnet]                                   OK
@@ -166,8 +166,8 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 ```diff
 + load altair block                                                                          OK
 + load altair state                                                                          OK
-+ load merge block                                                                           OK
-+ load merge state                                                                           OK
++ load bellatrix block                                                                       OK
++ load bellatrix state                                                                       OK
 + load phase0 block                                                                          OK
 + load phase0 state                                                                          OK
 + should raise on unknown data                                                               OK

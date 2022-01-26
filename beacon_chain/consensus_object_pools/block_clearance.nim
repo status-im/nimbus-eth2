@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -30,7 +30,7 @@ proc addResolvedHeadBlock(
        state: var StateData,
        trustedBlock: ForkyTrustedSignedBeaconBlock,
        parent: BlockRef, cache: var StateCache,
-       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnMergeBlockAdded,
+       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded,
        stateDataDur, sigVerifyDur, stateVerifyDur: Duration
      ): BlockRef =
   doAssert getStateField(state.data, slot) == trustedBlock.message.slot,
@@ -142,12 +142,14 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
 proc addHeadBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
-    onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnMergeBlockAdded
+    onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded |
+                  OnBellatrixBlockAdded
     ): Result[BlockRef, BlockError] =
   ## Try adding a block to the chain, verifying first that it passes the state
   ## transition function and contains correct cryptographic signature.
   ##
-  ## Cryptographic checks can be skipped by adding skipBLSValidation to dag.updateFlags
+  ## Cryptographic checks can be skipped by adding skipBLSValidation to
+  ## dag.updateFlags
   logScope:
     blockRoot = shortLog(signedBlock.root)
     blck = shortLog(signedBlock.message)

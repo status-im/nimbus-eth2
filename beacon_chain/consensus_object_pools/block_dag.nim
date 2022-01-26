@@ -13,7 +13,7 @@ import
   ../spec/datatypes/[phase0, altair],
   ../spec/[helpers]
 
-export chronicles, phase0, altair, merge, helpers
+export chronicles, phase0, altair, helpers
 
 type
   BlockId* = object
