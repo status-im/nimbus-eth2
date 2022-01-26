@@ -8,11 +8,11 @@
 - [Run the beacon node](./quick-start.md)
 - [Run a validator](./run-a-validator.md)
 
-
 # How-to (beacon node)
 - [Install dependencies](./install.md)
 - [Build the beacon node](./build.md)
 - [Sync the beacon node](./start-syncing.md)
+  - [Trusted node sync](./trusted-node-sync.md)
 - [Add a backup web3 provider](./web3-backup.md)
 
 # How-to (validator)
@@ -46,7 +46,6 @@
 - [Create your own Infura endpoint](./infura-guide.md)
 - [Migrate from another client](./migration.md)
 - [Validate with a Raspberry Pi](./pi-guide.md)
-
 
 # Downloads
 - [Download binaries](./binaries.md)
