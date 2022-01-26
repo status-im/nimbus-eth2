@@ -231,8 +231,8 @@ template validateBeaconBlockBellatrix(
       quarantine[].addUnviable(signed_beacon_block.root)
       return errReject("BeaconBlock: Mismatched execution payload timestamp")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
@@ -319,6 +319,10 @@ proc validateBeaconBlock*(
       debug "Block quarantine full"
 
     return errIgnore("BeaconBlock: Parent not found")
+
+  # [REJECT] The block is from a higher slot than its parent.
+  if not (signed_beacon_block.message.slot > parent.bid.slot):
+    return errReject("BeaconBlock: block not from higher slot than its parent")
 
   # [REJECT] The current finalized_checkpoint is an ancestor of block -- i.e.
   # get_ancestor(store, block.parent_root,
