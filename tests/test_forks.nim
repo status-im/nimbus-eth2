@@ -57,7 +57,7 @@ suite "Forked SSZ readers":
     expect(SszError):
       testHashedBeaconState(bellatrix.BeaconState, cfg.ALTAIR_FORK_EPOCH.start_slot)
 
-  test "load merge state":
+  test "load bellatrix state":
     testHashedBeaconState(bellatrix.BeaconState, cfg.MERGE_FORK_EPOCH.start_slot)
 
     expect(SszError):
@@ -88,7 +88,7 @@ suite "Forked SSZ readers":
       testTrustedSignedBeaconBlock(
         bellatrix.TrustedSignedBeaconBlock, cfg.ALTAIR_FORK_EPOCH.start_slot)
 
-  test "load merge block":
+  test "load bellatrix block":
     testTrustedSignedBeaconBlock(
       bellatrix.TrustedSignedBeaconBlock, cfg.MERGE_FORK_EPOCH.start_slot)
 

@@ -169,7 +169,7 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check Merge blocks" & preset():
+  test "sanity check Bellatrix blocks" & preset():
     var db = BeaconChainDB.new("", inMemory = true)
 
     let
@@ -244,7 +244,7 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check Merge states" & preset():
+  test "sanity check Bellatrix states" & preset():
     var db = makeTestDB(SLOTS_PER_EPOCH)
 
     for state in testStatesBellatrix:
@@ -302,7 +302,7 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check Merge states, reusing buffers" & preset():
+  test "sanity check Bellatrix states, reusing buffers" & preset():
     var db = makeTestDB(SLOTS_PER_EPOCH)
     let stateBuffer = (bellatrix.BeaconStateRef)()
 
@@ -371,7 +371,7 @@ suite "Beacon chain DB" & preset():
       state[].kind == BeaconStateFork.Phase0
       state[].phase0Data.data.slot != 10.Slot
 
-  test "sanity check Merge and cross-fork getState rollback" & preset():
+  test "sanity check Bellatrix and cross-fork getState rollback" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())

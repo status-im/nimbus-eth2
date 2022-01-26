@@ -92,9 +92,9 @@ func noRollback*() =
   trace "Skipping rollback of broken state"
 
 type
-  RollbackHashedProc* =       proc(state: var phase0.HashedBeaconState)    {.gcsafe, raises: [Defect].}
-  RollbackAltairHashedProc* = proc(state: var altair.HashedBeaconState)    {.gcsafe, raises: [Defect].}
-  RollbackMergeHashedProc* =  proc(state: var bellatrix.HashedBeaconState) {.gcsafe, raises: [Defect].}
+  RollbackHashedProc* =          proc(state: var phase0.HashedBeaconState)    {.gcsafe, raises: [Defect].}
+  RollbackAltairHashedProc* =    proc(state: var altair.HashedBeaconState)    {.gcsafe, raises: [Defect].}
+  RollbackBellatrixHashedProc* = proc(state: var bellatrix.HashedBeaconState) {.gcsafe, raises: [Defect].}
 
 # Hashed-state transition functions
 # ---------------------------------------------------------------
@@ -465,7 +465,7 @@ proc makeBeaconBlock*(
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
     execution_payload: ExecutionPayload,
-    rollback: RollbackMergeHashedProc,
+    rollback: RollbackBellatrixHashedProc,
     cache: var StateCache): Result[bellatrix.BeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
