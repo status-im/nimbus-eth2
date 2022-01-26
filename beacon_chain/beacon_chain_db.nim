@@ -306,6 +306,7 @@ proc init*(T: type FinalizedBlocks, db: SqStoreRef, name: string): KvResult[T] =
   var
     low, high: Opt[Slot]
     tmp: Option[int64]
+
   for rowRes in minIdStmt.exec(tmp):
     expectDb rowRes
     if tmp.isSome():
@@ -317,6 +318,7 @@ proc init*(T: type FinalizedBlocks, db: SqStoreRef, name: string): KvResult[T] =
       high.ok(Slot(tmp.get()))
 
   maxIdStmt.dispose()
+  minIdStmt.dispose()
 
   ok(T(insertStmt: insertStmt,
          selectStmt: selectStmt,
@@ -1093,19 +1095,20 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
   # Backwards compat for reading old databases, or those that for whatever
   # reason lost a summary along the way..
   while true:
-    if db.v0.backend.getSnappySSZ(subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found:
-      yield res
+    if db.v0.backend.getSnappySSZ(
+        subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found:
+      discard # Just yield below
     elif (let blck = db.getPhase0Block(res.root); blck.isSome()):
       res.summary = blck.get().message.toBeaconBlockSummary()
-      yield res
     elif (let blck = db.getAltairBlock(res.root); blck.isSome()):
       res.summary = blck.get().message.toBeaconBlockSummary()
-      yield res
     elif (let blck = db.getMergeBlock(res.root); blck.isSome()):
       res.summary = blck.get().message.toBeaconBlockSummary()
-      yield res
     else:
       break
+
+    yield res
+
     # Next time, load them from the right place
     newSummaries.add(res)
 
