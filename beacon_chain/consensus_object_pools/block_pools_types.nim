@@ -38,8 +38,8 @@ type
       ## appears or be discarded if finality obsoletes it
 
     UnviableFork
-      ## Block is from a different history / fork than the one we're interested
-      ## in (based on our finalized checkpoint)
+      ## Block is from a history / fork that does not include our most current
+      ## finalized checkpoint
 
     Duplicate
       ## We've seen this block already, can't add again
@@ -52,9 +52,6 @@ type
     proc(data: ReorgInfoObject) {.gcsafe, raises: [Defect].}
   OnFinalizedCallback* =
     proc(data: FinalizationInfoObject) {.gcsafe, raises: [Defect].}
-
-  FetchRecord* = object
-    root*: Eth2Digest
 
   KeyedBlockRef* = object
     # Special wrapper for BlockRef used in ChainDAG.blocks that allows lookup

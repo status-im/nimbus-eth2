@@ -228,6 +228,7 @@ template validateBeaconBlockBellatrix(
         compute_timestamp_at_slot(state.data, signed_beacon_block.message.slot)
     if not (signed_beacon_block.message.body.execution_payload.timestamp ==
         timestampAtSlot):
+      quarantine[].addUnviable(signed_beacon_block.root)
       return errReject("BeaconBlock: Mismatched execution payload timestamp")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#beacon_block
@@ -306,9 +307,15 @@ proc validateBeaconBlock*(
   # And implicitly:
   # [REJECT] The block's parent (defined by block.parent_root) passes validation.
   let parent = dag.getBlockRef(signed_beacon_block.message.parent_root).valueOr:
+    if signed_beacon_block.message.parent_root in quarantine[].unviable:
+      quarantine[].addUnviable(signed_beacon_block.root)
+      return errReject("BeaconBlock: parent from unviable fork")
+
     # When the parent is missing, we can't validate the block - we'll queue it
     # in the quarantine for later processing
-    if not quarantine[].add(dag, ForkedSignedBeaconBlock.init(signed_beacon_block)):
+    if not quarantine[].addOrphan(
+        dag.finalizedHead.slot,
+        ForkedSignedBeaconBlock.init(signed_beacon_block)):
       debug "Block quarantine full"
 
     return errIgnore("BeaconBlock: Parent not found")
@@ -328,6 +335,8 @@ proc validateBeaconBlock*(
     return errIgnore("BeaconBlock: Can't find ancestor")
 
   if not (finalized_checkpoint.root in [ancestor.root, Eth2Digest()]):
+    quarantine[].addUnviable(signed_beacon_block.root)
+
     return errReject("BeaconBlock: Finalized checkpoint not an ancestor")
 
   # [REJECT] The block is proposed by the expected proposer_index for the
@@ -344,6 +353,8 @@ proc validateBeaconBlock*(
     return errIgnore("BeaconBlock: Cannot compute proposer") # internal issue
 
   if uint64(proposer.get()) != signed_beacon_block.message.proposer_index:
+    quarantine[].addUnviable(signed_beacon_block.root)
+
     return errReject("BeaconBlock: Unexpected proposer proposer")
 
   # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
@@ -355,6 +366,8 @@ proc validateBeaconBlock*(
       signed_beacon_block.root,
       dag.validatorKey(proposer.get()).get(),
       signed_beacon_block.signature):
+    quarantine[].addUnviable(signed_beacon_block.root)
+
     return errReject("BeaconBlock: Invalid proposer signature")
 
   validateBeaconBlockBellatrix(signed_beacon_block, parent)

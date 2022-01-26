@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,19 +9,25 @@
 
 import
   std/[tables],
-  chronicles,
   stew/bitops2,
-  ../spec/forks,
-  ./block_pools_types
+  ../spec/forks
 
-export tables, forks, block_pools_types
+export tables, forks
 
 const
   MaxMissingItems = 1024
+    ## Arbitrary
+  MaxOrphans = SLOTS_PER_EPOCH * 3
+    ## Enough for finalization in an alternative fork
+  MaxUnviables = 16 * 1024
+    ## About a day of blocks - most likely not needed but it's quite cheap..
 
 type
   MissingBlock* = object
     tries*: int
+
+  FetchRecord* = object
+    root*: Eth2Digest
 
   Quarantine* = object
     ## Keeps track of unvalidated blocks coming from the network
@@ -32,18 +38,29 @@ type
     ##
     ## Trivially invalid blocks may be dropped before reaching this stage.
 
-    orphans*: Table[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock] ##\
-    ## Blocks that we don't have a parent for - when we resolve the parent, we
-    ## can proceed to resolving the block as well - we index this by root and
-    ## signature such that a block with invalid signature won't cause a block
-    ## with a valid signature to be dropped
+    orphans*: Table[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
+      ## Blocks that we don't have a parent for - when we resolve the parent, we
+      ## can proceed to resolving the block as well - we index this by root and
+      ## signature such that a block with invalid signature won't cause a block
+      ## with a valid signature to be dropped
 
-    missing*: Table[Eth2Digest, MissingBlock] ##\
-    ## Roots of blocks that we would like to have (either parent_root of
-    ## unresolved blocks or block roots of attestations)
+    unviable*: OrderedTable[Eth2Digest, tuple[]]
+      ## Unviable blocks are those that come from a history that does not
+      ## include the finalized checkpoint we're currently following, and can
+      ## therefore never be included in our canonical chain - we keep their hash
+      ## around so that we can avoid cluttering the orphans table with their
+      ## descendants - the ChainDAG only keeps track blocks that make up the
+      ## valid and canonical history.
+      ##
+      ## Entries are evicted in FIFO order - recent entries are more likely to
+      ## appear again in attestations and blocks - however, the unviable block
+      ## table is not a complete directory of all unviable blocks circulating -
+      ## only those we have observed, been able to verify as unviable and fit
+      ## in this cache.
 
-logScope:
-  topics = "quarant"
+    missing*: Table[Eth2Digest, MissingBlock]
+      ## Roots of blocks that we would like to have (either parent_root of
+      ## unresolved blocks or block roots of attestations)
 
 func init*(T: type Quarantine): T =
   T()
@@ -83,70 +100,112 @@ func addMissing*(quarantine: var Quarantine, root: Eth2Digest) =
   if quarantine.missing.len >= MaxMissingItems:
     return
 
+  if root in quarantine.unviable:
+    # Won't get anywhere with this block
+    return
+
   # It's not really missing if we're keeping it in the quarantine
-  if (not anyIt(quarantine.orphans.keys,  it[0] == root)):
-    # If the block is in orphans, we no longer need it
-    discard quarantine.missing.hasKeyOrPut(root, MissingBlock())
+  if anyIt(quarantine.orphans.keys,  it[0] == root):
+    return
+
+  # Add if it's not there, but don't update missing counter
+  discard quarantine.missing.hasKeyOrPut(root, MissingBlock())
 
 func removeOrphan*(
     quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
   quarantine.orphans.del((signedBlock.root, signedBlock.signature))
 
 func isViableOrphan(
-    dag: ChainDAGRef, signedBlock: ForkedSignedBeaconBlock): bool =
+    finalizedSlot: Slot, signedBlock: ForkedSignedBeaconBlock): bool =
   # The orphan must be newer than the finalization point so that its parent
   # either is the finalized block or more recent
-  let slot = withBlck(signedBlock): blck.message.slot
-  slot > dag.finalizedHead.slot
+  let
+    slot = getForkedBlockField(signedBlock, slot)
+  slot > finalizedSlot
 
-func removeOldBlocks(quarantine: var Quarantine, dag: ChainDAGRef) =
-  var oldBlocks: seq[(Eth2Digest, ValidatorSig)]
+func cleanupUnviable(quarantine: var Quarantine) =
+  while quarantine.unviable.len() >= MaxUnviables:
+    var toDel: Eth2Digest
+    for k in quarantine.unviable.keys():
+      toDel = k
+      break # Cannot modify while for-looping
+    quarantine.unviable.del(toDel)
 
-  template removeNonviableOrphans(orphans: untyped) =
-    for k, v in orphans.pairs():
-      if not isViableOrphan(dag, v):
-        oldBlocks.add k
+func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
+  if root in quarantine.unviable:
+    return
 
-    for k in oldBlocks:
-      orphans.del k
+  quarantine.cleanupUnviable()
 
-  removeNonviableOrphans(quarantine.orphans)
+  # Remove the tree of orphans whose ancestor is unviable - they are now also
+  # unviable! This helps avoiding junk in the quarantine, because we don't keep
+  # unviable parents in the DAG and there's no way to tell an orphan from an
+  # unviable block without the parent.
+  var
+    toRemove: seq[(Eth2Digest, ValidatorSig)] # Can't modify while iterating
+    toCheck = @[root]
+  while toCheck.len > 0:
+    let root = toCheck.pop()
+    for k, v in quarantine.orphans.mpairs():
+      if getForkedBlockField(v, parent_root) == root:
+        toCheck.add(k[0])
+        toRemove.add(k)
+      elif k[0] == root:
+        toRemove.add(k)
+
+    for k in toRemove:
+      quarantine.orphans.del k
+      quarantine.unviable.add(k[0], ())
+
+    toRemove.setLen(0)
+
+  quarantine.unviable.add(root, ())
+
+func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
+  var toDel: seq[(Eth2Digest, ValidatorSig)]
+
+  for k, v in quarantine.orphans.pairs():
+    if not isViableOrphan(finalizedSlot, v):
+      toDel.add k
+
+  for k in toDel:
+    quarantine.addUnviable k[0]
 
 func clearQuarantine*(quarantine: var Quarantine) =
-  quarantine.orphans.clear()
-  quarantine.missing.clear()
+  quarantine = Quarantine()
 
 # Typically, blocks will arrive in mostly topological order, with some
 # out-of-order block pairs. Therefore, it is unhelpful to use either a
 # FIFO or LIFO discpline, and since by definition each block gets used
 # either 0 or 1 times it's not a cache either. Instead, stop accepting
-# new blocks, and rely on syncing to cache up again if necessary. When
-# using forward sync, blocks only arrive in an order not requiring the
-# quarantine.
+# new blocks, and rely on syncing to cache up again if necessary.
 #
 # For typical use cases, this need not be large, as they're two or three
 # blocks arriving out of order due to variable network delays. As blocks
 # for future slots are rejected before reaching quarantine, this usually
 # will be a block for the last couple of slots for which the parent is a
 # likely imminent arrival.
-
-# Since we start forward sync when about one epoch is missing, that's as
-# good a number as any.
-const MAX_QUARANTINE_ORPHANS = SLOTS_PER_EPOCH
-
-func add*(quarantine: var Quarantine, dag: ChainDAGRef,
-          signedBlock: ForkedSignedBeaconBlock): bool =
+func addOrphan*(
+    quarantine: var Quarantine, finalizedSlot: Slot,
+    signedBlock: ForkedSignedBeaconBlock): bool =
   ## Adds block to quarantine's `orphans` and `missing` lists.
-  if not isViableOrphan(dag, signedBlock):
+  if not isViableOrphan(finalizedSlot, signedBlock):
+    quarantine.addUnviable(signedBlock.root)
     return false
 
-  quarantine.removeOldBlocks(dag)
+  quarantine.cleanupOrphans(finalizedSlot)
+
+  let parent_root = getForkedBlockField(signedBlock, parent_root)
+
+  if parent_root in quarantine.unviable:
+    quarantine.unviable.add(signedBlock.root, ())
+    return true
 
   # Even if the quarantine is full, we need to schedule its parent for
   # downloading or we'll never get to the bottom of things
-  withBlck(signedBlock): quarantine.addMissing(blck.message.parent_root)
+  quarantine.addMissing(parent_root)
 
-  if quarantine.orphans.lenu64 >= MAX_QUARANTINE_ORPHANS:
+  if quarantine.orphans.lenu64 >= MaxOrphans:
     return false
 
   quarantine.orphans[(signedBlock.root, signedBlock.signature)] =
@@ -164,7 +223,7 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
     for k in toRemove:
       quarantine.orphans.del k
 
-  for k, v in quarantine.orphans:
+  for k, v in quarantine.orphans.mpairs():
     if getForkedBlockField(v, parent_root) == root:
       toRemove.add(k)
       yield v

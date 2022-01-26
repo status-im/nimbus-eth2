@@ -30,14 +30,15 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
   ../validators/keystore_management,
-  ./eth2_discovery, ./peer_pool, ./libp2p_json_serialization
+  "."/[eth2_discovery, libp2p_json_serialization, peer_pool, peer_scores]
 
 when chronicles.enabledLogLevel == LogLevel.TRACE:
   import std/sequtils
 
 export
-  tables, version, multiaddress, peer_pool, peerinfo, p2pProtocol, connection,
-  libp2p_json_serialization, eth2_ssz_serialization, results, eth2_discovery
+  tables, version, multiaddress, peerinfo, p2pProtocol, connection,
+  libp2p_json_serialization, eth2_ssz_serialization, results, eth2_discovery,
+  peer_pool, peer_scores
 
 logScope:
   topics = "networking"
@@ -215,15 +216,6 @@ func phase0metadata*(node: Eth2Node): phase0.MetaData =
 const
   clientId* = "Nimbus beacon node " & fullVersionStr
   nodeMetadataFilename = "node-metadata.json"
-
-  NewPeerScore = 200
-    ## Score which will be assigned to new connected Peer
-  PeerScoreLowLimit = 0
-    ## Score after which peer will be kicked
-  PeerScoreHighLimit = 1000
-    ## Max value of peer's score
-  PeerScoreInvalidRequest = -500
-    ## This peer is sending malformed or nonsensical data
 
   ConcurrentConnections = 20
     ## Maximum number of active concurrent connection requests.

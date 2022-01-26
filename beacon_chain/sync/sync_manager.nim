@@ -13,9 +13,9 @@ import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rpc_types,
   ../spec/[helpers, forks],
-  ../networking/[peer_pool, eth2_network],
+  ../networking/[peer_pool, peer_scores, eth2_network],
   ../beacon_clock,
-  ./peer_scores, ./sync_queue
+  ./sync_queue
 
 export phase0, altair, merge, chronos, chronicles, results,
        helpers, peer_scores, sync_queue, forks

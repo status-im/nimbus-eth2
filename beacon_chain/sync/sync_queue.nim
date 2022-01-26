@@ -15,11 +15,10 @@ import
   ../spec/[helpers, forks],
   ../networking/[peer_pool, eth2_network],
   ../gossip_processing/block_processor,
-  ../consensus_object_pools/block_pools_types,
-  ./peer_scores
+  ../consensus_object_pools/block_pools_types
 
 export base, phase0, altair, merge, chronos, chronicles, results,
-       block_pools_types, helpers, peer_scores
+       block_pools_types, helpers
 
 logScope:
   topics = "syncqueue"
@@ -63,7 +62,6 @@ type
     chunkSize*: uint64
     queueSize*: int
     counter*: uint64
-    opcounter*: uint64
     pending*: Table[uint64, SyncRequest[T]]
     waiters: seq[SyncWaiter]
     getSafeSlot*: GetSlotCallback
@@ -570,33 +568,59 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
     if processingCb != nil:
       processingCb()
 
-    template isOkResponse(res: auto): bool =
-      res.isOk() or res.error in {BlockError.Duplicate, BlockError.UnviableFork}
-
     # Validating received blocks one by one
-    var res: Result[void, BlockError]
-    var failSlot: Option[Slot]
-    if len(item.data) > 0:
-      for blk in sq.blocks(item):
-        trace "Pushing block", block_root = blk.root,
-                               block_slot = blk.slot
-        res = await sq.blockVerifier(blk)
-        if not res.isOkResponse():
-          failSlot = some(blk.slot)
+    var
+      hasOkBlock = false
+      hasInvalidBlock = false
+      unviableBlock: Option[(Eth2Digest, Slot)]
+      missingParentSlot: Option[Slot]
+
+      # compiler segfault if this is moved into the for loop, at time of writing
+      res: Result[void, BlockError]
+
+    for blk in sq.blocks(item):
+      res = await sq.blockVerifier(blk)
+      if res.isOk():
+        hasOkBlock = true
+      else:
+        case res.error()
+        of BlockError.MissingParent:
+          missingParentSlot = some(blk.slot)
           break
-    else:
-      res = Result[void, BlockError].ok()
+        of BlockError.Duplicate:
+          # Keep going, happens naturally
+          discard
+        of BlockError.UnviableFork:
+          # Keep going so as to register other unviable blocks with the
+          # quarantine
+          if unviableBlock.isNone:
+            # Remember the first unviable block, so we can log it
+            unviableBlock = some((blk.root, blk.slot))
 
-    # Increase progress counter, so watch task will be able to know that we are
-    # not stuck.
-    inc(sq.opcounter)
+        of BlockError.Invalid:
+          hasInvalidBlock = true
 
-    if res.isOkResponse():
+          let req = item.request
+          warn "Received invalid sequence of blocks", peer = req.item,
+                request_slot = req.slot, request_count = req.count,
+                request_step = req.step, blocks_count = len(item.data),
+                blocks_map = getShortMap(req, item.data),
+                direction = req.kind, topics = "syncman"
+          req.item.updateScore(PeerScoreBadBlocks)
+          break
+
+    # When errors happen while processing blocks, we retry the same request
+    # with, hopefully, a different peer
+    let retryRequest =
+      hasInvalidBlock or unviableBlock.isSome() or missingParentSlot.isSome()
+    if not retryRequest:
       sq.advanceOutput(item.request.count)
-      if len(item.data) > 0:
+
+      if hasOkBlock:
         # If there no error and response was not empty we should reward peer
-        # with some bonus score.
+        # with some bonus score - not for duplicate blocks though.
         item.request.item.updateScore(PeerScoreGoodBlocks)
+
       sq.wakeupWaiters()
     else:
       debug "Block pool rejected peer's response", peer = item.request.item,
@@ -604,13 +628,31 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
             request_count = item.request.count,
             request_step = item.request.step,
             blocks_map = getShortMap(item.request, item.data),
-            blocks_count = len(item.data), errCode = res.error,
+            blocks_count = len(item.data),
+            ok = hasOkBlock,
+            unviable = unviableBlock.isSome(),
+            missing_parent = missingParentSlot.isSome(),
             direction = item.request.kind, topics = "syncman"
 
-      var resetSlot: Option[Slot]
+      # We need to move failed response to the debts queue.
+      sq.toDebtsQueue(item.request)
 
-      case res.error
-      of BlockError.MissingParent:
+      if unviableBlock.isSome:
+        let req = item.request
+        notice "Received blocks from an unviable fork",
+              blockRoot = unviableBlock.get()[0],
+              blockSlot = unviableBlock.get()[1], peer = req.item,
+              request_slot = req.slot, request_count = req.count,
+              request_step = req.step, blocks_count = len(item.data),
+              blocks_map = getShortMap(req, item.data),
+              direction = req.kind, topics = "syncman"
+        req.item.updateScore(PeerScoreUnviableFork)
+
+      if missingParentSlot.isSome:
+        var
+          resetSlot: Option[Slot]
+          failSlot = missingParentSlot.get()
+
         # If we got `BlockError.MissingParent` it means that peer returns chain
         # of blocks with holes or `block_pool` is in incomplete state. We going
         # to rewind to the first slot at latest finalized epoch.
@@ -620,11 +662,11 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         case sq.kind
         of SyncQueueKind.Forward:
           if safeSlot < req.slot:
-            let rewindSlot = sq.getRewindPoint(failSlot.get(), safeSlot)
+            let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
             warn "Unexpected missing parent, rewind happens",
                  peer = req.item, rewind_to_slot = rewindSlot,
                  rewind_epoch_count = sq.rewind.get().epochCount,
-                 rewind_fail_slot = failSlot.get(),
+                 rewind_fail_slot = failSlot,
                  finalized_slot = safeSlot,
                  request_slot = req.slot, request_count = req.count,
                  request_step = req.step, blocks_count = len(item.data),
@@ -642,11 +684,11 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
             req.item.updateScore(PeerScoreBadBlocks)
         of SyncQueueKind.Backward:
           if safeSlot > req.slot:
-            let rewindSlot = sq.getRewindPoint(failSlot.get(), safeSlot)
+            let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
             # It's quite common peers give us fewer blocks than we ask for
             info "Gap in block range response, rewinding",
                  peer = req.item, rewind_to_slot = rewindSlot,
-                 rewind_fail_slot = failSlot.get(),
+                 rewind_fail_slot = failSlot,
                  finalized_slot = safeSlot,
                  request_slot = req.slot, request_count = req.count,
                  request_step = req.step, blocks_count = len(item.data),
@@ -662,32 +704,21 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
                   blocks_map = getShortMap(req, item.data),
                   direction = req.kind, topics = "syncman"
             req.item.updateScore(PeerScoreBadBlocks)
-      of BlockError.Invalid:
-        let req = item.request
-        warn "Received invalid sequence of blocks", peer = req.item,
-              request_slot = req.slot, request_count = req.count,
-              request_step = req.step, blocks_count = len(item.data),
-              blocks_map = getShortMap(req, item.data),
-              direction = req.kind, topics = "syncman"
-        req.item.updateScore(PeerScoreBadBlocks)
-      of BlockError.Duplicate, BlockError.UnviableFork:
-        raiseAssert "Handled above"
 
-      # We need to move failed response to the debts queue.
-      sq.toDebtsQueue(item.request)
-      if resetSlot.isSome():
-        await sq.resetWait(resetSlot)
-        case sq.kind
-        of SyncQueueKind.Forward:
-          debug "Rewind to slot was happened", reset_slot = reset_slot.get(),
-                queue_input_slot = sq.inpSlot, queue_output_slot = sq.outSlot,
-                rewind_epoch_count = sq.rewind.get().epochCount,
-                rewind_fail_slot = sq.rewind.get().failSlot,
-                reset_slot = resetSlot, direction = sq.kind, topics = "syncman"
-        of SyncQueueKind.Backward:
-          debug "Rewind to slot was happened", reset_slot = reset_slot.get(),
-                queue_input_slot = sq.inpSlot, queue_output_slot = sq.outSlot,
-                reset_slot = resetSlot, direction = sq.kind, topics = "syncman"
+        if resetSlot.isSome():
+          await sq.resetWait(resetSlot)
+          case sq.kind
+          of SyncQueueKind.Forward:
+            debug "Rewind to slot was happened", reset_slot = reset_slot.get(),
+                  queue_input_slot = sq.inpSlot, queue_output_slot = sq.outSlot,
+                  rewind_epoch_count = sq.rewind.get().epochCount,
+                  rewind_fail_slot = sq.rewind.get().failSlot,
+                  reset_slot = resetSlot, direction = sq.kind, topics = "syncman"
+          of SyncQueueKind.Backward:
+            debug "Rewind to slot was happened", reset_slot = reset_slot.get(),
+                  queue_input_slot = sq.inpSlot, queue_output_slot = sq.outSlot,
+                  reset_slot = resetSlot, direction = sq.kind, topics = "syncman"
+
       break
 
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T]) =

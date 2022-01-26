@@ -7,12 +7,13 @@
 
 {.push raises: [Defect].}
 
-import options, sequtils, strutils
+import std/[sequtils, strutils]
 import chronos, chronicles
 import
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0],
   ../spec/forks,
   ../networking/eth2_network,
+  ../consensus_object_pools/block_quarantine,
   "."/sync_protocol, "."/sync_manager
 export sync_manager
 
@@ -82,37 +83,49 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
     if blocks.isOk:
       let ublocks = blocks.get()
       if checkResponse(items, ublocks):
-        var res: Result[void, BlockError]
-        if len(ublocks) > 0:
-          for b in ublocks:
-            res = await rman.blockVerifier(b)
-            if res.isErr():
-              case res.error()
-              of BlockError.MissingParent:
-                # Ignoring because the order of the blocks that
-                # we requested may be different from the order in which we need
-                # these blocks to apply.
-                discard
-              of BlockError.Duplicate, BlockError.UnviableFork:
-                # Ignoring because these errors could occur due to the
-                # concurrent/parallel requests we made.
-                discard
-              of BlockError.Invalid:
-                # We stop processing blocks further to avoid DoS attack with big
-                # chunk of incorrect blocks.
-                break
-        else:
-          res = Result[void, BlockError].ok()
+        var
+          gotGoodBlock = false
+          gotUnviableBlock = false
 
-        if res.isOk():
-          if len(ublocks) > 0:
-            # We reward peer only if it returns something.
-            peer.updateScore(PeerScoreGoodBlocks)
-        else:
-          # We are not penalizing other errors because of the reasons described
-          # above.
-          if res.error == BlockError.Invalid:
-            peer.updateScore(PeerScoreBadBlocks)
+        for b in ublocks:
+          let ver = await rman.blockVerifier(b)
+          if ver.isErr():
+            case ver.error()
+            of BlockError.MissingParent:
+              # Ignoring because the order of the blocks that
+              # we requested may be different from the order in which we need
+              # these blocks to apply.
+              discard
+            of BlockError.Duplicate:
+              # Ignoring because these errors could occur due to the
+              # concurrent/parallel requests we made.
+              discard
+            of BlockError.UnviableFork:
+              # If they're working a different fork, we'll want to descore them
+              # but also process the other blocks (in case we can register the
+              # other blocks as unviable)
+              gotUnviableBlock = true
+            of BlockError.Invalid:
+              # We stop processing blocks because peer is either sending us
+              # junk or working a different fork
+              warn "Received invalid block",
+                peer = peer, blocks = shortLog(items),
+                peer_score = peer.getScore()
+              peer.updateScore(PeerScoreBadBlocks)
+
+              return # Stop processing this junk...
+          else:
+            gotGoodBlock = true
+
+        if gotUnviableBlock:
+          notice "Received blocks from an unviable fork",
+            peer = peer, blocks = shortLog(items),
+            peer_score = peer.getScore()
+          peer.updateScore(PeerScoreUnviableFork)
+        elif gotGoodBlock:
+          # We reward peer only if it returns something.
+          peer.updateScore(PeerScoreGoodBlocks)
+
       else:
         peer.updateScore(PeerScoreBadResponse)
     else:
