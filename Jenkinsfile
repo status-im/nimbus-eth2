@@ -49,7 +49,7 @@ def runStages() {
 			set -e
 			./tests/simulation/restapi.sh --data-dir resttest0_data --base-port \$(( 9100 + EXECUTOR_NUMBER * 100 )) \
 				--base-rest-port \$(( 7100 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \
-				\$(( 8108 + EXECUTOR_NUMBER * 100 )) --sleep-timeout 30 --kill-old-processes
+				\$(( 8108 + EXECUTOR_NUMBER * 100 )) --resttest-delay 30 --kill-old-processes
 			"""
 		}
 
