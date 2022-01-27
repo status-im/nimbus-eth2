@@ -61,16 +61,19 @@ type
 template init(T: type RpcHttpServer, ip: ValidIpAddress, port: Port): T =
   newRpcHttpServer([initTAddress(ip, port)])
 
-template init(T: type RestServerRef, ip: ValidIpAddress, port: Port): T =
+template init(T: type RestServerRef, ip: ValidIpAddress, port: Port,
+              config: BeaconNodeConf): T =
   let address = initTAddress(ip, port)
   let serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
                      HttpServerFlags.NotifyDisconnect}
-  # We increase default timeout to help validator clients who poll our server
-  # at least once per slot (12.seconds).
   let
-    headersTimeout = seconds(2'i64 * int64(SECONDS_PER_SLOT))
-    maxHeadersSize = 65536 # 64 kilobytes
-    maxRequestBodySize = 16_777_216 # 16 megabytes
+    headersTimeout =
+      if config.restRequestTimeout == 0:
+        chronos.InfiniteDuration
+      else:
+        seconds(int64(config.restRequestTimeout))
+    maxHeadersSize = config.restMaxRequestHeadersSize * 1024
+    maxRequestBodySize = config.restMaxRequestBodySize * 1024
   let res = RestServerRef.new(getRouter(), address, serverFlags = serverFlags,
                               httpHeadersTimeout = headersTimeout,
                               maxHeadersSize = maxHeadersSize,
@@ -388,7 +391,7 @@ proc init*(T: type BeaconNode,
     nil
 
   let restServer = if config.restEnabled:
-    RestServerRef.init(config.restAddress, config.restPort)
+    RestServerRef.init(config.restAddress, config.restPort, config)
   else:
     nil
 
@@ -418,7 +421,8 @@ proc init*(T: type BeaconNode,
        config.restPort == config.keymanagerPort:
       restServer
     else:
-      RestServerRef.init(config.keymanagerAddress, config.keymanagerPort)
+      RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
+                         config)
   else:
     nil
 
