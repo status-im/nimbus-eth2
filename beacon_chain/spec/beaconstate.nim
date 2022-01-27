@@ -723,9 +723,8 @@ proc process_attestation*(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#get_next_sync_committee_indices
 func get_next_sync_committee_keys(state: altair.BeaconState | bellatrix.BeaconState):
     array[SYNC_COMMITTEE_SIZE, ValidatorPubKey] =
-  ## Return the sequence of sync committee indices (which may include
-  ## duplicate indices) for the next sync committee, given a ``state`` at a
-  ## sync committee period boundary.
+  ## Return the sequence of sync committee indices, with possible duplicates,
+  ## for the next sync committee.
   # The sync committe depends on seed and effective balance - it can
   # thus only be computed for the current epoch of the state, after balance
   # updates have been performed
@@ -746,7 +745,8 @@ func get_next_sync_committee_keys(state: altair.BeaconState | bellatrix.BeaconSt
   while index < SYNC_COMMITTEE_SIZE:
     hash_buffer[32..39] = uint_to_bytes(uint64(i div 32))
     let
-      shuffled_index = compute_shuffled_index(uint64(i mod active_validator_count), active_validator_count, seed)
+      shuffled_index = compute_shuffled_index(
+        uint64(i mod active_validator_count), active_validator_count, seed)
       candidate_index = active_validator_indices[shuffled_index]
       random_byte = eth2digest(hash_buffer).data[i mod 32]
       effective_balance = state.validators[candidate_index].effective_balance
