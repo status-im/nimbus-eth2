@@ -1,11 +1,13 @@
 
 # Start syncing
 
-To minimize the amount of downtime, you should ensure that your beacon node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress) before submitting your deposit.  If it's not fully synced you will miss attestations and proposals until it becomes synced.
+To minimize the amount of downtime, you should ensure that your beacon node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress) before submitting your deposit.  If it's not fully synced you will miss attestations and proposals until it has finished syncing.
 
 This is particularly important if you are joining a network that's been running for a while since the sync could take some time.
 
 > **N.B.** In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client (**web3 provider**) in parallel to your eth2 client. See [here](./eth1.md) for instructions on how to do so.
+
+If you have access to a node that you trust, you can get started more quickly using [trusted node sync](./trusted-node-sync.md).
 
 ### Testnet
 
