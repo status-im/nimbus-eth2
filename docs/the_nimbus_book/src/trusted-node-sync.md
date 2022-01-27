@@ -4,13 +4,18 @@ When you [start the beacon node](./quick-start.md) for the first time, it will c
 
 Trusted node sync allows you to get started more quickly with Nimbus by fetching a recent checkpoint from a trusted node (we will expect it will save you 1 to 2 days).
 
-To use trusted node sync, you must have access to a node that you trust that exposes the [REST HTTP API](./rest-api.md) (for example a locally running backup node).
+To use trusted node sync, you must have access to a node that you trust that exposes the Ethereum [REST API](./rest-api.md) (for example a locally running backup node).
 
 Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.
 
 It is possibly to use trusted node sync with a third-party API provider -- see [here](trusted-node-sync.md#verify-you-synced-the-correct-chain) for how to verify that the chain you are given corresponds to the canonical chain at the time.
 
 ## Perform a trusted node sync
+
+> **Tip:** Make sure to replace `http://localhost:5052` in the commands below with the appropriate endpoint for you. `http://localhost:5052` is the endpoint exposed by Nimbus but this is not consistent across all clients. For example, if your trusted node is a [Prysm node](https://docs.prylabs.network/docs/how-prysm-works/ethereum-public-api#performing-requests-against-a-local-prysm-node), it exposes `127.0.0.1:3500` by default. Which means you would run the commands below with 
+>
+> `--trusted-node-url=http://127.0.0.1:3500`
+
 
 **Prater (testnet)**
 
@@ -31,6 +36,7 @@ build/nimbus_beacon_node trustedNodeSync --network:mainnet \
  --data-dir=build/data/shared_mainnet_0 \
  --trusted-node-url=http://localhost:5052
 ```
+
 
 > **Note:**
 > Because trusted node sync by default copies all blocks via REST, if you use a third-party service to sync from, you may hit API limits. If this happens to you, you may need to use the `--backfill` option to [delay the backfill of the block history](./trusted-node-sync.md#delay-block-history-backfill).
