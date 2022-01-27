@@ -6,7 +6,7 @@ set -e
 BASE_PORT="49000"
 BASE_METRICS_PORT="48008"
 BASE_REST_PORT="47000"
-TIMEOUT_DURATION="30"
+RESTTEST_DELAY="30"
 TEST_DIRNAME="resttest0_data"
 KILL_OLD_PROCESSES="0"
 
@@ -28,7 +28,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="h"
-LONGOPTS="help,data-dir:,base-port:,base-rest-port:,base-metrics-port:,sleep-timeout:,kill-old-processes"
+LONGOPTS="help,data-dir:,base-port:,base-rest-port:,base-metrics-port:,resttest-delay:,kill-old-processes"
 
 print_help() {
   cat <<EOF
@@ -39,7 +39,7 @@ Usage: $(basename "$0") [OPTIONS] -- [BEACON NODE OPTIONS]
   --base-port                 bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
   --base-rest-port            bootstrap node's REST port (default: ${BASE_REST_PORT})
   --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
-  --sleep-timeout             timeout in seconds (default: ${TIMEOUT_DURATION} seconds)
+  --resttest-delay            resttest delay in seconds (default: ${RESTTEST_DELAY} seconds)
   --kill-old-processes        if any process is found listening on a port we use, kill it (default: disabled)
 EOF
 }
@@ -74,8 +74,8 @@ while true; do
       BASE_METRICS_PORT="$2"
       shift 2
       ;;
-    --sleep-timeout)
-      TIMEOUT_DURATION="$2"
+    --resttest-delay)
+      RESTTEST_DELAY="$2"
       shift 2
       ;;
     --kill-old-processes)
@@ -177,6 +177,18 @@ fi
 build_if_missing nimbus_beacon_node
 build_if_missing resttest
 
+# Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
+# instance as the parent and the target process name as a pattern to the
+# "pkill" command.
+cleanup() {
+  pkill -f -P $$ nimbus_beacon_node &>/dev/null || true
+  pkill -f -P $$ resttest &>/dev/null || true
+  sleep 2
+  pkill -f -9 -P $$ nimbus_beacon_node &>/dev/null || true
+  pkill -f -9 -P $$ resttest &>/dev/null || true
+}
+trap 'cleanup' SIGINT SIGTERM EXIT
+
 if [[ ! -f "${SNAPSHOT_FILE}" ]]; then
   echo "Creating testnet genesis..."
   ${NIMBUS_BEACON_NODE_BIN} \
@@ -236,7 +248,7 @@ if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
   BEACON_NODE_PID="$(jobs -p)"
 
   ${RESTTEST_BIN} \
-    --delay=${TIMEOUT_DURATION} \
+    --delay=${RESTTEST_DELAY} \
     --timeout=60 \
     --skip-topic=slow \
     --connections=4 \
