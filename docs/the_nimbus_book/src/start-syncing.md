@@ -1,7 +1,7 @@
 
 # Start syncing
 
-To minimize the amount of downtime, you should ensure that your beacon node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress) before submitting your deposit.  If it's not fully synced you will miss attestations and proposals until it as finished syncing.
+To minimize the amount of downtime, you should ensure that your beacon node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress) before submitting your deposit.  If it's not fully synced you will miss attestations and proposals until it has finished syncing.
 
 This is particularly important if you are joining a network that's been running for a while since the sync could take some time.
 
