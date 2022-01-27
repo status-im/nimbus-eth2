@@ -111,7 +111,10 @@ proc collectSlashings(
         validator[].get_slashing_penalty(
           adjusted_total_slashing_balance, total_balance).int64
 
-proc getFinalizedCheckpoint(state: phase0.BeaconState, balances: TotalBalances):
+proc getFinalizedCheckpoint(state: ForkyBeaconState,
+                            total_active_balance,
+                            previous_epoch_target_balance,
+                            current_epoch_target_balance: Gwei):
     Checkpoint =
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
     return state.finalized_checkpoint
@@ -128,11 +131,10 @@ proc getFinalizedCheckpoint(state: phase0.BeaconState, balances: TotalBalances):
     (uint8(state.justification_bits) shl 1) and
     uint8((2^JUSTIFICATION_BITS_LENGTH) - 1))
 
-  let total_active_balance = balances.current_epoch
-  if balances.previous_epoch_target_attesters * 3 >= total_active_balance * 2:
+  if previous_epoch_target_balance * 3 >= total_active_balance * 2:
     uint8(justification_bits).setBit 1
 
-  if balances.current_epoch_target_attesters * 3 >= total_active_balance * 2:
+  if current_epoch_target_balance * 3 >= total_active_balance * 2:
     uint8(justification_bits).setBit 0
 
   # Process finalizations
@@ -163,6 +165,19 @@ proc getFinalizedCheckpoint(state: phase0.BeaconState, balances: TotalBalances):
     return old_current_justified_checkpoint
 
   return state.finalized_checkpoint
+
+proc getFinalizedCheckpoint(state: phase0.BeaconState, balances: TotalBalances):
+    Checkpoint =
+  getFinalizedCheckpoint(state, balances.current_epoch,
+                         balances.previous_epoch_target_attesters,
+                         balances.current_epoch_target_attesters)
+
+proc getFinalizedCheckpoint(
+    state: altair.BeaconState | bellatrix.BeaconState,
+    balances: UnslashedParticipatingBalances): Checkpoint =
+  getFinalizedCheckpoint(state, balances.current_epoch,
+                         balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
+                         balances.current_epoch_TIMELY_TARGET)
 
 func getFinalityDelay*(state: ForkyBeaconState,
                        finalizedCheckpoint: Checkpoint): uint64 =
@@ -249,10 +264,12 @@ proc collectEpochRewardsAndPenalties*(
     total_active_balance = info.balances.current_epoch
     base_reward_per_increment = get_base_reward_per_increment(
       total_active_balance)
+    finalized_checkpoint = state.getFinalizedCheckpoint(info.balances)
+    finality_delay = getFinalityDelay(state, finalized_checkpoint)
 
   for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
     for validator_index, delta in get_flag_index_deltas(
-        state, flag_index, base_reward_per_increment, info):
+        state, flag_index, base_reward_per_increment, info, finality_delay):
       template rp: untyped = rewardsAndPenalties[validator_index]
 
       let
@@ -264,7 +281,8 @@ proc collectEpochRewardsAndPenalties*(
         max_flag_index_reward = get_flag_index_reward(
           state, base_reward, active_increments,
           unslashed_participating_increment,
-          PARTICIPATION_FLAG_WEIGHTS[flag_index].uint64)
+          PARTICIPATION_FLAG_WEIGHTS[flag_index].uint64,
+          finalityDelay)
 
       case flag_index
       of TIMELY_SOURCE_FLAG_INDEX:
