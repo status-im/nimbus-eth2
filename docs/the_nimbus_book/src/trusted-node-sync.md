@@ -1,20 +1,20 @@
-# Trusted node sync
+# Sync from a trusted node
 
 When you [start the beacon node](./quick-start.md) for the first time, it will connect to the beacon chain network and start syncing automatically, a process that can take several days.
 
-Trusted node sync allows you to get started more quickly with Nimbus by fetching a recent checkpoint from a trusted node.
+Trusted node sync allows you to get started more quickly with Nimbus by fetching a recent checkpoint from a trusted node (we will expect it will save you 1 to 2 days).
 
-To use trusted node sync, you must have access to a node that you trust that exposes the [REST HTTP API](./rest-api.md), for example a locally running backup node.
+To use trusted node sync, you must have access to a node that you trust that exposes the [REST HTTP API](./rest-api.md) (for example a locally running backup node).
 
-Should this node, or your connection to it, be compromised, your node will not be able to detect that it's being served false information.
+Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.
 
-It is possibly to use trusted node sync with a third-party API provider -- follow the steps below to verify that the chain you were given corresponds to the canonical chain at the time.
+It is possibly to use trusted node sync with a third-party API provider -- see [here](trusted-node-sync.md#verify-you-synced-the-correct-chain) for how to verify that the chain you were given corresponds to the canonical chain at the time.
 
 ## Perform a trusted node sync
 
 **Prater (testnet)**
 
-To sync Prater, run:
+To sync Prater, from the `nimbus-eth2` directory run:
 
 ```bash
 build/nimbus_beacon_node trustedNodeSync --network:prater \
@@ -24,7 +24,7 @@ build/nimbus_beacon_node trustedNodeSync --network:prater \
 
 **Mainnet**
 
-To sync Mainnet, run:
+To sync Mainnet, from the `nimbus-eth2` directory run:
 
 ```bash
 build/nimbus_beacon_node trustedNodeSync --network:mainnet \
@@ -33,19 +33,29 @@ build/nimbus_beacon_node trustedNodeSync --network:mainnet \
 ```
 
 > **Note:**
-> Because trusted node sync by default copies all blocks via REST, if you use a third-party service to sync from, you may hit API limits - see the `--backfill` option.
+> Because trusted node sync by default copies all blocks via REST, if you use a third-party service to sync from, you may hit API limits. If this happens to you, you may need to use the `--backfill` option to [delay the backfill of the block history](./trusted-node-sync.md#delay-block-history-backfill).
 
 ## Verify you synced the correct chain
 
-When performing a trusted node sync, you can manually verify that the correct chain was synced by comparing the head hash with other sources (e.g. your friends, forums, chats and web sites). You can retrieve the current head from the node using:
+When performing a trusted node sync, you can manually verify that the correct chain was synced by comparing the head hash with other sources (e.g. your friends, forums, chats and web sites). If you're syncing using your own backup node you can retrieve the current head from the node using:
 
 ```
-# Make sure to enabled the `--rest` option when running your node:
+# Make sure to enable the `--rest` option when running your node:
 
 curl http://localhost:5052/eth/v1/beacon/blocks/head/root
 ```
 
 The `head` root is also printed in the log output at regular intervals.
+
+> **Note:** this same [REST API](./rest-api.md) request should work with any third-party provider.
+>
+> For example, to test it out with our mainnet [testing server](rest-api.md#test-your-tooling-against-our-servers), you could run:
+>
+> ```
+> curl -X GET http://testing.mainnet.beacon-api.nimbus.team/eth/v1/beacon/blocks/head/root
+> ```
+
+
 
 ## Advanced
 
