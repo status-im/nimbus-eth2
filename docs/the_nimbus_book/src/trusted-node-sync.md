@@ -8,7 +8,7 @@ To use trusted node sync, you must have access to a node that you trust that exp
 
 Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.
 
-It is possibly to use trusted node sync with a third-party API provider -- see [here](trusted-node-sync.md#verify-you-synced-the-correct-chain) for how to verify that the chain you were given corresponds to the canonical chain at the time.
+It is possibly to use trusted node sync with a third-party API provider -- see [here](trusted-node-sync.md#verify-you-synced-the-correct-chain) for how to verify that the chain you are given corresponds to the canonical chain at the time.
 
 ## Perform a trusted node sync
 
