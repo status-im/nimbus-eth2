@@ -466,11 +466,6 @@ func is_in_inactivity_leak(finality_delay: uint64): bool =
 func get_finality_delay*(state: ForkyBeaconState): uint64 =
   get_previous_epoch(state) - state.finalized_checkpoint.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#rewards-and-penalties-1
-func is_in_inactivity_leak(state: altair.BeaconState | bellatrix.BeaconState): bool =
-  # TODO remove this, see above
-  get_finality_delay(state) > MIN_EPOCHS_TO_INACTIVITY_PENALTY
-
 func get_attestation_component_reward*(attesting_balance: Gwei,
                                        total_balance: Gwei,
                                        base_reward: uint64,
@@ -636,8 +631,8 @@ func get_base_reward_increment*(
 func get_flag_index_reward*(state: altair.BeaconState | bellatrix.BeaconState,
                             base_reward: Gwei, active_increments: Gwei,
                             unslashed_participating_increments: Gwei,
-                            weight: uint64): Gwei =
-  if not is_in_inactivity_leak(state):
+                            weight, finality_delay: uint64): Gwei =
+  if not is_in_inactivity_leak(finality_delay):
     let reward_numerator =
       base_reward * weight * unslashed_participating_increments
     reward_numerator div (active_increments * WEIGHT_DENOMINATOR)
@@ -657,7 +652,8 @@ func get_active_increments*(info: altair.EpochInfo): Gwei =
 iterator get_flag_index_deltas*(
     state: altair.BeaconState | bellatrix.BeaconState, flag_index: int,
     base_reward_per_increment: Gwei,
-    info: var altair.EpochInfo):
+    info: var altair.EpochInfo,
+    finality_delay: uint64):
     (ValidatorIndex, RewardDelta) =
   ## Return the deltas for a given ``flag_index`` by scanning through the
   ## participation flags.
@@ -689,7 +685,7 @@ iterator get_flag_index_deltas*(
         (vidx, RewardDelta(
           rewards: get_flag_index_reward(
             state, base_reward, active_increments,
-            unslashed_participating_increments, weight),
+            unslashed_participating_increments, weight, finality_delay),
           penalties: 0.Gwei))
       elif flag_index != TIMELY_HEAD_FLAG_INDEX:
         (vidx, RewardDelta(
@@ -780,11 +776,12 @@ func process_rewards_and_penalties(
     total_active_balance = info.balances.current_epoch
     base_reward_per_increment = get_base_reward_per_increment(
       total_active_balance)
+    finality_delay = get_finality_delay(state)
 
   doAssert state.validators.len() == info.validators.len()
   for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
     for validator_index, delta in get_flag_index_deltas(
-        state, flag_index, base_reward_per_increment, info):
+        state, flag_index, base_reward_per_increment, info, finality_delay):
       info.validators[validator_index].delta.add(delta)
 
   for validator_index, penalty in get_inactivity_penalty_deltas(
@@ -1004,7 +1001,8 @@ func process_inactivity_updates*(
 
   let
     previous_epoch = get_previous_epoch(state)  # get_eligible_validator_indices()
-    not_in_inactivity_leak = not is_in_inactivity_leak(state)
+    finality_delay = get_finality_delay(state)
+    not_in_inactivity_leak = not is_in_inactivity_leak(finality_delay)
 
   for index in 0'u64 ..< state.validators.lenu64:
     if not is_eligible_validator(info.validators[index]):

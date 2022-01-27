@@ -61,9 +61,11 @@ proc runTest(rewardsDir, identifier: string) =
           Deltas.init(state[].validators.len)]
         inactivityPenaltyDeltas2 = Deltas.init(state[].validators.len)
 
+      let finality_delay = get_finality_delay(state[])
+
       for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
         for validator_index, delta in get_flag_index_deltas(
-            state[], flag_index, base_reward_per_increment, info):
+            state[], flag_index, base_reward_per_increment, info, finality_delay):
           if not is_eligible_validator(info.validators[validator_index]):
             continue
           flagDeltas2[flag_index].rewards[validator_index] = delta.rewards
