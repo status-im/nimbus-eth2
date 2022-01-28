@@ -223,7 +223,7 @@ func makeAttestation*(
     flags: UpdateFlags = {}): Attestation =
   # Avoids state_sim silliness; as it's responsible for all validators,
   # transforming, from monotonic enumerable index -> committee index ->
-  # montonoic enumerable index, is wasteful and slow. Most test callers
+  # monotonic enumerable index, is wasteful and slow. Most test callers
   # want ValidatorIndex, so that's supported too.
   let
     sac_index = committee.find(validator_index)
