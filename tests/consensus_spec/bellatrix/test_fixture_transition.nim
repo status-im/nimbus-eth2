@@ -84,7 +84,4 @@ proc runTest(testName, testDir, unitTestName: string) =
 
 suite "EF - Bellatrix - Transition " & preset():
   for kind, path in walkDir(TransitionDir, relative = true, checkDir = true):
-    # TODO https://github.com/ethereum/consensus-spec-tests/issues/27
-    if path.contains("DS_Store"):
-      continue
     runTest("EF - Bellatrix - Transition", TransitionDir, path)

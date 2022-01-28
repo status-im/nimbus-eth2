@@ -35,8 +35,7 @@ const
 
   baseDescription = "EF - Bellatrix - Operations - "
 
-# DS_Store issue: https://github.com/ethereum/consensus-spec-tests/issues/27
-doAssert toHashSet(filterIt(mapIt(toSeq(walkDir(OpDir, relative = false)), it.path), not it.contains("DS_Store"))) ==
+doAssert toHashSet(mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) ==
   toHashSet([OpAttestationsDir, OpAttSlashingDir, OpBlockHeaderDir,
              OpDepositsDir, OpExecutionPayloadDir, OpProposerSlashingDir,
              OpSyncAggregateDir, OpVoluntaryExitDir])
