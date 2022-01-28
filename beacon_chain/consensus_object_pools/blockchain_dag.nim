@@ -1344,7 +1344,8 @@ proc updateHead*(
       dag.onReorgHappened(data)
 
     # A reasonable criterion for "reorganizations of the chain"
-    quarantine.clearQuarantine()
+    quarantine.clearAfterReorg()
+
     beacon_reorgs_total_total.inc()
     beacon_reorgs_total.inc()
   else:
@@ -1510,9 +1511,6 @@ proc preInit*(
     tailBlock: ForkedTrustedSignedBeaconBlock) =
   # write a genesis state, the way the ChainDAGRef expects it to be stored in
   # database
-  # TODO probably should just init a block pool with the freshly written
-  #      state - but there's more refactoring needed to make it nice - doing
-  #      a minimal patch for now..
 
   logScope:
     genesisStateRoot = getStateRoot(genesisState)

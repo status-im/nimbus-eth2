@@ -171,8 +171,11 @@ func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
   for k in toDel:
     quarantine.addUnviable k[0]
 
-func clearQuarantine*(quarantine: var Quarantine) =
-  quarantine = Quarantine()
+func clearAfterReorg*(quarantine: var Quarantine) =
+  ## Clear missing and orphans to start with a fresh slate in case of a reorg
+  ## Unviables remain unviable and are not cleared.
+  quarantine.missing.reset()
+  quarantine.orphans.reset()
 
 # Typically, blocks will arrive in mostly topological order, with some
 # out-of-order block pairs. Therefore, it is unhelpful to use either a
