@@ -263,6 +263,22 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Bellatrix - Finality - finality_rule_2 [Preset: mainnet]                    OK
 + [Valid]   EF - Bellatrix - Finality - finality_rule_3 [Preset: mainnet]                    OK
 + [Valid]   EF - Bellatrix - Finality - finality_rule_4 [Preset: mainnet]                    OK
++ [Valid]   EF - Bellatrix - Random - randomized_0 [Preset: mainnet]                         OK
++ [Valid]   EF - Bellatrix - Random - randomized_1 [Preset: mainnet]                         OK
++ [Valid]   EF - Bellatrix - Random - randomized_10 [Preset: mainnet]                        OK
++ [Valid]   EF - Bellatrix - Random - randomized_11 [Preset: mainnet]                        OK
++ [Valid]   EF - Bellatrix - Random - randomized_12 [Preset: mainnet]                        OK
++ [Valid]   EF - Bellatrix - Random - randomized_13 [Preset: mainnet]                        OK
++ [Valid]   EF - Bellatrix - Random - randomized_14 [Preset: mainnet]                        OK
++ [Valid]   EF - Bellatrix - Random - randomized_15 [Preset: mainnet]                        OK
++ [Valid]   EF - Bellatrix - Random - randomized_2 [Preset: mainnet]                         OK
++ [Valid]   EF - Bellatrix - Random - randomized_3 [Preset: mainnet]                         OK
++ [Valid]   EF - Bellatrix - Random - randomized_4 [Preset: mainnet]                         OK
++ [Valid]   EF - Bellatrix - Random - randomized_5 [Preset: mainnet]                         OK
++ [Valid]   EF - Bellatrix - Random - randomized_6 [Preset: mainnet]                         OK
++ [Valid]   EF - Bellatrix - Random - randomized_7 [Preset: mainnet]                         OK
++ [Valid]   EF - Bellatrix - Random - randomized_8 [Preset: mainnet]                         OK
++ [Valid]   EF - Bellatrix - Random - randomized_9 [Preset: mainnet]                         OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - attestation [Preset: mainnet]                 OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - attester_slashing [Preset: mainnet]           OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - balance_driven_status_transitions [Preset: ma OK
@@ -363,7 +379,7 @@ ConsensusSpecPreset-mainnet
 + fork_random_misc_balances                                                                  OK
 + next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 360/360 Fail: 0/360 Skip: 0/360
+OK: 376/376 Fail: 0/376 Skip: 0/376
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -1055,12 +1071,14 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Invalid] EF - Bellatrix - Operations - Execution Payload - bad_random_regular_payload     OK
 + [Invalid] EF - Bellatrix - Operations - Execution Payload - bad_timestamp_first_payload    OK
 + [Invalid] EF - Bellatrix - Operations - Execution Payload - bad_timestamp_regular_payload  OK
++ [Valid]   EF - Bellatrix - Operations - Execution Payload - non_empty_extra_data_first_pay OK
++ [Valid]   EF - Bellatrix - Operations - Execution Payload - non_empty_extra_data_regular_p OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - success_first_payload          OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - success_first_payload_with_gap OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - success_regular_payload        OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - success_regular_payload_with_g OK
 ```
-OK: 12/12 Fail: 0/12 Skip: 0/12
+OK: 14/14 Fail: 0/14 Skip: 0/14
 ## Proposer Slashing
 ```diff
 + [Invalid] EF - Altair - Operations - Proposer Slashing - epochs_are_different              OK
@@ -1191,4 +1209,4 @@ OK: 44/44 Fail: 0/44 Skip: 0/44
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 1015/1017 Fail: 0/1017 Skip: 2/1017
+OK: 1033/1035 Fail: 0/1035 Skip: 2/1035
