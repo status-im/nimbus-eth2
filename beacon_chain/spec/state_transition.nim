@@ -87,19 +87,12 @@ func verifyStateRoot(
 
 type
   RollbackProc* = proc() {.gcsafe, noSideEffect, raises: [Defect].}
+  RollbackHashedProc[T] =
+    proc(state: var T) {.gcsafe, noSideEffect, raises: [Defect].}
+  RollbackForkedHashedProc* = RollbackHashedProc[ForkedHashedBeaconState]
 
 func noRollback*() =
   trace "Skipping rollback of broken state"
-
-type
-  RollbackPhase0HashedProc =
-    proc(state: var phase0.HashedBeaconState)    {.gcsafe, noSideEffect, raises: [Defect].}
-  RollbackAltairHashedProc =
-    proc(state: var altair.HashedBeaconState)    {.gcsafe, noSideEffect, raises: [Defect].}
-  RollbackBellatrixHashedProc =
-    proc(state: var bellatrix.HashedBeaconState) {.gcsafe, noSideEffect, raises: [Defect].}
-  RollbackForkedHashedProc* =
-    proc(state: var ForkedHashedBeaconState)     {.gcsafe, noSideEffect, raises: [Defect].}
 
 # Hashed-state transition functions
 # ---------------------------------------------------------------
@@ -335,7 +328,7 @@ proc makeBeaconBlock*(
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
     execution_payload: ExecutionPayload,
-    rollback: RollbackPhase0HashedProc,
+    rollback: RollbackHashedProc[phase0.HashedBeaconState],
     cache: var StateCache): Result[phase0.BeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
@@ -400,7 +393,7 @@ proc makeBeaconBlock*(
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
     execution_payload: ExecutionPayload,
-    rollback: RollbackAltairHashedProc,
+    rollback: RollbackHashedProc[altair.HashedBeaconState],
     cache: var StateCache): Result[altair.BeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
@@ -466,7 +459,7 @@ proc makeBeaconBlock*(
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
     execution_payload: ExecutionPayload,
-    rollback: RollbackBellatrixHashedProc,
+    rollback: RollbackHashedProc[bellatrix.HashedBeaconState],
     cache: var StateCache): Result[bellatrix.BeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
