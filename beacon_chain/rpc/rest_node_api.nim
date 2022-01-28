@@ -260,12 +260,12 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v1/node/health") do () -> RestApiResponse:
     # TODO: Add ability to detect node's issues and return 503 error according
     # to specification.
-    let res =
+    let status =
       if node.syncManager.inProgress:
-        (health: 206)
+        Http206
       else:
-        (health: 200)
-    return RestApiResponse.jsonResponse(res)
+        Http200
+    return RestApiResponse.response("", status, contentType = "")
 
   # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
   # `/api` path component
