@@ -214,7 +214,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             to0xHex(DOMAIN_CONTRIBUTION_AND_PROOF.data),
           # PARTICIPATION_FLAG_WEIGHTS
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/validator.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#constants
           TARGET_AGGREGATORS_PER_COMMITTEE:
             Base10.toString(TARGET_AGGREGATORS_PER_COMMITTEE),
           RANDOM_SUBNETS_PER_VALIDATOR:
