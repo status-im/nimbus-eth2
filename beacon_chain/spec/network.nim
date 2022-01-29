@@ -168,7 +168,7 @@ func getTargetGossipState*(
     raiseAssert "Unknown target gossip state"
 
 func nearSyncCommitteePeriod*(epoch: Epoch): Option[uint64] =
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/validator.md#sync-committee-subnet-stability
   if epoch.is_sync_committee_period():
     return some 0'u64
   let epochsBefore =
@@ -187,7 +187,7 @@ func getSyncSubnets*(
     if not nodeHasPubKey(pubkey):
       continue
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#broadcast-sync-committee-message
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/validator.md#broadcast-sync-committee-message
     # The first quarter of the pubkeys map to subnet 0, the second quarter to
     # subnet 1, the third quarter to subnet 2 and the final quarter to subnet
     # 3.

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -221,11 +221,18 @@ proc on_attestation*(
       block_root: beacon_block_root))
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v0.12.1/specs/phase0/fork-choice.md#should_update_justified_checkpoint
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/fork-choice.md#should_update_justified_checkpoint
 func should_update_justified_checkpoint(
         self: var Checkpoints,
         dag: ChainDAGRef,
         epochRef: EpochRef): FcResult[bool] =
+  # To address the bouncing attack, only update conflicting justified
+  # checkpoints in the fork choice if in the early slots of the epoch.
+  # Otherwise, delay incorporation of new justified checkpoint until next epoch
+  # boundary.
+  #
+  # See https://ethresear.ch/t/prevention-of-bouncing-attack-on-ffg/6114 for
+  # more detailed analysis and discussion.
   if self.time.slotOrZero.since_epoch_start() < SAFE_SLOTS_TO_UPDATE_JUSTIFIED:
     return ok(true)
 
