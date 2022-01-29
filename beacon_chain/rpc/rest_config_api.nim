@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -160,7 +160,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           DEPOSIT_CONTRACT_ADDRESS:
             $node.dag.cfg.DEPOSIT_CONTRACT_ADDRESS,
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#constants
           # GENESIS_SLOT
           # GENESIS_EPOCH
           # FAR_FUTURE_EPOCH
@@ -187,7 +187,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           DOMAIN_AGGREGATE_AND_PROOF:
             to0xHex(DOMAIN_AGGREGATE_AND_PROOF.data),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/beacon-chain.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/beacon-chain.md#constants
           TIMELY_SOURCE_FLAG_INDEX:
             to0xHex([byte(TIMELY_SOURCE_FLAG_INDEX)]),
           TIMELY_TARGET_FLAG_INDEX:
@@ -224,7 +224,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           ATTESTATION_SUBNET_COUNT:
             Base10.toString(uint64(ATTESTATION_SUBNET_COUNT)),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/validator.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/validator.md#constants
           TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE:
             Base10.toString(uint64(TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE)),
           SYNC_COMMITTEE_SUBNET_COUNT:

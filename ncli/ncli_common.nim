@@ -124,7 +124,7 @@ proc getFinalizedCheckpoint(state: ForkyBeaconState,
     old_previous_justified_checkpoint = state.previous_justified_checkpoint
     old_current_justified_checkpoint = state.current_justified_checkpoint
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/beacon-chain.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#misc
   const JUSTIFICATION_BITS_LENGTH = 4
 
   var justification_bits = JustificationBits(
