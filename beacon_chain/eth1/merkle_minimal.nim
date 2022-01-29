@@ -7,7 +7,7 @@
 
 {.push raises: [Defect].}
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/tests/core/pyspec/eth2spec/utils/merkle_minimal.py
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/tests/core/pyspec/eth2spec/utils/merkle_minimal.py
 
 # Merkle tree helpers
 # ---------------------------------------------------------------

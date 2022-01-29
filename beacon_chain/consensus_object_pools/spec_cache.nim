@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -158,7 +158,7 @@ func makeAttestationData*(
 
   doAssert current_epoch == epochRef.epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.asUInt64,
@@ -170,7 +170,7 @@ func makeAttestationData*(
     )
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/validator.md#validator-assignments
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#validator-assignments
 iterator get_committee_assignments*(
     epochRef: EpochRef, validator_indices: HashSet[ValidatorIndex]):
     tuple[committee_index: CommitteeIndex,

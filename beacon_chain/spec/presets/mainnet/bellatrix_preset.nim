@@ -1,5 +1,5 @@
 # Mainnet preset - Bellatrix
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/presets/mainnet/bellatrix.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/presets/mainnet/bellatrix.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------

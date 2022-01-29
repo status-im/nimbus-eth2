@@ -1,5 +1,5 @@
 # Minimal preset - Bellatrix
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/presets/minimal/bellatrix.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/presets/minimal/bellatrix.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------

@@ -111,7 +111,7 @@ type
 
     body*: BeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/phase0/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
     attnets*: AttnetBits
