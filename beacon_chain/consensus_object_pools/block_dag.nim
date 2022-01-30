@@ -65,7 +65,7 @@ func init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
     bid: BlockId(root: root, slot: slot)
   )
 
-func init*(T: type BlockRef, root: Eth2Digest, blck: SomeSomeBeaconBlock):
+func init*(T: type BlockRef, root: Eth2Digest, blck: SomeForkyBeaconBlock):
     BlockRef =
   BlockRef.init(root, blck.slot)
 

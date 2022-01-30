@@ -29,6 +29,15 @@ type
     selectStmt: SqliteStmt[int64, openArray[byte]]
     recordCount: int64
 
+  FinalizedBlocks* = object
+    # A sparse version of DbSeq - can have holes but not duplicate entries
+    insertStmt: SqliteStmt[(int64, array[32, byte]), void]
+    selectStmt: SqliteStmt[int64, array[32, byte]]
+    selectAllStmt: SqliteStmt[NoParams, (int64, array[32, byte])]
+
+    low*: Opt[Slot]
+    high*: Opt[Slot]
+
   DepositsSeq = DbSeq[DepositData]
 
   DepositContractSnapshot* = object
@@ -112,6 +121,8 @@ type
       ## addresses most of the rest of the BeaconState sizes.
 
     summaries: KvStoreRef # BlockRoot -> BeaconBlockSummary
+
+    finalizedBlocks*: FinalizedBlocks
 
   DbKeyKind = enum
     kHashToState
@@ -264,6 +275,82 @@ proc get*[T](s: DbSeq[T], idx: int64): T =
   let found = queryRes.expectDb()
   if not found: panic()
 
+proc init*(T: type FinalizedBlocks, db: SqStoreRef, name: string): KvResult[T] =
+  ? db.exec("""
+    CREATE TABLE IF NOT EXISTS """ & name & """(
+       id INTEGER PRIMARY KEY,
+       value BLOB NOT NULL
+    );
+  """)
+
+  let
+    insertStmt = db.prepareStmt(
+      "REPLACE INTO " & name & "(id, value) VALUES (?, ?);",
+      (int64, array[32, byte]), void, managed = false).expect("this is a valid statement")
+
+    selectStmt = db.prepareStmt(
+      "SELECT value FROM " & name & " WHERE id = ?;",
+      int64, array[32, byte], managed = false).expect("this is a valid statement")
+    selectAllStmt = db.prepareStmt(
+      "SELECT id, value FROM " & name & " ORDER BY id;",
+      NoParams, (int64, array[32, byte]), managed = false).expect("this is a valid statement")
+
+    maxIdStmt = db.prepareStmt(
+      "SELECT MAX(id) FROM " & name & ";",
+      NoParams, Option[int64], managed = false).expect("this is a valid statement")
+
+    minIdStmt = db.prepareStmt(
+      "SELECT MIN(id) FROM " & name & ";",
+      NoParams, Option[int64], managed = false).expect("this is a valid statement")
+
+  var
+    low, high: Opt[Slot]
+    tmp: Option[int64]
+
+  for rowRes in minIdStmt.exec(tmp):
+    expectDb rowRes
+    if tmp.isSome():
+      low.ok(Slot(tmp.get()))
+
+  for rowRes in maxIdStmt.exec(tmp):
+    expectDb rowRes
+    if tmp.isSome():
+      high.ok(Slot(tmp.get()))
+
+  maxIdStmt.dispose()
+  minIdStmt.dispose()
+
+  ok(T(insertStmt: insertStmt,
+         selectStmt: selectStmt,
+         selectAllStmt: selectAllStmt,
+         low: low,
+         high: high))
+
+proc close*(s: FinalizedBlocks) =
+  s.insertStmt.dispose()
+  s.selectStmt.dispose()
+  s.selectAllStmt.dispose()
+
+proc insert*(s: var FinalizedBlocks, slot: Slot, val: Eth2Digest) =
+  doAssert slot.uint64 < int64.high.uint64, "Only reasonable slots supported"
+  s.insertStmt.exec((slot.int64, val.data)).expectDb()
+  s.low.ok(min(slot, s.low.get(slot)))
+  s.high.ok(max(slot, s.high.get(slot)))
+
+proc get*(s: FinalizedBlocks, idx: Slot): Opt[Eth2Digest] =
+  var row: s.selectStmt.Result
+  for rowRes in s.selectStmt.exec(int64(idx), row):
+    expectDb rowRes
+    return ok(Eth2Digest(data: row))
+
+  err()
+
+iterator pairs*(s: FinalizedBlocks): (Slot, Eth2Digest) =
+  var row: s.selectAllStmt.Result
+  for rowRes in s.selectAllStmt.exec(row):
+    expectDb rowRes
+    yield (Slot(row[0]), Eth2Digest(data: row[1]))
+
 proc loadImmutableValidators(vals: DbSeq[ImmutableValidatorDataDb2]): seq[ImmutableValidatorData2] =
   result = newSeqOfCap[ImmutableValidatorData2](vals.len())
   for i in 0 ..< vals.len:
@@ -272,23 +359,23 @@ proc loadImmutableValidators(vals: DbSeq[ImmutableValidatorDataDb2]): seq[Immuta
       pubkey: tmp.pubkey.loadValid(),
       withdrawal_credentials: tmp.withdrawal_credentials)
 
-template withManyWrites*(db: BeaconChainDB, body: untyped) =
+template withManyWrites*(dbParam: BeaconChainDB, body: untyped) =
   # We don't enforce strong ordering or atomicity requirements in the beacon
   # chain db in general, relying instead on readers to be able to deal with
   # minor inconsistencies - however, putting writes in a transaction is orders
   # of magnitude faster when doing many small writes, so we use this as an
   # optimization technique and the templace is named accordingly.
-  mixin expectDb
-  db.db.exec("BEGIN TRANSACTION;").expectDb()
+  let db = dbParam
+  expectDb db.db.exec("BEGIN TRANSACTION;")
   var commit = false
   try:
     body
     commit = true
   finally:
     if commit:
-      db.db.exec("COMMIT TRANSACTION;").expectDb()
+      expectDb db.db.exec("COMMIT TRANSACTION;")
     else:
-      db.db.exec("ROLLBACK TRANSACTION;").expectDb()
+      expectDb db.db.exec("ROLLBACK TRANSACTION;")
 
 proc new*(T: type BeaconChainDB,
           dir: string,
@@ -339,6 +426,7 @@ proc new*(T: type BeaconChainDB,
     mergeStatesNoVal = kvStore db.openKvStore("merge_state_no_validators").expectDb()
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
+    finalizedBlocks = FinalizedBlocks.init(db, "finalized_blocks").expectDb()
 
   # `immutable_validators` stores validator keys in compressed format - this is
   # slow to load and has been superceded by `immutable_validators2` which uses
@@ -378,6 +466,7 @@ proc new*(T: type BeaconChainDB,
     mergeStatesNoVal: mergeStatesNoVal,
     stateDiffs: stateDiffs,
     summaries: summaries,
+    finalizedBlocks: finalizedBlocks,
   )
 
 proc decodeSSZ[T](data: openArray[byte], output: var T): bool =
@@ -484,6 +573,7 @@ proc close*(db: BeaconchainDB) =
   if db.db == nil: return
 
   # Close things in reverse order
+  db.finalizedBlocks.close()
   discard db.summaries.close()
   discard db.stateDiffs.close()
   discard db.mergeStatesNoVal.close()
@@ -494,6 +584,7 @@ proc close*(db: BeaconchainDB) =
   discard db.altairBlocks.close()
   discard db.blocks.close()
   discard db.keyValues.close()
+
   db.immutableValidatorsDb.close()
   db.genesisDeposits.close()
   db.v0.close()
@@ -501,7 +592,7 @@ proc close*(db: BeaconchainDB) =
 
   db.db = nil
 
-func toBeaconBlockSummary*(v: SomeSomeBeaconBlock): BeaconBlockSummary =
+func toBeaconBlockSummary*(v: SomeForkyBeaconBlock): BeaconBlockSummary =
   BeaconBlockSummary(
     slot: v.slot,
     parent_root: v.parent_root,
@@ -535,9 +626,10 @@ proc updateImmutableValidators*(
   while db.immutableValidators.len() < numValidators:
     let immutableValidator =
       getImmutableValidatorData(validators[db.immutableValidators.len()])
-    db.immutableValidatorsDb.add ImmutableValidatorDataDb2(
-      pubkey: immutableValidator.pubkey.toUncompressed(),
-      withdrawal_credentials: immutableValidator.withdrawal_credentials)
+    if not db.db.readOnly:
+      db.immutableValidatorsDb.add ImmutableValidatorDataDb2(
+        pubkey: immutableValidator.pubkey.toUncompressed(),
+        withdrawal_credentials: immutableValidator.withdrawal_credentials)
     db.immutableValidators.add immutableValidator
 
 template toBeaconStateNoImmutableValidators(state: phase0.BeaconState):
@@ -571,6 +663,7 @@ proc putState*(db: BeaconChainDB, state: ForkyHashedBeaconState) =
   db.withManyWrites:
     db.putStateRoot(state.latest_block_root(), state.data.slot, state.root)
     db.putState(state.root, state.data)
+
 # For testing rollback
 proc putCorruptPhase0State*(db: BeaconChainDB, key: Eth2Digest) =
   db.statesNoVal.putSnappySSZ(key.data, Validator())
@@ -597,15 +690,17 @@ proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) 
   db.stateDiffs.putSnappySSZ(root.data, value)
 
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
-  db.blocks.del(key.data).expectDb()
-  db.altairBlocks.del(key.data).expectDb()
-  db.mergeBlocks.del(key.data).expectDb()
-  db.summaries.del(key.data).expectDb()
+  db.withManyWrites:
+    db.blocks.del(key.data).expectDb()
+    db.altairBlocks.del(key.data).expectDb()
+    db.mergeBlocks.del(key.data).expectDb()
+    db.summaries.del(key.data).expectDb()
 
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
-  db.statesNoVal.del(key.data).expectDb()
-  db.altairStatesNoVal.del(key.data).expectDb()
-  db.mergeStatesNoVal.del(key.data).expectDb()
+  db.withManyWrites:
+    db.statesNoVal.del(key.data).expectDb()
+    db.altairStatesNoVal.del(key.data).expectDb()
+    db.mergeStatesNoVal.del(key.data).expectDb()
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   db.stateRoots.del(stateRootKey(root, slot)).expectDb()
@@ -915,6 +1010,14 @@ iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
     yield res
     root = res.message.parent_root
 
+proc getBeaconBlockSummary*(db: BeaconChainDB, root: Eth2Digest):
+    Opt[BeaconBlockSummary] =
+  var summary: BeaconBlockSummary
+  if db.summaries.getSSZ(root.data, summary) == GetResult.found:
+    ok(summary)
+  else:
+    err()
+
 proc loadSummaries*(db: BeaconChainDB): Table[Eth2Digest, BeaconBlockSummary] =
   # Load summaries into table - there's no telling what order they're in so we
   # load them all - bugs in nim prevent this code from living in the iterator.
@@ -934,60 +1037,80 @@ proc loadSummaries*(db: BeaconChainDB): Table[Eth2Digest, BeaconBlockSummary] =
 type RootedSummary = tuple[root: Eth2Digest, summary: BeaconBlockSummary]
 iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
     RootedSummary =
-  ## Load a chain of ancestors for blck - returns a list of blocks with the
-  ## oldest block last (blck will be at result[0]).
+  ## Load a chain of ancestors for blck - iterates over the block starting from
+  ## root and moving parent by parent
   ##
-  ## The search will go on until the ancestor cannot be found.
+  ## The search will go on until an ancestor cannot be found.
 
-  # Summaries are loaded from the dedicated summaries table. For backwards
-  # compatibility, we also load from `kvstore` and finally, if no summaries
-  # can be found, by loading the blocks instead.
-
-  # First, load the full summary table into memory in one query - this makes
-  # initial startup very fast.
   var
-    summaries = db.loadSummaries()
     res: RootedSummary
-    blck: phase0.TrustedSignedBeaconBlock
     newSummaries: seq[RootedSummary]
 
   res.root = root
 
+  # Yield summaries in reverse chain order by walking the parent references.
+  # If a summary is missing, try loading it from the older version or create one
+  # from block data.
+
+  const summariesQuery = """
+  WITH RECURSIVE
+    next(v) as (
+      SELECT value FROM beacon_block_summaries
+      WHERE `key` == ?
+
+    UNION ALL
+      SELECT value FROM beacon_block_summaries
+      INNER JOIN next ON `key` == substr(v, 9, 32)
+  )
+  SELECT v FROM next;
+"""
+  let
+    stmt = expectDb db.db.prepareStmt(
+      summariesQuery, array[32, byte],
+      array[sizeof(BeaconBlockSummary), byte],
+      managed = false)
+
   defer: # in case iteration is stopped along the way
     # Write the newly found summaries in a single transaction - on first migration
     # from the old format, this brings down the write from minutes to seconds
+    stmt.dispose()
+
     if newSummaries.len() > 0:
       db.withManyWrites:
         for s in newSummaries:
           db.putBeaconBlockSummary(s.root, s.summary)
 
-    if false:
-      # When the current version has been online for a bit, we can safely remove
-      # summaries from kvstore by enabling this little snippet - if users were
-      # to downgrade after the summaries have been purged, the old versions that
-      # use summaries can also recreate them on the fly from blocks.
-      db.db.exec(
-        "DELETE FROM kvstore WHERE key >= ? and key < ?",
-        ([byte ord(kHashToBlockSummary)], [byte ord(kHashToBlockSummary) + 1])).expectDb()
-
-  # Yield summaries in reverse chain order by walking the parent references.
-  # If a summary is missing, try loading it from the older version or create one
-  # from block data.
-  while true:
-    summaries.withValue(res.root, summary) do:
-      res.summary = summary[]
+    # Clean up pre-altair summaries - by now, we will have moved them to the
+    # new table
+    db.db.exec(
+      "DELETE FROM kvstore WHERE key >= ? and key < ?",
+      ([byte ord(kHashToBlockSummary)], [byte ord(kHashToBlockSummary) + 1])).expectDb()
+  var row: stmt.Result
+  for rowRes in exec(stmt, root.data, row):
+    expectDb rowRes
+    if decodeSSZ(row, res.summary):
       yield res
-    do: # Summary was not found in summary table, look elsewhere
-      if db.v0.backend.getSnappySSZ(subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found:
-        yield res
-      elif db.v0.backend.getSnappySSZ(
-          subkey(phase0.SignedBeaconBlock, res.root), blck) == GetResult.found:
-        res.summary = blck.message.toBeaconBlockSummary()
-        yield res
-      else:
-        break
-      # Next time, load them from the right place
-      newSummaries.add(res)
+      res.root = res.summary.parent_root
+
+  # Backwards compat for reading old databases, or those that for whatever
+  # reason lost a summary along the way..
+  while true:
+    if db.v0.backend.getSnappySSZ(
+        subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found:
+      discard # Just yield below
+    elif (let blck = db.getPhase0Block(res.root); blck.isSome()):
+      res.summary = blck.get().message.toBeaconBlockSummary()
+    elif (let blck = db.getAltairBlock(res.root); blck.isSome()):
+      res.summary = blck.get().message.toBeaconBlockSummary()
+    elif (let blck = db.getMergeBlock(res.root); blck.isSome()):
+      res.summary = blck.get().message.toBeaconBlockSummary()
+    else:
+      break
+
+    yield res
+
+    # Next time, load them from the right place
+    newSummaries.add(res)
 
     res.root = res.summary.parent_root
 

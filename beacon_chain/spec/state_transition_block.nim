@@ -30,7 +30,7 @@ export extras, phase0, altair
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
-    state: var ForkyBeaconState, blck: SomeSomeBeaconBlock, flags: UpdateFlags,
+    state: var ForkyBeaconState, blck: SomeForkyBeaconBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   # Verify that the slots match
   if not (blck.slot == state.slot):
