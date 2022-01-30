@@ -83,6 +83,8 @@ declareHistogram validator_monitor_prev_epoch_sync_contribution_min_delay_second
   "The min delay between when the validator should send the sync contribution and when it was received.", labels = ["validator"]
 declareGauge validator_monitor_validator_in_current_sync_committee,
   "Is the validator in the current sync committee (1 for true and 0 for false)", labels = ["validator"]
+declareGauge validator_monitor_validator_in_next_sync_committee,
+  "Is the validator in the next sync committee (1 for true and 0 for false)", labels = ["validator"]
 
 declareGauge validator_monitor_validators_total,
   "Count of validators that are specifically monitored by this beacon node"
@@ -124,6 +126,9 @@ declareCounter validator_monitor_proposer_slashing_total,
   "Number of proposer slashings seen", labels = ["src", "validator"]
 declareCounter validator_monitor_attester_slashing_total,
   "Number of attester slashings seen", labels = ["src", "validator"]
+
+const
+  total = "total" # what we use for label when using "totals" mode
 
 type
   EpochSummary = object
@@ -187,6 +192,9 @@ type
 template toGaugeValue(v: bool): int64 =
   if v: 1 else: 0
 
+template toGaugeValue(v: TimeDiff): float =
+  toFloatSeconds(v)
+
 proc update_if_lt[T](current: var Option[T], val: T) =
   if current.isNone() or val < current.get():
     current = some(val)
@@ -207,7 +215,7 @@ proc addMonitor*(
 
 template metricId: string =
   mixin self, id
-  if self.totals: "total" else: id
+  if self.totals: total else: id
 
 proc addAutoMonitor*(
     self: var ValidatorMonitor, pubkey: ValidatorPubKey,
@@ -242,81 +250,110 @@ proc updateEpoch(self: var ValidatorMonitor, epoch: Epoch) =
     return
 
   let
-    clearMonitor = epoch > self.epoch + 1
+    monitorEpoch = self.epoch
     # index of the EpochSummary that we'll first report, then clear
     summaryIdx = epoch.summaryIdx
 
-  if clearMonitor:
+  self.epoch = epoch
+  validator_monitor_validators_total.set(self.monitors.len().int64)
+
+  if epoch > monitorEpoch + 1:
     # More than one epoch passed since the last check which makes it difficult
     # to report correctly with the amount of data we store - skip this round
     # and hope things improve
-    notice "Resetting validator monitoring", epoch, monitorEpoch = self.epoch
+    notice "Resetting validator monitoring", epoch, monitorEpoch
 
-  self.epoch = epoch
+    for (_, monitor) in self.monitors.mpairs():
+      reset(monitor.summaries)
+    return
 
-  validator_monitor_validators_total.set(self.monitors.len().int64)
+  template setAll(metric, name: untyped) =
+    if self.totals:
+      var agg: int64
+      for monitor {.inject.} in self.monitors.mvalues:
+        agg += monitor.summaries[summaryIdx].name
+      metric.set(agg, [total])
+    else:
+      for monitor {.inject.} in self.monitors.mvalues:
+        metric.set(monitor.summaries[summaryIdx].name, [monitor.id])
 
-  for (_, monitor) in self.monitors.mpairs():
-    if clearMonitor:
-      monitor.summaries = default(type(monitor.summaries))
-      continue
+  template observeAll(metric, name: untyped) =
+    for monitor {.inject.} in self.monitors.mvalues:
+      if monitor.summaries[summaryIdx].name.isSome():
+        metric.observe(
+          monitor.summaries[summaryIdx].name.get.toGaugeValue(),
+          [if self.totals: total else: monitor.id])
 
-    let
-      id = monitor.id
 
-    let summary = monitor.summaries[summaryIdx]
+  setAll(
+    validator_monitor_prev_epoch_attestations_total,
+    attestations)
 
-    validator_monitor_prev_epoch_attestations_total.set(
-      summary.attestations, [metricId])
+  observeAll(
+    validator_monitor_prev_epoch_attestations_min_delay_seconds,
+    attestation_min_delay)
 
-    if summary.attestation_min_delay.isSome():
-      validator_monitor_prev_epoch_attestations_min_delay_seconds.observe(
-        summary.attestation_min_delay.get().toFloatSeconds(), [metricId])
+  setAll(
+    validator_monitor_prev_epoch_attestation_aggregate_inclusions,
+    attestation_aggregate_inclusions)
 
-    validator_monitor_prev_epoch_attestation_aggregate_inclusions.set(
-      summary.attestation_aggregate_inclusions, [metricId])
-    validator_monitor_prev_epoch_attestation_block_inclusions.set(
-      summary.attestation_block_inclusions, [metricId])
+  setAll(
+    validator_monitor_prev_epoch_attestation_block_inclusions,
+    attestation_block_inclusions)
 
-    if summary.attestation_min_block_inclusion_distance.isSome():
-      validator_monitor_prev_epoch_attestation_block_min_inclusion_distance.set(
-        summary.attestation_min_block_inclusion_distance.get().int64, [metricId])
+  setAll(
+    validator_monitor_prev_epoch_sync_committee_messages_total,
+    sync_committee_messages)
 
-    validator_monitor_prev_epoch_sync_committee_messages_total.set(
-      summary.sync_committee_messages, [metricId])
+  observeAll(
+    validator_monitor_prev_epoch_sync_committee_messages_min_delay_seconds,
+    sync_committee_message_min_delay)
 
-    if summary.sync_committee_message_min_delay.isSome():
-      validator_monitor_prev_epoch_sync_committee_messages_min_delay_seconds.observe(
-        summary.sync_committee_message_min_delay.get().toFloatSeconds(), [metricId])
+  setAll(
+    validator_monitor_prev_epoch_sync_contribution_inclusions,
+    sync_signature_contribution_inclusions)
+  setAll(
+    validator_monitor_prev_epoch_sync_signature_block_inclusions,
+    sync_signature_block_inclusions)
 
-    validator_monitor_prev_epoch_sync_contribution_inclusions.set(
-      summary.sync_signature_contribution_inclusions, [metricId])
-    validator_monitor_prev_epoch_sync_signature_block_inclusions.set(
-      summary.sync_signature_block_inclusions, [metricId])
+  setAll(
+    validator_monitor_prev_epoch_sync_contributions_total,
+    sync_contributions)
 
-    validator_monitor_prev_epoch_sync_contributions_total.set(
-      summary.sync_contributions, [metricId])
-    if summary.sync_contribution_min_delay.isSome():
-      validator_monitor_prev_epoch_sync_contribution_min_delay_seconds.observe(
-        summary.sync_contribution_min_delay.get().toFloatSeconds(), [metricId])
+  observeAll(
+    validator_monitor_prev_epoch_sync_contribution_min_delay_seconds,
+    sync_contribution_min_delay)
 
-    validator_monitor_prev_epoch_aggregates_total.set(
-        summary.aggregates, [metricId])
+  setAll(
+    validator_monitor_prev_epoch_aggregates_total,
+    aggregates)
 
-    if summary.aggregate_min_delay.isSome():
-      validator_monitor_prev_epoch_aggregates_min_delay_seconds.observe(
-        summary.aggregate_min_delay.get().toFloatSeconds(), [metricId])
+  observeAll(
+    validator_monitor_prev_epoch_aggregates_min_delay_seconds,
+    aggregate_min_delay)
 
-    validator_monitor_prev_epoch_exits_total.set(
-      summary.exits, [metricId])
+  setAll(
+    validator_monitor_prev_epoch_exits_total,
+    exits)
 
-    validator_monitor_prev_epoch_proposer_slashings_total.set(
-        summary.proposer_slashings, [metricId])
+  setAll(
+    validator_monitor_prev_epoch_proposer_slashings_total,
+    proposer_slashings)
 
-    validator_monitor_prev_epoch_attester_slashings_total.set(
-      summary.attester_slashings, [metricId])
+  setAll(
+    validator_monitor_prev_epoch_attester_slashings_total,
+    attester_slashings)
 
-    monitor.summaries[summaryIdx] = default(type(monitor.summaries[summaryIdx]))
+  if not self.totals:
+    for monitor in self.monitors.mvalues:
+      if monitor.summaries[summaryIdx].
+          attestation_min_block_inclusion_distance.isSome:
+        validator_monitor_prev_epoch_attestation_block_min_inclusion_distance.set(
+          monitor.summaries[summaryIdx].
+            attestation_min_block_inclusion_distance.get().int64, [monitor.id])
+
+  for monitor in self.monitors.mvalues:
+    reset(monitor.summaries[summaryIdx])
 
 func is_active_unslashed_in_previous_epoch(status: RewardStatus): bool =
   let flags = status.flags
@@ -353,6 +390,8 @@ proc registerEpochInfo*(
 
   if epoch < 2 or self.monitors.len == 0:
     return
+
+  var in_current_sync_committee, in_next_sync_committee: int64
 
   withEpochInfo(info):
     for pubkey, monitor in self.monitors:
@@ -435,7 +474,8 @@ proc registerEpochInfo*(
         let current_epoch = epoch - 1
 
         if state.current_sync_committee.pubkeys.data.contains(pubkey):
-          validator_monitor_validator_in_current_sync_committee.set(1, [metricId])
+          if not self.totals:
+            validator_monitor_validator_in_current_sync_committee.set(1, [metricId])
 
           self.withEpochSummary(monitor[], current_epoch):
             info "Current epoch sync signatures",
@@ -443,11 +483,34 @@ proc registerEpochInfo*(
               expected = SLOTS_PER_EPOCH,
               epoch = current_epoch,
               validator = id
+          in_current_sync_committee += 1
+
         else:
-          validator_monitor_validator_in_current_sync_committee.set(0, [metricId])
-          debug "Validator isn't part of the current sync committee",
-            epoch = current_epoch,
-            validator = id
+          if not self.totals:
+            validator_monitor_validator_in_current_sync_committee.set(0, [metricId])
+            debug "Validator isn't part of the current sync committee",
+              epoch = current_epoch,
+              validator = id
+
+        if state.next_sync_committee.pubkeys.data.contains(pubkey):
+          if not self.totals:
+            validator_monitor_validator_in_next_sync_committee.set(1, [metricId])
+
+          self.withEpochSummary(monitor[], current_epoch):
+            info "Validator in next sync committee",
+              epoch = current_epoch,
+              validator = id
+          in_next_sync_committee += 1
+
+        else:
+          if not self.totals:
+            validator_monitor_validator_in_next_sync_committee.set(0, [metricId])
+
+  if self.totals:
+    validator_monitor_validator_in_current_sync_committee.set(
+      in_current_sync_committee, [total])
+    validator_monitor_validator_in_next_sync_committee.set(
+      in_next_sync_committee, [total])
 
   self.updateEpoch(epoch)
 
@@ -467,35 +530,66 @@ proc registerState*(self: var ValidatorMonitor, state: ForkyBeaconState) =
     current_epoch = state.slot.epoch
 
   # Update metrics for monitored validators according to the latest rewards
-  for (_, monitor) in self.monitors.mpairs():
-    if not monitor[].index.isSome():
-      continue
 
-    let idx = monitor[].index.get()
-    if state.balances.lenu64 <= idx.uint64:
-      continue
+  if self.totals:
+    var
+      balance: uint64
+      effective_balance: uint64
+      slashed: int64
+      active: int64
+      exited: int64
+      withdrawable: int64
 
-    let id = monitor[].id
-    validator_monitor_balance_gwei.set(
-      state.balances[idx].toGaugeValue(), [metricId])
-    validator_monitor_effective_balance_gwei.set(
-      state.validators[idx].effective_balance.toGaugeValue(), [metricId])
-    validator_monitor_slashed.set(
-      state.validators[idx].slashed.toGaugeValue(), [metricId])
-    validator_monitor_active.set(
-      is_active_validator(state.validators[idx], current_epoch).toGaugeValue(), [metricId])
-    validator_monitor_exited.set(
-      is_exited_validator(state.validators[idx], current_epoch).toGaugeValue(), [metricId])
-    validator_monitor_withdrawable.set(
-      is_withdrawable_validator(state.validators[idx], current_epoch).toGaugeValue(), [metricId])
-    validator_activation_eligibility_epoch.set(
-      state.validators[idx].activation_eligibility_epoch.toGaugeValue(), [metricId])
-    validator_activation_epoch.set(
-      state.validators[idx].activation_epoch.toGaugeValue(), [metricId])
-    validator_exit_epoch.set(
-      state.validators[idx].exit_epoch.toGaugeValue(), [metricId])
-    validator_withdrawable_epoch.set(
-      state.validators[idx].withdrawable_epoch.toGaugeValue(), [metricId])
+    for monitor in self.monitors.mvalues:
+      if not monitor[].index.isSome():
+        continue
+
+      let idx = monitor[].index.get()
+      if state.balances.lenu64 <= idx.uint64:
+        continue
+      balance += state.balances[idx]
+      effective_balance += state.validators[idx].effective_balance
+      if state.validators[idx].slashed: slashed += 1
+      if is_active_validator(state.validators[idx], current_epoch): active += 1
+      if is_exited_validator(state.validators[idx], current_epoch): exited += 1
+      if is_withdrawable_validator(state.validators[idx], current_epoch): withdrawable += 1
+    validator_monitor_balance_gwei.set(balance.toGaugeValue(), [total])
+    validator_monitor_effective_balance_gwei.set(effective_balance.toGaugeValue(), [total])
+    validator_monitor_slashed.set(slashed, [total])
+    validator_monitor_active.set(active, [total])
+    validator_monitor_exited.set(exited, [total])
+    validator_monitor_withdrawable.set(withdrawable, [total])
+
+  else:
+    for monitor in self.monitors.mvalues():
+      if not monitor[].index.isSome():
+        continue
+
+      let idx = monitor[].index.get()
+      if state.balances.lenu64 <= idx.uint64:
+        continue
+
+      let id = monitor[].id
+      validator_monitor_balance_gwei.set(
+        state.balances[idx].toGaugeValue(), [id])
+      validator_monitor_effective_balance_gwei.set(
+        state.validators[idx].effective_balance.toGaugeValue(), [id])
+      validator_monitor_slashed.set(
+        state.validators[idx].slashed.toGaugeValue(), [id])
+      validator_monitor_active.set(
+        is_active_validator(state.validators[idx], current_epoch).toGaugeValue(), [id])
+      validator_monitor_exited.set(
+        is_exited_validator(state.validators[idx], current_epoch).toGaugeValue(), [id])
+      validator_monitor_withdrawable.set(
+        is_withdrawable_validator(state.validators[idx], current_epoch).toGaugeValue(), [id])
+      validator_activation_eligibility_epoch.set(
+        state.validators[idx].activation_eligibility_epoch.toGaugeValue(), [id])
+      validator_activation_epoch.set(
+        state.validators[idx].activation_epoch.toGaugeValue(), [id])
+      validator_exit_epoch.set(
+        state.validators[idx].exit_epoch.toGaugeValue(), [id])
+      validator_withdrawable_epoch.set(
+        state.validators[idx].withdrawable_epoch.toGaugeValue(), [id])
 
 template withMonitor(self: var ValidatorMonitor, key: ValidatorPubKey, body: untyped): untyped =
   self.monitors.withValue(key, valuex):
@@ -524,7 +618,7 @@ proc registerAttestation*(
     let id = monitor.id
     validator_monitor_unaggregated_attestation_total.inc(1, [$src, metricId])
     validator_monitor_unaggregated_attestation_delay_seconds.observe(
-      delay.toFloatSeconds(), [$src, metricId])
+      delay.toGaugeValue(), [$src, metricId])
 
     info "Attestation seen",
       attestation = shortLog(attestation),
@@ -549,7 +643,7 @@ proc registerAggregate*(
     let id = monitor.id
     validator_monitor_aggregated_attestation_total.inc(1, [$src, metricId])
     validator_monitor_aggregated_attestation_delay_seconds.observe(
-      delay.toFloatSeconds(), [$src, metricId])
+      delay.toGaugeValue(), [$src, metricId])
 
     info "Aggregated attestion seen",
       aggregate = shortLog(signed_aggregate_and_proof.message.aggregate),
@@ -564,7 +658,7 @@ proc registerAggregate*(
       let id = monitor.id
       validator_monitor_attestation_in_aggregate_total.inc(1, [$src, metricId])
       validator_monitor_attestation_in_aggregate_delay_seconds.observe(
-        delay.toFloatSeconds(), [$src, metricId])
+        delay.toGaugeValue(), [$src, metricId])
 
       info "Attestation included in aggregate",
         aggregate = shortLog(signed_aggregate_and_proof.message.aggregate),
@@ -585,7 +679,10 @@ proc registerAttestationInBlock*(
       epoch = data.slot.epoch
 
     validator_monitor_attestation_in_block_total.inc(1, ["block", metricId])
-    validator_monitor_attestation_in_block_delay_slots.set(inclusion_lag.int64, ["block", metricId])
+
+    if not self.totals:
+      validator_monitor_attestation_in_block_delay_slots.set(
+        inclusion_lag.int64, ["block", metricId])
 
     info "Attestation included in block",
       attestation_data = shortLog(data),
@@ -611,7 +708,7 @@ proc registerBeaconBlock*(
 
     validator_monitor_beacon_block_total.inc(1, [$src, metricId])
     validator_monitor_beacon_block_delay_seconds.observe(
-      delay.toFloatSeconds(), [$src, metricId])
+      delay.toGaugeValue(), [$src, metricId])
 
     info "Block seen",
       blck = shortLog(blck), src, epoch = slot.epoch, validator = id
@@ -629,7 +726,7 @@ proc registerSyncCommitteeMessage*(
 
     validator_monitor_sync_committee_messages_total.inc(1, [$src, metricId])
     validator_monitor_sync_committee_messages_delay_seconds.observe(
-      delay.toFloatSeconds(), [$src, metricId])
+      delay.toGaugeValue(), [$src, metricId])
 
     info "Sync committee message seen",
       syncCommitteeMessage = shortLog(sync_committee_message.beacon_block_root),
@@ -655,7 +752,7 @@ proc registerSyncContribution*(
     let id = monitor.id
     validator_monitor_sync_contributions_total.inc(1, [$src, metricId])
     validator_monitor_sync_contributions_delay_seconds.observe(
-      delay.toFloatSeconds(), [$src, metricId])
+      delay.toGaugeValue(), [$src, metricId])
 
     info "Sync contribution seen",
       contribution = shortLog(sync_contribution.message.contribution),

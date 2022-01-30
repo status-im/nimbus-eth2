@@ -422,6 +422,38 @@ proc getForkedBlock*(
   dag.getForkedBlock(blck.bid).expect(
     "BlockRef block should always load, database corrupt?")
 
+proc updateBeaconMetrics(state: StateData, cache: var StateCache) =
+  # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
+  # both non-negative, so difference can't overflow or underflow int64
+
+  beacon_head_root.set(state.blck.root.toGaugeValue)
+  beacon_head_slot.set(state.blck.slot.toGaugeValue)
+
+  withState(state.data):
+    beacon_pending_deposits.set(
+      (state.data.eth1_data.deposit_count -
+        state.data.eth1_deposit_index).toGaugeValue)
+    beacon_processed_deposits_total.set(
+      state.data.eth1_deposit_index.toGaugeValue)
+
+    beacon_current_justified_epoch.set(
+      state.data.current_justified_checkpoint.epoch.toGaugeValue)
+    beacon_current_justified_root.set(
+      state.data.current_justified_checkpoint.root.toGaugeValue)
+    beacon_previous_justified_epoch.set(
+      state.data.previous_justified_checkpoint.epoch.toGaugeValue)
+    beacon_previous_justified_root.set(
+      state.data.previous_justified_checkpoint.root.toGaugeValue)
+    beacon_finalized_epoch.set(
+      state.data.finalized_checkpoint.epoch.toGaugeValue)
+    beacon_finalized_root.set(
+      state.data.finalized_checkpoint.root.toGaugeValue)
+
+    let active_validators = count_active_validators(
+      state.data, state.data.slot.epoch, cache).toGaugeValue
+    beacon_active_validators.set(active_validators)
+    beacon_current_active_validators.set(active_validators)
+
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
            onBlockCb: OnBlockCallback = nil, onHeadCb: OnHeadCallback = nil,
@@ -605,7 +637,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         genesisRef, tailRef, headRef, tailRoot, headRoot, stateFork, configFork
       quit 1
 
-  assign(dag.clearanceState, dag.headState)
+  # db state is likely a epoch boundary state which is what we want for epochs
   assign(dag.epochRefState, dag.headState)
 
   dag.forkDigests = newClone ForkDigests.init(
@@ -630,6 +662,11 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       head = shortLog(headRef)
 
     quit 1
+
+  # Clearance most likely happens from head - assign it after rewinding head
+  assign(dag.clearanceState, dag.headState)
+
+  updateBeaconMetrics(dag.headState, cache)
 
   # The tail block is "implicitly" finalized as it was given either as a
   # checkpoint block, or is the genesis, thus we use it as a lower bound when
@@ -657,8 +694,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       tmp = tmp.parent
 
   let stateTick = Moment.now()
-
-  dag.clearanceState = dag.headState
 
   # Pruning metadata
   dag.lastPrunePoint = dag.finalizedHead
@@ -1374,6 +1409,8 @@ proc updateHead*(
 
   dag.db.putHeadBlock(newHead.root)
 
+  updateBeaconMetrics(dag.headState, cache)
+
   withState(dag.headState.data):
     when stateFork >= BeaconStateFork.Altair:
       dag.headSyncCommittees = state.data.get_sync_committee_cache(cache)
@@ -1433,48 +1470,12 @@ proc updateHead*(
                                            prevDepBlock.root)
       dag.onHeadChanged(data)
 
-  # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
-  # both non-negative, so difference can't overflow or underflow int64
-  beacon_pending_deposits.set(
-    getStateField(dag.headState.data, eth1_data).deposit_count.toGaugeValue -
-    getStateField(dag.headState.data, eth1_deposit_index).toGaugeValue)
-  beacon_processed_deposits_total.set(
-    getStateField(dag.headState.data, eth1_deposit_index).toGaugeValue)
-
-  beacon_head_root.set newHead.root.toGaugeValue
-  beacon_head_slot.set newHead.slot.toGaugeValue
-
   withState(dag.headState.data):
     # Every time the head changes, the "canonical" view of balances and other
     # state-related metrics change - notify the validator monitor.
     # Doing this update during head update ensures there's a reasonable number
     # of such updates happening - at most once per valid block.
     dag.validatorMonitor[].registerState(state.data)
-
-  if lastHead.slot.epoch != newHead.slot.epoch:
-    # Epoch updated - in theory, these could happen when the wall clock
-    # changes epoch, even if there is no new block / head, but we'll delay
-    # updating them until a block confirms the change
-    beacon_current_justified_epoch.set(
-      getStateField(
-        dag.headState.data, current_justified_checkpoint).epoch.toGaugeValue)
-    beacon_current_justified_root.set(
-      getStateField(
-        dag.headState.data, current_justified_checkpoint).root.toGaugeValue)
-    beacon_previous_justified_epoch.set(
-      getStateField(
-        dag.headState.data, previous_justified_checkpoint).epoch.toGaugeValue)
-    beacon_previous_justified_root.set(
-      getStateField(
-        dag.headState.data, previous_justified_checkpoint).root.toGaugeValue)
-
-    let
-      epochRef = getEpochRef(dag, dag.headState, cache)
-      number_of_active_validators =
-        epochRef.shuffled_active_validator_indices.lenu64().toGaugeValue
-
-    beacon_active_validators.set(number_of_active_validators)
-    beacon_current_active_validators.set(number_of_active_validators)
 
   if finalizedHead != dag.finalizedHead:
     debug "Reached new finalization checkpoint",
@@ -1503,11 +1504,6 @@ proc updateHead*(
       dag.finalizedHead = finalizedHead
 
       dag.updateFinalizedBlocks()
-
-    beacon_finalized_epoch.set(getStateField(
-      dag.headState.data, finalized_checkpoint).epoch.toGaugeValue)
-    beacon_finalized_root.set(getStateField(
-      dag.headState.data, finalized_checkpoint).root.toGaugeValue)
 
     # Pruning the block dag is required every time the finalized head changes
     # in order to clear out blocks that are no longer viable and should
