@@ -1531,7 +1531,7 @@ proc updateHead*(
         dag.finalizedHead.blck.root,
         stateRoot,
         dag.finalizedHead.slot.epoch)
-      dag.onFinHappened(data)
+      dag.onFinHappened(dag, data)
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =
   # Lightweight check to see if we have the minimal information needed to

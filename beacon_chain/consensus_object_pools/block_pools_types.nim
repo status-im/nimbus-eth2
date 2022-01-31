@@ -51,7 +51,7 @@ type
   OnReorgCallback* =
     proc(data: ReorgInfoObject) {.gcsafe, raises: [Defect].}
   OnFinalizedCallback* =
-    proc(data: FinalizationInfoObject) {.gcsafe, raises: [Defect].}
+    proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [Defect].}
 
   KeyedBlockRef* = object
     # Special wrapper for BlockRef used in ChainDAG.blocks that allows lookup
@@ -249,6 +249,9 @@ template epoch*(e: EpochRef): Epoch = e.key.epoch
 func shortLog*(v: EpochKey): string =
   # epoch:root when logging epoch, root:slot when logging slot!
   $v.epoch & ":" & shortLog(v.blck)
+
+template setFinalizationCb*(dag: ChainDAGRef, cb: OnFinalizedCallback) =
+  dag.onFinHappened = cb
 
 func shortLog*(v: EpochRef): string =
   # epoch:root when logging epoch, root:slot when logging slot!
