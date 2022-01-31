@@ -10,6 +10,16 @@ logScope: topics = "val_mon"
 # Validator monitoring based on the same feature in Lighthouse - using the same
 # metrics allows users to more easily reuse monitoring setups
 
+# Some issues to address before taking this feature out of beta:
+#
+# * some gauges are named `_total` which goes against prometheus conventions
+# * because nim-metrics adds a compulsory `_total` to counters, we can't
+#   support some of the metric names (https://github.com/sigp/lighthouse/issues/2977)
+# * in v1.6.0, some of our counters got an extra `_total` suffix, for the same reason
+# * Per-epoch metrics are being updated while syncing, which makes them a bit
+#   hard to use in time series / graphs which depend on the metrics changing at
+#   a steady clock-based rate
+
 declareGauge validator_monitor_balance_gwei,
   "The validator's balance in gwei.", labels = ["validator"]
 declareGauge validator_monitor_effective_balance_gwei,
@@ -88,43 +98,43 @@ declareGauge validator_monitor_validator_in_next_sync_committee,
 
 declareGauge validator_monitor_validators_total,
   "Count of validators that are specifically monitored by this beacon node"
-declareCounter validator_monitor_unaggregated_attestation_total,
+declareCounter validator_monitor_unaggregated_attestation,
   "Number of unaggregated attestations seen", labels = ["src", "validator"]
 declareHistogram validator_monitor_unaggregated_attestation_delay_seconds,
   "The delay between when the validator should send the attestation and when it was received.", labels = ["src", "validator"]
-declareCounter validator_monitor_sync_committee_messages_total,
+declareCounter validator_monitor_sync_committee_messages,
   "Number of sync committee messages seen", labels = ["src", "validator"]
 declareHistogram validator_monitor_sync_committee_messages_delay_seconds,
   "The delay between when the validator should send the sync committee message and when it was received.", labels = ["src", "validator"]
-declareCounter validator_monitor_sync_contributions_total,
+declareCounter validator_monitor_sync_contributions,
   "Number of sync contributions seen", labels = ["src", "validator"]
 declareHistogram validator_monitor_sync_contributions_delay_seconds,
   "The delay between when the aggregator should send the sync contribution and when it was received.", labels = ["src", "validator"]
-declareCounter validator_monitor_aggregated_attestation_total,
+declareCounter validator_monitor_aggregated_attestation,
   "Number of aggregated attestations seen", labels = ["src", "validator"]
 declareHistogram validator_monitor_aggregated_attestation_delay_seconds,
   "The delay between then the validator should send the aggregate and when it was received.", labels = ["src", "validator"]
-declareCounter validator_monitor_attestation_in_aggregate_total,
+declareCounter validator_monitor_attestation_in_aggregate,
   "Number of times an attestation has been seen in an aggregate", labels = ["src", "validator"]
-declareCounter validator_monitor_sync_committee_message_in_contribution_total,
+declareCounter validator_monitor_sync_committee_message_in_contribution,
   "Number of times a sync committee message has been seen in a sync contribution", labels = ["src", "validator"]
 declareHistogram validator_monitor_attestation_in_aggregate_delay_seconds,
   "The delay between when the validator should send the aggregate and when it was received.", labels = ["src", "validator"]
-declareCounter validator_monitor_attestation_in_block_total,
+declareCounter validator_monitor_attestation_in_block,
   "Number of times an attestation has been seen in a block", labels = ["src", "validator"]
-declareCounter validator_monitor_sync_committee_message_in_block_total,
+declareCounter validator_monitor_sync_committee_message_in_block,
   "Number of times a validator's sync committee message has been seen in a sync aggregate", labels = ["src", "validator"]
 declareGauge validator_monitor_attestation_in_block_delay_slots,
   "The excess slots (beyond the minimum delay) between the attestation slot and the block slot.", labels = ["src", "validator"]
-declareCounter validator_monitor_beacon_block_total,
+declareCounter validator_monitor_beacon_block,
   "Number of beacon blocks seen", labels = ["src", "validator"]
 declareHistogram validator_monitor_beacon_block_delay_seconds,
   "The delay between when the validator should send the block and when it was received.", labels = ["src", "validator"]
-declareCounter validator_monitor_exit_total,
+declareCounter validator_monitor_exit,
   "Number of beacon exits seen", labels = ["src", "validator"]
-declareCounter validator_monitor_proposer_slashing_total,
+declareCounter validator_monitor_proposer_slashing,
   "Number of proposer slashings seen", labels = ["src", "validator"]
-declareCounter validator_monitor_attester_slashing_total,
+declareCounter validator_monitor_attester_slashing,
   "Number of attester slashings seen", labels = ["src", "validator"]
 
 const
@@ -616,7 +626,7 @@ proc registerAttestation*(
 
   self.withMonitor(idx):
     let id = monitor.id
-    validator_monitor_unaggregated_attestation_total.inc(1, [$src, metricId])
+    validator_monitor_unaggregated_attestation.inc(1, [$src, metricId])
     validator_monitor_unaggregated_attestation_delay_seconds.observe(
       delay.toGaugeValue(), [$src, metricId])
 
@@ -641,7 +651,7 @@ proc registerAggregate*(
 
   self.withMonitor(aggregator_index):
     let id = monitor.id
-    validator_monitor_aggregated_attestation_total.inc(1, [$src, metricId])
+    validator_monitor_aggregated_attestation.inc(1, [$src, metricId])
     validator_monitor_aggregated_attestation_delay_seconds.observe(
       delay.toGaugeValue(), [$src, metricId])
 
@@ -656,7 +666,7 @@ proc registerAggregate*(
   for idx in attesting_indices:
     self.withMonitor(idx):
       let id = monitor.id
-      validator_monitor_attestation_in_aggregate_total.inc(1, [$src, metricId])
+      validator_monitor_attestation_in_aggregate.inc(1, [$src, metricId])
       validator_monitor_attestation_in_aggregate_delay_seconds.observe(
         delay.toGaugeValue(), [$src, metricId])
 
@@ -678,7 +688,7 @@ proc registerAttestationInBlock*(
       inclusion_lag = (blck.slot - data.slot) - MIN_ATTESTATION_INCLUSION_DELAY
       epoch = data.slot.epoch
 
-    validator_monitor_attestation_in_block_total.inc(1, ["block", metricId])
+    validator_monitor_attestation_in_block.inc(1, ["block", metricId])
 
     if not self.totals:
       validator_monitor_attestation_in_block_delay_slots.set(
@@ -706,7 +716,7 @@ proc registerBeaconBlock*(
       slot = blck.slot
       delay = seen_timestamp - slot.block_deadline()
 
-    validator_monitor_beacon_block_total.inc(1, [$src, metricId])
+    validator_monitor_beacon_block.inc(1, [$src, metricId])
     validator_monitor_beacon_block_delay_seconds.observe(
       delay.toGaugeValue(), [$src, metricId])
 
@@ -724,7 +734,7 @@ proc registerSyncCommitteeMessage*(
       slot = sync_committee_message.slot
       delay = seen_timestamp - slot.sync_committee_message_deadline()
 
-    validator_monitor_sync_committee_messages_total.inc(1, [$src, metricId])
+    validator_monitor_sync_committee_messages.inc(1, [$src, metricId])
     validator_monitor_sync_committee_messages_delay_seconds.observe(
       delay.toGaugeValue(), [$src, metricId])
 
@@ -750,7 +760,7 @@ proc registerSyncContribution*(
   let aggregator_index = sync_contribution.message.aggregator_index
   self.withMonitor(aggregator_index):
     let id = monitor.id
-    validator_monitor_sync_contributions_total.inc(1, [$src, metricId])
+    validator_monitor_sync_contributions.inc(1, [$src, metricId])
     validator_monitor_sync_contributions_delay_seconds.observe(
       delay.toGaugeValue(), [$src, metricId])
 
@@ -765,7 +775,7 @@ proc registerSyncContribution*(
   for participant in participants:
     self.withMonitor(participant):
       let id = monitor.id
-      validator_monitor_sync_committee_message_in_contribution_total.inc(1, [$src, metricId])
+      validator_monitor_sync_committee_message_in_contribution.inc(1, [$src, metricId])
 
       info "Sync signature included in contribution",
         contribution = shortLog(sync_contribution.message.contribution),
@@ -779,7 +789,7 @@ proc registerSyncAggregateInBlock*(
     pubkey: ValidatorPubKey) =
   self.withMonitor(pubkey):
     let id = monitor.id
-    validator_monitor_sync_committee_message_in_block_total.inc(1, ["block", metricId])
+    validator_monitor_sync_committee_message_in_block.inc(1, ["block", metricId])
 
     info "Sync signature included in block",
       head = beacon_block_root, slot = slot, validator = id
@@ -794,7 +804,7 @@ proc registerVoluntaryExit*(
       id = monitor.id
       epoch = exit.epoch
 
-    validator_monitor_exit_total.inc(1, [$src, metricId])
+    validator_monitor_exit.inc(1, [$src, metricId])
 
     notice "Voluntary exit seen",
       epoch = epoch, validator = id, src = src
@@ -813,7 +823,7 @@ proc registerProposerSlashing*(
       root_1 = hash_tree_root(slashing.signed_header_1.message)
       root_2 = hash_tree_root(slashing.signed_header_2.message)
 
-    validator_monitor_proposer_slashing_total.inc(1, [$src, metricId])
+    validator_monitor_proposer_slashing.inc(1, [$src, metricId])
 
     warn "Proposer slashing seen",
       root_2 = root_2, root_1 = root_1, slot = slot, validator = id, src = src
@@ -834,7 +844,7 @@ proc registerAttesterSlashing*(
         id = monitor.id
         slot = data.slot
 
-      validator_monitor_attester_slashing_total.inc(1, [$src, metricId])
+      validator_monitor_attester_slashing.inc(1, [$src, metricId])
 
       warn "Attester slashing seen",
         slot = slot, validator = id, src = src

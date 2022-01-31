@@ -666,6 +666,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # Clearance most likely happens from head - assign it after rewinding head
   assign(dag.clearanceState, dag.headState)
 
+  withState(dag.headState.data):
+    dag.validatorMonitor[].registerState(state.data)
+
   updateBeaconMetrics(dag.headState, cache)
 
   # The tail block is "implicitly" finalized as it was given either as a
