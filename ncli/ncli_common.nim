@@ -43,6 +43,7 @@ type
 const
   epochInfoFileNameDigitsCount = 8
   epochFileNameExtension* = ".epoch"
+  epochNumberRegexStr = r"\d{" & $epochInfoFileNameDigitsCount & r"}\"
 
 proc copyParticipationFlags*(auxiliaryState: var AuxiliaryState,
                              forkedState: ForkedHashedBeaconState) =
@@ -52,10 +53,10 @@ proc copyParticipationFlags*(auxiliaryState: var AuxiliaryState,
       flags.currentEpochParticipation = state.data.current_epoch_participation
       flags.previousEpochParticipation = state.data.previous_epoch_participation
 
-proc getEpochRange*(dir: string):
+proc getUnaggregatedFilesEpochRange*(dir: string):
     tuple[firstEpoch, lastEpoch: Epoch] =
   const epochInfoFileNameRegexStr =
-    r"\d{" & $epochInfoFileNameDigitsCount & r"}\" & epochFileNameExtension
+    epochNumberRegexStr & epochFileNameExtension
   var pattern {.global.}: Regex
   once: pattern = re(epochInfoFileNameRegexStr)
   var smallestEpochFileName =
@@ -73,12 +74,34 @@ proc getEpochRange*(dir: string):
   result.lastEpoch = parseUInt(
     largestEpochFileName[0 ..< epochInfoFileNameDigitsCount]).Epoch
 
+proc getUnaggregatedFilesLastEpoch*(dir: string): Epoch =
+  dir.getUnaggregatedFilesEpochRange.lastEpoch
+
+proc getAggregatedFilesLastEpoch*(dir: string): Epoch =
+  const epochInfoFileNameRegexStr =
+    epochNumberRegexStr & "_" & epochNumberRegexStr & epochFileNameExtension
+  var pattern {.global.}: Regex
+  once: pattern = re(epochInfoFileNameRegexStr)
+  var largestEpochInFileName = 0'u
+  for (_, fn) in walkDir(dir.string, relative = true):
+    if fn.match(pattern):
+      let fileLastEpoch = parseUint(
+        fn[epochInfoFileNameDigitsCount + 1 .. 2 * epochInfoFileNameDigitsCount])
+      if fileLastEpoch > largestEpochInFileName:
+        largestEpochInFileName = fileLastEpoch
+  return largestEpochInFileName.Epoch
+
 proc epochAsString*(epoch: Epoch): string =
   let strEpoch = $epoch
   '0'.repeat(epochInfoFileNameDigitsCount - strEpoch.len) & strEpoch
 
 proc getFilePathForEpoch*(epoch: Epoch, dir: string): string =
   dir / epochAsString(epoch) & epochFileNameExtension
+
+proc getFilePathForEpochs*(startEpoch, endEpoch: Epoch, dir: string): string =
+  let fileName = epochAsString(startEpoch) & "_"  &
+                 epochAsString(endEpoch) & epochFileNameExtension
+  dir / fileName
 
 func getBlockRange*(dag: ChainDAGRef, start, ends: Slot): seq[BlockRef] =
   # Range of block in reverse order
@@ -432,9 +455,6 @@ proc collectBlockRewardsAndPenalties*(
   # it can be cleared after processing all deposits for the current block.
   auxiliaryState.pubkeyToIndex.clear
   rewardsAndPenalties.collectFromSyncAggregate(forkedState, forkedBlock, cache)
-
-proc getStartEpoch*(outDir: string): Epoch =
-  outDir.getEpochRange.lastEpoch + 1
 
 func serializeToCsv*(rp: RewardsAndPenalties,
                      avgInclusionDelay = none(float)): string =
