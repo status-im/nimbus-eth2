@@ -9,6 +9,10 @@ type
     derivation_path*: string
     readonly*: bool
 
+  RemoteKeystoreInfo* = object
+    pubkey*: ValidatorPubKey
+    url*: string
+
   RequestItemStatus* = object
     status*: string
     message*: string
@@ -23,6 +27,9 @@ type
 
   GetKeystoresResponse* = object
     data*: seq[KeystoreInfo]
+
+  GetRemoteKeystoresResponse* = object
+    data*: seq[RemoteKeystoreInfo]
 
   PostKeystoresResponse* = object
     data*: seq[RequestItemStatus]
