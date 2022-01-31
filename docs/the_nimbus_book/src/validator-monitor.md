@@ -1,6 +1,6 @@
 # Validator monitoring
 
-> ⚠️ This feature is currently in BETA - implementation details may change in response to community feedback.
+> ⚠️ This feature is currently in BETA - implementation details such as metric names and counters may change in response to community feedback.
 
 The validator monitoring feature allows for tracking the life-cycle and performance of one or more validators in detail.
 
@@ -11,7 +11,9 @@ Every time the validator performs a duty, the duty is recorded and the monitor k
 * When attesting, the attestation is added to an aggregate, then a block, before a reward is applied to the state
 * When performing sync committee duties, likewise
 
-Validator actions can be traced either through logging, or comprehensive metrics that allow for creating alerts in monitoring tools. The metrics are based on the same feature in [Lighthouse](https://lighthouse-book.sigmaprime.io/validator-monitoring.html), thus dashboards and alerts can be used with either client.
+Validator actions can be traced either through logging, or comprehensive metrics that allow for creating alerts in monitoring tools.
+
+The metrics are broadly compatible with [Lighthouse](https://lighthouse-book.sigmaprime.io/validator-monitoring.html), thus dashboards and alerts can be used with either client.
 
 ## Enabling validator monitoring
 
