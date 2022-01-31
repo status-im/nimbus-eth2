@@ -565,9 +565,11 @@ type
 
         restUrlForExit* {.
           desc: "URL of the beacon node REST service"
-          defaultValue: parseUri("http://localhost" & $DefaultEth2RestPort)
-          defaultValueDesc: "http://localhost:5052"
-          name: "rest-url" }: Uri
+          name: "rest-url" }: Option[Uri]
+
+        rpcUrlForExit* {.
+          desc: "URL of the beacon node JSON-RPC service"
+          name: "rpc-url" }:  Option[Uri]
 
     of BNStartUpCmd.record:
       case recordCmd* {.command.}: RecordCmd
