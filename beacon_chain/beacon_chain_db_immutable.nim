@@ -123,7 +123,7 @@ type
     current_sync_committee*: SyncCommittee     # [New in Altair]
     next_sync_committee*: SyncCommittee        # [New in Altair]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/bellatrix/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a Merge BeaconState for in-place SSZ
   # reading and writing
   MergeBeaconStateNoImmutableValidators* = object
