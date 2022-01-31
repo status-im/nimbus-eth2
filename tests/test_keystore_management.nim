@@ -77,7 +77,7 @@ suite "removeValidatorFiles":
       secretsCountBefore = directoryItemsCount(testSecretsDir)
       firstValidator = validatorPubKeys[0]
       removeValidatorFilesRes = removeValidatorFiles(
-        testValidatorsDir, testSecretsDir, firstValidator)
+        testValidatorsDir, testSecretsDir, firstValidator, KeystoreKind.Local)
       validatorsCountAfter = directoryItemsCount(testValidatorsDir)
       secretsCountAfter = directoryItemsCount(testSecretsDir)
 
@@ -94,21 +94,24 @@ suite "removeValidatorFiles":
     let
       nonexistentValidator =
         "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-      res = removeValidatorFiles(testValidatorsDir, testSecretsDir, nonexistentValidator)
+      res = removeValidatorFiles(testValidatorsDir, testSecretsDir,
+                                 nonexistentValidator, KeystoreKind.Local)
 
-    check(res.isOk and res.value == RemoveValidatorStatus.missingDir)
+    check(res.isOk and res.value == RemoveValidatorStatus.notFound)
 
   test "Remove validator files twice":
     let
       secondValidator = validatorPubKeys[1]
-      res1 = removeValidatorFiles(testValidatorsDir, testSecretsDir, secondValidator)
-      res2 = removeValidatorFiles(testValidatorsDir, testSecretsDir, secondValidator)
+      res1 = removeValidatorFiles(testValidatorsDir, testSecretsDir,
+                                  secondValidator, KeystoreKind.Local)
+      res2 = removeValidatorFiles(testValidatorsDir, testSecretsDir,
+                                  secondValidator, KeystoreKind.Local)
 
     check:
       not fileExists(testValidatorsDir / secondValidator)
       not fileExists(testSecretsDir / secondValidator)
       res1.isOk and res1.value() == RemoveValidatorStatus.deleted
-      res2.isOk and res2.value() == RemoveValidatorStatus.missingDir
+      res2.isOk and res2.value() == RemoveValidatorStatus.notFound
 
   os.removeDir testValidatorsDir
   os.removeDir testSecretsDir

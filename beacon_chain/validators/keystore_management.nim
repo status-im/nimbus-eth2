@@ -460,13 +460,11 @@ proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
     error "Unable to find any keystore files", keystorePath
     none[KeystoreData]()
 
-proc removeValidatorFiles*(conf: AnyConf, keyName: string,
+proc removeValidatorFiles*(validatorsDir, secretsDir, keyName: string,
                            kind: KeystoreKind
                           ): KmResult[RemoveValidatorStatus] {.
      raises: [Defect].} =
   let
-    validatorsDir = conf.validatorsDir()
-    secretsDir = conf.secretsDir()
     keystoreDir = validatorsDir / keyName
     keystoreFile =
       case kind
@@ -509,6 +507,12 @@ proc removeValidatorFiles*(conf: AnyConf, keyName: string,
       return err("Could not remove keystore directory")
 
   ok(RemoveValidatorStatus.deleted)
+
+proc removeValidatorFiles*(conf: AnyConf, keyName: string,
+                           kind: KeystoreKind
+                          ): KmResult[RemoveValidatorStatus] {.
+     raises: [Defect].} =
+  removeValidatorFiles(conf.validatorsDir(), conf.secretsDir(), keyName, kind)
 
 proc removeValidator*(pool: var ValidatorPool, conf: AnyConf,
                       publicKey: ValidatorPubKey,
