@@ -11,7 +11,7 @@ import
     ssz_codec],
   ../beacon_chain/sszdump,
   ../research/simutils,
-  ./e2store, ./ncli_common
+  ./e2store, ./ncli_common, ./validator_db_aggregator
 
 when defined(posix):
   import system/ansi_c
@@ -180,6 +180,21 @@ type
         abbr: "e"
         desc: "The last for which to record statistics." &
               "By default the last epoch in the input database".}: Option[uint]
+      resolution {.
+        defaultValue: 225,
+        name: "resolution"
+        abbr: "r"
+        desc: "How many epochs to be aggregated in a single compacted file" .}: uint
+      writeAggregatedFiles {.
+        name: "aggregated"
+        defaultValue: true
+        abbr: "a"
+        desc: "Whether to write aggregated files for a range of epochs with a given resolution" .}: bool
+      writeUnaggregatedFiles {.
+        name: "unaggregated"
+        defaultValue: true
+        abbr: "u"
+        desc: "Whether to write unaggregated file for each epoch" .}: bool
 
 var shouldShutDown = false
 
@@ -897,11 +912,24 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   outDb.createValidatorsView
 
   let
+    unaggregatedFilesOutputDir = conf.outDir / "unaggregated"
+    aggregatedFilesOutputDir = conf.outDir / "aggregated"
     startEpoch =
       if conf.startEpoch.isSome:
         Epoch(conf.startEpoch.get)
       else:
-        getStartEpoch(conf.outDir)
+        let unaggregatedFilesNextEpoch = getUnaggregatedFilesLastEpoch(
+          unaggregatedFilesOutputDir) + 1
+        let aggregatedFilesNextEpoch = getAggregatedFilesLastEpoch(
+          aggregatedFilesOutputDir) + 1
+        if conf.writeUnaggregatedFiles and conf.writeAggregatedFiles:
+          min(unaggregatedFilesNextEpoch, aggregatedFilesNextEpoch)
+        elif conf.writeUnaggregatedFiles:
+          unaggregatedFilesNextEpoch
+        elif conf.writeAggregatedFiles:
+          aggregatedFilesNextEpoch
+        else:
+          min(unaggregatedFilesNextEpoch, aggregatedFilesNextEpoch)
     endEpoch =
       if conf.endEpoch.isSome:
         Epoch(conf.endEpoch.get)
@@ -920,6 +948,12 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
     startSlot = startEpoch.start_slot
     endSlot = endEpoch.start_slot + SLOTS_PER_EPOCH
     blockRefs = dag.getBlockRange(startSlot, endSlot)
+
+  if not unaggregatedFilesOutputDir.dirExists:
+    unaggregatedFilesOutputDir.createDir
+
+  if not aggregatedFilesOutputDir.dirExists:
+    aggregatedFilesOutputDir.createDir
 
   let tmpState = newClone(dag.headState)
   var cache = StateCache()
@@ -942,6 +976,9 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
   var auxiliaryState: AuxiliaryState
   auxiliaryState.copyParticipationFlags(tmpState[].data)
+
+  var aggregator = ValidatorDbAggregator.init(
+    aggregatedFilesOutputDir, conf.resolution, endEpoch)
 
   proc processEpoch() =
     let epoch = getStateField(tmpState[].data, slot).epoch
@@ -968,13 +1005,22 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
                 some(validator.is_previous_epoch_attester.get().delay.uint64)
               else:
                 none(uint64)
-          csvLines.add rp.serializeToCsv
 
-    let fileName = getFilePathForEpoch(epoch, conf.outDir)
-    var res = io2.removeFile(fileName)
-    doAssert res.isOk
-    res = io2.writeFile(fileName, snappy.encode(csvLines.toBytes))
-    doAssert res.isOk
+          if conf.writeUnaggregatedFiles:
+            csvLines.add rp.serializeToCsv
+
+          if conf.writeAggregatedFiles:
+            aggregator.addValidatorData(index, rp)
+
+    if conf.writeUnaggregatedFiles:
+      let fileName = getFilePathForEpoch(epoch, unaggregatedFilesOutputDir)
+      var res = io2.removeFile(fileName)
+      doAssert res.isOk
+      res = io2.writeFile(fileName, snappy.encode(csvLines.toBytes))
+      doAssert res.isOk
+
+    if conf.writeAggregatedFiles:
+      aggregator.advanceEpochs(epoch, shouldShutDown)
 
     if shouldShutDown: quit QuitSuccess
     collectBalances(previousEpochBalances, tmpState[].data)

@@ -35,12 +35,35 @@ type
       desc: "The directory where aggregated file to be written. " &
             "By default use the same directory as the input one"}: InputDir
 
-var shutDown = false
+  ValidatorDbAggregator* {.requiresInit.} = object
+    outputDir: string
+    resolution: uint
+    endEpoch: Epoch
+    epochsAggregated: uint
+    aggregatedRewardsAndPenalties: seq[RewardsAndPenalties]
+    participationEpochsCount: seq[uint]
+    inclusionDelaysCount: seq[uint]
+
+proc init*(T: type ValidatorDbAggregator, outputDir: string,
+           resolution: uint, endEpoch: Epoch): T =
+  const initialCapacity = 1 shl 16
+  ValidatorDbAggregator(
+    outputDir: outputDir,
+    resolution: resolution,
+    endEpoch: endEpoch,
+    epochsAggregated: 0,
+    aggregatedRewardsAndPenalties:
+      newSeqOfCap[RewardsAndPenalties](initialCapacity),
+    participationEpochsCount: newSeqOfCap[uint](initialCapacity),
+    inclusionDelaysCount: newSeqOfCap[uint](initialCapacity))
+
+var shouldShutDown = false
 
 proc determineStartAndEndEpochs(config: AggregatorConf):
     tuple[startEpoch, endEpoch: Epoch] =
   if config.startEpoch.isNone or config.endEpoch.isNone:
-    (result.startEpoch, result.endEpoch) = getEpochRange(config.inputDir.string)
+    (result.startEpoch, result.endEpoch) = getUnaggregatedFilesEpochRange(
+      config.inputDir.string)
   if config.startEpoch.isSome:
     result.startEpoch = config.startEpoch.get.Epoch
   if config.endEpoch.isSome:
@@ -122,10 +145,52 @@ proc average(rp: var RewardsAndPenalties,
     doAssert inclusionDelaysCount == 0
     averageInclusionDelay = none(float)
 
-proc getFilePathForEpochs(startEpoch, endEpoch: Epoch, dir: string): string =
-  let fileName = epochAsString(startEpoch) & "_"  &
-                 epochAsString(endEpoch) & epochFileNameExtension
-  dir / fileName
+
+proc addValidatorData*(aggregator: var ValidatorDbAggregator,
+                       index: int, rp: RewardsAndPenalties) =
+  if index >= aggregator.participationEpochsCount.len:
+    aggregator.aggregatedRewardsAndPenalties.add rp
+    aggregator.participationEpochsCount.add 1
+    if rp.inclusion_delay.isSome:
+      aggregator.inclusionDelaysCount.add 1
+    else:
+      aggregator.inclusionDelaysCount.add 0
+  else:
+    aggregator.aggregatedRewardsAndPenalties[index] += rp
+    inc aggregator.participationEpochsCount[index]
+    if rp.inclusionDelay.isSome:
+      inc aggregator.inclusionDelaysCount[index]
+
+proc advanceEpochs*(aggregator: var ValidatorDbAggregator, epoch: Epoch,
+                    shouldShutDown: bool) =
+  inc aggregator.epochsAggregated
+
+  if aggregator.epochsAggregated != aggregator.resolution and
+     aggregator.endEpoch != epoch and not shouldShutDown:
+    return
+
+  var csvLines = newStringOfCap(1000000)
+  for i in 0 ..< aggregator.participationEpochsCount.len:
+    var averageInclusionDelay: Option[float]
+    average(aggregator.aggregatedRewardsAndPenalties[i], averageInclusionDelay,
+            aggregator.participationEpochsCount[i],
+            aggregator.inclusionDelaysCount[i])
+    csvLines &= serializeToCsv(
+      aggregator.aggregatedRewardsAndPenalties[i], averageInclusionDelay)
+
+  let fileName = getFilePathForEpochs(
+    epoch - aggregator.epochsAggregated + 1, epoch, aggregator.outputDir)
+  info "Writing file ...", fileName = fileName
+
+  var result = io2.removeFile(fileName)
+  doAssert result.isOk
+  result = io2.writeFile(fileName, snappy.encode(csvLines.toBytes))
+  doAssert result.isOk
+
+  aggregator.participationEpochsCount.setLen(0)
+  aggregator.aggregatedRewardsAndPenalties.setLen(0)
+  aggregator.inclusionDelaysCount.setLen(0)
+  aggregator.epochsAggregated = 0
 
 proc aggregateEpochs(startEpoch, endEpoch: Epoch, resolution: uint,
                      inputDir, outputDir: string) =
@@ -137,10 +202,7 @@ proc aggregateEpochs(startEpoch, endEpoch: Epoch, resolution: uint,
   info "Aggregating epochs ...", startEpoch = startEpoch, endEpoch = endEpoch,
        inputDir = inputDir, outputDir = outputDir
 
-  var rewardsAndPenalties: seq[RewardsAndPenalties]
-  var participationEpochsCount: seq[uint]
-  var inclusionDelaysCount: seq[uint]
-  var epochsAggregated = 0'u
+  var aggregator = ValidatorDbAggregator.init(outputDir, resolution, endEpoch)
 
   for epoch in startEpoch .. endEpoch:
     let filePath = getFilePathForEpoch(epoch, inputDir)
@@ -155,59 +217,24 @@ proc aggregateEpochs(startEpoch, endEpoch: Epoch, resolution: uint,
     var csvParser: CsvParser
     csvParser.open(dataStream, filePath)
 
-    var validatorsCount = 0'u
+    var validatorsCount = 0
     while csvParser.readRow:
       inc validatorsCount
       let rp = parseRow(csvParser.row)
+      aggregator.addValidatorData(validatorsCount - 1, rp)
 
-      if validatorsCount > participationEpochsCount.len.uint:
-        rewardsAndPenalties.add rp
-        participationEpochsCount.add 1
-        if rp.inclusionDelay.isSome:
-          inclusionDelaysCount.add 1
-        else:
-          inclusionDelaysCount.add 0
-      else:
-        rewardsAndPenalties[validatorsCount - 1] += rp
-        inc participationEpochsCount[validatorsCount - 1]
-        if rp.inclusionDelay.isSome:
-          inc inclusionDelaysCount[validatorsCount - 1]
+    aggregator.advanceEpochs(epoch, shouldShutDown)
 
-    inc epochsAggregated
-
-    if epochsAggregated == resolution or epoch == endEpoch or shutDown:
-      var csvLines: string
-      for i in 0 ..< participationEpochsCount.len:
-        var averageInclusionDelay: Option[float]
-        average(rewardsAndPenalties[i], averageInclusionDelay,
-                participationEpochsCount[i], inclusionDelaysCount[i])
-        csvLines &= serializeToCsv(
-          rewardsAndPenalties[i], averageInclusionDelay)
-
-      let fileName = getFilePathForEpochs(
-        epoch - epochsAggregated + 1, epoch, outputDir)
-      info "Writing file ...", fileName = fileName
-
-      var result = io2.removeFile(fileName)
-      doAssert result.isOk
-      result = io2.writeFile(fileName, snappy.encode(csvLines.toBytes))
-      doAssert result.isOk
-
-      if shutDown:
-        quit QuitSuccess
-
-      participationEpochsCount.setLen(0)
-      rewardsAndPenalties.setLen(0)
-      inclusionDelaysCount.setLen(0)
-      epochsAggregated = 0
+    if shouldShutDown:
+      quit QuitSuccess
 
 proc controlCHook {.noconv.} =
   notice "Shutting down after having received SIGINT."
-  shutDown = true
+  shouldShutDown = true
 
 proc exitOnSigterm(signal: cint) {.noconv.} =
   notice "Shutting down after having received SIGTERM."
-  shutDown = true
+  shouldShutDown = true
 
 proc main =
   setControlCHook(controlCHook)
