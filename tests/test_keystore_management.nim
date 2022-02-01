@@ -47,6 +47,10 @@ let
 proc namesEqual(a, b: openarray[string]): bool =
   sorted(a) == sorted(b)
 
+when not defined(windows):
+  proc isEmptyDir(dir: string): bool =
+    directoryItemsCount(dir) == 0
+
 if validatorDirRes.isErr():
   warn "Could not create validators folder",
         path = testValidatorsDir, err = ioErrorMsg(validatorDirRes.error)
