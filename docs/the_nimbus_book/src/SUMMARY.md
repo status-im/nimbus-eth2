@@ -12,7 +12,7 @@
 - [Install dependencies](./install.md)
 - [Build the beacon node](./build.md)
 - [Sync from scratch](./start-syncing.md)
-- [Sync from a trusted node](./trusted-node-sync.md)
+- [Sync from a trusted node (checkpoint sync)](./trusted-node-sync.md)
 - [Add a backup web3 provider](./web3-backup.md)
 
 # How-to (validator)
