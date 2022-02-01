@@ -812,14 +812,14 @@ proc saveKeystore*(rng: var BrHmacDrbgContext,
 
   ok()
 
-proc saveKeystore*(conf: AnyConf, publicKey: ValidatorPubKey, url: Uri,
+proc saveKeystore*(validatorsDir: string,
+                   publicKey: ValidatorPubKey, url: Uri,
                    version = 1'u64,
                    flags: set[RemoteKeystoreFlag] = {},
                    remoteType = RemoteSignerType.Web3Signer,
                    desc = ""): Result[void, KeystoreGenerationError] {.
      raises: [Defect].} =
   let
-    validatorsDir = conf.validatorsDir()
     keyName = "0x" & publicKey.toHex()
     keystoreDir = validatorsDir / keyName
     keystoreFile = keystoreDir / RemoteKeystoreFileName
@@ -847,6 +847,15 @@ proc saveKeystore*(conf: AnyConf, publicKey: ValidatorPubKey, url: Uri,
   ? createValidatorFiles(validatorsDir, keystoreDir, keystoreFile,
                          encodedStorage)
   ok()
+
+proc saveKeystore*(conf: AnyConf, publicKey: ValidatorPubKey, url: Uri,
+                   version = 1'u64,
+                   flags: set[RemoteKeystoreFlag] = {},
+                   remoteType = RemoteSignerType.Web3Signer,
+                   desc = ""): Result[void, KeystoreGenerationError] {.
+     raises: [Defect].} =
+  saveKeystore(conf.validatorsDir(), publicKey, url, version, flags,
+               remoteType, desc)
 
 proc importKeystore*(pool: var ValidatorPool, conf: AnyConf,
                      keystore: RemoteKeystore): ImportResult[KeystoreData] {.

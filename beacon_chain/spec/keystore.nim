@@ -531,6 +531,25 @@ proc readValue*(r: var JsonReader, value: var Kdf)
     r.raiseUnexpectedValue(
       "The Kdf value should have sub-fields named 'function' and 'params'")
 
+proc writeValue*(writer: var JsonWriter, value: RemoteKeystore) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("version", value.version)
+  writer.writeField("pubkey", "0x" & value.pubkey.toHex())
+  writer.writeField("remote", $value.remote)
+  case value.remoteType
+  of RemoteSignerType.Web3Signer:
+    writer.writeField("type", "web3signer")
+  if value.description.isSome():
+    writer.writeField("description", value.description.get())
+  if RemoteKeystoreFlag.IgnoreSSLVerification in value.flags:
+    writer.writeField("ignore_ssl_verification", true)
+  writer.endRecord()
+
+template writeValue*(w: var JsonWriter,
+                     value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv) =
+  writeJsonHexString(w.stream, distinctBase value)
+
 proc readValue*(r: var JsonReader, value: var RemoteKeystore)
                {.raises: [SerializationError, IOError, Defect].} =
   var
@@ -838,6 +857,20 @@ proc createKeystore*(kdfKind: KdfKind,
     description: newClone(description),
     uuid: $uuid,
     version: 4)
+
+proc createRemoteKeystore*(pubKey: ValidatorPubKey, remoteUri: Uri,
+                           version = 1'u64, description = "",
+                           remoteType = RemoteSignerType.Web3Signer,
+                          flags: set[RemoteKeystoreFlag] = {}): RemoteKeystore =
+  RemoteKeystore(
+    version: version,
+    description: if len(description) > 0: some(description)
+                 else: none[string](),
+    remoteType: remoteType,
+    pubkey: pubKey,
+    remote: remoteUri,
+    flags: flags
+  )
 
 proc createWallet*(kdfKind: KdfKind,
                    rng: var BrHmacDrbgContext,
