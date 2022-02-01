@@ -92,7 +92,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       res
     genesisState = newClone(initGenesisState(cfg = cfg))
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L36-L90
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L36-L90
   test "test_process_light_client_update_not_timeout":
     var forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
@@ -116,7 +116,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       sync_committee_bits = full_sync_committee_bits
       sync_committee_signature = compute_aggregate_sync_committee_signature(
         forked[], committee)
-      sync_committee_aggregate = SyncAggregate(
+      sync_aggregate = SyncAggregate(
         sync_committee_bits: sync_committee_bits,
         sync_committee_signature: sync_committee_signature)
 
@@ -137,7 +137,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       next_sync_committee_branch: next_sync_committee_branch,
       finalized_header: finality_header,
       finality_branch: finality_branch,
-      sync_committee_aggregate: sync_committee_aggregate,
+      sync_aggregate: sync_aggregate,
       fork_version: state.fork.current_version)
 
     check:
@@ -149,7 +149,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       store.finalized_header == pre_store_finalized_header
       store.best_valid_update.get == update
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L93-L154
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L93-L154
   test "process_light_client_update_timeout":
     var forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
@@ -182,7 +182,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       sync_committee_bits = full_sync_committee_bits
       sync_committee_signature = compute_aggregate_sync_committee_signature(
         forked[], committee, block_root = block_header.hash_tree_root())
-      sync_committee_aggregate = SyncAggregate(
+      sync_aggregate = SyncAggregate(
         sync_committee_bits: sync_committee_bits,
         sync_committee_signature: sync_committee_signature)
 
@@ -202,7 +202,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       next_sync_committee_branch: next_sync_committee_branch,
       finalized_header: finality_header,
       finality_branch: finality_branch,
-      sync_committee_aggregate: sync_committee_aggregate,
+      sync_aggregate: sync_aggregate,
       fork_version: state.fork.current_version)
 
     check:
@@ -215,7 +215,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       store.best_valid_update.get == update
       store.finalized_header == pre_store_finalized_header
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L157-L224
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L157-L224
   test "process_light_client_update_finality_updated":
     var forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
@@ -277,7 +277,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       sync_committee_bits = full_sync_committee_bits
       sync_committee_signature = compute_aggregate_sync_committee_signature(
         forked[], committee, block_root = block_header.hash_tree_root())
-      sync_committee_aggregate = SyncAggregate(
+      sync_aggregate = SyncAggregate(
         sync_committee_bits: sync_committee_bits,
         sync_committee_signature: sync_committee_signature)
 
@@ -287,7 +287,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
         next_sync_committee_branch: next_sync_committee_branch,
         finalized_header: finalized_block_header,
         finality_branch: finality_branch,
-        sync_committee_aggregate: sync_committee_aggregate,
+        sync_aggregate: sync_aggregate,
         fork_version: state.fork.current_version)
 
     check:

@@ -212,7 +212,7 @@ template validateBeaconBlockBellatrix(
       of BeaconBlockFork.Altair:
         false
       of BeaconBlockFork.Bellatrix:
-        # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/beacon-chain.md#process_execution_payload
+        # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/bellatrix/beacon-chain.md#process_execution_payload
         # shows how this gets folded into the state each block; checking this
         # is equivalent, without ever requiring state replay or any similarly
         # expensive computation.

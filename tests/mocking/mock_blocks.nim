@@ -43,7 +43,7 @@ func sign_block(state: ForkyBeaconState, blck: var ForkySignedBeaconBlock) =
     blck.root,
     privkey).toValidatorSig()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/tests/core/pyspec/eth2spec/test/helpers/execution_payload.py#L1-L31
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/tests/core/pyspec/eth2spec/test/helpers/execution_payload.py#L1-L31
 func build_empty_execution_payload(state: bellatrix.BeaconState): ExecutionPayload =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions.
