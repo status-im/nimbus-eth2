@@ -64,7 +64,7 @@ const
   INACTIVITY_SCORE_BIAS* = 4
   INACTIVITY_SCORE_RECOVERY_RATE* = 16
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#misc
   # MIN_SYNC_COMMITTEE_PARTICIPANTS defined in presets
   UPDATE_TIMEOUT* = SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD
 
@@ -152,7 +152,7 @@ type
 
   ### Modified/overloaded
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#lightclientupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
     attested_header*: BeaconBlockHeader ##\
     ## The beacon block header that is attested to by the sync committee
@@ -167,12 +167,12 @@ type
     finality_branch*: array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
 
     # Sync committee aggregate signature
-    sync_committee_aggregate*: SyncAggregate
+    sync_aggregate*: SyncAggregate
 
     fork_version*: Version ##\
     ## Fork version for the aggregate signature
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#lightclientstore
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#lightclientstore
   LightClientStore* = object
     finalized_header*: BeaconBlockHeader ##\
     ## Beacon block header that is finalized

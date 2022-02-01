@@ -496,10 +496,10 @@ proc process_sync_aggregate*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/beacon-chain.md#process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
     state: var bellatrix.BeaconState, payload: ExecutionPayload,
-    execute_payload: ExecutePayload): Result[void, cstring] =
+    notify_new_payload: ExecutePayload): Result[void, cstring] =
   ## Verify consistency of the parent hash with respect to the previous
   ## execution payload header
   if is_merge_transition_complete(state):
@@ -516,7 +516,7 @@ proc process_execution_payload*(
     return err("process_execution_payload: invalid timestamp")
 
   # Verify the execution payload is valid
-  if not execute_payload(payload):
+  if not notify_new_payload(payload):
     return err("process_execution_payload: execution payload invalid")
 
   # Cache execution payload header

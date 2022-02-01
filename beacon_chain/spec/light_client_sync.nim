@@ -3,7 +3,7 @@ import
   datatypes/altair,
   helpers
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#get_active_header
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#get_active_header
 func get_active_header(update: LightClientUpdate): BeaconBlockHeader =
   # The "active header" is the header that the update is trying to convince
   # us to accept. If a finalized header is present, it's the finalized
@@ -13,7 +13,7 @@ func get_active_header(update: LightClientUpdate): BeaconBlockHeader =
   else:
     update.attested_header
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#validate_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#validate_light_client_update
 proc validate_light_client_update*(store: LightClientStore,
                                    update: LightClientUpdate,
                                    current_slot: Slot,
@@ -60,7 +60,7 @@ proc validate_light_client_update*(store: LightClientStore,
       return false
     unsafeAddr store.next_sync_committee
 
-  template sync_aggregate(): auto = update.sync_committee_aggregate
+  template sync_aggregate(): auto = update.sync_aggregate
   let sync_committee_participants_count = countOnes(sync_aggregate.sync_committee_bits)
 
   # Verify sync committee has sufficient participants
@@ -81,7 +81,7 @@ proc validate_light_client_update*(store: LightClientStore,
   blsFastAggregateVerify(
     participant_pubkeys, signing_root.data, sync_aggregate.sync_committee_signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#apply_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#apply_light_client_update
 func apply_light_client_update(
     store: var LightClientStore, update: LightClientUpdate) =
   let
@@ -93,14 +93,14 @@ func apply_light_client_update(
     store.next_sync_committee = update.next_sync_committee
   store.finalized_header = active_header
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#get_safety_threshold
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#get_safety_threshold
 func get_safety_threshold(store: LightClientStore): uint64 =
   max(
     store.previous_max_active_participants,
     store.current_max_active_participants
   ) div 2
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/altair/sync-protocol.md#process_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#process_light_client_update
 proc process_light_client_update*(store: var LightClientStore,
                                   update: LightClientUpdate,
                                   current_slot: Slot,
@@ -110,14 +110,14 @@ proc process_light_client_update*(store: var LightClientStore,
     return false
 
   let
-    sync_committee_bits = update.sync_committee_aggregate.sync_committee_bits
+    sync_committee_bits = update.sync_aggregate.sync_committee_bits
     sum_sync_committee_bits = countOnes(sync_committee_bits)
 
   # Update the best update in case we have to force-update to it if the
   # timeout elapses
   if  store.best_valid_update.isNone or
       sum_sync_committee_bits > countOnes(
-        store.best_valid_update.get.sync_committee_aggregate.sync_committee_bits):
+        store.best_valid_update.get.sync_aggregate.sync_committee_bits):
     store.best_valid_update = some(update)
 
   # Track the maximum number of active participants in the committee signatures
