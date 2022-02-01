@@ -285,7 +285,7 @@ As usual, replace `195.177.101.93` with your Pi's IP address, and `<VALIDATOR_KE
 To import your signing key into Nimbus, from the `nimbus-eth2` directory run:
 
 ```
-build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_pyrmont_0 ../validator_keys
+build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_prater_0 ../validator_keys
 ```
 
  You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your [key](https://blog.ethereum.org/2020/05/21/keys/) (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).
@@ -325,7 +325,7 @@ If you look near the top of the logs printed to your console, you should see con
 ```
 INF 2020-12-01 11:25:33.487+01:00 Launching beacon node
 ...
-INF 2020-12-01 11:25:34.556+01:00 Loading block dag from database            topics="beacnde" tid=19985314 file=nimbus_beacon_node.nim:198 path=build/data/shared_pyrmont_0/db
+INF 2020-12-01 11:25:34.556+01:00 Loading block dag from database            topics="beacnde" tid=19985314 file=nimbus_beacon_node.nim:198 path=build/data/shared_prater_0/db
 INF 2020-12-01 11:25:35.921+01:00 Block dag initialized
 INF 2020-12-01 11:25:37.073+01:00 Generating new networking key
 ...
