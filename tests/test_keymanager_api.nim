@@ -125,6 +125,23 @@ const
   iv = hexToSeqByte "264daa3f303d7259501c93d997d84fe6"
   secretNetBytes = hexToSeqByte "08021220fe442379443d6e2d7d75d3a58f96fbb35f0a9c7217796825fc9040e3b89c5736"
 
+proc listValidators(validatorsDir,
+                    secretsDir: string): seq[KeystoreInfo]
+                    {.raises: [Defect].} =
+  var validators: seq[KeystoreInfo]
+
+  try:
+    for el in listLoadableKeystores(validatorsDir, secretsDir, true,
+                                    {KeystoreKind.Local}):
+      validators.add KeystoreInfo(validating_pubkey: el.pubkey,
+                                  derivation_path: el.path.string,
+                                  readonly: false)
+  except OSError as err:
+    error "Failure to list the validator directories",
+          validatorsDir, secretsDir, err = err.msg
+
+  validators
+
 proc runTests {.async.} =
   while bnStatus != BeaconNodeStatus.Running:
     await sleepAsync(1.seconds)
