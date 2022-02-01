@@ -1,6 +1,6 @@
-# REST API
+# Beacon (REST) API
 
-Nimbus exposes an **extremely fast** implementation of the standard [Beacon Node API](https://ethereum.github.io/beacon-APIs/). The API allows you to use Nimbus together with third-party tooling such as validator clients, block explorers as well as your own monitoring infrastructure.
+Nimbus exposes an **extremely fast** implementation of the standard [Beacon API](https://ethereum.github.io/beacon-APIs/). The API allows you to use Nimbus together with third-party tooling such as validator clients, block explorers as well as your own monitoring infrastructure.
 
 The API is a `REST` interface accessed via `HTTP`. **The API should not be exposed to the public Internet** unless protected by additional security: it includes multiple endpoints which could open your node to denial-of-service (DoS) attacks.
 

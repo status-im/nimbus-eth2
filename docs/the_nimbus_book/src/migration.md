@@ -43,7 +43,7 @@ sudo systemctl stop prysmvalidator.service
 sudo systemctl disable prysmvalidator.service
 ```
 
-It's important that you disable the Prysm validator as well as stopping it, to prevent it from starting up again on reboot.
+*It's important that you disable the Prysm validator as well as stopping it, to prevent it from starting up again on reboot.*
 
 #### 2. Export slashing protection history
 
