@@ -517,7 +517,10 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   for blck in db.getAncestorSummaries(headRoot):
     if midRef != nil and blck.summary.slot == midRef.slot:
       if midRef.root != blck.root:
-        fatal "Finalized block table does not match ancestor summaries, database corrupt?"
+        fatal "Finalized block table does not match ancestor summaries, database corrupt?",
+          head = shortLog(headRoot), cur = shortLog(curRef),
+          midref = shortLog(midRef), blck = shortLog(blck.root)
+
         quit 1
 
       if curRef == nil:
