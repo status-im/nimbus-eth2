@@ -38,6 +38,7 @@ type
     fcInvalidParentDelta
     fcInvalidNodeDelta
     fcDeltaUnderflow
+    fcDeltaOverflow
     fcInvalidDeltaLen
     fcInvalidBestNode
     fcInconsistentTick
@@ -61,7 +62,8 @@ type
        fcInvalidBestDescendant,
        fcInvalidParentDelta,
        fcInvalidNodeDelta,
-       fcDeltaUnderflow:
+       fcDeltaUnderflow,
+       fcDeltaOverflow:
          index*: Index
     of fcInvalidDeltaLen:
       deltasLen*: int

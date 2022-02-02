@@ -179,7 +179,12 @@ func applyScoreChanges*(self: var ProtoArray,
     if  useProposerBoost and
         (not self.previousProposerBoostRoot.isZeroMemory) and
         self.previousProposerBoostRoot == node.root:
-          node_delta -= self.previousProposerBoostScore
+          if  nodeDelta < 0 and
+              nodeDelta - low(Delta) < self.previousProposerBoostScore:
+            return err ForkChoiceError(
+                kind: fcDeltaUnderflow,
+                index: nodePhysicalIdx)
+          nodeDelta -= self.previousProposerBoostScore
 
     # If we find the node matching the current proposer boost root, increase
     # the delta by the new score amount.
@@ -189,6 +194,11 @@ func applyScoreChanges*(self: var ProtoArray,
         (not proposer_boost_root.isZeroMemory) and
         proposer_boost_root == node.root:
       proposerBoostScore = calculateProposerBoost(newBalances)
+      if  nodeDelta >= 0 and
+          high(Delta) - nodeDelta < self.previousProposerBoostScore:
+        return err ForkChoiceError(
+            kind: fcDeltaOverflow,
+            index: nodePhysicalIdx)
       nodeDelta += proposerBoostScore.int64
 
     # Apply the delta to the node
