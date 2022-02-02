@@ -69,7 +69,6 @@ type
     attachedValidatorBalanceTotal*: uint64
     gossipState*: GossipState
     beaconClock*: BeaconClock
-    onAttestationSent*: OnAttestationCallback
     restKeysCache*: Table[ValidatorPubKey, ValidatorIndex]
     validatorMonitor*: ref ValidatorMonitor
     stateTtlCache*: StateTtlCache

@@ -159,8 +159,6 @@ proc init*(T: type BeaconNode,
 
   proc onAttestationReceived(data: Attestation) =
     eventBus.emit("attestation-received", data)
-  proc onAttestationSent(data: Attestation) =
-    eventBus.emit("attestation-sent", data)
   proc onVoluntaryExitAdded(data: SignedVoluntaryExit) =
     eventBus.emit("voluntary-exit", data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
@@ -539,7 +537,6 @@ proc init*(T: type BeaconNode,
     consensusManager: consensusManager,
     gossipState: {},
     beaconClock: beaconClock,
-    onAttestationSent: onAttestationSent,
     validatorMonitor: validatorMonitor,
     stateTtlCache: stateTtlCache
   )

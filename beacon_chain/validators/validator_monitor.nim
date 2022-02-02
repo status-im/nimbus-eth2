@@ -441,13 +441,13 @@ proc registerEpochInfo*(
         # These two metrics are the same - keep both around for LH compatibility
         validator_monitor_prev_epoch_on_chain_attester_hit.inc(1, [metricId])
         validator_monitor_prev_epoch_on_chain_source_attester_hit.inc(1, [metricId])
-
-        info "Previous epoch attestation included",
-          timely_source = previous_epoch_matched_source,
-          timely_target = previous_epoch_matched_target,
-          timely_head = previous_epoch_matched_head,
-          epoch = prev_epoch,
-          validator = id
+        if not self.totals:
+          info "Previous epoch attestation included",
+            timely_source = previous_epoch_matched_source,
+            timely_target = previous_epoch_matched_target,
+            timely_head = previous_epoch_matched_head,
+            epoch = prev_epoch,
+            validator = id
       else:
         validator_monitor_prev_epoch_on_chain_attester_miss.inc(1, [metricId])
         validator_monitor_prev_epoch_on_chain_source_attester_miss.inc(1, [metricId])
@@ -487,12 +487,12 @@ proc registerEpochInfo*(
           if not self.totals:
             validator_monitor_validator_in_current_sync_committee.set(1, [metricId])
 
-          self.withEpochSummary(monitor[], current_epoch):
-            info "Current epoch sync signatures",
-              included = epochSummary.sync_signature_block_inclusions,
-              expected = SLOTS_PER_EPOCH,
-              epoch = current_epoch,
-              validator = id
+            self.withEpochSummary(monitor[], current_epoch):
+              info "Current epoch sync signatures",
+                included = epochSummary.sync_signature_block_inclusions,
+                expected = SLOTS_PER_EPOCH,
+                epoch = current_epoch,
+                validator = id
           in_current_sync_committee += 1
 
         else:
@@ -506,10 +506,10 @@ proc registerEpochInfo*(
           if not self.totals:
             validator_monitor_validator_in_next_sync_committee.set(1, [metricId])
 
-          self.withEpochSummary(monitor[], current_epoch):
             info "Validator in next sync committee",
               epoch = current_epoch,
               validator = id
+
           in_next_sync_committee += 1
 
         else:
@@ -630,9 +630,10 @@ proc registerAttestation*(
     validator_monitor_unaggregated_attestation_delay_seconds.observe(
       delay.toGaugeValue(), [$src, metricId])
 
-    info "Attestation seen",
-      attestation = shortLog(attestation),
-      src, epoch = slot.epoch, validator = id
+    if not self.totals:
+      info "Attestation seen",
+        attestation = shortLog(attestation),
+        src, epoch = slot.epoch, validator = id
 
     self.withEpochSummary(monitor, slot.epoch):
       epochSummary.attestations += 1
@@ -642,12 +643,12 @@ proc registerAggregate*(
     self: var ValidatorMonitor,
     src: MsgSource,
     seen_timestamp: BeaconTime,
-    signed_aggregate_and_proof: SignedAggregateAndProof,
+    aggregate_and_proof: AggregateAndProof,
     attesting_indices: openArray[ValidatorIndex]) =
   let
-    slot = signed_aggregate_and_proof.message.aggregate.data.slot
+    slot = aggregate_and_proof.aggregate.data.slot
     delay = seen_timestamp - slot.aggregate_deadline()
-    aggregator_index = signed_aggregate_and_proof.message.aggregator_index
+    aggregator_index = aggregate_and_proof.aggregator_index
 
   self.withMonitor(aggregator_index):
     let id = monitor.id
@@ -655,9 +656,10 @@ proc registerAggregate*(
     validator_monitor_aggregated_attestation_delay_seconds.observe(
       delay.toGaugeValue(), [$src, metricId])
 
-    info "Aggregated attestion seen",
-      aggregate = shortLog(signed_aggregate_and_proof.message.aggregate),
-      src, epoch = slot.epoch, validator = id
+    if not self.totals:
+      info "Aggregated attestion seen",
+        aggregate = shortLog(aggregate_and_proof.aggregate),
+        src, epoch = slot.epoch, validator = id
 
     self.withEpochSummary(monitor, slot.epoch):
       epochSummary.aggregates += 1
@@ -670,9 +672,10 @@ proc registerAggregate*(
       validator_monitor_attestation_in_aggregate_delay_seconds.observe(
         delay.toGaugeValue(), [$src, metricId])
 
-      info "Attestation included in aggregate",
-        aggregate = shortLog(signed_aggregate_and_proof.message.aggregate),
-        src, epoch = slot.epoch, validator = id
+      if not self.totals:
+        info "Attestation included in aggregate",
+          aggregate = shortLog(aggregate_and_proof.aggregate),
+          src, epoch = slot.epoch, validator = id
 
       self.withEpochSummary(monitor, slot.epoch):
         epochSummary.attestation_aggregate_inclusions += 1
@@ -694,11 +697,12 @@ proc registerAttestationInBlock*(
       validator_monitor_attestation_in_block_delay_slots.set(
         inclusion_lag.int64, ["block", metricId])
 
-    info "Attestation included in block",
-      attestation_data = shortLog(data),
-      block_slot = blck.slot,
-      inclusion_lag_slots = inclusion_lag,
-      epoch = epoch, validator = id
+    if not self.totals:
+      info "Attestation included in block",
+        attestation_data = shortLog(data),
+        block_slot = blck.slot,
+        inclusion_lag_slots = inclusion_lag,
+        epoch = epoch, validator = id
 
     self.withEpochSummary(monitor, epoch):
       epochSummary.attestation_block_inclusions += 1
@@ -720,8 +724,9 @@ proc registerBeaconBlock*(
     validator_monitor_beacon_block_delay_seconds.observe(
       delay.toGaugeValue(), [$src, metricId])
 
-    info "Block seen",
-      blck = shortLog(blck), src, epoch = slot.epoch, validator = id
+    if not self.totals:
+      info "Block seen",
+        blck = shortLog(blck), src, epoch = slot.epoch, validator = id
 
 proc registerSyncCommitteeMessage*(
     self: var ValidatorMonitor,
@@ -738,9 +743,10 @@ proc registerSyncCommitteeMessage*(
     validator_monitor_sync_committee_messages_delay_seconds.observe(
       delay.toGaugeValue(), [$src, metricId])
 
-    info "Sync committee message seen",
-      syncCommitteeMessage = shortLog(sync_committee_message.beacon_block_root),
-      src, epoch = slot.epoch, validator = id
+    if not self.totals:
+      info "Sync committee message seen",
+        syncCommitteeMessage = shortLog(sync_committee_message.beacon_block_root),
+        src, epoch = slot.epoch, validator = id
 
     self.withEpochSummary(monitor, slot.epoch):
       epochSummary.sync_committee_messages += 1
@@ -750,23 +756,24 @@ proc registerSyncContribution*(
     self: var ValidatorMonitor,
     src: MsgSource,
     seen_timestamp: BeaconTime,
-    sync_contribution: SignedContributionAndProof,
+    contribution_and_proof: ContributionAndProof,
     participants: openArray[ValidatorIndex]) =
   let
-    slot = sync_contribution.message.contribution.slot
-    beacon_block_root = sync_contribution.message.contribution.beacon_block_root
+    slot = contribution_and_proof.contribution.slot
+    beacon_block_root = contribution_and_proof.contribution.beacon_block_root
     delay = seen_timestamp - slot.sync_contribution_deadline()
 
-  let aggregator_index = sync_contribution.message.aggregator_index
+  let aggregator_index = contribution_and_proof.aggregator_index
   self.withMonitor(aggregator_index):
     let id = monitor.id
     validator_monitor_sync_contributions.inc(1, [$src, metricId])
     validator_monitor_sync_contributions_delay_seconds.observe(
       delay.toGaugeValue(), [$src, metricId])
 
-    info "Sync contribution seen",
-      contribution = shortLog(sync_contribution.message.contribution),
-      src, epoch = slot.epoch, validator = id
+    if not self.totals:
+      info "Sync contribution seen",
+        contribution = shortLog(contribution_and_proof.contribution),
+        src, epoch = slot.epoch, validator = id
 
     self.withEpochSummary(monitor, slot.epoch):
       epochSummary.sync_contributions += 1
@@ -777,9 +784,10 @@ proc registerSyncContribution*(
       let id = monitor.id
       validator_monitor_sync_committee_message_in_contribution.inc(1, [$src, metricId])
 
-      info "Sync signature included in contribution",
-        contribution = shortLog(sync_contribution.message.contribution),
-        src, epoch = slot.epoch, validator = id
+      if not self.totals:
+        info "Sync signature included in contribution",
+          contribution = shortLog(contribution_and_proof.contribution),
+          src, epoch = slot.epoch, validator = id
 
       self.withEpochSummary(monitor, slot.epoch):
         epochSummary.sync_signature_contribution_inclusions += 1
@@ -791,8 +799,9 @@ proc registerSyncAggregateInBlock*(
     let id = monitor.id
     validator_monitor_sync_committee_message_in_block.inc(1, ["block", metricId])
 
-    info "Sync signature included in block",
-      head = beacon_block_root, slot = slot, validator = id
+    if not self.totals:
+      info "Sync signature included in block",
+        head = beacon_block_root, slot = slot, validator = id
 
     self.withEpochSummary(monitor, slot.epoch):
       epochSummary.sync_signature_block_inclusions += 1

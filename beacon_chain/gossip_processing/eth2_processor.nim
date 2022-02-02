@@ -360,7 +360,7 @@ proc aggregateValidator*(
       wallTime)
 
     self.validatorMonitor[].registerAggregate(
-      src, wallTime, signedAggregateAndProof, attesting_indices)
+      src, wallTime, signedAggregateAndProof.message, attesting_indices)
 
     beacon_aggregates_received.inc()
     beacon_aggregate_delay.observe(delay.toFloatSeconds())
@@ -518,7 +518,7 @@ proc contributionValidator*(
       contributionAndProof, v.get()[0])
 
     self.validatorMonitor[].registerSyncContribution(
-      src, wallTime, contributionAndProof, v.get()[1])
+      src, wallTime, contributionAndProof.message, v.get()[1])
 
     beacon_sync_committee_contributions_received.inc()
 
