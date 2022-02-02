@@ -298,13 +298,13 @@ func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconStateFork =
     doAssert BeaconStateFork.Altair    > BeaconStateFork.Phase0
     doAssert GENESIS_EPOCH == 0
 
-  if   epoch >= cfg.MERGE_FORK_EPOCH:  BeaconStateFork.Bellatrix
+  if   epoch >= cfg.BELLATRIX_FORK_EPOCH:  BeaconStateFork.Bellatrix
   elif epoch >= cfg.ALTAIR_FORK_EPOCH: BeaconStateFork.Altair
   else:                                BeaconStateFork.Phase0
 
 func blockForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconBlockFork =
   ## Return the current fork for the given epoch.
-  if   epoch >= cfg.MERGE_FORK_EPOCH:  BeaconBlockFork.Bellatrix
+  if   epoch >= cfg.BELLATRIX_FORK_EPOCH:  BeaconBlockFork.Bellatrix
   elif epoch >= cfg.ALTAIR_FORK_EPOCH: BeaconBlockFork.Altair
   else:                                BeaconBlockFork.Phase0
 
@@ -407,7 +407,7 @@ func bellatrixFork*(cfg: RuntimeConfig): Fork =
   Fork(
     previous_version: cfg.ALTAIR_FORK_VERSION,
     current_version: cfg.BELLATRIX_FORK_VERSION,
-    epoch: cfg.MERGE_FORK_EPOCH)
+    epoch: cfg.BELLATRIX_FORK_EPOCH)
 
 proc forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
   case cfg.stateForkAtEpoch(epoch)
@@ -424,7 +424,7 @@ proc forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
 proc nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   case cfg.stateForkAtEpoch(epoch)
   of BeaconStateFork.Bellatrix: FAR_FUTURE_EPOCH
-  of BeaconStateFork.Altair:    cfg.MERGE_FORK_EPOCH
+  of BeaconStateFork.Altair:    cfg.BELLATRIX_FORK_EPOCH
   of BeaconStateFork.Phase0:    cfg.ALTAIR_FORK_EPOCH
 
 func getForkSchedule*(cfg: RuntimeConfig): array[3, Fork] =
