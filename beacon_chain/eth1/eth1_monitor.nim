@@ -436,8 +436,8 @@ proc getBlockByHash(p: Web3DataProviderRef, hash: BlockHash):
                     Future[BlockObject] =
   return p.web3.provider.eth_getBlockByHash(hash, false)
 
-proc getBlockByNumber(p: Web3DataProviderRef,
-                      number: Eth1BlockNumber): Future[BlockObject] =
+proc getBlockByNumber*(p: Web3DataProviderRef,
+                       number: Eth1BlockNumber): Future[BlockObject] =
   let hexNumber = try: &"0x{number:X}" # No leading 0's!
   except ValueError as exc: raiseAssert exc.msg # Never fails
   p.web3.provider.eth_getBlockByNumber(hexNumber, false)
@@ -446,9 +446,9 @@ proc getPayload*(p: Web3DataProviderRef,
                  payloadId: bellatrix.PayloadID): Future[engine_api.ExecutionPayloadV1] =
   p.web3.provider.engine_getPayloadV1(FixedBytes[8] payloadId)
 
-proc executePayload*(p: Web3DataProviderRef,
-                     payload: engine_api.ExecutionPayloadV1): Future[ExecutePayloadResponse] =
-  p.web3.provider.engine_executePayloadV1(payload)
+proc newPayload*(p: Web3DataProviderRef,
+                 payload: engine_api.ExecutionPayloadV1): Future[PayloadStatusV1] =
+  p.web3.provider.engine_newPayloadV1(payload)
 
 proc forkchoiceUpdated*(p: Web3DataProviderRef,
                         headBlock, finalizedBlock: Eth2Digest):
