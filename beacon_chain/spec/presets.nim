@@ -51,7 +51,7 @@ type
 
     # Merge
     BELLATRIX_FORK_VERSION*: Version
-    MERGE_FORK_EPOCH*: Epoch
+    BELLATRIX_FORK_EPOCH*: Epoch
 
     # Sharding
     SHARDING_FORK_VERSION*: Version
@@ -194,7 +194,7 @@ when const_preset == "mainnet":
     ALTAIR_FORK_EPOCH: Epoch(74240), # Oct 27, 2021, 10:56:23am UTC
     # Merge
     BELLATRIX_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x00],
-    MERGE_FORK_EPOCH: Epoch(uint64.high),
+    BELLATRIX_FORK_EPOCH: Epoch(uint64.high),
     # Sharding
     SHARDING_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x00],
     SHARDING_FORK_EPOCH: Epoch(uint64.high),
@@ -283,7 +283,7 @@ elif const_preset == "minimal":
     ALTAIR_FORK_EPOCH: Epoch(uint64.high),
     # Merge
     BELLATRIX_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x01],
-    MERGE_FORK_EPOCH: Epoch(uint64.high),
+    BELLATRIX_FORK_EPOCH: Epoch(uint64.high),
     # Sharding
     SHARDING_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x01],
     SHARDING_FORK_EPOCH: Epoch(uint64.high),

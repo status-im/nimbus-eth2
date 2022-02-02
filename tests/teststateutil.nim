@@ -68,7 +68,7 @@ proc getTestStates*(
     cfg.ALTAIR_FORK_EPOCH = 1.Epoch
 
   if stateFork == BeaconStateFork.Bellatrix:
-    cfg.MERGE_FORK_EPOCH = 1.Epoch
+    cfg.BELLATRIX_FORK_EPOCH = 1.Epoch
 
   for i, epoch in stateEpochs:
     let slot = epoch.Epoch.start_slot

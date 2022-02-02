@@ -49,7 +49,7 @@ proc runTest(testName, testDir, unitTestName: string) =
         cache = StateCache()
         info = ForkedEpochInfo()
         cfg = defaultRuntimeConfig
-      cfg.MERGE_FORK_EPOCH = transitionInfo.fork_epoch.Epoch
+      cfg.BELLATRIX_FORK_EPOCH = transitionInfo.fork_epoch.Epoch
 
       # In test cases with more than 10 blocks the first 10 aren't 0-prefixed,
       # so purely lexicographic sorting wouldn't sort properly.
