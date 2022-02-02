@@ -80,8 +80,17 @@ if defined(windows):
 #
 if defined(disableMarchNative):
   if defined(i386) or defined(amd64):
-    switch("passC", "-mssse3")
-    switch("passL", "-mssse3")
+    if defined(macosx):
+      # https://support.apple.com/kb/SP777
+      # "macOS Mojave - Technical Specifications": EOL as of 2021-10 so macOS
+      # users on pre-Nehalem must be running either some Hackintosh, or using
+      # an unsupported macOS version beyond that most recently EOL'd. Nehalem
+      # supports instruction set extensions through SSE4.2 and POPCNT.
+      switch("passC", "-march=nehalem")
+      switch("passL", "-march=nehalem")
+    else:
+      switch("passC", "-mssse3")
+      switch("passL", "-mssse3")
 elif defined(macosx) and defined(arm64):
   # Apple's Clang can't handle "-march=native" on M1: https://github.com/status-im/nimbus-eth2/issues/2758
   switch("passC", "-mcpu=apple-a14")
