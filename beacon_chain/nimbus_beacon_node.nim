@@ -435,8 +435,8 @@ proc init*(T: type BeaconNode,
       rng, config, netKeys, cfg, dag.forkDigests, getBeaconTime,
       getStateField(dag.headState.data, genesis_validators_root))
     attestationPool = newClone(
-      AttestationPool.init(dag, quarantine, onAttestationReceived)
-    )
+      AttestationPool.init(
+        dag, quarantine, onAttestationReceived, config.proposerBoosting))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, onSyncContribution)
     )

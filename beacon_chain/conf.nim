@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -442,6 +442,12 @@ type
         desc: "Publish metrics to single 'totals' label for better collection performance when monitoring many validators (BETA)"
         defaultValue: false
         name: "validator-monitor-totals" }: bool
+
+      proposerBoosting* {.
+        hidden
+        desc: "Enable proposer boosting; temporary option feature gate (debugging; option will be removed)",
+        defaultValue: false
+        name: "proposer-boosting-debug" }: bool
 
     of BNStartUpCmd.createTestnet:
       testnetDepositsFile* {.
