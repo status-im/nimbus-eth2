@@ -53,13 +53,13 @@ proc init*(T: type RequestManager, network: Eth2Node,
   )
 
 proc checkResponse(roots: openArray[Eth2Digest],
-                   blocks: openArray[ForkedSignedBeaconBlock]): bool =
+                   blocks: openArray[ref ForkedSignedBeaconBlock]): bool =
   ## This procedure checks peer's response.
   var checks = @roots
   if len(blocks) > len(roots):
     return false
   for blk in blocks:
-    let res = checks.find(blk.root)
+    let res = checks.find(blk[].root)
     if res == -1:
       return false
     else:
@@ -75,10 +75,11 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
                                        peer_score = peer.getScore()
 
     let blocks = if peer.useSyncV2():
-      await peer.beaconBlocksByRoot_v2(BlockRootsList items)
+      await beaconBlocksByRoot_v2(peer, BlockRootsList items)
     else:
-      (await peer.beaconBlocksByRoot(BlockRootsList items)).map() do (blcks: seq[phase0.SignedBeaconBlock]) -> auto:
-        blcks.mapIt(ForkedSignedBeaconBlock.init(it))
+      (await beaconBlocksByRoot(peer, BlockRootsList items)).map(
+        proc(blcks: seq[phase0.SignedBeaconBlock]): auto =
+          blcks.mapIt(newClone(ForkedSignedBeaconBlock.init(it))))
 
     if blocks.isOk:
       let ublocks = blocks.get()
@@ -88,7 +89,7 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
           gotUnviableBlock = false
 
         for b in ublocks:
-          let ver = await rman.blockVerifier(b)
+          let ver = await rman.blockVerifier(b[])
           if ver.isErr():
             case ver.error()
             of BlockError.MissingParent:

@@ -41,22 +41,26 @@ proc collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
 
   return verify
 suite "SyncManager test suite":
-  proc createChain(start, finish: Slot): seq[ForkedSignedBeaconBlock] =
+  proc createChain(start, finish: Slot): seq[ref ForkedSignedBeaconBlock] =
     doAssert(start <= finish)
     let count = int(finish - start + 1'u64)
-    var res = newSeq[ForkedSignedBeaconBlock](count)
+    var res = newSeq[ref ForkedSignedBeaconBlock](count)
     var curslot = start
     for item in res.mitems():
-      item.phase0Data.message.slot = curslot
+      item = new ForkedSignedBeaconBlock
+      item[].phase0Data.message.slot = curslot
       curslot = curslot + 1'u64
     res
 
-  proc getSlice(chain: openarray[ForkedSignedBeaconBlock], startSlot: Slot,
-                request: SyncRequest[SomeTPeer]): seq[ForkedSignedBeaconBlock] =
+  proc getSlice(chain: openArray[ref ForkedSignedBeaconBlock], startSlot: Slot,
+                request: SyncRequest[SomeTPeer]): seq[ref ForkedSignedBeaconBlock] =
     let
       startIndex = int(request.slot - startSlot)
       finishIndex = int(request.slot - startSlot) + int(request.count) - 1
-    @chain[startIndex..finishIndex]
+    var res = newSeq[ref ForkedSignedBeaconBlock](1 + finishIndex - startIndex)
+    for i in 0..<res.len:
+      res[i] = newClone(chain[i + startIndex][])
+    res
 
   template startAndFinishSlotsEqual(kind: SyncQueueKind) =
     let p1 = SomeTPeer()
@@ -508,7 +512,7 @@ suite "SyncManager test suite":
         f14.finished == false
 
       var missingSlice = chain.getSlice(startSlot, r13)
-      withBlck(missingSlice[0]):
+      withBlck(missingSlice[0][]):
         blck.message.proposer_index = 0xDEADBEAF'u64
       var f13 = queue.push(r13, missingSlice)
       await allFutures(f13, f14)
@@ -672,7 +676,7 @@ suite "SyncManager test suite":
         f14.finished == false
 
       var missingSlice = chain.getSlice(startSlot, r13)
-      withBlck(missingSlice[0]):
+      withBlck(missingSlice[0][]):
         blck.message.proposer_index = 0xDEADBEAF'u64
       var f13 = queue.push(r13, missingSlice)
       await allFutures(f13, f14)
@@ -709,7 +713,7 @@ suite "SyncManager test suite":
 
   test "[SyncQueue] hasEndGap() test":
     let chain1 = createChain(Slot(1), Slot(1))
-    let chain2 = newSeq[ForkedSignedBeaconBlock]()
+    let chain2 = newSeq[ref ForkedSignedBeaconBlock]()
 
     for counter in countdown(32'u64, 2'u64):
       let req = SyncRequest[SomeTPeer](slot: Slot(1), count: counter,
@@ -726,7 +730,7 @@ suite "SyncManager test suite":
 
   test "[SyncQueue] getLastNonEmptySlot() test":
     let chain1 = createChain(Slot(10), Slot(10))
-    let chain2 = newSeq[ForkedSignedBeaconBlock]()
+    let chain2 = newSeq[ref ForkedSignedBeaconBlock]()
 
     for counter in countdown(32'u64, 2'u64):
       let req = SyncRequest[SomeTPeer](slot: Slot(10), count: counter,
