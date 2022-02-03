@@ -69,9 +69,6 @@ If you’re experiencing sync problems, we recommend running `make clean-prater`
 
 > **Warning**: `make clean-prater` will erase all of your syncing progress so far, so it should only be used as a last resort -- if your client gets stuck for a long time (because it's unable to find the right chain and/or stay with the same head value) and a normal restart doesn't improve things.
 
-### Running out of storage
-If you're running out of storage, you can [prune](https://blog.ethereum.org/2015/06/26/state-tree-pruning/) the database of unnecessary blocks and states by [syncing from checkpoint files](./trusted-node-sync.html#sync-from-checkpoint-files) and using the result to replace the existing database.
-
 ### noCommand does not accept arguments
 
 If, on start,  you see `The command 'noCommand' does not accept arguments`
