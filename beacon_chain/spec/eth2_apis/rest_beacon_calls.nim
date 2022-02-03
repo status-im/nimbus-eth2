@@ -115,7 +115,7 @@ proc publishBlock*(body: altair.SignedBeaconBlock): RestPlainResponse {.
 
 proc getBlockPlain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/blocks/{block_id}",
-     accept: "application/octet-stream,application-json;q=0.9",
+     accept: preferSSZ,
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
 
@@ -176,7 +176,7 @@ proc getBlock*(client: RestClientRef, block_id: BlockIdent,
 
 proc getBlockV2Plain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v2/beacon/blocks/{block_id}",
-     accept: "application/octet-stream,application-json;q=0.9",
+     accept: preferSSZ,
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
 

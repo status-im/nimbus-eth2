@@ -15,7 +15,7 @@ export chronos, client, rest_types, eth2_rest_serialization
 
 proc getStatePlain*(state_id: StateIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/debug/beacon/states/{state_id}",
-     accept: "application/octet-stream,application-json;q=0.9",
+     accept: preferSSZ,
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getState
 
@@ -73,7 +73,7 @@ proc getDebugChainHeads*(): RestResponse[GetDebugChainHeadsResponse] {.
 
 proc getStateV2Plain*(state_id: StateIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v2/debug/beacon/states/{state_id}",
-     accept: "application/octet-stream,application-json;q=0.9",
+     accept: preferSSZ,
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2
 
