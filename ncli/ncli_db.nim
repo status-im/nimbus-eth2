@@ -33,7 +33,6 @@ type
     putState = "Store a given BeaconState in the database"
     dumpBlock = "Extract a (trusted) SignedBeaconBlock from the database"
     putBlock = "Store a given SignedBeaconBlock in the database, potentially updating some of the pointers"
-    pruneDatabase
     rewindState = "Extract any state from the database based on a given block and slot, replaying if needed"
     exportEra = "Write an experimental era file"
     importEra = "Import era files to the database"
@@ -118,19 +117,6 @@ type
         name: "set-genesis"
         desc: "Update genesis to this block"}: bool
 
-    of DbCmd.pruneDatabase:
-      dryRun* {.
-        defaultValue: false
-        name: "dry-run"
-        desc: "Don't write to the database copy; only simulate actions; default false".}: bool
-      keepOldStates* {.
-        defaultValue: true
-        name: "keep-old"
-        desc: "Keep pre-finalization states; default true".}: bool
-      verbose* {.
-        defaultValue: false
-        desc: "Enables verbose output; default false".}: bool
-
     of DbCmd.rewindState:
       blockRoot* {.
         argument
@@ -203,7 +189,7 @@ func getSlotRange(dag: ChainDAGRef, startSlot: int64, count: uint64): (Slot, Slo
     start =
       if startSlot >= 0: Slot(startSlot)
       elif uint64(-startSlot) >= dag.head.slot: Slot(0)
-      else: Slot(dag.head.slot - uint64(-startSlot))
+      else: dag.head.slot - uint64(-startSlot)
     ends =
       if count == 0: dag.head.slot + 1
       else: start + count
@@ -402,101 +388,6 @@ proc cmdPutBlock(conf: DbConf, cfg: RuntimeConfig) =
         db.putTailBlock(blck.root)
       if conf.setGenesis:
         db.putGenesisBlock(blck.root)
-
-proc copyPrunedDatabase(
-    db: BeaconChainDB, copyDb: BeaconChainDB,
-    dryRun, verbose, keepOldStates: bool) =
-  ## Create a pruned copy of the beacon chain database
-
-  let
-    headBlock = db.getHeadBlock()
-    tailBlock = db.getTailBlock()
-    genesisBlock = db.getGenesisBlock()
-
-  doAssert db.getPhase0Block(headBlock.get).isOk
-  doAssert db.getPhase0Block(tailBlock.get).isOk
-  doAssert db.getPhase0Block(genesisBlock.get).isOk
-
-  var
-    beaconState = (ref phase0.HashedBeaconState)()
-    finalizedEpoch: Epoch  # default value of 0 is conservative/safe
-    prevBlockSlot = db.getPhase0Block(db.getHeadBlock().get).get.message.slot
-
-  let
-    headEpoch = db.getPhase0Block(headBlock.get).get.message.slot.epoch
-    tailStateRoot = db.getPhase0Block(tailBlock.get).get.message.state_root
-
-  # Tail states are specially addressed; no stateroot intermediary
-  if not db.getState(tailStateRoot, beaconState[].data, noRollback):
-    doAssert false, "could not load tail state"
-  beaconState[].root = tailStateRoot
-
-  if not dry_run:
-    copyDb.putStateRoot(
-      beaconState[].latest_block_root(), beaconState[].data.slot,
-      beaconState[].root)
-    copyDb.putState(beaconState[].root, beaconState[].data)
-    copyDb.putBlock(db.getPhase0Block(genesisBlock.get).get)
-
-  for signedBlock in getAncestors(db, headBlock.get):
-    if shouldShutDown: quit QuitSuccess
-    if not dry_run:
-      copyDb.putBlock(signedBlock)
-      copyDb.checkpoint()
-    if verbose:
-      echo "copied block at slot ", signedBlock.message.slot
-
-    for slot in countdown(prevBlockSlot, signedBlock.message.slot + 1):
-      if slot mod SLOTS_PER_EPOCH != 0 or
-          ((not keepOldStates) and slot.epoch < finalizedEpoch):
-        continue
-
-      # Could also only copy these states, head and finalized, plus tail state
-      let stateRequired = slot.epoch in [finalizedEpoch, headEpoch]
-
-      let sr = db.getStateRoot(signedBlock.root, slot)
-      if sr.isErr:
-        if stateRequired:
-          echo "skipping state root required for slot ",
-            slot, " with root ", signedBlock.root
-        continue
-
-      if not db.getState(sr.get, beaconState[].data, noRollback):
-        # Don't copy dangling stateroot pointers
-        if stateRequired:
-          doAssert false, "state root and state required"
-        continue
-      beaconState[].root = sr.get()
-
-      finalizedEpoch = max(
-        finalizedEpoch, beaconState[].data.finalized_checkpoint.epoch)
-
-      if not dry_run:
-        copyDb.putStateRoot(
-          beaconState[].latest_block_root(), beaconState[].data.slot,
-          beaconState[].root)
-        copyDb.putState(beaconState[].root, beaconState[].data)
-      if verbose:
-        echo "copied state at slot ", slot, " from block at ", shortLog(signedBlock.message.slot)
-
-    prevBlockSlot = signedBlock.message.slot
-
-  if not dry_run:
-    copyDb.putHeadBlock(headBlock.get)
-    copyDb.putTailBlock(tailBlock.get)
-    copyDb.putGenesisBlock(genesisBlock.get)
-
-proc cmdPrune(conf: DbConf) =
-  let
-    db = BeaconChainDB.new(conf.databaseDir.string)
-    # TODO: add the destination as CLI paramter
-    copyDb = BeaconChainDB.new("pruned_db")
-
-  defer:
-    db.close()
-    copyDb.close()
-
-  db.copyPrunedDatabase(copyDb, conf.dryRun, conf.verbose, conf.keepOldStates)
 
 proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."
@@ -1105,8 +996,6 @@ when isMainModule:
     cmdDumpBlock(conf)
   of DbCmd.putBlock:
     cmdPutBlock(conf, cfg)
-  of DbCmd.pruneDatabase:
-    cmdPrune(conf)
   of DbCmd.rewindState:
     cmdRewindState(conf, cfg)
   of DbCmd.exportEra:
