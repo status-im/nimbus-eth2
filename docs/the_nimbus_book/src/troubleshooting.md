@@ -65,7 +65,7 @@ If you find that `make update` causes the console to hang for too long, try runn
 The directory that stores the blockchain data of the testnet is `build/data/prater_shared_0` (if you're connecting to another testnet, replace `prater` with that testnet's name). If you've imported the wrong keys, and wish to start over, delete this repository.
 
 ### Sync problems
-If you’re experiencing sync problems, we recommend running `make clean-prater` to delete the database and restart your sync (make sure you’ve updated to the latest `master` first though).
+If you’re experiencing sync problems, we recommend running `make clean-prater` to delete the database and restart your sync (make sure you’ve updated to the latest `stable` first though).
 
 > **Warning**: `make clean-prater` will erase all of your syncing progress so far, so it should only be used as a last resort -- if your client gets stuck for a long time (because it's unable to find the right chain and/or stay with the same head value) and a normal restart doesn't improve things.
 
