@@ -20,7 +20,7 @@ proc getStatePlain*(state_id: StateIdent): RestPlainResponse {.
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getState
 
 proc getState*(client: RestClientRef, state_id: StateIdent,
-               restAccept = ""): Future[phase0.BeaconState] {.async.} =
+               restAccept = preferSSZ): Future[phase0.BeaconState] {.async.} =
   let resp =
     if len(restAccept) > 0:
       await client.getStatePlain(state_id, restAcceptType = restAccept)
@@ -79,7 +79,7 @@ proc getStateV2Plain*(state_id: StateIdent): RestPlainResponse {.
 
 proc getStateV2*(client: RestClientRef, state_id: StateIdent,
                  cfg: RuntimeConfig,
-                 restAccept = ""): Future[ref ForkedHashedBeaconState] {.async.} =
+                 restAccept = preferSSZ): Future[ref ForkedHashedBeaconState] {.async.} =
   # nil is returned if the state is not found due to a 404 - `ref` is needed
   # to manage stack usage
   let resp =

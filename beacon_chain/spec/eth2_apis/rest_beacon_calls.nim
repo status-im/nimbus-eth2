@@ -138,7 +138,7 @@ proc raiseUnknownStatusError(resp: RestPlainResponse)
   raise newException(RestError, msg)
 
 proc getBlock*(client: RestClientRef, block_id: BlockIdent,
-               restAccept = ""): Future[ForkedSignedBeaconBlock] {.async.} =
+               restAccept = preferSSZ): Future[ForkedSignedBeaconBlock] {.async.} =
   let resp =
     if len(restAccept) > 0:
       await client.getBlockPlain(block_id, restAcceptType = restAccept)
@@ -182,7 +182,7 @@ proc getBlockV2Plain*(block_id: BlockIdent): RestPlainResponse {.
 
 proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
                  cfg: RuntimeConfig,
-                 restAccept = ""): Future[Option[ForkedSignedBeaconBlock]] {.
+                 restAccept = preferSSZ): Future[Option[ForkedSignedBeaconBlock]] {.
      async.} =
   # Return the asked-for block, or None in case 404 is returned from the server.
   # Raises on other errors
