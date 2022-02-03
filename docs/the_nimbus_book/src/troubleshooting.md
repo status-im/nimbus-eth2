@@ -65,25 +65,12 @@ If you find that `make update` causes the console to hang for too long, try runn
 The directory that stores the blockchain data of the testnet is `build/data/prater_shared_0` (if you're connecting to another testnet, replace `prater` with that testnet's name). If you've imported the wrong keys, and wish to start over, delete this repository.
 
 ### Sync problems
-If you’re experiencing sync problems,  we recommend running `make clean-prater` to delete the database and restart your sync (make sure you’ve updated to the latest `master` first though).
+If you’re experiencing sync problems, we recommend running `make clean-prater` to delete the database and restart your sync (make sure you’ve updated to the latest `master` first though).
 
 > **Warning**: `make clean-prater` will erase all of your syncing progress so far, so it should only be used as a last resort -- if your client gets stuck for a long time (because it's unable to find the right chain and/or stay with the same head value) and a normal restart doesn't improve things.
 
 ### Running out of storage
-If you're running out of storage, you can [prune](https://blog.ethereum.org/2015/06/26/state-tree-pruning/) the database of unnecessary blocks and states by running:
-
-```
-make ncli_db
-build/ncli_db pruneDatabase --db=build/data/shared_prater_0/db --verbose=true
-```
-
-This will create `nbc_pruned.sqlite3` files in `build/data/shared_prater_0/db`, which you can use in place of the orginal `nbc.sqlite3` files. We recommend you hold onto the originals until you've verified that your validator is behaving as expected with the pruned files.
-
-Options:
-- `--keepOldStates` (boolean):  Keep pre-finalisation states; defaults to `true`.
-- `--verbose` (boolean): Print a more verbose output to the console; defaults to `false`.
-
-
+If you're running out of storage, you can [prune](https://blog.ethereum.org/2015/06/26/state-tree-pruning/) the database of unnecessary blocks and states by [syncing from checkpoint files](./trusted-node-sync.html#sync-from-checkpoint-files) and using the result to replace the existing database.
 
 ### noCommand does not accept arguments
 
