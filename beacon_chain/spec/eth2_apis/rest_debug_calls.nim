@@ -15,12 +15,14 @@ export chronos, client, rest_types, eth2_rest_serialization
 
 proc getStatePlain*(state_id: StateIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/debug/beacon/states/{state_id}",
-     accept: "application/octet-stream,application-json;q=0.9",
+     accept: preferSSZ,
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getState
 
 proc getState*(client: RestClientRef, state_id: StateIdent,
-               restAccept = ""): Future[phase0.BeaconState] {.async.} =
+               restAccept = preferSSZ): Future[phase0.BeaconState] {.async.} =
+  # TODO restAccept should be "" by default, but for some reason that doesn't
+  #      work
   let resp =
     if len(restAccept) > 0:
       await client.getStatePlain(state_id, restAcceptType = restAccept)
@@ -73,15 +75,17 @@ proc getDebugChainHeads*(): RestResponse[GetDebugChainHeadsResponse] {.
 
 proc getStateV2Plain*(state_id: StateIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v2/debug/beacon/states/{state_id}",
-     accept: "application/octet-stream,application-json;q=0.9",
+     accept: preferSSZ,
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2
 
 proc getStateV2*(client: RestClientRef, state_id: StateIdent,
                  cfg: RuntimeConfig,
-                 restAccept = ""): Future[ref ForkedHashedBeaconState] {.async.} =
+                 restAccept = preferSSZ): Future[ref ForkedHashedBeaconState] {.async.} =
   # nil is returned if the state is not found due to a 404 - `ref` is needed
   # to manage stack usage
+  # TODO restAccept should be "" by default, but for some reason that doesn't
+  #      work
   let resp =
     if len(restAccept) > 0:
       await client.getStateV2Plain(state_id, restAcceptType = restAccept)

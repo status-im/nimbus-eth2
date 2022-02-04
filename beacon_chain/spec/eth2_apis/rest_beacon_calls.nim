@@ -115,7 +115,7 @@ proc publishBlock*(body: altair.SignedBeaconBlock): RestPlainResponse {.
 
 proc getBlockPlain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/blocks/{block_id}",
-     accept: "application/octet-stream,application-json;q=0.9",
+     accept: preferSSZ,
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
 
@@ -138,7 +138,9 @@ proc raiseUnknownStatusError(resp: RestPlainResponse)
   raise newException(RestError, msg)
 
 proc getBlock*(client: RestClientRef, block_id: BlockIdent,
-               restAccept = ""): Future[ForkedSignedBeaconBlock] {.async.} =
+               restAccept = preferSSZ): Future[ForkedSignedBeaconBlock] {.async.} =
+  # TODO restAccept should be "" by default, but for some reason that doesn't
+  #      work
   let resp =
     if len(restAccept) > 0:
       await client.getBlockPlain(block_id, restAcceptType = restAccept)
@@ -176,16 +178,18 @@ proc getBlock*(client: RestClientRef, block_id: BlockIdent,
 
 proc getBlockV2Plain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v2/beacon/blocks/{block_id}",
-     accept: "application/octet-stream,application-json;q=0.9",
+     accept: preferSSZ,
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
 
 proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
                  cfg: RuntimeConfig,
-                 restAccept = ""): Future[Option[ForkedSignedBeaconBlock]] {.
+                 restAccept = preferSSZ): Future[Option[ForkedSignedBeaconBlock]] {.
      async.} =
   # Return the asked-for block, or None in case 404 is returned from the server.
   # Raises on other errors
+  # TODO restAccept should be "" by default, but for some reason that doesn't
+  #      work
   let resp =
     if len(restAccept) > 0:
       await client.getBlockV2Plain(block_id, restAcceptType = restAccept)

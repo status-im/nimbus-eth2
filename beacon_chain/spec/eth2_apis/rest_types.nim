@@ -26,6 +26,9 @@ const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validators.yaml#L17
   MaximumValidatorIds* = 16384
 
+const
+  preferSSZ* = "application/octet-stream,application/json;q=0.9"
+
 type
   EventTopic* {.pure.} = enum
     Head, Block, Attestation, VoluntaryExit, FinalizedCheckpoint, ChainReorg,
