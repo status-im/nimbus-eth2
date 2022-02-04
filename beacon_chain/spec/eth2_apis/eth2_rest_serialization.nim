@@ -1609,11 +1609,6 @@ proc decodeBody*[T](t: typedesc[T],
     try:
       RestJson.decode(body.data, T)
     except SerializationError as exc:
-      echo "=========="
-      echo "BODY LENGTH = ", len(body.data)
-      echo exc.formatMsg("BODY")
-      echo body.data.bytesToString()
-      echo "=========="
       return err("Unable to deserialize data")
     except CatchableError:
       return err("Unexpected deserialization error")
