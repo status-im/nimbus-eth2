@@ -21,6 +21,8 @@ proc getStatePlain*(state_id: StateIdent): RestPlainResponse {.
 
 proc getState*(client: RestClientRef, state_id: StateIdent,
                restAccept = preferSSZ): Future[phase0.BeaconState] {.async.} =
+  # TODO restAccept should be "" by default, but for some reason that doesn't
+  #      work
   let resp =
     if len(restAccept) > 0:
       await client.getStatePlain(state_id, restAcceptType = restAccept)
@@ -82,6 +84,8 @@ proc getStateV2*(client: RestClientRef, state_id: StateIdent,
                  restAccept = preferSSZ): Future[ref ForkedHashedBeaconState] {.async.} =
   # nil is returned if the state is not found due to a 404 - `ref` is needed
   # to manage stack usage
+  # TODO restAccept should be "" by default, but for some reason that doesn't
+  #      work
   let resp =
     if len(restAccept) > 0:
       await client.getStateV2Plain(state_id, restAcceptType = restAccept)

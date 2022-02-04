@@ -139,6 +139,8 @@ proc raiseUnknownStatusError(resp: RestPlainResponse)
 
 proc getBlock*(client: RestClientRef, block_id: BlockIdent,
                restAccept = preferSSZ): Future[ForkedSignedBeaconBlock] {.async.} =
+  # TODO restAccept should be "" by default, but for some reason that doesn't
+  #      work
   let resp =
     if len(restAccept) > 0:
       await client.getBlockPlain(block_id, restAcceptType = restAccept)
@@ -186,6 +188,8 @@ proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
      async.} =
   # Return the asked-for block, or None in case 404 is returned from the server.
   # Raises on other errors
+  # TODO restAccept should be "" by default, but for some reason that doesn't
+  #      work
   let resp =
     if len(restAccept) > 0:
       await client.getBlockV2Plain(block_id, restAcceptType = restAccept)
