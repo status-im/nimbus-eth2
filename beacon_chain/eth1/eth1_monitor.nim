@@ -443,8 +443,8 @@ proc getBlockByHash(p: Web3DataProviderRef, hash: BlockHash):
                     Future[BlockObject] =
   return p.web3.provider.eth_getBlockByHash(hash, false)
 
-proc getBlockByNumber(p: Web3DataProviderRef,
-                      number: Eth1BlockNumber): Future[BlockObject] =
+proc getBlockByNumber*(p: Web3DataProviderRef,
+                       number: Eth1BlockNumber): Future[BlockObject] =
   let hexNumber = try: &"0x{number:X}" # No leading 0's!
   except ValueError as exc: raiseAssert exc.msg # Never fails
   p.web3.provider.eth_getBlockByNumber(hexNumber, false)

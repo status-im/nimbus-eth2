@@ -47,7 +47,7 @@ suite "Merge test vectors":
         feeRecipient)
 
     check:
-      payloadStatus.status == "VALID"
-      fcupdatedStatus.status == "SUCCESS"
-      payloadStatus2.status == "VALID"
-      fcupdatedStatus2.status == "SUCCESS"
+      payloadStatus.status == PayloadExecutionStatus.valid
+      fcupdatedStatus.status == ForkchoiceUpdatedStatus.success
+      payloadStatus2.status == PayloadExecutionStatus.valid
+      fcupdatedStatus2.status == ForkchoiceUpdatedStatus.success
