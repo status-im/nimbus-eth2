@@ -1015,15 +1015,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   # await calls, thus we use a local variable to keep the logic straight here
   var head = node.dag.head
   if not node.isSynced(head):
-    let
-      nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot)
-      nextProposalSlot = node.actionTracker.getNextProposalSlot(slot)
-    if slot in [nextAttestationSlot, nextProposalSlot]:
-      notice "Syncing in progress; skipping validator duties for now",
-        slot, headSlot = head.slot
-    else:
-      debug "Syncing in progress; skipping validator duties for now",
-        slot, headSlot = head.slot
+    info "Syncing in progress; skipping validator duties for now",
+      slot, headSlot = head.slot
 
     # Rewards will be growing though, as we sync..
     updateValidatorMetrics(node)
@@ -1038,17 +1031,17 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
         node.processor[].doppelgangerDetection.broadcastStartEpoch and
       node.config.doppelgangerDetection:
     let
-      nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot)
-      nextProposalSlot = node.actionTracker.getNextProposalSlot(slot)
+      nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot - 1)
+      nextProposalSlot = node.actionTracker.getNextProposalSlot(slot - 1)
 
     if slot in [nextAttestationSlot, nextProposalSlot]:
       notice "Doppelganger detection active - skipping validator duties while observing activity on the network",
-        slot, epoch = slot.epoch, nextAttestationSlot, nextProposalSlot,
+        slot, epoch = slot.epoch,
         broadcastStartEpoch =
           node.processor[].doppelgangerDetection.broadcastStartEpoch
     else:
       debug "Doppelganger detection active - skipping validator duties while observing activity on the network",
-        slot, epoch = slot.epoch, nextAttestationSlot, nextProposalSlot,
+        slot, epoch = slot.epoch,
         broadcastStartEpoch =
           node.processor[].doppelgangerDetection.broadcastStartEpoch
 

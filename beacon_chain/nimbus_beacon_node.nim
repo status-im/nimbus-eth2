@@ -927,13 +927,15 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     # it might also happen on a sufficiently fast restart
 
     # We "know" the actions for the current and the next epoch
-    if node.isSynced(head):
-      node.actionTracker.updateActions(
-        node.dag.getEpochRef(head, slot.epoch, false).expect(
-          "Getting head EpochRef should never fail"))
-      node.actionTracker.updateActions(
-        node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
-          "Getting head EpochRef should never fail"))
+    if node.actionTracker.needsUpdate(slot.epoch, head, node.dag.tail):
+      let epochRef = node.dag.getEpochRef(head, slot.epoch, false).expect(
+        "Getting head EpochRef should never fail")
+      node.actionTracker.updateActions(epochRef, head, node.dag.tail)
+
+    if node.actionTracker.needsUpdate(slot.epoch + 1, head, node.dag.tail):
+      let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
+        "Getting head EpochRef should never fail")
+      node.actionTracker.updateActions(epochRef, head, node.dag.tail)
 
   if node.gossipState.card > 0 and targetGossipState.card == 0:
     debug "Disabling topic subscriptions",
@@ -1002,16 +1004,12 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     node.trackNextSyncCommitteeTopics(slot)
 
   # Update upcoming actions - we do this every slot in case a reorg happens
-  if node.isSynced(node.dag.head) and
-      node.actionTracker.lastCalculatedEpoch < slot.epoch + 1:
-    # TODO this is costly because we compute an EpochRef that likely will never
-    #      be used for anything else, due to the epoch ancestor being selected
-    #      pessimistically with respect to the shuffling - this needs fixing
-    #      at EpochRef level by not mixing balances and shufflings in the same
-    #      place
-    node.actionTracker.updateActions(node.dag.getEpochRef(
-      node.dag.head, slot.epoch + 1, false).expect(
-        "Getting head EpochRef should never fail"))
+  let head = node.dag.head
+  if node.isSynced(head):
+    if node.actionTracker.needsUpdate(slot.epoch + 1, head, node.dag.tail):
+      let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
+        "Getting head EpochRef should never fail")
+      node.actionTracker.updateActions(epochRef, head, node.dag.tail)
 
   let
     nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot)
@@ -1036,7 +1034,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
         shortLog(nextActionWaitTime),
     nextAttestationSlot = displayInt64(nextAttestationSlot),
     nextProposalSlot = displayInt64(nextProposalSlot),
-    head = shortLog(node.dag.head)
+    head = shortLog(head)
 
   if nextAttestationSlot != FAR_FUTURE_SLOT:
     next_action_wait.set(nextActionWaitTime.toFloatSeconds)

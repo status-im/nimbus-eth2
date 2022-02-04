@@ -51,6 +51,10 @@ type
     proposingSlots*: array[2, uint32]
     lastCalculatedEpoch*: Epoch
 
+    dependentRoot*: Eth2Digest
+      ## The latest dependent root we used to compute attestation duties
+      ## for internal validators
+
     knownValidators*: Table[ValidatorIndex, Slot] ##\
       ## Validators that we've recently seen - we'll subscribe to one stability
       ## subnet for each such validator - the slot is used to expire validators
@@ -195,13 +199,27 @@ func getNextProposalSlot*(tracker: ActionTracker, slot: Slot): Slot =
     tracker.proposingSlots,
     tracker.lastCalculatedEpoch, slot)
 
-proc updateActions*(tracker: var ActionTracker, epochRef: EpochRef) =
+proc dependentRoot(epoch: Epoch, head, tail: BlockRef): Eth2Digest =
+  head.prevDependentBlock(tail, epoch).root
+
+proc needsUpdate*(
+    tracker: ActionTracker, epoch: Epoch, head, tail: BlockRef): bool =
+  # Using prevDependentBlock here means we lock the action tracking to
+  # the dependent root for attestation duties and not block proposal -
+  # however, the risk of a proposer reordering in the last epoch is small
+  # and the action tracker is speculative in nature.
+  tracker.dependentRoot != dependentRoot(epoch, head, tail)
+
+proc updateActions*(
+    tracker: var ActionTracker, epochRef: EpochRef, head, tail: BlockRef) =
   # Updates the schedule for upcoming attestation and proposal work
   let
     epoch = epochRef.epoch
 
-  if tracker.lastCalculatedEpoch == epoch:
+  if not tracker.needsUpdate(epoch, head, tail):
     return
+
+  tracker.dependentRoot = dependentRoot(epoch, head, tail)
   tracker.lastCalculatedEpoch = epoch
 
   let validatorIndices = toHashSet(toSeq(tracker.knownValidators.keys()))
