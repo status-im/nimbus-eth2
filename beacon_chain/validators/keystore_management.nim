@@ -108,7 +108,7 @@ func init*(T: type KeystoreData,
   )
 
 func init*(T: type KeystoreData, cookedKey: CookedPubKey,
-           remoteUrl: Uri): T =
+           remoteUrl: HttpHostUri): T =
   KeystoreData(
     kind: KeystoreKind.Remote,
     pubkey: cookedKey.toPubKey(),
@@ -371,24 +371,34 @@ proc loadKeystoreUnsafe*(validatorsDir, secretsDir,
 
 proc loadRemoteKeystoreImpl(validatorsDir,
                             keyName: string): Option[KeystoreData] =
-  let remoteKeystorePath = validatorsDir / keyName / RemoteKeystoreFileName
-  let privateItem =
+  let keystorePath = validatorsDir / keyName / RemoteKeystoreFileName
+
+  if not(checkSensitiveFilePermissions(keystorePath)):
+    error "Remote keystorage file has insecure permissions",
+          key_path = keystorePath
+    return
+
+  let keyStore =
     block:
-      let keystore =
+      let remoteKeystore =
         try:
-          Json.decode(remoteKeystorePath, RemoteKeystore)
-        except SerializationError as e:
-          error "Failed to read remote keystore file",
-                keystore_path = remoteKeystorePath,
-                err_msg = e.formatMsg(remoteKeystorePath)
+          Json.loadFile(keystorePath, RemoteKeystore)
+        except IOError as err:
+          error "Failed to read remote keystore file", err = err.msg,
+                path = keystorePath
           return
-      let res = init(KeystoreData, keystore)
+        except SerializationError as e:
+          error "Invalid remote keystore file",
+                path = keystorePath,
+                err_msg = e.formatMsg(keystorePath)
+          return
+      let res = init(KeystoreData, remoteKeystore)
       if res.isErr():
-        error "Invalid validator's public key in keystore file",
-              keystore_path = remoteKeystorePath
+        error "Invalid remote keystore file",
+              path = keystorePath
         return
       res.get()
-  some(privateItem)
+  some(keyStore)
 
 proc loadKeystoreImpl(validatorsDir, secretsDir, keyName: string,
                       nonInteractive: bool): Option[KeystoreData] =
@@ -813,7 +823,7 @@ proc saveKeystore*(rng: var BrHmacDrbgContext,
   ok()
 
 proc saveKeystore*(validatorsDir: string,
-                   publicKey: ValidatorPubKey, url: Uri,
+                   publicKey: ValidatorPubKey, url: HttpHostUri,
                    version = 1'u64,
                    flags: set[RemoteKeystoreFlag] = {},
                    remoteType = RemoteSignerType.Web3Signer,
@@ -848,7 +858,7 @@ proc saveKeystore*(validatorsDir: string,
                          encodedStorage)
   ok()
 
-proc saveKeystore*(conf: AnyConf, publicKey: ValidatorPubKey, url: Uri,
+proc saveKeystore*(conf: AnyConf, publicKey: ValidatorPubKey, url: HttpHostUri,
                    version = 1'u64,
                    flags: set[RemoteKeystoreFlag] = {},
                    remoteType = RemoteSignerType.Web3Signer,
@@ -923,8 +933,7 @@ proc importKeystore*(pool: var ValidatorPool,
     return err(AddValidatorFailure.init(AddValidatorStatus.existingArtifacts))
 
   let res = saveKeystore(rng, validatorsDir, secretsDir,
-                         privateKey, publicKey,
-                         keystoreDir.KeyPath, password)
+                         privateKey, publicKey, keystore.path, password)
 
   if res.isErr():
     return err(AddValidatorFailure.init(AddValidatorStatus.failed,

@@ -114,8 +114,12 @@ proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
   let validator = pool.validators.getOrDefault(pubkey)
   if not(isNil(validator)):
     pool.validators.del(pubkey)
-    notice "Local or remote validator detached", pubkey,
-           validator = shortLog(validator)
+    case validator.kind
+    of ValidatorKind.Local:
+      notice "Local validator detached", pubkey, validator = shortLog(validator)
+    of ValidatorKind.Remote:
+      notice "Remote validator detached", pubkey,
+             validator = shortLog(validator)
     validators.set(pool.count().int64)
 
 proc updateValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey,
