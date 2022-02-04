@@ -545,8 +545,7 @@ proc init*(T: type BeaconNode,
     requestManager: RequestManager.init(network, blockVerifier),
     syncManager: syncManager,
     backfiller: backfiller,
-    actionTracker: ActionTracker.init(
-      rng, config.subscribeAllAttnets or config.subscribeAllSubnets),
+    actionTracker: ActionTracker.init(rng, config.subscribeAllSubnets),
     processor: processor,
     blockProcessor: blockProcessor,
     consensusManager: consensusManager,
@@ -728,7 +727,7 @@ proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
 func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
   # Only used to determine which gossip topics to which to subscribe
-  if node.config.subscribeAllSubnets or node.config.subscribeAllSyncnets:
+  if node.config.subscribeAllSubnets:
     (func(pubkey: ValidatorPubKey): bool {.closure.} = true)
   else:
     (func(pubkey: ValidatorPubKey): bool =

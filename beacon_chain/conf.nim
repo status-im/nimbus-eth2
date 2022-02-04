@@ -160,19 +160,9 @@ type
       desc: "Node agent string which is used as identifier in network"
       name: "agent-string" }: string
 
-    subscribeAllAttnets* {.
-      defaultValue: false,
-      desc: "Subscribe to all attestation subnet topics when gossiping"
-      name: "subscribe-all-attnets" }: bool
-
-    subscribeAllSyncnets* {.
-      defaultValue: false,
-      desc: "Subscribe to all sync subnet topics when gossiping"
-      name: "subscribe-all-syncnets" }: bool
-
     subscribeAllSubnets* {.
       defaultValue: false,
-      desc: "Subscribe to all subnet topics when gossiping; implies subscribe-all-attnets and subscribe-all-syncnets"
+      desc: "Subscribe to all subnet topics when gossiping"
       name: "subscribe-all-subnets" }: bool
 
     slashingDbKind* {.
@@ -262,7 +252,8 @@ type
         name: "graffiti" }: Option[GraffitiBytes]
 
       verifyFinalization* {.
-        desc: "Specify whether to verify finalization occurs on schedule, for testing"
+        hidden
+        desc: "Specify whether to verify finalization occurs on schedule (debug only)"
         defaultValue: false
         name: "verify-finalization" }: bool
 
