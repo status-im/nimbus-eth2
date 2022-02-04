@@ -14,38 +14,50 @@ set -e
 
 cd "$(dirname "${BASH_SOURCE[0]}")"/..
 
+# OS detection
+OS="linux"
+if uname | grep -qi darwin; then
+  OS="macos"
+elif uname | grep -qiE "mingw|msys"; then
+  OS="windows"
+fi
+
+# architecture detection
+ARCH="$(uname -m)"
+
 ####################
 # argument parsing #
 ####################
 
 GETOPT_BINARY="getopt"
-if uname | grep -qi darwin; then
-  # macOS
+if [[ "${OS}" == "macos" ]]; then
   GETOPT_BINARY=$(find /opt/homebrew/opt/gnu-getopt/bin/getopt /usr/local/opt/gnu-getopt/bin/getopt 2> /dev/null || true)
   [[ -f "$GETOPT_BINARY" ]] || { echo "GNU getopt not installed. Please run 'brew install gnu-getopt'. Aborting."; exit 1; }
 fi
 
 ! ${GETOPT_BINARY} --test > /dev/null
-if [ ${PIPESTATUS[0]} != 4 ]; then
+if [[ ${PIPESTATUS[0]} != 4 ]]; then
   # shellcheck disable=2016
   echo '`getopt --test` failed in this environment.'
   exit 1
 fi
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,timeout:,kill-old-processes,eth2-docker-image:"
+LONGOPTS="help,preset:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:"
 
 # default values
 NUM_NODES="10"
 DATA_DIR="local_testnet_data"
 USE_HTOP="1"
 USE_VC="1"
+LIGHTHOUSE_VC_NODES="0"
 USE_GANACHE="0"
 LOG_LEVEL="DEBUG; TRACE:networking"
 BASE_PORT="9000"
 BASE_METRICS_PORT="8008"
 BASE_REST_PORT="7500"
 REUSE_EXISTING_DATA_DIR="0"
+REUSE_BINARIES="0"
 ENABLE_LOGTRACE="0"
 STOP_AT_EPOCH_FLAG=""
 TIMEOUT_DURATION="0"
@@ -59,7 +71,7 @@ Usage: $(basename "$0") [OPTIONS] -- [BEACON NODE OPTIONS]
 E.g.: $(basename "$0") --nodes ${NUM_NODES} --stop-at-epoch 5 --data-dir "${DATA_DIR}" # defaults
 CI run: $(basename "$0") --disable-htop -- --verify-finalization
 
-  -h, --help                  this help message
+  -h, --help                  show this help message
   -n, --nodes                 number of nodes to launch (default: ${NUM_NODES})
   -g, --with-ganache          simulate a genesis event based on a deposit contract
   -s, --stop-at-epoch         stop simulation at epoch (default: infinite)
@@ -70,10 +82,15 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --base-rest-port            bootstrap node's REST port (default: ${BASE_REST_PORT})
   --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
   --disable-htop              don't use "htop" to see the nimbus_beacon_node processes
-  --disable-vc                don't use validator client binaries for validators (by default validators are split 50/50 between beacon nodes and validator clients)
-  --enable-logtrace           display logtrace aggasr analysis
-  --log-level                 set the log level (default: ${LOG_LEVEL})
+  --disable-vc                don't use validator client binaries for validators
+                              (by default validators are split 50/50 between beacon nodes
+                              and validator clients, with all beacon nodes being paired up
+                              with a corresponding validator client)
+  --lighthouse-vc-nodes       number of Lighthouse VC nodes (assigned before Nimbus VC nodes, default: ${LIGHTHOUSE_VC_NODES})
+  --enable-logtrace           display logtrace "aggasr" analysis
+  --log-level                 set the log level (default: "${LOG_LEVEL}")
   --reuse-existing-data-dir   instead of deleting and recreating the data dir, keep it and reuse everything we can from it
+  --reuse-binaries            don't (re)build the binaries we need and don't delete them at the end (speeds up testing)
   --timeout                   timeout in seconds (default: ${TIMEOUT_DURATION} - no timeout)
   --kill-old-processes        if any process is found listening on a port we use, kill it (default: disabled)
   --eth2-docker-image         use docker image instead of compiling the beacon node
@@ -81,7 +98,7 @@ EOF
 }
 
 ! PARSED=$(${GETOPT_BINARY} --options=${OPTS} --longoptions=${LONGOPTS} --name "$0" -- "$@")
-if [ ${PIPESTATUS[0]} != 0 ]; then
+if [[ ${PIPESTATUS[0]} != 0 ]]; then
   # getopt has complained about wrong arguments to stdout
   exit 1
 fi
@@ -146,6 +163,10 @@ while true; do
       REUSE_EXISTING_DATA_DIR="1"
       shift
       ;;
+    --reuse-binaries)
+      REUSE_BINARIES="1"
+      shift
+      ;;
     --timeout)
       TIMEOUT_DURATION="$2"
       shift 2
@@ -161,6 +182,10 @@ while true; do
       #      our docker images, so we must disable it:
       echo "warning: --eth-docker-image implies --disable-vc"
       USE_VC="0"
+      ;;
+    --lighthouse-vc-nodes)
+      LIGHTHOUSE_VC_NODES="$2"
+      shift 2
       ;;
     --)
       shift
@@ -183,6 +208,11 @@ if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
   rm -rf "${DATA_DIR}"
 fi
 
+if [[ "${LIGHTHOUSE_VC_NODES}" != "0" && "${CONST_PRESET}" != "mainnet" ]]; then
+  echo "The prebuilt Lighthouse binary we're using only supports mainnet. Aborting."
+  exit 1
+fi
+
 scripts/makedir.sh "${DATA_DIR}"
 
 VALIDATORS_DIR="${DATA_DIR}/validators"
@@ -193,14 +223,12 @@ scripts/makedir.sh "${SECRETS_DIR}"
 
 USER_VALIDATORS=8
 TOTAL_VALIDATORS=128
-HAVE_LSOF=0
 
-# Windows detection
-if uname | grep -qiE "mingw|msys"; then
+# "Make" binary
+if [[ "${OS}" == "windows" ]]; then
   MAKE="mingw32-make"
 else
   MAKE="make"
-  which lsof &>/dev/null && HAVE_LSOF=1 || { echo "'lsof' not installed and we need it to check for ports already in use. Aborting."; exit 1; }
 fi
 
 # number of CPU cores
@@ -211,7 +239,10 @@ else
 fi
 
 # kill lingering processes from a previous run
-if [[ "${HAVE_LSOF}" == "1" ]]; then
+if [[ "${OS}" != "windows" ]]; then
+  which lsof &>/dev/null || \
+    { echo "'lsof' not installed and we need it to check for ports already in use. Aborting."; exit 1; }
+
   for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     for PORT in $(( BASE_PORT + NUM_NODE )) $(( BASE_METRICS_PORT + NUM_NODE )) $(( BASE_REST_PORT + NUM_NODE )); do
       for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
@@ -228,27 +259,70 @@ if [[ "${HAVE_LSOF}" == "1" ]]; then
   done
 fi
 
+# Download the Lighthouse binary.
+LH_VERSION="2.1.3"
+LH_ARCH="${ARCH}"
+if [[ "${LH_ARCH}" == "arm64" ]]; then
+  LH_ARCH="aarch64"
+fi
+
+case "${OS}" in
+  linux)
+    LH_TARBALL="lighthouse-v${LH_VERSION}-${LH_ARCH}-unknown-linux-gnu-portable.tar.gz"
+    ;;
+  macos)
+    LH_TARBALL="lighthouse-v${LH_VERSION}-${LH_ARCH}-apple-darwin-portable.tar.gz"
+    ;;
+  windows)
+    LH_TARBALL="lighthouse-v${LH_VERSION}-${LH_ARCH}-windows-portable.tar.gz"
+    ;;
+esac
+LH_URL="https://github.com/sigp/lighthouse/releases/download/v${LH_VERSION}/${LH_TARBALL}"
+LH_BINARY="lighthouse-${LH_VERSION}"
+
+if [[ "${USE_VC}" == "1" && "${LIGHTHOUSE_VC_NODES}" != "0" && ! -e "build/${LH_BINARY}" ]]; then
+  pushd "build" >/dev/null
+  curl -sSLO "${LH_URL}"
+  tar -xzf "${LH_TARBALL}" # contains just one file named "lighthouse"
+  rm lighthouse-* # deletes both the tarball and old binary versions
+  mv lighthouse "${LH_BINARY}"
+  popd >/dev/null
+fi
+
 # Build the binaries
-BINARIES="nimbus_validator_client deposit_contract"
+BINARIES="deposit_contract"
+
+if [[ "${USE_VC}" == "1" ]]; then
+  BINARIES="${BINARIES} nimbus_validator_client"
+fi
 
 if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
   BINARIES="${BINARIES} logtrace"
 fi
 
-if [[ -n "$ETH2_DOCKER_IMAGE" ]]; then
-  DATA_DIR_FULL_PATH=$(cd "${DATA_DIR}"; pwd)
+if [[ -n "${ETH2_DOCKER_IMAGE}" ]]; then
+  DATA_DIR_FULL_PATH="$(cd "${DATA_DIR}"; pwd)"
   # CONTAINER_DATA_DIR must be used everywhere where paths are supplied to BEACON_NODE_COMMAND executions.
   # We'll use the CONTAINER_ prefix throughout the file to indicate such paths.
-  CONTAINER_DATA_DIR=/home/user/nimbus-eth2/testnet
+  CONTAINER_DATA_DIR="/home/user/nimbus-eth2/testnet"
   BEACON_NODE_COMMAND="docker run -v /etc/passwd:/etc/passwd -u $(id -u):$(id -g) --net=host -v ${DATA_DIR_FULL_PATH}:${CONTAINER_DATA_DIR}:rw $ETH2_DOCKER_IMAGE"
 else
   # When docker is not used CONTAINER_DATA_DIR is just an alias for DATA_DIR
-  CONTAINER_DATA_DIR=$DATA_DIR
+  CONTAINER_DATA_DIR="${DATA_DIR}"
   BEACON_NODE_COMMAND="./build/nimbus_beacon_node"
   BINARIES="${BINARIES} nimbus_beacon_node"
 fi
 
-$MAKE -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
+BINARIES_MISSING="0"
+for BINARY in ${BINARIES}; do
+  if [[ ! -e "build/${BINARY}" ]]; then
+    BINARIES_MISSING="1"
+    break
+  fi
+done
+if [[ "${REUSE_BINARIES}" == "0" || "${BINARIES_MISSING}" == "1" ]]; then
+  ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
+fi
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
 # instance as the parent and the target process name as a pattern to the
@@ -256,15 +330,19 @@ $MAKE -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:cons
 cleanup() {
   pkill -f -P $$ nimbus_beacon_node &>/dev/null || true
   pkill -f -P $$ nimbus_validator_client &>/dev/null || true
+  pkill -f -P $$ ${LH_BINARY} &>/dev/null || true
   sleep 2
   pkill -f -9 -P $$ nimbus_beacon_node &>/dev/null || true
   pkill -f -9 -P $$ nimbus_validator_client &>/dev/null || true
+  pkill -f -9 -P $$ ${LH_BINARY} &>/dev/null || true
 
-  # Delete the binaries we just built, because these are unusable outside this
+  # Delete all binaries we just built, because these are unusable outside this
   # local testnet.
-  for BINARY in ${BINARIES}; do
-    rm build/${BINARY}
-  done
+  if [[ "${REUSE_BINARIES}" == "0" ]]; then
+    for BINARY in ${BINARIES}; do
+      rm -f build/${BINARY}
+    done
+  fi
 
   if [[ -n "$ETH2_DOCKER_IMAGE" ]]; then
     docker rm $(docker stop $(docker ps -a -q --filter ancestor=$ETH2_DOCKER_IMAGE --format="{{.ID}}"))
@@ -369,6 +447,30 @@ ALTAIR_FORK_EPOCH: 1
 BELLATRIX_FORK_EPOCH: 2
 EOF
 
+if [[ "${LIGHTHOUSE_VC_NODES}" != "0" ]]; then
+  # I don't know what this is, but Lighthouse wants it, so we recreate it from
+  # Lighthouse's own local testnet.
+  echo 0 > "${DATA_DIR}/deploy_block.txt"
+
+  # Lighthouse wants all these variables here. Copying them from "beacon_chain/spec/presets.nim".
+  # Note: our parser can't handle quotes around numerical values.
+  cat >> "$RUNTIME_CONFIG_FILE" <<EOF
+GENESIS_FORK_VERSION: 0x00000000
+ALTAIR_FORK_VERSION: 0x01000000
+SECONDS_PER_SLOT: 12
+SECONDS_PER_ETH1_BLOCK: 14
+MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256
+SHARD_COMMITTEE_PERIOD: 256
+INACTIVITY_SCORE_BIAS: 4
+INACTIVITY_SCORE_RECOVERY_RATE: 16
+EJECTION_BALANCE: 16000000000
+MIN_PER_EPOCH_CHURN_LIMIT: 4
+CHURN_LIMIT_QUOTIENT: 65536
+DEPOSIT_CHAIN_ID: 1
+DEPOSIT_NETWORK_ID: 1
+EOF
+fi
+
 dump_logs() {
   LOG_LINES=20
   for LOG in "${DATA_DIR}"/log*.txt; do
@@ -388,7 +490,7 @@ NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-4}
 BOOTSTRAP_NODE=0
 SYSTEM_VALIDATORS=$(( TOTAL_VALIDATORS - USER_VALIDATORS ))
 VALIDATORS_PER_NODE=$(( SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS ))
-if [ "${USE_VC:-}" == "1" ]; then
+if [[ "${USE_VC}" == "1" ]]; then
   # if using validator client binaries in addition to beacon nodes we will
   # split the keys for this instance in half between the BN and the VC
   # and the validators for the BNs will be from the first half of all validators
@@ -414,7 +516,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   scripts/makedir.sh "${NODE_DATA_DIR}/secrets" 2>&1
 
   if [[ $NUM_NODE -lt $NODES_WITH_VALIDATORS ]]; then
-    if [ "${USE_VC:-}" == "1" ]; then
+    if [[ "${USE_VC}" == "1" ]]; then
       VALIDATOR_DATA_DIR="${DATA_DIR}/validator${NUM_NODE}"
       rm -rf "${VALIDATOR_DATA_DIR}"
       scripts/makedir.sh "${VALIDATOR_DATA_DIR}" 2>&1
@@ -424,7 +526,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
         cp -a "${VALIDATORS_DIR}/${VALIDATOR}" "${VALIDATOR_DATA_DIR}/validators/" 2>&1
         cp -a "${SECRETS_DIR}/${VALIDATOR}" "${VALIDATOR_DATA_DIR}/secrets/" 2>&1
       done
-      if [[ $OS = "Windows_NT" ]]; then
+      if [[ "${OS}" == "Windows_NT" ]]; then
         find "${VALIDATOR_DATA_DIR}" -type f \( -iname "*.json" -o ! -iname "*.*" \) -exec icacls "{}" /inheritance:r /grant:r ${USERDOMAIN}\\${USERNAME}:\(F\) \;
       fi
     fi
@@ -432,7 +534,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
       cp -a "${VALIDATORS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/validators/" 2>&1
       cp -a "${SECRETS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/secrets/" 2>&1
     done
-    if [[ $OS = "Windows_NT" ]]; then
+    if [[ "${OS}" == "Windows_NT" ]]; then
       find "${NODE_DATA_DIR}" -type f \( -iname "*.json" -o ! -iname "*.*" \) -exec icacls "{}" /inheritance:r /grant:r ${USERDOMAIN}\\${USERNAME}:\(F\) \;
     fi
   fi
@@ -484,8 +586,8 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     done
   fi
 
-  $BEACON_NODE_COMMAND \
-    --config-file="$CLI_CONF_FILE" \
+  ${BEACON_NODE_COMMAND} \
+    --config-file="${CLI_CONF_FILE}" \
     --tcp-port=$(( BASE_PORT + NUM_NODE )) \
     --udp-port=$(( BASE_PORT + NUM_NODE )) \
     --max-peers=$(( NUM_NODES - 1 )) \
@@ -496,21 +598,39 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --rest-port="$(( BASE_REST_PORT + NUM_NODE ))" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
     ${EXTRA_ARGS} \
-    > "${DATA_DIR}/log${NUM_NODE}.txt" 2>&1 &
+    &> "${DATA_DIR}/log${NUM_NODE}.txt" &
 
-  if [[ "${PIDS}" == "" ]]; then
-    PIDS="$!"
-  else
-    PIDS="${PIDS},$!"
-  fi
+  PIDS="${PIDS},$!"
 
-  if [ "${USE_VC:-}" == "1" ]; then
-    ./build/nimbus_validator_client \
-      --log-level="${LOG_LEVEL}" \
-      ${STOP_AT_EPOCH_FLAG} \
-      --data-dir="${VALIDATOR_DATA_DIR}" \
-      --beacon-node="http://127.0.0.1:$((BASE_REST_PORT + NUM_NODE))" \
-      > "${DATA_DIR}/log_val${NUM_NODE}.txt" 2>&1 &
+  if [[ "${USE_VC}" == "1" ]]; then
+    if [[ "${LIGHTHOUSE_VC_NODES}" -gt "${NUM_NODE}" ]]; then
+      # Lighthouse needs a different keystore filename for its auto-discovery process.
+      for D in "${VALIDATOR_DATA_DIR}/validators"/0x*; do
+        if [[ -e "${D}/keystore.json" ]]; then
+          mv "${D}/keystore.json" "${D}/voting-keystore.json"
+        fi
+      done
+
+      ./build/${LH_BINARY} vc \
+        --debug-level "debug" \
+        --logfile-max-number 0 \
+        --validators-dir "${VALIDATOR_DATA_DIR}" \
+        --secrets-dir "${VALIDATOR_DATA_DIR}/secrets" \
+        --beacon-nodes "http://127.0.0.1:$((BASE_REST_PORT + NUM_NODE))" \
+        --testnet-dir "${DATA_DIR}" \
+        --init-slashing-protection \
+        &> "${DATA_DIR}/log_val${NUM_NODE}.txt" &
+      # No "--stop-at-epoch" equivalent here, so we let these VC processes be
+      # killed the ugly way, when the script exits.
+    else
+      ./build/nimbus_validator_client \
+        --log-level="${LOG_LEVEL}" \
+        ${STOP_AT_EPOCH_FLAG} \
+        --data-dir="${VALIDATOR_DATA_DIR}" \
+        --beacon-node="http://127.0.0.1:$((BASE_REST_PORT + NUM_NODE))" \
+        &> "${DATA_DIR}/log_val${NUM_NODE}.txt" &
+      PIDS="${PIDS},$!"
+    fi
   fi
 done
 
@@ -527,10 +647,10 @@ if [[ "$BG_JOBS" != "$NUM_JOBS" ]]; then
   exit 1
 fi
 
-# launch htop or wait for background jobs
+# launch "htop" or wait for background jobs
 if [[ "$USE_HTOP" == "1" ]]; then
   htop -p "$PIDS"
-  cleanup
+  # Cleanup is done when this script exists, since we listen to the EXIT signal.
 else
   FAILED=0
   for PID in $(echo "$PIDS" | tr ',' ' '); do
