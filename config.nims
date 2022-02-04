@@ -1,4 +1,4 @@
-import strutils
+import strutils, sequtils
 
 const nimCachePathOverride {.strdefine.} = ""
 when nimCachePathOverride == "":
@@ -86,6 +86,17 @@ elif defined(macosx) and defined(arm64):
   # Apple's Clang can't handle "-march=native" on M1: https://github.com/status-im/nimbus-eth2/issues/2758
   switch("passC", "-mcpu=apple-a14")
   switch("passL", "-mcpu=apple-a14")
+elif defined(linux) and defined(amd64):
+  # There is at least one example (at 1984hosting.com) for virtual
+  # cloud servers without "ssse3" support.
+  let cpuFlags = "/proc/cpuinfo".slurp.splitLines
+           .filterIt(5<it.len and it[0..4]=="flags").mapIt(it.split).concat
+  if "ssse3" in cpuFlags:
+    switch("passC", "-march=broadwell")
+    switch("passL", "-march=broadwell")
+  else:
+    switch("passC", "-march=native")
+    switch("passL", "-march=native")
 else:
   if defined(amd64) and not defined(macosx):
     switch("passC", "-march=broadwell")
