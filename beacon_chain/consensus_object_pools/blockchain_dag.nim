@@ -506,7 +506,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     elif slot == tailRef.slot:
       midRef = tailRef
     elif slot > tailRef.slot:
-      let next = BlockRef.init(root, slot)
+      let next = BlockRef.init(root, default(Eth2Digest), slot)
       link(midRef, next)
       midRef = next
 
