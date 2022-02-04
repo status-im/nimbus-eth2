@@ -159,8 +159,6 @@ proc init*(T: type BeaconNode,
 
   proc onAttestationReceived(data: Attestation) =
     eventBus.emit("attestation-received", data)
-  proc onAttestationSent(data: Attestation) =
-    eventBus.emit("attestation-sent", data)
   proc onVoluntaryExitAdded(data: SignedVoluntaryExit) =
     eventBus.emit("voluntary-exit", data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
@@ -169,8 +167,19 @@ proc init*(T: type BeaconNode,
     eventBus.emit("head-change", data)
   proc onChainReorg(data: ReorgInfoObject) =
     eventBus.emit("chain-reorg", data)
-  proc onFinalization(data: FinalizationInfoObject) =
-    eventBus.emit("finalization", data)
+  proc makeOnFinalizationCb(
+      # This `nimcall` functions helps for keeping track of what
+      # needs to be captured by the onFinalization closure.
+      eventBus: AsyncEventBus,
+      eth1Monitor: Eth1Monitor): OnFinalizedCallback {.nimcall.} =
+    static: doAssert (eventBus is ref) and (eth1Monitor is ref)
+    return proc(dag: ChainDAGRef, data: FinalizationInfoObject) =
+      if eth1Monitor != nil:
+        let finalizedEpochRef = dag.getFinalizedEpochRef()
+        discard trackFinalizedState(eth1Monitor,
+                                    finalizedEpochRef.eth1_data,
+                                    finalizedEpochRef.eth1_deposit_index)
+      eventBus.emit("finalization", data)
   proc onSyncContribution(data: SignedContributionAndProof) =
     eventBus.emit("sync-contribution-and-proof", data)
 
@@ -341,7 +350,7 @@ proc init*(T: type BeaconNode,
                      else: {}
     dag = ChainDAGRef.init(
       cfg, db, validatorMonitor, chainDagFlags, onBlockAdded, onHeadChanged,
-      onChainReorg, onFinalization)
+      onChainReorg)
     quarantine = newClone(Quarantine.init())
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState.data, genesis_validators_root)
@@ -509,6 +518,8 @@ proc init*(T: type BeaconNode,
   else:
     nil
 
+  dag.setFinalizationCb makeOnFinalizationCb(eventBus, eth1Monitor)
+
   var node = BeaconNode(
     nickname: nickname,
     graffitiBytes: if config.graffiti.isSome: config.graffiti.get
@@ -539,7 +550,6 @@ proc init*(T: type BeaconNode,
     consensusManager: consensusManager,
     gossipState: {},
     beaconClock: beaconClock,
-    onAttestationSent: onAttestationSent,
     validatorMonitor: validatorMonitor,
     stateTtlCache: stateTtlCache
   )
@@ -880,7 +890,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
       getTargetGossipState(
         slot.epoch,
         node.dag.cfg.ALTAIR_FORK_EPOCH,
-        node.dag.cfg.MERGE_FORK_EPOCH,
+        node.dag.cfg.BELLATRIX_FORK_EPOCH,
         headDistance > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER)
 
   doAssert targetGossipState.card <= 2
@@ -1105,11 +1115,6 @@ proc onSlotStart(
   node.consensusManager[].updateHead(wallSlot)
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
-
-  if node.eth1Monitor != nil and (wallSlot mod SLOTS_PER_EPOCH) == 0:
-    let finalizedEpochRef = node.dag.getFinalizedEpochRef()
-    discard node.eth1Monitor.trackFinalizedState(
-      finalizedEpochRef.eth1_data, finalizedEpochRef.eth1_deposit_index)
 
   await onSlotEnd(node, wallSlot)
 

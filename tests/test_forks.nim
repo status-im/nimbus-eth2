@@ -39,7 +39,7 @@ suite "Forked SSZ readers":
     cfg = defaultRuntimeConfig
 
   cfg.ALTAIR_FORK_EPOCH = Epoch(1)
-  cfg.MERGE_FORK_EPOCH = Epoch(2)
+  cfg.BELLATRIX_FORK_EPOCH = Epoch(2)
 
   test "load phase0 state":
     testHashedBeaconState(phase0.BeaconState, 0.Slot)
@@ -58,12 +58,12 @@ suite "Forked SSZ readers":
       testHashedBeaconState(bellatrix.BeaconState, cfg.ALTAIR_FORK_EPOCH.start_slot)
 
   test "load bellatrix state":
-    testHashedBeaconState(bellatrix.BeaconState, cfg.MERGE_FORK_EPOCH.start_slot)
+    testHashedBeaconState(bellatrix.BeaconState, cfg.BELLATRIX_FORK_EPOCH.start_slot)
 
     expect(SszError):
-      testHashedBeaconState(phase0.BeaconState, cfg.MERGE_FORK_EPOCH.start_slot)
+      testHashedBeaconState(phase0.BeaconState, cfg.BELLATRIX_FORK_EPOCH.start_slot)
     expect(SszError):
-      testHashedBeaconState(altair.BeaconState, cfg.MERGE_FORK_EPOCH.start_slot)
+      testHashedBeaconState(altair.BeaconState, cfg.BELLATRIX_FORK_EPOCH.start_slot)
 
   test "should raise on unknown data":
     let
@@ -90,14 +90,14 @@ suite "Forked SSZ readers":
 
   test "load bellatrix block":
     testTrustedSignedBeaconBlock(
-      bellatrix.TrustedSignedBeaconBlock, cfg.MERGE_FORK_EPOCH.start_slot)
+      bellatrix.TrustedSignedBeaconBlock, cfg.BELLATRIX_FORK_EPOCH.start_slot)
 
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        phase0.TrustedSignedBeaconBlock, cfg.MERGE_FORK_EPOCH.start_slot)
+        phase0.TrustedSignedBeaconBlock, cfg.BELLATRIX_FORK_EPOCH.start_slot)
     expect(SszError):
       testTrustedSignedBeaconBlock(
-        altair.TrustedSignedBeaconBlock, cfg.MERGE_FORK_EPOCH.start_slot)
+        altair.TrustedSignedBeaconBlock, cfg.BELLATRIX_FORK_EPOCH.start_slot)
 
   test "should raise on unknown data":
     let

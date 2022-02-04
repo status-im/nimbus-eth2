@@ -517,7 +517,10 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   for blck in db.getAncestorSummaries(headRoot):
     if midRef != nil and blck.summary.slot == midRef.slot:
       if midRef.root != blck.root:
-        fatal "Finalized block table does not match ancestor summaries, database corrupt?"
+        fatal "Finalized block table does not match ancestor summaries, database corrupt?",
+          head = shortLog(headRoot), cur = shortLog(curRef),
+          midref = shortLog(midRef), blck = shortLog(blck.root)
+
         quit 1
 
       if curRef == nil:
@@ -652,8 +655,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   for i in 0 ..< forkVersions.len:
     for j in i+1 ..< forkVersions.len:
       doAssert forkVersions[i] != forkVersions[j]
-  doAssert cfg.ALTAIR_FORK_EPOCH <= cfg.MERGE_FORK_EPOCH
-  doAssert cfg.MERGE_FORK_EPOCH <= cfg.SHARDING_FORK_EPOCH
+  doAssert cfg.ALTAIR_FORK_EPOCH <= cfg.BELLATRIX_FORK_EPOCH
+  doAssert cfg.BELLATRIX_FORK_EPOCH <= cfg.SHARDING_FORK_EPOCH
   doAssert dag.updateFlags in [{}, {verifyFinalization}]
 
   var cache: StateCache
@@ -1528,7 +1531,7 @@ proc updateHead*(
         dag.finalizedHead.blck.root,
         stateRoot,
         dag.finalizedHead.slot.epoch)
-      dag.onFinHappened(data)
+      dag.onFinHappened(dag, data)
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =
   # Lightweight check to see if we have the minimal information needed to

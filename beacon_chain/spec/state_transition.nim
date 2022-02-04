@@ -167,7 +167,7 @@ func maybeUpgradeStateToBellatrix(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
-  if getStateField(state, slot).epoch == cfg.MERGE_FORK_EPOCH and
+  if getStateField(state, slot).epoch == cfg.BELLATRIX_FORK_EPOCH and
       state.kind == BeaconStateFork.Altair:
     var newState = upgrade_to_bellatrix(cfg, state.altairData.data)
     state = (ref ForkedHashedBeaconState)(

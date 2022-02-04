@@ -128,18 +128,18 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/p2p-interface.md#transitioning-the-gossip
 func getTargetGossipState*(
-    epoch, ALTAIR_FORK_EPOCH, MERGE_FORK_EPOCH: Epoch, isBehind: bool):
+    epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH: Epoch, isBehind: bool):
     set[BeaconStateFork] =
   if isBehind:
     {}
 
   # The order of these checks doesn't matter.
-  elif epoch >= MERGE_FORK_EPOCH:
+  elif epoch >= BELLATRIX_FORK_EPOCH:
     {BeaconStateFork.Bellatrix}
   elif epoch + 1 < ALTAIR_FORK_EPOCH:
     {BeaconStateFork.Phase0}
 
-  # Order remaining checks so ALTAIR_FORK_EPOCH == MERGE_FORK_EPOCH works
+  # Order remaining checks so ALTAIR_FORK_EPOCH == BELLATRIX_FORK_EPOCH works
   # and when the transition zones align contiguously, or are separated by
   # intermediate pure-Altair epochs.
   #
@@ -151,9 +151,9 @@ func getTargetGossipState*(
   # pure fork gossip state.
   #
   # Therefore, check for transition-to-merge before pure-Altair.
-  elif epoch + 1 >= MERGE_FORK_EPOCH:
+  elif epoch + 1 >= BELLATRIX_FORK_EPOCH:
     # As there are only two fork epochs and there's no transition to phase0
-    {if ALTAIR_FORK_EPOCH == MERGE_FORK_EPOCH:
+    {if ALTAIR_FORK_EPOCH == BELLATRIX_FORK_EPOCH:
        BeaconStateFork.Phase0
      else:
        BeaconStateFork.Altair,

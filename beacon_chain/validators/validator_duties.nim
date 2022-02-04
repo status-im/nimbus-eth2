@@ -222,8 +222,6 @@ proc sendAttestation*(
     if res.isGoodForSending:
       node.network.broadcastAttestation(subnet_id, attestation)
       beacon_attestations_sent.inc()
-      if not(isNil(node.onAttestationSent)):
-        node.onAttestationSent(attestation)
       ok()
     else:
       notice "Produced attestation failed validation",
@@ -867,24 +865,26 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
       await proposeBlock(node, validator, proposer.get(), head, slot)
 
 proc makeAggregateAndProof*(
-    pool: var AttestationPool, epochRef: EpochRef, slot: Slot, index: CommitteeIndex,
-    validatorIndex: ValidatorIndex, slot_signature: ValidatorSig): Option[AggregateAndProof] =
-  doAssert validatorIndex in get_beacon_committee(epochRef, slot, index)
+    pool: var AttestationPool, epochRef: EpochRef, slot: Slot,
+    committee_index: CommitteeIndex,
+    validator_index: ValidatorIndex,
+    slot_signature: ValidatorSig): Opt[AggregateAndProof] =
+  doAssert validator_index in get_beacon_committee(epochRef, slot, committee_index)
 
   # TODO for testing purposes, refactor this into the condition check
   # and just calculation
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#aggregation-selection
-  if not is_aggregator(epochRef, slot, index, slot_signature):
-    return none(AggregateAndProof)
+  if not is_aggregator(epochRef, slot, committee_index, slot_signature):
+    return err()
 
-  let maybe_slot_attestation = getAggregatedAttestation(pool, slot, index)
+  let maybe_slot_attestation = getAggregatedAttestation(pool, slot, committee_index)
   if maybe_slot_attestation.isNone:
-    return none(AggregateAndProof)
+    return err()
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#construct-aggregate
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#aggregateandproof
-  some(AggregateAndProof(
-    aggregator_index: validatorIndex.uint64,
+  ok(AggregateAndProof(
+    aggregator_index: validator_index.uint64,
     aggregate: maybe_slot_attestation.get,
     selection_proof: slot_signature))
 
@@ -929,43 +929,47 @@ proc sendAggregatedAttestations(
   doAssert slotSigsData.len == slotSigs.len
   for i in 0..<slotSigs.len:
     let
-      slotSig = slotSigs[i].read()
       data = slotSigsData[i]
-    if slotSig.isErr():
-      error "Unable to create slot signature using remote signer",
-            validator = shortLog(data.v),
-            slot, error_msg = slotSig.error()
-      continue
-    let aggregateAndProof =
-      makeAggregateAndProof(node.attestationPool[], epochRef, slot,
-                            data.committee_index,
-                            data.validator_index,
-                            slotSig.get())
+      slotSig = slotSigs[i].read().valueOr:
+        error "Unable to create slot signature using remote signer",
+              validator = shortLog(data.v),
+              slot, error = error
+        continue
+      aggregateAndProof = makeAggregateAndProof(
+        node.attestationPool[], epochRef, slot, data.committee_index,
+        data.validator_index, slotSig).valueOr:
+          # Don't broadcast when, e.g., this validator isn't aggregator
+          continue
 
-    # Don't broadcast when, e.g., this node isn't aggregator
-    if aggregateAndProof.isSome:
-      let sig =
-        block:
-          let res = await signAggregateAndProof(data.v,
-            aggregateAndProof.get, fork, genesis_validators_root)
-          if res.isErr():
-            error "Unable to sign aggregated attestation using remote signer",
-                  validator = shortLog(data.v), error_msg = res.error()
-            return
-          res.get()
-      var signedAP = SignedAggregateAndProof(
-        message: aggregateAndProof.get,
+      sig = block:
+        let res = await signAggregateAndProof(data.v,
+          aggregateAndProof, fork, genesis_validators_root)
+        if res.isErr():
+          error "Unable to sign aggregated attestation using remote signer",
+                validator = shortLog(data.v), error_msg = res.error()
+          return
+        res.get()
+      signedAP = SignedAggregateAndProof(
+        message: aggregateAndProof,
         signature: sig)
-      node.network.broadcastAggregateAndProof(signedAP)
-      # The subnet on which the attestations (should have) arrived
-      let subnet_id = compute_subnet_for_attestation(
-        committees_per_slot, slot, data.committee_index)
-      notice "Aggregated attestation sent",
-        attestation = shortLog(signedAP.message.aggregate),
-        aggregator_index = signedAP.message.aggregator_index,
-        signature = shortLog(signedAP.signature),
-        validator = shortLog(data.v),
-        subnet_id
+    node.network.broadcastAggregateAndProof(signedAP)
+
+    # The subnet on which the attestations (should have) arrived
+    let subnet_id = compute_subnet_for_attestation(
+      committees_per_slot, slot, data.committee_index)
+    notice "Aggregated attestation sent",
+      aggregate = shortLog(signedAP.message.aggregate),
+      aggregator_index = signedAP.message.aggregator_index,
+      signature = shortLog(signedAP.signature),
+      validator = shortLog(data.v),
+      subnet_id
+
+    node.validatorMonitor[].registerAggregate(
+      MsgSource.api, node.beaconClock.now(), signedAP.message,
+      get_attesting_indices(
+        epochRef, slot,
+        data.committee_index,
+        aggregateAndProof.aggregate.aggregation_bits))
 
 proc updateValidatorMetrics*(node: BeaconNode) =
   # Technically, this only needs to be done on epoch transitions and if there's
