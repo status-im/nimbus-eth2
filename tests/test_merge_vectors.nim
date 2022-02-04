@@ -13,7 +13,7 @@ import
 suite "Merge test vectors":
   setup:
     let web3Provider = (waitFor Web3DataProvider.new(
-      default(Eth1Address), "http://127.0.0.1:8550")).get
+      default(Eth1Address), "ws://127.0.0.1:8551")).get
 
   test "getPayload, executePayload, and forkchoiceUpdated":
     const feeRecipient =
@@ -47,7 +47,7 @@ suite "Merge test vectors":
         feeRecipient)
 
     check:
-      payloadStatus.status == "VALID"
-      fcupdatedStatus.status == "SUCCESS"
-      payloadStatus2.status == "VALID"
-      fcupdatedStatus2.status == "SUCCESS"
+      payloadStatus.status == valid
+      fcupdatedStatus.status == success
+      payloadStatus2.status == valid
+      fcupdatedStatus2.status == success
