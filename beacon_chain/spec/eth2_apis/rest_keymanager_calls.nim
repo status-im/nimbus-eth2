@@ -56,18 +56,18 @@ proc listKeys*(client: RestClientRef,
 proc listRemoteKeysPlain*(): RestPlainResponse {.
      rest, endpoint: "/eth/v1/remotekey",
      meth: MethodGet.}
-  ## TODO: Link is not available yet, because specification is not merged yet.
+  ## https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ListRemoteKeys
 
 proc importRemoteKeysPlain*(body: ImportRemoteKeystoresBody
                            ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/remotekey",
      meth: MethodPost.}
-  ## TODO: Link is not available yet, because specification is not merged yet.
+  ## https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ImportRemoteKeys
 
 proc deleteRemoteKeysPlain*(body: DeleteKeystoresBody): RestPlainResponse {.
      rest, endpoint: "/eth/v1/remotekey",
      meth: MethodDelete.}
-  ## TODO: Link is not available yet, because specification is not merged yet.
+  ## https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/DeleteRemoteKeys
 
 proc listRemoteKeys*(client: RestClientRef,
                      token: string): Future[GetRemoteKeystoresResponse] {.
