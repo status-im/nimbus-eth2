@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -15,7 +15,8 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   # We start with epoch 0 fully finalized to avoid epoch 0 special cases.
   result.fork_choice = ForkChoiceBackend.init(
     justifiedCheckpoint = Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    finalizedCheckpoint = Checkpoint(root: GenesisRoot, epoch: Epoch(1))
+    finalizedCheckpoint = Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    true # use proposer boosting, though the proposer boost root not set
   )
 
   # ----------------------------------

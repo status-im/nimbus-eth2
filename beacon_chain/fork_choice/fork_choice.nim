@@ -49,17 +49,19 @@ logScope:
 
 proc init*(T: type ForkChoiceBackend,
            justifiedCheckpoint: Checkpoint,
-           finalizedCheckpoint: Checkpoint): T =
+           finalizedCheckpoint: Checkpoint,
+           useProposerBoosting: bool): T =
   T(
     proto_array: ProtoArray.init(
       justifiedCheckpoint,
-      finalizedCheckpoint
-    )
+      finalizedCheckpoint),
+    proposer_boosting: useProposerBoosting
   )
 
 proc init*(T: type ForkChoice,
            epochRef: EpochRef,
-           blck: BlockRef): T =
+           blck: BlockRef,
+           proposerBoosting: bool): T =
   ## Initialize a fork choice context for a finalized state - in the finalized
   ## state, the justified and finalized checkpoints are the same, so only one
   ## is used here
@@ -75,11 +77,12 @@ proc init*(T: type ForkChoice,
       root: blck.root, epoch: epochRef.epoch)
 
   ForkChoice(
-    backend: ForkChoiceBackend.init(best_justified, finalized),
+    backend: ForkChoiceBackend.init(
+      best_justified, finalized, proposerBoosting),
     checkpoints: Checkpoints(
       justified: justified,
       finalized: finalized,
-      best_justified: best_justified)
+      best_justified: best_justified),
   )
 
 func extend[T](s: var seq[T], minLen: int) =
@@ -344,7 +347,7 @@ proc process_block*(self: var ForkChoice,
   let committees_per_slot = get_committee_count_per_slot(epochRef)
 
   for attestation in blck.body.attestations:
-    let targetBlck = dag.getBlockRef(attestation.data.target.root).valueOr:
+    let _ = dag.getBlockRef(attestation.data.target.root).valueOr:
       continue
 
     let committee_index = block:
@@ -389,7 +392,8 @@ func find_head*(
        self: var ForkChoiceBackend,
        justifiedCheckpoint: Checkpoint,
        finalizedCheckpoint: Checkpoint,
-       justified_state_balances: seq[Gwei]
+       justified_state_balances: seq[Gwei],
+       proposer_boost_root: Eth2Digest
      ): FcResult[Eth2Digest] =
   ## Returns the new blockchain head
 
@@ -406,7 +410,8 @@ func find_head*(
 
   # Apply score changes
   ? self.proto_array.applyScoreChanges(
-    deltas, justifiedCheckpoint, finalizedCheckpoint
+    deltas, justifiedCheckpoint, finalizedCheckpoint,
+    justified_state_balances, proposer_boost_root, self.proposer_boosting
   )
 
   self.balances = justified_state_balances
@@ -433,6 +438,7 @@ proc get_head*(self: var ForkChoice,
     self.checkpoints.justified.checkpoint,
     self.checkpoints.finalized,
     self.checkpoints.justified.balances,
+    self.checkpoints.proposer_boost_root
   )
 
 func prune*(

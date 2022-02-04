@@ -952,7 +952,7 @@ OK: 38/38 Fail: 0/38 Skip: 0/38
 ```diff
 + ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
 + ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/genesis                      OK
-  ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  Skip
++ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
 + ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
 + ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
 + ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/basic                        OK
@@ -961,7 +961,7 @@ OK: 38/38 Fail: 0/38 Skip: 0/38
 + ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               OK
 + ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
 ```
-OK: 8/10 Fail: 0/10 Skip: 2/10
+OK: 9/10 Fail: 0/10 Skip: 1/10
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -1209,4 +1209,4 @@ OK: 44/44 Fail: 0/44 Skip: 0/44
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 1033/1035 Fail: 0/1035 Skip: 2/1035
+OK: 1034/1035 Fail: 0/1035 Skip: 1/1035
