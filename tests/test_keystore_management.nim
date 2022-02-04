@@ -80,7 +80,7 @@ const
   MultipleSalt = hexToSeqByte(
     "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
   MultipleIv = hexToSeqByte("264daa3f303d7259501c93d997d84fe6")
-  MultipleRemoteUri = parseUri("https://127.0.0.1/eth/web3signer")
+  MultipleRemoteUri = HttpHostUri(parseUri("https://127.0.0.1/eth/web3signer"))
 
   MultiplePrivateKeys = [
     "3b89cdf5c62b423dab64dd69476c6c74bdbccc684abc89f3b392ac1f679e06c3",
