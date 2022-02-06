@@ -78,7 +78,7 @@ type
     ## of gossip interleaving between nodes so long as they don't gossip at
     ## the same time.
 
-    nodeLaunchSlot: Slot ##\
+    nodeLaunchSlot*: Slot ##\
     ## Set once, at node launch. This functions as a basic protection against
     ## false positives from attestations persisting within the gossip network
     ## across quick restarts.

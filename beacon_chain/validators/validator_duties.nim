@@ -1029,6 +1029,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   # means that it'd be okay not to continue, but it won't gossip regardless.
   if curSlot.epoch <
         node.processor[].doppelgangerDetection.broadcastStartEpoch and
+      node.processor[].doppelgangerDetection.nodeLaunchSlot > GENESIS_SLOT and
       node.config.doppelgangerDetection:
     let
       nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot - 1)
