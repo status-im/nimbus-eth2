@@ -260,7 +260,8 @@ proc checkForPotentialDoppelganger(
     return
 
   if attestation.data.slot.epoch <
-      self.doppelgangerDetection.broadcastStartEpoch:
+      self.doppelgangerDetection.broadcastStartEpoch and
+     self.doppelgangerDetection.nodeLaunchSlot > GENESIS_SLOT:
     for validatorIndex in attesterIndices:
       let validatorPubkey = self.dag.validatorKey(validatorIndex).get().toPubKey()
       if not isNil(self.validatorPool[].getValidator(validatorPubkey)):
