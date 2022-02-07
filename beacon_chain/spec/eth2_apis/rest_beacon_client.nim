@@ -10,10 +10,12 @@ import
   chronos, presto/client,
   "."/[
     rest_beacon_calls, rest_config_calls, rest_debug_calls,
-    rest_node_calls, rest_validator_calls
+    rest_node_calls, rest_validator_calls, rest_keymanager_calls,
+    rest_common
   ]
 
 export
   chronos, client,
   rest_beacon_calls, rest_config_calls, rest_debug_calls,
-  rest_node_calls, rest_validator_calls
+  rest_node_calls, rest_validator_calls, rest_keymanager_calls,
+  rest_common

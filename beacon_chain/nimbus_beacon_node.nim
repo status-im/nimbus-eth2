@@ -43,7 +43,7 @@ import
     blockchain_dag, block_quarantine, block_clearance, attestation_pool,
     sync_committee_msg_pool, exit_pool, spec_cache],
   ./eth1/eth1_monitor,
-  ./spec/eth2_apis/rest_beacon_calls
+  ./spec/eth2_apis/[rest_beacon_calls, rest_common]
 
 from eth/common/eth_types import BlockHashOrNumber
 

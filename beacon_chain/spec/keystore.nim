@@ -14,7 +14,7 @@ import
   # Third-party libraries
   normalize,
   # Status libraries
-  stew/[results, bitops2], stew/shims/macros,
+  stew/[results, bitops2, base10], stew/shims/macros,
   bearssl, eth/keyfile/uuid, blscurve, json_serialization,
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Local modules
@@ -72,9 +72,9 @@ type
   ScryptSalt* = distinct seq[byte]
 
   ScryptParams* = object
-    dklen: uint64
-    n, p, r: int
-    salt: ScryptSalt
+    dklen*: uint64
+    n*, p*, r*: int
+    salt*: ScryptSalt
 
   Pbkdf2Salt* = distinct seq[byte]
 
@@ -130,6 +130,8 @@ type
   RemoteKeystoreFlag* {.pure.} = enum
     IgnoreSSLVerification
 
+  HttpHostUri* = distinct Uri
+
   KeystoreData* = object
     version*: uint64
     pubkey*: ValidatorPubKey
@@ -140,7 +142,7 @@ type
       path*: KeyPath
       uuid*: string
     of KeystoreKind.Remote:
-      remoteUrl*: Uri
+      remoteUrl*: HttpHostUri
       flags*: set[RemoteKeystoreFlag]
 
   NetKeystore* = object
@@ -158,7 +160,7 @@ type
     description*: Option[string]
     remoteType*: RemoteSignerType
     pubkey*: ValidatorPubKey
-    remote*: Uri
+    remote*: HttpHostUri
     flags*: set[RemoteKeystoreFlag]
 
   KsResult*[T] = Result[T, string]
@@ -181,7 +183,7 @@ type
     signingKey*: ValidatorPrivKey
     withdrawalKey*: ValidatorPrivKey
 
-  SimpleHexEncodedTypes = ScryptSalt|ChecksumBytes|CipherBytes
+  SimpleHexEncodedTypes* = ScryptSalt|ChecksumBytes|CipherBytes
 
 const
   keyLen = 32
@@ -216,6 +218,15 @@ ChecksumFunctionKind.serializesAsTextInJson
 CipherFunctionKind.serializesAsTextInJson
 PrfKind.serializesAsTextInJson
 KdfKind.serializesAsTextInJson
+
+template `$`*(u: HttpHostUri): string =
+  `$`(Uri(u))
+
+template `==`*(lhs, rhs: HttpHostUri): bool =
+  Uri(lhs) == Uri(rhs)
+
+template `<`*(lhs, rhs: HttpHostUri): bool =
+  $Uri(lhs) < $Uri(rhs)
 
 template `$`*(m: Mnemonic): string =
   string(m)
@@ -491,8 +502,8 @@ proc readValue*(r: var JsonReader, value: var Aes128CtrIv)
     r.raiseUnexpectedValue(
       "The aes-128-ctr IV must be a valid hex string")
 
-proc readValue*[T: SimpleHexEncodedTypes](r: var JsonReader, value: var T)
-               {.raises: [SerializationError, IOError, Defect].} =
+proc readValue*[T: SimpleHexEncodedTypes](r: var JsonReader, value: var T) {.
+     raises: [SerializationError, IOError, Defect].} =
   value = T ncrutils.fromHex(r.readValue(string))
   if len(seq[byte](value)) == 0:
     r.raiseUnexpectedValue("Valid hex string expected")
@@ -531,77 +542,121 @@ proc readValue*(r: var JsonReader, value: var Kdf)
     r.raiseUnexpectedValue(
       "The Kdf value should have sub-fields named 'function' and 'params'")
 
-proc readValue*(r: var JsonReader, value: var RemoteKeystore)
+# HttpHostUri
+proc readValue*(reader: var JsonReader, value: var HttpHostUri) {.
+     raises: [IOError, SerializationError, Defect].} =
+  let svalue = reader.readValue(string)
+  let res = parseUri(svalue)
+  if res.scheme != "http" and res.scheme != "https":
+    reader.raiseUnexpectedValue("Incorrect URL scheme")
+  if len(res.hostname) == 0:
+    reader.raiseUnexpectedValue("Missing URL hostname")
+  value = HttpHostUri(res)
+
+proc writeValue*(writer: var JsonWriter, value: HttpHostUri) {.
+     raises: [IOError, Defect].} =
+  writer.writeValue($distinctBase(value))
+
+# RemoteKeystore
+proc writeValue*(writer: var JsonWriter, value: RemoteKeystore) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("version", value.version)
+  writer.writeField("pubkey", "0x" & value.pubkey.toHex())
+  writer.writeField("remote", $distinctBase(value.remote))
+  case value.remoteType
+  of RemoteSignerType.Web3Signer:
+    writer.writeField("type", "web3signer")
+  if value.description.isSome():
+    writer.writeField("description", value.description.get())
+  if RemoteKeystoreFlag.IgnoreSSLVerification in value.flags:
+    writer.writeField("ignore_ssl_verification", true)
+  writer.endRecord()
+
+template writeValue*(w: var JsonWriter,
+                     value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv) =
+  writeJsonHexString(w.stream, distinctBase value)
+
+proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
                {.raises: [SerializationError, IOError, Defect].} =
   var
-    versionWasPresent = false
+    version: Option[uint64]
     description: Option[string]
-    remote: Option[Uri]
+    remote: Option[HttpHostUri]
     remoteType: Option[string]
     ignoreSslVerification: Option[bool]
     pubkey: Option[ValidatorPubKey]
-  for fieldName in readObjectFields(r):
+
+  for fieldName in readObjectFields(reader):
     case fieldName:
     of "pubkey":
       if pubkey.isSome():
-        r.raiseUnexpectedField("Multiple `pubkey` fields found",
-                               "RemoteKeystore")
-      let res = r.readValue(ValidatorPubKey)
-      pubkey = some(res)
-      value.pubkey = res
+        reader.raiseUnexpectedField("Multiple `pubkey` fields found",
+                                    "RemoteKeystore")
+      pubkey = some(reader.readValue(ValidatorPubKey))
     of "remote":
       if remote.isSome():
-        r.raiseUnexpectedField("Multiple `remote` fields found",
-                               "RemoteKeystore")
-      let res = r.readValue(Uri)
-      remote = some(res)
-      value.remote = res
+        reader.raiseUnexpectedField("Multiple `remote` fields found",
+                                    "RemoteKeystore")
+      remote = some(reader.readValue(HttpHostUri))
     of "version":
-      if versionWasPresent:
-        r.raiseUnexpectedField("Multiple `version` fields found",
-                               "RemoteKeystore")
-      value.version = r.readValue(uint64)
-      versionWasPresent = true
+      if version.isSome():
+        reader.raiseUnexpectedField("Multiple `version` fields found",
+                                    "RemoteKeystore")
+      version = some(reader.readValue(uint64))
     of "description":
-      let res = r.readValue(string)
-      if value.description.isSome():
-        value.description = some(value.description.get() & "\n" & res)
+      let res = reader.readValue(string)
+      if description.isSome():
+        description = some(description.get() & "\n" & res)
       else:
-        value.description = some(res)
+        description = some(res)
     of "ignore_ssl_verification":
       if ignoreSslVerification.isSome():
-        r.raiseUnexpectedField("Multiple conflicting options found",
-                               "RemoteKeystore")
-      let res = r.readValue(bool)
-      ignoreSslVerification = some(res)
-      if res:
-        value.flags.incl(RemoteKeystoreFlag.IgnoreSSLVerification)
-      else:
-        value.flags.excl(RemoteKeystoreFlag.IgnoreSSLVerification)
+        reader.raiseUnexpectedField("Multiple conflicting options found",
+                                    "RemoteKeystore")
+      ignoreSslVerification = some(reader.readValue(bool))
     of "type":
       if remoteType.isSome():
-        r.raiseUnexpectedField("Multiple `type` fields found",
+        reader.raiseUnexpectedField("Multiple `type` fields found",
                                "RemoteKeystore")
-      let res = r.readValue(string)
-      remoteType = some(res)
-      case res
-      of "web3signer":
-        value.remoteType = RemoteSignerType.Web3Signer
-      else:
-        r.raiseUnexpectedValue("Unsupported remote signer `type` value")
+      remoteType = some(reader.readValue(string))
     else:
       # Ignore unknown field names.
       discard
 
-  if not versionWasPresent:
-    r.raiseUnexpectedValue("Field version is missing")
+  if version.isNone():
+    reader.raiseUnexpectedValue("Field `version` is missing")
   if remote.isNone():
-    r.raiseUnexpectedValue("Field remote is missing")
+    reader.raiseUnexpectedValue("Field `remote` is missing")
   if pubkey.isNone():
-    r.raiseUnexpectedValue("Field pubkey is missing")
-  # Set default remote signer type to `Web3Signer`.
-  if remoteType.isNone():
-    value.remoteType = RemoteSignerType.Web3Signer
+    reader.raiseUnexpectedValue("Field `pubkey` is missing")
+
+  let keystoreType =
+    if remoteType.isSome():
+      let res = remoteType.get()
+      case res.toLowerAscii()
+      of "web3signer":
+        RemoteSignerType.Web3Signer
+      else:
+        reader.raiseUnexpectedValue("Unsupported remote signer `type` value")
+    else:
+      RemoteSignerType.Web3Signer
+
+  let keystoreFlags =
+    block:
+      var res: set[RemoteKeystoreFlag]
+      if ignoreSslVerification.isSome():
+        res.incl(RemoteKeystoreFlag.IgnoreSSLVerification)
+      res
+
+  value = RemoteKeystore(
+    version: version.get(),
+    remote: remote.get(),
+    pubkey: pubkey.get(),
+    description: description,
+    remoteType: keystoreType,
+    flags: keystoreFlags
+  )
 
 template writeValue*(w: var JsonWriter,
                      value: Pbkdf2Salt|SimpleHexEncodedTypes|Aes128CtrIv) =
@@ -838,6 +893,20 @@ proc createKeystore*(kdfKind: KdfKind,
     description: newClone(description),
     uuid: $uuid,
     version: 4)
+
+proc createRemoteKeystore*(pubKey: ValidatorPubKey, remoteUri: HttpHostUri,
+                           version = 1'u64, description = "",
+                           remoteType = RemoteSignerType.Web3Signer,
+                          flags: set[RemoteKeystoreFlag] = {}): RemoteKeystore =
+  RemoteKeystore(
+    version: version,
+    description: if len(description) > 0: some(description)
+                 else: none[string](),
+    remoteType: remoteType,
+    pubkey: pubKey,
+    remote: remoteUri,
+    flags: flags
+  )
 
 proc createWallet*(kdfKind: KdfKind,
                    rng: var BrHmacDrbgContext,
