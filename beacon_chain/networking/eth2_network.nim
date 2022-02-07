@@ -502,8 +502,8 @@ proc getRequestProtoName(fn: NimNode): NimNode =
 
 proc writeChunk*(conn: Connection,
                  responseCode: Option[ResponseCode],
-                 payload: Bytes,
-                 contextBytes: openarray[byte] = []): Future[void] =
+                 payload: openArray[byte],
+                 contextBytes: openArray[byte] = []): Future[void] =
   var output = memoryOutput()
 
   try:
@@ -558,13 +558,14 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
   finally:
     await stream.close()
 
-proc sendResponseChunkBytes(response: UntypedResponse, payload: Bytes): Future[void] =
+proc sendResponseChunkBytes(
+    response: UntypedResponse, payload: openArray[byte],
+    contextBytes: openArray[byte] = []): Future[void] =
   inc response.writtenChunks
-  response.stream.writeChunk(some Success, payload)
+  response.stream.writeChunk(some Success, payload, contextBytes)
 
 proc sendResponseChunk*(response: UntypedResponse, val: auto): Future[void] =
-  inc response.writtenChunks
-  response.stream.writeChunk(some Success, SSZ.encode(val))
+  sendResponseChunkBytes(response, SSZ.encode(val))
 
 template sendUserHandlerResultAsChunkImpl*(stream: Connection,
                                            handlerResultFut: Future): untyped =
@@ -616,6 +617,11 @@ proc init*[MsgType](T: type SingleChunkResponse[MsgType],
 template write*[M](r: MultipleChunksResponse[M], val: M): untyped =
   mixin sendResponseChunk
   sendResponseChunk(UntypedResponse(r), val)
+
+template writeRawBytes*[M](
+    r: MultipleChunksResponse[M], bytes: openArray[byte],
+    contextBytes: openArray[byte]): untyped =
+  sendResponseChunkBytes(UntypedResponse(r), bytes, contextBytes)
 
 template send*[M](r: SingleChunkResponse[M], val: M): untyped =
   mixin sendResponseChunk

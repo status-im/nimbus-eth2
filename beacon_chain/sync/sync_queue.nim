@@ -43,7 +43,7 @@ type
 
   SyncResult*[T] = object
     request*: SyncRequest[T]
-    data*: seq[ForkedSignedBeaconBlock]
+    data*: seq[ref ForkedSignedBeaconBlock]
 
   SyncWaiter* = ref object
     future: Future[void]
@@ -72,12 +72,12 @@ type
     blockVerifier: BlockVerifier
 
   SyncManagerError* = object of CatchableError
-  BeaconBlocksRes* = NetRes[seq[ForkedSignedBeaconBlock]]
+  BeaconBlocksRes* = NetRes[seq[ref ForkedSignedBeaconBlock]]
 
 chronicles.formatIt SyncQueueKind: $it
 
 proc getShortMap*[T](req: SyncRequest[T],
-                     data: openArray[ForkedSignedBeaconBlock]): string =
+                     data: openArray[ref ForkedSignedBeaconBlock]): string =
   ## Returns all slot numbers in ``data`` as placement map.
   var res = newStringOfCap(req.count)
   var slider = req.slot
@@ -85,11 +85,11 @@ proc getShortMap*[T](req: SyncRequest[T],
   for i in 0 ..< req.count:
     if last < len(data):
       for k in last ..< len(data):
-        if slider == data[k].slot:
+        if slider == data[k][].slot:
           res.add('x')
           last = k + 1
           break
-        elif slider < data[k].slot:
+        elif slider < data[k][].slot:
           res.add('.')
           break
     else:
@@ -105,7 +105,7 @@ proc cmp*[T](a, b: SyncRequest[T]): int =
   cmp(uint64(a.slot), uint64(b.slot))
 
 proc checkResponse*[T](req: SyncRequest[T],
-                       data: openArray[ForkedSignedBeaconBlock]): bool =
+                       data: openArray[ref ForkedSignedBeaconBlock]): bool =
   if len(data) == 0:
     # Impossible to verify empty response.
     return true
@@ -120,9 +120,9 @@ proc checkResponse*[T](req: SyncRequest[T],
   var dindex = 0
 
   while (rindex < req.count) and (dindex < len(data)):
-    if slot < data[dindex].slot:
+    if slot < data[dindex][].slot:
       discard
-    elif slot == data[dindex].slot:
+    elif slot == data[dindex][].slot:
       inc(dindex)
     else:
       return false
@@ -360,7 +360,7 @@ proc hasEndGap*[T](sr: SyncResult[T]): bool {.inline.} =
   let lastslot = sr.request.slot + sr.request.count - 1'u64
   if len(sr.data) == 0:
     return true
-  if sr.data[^1].slot != lastslot:
+  if sr.data[^1][].slot != lastslot:
     return true
   return false
 
@@ -371,7 +371,7 @@ proc getLastNonEmptySlot*[T](sr: SyncResult[T]): Slot {.inline.} =
     # If response has only empty slots we going to use original request slot
     sr.request.slot
   else:
-    sr.data[^1].slot
+    sr.data[^1][].slot
 
 proc toDebtsQueue[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
   sq.debtsQueue.push(sr)
@@ -472,7 +472,7 @@ proc getRewindPoint*[T](sq: SyncQueue[T], failSlot: Slot,
     safeSlot
 
 iterator blocks*[T](sq: SyncQueue[T],
-                    sr: SyncResult[T]): ForkedSignedBeaconBlock =
+                    sr: SyncResult[T]): ref ForkedSignedBeaconBlock =
   case sq.kind
   of SyncQueueKind.Forward:
     for i in countup(0, len(sr.data) - 1):
@@ -503,7 +503,7 @@ proc notInRange[T](sq: SyncQueue[T], sr: SyncRequest[T]): bool =
     (sq.queueSize > 0) and (sr.slot + sr.count - 1'u64 != sq.outSlot)
 
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
-              data: seq[ForkedSignedBeaconBlock],
+              data: seq[ref ForkedSignedBeaconBlock],
               processingCb: ProcessingCallback = nil) {.async.} =
   ## Push successful result to queue ``sq``.
   mixin updateScore
@@ -579,13 +579,13 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       res: Result[void, BlockError]
 
     for blk in sq.blocks(item):
-      res = await sq.blockVerifier(blk)
+      res = await sq.blockVerifier(blk[])
       if res.isOk():
         hasOkBlock = true
       else:
         case res.error()
         of BlockError.MissingParent:
-          missingParentSlot = some(blk.slot)
+          missingParentSlot = some(blk[].slot)
           break
         of BlockError.Duplicate:
           # Keep going, happens naturally
@@ -595,7 +595,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           # quarantine
           if unviableBlock.isNone:
             # Remember the first unviable block, so we can log it
-            unviableBlock = some((blk.root, blk.slot))
+            unviableBlock = some((blk[].root, blk[].slot))
 
         of BlockError.Invalid:
           hasInvalidBlock = true

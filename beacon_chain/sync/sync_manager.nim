@@ -73,7 +73,7 @@ type
     slots*: uint64
 
   SyncManagerError* = object of CatchableError
-  BeaconBlocksRes* = NetRes[seq[ForkedSignedBeaconBlock]]
+  BeaconBlocksRes* = NetRes[seq[ref ForkedSignedBeaconBlock]]
 
 proc now*(sm: typedesc[SyncMoment], slots: uint64): SyncMoment {.inline.} =
   SyncMoment(stamp: now(chronos.Moment), slots: slots)
@@ -157,22 +157,15 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
         slot = req.slot, slot_count = req.count, step = req.step,
         peer_score = peer.getScore(), peer_speed = peer.netKbps(),
         direction = man.direction, topics = "syncman"
-  if peer.useSyncV2():
+  try:
     let res =
-      try:
+      if peer.useSyncV2():
         await beaconBlocksByRange_v2(peer, req.slot, req.count, req.step)
-      except CancelledError:
-        debug "Interrupt, while waiting getBlocks response", peer = peer,
-              slot = req.slot, slot_count = req.count, step = req.step,
-              peer_speed = peer.netKbps(), direction = man.direction,
-              topics = "syncman"
-        return
-      except CatchableError as exc:
-        debug "Error, while waiting getBlocks response", peer = peer,
-              slot = req.slot, slot_count = req.count, step = req.step,
-              errName = exc.name, errMsg = exc.msg, peer_speed = peer.netKbps(),
-              direction = man.direction, topics = "syncman"
-        return
+      else:
+        (await beaconBlocksByRange(peer, req.slot, req.count, req.step)).map(
+          proc(blcks: seq[phase0.SignedBeaconBlock]): auto =
+            blcks.mapIt(newClone(ForkedSignedBeaconBlock.init(it))))
+
     if res.isErr():
       debug "Error, while reading getBlocks response",
               peer = peer, slot = req.slot, count = req.count,
@@ -181,33 +174,18 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
               error = $res.error()
       return
     return res
-  else:
-    let res =
-      try:
-        await beaconBlocksByRange(peer, req.slot, req.count, req.step)
-      except CancelledError:
-        debug "Interrupt, while waiting getBlocks response", peer = peer,
-              slot = req.slot, slot_count = req.count, step = req.step,
-              peer_speed = peer.netKbps(), direction = man.direction,
-              topics = "syncman"
-        return
-      except CatchableError as exc:
-        debug "Error, while waiting getBlocks response", peer = peer,
-              slot = req.slot, slot_count = req.count, step = req.step,
-              errName = exc.name, errMsg = exc.msg, peer_speed = peer.netKbps(),
-              direction = man.direction, topics = "syncman"
-        return
-    if res.isErr():
-      debug "Error, while reading getBlocks response",
-            peer = peer, slot = req.slot, count = req.count,
-            step = req.step, peer_speed = peer.netKbps(),
-            direction = man.direction, error = $res.error(),
-            topics = "syncman"
-      return
-    let forked =
-      res.map() do (blcks: seq[phase0.SignedBeaconBlock]) -> auto:
-        blcks.mapIt(ForkedSignedBeaconBlock.init(it))
-    return forked
+  except CancelledError:
+    debug "Interrupt, while waiting getBlocks response", peer = peer,
+          slot = req.slot, slot_count = req.count, step = req.step,
+          peer_speed = peer.netKbps(), direction = man.direction,
+          topics = "syncman"
+    return
+  except CatchableError as exc:
+    debug "Error, while waiting getBlocks response", peer = peer,
+          slot = req.slot, slot_count = req.count, step = req.step,
+          errName = exc.name, errMsg = exc.msg, peer_speed = peer.netKbps(),
+          direction = man.direction, topics = "syncman"
+    return
 
 proc remainingSlots(man: SyncManager): uint64 =
   if man.direction == SyncQueueKind.Forward:
