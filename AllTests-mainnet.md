@@ -110,6 +110,15 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Missing Authorization header [Preset: mainnet]                                             OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
+## DeleteRemoteKeys requests [Preset: mainnet]
+```diff
++ Deleting existing local key and remote key [Preset: mainnet]                               OK
++ Deleting not existing key [Preset: mainnet]                                                OK
++ Invalid Authorization Header [Preset: mainnet]                                             OK
++ Invalid Authorization Token [Preset: mainnet]                                              OK
++ Missing Authorization header [Preset: mainnet]                                             OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Diverging hardforks
 ```diff
 + Non-tail block in common                                                                   OK
@@ -209,11 +218,20 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## ImportKeystores requests [Preset: mainnet]
 ```diff
++ ImportKeystores/ListKeystores/DeleteKeystores [Preset: mainnet]                            OK
 + Invalid Authorization Header [Preset: mainnet]                                             OK
 + Invalid Authorization Token [Preset: mainnet]                                              OK
 + Missing Authorization header [Preset: mainnet]                                             OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
+## ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys [Preset: mainnet]
+```diff
++ Importing list of remote keys [Preset: mainnet]                                            OK
++ Invalid Authorization Header [Preset: mainnet]                                             OK
++ Invalid Authorization Token [Preset: mainnet]                                              OK
++ Missing Authorization header [Preset: mainnet]                                             OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Interop
 ```diff
 + Interop genesis                                                                            OK
@@ -235,6 +253,14 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 ```
 OK: 9/9 Fail: 0/9 Skip: 0/9
 ## ListKeys requests [Preset: mainnet]
+```diff
++ Correct token provided [Preset: mainnet]                                                   OK
++ Invalid Authorization Header [Preset: mainnet]                                             OK
++ Invalid Authorization Token [Preset: mainnet]                                              OK
++ Missing Authorization header [Preset: mainnet]                                             OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
+## ListRemoteKeys requests [Preset: mainnet]
 ```diff
 + Correct token provided [Preset: mainnet]                                                   OK
 + Invalid Authorization Header [Preset: mainnet]                                             OK
@@ -427,29 +453,53 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + prune heads on finalization [Preset: mainnet]                                              OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
-## createValidatorFiles
+## createValidatorFiles()
 ```diff
-+ Add keystore files                                                                         OK
-+ Add keystore files twice                                                                   OK
++ Add keystore files [LOCAL]                                                                 OK
++ Add keystore files [REMOTE]                                                                OK
++ Add keystore files twice [LOCAL]                                                           OK
++ Add keystore files twice [REMOTE]                                                          OK
 + `createValidatorFiles` with `keystoreDir` without permissions                              OK
 + `createValidatorFiles` with `secretsDir` without permissions                               OK
 + `createValidatorFiles` with `validatorsDir` without permissions                            OK
 + `createValidatorFiles` with already existing dirs and any error                            OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 8/8 Fail: 0/8 Skip: 0/8
 ## eth2.0-deposits-cli compatibility
 ```diff
 + restoring mnemonic with password                                                           OK
 + restoring mnemonic without password                                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## removeValidatorFiles
+## removeValidatorFiles()
 ```diff
 + Remove nonexistent validator                                                               OK
 + Remove validator files                                                                     OK
 + Remove validator files twice                                                               OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## removeValidatorFiles() multiple keystore types
+```diff
++ Remove [LOCAL] when [LOCAL] is missing                                                     OK
++ Remove [LOCAL] when [LOCAL] is present                                                     OK
++ Remove [LOCAL] when [REMOTE] is present                                                    OK
++ Remove [REMOTE] when [LOCAL] is present                                                    OK
++ Remove [REMOTE] when [REMOTE] is missing                                                   OK
++ Remove [REMOTE] when [REMOTE] is present                                                   OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
+## saveKeystore()
+```diff
++ Save [LOCAL] keystore after [LOCAL] keystore with different id                             OK
++ Save [LOCAL] keystore after [LOCAL] keystore with same id                                  OK
++ Save [LOCAL] keystore after [REMOTE] keystore with different id                            OK
++ Save [LOCAL] keystore after [REMOTE] keystore with same id                                 OK
++ Save [REMOTE] keystore after [LOCAL] keystore with different id                            OK
++ Save [REMOTE] keystore after [LOCAL] keystore with same id                                 OK
++ Save [REMOTE] keystore after [REMOTE] keystore with different id                           OK
++ Save [REMOTE] keystore after [REMOTE] keystore with same id                                OK
+```
+OK: 8/8 Fail: 0/8 Skip: 0/8
 ## state diff tests [Preset: mainnet]
 ```diff
 + random slot differences [Preset: mainnet]                                                  OK
@@ -462,4 +512,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 252/256 Fail: 0/256 Skip: 4/256
+OK: 282/286 Fail: 0/286 Skip: 4/286
