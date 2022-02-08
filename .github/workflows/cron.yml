@@ -9,7 +9,6 @@ jobs:
   build:
     strategy:
       fail-fast: false
-      max-parallel: 20
       matrix:
         target:
           - os: linux
@@ -45,13 +44,13 @@ jobs:
     runs-on: ${{ matrix.builder }}
     continue-on-error: ${{ matrix.branch == 'version-1-6' || matrix.branch == 'devel' }}
     steps:
-      - name: Checkout nimbus-eth2
+      - name: Checkout
         if: ${{ github.event_name != 'pull_request' }}
         uses: actions/checkout@v2
         with:
           ref: unstable
 
-      - name: Checkout nimbus-eth2 (pull request)
+      - name: Checkout (pull request)
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/checkout@v2
 
@@ -100,7 +99,7 @@ jobs:
         id: windows-dlls-cache
         uses: actions/cache@v2
         with:
-          path: external/dlls-${{ matrix.target.cpu }}
+          path: external/dlls
           key: 'dlls-${{ matrix.target.cpu }}'
 
       - name: Install DLLs dependencies (Windows)
@@ -110,13 +109,13 @@ jobs:
         run: |
           mkdir -p external
           curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
-          7z x -y external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
+          7z x -y external/windeps.zip -oexternal/dlls
 
       - name: Path to cached dependencies (Windows)
         if: >
           runner.os == 'Windows'
         run: |
-          echo "${{ github.workspace }}/external/dlls-${{ matrix.target.cpu }}" >> $GITHUB_PATH
+          echo "${{ github.workspace }}/external/dlls" >> $GITHUB_PATH
           # for miniupnp that runs "wingenminiupnpcstrings.exe" from the current dir
           echo "." >> $GITHUB_PATH
 
@@ -134,6 +133,12 @@ jobs:
             PLATFORM=x86
           fi
           echo "PLATFORM=${PLATFORM}" >> $GITHUB_ENV
+
+          # Stack usage test on recent enough gcc:
+          if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'amd64' ]]; then
+            export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
+            echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
+          fi
 
           # libminiupnp / natpmp
           if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'i386' ]]; then
@@ -187,7 +192,6 @@ jobs:
           # The Windows image runs out of disk space, so make some room
           rm -rf nimcache
 
-      - name: Run nimbus-eth2 tests
+      - name: Run tests
         run: |
           make -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test
-
