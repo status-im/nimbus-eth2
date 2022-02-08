@@ -1126,6 +1126,10 @@ proc onSecond(node: BeaconNode) =
   if not(node.syncManager.inProgress):
     node.handleMissingBlocks()
 
+  # Nim GC metrics (for the main thread)
+  updateSystemMetrics()
+  updateThreadMetrics()
+
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
   let sleepTime = chronos.seconds(1)
   const nanosecondsIn1s = float(chronos.seconds(1).nanoseconds)
@@ -1876,8 +1880,14 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
       url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
     try:
       startMetricsHttpServer($metricsAddress, config.metricsPort)
-    except CatchableError as exc: raise exc
-    except Exception as exc: raiseAssert exc.msg # TODO fix metrics
+    except CatchableError as exc:
+      raise exc
+    except Exception as exc:
+      raiseAssert exc.msg # TODO fix metrics
+
+  # Nim GC metrics (for the main thread) will be collected in onSecond(), but
+  # we disable piggy-backing on other metrics here.
+  setSystemMetricsAutomaticUpdate(false)
 
   # There are no managed event loops in here, to do a graceful shutdown, but
   # letting the default Ctrl+C handler exit is safe, since we only read from
