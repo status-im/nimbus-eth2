@@ -9,7 +9,7 @@
 import
   chronos, presto/client, chronicles,
   ".."/".."/validators/slashing_protection_common,
-  ".."/datatypes/[phase0, altair],
+  ".."/datatypes/[phase0, altair, bellatrix],
   ".."/[helpers, forks, keystore, eth2_ssz_serialization],
   "."/[rest_types, rest_common, eth2_rest_serialization]
 
@@ -68,7 +68,6 @@ proc getStateValidatorPlain*(state_id: StateIdent,
      endpoint: "/eth/v1/beacon/states/{state_id}/validators/{validator_id}",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidator
-  ##
 
 proc getStateValidatorBalances*(state_id: StateIdent
                         ): RestResponse[GetStateValidatorBalancesResponse] {.
@@ -105,6 +104,11 @@ proc publishBlock*(body: phase0.SignedBeaconBlock): RestPlainResponse {.
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
 
 proc publishBlock*(body: altair.SignedBeaconBlock): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
+
+proc publishBlock*(body: bellatrix.SignedBeaconBlock): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/blocks",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
