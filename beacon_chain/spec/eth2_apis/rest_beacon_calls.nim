@@ -116,9 +116,7 @@ proc getBlockPlain*(block_id: BlockIdent): RestPlainResponse {.
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
 
 proc getBlock*(client: RestClientRef, block_id: BlockIdent,
-               restAccept = preferSSZ): Future[ForkedSignedBeaconBlock] {.async.} =
-  # TODO restAccept should be "" by default, but for some reason that doesn't
-  #      work
+               restAccept = ""): Future[ForkedSignedBeaconBlock] {.async.} =
   let resp =
     if len(restAccept) > 0:
       await client.getBlockPlain(block_id, restAcceptType = restAccept)
@@ -162,12 +160,10 @@ proc getBlockV2Plain*(block_id: BlockIdent): RestPlainResponse {.
 
 proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
                  cfg: RuntimeConfig,
-                 restAccept = preferSSZ): Future[Option[ForkedSignedBeaconBlock]] {.
+                 restAccept = ""): Future[Option[ForkedSignedBeaconBlock]] {.
      async.} =
   # Return the asked-for block, or None in case 404 is returned from the server.
   # Raises on other errors
-  # TODO restAccept should be "" by default, but for some reason that doesn't
-  #      work
   let resp =
     if len(restAccept) > 0:
       await client.getBlockV2Plain(block_id, restAcceptType = restAccept)
