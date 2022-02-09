@@ -175,7 +175,7 @@ sudo systemctl disable prysmvalidator.service
 <p>It's important that you disable the Prysm validator as well as stopping it, to prevent it from starting up again on reboot.</p>
 <h4 id="2-export-slashing-protection-history"><a class="header" href="#2-export-slashing-protection-history">2. Export slashing protection history</a></h4>
 <p>Run the following to export your Prysm validator's <a href="https://eips.ethereum.org/EIPS/eip-3076">slashing protection</a> history:</p>
-<pre><code>prysm.sh validator slashing-protection export \ 
+<pre><code>prysm.sh validator slashing-protection-history export \ 
  --datadir=/your/prysm/wallet \ 
  --slashing-protection-export-dir=/path/to/export_dir
 </code></pre>
