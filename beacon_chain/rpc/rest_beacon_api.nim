@@ -756,7 +756,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
                                            $res.error())
-        ForkedSignedBeaconBlock(res.get())
+        var forked = ForkedSignedBeaconBlock(res.get())
+        withBlck(forked):
+          blck.root = hash_tree_root(blck.message)
+        forked
 
     let res = await node.sendBeaconBlock(forkedBlock)
     if res.isErr():
