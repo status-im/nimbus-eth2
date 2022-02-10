@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,10 +9,10 @@
 
 import
   # Standard library
-  std/tables, std/options, std/typetraits,
+  std/[options, tables, typetraits],
   # Status libraries
   chronicles,
-  stew/results,
+  stew/[objects, results],
   # Internal
   ../spec/datatypes/base,
   # Fork choice
@@ -103,23 +103,52 @@ func init*(T: type ProtoArray,
     indices: {node.root: 0}.toTable()
   )
 
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/fork-choice.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/fork-choice.md#get_latest_attesting_balance
+func calculateProposerBoost(validatorBalances: openArray[Gwei]): int64 =
+  const PROPOSER_SCORE_BOOST = 70
+  var
+    total_balance: uint64
+    num_validators: int64
+  for balance in validatorBalances:
+    # We need to filter zero balances here to get an accurate active validator
+    # count. This is because we default inactive validator balances to zero
+    # when creating this balances array.
+    if balance != 0:
+      total_balance += balance
+      num_validators += 1
+  if num_validators == 0:
+    return 0
+  let
+    average_balance = int64(total_balance div num_validators.uint64)
+    committee_size = num_validators div SLOTS_PER_EPOCH.int64
+    committee_weight = committee_size * average_balance
+  (committee_weight * PROPOSER_SCORE_BOOST) div 100
+
 func applyScoreChanges*(self: var ProtoArray,
                         deltas: var openArray[Delta],
                         justifiedCheckpoint: Checkpoint,
-                        finalizedCheckpoint: Checkpoint): FcResult[void] =
+                        finalizedCheckpoint: Checkpoint,
+                        newBalances: openArray[Gwei],
+                        proposerBoostRoot: Eth2Digest,
+                        useProposerBoost: bool): FcResult[void] =
   ## Iterate backwards through the array, touching all nodes and their parents
   ## and potentially the best-child of each parent.
-  ##
-  ## The structure of `self.nodes` array ensures that the child of each node
-  ## is always touched before it's aprent.
-  ##
-  ## For each node the following is done:
-  ##
-  ## 1. Update the node's weight with the corresponding delta.
-  ## 2. Backpropagate each node's delta to its parent's delta.
-  ## 3. Compare the current node with the parent's best-child,
-  ##    updating if the current node should become the best-child
-  ## 4. If required, update the parent's best-descendant with the current node or its best-descendant
+  #
+  # The structure of `self.nodes` array ensures that the child of each node
+  # is always touched before its parent.
+  #
+  # For each node the following is done:
+  #
+  # 1. Update the node's weight with the corresponding delta.
+  # 2. Backpropagate each node's delta to its parent's delta.
+  # 3. Compare the current node with the parent's best-child,
+  #    updating if the current node should become the best-child
+  # 4. If required, update the parent's best-descendant with the current node
+  #    or its best-descendant
+  #
+  # useProposerBoost is temporary, until it can be either permanently enabled
+  # or is removed from the Eth2 spec.
   doAssert self.indices.len == self.nodes.len # By construction
   if deltas.len != self.indices.len:
     return err ForkChoiceError(
@@ -135,12 +164,42 @@ func applyScoreChanges*(self: var ProtoArray,
   template node: untyped {.dirty.} =
     self.nodes.buf[nodePhysicalIdx]
 
+  # Default value, if not otherwise set in first node loop
+  var proposerBoostScore: int64
+
   # Iterate backwards through all the indices in `self.nodes`
   for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
-    if node.root == default(Eth2Digest):
+    if node.root.isZeroMemory:
       continue
 
-    let nodeDelta = deltas[nodePhysicalIdx]
+    var nodeDelta = deltas[nodePhysicalIdx]
+
+    # If we find the node for which the proposer boost was previously applied,
+    # decrease the delta by the previous score amount.
+    if  useProposerBoost and
+        (not self.previousProposerBoostRoot.isZeroMemory) and
+        self.previousProposerBoostRoot == node.root:
+          if  nodeDelta < 0 and
+              nodeDelta - low(Delta) < self.previousProposerBoostScore:
+            return err ForkChoiceError(
+                kind: fcDeltaUnderflow,
+                index: nodePhysicalIdx)
+          nodeDelta -= self.previousProposerBoostScore
+
+    # If we find the node matching the current proposer boost root, increase
+    # the delta by the new score amount.
+    #
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/fork-choice.md#get_latest_attesting_balance
+    if  useProposerBoost and
+        (not proposer_boost_root.isZeroMemory) and
+        proposer_boost_root == node.root:
+      proposerBoostScore = calculateProposerBoost(newBalances)
+      if  nodeDelta >= 0 and
+          high(Delta) - nodeDelta < self.previousProposerBoostScore:
+        return err ForkChoiceError(
+            kind: fcDeltaOverflow,
+            index: nodePhysicalIdx)
+      nodeDelta += proposerBoostScore.int64
 
     # Apply the delta to the node
     # We fail fast if underflow, which shouldn't happen.
@@ -152,7 +211,7 @@ func applyScoreChanges*(self: var ProtoArray,
         index: nodePhysicalIdx)
     node.weight = weight
 
-    # If the node has a parent, try to update its best-child and best-descendant
+    # If the node has a parent, try to update its best-child and best-descendent
     if node.parent.isSome():
       let parentLogicalIdx = node.parent.unsafeGet()
       let parentPhysicalIdx = parentLogicalIdx - self.nodes.offset
@@ -186,8 +245,13 @@ func applyScoreChanges*(self: var ProtoArray,
       # Back-propagate the nodes delta to its parent.
       deltas[parentPhysicalIdx] += nodeDelta
 
+  # After applying all deltas, update the `previous_proposer_boost`.
+  if useProposerBoost:
+    self.previousProposerBoostRoot = proposerBoostRoot
+    self.previousProposerBoostScore = proposerBoostScore
+
   for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
-    if node.root == default(Eth2Digest):
+    if node.root.isZeroMemory:
       continue
 
     if node.parent.isSome():

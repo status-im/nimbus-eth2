@@ -99,7 +99,8 @@ proc initialLoad(
       defaultRuntimeConfig, db, validatorMonitor, {})
     fkChoice = newClone(ForkChoice.init(
       dag.getFinalizedEpochRef(),
-      dag.finalizedHead.blck
+      dag.finalizedHead.blck,
+      true
     ))
 
   (dag, fkChoice)
@@ -329,9 +330,6 @@ suite "EF - ForkChoice" & preset():
     # test: tests/fork_choice/scenarios/no_votes.nim
     #       "Ensure the head is still 4 whilst the justified epoch is 0."
     "on_block_future_block",
-
-    # TODO needs the actual proposer boost enabled
-    "proposer_boost_correct_head"
   ]
 
   for fork in [BeaconBlockFork.Phase0]: # TODO: init ChainDAG from Merge/Altair

@@ -43,7 +43,7 @@ import
     blockchain_dag, block_quarantine, block_clearance, attestation_pool,
     sync_committee_msg_pool, exit_pool, spec_cache],
   ./eth1/eth1_monitor,
-  ./spec/eth2_apis/rest_beacon_calls
+  ./spec/eth2_apis/[rest_beacon_calls, rest_common]
 
 from eth/common/eth_types import BlockHashOrNumber
 
@@ -444,8 +444,8 @@ proc init*(T: type BeaconNode,
       rng, config, netKeys, cfg, dag.forkDigests, getBeaconTime,
       getStateField(dag.headState.data, genesis_validators_root))
     attestationPool = newClone(
-      AttestationPool.init(dag, quarantine, onAttestationReceived)
-    )
+      AttestationPool.init(
+        dag, quarantine, onAttestationReceived, config.proposerBoosting))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, onSyncContribution)
     )
@@ -543,8 +543,7 @@ proc init*(T: type BeaconNode,
     requestManager: RequestManager.init(network, blockVerifier),
     syncManager: syncManager,
     backfiller: backfiller,
-    actionTracker: ActionTracker.init(
-      rng, config.subscribeAllAttnets or config.subscribeAllSubnets),
+    actionTracker: ActionTracker.init(rng, config.subscribeAllSubnets),
     processor: processor,
     blockProcessor: blockProcessor,
     consensusManager: consensusManager,
@@ -725,7 +724,7 @@ proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
 func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
   # Only used to determine which gossip topics to which to subscribe
-  if node.config.subscribeAllSubnets or node.config.subscribeAllSyncnets:
+  if node.config.subscribeAllSubnets:
     (func(pubkey: ValidatorPubKey): bool {.closure.} = true)
   else:
     (func(pubkey: ValidatorPubKey): bool =
@@ -927,13 +926,15 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     # it might also happen on a sufficiently fast restart
 
     # We "know" the actions for the current and the next epoch
-    if node.isSynced(head):
-      node.actionTracker.updateActions(
-        node.dag.getEpochRef(head, slot.epoch, false).expect(
-          "Getting head EpochRef should never fail"))
-      node.actionTracker.updateActions(
-        node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
-          "Getting head EpochRef should never fail"))
+    if node.actionTracker.needsUpdate(slot.epoch, head, node.dag.tail):
+      let epochRef = node.dag.getEpochRef(head, slot.epoch, false).expect(
+        "Getting head EpochRef should never fail")
+      node.actionTracker.updateActions(epochRef, head, node.dag.tail)
+
+    if node.actionTracker.needsUpdate(slot.epoch + 1, head, node.dag.tail):
+      let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
+        "Getting head EpochRef should never fail")
+      node.actionTracker.updateActions(epochRef, head, node.dag.tail)
 
   if node.gossipState.card > 0 and targetGossipState.card == 0:
     debug "Disabling topic subscriptions",
@@ -1002,16 +1003,12 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     node.trackNextSyncCommitteeTopics(slot)
 
   # Update upcoming actions - we do this every slot in case a reorg happens
-  if node.isSynced(node.dag.head) and
-      node.actionTracker.lastCalculatedEpoch < slot.epoch + 1:
-    # TODO this is costly because we compute an EpochRef that likely will never
-    #      be used for anything else, due to the epoch ancestor being selected
-    #      pessimistically with respect to the shuffling - this needs fixing
-    #      at EpochRef level by not mixing balances and shufflings in the same
-    #      place
-    node.actionTracker.updateActions(node.dag.getEpochRef(
-      node.dag.head, slot.epoch + 1, false).expect(
-        "Getting head EpochRef should never fail"))
+  let head = node.dag.head
+  if node.isSynced(head):
+    if node.actionTracker.needsUpdate(slot.epoch + 1, head, node.dag.tail):
+      let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
+        "Getting head EpochRef should never fail")
+      node.actionTracker.updateActions(epochRef, head, node.dag.tail)
 
   let
     nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot)
@@ -1036,7 +1033,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
         shortLog(nextActionWaitTime),
     nextAttestationSlot = displayInt64(nextAttestationSlot),
     nextProposalSlot = displayInt64(nextProposalSlot),
-    head = shortLog(node.dag.head)
+    head = shortLog(head)
 
   if nextAttestationSlot != FAR_FUTURE_SLOT:
     next_action_wait.set(nextActionWaitTime.toFloatSeconds)
@@ -1128,6 +1125,10 @@ proc onSecond(node: BeaconNode) =
   ## This procedure will be called once per second.
   if not(node.syncManager.inProgress):
     node.handleMissingBlocks()
+
+  # Nim GC metrics (for the main thread)
+  updateSystemMetrics()
+  updateThreadMetrics()
 
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
   let sleepTime = chronos.seconds(1)
@@ -1879,8 +1880,14 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
       url = "http://" & $metricsAddress & ":" & $config.metricsPort & "/metrics"
     try:
       startMetricsHttpServer($metricsAddress, config.metricsPort)
-    except CatchableError as exc: raise exc
-    except Exception as exc: raiseAssert exc.msg # TODO fix metrics
+    except CatchableError as exc:
+      raise exc
+    except Exception as exc:
+      raiseAssert exc.msg # TODO fix metrics
+
+  # Nim GC metrics (for the main thread) will be collected in onSecond(), but
+  # we disable piggy-backing on other metrics here.
+  setSystemMetricsAutomaticUpdate(false)
 
   # There are no managed event loops in here, to do a graceful shutdown, but
   # letting the default Ctrl+C handler exit is safe, since we only read from

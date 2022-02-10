@@ -6,15 +6,17 @@
 
 import std/typetraits
 import stew/[assign2, results, base10, byteutils], presto/common,
-       libp2p/peerid,
-       serialization, json_serialization, json_serialization/std/[options, net, sets]
-import ".."/[eth2_ssz_serialization, forks],
+       libp2p/peerid, serialization, json_serialization,
+       json_serialization/std/[options, net, sets]
+import ".."/[eth2_ssz_serialization, forks, keystore],
        ".."/datatypes/[phase0, altair, bellatrix],
+       ".."/../validators/slashing_protection_common,
        "."/[rest_types, rest_keymanager_types]
+import nimcrypto/utils as ncrutils
 
 export
   eth2_ssz_serialization, results, peerid, common, serialization,
-  json_serialization, options, net, sets, rest_types
+  json_serialization, options, net, sets, rest_types, slashing_protection_common
 
 from web3/ethtypes import BlockHash
 export ethtypes.BlockHash
@@ -54,7 +56,8 @@ type
     SignedVoluntaryExit |
     Web3SignerRequest |
     KeystoresAndSlashingProtection |
-    DeleteKeystoresBody
+    DeleteKeystoresBody |
+    ImportRemoteKeystoresBody
 
   EncodeArrays* =
     seq[ValidatorIndex] |
@@ -63,7 +66,8 @@ type
     seq[RestCommitteeSubscription] |
     seq[RestSyncCommitteeSubscription] |
     seq[RestSyncCommitteeMessage] |
-    seq[RestSignedContributionAndProof]
+    seq[RestSignedContributionAndProof] |
+    seq[RemoteKeystoreInfo]
 
   DecodeTypes* =
     DataEnclosedObject |
@@ -71,6 +75,7 @@ type
     DataRootEnclosedObject |
     GetBlockV2Response |
     GetKeystoresResponse |
+    GetRemoteKeystoresResponse |
     GetStateV2Response |
     GetStateForkResponse |
     ProduceBlockResponseV2 |
@@ -1265,6 +1270,331 @@ proc readValue*(reader: var JsonReader[RestJson],
         syncCommitteeContributionAndProof: data
       )
 
+## RemoteKeystoreStatus
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: RemoteKeystoreStatus) {.raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("status", $value.status)
+  if value.message.isSome():
+    writer.writeField("message", value.message.get())
+  writer.endRecord()
+
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var RemoteKeystoreStatus) {.
+     raises: [IOError, SerializationError, Defect].} =
+  var message: Option[string]
+  var status: Option[KeystoreStatus]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "message":
+      if message.isSome():
+        reader.raiseUnexpectedField("Multiple `message` fields found",
+                                    "RemoteKeystoreStatus")
+      message = some(reader.readValue(string))
+    of "status":
+      if status.isSome():
+        reader.raiseUnexpectedField("Multiple `status` fields found",
+                                    "RemoteKeystoreStatus")
+      let res = reader.readValue(string)
+      status = some(
+        case res
+        of "error":
+          KeystoreStatus.error
+        of "not_active":
+          KeystoreStatus.notActive
+        of "not_found":
+          KeystoreStatus.notFound
+        of "deleted":
+          KeystoreStatus.deleted
+        of "duplicate":
+          KeystoreStatus.duplicate
+        of "imported":
+          KeystoreStatus.imported
+        else:
+          reader.raiseUnexpectedValue("Invalid `status` value")
+      )
+    else:
+      # We ignore all unknown fields.
+      discard
+  if status.isNone():
+    reader.raiseUnexpectedValue("Field `status` is missing")
+  value = RemoteKeystoreStatus(status: status.get(), message: message)
+
+## ScryptSalt
+proc readValue*(reader: var JsonReader[RestJson], value: var ScryptSalt) {.
+     raises: [SerializationError, IOError, Defect].} =
+  let res = ncrutils.fromHex(reader.readValue(string))
+  if len(res) == 0:
+    reader.raiseUnexpectedValue("Invalid scrypt salt value")
+  value = ScryptSalt(res)
+
+## Pbkdf2Params
+proc writeValue*(writer: var JsonWriter[RestJson], value: Pbkdf2Params) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("dklen", JsonString(Base10.toString(value.dklen)))
+  writer.writeField("c", JsonString(Base10.toString(value.c)))
+  writer.writeField("prf", value.prf)
+  writer.writeField("salt", value.salt)
+  writer.endRecord()
+
+proc readValue*(reader: var JsonReader[RestJson], value: var Pbkdf2Params) {.
+     raises: [SerializationError, IOError, Defect].} =
+  var
+    dklen: Option[uint64]
+    c: Option[uint64]
+    prf: Option[PrfKind]
+    salt: Option[Pbkdf2Salt]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "dklen":
+      if dklen.isSome():
+        reader.raiseUnexpectedField("Multiple `dklen` fields found",
+                                    "Pbkdf2Params")
+      dklen = some(reader.readValue(uint64))
+    of "c":
+      if c.isSome():
+        reader.raiseUnexpectedField("Multiple `c` fields found",
+                                    "Pbkdf2Params")
+      c = some(reader.readValue(uint64))
+    of "prf":
+      if prf.isSome():
+        reader.raiseUnexpectedField("Multiple `prf` fields found",
+                                    "Pbkdf2Params")
+      prf = some(reader.readValue(PrfKind))
+    of "salt":
+      if salt.isSome():
+        reader.raiseUnexpectedField("Multiple `salt` fields found",
+                                    "Pbkdf2Params")
+      salt = some(reader.readValue(Pbkdf2Salt))
+    else:
+       # Ignore unknown field names.
+      discard
+
+  if dklen.isNone():
+    reader.raiseUnexpectedValue("Field `dklen` is missing")
+  if c.isNone():
+    reader.raiseUnexpectedValue("Field `c` is missing")
+  if prf.isNone():
+    reader.raiseUnexpectedValue("Field `prf` is missing")
+  if salt.isNone():
+    reader.raiseUnexpectedValue("Field `salt` is missing")
+
+  value = Pbkdf2Params(
+    dklen: dklen.get(),
+    c: c.get(),
+    prf: prf.get(),
+    salt: salt.get()
+  )
+
+## ScryptParams
+proc writeValue*(writer: var JsonWriter[RestJson], value: ScryptParams) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("dklen", JsonString(Base10.toString(value.dklen)))
+  writer.writeField("n", JsonString(Base10.toString(uint64(value.n))))
+  writer.writeField("p", JsonString(Base10.toString(uint64(value.p))))
+  writer.writeField("r", JsonString(Base10.toString(uint64(value.r))))
+  writer.writeField("salt", value.salt)
+  writer.endRecord()
+
+proc readValue*(reader: var JsonReader[RestJson], value: var ScryptParams) {.
+     raises: [SerializationError, IOError, Defect].} =
+  var
+    dklen: Option[uint64]
+    n, p, r: Option[int]
+    salt: Option[ScryptSalt]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "dklen":
+      if dklen.isSome():
+        reader.raiseUnexpectedField("Multiple `dklen` fields found",
+                                    "ScryptParams")
+      dklen = some(reader.readValue(uint64))
+    of "n":
+      if n.isSome():
+        reader.raiseUnexpectedField("Multiple `n` fields found",
+                                    "ScryptParams")
+      let res = reader.readValue(int)
+      if res < 0:
+        reader.raiseUnexpectedValue("Unexpected negative `n` value")
+      n = some(res)
+    of "p":
+      if p.isSome():
+        reader.raiseUnexpectedField("Multiple `p` fields found",
+                                    "ScryptParams")
+      let res = reader.readValue(int)
+      if res < 0:
+        reader.raiseUnexpectedValue("Unexpected negative `p` value")
+      p = some(res)
+    of "r":
+      if r.isSome():
+        reader.raiseUnexpectedField("Multiple `r` fields found",
+                                    "ScryptParams")
+      let res = reader.readValue(int)
+      if res < 0:
+        reader.raiseUnexpectedValue("Unexpected negative `r` value")
+      r = some(res)
+    of "salt":
+      if salt.isSome():
+        reader.raiseUnexpectedField("Multiple `salt` fields found",
+                                    "ScryptParams")
+      salt = some(reader.readValue(ScryptSalt))
+    else:
+      # Ignore unknown field names.
+      discard
+
+  if dklen.isNone():
+    reader.raiseUnexpectedValue("Field `dklen` is missing")
+  if n.isNone():
+    reader.raiseUnexpectedValue("Field `n` is missing")
+  if p.isNone():
+    reader.raiseUnexpectedValue("Field `p` is missing")
+  if r.isNone():
+    reader.raiseUnexpectedValue("Field `r` is missing")
+  if salt.isNone():
+    reader.raiseUnexpectedValue("Field `salt` is missing")
+
+  value = ScryptParams(
+    dklen: dklen.get(),
+    n: n.get(), p: p.get(), r: r.get(),
+    salt: salt.get()
+  )
+
+## Keystore
+proc writeValue*(writer: var JsonWriter[RestJson], value: Keystore) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("crypto", value.crypto)
+  if not(isNil(value.description)):
+    writer.writeField("description", value.description[])
+  writer.writeField("pubkey", value.pubkey)
+  writer.writeField("path", string(value.path))
+  writer.writeField("uuid", value.uuid)
+  writer.writeField("version", JsonString(
+    Base10.toString(uint64(value.version))))
+  writer.endRecord()
+
+proc readValue*(reader: var JsonReader[RestJson], value: var Keystore) {.
+     raises: [SerializationError, IOError, Defect].} =
+  var
+    crypto: Option[Crypto]
+    description: Option[string]
+    pubkey: Option[ValidatorPubKey]
+    path: Option[KeyPath]
+    uuid: Option[string]
+    version: Option[int]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "crypto":
+      if crypto.isSome():
+        reader.raiseUnexpectedField("Multiple `crypto` fields found",
+                                    "Keystore")
+      crypto = some(reader.readValue(Crypto))
+    of "description":
+      let res = reader.readValue(string)
+      if description.isSome():
+        description = some(description.get() & "\n" & res)
+      else:
+        description = some(res)
+    of "pubkey":
+      if pubkey.isSome():
+        reader.raiseUnexpectedField("Multiple `pubkey` fields found",
+                                    "Keystore")
+      pubkey = some(reader.readValue(ValidatorPubKey))
+    of "path":
+      if path.isSome():
+        reader.raiseUnexpectedField("Multiple `path` fields found",
+                                    "Keystore")
+      let res = validateKeyPath(reader.readValue(string))
+      if res.isErr():
+        reader.raiseUnexpectedValue("Invalid `path` value")
+      path = some(res.get())
+    of "uuid":
+      if uuid.isSome():
+        reader.raiseUnexpectedField("Multiple `uuid` fields found",
+                                    "Keystore")
+      uuid = some(reader.readValue(string))
+    of "version":
+      if version.isSome():
+        reader.raiseUnexpectedField("Multiple `version` fields found",
+                                    "Keystore")
+      let res = reader.readValue(int)
+      if res < 0:
+        reader.raiseUnexpectedValue("Unexpected negative `version` value")
+      version = some(res)
+    else:
+       # Ignore unknown field names.
+      discard
+
+  if crypto.isNone():
+    reader.raiseUnexpectedValue("Field `crypto` is missing")
+  if pubkey.isNone():
+    reader.raiseUnexpectedValue("Field `pubkey` is missing")
+  if path.isNone():
+    reader.raiseUnexpectedValue("Field `path` is missing")
+  if uuid.isNone():
+    reader.raiseUnexpectedValue("Field `uuid` is missing")
+  if version.isNone():
+    reader.raiseUnexpectedValue("Field `version` is missing")
+
+  value = Keystore(
+    crypto: crypto.get(),
+    pubkey: pubkey.get(),
+    path: path.get(),
+    uuid: uuid.get(),
+    description: if description.isNone(): nil else: newClone(description.get()),
+    version: version.get(),
+  )
+
+## KeystoresAndSlashingProtection
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: KeystoresAndSlashingProtection) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("keystores", value.keystores)
+  writer.writeField("passwords", value.passwords)
+  if value.slashing_protection.isSome():
+    writer.writeField("slashing_protection", value.slashing_protection)
+  writer.endRecord()
+
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var KeystoresAndSlashingProtection) {.
+     raises: [SerializationError, IOError, Defect].} =
+  var
+    keystores: seq[Keystore]
+    passwords: seq[string]
+    slashing: Option[SPDIR]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "keystores":
+      keystores = reader.readValue(seq[Keystore])
+    of "passwords":
+      passwords = reader.readValue(seq[string])
+    of "slashing_protection":
+      if slashing.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `slashing_protection` fields found",
+          "KeystoresAndSlashingProtection")
+      slashing = some(reader.readValue(SPDIR))
+    else:
+      # Ignore unknown field names.
+      discard
+
+  if len(keystores) == 0:
+    reader.raiseUnexpectedValue("Missing `keystores` value")
+  if len(passwords) == 0:
+    reader.raiseUnexpectedValue("Missing `passwords` value")
+
+  value = KeystoresAndSlashingProtection(
+    keystores: keystores, passwords: passwords, slashing_protection: slashing
+  )
+
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:
     ok(Eth2Digest(data: hexToByteArray[32](value)))
@@ -1277,8 +1607,8 @@ proc decodeBody*[T](t: typedesc[T],
     return err("Unsupported content type")
   let data =
     try:
-      RestJson.decode(cast[string](body.data), T)
-    except SerializationError:
+      RestJson.decode(body.data, T)
+    except SerializationError as exc:
       return err("Unable to deserialize data")
     except CatchableError:
       return err("Unexpected deserialization error")

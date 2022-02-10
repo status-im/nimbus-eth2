@@ -15,7 +15,7 @@ suite "Merge test vectors":
     let web3Provider = (waitFor Web3DataProvider.new(
       default(Eth1Address), "http://127.0.0.1:8550")).get
 
-  test "getPayload, executePayload, and forkchoiceUpdated":
+  test "getPayload, newPayload, and forkchoiceUpdated":
     const feeRecipient =
       Eth1Address.fromHex("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     let
@@ -28,7 +28,7 @@ suite "Merge test vectors":
         feeRecipient)
       payload =         waitFor web3Provider.getPayload(
         array[8, byte] (payloadId.payloadId.get))
-      payloadStatus =   waitFor web3Provider.executePayload(payload)
+      payloadStatus =   waitFor web3Provider.newPayload(payload)
       fcupdatedStatus = waitFor web3Provider.forkchoiceUpdated(
         payload.blockHash.asEth2Digest,
         payload.blockHash.asEth2Digest,
@@ -38,7 +38,7 @@ suite "Merge test vectors":
 
       payload2 =         waitFor web3Provider.getPayload(
         array[8, byte] (fcupdatedStatus.payloadId.get))
-      payloadStatus2 =   waitFor web3Provider.executePayload(payload2)
+      payloadStatus2 =   waitFor web3Provider.newPayload(payload2)
       fcupdatedStatus2 = waitFor web3Provider.forkchoiceUpdated(
         payload2.blockHash.asEth2Digest,
         payload2.blockHash.asEth2Digest,
@@ -47,7 +47,7 @@ suite "Merge test vectors":
         feeRecipient)
 
     check:
-      payloadStatus.status == "VALID"
-      fcupdatedStatus.status == "SUCCESS"
-      payloadStatus2.status == "VALID"
-      fcupdatedStatus2.status == "SUCCESS"
+      payloadStatus.status == PayloadExecutionStatus.valid
+      fcupdatedStatus.payloadStatus == ForkchoiceUpdatedStatus.valid
+      payloadStatus2.status == PayloadExecutionStatus.valid
+      fcupdatedStatus2.payloadStatus == ForkchoiceUpdatedStatus.valid

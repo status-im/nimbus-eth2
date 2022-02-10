@@ -4,34 +4,39 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import std/[tables, os, strutils]
+import std/[tables, os, strutils, uri]
 import chronos, chronicles, confutils,
        stew/[base10, results, io2], bearssl, blscurve
 import ".."/validators/slashing_protection
 import ".."/[conf, version, filepath, beacon_node]
 import ".."/spec/[keystore, crypto]
 import ".."/rpc/rest_utils
-import ".."/validators/[keystore_management, validator_pool]
+import ".."/validators/[keystore_management, validator_pool, validator_duties]
 import ".."/spec/eth2_apis/rest_keymanager_types
 
-export
-  rest_utils,
-  results
+export rest_utils, results
 
-proc listValidators*(validatorsDir,
-                     secretsDir: string): seq[KeystoreInfo]
-                    {.raises: [Defect].} =
+proc listLocalValidators*(node: BeaconNode): seq[KeystoreInfo] {.
+     raises: [Defect].} =
   var validators: seq[KeystoreInfo]
+  for item in node.attachedValidators[].items():
+    if item.kind == ValidatorKind.Local:
+      validators.add KeystoreInfo(
+        validating_pubkey: item.pubkey,
+        derivation_path: string(item.data.path),
+        readonly: false
+      )
+  validators
 
-  try:
-    for el in listLoadableKeystores(validatorsDir, secretsDir, true):
-      validators.add KeystoreInfo(validating_pubkey: el.pubkey,
-                                  derivation_path: el.path.string,
-                                  readonly: false)
-  except OSError as err:
-    error "Failure to list the validator directories",
-          validatorsDir, secretsDir, err = err.msg
-
+proc listRemoteValidators*(node: BeaconNode): seq[RemoteKeystoreInfo] {.
+     raises: [Defect].} =
+  var validators: seq[RemoteKeystoreInfo]
+  for item in node.attachedValidators[].items():
+    if item.kind == ValidatorKind.Remote:
+      validators.add RemoteKeystoreInfo(
+        pubkey: item.pubkey,
+        url: HttpHostUri(item.data.remoteUrl)
+      )
   validators
 
 proc checkAuthorization*(request: HttpRequestRef,
@@ -49,6 +54,14 @@ proc checkAuthorization*(request: HttpRequestRef,
   else:
     return err noAuthorizationHeader
 
+proc validateUri*(url: string): Result[Uri, cstring] =
+  let surl = parseUri(url)
+  if surl.scheme notin ["http", "https"]:
+    return err("Incorrect URL scheme")
+  if len(surl.hostname) == 0:
+    return err("Empty URL hostname")
+  ok(surl)
+
 proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/keymanager-APIs/#/Keymanager/ListKeys
   router.api(MethodGet, "/api/eth/v1/keystores") do () -> RestApiResponse:
@@ -56,9 +69,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
     if authStatus.isErr():
       return RestApiResponse.jsonError(Http401, InvalidAuthorization,
                                        $authStatus.error())
-    let response = GetKeystoresResponse(
-      data: listValidators(node.config.validatorsDir(),
-                           node.config.secretsDir()))
+    let response = GetKeystoresResponse(data: listLocalValidators(node))
     return RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Keymanager/ImportKeystores
@@ -78,34 +89,39 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $dres.error())
         dres.get()
 
-    let nodeSPDIR = toSPDIR(node.attachedValidators.slashingProtection)
-    if nodeSPDIR.metadata.genesis_validators_root.Eth2Digest !=
-       request.slashing_protection.metadata.genesis_validators_root.Eth2Digest:
-      return RestApiResponse.jsonError(
-        Http400,
-        "The slashing protection database and imported file refer to different blockchains.")
+    if request.slashing_protection.isSome():
+      let slashing_protection = request.slashing_protection.get()
+      let nodeSPDIR = toSPDIR(node.attachedValidators.slashingProtection)
+      if nodeSPDIR.metadata.genesis_validators_root.Eth2Digest !=
+         slashing_protection.metadata.genesis_validators_root.Eth2Digest:
+        return RestApiResponse.jsonError(Http400,
+          "The slashing protection database and imported file refer to " &
+          "different blockchains.")
+      let res = inclSPDIR(node.attachedValidators.slashingProtection,
+                          slashing_protection)
+      if res == siFailure:
+        return RestApiResponse.jsonError(Http500,
+          "Internal server error; Failed to import slashing protection data")
 
-    var
-      response: PostKeystoresResponse
-      inclRes = inclSPDIR(node.attachedValidators.slashingProtection,
-                          request.slashing_protection)
-    if inclRes == siFailure:
-      return RestApiResponse.jsonError(
-        Http500,
-        "Internal server error; Failed to import slashing protection data")
+    var response: PostKeystoresResponse
 
     for index, item in request.keystores.pairs():
       let res = importKeystore(node.attachedValidators[], node.network.rng[],
                                node.config, item, request.passwords[index])
       if res.isErr():
-        response.data.add(RequestItemStatus(status: $KeystoreStatus.error,
-                                            message: $res.error()))
-
-      elif res.value() == AddValidatorStatus.existingArtifacts:
-        response.data.add(RequestItemStatus(status: $KeystoreStatus.duplicate))
-
+        let failure = res.error()
+        case failure.status
+        of AddValidatorStatus.failed:
+          response.data.add(
+            RequestItemStatus(status: $KeystoreStatus.error,
+                              message: failure.message))
+        of AddValidatorStatus.existingArtifacts:
+          response.data.add(
+            RequestItemStatus(status: $KeystoreStatus.duplicate))
       else:
-         response.data.add(RequestItemStatus(status: $KeystoreStatus.imported))
+        node.addLocalValidators([res.get()])
+        response.data.add(
+          RequestItemStatus(status: $KeystoreStatus.imported))
 
     return RestApiResponse.jsonResponsePlain(response)
 
@@ -136,19 +152,21 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
 
     for index, key in keys.pairs():
       let
-        res = removeValidator(node.attachedValidators[], node.config, key)
+        res = removeValidator(node.attachedValidators[], node.config, key,
+                              KeystoreKind.Local)
         pubkey = key.blob.PubKey0x.PubKeyBytes
 
       if res.isOk:
         case res.value()
         of RemoveValidatorStatus.deleted:
-          keysAndDeleteStatus.add(pubkey,
-                                  RequestItemStatus(status: $KeystoreStatus.deleted))
+          keysAndDeleteStatus.add(
+            pubkey, RequestItemStatus(status: $KeystoreStatus.deleted))
 
-        # At first all keys with status missing directory after removal receive status 'not_found'
-        of RemoveValidatorStatus.missingDir:
-          keysAndDeleteStatus.add(pubkey,
-                                  RequestItemStatus(status: $KeystoreStatus.notFound))
+        # At first all keys with status missing directory after removal receive
+        # status 'not_found'
+        of RemoveValidatorStatus.notFound:
+          keysAndDeleteStatus.add(
+            pubkey, RequestItemStatus(status: $KeystoreStatus.notFound))
       else:
         keysAndDeleteStatus.add(pubkey,
                                 RequestItemStatus(status: $KeystoreStatus.error,
@@ -169,6 +187,96 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return RestApiResponse.jsonResponsePlain(response)
 
+  # https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ListRemoteKeys
+  router.api(MethodGet, "/api/eth/v1/remotekey") do () -> RestApiResponse:
+    let authStatus = checkAuthorization(request, node)
+    if authStatus.isErr():
+      return RestApiResponse.jsonError(Http401, InvalidAuthorization,
+                                       $authStatus.error())
+    let response = GetRemoteKeystoresResponse(data: listRemoteValidators(node))
+    return RestApiResponse.jsonResponsePlain(response)
+
+  # https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ImportRemoteKeys
+  router.api(MethodPost, "/api/eth/v1/remotekey") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, node)
+    if authStatus.isErr():
+      return RestApiResponse.jsonError(Http401, InvalidAuthorization,
+                                       $authStatus.error())
+    let keys =
+      block:
+        if contentBody.isNone():
+          return RestApiResponse.jsonError(Http404, EmptyRequestBodyError)
+        let dres = decodeBody(ImportRemoteKeystoresBody, contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidKeystoreObjects,
+                                           $dres.error())
+        dres.get().remote_keys
+
+    var response: PostKeystoresResponse
+
+    for index, key in keys.pairs():
+      let keystore = RemoteKeystore(
+        version: 1'u64, remoteType: RemoteSignerType.Web3Signer,
+        pubkey: key.pubkey, remote: key.url
+      )
+      let res = importKeystore(node.attachedValidators[], node.config,
+                               keystore)
+      if res.isErr():
+        case res.error().status
+        of AddValidatorStatus.failed:
+          response.data.add(
+            RequestItemStatus(status: $KeystoreStatus.error,
+                              message: $res.error().message))
+        of AddValidatorStatus.existingArtifacts:
+          response.data.add(
+            RequestItemStatus(status: $KeystoreStatus.duplicate))
+      else:
+        node.addRemoteValidators([res.get()])
+        response.data.add(
+          RequestItemStatus(status: $KeystoreStatus.imported))
+
+    return RestApiResponse.jsonResponsePlain(response)
+
+  # https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/DeleteRemoteKeys
+  router.api(MethodDelete, "/api/eth/v1/remotekey") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, node)
+    if authStatus.isErr():
+      return RestApiResponse.jsonError(Http401, InvalidAuthorization,
+                                       $authStatus.error())
+    let keys =
+      block:
+        if contentBody.isNone():
+          return RestApiResponse.jsonError(Http404, EmptyRequestBodyError)
+        let dres = decodeBody(DeleteKeystoresBody, contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidValidatorPublicKey,
+                                           $dres.error())
+        dres.get().pubkeys
+
+    let response =
+      block:
+        var resp: DeleteRemoteKeystoresResponse
+        for index, key in keys.pairs():
+          let res = removeValidator(node.attachedValidators[], node.config, key,
+                                    KeystoreKind.Remote)
+          if res.isOk:
+            case res.value()
+            of RemoveValidatorStatus.deleted:
+              resp.data.add(
+                RemoteKeystoreStatus(status: KeystoreStatus.deleted))
+            of RemoveValidatorStatus.notFound:
+              resp.data.add(
+                RemoteKeystoreStatus(status: KeystoreStatus.notFound))
+          else:
+            resp.data.add(
+              RemoteKeystoreStatus(status: KeystoreStatus.error,
+                                   message: some($res.error())))
+        resp
+
+    return RestApiResponse.jsonResponsePlain(response)
+
   router.redirect(
     MethodGet,
     "/eth/v1/keystores",
@@ -183,3 +291,18 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
     MethodPost,
     "/eth/v1/keystores/delete",
     "/api/eth/v1/keystores/delete")
+
+  router.redirect(
+    MethodGet,
+    "/eth/v1/remotekey",
+    "/api/eth/v1/remotekey")
+
+  router.redirect(
+    MethodPost,
+    "/eth/v1/remotekey",
+    "/api/eth/v1/remotekey")
+
+  router.redirect(
+    MethodDelete,
+    "/eth/v1/remotekey",
+    "/api/eth/v1/remotekey")

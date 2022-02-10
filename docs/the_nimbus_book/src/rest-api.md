@@ -4,6 +4,8 @@ Nimbus exposes an **extremely fast** implementation of the standard [Beacon Node
 
 The API is a `REST` interface accessed via `HTTP`. **The API should not be exposed to the public Internet** unless protected by additional security: it includes multiple endpoints which could open your node to denial-of-service (DoS) attacks.
 
+> **Warning:** If you choose to run a public endpoint, do not use that same node for validation duties -- the load of the public REST endpoint is enough to interfere with your validator duties. Additionally, if you're running validators on your beacon node, and using the same instance for historical data queries (>2 epochs old), this  may also interfere with your duties.
+
 ## Test your tooling against our servers
 
  The API is available from:

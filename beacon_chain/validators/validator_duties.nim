@@ -84,15 +84,14 @@ proc findValidator(validators: auto, pubkey: ValidatorPubKey):
   else:
     some(idx.ValidatorIndex)
 
-proc addLocalValidator(node: BeaconNode,
-                       validators: auto,
+proc addLocalValidator(node: BeaconNode, validators: auto,
                        item: KeystoreData) =
   let
     pubkey = item.pubkey
     index = findValidator(validators, pubkey)
   node.attachedValidators[].addLocalValidator(item, index)
 
-proc addRemoteValidator(node: BeaconNode, validators: auto,
+proc addRemoteValidator(pool: var ValidatorPool, validators: auto,
                         item: KeystoreData) =
   let httpFlags =
     block:
@@ -108,7 +107,7 @@ proc addRemoteValidator(node: BeaconNode, validators: auto,
          remote_url = $item.remoteUrl, validator = item.pubkey
     return
   let index = findValidator(validators, item.pubkey)
-  node.attachedValidators[].addRemoteValidator(item, client.get(), index)
+  pool.addRemoteValidator(item, client.get(), index)
 
 proc addLocalValidators*(node: BeaconNode,
                          validators: openArray[KeystoreData]) =
@@ -120,7 +119,8 @@ proc addRemoteValidators*(node: BeaconNode,
                           validators: openArray[KeystoreData]) =
   withState(node.dag.headState.data):
     for item in validators:
-      node.addRemoteValidator(state.data.validators.asSeq(), item)
+      node.attachedValidators[].addRemoteValidator(
+        state.data.validators.asSeq(), item)
 
 proc addValidators*(node: BeaconNode) =
   let (localValidators, remoteValidators) =
@@ -1015,15 +1015,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   # await calls, thus we use a local variable to keep the logic straight here
   var head = node.dag.head
   if not node.isSynced(head):
-    let
-      nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot)
-      nextProposalSlot = node.actionTracker.getNextProposalSlot(slot)
-    if slot in [nextAttestationSlot, nextProposalSlot]:
-      notice "Syncing in progress; skipping validator duties for now",
-        slot, headSlot = head.slot
-    else:
-      debug "Syncing in progress; skipping validator duties for now",
-        slot, headSlot = head.slot
+    info "Syncing in progress; skipping validator duties for now",
+      slot, headSlot = head.slot
 
     # Rewards will be growing though, as we sync..
     updateValidatorMetrics(node)
@@ -1036,19 +1029,20 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   # means that it'd be okay not to continue, but it won't gossip regardless.
   if curSlot.epoch <
         node.processor[].doppelgangerDetection.broadcastStartEpoch and
+      node.processor[].doppelgangerDetection.nodeLaunchSlot > GENESIS_SLOT and
       node.config.doppelgangerDetection:
     let
-      nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot)
-      nextProposalSlot = node.actionTracker.getNextProposalSlot(slot)
+      nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot - 1)
+      nextProposalSlot = node.actionTracker.getNextProposalSlot(slot - 1)
 
     if slot in [nextAttestationSlot, nextProposalSlot]:
       notice "Doppelganger detection active - skipping validator duties while observing activity on the network",
-        slot, epoch = slot.epoch, nextAttestationSlot, nextProposalSlot,
+        slot, epoch = slot.epoch,
         broadcastStartEpoch =
           node.processor[].doppelgangerDetection.broadcastStartEpoch
     else:
       debug "Doppelganger detection active - skipping validator duties while observing activity on the network",
-        slot, epoch = slot.epoch, nextAttestationSlot, nextProposalSlot,
+        slot, epoch = slot.epoch,
         broadcastStartEpoch =
           node.processor[].doppelgangerDetection.broadcastStartEpoch
 
