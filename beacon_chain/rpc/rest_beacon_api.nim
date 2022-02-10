@@ -767,7 +767,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let res = await node.sendBeaconBlock(forkedBlock)
     if res.isErr():
-      return RestApiResponse.jsonError(Http400, $res.error())
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
     if not(res.get()):
       return RestApiResponse.jsonError(Http202, BlockValidationError)
 
