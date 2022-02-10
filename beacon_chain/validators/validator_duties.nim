@@ -1253,6 +1253,8 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
   block:
     # Start with a quick gossip validation check such that broadcasting the
     # block doesn't get the node into trouble
+    debug "Sending beacon block", short_blck = shortLog(forked),
+          full_blck = forked
     let res = withBlck(forked):
       validateBeaconBlock(node.dag, node.quarantine, blck,
                           node.beaconClock.now(), {})
