@@ -1002,6 +1002,7 @@ proc trimConnections(node: Eth2Node, count: int) =
 
   # Take into account the stabilitySubnets
   # During sync, only this will be used to score peers
+  # since gossipsub is not running yet
   #
   # A peer subscribed to all stabilitySubnets will
   # have 640 points
@@ -1019,24 +1020,45 @@ proc trimConnections(node: Eth2Node, count: int) =
     scores[peer.peerId] = thisPeersScore
 
   # Split a 1000 points for each topic's peers
-  # + 10 000 points for each subbed topic
+  # + 5 000 points for each subbed topic
   # This gives priority to peers in topics with few peers
   # For instance, a topic with `dHigh` peers will give 80 points to each peer
   # Whereas a topic with `dLow` peers will give 250 points to each peer
+  #
+  # Then, use the average of all topics per peers, to avoid giving too much
+  # point to big peers
+
+  var gossipScores = initTable[PeerID, tuple[sum: int, count: int]]()
   for topic, _ in node.pubsub.gossipsub:
     let
       peersInMesh = node.pubsub.mesh.peers(topic)
       peersSubbed = node.pubsub.gossipsub.peers(topic)
-      scorePerMeshPeer = 10_000 div max(peersInMesh, 1)
+      scorePerMeshPeer = 5_000 div max(peersInMesh, 1)
       scorePerSubbedPeer = 1_000 div max(peersSubbed, 1)
-
-    for peer in node.pubsub.mesh.getOrDefault(topic):
-      if peer.peerId notin scores: continue
-      scores[peer.peerId] = scores.getOrDefault(peer.peerId) + scorePerMeshPeer
 
     for peer in node.pubsub.gossipsub.getOrDefault(topic):
       if peer.peerId notin scores: continue
-      scores[peer.peerId] = scores.getOrDefault(peer.peerId) + scorePerSubbedPeer
+      let currentVal = gossipScores.getOrDefault(peer.peerId)
+      gossipScores[peer.peerId] = (
+        currentVal.sum + scorePerSubbedPeer,
+        currentVal.count + 1
+      )
+
+    # Avoid global topics (>75% of peers), which would greatly reduce
+    # the average score for small peers
+    if peersSubbed > scores.len div 4 * 3: continue
+
+    for peer in node.pubsub.mesh.getOrDefault(topic):
+      if peer.peerId notin scores: continue
+      let currentVal = gossipScores.getOrDefault(peer.peerId)
+      gossipScores[peer.peerId] = (
+        currentVal.sum + scorePerMeshPeer,
+        currentVal.count + 1
+      )
+
+  for peerId, gScore in gossipScores.pairs:
+    scores[peerId] =
+      scores.getOrDefault(peerId) + (gScore.sum div gScore.count)
 
   proc sortPerScore(a, b: (PeerID, int)): int =
     system.cmp(a[1], b[1])
