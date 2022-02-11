@@ -487,7 +487,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   var
     backfillBlocks = newSeq[Eth2Digest](tailRef.slot.int)
-    backfill = BeaconBlockSummary(slot: GENESIS_SLOT)
+    backfill = withBlck(tailBlock): blck.message.toBeaconBlockSummary()
     midRef: BlockRef
     backRoot: Option[Eth2Digest]
     startTick = Moment.now()
@@ -540,9 +540,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       if backRoot.isNone():
         backfill = blck.summary
     elif blck.summary.slot == tailRef.slot:
-      if backRoot.isNone():
-        backfill = blck.summary
-
       if curRef == nil:
         curRef = tailRef
         headRef = tailRef

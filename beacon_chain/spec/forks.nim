@@ -61,6 +61,26 @@ type
     Altair
     Bellatrix
 
+  ForkyBeaconBlockBody* =
+    phase0.BeaconBlockBody |
+    altair.BeaconBlockBody |
+    bellatrix.BeaconBlockBody
+
+  ForkySigVerifiedBeaconBlockBody* =
+    phase0.SigVerifiedBeaconBlockBody |
+    altair.SigVerifiedBeaconBlockBody |
+    bellatrix.SigVerifiedBeaconBlockBody
+
+  ForkyTrustedBeaconBlockBody* =
+    phase0.TrustedBeaconBlockBody |
+    altair.TrustedBeaconBlockBody |
+    bellatrix.TrustedBeaconBlockBody
+
+  SomeForkyBeaconBlockBody* =
+    ForkyBeaconBlockBody |
+    ForkySigVerifiedBeaconBlockBody |
+    ForkyTrustedBeaconBlockBody
+
   ForkyBeaconBlock* =
     phase0.BeaconBlock |
     altair.BeaconBlock |
