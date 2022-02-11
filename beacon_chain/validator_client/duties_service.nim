@@ -126,7 +126,6 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
       checkDuty(it) and (it.pubkey in vc.attachedValidators)
     )
     dependentRoot = currentRoot.get()
-    fork = vc.fork.get()
     genesisRoot = vc.beaconGenesis.genesis_validators_root
 
   let addOrReplaceItems =
@@ -155,6 +154,7 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
     var validators: seq[AttachedValidator]
     for item in addOrReplaceItems:
       let validator = vc.attachedValidators.getValidator(item.duty.pubkey)
+      let fork = vc.forkAtEpoch(item.duty.slot.epoch).get()
       let future = validator.getSlotSig(fork, genesisRoot, item.duty.slot)
       pending.add(future)
       validators.add(validator)
@@ -299,14 +299,28 @@ proc waitForNextSlot(service: DutiesServiceRef,
 
 proc attesterDutiesLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client
+
+  debug "Attester duties loop waiting for fork schedule update"
+  await vc.forksAvailable.wait()
+
   while true:
-    await vc.pollForAttesterDuties()
+    if vc.forks.isSome():
+      await vc.pollForAttesterDuties()
+    else:
+      debug "Fork schedule is not available yet, skipping attester duties"
     await service.waitForNextSlot(AttesterLoop)
 
 proc proposerDutiesLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client
+
+  debug "Proposer duties loop waiting for fork schedule update"
+  await vc.forksAvailable.wait()
+
   while true:
-    await vc.pollForBeaconProposers()
+    if vc.forks.isSome():
+      await vc.pollForBeaconProposers()
+    else:
+      debug "Fork schedule is not available yet, skipping proposer duties"
     await service.waitForNextSlot(ProposerLoop)
 
 proc validatorIndexLoop(service: DutiesServiceRef) {.async.} =
