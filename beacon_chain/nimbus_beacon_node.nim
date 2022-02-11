@@ -35,7 +35,9 @@ type
 template init(T: type RpcHttpServer, ip: ValidIpAddress, port: Port): T =
   newRpcHttpServer([initTAddress(ip, port)])
 
-template init(T: type RestServerRef, ip: ValidIpAddress, port: Port,
+template init(T: type RestServerRef,
+              ip: ValidIpAddress, port: Port,
+              allowedOrigin: Option[string],
               config: BeaconNodeConf): T =
   let address = initTAddress(ip, port)
   let serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
@@ -48,7 +50,8 @@ template init(T: type RestServerRef, ip: ValidIpAddress, port: Port,
         seconds(int64(config.restRequestTimeout))
     maxHeadersSize = config.restMaxRequestHeadersSize * 1024
     maxRequestBodySize = config.restMaxRequestBodySize * 1024
-  let res = RestServerRef.new(getRouter(), address, serverFlags = serverFlags,
+  let res = RestServerRef.new(getRouter(allowedOrigin),
+                              address, serverFlags = serverFlags,
                               httpHeadersTimeout = headersTimeout,
                               maxHeadersSize = maxHeadersSize,
                               maxRequestBodySize = maxRequestBodySize)
@@ -372,7 +375,11 @@ proc init*(T: type BeaconNode,
     nil
 
   let restServer = if config.restEnabled:
-    RestServerRef.init(config.restAddress, config.restPort, config)
+    RestServerRef.init(
+      config.restAddress,
+      config.restPort,
+      config.restAllowedOrigin,
+      config)
   else:
     nil
 
@@ -400,10 +407,19 @@ proc init*(T: type BeaconNode,
     if restServer != nil and
        config.restAddress == config.keymanagerAddress and
        config.restPort == config.keymanagerPort:
+      if config.keymanagerAllowedOrigin.isSome and
+         config.restAllowedOrigin != config.keymanagerAllowedOrigin:
+        fatal "Please specify a separate port for the Keymanager API " &
+              "if you want to restrict the origin in a different way " &
+              "from the Beacon API"
+        quit 1
       restServer
     else:
-      RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
-                         config)
+      RestServerRef.init(
+        config.keymanagerAddress,
+        config.keymanagerPort,
+        config.keymanagerAllowedOrigin,
+        config)
   else:
     nil
 

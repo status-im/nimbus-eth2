@@ -331,6 +331,11 @@ type
         defaultValueDesc: "127.0.0.1"
         name: "rest-address" }: ValidIpAddress
 
+      restAllowedOrigin* {.
+        desc: "Limit the access to the REST API to a particular hostname " &
+              "(for CORS-enabled clients such as browsers)"
+        name: "rest-allow-origin" }: Option[string]
+
       restCacheSize* {.
         defaultValue: 3
         desc: "The maximum number of recently accessed states that are kept in " &
@@ -376,6 +381,11 @@ type
         defaultValue: defaultAdminListenAddress
         defaultValueDesc: "127.0.0.1"
         name: "keymanager-address" }: ValidIpAddress
+
+      keymanagerAllowedOrigin* {.
+        desc: "Limit the access to the Keymanager API to a particular hostname " &
+              "(for CORS-enabled clients such as browsers)"
+        name: "keymanager-allow-origin" }: Option[string]
 
       keymanagerTokenFile* {.
         desc: "A file specifying the authorizition token required for accessing the keymanager API"
