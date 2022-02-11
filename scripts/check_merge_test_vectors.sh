@@ -58,6 +58,7 @@ resp_invalid_head=$(curl -sX POST -H "Content-Type: application/json" --data '{"
 echo "engine_getPayloadV1 case response: ${resp_invalid_head}"
 
 expected_resp_invalid_head='{"jsonrpc":"2.0","id":67,"result":{"payloadStatus":{"status":"SYNCING","latestValidHash":"0x0000000000000000000000000000000000000000000000000000000000000000","validationError":""},"payloadId":null}}'
-[[ ${resp_invalid_head} == "${expected_resp_invalid_head}" ]] || (echo "Unexpected response regarding invalid payload length"; false)
+empirical_resp_invalid_head='{"jsonrpc":"2.0","id":67,"result":{"payloadStatus":{"status":"SYNCING","latestValidHash":null,"validationError":null},"payloadId":null}}'
+[[ ${resp_invalid_head} == "${empirical_resp_invalid_head}" ]] || [[ ${resp_invalid_head} == "${expected_resp_invalid_head}" ]] || (echo "Unexpected response regarding invalid payload length"; false)
 
 echo "Kiln test vectors passed"
