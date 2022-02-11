@@ -69,7 +69,7 @@ func init*(T: type BlockRef, root: Eth2Digest, blck: SomeForkyBeaconBlock):
     BlockRef =
   BlockRef.init(root, blck.slot)
 
-func toBlockId*(blck: SomeSomeSignedBeaconBlock): BlockId =
+func toBlockId*(blck: SomeForkySignedBeaconBlock): BlockId =
   BlockId(root: blck.root, slot: blck.message.slot)
 
 func toBlockId*(blck: ForkedSignedBeaconBlock): BlockId =

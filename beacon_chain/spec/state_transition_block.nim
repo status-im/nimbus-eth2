@@ -73,7 +73,7 @@ func `xor`[T: array](a, b: T): T =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#randao
 proc process_randao(
-    state: var ForkyBeaconState, body: SomeSomeBeaconBlockBody, flags: UpdateFlags,
+    state: var ForkyBeaconState, body: SomeForkyBeaconBlockBody, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   let
     proposer_index = get_beacon_proposer_index(state, cache)
@@ -105,7 +105,7 @@ proc process_randao(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#eth1-data
-func process_eth1_data(state: var ForkyBeaconState, body: SomeSomeBeaconBlockBody): Result[void, cstring]=
+func process_eth1_data(state: var ForkyBeaconState, body: SomeForkyBeaconBlockBody): Result[void, cstring]=
   if not state.eth1_data_votes.add body.eth1_data:
     # Count is reset  in process_final_updates, so this should never happen
     return err("process_eth1_data: no more room for eth1 data")
@@ -398,7 +398,7 @@ proc process_voluntary_exit*(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#operations
 proc process_operations(cfg: RuntimeConfig,
                         state: var ForkyBeaconState,
-                        body: SomeSomeBeaconBlockBody,
+                        body: SomeForkyBeaconBlockBody,
                         base_reward_per_increment: Gwei,
                         flags: UpdateFlags,
                         cache: var StateCache): Result[void, cstring] =

@@ -314,15 +314,6 @@ type
   SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
   SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
 
-  # TODO see above, re why does it fail
-  SomeSomeBeaconBlockBody* =
-    BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody |
-    altair.BeaconBlockBody | altair.SigVerifiedBeaconBlockBody | altair.TrustedBeaconBlockBody |
-    phase0.BeaconBlockBody | phase0.SigVerifiedBeaconBlockBody | phase0.TrustedBeaconBlockBody
-  #SomeSomeBeaconBlockBody* = SomeBeaconBlockBody | phase0.SomeBeaconBlockBody
-
-  SomeSomeSignedBeaconBlock* = SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock | phase0.SomeSignedBeaconBlock
-
   BlockParams = object
     parentHash*: string
     timestamp*: string
