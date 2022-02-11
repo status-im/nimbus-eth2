@@ -937,7 +937,8 @@ proc queryRandom*(
     d: Eth2DiscoveryProtocol,
     forkId: ENRForkID,
     wantedAttnets: AttnetBits,
-    wantedSyncnets: SyncnetBits): Future[seq[Node]] {.async.} =
+    wantedSyncnets: SyncnetBits,
+    minScore: int): Future[seq[Node]] {.async.} =
   ## Perform a discovery query for a random target
   ## (forkId) and matching at least one of the attestation subnets.
 
@@ -989,7 +990,7 @@ proc queryRandom*(
         if wantedSyncnets[i] and syncnetsNode[i]:
           score += 10 # connecting to the right syncnet is urgent
 
-    if score > 0:
+    if score >= minScore:
       filtered.add((score, n))
 
   d.rng[].shuffle(filtered)
@@ -1151,10 +1152,20 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
       (wantedAttnets, wantedSyncnets) = node.getLowSubnets(currentEpoch)
       wantedAttnetsCount = wantedAttnets.countOnes()
       wantedSyncnetsCount = wantedSyncnets.countOnes()
+      outgoingPeers = node.peerPool.lenCurrent({PeerType.Outgoing})
+      targetOutgoingPeers = max(node.wantedPeers div 10, 3)
 
-    if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0:
-      let discoveredNodes = await node.discovery.queryRandom(
-        node.discoveryForkId, wantedAttnets, wantedSyncnets)
+    if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0 or
+        outgoingPeers < targetOutgoingPeers:
+
+      let
+        minScore =
+          if wantedAttnetsCount > 0 or wantedSyncnetsCount > 0:
+            1
+          else:
+            0
+        discoveredNodes = await node.discovery.queryRandom(
+          node.discoveryForkId, wantedAttnets, wantedSyncnets, minScore)
 
       let newPeers = block:
         var np = newSeq[PeerAddr]()
