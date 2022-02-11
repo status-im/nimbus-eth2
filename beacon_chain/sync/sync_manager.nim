@@ -15,10 +15,10 @@ import
   ../spec/[helpers, forks],
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../beacon_clock,
-  ./sync_queue
+  "."/[sync_protocol, sync_queue]
 
 export phase0, altair, merge, chronos, chronicles, results,
-       helpers, peer_scores, sync_queue, forks
+       helpers, peer_scores, sync_queue, forks, sync_protocol
 
 logScope:
   topics = "syncman"

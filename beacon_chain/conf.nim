@@ -9,6 +9,7 @@
 
 import
   std/[strutils, os, options, unicode, uri],
+  metrics,
 
   chronicles, chronicles/options as chroniclesOptions,
   confutils, confutils/defs, confutils/std/net, stew/shims/net as stewNet,
@@ -24,10 +25,12 @@ import
   ./filepath
 
 export
-  uri,
+  uri, nat, enr,
   defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
   defs, parseCmdArg, completeCmdArg, network_metadata,
-  network
+  network, BlockHashOrNumber
+
+declareGauge network_name, "network name", ["name"]
 
 const
   # TODO: How should we select between IPv4 and IPv6
@@ -958,3 +961,16 @@ func databaseDir*(config: AnyConf): string =
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =
   writer.writeValue(string value)
+
+proc loadEth2Network*(config: BeaconNodeConf): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
+  network_name.set(2, labelValues = [config.eth2Network.get(otherwise = "mainnet")])
+  if config.eth2Network.isSome:
+    getMetadataForNetwork(config.eth2Network.get)
+  else:
+    when const_preset == "mainnet":
+      mainnetMetadata
+    else:
+      # Presumably other configurations can have other defaults, but for now
+      # this simplifies the flow
+      echo "Must specify network on non-mainnet node"
+      quit 1
