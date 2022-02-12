@@ -160,7 +160,7 @@ proc getBlockV2Plain*(block_id: BlockIdent): RestPlainResponse {.
 
 proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
                  cfg: RuntimeConfig,
-                 restAccept = ""): Future[Option[ForkedSignedBeaconBlock]] {.
+                 restAccept = ""): Future[Option[ref ForkedSignedBeaconBlock]] {.
      async.} =
   # Return the asked-for block, or None in case 404 is returned from the server.
   # Raises on other errors
@@ -181,17 +181,17 @@ proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
                                   resp.contentType)
             if res.isErr():
               raise newException(RestError, $res.error())
-            res.get()
+            newClone(res.get())
         some blck
       of "application/octet-stream":
         try:
-          some readSszForkedSignedBeaconBlock(cfg, resp.data)
+          some newClone(readSszForkedSignedBeaconBlock(cfg, resp.data))
         except CatchableError as exc:
           raise newException(RestError, exc.msg)
       else:
         raise newException(RestError, "Unsupported content-type")
     of 404:
-      none(ForkedSignedBeaconBlock)
+      none(ref ForkedSignedBeaconBlock)
 
     of 400, 500:
       let error =
