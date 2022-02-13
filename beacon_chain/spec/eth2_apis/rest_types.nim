@@ -17,9 +17,9 @@ import
   std/[json, typetraits],
   stew/base10, web3/ethtypes,
   ".."/forks,
-  ".."/datatypes/[phase0, altair]
+  ".."/datatypes/[phase0, altair, bellatrix]
 
-export forks, phase0, altair
+export forks, phase0, altair, bellatrix
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -226,11 +226,21 @@ type
     attnets*: string
 
   RestNetworkIdentity* = object
-   peer_id*: string
-   enr*: string
-   p2p_addresses*: seq[string]
-   discovery_addresses*: seq[string]
-   metadata*: RestMetadata
+    peer_id*: string
+    enr*: string
+    p2p_addresses*: seq[string]
+    discovery_addresses*: seq[string]
+    metadata*: RestMetadata
+
+  RestPublishedSignedBeaconBlock* = distinct ForkedSignedBeaconBlock
+
+  RestPublishedBeaconBlock* = distinct ForkedBeaconBlock
+
+  RestPublishedBeaconBlockBody* = object
+    case kind*: BeaconBlockFork
+    of BeaconBlockFork.Phase0:    phase0Body*: phase0.BeaconBlockBody
+    of BeaconBlockFork.Altair:    altairBody*: altair.BeaconBlockBody
+    of BeaconBlockFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
 
   RestSpec* = object
     # https://github.com/ethereum/consensus-specs/blob/v1.0.1/configs/mainnet/phase0.yaml

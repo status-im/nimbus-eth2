@@ -53,6 +53,7 @@ type
     ProposerSlashing |
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
+    bellatrix.SignedBeaconBlock |
     SignedVoluntaryExit |
     Web3SignerRequest |
     KeystoresAndSlashingProtection |
@@ -678,7 +679,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         version = some(BeaconBlockFork.Phase0)
       of "altair":
         version = some(BeaconBlockFork.Altair)
-      of "merge":
+      of "bellatrix":
         version = some(BeaconBlockFork.Bellatrix)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
@@ -724,7 +725,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       except SerializationError:
         none[bellatrix.BeaconBlock]()
     if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect merge block format")
+      reader.raiseUnexpectedValue("Incorrect bellatrix block format")
     value = ForkedBeaconBlock.init(res.get())
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconBlock) {.
@@ -738,11 +739,303 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconBlock) {.
     writer.writeField("version", "altair")
     writer.writeField("data", value.altairData)
   of BeaconBlockFork.Bellatrix:
-    writer.writeField("version", "merge")
-    when false:
-      # TODO SerializationError
-      writer.writeField("data", value.bellatrixData)
+    writer.writeField("version", "bellatrix")
+    writer.writeField("data", value.bellatrixData)
   writer.endRecord()
+
+## RestPublishedBeaconBlockBody
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var RestPublishedBeaconBlockBody) {.
+     raises: [IOError, SerializationError, Defect].} =
+  var
+    randao_reveal: Option[ValidatorSig]
+    eth1_data: Option[Eth1Data]
+    graffiti: Option[GraffitiBytes]
+    proposer_slashings: Option[
+      List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]]
+    attester_slashings: Option[
+      List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]]
+    attestations: Option[List[Attestation, Limit MAX_ATTESTATIONS]]
+    deposits: Option[List[Deposit, Limit MAX_DEPOSITS]]
+    voluntary_exits: Option[
+      List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]]
+    sync_aggregate: Option[SyncAggregate]
+    execution_payload: Option[ExecutionPayload]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "randao_reveal":
+      if randao_reveal.isSome():
+        reader.raiseUnexpectedField("Multiple `randao_reveal` fields found",
+                                    "RestPublishedBeaconBlockBody")
+      randao_reveal = some(reader.readValue(ValidatorSig))
+    of "eth1_data":
+      if eth1_data.isSome():
+        reader.raiseUnexpectedField("Multiple `eth1_data` fields found",
+                                    "RestPublishedBeaconBlockBody")
+      eth1_data = some(reader.readValue(Eth1Data))
+    of "graffiti":
+      if graffiti.isSome():
+        reader.raiseUnexpectedField("Multiple `graffiti` fields found",
+                                    "RestPublishedBeaconBlockBody")
+      graffiti = some(reader.readValue(GraffitiBytes))
+    of "proposer_slashings":
+      if proposer_slashings.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `proposer_slashings` fields found",
+          "RestPublishedBeaconBlockBody")
+      proposer_slashings = some(
+        reader.readValue(List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]))
+    of "attester_slashings":
+      if attester_slashings.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `attester_slashings` fields found",
+          "RestPublishedBeaconBlockBody")
+      attester_slashings = some(
+        reader.readValue(List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]))
+    of "attestations":
+      if attestations.isSome():
+        reader.raiseUnexpectedField("Multiple `attestations` fields found",
+                                    "RestPublishedBeaconBlockBody")
+      attestations = some(
+        reader.readValue(List[Attestation, Limit MAX_ATTESTATIONS]))
+    of "deposits":
+      if deposits.isSome():
+        reader.raiseUnexpectedField("Multiple `deposits` fields found",
+                                    "RestPublishedBeaconBlockBody")
+      deposits = some(reader.readValue(List[Deposit, Limit MAX_DEPOSITS]))
+    of "voluntary_exits":
+      if voluntary_exits.isSome():
+        reader.raiseUnexpectedField("Multiple `voluntary_exits` fields found",
+                                    "RestPublishedBeaconBlockBody")
+      voluntary_exits = some(
+        reader.readValue(List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]))
+    of "sync_aggregate":
+      if sync_aggregate.isSome():
+        reader.raiseUnexpectedField("Multiple `sync_aggregate` fields found",
+                                    "RestPublishedBeaconBlockBody")
+      sync_aggregate = some(reader.readValue(SyncAggregate))
+    of "execution_payload":
+      if execution_payload.isSome():
+        reader.raiseUnexpectedField("Multiple `execution_payload` fields found",
+                                    "RestPublishedBeaconBlockBody")
+      execution_payload = some(reader.readValue(ExecutionPayload))
+    else:
+      # Ignore unknown fields
+      discard
+
+  if randao_reveal.isNone():
+    reader.raiseUnexpectedValue("Field `randao_reveal` is missing")
+  if eth1_data.isNone():
+    reader.raiseUnexpectedValue("Field `eth1_data` is missing")
+  if graffiti.isNone():
+    reader.raiseUnexpectedValue("Field `graffiti` is missing")
+  if proposer_slashings.isNone():
+    reader.raiseUnexpectedValue("Field `proposer_slashings` is missing")
+  if attester_slashings.isNone():
+    reader.raiseUnexpectedValue("Field `attester_slashings` is missing")
+  if attestations.isNone():
+    reader.raiseUnexpectedValue("Field `attestations` is missing")
+  if deposits.isNone():
+    reader.raiseUnexpectedValue("Field `deposits` is missing")
+  if voluntary_exits.isNone():
+    reader.raiseUnexpectedValue("Field `voluntary_exits` is missing")
+
+  let bodyKind =
+    if execution_payload.isSome() and sync_aggregate.isSome():
+      BeaconBlockFork.Bellatrix
+    elif execution_payload.isNone() and sync_aggregate.isSome():
+      BeaconBlockFork.Altair
+    else:
+      BeaconBlockFork.Phase0
+
+  case bodyKind
+  of BeaconBlockFork.Phase0:
+    value = RestPublishedBeaconBlockBody(
+      kind: BeaconBlockFork.Phase0,
+      phase0Body: phase0.BeaconBlockBody(
+        randao_reveal: randao_reveal.get(),
+        eth1_data: eth1_data.get(),
+        graffiti: graffiti.get(),
+        proposer_slashings: proposer_slashings.get(),
+        attester_slashings: attester_slashings.get(),
+        attestations: attestations.get(),
+        deposits: deposits.get(),
+        voluntary_exits: voluntary_exits.get()
+      )
+    )
+  of BeaconBlockFork.Altair:
+    value = RestPublishedBeaconBlockBody(
+      kind: BeaconBlockFork.Altair,
+      altairBody: altair.BeaconBlockBody(
+        randao_reveal: randao_reveal.get(),
+        eth1_data: eth1_data.get(),
+        graffiti: graffiti.get(),
+        proposer_slashings: proposer_slashings.get(),
+        attester_slashings: attester_slashings.get(),
+        attestations: attestations.get(),
+        deposits: deposits.get(),
+        voluntary_exits: voluntary_exits.get(),
+        sync_aggregate: sync_aggregate.get()
+      )
+    )
+  of BeaconBlockFork.Bellatrix:
+    value = RestPublishedBeaconBlockBody(
+      kind: BeaconBlockFork.Bellatrix,
+      bellatrixBody: bellatrix.BeaconBlockBody(
+        randao_reveal: randao_reveal.get(),
+        eth1_data: eth1_data.get(),
+        graffiti: graffiti.get(),
+        proposer_slashings: proposer_slashings.get(),
+        attester_slashings: attester_slashings.get(),
+        attestations: attestations.get(),
+        deposits: deposits.get(),
+        voluntary_exits: voluntary_exits.get(),
+        sync_aggregate: sync_aggregate.get(),
+        execution_payload: execution_payload.get()
+      )
+    )
+
+## RestPublishedBeaconBlock
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var RestPublishedBeaconBlock) {.
+     raises: [IOError, SerializationError, Defect].} =
+  var
+    slot: Option[Slot]
+    proposer_index: Option[uint64]
+    parent_root: Option[Eth2Digest]
+    state_root: Option[Eth2Digest]
+    blockBody: Option[RestPublishedBeaconBlockBody]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "slot":
+      if slot.isSome():
+        reader.raiseUnexpectedField("Multiple `slot` fields found",
+                                    "RestPublishedBeaconBlock")
+      slot = some(reader.readValue(Slot))
+    of "proposer_index":
+      if proposer_index.isSome():
+        reader.raiseUnexpectedField("Multiple `proposer_index` fields found",
+                                    "RestPublishedBeaconBlock")
+      proposer_index = some(reader.readValue(uint64))
+    of "parent_root":
+      if parentRoot.isSome():
+        reader.raiseUnexpectedField("Multiple `parent_root` fields found",
+                                    "RestPublishedBeaconBlock")
+      parent_root = some(reader.readValue(Eth2Digest))
+    of "state_root":
+      if state_root.isSome():
+        reader.raiseUnexpectedField("Multiple `state_root` fields found",
+                                    "RestPublishedBeaconBlock")
+      state_root = some(reader.readValue(Eth2Digest))
+    of "body":
+      if blockBody.isSome():
+        reader.raiseUnexpectedField("Multiple `body` fields found",
+                                    "RestPublishedBeaconBlock")
+      blockBody = some(reader.readValue(RestPublishedBeaconBlockBody))
+    else:
+      # Ignore unknown fields
+      discard
+
+  if slot.isNone():
+    reader.raiseUnexpectedValue("Field `slot` is missing")
+  if proposer_index.isNone():
+    reader.raiseUnexpectedValue("Field `proposer_index` is missing")
+  if parent_root.isNone():
+    reader.raiseUnexpectedValue("Field `parent_root` is missing")
+  if state_root.isNone():
+    reader.raiseUnexpectedValue("Field `state_root` is missing")
+  if blockBody.isNone():
+    reader.raiseUnexpectedValue("Field `body` is missing")
+
+  let body = blockBody.get()
+  value = RestPublishedBeaconBlock(
+    case body.kind
+    of BeaconBlockFork.Phase0:
+      ForkedBeaconBlock.init(
+        phase0.BeaconBlock(
+          slot: slot.get(),
+          proposer_index: proposer_index.get(),
+          parent_root: parent_root.get(),
+          state_root: state_root.get(),
+          body: body.phase0Body
+        )
+      )
+    of BeaconBlockFork.Altair:
+      ForkedBeaconBlock.init(
+        altair.BeaconBlock(
+          slot: slot.get(),
+          proposer_index: proposer_index.get(),
+          parent_root: parent_root.get(),
+          state_root: state_root.get(),
+          body: body.altairBody
+        )
+      )
+    of BeaconBlockFork.Bellatrix:
+      ForkedBeaconBlock.init(
+        bellatrix.BeaconBlock(
+          slot: slot.get(),
+          proposer_index: proposer_index.get(),
+          parent_root: parent_root.get(),
+          state_root: state_root.get(),
+          body: body.bellatrixBody
+        )
+      )
+  )
+
+## RestPublishedSignedBeaconBlock
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var RestPublishedSignedBeaconBlock) {.
+    raises: [IOError, SerializationError, Defect].} =
+  var signature: Option[ValidatorSig]
+  var message: Option[RestPublishedBeaconBlock]
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "message":
+      if message.isSome():
+        reader.raiseUnexpectedField("Multiple `message` fields found",
+                                    "RestPublishedSignedBeaconBlock")
+      message = some(reader.readValue(RestPublishedBeaconBlock))
+    of "signature":
+      if signature.isSome():
+        reader.raiseUnexpectedField("Multiple `signature` fields found",
+                                    "RestPublishedSignedBeaconBlock")
+      signature = some(reader.readValue(ValidatorSig))
+    else:
+      # Ignore unknown fields
+      discard
+
+  if signature.isNone():
+    reader.raiseUnexpectedValue("Field `signature` is missing")
+  if message.isNone():
+    reader.raiseUnexpectedValue("Field `message` is missing")
+
+  let blck = ForkedBeaconBlock(message.get())
+  value = RestPublishedSignedBeaconBlock(
+    case blck.kind
+    of BeaconBlockFork.Phase0:
+      ForkedSignedBeaconBlock.init(
+        phase0.SignedBeaconBlock(
+          message: blck.phase0Data,
+          signature: signature.get()
+        )
+      )
+    of BeaconBlockFork.Altair:
+      ForkedSignedBeaconBlock.init(
+        altair.SignedBeaconBlock(
+          message: blck.altairData,
+          signature: signature.get()
+        )
+      )
+    of BeaconBlockFork.Bellatrix:
+      ForkedSignedBeaconBlock.init(
+        bellatrix.SignedBeaconBlock(
+          message: blck.bellatrixData,
+          signature: signature.get()
+        )
+      )
+  )
 
 ## ForkedSignedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
@@ -764,7 +1057,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         version = some(BeaconBlockFork.Phase0)
       of "altair":
         version = some(BeaconBlockFork.Altair)
-      of "merge":
+      of "bellatrix":
         version = some(BeaconBlockFork.Bellatrix)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
@@ -810,7 +1103,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       except SerializationError:
         none[bellatrix.SignedBeaconBlock]()
     if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect merge block format")
+      reader.raiseUnexpectedValue("Incorrect bellatrix block format")
     value = ForkedSignedBeaconBlock.init(res.get())
   withBlck(value):
     blck.root = hash_tree_root(blck.message)
@@ -827,10 +1120,8 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("version", "altair")
     writer.writeField("data", value.altairData)
   of BeaconBlockFork.Bellatrix:
-    writer.writeField("version", "merge")
-    when false:
-      # TODO SerializationError
-      writer.writeField("data", value.bellatrixData)
+    writer.writeField("version", "bellatrix")
+    writer.writeField("data", value.bellatrixData)
   writer.endRecord()
 
 # ForkedHashedBeaconState is used where a `ForkedBeaconState` normally would
@@ -852,7 +1143,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       version = case vres
       of "phase0": some(BeaconStateFork.Phase0)
       of "altair": some(BeaconStateFork.Altair)
-      of "merge": some(BeaconStateFork.Bellatrix)
+      of "bellatrix": some(BeaconStateFork.Bellatrix)
       else: reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       if data.isSome():
@@ -915,10 +1206,8 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
     writer.writeField("version", "altair")
     writer.writeField("data", value.altairData.data)
   of BeaconStateFork.Bellatrix:
-    writer.writeField("version", "merge")
-    when false:
-      # TODO SerializationError
-      writer.writeField("data", value.bellatrixData.data)
+    writer.writeField("version", "bellatrix")
+    writer.writeField("data", value.bellatrixData.data)
   writer.endRecord()
 
 # Web3SignerRequest

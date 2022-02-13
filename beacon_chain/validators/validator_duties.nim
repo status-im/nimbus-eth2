@@ -564,7 +564,7 @@ proc proposeBlock(node: BeaconNode,
           bellatrix.SignedBeaconBlock(
             message: blck, signature: signature, root: blockRoot)
         else:
-          static: doAssert "Unkown block type"
+          static: doAssert "Unknown SignedBeaconBlock type"
 
     # We produced the block using a state transition, meaning the block is valid
     # enough that it will not be rejected by gossip - it is unlikely but
@@ -1254,14 +1254,8 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
     # Start with a quick gossip validation check such that broadcasting the
     # block doesn't get the node into trouble
     let res = withBlck(forked):
-      when blck isnot bellatrix.SignedBeaconBlock:
-        validateBeaconBlock(
-          node.dag, node.quarantine, blck, node.beaconClock.now(),
-          {})
-      else:
-       return SendBlockResult.err(
-        "TODO merge block proposal via REST not implemented")
-
+      validateBeaconBlock(node.dag, node.quarantine, blck,
+                          node.beaconClock.now(), {})
     if not res.isGoodForSending():
       return SendBlockResult.err(res.error()[1])
 

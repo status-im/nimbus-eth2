@@ -333,7 +333,7 @@ proc fromHex*(T: typedesc[BloomLogs], s: string): T {.raises: [Defect, ValueErro
 proc fromHex*(T: typedesc[ExecutionAddress], s: string): T {.raises: [Defect, ValueError].} =
   hexToByteArray(s, result.data)
 
-proc writeValue*(w: var JsonWriter, a: ExecutionAddress) {.raises: [Defect, IOError, SerializationError].} =
+proc writeValue*(w: var JsonWriter, a: ExecutionAddress) {.raises: [Defect, IOError].} =
   w.writeValue $a
 
 proc readValue*(r: var JsonReader, a: var ExecutionAddress) {.raises: [Defect, IOError, SerializationError].} =
