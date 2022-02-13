@@ -9,7 +9,7 @@
 
 import
   options, tables, sets, macros,
-  chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
+  chronicles, chronos, stew/[objects, ranges/bitranges], libp2p/switch,
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[helpers, forks, network],
   ".."/[beacon_clock],
@@ -137,8 +137,8 @@ proc checkStatusMsg(state: BeaconSyncNetworkState, status: StatusMsg):
   if status.finalizedEpoch <= dag.finalizedHead.slot.epoch:
     let blockId = dag.getBlockIdAtSlot(status.finalizedEpoch.start_slot())
     if status.finalizedRoot != blockId.bid.root and
-        blockId.bid.root != Eth2Digest() and
-        status.finalizedRoot != Eth2Digest():
+        (not blockId.bid.root.isZeroMemory) and
+        (not status.finalizedRoot.isZeroMemory):
       return err("peer following different finality")
 
   ok()

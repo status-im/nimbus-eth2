@@ -574,7 +574,7 @@ when hasDepositRootChecks:
     try:
       let fetchedRoot = asEth2Digest(
         awaitOrRaiseOnTimeout(depositRoot, contractCallTimeout))
-      if blk.voteData.deposit_root == default(Eth2Digest):
+      if blk.voteData.deposit_root.isZeroMemory:
         blk.voteData.deposit_root = fetchedRoot
         result = Fetched
       elif blk.voteData.deposit_root == fetchedRoot:
