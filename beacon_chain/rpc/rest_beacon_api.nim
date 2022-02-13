@@ -757,22 +757,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
                                            $res.error())
         var forked = ForkedSignedBeaconBlock(res.get())
-
-        case forked.kind
-        of BeaconBlockFork.Phase0:
-          let epoch = forked.phase0Data.message.slot.epoch()
-          if not((epoch < node.dag.cfg.ALTAIR_FORK_EPOCH) and
-                 (epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH)):
-            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
-        of BeaconBlockFork.Altair:
-          let epoch = forked.altairData.message.slot.epoch()
-          if not((epoch >= node.dag.cfg.ALTAIR_FORK_EPOCH) and
-                 (epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH)):
-            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
-        of BeaconBlockFork.Bellatrix:
-          let epoch = forked.bellatrixData.message.slot.epoch()
-          if not(epoch >= node.dag.cfg.BELLATRIX_FORK_EPOCH):
-            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
+        if forked.kind != node.dag.cfg.blockForkAtEpoch(
+            getForkedBlockField(forked, slot).epoch):
+          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
         withBlck(forked):
           blck.root = hash_tree_root(blck.message)
