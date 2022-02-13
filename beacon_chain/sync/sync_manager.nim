@@ -594,7 +594,7 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
         else: InfiniteDuration
       currentSlot = Base10.toString(
         if man.queue.kind == SyncQueueKind.Forward:
-          min(uint64(man.queue.outSlot) - 1'u64, 0'u64)
+          max(uint64(man.queue.outSlot), 1'u64) - 1'u64
         else:
           uint64(man.queue.outSlot) + 1'u64
       )
