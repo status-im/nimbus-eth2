@@ -102,7 +102,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                     firstSlot
                   else:
                     Slot(firstSlot - 1'u64)
-    man.queue = SyncQueue.init(A, man.direction, firstSlot, lastSlot,
+    man.queue = SyncQueue.init(A, man.direction, startSlot, lastSlot,
                                man.chunkSize, man.getSafeSlot,
                                man.blockVerifier, 1)
 
