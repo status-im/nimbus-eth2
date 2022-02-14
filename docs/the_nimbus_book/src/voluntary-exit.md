@@ -24,5 +24,8 @@ build/nimbus_beacon_node deposits exit \
 
 > **Note:** Make sure your `<VALIDATOR_PUBLIC_KEY>` is prefixed with `0x`. In other words the public key should look like `0x95e3...`
 
+## `rest-url` parameter
+
+As of `v1.7.0` the `deposits exit` command can accept a `--rest-url` parameter. This means you can issue exits with any [REST API](./rest-api.md) compatible beacon node 
 
 

@@ -4,6 +4,8 @@
 
 The standardized [Keymanager API](https://ethereum.github.io/keymanager-APIs/) can be used to add, remove, or [migrate](./migration.md) validators on the fly while the beacon node is running.
 
+As of `v1.7.0` it supports `web3signer` keystores.
+
 ## Configuration
 
 By default, we disable the Keymanager API. To enable it, start the beacon node with the `--keymanager` option enabled:
