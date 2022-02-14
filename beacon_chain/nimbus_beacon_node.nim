@@ -1099,7 +1099,6 @@ proc onSecond(node: BeaconNode) =
     node.handleMissingBlocks()
 
   # Nim GC metrics (for the main thread)
-  updateSystemMetrics()
   updateThreadMetrics()
 
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
