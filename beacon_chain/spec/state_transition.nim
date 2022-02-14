@@ -42,7 +42,7 @@
 
 import
   chronicles,
-  stew/[objects, results],
+  stew/results,
   ../extras,
   ./datatypes/[phase0, altair, bellatrix],
   "."/[
@@ -228,7 +228,7 @@ proc state_transition_block_aux(
 
   # only blocks currently being produced have an empty state root - we use a
   # separate function for those
-  doAssert not signedBlock.message.state_root.isZeroMemory,
+  doAssert not signedBlock.message.state_root.isZero,
     "see makeBeaconBlock for block production"
   state.root = signedBlock.message.state_root
 

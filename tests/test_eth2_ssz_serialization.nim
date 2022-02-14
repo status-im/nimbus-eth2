@@ -9,7 +9,6 @@
 
 import
   unittest2,
-  stew/objects,
   ../beacon_chain/spec/datatypes/[phase0, altair],
   ../beacon_chain/spec/eth2_ssz_serialization
 
@@ -43,7 +42,7 @@ suite "Specific field types":
       t = default(type t)
       readSszBytes(encoded, t, false)
       check:
-        t.root.isZeroMemory
+        t.root.isZero
 
     testit(phase0.SignedBeaconBlock)
     testit(phase0.TrustedSignedBeaconBlock)

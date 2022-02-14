@@ -12,7 +12,7 @@ import
   std/[options, tables, typetraits],
   # Status libraries
   chronicles,
-  stew/[objects, results],
+  stew/results,
   # Internal
   ../spec/datatypes/base,
   # Fork choice
@@ -169,7 +169,7 @@ func applyScoreChanges*(self: var ProtoArray,
 
   # Iterate backwards through all the indices in `self.nodes`
   for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
-    if node.root.isZeroMemory:
+    if node.root.isZero:
       continue
 
     var nodeDelta = deltas[nodePhysicalIdx]
@@ -177,7 +177,7 @@ func applyScoreChanges*(self: var ProtoArray,
     # If we find the node for which the proposer boost was previously applied,
     # decrease the delta by the previous score amount.
     if  useProposerBoost and
-        (not self.previousProposerBoostRoot.isZeroMemory) and
+        (not self.previousProposerBoostRoot.isZero) and
         self.previousProposerBoostRoot == node.root:
           if  nodeDelta < 0 and
               nodeDelta - low(Delta) < self.previousProposerBoostScore:
@@ -190,8 +190,7 @@ func applyScoreChanges*(self: var ProtoArray,
     # the delta by the new score amount.
     #
     # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/fork-choice.md#get_latest_attesting_balance
-    if  useProposerBoost and
-        (not proposer_boost_root.isZeroMemory) and
+    if  useProposerBoost and (not proposer_boost_root.isZero) and
         proposer_boost_root == node.root:
       proposerBoostScore = calculateProposerBoost(newBalances)
       if  nodeDelta >= 0 and
@@ -251,7 +250,7 @@ func applyScoreChanges*(self: var ProtoArray,
     self.previousProposerBoostScore = proposerBoostScore
 
   for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
-    if node.root.isZeroMemory:
+    if node.root.isZero:
       continue
 
     if node.parent.isSome():

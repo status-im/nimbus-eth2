@@ -9,7 +9,6 @@
 
 import
   chronicles,
-  stew/objects,
 
   ../spec/datatypes/[phase0, altair],
   ../spec/[helpers]
@@ -121,7 +120,7 @@ func isAncestorOf*(a, b: BlockRef): bool =
   isAncestor
 
 func link*(parent, child: BlockRef) =
-  doAssert (not (parent.root.isZeroMemory or child.root.isZeroMemory)),
+  doAssert (not (parent.root.isZero or child.root.isZero)),
     "blocks missing root!"
   doAssert parent.root != child.root, "self-references not allowed"
 

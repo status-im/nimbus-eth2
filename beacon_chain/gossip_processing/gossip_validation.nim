@@ -340,7 +340,7 @@ proc validateBeaconBlock*(
 
   if not (
       finalized_checkpoint.root == ancestor.root or
-      finalized_checkpoint.root.isZeroMemory):
+      finalized_checkpoint.root.isZero):
     quarantine[].addUnviable(signed_beacon_block.root)
 
     return errReject("BeaconBlock: Finalized checkpoint not an ancestor")
