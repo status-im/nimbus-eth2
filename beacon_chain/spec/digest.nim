@@ -27,7 +27,7 @@ import
   # Status libraries
   chronicles,
   nimcrypto/[sha2, hash],
-  stew/[endians2, byteutils],
+  stew/[byteutils, endians2, objects],
   json_serialization,
   blscurve
 
@@ -110,6 +110,9 @@ func `==`*(a, b: Eth2Digest): bool =
     # nimcrypto uses a constant-time comparison for all MDigest types which for
     # Eth2Digest is unnecessary - the type should never hold a secret!
     equalMem(unsafeAddr a.data[0], unsafeAddr b.data[0], sizeof(a.data))
+
+func isZero*(x: Eth2Digest): bool =
+  x.isZeroMemory
 
 proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [Defect, IOError, SerializationError].} =
   w.writeValue $a

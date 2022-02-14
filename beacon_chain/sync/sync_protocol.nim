@@ -137,8 +137,8 @@ proc checkStatusMsg(state: BeaconSyncNetworkState, status: StatusMsg):
   if status.finalizedEpoch <= dag.finalizedHead.slot.epoch:
     let blockId = dag.getBlockIdAtSlot(status.finalizedEpoch.start_slot())
     if status.finalizedRoot != blockId.bid.root and
-        blockId.bid.root != Eth2Digest() and
-        status.finalizedRoot != Eth2Digest():
+        (not blockId.bid.root.isZero) and
+        (not status.finalizedRoot.isZero):
       return err("peer following different finality")
 
   ok()

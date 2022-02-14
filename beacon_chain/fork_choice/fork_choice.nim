@@ -159,7 +159,7 @@ func process_attestation*(
        block_root: Eth2Digest,
        target_epoch: Epoch
      ) =
-  if block_root == Eth2Digest():
+  if block_root.isZero:
     return
 
   ## Add an attestation to the fork choice context
@@ -206,7 +206,7 @@ proc on_attestation*(
      ): FcResult[void] =
   ? self.update_time(dag, wallTime)
 
-  if beacon_block_root == Eth2Digest():
+  if beacon_block_root.isZero:
     return ok()
 
   if attestation_slot < self.checkpoints.time.slotOrZero:
@@ -472,7 +472,7 @@ func compute_deltas(
   for val_index, vote in votes.mpairs():
     # No need to create a score change if the validator has never voted
     # or if votes are for the zero hash (alias to the genesis block)
-    if vote.current_root == default(Eth2Digest) and vote.next_root == default(Eth2Digest):
+    if vote.current_root.isZero and vote.next_root.isZero:
       continue
 
     # If the validator was not included in `old_balances` (i.e. did not exist)

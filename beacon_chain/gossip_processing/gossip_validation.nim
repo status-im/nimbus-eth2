@@ -338,7 +338,9 @@ proc validateBeaconBlock*(
     # to the finalized checkpoint (else it wouldn't be in the DAG)
     return errIgnore("BeaconBlock: Can't find ancestor")
 
-  if not (finalized_checkpoint.root in [ancestor.root, Eth2Digest()]):
+  if not (
+      finalized_checkpoint.root == ancestor.root or
+      finalized_checkpoint.root.isZero):
     quarantine[].addUnviable(signed_beacon_block.root)
 
     return errReject("BeaconBlock: Finalized checkpoint not an ancestor")

@@ -14,7 +14,7 @@ import
   chronos, json, metrics, chronicles/timings, stint/endians2,
   web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
   eth/common/eth_types,
-  eth/async_utils, stew/[objects, byteutils, shims/hashes],
+  eth/async_utils, stew/[byteutils, shims/hashes],
   # Local modules:
   ../spec/[eth2_merkleization, forks, helpers],
   ../spec/datatypes/[base, phase0, bellatrix],
@@ -574,7 +574,7 @@ when hasDepositRootChecks:
     try:
       let fetchedRoot = asEth2Digest(
         awaitOrRaiseOnTimeout(depositRoot, contractCallTimeout))
-      if blk.voteData.deposit_root == default(Eth2Digest):
+      if blk.voteData.deposit_root.isZero:
         blk.voteData.deposit_root = fetchedRoot
         result = Fetched
       elif blk.voteData.deposit_root == fetchedRoot:

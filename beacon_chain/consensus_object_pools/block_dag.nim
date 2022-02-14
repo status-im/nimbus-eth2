@@ -120,7 +120,7 @@ func isAncestorOf*(a, b: BlockRef): bool =
   isAncestor
 
 func link*(parent, child: BlockRef) =
-  doAssert (not (parent.root == Eth2Digest() or child.root == Eth2Digest())),
+  doAssert (not (parent.root.isZero or child.root.isZero)),
     "blocks missing root!"
   doAssert parent.root != child.root, "self-references not allowed"
 

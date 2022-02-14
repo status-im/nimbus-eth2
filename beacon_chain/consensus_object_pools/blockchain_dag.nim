@@ -108,7 +108,7 @@ proc updateValidatorKeys*(dag: ChainDAGRef, validators: openArray[Validator]) =
 proc updateFinalizedBlocks*(dag: ChainDAGRef) =
   template update(s: Slot) =
     if s < dag.tail.slot:
-      if dag.backfillBlocks[s.int] != Eth2Digest():
+      if not dag.backfillBlocks[s.int].isZero:
         dag.db.finalizedBlocks.insert(s, dag.backfillBlocks[s.int])
     else:
       let dagIndex = int(s - dag.tail.slot)
@@ -258,7 +258,7 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): BlockSlotId =
 
   var pos = slot.int
   while pos >= dag.backfill.slot.int:
-    if dag.backfillBlocks[pos] != Eth2Digest():
+    if not dag.backfillBlocks[pos].isZero:
       return BlockId(root: dag.backfillBlocks[pos], slot: Slot(pos)).atSlot(slot)
     pos -= 1
 
