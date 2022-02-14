@@ -97,7 +97,7 @@ type
     genesisDeposits*: DepositsSeq
 
     # immutableValidatorsDb only stores the total count; it's a proxy for SQL
-    # queries.
+    # queries. (v1.4.0+)
     immutableValidatorsDb*: DbSeq[ImmutableValidatorDataDb2]
     immutableValidators*: seq[ImmutableValidatorData2]
 
@@ -123,6 +123,7 @@ type
     summaries: KvStoreRef # BlockRoot -> BeaconBlockSummary
 
     finalizedBlocks*: FinalizedBlocks
+      ## Blocks that are known to be finalized, per the latest head (v1.7.0+)
 
   DbKeyKind = enum
     kHashToState
@@ -428,10 +429,12 @@ proc new*(T: type BeaconChainDB,
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
     finalizedBlocks = FinalizedBlocks.init(db, "finalized_blocks").expectDb()
 
-  # `immutable_validators` stores validator keys in compressed format - this is
+  # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
+  # which stores validator keys in compressed format - this is
   # slow to load and has been superceded by `immutable_validators2` which uses
-  # uncompressed keys instead. The migration is lossless but the old table
-  # should not be removed until after altair, to permit downgrades.
+  # uncompressed keys instead. We still support upgrading a database from the
+  # old format, but don't need to support downgrading, and therefore safely can
+  # remove the keys
   let immutableValidatorsDb1 =
       DbSeq[ImmutableValidatorData].init(db, "immutable_validators").expectDb()
 
@@ -445,6 +448,10 @@ proc new*(T: type BeaconChainDB,
         withdrawal_credentials: val.withdrawal_credentials
       ))
   immutableValidatorsDb1.close()
+
+  # Safe because nobody will be downgrading to pre-altair versions
+  # TODO: drop table maybe? that would require not creating the table just above
+  discard db.exec("DELETE FROM immutable_validators;")
 
   T(
     db: db,

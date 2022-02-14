@@ -579,7 +579,8 @@ func init*(t: typedesc[ValidatorIdent], v: ValidatorPubKey): ValidatorIdent =
 
 func init*(t: typedesc[RestBlockInfo],
            v: ForkedTrustedSignedBeaconBlock): RestBlockInfo =
-  RestBlockInfo(slot: v.slot(), blck: v.root())
+  withBlck(v):
+    RestBlockInfo(slot: blck.message.slot, blck: blck.root)
 
 func init*(t: typedesc[RestValidator], index: ValidatorIndex,
            balance: uint64, status: string,

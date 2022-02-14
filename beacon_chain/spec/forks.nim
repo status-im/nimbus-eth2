@@ -473,7 +473,7 @@ func readSszForkedHashedBeaconState*(cfg: RuntimeConfig, data: openArray[byte]):
     data.toOpenArray(0, sizeof(BeaconStateHeader) - 1),
     BeaconStateHeader)
 
-  # careful - `result` is used, RVO didn't seem to work without
+  # TODO https://github.com/nim-lang/Nim/issues/19357
   result = ForkedHashedBeaconState(
     kind: cfg.stateForkAtEpoch(header.slot.epoch()))
 
@@ -498,8 +498,7 @@ func readSszForkedSignedBeaconBlock*(
     data.toOpenArray(0, sizeof(ForkedBeaconBlockHeader) - 1),
     ForkedBeaconBlockHeader)
 
-  # careful - `result` is used, RVO didn't seem to work without
-  # TODO move time helpers somewhere to avoid circular imports
+  # TODO https://github.com/nim-lang/Nim/issues/19357
   result = ForkedSignedBeaconBlock(
     kind: cfg.blockForkAtEpoch(header.slot.epoch()))
 

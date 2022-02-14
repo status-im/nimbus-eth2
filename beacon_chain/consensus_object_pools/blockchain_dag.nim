@@ -264,9 +264,18 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): BlockSlotId =
 
   BlockSlotId() # not backfilled yet, and not genesis
 
-func getBlockId*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockId] =
-  let blck = ? dag.getBlockRef(root)
-  ok(blck.bid)
+proc getBlockId*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockId] =
+  block: # If we have a BlockRef, this is the fastest way to get a block id
+    let blck = dag.getBlockRef(root)
+    if blck.isOk():
+      return ok(blck.get().bid)
+
+  block: # Otherwise, we might have a summary in the database
+    let summary = dag.db.getBeaconBlockSummary(root)
+    if summary.isOk():
+      return ok(BlockId(root: root, slot: summary.get().slot))
+
+  err()
 
 func isCanonical*(dag: ChainDAGRef, bid: BlockId): bool =
   dag.getBlockIdAtSlot(bid.slot).bid == bid
@@ -291,7 +300,8 @@ func epochAncestor*(blck: BlockRef, epoch: Epoch): EpochKey =
 
 func findEpochRef*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch): Opt[EpochRef] =
-  # Look for an existing EpochRef in the cache
+  ## Look for an existing cached EpochRef, but unlike `getEpochRef`, don't
+  ## try to create one by recreating the epoch state
   let ancestor = epochAncestor(blck, epoch)
   if isNil(ancestor.blck):
     # We can't compute EpochRef instances for states before the tail because
@@ -462,64 +472,70 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # TODO we require that the db contains both a head and a tail block -
   #      asserting here doesn't seem like the right way to go about it however..
 
+  # Tail is the first block for which we can construct a state - either
+  # genesis or a checkpoint
   let
-    tailBlockRoot = db.getTailBlock()
-    headBlockRoot = db.getHeadBlock()
-
-  doAssert tailBlockRoot.isSome(), "Missing tail block, database corrupt?"
-  doAssert headBlockRoot.isSome(), "Missing head block, database corrupt?"
-
-  let
-    tailRoot = tailBlockRoot.get()
-    tailBlock = db.getForkedBlock(tailRoot).get()
+    startTick = Moment.now()
+    tailRoot = db.getTailBlock().expect("Tail root in database, corrupt?")
+    tailBlock = db.getForkedBlock(tailRoot).expect(
+      "Tail block in database, corrupt?")
     tailRef = withBlck(tailBlock): BlockRef.init(tailRoot, blck.message)
-    headRoot = headBlockRoot.get()
 
-  let genesisRef = if tailBlock.slot == GENESIS_SLOT:
-    tailRef
-  else:
-    let
-      genesisBlockRoot = db.getGenesisBlock().expect(
-        "preInit should have initialized the database with a genesis block root")
-      genesisBlock = db.getForkedBlock(genesisBlockRoot).expect(
-        "preInit should have initialized the database with a genesis block")
-    withBlck(genesisBlock): BlockRef.init(genesisBlockRoot, blck.message)
-
+  # Backfills are blocks that we have in the database, but can't construct a
+  # state for without replaying from genesis
   var
     backfillBlocks = newSeq[Eth2Digest](tailRef.slot.int)
+    # This is where we'll start backfilling, worst case - we might refine this
+    # while loading blocks, in case backfilling has happened already
     backfill = withBlck(tailBlock): blck.message.toBeaconBlockSummary()
     midRef: BlockRef
     backRoot: Option[Eth2Digest]
-    startTick = Moment.now()
 
-  # Loads blocks in the forward direction - these may or may not be available
-  # in the database
+  # Start by loading basic block information about finalized blocks - this
+  # generally goes from genesis (or the earliest backfilled block) all the way
+  # to the latest block finalized in the `head` history - we have to be careful
+  # though, versions prior to 1.7.0 did not store finalized blocks in the
+  # database, and / or the application might have crashed between the head and
+  # finalized blocks updates
   for slot, root in db.finalizedBlocks:
     if slot < tailRef.slot:
       backfillBlocks[slot.int] = root
       if backRoot.isNone():
         backRoot = some(root)
     elif slot == tailRef.slot:
+      if root != tailRef.root:
+        fatal "Finalized blocks do not meet with tail, database corrupt?",
+          tail = shortLog(tailRef), root = shortLog(root)
+        quit 1
+
       midRef = tailRef
-    elif slot > tailRef.slot:
+    else: # slot > tailRef.slot
+      if midRef == nil:
+        fatal "First finalized block beyond tail, database corrupt?",
+          tail = shortLog(tailRef), slot, root = shortLog(root)
+        quit 1
+
       let next = BlockRef.init(root, slot)
       link(midRef, next)
       midRef = next
 
-  let finalizedTick = Moment.now()
+  let
+    finalizedTick = Moment.now()
+    headRoot = db.getHeadBlock().expect("Head root in database, corrupt?")
 
   var
     headRef: BlockRef
     curRef: BlockRef
 
-  # Now load the part from head to finalized in the other direction - these
-  # should meet at the midpoint if we loaded any finalized blocks
+  # Now load the part from head to finalized (going backwards) - if we loaded
+  # any finalized blocks, we should hit the last of them while loading this
+  # history
   for blck in db.getAncestorSummaries(headRoot):
-    if midRef != nil and blck.summary.slot == midRef.slot:
-      if midRef.root != blck.root:
+    if midRef != nil and blck.summary.slot <= midRef.slot:
+      if midRef.slot != blck.summary.slot or midRef.root != blck.root:
         fatal "Finalized block table does not match ancestor summaries, database corrupt?",
           head = shortLog(headRoot), cur = shortLog(curRef),
-          midref = shortLog(midRef), blck = shortLog(blck.root)
+          mid = shortLog(midRef), blck = shortLog(blck.root)
 
         quit 1
 
@@ -565,7 +581,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   if curRef != tailRef:
     fatal "Head block does not lead to tail - database corrupt?",
-      genesisRef, tailRef, headRef, curRef, tailRoot, headRoot
+      tailRef, headRef, curRef, tailRoot, headRoot
 
     quit 1
 
@@ -584,6 +600,14 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # case it's equivalent to the tail block
   if headRef == nil:
     headRef = tailRef
+
+  let genesisRef = if tailRef.slot == GENESIS_SLOT:
+    tailRef
+  else:
+    let
+      genesisRoot = db.getGenesisBlock().expect(
+        "preInit should have initialized the database with a genesis block root")
+    BlockRef.init(genesisRoot, GENESIS_SLOT)
 
   let dag = ChainDAGRef(
     db: db,
@@ -620,7 +644,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
     if dag.headState.blck == nil:
       fatal "No state found in head history, database corrupt?",
-        genesisRef, tailRef, headRef, tailRoot, headRoot
+        genesisRef, tailRef, headRef
       # TODO Potentially we could recover from here instead of crashing - what
       #      would be a good recovery model?
       quit 1
@@ -634,7 +658,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
     if stateFork != configFork:
       error "State from database does not match network, check --network parameter",
-        genesisRef, tailRef, headRef, tailRoot, headRoot, stateFork, configFork
+        genesisRef, tailRef, headRef, stateFork, configFork
       quit 1
 
   # db state is likely a epoch boundary state which is what we want for epochs
@@ -656,6 +680,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   doAssert cfg.BELLATRIX_FORK_EPOCH <= cfg.SHARDING_FORK_EPOCH
   doAssert dag.updateFlags in [{}, {verifyFinalization}]
 
+  # The state we loaded into `headState` is the last state we saved, which may
+  # come from earlier than the head block
   var cache: StateCache
   if not dag.updateStateData(dag.headState, headRef.atSlot(), false, cache):
     fatal "Unable to load head state, database corrupt?",
@@ -685,6 +711,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       dag.forkBlocks.incl(KeyedBlockRef.init(tmp))
       tmp = tmp.parent
 
+    # Fork blocks always include the latest finalized block which serves as the
+    # "root" of the fork DAG
     dag.forkBlocks.incl(KeyedBlockRef.init(tmp))
     dag.finalizedHead = tmp.atSlot(finalizedSlot)
 
@@ -824,12 +852,6 @@ proc getState(dag: ChainDAGRef, state: var StateData, bs: BlockSlot): bool =
   ## Load a state from the database given a block and a slot - this will first
   ## lookup the state root in the state root table then load the corresponding
   ## state, if it exists
-  if not bs.isStateCheckpoint():
-    return false # Only state checkpoints are stored - no need to hit DB
-
-  let stateRoot = dag.db.getStateRoot(bs.blck.root, bs.slot)
-  if stateRoot.isNone(): return false
-
   let restoreAddr =
     # Any restore point will do as long as it's not the object being updated
     if unsafeAddr(state) == unsafeAddr(dag.headState):
@@ -854,7 +876,7 @@ proc putState(dag: ChainDAGRef, state: StateData) =
     return
 
   # Don't consider legacy tables here, they are slow to read so we'll want to
-  # rewrite things in the new database anyway.
+  # rewrite things in the new table anyway.
   if dag.db.containsState(getStateRoot(state.data), legacy = false):
     return
 
@@ -956,7 +978,7 @@ proc advanceSlots(
 
 proc applyBlock(
     dag: ChainDAGRef,
-    state: var StateData, blck: BlockRef, flags: UpdateFlags,
+    state: var StateData, blck: BlockRef,
     cache: var StateCache, info: var ForkedEpochInfo) =
   # Apply a single block to the state - the state must be positioned at the
   # parent of the block with a slot lower than the one of the block being
@@ -970,19 +992,19 @@ proc applyBlock(
     let data = dag.db.getPhase0Block(blck.root).expect("block loaded")
     state_transition(
       dag.cfg, state.data, data, cache, info,
-      flags + dag.updateFlags + {slotProcessed}, noRollback).expect(
+      dag.updateFlags + {slotProcessed}, noRollback).expect(
         "Blocks from database must not fail to apply")
   of BeaconBlockFork.Altair:
     let data = dag.db.getAltairBlock(blck.root).expect("block loaded")
     state_transition(
       dag.cfg, state.data, data, cache, info,
-      flags + dag.updateFlags + {slotProcessed}, noRollback).expect(
+      dag.updateFlags + {slotProcessed}, noRollback).expect(
         "Blocks from database must not fail to apply")
   of BeaconBlockFork.Bellatrix:
     let data = dag.db.getMergeBlock(blck.root).expect("block loaded")
     state_transition(
       dag.cfg, state.data, data, cache, info,
-      flags + dag.updateFlags + {slotProcessed}, noRollback).expect(
+      dag.updateFlags + {slotProcessed}, noRollback).expect(
         "Blocks from database must not fail to apply")
 
   state.blck = blck
@@ -1138,7 +1160,7 @@ proc updateStateData*(
     # again. Also, because we're applying blocks that were loaded from the
     # database, we can skip certain checks that have already been performed
     # before adding the block to the database.
-    dag.applyBlock(state, ancestors[i], {}, cache, info)
+    dag.applyBlock(state, ancestors[i], cache, info)
 
   # ...and make sure to process empty slots as requested
   dag.advanceSlots(state, bs.slot, save, cache, info)
