@@ -302,12 +302,9 @@ proc attesterDutiesLoop(service: DutiesServiceRef) {.async.} =
 
   debug "Attester duties loop waiting for fork schedule update"
   await vc.forksAvailable.wait()
-
+  doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    if len(vc.forks) > 0:
-      await vc.pollForAttesterDuties()
-    else:
-      debug "Fork schedule is not available yet, skipping attester duties"
+    await vc.pollForAttesterDuties()
     await service.waitForNextSlot(AttesterLoop)
 
 proc proposerDutiesLoop(service: DutiesServiceRef) {.async.} =
@@ -315,12 +312,9 @@ proc proposerDutiesLoop(service: DutiesServiceRef) {.async.} =
 
   debug "Proposer duties loop waiting for fork schedule update"
   await vc.forksAvailable.wait()
-
+  doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
   while true:
-    if len(vc.forks) > 0:
-      await vc.pollForBeaconProposers()
-    else:
-      debug "Fork schedule is not available yet, skipping proposer duties"
+    await vc.pollForBeaconProposers()
     await service.waitForNextSlot(ProposerLoop)
 
 proc validatorIndexLoop(service: DutiesServiceRef) {.async.} =
