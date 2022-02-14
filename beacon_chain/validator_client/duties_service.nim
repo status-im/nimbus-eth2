@@ -154,7 +154,7 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
     var validators: seq[AttachedValidator]
     for item in addOrReplaceItems:
       let validator = vc.attachedValidators.getValidator(item.duty.pubkey)
-      let fork = vc.forkAtEpoch(item.duty.slot.epoch).get()
+      let fork = vc.forkAtEpoch(item.duty.slot.epoch)
       let future = validator.getSlotSig(fork, genesisRoot, item.duty.slot)
       pending.add(future)
       validators.add(validator)
@@ -304,7 +304,7 @@ proc attesterDutiesLoop(service: DutiesServiceRef) {.async.} =
   await vc.forksAvailable.wait()
 
   while true:
-    if vc.forks.isSome():
+    if len(vc.forks) > 0:
       await vc.pollForAttesterDuties()
     else:
       debug "Fork schedule is not available yet, skipping attester duties"
@@ -317,7 +317,7 @@ proc proposerDutiesLoop(service: DutiesServiceRef) {.async.} =
   await vc.forksAvailable.wait()
 
   while true:
-    if vc.forks.isSome():
+    if len(vc.forks) > 0:
       await vc.pollForBeaconProposers()
     else:
       debug "Fork schedule is not available yet, skipping proposer duties"

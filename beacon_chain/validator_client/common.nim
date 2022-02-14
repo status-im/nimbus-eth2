@@ -99,7 +99,7 @@ type
     runSlotLoop*: Future[void]
     beaconClock*: BeaconClock
     attachedValidators*: ValidatorPool
-    forks*: Option[seq[Fork]]
+    forks*: seq[Fork]
     forksAvailable*: AsyncEvent
     attesters*: AttesterMap
     proposers*: ProposerMap
@@ -243,15 +243,13 @@ proc getValidator*(vc: ValidatorClientRef,
     else:
       some(validator)
 
-proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Option[Fork] =
-  if vc.forks.isSome():
-    let schedule = vc.forks.get()
-    # If schedule is present, it MUST not be empty.
-    doAssert(len(schedule) > 0)
-    var res: Fork
-    for item in schedule:
-      if item.epoch <= epoch:
-        res = item
-      else:
-        break
-    return some(res)
+proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
+  # If schedule is present, it MUST not be empty.
+  doAssert(len(vc.forks) > 0)
+  var res: Fork
+  for item in vc.forks:
+    if item.epoch <= epoch:
+      res = item
+    else:
+      break
+  res

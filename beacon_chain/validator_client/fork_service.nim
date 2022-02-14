@@ -58,8 +58,8 @@ proc pollForFork(vc: ValidatorClientRef) {.async.} =
           return
         res.get()
 
-    if vc.forks.isNone() or (vc.forks.get() != sortedForks):
-      vc.forks = some(sortedForks)
+    if (len(vc.forks) == 0) or (vc.forks != sortedForks):
+      vc.forks = sortedForks
       notice "Fork schedule updated", fork_schedule = sortedForks
       vc.forksAvailable.fire()
 
