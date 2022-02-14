@@ -97,7 +97,7 @@ type
     ## whose purpose is to quickly filter out spam, then will (usually) delegate
     ## full validation to the proper manager - finally, metrics and monitoring
     ## are updated.
-    doppelGangerDetectionEnabled*: bool
+    doppelgangerDetectionEnabled*: bool
 
     # Local sources of truth for validation
     # ----------------------------------------------------------------
@@ -136,7 +136,7 @@ type
 # ------------------------------------------------------------------------------
 
 proc new*(T: type Eth2Processor,
-          doppelGangerDetectionEnabled: bool,
+          doppelgangerDetectionEnabled: bool,
           blockProcessor: ref BlockProcessor,
           validatorMonitor: ref ValidatorMonitor,
           dag: ChainDAGRef,
@@ -150,7 +150,7 @@ proc new*(T: type Eth2Processor,
           taskpool: TaskPoolPtr
          ): ref Eth2Processor =
   (ref Eth2Processor)(
-    doppelGangerDetectionEnabled: doppelGangerDetectionEnabled,
+    doppelgangerDetectionEnabled: doppelgangerDetectionEnabled,
     doppelgangerDetection: DoppelgangerProtection(
       nodeLaunchSlot: getBeaconTime().slotOrZero,
       broadcastStartEpoch: FAR_FUTURE_EPOCH),
@@ -242,9 +242,10 @@ proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
 
     self.doppelgangerDetection.broadcastStartEpoch =
       slot.epoch + duplicateValidatorEpochs
-    notice "Setting up doppelganger protection",
-      epoch = slot.epoch,
-      broadcastStartEpoch =
+    if self.doppelgangerDetectionEnabled:
+      notice "Setting up doppelganger detection",
+        epoch = slot.epoch,
+        broadcastStartEpoch =
         self.doppelgangerDetection.broadcastStartEpoch
 
 proc checkForPotentialDoppelganger(
