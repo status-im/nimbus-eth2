@@ -488,6 +488,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     # This is where we'll start backfilling, worst case - we might refine this
     # while loading blocks, in case backfilling has happened already
     backfill = withBlck(tailBlock): blck.message.toBeaconBlockSummary()
+    # The most recent block that we load from the finalized blocks table
     midRef: BlockRef
     backRoot: Option[Eth2Digest]
 
