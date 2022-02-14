@@ -245,8 +245,7 @@ proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
     if self.doppelgangerDetectionEnabled:
       notice "Setting up doppelganger detection",
         epoch = slot.epoch,
-        broadcastStartEpoch =
-        self.doppelgangerDetection.broadcastStartEpoch
+        broadcastStartEpoch = self.doppelgangerDetection.broadcastStartEpoch
 
 proc checkForPotentialDoppelganger(
     self: var Eth2Processor, attestation: Attestation,
