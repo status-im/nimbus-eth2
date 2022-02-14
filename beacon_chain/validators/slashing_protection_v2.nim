@@ -219,6 +219,7 @@ type
     sqlAttMinSourceTargetEpochs: SqliteStmt[ValidatorInternalID, (int64, int64)]
     sqlBlockForSameSlot: SqliteStmt[(ValidatorInternalID, int64), Hash32]
     sqlBlockMinSlot: SqliteStmt[ValidatorInternalID, int64]
+    sqlMaxBlockAtt: SqliteStmt[ValidatorInternalID, (int64, int64, int64)]
 
     internalIds: Table[ValidatorIndex, ValidatorInternalID]
 
@@ -245,16 +246,8 @@ template dispose(sqlStmt: SqliteStmt) =
 
 proc setupDB(db: SlashingProtectionDB_v2, genesis_validators_root: Eth2Digest) =
   ## Initial setup of the DB
-  # Naming:
-  # - We use the same naming as https://eips.ethereum.org/EIPS/eip-3076
-  #   and Lighthouse to allow loading/exporting without the Intermediate
-  #   interchange format (provided we agree on a metadata format as well)
-  #
-  # - https://github.com/sigp/lighthouse/blob/v1.1.0/validator_client/slashing_protection/src/slashing_database.rs#L59-L88
-  #
-  # Differences
-  # - Lighthouse uses public_key instead of pubkey as in spec
 
+  # TODO - the Metadata table is a remnant from the v1 of the DB and should be removed
   block: # Metadata
     db.backend.exec("""
       CREATE TABLE metadata(
@@ -589,6 +582,21 @@ proc setupCachedQueries(db: SlashingProtectionDB_v2) =
     where validator_id = ?;
   """, ValidatorInternalID, void).get()
   db.sqlCommitTransaction = db.backend.prepareStmt("""COMMIT TRANSACTION;""", NoParams, void).get()
+
+  db.sqlMaxBlockAtt = db.backend.prepareStmt("""
+    SELECT
+      MAX(slot), MAX(source_epoch), MAX(target_epoch)
+    FROM
+      validators v
+    LEFT JOIN
+      signed_blocks b on v.id = b.validator_id
+    LEFT JOIN
+      signed_attestations a on v.id = a.validator_id
+    WHERE
+      id = ?
+    GROUP BY
+      NULL
+    """, ValidatorInternalID, (int64, int64, int64)).get()
 
 # DB Multiversioning
 # -------------------------------------------------------------
@@ -1235,12 +1243,49 @@ proc pruneAfterFinalization*(
 # Interchange
 # --------------------------------------------
 
+proc retrieveLatestValidatorData*(
+       db: SlashingProtectionDB_v2,
+       validator: ValidatorPubkey
+     ): tuple[
+          maxBlockSlot: Option[Slot], 
+          maxAttSourceEpoch: Option[Epoch],
+          maxAttTargetEpoch: Option[Epoch]] =
+  
+  let valID = db.getOrRegisterValidator(none(ValidatorIndex), validator)
+  
+  var slot, source, target: int64
+  let status = db.sqlMaxBlockAtt.exec(
+      valID
+    ) do (res: tuple[slot, source, target: int64]):
+      slot = res.slot
+      source = res.source
+      target = res.target
+
+  doAssert status.isOk(),
+      "SQLite error when querying validator: " & $status.error & "\n" &
+      "for validatorID " & $valID & " (0x" & $validator & ")"
+
+  # TODO: sqlite partial results ugly kludge
+  #       if we find blocks but no attestation
+  #       source and target would be set to 0 (from NULL in sqlite)
+  #       0 isn't an issue since it refers to Genesis (is it possible to have genesis epoch != 0?)
+  #       but let's deal with those here
+
+  if slot != 0:
+    result.maxBlockSlot = some(Slot slot)
+  if source != 0:
+    result.maxAttSourceEpoch = some(Epoch source)
+  if target != 0:
+    result.maxAttTargetEpoch = some(Epoch target)
+
 proc registerSyntheticAttestation*(
        db: SlashingProtectionDB_v2,
        validator: ValidatorPubKey,
        source, target: Epoch) =
   ## Add a synthetic attestation to the slashing protection DB
-  doAssert source < target
+  
+  # Spec require source < target (except genesis?), for synthetic attestation for slashing protection we want max(source, target)
+  doAssert (source < target) or (source == Epoch(0) and target == Epoch(0))
 
   let valID = db.getOrRegisterValidator(none(ValidatorIndex), validator)
 
