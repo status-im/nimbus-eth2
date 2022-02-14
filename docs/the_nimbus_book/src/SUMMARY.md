@@ -28,7 +28,7 @@
 
 # How-to (misc)
 - [Upgrade / downgrade Nimbus](./keep-updated.md)
-- [Run an eth1 node](./eth1.md)
+- [Run an Execution layer node](./eth1.md)
 - [Obtain Goerli ETH](./goerli-eth.md)
 - [Set up a systemd service](./beacon-node-systemd.md)
 - [Set up log rotation](./log-rotate.md)

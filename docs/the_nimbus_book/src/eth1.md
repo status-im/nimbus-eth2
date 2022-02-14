@@ -1,15 +1,13 @@
-# Run an eth1 node
+# Run an Execution layer node
 
-In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client in parallel to your eth2 client. 
+In order to process incoming validator deposits from the Execution layer, you'll need to run an EL client in parallel to your CL client. 
 
-Validators are responsible for including new deposits when they propose blocks. And an eth1 client is needed to ensure your validator performs this task correctly.
-
-On this page we provide instructions for using Geth (however, any reputable eth1 client should do the trick).
+On this page we provide instructions for using Geth (however, any reputable EL client shOuld do the trick).
 
 > **Note:** If you have a > 500GB SSD, and your [hardware](./hardware.md) can handle it, we strongly recommend running your own eth1 client. This will help ensure the network stays as decentralised as possible. If you can't however, the next best option is to set up a 3rd part provider like [infura](./infura-guide.md).
 
 ## Nimbus
-In parallel to `nimbus-eth2` we are working hard on our [our exectution client](https://github.com/status-im/nimbus-eth1). While this is  very much a project in development (i.e. not yet ready for public consumption), we welcome you to experiment with it.
+In parallel to `nimbus-eth2` we are working hard on our [our EL client](https://github.com/status-im/nimbus-eth1). While this is  very much a project in development (i.e. not yet ready for public consumption), we welcome you to experiment with it.
 
 ## Nethermind
 *TBC*

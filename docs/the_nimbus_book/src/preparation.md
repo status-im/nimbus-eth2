@@ -7,9 +7,9 @@ Please check that you are running the latest stable [Nimbus software release](ht
 
 > **Note:** If you are setting up your client before launch, it is your responsibility  to check for any new software releases in the run up to launch. At the minimum you should check the [release page](https://github.com/status-im/nimbus-eth2/releases) weekly.
 
-## More than 50 peers
+## More than 15 peers
 
-Please check that your node has at least 50 peers. To monitor your peer count, pay attention to the [`Slot start` messages in your logs](keep-an-eye.md#keep-track-of-your-syncing-progress).
+Please check that your node has at least 15 peers. To monitor your peer count, pay attention to the [`Slot start` messages in your logs](keep-an-eye.md#keep-track-of-your-syncing-progress).
 
 ## Validator attached
 
