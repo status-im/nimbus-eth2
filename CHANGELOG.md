@@ -1,3 +1,48 @@
+2022-02-15 v1.7.0
+=================
+
+Nimbus `v1.7.0` is a `low-urgency` feature-packed upgrade, which brings support for [trusted node sync](https://nimbus.guide/trusted-node-sync.html) (also known as checkpoint sync) and HTTPS web3 providers.
+
+Of particular note: the [Keymanager API](https://nimbus.guide/keymanager-api.html) now supports remote keystores (a.k.a web3signer keystores).
+
+### Breaking changes
+
+- Nimbus will no longer rewrite HTTP(S) web3 URLs to their respective WebSocket alternatives. Please review your setup to ensure you are using the desired web3 end-point.
+
+- The peer scoring has been further tuned. As such the `--max-peers` should not be set below 70. Note that Lowering `max-peers` does not significantly improve bandwidth usage, but does increase the risk of missed attestations.
+
+### Improvements:
+
+* [Trusted node sync](https://nimbus.guide/trusted-node-sync.html): https://github.com/status-im/nimbus-eth2/pull/3326
+* Full support for HTTP and HTTPS web3 URLs: https://github.com/status-im/nimbus-eth2/pull/3354
+  * Nimbus now treats the first `--web3-url` as a primary and preferred web3 provider. Any extra URLs are treated as fallback providers (to be used only when the primary is offline). As soon as the primary is usable again, Nimbus will switch back to it.
+* The Keymanager API now supports management of remote keystores (also known as web3signer keystores): https://github.com/status-im/nimbus-eth2/pull/3360
+* The typical memory usage of Nimbus on mainnet is now below 1GB: https://github.com/status-im/nimbus-eth2/pull/3293
+  * 128MB of savings come from exploiting a provision in the official spec, which allows clients to respond with only non-finalized blocks to network queries which request blocks by their root hash.
+* Faster beacon node startup-times: https://github.com/status-im/nimbus-eth2/pull/3320
+* The REST API is now compatible with CORS-enabled clients (e.g. browsers): https://github.com/status-im/nimbus-eth2/pull/3378
+  * Use the `--rest-allow-origin` and/or `--keymanager-allow-origin` parameters to specify the allowed origin.
+
+* A new `--rest-url` parameter for the `deposits exit` command: https://github.com/status-im/nimbus-eth2/pull/3344, https://github.com/status-im/nimbus-eth2/pull/3318
+  * You can now issue exits uing any beacon node which provides the [official REST API](https://nimbus.guide/rest-api.html). The Nimbus-specific [JSON-RPC API](https://nimbus.guide/api.html) will be deprecated in our next release, with a view to completely phasing it out over the next few months.
+* The REST API will now returns JSON data by default which simplifies testing the API with `curl`.
+  * The notable exception here is when the client requests SSZ data by supplying an `Accept: application/octet-stream` header. 
+* Fairer request capping strategy for block sync requests and reduced CPU usage when serving them: https://github.com/status-im/nimbus-eth2/pull/3358
+* More accurate Nim GC memory usage metrics.
+* BLST upgrade (latest version): https://github.com/status-im/nimbus-eth2/pull/3364
+* The `web3 test` command now provides more data about the selected provided: https://github.com/status-im/nimbus-eth2/pull/3354
+
+### We've fixed:
+
+* Unnecessary CPU and bandwidth usage: https://github.com/status-im/nimbus-eth2/pull/3308
+  * The result of staying subsribed to sync committee topics even when there were no validators in the committee.
+* Excessive logging on beacon nodes with large numbers of validators (in particular, those with `--validator-monitor-totals` enabled): https://github.com/status-im/nimbus-eth2/pull/3332
+* Deviations from the spec in the REST API; this led to sub-optimal performance when Nimbus was paired with Vouch.
+* Naming inconsistencies in the "totals" metrics (this was produced by the [validator monitor](https://nimbus.guide/validator-monitor.html)).
+* Non-compliant implementation of the `/eth/v1/node/health` API (we were not producing HTTP status codes as mandated by the spec).
+* Unnecessary restarts of the Eth1 syncing progress when the web3 provider connection was lost during sync: https://github.com/status-im/nimbus-eth2/pull/3354
+
+
 2022-01-14 v1.6.0
 =================
 
