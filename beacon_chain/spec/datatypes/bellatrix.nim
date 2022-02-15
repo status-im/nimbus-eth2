@@ -327,20 +327,25 @@ type
 func encodeQuantityHex*(x: auto): string =
   "0x" & x.toHex
 
-proc fromHex*(T: typedesc[BloomLogs], s: string): T {.raises: [Defect, ValueError].} =
+proc fromHex*(T: typedesc[BloomLogs], s: string): T {.
+     raises: [Defect, ValueError].} =
   hexToByteArray(s, result.data)
 
-proc fromHex*(T: typedesc[ExecutionAddress], s: string): T {.raises: [Defect, ValueError].} =
+proc fromHex*(T: typedesc[ExecutionAddress], s: string): T {.
+     raises: [Defect, ValueError].} =
   hexToByteArray(s, result.data)
 
-proc writeValue*(w: var JsonWriter, a: ExecutionAddress) {.raises: [Defect, IOError].} =
-  w.writeValue $a
+proc writeValue*(writer: var JsonWriter, value: ExecutionAddress) {.
+     raises: [Defect, IOError].} =
+  writer.writeValue to0xHex(value.data)
 
-proc readValue*(r: var JsonReader, a: var ExecutionAddress) {.raises: [Defect, IOError, SerializationError].} =
+proc readValue*(reader: var JsonReader, value: var ExecutionAddress) {.
+     raises: [Defect, IOError, SerializationError].} =
   try:
-    a = fromHex(type(a), r.readValue(string))
+    hexToByteArray(reader.readValue(string), value.data)
   except ValueError:
-    raiseUnexpectedValue(r, "Hex string expected")
+    raiseUnexpectedValue(reader,
+                         "ExecutionAddress value should be a valid hex string")
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (
