@@ -453,6 +453,14 @@ type
         defaultValue: false
         name: "proposer-boosting-debug" }: bool
 
+      # https://github.com/ethereum/consensus-specs/blob/v1.1.9/sync/optimistic.md#fork-choice-poisoning
+      safeSlotsToImportOptimistically* {.
+        hidden
+        desc: "Modify SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY"
+        # https://github.com/ethereum/consensus-specs/blob/v1.1.9/sync/optimistic.md#constants
+        defaultValue: 128
+        name: "safe-slots-to-import-optimistically" }: uint64
+
     of BNStartUpCmd.createTestnet:
       testnetDepositsFile* {.
         desc: "A LaunchPad deposits file for the genesis state validators"
