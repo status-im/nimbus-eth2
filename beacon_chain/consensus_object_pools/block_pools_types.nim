@@ -61,80 +61,110 @@ type
     data*: BlockRef
 
   ChainDAGRef* = ref object
-    ## Pool of blocks responsible for keeping a DAG of resolved blocks.
+    ## ChainDAG validates, stores and serves chain history of valid blocks
+    ## according to the beacon chain state transtion. From genesis to the
+    ## finalization point, block history is linear - from there, it branches out
+    ## into a dag with several heads, one of which is considered canonical.
     ##
-    ## It is responsible for the following
+    ## As new blocks are added, new segments of the chain may finalize,
+    ## discarding now unviable candidate histories.
     ##
-    ## - Handle requests and updates to the "ColdDB" which
-    ##   holds the canonical chain.
-    ## - Maintain a direct acyclic graph (DAG) of
-    ##   candidate chains from the last
-    ##   finalized block.
+    ## In addition to storing blocks, the chaindag also is responsible for
+    ## storing intermediate states in the database that are used to recreate
+    ## chain history at any point in time through a rewinding process that loads
+    ## a snapshots and applies blocks until the desired point in history is
+    ## reached.
     ##
-    ## When a chain becomes finalized, it is saved in the ColdDB,
-    ## the rejected candidates are discarded and this pool
-    ## is pruned, only keeping the last finalized block.
+    ## Several indices are kept in memory to enable fast lookups - their shape
+    ## and contents somewhat depend on how the chain was instantiated: sync
+    ## from genesis or checkpoint, and therefore, what features we can offer in
+    ## terms of historical replay.
     ##
-    ## The last finalized block is called the tail block.
-
-    # -----------------------------------
-    # ColdDB - Canonical chain
+    ## Beacuse the state transition is forwards-only, checkpoint sync generally
+    ## allows replaying states from that point onwards - anything earlier
+    ## would require a backfill of blocks and a subsequent replay from genesis.
+    ##
+    ## Era files contain state snapshots along the way, providing arbitrary
+    ## starting points for replay and can be used to frontfill the archive -
+    ## however, they are not used until the contents have been verified via
+    ## parent_root ancestry.
+    ##
+    ## The chain and the various pointers and indices we keep can be seen in
+    ## the following graph: depending on how the chain was instantiated, some
+    ## pointers may overlap and some indices might be empty as a result.
+    ##
+    ##                                              / heads
+    ##                                     /-------*     |
+    ## *--------*---------*---------------*--------------*
+    ## |        |         |               |              |
+    ## genesis  backfill  tail            finalizedHead  head
+    ##          |         |               |
+    ##          archive   finalizedBlocks forkBlocks
+    ##
+    ## The archive is the the part of finalized history for which we no longer
+    ## recreate states quickly because we don't have a reasonable state to
+    ## start replay from - when starting from a checkpoint, this is the typical
+    ## case - recreating history requires either replaying from genesis or
+    ## providing an earlier checkpoint state.
+    ##
+    ## We do not keep an in-memory index for the archive - instead, lookups are
+    ## made via `BeaconChainDB.finalizedBlocks` which covers the full range from
+    ## `backfill` to `finalizedHead`.
 
     db*: BeaconChainDB
-      ## ColdDB - Stores the canonical chain
+      ## Database of recent chain history as well as the state and metadata
+      ## needed to pick up where we left off after a restart - in particular,
+      ## the DAG and the canonical head are stored here, as well as several
+      ## caches.
 
     validatorMonitor*: ref ValidatorMonitor
 
-    # -----------------------------------
-    # ChainDAGRef - DAG of candidate chains
-
     forkBlocks*: HashSet[KeyedBlockRef]
-      ## root -> BlockRef mapping of blocks still relevant to fork choice, ie
+      ## root -> BlockRef mapping of blocks relevant to fork choice, ie
       ## those that have not yet been finalized - covers the slots
-      ## `finalizedHead.slot..head.slot` (inclusive)
+      ## `finalizedHead.slot..head.slot` (inclusive) - dag.heads keeps track
+      ## of each potential head block in this table.
 
     finalizedBlocks*: seq[BlockRef]
-      ## Slot -> BlockRef mapping for the canonical chain - use getBlockAtSlot
-      ## to access, generally - covers the slots
-      ## `tail.slot..finalizedHead.slot` (including the finalized head block) -
-      ## indices are thus offset by tail.slot
-
-    backfillBlocks*: seq[Eth2Digest]
-    ## Slot -> Eth2Digest, covers genesis.slot..tail.slot - 1 (inclusive)
+      ## Slot -> BlockRef mapping for the finalized portion of the canonical
+      ## chain - use getBlockAtSlot to access
+      ## Covers the slots `tail.slot..finalizedHead.slot` (including the
+      ## finalized head block). Indices offset by `tail.slot`.
 
     genesis*: BlockRef
-    ## The genesis block of the network
+      ## The genesis block of the network
 
     tail*: BlockRef
-    ## The earliest finalized block for which we have a corresponding state -
-    ## when making a replay of chain history, this is as far back as we can
-    ## go - the tail block is unique in that its parent is set to `nil`, even
-    ## in the case where an earlier genesis block exists.
+      ## The earliest finalized block for which we have a corresponding state -
+      ## when making a replay of chain history, this is as far back as we can
+      ## go - the tail block is unique in that its parent is set to `nil`, even
+      ## in the case where an earlier genesis block exists.
 
     backfill*: BeaconBlockSummary
-    ## The backfill points to the oldest block that we have in the database -
-    ## when backfilling, the first block to download is the parent of this block
+      ## The backfill points to the oldest block with an unbroken ancestry from
+      ## dag.tail - when backfilling, we'll move backwards in time starting
+      ## with the parent of this block until we reach `genesis`.
 
     heads*: seq[BlockRef]
     ## Candidate heads of candidate chains
 
     finalizedHead*: BlockSlot
-    ## The latest block that was finalized according to the block in head
-    ## Ancestors of this block are guaranteed to have 1 child only.
+      ## The latest block that was finalized according to the block in head
+      ## Ancestors of this block are guaranteed to have 1 child only.
 
     # -----------------------------------
     # Pruning metadata
 
     lastPrunePoint*: BlockSlot
-    ## The last prune point
-    ## We can prune up to finalizedHead
+      ## The last prune point
+      ## We can prune up to finalizedHead
 
     # -----------------------------------
     # Rewinder - Mutable state processing
 
     headState*: StateData
-    ## State given by the head block - must only be updated in `updateHead` -
-    ## always matches dag.head
+      ## State given by the head block - must only be updated in `updateHead` -
+      ## always matches dag.head
 
     epochRefState*: StateData
       ## State used to produce epochRef instances - must only be used in
