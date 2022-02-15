@@ -6,17 +6,28 @@ The Nimbus beacon chain can run on Linux, macOS, Windows, and Android. At the mo
 
 The beacon chain relies on your computer having the correct time set (plus or minus 0.5 seconds).
 
-We recommended you run a high quality time service on your computer such as:
+We recommended you run a high quality time service on your computer such as [chrony](https://chrony.tuxfamily.org/).
+Chrony is much more performant than the default NTP server.
+It's a simple install: 
 
-* GPS
-* NTS (network time security, [IETF draft](https://tools.ietf.org/html/draft-ietf-ntp-using-nts-for-ntp-19))
-* [Roughtime](https://roughtime.googlesource.com/roughtime) (google)
+```sh
+# Debian and Ubuntu
+sudo apt-get install -y chrony
 
-At a minimum, you should run an NTP client on the server.
+# Fedora
+dnf install chrony
 
-> **Note:** Most operating systems (including macOS') automatically sync with NTP by default.
+# Archlinux, using an AUR manager
+yourAURmanager chrony
+```
 
-If the above sounds like latin to you, don't worry. You should be fine as long as you haven't messed around with the time and date settings on your computer (they should be set automatically).
+It's available on most package managers.
+
+Once installed, the default configuration is enough.
+
+At a minimum, you should run an NTP client (such as chrony) on the server.
+
+> **Note:** Most operating systems (including macOS) automatically sync with NTP by default, however it's still recommended to run chrony.
 
 ## External Dependencies
 
