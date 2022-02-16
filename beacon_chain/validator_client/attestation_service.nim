@@ -19,8 +19,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
       if res.isNone():
         return false
       res.get()
-
-  let fork = vc.fork.get()
+  let fork = vc.forkAtEpoch(adata.slot.epoch)
 
   # TODO: signing_root is recomputed in signBlockProposal just after,
   # but not for locally attached validators.
@@ -96,7 +95,11 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
   let
     vc = service.client
     genesisRoot = vc.beaconGenesis.genesis_validators_root
-    fork = vc.fork.get()
+    slot = proof.aggregate.data.slot
+    fork = vc.forkAtEpoch(slot.epoch)
+
+  debug "Signing aggregate", validator = shortLog(validator),
+         attestation = shortLog(proof.aggregate), fork = fork
 
   let signature =
     block:
@@ -112,10 +115,9 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
   let signedProof = SignedAggregateAndProof(message: proof,
                                             signature: signature)
 
-  let slot = proof.aggregate.data.slot
   let vindex = validator.index.get()
 
-  debug "Sending aggregated attestation",
+  debug "Sending aggregated attestation", fork = fork,
         attestation = shortLog(signedProof.message.aggregate),
         validator = shortLog(validator), validator_index = vindex,
         delay = vc.getDelay(slot.aggregate_deadline())
