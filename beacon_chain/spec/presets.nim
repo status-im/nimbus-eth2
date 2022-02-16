@@ -336,7 +336,7 @@ else:
 
   #   let preset = try: readPresetFile(path)
   #                except CatchableError as err:
-  #                  error err.msg # TODO: This should be marked as noReturn
+  #                  error err.msg # TODO: This should be marked as noreturn
   #                  return
 
   #   for name, value in preset.values:

@@ -36,7 +36,7 @@ proc compute_aggregate_sync_committee_signature(
       else: mockBlockForNextSlot(forked).altairData.message.parent_root
 
   var
-    aggregateSig {.noInit.}: AggregateSignature
+    aggregateSig {.noinit.}: AggregateSignature
     initialized = false
   for validator_index in participants:
     let

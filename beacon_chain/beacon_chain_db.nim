@@ -576,7 +576,7 @@ proc close*(db: BeaconChainDBV0) =
   discard db.stateStore.close()
   discard db.backend.close()
 
-proc close*(db: BeaconchainDB) =
+proc close*(db: BeaconChainDB) =
   if db.db == nil: return
 
   # Close things in reverse order
@@ -1033,7 +1033,7 @@ proc loadSummaries*(db: BeaconChainDB): Table[Eth2Digest, BeaconBlockSummary] =
   discard db.summaries.find([], proc(k, v: openArray[byte]) =
     var output: BeaconBlockSummary
 
-    if k.len() == sizeof(Eth2Digest) and decodeSSz(v, output):
+    if k.len() == sizeof(Eth2Digest) and decodeSSZ(v, output):
       summaries[Eth2Digest(data: toArray(sizeof(Eth2Digest), k))] = output
     else:
       warn "Invalid summary in database", klen = k.len(), vlen = v.len()

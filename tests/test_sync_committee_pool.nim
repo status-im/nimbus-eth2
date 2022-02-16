@@ -8,7 +8,7 @@ import
   ./testblockutil
 
 func aggregate(sigs: openarray[CookedSig]): CookedSig =
-  var agg {.noInit.}: AggregateSignature
+  var agg {.noinit.}: AggregateSignature
   agg.init sigs[0]
   for i in 1 ..< sigs.len:
     agg.aggregate sigs[i]

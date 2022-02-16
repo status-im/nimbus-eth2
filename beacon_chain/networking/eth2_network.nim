@@ -432,7 +432,7 @@ template awaitNonNegativeRequestQuota*(peer: Peer) =
 func allowedOpsPerSecondCost*(n: int): float =
   (replenishRate * 1000000000'f / n.float)
 
-proc isSeen*(network: ETh2Node, peerId: PeerID): bool =
+proc isSeen*(network: Eth2Node, peerId: PeerID): bool =
   ## Returns ``true`` if ``peerId`` present in SeenTable and time period is not
   ## yet expired.
   let currentTime = now(chronos.Moment)
@@ -448,7 +448,7 @@ proc isSeen*(network: ETh2Node, peerId: PeerID): bool =
     else:
       true
 
-proc addSeen*(network: ETh2Node, peerId: PeerID,
+proc addSeen*(network: Eth2Node, peerId: PeerID,
               period: chronos.Duration) =
   ## Adds peer with PeerID ``peerId`` to SeenTable and timeout ``period``.
   let item = SeenItem(peerId: peerId, stamp: now(chronos.Moment) + period)

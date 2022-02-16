@@ -57,7 +57,7 @@ chronicles.formatIt Eth2Digest:
 # TODO: expose an in-place digest function
 #       when hashing in loop or into a buffer
 #       See: https://github.com/cheatfate/nimcrypto/blob/b90ba3abd/nimcrypto/sha2.nim#L570
-func eth2digest*(v: openArray[byte]): Eth2Digest {.noInit.} =
+func eth2digest*(v: openArray[byte]): Eth2Digest {.noinit.} =
   ## Apply the Eth2 Hash function
   ## Do NOT use for secret data.
   when BLS_BACKEND == BLST:
@@ -85,15 +85,15 @@ template withEth2Hash*(body: untyped): Eth2Digest =
   else:
     when BLS_BACKEND == BLST:
       block:
-        var h  {.inject, noInit.}: Eth2DigestCtx
+        var h  {.inject, noinit.}: Eth2DigestCtx
         init(h)
         body
-        var res {.noInit.}: Eth2Digest
+        var res {.noinit.}: Eth2Digest
         finalize(res.data, h)
         res
     else:
       block:
-        var h  {.inject, noInit.}: Eth2DigestCtx
+        var h  {.inject, noinit.}: Eth2DigestCtx
         init(h)
         body
         finish(h)
