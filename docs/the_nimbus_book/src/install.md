@@ -21,13 +21,15 @@ dnf install chrony
 yourAURmanager chrony
 ```
 
+Chrony will uninstall any existing NTP servers.
+
 It's available on most package managers.
 
 Once installed, the default configuration is enough.
 
 At a minimum, you should run an NTP client (such as chrony) on the server.
 
-> **Note:** Most operating systems (including macOS) automatically sync with NTP by default, however it's still recommended to run chrony.
+> **Note:** If you're on MacOS, it's better to just use the built-in ntp server
 
 ## External Dependencies
 
