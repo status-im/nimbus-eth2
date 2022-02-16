@@ -940,7 +940,7 @@ func walletsDir*(config: BeaconNodeConf): string =
     config.dataDir / "wallets"
 
 func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
-  proc fail {.noReturn.} =
+  proc fail {.noreturn.} =
     raiseAssert "outWalletName should be used only in the right context"
 
   case config.cmd
@@ -957,7 +957,7 @@ func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
     fail()
 
 func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
-  proc fail {.noReturn.} =
+  proc fail {.noreturn.} =
     raiseAssert "outWalletName should be used only in the right context"
 
   case config.cmd

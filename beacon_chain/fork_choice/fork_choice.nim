@@ -417,7 +417,7 @@ func find_head*(
   self.balances = justified_state_balances
 
   # Find the best block
-  var new_head{.noInit.}: Eth2Digest
+  var new_head{.noinit.}: Eth2Digest
   ? self.proto_array.findHead(new_head, justifiedCheckpoint.root)
 
   {.noSideEffect.}:

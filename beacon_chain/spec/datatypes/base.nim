@@ -739,7 +739,7 @@ func shortLog*(v: SomeSignedBeaconBlockHeader): auto =
 func shortLog*(v: DepositData): auto =
   (
     pubkey: shortLog(v.pubkey),
-    withdrawal_credentials: shortlog(v.withdrawal_credentials),
+    withdrawal_credentials: shortLog(v.withdrawal_credentials),
     amount: v.amount,
     signature: shortLog(v.signature)
   )

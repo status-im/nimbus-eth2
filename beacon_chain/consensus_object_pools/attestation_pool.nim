@@ -151,7 +151,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
       dag.headState.data, current_justified_checkpoint).epoch,
     finalized_epoch = getStateField(
       dag.headState.data, finalized_checkpoint).epoch,
-    finalized_root = shortlog(dag.finalizedHead.blck.root)
+    finalized_root = shortLog(dag.finalizedHead.blck.root)
 
   T(
     dag: dag,

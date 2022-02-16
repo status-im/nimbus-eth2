@@ -451,21 +451,21 @@ func shortLog*(x: TrustedSig): string =
 # TODO more specific exceptions? don't raise?
 
 # For confutils
-func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noInit, raises: [ValueError, Defect].} =
+func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noinit, raises: [ValueError, Defect].} =
   let v = T.fromHex(hex)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   v[]
 
 # For mainchain monitor
-func init*(T: typedesc[ValidatorPubKey], data: array[RawPubKeySize, byte]): T {.noInit, raises: [ValueError, Defect].} =
+func init*(T: typedesc[ValidatorPubKey], data: array[RawPubKeySize, byte]): T {.noinit, raises: [ValueError, Defect].} =
   let v = T.fromRaw(data)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   v[]
 
 # For mainchain monitor
-func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noInit, raises: [ValueError, Defect].} =
+func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noinit, raises: [ValueError, Defect].} =
   let v = T.fromRaw(data)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)

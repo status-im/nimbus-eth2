@@ -1674,7 +1674,7 @@ proc aggregateAll*(
   if not firstKey.isSome():
     return err("aggregate: invalid validator index")
 
-  var aggregateKey{.noInit.}: AggregatePublicKey
+  var aggregateKey{.noinit.}: AggregatePublicKey
 
   aggregateKey.init(firstKey.get())
 
@@ -1694,7 +1694,7 @@ proc aggregateAll*(
     return err("aggregateAll: mismatch in bits length")
 
   var
-    aggregateKey{.noInit.}: AggregatePublicKey
+    aggregateKey{.noinit.}: AggregatePublicKey
     inited = false
 
   for i in 0..<bits.len():

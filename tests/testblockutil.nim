@@ -188,7 +188,7 @@ func makeAttestationSig*(
     fork, genesis_validators_root, data)
 
   var
-    agg {.noInit.}: AggregateSignature
+    agg {.noinit.}: AggregateSignature
     first = true
 
   for i in 0..<bits.len():

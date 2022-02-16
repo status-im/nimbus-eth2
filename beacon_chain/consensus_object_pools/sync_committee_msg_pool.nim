@@ -134,7 +134,7 @@ func computeAggregateSig(votes: seq[TrustedSyncCommitteeMsg],
                          subcommitteeIdx: SyncSubcommitteeIndex,
                          contribution: var SyncCommitteeContribution): bool =
   var
-    aggregateSig {.noInit.}: AggregateSignature
+    aggregateSig {.noinit.}: AggregateSignature
     initialized = false
 
   for vote in votes:
@@ -239,7 +239,7 @@ proc addContribution*(pool: var SyncCommitteeMsgPool,
 proc produceSyncAggregateAux(
     bestContributions: BestSyncSubcommitteeContributions): SyncAggregate =
   var
-    aggregateSig {.noInit.}: AggregateSignature
+    aggregateSig {.noinit.}: AggregateSignature
     initialized = false
     startTime = Moment.now
 
