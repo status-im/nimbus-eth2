@@ -2,81 +2,48 @@ name: CI
 on:
   push:
     paths-ignore: ['media/**', 'docs/**', '**/*.md']
+    branches:
+      - stable
+      - testing
+      - unstable
   pull_request:
     paths-ignore: ['media/**', 'docs/**', '**/*.md']
+  workflow_dispatch:
 
 jobs:
   build:
     strategy:
       fail-fast: false
-      max-parallel: 20
       matrix:
         target:
-          # Unit tests
           - os: linux
             cpu: amd64
-            TEST_KIND: unit-tests
           - os: linux
             cpu: i386
-            TEST_KIND: unit-tests
           - os: macos
             cpu: amd64
-            TEST_KIND: unit-tests
           - os: windows
             cpu: amd64
-            TEST_KIND: unit-tests
-          # Devel cache corrupted for mingw? missing propidl.h on PR but not push CI
-          # - os: windows
-          #   cpu: i386
-          #   TEST_KIND: unit-tests
-
-          # # Minimal integration tests
-          # - os: linux
-          #   cpu: amd64
-          #   TEST_KIND: finalization-minimal
-          # - os: linux
-          #   cpu: i386
-          #   TEST_KIND: finalization-minimal
-          # # Requires GNU getopt
-          # - os: macos
-          #   cpu: amd64
-          #   TEST_KIND: finalization-minimal
-          # - os: windows
-          #   cpu: amd64
-          #   TEST_KIND: finalization-minimal
-          # # TODO - Bootstrap issue: https://github.com/status-im/nimbus-eth2/issues/1725
-          # # - os: windows
-          # #   cpu: i386
-          # #   TEST_KIND: finalization-minimal
-
-          # Mainnet integration tests
-          # - os: linux
-          #   cpu: amd64
-          #   TEST_KIND: finalization-mainnet
-          # # - os: linux
-          # #   cpu: i386
-          # #   TEST_KIND: finalization-mainnet
-          # # - os: macos
-          # #   cpu: amd64
-          # #   TEST_KIND: finalization-mainnet
-          # - os: windows
-          #   cpu: amd64
-          #   TEST_KIND: finalization-mainnet
-          # # TODO - Bootstrap issue: https://github.com/status-im/nimbus-eth2/issues/1725
-          # # - os: windows
-          # #   cpu: i386
-          # #   TEST_KIND: finalization-mainnet
+        branch: [version-1-2, version-1-6]
         include:
           - target:
               os: linux
             builder: ubuntu-18.04
+            shell: bash
           - target:
               os: macos
             builder: macos-10.15
+            shell: bash
           - target:
               os: windows
             builder: windows-2019
-    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (${{ matrix.target.TEST_KIND }})'
+            shell: msys2 {0}
+
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+
+    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (Nim ${{ matrix.branch }})'
     runs-on: ${{ matrix.builder }}
     steps:
       - name: Get branch name
@@ -91,65 +58,17 @@ jobs:
           fi
         id: get_branch
 
-      - name: Cancel Previous Runs (except master/devel)
+      - name: Cancel Previous Runs (except main branches)
         if: >
-          steps.get_branch.outputs.branch_name != 'master' &&
-          steps.get_branch.outputs.branch_name != 'devel' &&
           steps.get_branch.outputs.branch_name != 'stable' &&
           steps.get_branch.outputs.branch_name != 'unstable' &&
           steps.get_branch.outputs.branch_name != 'testing'
-        uses: styfle/cancel-workflow-action@0.5.0
+        uses: styfle/cancel-workflow-action@0.9.1
         with:
           access_token: ${{ github.token }}
 
-      - name: Support longpaths (Windows)
-        if: runner.os == 'Windows'
-        run: git config --system core.longpaths true
-
-      - name: Checkout nimbus-eth2
+      - name: Checkout
         uses: actions/checkout@v2
-        with:
-          path: nimbus-eth2
-
-      - name: Derive environment variables
-        shell: bash
-        run: |
-          if [[ '${{ matrix.target.cpu }}' == 'amd64' ]]; then
-            ARCH=64
-            PLATFORM=x64
-          else
-            ARCH=32
-            PLATFORM=x86
-          fi
-          echo "ARCH=$ARCH" >> $GITHUB_ENV
-          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
-
-          # Stack usage test on recent enough gcc:
-          if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'amd64' ]]; then
-            export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
-            echo "NIMFLAGS=$NIMFLAGS" >> $GITHUB_ENV
-          fi
-
-          # libminiupnp / natpmp
-          if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'i386' ]]; then
-            export CFLAGS="${CFLAGS} -m32 -mno-adx"
-            echo "CFLAGS=$CFLAGS" >> $GITHUB_ENV
-          fi
-
-          ncpu=
-          case '${{ runner.os }}' in
-          'Linux')
-            ncpu=$(nproc)
-            ;;
-          'macOS')
-            ncpu=$(sysctl -n hw.ncpu)
-            ;;
-          'Windows')
-            ncpu=$NUMBER_OF_PROCESSORS
-            ;;
-          esac
-          [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
-          echo "ncpu=$ncpu" >> $GITHUB_ENV
 
       - name: Install build dependencies (Linux i386)
         if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
@@ -170,154 +89,142 @@ jobs:
           chmod 755 external/bin/gcc external/bin/g++
           echo "${{ github.workspace }}/external/bin" >> $GITHUB_PATH
 
-      - name: Restore MinGW-W64 (Windows) from cache
-        if: runner.os == 'Windows'
-        id: windows-mingw-cache
-        uses: actions/cache@v2
+      - name: MSYS2 (Windows i386)
+        if: runner.os == 'Windows' && matrix.target.cpu == 'i386'
+        uses: msys2/setup-msys2@v2
         with:
-          path: external/mingw-${{ matrix.target.cpu }}
-          key: 'mingw-${{ matrix.target.cpu }}-cachekey_v2'
+          path-type: inherit
+          msystem: MINGW32
+          install: >-
+            base-devel
+            git
+            mingw-w64-i686-toolchain
+
+      - name: MSYS2 (Windows amd64)
+        if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
+        uses: msys2/setup-msys2@v2
+        with:
+          path-type: inherit
+          install: >-
+            base-devel
+            git
+            mingw-w64-x86_64-toolchain
 
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-dlls-cache
         uses: actions/cache@v2
         with:
-          path: external/dlls-${{ matrix.target.cpu }}
+          path: external/dlls
           key: 'dlls-${{ matrix.target.cpu }}'
-
-      - name: Install MinGW64 dependency (Windows)
-        if: >
-          steps.windows-mingw-cache.outputs.cache-hit != 'true' &&
-          runner.os == 'Windows'
-        shell: bash
-        run: |
-          mkdir -p external
-          curl -L "https://nim-lang.org/download/mingw$ARCH.7z" -o "external/mingw-${{ matrix.target.cpu }}.7z"
-          7z x -y "external/mingw-${{ matrix.target.cpu }}.7z" -oexternal/
-          mv external/mingw$ARCH external/mingw-${{ matrix.target.cpu }}
 
       - name: Install DLLs dependencies (Windows)
         if: >
           steps.windows-dlls-cache.outputs.cache-hit != 'true' &&
           runner.os == 'Windows'
-        shell: bash
         run: |
           mkdir -p external
           curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
-          7z x -y external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
+          7z x -y external/windeps.zip -oexternal/dlls
 
       - name: Path to cached dependencies (Windows)
         if: >
           runner.os == 'Windows'
-        shell: bash
         run: |
-          echo "${{ github.workspace }}/external/mingw-${{ matrix.target.cpu }}/bin" >> $GITHUB_PATH
-          echo "${{ github.workspace }}/external/dlls-${{ matrix.target.cpu }}" >> $GITHUB_PATH
+          echo "${{ github.workspace }}/external/dlls" >> $GITHUB_PATH
+          # for miniupnp that runs "wingenminiupnpcstrings.exe" from the current dir
+          echo "." >> $GITHUB_PATH
 
-      - name: Install build dependencies (MacOS)
+      - name: Install build dependencies (macOS)
         if: runner.os == 'macOS'
-        shell: bash
         run: |
           brew install gnu-getopt
           brew link --force gnu-getopt
 
-      - name: Get latest nimbus-build-system commit hash
-        id: versions
-        shell: bash
+      - name: Derive environment variables
         run: |
-          getHash() {
-            git ls-remote "https://github.com/$1" "${2:-HEAD}" | cut -f 1
-          }
-          nbsHash=$(getHash status-im/nimbus-build-system)
-          echo "::set-output name=nimbus_build_system::$nbsHash"
+          if [[ '${{ matrix.target.cpu }}' == 'amd64' ]]; then
+            PLATFORM=x64
+          else
+            PLATFORM=x86
+          fi
+          echo "PLATFORM=${PLATFORM}" >> $GITHUB_ENV
 
-      - name: Restore prebuilt Nim binaries from cache
-        id: nim-cache
-        uses: actions/cache@v2
-        with:
-          path: nimbus-eth2/NimBinaries
-          key: 'nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
+          # Stack usage test on recent enough gcc:
+          if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'amd64' ]]; then
+            export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
+            echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
+          fi
+
+          # libminiupnp / natpmp
+          if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'i386' ]]; then
+            export CFLAGS="${CFLAGS} -m32 -mno-adx"
+            echo "CFLAGS=${CFLAGS}" >> $GITHUB_ENV
+          fi
+
+          ncpu=""
+          case '${{ runner.os }}' in
+          'Linux')
+            ncpu=$(nproc)
+            ;;
+          'macOS')
+            ncpu=$(sysctl -n hw.ncpu)
+            ;;
+          'Windows')
+            ncpu=${NUMBER_OF_PROCESSORS}
+            ;;
+          esac
+          [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
+          echo "ncpu=${ncpu}" >> $GITHUB_ENV
 
       - name: Build Nim and Nimbus dependencies
-        shell: bash
-        working-directory: nimbus-eth2
         run: |
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            ulimit -n 1024
-          fi
-          make -j$ncpu ARCH_OVERRIDE=$PLATFORM CI_CACHE=NimBinaries QUICK_AND_DIRTY_COMPILER=1 update
+          make -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
+          ./env.sh nim --version
 
       - name: Get latest fixtures commit hash
-        if: matrix.target.TEST_KIND == 'unit-tests'
         id: fixtures_version
-        shell: bash
         run: |
           getHash() {
             git ls-remote "https://github.com/$1" "${2:-HEAD}" | cut -f 1
           }
           fixturesHash=$(getHash status-im/nim-eth2-scenarios)
-          echo "::set-output name=fixtures::$fixturesHash"
+          echo "::set-output name=fixtures::${fixturesHash}"
 
       - name: Restore Ethereum Foundation fixtures from cache
-        if: matrix.target.TEST_KIND == 'unit-tests'
         id: fixtures-cache
         uses: actions/cache@v2
         with:
-          path: nimbus-eth2/fixturesCache
+          path: fixturesCache
           key: 'eth2-scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
 
       # Important: even with a cache hit, this should be run
       # as it symlinks the cached items in their proper place
       - name: Get the Ethereum Foundation fixtures
-        if: matrix.target.TEST_KIND == 'unit-tests'
-        shell: bash
-        working-directory: nimbus-eth2
         run: |
           scripts/setup_scenarios.sh fixturesCache
 
       - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
-        if: matrix.target.TEST_KIND == 'unit-tests'
-        shell: bash
-        working-directory: nimbus-eth2
         run: |
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            ulimit -n 1024
-          fi
-          make -j$ncpu ARCH_OVERRIDE=$PLATFORM LOG_LEVEL=TRACE nimbus_beacon_node nimbus_validator_client
+          make -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE nimbus_beacon_node nimbus_validator_client
 
-      - name: Run nimbus-eth2 tests
-        if: matrix.target.TEST_KIND == 'unit-tests'
-        shell: bash
-        working-directory: nimbus-eth2
+      - name: Build all tools
         run: |
-          if [[ "${{ runner.os }}" == "macOS" ]]; then
-            ulimit -n 1024
-          fi
-          make -j$ncpu ARCH_OVERRIDE=$PLATFORM DISABLE_TEST_FIXTURES_SCRIPT=1 test
+          make -j ${ncpu} NIM_COMMIT=${{ matrix.branch }}
+          # The Windows image runs out of disk space, so make some room
+          rm -rf nimcache
+
+      - name: Run tests
+        run: |
+          make -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test
 
       # The upload creates a combined report that gets posted as a comment on the PR
       # https://github.com/EnricoMi/publish-unit-test-result-action
       - name: Upload combined results
-        if: matrix.target.TEST_KIND == 'unit-tests'
         uses: actions/upload-artifact@v2
         with:
           name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
-          path: nimbus-eth2/build/*.xml
-
-      - name: Run nimbus-eth2 testnet0 (minimal)
-        if: matrix.target.TEST_KIND == 'finalization-minimal'
-        shell: bash
-        working-directory: nimbus-eth2
-        run: |
-          ./scripts/launch_local_testnet.sh --preset minimal --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port 9000 --base-rpc-port 7000  --base-metrics-port 8008 --timeout 600 -- --verify-finalization --discv5:no
-
-      - name: Run nimbus-eth2 testnet1 (mainnet)
-        if: matrix.target.TEST_KIND == 'finalization-mainnet'
-        shell: bash
-        working-directory: nimbus-eth2
-        run: |
-          ./scripts/launch_local_testnet.sh --nodes 4 --stop-at-epoch 5 --log-level DEBUG --disable-htop --enable-logtrace --data-dir local_testnet0_data --base-port 9000 --base-rpc-port 7000 --base-metrics-port 8008 --timeout 2400 -- --verify-finalization --discv5:no
+          path: build/*.xml
 
   # https://github.com/EnricoMi/publish-unit-test-result-action
   event_file:
