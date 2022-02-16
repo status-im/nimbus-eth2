@@ -482,15 +482,17 @@ func get_subtree_index*(idx: GeneralizedIndex): uint64 =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(state: bellatrix.BeaconState): bool =
-  state.latest_execution_payload_header != default(ExecutionPayloadHeader)
+  const defaultExecutionPayloadHeader = default(ExecutionPayloadHeader)
+  state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/bellatrix/beacon-chain.md#is_merge_transition_block
 func is_merge_transition_block(
     state: bellatrix.BeaconState,
     body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
           bellatrix.SigVerifiedBeaconBlockBody): bool =
+  const defaultBellatrixExecutionPayload = default(bellatrix.ExecutionPayload)
   not is_merge_transition_complete(state) and
-    body.execution_payload != default(bellatrix.ExecutionPayload)
+    body.execution_payload != defaultBellatrixExecutionPayload
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
