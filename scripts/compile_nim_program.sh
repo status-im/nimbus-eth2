@@ -29,5 +29,6 @@ build/generate_makefile "nimcache/release/${BINARY}/${PROJECT_NAME}.json" "nimca
 
 if uname | grep -qi darwin || [[ -n "${FORCE_DSYMUTIL}" ]]; then
   [[ -z "${DSYMUTIL}" ]] && DSYMUTIL="dsymutil"
-  "${DSYMUTIL}" build/${BINARY}
+  # Scary warnings in large volume: https://github.com/status-im/nimbus-eth2/issues/3076
+  "${DSYMUTIL}" build/${BINARY} 2>&1 | grep -v "failed to insert symbol" | grep -v "could not find object file symbol for symbol"
 fi
