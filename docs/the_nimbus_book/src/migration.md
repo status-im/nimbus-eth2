@@ -159,7 +159,7 @@ To import you validator key(s), follow the instructions [outlined here](./keys.m
 
 ## Step 4 - Import your slashing protection history
 
-To import the slashing protection history you exported in **step 3**, from the `nimbus-eth2` directory run:
+To import the slashing protection history you exported in **step 2**, from the `nimbus-eth2` directory run:
 
 ```
 build/nimbus_beacon_node slashingdb import path/to/export_dir/slashing-protection.json
