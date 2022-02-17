@@ -205,7 +205,7 @@ proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
 
   pool.startingSlot = newStartingSlot
 
-proc oneIndex(bits: CommitteeValidatorsBits): Option[int] =
+func oneIndex(bits: CommitteeValidatorsBits): Option[int] =
   # Find the index of the set bit, iff one bit is set
   var res = none(int)
   for idx in 0..<bits.len():
@@ -482,7 +482,7 @@ func init(
   update_attestation_pool_cache(
     cur_epoch, state.data.current_epoch_participation)
 
-proc score(
+func score(
     attCache: var AttestationCache, data: AttestationData,
     aggregation_bits: CommitteeValidatorsBits): int =
   # The score of an attestation is loosely based on how many new votes it brings
@@ -681,7 +681,7 @@ func getAggregatedAttestation*(pool: var AttestationPool,
 
   none(Attestation)
 
-proc getAggregatedAttestation*(pool: var AttestationPool,
+func getAggregatedAttestation*(pool: var AttestationPool,
                                slot: Slot,
                                index: CommitteeIndex): Option[Attestation] =
   ## Select the attestation that has the most votes going for it in the given

@@ -985,7 +985,8 @@ func process_participation_flag_updates*(state: var (altair.BeaconState | bellat
   state.current_epoch_participation.resetCache()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/beacon-chain.md#sync-committee-updates
-proc process_sync_committee_updates*(state: var (altair.BeaconState | bellatrix.BeaconState)) =
+func process_sync_committee_updates*(
+    state: var (altair.BeaconState | bellatrix.BeaconState)) =
   let next_epoch = get_current_epoch(state) + 1
   if next_epoch.is_sync_committee_period():
     state.current_sync_committee = state.next_sync_committee

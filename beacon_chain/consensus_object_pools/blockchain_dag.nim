@@ -843,7 +843,7 @@ func stateCheckpoint*(bs: BlockSlot): BlockSlot =
 template forkAtEpoch*(dag: ChainDAGRef, epoch: Epoch): Fork =
   forkAtEpoch(dag.cfg, epoch)
 
-proc forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
+func forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
   case dag.cfg.stateForkAtEpoch(epoch)
   of BeaconStateFork.Bellatrix: dag.forkDigests.bellatrix
   of BeaconStateFork.Altair:    dag.forkDigests.altair

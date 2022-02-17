@@ -106,7 +106,7 @@ func toPubKey*(pubKey: CookedPubKey): ValidatorPubKey =
   # Un-specced in either hash-to-curve or Eth2
   ValidatorPubKey(blob: pubKey.toRaw())
 
-proc load*(v: ValidatorPubKey): Option[CookedPubKey] =
+func load*(v: ValidatorPubKey): Option[CookedPubKey] =
   ## Parse signature blob - this may fail
   var val: blscurve.PublicKey
   if fromBytes(val, v.blob):
@@ -114,7 +114,7 @@ proc load*(v: ValidatorPubKey): Option[CookedPubKey] =
   else:
     none CookedPubKey
 
-proc load*(v: UncompressedPubKey): Option[CookedPubKey] =
+func load*(v: UncompressedPubKey): Option[CookedPubKey] =
   ## Parse signature blob - this may fail
   var val: blscurve.PublicKey
   if fromBytes(val, v.blob):
@@ -150,7 +150,7 @@ proc loadWithCache*(v: ValidatorPubKey): Option[CookedPubKey] =
       cache[v.blob] = cooked.get()
     return cooked
 
-proc load*(v: ValidatorSig): Option[CookedSig] =
+func load*(v: ValidatorSig): Option[CookedSig] =
   ## Parse signature blob - this may fail
   var parsed: blscurve.Signature
   if fromBytes(parsed, v.blob):
@@ -165,7 +165,7 @@ func init*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.}=
 func init*(T: type AggregatePublicKey, pubkey: CookedPubKey): T =
   result.init(pubkey)
 
-proc aggregate*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.}=
+func aggregate*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.}=
   ## Aggregate two valid Validator Public Keys
   agg.aggregate(blscurve.PublicKey(pubkey))
 
@@ -182,7 +182,7 @@ func init*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
 func init*(T: type AggregateSignature, sig: CookedSig): T =
   result.init(sig)
 
-proc aggregate*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
+func aggregate*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
   ## Aggregate two valid Validator Signatures
   agg.aggregate(blscurve.Signature(sig))
 
@@ -193,7 +193,7 @@ func finish*(agg: AggregateSignature): CookedSig {.inline.} =
   CookedSig(sig)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#bls-signatures
-proc blsVerify*(
+func blsVerify*(
     pubkey: CookedPubKey, message: openArray[byte],
     signature: CookedSig): bool =
   ## Check that a signature is valid for a message
@@ -230,7 +230,7 @@ proc blsVerify*(
   # Guard against invalid signature blobs that fail to parse
   parsedSig.isSome() and blsVerify(pubkey, message, parsedSig.get())
 
-proc blsVerify*(sigSet: SignatureSet): bool =
+func blsVerify*(sigSet: SignatureSet): bool =
   ## Unbatched verification
   ## of 1 SignatureSet
   ## tuple[pubkey: blscurve.PublicKey, message: array[32, byte], blscurve.signature: Signature]
@@ -244,7 +244,7 @@ func blsSign*(privkey: ValidatorPrivKey, message: openArray[byte]): CookedSig =
   ## Computes a signature from a secret key and a message
   CookedSig(SecretKey(privkey).sign(message))
 
-proc blsFastAggregateVerify*(
+func blsFastAggregateVerify*(
        publicKeys: openArray[CookedPubKey],
        message: openArray[byte],
        signature: CookedSig
@@ -284,7 +284,7 @@ proc blsFastAggregateVerify*(
 
   fastAggregateVerify(unwrapped, message, blscurve.Signature(signature))
 
-proc blsFastAggregateVerify*(
+func blsFastAggregateVerify*(
        publicKeys: openArray[CookedPubKey],
        message: openArray[byte],
        signature: ValidatorSig
@@ -474,5 +474,5 @@ func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noinit
 func infinity*(T: type ValidatorSig): T =
   result.blob[0] = byte 0xC0
 
-proc burnMem*(key: var ValidatorPrivKey) =
+func burnMem*(key: var ValidatorPrivKey) =
   burnMem(addr key, sizeof(ValidatorPrivKey))

@@ -47,7 +47,7 @@ func compute_deltas(
 logScope:
   topics = "fork_choice"
 
-proc init*(T: type ForkChoiceBackend,
+func init*(T: type ForkChoiceBackend,
            justifiedCheckpoint: Checkpoint,
            finalizedCheckpoint: Checkpoint,
            useProposerBoosting: bool): T =

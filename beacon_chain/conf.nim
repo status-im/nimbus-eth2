@@ -894,7 +894,7 @@ func parseCmdArg*(T: type Checkpoint, input: TaintedString): T
 func completeCmdArg*(T: type Checkpoint, input: TaintedString): seq[string] =
   return @[]
 
-proc isPrintable(rune: Rune): bool =
+func isPrintable(rune: Rune): bool =
   # This can be eventually replaced by the `unicodeplus` package, but a single
   # proc does not justify the extra dependencies at the moment:
   # https://github.com/nitely/nim-unicodeplus
@@ -924,7 +924,7 @@ proc parseCmdArg*(T: type enr.Record, p: TaintedString): T
   if not fromURI(result, p):
     raise newException(ConfigurationError, "Invalid ENR")
 
-proc completeCmdArg*(T: type enr.Record, val: TaintedString): seq[string] =
+func completeCmdArg*(T: type enr.Record, val: TaintedString): seq[string] =
   return @[]
 
 func validatorsDir*(config: AnyConf): string =

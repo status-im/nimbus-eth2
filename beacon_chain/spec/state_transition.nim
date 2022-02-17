@@ -69,7 +69,7 @@ proc verify_block_signature(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
-proc verifyStateRoot(
+func verifyStateRoot(
     state: ForkyBeaconState, blck: ForkyBeaconBlock | ForkySigVerifiedBeaconBlock):
     Result[void, cstring] =
   # This is inlined in state_transition(...) in spec.
@@ -151,7 +151,7 @@ func noRollback*(state: var altair.HashedBeaconState) =
 func noRollback*(state: var bellatrix.HashedBeaconState) =
   trace "Skipping rollback of broken Bellatrix state"
 
-proc maybeUpgradeStateToAltair(
+func maybeUpgradeStateToAltair(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
@@ -175,7 +175,7 @@ func maybeUpgradeStateToBellatrix(
       bellatrixData: bellatrix.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
-proc maybeUpgradeState*(
+func maybeUpgradeState*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   cfg.maybeUpgradeStateToAltair(state)
   cfg.maybeUpgradeStateToBellatrix(state)

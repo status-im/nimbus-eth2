@@ -613,7 +613,7 @@ proc readValue*(
   except ValueError:
     raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
 
-proc `$`*(x: JustificationBits): string =
+func `$`*(x: JustificationBits): string =
   "0x" & toHex(uint8(x))
 
 proc readValue*(reader: var JsonReader, value: var JustificationBits)
@@ -856,7 +856,7 @@ proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
   except ValueError as err:
     r.raiseUnexpectedValue err.msg
 
-proc load*(
+func load*(
     validators: openArray[ImmutableValidatorData2],
     index: ValidatorIndex | uint64): Option[CookedPubKey] =
   if validators.lenu64() <= index.uint64:
@@ -896,7 +896,7 @@ template isomorphicCast*[T, U](x: U): T =
     doAssert getSizeofSig(T()) == getSizeofSig(U())
   cast[ptr T](unsafeAddr x)[]
 
-proc clear*(cache: var StateCache) =
+func clear*(cache: var StateCache) =
   cache.shuffled_active_validator_indices.clear
   cache.beacon_proposer_indices.clear
   cache.sync_committees.clear

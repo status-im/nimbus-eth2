@@ -429,19 +429,19 @@ func bellatrixFork*(cfg: RuntimeConfig): Fork =
     current_version: cfg.BELLATRIX_FORK_VERSION,
     epoch: cfg.BELLATRIX_FORK_EPOCH)
 
-proc forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
+func forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
   case cfg.stateForkAtEpoch(epoch)
   of BeaconStateFork.Bellatrix: cfg.bellatrixFork
   of BeaconStateFork.Altair:    cfg.altairFork
   of BeaconStateFork.Phase0:    cfg.genesisFork
 
-proc forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
+func forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
   case cfg.stateForkAtEpoch(epoch)
   of BeaconStateFork.Bellatrix: cfg.BELLATRIX_FORK_VERSION
   of BeaconStateFork.Altair:    cfg.ALTAIR_FORK_VERSION
   of BeaconStateFork.Phase0:    cfg.GENESIS_FORK_VERSION
 
-proc nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
+func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   case cfg.stateForkAtEpoch(epoch)
   of BeaconStateFork.Bellatrix: FAR_FUTURE_EPOCH
   of BeaconStateFork.Altair:    cfg.BELLATRIX_FORK_EPOCH

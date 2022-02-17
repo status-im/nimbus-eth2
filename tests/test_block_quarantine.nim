@@ -14,7 +14,7 @@ import
   ../beacon_chain/spec/datatypes/phase0,
   ../beacon_chain/consensus_object_pools/block_quarantine
 
-proc makeBlock(slot: Slot, parent: Eth2Digest): ForkedSignedBeaconBlock =
+func makeBlock(slot: Slot, parent: Eth2Digest): ForkedSignedBeaconBlock =
   var
     b = phase0.SignedBeaconBlock(
       message: phase0.BeaconBlock(slot: slot, parent_root: parent))
