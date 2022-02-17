@@ -255,7 +255,7 @@ proc process_attester_slashing*(
 
   ok()
 
-proc findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey): int =
+func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey): int =
   # This linear scan is unfortunate, but should be fairly fast as we do a simple
   # byte comparison of the key. The alternative would be to build a Table, but
   # given that each block can hold no more than 16 deposits, it's slower to
@@ -558,13 +558,13 @@ proc process_block*(
 
   ok()
 
-proc process_block*(
+func process_block*(
     cfg: RuntimeConfig,
     state: var altair.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   err("process_block: Altair state with Phase 0 block")
 
-proc process_block*(
+func process_block*(
     cfg: RuntimeConfig,
     state: var bellatrix.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
@@ -630,25 +630,25 @@ proc process_block*(
 
   ok()
 
-proc process_block*(
+func process_block*(
     cfg: RuntimeConfig,
     state: var phase0.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring]=
   err("process_block: Phase 0 state with Altair block")
 
-proc process_block*(
+func process_block*(
     cfg: RuntimeConfig,
     state: var phase0.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring]=
   err("process_block: Phase 0 state with Merge block")
 
-proc process_block*(
+func process_block*(
     cfg: RuntimeConfig,
     state: var altair.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring]=
   err("process_block: Altair state with Merge block")
 
-proc process_block*(
+func process_block*(
     cfg: RuntimeConfig,
     state: var bellatrix.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring]=

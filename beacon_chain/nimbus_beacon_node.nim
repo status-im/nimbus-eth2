@@ -1053,7 +1053,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # above, this will be done just before the next slot starts
   await node.updateGossipStatus(slot + 1)
 
-proc syncStatus(node: BeaconNode): string =
+func syncStatus(node: BeaconNode): string =
   if node.syncManager.inProgress: node.syncManager.syncStatus
   elif node.backfiller.inProgress: "backfill: " & node.backfiller.syncStatus
   else: "synced"

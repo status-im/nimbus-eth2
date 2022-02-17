@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   std/[tables, sequtils],
   bearssl,
@@ -199,10 +206,10 @@ func getNextProposalSlot*(tracker: ActionTracker, slot: Slot): Slot =
     tracker.proposingSlots,
     tracker.lastCalculatedEpoch, slot)
 
-proc dependentRoot(epoch: Epoch, head, tail: BlockRef): Eth2Digest =
+func dependentRoot(epoch: Epoch, head, tail: BlockRef): Eth2Digest =
   head.prevDependentBlock(tail, epoch).root
 
-proc needsUpdate*(
+func needsUpdate*(
     tracker: ActionTracker, epoch: Epoch, head, tail: BlockRef): bool =
   # Using prevDependentBlock here means we lock the action tracking to
   # the dependent root for attestation duties and not block proposal -
@@ -210,7 +217,7 @@ proc needsUpdate*(
   # and the action tracker is speculative in nature.
   tracker.dependentRoot != dependentRoot(epoch, head, tail)
 
-proc updateActions*(
+func updateActions*(
     tracker: var ActionTracker, epochRef: EpochRef, head, tail: BlockRef) =
   # Updates the schedule for upcoming attestation and proposal work
   let
@@ -258,7 +265,7 @@ proc updateActions*(
       tracker.attestingSlots[epoch mod 2] or
         (1'u32 shl (slot mod SLOTS_PER_EPOCH))
 
-proc init*(
+func init*(
     T: type ActionTracker, rng: ref BrHmacDrbgContext,
     subscribeAllAttnets: bool): T =
   T(

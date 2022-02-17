@@ -55,7 +55,7 @@ type
     dag*: ChainDAGRef
     onVoluntaryExitReceived*: OnVoluntaryExitCallback
 
-proc init*(T: type ExitPool, dag: ChainDAGRef,
+func init*(T: type ExitPool, dag: ChainDAGRef,
            onVoluntaryExit: OnVoluntaryExitCallback = nil): T =
   ## Initialize an ExitPool from the dag `headState`
   T(

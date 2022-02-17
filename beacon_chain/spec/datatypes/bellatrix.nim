@@ -327,11 +327,11 @@ type
 func encodeQuantityHex*(x: auto): string =
   "0x" & x.toHex
 
-proc fromHex*(T: typedesc[BloomLogs], s: string): T {.
+func fromHex*(T: typedesc[BloomLogs], s: string): T {.
      raises: [Defect, ValueError].} =
   hexToByteArray(s, result.data)
 
-proc fromHex*(T: typedesc[ExecutionAddress], s: string): T {.
+func fromHex*(T: typedesc[ExecutionAddress], s: string): T {.
      raises: [Defect, ValueError].} =
   hexToByteArray(s, result.data)
 
