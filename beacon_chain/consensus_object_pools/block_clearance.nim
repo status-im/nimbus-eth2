@@ -11,7 +11,7 @@ import
   chronicles,
   stew/[assign2, results],
   ../spec/[forks, signatures, signatures_batch, state_transition],
-  "."/[block_dag, blockchain_dag]
+  "."/[block_dag, blockchain_dag, blockchain_dag_light_client]
 
 export results, signatures_batch, block_dag, blockchain_dag
 
@@ -83,6 +83,9 @@ proc addResolvedHeadBlock(
     stateDataDur, sigVerifyDur, stateVerifyDur,
     putBlockDur = putBlockTick - startTick,
     epochRefDur = epochRefTick - putBlockTick
+
+  # Update light client data
+  dag.processNewBlockForLightClient(state, trustedBlock, parent)
 
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children

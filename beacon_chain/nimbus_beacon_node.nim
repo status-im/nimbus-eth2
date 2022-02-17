@@ -1,3 +1,4 @@
+# beacon_chain
 # Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -215,6 +216,8 @@ proc init*(T: type BeaconNode,
       eventBus.emit("finalization", data)
   proc onSyncContribution(data: SignedContributionAndProof) =
     eventBus.emit("sync-contribution-and-proof", data)
+  proc onOptimisticLightClientUpdate(data: OptimisticLightClientUpdate) =
+    discard
 
   if config.finalizedCheckpointState.isSome:
     let checkpointStatePath = config.finalizedCheckpointState.get.string
@@ -379,11 +382,17 @@ proc init*(T: type BeaconNode,
   info "Loading block DAG from database", path = config.databaseDir
 
   let
-    chainDagFlags = if config.verifyFinalization: {verifyFinalization}
-                     else: {}
+    chainDagFlags =
+      if config.verifyFinalization: {verifyFinalization}
+      else: {}
+    onOptimisticLightClientUpdateCb =
+      if config.serveLightClientData: onOptimisticLightClientUpdate
+      else: nil
     dag = ChainDAGRef.init(
       cfg, db, validatorMonitor, chainDagFlags, onBlockAdded, onHeadChanged,
-      onChainReorg)
+      onChainReorg, onOptimisticLCUpdateCb = onOptimisticLightClientUpdateCb,
+      serveLightClientData = config.serveLightClientData,
+      importLightClientData = config.importLightClientData)
     quarantine = newClone(Quarantine.init())
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState.data, genesis_validators_root)

@@ -17,11 +17,11 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   ".."/beacon_chain_db,
   ../validators/validator_monitor,
-  ./block_dag
+  ./block_dag, block_pools_types_light_client
 
 export
   options, sets, tables, hashes, helpers, beacon_chain_db, block_dag,
-  validator_monitor
+  block_pools_types_light_client, validator_monitor
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
 # relationships and allowing various forms of lookups
@@ -178,6 +178,12 @@ type
 
     cfg*: RuntimeConfig
 
+    serveLightClientData*: bool
+      ## Whether to make local light client data available or not
+
+    importLightClientData*: ImportLightClientData
+      ## Which classes of light client data to import
+
     epochRefs*: array[32, EpochRef]
       ## Cached information about a particular epoch ending with the given
       ## block - we limit the number of held EpochRefs to put a cap on
@@ -189,6 +195,14 @@ type
       ## value with other components which don't have access to the
       ## full ChainDAG.
 
+    # -----------------------------------
+    # Data to enable light clients to stay in sync with the network
+
+    lightClientCache*: LightClientCache
+
+    # -----------------------------------
+    # Callbacks
+
     onBlockAdded*: OnBlockCallback
       ## On block added callback
     onHeadChanged*: OnHeadCallback
@@ -197,6 +211,8 @@ type
       ## On beacon chain reorganization
     onFinHappened*: OnFinalizedCallback
       ## On finalization callback
+    onOptimisticLightClientUpdate*: OnOptimisticLightClientUpdateCallback
+      ## On `OptimisticLightClientUpdate` updated callback
 
     headSyncCommittees*: SyncCommitteeCache
       ## A cache of the sync committees, as they appear in the head state -
