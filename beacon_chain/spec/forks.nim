@@ -236,6 +236,21 @@ template toFork*[T: bellatrix.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Bellatrix
 
+func toBeaconBlockHeader*(
+    blck: SomeForkyBeaconBlock): BeaconBlockHeader =
+  ## Reduce a given `BeaconBlock` to just its `BeaconBlockHeader`.
+  BeaconBlockHeader(
+    slot: blck.slot,
+    proposer_index: blck.proposer_index,
+    parent_root: blck.parent_root,
+    state_root: blck.state_root,
+    body_root: blck.body.hash_tree_root())
+
+template toBeaconBlockHeader*(
+    blck: SomeForkySignedBeaconBlock): BeaconBlockHeader =
+  ## Reduce a given `SignedBeaconBlock` to just its `BeaconBlockHeader`.
+  blck.message.toBeaconBlockHeader
+
 template init*(T: type ForkedEpochInfo, info: phase0.EpochInfo): T =
   T(kind: EpochInfoFork.Phase0, phase0Data: info)
 template init*(T: type ForkedEpochInfo, info: altair.EpochInfo): T =
