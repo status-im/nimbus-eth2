@@ -1082,16 +1082,18 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
     # from the old format, this brings down the write from minutes to seconds
     stmt.dispose()
 
-    if newSummaries.len() > 0:
-      db.withManyWrites:
-        for s in newSummaries:
-          db.putBeaconBlockSummary(s.root, s.summary)
+    if not db.db.readOnly:
+      if newSummaries.len() > 0:
+        db.withManyWrites:
+          for s in newSummaries:
+            db.putBeaconBlockSummary(s.root, s.summary)
 
-    # Clean up pre-altair summaries - by now, we will have moved them to the
-    # new table
-    db.db.exec(
-      "DELETE FROM kvstore WHERE key >= ? and key < ?",
-      ([byte ord(kHashToBlockSummary)], [byte ord(kHashToBlockSummary) + 1])).expectDb()
+      # Clean up pre-altair summaries - by now, we will have moved them to the
+      # new table
+      db.db.exec(
+        "DELETE FROM kvstore WHERE key >= ? and key < ?",
+        ([byte ord(kHashToBlockSummary)], [byte ord(kHashToBlockSummary) + 1])).expectDb()
+
   var row: stmt.Result
   for rowRes in exec(stmt, root.data, row):
     expectDb rowRes
