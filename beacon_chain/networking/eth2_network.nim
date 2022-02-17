@@ -139,6 +139,7 @@ type
     # Private fields:
     libp2pCodecName: string
     protocolMounter*: MounterProc
+    isLightClientRequest: bool
 
   ProtocolInfoObj* = object
     name*: string
@@ -158,6 +159,7 @@ type
     Success
     InvalidRequest
     ServerError
+    ResourceUnavailable
 
   PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe, raises: [Defect].}
   NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe, raises: [Defect].}
@@ -205,6 +207,8 @@ type
       discard
 
   InvalidInputsError* = object of CatchableError
+
+  ResourceUnavailableError* = object of CatchableError
 
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
@@ -313,7 +317,8 @@ when libp2p_pki_schemes != "secp256k1":
 const
   NetworkInsecureKeyPassword = "INSECUREPASSWORD"
 
-template libp2pProtocol*(name: string, version: int) {.pragma.}
+template libp2pProtocol*(name: string, version: int,
+                         isLightClientRequest = false) {.pragma.}
 
 func shortLog*(peer: Peer): string = shortLog(peer.peerId)
 chronicles.formatIt(Peer): shortLog(it)
@@ -499,6 +504,34 @@ proc getRequestProtoName(fn: NimNode): NimNode =
       except Exception as exc: raiseAssert exc.msg # TODO https://github.com/nim-lang/Nim/issues/17454
 
   return newLit("")
+
+proc isLightClientRequestProto(fn: NimNode): NimNode =
+  # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
+  # (TODO: file as an issue)
+
+  let pragmas = fn.pragma
+  if pragmas.kind == nnkPragma and pragmas.len > 0:
+    for pragma in pragmas:
+      try:
+        if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
+          if pragma.len <= 3:
+            return newLit(false)
+          let param = pragma[3]
+          case param.kind
+          of nnkExprEqExpr:
+            if $param[0] != "isLightClientRequest":
+              raiseAssert "Unexpected param: " & $param
+            if $param[1] == "true":
+              return newLit(true)
+            if $param[1] == "false":
+              return newLit(false)
+            raiseAssert "Unexpected value: " & $param
+          of nnkIdent:
+            return newLit(param.boolVal)
+          else: raiseAssert "Unexpected kind: " & param.kind.repr
+      except Exception as exc: raiseAssert exc.msg # TODO https://github.com/nim-lang/Nim/issues/17454
+
+  return newLit(false)
 
 proc writeChunk*(conn: Connection,
                  responseCode: Option[ResponseCode],
@@ -720,6 +753,13 @@ proc handleIncomingStream(network: Eth2Node,
     template returnInvalidRequest(msg: string) =
       returnInvalidRequest(ErrorMsg msg.toBytes)
 
+    template returnResourceUnavailable(msg: ErrorMsg) =
+      await sendErrorResponse(peer, conn, ResourceUnavailable, msg)
+      return
+
+    template returnResourceUnavailable(msg: string) =
+      returnResourceUnavailable(ErrorMsg msg.toBytes)
+
     let s = when useNativeSnappy:
       let fs = libp2pInput(conn)
 
@@ -784,8 +824,8 @@ proc handleIncomingStream(network: Eth2Node,
       await callUserHandler(MsgType, peer, conn, msg.get)
     except InvalidInputsError as err:
       returnInvalidRequest err.msg
-      await sendErrorResponse(peer, conn, ServerError,
-                              ErrorMsg err.msg.toBytes)
+    except ResourceUnavailableError as err:
+      returnResourceUnavailable err.msg
     except CatchableError as err:
       await sendErrorResponse(peer, conn, ServerError,
                               ErrorMsg err.msg.toBytes)
@@ -1380,6 +1420,8 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
       node.protocolStates[proto.index] = proto.networkStateInitializer(node)
 
     for msg in proto.messages:
+      if msg.isLightClientRequest and not config.serveLightClientData:
+        continue
       if msg.protocolMounter != nil:
         msg.protocolMounter node
 
@@ -1495,10 +1537,12 @@ proc init*(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
 proc registerMsg(protocol: ProtocolInfo,
                  name: string,
                  mounter: MounterProc,
-                 libp2pCodecName: string) =
+                 libp2pCodecName: string,
+                 isLightClientRequest: bool) =
   protocol.messages.add MessageInfo(name: name,
                                     protocolMounter: mounter,
-                                    libp2pCodecName: libp2pCodecName)
+                                    libp2pCodecName: libp2pCodecName,
+                                    isLightClientRequest: isLightClientRequest)
 
 proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   var
@@ -1537,6 +1581,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       MsgRecName = msg.recName
       MsgStrongRecName = msg.strongRecName
       codecNameLit = getRequestProtoName(msg.procDef)
+      isLightClientRequestLit = isLightClientRequestProto(msg.procDef)
       protocolMounterName = ident(msgName & "Mounter")
 
     ##
@@ -1612,7 +1657,8 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
               protocol.protocolInfoVar,
               msgNameLit,
               protocolMounterName,
-              codecNameLit))
+              codecNameLit,
+              isLightClientRequestLit))
 
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
     return newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit)
@@ -2238,4 +2284,18 @@ proc broadcastSyncCommitteeMessage*(
 proc broadcastSignedContributionAndProof*(
     node: Eth2Node, msg: SignedContributionAndProof) =
   let topic = getSyncCommitteeContributionAndProofTopic(node.forkDigests.altair)
+  node.broadcast(topic, msg)
+
+proc broadcastOptimisticLightClientUpdate*(
+    node: Eth2Node, msg: OptimisticLightClientUpdate) =
+  let
+    forkDigest =
+      if msg.fork_version == node.cfg.SHARDING_FORK_VERSION:
+        node.forkDigests.sharding
+      elif msg.fork_version == node.cfg.BELLATRIX_FORK_VERSION:
+        node.forkDigests.bellatrix
+      else:
+        doAssert msg.fork_version == node.cfg.ALTAIR_FORK_VERSION
+        node.forkDigests.altair
+    topic = getOptimisticLightClientUpdateTopic(forkDigest)
   node.broadcast(topic, msg)

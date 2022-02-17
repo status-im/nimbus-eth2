@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -148,7 +148,7 @@ proc readResponseChunk(conn: Connection, peer: Peer,
 
     let responseCode = ResponseCode responseCodeByte
     case responseCode:
-    of InvalidRequest, ServerError:
+    of InvalidRequest, ServerError, ResourceUnavailable:
       let errorMsgChunk = await readChunkPayload(conn, peer, ErrorMsg)
       let errorMsg = if errorMsgChunk.isOk: errorMsgChunk.value
                      else: return err(errorMsgChunk.error)

@@ -1003,3 +1003,20 @@ proc validateContribution*(
     sig.get()
 
   return ok((sig, participants))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#optimistic_light_client_update
+proc validateOptimisticLightClientUpdate*(
+    dag: ChainDAGRef, optimistic_update: OptimisticLightClientUpdate):
+    Result[void, ValidationError] =
+  template local_update(): auto = dag.lightClientDb.optimisticUpdate
+
+  if optimistic_update != local_update:
+    # [IGNORE] The optimistic update is not attesting to the latest block's
+    # parent block.
+    if optimistic_update.attested_header != local_update.attested_header:
+      return errIgnore("OptimisticLightClientUpdate: different attested block")
+
+    # [REJECT] The optimistic update does not match the expected value.
+    return errReject("OptimisticLightClientUpdate: update does not match block")
+
+  ok()

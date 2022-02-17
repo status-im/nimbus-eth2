@@ -755,6 +755,10 @@ proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Sl
 
   node.network.updateSyncnetsMetadata(currentSyncCommitteeSubnets)
 
+  if node.config.serveLightClientData:
+    node.network.subscribe(
+      getOptimisticLightClientUpdateTopic(forkDigest), basicParams)
+
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -765,6 +769,9 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
   node.network.unsubscribe(
     getSyncCommitteeContributionAndProofTopic(forkDigest))
+
+  if node.config.serveLightClientData:
+    node.network.unsubscribe(getOptimisticLightClientUpdateTopic(forkDigest))
 
 proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   # Unlike trackNextSyncCommitteeTopics, just snap to the currently correct
@@ -1255,6 +1262,18 @@ proc installMessageValidators(node: BeaconNode) =
 
   installSyncCommitteeeValidators(node.dag.forkDigests.altair)
   installSyncCommitteeeValidators(node.dag.forkDigests.bellatrix)
+
+  if node.config.serveLightClientData:
+    template installOptimisticLightClientUpdateValidator(digest: auto) =
+      node.network.addValidator(
+        getOptimisticLightClientUpdateTopic(digest),
+        proc(msg: OptimisticLightClientUpdate): ValidationResult =
+          toValidationResult(
+            node.processor[].optimisticLightClientUpdateValidator(
+              MsgSource.gossip, msg)))
+
+    installOptimisticLightClientUpdateValidator(node.dag.forkDigests.altair)
+    installOptimisticLightClientUpdateValidator(node.dag.forkDigests.bellatrix)
 
 proc stop(node: BeaconNode) =
   bnStatus = BeaconNodeStatus.Stopping

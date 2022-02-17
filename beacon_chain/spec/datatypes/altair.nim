@@ -619,6 +619,15 @@ func shortLog*(v: LightClientUpdate): auto =
 
 chronicles.formatIt LightClientUpdate: it.shortLog
 
+func shortLog*(v: OptimisticLightClientUpdate): auto =
+  (
+    attested_header: shortLog(v.attested_header),
+    num_active_participants: countOnes(v.sync_aggregate.sync_committee_bits),
+    is_signed_by_next: v.is_signed_by_next_sync_committee
+  )
+
+chronicles.formatIt OptimisticLightClientUpdate: it.shortLog
+
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)
   info.balances = UnslashedParticipatingBalances()

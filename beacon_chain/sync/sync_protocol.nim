@@ -21,10 +21,15 @@ logScope:
 
 const
   MAX_REQUEST_BLOCKS = 1024
+  MAX_REQUEST_LIGHT_CLIENT_UPDATES = 128
 
   blockByRootLookupCost = allowedOpsPerSecondCost(50)
   blockResponseCost = allowedOpsPerSecondCost(100)
   blockByRangeLookupCost = allowedOpsPerSecondCost(20)
+  lightClientUpdateResponseCost = allowedOpsPerSecondCost(100)
+  lightClientUpdateByRangeLookupCost = allowedOpsPerSecondCost(20)
+  lightClientBootstrapLookupCost = allowedOpsPerSecondCost(5)
+  lightClientBootstrapResponseCost = allowedOpsPerSecondCost(100)
 
 type
   StatusMsg* = object
@@ -438,6 +443,118 @@ p2pProtocol BeaconSync(version = 1,
 
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found
+
+  proc bestLightClientUpdatesByRange(
+      peer: Peer,
+      startPeriod: SyncCommitteePeriod,
+      reqCount: uint64,
+      reqStep: uint64,
+      response: MultipleChunksResponse[altair.LightClientUpdate])
+      {.async, libp2pProtocol("best_light_client_updates_by_range", 0,
+                              isLightClientRequest = true).} =
+    trace "Received `BestLightClientUpdatesByRange` request",
+      peer, startPeriod, reqCount, reqStep
+    if reqCount == 0'u64 or reqStep == 0'u64:
+      raise newException(InvalidInputsError, "Empty range requested")
+    let dag = peer.networkState.dag
+    if not dag.serveLightClientData:
+      raise newException(ResourceUnavailableError, "Request not supported")
+
+    let
+      headPeriod = dag.head.slot.sync_committee_period
+      # Limit number of updates in response
+      count =
+        if startPeriod < headPeriod:
+          0'u64
+        else:
+          min(reqCount,
+            min(1 + (headPeriod - startPeriod) div reqStep,
+              MAX_REQUEST_LIGHT_CLIENT_UPDATES))
+      onePastPeriod = startPeriod + reqStep * count
+
+    peer.updateRequestQuota(count.float * lightClientUpdateByRangeLookupCost)
+    peer.awaitNonNegativeRequestQuota()
+
+    var found = 0
+    for period in startPeriod..<onePastPeriod:
+      let update = dag.getBestLightClientUpdateForPeriod(period)
+      if update.isSome:
+        await response.write(update.get)
+        inc found
+
+    peer.updateRequestQuota(found.float * lightClientUpdateResponseCost)
+
+    debug "`BestLightClientUpdatesByRange` request done",
+      peer, startPeriod, count, reqStep, found
+
+    if found == 0 and count > 0:
+      raise newException(ResourceUnavailableError,
+                         "No `LightClientUpdate` available")
+
+  proc latestLightClientUpdate(
+      peer: Peer,
+      response: SingleChunkResponse[altair.LightClientUpdate])
+      {.async, libp2pProtocol("latest_light_client_update", 0,
+                              isLightClientRequest = true).} =
+    trace "Received `GetLatestLightClientUpdate` request", peer
+    let dag = peer.networkState.dag
+    if not dag.serveLightClientData:
+      raise newException(ResourceUnavailableError, "Request not supported")
+
+    peer.awaitNonNegativeRequestQuota()
+
+    let update = dag.getLatestLightClientUpdate
+    if update.isSome:
+      await response.send(update.get)
+    else:
+      raise newException(ResourceUnavailableError,
+                         "No `LightClientUpdate` available")
+
+    peer.updateRequestQuota(lightClientUpdateResponseCost)
+
+  proc optimisticLightClientUpdate(
+      peer: Peer,
+      response: SingleChunkResponse[OptimisticLightClientUpdate])
+      {.async, libp2pProtocol("optimistic_light_client_update", 0,
+                              isLightClientRequest = true).} =
+    trace "Received `GetOptimisticLightClientUpdate` request", peer
+    let dag = peer.networkState.dag
+    if not dag.serveLightClientData:
+      raise newException(ResourceUnavailableError, "Request not supported")
+
+    peer.awaitNonNegativeRequestQuota()
+
+    let optimistic_update = dag.getOptimisticLightClientUpdate
+    if optimistic_update.isSome:
+      await response.send(optimistic_update.get)
+    else:
+      raise newException(ResourceUnavailableError,
+                         "No `OptimisticLightClientUpdate` available")
+
+    peer.updateRequestQuota(lightClientUpdateResponseCost)
+
+  proc lightClientBootstrap(
+      peer: Peer,
+      blockRoot: Eth2Digest,
+      response: SingleChunkResponse[altair.LightClientBootstrap])
+      {.async, libp2pProtocol("light_client_bootstrap", 0,
+                              isLightClientRequest = true).} =
+    trace "Received `GetLightClientBootstrap` request", peer, blockRoot
+    let dag = peer.networkState.dag
+    if not dag.serveLightClientData:
+      raise newException(ResourceUnavailableError, "Request not supported")
+
+    peer.updateRequestQuota(lightClientBootstrapLookupCost)
+    peer.awaitNonNegativeRequestQuota()
+
+    let bootstrap = dag.getLightClientBootstrap(blockRoot)
+    if bootstrap.isSome:
+      await response.send(bootstrap.get)
+    else:
+      raise newException(ResourceUnavailableError,
+                         "`LightClientBootstrap` unavailable")
+
+    peer.updateRequestQuota(lightClientBootstrapResponseCost)
 
   proc goodbye(peer: Peer,
                reason: uint64)

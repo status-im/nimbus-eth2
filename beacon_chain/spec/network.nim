@@ -94,6 +94,11 @@ func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string 
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof/ssz_snappy"
 
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#optimistic_light_client_update
+func getOptimisticLightClientUpdateTopic*(forkDigest: ForkDigest): string =
+  ## For broadcasting the latest `OptimisticLightClientUpdate` to light clients.
+  eth2Prefix(forkDigest) & "optimistic_light_client_update/ssz_snappy"
+
 func getENRForkID*(cfg: RuntimeConfig,
                    epoch: Epoch,
                    genesis_validators_root: Eth2Digest): ENRForkID =

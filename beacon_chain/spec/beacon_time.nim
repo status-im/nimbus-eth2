@@ -146,6 +146,9 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/validator.md#broadcast-sync-committee-contribution
   syncContributionSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  * 2 div INTERVALS_PER_SLOT)
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#block-proposal
+  optimisticLightClientUpdateSlotOffset* = TimeDiff(nanoseconds:
+    NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
 
 func toFloatSeconds*(t: TimeDiff): float =
   float(t.nanoseconds) / 1_000_000_000.0
@@ -167,6 +170,8 @@ func sync_committee_message_deadline*(s: Slot): BeaconTime =
   s.start_beacon_time + syncCommitteeMessageSlotOffset
 func sync_contribution_deadline*(s: Slot): BeaconTime =
   s.start_beacon_time + syncContributionSlotOffset
+func optimistic_light_client_update_deadline*(s: Slot): BeaconTime =
+  s.start_beacon_time + optimisticLightClientUpdateSlotOffset
 
 func slotOrZero*(time: BeaconTime): Slot =
   let exSlot = time.toSlot

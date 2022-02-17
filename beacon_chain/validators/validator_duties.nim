@@ -737,6 +737,18 @@ proc handleSyncCommitteeMessages(node: BeaconNode, head: BlockRef, slot: Slot) =
       asyncSpawn createAndSendSyncCommitteeMessage(node, slot, validator,
                                                    subcommitteeIdx, head)
 
+proc handleOptimisticLightClientUpdates(
+    node: BeaconNode, head: BlockRef, slot: Slot, didSubmitBlock: bool) =
+  if not didSubmitBlock or slot < node.dag.cfg.ALTAIR_FORK_EPOCH.start_slot():
+    return
+  let msg = node.dag.lightClientDb.optimisticUpdate
+  if msg.attested_header.slot != head.parent.bid.slot:
+    notice "No optimistic light client update for proposed block",
+      slot = slot, block_root = shortLog(head.root)
+    return
+  node.network.broadcastOptimisticLightClientUpdate(msg)
+  notice "Sent optimistic light client update", message = shortLog(msg)
+
 proc signAndSendContribution(node: BeaconNode,
                              validator: AttachedValidator,
                              contribution: SyncCommitteeContribution,
@@ -1069,7 +1081,10 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
     curSlot += 1
 
-  head = await handleProposal(node, head, slot)
+  let
+    newHead = await handleProposal(node, head, slot)
+    didSubmitBlock = (newHead != head)
+  head = newHead
 
   let
     # The latest point in time when we'll be sending out attestations
@@ -1118,6 +1133,16 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   handleAttestations(node, head, slot)
   handleSyncCommitteeMessages(node, head, slot)
+
+  if node.config.serveLightClientData:
+    let cutoff = node.beaconClock.fromNow(
+      slot.optimistic_light_client_update_deadline())
+    if cutoff.inFuture:
+      debug "Waiting to send `OptimisticLightClientUpdate`",
+        head = shortLog(head),
+        optimisticLightClientUpdateCutoff = shortLog(cutoff.offset)
+      await sleepAsync(cutoff.offset)
+    handleOptimisticLightClientUpdates(node, head, slot, didSubmitBlock)
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
@@ -1276,6 +1301,22 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
         notice "Block published",
           blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
           signature = shortLog(blck.signature)
+
+        if node.config.serveLightClientData:
+          proc publishOptimisticLightClientUpdate() {.async.} =
+            let cutoff = node.beaconClock.fromNow(
+              wallTime.slotOrZero.optimistic_light_client_update_deadline())
+            if cutoff.inFuture:
+              debug "Waiting to publish `OptimisticLightClientUpdate`",
+                blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
+                signature = shortLog(blck.signature),
+                optimisticLightClientUpdateCutoff = shortLog(cutoff.offset)
+              await sleepAsync(cutoff.offset)
+            handleOptimisticLightClientUpdates(
+              node, newBlockRef.get, wallTime.slotOrZero, didSubmitBlock = true)
+
+          asyncSpawn publishOptimisticLightClientUpdate()
+
         true
       else:
         warn "Unable to add proposed block to block pool",
