@@ -27,7 +27,7 @@
 import
   std/[typetraits, sets, hashes],
   chronicles,
-  stew/[assign2, bitops2],
+  stew/[assign2, bitops2, objects],
   "."/[base, phase0]
 
 export base, sets
@@ -608,6 +608,16 @@ chronicles.formatIt SignedContributionAndProof: shortLog(it)
 
 template hash*(x: LightClientUpdate): Hash =
   hash(x.header)
+
+func shortLog*(v: LightClientUpdate): auto =
+  (
+    attested: shortLog(v.attested_header),
+    finalized: shortLog(v.finalized_header),
+    sync_committee_participants: countOnes(v.sync_aggregate.sync_committee_bits),
+    is_signed_by_next: v.next_sync_committee.isZeroMemory
+  )
+
+chronicles.formatIt LightClientUpdate: it.shortLog
 
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)

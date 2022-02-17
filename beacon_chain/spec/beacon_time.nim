@@ -236,6 +236,13 @@ template start_epoch*(period: SyncCommitteePeriod): Epoch =
   if period >= maxPeriod: FAR_FUTURE_EPOCH
   else: Epoch(period * EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
 
+template start_slot*(period: SyncCommitteePeriod): Slot =
+  ## Return the start slot of ``period``.
+  const maxPeriod = SyncCommitteePeriod(
+    FAR_FUTURE_EPOCH div EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
+  if period >= maxPeriod: FAR_FUTURE_SLOT
+  else: Slot(period * SLOTS_PER_SYNC_COMMITTEE_PERIOD)
+
 func `$`*(t: BeaconTime): string =
   if t.ns_since_genesis >= 0:
     $(timer.nanoseconds(t.ns_since_genesis))

@@ -24,6 +24,9 @@ import
   ./validators/slashing_protection_common,
   ./filepath
 
+from consensus_object_pools/block_pools_types_light_client
+  import ImportLightClientData
+
 export
   uri, nat, enr,
   defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
@@ -390,6 +393,19 @@ type
       keymanagerTokenFile* {.
         desc: "A file specifying the authorizition token required for accessing the keymanager API"
         name: "keymanager-token-file" }: Option[InputFile]
+
+      serveLightClientData* {.
+        hidden
+        desc: "BETA: Serve data for enabling light clients to stay in sync with the network"
+        defaultValue: false
+        name: "serve-light-client-data"}: bool
+
+      importLightClientData* {.
+        hidden
+        desc: "BETA: Which classes of light client data to import. " &
+              "Must be one of: none, only-new, full (slow startup), on-demand (may miss validator duties)"
+        defaultValue: ImportLightClientData.None
+        name: "import-light-client-data"}: ImportLightClientData
 
       inProcessValidators* {.
         desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"

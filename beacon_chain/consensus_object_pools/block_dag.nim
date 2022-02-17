@@ -57,6 +57,12 @@ type
       ## Slot time for this BlockSlot which may differ from blck.slot when time
       ## has advanced without blocks
 
+func hash*(bid: BlockId): Hash =
+  var h: Hash = 0
+  h = h !& hash(bid.root)
+  h = h !& hash(bid.slot)
+  !$h
+
 template root*(blck: BlockRef): Eth2Digest = blck.bid.root
 template slot*(blck: BlockRef): Slot = blck.bid.slot
 

@@ -454,11 +454,23 @@ proc updateBeaconMetrics(state: StateData, cache: var StateCache) =
     beacon_active_validators.set(active_validators)
     beacon_current_active_validators.set(active_validators)
 
+import blockchain_dag_light_client
+
+export
+  blockchain_dag_light_client.getBestLightClientUpdateForPeriod,
+  blockchain_dag_light_client.getLatestLightClientUpdate,
+  blockchain_dag_light_client.getOptimisticLightClientUpdate,
+  blockchain_dag_light_client.getLightClientBootstrap
+
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
            onBlockCb: OnBlockCallback = nil, onHeadCb: OnHeadCallback = nil,
            onReorgCb: OnReorgCallback = nil,
-           onFinCb: OnFinalizedCallback = nil): ChainDAGRef =
+           onFinCb: OnFinalizedCallback = nil,
+           onOptimisticLCUpdateCb: OnOptimisticLightClientUpdateCallback = nil,
+           serveLightClientData = false,
+           importLightClientData = ImportLightClientData.None
+          ): ChainDAGRef =
   # TODO we require that the db contains both a head and a tail block -
   #      asserting here doesn't seem like the right way to go about it however..
 
@@ -601,11 +613,14 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     # allow skipping some validation.
     updateFlags: {verifyFinalization} * updateFlags,
     cfg: cfg,
+    serveLightClientData: serveLightClientData,
+    importLightClientData: importLightClientData,
 
     onBlockAdded: onBlockCb,
     onHeadChanged: onHeadCb,
     onReorgHappened: onReorgCb,
-    onFinHappened: onFinCb
+    onFinHappened: onFinCb,
+    onOptimisticLightClientUpdate: onOptimisticLCUpdateCb
   )
 
   block: # Initialize dag states
@@ -719,6 +734,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     summariesDur = summariesTick - finalizedTick,
     stateDur = stateTick - summariesTick,
     indexDur = Moment.now() - stateTick
+
+  dag.initLightClientDb()
 
   dag
 
@@ -1228,6 +1245,9 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
 
     var cur = head.atSlot()
     while not cur.blck.isAncestorOf(dag.finalizedHead.blck):
+      # Update light client data
+      dag.deleteLightClientData(cur.blck.bid)
+
       dag.delState(cur) # TODO: should we move that disk I/O to `onSlotEnd`
 
       if cur.isProposed():
@@ -1427,6 +1447,9 @@ proc updateHead*(
   doAssert (not finalizedHead.blck.isNil),
     "Block graph should always lead to a finalized block"
 
+  # Update light client data
+  dag.processHeadChangeForLightClient()
+
   let (isAncestor, ancestorDepth) = lastHead.getDepth(newHead)
   if not(isAncestor):
     notice "Updated head block with chain reorg",
@@ -1512,6 +1535,9 @@ proc updateHead*(
     # in order to clear out blocks that are no longer viable and should
     # therefore no longer be considered as part of the chain we're following
     dag.pruneBlocksDAG()
+
+    # Update light client data
+    dag.processFinalizationForLightClient()
 
     # Send notification about new finalization point via callback.
     if not(isNil(dag.onFinHappened)):
