@@ -1333,15 +1333,19 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     eth1SyncedTo = targetBlock
     eth1_synced_head.set eth1SyncedTo.toGaugeValue
 
-proc start(m: Eth1Monitor, delayBeforeStart: Duration) {.gcsafe.} =
+proc start(m: Eth1Monitor, delayBeforeStart: Duration) =
   if m.runFut.isNil:
     let runFut = m.startEth1Syncing(delayBeforeStart)
     m.runFut = runFut
-    runFut.addCallback do (p: pointer) {.gcsafe.}:
+    runFut.addCallback do (p: pointer):
       if runFut.failed:
-        if runFut == m.runFut:
-          warn "Eth1 chain monitoring failure, restarting", err = runFut.error.msg
-          m.state = Failed
+        if runFut.error[] of CatchableError:
+          if runFut == m.runFut:
+            warn "Eth1 chain monitoring failure, restarting", err = runFut.error.msg
+            m.state = Failed
+        else:
+          fatal "Fatal exception reached", err = runFut.error.msg
+          quit 1
 
       safeCancel m.runFut
       m.start(5.seconds)
