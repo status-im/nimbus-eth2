@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -59,8 +59,8 @@ type
     eventBus*: AsyncEventBus
     vcProcess*: Process
     requestManager*: RequestManager
-    syncManager*: SyncManager[Peer, PeerID]
-    backfiller*: SyncManager[Peer, PeerID]
+    syncManager*: BeaconBlocksSyncManager[Peer, PeerID]
+    backfiller*: BeaconBlocksSyncManager[Peer, PeerID]
     genesisSnapshotContent*: string
     actionTracker*: ActionTracker
     processor*: ref Eth2Processor

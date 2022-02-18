@@ -420,7 +420,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + [SyncQueue#Forward] getRewindPoint() test                                                  OK
 + [SyncQueue] checkResponse() test                                                           OK
 + [SyncQueue] contains() test                                                                OK
-+ [SyncQueue] getLastNonEmptySlot() test                                                     OK
++ [SyncQueue] getLastNonEmptyKey() test                                                      OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
 OK: 19/19 Fail: 0/19 Skip: 0/19

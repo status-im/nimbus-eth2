@@ -499,11 +499,11 @@ proc init*(T: type BeaconNode,
       blockProcessor, validatorMonitor, dag, attestationPool, exitPool,
       validatorPool, syncCommitteeMsgPool, quarantine, rng, getBeaconTime,
       taskpool)
-    syncManager = newSyncManager[Peer, PeerID](
+    syncManager = newBeaconBlocksSyncManager[Peer, PeerID](
       network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       dag.tail.slot, blockVerifier)
-    backfiller = newSyncManager[Peer, PeerID](
+    backfiller = newBeaconBlocksSyncManager[Peer, PeerID](
       network.peerPool, SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       dag.backfill.slot, blockVerifier, maxHeadAge = 0)
