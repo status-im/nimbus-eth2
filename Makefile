@@ -31,12 +31,14 @@ CPU_LIMIT := 0
 BUILD_END_MSG := "\\x1B[92mBuild completed successfully:\\x1B[39m"
 
 ifeq ($(CPU_LIMIT), 0)
-	CPU_LIMIT_CMD :=
+  CPU_LIMIT_CMD :=
 else
-	CPU_LIMIT_CMD := cpulimit --limit=$(CPU_LIMIT) --foreground --
+  CPU_LIMIT_CMD := cpulimit --limit=$(CPU_LIMIT) --foreground --
 endif
 
+# TODO: move this to nimbus-build-system
 ifeq ($(shell uname), Darwin)
+  # Scary warnings in large volume: https://github.com/status-im/nimbus-eth2/issues/3076
   SILENCE_WARNINGS := 2>&1 | grep -v "failed to insert symbol" | grep -v "could not find object file symbol for symbol" || true
 else
   SILENCE_WARNINGS :=
