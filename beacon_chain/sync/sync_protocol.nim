@@ -51,7 +51,13 @@ type
       index: uint32
 
   BeaconSyncNetworkState* = ref object
-    dag*: ChainDAGRef
+    case haveDag*: bool
+    of false:
+      cfg*: RuntimeConfig
+      genesisBlockRoot*: Eth2Digest
+      forkDigests*: ref ForkDigests
+    of true:
+      dag*: ChainDAGRef
     getBeaconTime*: GetBeaconTimeFn
 
   BeaconSyncPeerState* = ref object
@@ -111,23 +117,38 @@ func disconnectReasonName(reason: uint64): string =
   elif reason == uint64(FaultOrError): "Fault or error"
   else: "Disconnected (" & $reason & ")"
 
-proc getCurrentStatus(state: BeaconSyncNetworkState): StatusMsg =
-  let
-    dag = state.dag
-    wallSlot = state.getBeaconTime().slotOrZero
+func forkDigestAtEpoch(state: BeaconSyncNetworkState,
+                       epoch: Epoch): ForkDigest =
+  if not state.haveDag:
+    case state.cfg.stateForkAtEpoch(epoch)
+    of BeaconStateFork.Bellatrix: state.forkDigests.bellatrix
+    of BeaconStateFork.Altair:    state.forkDigests.altair
+    of BeaconStateFork.Phase0:    state.forkDigests.phase0
+  else:
+    state.dag.forkDigestAtEpoch(epoch)
 
-  StatusMsg(
-    forkDigest: dag.forkDigestAtEpoch(wallSlot.epoch),
-    finalizedRoot: dag.finalizedHead.blck.root,
-    finalizedEpoch: dag.finalizedHead.slot.epoch,
-    headRoot: dag.head.root,
-    headSlot: dag.head.slot)
+proc getCurrentStatus(state: BeaconSyncNetworkState): StatusMsg =
+  let wallSlot = state.getBeaconTime().slotOrZero
+  if not state.haveDag:
+    StatusMsg(
+      forkDigest: state.forkDigestAtEpoch(wallSlot.epoch),
+      finalizedRoot: state.genesisBlockRoot,
+      finalizedEpoch: GENESIS_SLOT.epoch,
+      headRoot: state.genesisBlockRoot,
+      headSlot: GENESIS_SLOT)
+  else:
+    let dag = state.dag
+    StatusMsg(
+      forkDigest: dag.forkDigestAtEpoch(wallSlot.epoch),
+      finalizedRoot: dag.finalizedHead.blck.root,
+      finalizedEpoch: dag.finalizedHead.slot.epoch,
+      headRoot: dag.head.root,
+      headSlot: dag.head.slot)
 
 proc checkStatusMsg(state: BeaconSyncNetworkState, status: StatusMsg):
     Result[void, cstring] =
-  let
-    dag = state.dag
-    wallSlot = (state.getBeaconTime() + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero
+  let wallSlot =
+    (state.getBeaconTime() + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero
 
   if status.finalizedEpoch > status.headSlot.epoch:
     # Can be equal during genesis or checkpoint start
@@ -136,15 +157,17 @@ proc checkStatusMsg(state: BeaconSyncNetworkState, status: StatusMsg):
   if status.headSlot > wallSlot:
     return err("head more recent than wall clock")
 
-  if dag.forkDigestAtEpoch(wallSlot.epoch) != status.forkDigest:
+  if state.forkDigestAtEpoch(wallSlot.epoch) != status.forkDigest:
     return err("fork digests differ")
 
-  if status.finalizedEpoch <= dag.finalizedHead.slot.epoch:
-    let blockId = dag.getBlockIdAtSlot(status.finalizedEpoch.start_slot())
-    if status.finalizedRoot != blockId.bid.root and
-        (not blockId.bid.root.isZero) and
-        (not status.finalizedRoot.isZero):
-      return err("peer following different finality")
+  if state.haveDag:
+    let dag = state.dag
+    if status.finalizedEpoch <= dag.finalizedHead.slot.epoch:
+      let blockId = dag.getBlockIdAtSlot(status.finalizedEpoch.start_slot())
+      if status.finalizedRoot != blockId.bid.root and
+          (not blockId.bid.root.isZero) and
+          (not status.finalizedRoot.isZero):
+        return err("peer following different finality")
 
   ok()
 
@@ -230,9 +253,11 @@ p2pProtocol BeaconSync(version = 1,
                                count = reqCount, step = reqStep
     if reqCount == 0'u64 or reqStep == 0'u64:
       raise newException(InvalidInputsError, "Empty range requested")
-
-    let
-      dag = peer.networkState.dag
+    if not peer.networkState.haveDag:
+      debug "Ignoring block range v1 request during light client sync",
+        peer, startSlot, reqCount, reqStep
+      return
+    let dag = peer.networkState.dag
 
     if startSlot.epoch >= dag.cfg.ALTAIR_FORK_EPOCH:
       # "Clients MAY limit the number of blocks in the response."
@@ -303,7 +328,10 @@ p2pProtocol BeaconSync(version = 1,
 
     if blockRoots.len == 0:
       raise newException(InvalidInputsError, "No blocks requested")
-
+    if not peer.networkState.haveDag:
+      debug "Ignoring block root request during LC sync",
+        peer, count = blockRoots.len
+      return
     let
       dag = peer.networkState.dag
       count = blockRoots.len
@@ -363,10 +391,14 @@ p2pProtocol BeaconSync(version = 1,
                                count = reqCount, step = reqStep
     if reqCount == 0 or reqStep == 0:
       raise newException(InvalidInputsError, "Empty range requested")
+    if not peer.networkState.haveDag:
+      debug "Ignoring block range request during light client sync",
+        peer, startSlot, reqCount, reqStep
+      return
+    let dag = peer.networkState.dag
 
     var blocks: array[MAX_REQUEST_BLOCKS, BlockId]
     let
-      dag = peer.networkState.dag
       # Limit number of blocks in response
       count = int min(reqCount, blocks.lenu64)
       endIndex = count - 1
@@ -415,7 +447,10 @@ p2pProtocol BeaconSync(version = 1,
     #      are `not-nil` in the implementation
     if blockRoots.len == 0:
       raise newException(InvalidInputsError, "No blocks requested")
-
+    if not peer.networkState.haveDag:
+      debug "Ignoring block root request during light client sync",
+        peer, count = blockRoots.len
+      return
     let
       dag = peer.networkState.dag
       count = blockRoots.len
@@ -456,6 +491,10 @@ p2pProtocol BeaconSync(version = 1,
       peer, startPeriod, reqCount, reqStep
     if reqCount == 0'u64 or reqStep == 0'u64:
       raise newException(InvalidInputsError, "Empty range requested")
+    if not peer.networkState.haveDag:
+      debug "Ignoring `BestLightClientUpdatesByRange` during LC sync",
+        peer, startPeriod, reqCount, reqStep
+      raise newException(ResourceUnavailableError, "Request not supported")
     let dag = peer.networkState.dag
     if not dag.serveLightClientData:
       raise newException(ResourceUnavailableError, "Request not supported")
@@ -464,7 +503,7 @@ p2pProtocol BeaconSync(version = 1,
       headPeriod = dag.head.slot.sync_committee_period
       # Limit number of updates in response
       count =
-        if startPeriod < headPeriod:
+        if startPeriod > headPeriod:
           0'u64
         else:
           min(reqCount,
@@ -497,6 +536,9 @@ p2pProtocol BeaconSync(version = 1,
       {.async, libp2pProtocol("latest_light_client_update", 0,
                               isLightClientRequest = true).} =
     trace "Received `GetLatestLightClientUpdate` request", peer
+    if not peer.networkState.haveDag:
+      debug "Ignoring `GetLatestLightClientUpdate` during LC sync", peer
+      raise newException(ResourceUnavailableError, "Request not supported")
     let dag = peer.networkState.dag
     if not dag.serveLightClientData:
       raise newException(ResourceUnavailableError, "Request not supported")
@@ -518,6 +560,9 @@ p2pProtocol BeaconSync(version = 1,
       {.async, libp2pProtocol("optimistic_light_client_update", 0,
                               isLightClientRequest = true).} =
     trace "Received `GetOptimisticLightClientUpdate` request", peer
+    if not peer.networkState.haveDag:
+      debug "Ignoring `GetOptimisticLightClientUpdate` during LC sync", peer
+      raise newException(ResourceUnavailableError, "Request not supported")
     let dag = peer.networkState.dag
     if not dag.serveLightClientData:
       raise newException(ResourceUnavailableError, "Request not supported")
@@ -540,6 +585,9 @@ p2pProtocol BeaconSync(version = 1,
       {.async, libp2pProtocol("light_client_bootstrap", 0,
                               isLightClientRequest = true).} =
     trace "Received `GetLightClientBootstrap` request", peer, blockRoot
+    if not peer.networkState.haveDag:
+      debug "Ignoring `GetLightClientBootstrap` during LC sync", peer, blockRoot
+      raise newException(ResourceUnavailableError, "Request not supported")
     let dag = peer.networkState.dag
     if not dag.serveLightClientData:
       raise newException(ResourceUnavailableError, "Request not supported")
@@ -564,8 +612,13 @@ p2pProtocol BeaconSync(version = 1,
 proc useSyncV2*(state: BeaconSyncNetworkState): bool =
   let
     wallTimeSlot = state.getBeaconTime().slotOrZero
+    altairForkEpoch =
+      if not state.haveDag:
+        state.cfg.ALTAIR_FORK_EPOCH
+      else:
+        state.dag.cfg.ALTAIR_FORK_EPOCH
 
-  wallTimeSlot.epoch >= state.dag.cfg.ALTAIR_FORK_EPOCH
+  wallTimeSlot.epoch >= altairForkEpoch
 
 proc useSyncV2*(peer: Peer): bool =
   peer.networkState(BeaconSync).useSyncV2()
@@ -614,8 +667,21 @@ proc getHeadSlot*(peer: Peer): Slot =
   ## Returns head slot for specific peer ``peer``.
   peer.state(BeaconSync).statusMsg.headSlot
 
+proc initBeaconSync*(network: Eth2Node,
+                     cfg: RuntimeConfig,
+                     genesisBlockRoot: Eth2Digest,
+                     forkDigests: ref ForkDigests,
+                     getBeaconTime: GetBeaconTimeFn) =
+  var networkState = network.protocolState(BeaconSync)
+  networkState.haveDag = false
+  networkState.cfg = cfg
+  networkState.genesisBlockRoot = genesisBlockRoot
+  networkState.forkDigests = forkDigests
+  networkState.getBeaconTime = getBeaconTime
+
 proc initBeaconSync*(network: Eth2Node, dag: ChainDAGRef,
                      getBeaconTime: GetBeaconTimeFn) =
   var networkState = network.protocolState(BeaconSync)
+  networkState.haveDag = true
   networkState.dag = dag
   networkState.getBeaconTime = getBeaconTime

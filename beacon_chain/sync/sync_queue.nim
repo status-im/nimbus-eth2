@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import std/[options, heapqueue, tables, strutils, sequtils, math, algorithm]
-import stew/results, chronos, chronicles
+import stew/[byteutils, results], chronos, chronicles
 import
   ../spec/datatypes/[base, phase0, altair],
   ../spec/eth2_apis/rpc_types,
@@ -110,15 +110,21 @@ template declareSyncEndpoint(name: untyped, K, V: typedesc,
                                       syncQueueSize)
 
 declareSyncKey Slot
+declareSyncKey SyncCommitteePeriod
 
 declareSyncValue Block, ForkedSignedBeaconBlock
+declareSyncValue Update, altair.LightClientUpdate
 
 declareSyncEndpoint BeaconBlocks,
   Slot, ForkedSignedBeaconBlock, isRefWrapped = true
+declareSyncEndpoint LightClientUpdates,
+  SyncCommitteePeriod, altair.LightClientUpdate
 
 func key[E](v: E.R, e: typedesc[E]): E.K =
   when E is BeaconBlocksSyncEndpoint:
     v[].slot
+  elif E is LightClientUpdatesSyncEndpoint:
+    v.attested_header.slot.sync_committee_period
   else: static: raiseAssert false
 
 proc getShortMap*[T, E](req: SyncRequest[T, E],
@@ -278,6 +284,8 @@ proc initSyncQueue*[T, E](e: typedesc[E], t2: typedesc[T],
   # answering this way. However, it still makes sense to attempt to handle
   # this case to increase compatibility (e.g., with weak subjectivity nodes
   # that are still backfilling blocks)
+  #
+  # The logic for syncing blocks also applies during `LightClientUpdate` sync.
   doAssert(chunkSize > 0'u64, "Chunk size should not be zero")
   SyncQueue[T, E](
     kind: queueKind,
@@ -533,6 +541,26 @@ proc getRewindPoint*[T](sq: BeaconBlocksSyncQueue[T],
            topics = "syncman"
     safeSlot
 
+proc getRewindPoint[T](sq: LightClientUpdatesSyncQueue[T],
+                       failPeriod, safePeriod: SyncCommitteePeriod
+                       ): SyncCommitteePeriod =
+  case sq.kind
+  of SyncQueueKind.Forward:
+    # One `LightClientUpdate` per sync committee period needs to be obtained.
+    # There is no concept of "empty slots". Retry sync from `safePeriod`.
+    # Note that in contrast to block sync, there may be multiple valid
+    # `LightClientUpdate` per sync committee period. Hence, it is necessary
+    # to keep retrying to fetch a better one, even though prior results were
+    # not satisfactory. `light_client_processor` will eventually start to
+    # attempt force-updating the light client if sync progress seems to stall.
+    let periodCount = failPeriod - safePeriod
+    sq.rewind = some(RewindPoint.init(failPeriod, periodCount))
+    safePeriod
+  of SyncQueueKind.Backward:
+    let periodCount = safePeriod - failPeriod
+    sq.rewind = some(RewindPoint.init(failPeriod, periodCount))
+    safePeriod
+
 iterator values*[T, E](sq: SyncQueue[T, E], sr: SyncResult[T, E]): E.R =
   case sq.kind
   of SyncQueueKind.Forward:
@@ -624,6 +652,18 @@ proc push*[T, E](sq: SyncQueue[T, E], sr: SyncRequest[T, E], data: seq[E.R],
                peer = sq.readyQueue[0].request.item,
                rewind_to_slot = rewindKey,
                direction = sq.readyQueue[0].request.kind, topics = "syncman"
+        elif E is LightClientUpdatesSyncEndpoint:
+          warn "Got incorrect sync result in queue, rewind happens",
+               request_period = sq.readyQueue[0].request.start,
+               request_count = sq.readyQueue[0].request.count,
+               request_step = sq.readyQueue[0].request.step,
+               updates_map = getShortMap[T, E](sq.readyQueue[0].request,
+                                               sq.readyQueue[0].data),
+               updates_count = len(sq.readyQueue[0].data),
+               output_period = sq.outKey, input_period = sq.inpKey,
+               peer = sq.readyQueue[0].request.item,
+               rewind_to_period = rewindKey,
+               direction = sq.readyQueue[0].request.kind, topics = "syncman"
         else: static: raiseAssert false
         await sq.resetWait(some(rewindKey))
         break
@@ -643,7 +683,11 @@ proc push*[T, E](sq: SyncQueue[T, E], sr: SyncRequest[T, E], data: seq[E.R],
       res: Result[void, BlockError]
 
     for value in sq.values(item):
-      res = await sq.valueVerifier(value[])
+      res =
+        when E.R is ref E.V:
+          await sq.valueVerifier(value[])
+        else:
+          await sq.valueVerifier(value)
       if res.isOk():
         hasOkValue = true
       else:
@@ -657,11 +701,17 @@ proc push*[T, E](sq: SyncQueue[T, E], sr: SyncRequest[T, E], data: seq[E.R],
         of BlockError.UnviableFork:
           if unviableValue.isNone:
             # Remember the first unviable value, so we can log it
-            unviableValue = some((value[].root, value.key(E)))
+            func root(v: ref ForkedSignedBeaconBlock): Eth2Digest =
+              v[].root
+            func root(v: altair.LightClientUpdate): Eth2Digest =
+              v.fork_version.hash_tree_root()
+            unviableValue = some((value.root, value.key(E)))
           when E.V is ForkedSignedBeaconBlock:
             # Keep going so as to register other unviable blocks with the
             # quarantine
             discard
+          elif E.V is altair.LightClientUpdate:
+            break
           else: static: raiseAssert false
         of BlockError.Invalid:
           hasInvalidValue = true
@@ -672,6 +722,12 @@ proc push*[T, E](sq: SyncQueue[T, E], sr: SyncRequest[T, E], data: seq[E.R],
                  request_slot = req.start, request_count = req.count,
                  request_step = req.step, blocks_count = len(item.data),
                  blocks_map = getShortMap[T, E](req, item.data),
+                 direction = req.kind, topics = "syncman"
+          elif E is LightClientUpdatesSyncEndpoint:
+            warn "Received invalid sequence of updates", peer = req.item,
+                 request_period = req.start, request_count = req.count,
+                 request_step = req.step, updates_count = len(item.data),
+                 updates_map = getShortMap[T, E](req, item.data),
                  direction = req.kind, topics = "syncman"
           else: static: raiseAssert false
           req.item.updateScore(PeerScoreBadBlocks)
@@ -702,6 +758,18 @@ proc push*[T, E](sq: SyncQueue[T, E], sr: SyncRequest[T, E], data: seq[E.R],
               unviable = unviableValue.isSome(),
               missing_parent = missingParentKey.isSome(),
               direction = item.request.kind, topics = "syncman"
+      elif E is LightClientUpdatesSyncEndpoint:
+        debug "Light client processor rejected peer's response",
+              peer = item.request.item,
+              request_period = item.request.start,
+              request_count = item.request.count,
+              request_step = item.request.step,
+              updates_map = getShortMap[T, E](item.request, item.data),
+              updates_count = len(item.data),
+              ok = hasOkValue,
+              unviable = unviableValue.isSome(),
+              missing_parent = missingParentKey.isSome(),
+              direction = item.request.kind, topics = "syncman"
       else: static: raiseAssert false
 
       # We need to move failed response to the debts queue.
@@ -717,6 +785,16 @@ proc push*[T, E](sq: SyncQueue[T, E], sr: SyncRequest[T, E], data: seq[E.R],
                  request_step = req.step, blocks_count = len(item.data),
                  blocks_map = getShortMap[T, E](req, item.data),
                  direction = req.kind, topics = "syncman"
+        elif E is LightClientUpdatesSyncEndpoint:
+          template versionString(v: Eth2Digest): string =
+            byteutils.toHex(v.data.toOpenArray(0, sizeof(Version) - 1))
+          notice "Received updates from an unviable fork",
+                 updateVersion = unviableValue.get()[0].versionString,
+                 updatePeriod = unviableValue.get()[1], peer = req.item,
+                 request_period = req.start, request_count = req.count,
+                 request_step = req.step, updates_count = len(item.data),
+                 updates_map = getShortMap[T, E](req, item.data),
+                 direction = req.kind, topics = "syncman"
         else: static: raiseAssert false
         req.item.updateScore(PeerScoreUnviableFork)
 
@@ -728,12 +806,13 @@ proc push*[T, E](sq: SyncQueue[T, E], sr: SyncRequest[T, E], data: seq[E.R],
         # If we got `BlockError.MissingParent` it means that peer returns chain
         # of values with holes or `block_processor` is in incomplete state.
         # For blocks we will rewind to the first slot at latest finalized epoch.
+        # For light client updates we will rewind to first period needing data.
         let
           req = item.request
           safeKey = sq.getSafeKey()
         case sq.kind
         of SyncQueueKind.Forward:
-          if safeKey < req.start:
+          if safeKey < failKey:
             let rewindKey = sq.getRewindPoint(failKey, safeKey)
             when E is BeaconBlocksSyncEndpoint:
               warn "Unexpected missing parent, rewind happens",
@@ -744,6 +823,16 @@ proc push*[T, E](sq: SyncQueue[T, E], sr: SyncRequest[T, E], data: seq[E.R],
                    request_slot = req.start, request_count = req.count,
                    request_step = req.step, blocks_count = len(item.data),
                    blocks_map = getShortMap[T, E](req, item.data),
+                   direction = req.kind, topics = "syncman"
+            elif E is LightClientUpdatesSyncEndpoint:
+              warn "Unexpected missing parent, rewind happens",
+                   peer = req.item, rewind_to_period = rewindKey,
+                   rewind_period_count = sq.rewind.get().count,
+                   rewind_fail_period = failKey,
+                   finalized_period = safeKey,
+                   request_period = req.start, request_count = req.count,
+                   request_step = req.step, updates_count = len(item.data),
+                   updates_map = getShortMap[T, E](req, item.data),
                    direction = req.kind, topics = "syncman"
             else: static: raiseAssert false
             resetKey = some(rewindKey)
@@ -756,10 +845,17 @@ proc push*[T, E](sq: SyncQueue[T, E], sr: SyncRequest[T, E], data: seq[E.R],
                     request_step = req.step, blocks_count = len(item.data),
                     blocks_map = getShortMap[T, E](req, item.data),
                     direction = req.kind, topics = "syncman"
+            elif E is LightClientUpdatesSyncEndpoint:
+              error "Unexpected missing parent at finalized period",
+                    peer = req.item, to_period = safeKey,
+                    request_period = req.start, request_count = req.count,
+                    request_step = req.step, updates_count = len(item.data),
+                    updates_map = getShortMap[T, E](req, item.data),
+                    direction = req.kind, topics = "syncman"
             else: static: raiseAssert false
             req.item.updateScore(PeerScoreBadBlocks)
         of SyncQueueKind.Backward:
-          if safeKey > req.start:
+          if safeKey > failKey:
             let rewindKey = sq.getRewindPoint(failKey, safeKey)
             when E is BeaconBlocksSyncEndpoint:
               # It's quite common peers give us fewer values than we ask for
@@ -771,6 +867,15 @@ proc push*[T, E](sq: SyncQueue[T, E], sr: SyncRequest[T, E], data: seq[E.R],
                    request_step = req.step, blocks_count = len(item.data),
                    blocks_map = getShortMap[T, E](req, item.data),
                    direction = req.kind, topics = "syncman"
+            elif E is LightClientUpdatesSyncEndpoint:
+              info "Gap in `BestLightClientUpdatesByRange` response, rewinding",
+                   peer = req.item, rewind_to_period = rewindKey,
+                   rewind_fail_period = failKey,
+                   finalized_period = safeKey,
+                   request_period = req.start, request_count = req.count,
+                   request_step = req.step, updates_count = len(item.data),
+                   updates_map = getShortMap[T, E](req, item.data),
+                   direction = req.kind, topics = "syncman"
             else: static: raiseAssert false
             resetKey = some(rewindKey)
             req.item.updateScore(PeerScoreMissingBlocks)
@@ -781,6 +886,13 @@ proc push*[T, E](sq: SyncQueue[T, E], sr: SyncRequest[T, E], data: seq[E.R],
                     request_slot = req.start, request_count = req.count,
                     request_step = req.step, blocks_count = len(item.data),
                     blocks_map = getShortMap[T, E](req, item.data),
+                    direction = req.kind, topics = "syncman"
+            elif E is LightClientUpdatesSyncEndpoint:
+              error "Unexpected missing parent at safe period",
+                    peer = req.item, to_period = safeKey,
+                    request_period = req.start, request_count = req.count,
+                    request_step = req.step, updates_count = len(item.data),
+                    updates_map = getShortMap[T, E](req, item.data),
                     direction = req.kind, topics = "syncman"
             else: static: raiseAssert false
             req.item.updateScore(PeerScoreBadBlocks)
@@ -797,6 +909,14 @@ proc push*[T, E](sq: SyncQueue[T, E], sr: SyncRequest[T, E], data: seq[E.R],
                     rewind_epoch_count = sq.rewind.get().count,
                     rewind_fail_slot = sq.rewind.get().failKey,
                     direction = sq.kind, topics = "syncman"
+            elif E.K is SyncCommitteePeriod:
+              debug "Rewind to period has happened",
+                    reset_period = resetKey.get(),
+                    queue_input_period = sq.inpKey,
+                    queue_output_period = sq.outKey,
+                    rewind_period_count = sq.rewind.get().count,
+                    rewind_fail_period = sq.rewind.get().failKey,
+                    direction = sq.kind, topics = "syncman"
             else: static: raiseAssert false
           of SyncQueueKind.Backward:
             when E.K is Slot:
@@ -804,6 +924,12 @@ proc push*[T, E](sq: SyncQueue[T, E], sr: SyncRequest[T, E], data: seq[E.R],
                     reset_slot = resetKey.get(),
                     queue_input_slot = sq.inpKey,
                     queue_output_slot = sq.outKey,
+                    direction = sq.kind, topics = "syncman"
+            elif E.K is SyncCommitteePeriod:
+              debug "Rewind to period has happened",
+                    reset_period = resetKey.get(),
+                    queue_input_period = sq.inpKey,
+                    queue_output_period = sq.outKey,
                     direction = sq.kind, topics = "syncman"
             else: static: raiseAssert false
 

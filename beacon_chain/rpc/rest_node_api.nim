@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   std/[sequtils],
   stew/[byteutils, results],
@@ -254,17 +261,25 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getSyncingStatus
   router.api(MethodGet, "/eth/v1/node/syncing") do () -> RestApiResponse:
-    return RestApiResponse.jsonResponse(node.syncManager.getInfo())
+    case node.kind
+    of BeaconNodeKind.Light:
+      return RestApiResponse.jsonResponse(node.lightClientSyncManager.getInfo())
+    of BeaconNodeKind.Full:
+      return RestApiResponse.jsonResponse(node.syncManager.getInfo())
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getHealth
   router.api(MethodGet, "/eth/v1/node/health") do () -> RestApiResponse:
     # TODO: Add ability to detect node's issues and return 503 error according
     # to specification.
     let status =
-      if node.syncManager.inProgress:
+      case node.kind
+      of BeaconNodeKind.Light:
         Http206
-      else:
-        Http200
+      of BeaconNodeKind.Full:
+        if node.syncManager.inProgress:
+          Http206
+        else:
+          Http200
     return RestApiResponse.response("", status, contentType = "")
 
   # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional

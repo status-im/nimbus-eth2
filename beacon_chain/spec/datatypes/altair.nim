@@ -56,7 +56,7 @@ const
   # The first member (`genesis_time`) is 32, subsequent members +1 each.
   # If there are ever more than 32 members in `BeaconState`, indices change!
   # `FINALIZED_ROOT_INDEX` is one layer deeper, i.e., `52 * 2 + 1`.
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/ssz/merkle-proofs.md 
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/ssz/merkle-proofs.md
   FINALIZED_ROOT_INDEX* = 105.GeneralizedIndex # `finalized_checkpoint` > `root`
   CURRENT_SYNC_COMMITTEE_INDEX* = 54.GeneralizedIndex # `current_sync_committee`
   NEXT_SYNC_COMMITTEE_INDEX* = 55.GeneralizedIndex # `next_sync_committee`
@@ -202,6 +202,11 @@ type
 
     is_signed_by_next_sync_committee*: bool ##\
     ## Whether the signature was produced by `attested_header`'s next sync committee
+
+  SomeLightClientObject* =
+    LightClientBootstrap |
+    LightClientUpdate |
+    OptimisticLightClientUpdate
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#lightclientstore
   LightClientStore* = object
@@ -608,6 +613,11 @@ chronicles.formatIt SignedContributionAndProof: shortLog(it)
 
 template hash*(x: LightClientUpdate): Hash =
   hash(x.header)
+
+func shortLog*(v: LightClientBootstrap): auto =
+  (
+    header: shortLog(v.header)
+  )
 
 func shortLog*(v: LightClientUpdate): auto =
   (

@@ -1,4 +1,5 @@
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# beacon_chain
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -113,9 +114,15 @@ proc toNode(v: PubSubPeer, backoff: Moment): RestPubSubPeer =
 
 proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/nimbus/v1/beacon/head") do () -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     return RestApiResponse.jsonResponse(node.dag.head.slot)
 
   router.api(MethodGet, "/nimbus/v1/chain/head") do() -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let
       head = node.dag.head
       finalized = getStateField(node.dag.headState.data, finalized_checkpoint)
@@ -134,7 +141,11 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   router.api(MethodGet, "/nimbus/v1/syncmanager/status") do (
     ) -> RestApiResponse:
-    return RestApiResponse.jsonResponse(node.syncManager.inProgress)
+    case node.kind
+    of BeaconNodeKind.Light:
+      return RestApiResponse.jsonResponse(true)
+    of BeaconNodeKind.Full:
+      return RestApiResponse.jsonResponse(node.syncManager.inProgress)
 
   router.api(MethodGet, "/nimbus/v1/node/peerid") do (
     ) -> RestApiResponse:
@@ -222,6 +233,9 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   router.api(MethodGet, "/nimbus/v1/eth1/proposal_data") do (
     ) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let wallSlot = node.beaconClock.now.slotOrZero
     let head =
       block:

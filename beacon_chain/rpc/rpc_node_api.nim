@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -244,13 +244,21 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     return %*{"version": "Nimbus/" & fullVersionStr}
 
   rpcServer.rpc("get_v1_node_syncing") do () -> RpcSyncInfo:
-    return node.syncManager.getInfo()
+    case node.kind
+    of BeaconNodeKind.Light:
+      return node.lightClientSyncManager.getInfo()
+    of BeaconNodeKind.Full:
+      return node.syncManager.getInfo()
 
   rpcServer.rpc("get_v1_node_health") do () -> JsonNode:
     # TODO: There currently no way to situation when we node has issues, so
     # its impossible to return HTTP ERROR 503 according to specification.
-    if node.syncManager.inProgress:
-      # We need to return HTTP ERROR 206 according to specification
+    case node.kind
+    of BeaconNodeKind.Light:
       return %*{"health": 206}
-    else:
-      return %*{"health": 200}
+    of BeaconNodeKind.Full:
+      if node.syncManager.inProgress:
+        # We need to return HTTP ERROR 206 according to specification
+        return %*{"health": 206}
+      else:
+        return %*{"health": 200}

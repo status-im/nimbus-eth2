@@ -132,7 +132,7 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
       next_fork_epoch: FAR_FUTURE_EPOCH)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/p2p-interface.md#transitioning-the-gossip
-func getTargetGossipState*(
+func getTargetGossipForks*(
     epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH: Epoch, isBehind: bool):
     set[BeaconStateFork] =
   if isBehind:

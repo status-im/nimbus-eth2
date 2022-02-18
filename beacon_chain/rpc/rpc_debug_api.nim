@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -25,6 +25,9 @@ proc installDebugApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     raises: [Defect, CatchableError].} =
   rpcServer.rpc("get_v1_debug_beacon_states_stateId") do (
       stateId: string) -> phase0.BeaconState:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     withStateForStateId(stateId):
       if stateData.data.kind == BeaconStateFork.Phase0:
         return stateData.data.phase0Data.data
@@ -32,4 +35,7 @@ proc installDebugApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
         raiseNoAltairSupport()
 
   rpcServer.rpc("get_v1_debug_beacon_heads") do () -> seq[tuple[root: Eth2Digest, slot: Slot]]:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     return node.dag.heads.mapIt((it.root, it.slot))

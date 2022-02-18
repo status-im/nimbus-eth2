@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -178,23 +178,41 @@ proc getForkedBlockFromBlockId(
 proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     raises: [Defect, CatchableError].} =
   rpcServer.rpc("get_v1_beacon_genesis") do () -> RpcBeaconGenesis:
-    return (
-      genesis_time: getStateField(node.dag.headState.data, genesis_time),
-      genesis_validators_root:
-        getStateField(node.dag.headState.data, genesis_validators_root),
-      genesis_fork_version: node.dag.cfg.GENESIS_FORK_VERSION
-    )
+    case node.kind
+    of BeaconNodeKind.Light:
+      return (
+        genesis_time: getStateField(node.genesisState[], genesis_time),
+        genesis_validators_root:
+          getStateField(node.genesisState[], genesis_validators_root),
+        genesis_fork_version: node.cfg.GENESIS_FORK_VERSION
+      )
+    of BeaconNodeKind.Full:
+      return (
+        genesis_time: getStateField(node.dag.headState.data, genesis_time),
+        genesis_validators_root:
+          getStateField(node.dag.headState.data, genesis_validators_root),
+        genesis_fork_version: node.dag.cfg.GENESIS_FORK_VERSION
+      )
 
   rpcServer.rpc("get_v1_beacon_states_root") do (stateId: string) -> Eth2Digest:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     withStateForStateId(stateId):
       return stateRoot
 
   rpcServer.rpc("get_v1_beacon_states_fork") do (stateId: string) -> Fork:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     withStateForStateId(stateId):
       return getStateField(stateData.data, fork)
 
   rpcServer.rpc("get_v1_beacon_states_finality_checkpoints") do (
       stateId: string) -> RpcBeaconStatesFinalityCheckpoints:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     withStateForStateId(stateId):
       return (previous_justified:
                 getStateField(stateData.data, previous_justified_checkpoint),
@@ -205,6 +223,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("get_v1_beacon_states_stateId_validators") do (
       stateId: string, validatorIds: Option[seq[string]],
       status: Option[seq[string]]) -> seq[RpcBeaconStatesValidators]:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     var vquery: ValidatorQuery
     var squery: StatusQuery
     let current_epoch = getStateField(node.dag.headState.data, slot).epoch
@@ -277,6 +298,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("get_v1_beacon_states_stateId_validators_validatorId") do (
       stateId: string, validatorId: string) -> RpcBeaconStatesValidators:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     let current_epoch = getStateField(node.dag.headState.data, slot).epoch
     let vqres = createIdQuery([validatorId])
     if vqres.isErr:
@@ -308,6 +332,8 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("get_v1_beacon_states_stateId_validator_balances") do (
       stateId: string, validatorsId: Option[seq[string]]) -> seq[RpcBalance]:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
 
     var res: seq[RpcBalance]
     withStateForStateId(stateId):
@@ -339,6 +365,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("get_v1_beacon_states_stateId_committees_epoch") do (
       stateId: string, epoch: Option[uint64], index: Option[uint64],
       slot: Option[uint64]) -> seq[RpcBeaconStatesCommittees]:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     withStateForStateId(stateId):
       proc getCommittee(slot: Slot,
                         index: CommitteeIndex): RpcBeaconStatesCommittees =
@@ -378,11 +407,17 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("get_v1_beacon_headers") do (
       slot: Option[uint64], parent_root: Option[string]) ->
       seq[RpcBeaconHeaders]:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     unimplemented()
 
   rpcServer.rpc("get_v1_beacon_headers_blockId") do (
       blockId: string) ->
       tuple[canonical: bool, header: SignedBeaconBlockHeader]:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     let bd = node.getForkedBlockFromBlockId(blockId)
     return withBlck(bd):
       static: doAssert blck.signature is TrustedSig and
@@ -402,6 +437,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       )
 
   rpcServer.rpc("post_v1_beacon_blocks") do (blck: phase0.SignedBeaconBlock) -> int:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     let res = await sendBeaconBlock(node, ForkedSignedBeaconBlock.init(blck))
     if res.isErr():
       raise (ref CatchableError)(msg: $res.error())
@@ -417,6 +455,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("get_v1_beacon_blocks_blockId") do (
       blockId: string) -> phase0.TrustedSignedBeaconBlock:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     let blck = node.getForkedBlockFromBlockId(blockId)
     if blck.kind == BeaconBlockFork.Phase0:
       return blck.phase0Data
@@ -425,17 +466,25 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("get_v1_beacon_blocks_blockId_root") do (
       blockId: string) -> Eth2Digest:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     return withBlck(node.getForkedBlockFromBlockId(blockId)):
       blck.root
 
   rpcServer.rpc("get_v1_beacon_blocks_blockId_attestations") do (
       blockId: string) -> seq[TrustedAttestation]:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     return withBlck(node.getForkedBlockFromBlockId(blockId)):
       blck.message.body.attestations.asSeq
 
   rpcServer.rpc("get_v1_beacon_pool_attestations") do (
       slot: Option[uint64], committee_index: Option[uint64]) ->
       seq[RpcAttestation]:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
 
     var res: seq[RpcAttestation]
 
@@ -463,6 +512,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("post_v1_beacon_pool_attestations") do (
       attestation: Attestation) -> bool:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     let res = await node.sendAttestation(attestation)
     if not res.isOk():
       raise (ref CatchableError)(msg: $res.error())
@@ -470,6 +522,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("get_v1_beacon_pool_attester_slashings") do (
       ) -> seq[AttesterSlashing]:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     var res: seq[AttesterSlashing]
     if isNil(node.exitPool):
       return res
@@ -481,6 +536,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("post_v1_beacon_pool_attester_slashings") do (
       slashing: AttesterSlashing) -> bool:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     let res = node.sendAttesterSlashing(slashing)
     if not res.isOk():
       raise (ref CatchableError)(msg: $res.error())
@@ -488,6 +546,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("get_v1_beacon_pool_proposer_slashings") do (
       ) -> seq[ProposerSlashing]:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     var res: seq[ProposerSlashing]
     if isNil(node.exitPool):
       return res
@@ -499,6 +560,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("post_v1_beacon_pool_proposer_slashings") do (
       slashing: ProposerSlashing) -> bool:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     let res = node.sendProposerSlashing(slashing)
     if not res.isOk():
       raise (ref CatchableError)(msg: $res.error())
@@ -506,6 +570,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("get_v1_beacon_pool_voluntary_exits") do (
       ) -> seq[SignedVoluntaryExit]:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     var res: seq[SignedVoluntaryExit]
     if isNil(node.exitPool):
       return res
@@ -517,6 +584,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("post_v1_beacon_pool_voluntary_exits") do (
       exit: SignedVoluntaryExit) -> bool:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     let res = node.sendVoluntaryExit(exit)
     if not res.isOk():
       raise (ref CatchableError)(msg: $res.error())

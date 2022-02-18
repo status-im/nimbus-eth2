@@ -1,3 +1,4 @@
+# beacon_chain
 # Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -16,13 +17,19 @@ logScope: topics = "rest_config"
 
 proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
   let
+    cfg =
+      case node.kind
+      of BeaconNodeKind.Light:
+        addr node.cfg
+      of BeaconNodeKind.Full:
+        addr node.dag.cfg
     cachedForkSchedule =
-      RestApiResponse.prepareJsonResponse(getForkSchedule(node.dag.cfg))
+      RestApiResponse.prepareJsonResponse(getForkSchedule(cfg[]))
     cachedConfigSpec =
       RestApiResponse.prepareJsonResponse(
         (
           # https://github.com/ethereum/consensus-specs/blob/v1.0.1/configs/mainnet/phase0.yaml
-          CONFIG_NAME: node.dag.cfg.name(),
+          CONFIG_NAME: cfg[].name(),
 
           # https://github.com/ethereum/consensus-specs/blob/v1.1.3/presets/mainnet/phase0.yaml
           MAX_COMMITTEES_PER_SLOT:
@@ -108,57 +115,57 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
           # https://github.com/ethereum/consensus-specs/blob/v1.1.3/configs/mainnet.yaml
           PRESET_BASE:
-            node.dag.cfg.PRESET_BASE,
+            cfg[].PRESET_BASE,
           TERMINAL_TOTAL_DIFFICULTY:
-            toString(node.dag.cfg.TERMINAL_TOTAL_DIFFICULTY),
+            toString(cfg[].TERMINAL_TOTAL_DIFFICULTY),
           TERMINAL_BLOCK_HASH:
-            $node.dag.cfg.TERMINAL_BLOCK_HASH,
+            $cfg[].TERMINAL_BLOCK_HASH,
           MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
-            Base10.toString(node.dag.cfg.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT),
+            Base10.toString(cfg[].MIN_GENESIS_ACTIVE_VALIDATOR_COUNT),
           MIN_GENESIS_TIME:
-            Base10.toString(node.dag.cfg.MIN_GENESIS_TIME),
+            Base10.toString(cfg[].MIN_GENESIS_TIME),
           GENESIS_FORK_VERSION:
-            "0x" & $node.dag.cfg.GENESIS_FORK_VERSION,
+            "0x" & $cfg[].GENESIS_FORK_VERSION,
           GENESIS_DELAY:
-            Base10.toString(node.dag.cfg.GENESIS_DELAY),
+            Base10.toString(cfg[].GENESIS_DELAY),
           ALTAIR_FORK_VERSION:
-            "0x" & $node.dag.cfg.ALTAIR_FORK_VERSION,
+            "0x" & $cfg[].ALTAIR_FORK_VERSION,
           ALTAIR_FORK_EPOCH:
-            Base10.toString(uint64(node.dag.cfg.ALTAIR_FORK_EPOCH)),
+            Base10.toString(uint64(cfg[].ALTAIR_FORK_EPOCH)),
           BELLATRIX_FORK_VERSION:
-            "0x" & $node.dag.cfg.BELLATRIX_FORK_VERSION,
-          BELLATRIX_FORK_EPOCH:
-            Base10.toString(uint64(node.dag.cfg.BELLATRIX_FORK_EPOCH)),
+            "0x" & $cfg[].BELLATRIX_FORK_VERSION,
+          MERGE_FORK_EPOCH:
+            Base10.toString(uint64(cfg[].BELLATRIX_FORK_EPOCH)),
           SHARDING_FORK_VERSION:
-            "0x" & $node.dag.cfg.SHARDING_FORK_VERSION,
+            "0x" & $cfg[].SHARDING_FORK_VERSION,
           SHARDING_FORK_EPOCH:
-            Base10.toString(uint64(node.dag.cfg.SHARDING_FORK_EPOCH)),
+            Base10.toString(uint64(cfg[].SHARDING_FORK_EPOCH)),
           SECONDS_PER_SLOT:
             Base10.toString(SECONDS_PER_SLOT),
           SECONDS_PER_ETH1_BLOCK:
-            Base10.toString(node.dag.cfg.SECONDS_PER_ETH1_BLOCK),
+            Base10.toString(cfg[].SECONDS_PER_ETH1_BLOCK),
           MIN_VALIDATOR_WITHDRAWABILITY_DELAY:
-            Base10.toString(node.dag.cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY),
+            Base10.toString(cfg[].MIN_VALIDATOR_WITHDRAWABILITY_DELAY),
           SHARD_COMMITTEE_PERIOD:
-            Base10.toString(node.dag.cfg.SHARD_COMMITTEE_PERIOD),
+            Base10.toString(cfg[].SHARD_COMMITTEE_PERIOD),
           ETH1_FOLLOW_DISTANCE:
-            Base10.toString(node.dag.cfg.ETH1_FOLLOW_DISTANCE),
+            Base10.toString(cfg[].ETH1_FOLLOW_DISTANCE),
           INACTIVITY_SCORE_BIAS:
-            Base10.toString(node.dag.cfg.INACTIVITY_SCORE_BIAS),
+            Base10.toString(cfg[].INACTIVITY_SCORE_BIAS),
           INACTIVITY_SCORE_RECOVERY_RATE:
-            Base10.toString(node.dag.cfg.INACTIVITY_SCORE_RECOVERY_RATE),
+            Base10.toString(cfg[].INACTIVITY_SCORE_RECOVERY_RATE),
           EJECTION_BALANCE:
-            Base10.toString(node.dag.cfg.EJECTION_BALANCE),
+            Base10.toString(cfg[].EJECTION_BALANCE),
           MIN_PER_EPOCH_CHURN_LIMIT:
-            Base10.toString(node.dag.cfg.MIN_PER_EPOCH_CHURN_LIMIT),
+            Base10.toString(cfg[].MIN_PER_EPOCH_CHURN_LIMIT),
           CHURN_LIMIT_QUOTIENT:
-            Base10.toString(node.dag.cfg.CHURN_LIMIT_QUOTIENT),
+            Base10.toString(cfg[].CHURN_LIMIT_QUOTIENT),
           DEPOSIT_CHAIN_ID:
-            Base10.toString(node.dag.cfg.DEPOSIT_CHAIN_ID),
+            Base10.toString(cfg[].DEPOSIT_CHAIN_ID),
           DEPOSIT_NETWORK_ID:
-            Base10.toString(node.dag.cfg.DEPOSIT_NETWORK_ID),
+            Base10.toString(cfg[].DEPOSIT_NETWORK_ID),
           DEPOSIT_CONTRACT_ADDRESS:
-            $node.dag.cfg.DEPOSIT_CONTRACT_ADDRESS,
+            $cfg[].DEPOSIT_CONTRACT_ADDRESS,
 
           # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#constants
           # GENESIS_SLOT
@@ -238,8 +245,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
     cachedDepositContract =
       RestApiResponse.prepareJsonResponse(
         (
-          chain_id: $node.dag.cfg.DEPOSIT_CHAIN_ID,
-          address: $node.dag.cfg.DEPOSIT_CONTRACT_ADDRESS
+          chain_id: $cfg[].DEPOSIT_CHAIN_ID,
+          address: $cfg[].DEPOSIT_CONTRACT_ADDRESS
         )
       )
 

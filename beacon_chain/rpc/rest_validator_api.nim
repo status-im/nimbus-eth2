@@ -1,8 +1,10 @@
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# beacon_chain
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import std/[typetraits, strutils, sets]
 import stew/[results, base10], chronicles
 import ".."/[beacon_chain_db, beacon_node],
@@ -22,6 +24,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Validator/getAttesterDuties
   router.api(MethodPost, "/eth/v1/validator/duties/attester/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let indexList =
       block:
         if contentBody.isNone():
@@ -103,6 +108,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties
   router.api(MethodGet, "/eth/v1/validator/duties/proposer/{epoch}") do (
     epoch: Epoch) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let qepoch =
       block:
         if epoch.isErr():
@@ -148,8 +156,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     return RestApiResponse.jsonResponseWRoot(duties, droot)
 
+  # https://ethereum.github.io/beacon-APIs/#/Validator/getSyncCommitteeDuties
   router.api(MethodPost, "/eth/v1/validator/duties/sync/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let indexList =
       block:
         if contentBody.isNone():
@@ -284,6 +296,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v1/validator/blocks/{slot}") do (
     slot: Slot, randao_reveal: Option[ValidatorSig],
     graffiti: Option[GraffitiBytes]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let message =
       block:
         let qslot =
@@ -342,6 +357,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v2/validator/blocks/{slot}") do (
     slot: Slot, randao_reveal: Option[ValidatorSig],
     graffiti: Option[GraffitiBytes]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let message =
       block:
         let qslot =
@@ -394,6 +412,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v1/validator/attestation_data") do (
     slot: Option[Slot],
     committee_index: Option[CommitteeIndex]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let adata =
       block:
         let qslot =
@@ -434,6 +455,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v1/validator/aggregate_attestation") do (
     attestation_data_root: Option[Eth2Digest],
     slot: Option[Slot]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let attestation =
       block:
         let qslot =
@@ -465,6 +489,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Validator/publishAggregateAndProofs
   router.api(MethodPost, "/eth/v1/validator/aggregate_and_proofs") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let proofs =
       block:
         if contentBody.isNone():
@@ -500,6 +527,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodPost,
              "/eth/v1/validator/beacon_committee_subscriptions") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let requests =
       block:
         if contentBody.isNone():
@@ -571,6 +601,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodPost,
              "/eth/v1/validator/sync_committee_subscriptions") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let subscriptions =
       block:
         if contentBody.isNone():
@@ -611,6 +644,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v1/validator/sync_committee_contribution") do (
     slot: Option[Slot], subcommittee_index: Option[SyncSubCommitteeIndex],
     beacon_block_root: Option[Eth2Digest]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let qslot =
       if slot.isNone():
         return RestApiResponse.jsonError(Http400, MissingSlotValueError)
@@ -663,6 +699,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodPost,
              "/eth/v1/validator/contribution_and_proofs") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let proofs =
       block:
         if contentBody.isNone():

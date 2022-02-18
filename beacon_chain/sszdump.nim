@@ -46,3 +46,38 @@ proc dump*(dir: string, v: ForkyHashedBeaconState) =
 proc dump*(dir: string, v: SyncCommitteeMessage, validator: ValidatorPubKey) =
   logErrors:
     SSZ.saveFile(dir / &"sync-committee-msg-{v.slot}-{shortLog(validator)}.ssz", v)
+
+proc dump*(dir: string, v: altair.LightClientBootstrap) =
+  logErrors:
+    let
+      prefix = "bootstrap"
+      slot = v.header.slot
+      blck = shortLog(v.header.hash_tree_root())
+      root = shortLog(v.hash_tree_root())
+    SSZ.saveFile(
+      dir / &"{prefix}-{slot}-{blck}-{root}.ssz", v)
+
+proc dump*(dir: string, v: altair.LightClientUpdate) =
+  logErrors:
+    let
+      prefix = "update"
+      attestedSlot = v.attested_header.slot
+      attestedBlck = shortLog(v.attested_header.hash_tree_root())
+      suffix =
+        if v.finalized_header.slot != 0.Slot:
+          "f"
+        else:
+          "o"
+      root = shortLog(v.hash_tree_root())
+    SSZ.saveFile(
+      dir / &"{prefix}-{attestedSlot}-{attestedBlck}-{suffix}-{root}.ssz", v)
+
+proc dump*(dir: string, v: altair.OptimisticLightClientUpdate) =
+  logErrors:
+    let
+      prefix = "optimistic-update"
+      attestedSlot = v.attested_header.slot
+      attestedBlck = shortLog(v.attested_header.hash_tree_root())
+      root = shortLog(v.hash_tree_root())
+    SSZ.saveFile(
+      dir / &"{prefix}-{attestedSlot}-{attestedBlck}-{root}.ssz", v)

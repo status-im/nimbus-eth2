@@ -103,18 +103,32 @@ proc toString*(kind: ValidatorFilterKind): string =
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
   router.api(MethodGet, "/eth/v1/beacon/genesis") do () -> RestApiResponse:
-    return RestApiResponse.jsonResponse(
-      (
-        genesis_time: getStateField(node.dag.headState.data, genesis_time),
-        genesis_validators_root:
-          getStateField(node.dag.headState.data, genesis_validators_root),
-        genesis_fork_version: node.dag.cfg.GENESIS_FORK_VERSION
+    case node.kind
+    of BeaconNodeKind.Light:
+      return RestApiResponse.jsonResponse(
+        (
+          genesis_time: getStateField(node.genesisState[], genesis_time),
+          genesis_validators_root:
+            getStateField(node.genesisState[], genesis_validators_root),
+          genesis_fork_version: node.cfg.GENESIS_FORK_VERSION
+        )
       )
-    )
+    of BeaconNodeKind.Full:
+      return RestApiResponse.jsonResponse(
+        (
+          genesis_time: getStateField(node.dag.headState.data, genesis_time),
+          genesis_validators_root:
+            getStateField(node.dag.headState.data, genesis_validators_root),
+          genesis_fork_version: node.dag.cfg.GENESIS_FORK_VERSION
+        )
+      )
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getStateRoot
   router.api(MethodGet, "/eth/v1/beacon/states/{state_id}/root") do (
     state_id: StateIdent) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let
       sid = state_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
@@ -135,6 +149,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getStateFork
   router.api(MethodGet, "/eth/v1/beacon/states/{state_id}/fork") do (
     state_id: StateIdent) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let
       sid = state_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
@@ -164,6 +181,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/eth/v1/beacon/states/{state_id}/finality_checkpoints") do (
     state_id: StateIdent) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let
       sid = state_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
@@ -192,6 +212,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v1/beacon/states/{state_id}/validators") do (
     state_id: StateIdent, id: seq[ValidatorIdent],
     status: seq[ValidatorFilter]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let
       sid = state_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
@@ -316,6 +339,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
           "/eth/v1/beacon/states/{state_id}/validators/{validator_id}") do (
     state_id: StateIdent, validator_id: ValidatorIdent) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let
       sid = state_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
@@ -381,6 +407,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/eth/v1/beacon/states/{state_id}/validator_balances") do (
     state_id: StateIdent, id: seq[ValidatorIdent]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let
       sid = state_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
@@ -471,6 +500,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v1/beacon/states/{state_id}/committees") do (
     state_id: StateIdent, epoch: Option[Epoch], index: Option[CommitteeIndex],
     slot: Option[Slot]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let
       sid = state_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
@@ -584,6 +616,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/eth/v1/beacon/states/{state_id}/sync_committees") do (
     state_id: StateIdent, epoch: Option[Epoch]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let
       sid = state_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
@@ -663,6 +698,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeaders
   router.api(MethodGet, "/eth/v1/beacon/headers") do (
     slot: Option[Slot], parent_root: Option[Eth2Digest]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     # TODO (cheatfate): This call is incomplete, because structure
     # of database do not allow to query blocks by `parent_root`.
     let qslot =
@@ -716,6 +754,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeader
   router.api(MethodGet, "/eth/v1/beacon/headers/{block_id}") do (
     block_id: BlockIdent) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let
       bid = block_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
@@ -747,6 +788,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
   router.api(MethodPost, "/eth/v1/beacon/blocks") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let forkedBlock =
       block:
         if contentBody.isNone():
@@ -776,6 +820,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
   router.api(MethodGet, "/eth/v1/beacon/blocks/{block_id}") do (
     block_id: BlockIdent) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let
       bid = block_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
@@ -806,6 +853,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
   router.api(MethodGet, "/eth/v2/beacon/blocks/{block_id}") do (
     block_id: BlockIdent) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let
       bid = block_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
@@ -832,6 +882,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
   router.api(MethodGet, "/eth/v1/beacon/blocks/{block_id}/root") do (
     block_id: BlockIdent) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let
       bid = block_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
@@ -846,6 +899,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/eth/v1/beacon/blocks/{block_id}/attestations") do (
     block_id: BlockIdent) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let
       bid = block_id.valueOr:
         return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
@@ -862,6 +918,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v1/beacon/pool/attestations") do (
     slot: Option[Slot],
     committee_index: Option[CommitteeIndex]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let vindex =
       if committee_index.isSome():
         let rindex = committee_index.get()
@@ -889,6 +948,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttestations
   router.api(MethodPost, "/eth/v1/beacon/pool/attestations") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let attestations =
       block:
         if contentBody.isNone():
@@ -936,6 +998,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttesterSlashings
   router.api(MethodGet, "/eth/v1/beacon/pool/attester_slashings") do (
     ) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     var res: seq[AttesterSlashing]
     if isNil(node.exitPool):
       return RestApiResponse.jsonResponse(res)
@@ -948,6 +1013,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttesterSlashings
   router.api(MethodPost, "/eth/v1/beacon/pool/attester_slashings") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let slashing =
       block:
         if contentBody.isNone():
@@ -968,6 +1036,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolProposerSlashings
   router.api(MethodGet, "/eth/v1/beacon/pool/proposer_slashings") do (
     ) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     var res: seq[ProposerSlashing]
     if isNil(node.exitPool):
       return RestApiResponse.jsonResponse(res)
@@ -980,6 +1051,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolProposerSlashings
   router.api(MethodPost, "/eth/v1/beacon/pool/proposer_slashings") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let slashing =
       block:
         if contentBody.isNone():
@@ -1000,6 +1074,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolSyncCommitteeSignatures
   router.api(MethodPost, "/eth/v1/beacon/pool/sync_committees") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let messages =
       block:
         if contentBody.isNone():
@@ -1031,6 +1108,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolVoluntaryExits
   router.api(MethodGet, "/eth/v1/beacon/pool/voluntary_exits") do (
     ) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     var res: seq[SignedVoluntaryExit]
     if isNil(node.exitPool):
       return RestApiResponse.jsonResponse(res)
@@ -1043,6 +1123,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit
   router.api(MethodPost, "/eth/v1/beacon/pool/voluntary_exits") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let exit =
       block:
         if contentBody.isNone():

@@ -125,10 +125,11 @@ suite "Light client" & preset():
     check bootstrap.isSome
     var storeRes = initialize_light_client_store(
       trusted_block_root, bootstrap.get)
-    check storeRes.isSome
+    check storeRes.isOk
     template store(): auto = storeRes.get
 
     # Sync to latest sync committee period
+    var numIterations = 0
     while store.finalized_header.slot.sync_committee_period + 1 < headPeriod:
       let
         period =
@@ -142,8 +143,10 @@ suite "Light client" & preset():
       check:
         bestUpdate.isSome
         bestUpdate.get.finalized_header.slot.sync_committee_period == period
-        res
+        res.isOk
         store.finalized_header == bestUpdate.get.finalized_header
+      inc numIterations
+      if numIterations > 20: doAssert false # Avoid endless loop on test failure
 
     # Sync to latest update
     let
@@ -153,6 +156,6 @@ suite "Light client" & preset():
     check:
       latestUpdate.isSome
       latestUpdate.get.attested_header.slot == dag.headState.blck.parent.slot
-      res
+      res.isOk
       store.finalized_header == latestUpdate.get.finalized_header
       store.optimistic_header == latestUpdate.get.attested_header

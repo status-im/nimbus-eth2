@@ -118,12 +118,12 @@ proc runTest(identifier: string) =
           let res = process_light_client_update(
             store, step.update, step.current_slot,
             cfg, genesis_validators_root)
-          check res
+          check res.isOk
         of TestStepKind.ProcessOptimisticUpdate:
           let res = process_optimistic_light_client_update(
             store, step.optimistic_update, step.current_slot,
             cfg, genesis_validators_root)
-          check res
+          check res.isOk
 
       check:
         store.finalized_header == expected_finalized_header

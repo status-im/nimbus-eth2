@@ -553,3 +553,46 @@ proc optimisticLightClientUpdateValidator*(
     beacon_optimistic_light_client_updates_dropped.inc(1, [$v.error[0]])
 
   v
+
+# Light client processor - These are here to contribute to the same metrics.
+# ------------------------------------------------------------------------------
+
+import light_client_processor
+export light_client_processor
+
+func toValidationError(
+    v: Result[void, BlockError]): Result[void, ValidationError] =
+  if v.isOk:
+    ok()
+  else:
+    case v.error
+    of BlockError.Invalid:
+      errReject("OptimisticLightClientUpdate: Invalid")
+    of BlockError.MissingParent:
+      errIgnore("OptimisticLightClientUpdate: MissingParent")
+    of BlockError.UnviableFork:
+      errReject("OptimisticLightClientUpdate: UnviableFork")
+    of BlockError.Duplicate:
+      errIgnore("OptimisticLightClientUpdate: Duplicate")
+
+proc optimisticLightClientUpdateValidator*(
+    self: var LightClientProcessor, src: MsgSource,
+    optimistic_update: OptimisticLightClientUpdate
+): Result[void, ValidationError] =
+  logScope:
+    optimistic_update
+
+  debug "Optimistic light client update received"
+
+  let
+    r = self.storeObject(src, self.getBeaconTime(), optimistic_update)
+    v = r.toValidationError
+  if v.isOk():
+    trace "Optimistic light client update validated"
+
+    beacon_optimistic_light_client_updates_received.inc()
+  else:
+    debug "Dropping optimistic light client update", error = v.error
+    beacon_optimistic_light_client_updates_dropped.inc(1, [$v.error[0]])
+
+  v

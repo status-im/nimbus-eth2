@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -21,6 +21,10 @@ export forks, rpc_types, eth2_json_rpc_serialization, blockchain_dag
 template raiseNoAltairSupport*() =
   raise (ref ValueError)(msg:
     "The JSON-RPC interface does not support certain Altair operations due to changes in block structure - see https://nimbus.guide/rest-api.html for full altair support")
+
+from rest_constants import BeaconNodeInSyncError
+template raiseBeaconNodeInSyncError*() =
+  raise (ref CatchableError)(msg: BeaconNodeInSyncError)
 
 template withStateForStateId*(stateId: string, body: untyped): untyped =
   let

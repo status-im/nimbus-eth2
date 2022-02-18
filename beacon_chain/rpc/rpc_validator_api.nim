@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -36,6 +36,9 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("get_v1_validator_block") do (
       slot: Slot, graffiti: GraffitiBytes, randao_reveal: ValidatorSig) -> phase0.BeaconBlock:
     debug "get_v1_validator_block", slot = slot
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     let head = node.doChecksAndGetCurrentHead(slot)
     let proposer = node.dag.getProposer(head, slot)
     if proposer.isNone():
@@ -55,6 +58,9 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("get_v1_validator_attestation_data") do (
       slot: Slot, committee_index: CommitteeIndex) -> AttestationData:
     debug "get_v1_validator_attestation_data", slot = slot
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     let
       head = node.doChecksAndGetCurrentHead(slot)
       epochRef = block:
@@ -68,6 +74,9 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("get_v1_validator_aggregate_attestation") do (
       slot: Slot, attestation_data_root: Eth2Digest)-> Attestation:
     debug "get_v1_validator_aggregate_attestation"
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     let res = node.attestationPool[].getAggregatedAttestation(slot, attestation_data_root)
     if res.isSome:
       return res.get
@@ -76,11 +85,17 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("post_v1_validator_aggregate_and_proofs") do (
       payload: SignedAggregateAndProof) -> bool:
     debug "post_v1_validator_aggregate_and_proofs"
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     return (await node.sendAggregateAndProof(payload)).isOk()
 
   rpcServer.rpc("get_v1_validator_duties_attester") do (
       epoch: Epoch, public_keys: seq[ValidatorPubKey]) -> seq[RpcAttesterDuties]:
     debug "get_v1_validator_duties_attester", epoch = epoch
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     let
       head = node.doChecksAndGetCurrentHead(epoch)
       epochRef = block:
@@ -108,6 +123,9 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("get_v1_validator_duties_proposer") do (
       epoch: Epoch) -> seq[RpcValidatorDuties]:
     debug "get_v1_validator_duties_proposer", epoch = epoch
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     let
       head = node.doChecksAndGetCurrentHead(epoch)
       epochRef = block:
@@ -127,6 +145,9 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       validator_pubkey: ValidatorPubKey, slot_signature: ValidatorSig) -> bool:
     debug "post_v1_validator_beacon_committee_subscriptions",
       committee_index, slot
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     if committee_index.uint64 >= MAX_COMMITTEES_PER_SLOT.uint64:
       raise newException(CatchableError,
         "Invalid committee index")

@@ -15,28 +15,35 @@ import
 
   # Local modules
   "."/[beacon_clock, beacon_chain_db, conf],
-  ./gossip_processing/[eth2_processor, block_processor, consensus_manager],
+  ./gossip_processing/[
+    eth2_processor, block_processor, consensus_manager, light_client_processor],
   ./networking/eth2_network,
   ./eth1/eth1_monitor,
   ./consensus_object_pools/[
     blockchain_dag, block_quarantine, exit_pool, attestation_pool,
     sync_committee_msg_pool],
   ./spec/datatypes/base,
-  ./sync/[sync_manager, request_manager],
+  ./sync/[light_client_manager, sync_manager, request_manager],
   ./validators/[action_tracker, validator_monitor, validator_pool],
   ./rpc/state_ttl_cache
 
 export
   osproc, chronos, httpserver, presto, action_tracker, beacon_clock,
   beacon_chain_db, conf, attestation_pool, sync_committee_msg_pool,
-  validator_pool, eth2_network, eth1_monitor, request_manager, sync_manager,
-  eth2_processor, blockchain_dag, block_quarantine, base, exit_pool,
-  validator_monitor, consensus_manager
+  validator_pool, eth2_network, eth1_monitor, light_client_manager,
+  request_manager, sync_manager, eth2_processor, blockchain_dag,
+  block_quarantine, base, exit_pool, validator_monitor, consensus_manager
 
 type
   RpcServer* = RpcHttpServer
 
-  GossipState* = set[BeaconStateFork]
+  BeaconNodeKind* {.pure.} = enum
+    Light
+    Full
+
+  GossipState* = object
+    forks*: set[BeaconStateFork]
+    nodeKind*: BeaconNodeKind
 
   BeaconNode* = ref object
     nickname*: string
@@ -46,11 +53,33 @@ type
     db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
-    dag*: ChainDAGRef
-    quarantine*: ref Quarantine
-    attestationPool*: ref AttestationPool
-    syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
-    exitPool*: ref ExitPool
+    case kind*: BeaconNodeKind
+    of BeaconNodeKind.Light:
+      cfg*: RuntimeConfig
+      rng*: ref BrHmacDrbgContext
+      genesisState*: ref ForkedHashedBeaconState
+      genesisBlockRoot*: Eth2Digest
+      cachedForkDigests*: ref ForkDigests
+      lightClientStore*: ref Option[LightClientStore]
+      lightClientProcessor*: ref LightClientProcessor
+      lightClientSyncManager*: LightClientUpdatesSyncManager[Peer, PeerID]
+      lightClientManager*: LightClientManager
+      taskpool*: TaskpoolPtr
+      getBeaconTime*: GetBeaconTimeFn
+      tryTransitionAfter*: Moment
+      transitionBackoff*: Duration
+    of BeaconNodeKind.Full:
+      dag*: ChainDAGRef
+      quarantine*: ref Quarantine
+      attestationPool*: ref AttestationPool
+      syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
+      exitPool*: ref ExitPool
+      processor*: ref Eth2Processor
+      blockProcessor*: ref BlockProcessor
+      consensusManager*: ref ConsensusManager
+      requestManager*: RequestManager
+      syncManager*: BeaconBlocksSyncManager[Peer, PeerID]
+      backfiller*: BeaconBlocksSyncManager[Peer, PeerID]
     eth1Monitor*: Eth1Monitor
     rpcServer*: RpcServer
     restServer*: RestServerRef
@@ -58,14 +87,8 @@ type
     keymanagerToken*: Option[string]
     eventBus*: AsyncEventBus
     vcProcess*: Process
-    requestManager*: RequestManager
-    syncManager*: BeaconBlocksSyncManager[Peer, PeerID]
-    backfiller*: BeaconBlocksSyncManager[Peer, PeerID]
     genesisSnapshotContent*: string
     actionTracker*: ActionTracker
-    processor*: ref Eth2Processor
-    blockProcessor*: ref BlockProcessor
-    consensusManager*: ref ConsensusManager
     attachedValidatorBalanceTotal*: uint64
     gossipState*: GossipState
     beaconClock*: BeaconClock

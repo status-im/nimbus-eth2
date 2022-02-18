@@ -45,7 +45,7 @@ type
   SyncManager*[A, B; E: SyncEndpoint] = ref object
     pool: PeerPool[A, B]
     responseTimeout: chronos.Duration
-    maxHeadAge: uint64
+    maxHeadAge*: uint64
     toleranceValue: uint64
     getLocalHeadKey: GetSyncKeyCallback[E.K]
     getLocalWallKey: GetSyncKeyCallback[E.K]
@@ -97,6 +97,7 @@ template declareSyncManager(name: untyped): untyped {.dirty.} =
       toleranceValue)
 
 declareSyncManager BeaconBlocks
+declareSyncManager LightClientUpdates
 
 proc now*(sm: typedesc[SyncMoment], slots: uint64): SyncMoment {.inline.} =
   SyncMoment(stamp: now(chronos.Moment), slots: slots)
@@ -206,6 +207,40 @@ proc doRequest*[A, B](man: BeaconBlocksSyncManager[A, B], peer: A,
           direction = man.direction, topics = "syncman"
     return
 
+proc doRequest*[A, B](man: LightClientUpdatesSyncManager[A, B], peer: A,
+                      req: LightClientUpdatesSyncRequest[A]
+                      ): Future[LightClientUpdatesRes] {.async.} =
+  mixin bestLightClientUpdatesByRange
+  doAssert(not(req.isEmpty()), "Request must not be empty!")
+  debug "Requesting updates from peer", peer = peer,
+        period = req.start, period_count = req.count, step = req.step,
+        peer_score = peer.getScore(), peer_speed = peer.netKbps(),
+        direction = man.direction, topics = "syncman"
+  let res =
+    try:
+      await bestLightClientUpdatesByRange(peer, req.start, req.count, req.step)
+    except CancelledError:
+      debug "Interrupt, while waiting bestLightClientUpdatesByRange response",
+            peer = peer, period = req.start, period_count = req.count,
+            step = req.step, peer_speed = peer.netKbps(),
+            direction = man.direction, topics = "syncman"
+      return
+    except CatchableError as exc:
+      debug "Error, while waiting bestLightClientUpdatesByRange response",
+            peer = peer, period = req.start, period_count = req.count,
+            step = req.step, errName = exc.name, errMsg = exc.msg,
+            peer_speed = peer.netKbps(), direction = man.direction,
+            topics = "syncman"
+      return
+  if res.isErr():
+    debug "Error, while reading bestLightClientUpdatesByRange response",
+          peer = peer, period = req.start, count = req.count,
+          step = req.step, peer_speed = peer.netKbps(),
+          direction = man.direction, error = $res.error(),
+          topics = "syncman"
+    return
+  return res
+
 proc remainingKeys(man: SyncManager): uint64 =
   if man.direction == SyncQueueKind.Forward:
     man.getLastKey() - man.getFirstKey()
@@ -215,6 +250,8 @@ proc remainingKeys(man: SyncManager): uint64 =
 func slotToKey[E: SyncEndpoint](slot: Slot, e: typedesc[E]): E.K =
   when E.K is Slot:
     slot
+  elif E.K is SyncCommitteePeriod:
+    slot.sync_committee_period
   else: static: raiseAssert false
 
 proc syncStep[A, B, E](man: SyncManager[A, B, E],
@@ -229,6 +266,12 @@ proc syncStep[A, B, E](man: SyncManager[A, B, E],
     when E.K is Slot:
       debug "Peer's syncing status", wall_clock_slot = wallKey,
             remote_head_slot = peerKey, local_head_slot = headKey,
+            peer_score = peer.getScore(), peer = peer, index = index,
+            peer_speed = peer.netKbps(), direction = man.direction,
+            topics = "syncman"
+    elif E.K is SyncCommitteePeriod:
+      debug "Peer's syncing status", wall_clock_period = wallKey,
+            remote_head_period = peerKey, local_head_period = headKey,
             peer_score = peer.getScore(), peer = peer, index = index,
             peer_speed = peer.netKbps(), direction = man.direction,
             topics = "syncman"
@@ -253,6 +296,12 @@ proc syncStep[A, B, E](man: SyncManager[A, B, E],
       when E.K is Slot:
         trace "Updating peer's status information", wall_clock_slot = wallKey,
               remote_head_slot = peerKey, local_head_slot = headKey,
+              peer = peer, peer_score = peer.getScore(), index = index,
+              peer_speed = peer.netKbps(), direction = man.direction,
+              topics = "syncman"
+      elif E.K is SyncCommitteePeriod:
+        trace "Updating peer's status information", wall_clock_period = wallKey,
+              remote_head_period = peerKey, local_head_period = headKey,
               peer = peer, peer_score = peer.getScore(), index = index,
               peer_speed = peer.netKbps(), direction = man.direction,
               topics = "syncman"
@@ -287,6 +336,13 @@ proc syncStep[A, B, E](man: SyncManager[A, B, E],
                 peer = peer, peer_score = peer.getScore(), index = index,
                 peer_speed = peer.netKbps(), direction = man.direction,
                 topics = "syncman"
+        elif E.K is SyncCommitteePeriod:
+          debug "Peer's status information is stale",
+                wall_clock_period = wallKey, remote_old_head_slot = peerSlot,
+                local_head_period = headKey, remote_new_head_slot = newPeerSlot,
+                peer = peer, peer_score = peer.getScore(), index = index,
+                peer_speed = peer.netKbps(), direction = man.direction,
+                topics = "syncman"
         else: static: raiseAssert false
       else:
         when E.K is Slot:
@@ -294,6 +350,13 @@ proc syncStep[A, B, E](man: SyncManager[A, B, E],
                 wall_clock_slot = wallKey,
                 remote_old_head_slot = peerKey, local_head_slot = headKey,
                 remote_new_head_slot = newPeerKey, peer = peer,
+                peer_score = peer.getScore(), peer_speed = peer.netKbps(),
+                index = index, direction = man.direction, topics = "syncman"
+        elif E.K is SyncCommitteePeriod:
+          debug "Peer's status information updated",
+                wall_clock_period = wallKey,
+                remote_old_head_period = peerKey, local_head_period = headKey,
+                remote_new_head_period = newPeerKey, peer = peer,
                 peer_score = peer.getScore(), peer_speed = peer.netKbps(),
                 index = index, direction = man.direction, topics = "syncman"
         else: static: raiseAssert false
@@ -318,6 +381,13 @@ proc syncStep[A, B, E](man: SyncManager[A, B, E],
               tolerance_value = man.toleranceValue, peer_speed = peer.netKbps(),
               peer_score = peer.getScore(), direction = man.direction,
               topics = "syncman"
+      elif E.K is SyncCommitteePeriod:
+        warn "Peer reports a head newer than our wall clock - clock out of sync?",
+              wall_clock_period = wallKey, remote_head_period = peerKey,
+              local_head_period = headKey, peer = peer, index = index,
+              tolerance_value = man.toleranceValue, peer_speed = peer.netKbps(),
+              peer_score = peer.getScore(), direction = man.direction,
+              topics = "syncman"
       else: static: raiseAssert false
       return
 
@@ -330,11 +400,23 @@ proc syncStep[A, B, E](man: SyncManager[A, B, E],
               peer = peer, peer_score = peer.getScore(), index = index,
               peer_speed = peer.netKbps(), direction = man.direction,
               topics = "syncman"
+      elif E is LightClientUpdatesSyncEndpoint:
+        info "Light client synced to recent head", wall_clock_period = wallKey,
+              remote_head_period = peerKey, local_head_period = headKey,
+              peer = peer, peer_score = peer.getScore(), index = index,
+              peer_speed = peer.netKbps(), direction = man.direction,
+              topics = "syncman"
       else: static: raiseAssert false
     of SyncQueueKind.Backward:
       when E is BeaconBlocksSyncEndpoint:
         info "Backfill complete", wall_clock_slot = wallKey,
               remote_head_slot = peerKey, local_head_slot = headKey,
+              peer = peer, peer_score = peer.getScore(), index = index,
+              peer_speed = peer.netKbps(), direction = man.direction,
+              topics = "syncman"
+      elif E is LightClientUpdatesSyncEndpoint:
+        info "Light client backfill complete", wall_clock_period = wallKey,
+              remote_head_period = peerKey, local_head_period = headKey,
               peer = peer, peer_score = peer.getScore(), index = index,
               peer_speed = peer.netKbps(), direction = man.direction,
               topics = "syncman"
@@ -366,6 +448,14 @@ proc syncStep[A, B, E](man: SyncManager[A, B, E],
             peer_score = peer.getScore(),
             peer_speed = peer.netKbps(), index = index,
             direction = man.direction, topics = "syncman"
+    elif E.K is SyncCommitteePeriod:
+      debug "Peer's head period is lower then local head period",
+            wall_clock_period = wallKey, remote_head_period = peerKey,
+            local_last_period = man.getLastKey(),
+            local_first_period = man.getFirstKey(), peer = peer,
+            peer_score = peer.getScore(),
+            peer_speed = peer.netKbps(), index = index,
+            direction = man.direction, topics = "syncman"
     else: static: raiseAssert false
     peer.updateScore(PeerScoreUseless)
     return
@@ -393,6 +483,14 @@ proc syncStep[A, B, E](man: SyncManager[A, B, E],
             queue_last_slot = man.queue.finalKey,
             peer_speed = peer.netKbps(), peer_score = peer.getScore(),
             index = index, direction = man.direction, topics = "syncman"
+    elif E.K is SyncCommitteePeriod:
+      debug "Empty request received from queue, exiting", peer = peer,
+            local_head_period = headKey, remote_head_period = peerKey,
+            queue_input_period = man.queue.inpKey,
+            queue_output_period = man.queue.outKey,
+            queue_last_period = man.queue.finalKey,
+            peer_speed = peer.netKbps(), peer_score = peer.getScore(),
+            index = index, direction = man.direction, topics = "syncman"
     else: static: raiseAssert false
     await sleepAsync(RESP_TIMEOUT)
     return
@@ -401,6 +499,13 @@ proc syncStep[A, B, E](man: SyncManager[A, B, E],
     debug "Creating new request for peer", wall_clock_slot = wallKey,
           remote_head_slot = peerKey, local_head_slot = headKey,
           request_slot = req.start, request_count = req.count,
+          request_step = req.step, peer = peer, peer_speed = peer.netKbps(),
+          peer_score = peer.getScore(), index = index,
+          direction = man.direction, topics = "syncman"
+  elif E.K is SyncCommitteePeriod:
+    debug "Creating new request for peer", wall_clock_period = wallKey,
+          remote_head_period = peerKey, local_head_period = headKey,
+          request_period = req.start, request_count = req.count,
           request_step = req.step, peer = peer, peer_speed = peer.netKbps(),
           peer_score = peer.getScore(), index = index,
           direction = man.direction, topics = "syncman"
@@ -420,6 +525,13 @@ proc syncStep[A, B, E](man: SyncManager[A, B, E],
               peer = peer, peer_score = peer.getScore(),
               peer_speed = peer.netKbps(), index = index,
               direction = man.direction, topics = "syncman"
+      elif E is LightClientUpdatesSyncEndpoint:
+        debug "Received updates on request", updates_count = len(data),
+              updates_map = smap, request_period = req.start,
+              request_count = req.count, request_step = req.step,
+              peer = peer, peer_score = peer.getScore(),
+              peer_speed = peer.netKbps(), index = index,
+              direction = man.direction, topics = "syncman"
       else: static: raiseAssert false
 
       if not(checkResponse(req, data)):
@@ -428,6 +540,13 @@ proc syncStep[A, B, E](man: SyncManager[A, B, E],
           warn "Received blocks sequence is not in requested range",
               blocks_count = len(data), blocks_map = smap,
               request_slot = req.start, request_count = req.count,
+              request_step = req.step, peer = peer,
+              peer_score = peer.getScore(), peer_speed = peer.netKbps(),
+              index = index, direction = man.direction, topics = "syncman"
+        elif E is LightClientUpdatesSyncEndpoint:
+          warn "Received updates sequence is not in requested range",
+              updates_count = len(data), updates_map = smap,
+              request_period = req.start, request_count = req.count,
               request_step = req.step, peer = peer,
               peer_score = peer.getScore(), peer_speed = peer.netKbps(),
               index = index, direction = man.direction, topics = "syncman"
@@ -447,6 +566,12 @@ proc syncStep[A, B, E](man: SyncManager[A, B, E],
               request_step = req.step, peer = peer, index = index,
               peer_score = peer.getScore(), peer_speed = peer.netKbps(),
               direction = man.direction, topics = "syncman"
+      elif E is LightClientUpdatesSyncEndpoint:
+        debug "Failed to receive updates on request",
+              request_period = req.start, request_count = req.count,
+              request_step = req.step, peer = peer, index = index,
+              peer_score = peer.getScore(), peer_speed = peer.netKbps(),
+              direction = man.direction, topics = "syncman"
       else: static: raiseAssert false
       return
 
@@ -454,6 +579,13 @@ proc syncStep[A, B, E](man: SyncManager[A, B, E],
     when E is BeaconBlocksSyncEndpoint:
       debug "Unexpected exception while receiving blocks",
             request_slot = req.start, request_count = req.count,
+            request_step = req.step, peer = peer, index = index,
+            peer_score = peer.getScore(), peer_speed = peer.netKbps(),
+            errName = exc.name, errMsg = exc.msg, direction = man.direction,
+            topics = "syncman"
+    elif E is LightClientUpdatesSyncEndpoint:
+      debug "Unexpected exception while receiving blocks",
+            request_period = req.start, request_count = req.count,
             request_step = req.step, peer = peer, index = index,
             peer_score = peer.getScore(), peer_speed = peer.netKbps(),
             errName = exc.name, errMsg = exc.msg, direction = man.direction,
@@ -583,6 +715,8 @@ proc toTimeLeftString*(d: Duration): string =
 func slots[K](keys: K): Slot =
   when K is Slot:
     keys
+  elif K is SyncCommitteePeriod:
+    keys.start_slot
   else:
     static: raiseAssert false
 
@@ -643,6 +777,16 @@ proc syncLoop[A, B, E](man: SyncManager[A, B, E]) {.async.} =
             avg_sync_speed = man.avgSyncSpeed,
             ins_sync_speed = man.insSyncSpeed,
             direction = man.direction, topics = "syncman"
+    elif E.K is SyncCommitteePeriod:
+      debug "Current syncing state", workers_map = map,
+            sleeping_workers_count = sleeping,
+            waiting_workers_count = waiting,
+            pending_workers_count = pending,
+            wall_head_period = wallKey, local_head_period = headKey,
+            pause_time = $chronos.seconds(pauseTime),
+            avg_sync_speed = man.avgSyncSpeed,
+            ins_sync_speed = man.insSyncSpeed,
+            direction = man.direction, topics = "syncman"
     else: static: doAssert false
 
     let
@@ -685,6 +829,14 @@ proc syncLoop[A, B, E](man: SyncManager[A, B, E]) {.async.} =
                 waiting_workers_count = waiting,
                 pending_workers_count = pending,
                 direction = man.direction, topics = "syncman"
+        elif E.K is SyncCommitteePeriod:
+          debug "Synchronization loop waits for workers completion",
+                wall_head_period = wallKey, local_head_period = headKey,
+                difference = (wallKey - headKey), max_head_age = man.maxHeadAge,
+                sleeping_workers_count = sleeping,
+                waiting_workers_count = waiting,
+                pending_workers_count = pending,
+                direction = man.direction, topics = "syncman"
         else: static: doAssert false
         # We already synced, so we should reset all the pending workers from
         # any state they have.
@@ -701,11 +853,23 @@ proc syncLoop[A, B, E](man: SyncManager[A, B, E]) {.async.} =
                     difference = (wallKey - headKey),
                     max_head_age = man.maxHeadAge, direction = man.direction,
                     topics = "syncman"
+            elif E.K is SyncCommitteePeriod:
+              debug "Forward synchronization process finished, sleeping",
+                    wall_head_period = wallKey, local_head_period = headKey,
+                    difference = (wallKey - headKey),
+                    max_head_age = man.maxHeadAge, direction = man.direction,
+                    topics = "syncman"
             else: static: doAssert false
           else:
             when E.K is Slot:
               debug "Synchronization loop sleeping",
                     wall_head_slot = wallKey, local_head_slot = headKey,
+                    difference = (wallKey - headKey),
+                    max_head_age = man.maxHeadAge, direction = man.direction,
+                    topics = "syncman"
+            elif E.K is SyncCommitteePeriod:
+              debug "Synchronization loop sleeping",
+                    wall_head_period = wallKey, local_head_period = headKey,
                     difference = (wallKey - headKey),
                     max_head_age = man.maxHeadAge, direction = man.direction,
                     topics = "syncman"
@@ -736,6 +900,12 @@ proc syncLoop[A, B, E](man: SyncManager[A, B, E]) {.async.} =
                   backfill_slot = man.getLastKey(),
                   max_head_age = man.maxHeadAge, direction = man.direction,
                   topics = "syncman"
+          elif E.K is SyncCommitteePeriod:
+            debug "Backward synchronization process finished, exiting",
+                  wall_head_period = wallKey, local_head_period = headKey,
+                  backfill_period = man.getLastKey(),
+                  max_head_age = man.maxHeadAge, direction = man.direction,
+                  topics = "syncman"
           else: static: doAssert false
           break
     else:
@@ -752,6 +922,13 @@ proc syncLoop[A, B, E](man: SyncManager[A, B, E]) {.async.} =
                   missing_slots = man.remainingKeys(),
                   progress = float(man.queue.progress()),
                   topics = "syncman"
+          elif E.K is SyncCommitteePeriod:
+            debug "Node lost sync for more then preset period",
+                  period = man.maxHeadAge, wall_head_period = wallKey,
+                  local_head_period = headKey,
+                  missing_periods = man.remainingKeys(),
+                  progress = float(man.queue.progress()),
+                  topics = "syncman"
           else: static: doAssert false
       else:
         man.notInSyncEvent.fire()
@@ -763,6 +940,12 @@ proc start*[A, B, E](man: SyncManager[A, B, E]) =
   ## Starts SyncManager's main loop.
   man.syncFut = man.syncLoop()
 
+proc stop*[A, B, E](man: SyncManager[A, B, E]) =
+  ## Stops SyncManager's main loop.
+  if man.syncFut != nil:
+    man.syncFut.cancel()
+    man.syncFut = nil
+
 proc getInfo*[A, B, E](man: SyncManager[A, B, E]): RpcSyncInfo =
   ## Returns current synchronization information for RPC call.
   let wallSlot = man.getLocalWallKey().slots
@@ -771,5 +954,12 @@ proc getInfo*[A, B, E](man: SyncManager[A, B, E]): RpcSyncInfo =
   (
     head_slot: headSlot,
     sync_distance: sync_distance,
-    is_syncing: man.inProgress
+    is_syncing:
+      when E is BeaconBlocksSyncEndpoint:
+        man.inProgress
+      elif E is LightClientUpdatesSyncEndpoint:
+        # Avoid intermittent reporting of `false` during transition
+        # from light client sync into full beacon blocks sync.
+        true
+      else: static: doAssert false
   )

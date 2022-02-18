@@ -463,10 +463,10 @@ export
   blockchain_dag_light_client.getLightClientBootstrap
 
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
-           validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
+           validatorMonitor: ref ValidatorMonitor,
+           updateFlags: UpdateFlags, forkDigests: ref ForkDigests = nil,
            onBlockCb: OnBlockCallback = nil, onHeadCb: OnHeadCallback = nil,
-           onReorgCb: OnReorgCallback = nil,
-           onFinCb: OnFinalizedCallback = nil,
+           onReorgCb: OnReorgCallback = nil, onFinCb: OnFinalizedCallback = nil,
            onOptimisticLCUpdateCb: OnOptimisticLightClientUpdateCallback = nil,
            serveLightClientData = false,
            importLightClientData = ImportLightClientData.None
@@ -655,9 +655,12 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # db state is likely a epoch boundary state which is what we want for epochs
   assign(dag.epochRefState, dag.headState)
 
-  dag.forkDigests = newClone ForkDigests.init(
-    cfg,
-    getStateField(dag.headState.data, genesis_validators_root))
+  dag.forkDigests =
+    if forkDigests == nil:
+      newClone ForkDigests.init(
+        cfg, getStateField(dag.headState.data, genesis_validators_root))
+    else:
+      forkDigests
 
   swap(dag.backfillBlocks, backfillBlocks) # avoid allocating a full copy
 

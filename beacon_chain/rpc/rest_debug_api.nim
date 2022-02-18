@@ -20,6 +20,9 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/eth/v1/debug/beacon/states/{state_id}") do (
     state_id: StateIdent) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let bslot =
       block:
         if state_id.isErr():
@@ -55,6 +58,9 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/eth/v2/debug/beacon/states/{state_id}") do (
     state_id: StateIdent) -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     let bslot =
       block:
         if state_id.isErr():
@@ -86,6 +92,9 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeads
   router.api(MethodGet,
              "/eth/v1/debug/beacon/heads") do () -> RestApiResponse:
+    if node.kind != BeaconNodeKind.Full:
+      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+
     return RestApiResponse.jsonResponse(
       node.dag.heads.mapIt((root: it.root, slot: it.slot))
     )

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -42,9 +42,15 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   ## Install non-standard api handlers - some of these are used by 3rd-parties
   ## such as eth2stats, pending a full REST api
   rpcServer.rpc("getBeaconHead") do () -> Slot:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     return node.dag.head.slot
 
   rpcServer.rpc("getChainHead") do () -> JsonNode:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     let
       head = node.dag.head
       finalized = getStateField(node.dag.headState.data, finalized_checkpoint)
@@ -60,7 +66,11 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     }
 
   rpcServer.rpc("getSyncing") do () -> bool:
-    return node.syncManager.inProgress
+    case node.kind
+    of BeaconNodeKind.Light:
+      return true
+    of BeaconNodeKind.Full:
+      return node.syncManager.inProgress
 
   rpcServer.rpc("getNetworkPeerId") do () -> string:
     return $node.network.peerId()
@@ -103,6 +113,9 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       @[]
 
   rpcServer.rpc("getEth1ProposalData") do () -> BlockProposalEth1Data:
+    if node.kind != BeaconNodeKind.Full:
+      raiseBeaconNodeInSyncError()
+
     let
       wallSlot = node.beaconClock.now.slotOrZero
       head = node.doChecksAndGetCurrentHead(wallSlot)
