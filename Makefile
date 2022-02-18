@@ -31,9 +31,17 @@ CPU_LIMIT := 0
 BUILD_END_MSG := "\\x1B[92mBuild completed successfully:\\x1B[39m"
 
 ifeq ($(CPU_LIMIT), 0)
-	CPU_LIMIT_CMD :=
+  CPU_LIMIT_CMD :=
 else
-	CPU_LIMIT_CMD := cpulimit --limit=$(CPU_LIMIT) --foreground --
+  CPU_LIMIT_CMD := cpulimit --limit=$(CPU_LIMIT) --foreground --
+endif
+
+# TODO: move this to nimbus-build-system
+ifeq ($(shell uname), Darwin)
+  # Scary warnings in large volume: https://github.com/status-im/nimbus-eth2/issues/3076
+  SILENCE_WARNINGS := 2>&1 | grep -v "failed to insert symbol" | grep -v "could not find object file symbol for symbol" || true
+else
+  SILENCE_WARNINGS :=
 endif
 
 # unconditionally built by the default Make target
@@ -241,7 +249,7 @@ build/generate_makefile: | libbacktrace
 endif
 build/generate_makefile: tools/generate_makefile.nim | deps-common
 	+ echo -e $(BUILD_MSG) "$@" && \
-	$(ENV_SCRIPT) nim c -o:$@ $(NIM_PARAMS) tools/generate_makefile.nim && \
+	$(ENV_SCRIPT) nim c -o:$@ $(NIM_PARAMS) tools/generate_makefile.nim $(SILENCE_WARNINGS) && \
 	echo -e $(BUILD_END_MSG) "$@"
 
 # GCC's LTO parallelisation is able to detect a GNU Make jobserver and get its
@@ -458,7 +466,7 @@ endif
 
 libnfuzz.so: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz -o:build/$@.0 $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
+		$(ENV_SCRIPT) nim c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz -o:build/$@.0 $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@" && \
 		rm -f build/$@ && \
 		ln -s $@.0 build/$@
@@ -466,7 +474,7 @@ libnfuzz.so: | build deps
 libnfuzz.a: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		rm -f build/$@ && \
-		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
+		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@" && \
 		[[ -e "$@" ]] && mv "$@" build/ || true # workaround for https://github.com/nim-lang/Nim/issues/12745
 
