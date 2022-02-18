@@ -1410,71 +1410,11 @@ proc testWeb3Provider*(web3Url: Uri,
     echo "Deposit root: ", depositRoot
   except CatchableError as err:
     echo "Web3 provider is not archive mode: ", err.msg
+
 when hasGenesisDetection:
-  proc init*(T: type Eth1Monitor,
-             cfg: RuntimeConfig,
-             db: BeaconChainDB,
-             web3Urls: seq[string],
-             depositContractDeployedAt: BlockHashOrNumber,
-             eth1Network: Option[Eth1Network],
-             forcePolling: bool): Future[Result[T, string]] {.async.} =
-    doAssert web3Urls.len > 0
-    try:
-      var urlIdx = 0
-      let dataProviderRes = await Web3DataProvider.new(cfg.DEPOSIT_CONTRACT_ADDRESS, web3Urls[urlIdx])
-      if dataProviderRes.isErr:
-        return err(dataProviderRes.error)
-      var dataProvider = dataProviderRes.get
-
-      let knownStartBlockHash =
-        if depositContractDeployedAt.isHash:
-          depositContractDeployedAt.hash
-        else:
-          var blk: BlockObject
-          while true:
-            try:
-              blk = awaitWithRetries(
-                dataProvider.getBlockByNumber(depositContractDeployedAt.number))
-              break
-            except CatchableError as err:
-              error "Failed to obtain details for the starting block " &
-                    "of the deposit contract sync. The Web3 provider " &
-                    "may still be not fully synced", error = err.msg
-
-            await sleepAsync(chronos.seconds(10))
-            # TODO: After a single failure, the web3 object may enter a state
-            #       where it's no longer possible to make additional requests.
-            #       Until this is fixed upstream, we'll just try to recreate
-            #       the web3 provider before retrying. In case this fails,
-            #       the Eth1Monitor will be restarted.
-            inc urlIdx
-            dataProvider = block:
-              let v = await Web3DataProvider.new(
-                cfg.DEPOSIT_CONTRACT_ADDRESS,
-                web3Urls[urlIdx mod web3Urls.len])
-              if v.isErr(): raise (ref CatchableError)(msg: v.error())
-              v.get()
-
-          blk.hash.asEth2Digest
-
-      let depositContractSnapshot = DepositContractSnapshot(
-        eth1Block: knownStartBlockHash)
-
-      var monitor = Eth1Monitor.init(
-        cfg,
-        db,
-        web3Urls,
-        depositContractSnapshot,
-        eth1Network,
-        forcePolling)
-
-      for i in 0 ..< db.genesisDeposits.len:
-        monitor.produceDerivedData db.genesisDeposits.get(i)
-
-      return ok monitor
-
-    except CatchableError as err:
-      return err("Failed to initialize the Eth1 monitor")
+  proc loadPersistedDeposits*(monitor: Eth1Monitor) =
+    for i in 0 ..< monitor.depositsChain.db.genesisDeposits.len:
+      monitor.produceDerivedData monitor.depositsChain.db.genesisDeposits.get(i)
 
   proc findGenesisBlockInRange(m: Eth1Monitor, startBlock, endBlock: Eth1Block):
                                Future[Eth1Block] {.async.} =

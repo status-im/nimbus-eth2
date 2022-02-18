@@ -16,7 +16,7 @@ const
   # customized
   SYNC_COMMITTEE_SIZE* = 32
   # customized
-  EPOCHS_PER_SYNC_COMMITTEE_PERIOD*: uint64 = 8
+  EPOCHS_PER_SYNC_COMMITTEE_PERIOD* {.intdefine.}: uint64 = 8
 
 
   # Sync protocol

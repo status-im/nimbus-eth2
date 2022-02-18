@@ -234,7 +234,7 @@ proc init*(T: type BeaconNode,
 
         # TODO Could move this to a separate "GenesisMonitor" process or task
         #      that would do only this - see Paul's proposal for this.
-        let eth1MonitorRes = waitFor Eth1Monitor.init(
+        let eth1Monitor = Eth1Monitor.init(
           cfg,
           db,
           config.web3Urls,
@@ -242,14 +242,7 @@ proc init*(T: type BeaconNode,
           eth1Network,
           config.web3ForcePolling)
 
-        if eth1MonitorRes.isErr:
-          fatal "Failed to start Eth1 monitor",
-                reason = eth1MonitorRes.error,
-                web3Urls = config.web3Urls,
-                depositContractDeployedAt
-          quit 1
-        else:
-          eth1Monitor = eth1MonitorRes.get
+        eth1Monitor.loadPersistedDeposits()
 
         let phase0Genesis = waitFor eth1Monitor.waitGenesis()
         genesisState = newClone ForkedHashedBeaconState.init(

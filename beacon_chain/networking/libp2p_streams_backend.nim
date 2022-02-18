@@ -149,12 +149,15 @@ proc readResponseChunk(conn: Connection, peer: Peer,
     let responseCode = ResponseCode responseCodeByte
     case responseCode:
     of InvalidRequest, ServerError:
-      let errorMsgChunk = await readChunkPayload(conn, peer, ErrorMsg)
-      let errorMsg = if errorMsgChunk.isOk: errorMsgChunk.value
-                     else: return err(errorMsgChunk.error)
+      let
+        errorMsgChunk = await readChunkPayload(conn, peer, ErrorMsg)
+        errorMsg = if errorMsgChunk.isOk: errorMsgChunk.value
+                   else: return err(errorMsgChunk.error)
+        errorMsgStr = toPrettyString(errorMsg.asSeq)
+      debug "Error response from peer", responseCode, errMsg = errorMsgStr
       return err Eth2NetworkingError(kind: ReceivedErrorResponse,
                                      responseCode: responseCode,
-                                     errorMsg: toPrettyString(errorMsg.asSeq))
+                                     errorMsg: errorMsgStr)
     of Success:
       discard
 

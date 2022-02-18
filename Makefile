@@ -25,7 +25,10 @@ NODE_ID := 0
 BASE_PORT := 9000
 BASE_REST_PORT := 5052
 BASE_METRICS_PORT := 8008
-WEB3_URL := "wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
+
+GOERLI_WEB3_URL := "--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
+GNOSIS_WEB3_URLS := "--web3-url=wss://rpc.gnosischain.com/wss --web3-url=wss://xdai.poanetwork.dev/wss"
+
 VALIDATORS := 1
 CPU_LIMIT := 0
 BUILD_END_MSG := "\\x1B[92mBuild completed successfully:\\x1B[39m"
@@ -77,10 +80,6 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	test \
 	clean_eth2_network_simulation_all \
 	eth2_network_simulation \
-	clean-testnet0 \
-	testnet0 \
-	clean-testnet1 \
-	testnet1 \
 	clean \
 	libbacktrace \
 	book \
@@ -272,7 +271,6 @@ clean_eth2_network_simulation_all:
 	rm -rf tests/simulation/{data,validators}
 
 GOERLI_TESTNETS_PARAMS := \
-  --web3-url=$(WEB3_URL) \
   --tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
   --udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
   --metrics \
@@ -284,19 +282,6 @@ eth2_network_simulation: | build deps clean_eth2_network_simulation_all
 	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start-in-tmux.sh
 	killall prometheus &>/dev/null
 
-clean-testnet0:
-	rm -rf build/data/testnet0*
-
-clean-testnet1:
-	rm -rf build/data/testnet1*
-
-testnet0 testnet1: | nimbus_beacon_node
-	build/nimbus_beacon_node \
-		--network=$@ \
-		--log-level="$(RUNTIME_LOG_LEVEL)" \
-		--data-dir=build/data/$@_$(NODE_ID) \
-		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
-
 #- https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
 #- macOS doesn't support "=" at the end of "define FOO": https://stackoverflow.com/questions/13260396/gnu-make-3-81-eval-function-not-working
 define CONNECT_TO_NETWORK
@@ -307,14 +292,12 @@ define CONNECT_TO_NETWORK
 		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
-	[ "$(3)" == "FastSync" ] && { export CHECKPOINT_PARAMS="--finalized-checkpoint-state=vendor/eth2-networks/shared/$(1)/recent-finalized-state.ssz \
-																													--finalized-checkpoint-block=vendor/eth2-network/shared/$(1)/recent-finalized-block.ssz" ; }; \
 	$(CPU_LIMIT_CMD) build/$(2) \
-		--network=$(1) \
+		--network=$(1) $(3) $(GOERLI_TESTNETS_PARAMS) \
 		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
-		$$CHECKPOINT_PARAMS $(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
+		$(NODE_PARAMS)
 endef
 
 define CONNECT_TO_NETWORK_IN_DEV_MODE
@@ -326,10 +309,10 @@ define CONNECT_TO_NETWORK_IN_DEV_MODE
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
 	$(CPU_LIMIT_CMD) build/$(2) \
-		--network=$(1) \
+		--network=$(1) $(3) $(GOERLI_TESTNETS_PARAMS) \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
-		$(GOERLI_TESTNETS_PARAMS) --dump $(NODE_PARAMS)
+		--dump $(NODE_PARAMS)
 endef
 
 define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
@@ -343,13 +326,13 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
 	$(CPU_LIMIT_CMD) build/$(2) \
-		--network=$(1) \
+		--network=$(1) $(3) $(GOERLI_TESTNETS_PARAMS) \
 		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		--validators-dir=build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder \
 		--secrets-dir=build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder \
-		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS) &
+		$(NODE_PARAMS) &
 
 	sleep 4
 
@@ -380,7 +363,7 @@ define MAKE_DEPOSIT
 		--count=$(VALIDATORS)
 
 	build/deposit_contract sendDeposits \
-		--web3-url=$(WEB3_URL) \
+		$(2) \
 		--deposit-contract=$$(cat vendor/eth2-network/shared/$(1)/deposit_contract.txt) \
 		--deposits-file=nbc-$(1)-deposits.json \
 		--min-delay=$(DEPOSITS_DELAY) \
@@ -400,25 +383,24 @@ pyrmont-build: | nimbus_beacon_node nimbus_signing_node
 
 # https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
 pyrmont: | pyrmont-build
-	$(call CONNECT_TO_NETWORK,pyrmont,nimbus_beacon_node)
+	$(call CONNECT_TO_NETWORK,pyrmont,nimbus_beacon_node,$(GOERLI_WEB3_URL))
 
 pyrmont-vc: | pyrmont-build nimbus_validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,pyrmont,nimbus_beacon_node)
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,pyrmont,nimbus_beacon_node,$(GOERLI_WEB3_URL))
 
 ifneq ($(LOG_LEVEL), TRACE)
 pyrmont-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
 pyrmont-dev: | pyrmont-build
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,pyrmont,nimbus_beacon_node)
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,pyrmont,nimbus_beacon_node,$(GOERLI_WEB3_URL))
 endif
 
 pyrmont-dev-deposit: | pyrmont-build deposit_contract
-	$(call MAKE_DEPOSIT,pyrmont)
+	$(call MAKE_DEPOSIT,pyrmont,$(GOERLI_WEB3_URL))
 
 clean-pyrmont:
 	$(call CLEAN_NETWORK,pyrmont)
-
 
 ###
 ### Prater
@@ -427,24 +409,55 @@ prater-build: | nimbus_beacon_node nimbus_signing_node
 
 # https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
 prater: | prater-build
-	$(call CONNECT_TO_NETWORK,prater,nimbus_beacon_node)
+	$(call CONNECT_TO_NETWORK,prater,nimbus_beacon_node,$(GOERLI_WEB3_URL))
 
 prater-vc: | prater-build nimbus_validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,prater,nimbus_beacon_node)
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,prater,nimbus_beacon_node,$(GOERLI_WEB3_URL))
 
 ifneq ($(LOG_LEVEL), TRACE)
 prater-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
 prater-dev: | prater-build
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,prater,nimbus_beacon_node)
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,prater,nimbus_beacon_node,$(GOERLI_WEB3_URL))
 endif
 
 prater-dev-deposit: | prater-build deposit_contract
-	$(call MAKE_DEPOSIT,prater)
+	$(call MAKE_DEPOSIT,prater,$(GOERLI_WEB3_URL))
 
 clean-prater:
 	$(call CLEAN_NETWORK,prater)
+
+###
+### Gnosis chain binary
+###
+
+gnosis-chain-build:
+	+ $(ENV_SCRIPT) nim $(NIM_PARAMS) \
+		-d:gnosisChainBinary \
+		-d:has_genesis_detection \
+		-d:SLOTS_PER_EPOCH=16 \
+		-d:SECONDS_PER_SLOT=5 \
+		-d:BASE_REWARD_FACTOR=25 \
+		-d:EPOCHS_PER_SYNC_COMMITTEE_PERIOD=512 \
+		-o:build/nimbus_beacon_node_for_gnosis_chain c beacon_chain/nimbus_beacon_node.nim
+
+gnosis-chain: | gnosis-chain-build
+	$(call CONNECT_TO_NETWORK,gnosis-chain,nimbus_beacon_node_for_gnosis_chain,$(GNOSIS_WEB3_URLS))
+
+ifneq ($(LOG_LEVEL), TRACE)
+gnosis-chain-dev:
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+else
+gnosis-chain-dev: | gnosis-chain-build
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,gnosis-chain,nimbus_beacon_node_for_gnosis_chain,$(GNOSIS_WEB3_URLS))
+endif
+
+gnosis-chain-dev-deposit: | gnosis-chain-build deposit_contract
+	$(call MAKE_DEPOSIT,gnosis-chain,$(GNOSIS_WEB3_URLS))
+
+clean-gnosis-chain:
+	$(call CLEAN_NETWORK,gnosis-chain)
 
 ###
 ### Other

@@ -28,19 +28,16 @@ proc parseBootstrapAddress*(address: TaintedString):
   logScope:
     address = string(address)
 
-  if address[0] == '/':
-    return err "MultiAddress bootstrap addresses are not supported"
+  let lowerCaseAddress = toLowerAscii(string address)
+  if lowerCaseAddress.startsWith("enr:"):
+    var enrRec: enr.Record
+    if enrRec.fromURI(string address):
+      return ok enrRec
+    return err "Invalid ENR bootstrap record"
+  elif lowerCaseAddress.startsWith("enode:"):
+    return err "ENode bootstrap addresses are not supported"
   else:
-    let lowerCaseAddress = toLowerAscii(string address)
-    if lowerCaseAddress.startsWith("enr:"):
-      var enrRec: enr.Record
-      if enrRec.fromURI(string address):
-        return ok enrRec
-      return err "Invalid ENR bootstrap record"
-    elif lowerCaseAddress.startsWith("enode:"):
-      return err "ENode bootstrap addresses are not supported"
-    else:
-      return err "Ignoring unrecognized bootstrap address type"
+    return err "Ignoring unrecognized bootstrap address type"
 
 iterator strippedLines(filename: string): string {.raises: [ref IOError].} =
   for line in lines(filename):
