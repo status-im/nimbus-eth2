@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -35,7 +35,7 @@ suite "state diff tests" & preset():
           getStateField(testStates[j][], slot)
         if getStateField(testStates[i][], slot) + SLOTS_PER_EPOCH != getStateField(testStates[j][], slot):
           continue
-        var tmpStateApplyBase = assignClone(testStates[i].altairData.data)
+        let tmpStateApplyBase = assignClone(testStates[i].altairData.data)
         let diff = diffStates(
           testStates[i].altairData.data, testStates[j].altairData.data)
         # Immutable parts of validators stored separately, so aren't part of

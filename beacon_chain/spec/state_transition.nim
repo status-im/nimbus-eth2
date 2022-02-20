@@ -157,7 +157,7 @@ func maybeUpgradeStateToAltair(
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.ALTAIR_FORK_EPOCH and
       state.kind == BeaconStateFork.Phase0:
-    var newState = upgrade_to_altair(cfg, state.phase0Data.data)
+    let newState = upgrade_to_altair(cfg, state.phase0Data.data)
     state = (ref ForkedHashedBeaconState)(
       kind: BeaconStateFork.Altair,
       altairData: altair.HashedBeaconState(
@@ -169,7 +169,7 @@ func maybeUpgradeStateToBellatrix(
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.BELLATRIX_FORK_EPOCH and
       state.kind == BeaconStateFork.Altair:
-    var newState = upgrade_to_bellatrix(cfg, state.altairData.data)
+    let newState = upgrade_to_bellatrix(cfg, state.altairData.data)
     state = (ref ForkedHashedBeaconState)(
       kind: BeaconStateFork.Bellatrix,
       bellatrixData: bellatrix.HashedBeaconState(

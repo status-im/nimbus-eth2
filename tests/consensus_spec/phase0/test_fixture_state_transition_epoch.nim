@@ -30,7 +30,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped): untyped 
       test testName & " - " & unitTestName & preset():
         # BeaconState objects are stored on the heap to avoid stack overflow
         type T = phase0.BeaconState
-        var preState {.inject.} = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
+        let preState {.inject.} = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
         let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, T))
         var cache {.inject, used.} = StateCache()
         var info {.inject.}: EpochInfo

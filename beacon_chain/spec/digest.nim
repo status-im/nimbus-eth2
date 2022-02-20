@@ -66,7 +66,7 @@ func eth2digest*(v: openArray[byte]): Eth2Digest {.noinit.} =
   else:
     # We use the init-update-finish interface to avoid
     # the expensive burning/clearing memory (20~30% perf)
-    var ctx: Eth2DigestCtx
+    let ctx: Eth2DigestCtx
     ctx.init()
     ctx.update(v)
     ctx.finish()
@@ -93,7 +93,7 @@ template withEth2Hash*(body: untyped): Eth2Digest =
         res
     else:
       block:
-        var h  {.inject, noinit.}: Eth2DigestCtx
+        let h  {.inject, noinit.}: Eth2DigestCtx
         init(h)
         body
         finish(h)

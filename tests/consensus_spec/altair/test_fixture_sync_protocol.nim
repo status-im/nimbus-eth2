@@ -94,7 +94,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L36-L90
   test "test_process_light_client_update_not_timeout":
-    var forked = assignClone(genesisState[])
+    let forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
     var store = initialize_light_client_store(state)
 
@@ -146,7 +146,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L93-L154
   test "process_light_client_update_timeout":
-    var forked = assignClone(genesisState[])
+    let forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
     var store = initialize_light_client_store(state)
 
@@ -207,7 +207,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L157-L224
   test "process_light_client_update_finality_updated":
-    var forked = assignClone(genesisState[])
+    let forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
     var store = initialize_light_client_store(state)
 

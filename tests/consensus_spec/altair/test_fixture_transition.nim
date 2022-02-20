@@ -36,7 +36,7 @@ proc runTest(testName, testDir, unitTestName: string) =
   let testPath = testDir / unitTestName
 
   var transitionInfo: TransitionInfo
-  var s = openFileStream(testPath/"meta.yaml")
+  let s = openFileStream(testPath/"meta.yaml")
   defer: close(s)
   yaml.load(s, transitionInfo)
 

@@ -243,7 +243,7 @@ suite "Gossip validation - Extra": # Not based on preset config
 
     let
       contribution = block:
-        var contribution = (ref SignedContributionAndProof)()
+        let contribution = (ref SignedContributionAndProof)()
         check: syncCommitteeMsgPool[].produceContribution(
           slot, state[].root, subcommitteeIdx,
           contribution.message.contribution)

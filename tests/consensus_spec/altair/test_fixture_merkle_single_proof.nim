@@ -37,7 +37,7 @@ proc runTest(identifier: string) =
 
       let
         proof = block:
-          var s = openFileStream(testDir/"proof.yaml")
+          let s = openFileStream(testDir/"proof.yaml")
           defer: close(s)
           var res: TestProof
           yaml.load(s, res)

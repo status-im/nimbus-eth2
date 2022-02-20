@@ -92,7 +92,7 @@ suite "Beacon chain DB" & preset():
       db.getPhase0Block(Eth2Digest()).isNone
 
   test "sanity check phase 0 blocks" & preset():
-    var db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new("", inMemory = true)
 
     let
       signedBlock = withDigest((phase0.TrustedBeaconBlock)())
@@ -131,7 +131,7 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Altair blocks" & preset():
-    var db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new("", inMemory = true)
 
     let
       signedBlock = withDigest((altair.TrustedBeaconBlock)())
@@ -170,7 +170,7 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Bellatrix blocks" & preset():
-    var db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new("", inMemory = true)
 
     let
       signedBlock = withDigest((bellatrix.TrustedBeaconBlock)())
@@ -209,7 +209,7 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check phase 0 states" & preset():
-    var db = makeTestDB(SLOTS_PER_EPOCH)
+    let db = makeTestDB(SLOTS_PER_EPOCH)
 
     for state in testStatesPhase0:
       let root = state[].phase0Data.root
@@ -227,7 +227,7 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Altair states" & preset():
-    var db = makeTestDB(SLOTS_PER_EPOCH)
+    let db = makeTestDB(SLOTS_PER_EPOCH)
 
     for state in testStatesAltair:
       let root = state[].altairData.root
@@ -245,7 +245,7 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Bellatrix states" & preset():
-    var db = makeTestDB(SLOTS_PER_EPOCH)
+    let db = makeTestDB(SLOTS_PER_EPOCH)
 
     for state in testStatesBellatrix:
       let root = state[].bellatrixData.root
@@ -263,7 +263,7 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check phase 0 states, reusing buffers" & preset():
-    var db = makeTestDB(SLOTS_PER_EPOCH)
+    let db = makeTestDB(SLOTS_PER_EPOCH)
     let stateBuffer = (phase0.BeaconStateRef)()
 
     for state in testStatesPhase0:
@@ -283,7 +283,7 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Altair states, reusing buffers" & preset():
-    var db = makeTestDB(SLOTS_PER_EPOCH)
+    let db = makeTestDB(SLOTS_PER_EPOCH)
     let stateBuffer = (altair.BeaconStateRef)()
 
     for state in testStatesAltair:
@@ -303,7 +303,7 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Bellatrix states, reusing buffers" & preset():
-    var db = makeTestDB(SLOTS_PER_EPOCH)
+    let db = makeTestDB(SLOTS_PER_EPOCH)
     let stateBuffer = (bellatrix.BeaconStateRef)()
 
     for state in testStatesBellatrix:

@@ -418,7 +418,7 @@ proc readRuntimeConfig*(
     if line.len == 0 or line[0] == '#': continue
     # remove any trailing comments
     let line = line.split("#")[0]
-    var lineParts = line.split(":")
+    let lineParts = line.split(":")
     if lineParts.len != 2:
       fail "Invalid syntax: A preset file should include only assignments in the form 'ConstName: Value'"
 

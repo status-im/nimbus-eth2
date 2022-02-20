@@ -253,7 +253,7 @@ suite "Attestation pool processing" & preset():
 
       for j in 0..<bc0.len():
         root.data[8..<16] = toBytesBE(j.uint64)
-        var att = makeAttestation(state[].data, root, bc0[j], cache)
+        let att = makeAttestation(state[].data, root, bc0[j], cache)
         pool[].addAttestation(
           att, @[bc0[j]], att.loadSig, att.data.slot.start_beacon_time)
         inc attestations

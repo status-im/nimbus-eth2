@@ -266,7 +266,7 @@ proc runTest(path: string, fork: BeaconBlockFork) =
   defer:
     db.close()
 
-  var stores = case fork
+  let stores = case fork
     of BeaconBlockFork.Phase0:
       initialLoad(
         path, db,
