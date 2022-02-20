@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -224,7 +224,7 @@ suite "Block pool processing" & preset():
       bs1_3 = b1Add[].atSlot(3.Slot)
       bs2_3 = b2Add[].atSlot(3.Slot)
 
-    var tmpState = assignClone(dag.headState)
+    let tmpState = assignClone(dag.headState)
 
     # move to specific block
     var cache = StateCache()
@@ -461,7 +461,7 @@ suite "chain DAG finalization tests" & preset():
       getStateRoot(dag2.headState.data) == getStateRoot(dag.headState.data)
 
   test "orphaned epoch block" & preset():
-    var prestate = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0)
+    let prestate = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0)
     for i in 0 ..< SLOTS_PER_EPOCH:
       if i == SLOTS_PER_EPOCH - 1:
         assign(prestate[], dag.headState.data)
@@ -512,7 +512,7 @@ suite "chain DAG finalization tests" & preset():
         defaultRuntimeConfig, dag.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2),
         cache, info, {}).isOk()
 
-    var blck = makeTestBlock(
+    let blck = makeTestBlock(
       dag.headState.data, cache,
       attestations = makeFullAttestations(
         dag.headState.data, dag.head.root, getStateField(dag.headState.data, slot),
@@ -628,7 +628,7 @@ suite "Diverging hardforks":
 
     let validatorMonitorAltair = newClone(ValidatorMonitor.init())
 
-    var dagAltair = init(
+    let dagAltair = init(
       ChainDAGRef, altairRuntimeConfig, db, validatorMonitorAltair, {})
     discard AttestationPool.init(dagAltair, quarantine)
 
@@ -660,7 +660,7 @@ suite "Diverging hardforks":
 
     let validatorMonitor = newClone(ValidatorMonitor.init())
 
-    var dagAltair = init(
+    let dagAltair = init(
       ChainDAGRef, altairRuntimeConfig, db, validatorMonitor, {})
     discard AttestationPool.init(dagAltair, quarantine)
 

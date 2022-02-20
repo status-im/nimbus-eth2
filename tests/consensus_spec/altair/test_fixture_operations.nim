@@ -52,7 +52,7 @@ proc runTest[T, U](
         "[Invalid] "
 
     test prefix & baseDescription & testSuiteName & " - " & identifier:
-      var preState = newClone(
+      let preState = newClone(
         parseTest(testDir/"pre.ssz_snappy", SSZ, altair.BeaconState))
       let done = applyProc(
         preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))

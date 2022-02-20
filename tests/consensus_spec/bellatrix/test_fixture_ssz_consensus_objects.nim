@@ -71,7 +71,7 @@ proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
   # TODO check the value (requires YAML loader)
 
 proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
-  var s = openFileStream(dir/"roots.yaml")
+  let s = openFileStream(dir/"roots.yaml")
   yaml.load(s, result)
   s.close()
 

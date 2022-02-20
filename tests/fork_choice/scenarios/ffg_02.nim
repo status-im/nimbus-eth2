@@ -8,7 +8,7 @@
 # import ../interpreter # included to be able to use "suite"
 
 func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
-  var balances = @[Gwei(1), Gwei(1)]
+  let balances = @[Gwei(1), Gwei(1)]
   let GenesisRoot = fakeHash(0)
 
   # Initialize the fork choice context
