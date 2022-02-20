@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import std/[options, heapqueue, tables, strutils, sequtils, math, algorithm]
-import stew/results, chronos, chronicles
+import stew/[results, base10], chronos, chronicles
 import
   ../spec/datatypes/[base, phase0, altair],
   ../spec/eth2_apis/rpc_types,
@@ -34,7 +34,7 @@ type
     Forward, Backward
 
   SyncRequest*[T] = object
-    kind: SyncQueueKind
+    kind*: SyncQueueKind
     index*: uint64
     slot*: Slot
     count*: uint64
@@ -75,7 +75,18 @@ type
   SyncManagerError* = object of CatchableError
   BeaconBlocksRes* = NetRes[seq[ref ForkedSignedBeaconBlock]]
 
-chronicles.formatIt SyncQueueKind: $it
+chronicles.formatIt SyncQueueKind: toLowerAscii($it)
+
+template shortLog*[T](req: SyncRequest[T]): string =
+  Base10.toString(uint64(req.slot)) & ":" &
+  Base10.toString(req.count) & ":" &
+  Base10.toString(req.step) & "@" &
+  Base10.toString(req.index)
+
+chronicles.expandIt SyncRequest:
+  `it` = shortLog(it)
+  peer = shortLog(it.item)
+  direction = toLowerAscii($it.kind)
 
 proc getShortMap*[T](req: SyncRequest[T],
                      data: openArray[ref ForkedSignedBeaconBlock]): string =
@@ -560,15 +571,11 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       else:
         let rewindSlot = sq.getRewindPoint(sq.outSlot, sq.getSafeSlot())
         warn "Got incorrect sync result in queue, rewind happens",
-             request_slot = sq.readyQueue[0].request.slot,
-             request_count = sq.readyQueue[0].request.count,
-             request_step = sq.readyQueue[0].request.step,
              blocks_map = getShortMap(sq.readyQueue[0].request,
                                       sq.readyQueue[0].data),
              blocks_count = len(sq.readyQueue[0].data),
              output_slot = sq.outSlot, input_slot = sq.inpSlot,
-             peer = sq.readyQueue[0].request.item, rewind_to_slot = rewindSlot,
-             direction = sq.readyQueue[0].request.kind
+             rewind_to_slot = rewindSlot, request = sq.readyQueue[0].request
         await sq.resetWait(some(rewindSlot))
         break
 
@@ -608,11 +615,9 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           hasInvalidBlock = true
 
           let req = item.request
-          warn "Received invalid sequence of blocks", peer = req.item,
-                request_slot = req.slot, request_count = req.count,
-                request_step = req.step, blocks_count = len(item.data),
-                blocks_map = getShortMap(req, item.data),
-                direction = req.kind
+          warn "Received invalid sequence of blocks", request = req,
+                blocks_count = len(item.data),
+                blocks_map = getShortMap(req, item.data)
           req.item.updateScore(PeerScoreBadBlocks)
           break
 
@@ -630,29 +635,22 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
 
       sq.wakeupWaiters()
     else:
-      debug "Block pool rejected peer's response", peer = item.request.item,
-            request_slot = item.request.slot,
-            request_count = item.request.count,
-            request_step = item.request.step,
+      debug "Block pool rejected peer's response", request = item.request,
             blocks_map = getShortMap(item.request, item.data),
             blocks_count = len(item.data),
             ok = hasOkBlock,
             unviable = unviableBlock.isSome(),
-            missing_parent = missingParentSlot.isSome(),
-            direction = item.request.kind
-
+            missing_parent = missingParentSlot.isSome()
       # We need to move failed response to the debts queue.
       sq.toDebtsQueue(item.request)
 
       if unviableBlock.isSome:
         let req = item.request
-        notice "Received blocks from an unviable fork",
+        notice "Received blocks from an unviable fork", request = req,
               blockRoot = unviableBlock.get()[0],
-              blockSlot = unviableBlock.get()[1], peer = req.item,
-              request_slot = req.slot, request_count = req.count,
-              request_step = req.step, blocks_count = len(item.data),
-              blocks_map = getShortMap(req, item.data),
-              direction = req.kind
+              blockSlot = unviableBlock.get()[1],
+              blocks_count = len(item.data),
+              blocks_map = getShortMap(req, item.data)
         req.item.updateScore(PeerScoreUnviableFork)
 
       if missingParentSlot.isSome:
@@ -670,46 +668,34 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         of SyncQueueKind.Forward:
           if safeSlot < req.slot:
             let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
-            warn "Unexpected missing parent, rewind happens",
-                 peer = req.item, rewind_to_slot = rewindSlot,
+            warn "Unexpected missing parent, rewind happens", request = req,
+                 rewind_to_slot = rewindSlot,
                  rewind_epoch_count = sq.rewind.get().epochCount,
-                 rewind_fail_slot = failSlot,
-                 finalized_slot = safeSlot,
-                 request_slot = req.slot, request_count = req.count,
-                 request_step = req.step, blocks_count = len(item.data),
-                 blocks_map = getShortMap(req, item.data),
-                 direction = req.kind
+                 rewind_fail_slot = failSlot, finalized_slot = safeSlot,
+                 blocks_count = len(item.data),
+                 blocks_map = getShortMap(req, item.data)
             resetSlot = some(rewindSlot)
             req.item.updateScore(PeerScoreMissingBlocks)
           else:
             error "Unexpected missing parent at finalized epoch slot",
-                  peer = req.item, to_slot = safeSlot,
-                  request_slot = req.slot, request_count = req.count,
-                  request_step = req.step, blocks_count = len(item.data),
-                  blocks_map = getShortMap(req, item.data),
-                  direction = req.kind
+                  request = req, to_slot = safeSlot,
+                  blocks_count = len(item.data),
+                  blocks_map = getShortMap(req, item.data)
             req.item.updateScore(PeerScoreBadBlocks)
         of SyncQueueKind.Backward:
           if safeSlot > req.slot:
             let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
             # It's quite common peers give us fewer blocks than we ask for
-            info "Gap in block range response, rewinding",
-                 peer = req.item, rewind_to_slot = rewindSlot,
-                 rewind_fail_slot = failSlot,
-                 finalized_slot = safeSlot,
-                 request_slot = req.slot, request_count = req.count,
-                 request_step = req.step, blocks_count = len(item.data),
-                 blocks_map = getShortMap(req, item.data),
-                 direction = req.kind
+            info "Gap in block range response, rewinding", request = req,
+                 rewind_to_slot = rewindSlot, rewind_fail_slot = failSlot,
+                 finalized_slot = safeSlot, blocks_count = len(item.data),
+                 blocks_map = getShortMap(req, item.data)
             resetSlot = some(rewindSlot)
             req.item.updateScore(PeerScoreMissingBlocks)
           else:
-            error "Unexpected missing parent at safe slot",
-                  peer = req.item, to_slot = safeSlot,
-                  request_slot = req.slot, request_count = req.count,
-                  request_step = req.step, blocks_count = len(item.data),
-                  blocks_map = getShortMap(req, item.data),
-                  direction = req.kind
+            error "Unexpected missing parent at safe slot", request = req,
+                  to_slot = safeSlot, blocks_count = len(item.data),
+                  blocks_map = getShortMap(req, item.data)
             req.item.updateScore(PeerScoreBadBlocks)
 
         if resetSlot.isSome():

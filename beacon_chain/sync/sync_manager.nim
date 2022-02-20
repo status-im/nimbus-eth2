@@ -150,7 +150,6 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
   mixin beaconBlocksByRange, getScore, `==`
 
   logScope:
-    peer = peer
     peer_score = peer.getScore()
     peer_speed = peer.netKbps()
     sync_ident = man.ident
@@ -158,8 +157,7 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
     topics = "syncman"
 
   doAssert(not(req.isEmpty()), "Request must not be empty!")
-  debug "Requesting blocks from peer", slot = req.slot,
-        slot_count = req.count, step = req.step
+  debug "Requesting blocks from peer", request = req
   try:
     let res =
       if peer.useSyncV2():
@@ -170,18 +168,16 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
             blcks.mapIt(newClone(ForkedSignedBeaconBlock.init(it))))
 
     if res.isErr():
-      debug "Error, while reading getBlocks response", slot = req.slot,
-             count = req.count, step = req.step, error = $res.error()
+      debug "Error, while reading getBlocks response", request = req,
+             error = $res.error()
       return
     return res
   except CancelledError:
-    debug "Interrupt, while waiting getBlocks response", slot = req.slot,
-          slot_count = req.count, step = req.step
+    debug "Interrupt, while waiting getBlocks response", request = req
     return
   except CatchableError as exc:
-    debug "Error, while waiting getBlocks response", slot = req.slot,
-          slot_count = req.count, step = req.step, errName = exc.name,
-          errMsg = exc.msg
+    debug "Error, while waiting getBlocks response", request = req,
+          errName = exc.name, errMsg = exc.msg
     return
 
 proc remainingSlots(man: SyncManager): uint64 =
@@ -192,12 +188,10 @@ proc remainingSlots(man: SyncManager): uint64 =
 
 proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
   logScope:
-    peer = peer
     peer_score = peer.getScore()
     peer_speed = peer.netKbps()
     index = index
     sync_ident = man.ident
-    direction = man.direction
     topics = "syncman"
 
   var
@@ -206,6 +200,10 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
     peerSlot = peer.getHeadSlot()
 
   block: # Check that peer status is recent and relevant
+    logScope:
+      peer = peer
+      direction = man.direction
+
     debug "Peer's syncing status", wall_clock_slot = wallSlot,
           remote_head_slot = peerSlot, local_head_slot = headSlot
 
@@ -270,6 +268,10 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
       return
 
   if man.remainingSlots() <= man.maxHeadAge:
+    logScope:
+      peer = peer
+      direction = man.direction
+
     case man.direction
     of SyncQueueKind.Forward:
       info "We are in sync with network", wall_clock_slot = wallSlot,
@@ -296,10 +298,11 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
     # Right now we decreasing peer's score a bit, so it will not be
     # disconnected due to low peer's score, but new fresh peers could replace
     # peers with low latest head.
-    debug "Peer's head slot is lower then local head slot",
+    debug "Peer's head slot is lower then local head slot", peer = peer,
           wall_clock_slot = wallSlot, remote_head_slot = peerSlot,
           local_last_slot = man.getLastSlot(),
-          local_first_slot = man.getFirstSlot()
+          local_first_slot = man.getFirstSlot(),
+          direction = man.direction
     peer.updateScore(PeerScoreUseless)
     return
 
@@ -318,18 +321,17 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
     # To avoid endless loop we going to wait for RESP_TIMEOUT time here.
     # This time is enough for all pending requests to finish and it is also
     # enough for main sync loop to clear ``notInSyncEvent``.
-    debug "Empty request received from queue, exiting",
+    debug "Empty request received from queue, exiting", peer = peer,
           local_head_slot = headSlot, remote_head_slot = peerSlot,
           queue_input_slot = man.queue.inpSlot,
           queue_output_slot = man.queue.outSlot,
-          queue_last_slot = man.queue.finalSlot
+          queue_last_slot = man.queue.finalSlot, direction = man.direction
     await sleepAsync(RESP_TIMEOUT)
     return
 
   debug "Creating new request for peer", wall_clock_slot = wallSlot,
         remote_head_slot = peerSlot, local_head_slot = headSlot,
-        request_slot = req.slot, request_count = req.count,
-        request_step = req.step
+        request = req
 
   man.workers[index].status = SyncWorkerStatus.Downloading
 
@@ -339,15 +341,13 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
       let data = blocks.get()
       let smap = getShortMap(req, data)
       debug "Received blocks on request", blocks_count = len(data),
-            blocks_map = smap, request_slot = req.slot,
-            request_count = req.count, request_step = req.step
+            blocks_map = smap, request = req
 
       if not(checkResponse(req, data)):
         peer.updateScore(PeerScoreBadResponse)
         warn "Received blocks sequence is not in requested range",
              blocks_count = len(data), blocks_map = smap,
-             request_slot = req.slot, request_count = req.count,
-             request_step = req.step
+             request = req
         return
 
       # Scoring will happen in `syncUpdate`.
@@ -357,15 +357,12 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
     else:
       peer.updateScore(PeerScoreNoBlocks)
       man.queue.push(req)
-      debug "Failed to receive blocks on request",
-            request_slot = req.slot, request_count = req.count,
-            request_step = req.step
+      debug "Failed to receive blocks on request", request = req
       return
 
   except CatchableError as exc:
-    debug "Unexpected exception while receiving blocks",
-          request_slot = req.slot, request_count = req.count,
-          request_step = req.step, errName = exc.name, errMsg = exc.msg
+    debug "Unexpected exception while receiving blocks", request = req,
+          errName = exc.name, errMsg = exc.msg
     return
 
 proc syncWorker[A, B](man: SyncManager[A, B], index: int) {.async.} =
