@@ -752,7 +752,7 @@ proc getBlockSSZ*(
   proc decode(data: openArray[byte]) =
     try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
     except CatchableError: success = false
-  db.blocks[BeaconBlockFork.PHase0].get(key.data, decode).expectDb() and success or
+  db.blocks[BeaconBlockFork.Phase0].get(key.data, decode).expectDb() and success or
     db.v0.getPhase0BlockSSZ(key, data)
 
 proc getBlockSSZ*[
