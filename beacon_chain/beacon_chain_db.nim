@@ -104,13 +104,12 @@ type
     checkpoint*: proc() {.gcsafe, raises: [Defect].}
 
     keyValues: KvStoreRef # Random stuff using DbKeyKind - suitable for small values mainly!
-    blocks: KvStoreRef # BlockRoot -> phase0.TrustedBeaconBlock
-    altairBlocks: KvStoreRef # BlockRoot -> altair.TrustedBeaconBlock
-    mergeBlocks: KvStoreRef # BlockRoot -> bellatrix.TrustedBeaconBlock
+    blocks: array[BeaconBlockFork, KvStoreRef] # BlockRoot -> TrustedSignedBeaconBlock
+
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
-    statesNoVal: KvStoreRef # StateRoot -> Phase0BeaconStateNoImmutableValidators
-    altairStatesNoVal: KvStoreRef # StateRoot -> AltairBeaconStateNoImmutableValidators
-    mergeStatesNoVal: KvStoreRef # StateRoot -> MergeBeaconStateNoImmutableValidators
+
+    statesNoVal: array[BeaconStateFork, KvStoreRef] # StateRoot -> ForkBeaconStateNoImmutableValidators
+
     stateDiffs: KvStoreRef ##\
       ## StateRoot -> BeaconStateDiff
       ## Instead of storing full BeaconStates, one can store only the diff from
@@ -418,13 +417,18 @@ proc new*(T: type BeaconChainDB,
 
     # V1 - expected-to-be small rows get without rowid optimizations
     keyValues = kvStore db.openKvStore("key_values", true).expectDb()
-    blocks = kvStore db.openKvStore("blocks").expectDb()
-    altairBlocks = kvStore db.openKvStore("altair_blocks").expectDb()
-    mergeBlocks = kvStore db.openKvStore("merge_blocks").expectDb()
+    blocks = [
+      kvStore db.openKvStore("blocks").expectDb(),
+      kvStore db.openKvStore("altair_blocks").expectDb(),
+      kvStore db.openKvStore("merge_blocks").expectDb()]
+
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
-    statesNoVal = kvStore db.openKvStore("state_no_validators2").expectDb()
-    altairStatesNoVal = kvStore db.openKvStore("altair_state_no_validators").expectDb()
-    mergeStatesNoVal = kvStore db.openKvStore("merge_state_no_validators").expectDb()
+
+    statesNoVal = [
+      kvStore db.openKvStore("state_no_validators2").expectDb(),
+      kvStore db.openKvStore("altair_state_no_validators").expectDb(),
+      kvStore db.openKvStore("merge_state_no_validators").expectDb()]
+
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
     finalizedBlocks = FinalizedBlocks.init(db, "finalized_blocks").expectDb()
@@ -465,12 +469,8 @@ proc new*(T: type BeaconChainDB,
     checkpoint: proc() = db.checkpoint(),
     keyValues: keyValues,
     blocks: blocks,
-    altair_blocks: altair_blocks,
-    merge_blocks: merge_blocks,
     stateRoots: stateRoots,
     statesNoVal: statesNoVal,
-    altairStatesNoVal: altairStatesNoVal,
-    mergeStatesNoVal: mergeStatesNoVal,
     stateDiffs: stateDiffs,
     summaries: summaries,
     finalizedBlocks: finalizedBlocks,
@@ -579,17 +579,13 @@ proc close*(db: BeaconChainDBV0) =
 proc close*(db: BeaconChainDB) =
   if db.db == nil: return
 
-  # Close things in reverse order
+  # Close things roughly in reverse order
   db.finalizedBlocks.close()
   discard db.summaries.close()
   discard db.stateDiffs.close()
-  discard db.mergeStatesNoVal.close()
-  discard db.altairStatesNoVal.close()
-  discard db.statesNoVal.close()
+  for kv in db.statesNoVal: discard kv.close()
   discard db.stateRoots.close()
-  discard db.mergeBlocks.close()
-  discard db.altairBlocks.close()
-  discard db.blocks.close()
+  for kv in db.blocks: discard kv.close()
   discard db.keyValues.close()
 
   db.immutableValidatorsDb.close()
@@ -610,19 +606,9 @@ proc putBeaconBlockSummary(
   # Summaries are too simple / small to compress, store them as plain SSZ
   db.summaries.putSSZ(root.data, value)
 
-proc putBlock*(db: BeaconChainDB, value: phase0.TrustedSignedBeaconBlock) =
+proc putBlock*(db: BeaconChainDB, value: ForkyTrustedSignedBeaconBlock) =
   db.withManyWrites:
-    db.blocks.putSnappySSZ(value.root.data, value)
-    db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
-
-proc putBlock*(db: BeaconChainDB, value: altair.TrustedSignedBeaconBlock) =
-  db.withManyWrites:
-    db.altairBlocks.putSnappySSZ(value.root.data, value)
-    db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
-
-proc putBlock*(db: BeaconChainDB, value: bellatrix.TrustedSignedBeaconBlock) =
-  db.withManyWrites:
-    db.mergeBlocks.putSnappySSZ(value.root.data, value)
+    db.blocks[type(value).toFork].putSnappySSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
 proc updateImmutableValidators*(
@@ -651,19 +637,9 @@ template toBeaconStateNoImmutableValidators(state: bellatrix.BeaconState):
     MergeBeaconStateNoImmutableValidators =
   isomorphicCast[MergeBeaconStateNoImmutableValidators](state)
 
-proc putState*(db: BeaconChainDB, key: Eth2Digest, value: phase0.BeaconState) =
+proc putState*(db: BeaconChainDB, key: Eth2Digest, value: ForkyBeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
-  db.statesNoVal.putSnappySSZ(
-    key.data, toBeaconStateNoImmutableValidators(value))
-
-proc putState*(db: BeaconChainDB, key: Eth2Digest, value: altair.BeaconState) =
-  db.updateImmutableValidators(value.validators.asSeq())
-  db.altairStatesNoVal.putSnappySSZ(
-    key.data, toBeaconStateNoImmutableValidators(value))
-
-proc putState*(db: BeaconChainDB, key: Eth2Digest, value: bellatrix.BeaconState) =
-  db.updateImmutableValidators(value.validators.asSeq())
-  db.mergeStatesNoVal.putSnappySSZ(
+  db.statesNoVal[type(value).toFork()].putSnappySSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
 
 proc putState*(db: BeaconChainDB, state: ForkyHashedBeaconState) =
@@ -673,13 +649,13 @@ proc putState*(db: BeaconChainDB, state: ForkyHashedBeaconState) =
 
 # For testing rollback
 proc putCorruptPhase0State*(db: BeaconChainDB, key: Eth2Digest) =
-  db.statesNoVal.putSnappySSZ(key.data, Validator())
+  db.statesNoVal[BeaconStateFork.Phase0].putSnappySSZ(key.data, Validator())
 
 proc putCorruptAltairState*(db: BeaconChainDB, key: Eth2Digest) =
-  db.altairStatesNoVal.putSnappySSZ(key.data, Validator())
+  db.statesNoVal[BeaconStateFork.Altair].putSnappySSZ(key.data, Validator())
 
 proc putCorruptMergeState*(db: BeaconChainDB, key: Eth2Digest) =
-  db.mergeStatesNoVal.putSnappySSZ(key.data, Validator())
+  db.statesNoVal[BeaconStateFork.Bellatrix].putSnappySSZ(key.data, Validator())
 
 func stateRootKey(root: Eth2Digest, slot: Slot): array[40, byte] =
   var ret: array[40, byte]
@@ -698,16 +674,12 @@ proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) 
 
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.withManyWrites:
-    db.blocks.del(key.data).expectDb()
-    db.altairBlocks.del(key.data).expectDb()
-    db.mergeBlocks.del(key.data).expectDb()
+    for kv in db.blocks: kv.del(key.data).expectDb()
     db.summaries.del(key.data).expectDb()
 
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
   db.withManyWrites:
-    db.statesNoVal.del(key.data).expectDb()
-    db.altairStatesNoVal.del(key.data).expectDb()
-    db.mergeStatesNoVal.del(key.data).expectDb()
+    for kv in db.statesNoVal: kv.del(key.data).expectDb()
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   db.stateRoots.del(stateRootKey(root, slot)).expectDb()
@@ -728,7 +700,8 @@ proc putEth2FinalizedTo*(db: BeaconChainDB,
                          eth1Checkpoint: DepositContractSnapshot) =
   db.keyValues.putSnappySSZ(subkey(kDepositsFinalizedByEth2), eth1Checkpoint)
 
-proc getPhase0Block(db: BeaconChainDBV0, key: Eth2Digest): Opt[phase0.TrustedSignedBeaconBlock] =
+proc getPhase0Block(
+    db: BeaconChainDBV0, key: Eth2Digest): Opt[phase0.TrustedSignedBeaconBlock] =
   # We only store blocks that we trust in the database
   result.ok(default(phase0.TrustedSignedBeaconBlock))
   if db.backend.getSnappySSZ(
@@ -738,31 +711,25 @@ proc getPhase0Block(db: BeaconChainDBV0, key: Eth2Digest): Opt[phase0.TrustedSig
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
 
-proc getPhase0Block*(db: BeaconChainDB, key: Eth2Digest):
-    Opt[phase0.TrustedSignedBeaconBlock] =
+proc getBlock*(
+    db: BeaconChainDB, key: Eth2Digest,
+    T: type phase0.TrustedSignedBeaconBlock): Opt[T] =
   # We only store blocks that we trust in the database
-  result.ok(default(phase0.TrustedSignedBeaconBlock))
-  if db.blocks.getSnappySSZ(key.data, result.get) != GetResult.found:
+  result.ok(default(T))
+  if db.blocks[T.toFork].getSnappySSZ(key.data, result.get) != GetResult.found:
+    # During the initial releases phase0, we stored blocks in a different table
     result = db.v0.getPhase0Block(key)
   else:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
 
-proc getAltairBlock*(db: BeaconChainDB, key: Eth2Digest):
-    Opt[altair.TrustedSignedBeaconBlock] =
+proc getBlock*[
+    X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock](
+    db: BeaconChainDB, key: Eth2Digest,
+    T: type X): Opt[T] =
   # We only store blocks that we trust in the database
-  result.ok(default(altair.TrustedSignedBeaconBlock))
-  if db.altairBlocks.getSnappySSZ(key.data, result.get) == GetResult.found:
-    # set root after deserializing (so it doesn't get zeroed)
-    result.get().root = key
-  else:
-    result.err()
-
-proc getMergeBlock*(db: BeaconChainDB, key: Eth2Digest):
-    Opt[bellatrix.TrustedSignedBeaconBlock] =
-  # We only store blocks that we trust in the database
-  result.ok(default(bellatrix.TrustedSignedBeaconBlock))
-  if db.mergeBlocks.getSnappySSZ(key.data, result.get) == GetResult.found:
+  result.ok(default(T))
+  if db.blocks[T.toFork].getSnappySSZ(key.data, result.get) == GetResult.found:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
   else:
@@ -776,31 +743,39 @@ proc getPhase0BlockSSZ(db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]
     except CatchableError: success = false
   db.backend.get(subkey(phase0.SignedBeaconBlock, key), decode).expectDb() and success
 
-proc getPhase0BlockSSZ*(db: BeaconChainDB, key: Eth2Digest, data: var seq[byte]): bool =
+# SSZ implementations are separate so as to avoid unnecessary data copies
+proc getBlockSSZ*(
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
+    T: type phase0.TrustedSignedBeaconBlock): bool =
   let dataPtr = unsafeAddr data # Short-lived
   var success = true
   proc decode(data: openArray[byte]) =
     try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
     except CatchableError: success = false
-  db.blocks.get(key.data, decode).expectDb() and success or
+  db.blocks[BeaconBlockFork.Phase0].get(key.data, decode).expectDb() and success or
     db.v0.getPhase0BlockSSZ(key, data)
 
-proc getAltairBlockSSZ*(db: BeaconChainDB, key: Eth2Digest, data: var seq[byte]): bool =
+proc getBlockSSZ*[
+    X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock](
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
+    T: type X): bool =
   let dataPtr = unsafeAddr data # Short-lived
   var success = true
   proc decode(data: openArray[byte]) =
     try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
     except CatchableError: success = false
-  db.altairBlocks.get(key.data, decode).expectDb() and success
+  db.blocks[T.toFork].get(key.data, decode).expectDb() and success
 
-proc getMergeBlockSSZ*(db: BeaconChainDB, key: Eth2Digest, data: var seq[byte]): bool =
-  let dataPtr = unsafeAddr data # Short-lived
-  var success = true
-  proc decode(data: openArray[byte]) =
-    try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
-    except CatchableError: success = false
-
-  db.mergeBlocks.get(key.data, decode).expectDb() and success
+proc getBlockSSZ*(
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
+    fork: BeaconBlockFork): bool =
+  case fork
+  of BeaconBlockFork.Phase0:
+    getBlockSSZ(db, key, data, phase0.TrustedSignedBeaconBlock)
+  of BeaconBlockFork.Altair:
+    getBlockSSZ(db, key, data, altair.TrustedSignedBeaconBlock)
+  of BeaconBlockFork.Bellatrix:
+    getBlockSSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
@@ -885,14 +860,17 @@ proc getState*(
   #      https://github.com/nim-lang/Nim/issues/14126
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
+  type T = type(output)
+
   if not getStateOnlyMutableValidators(
-      db.immutableValidators, db.statesNoVal, key.data, output, rollback):
+      db.immutableValidators, db.statesNoVal[T.toFork], key.data, output, rollback):
     db.v0.getState(db.immutableValidators, key, output, rollback)
   else:
     true
 
 proc getState*(
-    db: BeaconChainDB, key: Eth2Digest, output: var altair.BeaconState,
+    db: BeaconChainDB, key: Eth2Digest,
+    output: var (altair.BeaconState | bellatrix.BeaconState),
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -904,24 +882,10 @@ proc getState*(
   #      https://github.com/nim-lang/Nim/issues/14126
   # TODO RVO is inefficient for large objects:
   #      https://github.com/nim-lang/Nim/issues/13879
+  type T = type(output)
   getStateOnlyMutableValidators(
-    db.immutableValidators, db.altairStatesNoVal, key.data, output, rollback)
-
-proc getState*(
-    db: BeaconChainDB, key: Eth2Digest, output: var bellatrix.BeaconState,
-    rollback: RollbackProc): bool =
-  ## Load state into `output` - BeaconState is large so we want to avoid
-  ## re-allocating it if possible
-  ## Return `true` iff the entry was found in the database and `output` was
-  ## overwritten.
-  ## Rollback will be called only if output was partially written - if it was
-  ## not found at all, rollback will not be called
-  # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
-  #      https://github.com/nim-lang/Nim/issues/14126
-  # TODO RVO is inefficient for large objects:
-  #      https://github.com/nim-lang/Nim/issues/13879
-  getStateOnlyMutableValidators(
-    db.immutableValidators, db.mergeStatesNoVal, key.data, output, rollback)
+    db.immutableValidators, db.statesNoVal[T.toFork], key.data, output,
+    rollback)
 
 proc getStateRoot(db: BeaconChainDBV0,
                    root: Eth2Digest,
@@ -974,19 +938,26 @@ proc getEth2FinalizedTo*(db: BeaconChainDB): Opt[DepositContractSnapshot] =
 proc containsBlock*(db: BeaconChainDBV0, key: Eth2Digest): bool =
   db.backend.contains(subkey(phase0.SignedBeaconBlock, key)).expectDb()
 
-proc containsBlockPhase0*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.blocks.contains(key.data).expectDb() or
+proc containsBlock*(
+    db: BeaconChainDB, key: Eth2Digest,
+    T: type phase0.TrustedSignedBeaconBlock): bool =
+  db.blocks[T.toFork].contains(key.data).expectDb() or
     db.v0.containsBlock(key)
 
-proc containsBlockAltair*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.altairBlocks.contains(key.data).expectDb()
+proc containsBlock*[
+    X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock](
+    db: BeaconChainDB, key: Eth2Digest, T: type X): bool =
+  db.blocks[X.toFork].contains(key.data).expectDb()
 
-proc containsBlockMerge*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.mergeBlocks.contains(key.data).expectDb()
+proc containsBlock*(db: BeaconChainDB, key: Eth2Digest, fork: BeaconBlockFork): bool =
+  case fork
+  of BeaconBlockFork.Phase0: containsBlock(db, key, phase0.TrustedSignedBeaconBlock)
+  else: db.blocks[fork].contains(key.data).expectDb()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.containsBlockMerge(key) or db.containsBlockAltair(key) or
-    db.containsBlockPhase0(key)
+  db.containsBlock(key, bellatrix.TrustedSignedBeaconBlock) or
+    db.containsBlock(key, altair.TrustedSignedBeaconBlock) or
+    db.containsBlock(key, phase0.TrustedSignedBeaconBlock)
 
 proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
   let sk = subkey(Phase0BeaconStateNoImmutableValidators, key)
@@ -995,27 +966,10 @@ proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
     db.backend.contains(subkey(phase0.BeaconState, key)).expectDb()
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest, legacy: bool = true): bool =
-  db.mergeStatesNoVal.contains(key.data).expectDb or
-  db.altairStatesNoVal.contains(key.data).expectDb or
-  db.statesNoVal.contains(key.data).expectDb or
+  db.statesNoVal[BeaconStateFork.Bellatrix].contains(key.data).expectDb or
+  db.statesNoVal[BeaconStateFork.Altair].contains(key.data).expectDb or
+  db.statesNoVal[BeaconStateFork.Phase0].contains(key.data).expectDb or
     (legacy and db.v0.containsState(key))
-
-iterator getAncestors*(db: BeaconChainDB, root: Eth2Digest):
-    phase0.TrustedSignedBeaconBlock =
-  ## Load a chain of ancestors for blck - returns a list of blocks with the
-  ## oldest block last (blck will be at result[0]).
-  ##
-  ## The search will go on until the ancestor cannot be found.
-
-  var
-    res: phase0.TrustedSignedBeaconBlock
-    root = root
-  while db.blocks.getSnappySSZ(root.data, res) == GetResult.found or
-        db.v0.backend.getSnappySSZ(
-          subkey(phase0.SignedBeaconBlock, root), res) == GetResult.found:
-    res.root = root
-    yield res
-    root = res.message.parent_root
 
 proc getBeaconBlockSummary*(db: BeaconChainDB, root: Eth2Digest):
     Opt[BeaconBlockSummary] =
@@ -1107,11 +1061,11 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
     if db.v0.backend.getSnappySSZ(
         subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found:
       discard # Just yield below
-    elif (let blck = db.getPhase0Block(res.root); blck.isSome()):
+    elif (let blck = db.getBlock(res.root, phase0.TrustedSignedBeaconBlock); blck.isSome()):
       res.summary = blck.get().message.toBeaconBlockSummary()
-    elif (let blck = db.getAltairBlock(res.root); blck.isSome()):
+    elif (let blck = db.getBlock(res.root, altair.TrustedSignedBeaconBlock); blck.isSome()):
       res.summary = blck.get().message.toBeaconBlockSummary()
-    elif (let blck = db.getMergeBlock(res.root); blck.isSome()):
+    elif (let blck = db.getBlock(res.root, bellatrix.TrustedSignedBeaconBlock); blck.isSome()):
       res.summary = blck.get().message.toBeaconBlockSummary()
     else:
       break
