@@ -1713,13 +1713,10 @@ proc peerTrimmerHeartbeat(node: Eth2Node) {.async.} =
 
     let excessPeers = connectedPeers - node.wantedPeers
     if excessPeers > 0:
-      # We have to be careful, the score is not recomputed
-      # between kicks, so we must not kick too many peers at
-      # once
-      for _ in 0..<excessPeers div 2:
-        node.trimConnections(2)
+      # Let chronos take back control every two kicks
+      node.trimConnections(2)
 
-    await sleepAsync(2.seconds)
+    await sleepAsync(1.seconds div max(1, excessPeers))
 
 func asLibp2pKey*(key: keys.PublicKey): PublicKey =
   PublicKey(scheme: Secp256k1, skkey: secp.SkPublicKey(key))
