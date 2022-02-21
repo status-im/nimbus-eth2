@@ -96,7 +96,7 @@ proc getAggregatedFilesLastEpoch*(dir: string): Epoch =
         fn[epochInfoFileNameDigitsCount + 1 .. 2 * epochInfoFileNameDigitsCount])
       if fileLastEpoch > largestEpochInFileName:
         largestEpochInFileName = fileLastEpoch
-  return largestEpochInFileName.Epoch
+  largestEpochInFileName.Epoch
 
 func epochAsString*(epoch: Epoch): string =
   let strEpoch = $epoch
@@ -194,7 +194,7 @@ func getFinalizedCheckpoint(state: ForkyBeaconState,
      old_current_justified_checkpoint.epoch + 1 == current_epoch:
     return old_current_justified_checkpoint
 
-  return state.finalized_checkpoint
+  state.finalized_checkpoint
 
 func getFinalizedCheckpoint(state: phase0.BeaconState, balances: TotalBalances):
     Checkpoint =

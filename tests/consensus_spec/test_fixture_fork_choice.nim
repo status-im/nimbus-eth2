@@ -196,7 +196,7 @@ proc stepOnBlock(
     )
     doAssert status.isOk()
 
-  return blockAdded
+  blockAdded
 
 proc stepOnAttestation(
        dag: ChainDagRef,
