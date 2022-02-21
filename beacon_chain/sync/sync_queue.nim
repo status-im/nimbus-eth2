@@ -79,8 +79,7 @@ chronicles.formatIt SyncQueueKind: toLowerAscii($it)
 
 template shortLog*[T](req: SyncRequest[T]): string =
   Base10.toString(uint64(req.slot)) & ":" &
-  Base10.toString(req.count) & ":" &
-  Base10.toString(req.step) & "@" &
+  Base10.toString(req.count) & "@" &
   Base10.toString(req.index)
 
 chronicles.expandIt SyncRequest:
