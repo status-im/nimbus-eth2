@@ -316,7 +316,7 @@ https://status-im.github.io/nimbus-eth2/eth1.html
 Please enter a Web3 provider URL:
 ```
 
-Enter your own secure websocket (`wss`) [endpoint](eth1.md).
+Enter your web3 [endpoint](eth1.md).
 
 ### 15. Check for successful connection
 

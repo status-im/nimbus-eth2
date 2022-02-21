@@ -73,7 +73,7 @@ func `xor`[T: array](a, b: T): T =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#randao
 proc process_randao(
-    state: var ForkyBeaconState, body: SomeSomeBeaconBlockBody, flags: UpdateFlags,
+    state: var ForkyBeaconState, body: SomeForkyBeaconBlockBody, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   let
     proposer_index = get_beacon_proposer_index(state, cache)
@@ -105,7 +105,7 @@ proc process_randao(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#eth1-data
-func process_eth1_data(state: var ForkyBeaconState, body: SomeSomeBeaconBlockBody): Result[void, cstring]=
+func process_eth1_data(state: var ForkyBeaconState, body: SomeForkyBeaconBlockBody): Result[void, cstring]=
   if not state.eth1_data_votes.add body.eth1_data:
     # Count is reset  in process_final_updates, so this should never happen
     return err("process_eth1_data: no more room for eth1 data")
@@ -255,7 +255,7 @@ proc process_attester_slashing*(
 
   ok()
 
-proc findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey): int =
+func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey): int =
   # This linear scan is unfortunate, but should be fairly fast as we do a simple
   # byte comparison of the key. The alternative would be to build a Table, but
   # given that each block can hold no more than 16 deposits, it's slower to
@@ -264,7 +264,7 @@ proc findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey): int 
   for i in 0 ..< state.validators.len:
     if state.validators.asSeq[i].pubkey == pubkey:
       return i
-  return -1
+  -1
 
 proc process_deposit*(cfg: RuntimeConfig,
                       state: var ForkyBeaconState,
@@ -398,7 +398,7 @@ proc process_voluntary_exit*(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#operations
 proc process_operations(cfg: RuntimeConfig,
                         state: var ForkyBeaconState,
-                        body: SomeSomeBeaconBlockBody,
+                        body: SomeForkyBeaconBlockBody,
                         base_reward_per_increment: Gwei,
                         flags: UpdateFlags,
                         cache: var StateCache): Result[void, cstring] =
@@ -558,13 +558,13 @@ proc process_block*(
 
   ok()
 
-proc process_block*(
+func process_block*(
     cfg: RuntimeConfig,
     state: var altair.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   err("process_block: Altair state with Phase 0 block")
 
-proc process_block*(
+func process_block*(
     cfg: RuntimeConfig,
     state: var bellatrix.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
@@ -630,25 +630,25 @@ proc process_block*(
 
   ok()
 
-proc process_block*(
+func process_block*(
     cfg: RuntimeConfig,
     state: var phase0.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring]=
   err("process_block: Phase 0 state with Altair block")
 
-proc process_block*(
+func process_block*(
     cfg: RuntimeConfig,
     state: var phase0.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring]=
   err("process_block: Phase 0 state with Merge block")
 
-proc process_block*(
+func process_block*(
     cfg: RuntimeConfig,
     state: var altair.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring]=
   err("process_block: Altair state with Merge block")
 
-proc process_block*(
+func process_block*(
     cfg: RuntimeConfig,
     state: var bellatrix.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring]=

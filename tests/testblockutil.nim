@@ -149,7 +149,7 @@ proc makeTestBlock*(
   # It's a bit awkward - in order to produce a block for N+1, we need to
   # calculate what the state will look like after that block has been applied,
   # because the block includes the state root.
-  var tmpState = assignClone(state)
+  let tmpState = assignClone(state)
   addTestBlock(
     tmpState[], cache, eth1_data,
     attestations, deposits, sync_aggregate, graffiti, cfg = cfg)
@@ -188,7 +188,7 @@ func makeAttestationSig*(
     fork, genesis_validators_root, data)
 
   var
-    agg {.noInit.}: AggregateSignature
+    agg {.noinit.}: AggregateSignature
     first = true
 
   for i in 0..<bits.len():

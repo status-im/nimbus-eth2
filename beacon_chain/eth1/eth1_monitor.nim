@@ -14,7 +14,7 @@ import
   chronos, json, metrics, chronicles/timings, stint/endians2,
   web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
   eth/common/eth_types,
-  eth/async_utils, stew/[objects, byteutils, shims/hashes],
+  eth/async_utils, stew/[byteutils, shims/hashes],
   # Local modules:
   ../spec/[eth2_merkleization, forks, helpers],
   ../spec/datatypes/[base, phase0, bellatrix],
@@ -574,7 +574,7 @@ when hasDepositRootChecks:
     try:
       let fetchedRoot = asEth2Digest(
         awaitOrRaiseOnTimeout(depositRoot, contractCallTimeout))
-      if blk.voteData.deposit_root == default(Eth2Digest):
+      if blk.voteData.deposit_root.isZero:
         blk.voteData.deposit_root = fetchedRoot
         result = Fetched
       elif blk.voteData.deposit_root == fetchedRoot:
@@ -947,19 +947,17 @@ proc detectPrimaryProviderComingOnline(m: Eth1Monitor) {.async.} =
       continue
 
     var tempProvider = tempProviderRes.get
-    var testRequest = tempProvider.web3.provider.net_version()
+    let testRequest = tempProvider.web3.provider.net_version()
 
-    yield testRequest
+    yield testRequest or sleepAsync(web3Timeouts)
 
-    try: await tempProvider.close()
-    except CatchableError as err:
-      debug "Failed to close temp web3 provider", err = err.msg
+    traceAsyncErrors tempProvider.close()
 
-    if testRequest.failed:
-      await sleepAsync(checkInterval)
-    elif m.state == Started:
+    if testRequest.completed and m.state == Started:
       m.state = ReadyToRestartToPrimary
       return
+    else:
+      await sleepAsync(checkInterval)
 
 proc doStop(m: Eth1Monitor) {.async.} =
   safeCancel m.runFut
@@ -1173,10 +1171,13 @@ func init(T: type FullBlockId, blk: Eth1BlockHeader|BlockObject): T =
   FullBlockId(number: Eth1BlockNumber blk.number, hash: blk.hash)
 
 proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
-  if m.state in {Started, ReadyToRestartToPrimary}:
+  if m.state == Started:
     return
 
   let isFirstRun = m.state == Initialized
+  let needsReset = m.state in {Failed, ReadyToRestartToPrimary}
+
+  m.state = Started
 
   if delayBeforeStart != ZeroDuration:
     await sleepAsync(delayBeforeStart)
@@ -1184,14 +1185,13 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   # If the monitor died with an exception, the web3 provider may be in
   # an arbitary state, so we better reset it (not doing this has resulted
   # in resource leaks historically).
-  if not m.dataProvider.isNil and m.state == Failed:
+  if not m.dataProvider.isNil and needsReset:
     # We introduce a local var to eliminate the risk of scheduling two
     # competing calls to `close` below.
     let provider = m.dataProvider
     m.dataProvider = nil
     await provider.close()
 
-  m.state = Started
   await m.ensureDataProvider()
 
   # We might need to reset the chain if the new provider disagrees

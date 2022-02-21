@@ -271,8 +271,8 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
         indices[listIndex[]] = some(ValidatorIndex(validatorIndex))
   indices
 
-proc getRouter*(): RestRouter =
-  RestRouter.init(validate)
+proc getRouter*(allowedOrigin: Option[string]): RestRouter =
+  RestRouter.init(validate, allowedOrigin = allowedOrigin)
 
 const
   jsonMediaType* = MediaType.init("application/json")

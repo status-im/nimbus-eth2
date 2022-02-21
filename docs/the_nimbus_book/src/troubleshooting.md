@@ -38,7 +38,7 @@ No peers for topic, skipping publish...
 
 This means you've missed an attestation because either your peer count is too low, or the quality of your peers is lacking.
 
-There can be several reasons behind why this is the case. The first thing to check is that your max peer count (`--max-peers`) hasn't been set too low. In order to ensure your attestations are published correctly, we recommend setting `--max-peers` to 60, at the *very least*.
+There can be several reasons behind why this is the case. The first thing to check is that your max peer count (`--max-peers`) hasn't been set too low. In order to ensure your attestations are published correctly, `--max-peers` should be set to 70, at the *very least*.
 
 > Note that Nimbus manages peers slightly differently to other clients (we automatically connect to more peers than we actually use, in order not to have to do costly reconnects). As such, `--max-peers` is set to 160 by default.
 

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -288,7 +288,7 @@ suite "KeyStorage testing suite":
     checkVariant "75ea" # checksum
     checkVariant "b722" # cipher
 
-    var badKdf = parseJson(pbkdf2Vector)
+    let badKdf = parseJson(pbkdf2Vector)
     badKdf{"crypto", "kdf", "function"} = %"invalid"
 
     check decryptKeystore(JsonString $badKdf,
@@ -296,7 +296,7 @@ suite "KeyStorage testing suite":
 
 suite "eth2.0-deposits-cli compatibility":
   test "restoring mnemonic without password":
-    var mnemonic = Mnemonic "camera dad smile sail injury warfare grid kiwi report minute fold slot before stem firm wet vague shove version medal one alley vibrant mushroom"
+    let mnemonic = Mnemonic "camera dad smile sail injury warfare grid kiwi report minute fold slot before stem firm wet vague shove version medal one alley vibrant mushroom"
     let seed = getSeed(mnemonic, KeystorePass.init "")
     check byteutils.toHex(distinctBase seed) == "60043d6e1efe0eea2ef1c8e7d4bb2d79cb27d3403e992b6058998c27c373cfb6fe047b11405360bb224803726fd6b0ee9e3335ae7d9032e6cb49baf08697cf2a"
 
@@ -324,7 +324,7 @@ suite "eth2.0-deposits-cli compatibility":
       v3WK.toHex == "56b158b3b170e9c339b94b895afc28964a0b6d7a0809a39b558ca8b6688487cd"
 
   test "restoring mnemonic with password":
-    var mnemonic = Mnemonic "swear umbrella lesson couch void gentle rocket valley distance match floor rocket flag solve muscle common modify target city youth pottery predict flip ghost"
+    let mnemonic = Mnemonic "swear umbrella lesson couch void gentle rocket valley distance match floor rocket flag solve muscle common modify target city youth pottery predict flip ghost"
     let seed = getSeed(mnemonic, KeystorePass.init "abracadabra!@#$%^7890")
     check byteutils.toHex(distinctBase seed) == "f129c3ac003a07e54974d8dbeb08d20c2343fc516e0e3704570c500a4b6ed98bad2e6fec6a3b9a88076c17feaa0d01163855578cb08bae53860d0ae2558cf03e"
 

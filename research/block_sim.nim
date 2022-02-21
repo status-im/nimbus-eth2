@@ -92,7 +92,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     quarantine = newClone(Quarantine.init())
     attPool = AttestationPool.init(dag, quarantine)
     batchCrypto = BatchCrypto.new(
-      keys.newRng(), eager = proc(): bool = true, taskpool)
+      keys.newRng(), eager = func(): bool = true, taskpool)
     syncCommitteePool = newClone SyncCommitteeMsgPool.init(keys.newRng())
     timers: array[Timers, RunningStat]
     attesters: RunningStat

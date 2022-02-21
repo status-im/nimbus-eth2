@@ -194,6 +194,7 @@ programMain:
         beaconNodes: beaconNodes,
         graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
         nodesAvailable: newAsyncEvent(),
+        forksAvailable: newAsyncEvent()
       )
 
       waitFor asyncInit(vc)

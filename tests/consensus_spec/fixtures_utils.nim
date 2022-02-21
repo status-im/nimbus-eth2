@@ -67,7 +67,7 @@ template readFileBytes*(path: string): seq[byte] =
   cast[seq[byte]](readFile(path))
 
 proc sszDecodeEntireInput*(input: openArray[byte], Decoded: type): Decoded =
-  var stream = unsafeMemoryInput(input)
+  let stream = unsafeMemoryInput(input)
   var reader = init(SszReader, stream)
   reader.readValue(result)
 

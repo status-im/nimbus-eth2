@@ -700,13 +700,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               canonical: node.dag.isCanonical(
                 BlockId(root: blck.root, slot: blck.message.slot)),
               header: (
-                message: (
-                  slot: blck.message.slot,
-                  proposer_index: blck.message.proposer_index,
-                  parent_root: blck.message.parent_root,
-                  state_root: blck.message.state_root,
-                  body_root: blck.message.body.hash_tree_root()
-                ),
+                message: blck.toBeaconBlockHeader,
                 signature: blck.signature
               )
             )
@@ -732,13 +726,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             canonical: node.dag.isCanonical(
               BlockId(root: blck.root, slot: blck.message.slot)),
             header: (
-              message: (
-                slot: blck.message.slot,
-                proposer_index: blck.message.proposer_index,
-                parent_root: blck.message.parent_root,
-                state_root: blck.message.state_root,
-                body_root: blck.message.body.hash_tree_root()
-              ),
+              message: blck.toBeaconBlockHeader,
               signature: blck.signature
             )
           )
@@ -747,45 +735,25 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
   router.api(MethodPost, "/eth/v1/beacon/blocks") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
-    let forked =
+    let forkedBlock =
       block:
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
         let body = contentBody.get()
-        let altairRes = decodeBody(altair.SignedBeaconBlock, body)
-        if altairRes.isOk():
-          var res = altairRes.get()
-          if res.message.slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
-            # This message deserialized successfully as altair but should
-            # actually be a phase0 block - try again with phase0
-            let phase0res = decodeBody(phase0.SignedBeaconBlock, body)
-            if phase0res.isOk():
-              var res = phase0res.get()
-              # `SignedBeaconBlock` deserialization do not update `root` field,
-              # so we need to calculate it.
-              res.root = hash_tree_root(res.message)
-              ForkedSignedBeaconBlock.init(res)
-            else:
-              return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
-                                              $phase0res.error())
-          else:
-            # `SignedBeaconBlock` deserialization do not update `root` field,
-            # so we need to calculate it.
-            res.root = hash_tree_root(res.message)
-            ForkedSignedBeaconBlock.init(res)
-        else:
-          let phase0res = decodeBody(phase0.SignedBeaconBlock, body)
-          if phase0res.isOk():
-            var res = phase0res.get()
-            # `SignedBeaconBlock` deserialization do not update `root` field,
-            # so we need to calculate it.
-            res.root = hash_tree_root(res.message)
-            ForkedSignedBeaconBlock.init(res)
-          else:
-            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
-                                             $phase0res.error())
+        let res = decodeBody(RestPublishedSignedBeaconBlock, body)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
+                                           $res.error())
+        var forked = ForkedSignedBeaconBlock(res.get())
+        if forked.kind != node.dag.cfg.blockForkAtEpoch(
+            getForkedBlockField(forked, slot).epoch):
+          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
-    let res = await node.sendBeaconBlock(forked)
+        withBlck(forked):
+          blck.root = hash_tree_root(blck.message)
+        forked
+
+    let res = await node.sendBeaconBlock(forkedBlock)
     if res.isErr():
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
     if not(res.get()):

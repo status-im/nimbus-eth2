@@ -12,7 +12,7 @@ import
   std/[options, tables, typetraits],
   # Status libraries
   chronicles,
-  stew/[objects, results],
+  stew/results,
   # Internal
   ../spec/datatypes/base,
   # Fork choice
@@ -62,7 +62,7 @@ func `[]`(nodes: ProtoNodes, idx: Index): Option[ProtoNode] =
   let i = idx - nodes.offset
   if i >= nodes.buf.len:
     return none(ProtoNode)
-  return some(nodes.buf[i])
+  some(nodes.buf[i])
 
 func len*(nodes: ProtoNodes): int =
   nodes.buf.len
@@ -169,7 +169,7 @@ func applyScoreChanges*(self: var ProtoArray,
 
   # Iterate backwards through all the indices in `self.nodes`
   for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
-    if node.root.isZeroMemory:
+    if node.root.isZero:
       continue
 
     var nodeDelta = deltas[nodePhysicalIdx]
@@ -177,7 +177,7 @@ func applyScoreChanges*(self: var ProtoArray,
     # If we find the node for which the proposer boost was previously applied,
     # decrease the delta by the previous score amount.
     if  useProposerBoost and
-        (not self.previousProposerBoostRoot.isZeroMemory) and
+        (not self.previousProposerBoostRoot.isZero) and
         self.previousProposerBoostRoot == node.root:
           if  nodeDelta < 0 and
               nodeDelta - low(Delta) < self.previousProposerBoostScore:
@@ -190,8 +190,7 @@ func applyScoreChanges*(self: var ProtoArray,
     # the delta by the new score amount.
     #
     # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/fork-choice.md#get_latest_attesting_balance
-    if  useProposerBoost and
-        (not proposer_boost_root.isZeroMemory) and
+    if  useProposerBoost and (not proposer_boost_root.isZero) and
         proposer_boost_root == node.root:
       proposerBoostScore = calculateProposerBoost(newBalances)
       if  nodeDelta >= 0 and
@@ -251,7 +250,7 @@ func applyScoreChanges*(self: var ProtoArray,
     self.previousProposerBoostScore = proposerBoostScore
 
   for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
-    if node.root.isZeroMemory:
+    if node.root.isZero:
       continue
 
     if node.parent.isSome():
@@ -536,19 +535,19 @@ when isMainModule:
   echo "Sanity checks on fork choice tiebreaks"
 
   block:
-    let a = Eth2Digest.fromHex("0x0000000000000001000000000000000000000000000000000000000000000000")
-    let b = Eth2Digest.fromHex("0x0000000000000000000000000000000000000000000000000000000000000000") # sha256(1)
+    const a = Eth2Digest.fromHex("0x0000000000000001000000000000000000000000000000000000000000000000")
+    const b = Eth2Digest.fromHex("0x0000000000000000000000000000000000000000000000000000000000000000") # sha256(1)
 
     doAssert tiebreak(a, b)
 
   block:
-    let a = Eth2Digest.fromHex("0x0000000000000002000000000000000000000000000000000000000000000000")
-    let b = Eth2Digest.fromHex("0x0000000000000001000000000000000000000000000000000000000000000000") # sha256(1)
+    const a = Eth2Digest.fromHex("0x0000000000000002000000000000000000000000000000000000000000000000")
+    const b = Eth2Digest.fromHex("0x0000000000000001000000000000000000000000000000000000000000000000") # sha256(1)
 
     doAssert tiebreak(a, b)
 
   block:
-    let a = Eth2Digest.fromHex("0xD86E8112F3C4C4442126F8E9F44F16867DA487F29052BF91B810457DB34209A4") # sha256(2)
-    let b = Eth2Digest.fromHex("0x7C9FA136D4413FA6173637E883B6998D32E1D675F88CDDFF9DCBCF331820F4B8") # sha256(1)
+    const a = Eth2Digest.fromHex("0xD86E8112F3C4C4442126F8E9F44F16867DA487F29052BF91B810457DB34209A4") # sha256(2)
+    const b = Eth2Digest.fromHex("0x7C9FA136D4413FA6173637E883B6998D32E1D675F88CDDFF9DCBCF331820F4B8") # sha256(1)
 
     doAssert tiebreak(a, b)

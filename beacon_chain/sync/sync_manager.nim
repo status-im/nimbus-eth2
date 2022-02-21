@@ -15,10 +15,10 @@ import
   ../spec/[helpers, forks],
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../beacon_clock,
-  ./sync_queue
+  "."/[sync_protocol, sync_queue]
 
 export phase0, altair, merge, chronos, chronicles, results,
-       helpers, peer_scores, sync_queue, forks
+       helpers, peer_scores, sync_queue, forks, sync_protocol
 
 logScope:
   topics = "syncman"
@@ -45,8 +45,6 @@ type
   SyncManager*[A, B] = ref object
     pool: PeerPool[A, B]
     responseTimeout: chronos.Duration
-    sleepTime: chronos.Duration
-    maxStatusAge: uint64
     maxHeadAge: uint64
     toleranceValue: uint64
     getLocalHeadSlot: GetSlotCallback
@@ -104,7 +102,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                     firstSlot
                   else:
                     Slot(firstSlot - 1'u64)
-    man.queue = SyncQueue.init(A, man.direction, firstSlot, lastSlot,
+    man.queue = SyncQueue.init(A, man.direction, startSlot, lastSlot,
                                man.chunkSize, man.getSafeSlot,
                                man.blockVerifier, 1)
 
@@ -116,10 +114,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getBackfillSlotCb: GetSlotCallback,
                            progressPivot: Slot,
                            blockVerifier: BlockVerifier,
-                           maxStatusAge = uint64(SLOTS_PER_EPOCH * 4),
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
-                           sleepTime = (int(SLOTS_PER_EPOCH) *
-                                        int(SECONDS_PER_SLOT)).seconds,
                            chunkSize = uint64(SLOTS_PER_EPOCH),
                            toleranceValue = uint64(1)
                            ): SyncManager[A, B] =
@@ -132,7 +127,6 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
 
   var res = SyncManager[A, B](
     pool: pool,
-    maxStatusAge: maxStatusAge,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
     getSafeSlot: getSafeSlot,
@@ -140,7 +134,6 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     getLastSlot: getLastSlot,
     progressPivot: progressPivot,
     maxHeadAge: maxHeadAge,
-    sleepTime: sleepTime,
     chunkSize: chunkSize,
     blockVerifier: blockVerifier,
     notInSyncEvent: newAsyncEvent(),
@@ -594,7 +587,7 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
         else: InfiniteDuration
       currentSlot = Base10.toString(
         if man.queue.kind == SyncQueueKind.Forward:
-          min(uint64(man.queue.outSlot) - 1'u64, 0'u64)
+          max(uint64(man.queue.outSlot), 1'u64) - 1'u64
         else:
           uint64(man.queue.outSlot) + 1'u64
       )

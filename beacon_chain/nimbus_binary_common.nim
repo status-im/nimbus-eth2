@@ -14,19 +14,19 @@ import
   std/[os, tables, strutils, terminal, typetraits],
 
   # Nimble packages
-  chronos, confutils/defs,
+  chronos, confutils,
   chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
   stew/io2,
 
   # Local modules
   ./spec/[helpers],
   ./spec/datatypes/base,
-  "."/[beacon_clock, conf, filepath, beacon_node_status]
+  "."/[beacon_clock, beacon_node_status, conf, filepath]
 
 when defined(posix):
   import termios
 
-export beacon_node_status
+export beacon_clock, beacon_node_status, conf, confutils
 
 type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,

@@ -391,13 +391,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
         canonical: node.dag.isCanonical(
           BlockId(root: blck.root, slot: blck.message.slot)),
         header: SignedBeaconBlockHeader(
-          message: BeaconBlockHeader(
-            slot: blck.message.slot,
-            proposer_index: blck.message.proposer_index,
-            parent_root: blck.message.parent_root,
-            state_root: blck.message.state_root,
-            body_root: blck.message.body.hash_tree_root()
-          )
+          message: blck.toBeaconBlockHeader
         )
       )
 

@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   re, strutils, os, math,
   stew/bitops2,
@@ -45,7 +52,7 @@ const
   epochFileNameExtension* = ".epoch"
   epochNumberRegexStr = r"\d{" & $epochInfoFileNameDigitsCount & r"}\"
 
-proc copyParticipationFlags*(auxiliaryState: var AuxiliaryState,
+func copyParticipationFlags*(auxiliaryState: var AuxiliaryState,
                              forkedState: ForkedHashedBeaconState) =
   withState(forkedState):
     when stateFork > BeaconStateFork.Phase0:
@@ -89,16 +96,16 @@ proc getAggregatedFilesLastEpoch*(dir: string): Epoch =
         fn[epochInfoFileNameDigitsCount + 1 .. 2 * epochInfoFileNameDigitsCount])
       if fileLastEpoch > largestEpochInFileName:
         largestEpochInFileName = fileLastEpoch
-  return largestEpochInFileName.Epoch
+  largestEpochInFileName.Epoch
 
-proc epochAsString*(epoch: Epoch): string =
+func epochAsString*(epoch: Epoch): string =
   let strEpoch = $epoch
   '0'.repeat(epochInfoFileNameDigitsCount - strEpoch.len) & strEpoch
 
-proc getFilePathForEpoch*(epoch: Epoch, dir: string): string =
+func getFilePathForEpoch*(epoch: Epoch, dir: string): string =
   dir / epochAsString(epoch) & epochFileNameExtension
 
-proc getFilePathForEpochs*(startEpoch, endEpoch: Epoch, dir: string): string =
+func getFilePathForEpochs*(startEpoch, endEpoch: Epoch, dir: string): string =
   let fileName = epochAsString(startEpoch) & "_"  &
                  epochAsString(endEpoch) & epochFileNameExtension
   dir / fileName
@@ -119,7 +126,7 @@ func getBlockRange*(dag: ChainDAGRef, start, ends: Slot): seq[BlockRef] =
 func getOutcome(delta: RewardDelta): int64 =
   delta.rewards.int64 - delta.penalties.int64
 
-proc collectSlashings(
+func collectSlashings(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     state: ForkyBeaconState, total_balance: Gwei) =
   let
@@ -134,7 +141,7 @@ proc collectSlashings(
         validator[].get_slashing_penalty(
           adjusted_total_slashing_balance, total_balance).int64
 
-proc getFinalizedCheckpoint(state: ForkyBeaconState,
+func getFinalizedCheckpoint(state: ForkyBeaconState,
                             total_active_balance,
                             previous_epoch_target_balance,
                             current_epoch_target_balance: Gwei):
@@ -187,15 +194,15 @@ proc getFinalizedCheckpoint(state: ForkyBeaconState,
      old_current_justified_checkpoint.epoch + 1 == current_epoch:
     return old_current_justified_checkpoint
 
-  return state.finalized_checkpoint
+  state.finalized_checkpoint
 
-proc getFinalizedCheckpoint(state: phase0.BeaconState, balances: TotalBalances):
+func getFinalizedCheckpoint(state: phase0.BeaconState, balances: TotalBalances):
     Checkpoint =
   getFinalizedCheckpoint(state, balances.current_epoch,
                          balances.previous_epoch_target_attesters,
                          balances.current_epoch_target_attesters)
 
-proc getFinalizedCheckpoint(
+func getFinalizedCheckpoint(
     state: altair.BeaconState | bellatrix.BeaconState,
     balances: UnslashedParticipatingBalances): Checkpoint =
   getFinalizedCheckpoint(state, balances.current_epoch,
@@ -206,7 +213,7 @@ func getFinalityDelay*(state: ForkyBeaconState,
                        finalizedCheckpoint: Checkpoint): uint64 =
   state.get_previous_epoch - finalizedCheckpoint.epoch
 
-proc collectEpochRewardsAndPenalties*(
+func collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     state: phase0.BeaconState, cache: var StateCache, cfg: RuntimeConfig,
     flags: UpdateFlags) =
@@ -271,7 +278,7 @@ proc collectEpochRewardsAndPenalties*(
 
   rewardsAndPenalties.collectSlashings(state, info.balances.current_epoch)
 
-proc collectEpochRewardsAndPenalties*(
+func collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     state: altair.BeaconState | bellatrix.BeaconState,
     cache: var StateCache, cfg: RuntimeConfig, flags: UpdateFlags) =
@@ -326,7 +333,7 @@ proc collectEpochRewardsAndPenalties*(
 
   rewardsAndPenalties.collectSlashings(state, info.balances.current_epoch)
 
-proc collectFromSlashedValidator(
+func collectFromSlashedValidator(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     state: ForkyBeaconState, slashedIndex, proposerIndex: ValidatorIndex) =
   template slashed_validator: untyped = state.validators[slashedIndex]
@@ -335,7 +342,7 @@ proc collectFromSlashedValidator(
   rewardsAndPenalties[slashedIndex].slashing_outcome -= slashingPenalty.int64
   rewardsAndPenalties[proposerIndex].slashing_outcome += whistleblowerReward.int64
 
-proc collectFromProposerSlashings(
+func collectFromProposerSlashings(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     forkedState: ForkedHashedBeaconState,
     forkedBlock: ForkedTrustedSignedBeaconBlock) =
@@ -346,7 +353,7 @@ proc collectFromProposerSlashings(
       rewardsAndPenalties.collectFromSlashedValidator(state.data,
         slashedIndex.ValidatorIndex, blck.message.proposer_index.ValidatorIndex)
 
-proc collectFromAttesterSlashings(
+func collectFromAttesterSlashings(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     forkedState: ForkedHashedBeaconState,
     forkedBlock: ForkedTrustedSignedBeaconBlock) =
@@ -359,7 +366,7 @@ proc collectFromAttesterSlashings(
         rewardsAndPenalties.collectFromSlashedValidator(
           state.data, slashedIndex, blck.message.proposer_index.ValidatorIndex)
 
-proc collectFromAttestations(
+func collectFromAttestations(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     forkedState: ForkedHashedBeaconState,
     forkedBlock: ForkedTrustedSignedBeaconBlock,
@@ -408,7 +415,7 @@ proc collectFromDeposits(
         rewardsAndPenalties.add(
           RewardsAndPenalties(deposits: amount))
 
-proc collectFromSyncAggregate(
+func collectFromSyncAggregate(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
     forkedState: ForkedHashedBeaconState,
     forkedBlock: ForkedTrustedSignedBeaconBlock,

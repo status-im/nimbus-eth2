@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -39,7 +39,7 @@ func combine(tgt: var Attestation, src: Attestation) =
 
   tgt.aggregation_bits.incl(src.aggregation_bits)
 
-  var agg {.noInit.}: AggregateSignature
+  var agg {.noinit.}: AggregateSignature
   agg.init(tgt.signature.load().get())
   agg.aggregate(src.signature.load.get())
   tgt.signature = agg.finish().toValidatorSig()
@@ -253,7 +253,7 @@ suite "Attestation pool processing" & preset():
 
       for j in 0..<bc0.len():
         root.data[8..<16] = toBytesBE(j.uint64)
-        var att = makeAttestation(state[].data, root, bc0[j], cache)
+        let att = makeAttestation(state[].data, root, bc0[j], cache)
         pool[].addAttestation(
           att, @[bc0[j]], att.loadSig, att.data.slot.start_beacon_time)
         inc attestations

@@ -83,7 +83,7 @@ proc aggregateAttesters(
   if not firstKey.isSome():
     return err("aggregateAttesters: invalid attesting index")
 
-  var attestersAgg{.noInit.}: AggregatePublicKey
+  var attestersAgg{.noinit.}: AggregatePublicKey
 
   attestersAgg.init(firstKey.get())
   for i in 1 ..< validatorIndices.len:
@@ -106,7 +106,7 @@ proc aggregateAttesters(
     # - https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
-  var attestersAgg{.noInit.}: AggregatePublicKey
+  var attestersAgg{.noinit.}: AggregatePublicKey
 
   var inited = false
   for i in 0..<bits.len:

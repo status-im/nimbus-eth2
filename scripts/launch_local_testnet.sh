@@ -27,12 +27,13 @@ fi
 
 ! ${GETOPT_BINARY} --test > /dev/null
 if [ ${PIPESTATUS[0]} != 4 ]; then
+  # shellcheck disable=2016
   echo '`getopt --test` failed in this environment.'
   exit 1
 fi
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rpc-port:,base-metrics-port:,reuse-existing-data-dir,timeout:,kill-old-processes,eth2-docker-image:"
+LONGOPTS="help,preset:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,timeout:,kill-old-processes,eth2-docker-image:"
 
 # default values
 NUM_NODES="10"
@@ -43,7 +44,7 @@ USE_GANACHE="0"
 LOG_LEVEL="DEBUG; TRACE:networking"
 BASE_PORT="9000"
 BASE_METRICS_PORT="8008"
-BASE_RPC_PORT="7500"
+BASE_REST_PORT="7500"
 REUSE_EXISTING_DATA_DIR="0"
 ENABLE_LOGTRACE="0"
 STOP_AT_EPOCH_FLAG=""
@@ -66,7 +67,7 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
                               (default: "${DATA_DIR}")
   --preset                    Const preset to be (default: mainnet)
   --base-port                 bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
-  --base-rpc-port             bootstrap node's RPC port (default: ${BASE_RPC_PORT})
+  --base-rest-port            bootstrap node's REST port (default: ${BASE_REST_PORT})
   --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
   --disable-htop              don't use "htop" to see the nimbus_beacon_node processes
   --disable-vc                don't use validator client binaries for validators (by default validators are split 50/50 between beacon nodes and validator clients)
@@ -133,8 +134,8 @@ while true; do
       BASE_PORT="$2"
       shift 2
       ;;
-    --base-rpc-port)
-      BASE_RPC_PORT="$2"
+    --base-rest-port)
+      BASE_REST_PORT="$2"
       shift 2
       ;;
     --base-metrics-port)
@@ -212,7 +213,7 @@ fi
 # kill lingering processes from a previous run
 if [[ "${HAVE_LSOF}" == "1" ]]; then
   for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
-    for PORT in $(( BASE_PORT + NUM_NODE )) $(( BASE_METRICS_PORT + NUM_NODE )) $(( BASE_RPC_PORT + NUM_NODE )); do
+    for PORT in $(( BASE_PORT + NUM_NODE )) $(( BASE_METRICS_PORT + NUM_NODE )) $(( BASE_REST_PORT + NUM_NODE )); do
       for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
         echo -n "Found old process listening on port ${PORT}, with PID ${PID}. "
         if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
@@ -234,7 +235,7 @@ if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
   BINARIES="${BINARIES} logtrace"
 fi
 
-if [[ ! -z "$ETH2_DOCKER_IMAGE" ]]; then
+if [[ -n "$ETH2_DOCKER_IMAGE" ]]; then
   DATA_DIR_FULL_PATH=$(cd "${DATA_DIR}"; pwd)
   # CONTAINER_DATA_DIR must be used everywhere where paths are supplied to BEACON_NODE_COMMAND executions.
   # We'll use the CONTAINER_ prefix throughout the file to indicate such paths.
@@ -265,7 +266,7 @@ cleanup() {
     rm build/${BINARY}
   done
 
-  if [[ ! -z "$ETH2_DOCKER_IMAGE" ]]; then
+  if [[ -n "$ETH2_DOCKER_IMAGE" ]]; then
     docker rm $(docker stop $(docker ps -a -q --filter ancestor=$ETH2_DOCKER_IMAGE --format="{{.ID}}"))
   fi
 }
@@ -365,6 +366,7 @@ GENESIS_DELAY: 10
 DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
 ETH1_FOLLOW_DISTANCE: 1
 ALTAIR_FORK_EPOCH: 1
+BELLATRIX_FORK_EPOCH: 2
 EOF
 
 dump_logs() {
@@ -483,7 +485,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     ${STOP_AT_EPOCH_FLAG} \
     --rest \
     --rest-address="127.0.0.1" \
-    --rest-port="$(( BASE_RPC_PORT + NUM_NODE ))" \
+    --rest-port="$(( BASE_REST_PORT + NUM_NODE ))" \
     --metrics \
     --metrics-address="127.0.0.1" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
@@ -501,7 +503,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
       --log-level="${LOG_LEVEL}" \
       ${STOP_AT_EPOCH_FLAG} \
       --data-dir="${VALIDATOR_DATA_DIR}" \
-      --beacon-node="http://127.0.0.1:$((BASE_RPC_PORT + NUM_NODE))" \
+      --beacon-node="http://127.0.0.1:$((BASE_REST_PORT + NUM_NODE))" \
       > "${DATA_DIR}/log_val${NUM_NODE}.txt" 2>&1 &
   fi
 done

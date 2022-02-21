@@ -98,7 +98,7 @@ proc new*(T: type BlockProcessor,
 # Sync callbacks
 # ------------------------------------------------------------------------------
 
-proc hasBlocks*(self: BlockProcessor): bool =
+func hasBlocks*(self: BlockProcessor): bool =
   self.blockQueue.len() > 0
 
 # Storage

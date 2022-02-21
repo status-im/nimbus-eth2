@@ -31,7 +31,7 @@ export
   beacon_chain_db, conf, attestation_pool, sync_committee_msg_pool,
   validator_pool, eth2_network, eth1_monitor, request_manager, sync_manager,
   eth2_processor, blockchain_dag, block_quarantine, base, exit_pool,
-  validator_monitor
+  validator_monitor, consensus_manager
 
 type
   RpcServer* = RpcHttpServer

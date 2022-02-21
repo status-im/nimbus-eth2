@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # set -Eeuo pipefail
 
-# https://notes.ethereum.org/@9AeMAlpyQYaAAyuj47BzRw/rkwW3ceVY#Genesis
+# https://notes.ethereum.org/rmVErCfCRPKGqGkUe89-Kg
 
-# Genesis block hash: 0x3b8fb240d288781d4aac94d3fd16809ee413bc99294a085798a589dae51ddd4a
+# Genesis block hash: 0xfoobar
 # To start miner, run miner.start()
 # To increase verbosity: debug.verbosity(4)
 
@@ -47,10 +47,10 @@ echo \{\
 \} > "${GENESISJSON}"
 
 # Initialize the genesis
-~/execution_clients/go-ethereum/build/bin/geth --catalyst --http --ws -http.api "engine" --datadir "${GETHDATADIR}" init "${GENESISJSON}"
+~/go-ethereum/build/bin/geth --http --ws -http.api "engine" --datadir "${GETHDATADIR}" init "${GENESISJSON}"
 
 # Import the signing key (press enter twice for empty password)
-~/execution_clients/go-ethereum/build/bin/geth --catalyst --http --ws -http.api "engine" --datadir "${GETHDATADIR}" account import <(echo 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8)
+~/go-ethereum/build/bin/geth --http --ws -http.api "engine" --datadir "${GETHDATADIR}" account import <(echo 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8)
 
 # Start the node (and press enter once to unlock the account)
-~/execution_clients/go-ethereum/build/bin/geth --catalyst --http --ws --ws.port 8551 --http.port 8550 --http.api "eth,net,engine" -ws.api "eth,net,engine" --datadir "${GETHDATADIR}" --allow-insecure-unlock --unlock "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" --password "" --nodiscover console
+~/go-ethereum/build/bin/geth --http --ws --ws.port 8551 --http.port 8550 --http.api "eth,net,engine" -ws.api "eth,net,engine" --datadir "${GETHDATADIR}" --allow-insecure-unlock --unlock "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" --password "" --nodiscover console

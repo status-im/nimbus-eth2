@@ -31,7 +31,7 @@ proc runTest(identifier: string) =
         postState = newClone(
           parseTest(testDir/"post.ssz_snappy", SSZ, bellatrix.BeaconState))
 
-      var cfg = defaultRuntimeConfig
+      let cfg = defaultRuntimeConfig
 
       let upgradedState = upgrade_to_bellatrix(cfg, preState[])
       check: upgradedState[].hash_tree_root() == postState[].hash_tree_root()

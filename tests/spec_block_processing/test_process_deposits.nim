@@ -32,7 +32,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
   template valid_deposit(deposit_amount: uint64, name: string): untyped =
     test "Deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
           $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
-      var state = assignClone(genesisState[])
+      let state = assignClone(genesisState[])
 
       # Test configuration
       # ----------------------------------------
@@ -73,7 +73,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
   valid_deposit(MAX_EFFECTIVE_BALANCE + 1, "over")
 
   test "Validator top-up":
-    var state = assignClone(genesisState[])
+    let state = assignClone(genesisState[])
 
     # Test configuration
     # ----------------------------------------
@@ -113,12 +113,12 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
   template invalid_signature(deposit_amount: uint64, name: string): untyped =
     test "Invalid deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
           $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
-      var state = assignClone(genesisState[])
+      let state = assignClone(genesisState[])
 
       # Test configuration
       # ----------------------------------------
       let validator_index = state.data.validators.len
-      var deposit = mockUpdateStateForNewDeposit(
+      let deposit = mockUpdateStateForNewDeposit(
                       state.data,
                       uint64 validator_index,
                       deposit_amount,

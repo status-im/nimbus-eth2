@@ -13,7 +13,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
         vc.config.graffiti.get()
       else:
         defaultGraffitiBytes()
-    fork = vc.fork.get()
+    fork = vc.forkAtEpoch(slot.epoch)
 
   debug "Publishing block", validator = shortLog(validator),
                             delay = vc.getDelay(slot.block_deadline()),

@@ -21,7 +21,8 @@ import
 
 export
   streams, options, keystore, phase0, altair, tables, uri, crypto,
-  rest_types, eth2_rest_serialization, rest_remote_signer_calls
+  rest_types, eth2_rest_serialization, rest_remote_signer_calls,
+  slashing_protection
 
 declareGauge validators,
   "Number of validators attached to the beacon node"

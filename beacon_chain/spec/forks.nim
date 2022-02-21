@@ -61,6 +61,26 @@ type
     Altair
     Bellatrix
 
+  ForkyBeaconBlockBody* =
+    phase0.BeaconBlockBody |
+    altair.BeaconBlockBody |
+    bellatrix.BeaconBlockBody
+
+  ForkySigVerifiedBeaconBlockBody* =
+    phase0.SigVerifiedBeaconBlockBody |
+    altair.SigVerifiedBeaconBlockBody |
+    bellatrix.SigVerifiedBeaconBlockBody
+
+  ForkyTrustedBeaconBlockBody* =
+    phase0.TrustedBeaconBlockBody |
+    altair.TrustedBeaconBlockBody |
+    bellatrix.TrustedBeaconBlockBody
+
+  SomeForkyBeaconBlockBody* =
+    ForkyBeaconBlockBody |
+    ForkySigVerifiedBeaconBlockBody |
+    ForkyTrustedBeaconBlockBody
+
   ForkyBeaconBlock* =
     phase0.BeaconBlock |
     altair.BeaconBlock |
@@ -215,6 +235,21 @@ template toFork*[T: altair.TrustedSignedBeaconBlock](
 template toFork*[T: bellatrix.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Bellatrix
+
+func toBeaconBlockHeader*(
+    blck: SomeForkyBeaconBlock): BeaconBlockHeader =
+  ## Reduce a given `BeaconBlock` to just its `BeaconBlockHeader`.
+  BeaconBlockHeader(
+    slot: blck.slot,
+    proposer_index: blck.proposer_index,
+    parent_root: blck.parent_root,
+    state_root: blck.state_root,
+    body_root: blck.body.hash_tree_root())
+
+template toBeaconBlockHeader*(
+    blck: SomeForkySignedBeaconBlock): BeaconBlockHeader =
+  ## Reduce a given `SignedBeaconBlock` to just its `BeaconBlockHeader`.
+  blck.message.toBeaconBlockHeader
 
 template init*(T: type ForkedEpochInfo, info: phase0.EpochInfo): T =
   T(kind: EpochInfoFork.Phase0, phase0Data: info)
@@ -409,19 +444,19 @@ func bellatrixFork*(cfg: RuntimeConfig): Fork =
     current_version: cfg.BELLATRIX_FORK_VERSION,
     epoch: cfg.BELLATRIX_FORK_EPOCH)
 
-proc forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
+func forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
   case cfg.stateForkAtEpoch(epoch)
   of BeaconStateFork.Bellatrix: cfg.bellatrixFork
   of BeaconStateFork.Altair:    cfg.altairFork
   of BeaconStateFork.Phase0:    cfg.genesisFork
 
-proc forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
+func forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
   case cfg.stateForkAtEpoch(epoch)
   of BeaconStateFork.Bellatrix: cfg.BELLATRIX_FORK_VERSION
   of BeaconStateFork.Altair:    cfg.ALTAIR_FORK_VERSION
   of BeaconStateFork.Phase0:    cfg.GENESIS_FORK_VERSION
 
-proc nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
+func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   case cfg.stateForkAtEpoch(epoch)
   of BeaconStateFork.Bellatrix: FAR_FUTURE_EPOCH
   of BeaconStateFork.Altair:    cfg.BELLATRIX_FORK_EPOCH
@@ -453,7 +488,7 @@ func readSszForkedHashedBeaconState*(cfg: RuntimeConfig, data: openArray[byte]):
     data.toOpenArray(0, sizeof(BeaconStateHeader) - 1),
     BeaconStateHeader)
 
-  # careful - `result` is used, RVO didn't seem to work without
+  # TODO https://github.com/nim-lang/Nim/issues/19357
   result = ForkedHashedBeaconState(
     kind: cfg.stateForkAtEpoch(header.slot.epoch()))
 
@@ -478,8 +513,7 @@ func readSszForkedSignedBeaconBlock*(
     data.toOpenArray(0, sizeof(ForkedBeaconBlockHeader) - 1),
     ForkedBeaconBlockHeader)
 
-  # careful - `result` is used, RVO didn't seem to work without
-  # TODO move time helpers somewhere to avoid circular imports
+  # TODO https://github.com/nim-lang/Nim/issues/19357
   result = ForkedSignedBeaconBlock(
     kind: cfg.blockForkAtEpoch(header.slot.epoch()))
 

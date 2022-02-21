@@ -96,7 +96,7 @@ proc doTrustedNodeSync*(
   var client = RestClientRef.new(restUrl).get()
 
   proc downloadBlock(slot: Slot):
-      Future[Option[ForkedSignedBeaconBlock]] {.async.} =
+      Future[Option[ref ForkedSignedBeaconBlock]] {.async.} =
     # Download block at given slot, retrying a few times,
     var lastError: ref CatchableError
     for i in 0..<3:
@@ -175,7 +175,7 @@ proc doTrustedNodeSync*(
     # what slot we'll get - to find it, we'll keep walking backwards for a
     # reasonable number of tries
     var
-      checkpointBlock: ForkedSignedBeaconBlock
+      checkpointBlock: ref ForkedSignedBeaconBlock
       id = BlockIdent.decodeString(blockId).valueOr:
         error "Cannot decode checkpoint block id, must be a slot, hash, 'finalized' or 'head'",
           blockId
@@ -207,7 +207,7 @@ proc doTrustedNodeSync*(
 
       checkpointBlock = blck.get()
 
-      let checkpointSlot = getForkedBlockField(checkpointBlock, slot)
+      let checkpointSlot = getForkedBlockField(checkpointBlock[], slot)
       if checkpointSlot > headSlot:
         # When the checkpoint is newer than the head, we run into trouble: the
         # current backfill in ChainDAG does not support filling in arbitrary gaps.
@@ -215,7 +215,7 @@ proc doTrustedNodeSync*(
         # backfiller would re-download the entire backfill history.
         # For now, we'll abort and let the user choose what to do.
         error "Checkpoint block is newer than head slot - start with a new database or use a checkpoint no more recent than the head",
-          checkpointSlot, checkpointRoot = shortLog(checkpointBlock.root), headSlot
+          checkpointSlot, checkpointRoot = shortLog(checkpointBlock[].root), headSlot
         quit 1
 
       if checkpointSlot.is_epoch():
@@ -236,11 +236,11 @@ proc doTrustedNodeSync*(
       quit 1
     checkpointBlock
 
-  let checkpointSlot = getForkedBlockField(checkpointBlock, slot)
-  if checkpointBlock.root in dbCache.summaries:
+  let checkpointSlot = getForkedBlockField(checkpointBlock[], slot)
+  if checkpointBlock[].root in dbCache.summaries:
     notice "Checkpoint block is already known, skipping checkpoint state download"
 
-    withBlck(checkpointBlock):
+    withBlck(checkpointBlock[]):
       dbCache.updateSlots(blck.root, blck.message.slot)
 
   else:
@@ -261,10 +261,10 @@ proc doTrustedNodeSync*(
     withState(state[]):
       let latest_block_root = state.latest_block_root
 
-      if latest_block_root != checkpointBlock.root:
+      if latest_block_root != checkpointBlock[].root:
         error "Checkpoint state does not match checkpoint block, server error?",
-          blockRoot = shortLog(checkpointBlock.root),
-          blck = shortLog(checkpointBlock),
+          blockRoot = shortLog(checkpointBlock[].root),
+          blck = shortLog(checkpointBlock[]),
           stateBlockRoot = shortLog(latest_block_root)
         quit 1
 
@@ -272,7 +272,7 @@ proc doTrustedNodeSync*(
         stateRoot = shortLog(state.root)
       db.putState(state)
 
-    withBlck(checkpointBlock):
+    withBlck(checkpointBlock[]):
       info "Writing checkpoint block",
         blockRoot = shortLog(blck.root),
         blck = shortLog(blck.message)
@@ -310,8 +310,9 @@ proc doTrustedNodeSync*(
       stamp = SyncMoment.now(0)
 
     # Download several blocks in parallel but process them serially
-    var gets: array[8, Future[Option[ForkedSignedBeaconBlock]]]
-    proc processBlock(fut: Future[Option[ForkedSignedBeaconBlock]], slot: Slot) {.async.} =
+    var gets: array[16, Future[Option[ref ForkedSignedBeaconBlock]]]
+    proc processBlock(
+        fut: Future[Option[ref ForkedSignedBeaconBlock]], slot: Slot) {.async.} =
       processed += 1
       var blck = await fut
       if blck.isNone():
@@ -319,7 +320,7 @@ proc doTrustedNodeSync*(
         return
 
       let data = blck.get()
-      withBlck(data):
+      withBlck(data[]):
         debug "Processing",
           blck = shortLog(blck.message),
           blockRoot = shortLog(blck.root)
@@ -364,17 +365,17 @@ proc doTrustedNodeSync*(
           syncCount += 1
 
           let
-            remaining = blck.message.slot.int.float
+            remaining = blck.message.slot.int
             slotsPerSec = speed(stamp, newStamp)
           avgSyncSpeed = avgSyncSpeed + (slotsPerSec - avgSyncSpeed) / float(syncCount)
 
           info "Backfilling",
             timeleft = toTimeLeftString(
               if avgSyncSpeed >= 0.001:
-                Duration.fromFloatSeconds(remaining / avgSyncSpeed)
+                Duration.fromFloatSeconds(remaining.float / avgSyncSpeed)
               else: InfiniteDuration),
-            avgSyncSpeed,
-            remaining
+            slotsPerSecond = avgSyncSpeed,
+            remainingSlots = remaining
           stamp = newStamp
 
     # Download blocks backwards from the checkpoint slot, skipping the ones we
@@ -398,7 +399,7 @@ proc doTrustedNodeSync*(
       missingSlots
 
   notice "Done, your beacon node is ready to serve you! Don't forget to check that you're on the canoncial chain by comparing the checkpoint root with other online sources. See https://nimbus.guide/trusted-node-sync.html for more information.",
-    checkpointRoot = checkpointBlock.root
+    checkpointRoot = checkpointBlock[].root
 
 when isMainModule:
   import std/[os]

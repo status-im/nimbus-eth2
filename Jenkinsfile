@@ -21,14 +21,15 @@ def runStages(nodeDir) {
 			}
 
 			cache(maxCacheSize: 250, caches: [
-				[$class: "ArbitraryFileCache", excludes: "", includes: "**/*", path: "${WORKSPACE}/${nodeDir}/vendor/nimbus-build-system/vendor/Nim/bin"],
 				[$class: "ArbitraryFileCache", excludes: "", includes: "**/*", path: "${WORKSPACE}/${nodeDir}/jsonTestsCache"]
 			]) {
-				stage("Build") {
+				stage("Preparations") {
 					sh """#!/bin/bash
 					set -e
+					# macOS shows scary warnings if there are old libraries and object files laying around
+					make clean
 					# to allow the following parallel stages
-					make -j${env.NPROC} QUICK_AND_DIRTY_COMPILER=1 deps
+					make -j${env.NPROC} QUICK_AND_DIRTY_COMPILER=1 update
 					./scripts/setup_scenarios.sh jsonTestsCache
 					"""
 				}
@@ -37,7 +38,6 @@ def runStages(nodeDir) {
 			stage("Tools") {
 				sh """#!/bin/bash
 				set -e
-				make -j${env.NPROC}
 				make -j${env.NPROC} LOG_LEVEL=TRACE
 				"""
 			}
@@ -60,12 +60,12 @@ def runStages(nodeDir) {
 				sh """#!/bin/bash
 				set -e
 				./scripts/launch_local_testnet.sh --preset minimal --nodes 4 --stop-at-epoch 5 --disable-htop --enable-logtrace \
-					--data-dir local_testnet0_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port \
+					--data-dir local_testnet0_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rest-port \
 					\$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) --timeout 600 \
 					--kill-old-processes \
 					-- --verify-finalization --discv5:no
 				./scripts/launch_local_testnet.sh --nodes 4 --stop-at-epoch 5 --disable-htop --enable-logtrace \
-					--data-dir local_testnet1_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rpc-port \
+					--data-dir local_testnet1_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rest-port \
 					\$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) --timeout 2400 \
 					--kill-old-processes \
 					-- --verify-finalization --discv5:no

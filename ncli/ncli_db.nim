@@ -132,9 +132,9 @@ type
         defaultValue: 0
         desc: "The era number to write".}: uint64
       eraCount* {.
-        defaultValue: 1
+        defaultValue: 0
         name: "count"
-        desc: "Number of eras to write".}: uint64
+        desc: "Number of eras to write (0=all)".}: uint64
 
     of DbCmd.importEra:
       eraFiles* {.
@@ -232,11 +232,14 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     withTimer(timers[tLoadBlock]):
       case cfg.blockForkAtEpoch(blck.slot.epoch)
       of BeaconBlockFork.Phase0:
-        blocks[0].add dag.db.getPhase0Block(blck.root).get()
+        blocks[0].add dag.db.getBlock(
+          blck.root, phase0.TrustedSignedBeaconBlock).get()
       of BeaconBlockFork.Altair:
-        blocks[1].add dag.db.getAltairBlock(blck.root).get()
+        blocks[1].add dag.db.getBlock(
+          blck.root, altair.TrustedSignedBeaconBlock).get()
       of BeaconBlockFork.Bellatrix:
-        blocks[2].add dag.db.getMergeBlock(blck.root).get()
+        blocks[2].add dag.db.getBlock(
+          blck.root, bellatrix.TrustedSignedBeaconBlock).get()
 
   let stateData = newClone(dag.headState)
 
@@ -314,7 +317,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
   printTimers(false, timers)
 
 proc cmdDumpState(conf: DbConf) =
-  let db = BeaconChainDB.new(conf.databaseDir.string)
+  let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
   defer: db.close()
 
   let
@@ -352,18 +355,20 @@ proc cmdPutState(conf: DbConf, cfg: RuntimeConfig) =
       db.putState(state)
 
 proc cmdDumpBlock(conf: DbConf) =
-  let db = BeaconChainDB.new(conf.databaseDir.string)
+  let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
   defer: db.close()
 
   for blockRoot in conf.blockRootx:
     if shouldShutDown: quit QuitSuccess
     try:
       let root = Eth2Digest.fromHex(blockRoot)
-      if (let blck = db.getPhase0Block(root); blck.isSome):
+      if (let blck = db.getBlock(
+          root, phase0.TrustedSignedBeaconBlock); blck.isSome):
         dump("./", blck.get())
-      elif (let blck = db.getAltairBlock(root); blck.isSome):
+      elif (let blck = db.getBlock(
+          root, altair.TrustedSignedBeaconBlock); blck.isSome):
         dump("./", blck.get())
-      elif (let blck = db.getMergeBlock(root); blck.isSome):
+      elif (let blck = db.getBlock(root, bellatrix.TrustedSignedBeaconBlock); blck.isSome):
         dump("./", blck.get())
       else:
         echo "Couldn't load ", blockRoot
@@ -391,7 +396,7 @@ proc cmdPutBlock(conf: DbConf, cfg: RuntimeConfig) =
 
 proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."
-  let db = BeaconChainDB.new(conf.databaseDir.string)
+  let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
   defer: db.close()
 
   if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
@@ -422,7 +427,7 @@ func atCanonicalSlot(blck: BlockRef, slot: Slot): BlockSlot =
     blck.atSlot(slot - 1).blck.atSlot(slot)
 
 proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
-  let db = BeaconChainDB.new(conf.databaseDir.string)
+  let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
   defer: db.close()
 
   if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
@@ -443,7 +448,8 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
     tmp: seq[byte]
     timers: array[Timers, RunningStat]
 
-  for era in conf.era ..< conf.era + conf.eraCount:
+  var era = conf.era
+  while conf.eraCount == 0 or era < conf.era + conf.eraCount:
     if shouldShutDown: quit QuitSuccess
     let
       firstSlot =
@@ -457,24 +463,29 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
       break
 
     let name = withState(dag.headState.data): eraFileName(cfg, state.data, era)
-    echo "Writing ", name
+    if isFile(name):
+      echo "Skipping ", name, " (already exists)"
+    else:
+      echo "Writing ", name
 
-    let e2 = openFile(name, {OpenFlags.Write, OpenFlags.Create}).get()
-    defer: discard closeFile(e2)
+      let e2 = openFile(name, {OpenFlags.Write, OpenFlags.Create}).get()
+      defer: discard closeFile(e2)
 
-    var group = EraGroup.init(e2, firstSlot).get()
-    if firstSlot.isSome():
-      withTimer(timers[tBlocks]):
-        var blocks: array[SLOTS_PER_HISTORICAL_ROOT.int, BlockId]
-        for i in dag.getBlockRange(firstSlot.get(), 1, blocks)..<blocks.len:
-          if dag.getBlockSSZ(blocks[i], tmp):
-            group.update(e2, blocks[i].slot, tmp).get()
+      var group = EraGroup.init(e2, firstSlot).get()
+      if firstSlot.isSome():
+        withTimer(timers[tBlocks]):
+          var blocks: array[SLOTS_PER_HISTORICAL_ROOT.int, BlockId]
+          for i in dag.getBlockRange(firstSlot.get(), 1, blocks)..<blocks.len:
+            if dag.getBlockSSZ(blocks[i], tmp):
+              group.update(e2, blocks[i].slot, tmp).get()
 
-    withTimer(timers[tState]):
-      dag.withUpdatedState(tmpState[], canonical) do:
-        withState(stateData.data):
-          group.finish(e2, state.data).get()
-      do: raiseAssert "withUpdatedState failed"
+      withTimer(timers[tState]):
+        dag.withUpdatedState(tmpState[], canonical) do:
+          withState(stateData.data):
+            group.finish(e2, state.data).get()
+        do: raiseAssert "withUpdatedState failed"
+
+    era += 1
 
   printTimers(true, timers)
 
@@ -494,6 +505,8 @@ proc cmdImportEra(conf: DbConf, cfg: RuntimeConfig) =
 
   var data: seq[byte]
   for file in conf.eraFiles:
+    if shouldShutDown: quit QuitSuccess
+
     let f = openFile(file, {OpenFlags.Read}).valueOr:
       warn "Can't open ", file
       continue
@@ -503,7 +516,7 @@ proc cmdImportEra(conf: DbConf, cfg: RuntimeConfig) =
       let header = readRecord(f, data).valueOr:
         break
 
-      if header.typ ==  SnappyBeaconBlock:
+      if header.typ == SnappyBeaconBlock:
         withTimer(timers[tBlock]):
           let uncompressed = framingFormatUncompress(data)
           let blck = try: readSszForkedSignedBeaconBlock(cfg, uncompressed)
@@ -550,7 +563,7 @@ type
 proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   echo "Opening database..."
   let
-    db = BeaconChainDB.new(conf.databaseDir.string,)
+    db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
   defer:
     db.close()
 
@@ -638,7 +651,9 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
     if shouldShutDown: quit QuitSuccess
 
   for bi in 0 ..< blockRefs.len:
-    blck = db.getPhase0Block(blockRefs[blockRefs.len - bi - 1].root).get()
+    blck = db.getBlock(
+      blockRefs[blockRefs.len - bi - 1].root,
+      phase0.TrustedSignedBeaconBlock).get()
     while getStateField(state[].data, slot) < blck.message.slot:
       let
         nextSlot = getStateField(state[].data, slot) + 1

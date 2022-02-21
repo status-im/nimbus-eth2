@@ -9,6 +9,7 @@
 
 import
   std/[strutils, os, options, unicode, uri],
+  metrics,
 
   chronicles, chronicles/options as chroniclesOptions,
   confutils, confutils/defs, confutils/std/net, stew/shims/net as stewNet,
@@ -24,10 +25,12 @@ import
   ./filepath
 
 export
-  uri,
+  uri, nat, enr,
   defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
   defs, parseCmdArg, completeCmdArg, network_metadata,
-  network
+  network, BlockHashOrNumber
+
+declareGauge network_name, "network name", ["name"]
 
 const
   # TODO: How should we select between IPv4 and IPv6
@@ -328,6 +331,11 @@ type
         defaultValueDesc: "127.0.0.1"
         name: "rest-address" }: ValidIpAddress
 
+      restAllowedOrigin* {.
+        desc: "Limit the access to the REST API to a particular hostname " &
+              "(for CORS-enabled clients such as browsers)"
+        name: "rest-allow-origin" }: Option[string]
+
       restCacheSize* {.
         defaultValue: 3
         desc: "The maximum number of recently accessed states that are kept in " &
@@ -373,6 +381,11 @@ type
         defaultValue: defaultAdminListenAddress
         defaultValueDesc: "127.0.0.1"
         name: "keymanager-address" }: ValidIpAddress
+
+      keymanagerAllowedOrigin* {.
+        desc: "Limit the access to the Keymanager API to a particular hostname " &
+              "(for CORS-enabled clients such as browsers)"
+        name: "keymanager-allow-origin" }: Option[string]
 
       keymanagerTokenFile* {.
         desc: "A file specifying the authorizition token required for accessing the keymanager API"
@@ -439,6 +452,14 @@ type
         desc: "Enable proposer boosting; temporary option feature gate (debugging; option will be removed)",
         defaultValue: false
         name: "proposer-boosting-debug" }: bool
+
+      # https://github.com/ethereum/consensus-specs/blob/v1.1.9/sync/optimistic.md#fork-choice-poisoning
+      safeSlotsToImportOptimistically* {.
+        hidden
+        desc: "Modify SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY"
+        # https://github.com/ethereum/consensus-specs/blob/v1.1.9/sync/optimistic.md#constants
+        defaultValue: 128
+        name: "safe-slots-to-import-optimistically" }: uint64
 
     of BNStartUpCmd.createTestnet:
       testnetDepositsFile* {.
@@ -873,7 +894,7 @@ func parseCmdArg*(T: type Checkpoint, input: TaintedString): T
 func completeCmdArg*(T: type Checkpoint, input: TaintedString): seq[string] =
   return @[]
 
-proc isPrintable(rune: Rune): bool =
+func isPrintable(rune: Rune): bool =
   # This can be eventually replaced by the `unicodeplus` package, but a single
   # proc does not justify the extra dependencies at the moment:
   # https://github.com/nitely/nim-unicodeplus
@@ -903,7 +924,7 @@ proc parseCmdArg*(T: type enr.Record, p: TaintedString): T
   if not fromURI(result, p):
     raise newException(ConfigurationError, "Invalid ENR")
 
-proc completeCmdArg*(T: type enr.Record, val: TaintedString): seq[string] =
+func completeCmdArg*(T: type enr.Record, val: TaintedString): seq[string] =
   return @[]
 
 func validatorsDir*(config: AnyConf): string =
@@ -919,7 +940,7 @@ func walletsDir*(config: BeaconNodeConf): string =
     config.dataDir / "wallets"
 
 func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
-  proc fail {.noReturn.} =
+  proc fail {.noreturn.} =
     raiseAssert "outWalletName should be used only in the right context"
 
   case config.cmd
@@ -936,7 +957,7 @@ func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
     fail()
 
 func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
-  proc fail {.noReturn.} =
+  proc fail {.noreturn.} =
     raiseAssert "outWalletName should be used only in the right context"
 
   case config.cmd
@@ -958,3 +979,16 @@ func databaseDir*(config: AnyConf): string =
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =
   writer.writeValue(string value)
+
+proc loadEth2Network*(config: BeaconNodeConf): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
+  network_name.set(2, labelValues = [config.eth2Network.get(otherwise = "mainnet")])
+  if config.eth2Network.isSome:
+    getMetadataForNetwork(config.eth2Network.get)
+  else:
+    when const_preset == "mainnet":
+      mainnetMetadata
+    else:
+      # Presumably other configurations can have other defaults, but for now
+      # this simplifies the flow
+      echo "Must specify network on non-mainnet node"
+      quit 1

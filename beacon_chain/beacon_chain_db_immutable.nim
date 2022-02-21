@@ -126,7 +126,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/bellatrix/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a Merge BeaconState for in-place SSZ
   # reading and writing
-  MergeBeaconStateNoImmutableValidators* = object
+  BellatrixBeaconStateNoImmutableValidators* = object
     # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest

@@ -17,24 +17,20 @@ proc validateForkSchedule(forks: openarray[Fork]): bool {.raises: [Defect].} =
     current_version = item.current_version
   true
 
-proc getCurrentFork(forks: openarray[Fork],
-                    epoch: Epoch): Result[Fork, cstring] {.raises: [Defect].} =
+proc sortForks(forks: openarray[Fork]): Result[seq[Fork], cstring] {.
+     raises: [Defect].} =
   proc cmp(x, y: Fork): int {.closure.} =
     if uint64(x.epoch) == uint64(y.epoch): return 0
     if uint64(x.epoch) < uint64(y.epoch): return -1
     return 1
 
-  let sortedForks = sorted(forks, cmp)
-  if len(sortedForks) == 0:
+  if len(forks) == 0:
     return err("Empty fork schedule")
+
+  let sortedForks = sorted(forks, cmp)
   if not(validateForkSchedule(sortedForks)):
     return err("Invalid fork schedule")
-  var res: Fork
-  for item in sortedForks:
-    res = item
-    if item.epoch > epoch:
-      break
-  ok(res)
+  ok(sortedForks)
 
 proc pollForFork(vc: ValidatorClientRef) {.async.} =
   let sres = vc.getCurrentSlot()
@@ -54,17 +50,18 @@ proc pollForFork(vc: ValidatorClientRef) {.async.} =
               err_name = exc.name, err_msg = exc.msg
         return
 
-    let fork =
+    let sortedForks =
       block:
-        let res = getCurrentFork(forks, currentEpoch)
+        let res = sortForks(forks)
         if res.isErr():
           error "Invalid fork schedule received", reason = res.error()
           return
         res.get()
 
-    if vc.fork.isNone() or (vc.fork.get() != fork):
-      vc.fork = some(fork)
-      notice "Fork update succeeded", fork = fork
+    if (len(vc.forks) == 0) or (vc.forks != sortedForks):
+      vc.forks = sortedForks
+      notice "Fork schedule updated", fork_schedule = sortedForks
+      vc.forksAvailable.fire()
 
 proc waitForNextEpoch(service: ForkServiceRef) {.async.} =
   let vc = service.client

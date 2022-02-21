@@ -27,7 +27,7 @@ import
   # Status libraries
   chronicles,
   nimcrypto/[sha2, hash],
-  stew/[endians2, byteutils],
+  stew/[byteutils, endians2, objects],
   json_serialization,
   blscurve
 
@@ -57,7 +57,7 @@ chronicles.formatIt Eth2Digest:
 # TODO: expose an in-place digest function
 #       when hashing in loop or into a buffer
 #       See: https://github.com/cheatfate/nimcrypto/blob/b90ba3abd/nimcrypto/sha2.nim#L570
-func eth2digest*(v: openArray[byte]): Eth2Digest {.noInit.} =
+func eth2digest*(v: openArray[byte]): Eth2Digest {.noinit.} =
   ## Apply the Eth2 Hash function
   ## Do NOT use for secret data.
   when BLS_BACKEND == BLST:
@@ -66,7 +66,7 @@ func eth2digest*(v: openArray[byte]): Eth2Digest {.noInit.} =
   else:
     # We use the init-update-finish interface to avoid
     # the expensive burning/clearing memory (20~30% perf)
-    var ctx: Eth2DigestCtx
+    let ctx: Eth2DigestCtx
     ctx.init()
     ctx.update(v)
     ctx.finish()
@@ -85,15 +85,15 @@ template withEth2Hash*(body: untyped): Eth2Digest =
   else:
     when BLS_BACKEND == BLST:
       block:
-        var h  {.inject, noInit.}: Eth2DigestCtx
+        var h  {.inject, noinit.}: Eth2DigestCtx
         init(h)
         body
-        var res {.noInit.}: Eth2Digest
+        var res {.noinit.}: Eth2Digest
         finalize(res.data, h)
         res
     else:
       block:
-        var h  {.inject, noInit.}: Eth2DigestCtx
+        let h  {.inject, noinit.}: Eth2DigestCtx
         init(h)
         body
         finish(h)
@@ -111,6 +111,9 @@ func `==`*(a, b: Eth2Digest): bool =
     # Eth2Digest is unnecessary - the type should never hold a secret!
     equalMem(unsafeAddr a.data[0], unsafeAddr b.data[0], sizeof(a.data))
 
+func isZero*(x: Eth2Digest): bool =
+  x.isZeroMemory
+
 proc writeValue*(w: var JsonWriter, a: Eth2Digest) {.raises: [Defect, IOError, SerializationError].} =
   w.writeValue $a
 
@@ -120,7 +123,7 @@ proc readValue*(r: var JsonReader, a: var Eth2Digest) {.raises: [Defect, IOError
   except ValueError:
     raiseUnexpectedValue(r, "Hex string expected")
 
-proc toGaugeValue*(hash: Eth2Digest): int64 =
+func toGaugeValue*(hash: Eth2Digest): int64 =
   # Only the last 8 bytes are taken into consideration in accordance
   # to the ETH2 metrics spec:
   # https://github.com/ethereum/eth2.0-metrics/blob/6a79914cb31f7d54858c7dd57eee75b6162ec737/metrics.md#interop-metrics

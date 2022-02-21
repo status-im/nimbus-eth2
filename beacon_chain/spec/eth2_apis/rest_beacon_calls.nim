@@ -9,7 +9,7 @@
 import
   chronos, presto/client, chronicles,
   ".."/".."/validators/slashing_protection_common,
-  ".."/datatypes/[phase0, altair],
+  ".."/datatypes/[phase0, altair, bellatrix],
   ".."/[helpers, forks, keystore, eth2_ssz_serialization],
   "."/[rest_types, rest_common, eth2_rest_serialization]
 
@@ -68,7 +68,6 @@ proc getStateValidatorPlain*(state_id: StateIdent,
      endpoint: "/eth/v1/beacon/states/{state_id}/validators/{validator_id}",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidator
-  ##
 
 proc getStateValidatorBalances*(state_id: StateIdent
                         ): RestResponse[GetStateValidatorBalancesResponse] {.
@@ -109,6 +108,11 @@ proc publishBlock*(body: altair.SignedBeaconBlock): RestPlainResponse {.
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
 
+proc publishBlock*(body: bellatrix.SignedBeaconBlock): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
+
 proc getBlockPlain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/blocks/{block_id}",
      accept: preferSSZ,
@@ -116,9 +120,7 @@ proc getBlockPlain*(block_id: BlockIdent): RestPlainResponse {.
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
 
 proc getBlock*(client: RestClientRef, block_id: BlockIdent,
-               restAccept = preferSSZ): Future[ForkedSignedBeaconBlock] {.async.} =
-  # TODO restAccept should be "" by default, but for some reason that doesn't
-  #      work
+               restAccept = ""): Future[ForkedSignedBeaconBlock] {.async.} =
   let resp =
     if len(restAccept) > 0:
       await client.getBlockPlain(block_id, restAcceptType = restAccept)
@@ -162,12 +164,10 @@ proc getBlockV2Plain*(block_id: BlockIdent): RestPlainResponse {.
 
 proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
                  cfg: RuntimeConfig,
-                 restAccept = preferSSZ): Future[Option[ForkedSignedBeaconBlock]] {.
+                 restAccept = ""): Future[Option[ref ForkedSignedBeaconBlock]] {.
      async.} =
   # Return the asked-for block, or None in case 404 is returned from the server.
   # Raises on other errors
-  # TODO restAccept should be "" by default, but for some reason that doesn't
-  #      work
   let resp =
     if len(restAccept) > 0:
       await client.getBlockV2Plain(block_id, restAcceptType = restAccept)
@@ -185,17 +185,17 @@ proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
                                   resp.contentType)
             if res.isErr():
               raise newException(RestError, $res.error())
-            res.get()
+            newClone(res.get())
         some blck
       of "application/octet-stream":
         try:
-          some readSszForkedSignedBeaconBlock(cfg, resp.data)
+          some newClone(readSszForkedSignedBeaconBlock(cfg, resp.data))
         except CatchableError as exc:
           raise newException(RestError, exc.msg)
       else:
         raise newException(RestError, "Unsupported content-type")
     of 404:
-      none(ForkedSignedBeaconBlock)
+      none(ref ForkedSignedBeaconBlock)
 
     of 400, 500:
       let error =
