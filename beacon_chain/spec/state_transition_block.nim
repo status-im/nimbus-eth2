@@ -264,7 +264,7 @@ func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey): int 
   for i in 0 ..< state.validators.len:
     if state.validators.asSeq[i].pubkey == pubkey:
       return i
-  return -1
+  -1
 
 proc process_deposit*(cfg: RuntimeConfig,
                       state: var ForkyBeaconState,

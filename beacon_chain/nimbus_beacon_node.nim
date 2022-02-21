@@ -564,7 +564,7 @@ proc init*(T: type BeaconNode,
 
   node.updateValidatorMetrics()
 
-  return node
+  node
 
 func verifyFinalization(node: BeaconNode, slot: Slot) =
   # Epoch must be >= 4 to check finalization

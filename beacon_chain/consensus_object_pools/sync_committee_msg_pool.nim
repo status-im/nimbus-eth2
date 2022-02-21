@@ -153,7 +153,7 @@ func computeAggregateSig(votes: seq[TrustedSyncCommitteeMsg],
   if initialized:
     contribution.signature = aggregateSig.finish.toValidatorSig
 
-  return initialized
+  initialized
 
 func produceContribution*(
     pool: SyncCommitteeMsgPool,

@@ -634,8 +634,8 @@ template toBeaconStateNoImmutableValidators(state: altair.BeaconState):
   isomorphicCast[AltairBeaconStateNoImmutableValidators](state)
 
 template toBeaconStateNoImmutableValidators(state: bellatrix.BeaconState):
-    MergeBeaconStateNoImmutableValidators =
-  isomorphicCast[MergeBeaconStateNoImmutableValidators](state)
+    BellatrixBeaconStateNoImmutableValidators =
+  isomorphicCast[BellatrixBeaconStateNoImmutableValidators](state)
 
 proc putState*(db: BeaconChainDB, key: Eth2Digest, value: ForkyBeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
@@ -648,14 +648,9 @@ proc putState*(db: BeaconChainDB, state: ForkyHashedBeaconState) =
     db.putState(state.root, state.data)
 
 # For testing rollback
-proc putCorruptPhase0State*(db: BeaconChainDB, key: Eth2Digest) =
-  db.statesNoVal[BeaconStateFork.Phase0].putSnappySSZ(key.data, Validator())
-
-proc putCorruptAltairState*(db: BeaconChainDB, key: Eth2Digest) =
-  db.statesNoVal[BeaconStateFork.Altair].putSnappySSZ(key.data, Validator())
-
-proc putCorruptMergeState*(db: BeaconChainDB, key: Eth2Digest) =
-  db.statesNoVal[BeaconStateFork.Bellatrix].putSnappySSZ(key.data, Validator())
+proc putCorruptState*(
+    db: BeaconChainDB, fork: static BeaconStateFork, key: Eth2Digest) =
+  db.statesNoVal[fork].putSnappySSZ(key.data, Validator())
 
 func stateRootKey(root: Eth2Digest, slot: Slot): array[40, byte] =
   var ret: array[40, byte]

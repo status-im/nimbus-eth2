@@ -35,7 +35,7 @@ proc getAltairStateRef(db: BeaconChainDB, root: Eth2Digest):
   if db.getState(root, res[], noRollback):
     return res
 
-proc getMergeStateRef(db: BeaconChainDB, root: Eth2Digest):
+proc getBellatrixStateRef(db: BeaconChainDB, root: Eth2Digest):
     bellatrix.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
   let res = (bellatrix.BeaconStateRef)()
@@ -76,7 +76,7 @@ proc getTestStates(stateFork: BeaconStateFork): auto =
 
   testStates
 
-# Each of phase 0/altair/merge states gets used twice, so make them global to
+# Each of phase 0/altair/bellatrix states gets used twice, so scope them to
 # module
 let
   testStatesPhase0    = getTestStates(BeaconStateFork.Phase0)
@@ -253,12 +253,12 @@ suite "Beacon chain DB" & preset():
 
       check:
         db.containsState(root)
-        hash_tree_root(db.getMergeStateRef(root)[]) == root
+        hash_tree_root(db.getBellatrixStateRef(root)[]) == root
 
       db.delState(root)
       check:
         not db.containsState(root)
-        db.getMergeStateRef(root).isNil
+        db.getBellatrixStateRef(root).isNil
 
     db.close()
 
@@ -333,7 +333,7 @@ suite "Beacon chain DB" & preset():
           slot: 10.Slot)))
       root = Eth2Digest()
 
-    db.putCorruptPhase0State(root)
+    db.putCorruptState(BeaconStateFork.Phase0, root)
 
     let restoreAddr = addr dag.headState
 
@@ -356,7 +356,7 @@ suite "Beacon chain DB" & preset():
           slot: 10.Slot)))
       root = Eth2Digest()
 
-    db.putCorruptAltairState(root)
+    db.putCorruptState(BeaconStateFork.Altair, root)
 
     let restoreAddr = addr dag.headState
 
@@ -382,7 +382,7 @@ suite "Beacon chain DB" & preset():
           slot: 10.Slot)))
       root = Eth2Digest()
 
-    db.putCorruptMergeState(root)
+    db.putCorruptState(BeaconStateFork.Bellatrix, root)
 
     let restoreAddr = addr dag.headState
 
