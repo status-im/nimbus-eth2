@@ -757,10 +757,10 @@ proc printComponents(info: RewardsAndPenalties) =
 
 proc checkBalance(validatorIndex: int64,
                   validator: RewardStatus | ParticipationInfo,
-                  currentEpochBalance, previousEpochBalance: Gwei,
+                  currentEpochBalance, previousEpochBalance: int64,
                   validatorInfo: RewardsAndPenalties) =
   let delta = validatorInfo.calculateDelta
-  if currentEpochBalance.int64 == previousEpochBalance.int64 + delta:
+  if currentEpochBalance == previousEpochBalance + delta:
     return
   echo "Validator: ", validatorIndex
   echo "Is eligible: ", is_eligible_validator(validator)
@@ -901,8 +901,8 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
         for index, validator in info.validators.pairs:
           template rp: untyped = rewardsAndPenalties[index]
 
-          checkBalance(index, validator, state.data.balances[index],
-                       previousEpochBalances[index], rp)
+          checkBalance(index, validator, state.data.balances[index].int64,
+                       previousEpochBalances[index].int64, rp)
 
           when infoFork == EpochInfoFork.Phase0:
             rp.inclusion_delay = block:
@@ -939,8 +939,9 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
       if nextSlot.isEpoch:
         withState(tmpState[].data):
+          var stateData = newClone(state.data)
           rewardsAndPenalties.collectEpochRewardsAndPenalties(
-            state.data, cache, cfg, flags)
+            stateData[], cache, cfg, flags)
 
       let res = process_slots(cfg, tmpState[].data, nextSlot, cache, forkedInfo, flags)
       doAssert res.isOk, "Slot processing can't fail with correct inputs"
