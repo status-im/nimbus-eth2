@@ -124,7 +124,6 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
         readFile(depositContractBlockPath).strip
       else:
         ""
-
       depositContractDeployedAt = if depositContractBlock.len > 0:
         BlockHashOrNumber.init(depositContractBlock)
       else:
@@ -157,9 +156,21 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
     Eth2NetworkMetadata(incompatible: true,
                         incompatibilityDesc: err.msg)
 
+proc loadCompileTimeNetworkMetadata(
+    path: string,
+    eth1Network = none(Eth1Network)): Eth2NetworkMetadata {.raises: [Defect].} =
+  try:
+    result = loadEth2NetworkMetadata(path, eth1Network)
+    if result.incompatible:
+      macros.error "The current build is miscondigured. " &
+                   "Attempt to load an incompatible network metadata: " &
+                   result.incompatibilityDesc
+  except CatchableError as err:
+    macros.error "Failed to load network metadata at '" & path & "': " & err.msg
+
 template eth2Network(path: string, eth1Network: Eth1Network): Eth2NetworkMetadata =
-  loadEth2NetworkMetadata(eth2NetworksDir & "/" & path,
-                          some eth1Network)
+  loadCompileTimeNetworkMetadata(eth2NetworksDir & "/" & path,
+                                 some eth1Network)
 
 when not defined(gnosisChainBinary):
   const
@@ -201,7 +212,7 @@ when not defined(gnosisChainBinary):
 
 else:
   const
-    gnosisChainMetadata* = loadEth2NetworkMetadata(
+    gnosisChainMetadata* = loadCompileTimeNetworkMetadata(
       currentSourcePath.parentDir.replace('\\', '/') & "/../../media/gnosis-chain")
 
   proc checkNetworkParameterUse*(eth2Network: Option[string]) =

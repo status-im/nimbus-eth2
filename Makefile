@@ -432,6 +432,14 @@ clean-prater:
 ### Gnosis chain binary
 ###
 
+# TODO The constants overrides below should not be necessary if we restrore
+#      the support for compiling with custom const presets.
+#      See the prepared preset file in media/gnosis-chain/preset.yaml
+#
+#      The `-d:gnosisChainBinary` override can be removed if the web3 library
+#      gains support for multiple "Chain Profiles" that consist of a set of
+#      consensus object (such as blocks and transactions) that are specific
+#      to the chain.
 gnosis-chain-build:
 	+ $(ENV_SCRIPT) nim $(NIM_PARAMS) \
 		-d:gnosisChainBinary \
@@ -440,17 +448,17 @@ gnosis-chain-build:
 		-d:SECONDS_PER_SLOT=5 \
 		-d:BASE_REWARD_FACTOR=25 \
 		-d:EPOCHS_PER_SYNC_COMMITTEE_PERIOD=512 \
-		-o:build/nimbus_beacon_node_for_gnosis_chain c beacon_chain/nimbus_beacon_node.nim
+		-o:build/nimbus_beacon_node_gnosis c beacon_chain/nimbus_beacon_node.nim
 
 gnosis-chain: | gnosis-chain-build
-	$(call CONNECT_TO_NETWORK,gnosis-chain,nimbus_beacon_node_for_gnosis_chain,$(GNOSIS_WEB3_URLS))
+	$(call CONNECT_TO_NETWORK,gnosis-chain,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
 
 ifneq ($(LOG_LEVEL), TRACE)
 gnosis-chain-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
 gnosis-chain-dev: | gnosis-chain-build
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,gnosis-chain,nimbus_beacon_node_for_gnosis_chain,$(GNOSIS_WEB3_URLS))
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,gnosis-chain,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
 endif
 
 gnosis-chain-dev-deposit: | gnosis-chain-build deposit_contract
