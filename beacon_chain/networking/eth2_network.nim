@@ -1713,8 +1713,8 @@ proc peerTrimmerHeartbeat(node: Eth2Node) {.async.} =
 
     let excessPeers = connectedPeers - node.wantedPeers
     if excessPeers > 0:
-      # Let chronos take back control every two kicks
-      node.trimConnections(2)
+      # Let chronos take back control every kick
+      node.trimConnections(1)
 
     await sleepAsync(1.seconds div max(1, excessPeers))
 
