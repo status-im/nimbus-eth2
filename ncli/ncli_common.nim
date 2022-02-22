@@ -141,81 +141,9 @@ func collectSlashings(
         validator[].get_slashing_penalty(
           adjusted_total_slashing_balance, total_balance).int64
 
-func getFinalizedCheckpoint(state: ForkyBeaconState,
-                            total_active_balance,
-                            previous_epoch_target_balance,
-                            current_epoch_target_balance: Gwei):
-    Checkpoint =
-  if get_current_epoch(state) <= GENESIS_EPOCH + 1:
-    return state.finalized_checkpoint
-
-  let
-    current_epoch = get_current_epoch(state)
-    old_previous_justified_checkpoint = state.previous_justified_checkpoint
-    old_current_justified_checkpoint = state.current_justified_checkpoint
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#misc
-  const JUSTIFICATION_BITS_LENGTH = 4
-
-  var justification_bits = JustificationBits(
-    (uint8(state.justification_bits) shl 1) and
-    uint8((2^JUSTIFICATION_BITS_LENGTH) - 1))
-
-  if previous_epoch_target_balance * 3 >= total_active_balance * 2:
-    uint8(justification_bits).setBit 1
-
-  if current_epoch_target_balance * 3 >= total_active_balance * 2:
-    uint8(justification_bits).setBit 0
-
-  # Process finalizations
-  let bitfield = uint8(justification_bits)
-
-  ## The 2nd/3rd/4th most recent epochs are justified, the 2nd using the 4th
-  ## as source
-  if (bitfield and 0b1110) == 0b1110 and
-     old_previous_justified_checkpoint.epoch + 3 == current_epoch:
-    return old_previous_justified_checkpoint
-
-  ## The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as
-  ## source
-  if (bitfield and 0b110) == 0b110 and
-     old_previous_justified_checkpoint.epoch + 2 == current_epoch:
-    return old_previous_justified_checkpoint
-
-  ## The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as
-  ## source
-  if (bitfield and 0b111) == 0b111 and
-     old_current_justified_checkpoint.epoch + 2 == current_epoch:
-    return old_current_justified_checkpoint
-
-  ## The 1st/2nd most recent epochs are justified, the 1st using the 2nd as
-  ## source
-  if (bitfield and 0b11) == 0b11 and
-     old_current_justified_checkpoint.epoch + 1 == current_epoch:
-    return old_current_justified_checkpoint
-
-  state.finalized_checkpoint
-
-func getFinalizedCheckpoint(state: phase0.BeaconState, balances: TotalBalances):
-    Checkpoint =
-  getFinalizedCheckpoint(state, balances.current_epoch,
-                         balances.previous_epoch_target_attesters,
-                         balances.current_epoch_target_attesters)
-
-func getFinalizedCheckpoint(
-    state: altair.BeaconState | bellatrix.BeaconState,
-    balances: UnslashedParticipatingBalances): Checkpoint =
-  getFinalizedCheckpoint(state, balances.current_epoch,
-                         balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
-                         balances.current_epoch_TIMELY_TARGET)
-
-func getFinalityDelay*(state: ForkyBeaconState,
-                       finalizedCheckpoint: Checkpoint): uint64 =
-  state.get_previous_epoch - finalizedCheckpoint.epoch
-
-func collectEpochRewardsAndPenalties*(
+proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
-    state: phase0.BeaconState, cache: var StateCache, cfg: RuntimeConfig,
+    state: var phase0.BeaconState, cache: var StateCache, cfg: RuntimeConfig,
     flags: UpdateFlags) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
@@ -227,9 +155,10 @@ func collectEpochRewardsAndPenalties*(
   doAssert info.validators.len == state.validators.len
   rewardsAndPenalties.setLen(state.validators.len)
 
+  process_justification_and_finalization(state, info.balances, flags)
+
   let
-    finalized_checkpoint = state.getFinalizedCheckpoint(info.balances)
-    finality_delay = getFinalityDelay(state, finalized_checkpoint)
+    finality_delay = get_finality_delay(state)
     total_balance = info.balances.current_epoch
     total_balance_sqrt = integer_squareroot(total_balance)
 
@@ -278,9 +207,9 @@ func collectEpochRewardsAndPenalties*(
 
   rewardsAndPenalties.collectSlashings(state, info.balances.current_epoch)
 
-func collectEpochRewardsAndPenalties*(
+proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
-    state: altair.BeaconState | bellatrix.BeaconState,
+    state: var (altair.BeaconState | bellatrix.BeaconState),
     cache: var StateCache, cfg: RuntimeConfig, flags: UpdateFlags) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
@@ -290,12 +219,14 @@ func collectEpochRewardsAndPenalties*(
   doAssert info.validators.len == state.validators.len
   rewardsAndPenalties.setLen(state.validators.len)
 
+  process_justification_and_finalization(state, info.balances, flags)
+  process_inactivity_updates(cfg, state, info)
+
   let
     total_active_balance = info.balances.current_epoch
     base_reward_per_increment = get_base_reward_per_increment(
       total_active_balance)
-    finalized_checkpoint = state.getFinalizedCheckpoint(info.balances)
-    finality_delay = getFinalityDelay(state, finalized_checkpoint)
+    finality_delay = get_finality_delay(state)
 
   for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
     for validator_index, delta in get_flag_index_deltas(

@@ -275,13 +275,15 @@ proc get*[T](s: DbSeq[T], idx: int64): T =
   let found = queryRes.expectDb()
   if not found: panic()
 
-proc init*(T: type FinalizedBlocks, db: SqStoreRef, name: string): KvResult[T] =
-  ? db.exec("""
-    CREATE TABLE IF NOT EXISTS """ & name & """(
-       id INTEGER PRIMARY KEY,
-       value BLOB NOT NULL
-    );
-  """)
+proc init*(T: type FinalizedBlocks, db: SqStoreRef, name: string,
+           readOnly = false): KvResult[T] =
+  if not readOnly:
+    ? db.exec("""
+      CREATE TABLE IF NOT EXISTS """ & name & """(
+        id INTEGER PRIMARY KEY,
+        value BLOB NOT NULL
+      );
+    """)
 
   let
     insertStmt = db.prepareStmt(
