@@ -220,16 +220,15 @@ func getBlockAtSlot*(dag: ChainDAGRef, slot: Slot): BlockSlot =
   doAssert dag.finalizedBlocks.len ==
     (dag.finalizedHead.slot - dag.tail.slot).int + 1, "see updateHead"
 
-  var pos = slot
-  while pos >= dag.tail.slot:
-    var tailPos = int(slot - dag.tail.slot)
+  if slot >= dag.tail.slot:
+    var pos = int(slot - dag.tail.slot)
+    while true:
+      if dag.finalizedBlocks[pos] != nil:
+        return dag.finalizedBlocks[pos].atSlot(slot)
 
-    if dag.finalizedBlocks[tailPos] != nil:
-      return dag.finalizedBlocks[tailPos].atSlot(slot)
+      doAssert pos > 0, "We should have returned the tail"
 
-    doAssert pos > dag.tail.slot, "We should have returned the tail"
-
-    pos = pos - 1
+      pos = pos - 1
 
   BlockSlot() # nil blck!
 
@@ -243,16 +242,18 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): BlockSlotId =
   if slot >= dag.tail.slot:
     return dag.getBlockAtSlot(slot).toBlockSlotId()
 
-  var pos = slot
-  while pos >= dag.backfill.slot:
-    let root = dag.db.finalizedBlocks.get(pos)
+  let finlow = dag.db.finalizedBlocks.low.expect("at least tailRef written")
+  if slot >= finlow:
+    var pos = slot
+    while true:
+      let root = dag.db.finalizedBlocks.get(pos)
 
-    if root.isSome():
-      return BlockId(root: root.get(), slot: pos).atSlot(slot)
+      if root.isSome():
+        return BlockId(root: root.get(), slot: pos).atSlot(slot)
 
-    doAssert pos > dag.backfill.slot, "We should have returned the backfill"
+      doAssert pos > finlow, "We should have returned the finlow"
 
-    pos = pos - 1
+      pos = pos - 1
 
   BlockSlotId() # not backfilled yet, and not genesis
 
