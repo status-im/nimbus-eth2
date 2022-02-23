@@ -713,6 +713,8 @@ suite "Backfill":
       # No epochref for pre-tail epochs
       dag.getEpochRef(dag.tail, dag.tail.slot.epoch - 1, true).isErr()
 
+      dag.backfill == tailBlock.phase0Data.message.toBeaconBlockSummary()
+
     var
       badBlock = blocks[^2].phase0Data
     badBlock.signature = blocks[^3].phase0Data.signature
@@ -737,6 +739,8 @@ suite "Backfill":
       dag.getBlockIdAtSlot(dag.tail.slot - 1) ==
         blocks[^2].toBlockId().atSlot()
       dag.getBlockIdAtSlot(dag.tail.slot - 2) == BlockSlotId()
+
+      dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
     check:
       dag.addBackfillBlock(blocks[^3].phase0Data).isOk()
@@ -766,6 +770,7 @@ suite "Backfill":
 
     check:
       dag.addBackfillBlock(blocks[^2].phase0Data).isOk()
+      dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
     let
       validatorMonitor2 = newClone(ValidatorMonitor.init())
@@ -782,4 +787,4 @@ suite "Backfill":
       dag2.getBlockIdAtSlot(dag.tail.slot - 1) ==
         blocks[^2].toBlockId().atSlot()
       dag2.getBlockIdAtSlot(dag.tail.slot - 2) == BlockSlotId()
-      dag2.backfill.slot == blocks[^2].toBlockId().slot
+      dag2.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
