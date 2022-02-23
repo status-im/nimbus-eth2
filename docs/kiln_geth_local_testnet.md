@@ -26,7 +26,7 @@ Kiln test vectors passed
 
 # Verify that Nimbus runs through the same examples
 
-- Run `./env.sh nim c -r tests/test_merge_vectors.nim`. It should show output akin to:
+- Run `./env.sh nim c -r scripts/test_merge_vectors.nim`. It should show output akin to:
 
 ```
 [Suite] Merge test vectors
