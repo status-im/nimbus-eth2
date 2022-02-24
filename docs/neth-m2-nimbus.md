@@ -1,3 +1,5 @@
+Note: deprecated and refers to Kintsugi meta-spec.
+
 # How to run Nethermind
 https://github.com/NethermindEth/nethermind/pull/3597 documents this aspect.
 
@@ -25,10 +27,10 @@ dotnet run -c Release -- --config themerge_kintsugi_m2 --Merge.TerminalTotalDiff
 
 # Verify that Nimbus runs through test vectors
 
-- Run `./env.sh nim c -r tests/test_merge_vectors.nim`. It should show output akin to:
+- Run `./env.sh nim c -r scripts/test_merge_vectors.nim`. It should show output akin to:
 
 ```
-$ ./env.sh nim c -r tests/test_merge_vectors.nim
+$ ./env.sh nim c -r scripts/test_merge_vectors.nim
 [Suite] Merge test vectors
 DBG 2021-11-17 15:31:31.560+00:00 Message sent to RPC server                 topics="JSONRPC-HTTP-CLIENT" tid=960621 file=httpclient.nim:191 address=127.0.0.1:9550 msg_len=79
 DBG 2021-11-17 15:31:31.576+00:00 Message sent to RPC server                 topics="JSONRPC-HTTP-CLIENT" tid=960621 file=httpclient.nim:191 address=127.0.0.1:9550 msg_len=493
