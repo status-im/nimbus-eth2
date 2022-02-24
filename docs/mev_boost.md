@@ -46,7 +46,7 @@ if one wants to just test the RPC without a relay or execution client, only the 
 
 In the `mev-boost/cmd/mev-boost` directory, run `go build . && ./mev_boost`:
 ```
-$ go build . && ./mev-boost 
+$ go build . && ./mev-boost
 mev-boost: 2022/02/23 06:45:07 main.go:29: listening on:  18550
 ```
 
