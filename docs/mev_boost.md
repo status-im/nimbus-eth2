@@ -1,6 +1,11 @@
 # Clone repos
 
-`git clone --branch thegostep/docs https://github.com/flashbots/mev-boost.git`
+```
+git clone https://github.com/flashbots/mev-boost.git
+
+# On the thegostep/docs branch
+git checkout 977d487e6eae38afbc9e4108e8c5c24689a8c222
+```
 
 Apply
 ```diff
