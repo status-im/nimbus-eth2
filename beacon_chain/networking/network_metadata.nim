@@ -173,14 +173,27 @@ template eth2Network(path: string, eth1Network: Eth1Network): Eth2NetworkMetadat
                                  some eth1Network)
 
 when not defined(gnosisChainBinary):
-  const
-    mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
-    pyrmontMetadata* = eth2Network("shared/pyrmont", goerli)
-    praterMetadata* = eth2Network("shared/prater", goerli)
+  when const_preset == "mainnet":
+    const
+      mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
+      pyrmontMetadata* = eth2Network("shared/pyrmont", goerli)
+      praterMetadata* = eth2Network("shared/prater", goerli)
 
   proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
+    template loadRuntimeMetadata: auto =
+      if fileExists(networkName / "config.yaml"):
+        try:
+          loadEth2NetworkMetadata(networkName)
+        except CatchableError as exc:
+          fatal "Cannot load network", msg = exc.msg, networkName
+          quit 1
+      else:
+        fatal "config.yaml not found for network", networkName
+        quit 1
+
     var
-      metadata = case toLowerAscii(networkName)
+      metadata = when const_preset == "mainnet":
+        case toLowerAscii(networkName)
         of "mainnet":
           mainnetMetadata
         of "pyrmont":
@@ -188,15 +201,9 @@ when not defined(gnosisChainBinary):
         of "prater":
           praterMetadata
         else:
-          if fileExists(networkName / "config.yaml"):
-            try:
-              loadEth2NetworkMetadata(networkName)
-            except CatchableError as exc:
-              fatal "Cannot load network", msg = exc.msg, networkName
-              quit 1
-          else:
-            fatal "config.yaml not found for network", networkName
-            quit 1
+          loadRuntimeMetadata()
+      else:
+        loadRuntimeMetadata()
 
     if metadata.incompatible:
       fatal "The selected network is not compatible with the current build",
