@@ -310,7 +310,7 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
     state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
     receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
     logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
-    random: rpcExecutionPayload.random.asEth2Digest,
+    random: rpcExecutionPayload.prevRandao.asEth2Digest,
     block_number: rpcExecutionPayload.blockNumber.uint64,
     gas_limit: rpcExecutionPayload.gasLimit.uint64,
     gas_used: rpcExecutionPayload.gasUsed.uint64,
@@ -336,7 +336,7 @@ func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:
       FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    random: executionPayload.random.asBlockHash,
+    prevRandao: executionPayload.random.asBlockHash,
     blockNumber: Quantity(executionPayload.block_number),
     gasLimit: Quantity(executionPayload.gas_limit),
     gasUsed: Quantity(executionPayload.gas_used),
@@ -483,7 +483,7 @@ proc forkchoiceUpdated*(p: Web3DataProviderRef,
       finalizedBlockHash: finalizedBlock.asBlockHash),
     some(engine_api.PayloadAttributesV1(
       timestamp: Quantity timestamp,
-      random: FixedBytes[32] randomData,
+      prevRandao: FixedBytes[32] randomData,
       suggestedFeeRecipient: suggestedFeeRecipient)))
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
