@@ -310,7 +310,7 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
     state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
     receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
     logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
-    random: rpcExecutionPayload.random.asEth2Digest,
+    random: rpcExecutionPayload.prevRandao.asEth2Digest,
     block_number: rpcExecutionPayload.blockNumber.uint64,
     gas_limit: rpcExecutionPayload.gasLimit.uint64,
     gas_used: rpcExecutionPayload.gasUsed.uint64,
@@ -336,7 +336,7 @@ func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:
       FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    random: executionPayload.random.asBlockHash,
+    prevRandao: executionPayload.random.asBlockHash,
     blockNumber: Quantity(executionPayload.block_number),
     gasLimit: Quantity(executionPayload.gas_limit),
     gasUsed: Quantity(executionPayload.gas_used),
@@ -483,7 +483,7 @@ proc forkchoiceUpdated*(p: Web3DataProviderRef,
       finalizedBlockHash: finalizedBlock.asBlockHash),
     some(engine_api.PayloadAttributesV1(
       timestamp: Quantity timestamp,
-      random: FixedBytes[32] randomData,
+      prevRandao: FixedBytes[32] randomData,
       suggestedFeeRecipient: suggestedFeeRecipient)))
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
@@ -1333,19 +1333,15 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     eth1SyncedTo = targetBlock
     eth1_synced_head.set eth1SyncedTo.toGaugeValue
 
-proc start(m: Eth1Monitor, delayBeforeStart: Duration) =
+proc start(m: Eth1Monitor, delayBeforeStart: Duration) {.gcsafe.} =
   if m.runFut.isNil:
     let runFut = m.startEth1Syncing(delayBeforeStart)
     m.runFut = runFut
-    runFut.addCallback do (p: pointer):
+    runFut.addCallback do (p: pointer) {.gcsafe.}:
       if runFut.failed:
-        if runFut.error[] of CatchableError:
-          if runFut == m.runFut:
-            warn "Eth1 chain monitoring failure, restarting", err = runFut.error.msg
-            m.state = Failed
-        else:
-          fatal "Fatal exception reached", err = runFut.error.msg
-          quit 1
+        if runFut == m.runFut:
+          warn "Eth1 chain monitoring failure, restarting", err = runFut.error.msg
+          m.state = Failed
 
       safeCancel m.runFut
       m.start(5.seconds)
@@ -1410,71 +1406,11 @@ proc testWeb3Provider*(web3Url: Uri,
     echo "Deposit root: ", depositRoot
   except CatchableError as err:
     echo "Web3 provider is not archive mode: ", err.msg
+
 when hasGenesisDetection:
-  proc init*(T: type Eth1Monitor,
-             cfg: RuntimeConfig,
-             db: BeaconChainDB,
-             web3Urls: seq[string],
-             depositContractDeployedAt: BlockHashOrNumber,
-             eth1Network: Option[Eth1Network],
-             forcePolling: bool): Future[Result[T, string]] {.async.} =
-    doAssert web3Urls.len > 0
-    try:
-      var urlIdx = 0
-      let dataProviderRes = await Web3DataProvider.new(cfg.DEPOSIT_CONTRACT_ADDRESS, web3Urls[urlIdx])
-      if dataProviderRes.isErr:
-        return err(dataProviderRes.error)
-      var dataProvider = dataProviderRes.get
-
-      let knownStartBlockHash =
-        if depositContractDeployedAt.isHash:
-          depositContractDeployedAt.hash
-        else:
-          var blk: BlockObject
-          while true:
-            try:
-              blk = awaitWithRetries(
-                dataProvider.getBlockByNumber(depositContractDeployedAt.number))
-              break
-            except CatchableError as err:
-              error "Failed to obtain details for the starting block " &
-                    "of the deposit contract sync. The Web3 provider " &
-                    "may still be not fully synced", error = err.msg
-
-            await sleepAsync(chronos.seconds(10))
-            # TODO: After a single failure, the web3 object may enter a state
-            #       where it's no longer possible to make additional requests.
-            #       Until this is fixed upstream, we'll just try to recreate
-            #       the web3 provider before retrying. In case this fails,
-            #       the Eth1Monitor will be restarted.
-            inc urlIdx
-            dataProvider = block:
-              let v = await Web3DataProvider.new(
-                cfg.DEPOSIT_CONTRACT_ADDRESS,
-                web3Urls[urlIdx mod web3Urls.len])
-              if v.isErr(): raise (ref CatchableError)(msg: v.error())
-              v.get()
-
-          blk.hash.asEth2Digest
-
-      let depositContractSnapshot = DepositContractSnapshot(
-        eth1Block: knownStartBlockHash)
-
-      var monitor = Eth1Monitor.init(
-        cfg,
-        db,
-        web3Urls,
-        depositContractSnapshot,
-        eth1Network,
-        forcePolling)
-
-      for i in 0 ..< db.genesisDeposits.len:
-        monitor.produceDerivedData db.genesisDeposits.get(i)
-
-      return ok monitor
-
-    except CatchableError as err:
-      return err("Failed to initialize the Eth1 monitor")
+  proc loadPersistedDeposits*(monitor: Eth1Monitor) =
+    for i in 0 ..< monitor.depositsChain.db.genesisDeposits.len:
+      monitor.produceDerivedData monitor.depositsChain.db.genesisDeposits.get(i)
 
   proc findGenesisBlockInRange(m: Eth1Monitor, startBlock, endBlock: Eth1Block):
                                Future[Eth1Block] {.async.} =

@@ -641,11 +641,11 @@ func get_flag_index_reward*(state: altair.BeaconState | bellatrix.BeaconState,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/beacon-chain.md#get_flag_index_deltas
 func get_unslashed_participating_increment*(
-    info: altair.EpochInfo, flag_index: int): Gwei =
+    info: altair.EpochInfo | bellatrix.BeaconState, flag_index: int): Gwei =
   info.balances.previous_epoch[flag_index] div EFFECTIVE_BALANCE_INCREMENT
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/beacon-chain.md#get_flag_index_deltas
-func get_active_increments*(info: altair.EpochInfo): Gwei =
+func get_active_increments*(info: altair.EpochInfo | bellatrix.BeaconState): Gwei =
   info.balances.current_epoch div EFFECTIVE_BALANCE_INCREMENT
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/beacon-chain.md#get_flag_index_deltas

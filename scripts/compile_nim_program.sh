@@ -12,9 +12,17 @@ shift 2
 # verbosity level
 [[ -z "$V" ]] && V=0
 
-# According to the Nim compiler, the project name comes from the main source
-# file, not the output binary.
-PROJECT_NAME="$(basename ${SOURCE%.nim})"
+# Nim version (formatted as "{MAJOR}{MINOR}").
+# This weird "sed" invocation is because of macOS.
+NIM_VERSION=$(nim --version | head -n1 | sed -E 's/^.* ([0-9])\.([0-9]+).*$/\1\2/')
+
+# According to old Nim compiler versions, the project name comes from the main
+# source file, not the output binary.
+if [[ "${NIM_VERSION}" -ge "16" ]]; then
+  PROJECT_NAME="$(basename ${BINARY%.nim})"
+else
+  PROJECT_NAME="$(basename ${SOURCE%.nim})"
+fi
 
 # The default nimcache dir is "nimcache/release/${PROJECT_NAME}" which doesn't
 # allow building different binaries from the same main source file, in
