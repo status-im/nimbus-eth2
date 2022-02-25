@@ -280,6 +280,12 @@ func updateAggregates(entry: var AttestationEntry) =
             inc j
         inc i
 
+func covers(entry: AttestationEntry, bits: CommitteeValidatorsBits): bool =
+  for i in 0..<entry.aggregates.len():
+    if bits.isSubsetOf(entry.aggregates[i].aggregation_bits):
+      return true
+  false
+
 proc addAttestation(entry: var AttestationEntry,
                     attestation: Attestation,
                     signature: CookedSig): bool =
@@ -304,12 +310,8 @@ proc addAttestation(entry: var AttestationEntry,
     entry.singles[singleIndex.get()] = signature
   else:
     # More than one vote in this attestation
-    for i in 0..<entry.aggregates.len():
-      if attestation.aggregation_bits.isSubsetOf(entry.aggregates[i].aggregation_bits):
-        trace "Aggregate already seen",
-          singles = entry.singles.len(),
-          aggregates = entry.aggregates.len()
-        return false
+    if entry.covers(attestation.aggregation_bits):
+      return false
 
     # Since we're adding a new aggregate, we can now remove existing
     # aggregates that don't add any new votes
@@ -375,6 +377,24 @@ proc addAttestation*(pool: var AttestationPool,
   # Send notification about new attestation via callback.
   if not(isNil(pool.onAttestationAdded)):
     pool.onAttestationAdded(attestation)
+
+func covers*(
+    pool: var AttestationPool, data: Attestationdata,
+    bits: CommitteeValidatorsBits): bool =
+  ## Return true iff the given attestation already is fully covered by one of
+  ## the existing aggregates, making it redundant
+  ## the `var` attestation pool is needed to use `withValue`, else Table becomes
+  ## unusably inefficient
+  let candidateIdx = pool.candidateIdx(data.slot)
+  if candidateIdx.isNone:
+    return false
+
+  let attestation_data_root = hash_tree_root(data)
+  pool.candidates[candidateIdx.get()].withValue(attestation_data_root, entry):
+    if entry[].covers(bits):
+      return true
+
+  false
 
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
