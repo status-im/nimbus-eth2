@@ -202,6 +202,9 @@ suite "Attestation pool processing" & preset():
     att0.combine(att2)
     att1.combine(att2)
 
+    check:
+      not pool[].covers(att0.data, att0.aggregation_bits)
+
     pool[].addAttestation(
       att0, @[bc0[0], bc0[2]], att0.loadSig, att0.data.slot.start_beacon_time)
     pool[].addAttestation(
@@ -214,6 +217,7 @@ suite "Attestation pool processing" & preset():
         info, {}).isOk()
 
     check:
+      pool[].covers(att0.data, att0.aggregation_bits)
       pool[].getAttestationsForBlock(state.data, cache).len() == 2
       # Can get either aggregate here, random!
       pool[].getAggregatedAttestation(1.Slot, 0.CommitteeIndex).isSome()
