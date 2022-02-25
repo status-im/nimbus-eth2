@@ -280,7 +280,7 @@ func updateAggregates(entry: var AttestationEntry) =
             inc j
         inc i
 
-proc covers(entry: AttestationEntry, bits: CommitteeValidatorsBits): bool =
+func covers(entry: AttestationEntry, bits: CommitteeValidatorsBits): bool =
   for i in 0..<entry.aggregates.len():
     if bits.isSubsetOf(entry.aggregates[i].aggregation_bits):
       return true
@@ -378,7 +378,7 @@ proc addAttestation*(pool: var AttestationPool,
   if not(isNil(pool.onAttestationAdded)):
     pool.onAttestationAdded(attestation)
 
-proc covers*(
+func covers*(
     pool: var AttestationPool, data: Attestationdata,
     bits: CommitteeValidatorsBits): bool =
   ## Return true iff the given attestation already is fully covered by one of
