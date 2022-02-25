@@ -1900,7 +1900,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
 
   let altairPrefix = "/eth2/" & $forkDigests.altair
 
-  func msgIdProvider(m: messages.Message): seq[byte] =
+  func msgIdProvider(m: messages.Message): Result[seq[byte], ValidationResult] =
     template topic: untyped =
       if m.topicIDs.len > 0: m.topicIDs[0] else: ""
 
@@ -1908,9 +1908,9 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       # This doesn't have to be a tight bound, just enough to avoid denial of
       # service attacks.
       let decoded = snappy.decode(m.data, maxGossipMaxSize())
-      gossipId(decoded, altairPrefix, topic, true)
+      ok(gossipId(decoded, altairPrefix, topic, true))
     except CatchableError:
-      gossipId(m.data, altairPrefix, topic, false)
+      ok(gossipId(m.data, altairPrefix, topic, false))
 
   let
     params = GossipSubParams(
