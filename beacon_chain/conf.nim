@@ -982,13 +982,17 @@ template writeValue*(writer: var JsonWriter,
 
 proc loadEth2Network*(config: BeaconNodeConf): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
   network_name.set(2, labelValues = [config.eth2Network.get(otherwise = "mainnet")])
-  if config.eth2Network.isSome:
-    getMetadataForNetwork(config.eth2Network.get)
-  else:
-    when const_preset == "mainnet":
-      mainnetMetadata
+  when not defined(gnosisChainBinary):
+    if config.eth2Network.isSome:
+      getMetadataForNetwork(config.eth2Network.get)
     else:
-      # Presumably other configurations can have other defaults, but for now
-      # this simplifies the flow
-      echo "Must specify network on non-mainnet node"
-      quit 1
+      when const_preset == "mainnet":
+        mainnetMetadata
+      else:
+        # Presumably other configurations can have other defaults, but for now
+        # this simplifies the flow
+        echo "Must specify network on non-mainnet node"
+        quit 1
+  else:
+    checkNetworkParameterUse config.eth2Network
+    gnosisChainMetadata

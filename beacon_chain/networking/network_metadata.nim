@@ -95,7 +95,7 @@ proc readBootEnr*(path: string): seq[string] {.raises: [IOError, Defect].} =
   else:
     @[]
 
-proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
+proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Eth2NetworkMetadata
                              {.raises: [CatchableError, Defect].} =
   # Load data in eth2-networks format
   # https://github.com/eth2-clients/eth2-networks/
@@ -108,7 +108,6 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       depositContractBlockPath = path & "/deposit_contract_block.txt"
       bootstrapNodesPath = path & "/bootstrap_nodes.txt"
       bootEnrPath = path & "/boot_enr.yaml"
-
       runtimeConfig = if fileExists(configPath):
         let (cfg, unknowns) = readRuntimeConfig(configPath)
         if unknowns.len > 0:
@@ -125,7 +124,6 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
         readFile(depositContractBlockPath).strip
       else:
         ""
-
       depositContractDeployedAt = if depositContractBlock.len > 0:
         BlockHashOrNumber.init(depositContractBlock)
       else:
@@ -147,8 +145,7 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
 
     Eth2NetworkMetadata(
       incompatible: false,
-      eth1Network: some(
-        if "mainnet" in path: Eth1Network.mainnet else: Eth1Network.goerli),
+      eth1Network: eth1Network,
       cfg: runtimeConfig,
       bootstrapNodes: bootstrapNodes,
       depositContractDeployedAt: depositContractDeployedAt,
@@ -159,45 +156,80 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
     Eth2NetworkMetadata(incompatible: true,
                         incompatibilityDesc: err.msg)
 
-template eth2Network(path: string): Eth2NetworkMetadata =
-  loadEth2NetworkMetadata(eth2NetworksDir & "/" & path)
+proc loadCompileTimeNetworkMetadata(
+    path: string,
+    eth1Network = none(Eth1Network)): Eth2NetworkMetadata {.raises: [Defect].} =
+  try:
+    result = loadEth2NetworkMetadata(path, eth1Network)
+    if result.incompatible:
+      macros.error "The current build is miscondigured. " &
+                   "Attempt to load an incompatible network metadata: " &
+                   result.incompatibilityDesc
+  except CatchableError as err:
+    macros.error "Failed to load network metadata at '" & path & "': " & err.msg
 
-const
-  mainnetMetadata* = eth2Network "shared/mainnet"
-  pyrmontMetadata* = eth2Network "shared/pyrmont"
-  praterMetadata* = eth2Network "shared/prater"
+template eth2Network(path: string, eth1Network: Eth1Network): Eth2NetworkMetadata =
+  loadCompileTimeNetworkMetadata(eth2NetworksDir & "/" & path,
+                                 some eth1Network)
 
-proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
-  var
-    metadata = case toLowerAscii(networkName)
-      of "mainnet":
-        mainnetMetadata
-      of "pyrmont":
-        pyrmontMetadata
-      of "prater":
-        praterMetadata
-      else:
-        if fileExists(networkName / "config.yaml"):
-          try:
-            loadEth2NetworkMetadata(networkName)
-          except CatchableError as exc:
-            fatal "Cannot load network", msg = exc.msg, networkName
-            quit 1
-        else:
-          fatal "config.yaml not found for network", networkName
+when not defined(gnosisChainBinary):
+  when const_preset == "mainnet":
+    const
+      mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
+      pyrmontMetadata* = eth2Network("shared/pyrmont", goerli)
+      praterMetadata* = eth2Network("shared/prater", goerli)
+
+  proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
+    template loadRuntimeMetadata: auto =
+      if fileExists(networkName / "config.yaml"):
+        try:
+          loadEth2NetworkMetadata(networkName)
+        except CatchableError as exc:
+          fatal "Cannot load network", msg = exc.msg, networkName
           quit 1
+      else:
+        fatal "config.yaml not found for network", networkName
+        quit 1
 
-  if metadata.incompatible:
-    fatal "The selected network is not compatible with the current build",
-            reason = metadata.incompatibilityDesc
-    quit 1
-  metadata
+    var
+      metadata = when const_preset == "mainnet":
+        case toLowerAscii(networkName)
+        of "mainnet":
+          mainnetMetadata
+        of "pyrmont":
+          pyrmontMetadata
+        of "prater":
+          praterMetadata
+        else:
+          loadRuntimeMetadata()
+      else:
+        loadRuntimeMetadata()
 
-proc getRuntimeConfig*(
-    eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
-  if eth2Network.isSome:
-    return getMetadataForNetwork(eth2Network.get).cfg
-  defaultRuntimeConfig
+    if metadata.incompatible:
+      fatal "The selected network is not compatible with the current build",
+              reason = metadata.incompatibilityDesc
+      quit 1
+    metadata
+
+  proc getRuntimeConfig*(
+      eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
+    if eth2Network.isSome:
+      return getMetadataForNetwork(eth2Network.get).cfg
+    defaultRuntimeConfig
+
+else:
+  const
+    gnosisChainMetadata* = loadCompileTimeNetworkMetadata(
+      currentSourcePath.parentDir.replace('\\', '/') & "/../../media/gnosis-chain")
+
+  proc checkNetworkParameterUse*(eth2Network: Option[string]) =
+    if eth2Network.isSome and eth2Network.get != "gnosis-chain":
+      fatal "The only supported value for the --network parameter is 'gnosis-chain'"
+      quit 1
+
+  proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
+    checkNetworkParameterUse eth2Network
+    gnosisChainMetadata.cfg
 
 proc extractGenesisValidatorRootFromSnapshot*(
     snapshot: string): Eth2Digest {.raises: [Defect, IOError, SszError].} =
