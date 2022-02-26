@@ -106,25 +106,16 @@ proc updateValidatorKeys*(dag: ChainDAGRef, validators: openArray[Validator]) =
   dag.db.updateImmutableValidators(validators)
 
 proc updateFinalizedBlocks*(dag: ChainDAGRef) =
-  template update(s: Slot) =
-    if s < dag.tail.slot:
-      if not dag.backfillBlocks[s.int].isZero:
-        dag.db.finalizedBlocks.insert(s, dag.backfillBlocks[s.int])
-    else:
-      let dagIndex = int(s - dag.tail.slot)
-      if not isNil(dag.finalizedBlocks[dagIndex]):
-        dag.db.finalizedBlocks.insert(s, dag.finalizedBlocks[dagIndex].root)
+  if dag.db.db.readOnly: return # TODO abstraction leak - where to put this?
 
-  if not dag.db.db.readOnly: # TODO abstraction leak - where to put this?
-    dag.db.withManyWrites:
-      if dag.db.finalizedBlocks.low.isNone():
-        for s in dag.backfill.slot .. dag.finalizedHead.slot:
-          update(s)
-      else:
-        for s in dag.backfill.slot ..< dag.db.finalizedBlocks.low.get():
-          update(s)
-        for s in dag.db.finalizedBlocks.high.get() + 1 .. dag.finalizedHead.slot:
-          update(s)
+  dag.db.withManyWrites:
+    let high = dag.db.finalizedBlocks.high.expect(
+      "wrote at least tailRef during init")
+
+    for s in high + 1 .. dag.finalizedHead.slot:
+      let tailIdx = int(s - dag.tail.slot)
+      if not isNil(dag.finalizedBlocks[tailIdx]):
+        dag.db.finalizedBlocks.insert(s, dag.finalizedBlocks[tailIdx].root)
 
 func validatorKey*(
     dag: ChainDAGRef, index: ValidatorIndex or uint64): Option[CookedPubKey] =
@@ -219,7 +210,6 @@ func getBlockAtSlot*(dag: ChainDAGRef, slot: Slot): BlockSlot =
   ## May return an empty BlockSlot (where blck is nil!)
 
   if slot == dag.genesis.slot:
-    # There may be gaps in the
     return dag.genesis.atSlot(slot)
 
   if slot > dag.finalizedHead.slot:
@@ -232,45 +222,52 @@ func getBlockAtSlot*(dag: ChainDAGRef, slot: Slot): BlockSlot =
 
   if slot >= dag.tail.slot:
     var pos = int(slot - dag.tail.slot)
-
     while true:
       if dag.finalizedBlocks[pos] != nil:
         return dag.finalizedBlocks[pos].atSlot(slot)
 
-      if pos == 0:
-        break
+      doAssert pos > 0, "We should have returned the tail"
 
-      pos -= 1
-
-  if dag.tail.slot == 0:
-    raiseAssert "Genesis missing"
+      pos = pos - 1
 
   BlockSlot() # nil blck!
 
 func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): BlockSlotId =
   ## Retrieve the canonical block at the given slot, or the last block that
-  ## comes before - similar to atSlot, but without the linear scan
+  ## comes before - similar to atSlot, but without the linear scan - may hit
+  ## the database to look up early indices.
   if slot == dag.genesis.slot:
     return dag.genesis.bid.atSlot(slot)
 
   if slot >= dag.tail.slot:
     return dag.getBlockAtSlot(slot).toBlockSlotId()
 
-  var pos = slot.int
-  while pos >= dag.backfill.slot.int:
-    if not dag.backfillBlocks[pos].isZero:
-      return BlockId(root: dag.backfillBlocks[pos], slot: Slot(pos)).atSlot(slot)
-    pos -= 1
+  let finlow = dag.db.finalizedBlocks.low.expect("at least tailRef written")
+  if slot >= finlow:
+    var pos = slot
+    while true:
+      let root = dag.db.finalizedBlocks.get(pos)
+
+      if root.isSome():
+        return BlockId(root: root.get(), slot: pos).atSlot(slot)
+
+      doAssert pos > finlow, "We should have returned the finlow"
+
+      pos = pos - 1
 
   BlockSlotId() # not backfilled yet, and not genesis
 
 proc getBlockId*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockId] =
+  ## Look up block id by root in history - useful for turning a root into a
+  ## slot - may hit the database, may return blocks that have since become
+  ## unviable - use `getBlockIdAtSlot` to check that the block is still viable
+  ## if used in a sensitive context
   block: # If we have a BlockRef, this is the fastest way to get a block id
     let blck = dag.getBlockRef(root)
     if blck.isOk():
       return ok(blck.get().bid)
 
-  block: # Otherwise, we might have a summary in the database
+  block: # We might have a summary in the database
     let summary = dag.db.getBeaconBlockSummary(root)
     if summary.isOk():
       return ok(BlockId(root: root, slot: summary.get().slot))
@@ -498,25 +495,18 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # Backfills are blocks that we have in the database, but can't construct a
   # state for without replaying from genesis
   var
-    backfillBlocks = newSeq[Eth2Digest](tailRef.slot.int)
-    # This is where we'll start backfilling, worst case - we might refine this
-    # while loading blocks, in case backfilling has happened already
-    backfill = withBlck(tailBlock): blck.message.toBeaconBlockSummary()
     # The most recent block that we load from the finalized blocks table
     midRef: BlockRef
-    backRoot: Option[Eth2Digest]
 
   # Start by loading basic block information about finalized blocks - this
   # generally goes from genesis (or the earliest backfilled block) all the way
   # to the latest block finalized in the `head` history - we have to be careful
   # though, versions prior to 1.7.0 did not store finalized blocks in the
   # database, and / or the application might have crashed between the head and
-  # finalized blocks updates
+  # finalized blocks updates.
   for slot, root in db.finalizedBlocks:
     if slot < tailRef.slot:
-      backfillBlocks[slot.int] = root
-      if backRoot.isNone():
-        backRoot = some(root)
+      discard # TODO don't load this range at all from the database
     elif slot == tailRef.slot:
       if root != tailRef.root:
         fatal "Finalized blocks do not meet with tail, database corrupt?",
@@ -541,10 +531,14 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   var
     headRef: BlockRef
     curRef: BlockRef
+    finalizedBlocks = newSeq[Eth2Digest](
+      if midRef == nil: tailRef.slot.int + 1
+      else: 0
+    )
 
-  # Now load the part from head to finalized (going backwards) - if we loaded
-  # any finalized blocks, we should hit the last of them while loading this
-  # history
+  # Load the part from head going backwards - if we found any entries in the
+  # finalized block table, we'll stop at `midRef`, otherwise we'll keep going
+  # as far as we can find headers and fill in the finalized blocks from tail
   for blck in db.getAncestorSummaries(headRoot):
     if midRef != nil and blck.summary.slot <= midRef.slot:
       if midRef.slot != blck.summary.slot or midRef.root != blck.root:
@@ -567,9 +561,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       break
 
     if blck.summary.slot < tailRef.slot:
-      backfillBlocks[blck.summary.slot.int] = blck.root
-      if backRoot.isNone():
-        backfill = blck.summary
+      doAssert midRef == nil,
+        "If we loaded any blocks from the finalized slot table, they should have included tailRef"
+      finalizedBlocks[blck.summary.slot.int] = blck.root
     elif blck.summary.slot == tailRef.slot:
       if curRef == nil:
         curRef = tailRef
@@ -577,6 +571,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       else:
         link(tailRef, curRef)
         curRef = curRef.parent
+
+      if midRef == nil:
+        finalizedBlocks[blck.summary.slot.int] = blck.root
     else:
       let newRef = BlockRef.init(blck.root, blck.summary.slot)
       if curRef == nil:
@@ -588,9 +585,23 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
       trace "Populating block dag", key = curRef.root, val = curRef
 
-  if backRoot.isSome():
-    backfill = db.getBeaconBlockSummary(backRoot.get()).expect(
-      "Backfill block must have a summary")
+  if finalizedBlocks.len > 0 and not db.db.readOnly: # TODO abstraction leak
+    db.withManyWrites:
+      for i, root in finalizedBlocks.mpairs:
+        if root.isZero: continue
+
+        db.finalizedBlocks.insert(Slot(i), root)
+
+  let backfill = block:
+    let backfillSlot = db.finalizedBlocks.low.expect("tail at least")
+    if backfillSlot < tailRef.slot:
+      let backfillRoot = db.finalizedBlocks.get(backfillSlot).expect(
+        "low to be loadable")
+
+      db.getBeaconBlockSummary(backfillRoot).expect(
+        "Backfill block must have a summary")
+    else:
+      withBlck(tailBlock): blck.message.toBeaconBlockSummary()
 
   let summariesTick = Moment.now()
 
@@ -683,8 +694,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     cfg,
     getStateField(dag.headState.data, genesis_validators_root))
 
-  swap(dag.backfillBlocks, backfillBlocks) # avoid allocating a full copy
-
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
      cfg.BELLATRIX_FORK_VERSION, cfg.SHARDING_FORK_VERSION]
@@ -732,7 +741,12 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     dag.finalizedHead = tmp.atSlot(finalizedSlot)
 
   block: # Set up tail -> finalizedHead
-    dag.finalizedBlocks.setLen((dag.finalizedHead.slot - dag.tail.slot).int + 1)
+    # Room for all finalized blocks from the tail onwards
+    let n = (dag.finalizedHead.slot - dag.tail.slot).int + 1
+
+    # Make room for some more blocks to avoid an instant reallocation
+    dag.finalizedBlocks = newSeqOfCap[BlockRef](int(n * 3 / 2))
+    dag.finalizedBlocks.setLen(n)
 
     var tmp = dag.finalizedHead.blck
     while not isNil(tmp):

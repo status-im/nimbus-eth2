@@ -374,6 +374,12 @@ suite "chain DAG finalization tests" & preset():
 
     assign(tmpState[], dag.headState.data)
 
+    # skip slots so we can test gappy getBlockAtSlot
+    check process_slots(
+      defaultRuntimeConfig, tmpState[],
+      getStateField(tmpState[], slot) + 2.uint64,
+      cache, info, {}).isOk()
+
     for i in 0 ..< (SLOTS_PER_EPOCH * 6):
       if i == 1:
         # There are 2 heads now because of the fork at slot 1
@@ -392,12 +398,15 @@ suite "chain DAG finalization tests" & preset():
     check:
       dag.heads.len() == 1
       dag.getBlockAtSlot(0.Slot) == BlockSlot(blck: dag.genesis, slot: 0.Slot)
+      dag.getBlockAtSlot(2.Slot) ==
+        BlockSlot(blck: dag.getBlockAtSlot(1.Slot).blck, slot: 2.Slot)
+
       dag.getBlockAtSlot(dag.head.slot) == BlockSlot(
         blck: dag.head, slot: dag.head.slot.Slot)
       dag.getBlockAtSlot(dag.head.slot + 1) == BlockSlot(
         blck: dag.head, slot: dag.head.slot.Slot + 1)
 
-      not dag.containsForkBlock(dag.getBlockAtSlot(1.Slot).blck.root)
+      not dag.containsForkBlock(dag.getBlockAtSlot(5.Slot).blck.root)
       dag.containsForkBlock(dag.finalizedHead.blck.root)
 
     check:
@@ -713,6 +722,8 @@ suite "Backfill":
       # No epochref for pre-tail epochs
       dag.getEpochRef(dag.tail, dag.tail.slot.epoch - 1, true).isErr()
 
+      dag.backfill == tailBlock.phase0Data.message.toBeaconBlockSummary()
+
     var
       badBlock = blocks[^2].phase0Data
     badBlock.signature = blocks[^3].phase0Data.signature
@@ -737,6 +748,8 @@ suite "Backfill":
       dag.getBlockIdAtSlot(dag.tail.slot - 1) ==
         blocks[^2].toBlockId().atSlot()
       dag.getBlockIdAtSlot(dag.tail.slot - 2) == BlockSlotId()
+
+      dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
     check:
       dag.addBackfillBlock(blocks[^3].phase0Data).isOk()
@@ -766,6 +779,7 @@ suite "Backfill":
 
     check:
       dag.addBackfillBlock(blocks[^2].phase0Data).isOk()
+      dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
     let
       validatorMonitor2 = newClone(ValidatorMonitor.init())
@@ -782,4 +796,4 @@ suite "Backfill":
       dag2.getBlockIdAtSlot(dag.tail.slot - 1) ==
         blocks[^2].toBlockId().atSlot()
       dag2.getBlockIdAtSlot(dag.tail.slot - 2) == BlockSlotId()
-      dag2.backfill.slot == blocks[^2].toBlockId().slot
+      dag2.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()

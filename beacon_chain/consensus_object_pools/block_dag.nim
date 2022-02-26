@@ -9,11 +9,9 @@
 
 import
   chronicles,
+  ../spec/forks
 
-  ../spec/datatypes/[phase0, altair],
-  ../spec/[helpers]
-
-export chronicles, phase0, altair, helpers
+export chronicles, forks
 
 type
   BlockId* = object

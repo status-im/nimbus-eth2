@@ -153,6 +153,7 @@ proc addHeadBlock*(
   logScope:
     blockRoot = shortLog(signedBlock.root)
     blck = shortLog(signedBlock.message)
+    signature = shortLog(signedBlock.signature)
 
   template blck(): untyped = signedBlock.message # shortcuts without copy
   template blockRoot(): untyped = signedBlock.root
@@ -162,11 +163,10 @@ proc addHeadBlock*(
   # happens in the meantime - the block we requested will then be stale
   # by the time it gets here.
   if blck.slot <= dag.finalizedHead.slot:
-    let previous = dag.getBlockIdAtSlot(blck.slot)
-    if previous.isProposed() and blockRoot == previous.bid.root:
-      # We should not call the block added callback for blocks that already
-      # existed in the pool, as that may confuse consumers such as the fork
-      # choice.
+    let existing = dag.getBlockIdAtSlot(blck.slot)
+    # The exact slot match ensures we reject blocks that were orphaned in
+    # the finalized chain
+    if existing.bid.slot == blck.slot and blockRoot == existing.bid.root:
       debug "Duplicate block"
       return err(BlockError.Duplicate)
 
@@ -188,18 +188,20 @@ proc addHeadBlock*(
     # is on is no longer a viable fork candidate - we can't tell which is which
     # at this stage, but we can check if we've seen the parent block previously
     # and thus prevent requests for it to be downloaded again.
-    if dag.db.containsBlock(blck.parent_root):
-      debug "Block unviable due to pre-finalized-checkpoint parent"
+    let parentId = dag.getBlockId(blck.parent_root)
+    if parentId.isSome():
+      debug "Block unviable due to pre-finalized-checkpoint parent",
+        parentId = parentId.get()
       return err(BlockError.UnviableFork)
 
-    debug "Block parent unknown or finalized already"
+    debug "Block parent unknown or finalized already", parentId
     return err(BlockError.MissingParent)
 
-  if parent.slot >= signedBlock.message.slot:
+  if parent.slot >= blck.slot:
     # A block whose parent is newer than the block itself is clearly invalid -
     # discard it immediately
-    debug "Block with invalid parent",
-      parentBlock = shortLog(parent)
+    debug "Block older than parent",
+      parent = shortLog(parent)
 
     return err(BlockError.Invalid)
 
@@ -237,8 +239,8 @@ proc addHeadBlock*(
       # A PublicKey or Signature isn't on the BLS12-381 curve
       info "Unable to load signature sets",
         err = e.error()
-
       return err(BlockError.Invalid)
+
     if not verifier.batchVerify(sigs):
       info "Block signature verification failed",
         signature = shortLog(signedBlock.signature)
@@ -274,6 +276,7 @@ proc addBackfillBlock*(
   logScope:
     blockRoot = shortLog(signedBlock.root)
     blck = shortLog(signedBlock.message)
+    signature = shortLog(signedBlock.signature)
     backfill = (dag.backfill.slot, shortLog(dag.backfill.parent_root))
 
   template blck(): untyped = signedBlock.message # shortcuts without copy
@@ -282,19 +285,18 @@ proc addBackfillBlock*(
   let startTick = Moment.now()
 
   if blck.slot >= dag.backfill.slot:
-    let previous = dag.getBlockIdAtSlot(blck.slot)
-    if previous.isProposed() and blockRoot == previous.bid.root:
+    let existing = dag.getBlockIdAtSlot(blck.slot)
+    if existing.bid.slot == blck.slot and blockRoot == existing.bid.root:
       # We should not call the block added callback for blocks that already
       # existed in the pool, as that may confuse consumers such as the fork
-      # choice. While the validation result won't be accessed, it's IGNORE,
-      # according to the spec.
+      # choice.
+      debug "Duplicate block"
       return err(BlockError.Duplicate)
 
     # Block is older than finalized, but different from the block in our
     # canonical history: it must be from an unviable branch
     debug "Block from unviable fork",
-      finalizedHead = shortLog(dag.finalizedHead),
-      backfill = shortLog(dag.backfill)
+      finalizedHead = shortLog(dag.finalizedHead)
 
     return err(BlockError.UnviableFork)
 
@@ -306,16 +308,18 @@ proc addBackfillBlock*(
       # can happen is when an invalid `--network` parameter is given during
       # startup (though in theory, we check that - maybe the database was
       # swapped or something?).
-      fatal "Checkpoint given during initial startup inconsistent with genesis - wrong network used when starting the node?"
+      fatal "Checkpoint given during initial startup inconsistent with genesis block - wrong network used when starting the node?",
+        genesis = shortLog(dag.genesis), tail = shortLog(dag.tail),
+        head = shortLog(dag.head)
       quit 1
 
-    dag.backfillBlocks[blck.slot.int] = blockRoot
     dag.backfill = blck.toBeaconBlockSummary()
+    dag.db.finalizedBlocks.insert(blck.slot, blockRoot)
 
-    notice "Received matching genesis block during backfill, backfill complete"
+    notice "Received final block during backfill, backfill complete"
 
     # Backfill done - dag.backfill.slot now points to genesis block just like
-    # it would if we loaded a fully backfilled database - returning duplicate
+    # it would if we loaded a fully synced database - returning duplicate
     # here is appropriate, though one could also call it ... ok?
     return err(BlockError.Duplicate)
 
@@ -325,14 +329,18 @@ proc addBackfillBlock*(
 
   # If the hash is correct, the block itself must be correct, but the root does
   # not cover the signature, which we check next
-
   let proposerKey = dag.validatorKey(blck.proposer_index)
   if proposerKey.isNone():
-    # This cannot happen, in theory, unless the checkpoint state is broken or
-    # there is a bug in our validator key caching scheme - in order not to
-    # send invalid attestations, we'll shut down defensively here - this might
-    # need revisiting in the future.
-    fatal "Invalid proposer in backfill block - checkpoint state corrupt?"
+    # We've verified that the block root matches our expectations by following
+    # the chain of parents all the way from checkpoint. If all those blocks
+    # were valid, the proposer_index in this block must also be valid, and we
+    # should have a key for it but we don't: this is either a bug on our from
+    # which we cannot recover, or an invalid checkpoint state was given in which
+    # case we're in trouble.
+    fatal "Invalid proposer in backfill block - checkpoint state corrupt?",
+      head = shortLog(dag.head), tail = shortLog(dag.tail),
+      genesis = shortLog(dag.genesis)
+
     quit 1
 
   if not verify_block_signature(
@@ -342,20 +350,15 @@ proc addBackfillBlock*(
       signedBlock.root,
       proposerKey.get(),
       signedBlock.signature):
-    info "Block signature verification failed",
-      signature = shortLog(signedBlock.signature)
+    info "Block signature verification failed"
     return err(BlockError.Invalid)
+
   let sigVerifyTick = Moment.now
 
   dag.putBlock(signedBlock.asTrusted())
-
-  # Invariants maintained on startup
-  doAssert dag.backfillBlocks.lenu64 == dag.tail.slot.uint64
-  doAssert dag.backfillBlocks.lenu64 > blck.slot.uint64
-
-  dag.backfillBlocks[blck.slot.int] = blockRoot
-  dag.backfill = blck.toBeaconBlockSummary()
   dag.db.finalizedBlocks.insert(blck.slot, blockRoot)
+
+  dag.backfill = blck.toBeaconBlockSummary()
 
   let putBlockTick = Moment.now
   debug "Block backfilled",
