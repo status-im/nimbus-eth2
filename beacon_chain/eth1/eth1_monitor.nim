@@ -107,6 +107,7 @@ type
     eth1Network: Option[Eth1Network]
     depositContractAddress*: Eth1Address
     forcePolling: bool
+    jwtSecret: seq[byte]
 
     dataProvider: Web3DataProviderRef
     latestEth1Block: Option[FullBlockId]
@@ -901,7 +902,8 @@ proc init*(T: type Eth1Monitor,
            web3Urls: seq[string],
            depositContractSnapshot: Option[DepositContractSnapshot],
            eth1Network: Option[Eth1Network],
-           forcePolling: bool): T =
+           forcePolling: bool,
+           jwtSecret: seq[byte]): T =
   doAssert web3Urls.len > 0
   var web3Urls = web3Urls
   for url in mitems(web3Urls):
@@ -916,7 +918,8 @@ proc init*(T: type Eth1Monitor,
     web3Urls: web3Urls,
     eth1Network: eth1Network,
     eth1Progress: newAsyncEvent(),
-    forcePolling: forcePolling)
+    forcePolling: forcePolling,
+    jwtSecret: jwtSecret)
 
 proc safeCancel(fut: var Future[void]) =
   if not fut.isNil and not fut.finished:

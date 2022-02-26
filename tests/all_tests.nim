@@ -21,6 +21,7 @@ import # Unit test
   ./test_block_quarantine,
   ./test_datatypes,
   ./test_discovery,
+  ./test_engine_authentication,
   ./test_eth1_monitor,
   ./test_eth2_ssz_serialization,
   ./test_exit_pool,

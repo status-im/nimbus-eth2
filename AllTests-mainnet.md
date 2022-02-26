@@ -465,6 +465,13 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + `createValidatorFiles` with already existing dirs and any error                            OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
+## engine API authentication
+```diff
++ HS256 JWS iat token signing                                                                OK
++ HS256 JWS signing                                                                          OK
++ getIatToken                                                                                OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## eth2.0-deposits-cli compatibility
 ```diff
 + restoring mnemonic with password                                                           OK
@@ -512,4 +519,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 282/286 Fail: 0/286 Skip: 4/286
+OK: 285/289 Fail: 0/289 Skip: 4/289
