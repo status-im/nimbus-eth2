@@ -51,3 +51,7 @@ build/
 /benchmark_results
 /.update.timestamp
 resttest0_data
+
+# OSX
+.DS_Store
+**/.DS_Store

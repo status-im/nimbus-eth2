@@ -475,6 +475,10 @@ nimbus-msi: | nimbus_beacon_node
 	"$(WIX)/bin/candle" -ext WixUIExtension -ext WixUtilExtension installer/windows/*.wxs -o installer/windows/obj/
 	"$(WIX)/bin/light" -ext WixUIExtension -ext WixUtilExtension -cultures:"en-us;en-uk;neutral" installer/windows/obj/*.wixobj -out build/NimbusBeaconNode.msi
 
+nimbus-pkg: | nimbus_beacon_node
+	xcodebuild -project installer/macos/nimbus-pkg.xcodeproj -scheme nimbus-pkg build
+	packagesbuild installer/macos/nimbus-pkg.pkgproj
+
 ctail: | build deps
 	mkdir -p vendor/.nimble/bin/
 	+ $(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ctail c vendor/nim-chronicles-tail/ctail.nim

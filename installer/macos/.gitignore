@@ -1,0 +1,4 @@
+./build/
+./DerivedData/
+nimbus-pkg.xcodeproj/project.xcworkspace/xcuserdata
+
