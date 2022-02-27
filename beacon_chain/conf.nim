@@ -44,6 +44,11 @@ const
   defaultAdminListenAddress* = (static ValidIpAddress.init("127.0.0.1"))
   defaultSigningNodeRequestTimeout* = 60
 
+when defined(windows):
+  {.pragma: windowsOnly.}
+else:
+  {.pragma: windowsOnly, hidden.}
+
 type
   BNStartUpCmd* {.pure.} = enum
     noCommand
@@ -65,9 +70,6 @@ type
     `import` = "Imports password-protected keystores interactively"
     # status   = "Displays status information about all deposits"
     exit     = "Submits a validator voluntary exit"
-
-  VCStartUpCmd* = enum
-    VCNoCommand
 
   SNStartUpCmd* = enum
     SNNoCommand
@@ -193,6 +195,12 @@ type
       defaultValue: BNStartUpCmd.noCommand }: BNStartUpCmd
 
     of BNStartUpCmd.noCommand:
+      runAsServiceFlag* {.
+        windowsOnly
+        defaultValue: false,
+        desc: "Run as a Windows service"
+        name: "run-as-service" }: bool
+
       bootstrapNodes* {.
         desc: "Specifies one or more bootstrap nodes to use when connecting to the network"
         abbr: "b"
@@ -743,25 +751,20 @@ type
       desc: "A file specifying the authorizition token required for accessing the keymanager API"
       name: "keymanager-token-file" }: Option[InputFile]
 
-    case cmd* {.
-      command
-      defaultValue: VCNoCommand }: VCStartUpCmd
+    graffiti* {.
+      desc: "The graffiti value that will appear in proposed blocks. " &
+            "You can use a 0x-prefixed hex encoded string to specify " &
+            "raw bytes"
+      name: "graffiti" }: Option[GraffitiBytes]
 
-    of VCNoCommand:
-      graffiti* {.
-        desc: "The graffiti value that will appear in proposed blocks. " &
-              "You can use a 0x-prefixed hex encoded string to specify " &
-              "raw bytes"
-        name: "graffiti" }: Option[GraffitiBytes]
+    stopAtEpoch* {.
+      desc: "A positive epoch selects the epoch at which to stop"
+      defaultValue: 0
+      name: "stop-at-epoch" }: uint64
 
-      stopAtEpoch* {.
-        desc: "A positive epoch selects the epoch at which to stop"
-        defaultValue: 0
-        name: "stop-at-epoch" }: uint64
-
-      beaconNodes* {.
-        desc: "URL addresses to one or more beacon node HTTP REST APIs",
-        name: "beacon-node" }: seq[string]
+    beaconNodes* {.
+      desc: "URL addresses to one or more beacon node HTTP REST APIs",
+      name: "beacon-node" }: seq[string]
 
   SigningNodeConf* = object
     configFile* {.
@@ -812,35 +815,30 @@ type
       defaultValue: defaultSigningNodeRequestTimeout
       name: "request-timeout" }: int
 
-    case cmd* {.
-      command
-      defaultValue: SNNoCommand }: SNStartUpCmd
+    bindPort* {.
+      desc: "Port for the REST (BETA version) HTTP server"
+      defaultValue: DefaultEth2RestPort
+      defaultValueDesc: "5052"
+      name: "bind-port" }: Port
 
-    of SNNoCommand:
-      bindPort* {.
-        desc: "Port for the REST (BETA version) HTTP server"
-        defaultValue: DefaultEth2RestPort
-        defaultValueDesc: "5052"
-        name: "bind-port" }: Port
+    bindAddress* {.
+      desc: "Listening address of the REST (BETA version) HTTP server"
+      defaultValue: defaultAdminListenAddress
+      defaultValueDesc: "127.0.0.1"
+      name: "bind-address" }: ValidIpAddress
 
-      bindAddress* {.
-        desc: "Listening address of the REST (BETA version) HTTP server"
-        defaultValue: defaultAdminListenAddress
-        defaultValueDesc: "127.0.0.1"
-        name: "bind-address" }: ValidIpAddress
+    tlsEnabled* {.
+      desc: "Use secure TLS communication for REST (BETA version) server"
+      defaultValue: false
+      name: "tls" }: bool
 
-      tlsEnabled* {.
-        desc: "Use secure TLS communication for REST (BETA version) server"
-        defaultValue: false
-        name: "tls" }: bool
+    tlsCertificate* {.
+      desc: "Path to SSL certificate file"
+      name: "tls-cert" }: Option[InputFile]
 
-      tlsCertificate* {.
-        desc: "Path to SSL certificate file"
-        name: "tls-cert" }: Option[InputFile]
-
-      tlsPrivateKey* {.
-        desc: "Path to SSL ceritificate's private key"
-        name: "tls-key" }: Option[InputFile]
+    tlsPrivateKey* {.
+      desc: "Path to SSL ceritificate's private key"
+      name: "tls-key" }: Option[InputFile]
 
   AnyConf* = BeaconNodeConf | ValidatorClientConf | SigningNodeConf
 
@@ -1005,6 +1003,9 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
 
 func databaseDir*(config: AnyConf): string =
   config.dataDir / "db"
+
+func runAsService*(config: BeaconNodeConf): bool =
+  config.cmd == noCommand and config.runAsServiceFlag
 
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =

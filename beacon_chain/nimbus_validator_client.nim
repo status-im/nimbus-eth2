@@ -165,37 +165,35 @@ programMain:
 
   setupLogging(config.logLevel, config.logStdout, config.logFile)
 
-  case config.cmd
-    of VCNoCommand:
-      let beaconNodes =
-        block:
-          var servers: seq[BeaconNodeServerRef]
-          let flags = {RestClientFlag.CommaSeparatedArray}
-          for url in config.beaconNodes:
-            let res = RestClientRef.new(url, flags = flags)
-            if res.isErr():
-              warn "Unable to resolve remote beacon node server's hostname",
-                   url = url
-            else:
-              servers.add(BeaconNodeServerRef(client: res.get(), endpoint: url))
-          servers
+  let beaconNodes =
+    block:
+      var servers: seq[BeaconNodeServerRef]
+      let flags = {RestClientFlag.CommaSeparatedArray}
+      for url in config.beaconNodes:
+        let res = RestClientRef.new(url, flags = flags)
+        if res.isErr():
+          warn "Unable to resolve remote beacon node server's hostname",
+               url = url
+        else:
+          servers.add(BeaconNodeServerRef(client: res.get(), endpoint: url))
+      servers
 
-      if len(beaconNodes) == 0:
-        fatal "Not enough beacon nodes in command line"
-        quit 1
+  if len(beaconNodes) == 0:
+    fatal "Not enough beacon nodes in command line"
+    quit 1
 
-      notice "Launching validator client", version = fullVersionStr,
-                                           cmdParams = commandLineParams(),
-                                           config,
-                                           beacon_nodes_count = len(beaconNodes)
+  notice "Launching validator client", version = fullVersionStr,
+                                       cmdParams = commandLineParams(),
+                                       config,
+                                       beacon_nodes_count = len(beaconNodes)
 
-      var vc = ValidatorClientRef(
-        config: config,
-        beaconNodes: beaconNodes,
-        graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
-        nodesAvailable: newAsyncEvent(),
-        forksAvailable: newAsyncEvent()
-      )
+  var vc = ValidatorClientRef(
+    config: config,
+    beaconNodes: beaconNodes,
+    graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
+    nodesAvailable: newAsyncEvent(),
+    forksAvailable: newAsyncEvent()
+  )
 
-      waitFor asyncInit(vc)
-      waitFor asyncRun(vc)
+  waitFor asyncInit(vc)
+  waitFor asyncRun(vc)
