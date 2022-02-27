@@ -15,7 +15,7 @@ import
   eth/keys,
   ./rpc/[rest_api, rpc_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
-  ./spec/weak_subjectivity,
+  ./spec/[engine_authentication, weak_subjectivity],
   ./validators/[keystore_management, validator_duties],
   "."/[
     beacon_node, deposits, interop, nimbus_binary_common, statusbar,
@@ -213,6 +213,12 @@ proc init*(T: type BeaconNode,
     else:
       none(DepositContractSnapshot)
 
+  let jwtSecret = rng[].checkJwtSecret(string(config.dataDir), config.jwtSecret)
+  if jwtSecret.isErr:
+     fatal "Specified a JWT secret file which couldn't be loaded",
+       err = jwtSecret.error
+     quit 1
+
   var eth1Monitor: Eth1Monitor
   if not ChainDAGRef.isInitialized(db).isOk():
     var
@@ -240,7 +246,8 @@ proc init*(T: type BeaconNode,
           config.web3Urls,
           getDepositContractSnapshot(),
           eth1Network,
-          config.web3ForcePolling)
+          config.web3ForcePolling,
+          jwtSecret.get)
 
         eth1Monitor.loadPersistedDeposits()
 
@@ -360,7 +367,8 @@ proc init*(T: type BeaconNode,
       config.web3Urls,
       getDepositContractSnapshot(),
       eth1Network,
-      config.web3ForcePolling)
+      config.web3ForcePolling,
+      jwtSecret.get)
 
   let rpcServer = if config.rpcEnabled:
     RpcServer.init(config.rpcAddress, config.rpcPort)

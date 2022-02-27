@@ -16,6 +16,8 @@ import
 
 export base, helpers, network, sets, tables
 
+{.push raises: [Defect].}
+
 const
   SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS* = 4 ##\
     ## The number of slots before we're up for aggregation duty that we'll

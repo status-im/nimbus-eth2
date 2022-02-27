@@ -7,6 +7,8 @@
 
 import "."/[altair, bellatrix]
 
+{.push raises: [Defect].}
+
 type
   # https://github.com/flashbots/mev-boost/blob/thegostep/docs/docs/milestone-1.md#blindedbeaconblockbody
   # This is forked from bellatrix.BeaconBlockBody with execution_payload

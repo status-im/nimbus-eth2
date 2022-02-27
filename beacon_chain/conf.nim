@@ -388,7 +388,7 @@ type
         name: "keymanager-allow-origin" }: Option[string]
 
       keymanagerTokenFile* {.
-        desc: "A file specifying the authorizition token required for accessing the keymanager API"
+        desc: "A file specifying the authorization token required for accessing the keymanager API"
         name: "keymanager-token-file" }: Option[InputFile]
 
       inProcessValidators* {.
@@ -460,6 +460,12 @@ type
         # https://github.com/ethereum/consensus-specs/blob/v1.1.9/sync/optimistic.md#constants
         defaultValue: 128
         name: "safe-slots-to-import-optimistically" }: uint64
+
+      # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.7/src/engine/authentication.md#key-distribution
+      jwtSecret* {.
+        hidden
+        desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating jwt tokens"
+        name: "jwt-secret" .}: Option[string]
 
     of BNStartUpCmd.createTestnet:
       testnetDepositsFile* {.
