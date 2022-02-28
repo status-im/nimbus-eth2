@@ -51,9 +51,14 @@ const
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 16
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/setup.py#L478-L479
-  FINALIZED_ROOT_INDEX* = 105.GeneralizedIndex
-  NEXT_SYNC_COMMITTEE_INDEX* = 55.GeneralizedIndex
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#constants
+  # All of these indices are rooted in `BeaconState`.
+  # The first member (`genesis_time`) is 32, subsequent members +1 each.
+  # If there are ever more than 32 members in `BeaconState`, indices change!
+  # `FINALIZED_ROOT_INDEX` is one layer deeper, i.e., `52 * 2 + 1`.
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/ssz/merkle-proofs.md
+  FINALIZED_ROOT_INDEX* = 105.GeneralizedIndex # `finalized_checkpoint` > `root`
+  NEXT_SYNC_COMMITTEE_INDEX* = 55.GeneralizedIndex # `next_sync_committee`
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/beacon-chain.md#participation-flag-indices
   TIMELY_SOURCE_FLAG_INDEX* = 0
