@@ -25,6 +25,7 @@ import
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
 proc compute_aggregate_sync_committee_signature(
     forked: ForkedHashedBeaconState,
+    signature_slot: Slot,
     participants: openArray[ValidatorIndex],
     block_root: Eth2Digest): ValidatorSig =
   template state: untyped {.inject.} = forked.altairData.data
@@ -41,7 +42,7 @@ proc compute_aggregate_sync_committee_signature(
       signature = get_sync_committee_message_signature(
         state.fork,
         state.genesis_validators_root,
-        state.slot,
+        signature_slot,
         block_root,
         privkey)
     if not initialized:
@@ -107,12 +108,13 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       block_header = signed_block.toBeaconBlockHeader
 
     # Sync committee signing the block_header
+      signature_slot = block_header.slot + 1
       all_pubkeys = state.validators.mapIt(it.pubkey)
       committee = state.current_sync_committee.pubkeys
         .mapIt(all_pubkeys.find(it).ValidatorIndex)
       sync_committee_bits = full_sync_committee_bits
       sync_committee_signature = compute_aggregate_sync_committee_signature(
-        forked[], committee, block_header.hash_tree_root())
+        forked[], signature_slot, committee, block_header.hash_tree_root())
       sync_aggregate = SyncAggregate(
         sync_committee_bits: sync_committee_bits,
         sync_committee_signature: sync_committee_signature)
@@ -140,7 +142,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
         sync_aggregate: sync_aggregate,
         fork_version: state.fork.current_version)
       res = process_light_client_update(
-        store, update, state.slot, state.genesis_validators_root)
+        store, update, signature_slot, state.genesis_validators_root)
 
     check:
       res
@@ -171,12 +173,13 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       block_header = signed_block.toBeaconBlockHeader
 
     # Sync committee signing the block_header
+      signature_slot = block_header.slot + 1
       all_pubkeys = state.validators.mapIt(it.pubkey)
       committee = state.current_sync_committee.pubkeys
         .mapIt(all_pubkeys.find(it).ValidatorIndex)
       sync_committee_bits = full_sync_committee_bits
       sync_committee_signature = compute_aggregate_sync_committee_signature(
-        forked[], committee, block_header.hash_tree_root())
+        forked[], signature_slot, committee, block_header.hash_tree_root())
       sync_aggregate = SyncAggregate(
         sync_committee_bits: sync_committee_bits,
         sync_committee_signature: sync_committee_signature)
@@ -203,7 +206,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
         sync_aggregate: sync_aggregate,
         fork_version: state.fork.current_version)
       res = process_light_client_update(
-        store, update, state.slot, state.genesis_validators_root)
+        store, update, signature_slot, state.genesis_validators_root)
 
     check:
       res
@@ -274,12 +277,13 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
         body_root: blck.body.hash_tree_root())
 
     # Sync committee signing the finalized_block_header
+      signature_slot = block_header.slot + 1
       all_pubkeys = state.validators.mapIt(it.pubkey)
       committee = state.current_sync_committee.pubkeys
         .mapIt(all_pubkeys.find(it).ValidatorIndex)
       sync_committee_bits = full_sync_committee_bits
       sync_committee_signature = compute_aggregate_sync_committee_signature(
-        forked[], committee, block_header.hash_tree_root())
+        forked[], signature_slot, committee, block_header.hash_tree_root())
       sync_aggregate = SyncAggregate(
         sync_committee_bits: sync_committee_bits,
         sync_committee_signature: sync_committee_signature)
@@ -293,7 +297,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
         sync_aggregate: sync_aggregate,
         fork_version: state.fork.current_version)
       res = process_light_client_update(
-        store, update, state.slot, state.genesis_validators_root)
+        store, update, signature_slot, state.genesis_validators_root)
 
     check:
       res
