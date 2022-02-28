@@ -12,13 +12,17 @@ import
   metrics,
 
   chronicles, chronicles/options as chroniclesOptions,
-  confutils, confutils/defs, confutils/std/net, stew/shims/net as stewNet,
+  confutils, confutils/defs, confutils/std/net,
+  confutils/toml/defs as confTomlDefs,
+  confutils/toml/std/net as confTomlNet,
+  confutils/toml/std/uri as confTomlUri,
+  serialization/errors, stew/shims/net as stewNet,
   stew/[io2, byteutils], unicodedb/properties, normalize,
   eth/common/eth_types as commonEthTypes, eth/net/nat,
   eth/p2p/discoveryv5/enr,
   json_serialization, web3/[ethtypes, confutils_defs],
 
-  ./spec/[keystore, network],
+  ./spec/[keystore, network, crypto],
   ./spec/datatypes/base,
   ./networking/network_metadata,
   ./validators/slashing_protection_common,
@@ -28,7 +32,8 @@ export
   uri, nat, enr,
   defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
   defs, parseCmdArg, completeCmdArg, network_metadata,
-  network, BlockHashOrNumber
+  network, BlockHashOrNumber,
+  confTomlDefs, confTomlNet, confTomlUri
 
 declareGauge network_name, "network name", ["name"]
 
@@ -93,6 +98,10 @@ type
     # migrate = "Export and remove specified validators from Nimbus."
 
   BeaconNodeConf* = object
+    configFile* {.
+      desc: "Loads the configuration from a TOML file"
+      name: "config-file" }: Option[InputFile]
+
     logLevel* {.
       desc: "Sets the log level for process and topics (e.g. \"DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none\")"
       defaultValue: "INFO"
@@ -667,6 +676,10 @@ type
         name: "backfill"}: bool
 
   ValidatorClientConf* = object
+    configFile* {.
+      desc: "Loads the configuration from a TOML file"
+      name: "config-file" }: Option[InputFile]
+
     logLevel* {.
       desc: "Sets the log level"
       defaultValue: "INFO"
@@ -744,6 +757,10 @@ type
         name: "beacon-node" }: seq[string]
 
   SigningNodeConf* = object
+    configFile* {.
+      desc: "Loads the configuration from a TOML file"
+      name: "config-file" }: Option[InputFile]
+
     logLevel* {.
       desc: "Sets the log level"
       defaultValue: "INFO"
@@ -985,6 +1002,64 @@ func databaseDir*(config: AnyConf): string =
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =
   writer.writeValue(string value)
+
+template raiseUnexpectedValue(r: var TomlReader, msg: string) =
+  # TODO: We need to implement `raiseUnexpectedValue` for TOML,
+  # so the correct line and column information can be included
+  # in error messages:
+  raise newException(SerializationError, msg)
+
+proc readValue*(r: var TomlReader, value: var Epoch)
+               {.raises: [Defect, SerializationError, IOError].} =
+  value = Epoch r.parseInt(uint64)
+
+proc readValue*(r: var TomlReader, value: var GraffitiBytes)
+               {.raises: [Defect, SerializationError, IOError].} =
+  try:
+    value = GraffitiBytes.init(r.readValue(string))
+  except ValueError as err:
+    r.raiseUnexpectedValue("A printable string or 0x-prefixed hex-encoded raw bytes expected")
+
+proc readValue*(r: var TomlReader, val: var NatConfig)
+               {.raises: [Defect, IOError, SerializationError].} =
+  val = try: parseCmdArg(NatConfig, TaintedString r.readValue(string))
+        except CatchableError as err:
+          raise newException(SerializationError, err.msg)
+
+proc readValue*(r: var TomlReader, a: var Eth2Digest)
+               {.raises: [Defect, IOError, SerializationError].} =
+  try:
+    a = fromHex(type(a), r.readValue(string))
+  except ValueError:
+    r.raiseUnexpectedValue("Hex string expected")
+
+proc readValue*(reader: var TomlReader, value: var ValidatorPubKey)
+               {.raises: [Defect, IOError, SerializationError].} =
+  let keyAsString = try:
+    reader.readValue(string)
+  except CatchableError:
+    raiseUnexpectedValue(reader, "A hex-encoded string expected")
+
+  let key = ValidatorPubKey.fromHex(keyAsString)
+  if key.isOk:
+    value = key.get
+  else:
+    # TODO: Can we provide better diagnostic?
+    raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
+
+proc readValue*(r: var TomlReader, a: var PubKey0x)
+               {.raises: [Defect, IOError, SerializationError].} =
+  try:
+    a = parseCmdArg(PubKey0x, TaintedString r.readValue(string))
+  except CatchableError:
+    r.raiseUnexpectedValue("a 0x-prefixed hex-encoded string expected")
+
+proc readValue*(r: var TomlReader, a: var WalletName)
+               {.raises: [Defect, IOError, SerializationError].} =
+  try:
+    a = parseCmdArg(WalletName, TaintedString r.readValue(string))
+  except CatchableError:
+    r.raiseUnexpectedValue("string expected")
 
 proc loadEth2Network*(config: BeaconNodeConf): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
   network_name.set(2, labelValues = [config.eth2Network.get(otherwise = "mainnet")])
