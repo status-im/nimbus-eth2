@@ -250,11 +250,11 @@ proc state_transition_block*(
   ## before the state has been updated, `rollback` will not be called.
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
 
-  # Ensure state_transition_block()-only callers trigger this
-  maybeUpgradeStateToAltair(cfg, state)
-
   let res = withState(state):
-    state_transition_block_aux(cfg, state, signedBlock, cache, flags)
+    when stateFork.toBeaconBlockFork() == type(signedBlock).toFork:
+      state_transition_block_aux(cfg, state, signedBlock, cache, flags)
+    else:
+      err("State/block fork mismatch")
 
   if res.isErr():
     rollback(state)

@@ -94,7 +94,7 @@ proc addResolvedHeadBlock(
   blockRef
 
 proc checkStateTransition(
-       dag: ChainDAGRef, signedBlock: SomeForkySignedBeaconBlock,
+       dag: ChainDAGRef, signedBlock: ForkySigVerifiedSignedBeaconBlock,
        cache: var StateCache): Result[void, BlockError] =
   ## Ensure block can be applied on a state
   func restore(v: var ForkedHashedBeaconState) =
