@@ -53,4 +53,4 @@ echo \{\
 ~/go-ethereum/build/bin/geth --http --ws -http.api "engine" --datadir "${GETHDATADIR}" account import <(echo 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8)
 
 # Start the node (and press enter once to unlock the account)
-~/go-ethereum/build/bin/geth --http --ws --ws.port 8551 --http.port 8550 --http.api "eth,net,engine" -ws.api "eth,net,engine" --datadir "${GETHDATADIR}" --allow-insecure-unlock --unlock "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" --password "" --nodiscover console
+~/go-ethereum/build/bin/geth --http --ws --http.api "eth,net,engine" -ws.api "eth,net,engine" --datadir "${GETHDATADIR}" --allow-insecure-unlock --unlock "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" --password "" --nodiscover console
