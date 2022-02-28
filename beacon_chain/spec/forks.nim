@@ -226,13 +226,22 @@ template init*(T: type ForkedTrustedSignedBeaconBlock, blck: altair.TrustedSigne
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: bellatrix.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Bellatrix,  bellatrixData: blck)
 
-template toFork*[T: phase0.TrustedSignedBeaconBlock](
+template toFork*[T:
+    phase0.SignedBeaconBlock |
+    phase0.SigVerifiedSignedBeaconBlock |
+    phase0.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Phase0
-template toFork*[T: altair.TrustedSignedBeaconBlock](
+template toFork*[T:
+    altair.SignedBeaconBlock |
+    altair.SigVerifiedSignedBeaconBlock |
+    altair.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Altair
-template toFork*[T: bellatrix.TrustedSignedBeaconBlock](
+template toFork*[T:
+    bellatrix.SignedBeaconBlock |
+    bellatrix.SigVerifiedSignedBeaconBlock |
+    bellatrix.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Bellatrix
 
