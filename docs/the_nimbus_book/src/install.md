@@ -25,7 +25,7 @@ Chrony will uninstall any existing NTP servers.
 
 It's available on most package managers.
 
-Once installed, the default configuration is enough.
+Once installed, the default configuration is good enough.
 
 At a minimum, you should run an NTP client (such as chrony) on the server.
 
