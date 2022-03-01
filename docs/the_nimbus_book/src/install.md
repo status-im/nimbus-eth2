@@ -27,7 +27,7 @@ It's available on most package managers.
 
 Once installed, the default configuration is good enough.
 
-At a minimum, you should run an NTP client (such as chrony) on the server.
+At a minimum, you should run an NTP client (such as chrony) on the server.  Note that most operating systems (including macOS') automatically sync with NTP by default.
 
 > **Note:** If you're on MacOS, it's better to just use the built-in ntp server
 
