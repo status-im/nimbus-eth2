@@ -9,7 +9,7 @@ Please check that you are running the latest stable [Nimbus software release](ht
 
 ## More than 15 peers
 
-Please check that your node has at least 15 peers. To monitor your peer count, pay attention to the [`Slot start` messages in your logs](keep-an-eye.md#keep-track-of-your-syncing-progress). You should follow the [networking page](networking.md) to get good peers.
+Please check that your node has at least 15 peers. To monitor your peer count, pay attention to the [`Slot start` messages in your logs](keep-an-eye.md#keep-track-of-your-syncing-progress). See the [networking page](networking.md) for more tips.
 
 ## Validator attached
 
