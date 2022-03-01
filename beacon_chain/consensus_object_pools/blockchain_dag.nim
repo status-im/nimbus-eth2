@@ -1888,10 +1888,10 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
     if slot == dag.tail.slot:
       link(midRef, dag.tail)
-      dag.tail = midRef
       break
 
     let next = BlockRef.init(root, slot)
+
     link(midRef, next)
     midRef = next
 
@@ -1899,6 +1899,9 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
   dag.finalizedBlocks = finBlocks
   dag.tail = dag.genesis
+
+  # Without setting to nil here, there's a GC crash (!) in tests
+  midRef = nil
 
   if junk.len > 0:
     info "Dropping redundant states", junk
