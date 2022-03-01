@@ -667,17 +667,16 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         of SyncQueueKind.Forward:
           if safeSlot < req.slot:
             let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
-            warn "Unexpected missing parent, rewind happens", request = req,
-                 rewind_to_slot = rewindSlot,
-                 rewind_epoch_count = sq.rewind.get().epochCount,
-                 rewind_fail_slot = failSlot, finalized_slot = safeSlot,
+            warn "Unexpected missing parent, rewind happens",
+                 request = req, rewind_to_slot = rewindSlot,
+                 rewind_point = sq.rewind, finalized_slot = safeSlot,
                  blocks_count = len(item.data),
                  blocks_map = getShortMap(req, item.data)
             resetSlot = some(rewindSlot)
             req.item.updateScore(PeerScoreMissingBlocks)
           else:
             error "Unexpected missing parent at finalized epoch slot",
-                  request = req, to_slot = safeSlot,
+                  request = req, rewind_to_slot = safeSlot,
                   blocks_count = len(item.data),
                   blocks_map = getShortMap(req, item.data)
             req.item.updateScore(PeerScoreBadBlocks)
@@ -701,15 +700,13 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           await sq.resetWait(resetSlot)
           case sq.kind
           of SyncQueueKind.Forward:
-            debug "Rewind to slot was happened", reset_slot = reset_slot.get(),
+            debug "Rewind to slot has happened", reset_slot = resetSlot.get(),
                   queue_input_slot = sq.inpSlot, queue_output_slot = sq.outSlot,
-                  rewind_epoch_count = sq.rewind.get().epochCount,
-                  rewind_fail_slot = sq.rewind.get().failSlot,
-                  reset_slot = resetSlot, direction = sq.kind
+                  rewind_point = sq.rewind, direction = sq.kind
           of SyncQueueKind.Backward:
-            debug "Rewind to slot was happened", reset_slot = reset_slot.get(),
+            debug "Rewind to slot has happened", reset_slot = resetSlot.get(),
                   queue_input_slot = sq.inpSlot, queue_output_slot = sq.outSlot,
-                  reset_slot = resetSlot, direction = sq.kind
+                  direction = sq.kind
 
       break
 
