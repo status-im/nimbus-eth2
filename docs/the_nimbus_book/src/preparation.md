@@ -5,7 +5,7 @@
 
 Please check that you are running the latest stable [Nimbus software release](https://github.com/status-im/nimbus-eth2/releases).
 
-> At the minimum you should check the [release page](https://github.com/status-im/nimbus-eth2/releases) every other week.
+> In order to stay on top of new releases you should subscribe to [our mailing list](https://subscribe.nimbus.team/).
 
 ## More than 15 peers
 
