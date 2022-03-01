@@ -5,15 +5,15 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 import
   stew/[bitops2, objects],
   datatypes/altair,
   helpers
 
-{.push raises: [Defect].}
-
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#get_active_header
-func get_active_header(update: LightClientUpdate): BeaconBlockHeader =
+func get_active_header(update: altair.LightClientUpdate): BeaconBlockHeader =
   # The "active header" is the header that the update is trying to convince
   # us to accept. If a finalized header is present, it's the finalized
   # header, otherwise it's the attested header
@@ -22,11 +22,19 @@ func get_active_header(update: LightClientUpdate): BeaconBlockHeader =
   else:
     update.attested_header
 
+# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#get_safety_threshold
+func get_safety_threshold(store: LightClientStore): uint64 =
+  max(
+    store.previous_max_active_participants,
+    store.current_max_active_participants
+  ) div 2
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#validate_light_client_update
-proc validate_light_client_update*(store: LightClientStore,
-                                   update: LightClientUpdate,
-                                   current_slot: Slot,
-                                   genesis_validators_root: Eth2Digest): bool =
+proc validate_light_client_update*(
+    store: LightClientStore,
+    update: altair.LightClientUpdate,
+    current_slot: Slot,
+    genesis_validators_root: Eth2Digest): bool =
   # Verify update slot is larger than slot of current best finalized header
   let active_header = get_active_header(update)
   if not (current_slot >= active_header.slot and
@@ -47,11 +55,12 @@ proc validate_light_client_update*(store: LightClientStore,
     if not update.finality_branch.isZeroMemory:
       return false
   else:
-    if not is_valid_merkle_branch(hash_tree_root(update.finalized_header),
-                                  update.finality_branch,
-                                  log2trunc(FINALIZED_ROOT_INDEX),
-                                  get_subtree_index(FINALIZED_ROOT_INDEX),
-                                  update.attested_header.state_root):
+    if not is_valid_merkle_branch(
+        hash_tree_root(update.finalized_header),
+        update.finality_branch,
+        log2trunc(altair.FINALIZED_ROOT_INDEX),
+        get_subtree_index(altair.FINALIZED_ROOT_INDEX),
+        update.attested_header.state_root):
       return false
 
   # Verify update next sync committee if the update period incremented
@@ -61,11 +70,12 @@ proc validate_light_client_update*(store: LightClientStore,
       return false
     unsafeAddr store.current_sync_committee
   else:
-    if not is_valid_merkle_branch(hash_tree_root(update.next_sync_committee),
-                                  update.next_sync_committee_branch,
-                                  log2trunc(NEXT_SYNC_COMMITTEE_INDEX),
-                                  get_subtree_index(NEXT_SYNC_COMMITTEE_INDEX),
-                                  active_header.state_root):
+    if not is_valid_merkle_branch(
+        hash_tree_root(update.next_sync_committee),
+        update.next_sync_committee_branch,
+        log2trunc(altair.NEXT_SYNC_COMMITTEE_INDEX),
+        get_subtree_index(altair.NEXT_SYNC_COMMITTEE_INDEX),
+        active_header.state_root):
       return false
     unsafeAddr store.next_sync_committee
 
@@ -92,7 +102,8 @@ proc validate_light_client_update*(store: LightClientStore,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#apply_light_client_update
 func apply_light_client_update(
-    store: var LightClientStore, update: LightClientUpdate) =
+    store: var LightClientStore,
+    update: altair.LightClientUpdate) =
   let
     active_header = get_active_header(update)
     finalized_period = sync_committee_period(store.finalized_header.slot)
@@ -102,18 +113,12 @@ func apply_light_client_update(
     store.next_sync_committee = update.next_sync_committee
   store.finalized_header = active_header
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#get_safety_threshold
-func get_safety_threshold(store: LightClientStore): uint64 =
-  max(
-    store.previous_max_active_participants,
-    store.current_max_active_participants
-  ) div 2
-
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#process_light_client_update
-proc process_light_client_update*(store: var LightClientStore,
-                                  update: LightClientUpdate,
-                                  current_slot: Slot,
-                                  genesis_validators_root: Eth2Digest): bool =
+proc process_light_client_update*(
+    store: var LightClientStore,
+    update: altair.LightClientUpdate,
+    current_slot: Slot,
+    genesis_validators_root: Eth2Digest): bool =
   if not validate_light_client_update(
       store, update, current_slot, genesis_validators_root):
     return false
@@ -145,6 +150,6 @@ proc process_light_client_update*(store: var LightClientStore,
       not update.finalized_header.isZeroMemory:
     # Normal update through 2/3 threshold
     apply_light_client_update(store, update)
-    store.best_valid_update = none(LightClientUpdate)
+    store.best_valid_update = none(altair.LightClientUpdate)
 
   true
