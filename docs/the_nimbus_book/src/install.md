@@ -29,7 +29,7 @@ Once installed, the default configuration is good enough.
 
 At a minimum, you should run an NTP client (such as chrony) on the server.  Note that most operating systems (including macOS') automatically sync with NTP by default.
 
-> **Note:** If you're on MacOS, it's better to just use the built-in ntp server
+If the above sounds like latin to you, don't worry. You should be fine as long as you haven't messed around with the time and date settings on your computer (they should be set automatically).
 
 ## External Dependencies
 
