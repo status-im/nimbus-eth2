@@ -1796,7 +1796,8 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
   var
     canonical = newSeq[Eth2Digest](
-      dag.finalizedHead.slot.epoch div EPOCHS_PER_STATE_SNAPSHOT)
+      (dag.finalizedHead.slot.epoch) div
+      EPOCHS_PER_STATE_SNAPSHOT)
     junk: seq[((Slot, Eth2Digest), Eth2Digest)]
 
   for k, v in roots:
@@ -1816,8 +1817,8 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
     if not dag.db.containsState(v):
       continue # If it's not in the database..
-
     canonical[k[0].epoch div EPOCHS_PER_STATE_SNAPSHOT] = v
+    doAssert k[0].epoch div EPOCHS_PER_STATE_SNAPSHOT < canonical.lenu64
 
   let
     state = (ref ForkedHashedBeaconState)()
@@ -1899,9 +1900,6 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
   dag.finalizedBlocks = finBlocks
   dag.tail = dag.genesis
-
-  # Without setting to nil here, there's a GC crash (!) in tests
-  midRef = nil
 
   if junk.len > 0:
     info "Dropping redundant states", junk
