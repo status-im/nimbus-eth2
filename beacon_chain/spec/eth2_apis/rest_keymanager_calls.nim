@@ -54,18 +54,18 @@ proc listKeys*(client: RestClientRef,
     raiseUnknownStatusError(resp)
 
 proc listRemoteKeysPlain*(): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/remotekey",
+     rest, endpoint: "/eth/v1/remotekeys",
      meth: MethodGet.}
   ## https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ListRemoteKeys
 
 proc importRemoteKeysPlain*(body: ImportRemoteKeystoresBody
                            ): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/remotekey",
+     rest, endpoint: "/eth/v1/remotekeys",
      meth: MethodPost.}
   ## https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ImportRemoteKeys
 
 proc deleteRemoteKeysPlain*(body: DeleteKeystoresBody): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/remotekey",
+     rest, endpoint: "/eth/v1/remotekeys",
      meth: MethodDelete.}
   ## https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/DeleteRemoteKeys
 

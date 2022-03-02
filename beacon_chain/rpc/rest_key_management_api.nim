@@ -188,7 +188,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ListRemoteKeys
-  router.api(MethodGet, "/api/eth/v1/remotekey") do () -> RestApiResponse:
+  router.api(MethodGet, "/api/eth/v1/remotekeys") do () -> RestApiResponse:
     let authStatus = checkAuthorization(request, node)
     if authStatus.isErr():
       return RestApiResponse.jsonError(Http401, InvalidAuthorization,
@@ -197,7 +197,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ImportRemoteKeys
-  router.api(MethodPost, "/api/eth/v1/remotekey") do (
+  router.api(MethodPost, "/api/eth/v1/remotekeys") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, node)
     if authStatus.isErr():
@@ -239,7 +239,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/DeleteRemoteKeys
-  router.api(MethodDelete, "/api/eth/v1/remotekey") do (
+  router.api(MethodDelete, "/api/eth/v1/remotekeys") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, node)
     if authStatus.isErr():
@@ -294,15 +294,15 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
 
   router.redirect(
     MethodGet,
-    "/eth/v1/remotekey",
-    "/api/eth/v1/remotekey")
+    "/eth/v1/remotekeys",
+    "/api/eth/v1/remotekeys")
 
   router.redirect(
     MethodPost,
-    "/eth/v1/remotekey",
-    "/api/eth/v1/remotekey")
+    "/eth/v1/remotekeys",
+    "/api/eth/v1/remotekeys")
 
   router.redirect(
     MethodDelete,
-    "/eth/v1/remotekey",
-    "/api/eth/v1/remotekey")
+    "/eth/v1/remotekeys",
+    "/api/eth/v1/remotekeys")
