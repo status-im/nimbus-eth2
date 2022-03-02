@@ -224,7 +224,7 @@ proc on_attestation*(
       block_root: beacon_block_root))
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/fork-choice.md#should_update_justified_checkpoint
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#should_update_justified_checkpoint
 func should_update_justified_checkpoint(
         self: var Checkpoints,
         dag: ChainDAGRef,
