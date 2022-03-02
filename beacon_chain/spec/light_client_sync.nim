@@ -12,6 +12,32 @@ import
   datatypes/altair,
   helpers
 
+func period_contains_fork_version(
+    cfg: RuntimeConfig,
+    period: SyncCommitteePeriod,
+    fork_version: Version): bool =
+  ## Determine whether a given `fork_version` is used during a given `period`.
+  let
+    periodStartEpoch = period.start_epoch
+    periodEndEpoch = periodStartEpoch + EPOCHS_PER_SYNC_COMMITTEE_PERIOD - 1
+  return
+    if fork_version == cfg.SHARDING_FORK_VERSION:
+      periodEndEpoch >= cfg.SHARDING_FORK_EPOCH
+    elif fork_version == cfg.BELLATRIX_FORK_VERSION:
+      periodStartEpoch < cfg.SHARDING_FORK_EPOCH and
+      cfg.SHARDING_FORK_EPOCH != cfg.BELLATRIX_FORK_EPOCH and
+      periodEndEpoch >= cfg.BELLATRIX_FORK_EPOCH
+    elif fork_version == cfg.ALTAIR_FORK_VERSION:
+      periodStartEpoch < cfg.BELLATRIX_FORK_EPOCH and
+      cfg.BELLATRIX_FORK_EPOCH != cfg.ALTAIR_FORK_EPOCH and
+      periodEndEpoch >= cfg.ALTAIR_FORK_EPOCH
+    elif fork_version == cfg.GENESIS_FORK_VERSION:
+      # Light client sync protocol requires Altair
+      false
+    else:
+      # Unviable fork
+      false
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#get_active_header
 func is_finality_update(update: altair.LightClientUpdate): bool =
   not update.finalized_header.isZeroMemory
@@ -38,6 +64,7 @@ proc validate_light_client_update*(
     store: LightClientStore,
     update: altair.LightClientUpdate,
     current_slot: Slot,
+    cfg: RuntimeConfig,
     genesis_validators_root: Eth2Digest): bool =
   # Verify update slot is larger than slot of current best finalized header
   let active_header = get_active_header(update)
@@ -51,6 +78,11 @@ proc validate_light_client_update*(
     update_period = sync_committee_period(active_header.slot)
 
   if update_period notin [finalized_period, finalized_period + 1]:
+    return false
+
+  # Verify fork version is acceptable
+  let fork_version = update.fork_version
+  if not cfg.period_contains_fork_version(update_period, fork_version):
     return false
 
   # Verify that the `finalized_header`, if present, actually is the finalized
@@ -96,13 +128,16 @@ proc validate_light_client_update*(
   for idx, bit in sync_aggregate.sync_committee_bits:
     if bit:
       participant_pubkeys.add(sync_committee.pubkeys[idx])
+  let
+    domain = compute_domain(
+      DOMAIN_SYNC_COMMITTEE, fork_version, genesis_validators_root)
+    signing_root = compute_signing_root(update.attested_header, domain)
+  if not blsFastAggregateVerify(
+      participant_pubkeys, signing_root.data,
+      sync_aggregate.sync_committee_signature):
+    return false
 
-  let domain = compute_domain(
-    DOMAIN_SYNC_COMMITTEE, update.fork_version, genesis_validators_root)
-  let signing_root = compute_signing_root(update.attested_header, domain)
-
-  blsFastAggregateVerify(
-    participant_pubkeys, signing_root.data, sync_aggregate.sync_committee_signature)
+  true
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#apply_light_client_update
 func apply_light_client_update(
@@ -124,9 +159,10 @@ proc process_light_client_update*(
     store: var LightClientStore,
     update: altair.LightClientUpdate,
     current_slot: Slot,
+    cfg: RuntimeConfig,
     genesis_validators_root: Eth2Digest): bool =
   if not validate_light_client_update(
-      store, update, current_slot, genesis_validators_root):
+      store, update, current_slot, cfg, genesis_validators_root):
     return false
 
   let

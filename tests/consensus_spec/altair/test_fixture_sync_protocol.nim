@@ -142,7 +142,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
         sync_aggregate: sync_aggregate,
         fork_version: state.fork.current_version)
       res = process_light_client_update(
-        store, update, signature_slot, state.genesis_validators_root)
+        store, update, signature_slot, cfg, state.genesis_validators_root)
 
     check:
       res
@@ -206,7 +206,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
         sync_aggregate: sync_aggregate,
         fork_version: state.fork.current_version)
       res = process_light_client_update(
-        store, update, signature_slot, state.genesis_validators_root)
+        store, update, signature_slot, cfg, state.genesis_validators_root)
 
     check:
       res
@@ -297,7 +297,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
         sync_aggregate: sync_aggregate,
         fork_version: state.fork.current_version)
       res = process_light_client_update(
-        store, update, signature_slot, state.genesis_validators_root)
+        store, update, signature_slot, cfg, state.genesis_validators_root)
 
     check:
       res
