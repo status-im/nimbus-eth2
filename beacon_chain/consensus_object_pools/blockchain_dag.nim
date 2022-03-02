@@ -1796,7 +1796,7 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
   var
     canonical = newSeq[Eth2Digest](
-      (dag.finalizedHead.slot.epoch) div
+      (dag.finalizedHead.slot.epoch + EPOCHS_PER_STATE_SNAPSHOT - 1) div
       EPOCHS_PER_STATE_SNAPSHOT)
     junk: seq[((Slot, Eth2Digest), Eth2Digest)]
 
@@ -1817,8 +1817,8 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
     if not dag.db.containsState(v):
       continue # If it's not in the database..
+
     canonical[k[0].epoch div EPOCHS_PER_STATE_SNAPSHOT] = v
-    doAssert k[0].epoch div EPOCHS_PER_STATE_SNAPSHOT < canonical.lenu64
 
   let
     state = (ref ForkedHashedBeaconState)()
