@@ -1783,14 +1783,20 @@ func needsBackfill*(dag: ChainDAGRef): bool =
   dag.backfill.slot > dag.genesis.slot
 
 proc rebuildIndex*(dag: ChainDAGRef) =
+  ## After a checkpoint sync, we lack intermediate states to replay from - this
+  ## function rebuilds them so that historical replay can take place again
   if dag.backfill.slot > 0:
     debug "Backfill not complete, cannot rebuild archive"
     return
 
   if dag.tail.slot == dag.genesis.slot:
+    # The tail is the earliest slot for which we're supposed to have states -
+    # if it's sufficiently recent, don't do anything
     debug "Archive does not need rebuilding"
     return
 
+  # First, we check what states we already have in the database - that allows
+  # resuming the operation at any time
   let
     roots = dag.db.loadStateRoots()
 
@@ -1798,6 +1804,8 @@ proc rebuildIndex*(dag: ChainDAGRef) =
     canonical = newSeq[Eth2Digest](
       (dag.finalizedHead.slot.epoch + EPOCHS_PER_STATE_SNAPSHOT - 1) div
       EPOCHS_PER_STATE_SNAPSHOT)
+    # `junk` puts in place some infrastructure to prune unnecessary states - it
+    # will be more useful in the future as a base for pruning
     junk: seq[((Slot, Eth2Digest), Eth2Digest)]
 
   for k, v in roots:
@@ -1827,6 +1835,9 @@ proc rebuildIndex*(dag: ChainDAGRef) =
     cache: StateCache
     info: ForkedEpochInfo
 
+  # `canonical` holds all slots at which a state is expected to appear, using a
+  # zero root whenever a particular state is missing - this way, if there's
+  # partial progress or gaps, they will be dealt with correctly
   for i, state_root in canonical.mpairs():
     if not state_root.isZero:
       continue
@@ -1871,6 +1882,9 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
       state_root = state.root
 
+  # Now that we have states all the way to genesis, we can adjust the tail
+  # and readjust the in-memory indices to what they would look like if we had
+  # started with an earlier tail
   dag.db.putTailBlock(dag.genesis.root)
 
   var
