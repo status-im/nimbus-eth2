@@ -74,7 +74,7 @@ let full_sync_committee_bits = block:
   res.bytes.fill(byte.high)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L24-L33
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L6-L15
 func initialize_light_client_store(state: auto): LightClientStore =
   LightClientStore(
     finalized_header: BeaconBlockHeader(),
@@ -94,7 +94,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       res
     genesisState = newClone(initGenesisState(cfg = cfg))
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L36-L90
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L27-L69
   test "test_process_light_client_update_not_timeout":
     let forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
@@ -151,7 +151,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       store.finalized_header == pre_store_finalized_header
       store.best_valid_update.get == update
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L93-L154
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L72-L121
   test "process_light_client_update_timeout":
     let forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
@@ -215,7 +215,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       store.finalized_header == pre_store_finalized_header
       store.best_valid_update.get == update
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L157-L224
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L124-L179
   test "process_light_client_update_finality_updated":
     let forked = assignClone(genesisState[])
     template state: untyped {.inject.} = forked[].altairData.data
