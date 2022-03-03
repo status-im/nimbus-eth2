@@ -733,7 +733,19 @@ proc handleIncomingStream(network: Eth2Node,
 
     let deadline = sleepAsync RESP_TIMEOUT
 
-    let msg = if sizeof(MsgRec) > 0:
+    const isEmptyMsg = when MsgRec is object:
+      # We need nested `when` statements here, because Nim doesn't properly
+      # apply boolean short-circuit logic at compile time and this causes
+      # `totalSerializedFields` to be applied to non-object types that it
+      # doesn't know how to support.
+      when totalSerializedFields(MsgRec) == 0: true
+      else: false
+    else:
+      false
+
+    let msg = when isEmptyMsg:
+      NetRes[MsgRec].ok default(MsgRec)
+    else:
       try:
         awaitWithTimeout(readChunkPayload(s, peer, MsgRec), deadline):
           returnInvalidRequest(errorMsgLit "Request full data not sent in time")
@@ -743,8 +755,6 @@ proc handleIncomingStream(network: Eth2Node,
 
       except SnappyError as err:
         returnInvalidRequest err.msg
-    else:
-      NetRes[MsgRec].ok default(MsgRec)
 
     if msg.isErr:
       let (responseCode, errMsg) = case msg.error.kind
