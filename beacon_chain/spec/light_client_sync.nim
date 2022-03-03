@@ -12,24 +12,28 @@ import
   datatypes/altair,
   helpers
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#get_active_header
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#get_active_header
+func is_finality_update(update: altair.LightClientUpdate): bool =
+  not update.finalized_header.isZeroMemory
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#get_active_header
 func get_active_header(update: altair.LightClientUpdate): BeaconBlockHeader =
   # The "active header" is the header that the update is trying to convince
   # us to accept. If a finalized header is present, it's the finalized
   # header, otherwise it's the attested header
-  if not update.finalized_header.isZeroMemory:
+  if update.is_finality_update:
     update.finalized_header
   else:
     update.attested_header
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#get_safety_threshold
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#get_safety_threshold
 func get_safety_threshold(store: LightClientStore): uint64 =
   max(
     store.previous_max_active_participants,
     store.current_max_active_participants
   ) div 2
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#validate_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#validate_light_client_update
 proc validate_light_client_update*(
     store: LightClientStore,
     update: altair.LightClientUpdate,
@@ -51,7 +55,7 @@ proc validate_light_client_update*(
 
   # Verify that the `finalized_header`, if present, actually is the finalized
   # header saved in the state of the `attested header`
-  if update.finalized_header.isZeroMemory:
+  if not update.is_finality_update:
     if not update.finality_branch.isZeroMemory:
       return false
   else:
@@ -100,7 +104,7 @@ proc validate_light_client_update*(
   blsFastAggregateVerify(
     participant_pubkeys, signing_root.data, sync_aggregate.sync_committee_signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#apply_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#apply_light_client_update
 func apply_light_client_update(
     store: var LightClientStore,
     update: altair.LightClientUpdate) =
@@ -112,8 +116,10 @@ func apply_light_client_update(
     store.current_sync_committee = store.next_sync_committee
     store.next_sync_committee = update.next_sync_committee
   store.finalized_header = active_header
+  if store.finalized_header.slot > store.optimistic_header.slot:
+    store.optimistic_header = store.finalized_header
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/sync-protocol.md#process_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#process_light_client_update
 proc process_light_client_update*(
     store: var LightClientStore,
     update: altair.LightClientUpdate,
@@ -147,7 +153,7 @@ proc process_light_client_update*(
 
   # Update finalized header
   if  sum_sync_committee_bits * 3 >= len(sync_committee_bits) * 2 and
-      not update.finalized_header.isZeroMemory:
+      update.is_finality_update:
     # Normal update through 2/3 threshold
     apply_light_client_update(store, update)
     store.best_valid_update = none(altair.LightClientUpdate)
