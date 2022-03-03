@@ -496,7 +496,7 @@ proc process_sync_aggregate*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/bellatrix/beacon-chain.md#process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
     state: var bellatrix.BeaconState, payload: ExecutionPayload,
     notify_new_payload: ExecutePayload): Result[void, cstring] =
@@ -507,8 +507,8 @@ proc process_execution_payload*(
         state.latest_execution_payload_header.block_hash):
       return err("process_execution_payload: payload and state parent hash mismatch")
 
-  # Verify random
-  if not (payload.random == get_randao_mix(state, get_current_epoch(state))):
+  # Verify prev_randao
+  if not (payload.prev_randao == get_randao_mix(state, get_current_epoch(state))):
     return err("process_execution_payload: payload and state randomness mismatch")
 
   # Verify timestamp
@@ -526,7 +526,7 @@ proc process_execution_payload*(
     state_root: payload.state_root,
     receipts_root: payload.receipts_root,
     logs_bloom: payload.logs_bloom,
-    random: payload.random,
+    prev_randao: payload.prev_randao,
     block_number: payload.block_number,
     gas_limit: payload.gas_limit,
     gas_used: payload.gas_used,
