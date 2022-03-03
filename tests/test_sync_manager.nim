@@ -14,6 +14,9 @@ type
 proc `$`(peer: SomeTPeer): string =
   "SomeTPeer"
 
+template shortLog(peer: SomeTPeer): string =
+  $peer
+
 proc updateScore(peer: SomeTPeer, score: int) =
   discard
 
