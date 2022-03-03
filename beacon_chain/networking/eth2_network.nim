@@ -64,6 +64,7 @@ type
     discovery*: Eth2DiscoveryProtocol
     discoveryEnabled*: bool
     wantedPeers*: int
+    hardMaxPeers*: int
     peerPool*: PeerPool[Peer, PeerID]
     protocolStates*: seq[RootRef]
     metadata*: altair.MetaData
@@ -901,12 +902,7 @@ proc connectWorker(node: Eth2Node, index: int) {.async.} =
     # TODO: could clear the whole connTable and connQueue here also, best
     # would be to have this event based coming from peer pool or libp2p.
 
-    # The hard peer limit is max-conns * 1.5
-    # otherwise, we may connect to too many peers at once
-    # and they will be in the grace period, meaning old
-    # peers will be kicked. Weird computation to stay
-    # in integer world
-    if node.peerPool.len < node.wantedPeers * 6 div 4:
+    if node.peerPool.len < node.hardMaxPeers:
       await node.dialPeer(remotePeerAddr, index)
     # Peer was added to `connTable` before adding it to `connQueue`, so we
     # excluding peer here after processing.
@@ -1375,6 +1371,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
     switch: switch,
     pubsub: pubsub,
     wantedPeers: config.maxPeers,
+    hardMaxPeers: config.hardMaxPeers.get(config.maxPeers * 6 div 4), #*1.5
     cfg: runtimeCfg,
     peerPool: newPeerPool[Peer, PeerID](),
     # Its important here to create AsyncQueue with limited size, otherwise
