@@ -1188,6 +1188,13 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
             np.add(peerAddr)
         np
 
+      let
+        roomCurrent = node.hardMaxPeers - len(node.peerPool)
+        peersToKick = min(newPeers.len - roomCurrent, node.hardMaxPeers div 5)
+
+      if peersToKick > 0 and newPeers.len > 0:
+        node.trimConnections(peersToKick)
+
       for peerAddr in newPeers:
           # We adding to pending connections table here, but going
           # to remove it only in `connectWorker`.
