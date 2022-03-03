@@ -1003,11 +1003,14 @@ proc trimConnections(node: Eth2Node, count: int) =
   #
   # A peer subscribed to all stabilitySubnets will
   # have 640 points
+  var peersInGracePeriod = 0
   for peer in node.peers.values:
     if peer.connectionState != Connected: continue
 
     # Metadata pinger is used as grace period
-    if peer.metadata.isNone: continue
+    if peer.metadata.isNone:
+      peersInGracePeriod.inc()
+      continue
 
     let
       stabilitySubnets = peer.metadata.get().attnets
@@ -1015,6 +1018,13 @@ proc trimConnections(node: Eth2Node, count: int) =
       thisPeersScore = 10 * stabilitySubnetsCount
 
     scores[peer.peerId] = thisPeersScore
+
+
+  # Safegard: if we have too many peers in the grace
+  # period, don't kick anyone. Otherwise, they will be
+  # preferred over long-standing peers
+  if peersInGracePeriod > scores.len div 2:
+    return
 
   # Split a 1000 points for each topic's peers
   # + 5 000 points for each subbed topic
