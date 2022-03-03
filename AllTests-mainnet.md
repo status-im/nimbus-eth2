@@ -402,6 +402,8 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Process all unviable blocks                                                                OK
 + [SyncQueue#Backward] Async unordered push test                                             OK
 + [SyncQueue#Backward] Async unordered push with rewind test                                 OK
++ [SyncQueue#Backward] Good response with missing values towards end                         OK
++ [SyncQueue#Backward] Handle out-of-band sync progress advancement                          OK
 + [SyncQueue#Backward] Pass through established limits test                                  OK
 + [SyncQueue#Backward] Smoke test                                                            OK
 + [SyncQueue#Backward] Start and finish slots equal                                          OK
@@ -409,6 +411,8 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + [SyncQueue#Backward] getRewindPoint() test                                                 OK
 + [SyncQueue#Forward] Async unordered push test                                              OK
 + [SyncQueue#Forward] Async unordered push with rewind test                                  OK
++ [SyncQueue#Forward] Good response with missing values towards end                          OK
++ [SyncQueue#Forward] Handle out-of-band sync progress advancement                           OK
 + [SyncQueue#Forward] Pass through established limits test                                   OK
 + [SyncQueue#Forward] Smoke test                                                             OK
 + [SyncQueue#Forward] Start and finish slots equal                                           OK
@@ -419,7 +423,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + [SyncQueue] getLastNonEmptySlot() test                                                     OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
-OK: 19/19 Fail: 0/19 Skip: 0/19
+OK: 23/23 Fail: 0/23 Skip: 0/23
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
@@ -521,4 +525,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 285/291 Fail: 0/291 Skip: 6/291
+OK: 289/295 Fail: 0/295 Skip: 6/295
