@@ -58,7 +58,7 @@ func build_empty_execution_payload(state: bellatrix.BeaconState): ExecutionPaylo
     receipts_root: Eth2Digest(data: cast[array[32, uint8]](
       "no receipts here\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0")),
     block_number: latest.block_number + 1,
-    random: randao_mix,
+    prev_randao: randao_mix,
     gas_limit: latest.gas_limit, # retain same limit
     gas_used: 0, # empty block, 0 gas
     timestamp: timestamp,

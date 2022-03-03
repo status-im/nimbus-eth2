@@ -22,11 +22,11 @@ import
 export json_serialization, base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/bellatrix/beacon-chain.md#transition-settings
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/beacon-chain.md#transition-settings
   TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH* = FAR_FUTURE_EPOCH
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/bellatrix/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/beacon-chain.md#custom-types
   Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
 
   ExecutionAddress* = object
@@ -44,7 +44,7 @@ type
     state_root*: Eth2Digest
     receipts_root*: Eth2Digest # 'receipts root' in the yellow paper
     logs_bloom*: BloomLogs
-    random*: Eth2Digest  # 'difficulty' in the yellow paper
+    prev_randao*: Eth2Digest  # 'difficulty' in the yellow paper
     block_number*: uint64  # 'number' in the yellow paper
     gas_limit*: uint64
     gas_used*: uint64
@@ -63,7 +63,7 @@ type
     state_root*: Eth2Digest
     receipts_root*: Eth2Digest
     logs_bloom*: BloomLogs
-    random*: Eth2Digest
+    prev_randao*: Eth2Digest
     block_number*: uint64
     gas_limit*: uint64
     gas_used*: uint64
@@ -84,7 +84,7 @@ type
     parent_hash*: Eth2Digest
     total_difficulty*: Eth2Digest   # uint256
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/bellatrix/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64

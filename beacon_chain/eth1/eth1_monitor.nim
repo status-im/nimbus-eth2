@@ -311,7 +311,7 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
     state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
     receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
     logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
-    random: rpcExecutionPayload.prevRandao.asEth2Digest,
+    prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
     block_number: rpcExecutionPayload.blockNumber.uint64,
     gas_limit: rpcExecutionPayload.gasLimit.uint64,
     gas_used: rpcExecutionPayload.gasUsed.uint64,
@@ -337,7 +337,7 @@ func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:
       FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    prevRandao: executionPayload.random.asBlockHash,
+    prevRandao: executionPayload.prev_randao.asBlockHash,
     blockNumber: Quantity(executionPayload.block_number),
     gasLimit: Quantity(executionPayload.gas_limit),
     gasUsed: Quantity(executionPayload.gas_used),
