@@ -118,11 +118,6 @@ all: | $(TOOLS) libnfuzz.so libnfuzz.a
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
 
-ifeq ($(OS), Windows_NT)
-  # libbacktrace/libunwind is disabled on Windows.
-  USE_LIBBACKTRACE := 0
-endif
-
 DEPOSITS_DELAY := 0
 
 #- "--define:release" cannot be added to "config.nims"
@@ -131,8 +126,7 @@ DEPOSITS_DELAY := 0
 NIM_PARAMS += -d:release --parallelBuild:1 -d:libp2p_agents_metrics -d:KnownLibP2PAgents=nimbus,lighthouse,prysm,teku
 
 ifeq ($(USE_LIBBACKTRACE), 0)
-# Blame Jacek for the lack of line numbers in your stack traces ;-)
-NIM_PARAMS += --stacktrace:on --excessiveStackTrace:on --linetrace:off -d:disable_libbacktrace
+NIM_PARAMS += -d:disable_libbacktrace
 endif
 
 deps: | deps-common nat-libs build/generate_makefile
