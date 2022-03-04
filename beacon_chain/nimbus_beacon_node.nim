@@ -1118,6 +1118,10 @@ proc onSecond(node: BeaconNode) =
   # Nim GC metrics (for the main thread)
   updateThreadMetrics()
 
+  if node.config.stopAtSyncedEpoch != 0 and node.dag.head.slot.epoch >= node.config.stopAtSyncedEpoch:
+    notice "Shutting down after having reached the target synced epoch"
+    bnStatus = BeaconNodeStatus.Stopping
+
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
   let sleepTime = chronos.seconds(1)
   const nanosecondsIn1s = float(chronos.seconds(1).nanoseconds)
