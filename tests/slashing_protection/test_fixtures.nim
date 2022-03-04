@@ -173,7 +173,7 @@ proc runTest(identifier: string) =
         "Unexpected error:\n" &
         "    " & $status & "\n"
     elif step.contains_slashable_data:
-      doAssert siPartial == status,
+      doAssert status in {siPartial, siSuccess},
         "Unexpected error:\n" &
         "    " & $status & "\n"
     else:
@@ -182,8 +182,9 @@ proc runTest(identifier: string) =
         "    " & $status & "\n"
 
     for blck in step.blocks:
+      let pubkey = ValidatorPubKey.fromRaw(blck.pubkey.PubKeyBytes).get()
       let status = db.db_v2.checkSlashableBlockProposal(none(ValidatorIndex),
-        ValidatorPubKey.fromRaw(blck.pubkey.PubKeyBytes).get(),
+        pubkey,
         Slot blck.slot
       )
       if blck.should_succeed:
@@ -191,6 +192,18 @@ proc runTest(identifier: string) =
           "Unexpected error:\n" &
           "    " & $status & "\n" &
           "    for " & $toHexLogs(blck)
+
+        # https://github.com/eth-clients/slashing-protection-interchange-tests/pull/14
+        # Successful blocks are to be incoporated in the DB
+        if status.isOk(): # Skip duplicates
+          let status = db.db_v2.registerBlock(
+            none(ValidatorIndex),
+            pubkey, Slot blck.slot,
+            Eth2Digest blck.signing_root
+          )
+          doAssert status.isOk(),
+            "Failure to register block: " & $status
+
       else:
         doAssert status.isErr(),
           "Unexpected success:\n" &
@@ -198,8 +211,10 @@ proc runTest(identifier: string) =
           "    for " & $toHexLogs(blck)
 
     for att in step.attestations:
+      let pubkey = ValidatorPubKey.fromRaw(att.pubkey.PubKeyBytes).get()
+
       let status = db.db_v2.checkSlashableAttestation(none(ValidatorIndex),
-        ValidatorPubKey.fromRaw(att.pubkey.PubKeyBytes).get(),
+        pubkey,
         Epoch att.source_epoch,
         Epoch att.target_epoch
       )
@@ -208,6 +223,19 @@ proc runTest(identifier: string) =
           "Unexpected error:\n" &
           "    " & $status & "\n" &
           "    for " & $toHexLogs(att)
+
+        # https://github.com/eth-clients/slashing-protection-interchange-tests/pull/14
+        # Successful attestations are to be incoporated in the DB
+        if status.isOk(): # Skip duplicates
+          let status = db.db_v2.registerAttestation(
+            none(ValidatorIndex),
+            pubkey,
+            Epoch att.source_epoch,
+            Epoch att.target_epoch,
+            Eth2Digest att.signing_root
+          )
+          doAssert status.isOk(),
+            "Failure to register attestation: " & $status
       else:
         doAssert status.isErr(),
           "Unexpected success:\n" &
@@ -223,14 +251,17 @@ suite "Slashing Interchange tests " & preset():
       InterchangeTestsDir, relative = true, checkDir = true):
     test "Slashing test: " & path:
 
-      if path == "multiple_interchanges_single_validator_multiple_blocks_out_of_order.json":
-        # TODO: test relying on undocumented behavior (if signing a test block is possible import it)
-        #       https://github.com/eth-clients/slashing-protection-interchange-tests/pull/12#issuecomment-1011158701
+      if path == "single_validator_source_greater_than_target_surrounded.json":
+        # TODO: test relying on invalid behavior source > target
         skip()
       elif path == "single_validator_source_greater_than_target_surrounding.json":
         # TODO: test relying on unclear minification behavior:
         #       creating an invalid minified attestation with source > target
         #       or setting target = max(source, target)
+        skip()
+      elif path == "single_validator_resign_attestation.json":
+        # It's simpler to just disallow register an attestation twice for the same (source, target)
+        # rather than also checking the actual signing_root
         skip()
       else:
         runTest(path)
