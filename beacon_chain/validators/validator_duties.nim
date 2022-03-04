@@ -441,15 +441,6 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
           default(engine_api.ForkchoiceUpdatedResponse)
     payloadId = forkchoiceResponse.payloadId
 
-  when false:
-    payloadId2 =
-      (awaitWithTimeout(
-        execution_engine.forkchoiceUpdated(
-          head_block_hash, finalized_block_hash, timestamp, random.data,
-          fee_recipient),
-        web3Timeout):
-          default(engine_api.ForkchoiceUpdatedResponse)).payloadId
-
   return if payloadId.isSome:
     some(bellatrix.PayloadId(payloadId.get))
   else:
@@ -498,7 +489,6 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       makeBeaconBlock(
         node.dag.cfg,
         state,
-        stateData.data,
         validator_index,
         randao_reveal,
         eth1Proposal.vote,
@@ -524,7 +514,10 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
           # ugliness/complexity probably avoidable
           let
             feeRecipient =
-              Eth1Address.fromHex("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+              if node.config.suggestedFeeRecipient.isSome:
+                Eth1Address.fromHex(node.config.suggestedFeeRecipient.get)
+              else:
+                default(Eth1Address)
             terminalBlockHash =
               if node.eth1Monitor.terminalBlockHash.isSome:
                 node.eth1Monitor.terminalBlockHash.get.asEth2Digest
@@ -541,7 +534,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
               else:
                 terminalBlockHash
             payload_id = (await forkchoice_updated(
-              proposalState.data.bellatrixData.data, latestHead, latestFinalized,
+              proposalState.bellatrixData.data, latestHead, latestFinalized,
               feeRecipient, node.consensusManager.eth1Monitor.dataProvider))
             payload = await get_execution_payload(
               payload_id, node.consensusManager.eth1Monitor.dataProvider)

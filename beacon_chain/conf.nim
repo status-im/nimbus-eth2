@@ -515,6 +515,13 @@ type
         desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating jwt tokens"
         name: "jwt-secret" .}: Option[string]
 
+      # Same option as appears in Lighthouse and Prysm
+      # https://lighthouse-book.sigmaprime.io/suggested-fee-recipient.html
+      # https://github.com/prysmaticlabs/prysm/pull/10312
+      suggestedFeeRecipient* {.
+        desc: "Suggested fee recipient; an execution layer client should but might not respect this"
+        name: "suggested-fee-recipient" .}: Option[string]
+
     of BNStartUpCmd.createTestnet:
       testnetDepositsFile* {.
         desc: "A LaunchPad deposits file for the genesis state validators"

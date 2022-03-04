@@ -83,7 +83,7 @@ proc checkJwtSecret*(
 
   try:
     let lines = readLines(jwtSecret.get, 1)
-    if lines.len > 0 and lines[0].startswith("0x"):
+    if lines.len > 0:
       let secret = utils.fromHex(lines[0])
       if secret.len >= MIN_SECRET_LEN:
         ok(secret)

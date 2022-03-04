@@ -16,12 +16,14 @@ import
   eth/common/eth_types,
   eth/async_utils, stew/[byteutils, objects, shims/hashes],
   # Local modules:
-  ../spec/[eth2_merkleization, forks, helpers],
+  ../spec/[engine_authentication, eth2_merkleization, forks, helpers],
   ../spec/datatypes/[base, phase0, bellatrix],
   ../networking/network_metadata,
   ../consensus_object_pools/block_pools_types,
   ".."/[beacon_chain_db, beacon_node_status, beacon_clock],
   ./merkle_minimal
+
+from std/times import getTime, inSeconds, initTime, `-`
 
 export
   web3Types, deques
@@ -872,10 +874,17 @@ template getBlockProposalData*(m: Eth1Monitor,
                                finalizedStateDepositIndex: uint64): BlockProposalEth1Data =
   getBlockProposalData(m.depositsChain, state, finalizedEth1Data, finalizedStateDepositIndex)
 
+proc getJsonRpcRequestHeaders(jwtSecret: seq[byte]): auto =
+  # https://www.rfc-editor.org/rfc/rfc6750#section-6.1.1
+  (proc(): auto =
+    @[("Authorization", "Bearer " & getSignedIatToken(
+      jwtSecret, (getTime() - initTime(0, 0)).inSeconds.uint64))])
+
 proc new*(T: type Web3DataProvider,
           depositContractAddress: Eth1Address,
-          web3Url: string): Future[Result[Web3DataProviderRef, string]] {.async.} =
-  let web3Fut = newWeb3(web3Url)
+          web3Url: string,
+          jwtSecret: seq[byte]): Future[Result[Web3DataProviderRef, string]] {.async.} =
+  let web3Fut = newWeb3(web3Url, getJsonRpcRequestHeaders(jwtSecret))
   yield web3Fut or sleepAsync(chronos.seconds(10))
   if (not web3Fut.finished) or web3Fut.failed:
     await cancelAndWait(web3Fut)
@@ -912,10 +921,11 @@ proc init*(T: type Eth1Chain, cfg: RuntimeConfig, db: BeaconChainDB): T =
 proc createInitialDepositSnapshot*(
     depositContractAddress: Eth1Address,
     depositContractDeployedAt: BlockHashOrNumber,
-    web3Url: string): Future[Result[DepositContractSnapshot, string]] {.async.} =
+    web3Url: string,
+    jwtSecret: seq[byte]): Future[Result[DepositContractSnapshot, string]] {.async.} =
 
   let dataProviderRes =
-    await Web3DataProvider.new(depositContractAddress, web3Url)
+    await Web3DataProvider.new(depositContractAddress, web3Url, jwtSecret)
   if dataProviderRes.isErr:
     return err(dataProviderRes.error)
   var dataProvider = dataProviderRes.get
@@ -988,7 +998,8 @@ proc detectPrimaryProviderComingOnline(m: Eth1Monitor) {.async.} =
   while m.runFut == initialRunFut:
     let tempProviderRes = await Web3DataProvider.new(
       m.depositContractAddress,
-      web3Url)
+      web3Url,
+      m.jwtSecret)
 
     if tempProviderRes.isErr:
       await sleepAsync(checkInterval)
@@ -1022,7 +1033,8 @@ proc ensureDataProvider*(m: Eth1Monitor) {.async.} =
   inc m.startIdx
 
   m.dataProvider = block:
-    let v = await Web3DataProvider.new(m.depositContractAddress, web3Url)
+    let v = await Web3DataProvider.new(
+      m.depositContractAddress, web3Url, m.jwtSecret)
     if v.isErr():
       raise (ref CatchableError)(msg: v.error())
     v.get()
@@ -1372,7 +1384,11 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       m.eth1Progress.clear()
 
       awaitWithRetries(
-        m.dataProvider.getBlockByHash(m.latestEth1Block.get.hash))
+        m.dataProvider.getBlockByHash(
+          if m.latestEth1Block.isSome:
+            m.latestEth1Block.get.hash
+          else:
+            default(BlockHash)))
 
     if m.currentEpoch >= m.cfg.BELLATRIX_FORK_EPOCH and m.terminalBlockHash.isNone:
       # TODO why would latestEth1Block be isNone?
@@ -1428,8 +1444,10 @@ proc start(m: Eth1Monitor, delayBeforeStart: Duration) {.gcsafe.} =
 proc start*(m: Eth1Monitor) =
   m.start(0.seconds)
 
-proc getEth1BlockHash*(url: string, blockId: RtBlockIdentifier): Future[BlockHash] {.async.} =
-  let web3 = await newWeb3(url)
+proc getEth1BlockHash*(
+    url: string, blockId: RtBlockIdentifier, jwtSecret: seq[byte]):
+    Future[BlockHash] {.async.} =
+  let web3 = await newWeb3(url, getJsonRpcRequestHeaders(jwtSecret))
   try:
     let blk = awaitWithRetries(
       web3.provider.eth_getBlockByNumber(blockId, false))
@@ -1438,7 +1456,8 @@ proc getEth1BlockHash*(url: string, blockId: RtBlockIdentifier): Future[BlockHas
     await web3.close()
 
 proc testWeb3Provider*(web3Url: Uri,
-                       depositContractAddress: Eth1Address) {.async.} =
+                       depositContractAddress: Eth1Address,
+                       jwtSecret: seq[byte]) {.async.} =
   template mustSucceed(action: static string, expr: untyped): untyped =
     try: expr
     except CatchableError as err:
@@ -1447,7 +1466,8 @@ proc testWeb3Provider*(web3Url: Uri,
 
   let
     web3 = mustSucceed "connect to web3 provider":
-      await newWeb3($web3Url)
+      await newWeb3(
+        $web3Url, getJsonRpcRequestHeaders(jwtSecret))
     networkVersion = mustSucceed "get network version":
       awaitWithRetries web3.provider.net_version()
     latestBlock = mustSucceed "get latest block":

@@ -256,6 +256,27 @@ proc init*(T: type BeaconNode,
     fatal "--finalized-checkpoint-block cannot be specified without --finalized-checkpoint-state"
     quit 1
 
+  let jwtSecret = rng[].checkJwtSecret(string(config.dataDir), config.jwtSecret)
+  if jwtSecret.isErr:
+     fatal "Specified a JWT secret file which couldn't be loaded",
+       err = jwtSecret.error
+     quit 1
+
+  # Better to find out at startup
+  if config.suggestedFeeRecipient.isSome:
+    try:
+      discard Eth1Address.fromHex(config.suggestedFeeRecipient.get)
+    except ValueError as exc:
+      fatal "Specified an invalid suggested fee recipient",
+        msg = exc.msg
+      quit 1
+  else:
+    # TODO should warn on this not being configured but not useful yet to do so
+    # and there will be other ways of specifying these so it's premature to use
+    # any particular design yet for this part.
+    #warn "No suggested fee recipient provided; use --suggested-fee-recipient"
+    discard
+
   template getDepositContractSnapshot: auto =
     if depositContractSnapshot.isSome:
       depositContractSnapshot
@@ -263,9 +284,10 @@ proc init*(T: type BeaconNode,
       let snapshotRes = waitFor createInitialDepositSnapshot(
         cfg.DEPOSIT_CONTRACT_ADDRESS,
         depositContractDeployedAt,
-        config.web3Urls[0])
+        config.web3Urls[0],
+        jwtSecret.get)
       if snapshotRes.isErr:
-        fatal "Failed to locate the deposit contract deployment block",
+        fatal "Failed to locate the deposit contract deployment block; ensure execution layer client is running and accessible via --web3-url",
               depositContract = cfg.DEPOSIT_CONTRACT_ADDRESS,
               deploymentBlock = $depositContractDeployedAt
         quit 1
@@ -273,12 +295,6 @@ proc init*(T: type BeaconNode,
         some snapshotRes.get
     else:
       none(DepositContractSnapshot)
-
-  let jwtSecret = rng[].checkJwtSecret(string(config.dataDir), config.jwtSecret)
-  if jwtSecret.isErr:
-     fatal "Specified a JWT secret file which couldn't be loaded",
-       err = jwtSecret.error
-     quit 1
 
   var eth1Monitor: Eth1Monitor
   if not ChainDAGRef.isInitialized(db).isOk():
@@ -1730,11 +1746,18 @@ proc doCreateTestnet*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.rais
   for i in 0 ..< launchPadDeposits.len:
     deposits.add(launchPadDeposits[i] as DepositData)
 
+  let jwtSecret = rng.checkJwtSecret(string(config.dataDir), config.jwtSecret)
+  if jwtSecret.isErr:
+     fatal "Specified a JWT secret file which couldn't be loaded",
+       err = jwtSecret.error
+     quit 1
+
   let
     startTime = uint64(times.toUnix(times.getTime()) + config.genesisOffset)
     outGenesis = config.outputGenesis.string
     eth1Hash = if config.web3Urls.len == 0: eth1BlockHash
-               else: (waitFor getEth1BlockHash(config.web3Urls[0], blockId("latest"))).asEth2Digest
+               else: (waitFor getEth1BlockHash(
+                 config.web3Urls[0], blockId("latest"), jwtSecret.get)).asEth2Digest
     cfg = getRuntimeConfig(config.eth2Network)
   var
     initialState = newClone(initialize_beacon_state_from_eth1(
@@ -1807,12 +1830,21 @@ proc doRecord(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
   of RecordCmd.print:
     echo $config.recordPrint
 
-proc doWeb3Cmd(config: BeaconNodeConf) {.raises: [Defect, CatchableError].} =
+proc doWeb3Cmd(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raises: [Defect, CatchableError].} =
   case config.web3Cmd:
   of Web3Cmd.test:
-    let metadata = config.loadEth2Network()
+    let
+      metadata = config.loadEth2Network()
+      jwtSecret = rng.checkJwtSecret(string(config.dataDir), config.jwtSecret)
+
+    if jwtSecret.isErr:
+      fatal "Specified a JWT secret file which couldn't be loaded",
+        err = jwtSecret.error
+      quit 1
+
     waitFor testWeb3Provider(config.web3TestUrl,
-                             metadata.cfg.DEPOSIT_CONTRACT_ADDRESS)
+                             metadata.cfg.DEPOSIT_CONTRACT_ADDRESS,
+                             jwtSecret.get)
 
 proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError, Defect].}=
   let
@@ -1877,7 +1909,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableEr
   of BNStartUpCmd.deposits: doDeposits(config, rng[])
   of BNStartUpCmd.wallets: doWallets(config, rng[])
   of BNStartUpCmd.record: doRecord(config, rng[])
-  of BNStartUpCmd.web3: doWeb3Cmd(config)
+  of BNStartUpCmd.web3: doWeb3Cmd(config, rng[])
   of BNStartUpCmd.slashingdb: doSlashingInterchange(config)
   of BNStartupCmd.trustedNodeSync:
     let

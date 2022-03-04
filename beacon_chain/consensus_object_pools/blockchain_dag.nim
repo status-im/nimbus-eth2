@@ -1876,7 +1876,7 @@ proc newExecutionPayload*(
     blockHash = executionPayload.block_hash,
     stateRoot = shortLog(executionPayload.state_root),
     receiptsRoot = shortLog(executionPayload.receipts_root),
-    random = shortLog(executionPayload.random),
+    prevRandao = shortLog(executionPayload.prev_randao),
     blockNumber = executionPayload.block_number,
     gasLimit = executionPayload.gas_limit,
     gasUsed = executionPayload.gas_used,

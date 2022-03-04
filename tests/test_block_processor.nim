@@ -34,9 +34,9 @@ suite "Block processor" & preset():
       verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
       quarantine = newClone(Quarantine.init())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
-      web3DataProvider = new Web3DataProviderRef
+      eth1Monitor = new Eth1Monitor
       consensusManager = ConsensusManager.new(
-        dag, attestationPool, quarantine, web3DataProvider)
+        dag, attestationPool, quarantine, eth1Monitor)
       state = newClone(dag.headState)
       cache = StateCache()
       b1 = addTestBlock(state[], cache).phase0Data
