@@ -261,11 +261,13 @@ type
         name: "verify-finalization" }: bool
 
       stopAtEpoch* {.
+        hidden
         desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
         defaultValue: 0
         name: "stop-at-epoch" }: uint64
 
       stopAtSyncedEpoch* {.
+        hidden
         desc: "The synced epoch at which to exit the program. (for testing purposes)"
         defaultValue: 0
         name: "stop-at-synced-epoch" }: uint64
