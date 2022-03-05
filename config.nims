@@ -130,10 +130,7 @@ switch("define", "withoutPCRE")
 
 switch("import", "testutils/moduletests")
 
-const useLibStackTrace = not defined(windows) and
-                         not defined(disable_libbacktrace)
-
-when useLibStackTrace:
+when not defined(disable_libbacktrace):
   --define:nimStackTraceOverride
   switch("import", "libbacktrace")
 else:
