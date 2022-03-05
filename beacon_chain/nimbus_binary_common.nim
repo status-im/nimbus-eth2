@@ -14,7 +14,7 @@ import
   std/[os, tables, strutils, terminal, typetraits],
 
   # Nimble packages
-  chronos, confutils,
+  chronos, confutils, toml_serialization,
   chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
   stew/io2,
 
@@ -26,7 +26,8 @@ import
 when defined(posix):
   import termios
 
-export beacon_clock, beacon_node_status, conf, confutils
+export
+  confutils, toml_serialization, beacon_clock, beacon_node_status, conf
 
 type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
@@ -180,11 +181,16 @@ template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
     version = clientId & "\p" & copyrights & "\p\p" &
       "eth2 specification v" & SPEC_VERSION & "\p\p" &
       nimBanner
+
   # TODO for some reason, copyrights are printed when doing `--help`
   {.push warning[ProveInit]: off.}
   let config = ConfType.load(
-    version = version,
-    copyrightBanner = clientId) # but a short version string makes more sense...
+    version = version, # but a short version string makes more sense...
+    copyrightBanner = clientId,
+    secondarySources = proc (config: ConfType, sources: auto) =
+      if config.configFile.isSome:
+        sources.addConfigFile(Toml, config.configFile.get)
+  )
   {.pop.}
   config
 
