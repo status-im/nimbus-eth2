@@ -144,6 +144,7 @@ proc getStateSZ*(
     Result[void, string] =
   ## Get a snappy-frame-compressed version of the state data - may overwrite
   ## `bytes` on error
+  ## https://github.com/google/snappy/blob/8dd58a519f79f0742d4c68fbccb2aed2ddb651e8/framing_format.txt#L34
 
   # Block content for the blocks of an era is found in the file for the _next_
   # era
@@ -266,14 +267,17 @@ when isMainModule:
         data: array[32, byte].initCopyFrom([byte 0x40, 0xcf, 0x2f, 0x3c]))]
 
   var got8191 = false
-  for slot, root in db.getSummaries(historical_roots, Era(0)):
-    if slot == Slot(1):
-      doAssert root == Eth2Digest.fromHex(
+  var slot4: Eth2Digest
+  for bid in db.getBlockIds(historical_roots, Era(0)):
+    if bid.slot == Slot(1):
+      doAssert bid.root == Eth2Digest.fromHex(
         "0xbacd20f09da907734434f052bd4c9503aa16bab1960e89ea20610d08d064481c")
-    elif slot == Slot(5):
-      raiseAssert "this slot was skipped"
-    elif slot == Slot(8191):
-      doAssert root == Eth2Digest.fromHex(
+    elif bid.slot == Slot(4):
+      slot4 = bid.root
+    elif bid.slot == Slot(5) and bid.root != slot4:
+      raiseAssert "this slot was skipped, should have same root"
+    elif bid.slot == Slot(8191):
+      doAssert bid.root == Eth2Digest.fromHex(
         "0x48ea23af46320b0290eae668b0c3e6ae3e0534270f897db0e83a57f51a22baca")
       got8191 = true
 
