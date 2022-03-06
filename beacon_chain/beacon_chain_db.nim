@@ -994,6 +994,25 @@ proc getBeaconBlockSummary*(db: BeaconChainDB, root: Eth2Digest):
   else:
     err()
 
+proc loadStateRoots*(db: BeaconChainDB): Table[(Slot, Eth2Digest), Eth2Digest] =
+  # Load summaries into table - there's no telling what order they're in so we
+  # load them all - bugs in nim prevent this code from living in the iterator.
+  var state_roots = initTable[(Slot, Eth2Digest), Eth2Digest](1024)
+
+  discard db.state_roots.find([], proc(k, v: openArray[byte]) =
+    if k.len() == 40 and v.len() == 32:
+      var tmp = toArray(8, k.toOpenArray(0, 7))
+      tmp[0] = 0
+      state_roots[
+        (Slot(uint64.fromBytesBE(tmp)),
+        Eth2Digest(data: toArray(sizeof(Eth2Digest), k.toOpenArray(8, 39))))] =
+        Eth2Digest(data: toArray(sizeof(Eth2Digest), v))
+    else:
+      warn "Invalid state root in database", klen = k.len(), vlen = v.len()
+  )
+
+  state_roots
+
 proc loadSummaries*(db: BeaconChainDB): Table[Eth2Digest, BeaconBlockSummary] =
   # Load summaries into table - there's no telling what order they're in so we
   # load them all - bugs in nim prevent this code from living in the iterator.

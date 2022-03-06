@@ -14,7 +14,7 @@ It is possibly to use trusted node sync with a third-party API provider -- see [
 
 ## Perform a trusted node sync
 
-> **Tip:** Make sure to replace `http://localhost:5052` in the commands below with the appropriate endpoint for you. `http://localhost:5052` is the endpoint exposed by Nimbus but this is not consistent across all clients. For example, if your trusted node is a [Prysm node](https://docs.prylabs.network/docs/how-prysm-works/ethereum-public-api#performing-requests-against-a-local-prysm-node), it exposes `127.0.0.1:3500` by default. Which means you would run the commands below with 
+> **Tip:** Make sure to replace `http://localhost:5052` in the commands below with the appropriate endpoint for you. `http://localhost:5052` is the endpoint exposed by Nimbus but this is not consistent across all clients. For example, if your trusted node is a [Prysm node](https://docs.prylabs.network/docs/how-prysm-works/ethereum-public-api#performing-requests-against-a-local-prysm-node), it exposes `127.0.0.1:3500` by default. Which means you would run the commands below with
 >
 > `--trusted-node-url=http://127.0.0.1:3500`
 
@@ -37,8 +37,6 @@ build/nimbus_beacon_node trustedNodeSync --network:prater \
  --data-dir=build/data/shared_prater_0  \
  --trusted-node-url=http://localhost:5052
 ```
-
-
 
 > **Note:**
 > Because trusted node sync by default copies all blocks via REST, if you use a third-party service to sync from, you may hit API limits. If this happens to you, you may need to use the `--backfill` option to [delay the backfill of the block history](./trusted-node-sync.md#delay-block-history-backfill).
@@ -64,7 +62,6 @@ The `head` root is also printed in the log output at regular intervals.
 > ```
 
 
-
 ## Advanced
 
 ### Delay block history backfill
@@ -72,6 +69,8 @@ The `head` root is also printed in the log output at regular intervals.
 By default, both the state and the full block history will be downloaded from the trusted node.
 
 It is possible to get started more quickly by delaying the backfill of the block history using the `--backfill=false` parameter. In this case, the beacon node will first sync to the current head so that it can start performing its duties, then backfill the blocks from the network.
+
+You can also resume the trusted node backfill at any time by simply running the trusted node sync command again.
 
 > **Warning:** While backfilling blocks, your node will not be able to answer historical requests or sync requests. This might lead to you being de-scored, and eventually disconnected, by your peers.
 
@@ -97,6 +96,10 @@ curl -o block.32000.ssz -H 'Accept: application/octet-stream' http://localhost:5
 build/nimbus_beacon_node --data-dir:trusted --finalized-checkpoint-block=block.32000.ssz --finalized-checkpoint-state=state.32000.ssz
 ```
 
-## Caveats
+## Recreate historical state access indices
 
-A node synced using trusted node sync will not be able to serve historical requests via the Beacon API from before the checkpoint. Future versions will resolve this issue.
+When performing checkpoint sync, the historical state data from the time before the checkpoint is not available. To recreate the indices and caches necessary for historical state access, run trusted node sync with the `--reindex` flag - this can be done on an already-synced node as well, in which case the process will simply resume where it left off:
+
+```
+build/nimbus_beacon_node trustedNodeSync --reindex=true
+```

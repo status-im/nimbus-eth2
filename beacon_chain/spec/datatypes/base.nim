@@ -896,6 +896,39 @@ template isomorphicCast*[T, U](x: U): T =
     doAssert getSizeofSig(T()) == getSizeofSig(U())
   cast[ptr T](unsafeAddr x)[]
 
+func prune*(cache: var StateCache, epoch: Epoch) =
+  # Prune all cache information that is no longer relevant in order to process
+  # the given epoch
+  if epoch < 2: return
+
+  let
+    pruneEpoch = epoch - 2
+
+  var drops: seq[Slot]
+  block:
+    for k in cache.shuffled_active_validator_indices.keys:
+      if k < pruneEpoch:
+        drops.add prune_epoch.start_slot
+    for drop in drops:
+      cache.shuffled_active_validator_indices.del drop.epoch
+    drops.setLen(0)
+
+  block:
+    for k in cache.beacon_proposer_indices.keys:
+      if k < pruneEpoch.start_slot:
+        drops.add k
+    for drop in drops:
+      cache.beacon_proposer_indices.del drop
+    drops.setLen(0)
+
+  block:
+    for k in cache.sync_committees.keys:
+      if k < pruneEpoch.sync_committee_period:
+        drops.add(k.start_epoch.start_slot)
+    for drop in drops:
+      cache.sync_committees.del drop.sync_committee_period
+    drops.setLen(0)
+
 func clear*(cache: var StateCache) =
   cache.shuffled_active_validator_indices.clear
   cache.beacon_proposer_indices.clear

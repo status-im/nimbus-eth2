@@ -1819,6 +1819,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableEr
       config.trustedNodeUrl,
       config.blockId,
       config.backfillBlocks,
+      config.reindex,
       genesis)
 
 {.pop.} # TODO moduletests exceptions
