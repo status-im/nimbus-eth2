@@ -231,10 +231,18 @@ template is_sync_committee_period*(epoch: Epoch): bool =
   epoch.since_sync_committee_period_start() == 0
 
 template start_epoch*(period: SyncCommitteePeriod): Epoch =
+  ## Return the start epoch of ``period``.
   const maxPeriod = SyncCommitteePeriod(
     FAR_FUTURE_EPOCH div EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
   if period >= maxPeriod: FAR_FUTURE_EPOCH
   else: Epoch(period * EPOCHS_PER_SYNC_COMMITTEE_PERIOD)
+
+template start_slot*(period: SyncCommitteePeriod): Slot =
+  ## Return the start slot of ``period``.
+  const maxPeriod = SyncCommitteePeriod(
+    FAR_FUTURE_SLOT div SLOTS_PER_SYNC_COMMITTEE_PERIOD)
+  if period >= maxPeriod: FAR_FUTURE_SLOT
+  else: Slot(period * SLOTS_PER_SYNC_COMMITTEE_PERIOD)
 
 func `$`*(t: BeaconTime): string =
   if t.ns_since_genesis >= 0:
