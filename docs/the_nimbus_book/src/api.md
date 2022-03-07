@@ -1,10 +1,11 @@
 # JSON-RPC API
 
+> The Nimbus JSON-RPC API has been deprecated and it’s scheduled for removal in version v22.6 of Nimbus (to be released in June 2022).
+  If you are currently relying on the JSON-RPC API, please consider switching to the [official REST API](./rest-api.md).
+
 The `JSON-RPC API` is a collection of APIs for querying the state of the application at runtime.
 
 The API is based on an early version of the common [beacon APIs](https://github.com/ethereum/beacon-APIs) with the exception that `JSON-RPC` is used instead of [http `REST`](./rest-api.md) (the method names, parameters and results are all the same except for the encoding / access method).
-
-Nimbus also implements the [common REST API](./rest-api.md) - new applications should consider using it instead of JSON RPC.
 
 The `JSON-RPC API` should not be exposed to the public internet.
 

@@ -13,8 +13,8 @@ when not defined(nimscript):
   let copyrights* = "Copyright (c) 2019-" & $(now().utc.year) & " Status Research & Development GmbH"
 
 const
-  versionMajor* = 1
-  versionMinor* = 7
+  versionMajor* = 22
+  versionMinor* = 3
   versionBuild* = 0
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffiti

@@ -322,7 +322,7 @@ type
         name: "status-bar-contents" }: string
 
       rpcEnabled* {.
-        desc: "Enable the JSON-RPC server"
+        desc: "Enable the JSON-RPC server (deprecated)"
         defaultValue: false
         name: "rpc" }: bool
 
