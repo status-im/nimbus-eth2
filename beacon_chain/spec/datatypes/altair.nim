@@ -31,7 +31,7 @@
 import
   std/[typetraits, sets, hashes],
   chronicles,
-  stew/[assign2, bitops2],
+  stew/[assign2, bitops2, objects],
   "."/[base, phase0]
 
 export base, sets
@@ -612,6 +612,35 @@ chronicles.formatIt SignedContributionAndProof: shortLog(it)
 
 template hash*(x: LightClientUpdate): Hash =
   hash(x.header)
+
+func shortLog*(v: LightClientBootstrap): auto =
+  (
+    header: shortLog(v.header)
+  )
+
+func shortLog*(v: LightClientUpdate): auto =
+  # `next_sync_committee` is set when the current sync committee is signing.
+  # When the next sync committee is signing instead, this field is kept empty,
+  # as it cannot be verified without already knowing the next sync committee.
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientupdate
+  let is_signed_by_next_sync_committee = v.next_sync_committee.isZeroMemory
+  (
+    attested: shortLog(v.attested_header),
+    finalized: shortLog(v.finalized_header),
+    num_active_participants: countOnes(v.sync_aggregate.sync_committee_bits),
+    is_signed_by_next: is_signed_by_next_sync_committee
+  )
+
+func shortLog*(v: OptimisticLightClientUpdate): auto =
+  (
+    attested_header: shortLog(v.attested_header),
+    num_active_participants: countOnes(v.sync_aggregate.sync_committee_bits),
+    is_signed_by_next: v.is_signed_by_next_sync_committee
+  )
+
+chronicles.formatIt LightClientBootstrap: shortLog(it)
+chronicles.formatIt LightClientUpdate: shortLog(it)
+chronicles.formatIt OptimisticLightClientUpdate: shortLog(it)
 
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)
