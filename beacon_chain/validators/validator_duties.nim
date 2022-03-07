@@ -268,7 +268,7 @@ proc sendSyncCommitteeMessages*(node: BeaconNode,
 
           for index, msg in msgs.pairs():
             if msg.validator_index < lenu64(state.data.validators):
-              let msgPeriod = sync_committee_period(msg.slot)
+              let msgPeriod = sync_committee_period(msg.slot + 1)
               if msgPeriod == curPeriod:
                 resCur[msg.validator_index] = index
               elif msgPeriod == nextPeriod:
