@@ -956,7 +956,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
         clear cache
 
   for bi in 0 ..< blockRefs.len:
-    let forkedBlock = dag.getForkedBlock(blockRefs[blockRefs.len - bi - 1])
+    let forkedBlock = dag.getForkedBlock(blockRefs[blockRefs.len - bi - 1].bid).get()
     withBlck(forkedBlock):
       processSlots(blck.message.slot, {skipLastStateRootCalculation})
 

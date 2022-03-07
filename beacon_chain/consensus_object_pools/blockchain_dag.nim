@@ -68,7 +68,6 @@ template withStateVars*(
   template stateRoot(): Eth2Digest {.inject, used.} =
     getStateRoot(stateDataInternal.data)
   template blck(): BlockRef {.inject, used.} = stateDataInternal.blck
-  template root(): Eth2Digest {.inject, used.} = stateDataInternal.data.root
 
   body
 
@@ -428,11 +427,6 @@ proc getForkedBlock*(
     blck = getBlock(dag, bid, T).valueOr:
       result.err()
       return
-
-proc getForkedBlock*(
-    dag: ChainDAGRef, blck: BlockRef): ForkedTrustedSignedBeaconBlock =
-  dag.getForkedBlock(blck.bid).expect(
-    "BlockRef block should always load, database corrupt?")
 
 proc getForkedBlock*(
     dag: ChainDAGRef, root: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
@@ -1220,7 +1214,6 @@ proc updateStateData*(
       found,
       assignDur,
       replayDur
-
   elif ancestors.len > 0:
     debug "State replayed",
       blocks = ancestors.len,

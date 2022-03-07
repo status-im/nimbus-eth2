@@ -205,19 +205,24 @@ template validateBeaconBlockBellatrix(
       # mostly relevant around merge transition epochs. It's possible that
       # the previous block is phase 0 or Altair, if this is the transition
       # block itself.
-      let blockData = dag.getForkedBlock(parent)
-      case blockData.kind:
-      of BeaconBlockFork.Phase0:
+      let blockData = dag.getForkedBlock(parent.bid)
+      if blockData.isOk():
+        case blockData.get().kind:
+        of BeaconBlockFork.Phase0:
+          false
+        of BeaconBlockFork.Altair:
+          false
+        of BeaconBlockFork.Bellatrix:
+          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/beacon-chain.md#process_execution_payload
+          # shows how this gets folded into the state each block; checking this
+          # is equivalent, without ever requiring state replay or any similarly
+          # expensive computation.
+          blockData.get().bellatrixData.message.body.execution_payload !=
+            default(ExecutionPayload)
+      else:
+        warn "Cannot load block parent, assuming execution is disabled",
+          parent = shortLog(parent)
         false
-      of BeaconBlockFork.Altair:
-        false
-      of BeaconBlockFork.Bellatrix:
-        # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/beacon-chain.md#process_execution_payload
-        # shows how this gets folded into the state each block; checking this
-        # is equivalent, without ever requiring state replay or any similarly
-        # expensive computation.
-        blockData.bellatrixData.message.body.execution_payload !=
-          default(ExecutionPayload)
 
   if executionEnabled:
     # [REJECT] The block's execution payload timestamp is correct with respect
@@ -294,11 +299,13 @@ proc validateBeaconBlock*(
 
   if slotBlock.isProposed() and
       slotBlock.blck.slot == signed_beacon_block.message.slot:
-    let data = dag.getForkedBlock(slotBlock.blck)
-    if getForkedBlockField(data, proposer_index) ==
-          signed_beacon_block.message.proposer_index and
-        data.signature.toRaw() != signed_beacon_block.signature.toRaw():
-      return errIgnore("BeaconBlock: already proposed in the same slot")
+    let curBlock = dag.getForkedBlock(slotBlock.blck.bid)
+    if curBlock.isOk():
+      let data = curBlock.get()
+      if getForkedBlockField(data, proposer_index) ==
+            signed_beacon_block.message.proposer_index and
+          data.signature.toRaw() != signed_beacon_block.signature.toRaw():
+        return errIgnore("BeaconBlock: already proposed in the same slot")
 
   # [IGNORE] The block's parent (defined by block.parent_root) has been seen
   # (via both gossip and non-gossip sources) (a client MAY queue blocks for

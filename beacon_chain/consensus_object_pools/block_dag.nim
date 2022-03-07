@@ -198,7 +198,7 @@ func toBlockSlotId*(bs: BlockSlot): BlockSlotId =
 
 func isProposed*(bid: BlockId, slot: Slot): bool =
   ## Return true if `bid` was proposed in the given slot
-  bid.slot == slot
+  bid.slot == slot and not bid.root.isZero
 
 func isProposed*(blck: BlockRef, slot: Slot): bool =
   ## Return true if `blck` was proposed in the given slot
