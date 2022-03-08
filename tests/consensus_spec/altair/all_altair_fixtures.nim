@@ -18,5 +18,6 @@ import
   ./test_fixture_sanity_slots,
   ./test_fixture_ssz_consensus_objects,
   ./test_fixture_state_transition_epoch,
+  ./test_fixture_sync_protocol_light_client_sync,
   ./test_fixture_sync_protocol,
   ./test_fixture_transition
