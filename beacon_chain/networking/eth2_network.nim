@@ -158,6 +158,7 @@ type
     Success
     InvalidRequest
     ServerError
+    ResourceUnavailable
 
   PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe, raises: [Defect].}
   NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe, raises: [Defect].}
@@ -205,6 +206,8 @@ type
       discard
 
   InvalidInputsError* = object of CatchableError
+
+  ResourceUnavailableError* = object of CatchableError
 
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
@@ -720,6 +723,13 @@ proc handleIncomingStream(network: Eth2Node,
     template returnInvalidRequest(msg: string) =
       returnInvalidRequest(ErrorMsg msg.toBytes)
 
+    template returnResourceUnavailable(msg: ErrorMsg) =
+      await sendErrorResponse(peer, conn, ResourceUnavailable, msg)
+      return
+
+    template returnResourceUnavailable(msg: string) =
+      returnResourceUnavailable(ErrorMsg msg.toBytes)
+
     let s = when useNativeSnappy:
       let fs = libp2pInput(conn)
 
@@ -794,8 +804,8 @@ proc handleIncomingStream(network: Eth2Node,
       await callUserHandler(MsgType, peer, conn, msg.get)
     except InvalidInputsError as err:
       returnInvalidRequest err.msg
-      await sendErrorResponse(peer, conn, ServerError,
-                              ErrorMsg err.msg.toBytes)
+    except ResourceUnavailableError as err:
+      returnResourceUnavailable err.msg
     except CatchableError as err:
       await sendErrorResponse(peer, conn, ServerError,
                               ErrorMsg err.msg.toBytes)
