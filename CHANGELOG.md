@@ -1,4 +1,4 @@
-2022-03-07 v22.3.0
+2022-03-07 v22.3.1
 ==================
 
 Nimbus `v22.3.0` is a `low-urgency` upgrade that marks the beginning of a more predictable release cadence for Nimbus. Going forward, we'll be publishing a new release at the start of each month, following a feature freeze period with intensified testing and monitoring of the introduced code changes on our dispersed fleet of mainnet validators.
