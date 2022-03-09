@@ -1820,15 +1820,14 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
     NetKeyPair(seckey: privKey, pubkey: pubKey)
 
 func gossipId(
-    data: openArray[byte], altairPrefix, topic: string, valid: bool): seq[byte] =
+    data: openArray[byte], altairPrefix, topic: string): seq[byte] =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/p2p-interface.md#topics-and-messages
   const
     MESSAGE_DOMAIN_INVALID_SNAPPY = [0x00'u8, 0x00, 0x00, 0x00]
     MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
   let messageDigest = withEth2Hash:
-    h.update(
-      if valid: MESSAGE_DOMAIN_VALID_SNAPPY else: MESSAGE_DOMAIN_INVALID_SNAPPY)
+    h.update(MESSAGE_DOMAIN_VALID_SNAPPY)
 
     if topic.startsWith(altairPrefix):
       h.update topic.len.uint64.toBytesLE
@@ -1918,9 +1917,9 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       # This doesn't have to be a tight bound, just enough to avoid denial of
       # service attacks.
       let decoded = snappy.decode(m.data, maxGossipMaxSize())
-      ok(gossipId(decoded, altairPrefix, topic, true))
+      ok(gossipId(decoded, altairPrefix, topic))
     except CatchableError:
-      ok(gossipId(m.data, altairPrefix, topic, false))
+      err(ValidationResult.Reject)
 
   let
     params = GossipSubParams(
