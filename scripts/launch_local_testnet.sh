@@ -614,6 +614,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
       ./build/${LH_BINARY} vc \
         --debug-level "debug" \
         --logfile-max-number 0 \
+        --log-format "JSON" \
         --validators-dir "${VALIDATOR_DATA_DIR}" \
         --secrets-dir "${VALIDATOR_DATA_DIR}/secrets" \
         --beacon-nodes "http://127.0.0.1:$((BASE_REST_PORT + NUM_NODE))" \
