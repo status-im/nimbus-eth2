@@ -12,6 +12,7 @@ Nimbus `v22.3.0` is a `low-urgency` upgrade that marks the beginning of a more p
 
 * All command-line options can now be provided in a configuration file: use the `--config-file` flag
   https://github.com/status-im/nimbus-eth2/pull/3442
+  https://nimbus.guide/options.html
 
 * Lower CPU and bandwidth usage thanks to better handling of already seen attestation aggregates
   https://github.com/status-im/nimbus-eth2/pull/3439
