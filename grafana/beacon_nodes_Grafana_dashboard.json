@@ -15,7 +15,7 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "8.3.2"
+      "version": "8.3.5"
     },
     {
       "type": "panel",
@@ -65,7 +65,7 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1645612757083,
+  "iteration": 1646860585647,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -2423,7 +2423,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.3.2",
+      "pluginVersion": "8.3.5",
       "targets": [
         {
           "expr": "process_resident_memory_bytes{instance=\"${instance}\"}",
@@ -2496,7 +2496,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.3.2",
+      "pluginVersion": "8.3.5",
       "targets": [
         {
           "expr": "rate(process_cpu_seconds_total{instance=\"${instance}\"}[$__rate_interval]) * 100",
@@ -2569,7 +2569,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.3.2",
+      "pluginVersion": "8.3.5",
       "targets": [
         {
           "expr": "beacon_slot{instance=\"${instance}\"}",
@@ -2643,7 +2643,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.3.2",
+      "pluginVersion": "8.3.5",
       "targets": [
         {
           "expr": "sum(beacon_attestations_sent_total)",
@@ -2718,7 +2718,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.3.2",
+      "pluginVersion": "8.3.5",
       "targets": [
         {
           "expr": "beacon_attestations_received_total{instance=\"${instance}\"}",
@@ -2791,7 +2791,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.3.2",
+      "pluginVersion": "8.3.5",
       "targets": [
         {
           "expr": "beacon_current_epoch{instance=\"${instance}\"}",
@@ -2866,7 +2866,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.3.2",
+      "pluginVersion": "8.3.5",
       "targets": [
         {
           "expr": "beacon_current_justified_epoch{instance=\"${instance}\"}",
@@ -2941,7 +2941,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.3.2",
+      "pluginVersion": "8.3.5",
       "targets": [
         {
           "expr": "time() - process_start_time_seconds{instance=\"${instance}\"}",
@@ -3016,7 +3016,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.3.2",
+      "pluginVersion": "8.3.5",
       "targets": [
         {
           "expr": "nbc_peers{instance=\"${instance}\"}",
@@ -3091,7 +3091,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.3.2",
+      "pluginVersion": "8.3.5",
       "targets": [
         {
           "expr": "beacon_finalized_epoch{instance=\"${instance}\"}",
@@ -3132,7 +3132,7 @@
             "h": 6,
             "w": 14,
             "x": 0,
-            "y": 51
+            "y": 71
           },
           "heatmap": {},
           "hideZeroBuckets": false,
@@ -3190,7 +3190,7 @@
             "h": 6,
             "w": 14,
             "x": 0,
-            "y": 57
+            "y": 77
           },
           "heatmap": {},
           "hideZeroBuckets": false,
@@ -3248,7 +3248,7 @@
             "h": 6,
             "w": 14,
             "x": 0,
-            "y": 63
+            "y": 83
           },
           "heatmap": {},
           "hideZeroBuckets": false,
@@ -3305,7 +3305,7 @@
             "h": 6,
             "w": 14,
             "x": 0,
-            "y": 69
+            "y": 89
           },
           "heatmap": {},
           "hideZeroBuckets": false,
@@ -3631,15 +3631,15 @@
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"
         },
-        "definition": "label_values(process_virtual_memory_bytes,instance)",
+        "definition": "label_values(nim_gc_mem_bytes,instance)",
         "hide": 0,
         "includeAll": false,
         "multi": false,
         "name": "instance",
         "options": [],
         "query": {
-          "query": "label_values(process_virtual_memory_bytes,instance)",
-          "refId": "Prometheus-instance-Variable-Query"
+          "query": "label_values(nim_gc_mem_bytes,instance)",
+          "refId": "StandardVariableQuery"
         },
         "refresh": 1,
         "regex": "",
@@ -3673,6 +3673,6 @@
   "timezone": "",
   "title": "NBC local testnet/sim (all nodes)",
   "uid": "pgeNfj2Wz2a",
-  "version": 12,
+  "version": 14,
   "weekStart": ""
 }
