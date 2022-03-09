@@ -140,6 +140,7 @@ type
     # Private fields:
     libp2pCodecName: string
     protocolMounter*: MounterProc
+    isLightClientRequest: bool
 
   ProtocolInfoObj* = object
     name*: string
@@ -317,7 +318,8 @@ when libp2p_pki_schemes != "secp256k1":
 const
   NetworkInsecureKeyPassword = "INSECUREPASSWORD"
 
-template libp2pProtocol*(name: string, version: int) {.pragma.}
+template libp2pProtocol*(name: string, version: int,
+                         isLightClientRequest = false) {.pragma.}
 
 func shortLog*(peer: Peer): string = shortLog(peer.peerId)
 chronicles.formatIt(Peer): shortLog(it)
@@ -503,6 +505,34 @@ proc getRequestProtoName(fn: NimNode): NimNode =
       except Exception as exc: raiseAssert exc.msg # TODO https://github.com/nim-lang/Nim/issues/17454
 
   return newLit("")
+
+proc isLightClientRequestProto(fn: NimNode): NimNode =
+  # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
+  # (TODO: file as an issue)
+
+  let pragmas = fn.pragma
+  if pragmas.kind == nnkPragma and pragmas.len > 0:
+    for pragma in pragmas:
+      try:
+        if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
+          if pragma.len <= 3:
+            return newLit(false)
+          let param = pragma[3]
+          case param.kind
+          of nnkExprEqExpr:
+            if $param[0] != "isLightClientRequest":
+              raiseAssert "Unexpected param: " & $param
+            if $param[1] == "true":
+              return newLit(true)
+            if $param[1] == "false":
+              return newLit(false)
+            raiseAssert "Unexpected value: " & $param
+          of nnkIdent:
+            return newLit(param.boolVal)
+          else: raiseAssert "Unexpected kind: " & param.kind.repr
+      except Exception as exc: raiseAssert exc.msg # TODO https://github.com/nim-lang/Nim/issues/17454
+
+  return newLit(false)
 
 proc writeChunk*(conn: Connection,
                  responseCode: Option[ResponseCode],
@@ -1440,6 +1470,8 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
       node.protocolStates[proto.index] = proto.networkStateInitializer(node)
 
     for msg in proto.messages:
+      if msg.isLightClientRequest and not config.serveLightClientData:
+        continue
       if msg.protocolMounter != nil:
         msg.protocolMounter node
 
@@ -1558,10 +1590,12 @@ proc init*(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
 proc registerMsg(protocol: ProtocolInfo,
                  name: string,
                  mounter: MounterProc,
-                 libp2pCodecName: string) =
+                 libp2pCodecName: string,
+                 isLightClientRequest: bool) =
   protocol.messages.add MessageInfo(name: name,
                                     protocolMounter: mounter,
-                                    libp2pCodecName: libp2pCodecName)
+                                    libp2pCodecName: libp2pCodecName,
+                                    isLightClientRequest: isLightClientRequest)
 
 proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
   var
@@ -1600,6 +1634,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       MsgRecName = msg.recName
       MsgStrongRecName = msg.strongRecName
       codecNameLit = getRequestProtoName(msg.procDef)
+      isLightClientRequestLit = isLightClientRequestProto(msg.procDef)
       protocolMounterName = ident(msgName & "Mounter")
 
     ##
@@ -1675,7 +1710,8 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
               protocol.protocolInfoVar,
               msgNameLit,
               protocolMounterName,
-              codecNameLit))
+              codecNameLit,
+              isLightClientRequestLit))
 
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
     return newCall(initProtocol, newLit(p.name), p.peerInit, p.netInit)
