@@ -7,6 +7,10 @@
 
 {.push raises: [Defect].}
 
+# References to `vFuture` refer to the pre-release proposal of the libp2p based
+# light client sync protocol. Conflicting release versions are not in use.
+# https://github.com/ethereum/consensus-specs/pull/2802
+
 import
   "."/[helpers, forks],
   "."/datatypes/base
@@ -93,6 +97,11 @@ func getSyncCommitteeTopic*(forkDigest: ForkDigest,
 func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof/ssz_snappy"
+
+# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#optimistic_light_client_update
+func getOptimisticLightClientUpdateTopic*(forkDigest: ForkDigest): string =
+  ## For broadcasting or obtaining the latest `OptimisticLightClientUpdate`.
+  eth2Prefix(forkDigest) & "optimistic_light_client_update_v0/ssz_snappy"
 
 func getENRForkID*(cfg: RuntimeConfig,
                    epoch: Epoch,
