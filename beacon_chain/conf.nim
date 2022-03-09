@@ -46,8 +46,10 @@ const
 
 when defined(windows):
   {.pragma: windowsOnly.}
+  {.pragma: posixOnly, hidden.}
 else:
   {.pragma: windowsOnly, hidden.}
+  {.pragma: posixOnly.}
 
 type
   BNStartUpCmd* {.pure.} = enum
@@ -310,11 +312,13 @@ type
         name: "metrics-port" }: Port
 
       statusBarEnabled* {.
+        posixOnly
         desc: "Display a status bar at the bottom of the terminal screen"
         defaultValue: true
         name: "status-bar" }: bool
 
       statusBarContents* {.
+        posixOnly
         desc: "Textual template for the contents of the status bar"
         defaultValue: "peers: $connected_peers;" &
                       "finalized: $finalized_root:$finalized_epoch;" &
