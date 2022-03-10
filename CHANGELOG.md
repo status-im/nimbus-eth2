@@ -30,6 +30,12 @@ Nimbus `v22.3.0` is a `low-urgency` upgrade that marks the beginning of a more p
 * Extremely slow [slashing DB import](https://nimbus.guide/migration.html#step-4---import-your-slashing-protection-history) for validators: the import should be pretty fast now
   https://github.com/status-im/nimbus-eth2/pull/3393
 
+* Validator index-out-of-bounds crash that was triggered upon certain REST requests
+  https://github.com/status-im/nimbus-eth2/issues/3463
+
+* An off-by-one logic error preventing sync committee messages to be published in the first slot of each sync committee period
+  https://github.com/status-im/nimbus-eth2/pull/3470/commits/542e645bedec7702a973dc5cdaae87175e353009
+
 ### Deprecated features:
 
 - The [JSON-RPC](https://nimbus.guide/api.html) service (`--rpc` flag) option is now deprecated. It's scheduled for removal in version `v22.6` (i.e June of this year). If you are currently relying on the JSON-RPC API, please consider switching to the official [REST API](https://nimbus.guide/rest-api.html).
