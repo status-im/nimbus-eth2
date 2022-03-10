@@ -8,7 +8,7 @@
 
 
         <!-- Custom HTML head -->
-
+        
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -91,7 +91,7 @@
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
-                <div id="menu-bar-hover-placeholder"></div>
+                                <div id="menu-bar-hover-placeholder"></div>
                 <div id="menu-bar" class="menu-bar sticky bordered">
                     <div class="left-buttons">
                         <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
@@ -204,22 +204,21 @@
 <p><strong>Internet:</strong> Reliable broadband connection</p>
 <hr />
 <p>In order to process incoming validator deposits from the eth1 chain, you will need to run an eth1 client in parallel to your eth2 client. While it is possible to use a third-party service like <a href="/infura-guide.html">Infura</a>, if you choose to run your own eth1 client locally, you'll need more memory and storage.</p>
-<p>For example, you'll need at least another <strong>500GB SSD</strong> to run <a href="/eth1.html">geth fast sync</a> on mainnet.</p>
-<p>To future proof your setup we recommend a <strong>1TB SSD</strong>.</p>
+<p>For example, you'll need at least another <strong>1TB SSD</strong> to run <a href="/eth1.html">geth fast sync</a> on mainnet.</p>
+<p>To future proof your setup we recommend a <strong>2TB SSD</strong>.</p>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/hardware.md">Edit this file on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="mainnet-checklist"><a class="header" href="#mainnet-checklist">Mainnet checklist</a></h1>
 <h2 id="latest-software"><a class="header" href="#latest-software">Latest software</a></h2>
 <p>Please check that you are running the latest stable <a href="https://github.com/status-im/nimbus-eth2/releases">Nimbus software release</a>.</p>
 <blockquote>
-<p><strong>Note:</strong> If you are setting up your client before launch, it is your responsibility  to check for any new software releases in the run up to launch. At the minimum you should check the <a href="https://github.com/status-im/nimbus-eth2/releases">release page</a> weekly.</p>
+<p>In order to stay on top of new releases you should subscribe to <a href="https://subscribe.nimbus.team/">our mailing list</a>.</p>
 </blockquote>
 <h2 id="more-than-15-peers"><a class="header" href="#more-than-15-peers">More than 15 peers</a></h2>
-<p>Please check that your node has at least 15 peers. To monitor your peer count, pay attention to the <a href="keep-an-eye.html#keep-track-of-your-syncing-progress"><code>Slot start</code> messages in your logs</a>.</p>
+<p>Please check that your node has at least 15 peers. To monitor your peer count, pay attention to the <a href="keep-an-eye.html#keep-track-of-your-syncing-progress"><code>Slot start</code> messages in your logs</a>. See the <a href="networking.html">networking page</a> for more tips.</p>
 <h2 id="validator-attached"><a class="header" href="#validator-attached">Validator attached</a></h2>
 <p>Please check that your <a href="keep-an-eye.html#make-sure-your-validator-is-attached">validator is attached</a> to your node.</p>
 <h2 id="systemd"><a class="header" href="#systemd">Systemd</a></h2>
-<p>Now that you have Nimbus up and running, we recommend <a href="https://www.raspberrypi.org/documentation/linux/usage/systemd.md">setting up a systemd service</a> with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly). </p>
+<p>Now that you have Nimbus up and running, we recommend <a href="beacon-node-systemd.html">setting up a systemd service</a> with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly). </p>
 <p>Systemd will also ensure your validator keeps running when you exit your ssh session (<code>Ctrl-C</code>) and/or switch off your laptop.</p>
-<p>For the details on how to do this, see <a href="./beacon-node-systemd.html">this page</a>.</p>
 <h2 id="ethereum-foundations-checklist"><a class="header" href="#ethereum-foundations-checklist">Ethereum Foundation's Checklist</a></h2>
 <p>Ad a final check, we recommend you also go through the EF'S <a href="https://launchpad.ethereum.org/checklist">staker checklist</a>.</p>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/preparation.md">Edit this file on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="run-the-beacon-node"><a class="header" href="#run-the-beacon-node">Run the beacon node</a></h1>
@@ -250,16 +249,22 @@
 <p>The Nimbus beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source, which means you'll need to install some dependencies.</p>
 <h2 id="time"><a class="header" href="#time">Time</a></h2>
 <p>The beacon chain relies on your computer having the correct time set (plus or minus 0.5 seconds).</p>
-<p>We recommended you run a high quality time service on your computer such as:</p>
-<ul>
-<li>GPS</li>
-<li>NTS (network time security, <a href="https://tools.ietf.org/html/draft-ietf-ntp-using-nts-for-ntp-19">IETF draft</a>)</li>
-<li><a href="https://roughtime.googlesource.com/roughtime">Roughtime</a> (google)</li>
-</ul>
-<p>At a minimum, you should run an NTP client on the server.</p>
-<blockquote>
-<p><strong>Note:</strong> Most operating systems (including macOS') automatically sync with NTP by default.</p>
-</blockquote>
+<p>We recommended you run a high quality time service on your computer such as <a href="https://chrony.tuxfamily.org/">chrony</a>.
+Chrony is much more performant than the default NTP server.
+It's a simple install: </p>
+<pre><code class="language-sh"># Debian and Ubuntu
+sudo apt-get install -y chrony
+
+# Fedora
+dnf install chrony
+
+# Archlinux, using an AUR manager
+yourAURmanager chrony
+</code></pre>
+<p>Chrony will uninstall any existing NTP servers.</p>
+<p>It's available on most package managers.</p>
+<p>Once installed, the default configuration is good enough.</p>
+<p>At a minimum, you should run an NTP client (such as chrony) on the server.  Note that most operating systems (including macOS') automatically sync with NTP by default.</p>
 <p>If the above sounds like latin to you, don't worry. You should be fine as long as you haven't messed around with the time and date settings on your computer (they should be set automatically).</p>
 <h2 id="external-dependencies"><a class="header" href="#external-dependencies">External Dependencies</a></h2>
 <ul>
@@ -319,9 +324,11 @@ cd nimbus-eth2
 <p>To minimize the amount of downtime, you should ensure that your beacon node is <a href="./keep-an-eye.html#keep-track-of-your-syncing-progress">completely synced</a> before submitting your deposit.  If it's not fully synced you will miss attestations and proposals until it has finished syncing.</p>
 <p>This is particularly important if you are joining a network that's been running for a while since the sync could take some time.</p>
 <blockquote>
+<p><strong>Tip:</strong> If you'd like to sync faster and start attesting immediately, we recommend taking a look at <a href="./trusted-node-sync.html">trusted node sync</a></p>
+</blockquote>
+<blockquote>
 <p><strong>N.B.</strong> In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client (<strong>web3 provider</strong>) in parallel to your eth2 client. See <a href="./eth1.html">here</a> for instructions on how to do so.</p>
 </blockquote>
-<p>If you have access to a node that you trust, you can get started more quickly using <a href="./trusted-node-sync.html">trusted node sync</a>.</p>
 <h3 id="testnet"><a class="header" href="#testnet">Testnet</a></h3>
 <p>To start syncing the <code>prater</code> testnet , from the <code>nimbus-eth2</code> repository, run:</p>
 <pre><code> ./run-prater-beacon-node.sh --web3-url=&quot;&lt;YOUR_WEB3_PROVIDER_URL&gt;&quot;
@@ -1034,7 +1041,7 @@ NONE
 <blockquote>
 <p><strong>Tip:</strong> If your validator loses balance for two epochs in a row, you may want to investigate. It's a strong signal that it may be offline.</p>
 </blockquote>
-<h3 id="1-sign-up-at-a-hrefhttpsbeaconchainregisterbeaconchainregistera"><a class="header" href="#1-sign-up-at-a-hrefhttpsbeaconchainregisterbeaconchainregistera">1. Sign up at <a href="https://beaconcha.in/register">beaconcha.in/register</a></a></h3>
+<h3 id="1-sign-up-at-beaconchainregister"><a class="header" href="#1-sign-up-at-beaconchainregister">1. Sign up at <a href="https://beaconcha.in/register">beaconcha.in/register</a></a></h3>
 <h3 id="2-type-your-validators-public-key-into-the-searchbar"><a class="header" href="#2-type-your-validators-public-key-into-the-searchbar">2. Type your validator's public key into the searchbar</a></h3>
 <p><img src="https://i.imgur.com/jHjkySK.png" alt="" /></p>
 <h3 id="3-click-on-the-bookmark-icon"><a class="header" href="#3-click-on-the-bookmark-icon">3. Click on the bookmark icon</a></h3>
@@ -1469,7 +1476,7 @@ sudo systemctl disable nimbus-eth2-mainnet.service
 <p>If you run into an error at this stage, it's probably because the wrong permissions have been set on either a folder or file. See <a href="faq.html#folder-permissions">here</a> for how to fix this.</p>
 </blockquote>
 <h2 id="step-4---import-your-slashing-protection-history"><a class="header" href="#step-4---import-your-slashing-protection-history">Step 4 - Import your slashing protection history</a></h2>
-<p>To import the slashing protection history you exported in <strong>step 3</strong>, from the <code>nimbus-eth2</code> directory run:</p>
+<p>To import the slashing protection history you exported in <strong>step 2</strong>, from the <code>nimbus-eth2</code> directory run:</p>
 <pre><code>build/nimbus_beacon_node slashingdb import path/to/export_dir/slashing-protection.json
 </code></pre>
 <p>Replacing <code>/path/to/export_dir</code> with the file/directory you specified when you exported your slashing protection history.</p>
@@ -1759,9 +1766,12 @@ docker-compose -f docker-compose-example1.yml up --quiet-pull --no-color --detac
 <p><strong>Note:</strong> The rather voluminous logging is done on <code>stdout</code>, so you might want to change the system-wide Docker logging defaults (which dumps everything in <code>/var/lib/docker/containers/CONTAINER_ID/CONTAINER_ID-json.log</code>) to something like <code>syslog</code>. We recommend using a log rotation system with appropriate intervals for logs of this size.</p>
 </blockquote>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/docker.md">Edit this file on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="json-rpc-api"><a class="header" href="#json-rpc-api">JSON-RPC API</a></h1>
+<blockquote>
+<p>The Nimbus JSON-RPC API has been deprecated and it’s scheduled for removal in version v22.6 of Nimbus (to be released in June 2022).
+If you are currently relying on the JSON-RPC API, please consider switching to the <a href="./rest-api.html">official REST API</a>.</p>
+</blockquote>
 <p>The <code>JSON-RPC API</code> is a collection of APIs for querying the state of the application at runtime.</p>
 <p>The API is based on an early version of the common <a href="https://github.com/ethereum/beacon-APIs">beacon APIs</a> with the exception that <code>JSON-RPC</code> is used instead of <a href="./rest-api.html">http <code>REST</code></a> (the method names, parameters and results are all the same except for the encoding / access method).</p>
-<p>Nimbus also implements the <a href="./rest-api.html">common REST API</a> - new applications should consider using it instead of JSON RPC.</p>
 <p>The <code>JSON-RPC API</code> should not be exposed to the public internet.</p>
 <h2 id="introduction-1"><a class="header" href="#introduction-1">Introduction</a></h2>
 <p>The <code>nimbus-eth2</code> API is implemented using JSON-RPC 2.0. To query it, you can use a JSON-RPC library in the language of your choice, or a tool like <code>curl</code> to access it from the command line. A tool like <a href="https://stedolan.github.io/jq/">jq</a> is helpful to pretty-print the responses.</p>
@@ -1774,177 +1784,327 @@ docker-compose -f docker-compose-example1.yml up --quiet-pull --no-color --detac
 </code></pre>
 <p>One difference is that currently endpoints that correspond to specific ones from the <a href="https://ethereum.github.io/eth2.0-APIs/">spec</a> are named weirdly - for example an endpoint such as <a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getGenesis"><code>getGenesis</code></a> is currently named <code>get_v1_beacon_genesis</code> which would map 1:1 to the actual REST path in the future - verbose but unambiguous.</p>
 <h2 id="beacon-chain-api"><a class="header" href="#beacon-chain-api">Beacon chain API</a></h2>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetgenesisget_v1_beacon_genesisa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetgenesisget_v1_beacon_genesisa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getGenesis"><code>get_v1_beacon_genesis</code></a></a></h3>
+<h3 id="get_v1_beacon_genesis"><a class="header" href="#get_v1_beacon_genesis"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getGenesis"><code>get_v1_beacon_genesis</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_genesis&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetstaterootget_v1_beacon_states_roota"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetstaterootget_v1_beacon_states_roota"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateRoot"><code>get_v1_beacon_states_root</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/beacon/genesis -s | jq
+</code></pre>
+<h3 id="get_v1_beacon_states_root"><a class="header" href="#get_v1_beacon_states_root"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateRoot"><code>get_v1_beacon_states_root</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_states_root&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetstateforkget_v1_beacon_states_forka"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetstateforkget_v1_beacon_states_forka"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateFork"><code>get_v1_beacon_states_fork</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/beacon/states/finalized/root -s | jq
+</code></pre>
+<h3 id="get_v1_beacon_states_fork"><a class="header" href="#get_v1_beacon_states_fork"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateFork"><code>get_v1_beacon_states_fork</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_states_fork&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetstatefinalitycheckpointsget_v1_beacon_states_finality_checkpointsa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetstatefinalitycheckpointsget_v1_beacon_states_finality_checkpointsa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateFinalityCheckpoints"><code>get_v1_beacon_states_finality_checkpoints</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/beacon/states/finalized/fork -s | jq
+</code></pre>
+<h3 id="get_v1_beacon_states_finality_checkpoints"><a class="header" href="#get_v1_beacon_states_finality_checkpoints"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateFinalityCheckpoints"><code>get_v1_beacon_states_finality_checkpoints</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_states_finality_checkpoints&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetstatevalidatorsget_v1_beacon_states_stateid_validatorsa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetstatevalidatorsget_v1_beacon_states_stateid_validatorsa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidators"><code>get_v1_beacon_states_stateId_validators</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/beacon/states/finalized/finality_checkpoints -s | jq
+</code></pre>
+<h3 id="get_v1_beacon_states_stateid_validators"><a class="header" href="#get_v1_beacon_states_stateid_validators"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidators"><code>get_v1_beacon_states_stateId_validators</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_states_stateId_validators&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetstatevalidatorget_v1_beacon_states_stateid_validators_validatorida"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetstatevalidatorget_v1_beacon_states_stateid_validators_validatorida"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidator"><code>get_v1_beacon_states_stateId_validators_validatorId</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/beacon/states/finalized/validators -s | jq
+</code></pre>
+<h3 id="get_v1_beacon_states_stateid_validators_validatorid"><a class="header" href="#get_v1_beacon_states_stateid_validators_validatorid"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidator"><code>get_v1_beacon_states_stateId_validators_validatorId</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_states_stateId_validators_validatorId&quot;,&quot;params&quot;:[&quot;finalized&quot;, &quot;100167&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetstatevalidatorbalancesget_v1_beacon_states_stateid_validator_balancesa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetstatevalidatorbalancesget_v1_beacon_states_stateid_validator_balancesa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidatorBalances"><code>get_v1_beacon_states_stateId_validator_balances</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/beacon/states/finalized/validators/100167 -s | jq
+</code></pre>
+<h3 id="get_v1_beacon_states_stateid_validator_balances"><a class="header" href="#get_v1_beacon_states_stateid_validator_balances"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getStateValidatorBalances"><code>get_v1_beacon_states_stateId_validator_balances</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_states_stateId_validator_balances&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetepochcommitteesget_v1_beacon_states_stateid_committees_epocha"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetepochcommitteesget_v1_beacon_states_stateid_committees_epocha"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getEpochCommittees"><code>get_v1_beacon_states_stateId_committees_epoch</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/beacon/states/finalized/validator_balances -s | jq
+</code></pre>
+<h3 id="get_v1_beacon_states_stateid_committees_epoch"><a class="header" href="#get_v1_beacon_states_stateid_committees_epoch"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getEpochCommittees"><code>get_v1_beacon_states_stateId_committees_epoch</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_states_stateId_committees_epoch&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetblockheadersget_v1_beacon_headersa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetblockheadersget_v1_beacon_headersa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockHeaders"><code>get_v1_beacon_headers</code></a></a></h3>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetblockheaderget_v1_beacon_headers_blockida"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetblockheaderget_v1_beacon_headers_blockida"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockHeader"><code>get_v1_beacon_headers_blockId</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/beacon/states/finalized/committees -s | jq
+</code></pre>
+<h3 id="get_v1_beacon_headers"><a class="header" href="#get_v1_beacon_headers"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockHeaders"><code>get_v1_beacon_headers</code></a></a></h3>
+<h3 id="get_v1_beacon_headers_blockid"><a class="header" href="#get_v1_beacon_headers_blockid"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockHeader"><code>get_v1_beacon_headers_blockId</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_headers_blockId&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeaconpublishblockpost_v1_beacon_blocksa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeaconpublishblockpost_v1_beacon_blocksa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/publishBlock"><code>post_v1_beacon_blocks</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/beacon/headers/finalized -s | jq
+</code></pre>
+<h3 id="post_v1_beacon_blocks"><a class="header" href="#post_v1_beacon_blocks"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/publishBlock"><code>post_v1_beacon_blocks</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;post_v1_beacon_blocks&quot;,&quot;params&quot;:[{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body&quot;:{&quot;randao_reveal&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;eth1_data&quot;:{&quot;deposit_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;deposit_count&quot;:&quot;1&quot;,&quot;block_hash&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;graffiti&quot;:&quot;string&quot;,&quot;proposer_slashings&quot;:[{&quot;signed_header_1&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;},&quot;signed_header_2&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}}],&quot;attester_slashings&quot;:[{&quot;attestation_1&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}},&quot;attestation_2&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}}],&quot;attestations&quot;:[{&quot;aggregation_bits&quot;:&quot;0x01&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}],&quot;deposits&quot;:[{&quot;proof&quot;:[&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;],&quot;data&quot;:{&quot;pubkey&quot;:&quot;0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a&quot;,&quot;withdrawal_credentials&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;amount&quot;:&quot;1&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}}],&quot;voluntary_exits&quot;:[{&quot;message&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;validator_index&quot;:&quot;1&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}]}},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetblockget_v1_beacon_blocks_blockida"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetblockget_v1_beacon_blocks_blockida"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlock"><code>get_v1_beacon_blocks_blockId</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl -X POST -d '{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body&quot;:{&quot;randao_reveal&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;eth1_data&quot;:{&quot;deposit_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;deposit_count&quot;:&quot;1&quot;,&quot;block_hash&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;graffiti&quot;:&quot;string&quot;,&quot;proposer_slashings&quot;:[{&quot;signed_header_1&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;},&quot;signed_header_2&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}}],&quot;attester_slashings&quot;:[{&quot;attestation_1&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}},&quot;attestation_2&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}}],&quot;attestations&quot;:[{&quot;aggregation_bits&quot;:&quot;0x01&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}],&quot;deposits&quot;:[{&quot;proof&quot;:[&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;],&quot;data&quot;:{&quot;pubkey&quot;:&quot;0x93247f2209abcacf57b75a51dafae777f9dd38bc7053d1af526f220a7489a6d3a2753e5f3e8b1cfe39b56f43611df74a&quot;,&quot;withdrawal_credentials&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;amount&quot;:&quot;1&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}}],&quot;voluntary_exits&quot;:[{&quot;message&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;validator_index&quot;:&quot;1&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}]}},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}' -H 'Content-Type: application/json' http://localhost:5052/eth/v1/beacon/blocks -s | jq
+</code></pre>
+<h3 id="get_v1_beacon_blocks_blockid"><a class="header" href="#get_v1_beacon_blocks_blockid"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlock"><code>get_v1_beacon_blocks_blockId</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_blocks_blockId&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetblockrootget_v1_beacon_blocks_blockid_roota"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetblockrootget_v1_beacon_blocks_blockid_roota"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockRoot"><code>get_v1_beacon_blocks_blockId_root</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v2/beacon/blocks/finalized -s | jq
+</code></pre>
+<h3 id="get_v1_beacon_blocks_blockid_root"><a class="header" href="#get_v1_beacon_blocks_blockid_root"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockRoot"><code>get_v1_beacon_blocks_blockId_root</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_blocks_blockId_root&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetblockattestationsget_v1_beacon_blocks_blockid_attestationsa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetblockattestationsget_v1_beacon_blocks_blockid_attestationsa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockAttestations"><code>get_v1_beacon_blocks_blockId_attestations</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/beacon/blocks/finalized/root -s | jq
+</code></pre>
+<h3 id="get_v1_beacon_blocks_blockid_attestations"><a class="header" href="#get_v1_beacon_blocks_blockid_attestations"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getBlockAttestations"><code>get_v1_beacon_blocks_blockId_attestations</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_blocks_blockId_attestations&quot;,&quot;params&quot;:[&quot;finalized&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeaconsubmitpoolattestationspost_v1_beacon_pool_attestationsa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeaconsubmitpoolattestationspost_v1_beacon_pool_attestationsa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolAttestations"><code>post_v1_beacon_pool_attestations</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/beacon/blocks/finalized/attestations -s | jq
+</code></pre>
+<h3 id="post_v1_beacon_pool_attestations"><a class="header" href="#post_v1_beacon_pool_attestations"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolAttestations"><code>post_v1_beacon_pool_attestations</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_blocks_blockId_attestations&quot;,&quot;params&quot;:[{&quot;aggregation_bits&quot;:&quot;0x01&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetpoolattesterslashingsget_v1_beacon_pool_attester_slashingsa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetpoolattesterslashingsget_v1_beacon_pool_attester_slashingsa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolAttesterSlashings"><code>get_v1_beacon_pool_attester_slashings</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl -X POST -d '[{&quot;aggregation_bits&quot;:&quot;0x01&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}]'  -H 'Content-Type: application/json' http://localhost:5052/eth/v1/beacon/pool/attestations -s | jq
+</code></pre>
+<h3 id="get_v1_beacon_pool_attester_slashings"><a class="header" href="#get_v1_beacon_pool_attester_slashings"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolAttesterSlashings"><code>get_v1_beacon_pool_attester_slashings</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_pool_attester_slashings&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeaconsubmitpoolattesterslashingspost_v1_beacon_pool_attester_slashingsa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeaconsubmitpoolattesterslashingspost_v1_beacon_pool_attester_slashingsa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolAttesterSlashings"><code>post_v1_beacon_pool_attester_slashings</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/beacon/pool/attester_slashings -s | jq
+</code></pre>
+<h3 id="post_v1_beacon_pool_attester_slashings"><a class="header" href="#post_v1_beacon_pool_attester_slashings"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolAttesterSlashings"><code>post_v1_beacon_pool_attester_slashings</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;post_v1_beacon_pool_attester_slashings&quot;,&quot;params&quot;:[{&quot;attestation_1&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}},&quot;attestation_2&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}}],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetpoolproposerslashingsget_v1_beacon_pool_proposer_slashingsa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetpoolproposerslashingsget_v1_beacon_pool_proposer_slashingsa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolProposerSlashings"><code>get_v1_beacon_pool_proposer_slashings</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl -X POST -d '{&quot;attestation_1&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}},&quot;attestation_2&quot;:{&quot;attesting_indices&quot;:[&quot;1&quot;],&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}}}' -H 'Content-Type: application/json' http://localhost:5052/eth/v1/beacon/pool/attester_slashings -s | jq
+</code></pre>
+<h3 id="get_v1_beacon_pool_proposer_slashings"><a class="header" href="#get_v1_beacon_pool_proposer_slashings"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolProposerSlashings"><code>get_v1_beacon_pool_proposer_slashings</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_pool_proposer_slashings&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeaconsubmitpoolproposerslashingspost_v1_beacon_pool_proposer_slashingsa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeaconsubmitpoolproposerslashingspost_v1_beacon_pool_proposer_slashingsa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolProposerSlashings"><code>post_v1_beacon_pool_proposer_slashings</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/beacon/pool/proposer_slashings -s | jq
+</code></pre>
+<h3 id="post_v1_beacon_pool_proposer_slashings"><a class="header" href="#post_v1_beacon_pool_proposer_slashings"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolProposerSlashings"><code>post_v1_beacon_pool_proposer_slashings</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;post_v1_beacon_pool_proposer_slashings&quot;,&quot;params&quot;:[{&quot;signed_header_1&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;},&quot;signed_header_2&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}}],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeacongetpoolvoluntaryexitsget_v1_beacon_pool_voluntary_exitsa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeacongetpoolvoluntaryexitsget_v1_beacon_pool_voluntary_exitsa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolVoluntaryExits"><code>get_v1_beacon_pool_voluntary_exits</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl -X POST -d '{&quot;signed_header_1&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;},&quot;signed_header_2&quot;:{&quot;message&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;proposer_index&quot;:&quot;1&quot;,&quot;parent_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;state_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;body_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}}' -H 'Content-Type: application/json' http://localhost:5052/eth/v1/beacon/pool/proposer_slashings -s | jq
+</code></pre>
+<h3 id="get_v1_beacon_pool_voluntary_exits"><a class="header" href="#get_v1_beacon_pool_voluntary_exits"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/getPoolVoluntaryExits"><code>get_v1_beacon_pool_voluntary_exits</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_beacon_pool_voluntary_exits&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisbeaconsubmitpoolvoluntaryexitpost_v1_beacon_pool_voluntary_exitsa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisbeaconsubmitpoolvoluntaryexitpost_v1_beacon_pool_voluntary_exitsa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolVoluntaryExit"><code>post_v1_beacon_pool_voluntary_exits</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/beacon/pool/voluntary_exits -s | jq
+</code></pre>
+<h3 id="post_v1_beacon_pool_voluntary_exits"><a class="header" href="#post_v1_beacon_pool_voluntary_exits"><a href="https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolVoluntaryExit"><code>post_v1_beacon_pool_voluntary_exits</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;post_v1_beacon_pool_voluntary_exits&quot;,&quot;params&quot;:[{&quot;message&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;validator_index&quot;:&quot;1&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl -X POST -d '{&quot;message&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;validator_index&quot;:&quot;1&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}' -H 'Content-Type: application/json' http://localhost:5052/eth/v1/beacon/pool/voluntary_exits -s | jq
+</code></pre>
 <h2 id="beacon-node-api"><a class="header" href="#beacon-node-api">Beacon Node API</a></h2>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisnodegetnetworkidentityget_v1_node_identitya"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisnodegetnetworkidentityget_v1_node_identitya"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getNetworkIdentity"><code>get_v1_node_identity</code></a></a></h3>
+<h3 id="get_v1_node_identity"><a class="header" href="#get_v1_node_identity"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getNetworkIdentity"><code>get_v1_node_identity</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_node_identity&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisnodegetpeersget_v1_node_peersa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisnodegetpeersget_v1_node_peersa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getPeers"><code>get_v1_node_peers</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/node/identity -s | jq
+</code></pre>
+<h3 id="get_v1_node_peers"><a class="header" href="#get_v1_node_peers"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getPeers"><code>get_v1_node_peers</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_node_peers&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisnodegetpeerget_v1_node_peers_peerida"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisnodegetpeerget_v1_node_peers_peerida"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getPeer"><code>get_v1_node_peers_peerId</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/node/peers -s | jq
+</code></pre>
+<h3 id="get_v1_node_peers_peerid"><a class="header" href="#get_v1_node_peers_peerid"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getPeer"><code>get_v1_node_peers_peerId</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_node_peers_peerId&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisnodegetpeercountget_v1_node_peer_counta"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisnodegetpeercountget_v1_node_peer_counta"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getPeerCount"><code>get_v1_node_peer_count</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/node/peer/QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5N -s | jq
+</code></pre>
+<h3 id="get_v1_node_peer_count"><a class="header" href="#get_v1_node_peer_count"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getPeerCount"><code>get_v1_node_peer_count</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_node_peer_count&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisnodegetnodeversionget_v1_node_versiona"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisnodegetnodeversionget_v1_node_versiona"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getNodeVersion"><code>get_v1_node_version</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/node/peer_count -s | jq
+</code></pre>
+<h3 id="get_v1_node_version"><a class="header" href="#get_v1_node_version"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getNodeVersion"><code>get_v1_node_version</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_node_version&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisnodegetsyncingstatusget_v1_node_syncinga"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisnodegetsyncingstatusget_v1_node_syncinga"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getSyncingStatus"><code>get_v1_node_syncing</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/node/version -s | jq
+</code></pre>
+<h3 id="get_v1_node_syncing"><a class="header" href="#get_v1_node_syncing"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getSyncingStatus"><code>get_v1_node_syncing</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_node_syncing&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisnodegethealthget_v1_node_healtha"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisnodegethealthget_v1_node_healtha"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getHealth"><code>get_v1_node_health</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/node/syncing -s | jq
+</code></pre>
+<h3 id="get_v1_node_health"><a class="header" href="#get_v1_node_health"><a href="https://ethereum.github.io/eth2.0-APIs/#/Node/getHealth"><code>get_v1_node_health</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_node_health&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/node/health -s -w &quot;%{http_code}&quot;
+</code></pre>
 <h2 id="valdiator-api"><a class="header" href="#valdiator-api">Valdiator API</a></h2>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisvalidatorrequiredapigetattesterdutiesget_v1_validator_duties_attestera"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisvalidatorrequiredapigetattesterdutiesget_v1_validator_duties_attestera"><a href="https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/getAttesterDuties"><code>get_v1_validator_duties_attester</code></a></a></h3>
+<h3 id="get_v1_validator_duties_attester"><a class="header" href="#get_v1_validator_duties_attester"><a href="https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/getAttesterDuties"><code>get_v1_validator_duties_attester</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_duties_attester&quot;,&quot;params&quot;:[1,[&quot;a7a0502eae26043d1ac39a39457a6cdf68fae2055d89c7dc59092c25911e4ee55c4e7a31ade61c39480110a393be28e8&quot;,&quot;a1826dd94cd96c48a81102d316a2af4960d19ca0b574ae5695f2d39a88685a43997cef9a5c26ad911847674d20c46b75&quot;]],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisvalidatorrequiredapigetproposerdutiesget_v1_validator_duties_proposera"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisvalidatorrequiredapigetproposerdutiesget_v1_validator_duties_proposera"><a href="https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/getProposerDuties"><code>get_v1_validator_duties_proposer</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl -X POST http://localhost:5052/eth/v1/validator/duties/attester/1 -H 'Content-Type: application/json' -d '[&quot;a7a0502eae26043d1ac39a39457a6cdf68fae2055d89c7dc59092c25911e4ee55c4e7a31ade61c39480110a393be28e8&quot;]' -s | jq
+</code></pre>
+<h3 id="get_v1_validator_duties_proposer"><a class="header" href="#get_v1_validator_duties_proposer"><a href="https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/getProposerDuties"><code>get_v1_validator_duties_proposer</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;get_v1_validator_duties_proposer&quot;,&quot;params&quot;:[1] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisvalidatorrequiredapiproduceblockget_v1_validator_blocka"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisvalidatorrequiredapiproduceblockget_v1_validator_blocka"><a href="https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/produceBlock"><code>get_v1_validator_block</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/validator/duties/proposer/1 -s | jq
+</code></pre>
+<h3 id="get_v1_validator_block"><a class="header" href="#get_v1_validator_block"><a href="https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/produceBlock"><code>get_v1_validator_block</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_block&quot;,&quot;params&quot;:[1,&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;0x4e696d6275732f76312e302e322d64333032633164382d73746174656f667573&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisvalidatorproduceattestationdataget_v1_validator_attestation_dataa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisvalidatorproduceattestationdataget_v1_validator_attestation_dataa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Validator/produceAttestationData"><code>get_v1_validator_attestation_data</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/validator/blocks/1?randao_reveal=0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&amp;graffiti=0x4e696d6275732f76312e302e322d64333032633164382d73746174656f667573 -s | jq
+</code></pre>
+<h3 id="get_v1_validator_attestation_data"><a class="header" href="#get_v1_validator_attestation_data"><a href="https://ethereum.github.io/eth2.0-APIs/#/Validator/produceAttestationData"><code>get_v1_validator_attestation_data</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_attestation_data&quot;,&quot;params&quot;:[1, 1],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisvalidatorgetaggregatedattestationget_v1_validator_aggregate_attestationa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisvalidatorgetaggregatedattestationget_v1_validator_aggregate_attestationa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Validator/getAggregatedAttestation"><code>get_v1_validator_aggregate_attestation</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/validator/attestation_data?slot=1&amp;committee_index=1 -s | jq
+</code></pre>
+<h3 id="get_v1_validator_aggregate_attestation"><a class="header" href="#get_v1_validator_aggregate_attestation"><a href="https://ethereum.github.io/eth2.0-APIs/#/Validator/getAggregatedAttestation"><code>get_v1_validator_aggregate_attestation</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_validator_aggregate_attestation&quot;,&quot;params&quot;:[1, &quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisvalidatorpublishaggregateandproofspost_v1_validator_aggregate_and_proofsa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisvalidatorpublishaggregateandproofspost_v1_validator_aggregate_and_proofsa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Validator/publishAggregateAndProofs"><code>post_v1_validator_aggregate_and_proofs</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/validator/aggregate_attestation?slot=1&amp;attestation_data_root=0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2 -s | jq
+</code></pre>
+<h3 id="post_v1_validator_aggregate_and_proofs"><a class="header" href="#post_v1_validator_aggregate_and_proofs"><a href="https://ethereum.github.io/eth2.0-APIs/#/Validator/publishAggregateAndProofs"><code>post_v1_validator_aggregate_and_proofs</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;post_v1_validator_aggregate_and_proofs&quot;,&quot;params&quot;:[{&quot;message&quot;:{&quot;aggregator_index&quot;:&quot;1&quot;,&quot;aggregate&quot;:{&quot;aggregation_bits&quot;:&quot;0x01&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}},&quot;selection_proof&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisvalidatorpreparebeaconcommitteesubnetpost_v1_validator_beacon_committee_subscriptionsa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisvalidatorpreparebeaconcommitteesubnetpost_v1_validator_beacon_committee_subscriptionsa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Validator/prepareBeaconCommitteeSubnet"><code>post_v1_validator_beacon_committee_subscriptions</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl -X POST http://localhost:5052/eth/v1/validator/aggregate_and_proofs -H 'Content-Type: application/json' -d '[{&quot;message&quot;:{&quot;aggregator_index&quot;:&quot;1&quot;,&quot;aggregate&quot;:{&quot;aggregation_bits&quot;:&quot;0x01&quot;,&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;,&quot;data&quot;:{&quot;slot&quot;:&quot;1&quot;,&quot;index&quot;:&quot;1&quot;,&quot;beacon_block_root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;,&quot;source&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;},&quot;target&quot;:{&quot;epoch&quot;:&quot;1&quot;,&quot;root&quot;:&quot;0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2&quot;}}},&quot;selection_proof&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;},&quot;signature&quot;:&quot;0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505&quot;}]' -s | jq
+</code></pre>
+<h3 id="post_v1_validator_beacon_committee_subscriptions"><a class="header" href="#post_v1_validator_beacon_committee_subscriptions"><a href="https://ethereum.github.io/eth2.0-APIs/#/Validator/prepareBeaconCommitteeSubnet"><code>post_v1_validator_beacon_committee_subscriptions</code></a></a></h3>
 <h2 id="config-api"><a class="header" href="#config-api">Config API</a></h2>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisconfiggetforkscheduleget_v1_config_fork_schedulea"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisconfiggetforkscheduleget_v1_config_fork_schedulea"><a href="https://ethereum.github.io/eth2.0-APIs/#/Config/getForkSchedule"><code>get_v1_config_fork_schedule</code></a></a></h3>
+<h3 id="get_v1_config_fork_schedule"><a class="header" href="#get_v1_config_fork_schedule"><a href="https://ethereum.github.io/eth2.0-APIs/#/Config/getForkSchedule"><code>get_v1_config_fork_schedule</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_config_fork_schedule&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisconfiggetspecget_v1_config_speca"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisconfiggetspecget_v1_config_speca"><a href="https://ethereum.github.io/eth2.0-APIs/#/Config/getSpec"><code>get_v1_config_spec</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/config/fork_schedule -s | jq
+</code></pre>
+<h3 id="get_v1_config_spec"><a class="header" href="#get_v1_config_spec"><a href="https://ethereum.github.io/eth2.0-APIs/#/Config/getSpec"><code>get_v1_config_spec</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_config_spec&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisconfiggetdepositcontractget_v1_config_deposit_contracta"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisconfiggetdepositcontractget_v1_config_deposit_contracta"><a href="https://ethereum.github.io/eth2.0-APIs/#/Config/getDepositContract"><code>get_v1_config_deposit_contract</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/config/spec -s | jq
+</code></pre>
+<h3 id="get_v1_config_deposit_contract"><a class="header" href="#get_v1_config_deposit_contract"><a href="https://ethereum.github.io/eth2.0-APIs/#/Config/getDepositContract"><code>get_v1_config_deposit_contract</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_config_deposit_contract&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/config/deposit_contract -s | jq
+</code></pre>
 <h2 id="administrative--debug-api"><a class="header" href="#administrative--debug-api">Administrative / Debug API</a></h2>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisdebuggetstateget_v1_debug_beacon_states_stateida"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisdebuggetstateget_v1_debug_beacon_states_stateida"><a href="https://ethereum.github.io/eth2.0-APIs/#/Debug/getState"><code>get_v1_debug_beacon_states_stateId</code></a></a></h3>
+<h3 id="get_v1_debug_beacon_states_stateid"><a class="header" href="#get_v1_debug_beacon_states_stateid"><a href="https://ethereum.github.io/eth2.0-APIs/#/Debug/getState"><code>get_v1_debug_beacon_states_stateId</code></a></a></h3>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;get_v1_debug_beacon_states_stateId&quot;,&quot;params&quot;:[&quot;head&quot;],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
-<h3 id="a-hrefhttpsethereumgithubioeth20-apisdebuggetdebugchainheadsget_v1_debug_beacon_headsa"><a class="header" href="#a-hrefhttpsethereumgithubioeth20-apisdebuggetdebugchainheadsget_v1_debug_beacon_headsa"><a href="https://ethereum.github.io/eth2.0-APIs/#/Debug/getDebugChainHeads"><code>get_v1_debug_beacon_heads</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v2/debug/beacon/states/head -s | jq
+</code></pre>
+<h3 id="get_v1_debug_beacon_heads"><a class="header" href="#get_v1_debug_beacon_heads"><a href="https://ethereum.github.io/eth2.0-APIs/#/Debug/getDebugChainHeads"><code>get_v1_debug_beacon_heads</code></a></a></h3>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/eth/v1/debug/beacon/heads -s | jq
+</code></pre>
 <h2 id="nimbus-extensions"><a class="header" href="#nimbus-extensions">Nimbus extensions</a></h2>
 <h3 id="getbeaconhead"><a class="header" href="#getbeaconhead">getBeaconHead</a></h3>
 <p>The latest head slot, as chosen by the latest fork choice.</p>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getBeaconHead&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/nimbus/v1/beacon/head -s | jq
+</code></pre>
 <h3 id="getchainhead"><a class="header" href="#getchainhead">getChainHead</a></h3>
 <p>Show chain head information, including head, justified and finalized checkpoints.</p>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getChainHead&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/nimbus/v1/chain/head -s | jq
+</code></pre>
 <h3 id="getnodeversion"><a class="header" href="#getnodeversion">getNodeVersion</a></h3>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNodeVersion&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNodeVersion&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/nimbus/v1/node/version -s | jq
 </code></pre>
 <h3 id="peers"><a class="header" href="#peers">peers</a></h3>
 <p>Show a list of peers in PeerPool.</p>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;peers&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;peers&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/nimbus/v1/network/peers -s | jq
 </code></pre>
 <h3 id="getsyncing"><a class="header" href="#getsyncing">getSyncing</a></h3>
 <p>Shows current state of forward syncing manager.</p>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getSyncing&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getSyncing&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/nimbus/v1/syncmanager/status -s | jq
 </code></pre>
 <h3 id="getnetworkpeerid"><a class="header" href="#getnetworkpeerid">getNetworkPeerId</a></h3>
 <p>Shows current node's libp2p peer identifier (PeerID).</p>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNetworkPeerId&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNetworkPeerId&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
 <h3 id="getnetworkpeers"><a class="header" href="#getnetworkpeers">getNetworkPeers</a></h3>
 <p>Shows list of available PeerIDs in PeerPool.</p>
-<pre><code> curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNetworkPeers&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+<pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;getNetworkPeers&quot;,&quot;params&quot;:[],&quot;id&quot;:1}' -H 'Content-Type: application/json' localhost:9190 -s | jq
+</code></pre>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/nimbus/v1/network/peers -s | jq
 </code></pre>
 <h3 id="getnetworkenr"><a class="header" href="#getnetworkenr">getNetworkEnr</a></h3>
 <h3 id="setloglevel"><a class="header" href="#setloglevel">setLogLevel</a></h3>
 <p>Set the current logging level dynamically: TRACE, DEBUG, INFO, NOTICE, WARN, ERROR or FATAL</p>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;setLogLevel&quot;,&quot;params&quot;:[&quot;DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none&quot;] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl -X POST http://localhost:5052/nimbus/v1/chronicles/settings -d &quot;DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none&quot; -s | jq
+</code></pre>
 <h3 id="setgraffiti"><a class="header" href="#setgraffiti">setGraffiti</a></h3>
 <p>Set the graffiti bytes that will be included in proposed blocks. The graffiti bytes can be
 specified as an UTF-8 encoded string or as an 0x-prefixed hex string specifying raw bytes.</p>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;setGraffiti&quot;,&quot;params&quot;:[&quot;Mr F was here&quot;] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
 </code></pre>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl -X POST http://localhost:5052/nimbus/v1/graffiti -d &quot;Mr F was here&quot; -s | jq
+</code></pre>
 <h3 id="geteth1chain"><a class="header" href="#geteth1chain">getEth1Chain</a></h3>
 <p>Get the list of Eth1 blocks that the beacon node is currently storing in memory.</p>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getEth1Chain&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
+</code></pre>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/nimbus/v1/eth1/chain -s | jq
 </code></pre>
 <h3 id="geteth1proposaldata"><a class="header" href="#geteth1proposaldata">getEth1ProposalData</a></h3>
 <p>Inspect the eth1 data that the beacon node would produce if it was tasked to produce a block for the current slot.</p>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;getEth1ProposalData&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
 </code></pre>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/nimbus/v1/eth1/proposal_data -s | jq
+</code></pre>
 <h3 id="debug_getchronosfutures"><a class="header" href="#debug_getchronosfutures">debug_getChronosFutures</a></h3>
 <p>Get the current list of live async futures in the process - compile with <code>-d:chronosFutureTracking</code> to enable.</p>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;debug_getChronosFutures&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result | (.[0] | keys_unsorted) as $keys | $keys, map([.[ $keys[] ]])[] | @csv'
 </code></pre>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/nimbus/v1/debug/chronos/futures -s | jq
+</code></pre>
 <h3 id="debug_getgossipsubpeers"><a class="header" href="#debug_getgossipsubpeers">debug_getGossipSubPeers</a></h3>
 <p>Get the current list of live async futures in the process - compile with <code>-d:chronosFutureTracking</code> to enable.</p>
 <pre><code>curl -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:&quot;id&quot;,&quot;method&quot;:&quot;debug_getGossipSubPeers&quot;,&quot;params&quot;:[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq '.result'
+</code></pre>
+<p>Equivalent call in the official REST API:</p>
+<pre><code>curl http://localhost:5052/nimbus/v1/debug/gossip/peers -s | jq
 </code></pre>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/api.md">Edit this file on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="rest-api"><a class="header" href="#rest-api">REST API</a></h1>
 <p>Nimbus exposes an <strong>extremely fast</strong> implementation of the standard <a href="https://ethereum.github.io/beacon-APIs/">Beacon Node API</a>. The API allows you to use Nimbus together with third-party tooling such as validator clients, block explorers as well as your own monitoring infrastructure.</p>
@@ -2083,6 +2243,7 @@ nimbus_beacon_node [OPTIONS]... command
 
 The following options are available:
 
+     --config-file             Loads the configuration from a TOML file.
      --log-level               Sets the log level for process and topics (e.g. &quot;DEBUG; TRACE:discv5,libp2p;
                                REQUIRED:none; DISABLED:none&quot;) [=INFO].
      --log-file                Specifies a path for the written Json log file (deprecated).
@@ -2096,7 +2257,7 @@ The following options are available:
      --netkey-file             Source of network (secp256k1) private key file (random|&lt;path&gt;) [=random].
      --insecure-netkey-password  Use pre-generated INSECURE password for network private key file [=false].
      --agent-string            Node agent string which is used as identifier in network [=nimbus].
-     --subscribe-all-subnets   Subscribe to all attestation subnet topics when gossiping [=false].
+     --subscribe-all-subnets   Subscribe to all subnet topics when gossiping [=false].
      --num-threads             Number of worker threads (set this to 0 to use as many threads as there are CPU
                                cores available) [=1].
  -b, --bootstrap-node          Specifies one or more bootstrap nodes to use when connecting to the network.
@@ -2111,31 +2272,39 @@ The following options are available:
                                seen by other nodes it communicates with. This option allows to enable/disable
                                this functionality [=false].
      --weak-subjectivity-checkpoint  Weak subjectivity checkpoint in the format block_root:epoch_number.
+     --finalized-checkpoint-state  SSZ file specifying a recent finalized state.
+     --finalized-checkpoint-block  SSZ file specifying a recent finalized block.
      --node-name               A name for this node that will appear in the logs. If you set this to 'auto', a
                                persistent automatically generated ID will be selected for each --data-dir
                                folder.
      --graffiti                The graffiti value that will appear in proposed blocks. You can use a
                                0x-prefixed hex encoded string to specify raw bytes.
-     --verify-finalization     Specify whether to verify finalization occurs on schedule, for testing [=false].
-     --stop-at-epoch           A positive epoch selects the epoch at which to stop [=0].
      --metrics                 Enable the metrics server [=false].
      --metrics-address         Listening address of the metrics server [=127.0.0.1].
      --metrics-port            Listening HTTP port of the metrics server [=8008].
      --status-bar              Display a status bar at the bottom of the terminal screen [=true].
      --status-bar-contents     Textual template for the contents of the status bar.
-     --rpc                     Enable the JSON-RPC server [=false].
+     --rpc                     Enable the JSON-RPC server (deprecated) [=false].
      --rpc-port                HTTP port for the JSON-RPC service [=9190].
      --rpc-address             Listening address of the RPC server [=127.0.0.1].
      --rest                    Enable the REST server [=false].
      --rest-port               Port for the REST server [=5052].
      --rest-address            Listening address of the REST server [=127.0.0.1].
+     --rest-allow-origin       Limit the access to the REST API to a particular hostname (for CORS-enabled
+                               clients such as browsers).
      --rest-statecache-size    The maximum number of recently accessed states that are kept in memory. Speeds
                                up requests obtaining information for consecutive slots or epochs. [=3].
      --rest-statecache-ttl     The number of seconds to keep recently accessed states in memory [=60].
+     --rest-request-timeout    The number of seconds to wait until complete REST request will be received
+                               [=infinite].
+     --rest-max-body-size      Maximum size of REST request body (kilobytes) [=16384].
+     --rest-max-headers-size   Maximum size of REST request headers (kilobytes) [=64].
      --keymanager              Enable the REST keymanager API (BETA version) [=false].
      --keymanager-port         Listening port for the REST keymanager API [=5052].
      --keymanager-address      Listening port for the REST keymanager API [=127.0.0.1].
-     --keymanager-token-file   A file specifying the authorizition token required for accessing the keymanager
+     --keymanager-allow-origin  Limit the access to the Keymanager API to a particular hostname (for
+                               CORS-enabled clients such as browsers).
+     --keymanager-token-file   A file specifying the authorization token required for accessing the keymanager
                                API.
      --in-process-validators   Disable the push model (the beacon node tells a signing process with the private
                                keys of the validators what to sign and when) and load the validators in the
@@ -2157,6 +2326,27 @@ The following options are available:
                                monitoring many validators (BETA) [=false].
 
 ...
+</code></pre>
+<p>All command line options can also be provided in a <a href="https://toml.io/en/">TOML</a>
+config file specified through the <code>--config-file</code> flag. Within the config file,
+you need to use the long names of all options. Please note that certain options
+such as <code>web3-url</code>, <code>bootstrap-node</code>, <code>direct-peer</code>, and <code>validator-monitor-pubkey</code>
+can be supplied more than once on the command line - in the TOML file, you need
+to supply them as arrays. There are also some minor differences in the parsing
+of certain option values in the TOML files in order to conform more closely to
+existing TOML standards. For example, you can freely use keywords such as <code>on</code>,
+<code>off</code>, <code>yes</code> and <code>no</code> on the command-line as synonyms for the canonical values
+<code>true</code> and <code>false</code> which are mandatory to use in TOML. Options affecting Nimbus
+sub-commands should appear in a section of the file matching the sub-command name.</p>
+<p>Here is an example config file illustrating all of the above:</p>
+<pre><code># nimbus-eth2-config.toml
+
+doppelganger-detection = true
+web3-url = [&quot;ws://192.168.1.10:8000&quot;]
+num-threads = 0
+
+[trustedNodeSync]
+trusted-node-url = &quot;http://192.168.1.20:5052&quot;
 </code></pre>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/options.md">Edit this file on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="migration-options-advanced"><a class="header" href="#migration-options-advanced">Migration options (advanced)</a></h1>
 <p>The main migration guide is located <a href="./migration.html">here</a>. Here we document a couple of advanced options you can use if you wish to have more fine-grained control.</p>

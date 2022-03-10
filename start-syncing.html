@@ -7,7 +7,7 @@
 
 
         <!-- Custom HTML head -->
-
+        
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -90,7 +90,7 @@
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
-                <div id="menu-bar-hover-placeholder"></div>
+                                <div id="menu-bar-hover-placeholder"></div>
                 <div id="menu-bar" class="menu-bar sticky bordered">
                     <div class="left-buttons">
                         <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
@@ -150,9 +150,11 @@
 <p>To minimize the amount of downtime, you should ensure that your beacon node is <a href="./keep-an-eye.html#keep-track-of-your-syncing-progress">completely synced</a> before submitting your deposit.  If it's not fully synced you will miss attestations and proposals until it has finished syncing.</p>
 <p>This is particularly important if you are joining a network that's been running for a while since the sync could take some time.</p>
 <blockquote>
+<p><strong>Tip:</strong> If you'd like to sync faster and start attesting immediately, we recommend taking a look at <a href="./trusted-node-sync.html">trusted node sync</a></p>
+</blockquote>
+<blockquote>
 <p><strong>N.B.</strong> In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client (<strong>web3 provider</strong>) in parallel to your eth2 client. See <a href="./eth1.html">here</a> for instructions on how to do so.</p>
 </blockquote>
-<p>If you have access to a node that you trust, you can get started more quickly using <a href="./trusted-node-sync.html">trusted node sync</a>.</p>
 <h3 id="testnet"><a class="header" href="#testnet">Testnet</a></h3>
 <p>To start syncing the <code>prater</code> testnet , from the <code>nimbus-eth2</code> repository, run:</p>
 <pre><code> ./run-prater-beacon-node.sh --web3-url=&quot;&lt;YOUR_WEB3_PROVIDER_URL&gt;&quot;

@@ -7,7 +7,7 @@
 
 
         <!-- Custom HTML head -->
-
+        
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -90,7 +90,7 @@
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
-                <div id="menu-bar-hover-placeholder"></div>
+                                <div id="menu-bar-hover-placeholder"></div>
                 <div id="menu-bar" class="menu-bar sticky bordered">
                     <div class="left-buttons">
                         <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
@@ -150,16 +150,22 @@
 <p>The Nimbus beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source, which means you'll need to install some dependencies.</p>
 <h2 id="time"><a class="header" href="#time">Time</a></h2>
 <p>The beacon chain relies on your computer having the correct time set (plus or minus 0.5 seconds).</p>
-<p>We recommended you run a high quality time service on your computer such as:</p>
-<ul>
-<li>GPS</li>
-<li>NTS (network time security, <a href="https://tools.ietf.org/html/draft-ietf-ntp-using-nts-for-ntp-19">IETF draft</a>)</li>
-<li><a href="https://roughtime.googlesource.com/roughtime">Roughtime</a> (google)</li>
-</ul>
-<p>At a minimum, you should run an NTP client on the server.</p>
-<blockquote>
-<p><strong>Note:</strong> Most operating systems (including macOS') automatically sync with NTP by default.</p>
-</blockquote>
+<p>We recommended you run a high quality time service on your computer such as <a href="https://chrony.tuxfamily.org/">chrony</a>.
+Chrony is much more performant than the default NTP server.
+It's a simple install: </p>
+<pre><code class="language-sh"># Debian and Ubuntu
+sudo apt-get install -y chrony
+
+# Fedora
+dnf install chrony
+
+# Archlinux, using an AUR manager
+yourAURmanager chrony
+</code></pre>
+<p>Chrony will uninstall any existing NTP servers.</p>
+<p>It's available on most package managers.</p>
+<p>Once installed, the default configuration is good enough.</p>
+<p>At a minimum, you should run an NTP client (such as chrony) on the server.  Note that most operating systems (including macOS') automatically sync with NTP by default.</p>
 <p>If the above sounds like latin to you, don't worry. You should be fine as long as you haven't messed around with the time and date settings on your computer (they should be set automatically).</p>
 <h2 id="external-dependencies"><a class="header" href="#external-dependencies">External Dependencies</a></h2>
 <ul>

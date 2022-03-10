@@ -7,7 +7,7 @@
 
 
         <!-- Custom HTML head -->
-
+        
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -90,7 +90,7 @@
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
-                <div id="menu-bar-hover-placeholder"></div>
+                                <div id="menu-bar-hover-placeholder"></div>
                 <div id="menu-bar" class="menu-bar sticky bordered">
                     <div class="left-buttons">
                         <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
@@ -245,7 +245,7 @@ sudo systemctl disable nimbus-eth2-mainnet.service
 <p>If you run into an error at this stage, it's probably because the wrong permissions have been set on either a folder or file. See <a href="faq.html#folder-permissions">here</a> for how to fix this.</p>
 </blockquote>
 <h2 id="step-4---import-your-slashing-protection-history"><a class="header" href="#step-4---import-your-slashing-protection-history">Step 4 - Import your slashing protection history</a></h2>
-<p>To import the slashing protection history you exported in <strong>step 3</strong>, from the <code>nimbus-eth2</code> directory run:</p>
+<p>To import the slashing protection history you exported in <strong>step 2</strong>, from the <code>nimbus-eth2</code> directory run:</p>
 <pre><code>build/nimbus_beacon_node slashingdb import path/to/export_dir/slashing-protection.json
 </code></pre>
 <p>Replacing <code>/path/to/export_dir</code> with the file/directory you specified when you exported your slashing protection history.</p>
