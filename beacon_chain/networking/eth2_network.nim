@@ -1408,7 +1408,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
     switch: switch,
     pubsub: pubsub,
     wantedPeers: config.maxPeers,
-    hardMaxPeers: config.hardMaxPeers.get(config.maxPeers * 6 div 4), #*1.5
+    hardMaxPeers: config.hardMaxPeers.get(config.maxPeers * 3 div 2), #*1.5
     cfg: runtimeCfg,
     peerPool: newPeerPool[Peer, PeerID](),
     # Its important here to create AsyncQueue with limited size, otherwise
