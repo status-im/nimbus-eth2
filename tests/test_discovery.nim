@@ -58,7 +58,7 @@ procSuite "Eth2 specific discovery tests":
     attnetsSelected.setBit(34)
 
     let discovered = await node1.queryRandom(
-      enrForkId, attnetsSelected, noSyncnetsPreference)
+      enrForkId, attnetsSelected, noSyncnetsPreference, 1)
     check discovered.len == 1
 
     await node1.closeWait()
@@ -96,7 +96,7 @@ procSuite "Eth2 specific discovery tests":
     attnetsSelected.setBit(42)
 
     let discovered = await node1.queryRandom(
-      enrForkId, attnetsSelected, noSyncnetsPreference)
+      enrForkId, attnetsSelected, noSyncnetsPreference, 1)
     check discovered.len == 1
 
     await node1.closeWait()
@@ -124,7 +124,7 @@ procSuite "Eth2 specific discovery tests":
 
     block:
       let discovered = await node1.queryRandom(
-        enrForkId, attnetsSelected, noSyncnetsPreference)
+        enrForkId, attnetsSelected, noSyncnetsPreference, 1)
       check discovered.len == 0
 
     block:
@@ -139,7 +139,7 @@ procSuite "Eth2 specific discovery tests":
       discard node1.addNode(nodes[][0])
 
       let discovered = await node1.queryRandom(
-        enrForkId, attnetsSelected, noSyncnetsPreference)
+        enrForkId, attnetsSelected, noSyncnetsPreference, 1)
       check discovered.len == 1
 
     await node1.closeWait()

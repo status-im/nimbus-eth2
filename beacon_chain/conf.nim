@@ -230,9 +230,13 @@ type
         name: "udp-port" }: Port
 
       maxPeers* {.
-        desc: "The maximum number of peers to connect to"
+        desc: "The target number of peers to connect to"
         defaultValue: 160 # 5 (fanout) * 64 (subnets) / 2 (subs) for a heathy mesh
         name: "max-peers" }: int
+
+      hardMaxPeers* {.
+        desc: "The maximum number of peers to connect to. Defaults to maxPeers * 1.5"
+        name: "hard-max-peers" }: Option[int]
 
       nat* {.
         desc: "Specify method to use for determining public address. " &
