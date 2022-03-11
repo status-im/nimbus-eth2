@@ -1916,7 +1916,7 @@ proc rebuildIndex*(dag: ChainDAGRef) =
   dag.tail = dag.genesis
 
   if junk.len > 0:
-    info "Dropping redundant states", junk
+    info "Dropping redundant states", states = junk.len
 
     for i in junk:
       dag.db.delState(i[1])
