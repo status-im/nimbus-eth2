@@ -98,7 +98,7 @@ proc readBootEnr*(path: string): seq[string] {.raises: [IOError, Defect].} =
 proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Eth2NetworkMetadata
                              {.raises: [CatchableError, Defect].} =
   # Load data in eth2-networks format
-  # https://github.com/eth2-clients/eth2-networks/
+  # https://github.com/eth-clients/eth2-networks
 
   try:
     let

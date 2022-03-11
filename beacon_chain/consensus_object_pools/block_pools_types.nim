@@ -236,6 +236,14 @@ type
     blck*: BlockRef
     ## The block associated with the state found in data
 
+  # TODO when Nim 1.2 support is dropped, make these generic. 1.2 generates
+  # invalid C code, which gcc refuses to compile. Example test case:
+  # type
+  #   OnBlockAdded[T] = proc(x: T)
+  #   OnPhase0BlockAdded = OnBlockAdded[int]
+  # proc f(x: OnPhase0BlockAdded) = discard
+  # const nilCallback = OnPhase0BlockAdded(nil)
+  # f(nilCallback)
   OnPhase0BlockAdded* = proc(
     blckRef: BlockRef,
     blck: phase0.TrustedSignedBeaconBlock,
