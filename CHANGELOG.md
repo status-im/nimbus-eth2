@@ -1,3 +1,47 @@
+2022-03-10 v22.3.0
+==================
+
+Nimbus `v22.3.0` is a `low-urgency` upgrade that marks the beginning of a more predictable release cadence for Nimbus. Going forward, we'll be publishing a new release each month, following a feature freeze period with intensified testing and monitoring of the introduced code changes on our dispersed fleet of mainnet validators.
+
+> Please note that the new versioning scheme is tied to the calendar. The number 22 indicates the year of the release (2022), while 3 is the month (March). The last digit is the patch number of the release and it will have a non-zero value only when we ship a hotfix during the month.
+
+### Improvements:
+
+* Nimbus can now run as a service on Windows: use the `--run-as-service` flag
+  https://github.com/status-im/nimbus-eth2/pull/3441
+
+* All command-line options can now be provided in a configuration file: use the `--config-file` flag
+  https://github.com/status-im/nimbus-eth2/pull/3442
+  https://nimbus.guide/options.html
+
+* Lower CPU and bandwidth usage, thanks to better handling of already-seen attestation aggregates
+  https://github.com/status-im/nimbus-eth2/pull/3439
+
+* Reduced memory usage for nodes bootstrapped with [trusted node sync](https://nimbus.guide/trusted-node-sync.html)
+  https://github.com/status-im/nimbus-eth2/pull/3429
+
+### We've fixed:
+
+* Reduced performance on Windows due to the use of a less efficient method for collecting stack traces
+  https://github.com/status-im/nimbus-eth2/pull/3466
+
+* Non-spec-compliant URLs in the [Keymanager APIs](https://nimbus.guide/keymanager-api.html) for handling remote keystores
+  https://github.com/status-im/nimbus-eth2/commit/4c01b777736f0d5d6fe38b37a4349741f6944e4c
+
+* Extremely slow [slashing DB import](https://nimbus.guide/migration.html#step-4---import-your-slashing-protection-history) for validators with long validation history: the import should be nearly instant now
+  https://github.com/status-im/nimbus-eth2/pull/3393
+
+* Validator index-out-of-bounds crash that was triggered upon certain requests to the `/eth/v1/beacon/states/{state_id}/validators/{validator_id}` API
+  https://github.com/status-im/nimbus-eth2/issues/3463
+
+* An off-by-one logic error preventing sync committee messages to be published in the first slot of each sync committee period
+  https://github.com/status-im/nimbus-eth2/pull/3470/commits/542e645bedec7702a973dc5cdaae87175e353009
+
+### Deprecated features:
+
+- The [JSON-RPC](https://nimbus.guide/api.html) service (`--rpc` flag) option is now deprecated. It's scheduled for removal in version `v22.6` (i.e. June of this year). If you are currently relying on the JSON-RPC API, please consider switching to the official [REST API](https://nimbus.guide/rest-api.html).
+
+
 2022-02-15 v1.7.0
 =================
 

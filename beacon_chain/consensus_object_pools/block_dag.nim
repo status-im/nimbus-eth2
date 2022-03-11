@@ -9,11 +9,9 @@
 
 import
   chronicles,
+  ../spec/forks
 
-  ../spec/datatypes/[phase0, altair],
-  ../spec/[helpers]
-
-export chronicles, phase0, altair, helpers
+export chronicles, forks
 
 type
   BlockId* = object
@@ -56,6 +54,9 @@ type
     slot*: Slot ##\
       ## Slot time for this BlockSlot which may differ from blck.slot when time
       ## has advanced without blocks
+
+func hash*(bid: BlockId): Hash =
+  hash(bid.root)
 
 template root*(blck: BlockRef): Eth2Digest = blck.bid.root
 template slot*(blck: BlockRef): Slot = blck.bid.slot
@@ -129,7 +130,7 @@ func link*(parent, child: BlockRef) =
 func get_ancestor*(blck: BlockRef, slot: Slot,
     maxDepth = 100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int):
     BlockRef =
-  ## https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/fork-choice.md#get_ancestor
+  ## https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_ancestor
   ## Return the most recent block as of the time at `slot` that not more recent
   ## than `blck` itself
   if isNil(blck): return nil

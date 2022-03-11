@@ -6,12 +6,12 @@ import
   chronos, web3/[engine_api_types, ethtypes],
   ../beacon_chain/eth1/eth1_monitor,
   ../beacon_chain/spec/[digest, presets],
-  ./testutil
+  ../tests/testutil
 
 suite "Merge test vectors":
   setup:
     let web3Provider = (waitFor Web3DataProvider.new(
-      default(Eth1Address), "ws://127.0.0.1:8551")).get
+      default(Eth1Address), "http://127.0.0.1:8545")).get
 
   test "getPayload, newPayload, and forkchoiceUpdated":
     const feeRecipient =

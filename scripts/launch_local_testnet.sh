@@ -438,6 +438,20 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   fi
 done
 
+CLI_CONF_FILE="$CONTAINER_DATA_DIR/config.toml"
+
+cat > "$CLI_CONF_FILE" <<END_CLI_CONFIG
+non-interactive = true
+nat = "extip:127.0.0.1"
+network = "${CONTAINER_DATA_DIR}"
+log-level = "${LOG_LEVEL}"
+log-format = "json"
+rest = true
+rest-address = "127.0.0.1"
+metrics = true
+metrics-address = "127.0.0.1"
+END_CLI_CONFIG
+
 for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
   CONTAINER_NODE_DATA_DIR="${CONTAINER_DATA_DIR}/node${NUM_NODE}"
@@ -471,11 +485,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   fi
 
   $BEACON_NODE_COMMAND \
-    --non-interactive \
-    --nat:extip:127.0.0.1 \
-    --network="${CONTAINER_DATA_DIR}" \
-    --log-level="${LOG_LEVEL}" \
-    --log-format=json \
+    --config-file="$CLI_CONF_FILE" \
     --tcp-port=$(( BASE_PORT + NUM_NODE )) \
     --udp-port=$(( BASE_PORT + NUM_NODE )) \
     --max-peers=$(( NUM_NODES - 1 )) \
@@ -483,11 +493,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     ${BOOTSTRAP_ARG} \
     ${WEB3_ARG} \
     ${STOP_AT_EPOCH_FLAG} \
-    --rest \
-    --rest-address="127.0.0.1" \
     --rest-port="$(( BASE_REST_PORT + NUM_NODE ))" \
-    --metrics \
-    --metrics-address="127.0.0.1" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
     ${EXTRA_ARGS} \
     > "${DATA_DIR}/log${NUM_NODE}.txt" 2>&1 &

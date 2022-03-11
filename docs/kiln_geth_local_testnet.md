@@ -1,6 +1,6 @@
 # How to run Geth
 
-- Clone Geth: `git clone --branch merge-kiln https://github.com/MariusVanDerWijden/go-ethereum.git ~/execution_clients/go-ethereum
+- Clone Geth: `git clone --branch merge-kiln-v2 https://github.com/MariusVanDerWijden/go-ethereum.git ~/go-ethereum`
 - Build Geth with `make geth`
 - Run `scripts/run-catalyst.sh` to run Geth. It listens on port 8551.
 

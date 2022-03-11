@@ -14,7 +14,7 @@ import
   std/[os, tables, strutils, terminal, typetraits],
 
   # Nimble packages
-  chronos, confutils,
+  chronos, confutils, toml_serialization,
   chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
   stew/io2,
 
@@ -26,7 +26,8 @@ import
 when defined(posix):
   import termios
 
-export beacon_clock, beacon_node_status, conf, confutils
+export
+  confutils, toml_serialization, beacon_clock, beacon_node_status, conf
 
 type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
@@ -180,11 +181,33 @@ template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
     version = clientId & "\p" & copyrights & "\p\p" &
       "eth2 specification v" & SPEC_VERSION & "\p\p" &
       nimBanner
+
   # TODO for some reason, copyrights are printed when doing `--help`
   {.push warning[ProveInit]: off.}
-  let config = ConfType.load(
-    version = version,
-    copyrightBanner = clientId) # but a short version string makes more sense...
+  let config = try:
+    ConfType.load(
+      version = version, # but a short version string makes more sense...
+      copyrightBanner = clientId,
+      secondarySources = proc (config: ConfType, sources: auto) =
+        if config.configFile.isSome:
+          sources.addConfigFile(Toml, config.configFile.get)
+    )
+  except CatchableError as err:
+    # We need to log to stderr here, because logging hasn't been configured yet
+    stderr.write "Failure while loading the configuration:\n"
+    stderr.write err.msg
+    stderr.write "\n"
+
+    if err[] of ConfigurationError and
+       err.parent != nil and
+       err.parent[] of TomlFieldReadingError:
+      let fieldName = ((ref TomlFieldReadingError)(err.parent)).field
+      if fieldName in ["web3-url", "bootstrap-node",
+                       "direct-peer", "validator-monitor-pubkey"]:
+        stderr.write "Since the '" & fieldName & "' option is allowed to " &
+                     "have more than one value, please make sure to supply " &
+                     "a properly formatted TOML array\n"
+    quit 1
   {.pop.}
   config
 

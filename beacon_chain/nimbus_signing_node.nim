@@ -332,17 +332,15 @@ programMain:
                                    SigningNodeConf)
   setupLogging(config.logLevel, config.logStdout, config.logFile)
 
-  case config.cmd
-    of SNNoCommand:
-      var sn = SigningNode.init(config)
-      notice "Launching signing node", version = fullVersionStr,
-             cmdParams = commandLineParams(), config,
-             validators_count = sn.attachedValidators.count()
-      sn.installApiHandlers()
-      sn.start()
-      try:
-        runForever()
-      finally:
-        waitFor sn.stop()
-        waitFor sn.close()
-      discard sn.stop()
+  var sn = SigningNode.init(config)
+  notice "Launching signing node", version = fullVersionStr,
+         cmdParams = commandLineParams(), config,
+         validators_count = sn.attachedValidators.count()
+  sn.installApiHandlers()
+  sn.start()
+  try:
+    runForever()
+  finally:
+    waitFor sn.stop()
+    waitFor sn.close()
+  discard sn.stop()

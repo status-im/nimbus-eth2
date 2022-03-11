@@ -212,7 +212,7 @@ template validateBeaconBlockBellatrix(
       of BeaconBlockFork.Altair:
         false
       of BeaconBlockFork.Bellatrix:
-        # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/bellatrix/beacon-chain.md#process_execution_payload
+        # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/beacon-chain.md#process_execution_payload
         # shows how this gets folded into the state each block; checking this
         # is equivalent, without ever requiring state replay or any similarly
         # expensive computation.
@@ -260,7 +260,7 @@ proc validateBeaconBlock*(
   # proposer for the slot, signed_beacon_block.message.slot.
   #
   # While this condition is similar to the proposer slashing condition at
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#proposer-slashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#proposer-slashing
   # it's not identical, and this check does not address slashing:
   #
   # (1) The beacon blocks must be conflicting, i.e. different, for the same
@@ -621,9 +621,24 @@ proc validateAggregate*(
       return err(v.error)
     v.get()
 
-  # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
-  # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
-  # aggregate.data.index, aggregate_and_proof.selection_proof) returns True.
+  if pool[].covers(aggregate.data, aggregate.aggregation_bits):
+    # https://github.com/ethereum/consensus-specs/issues/2183 - althoughh this
+    # check was temporarily removed from the spec, the intent is to reinstate it
+    # per discussion in the ticket.
+    #
+    # [IGNORE] The valid aggregate attestation defined by
+    # `hash_tree_root(aggregate)` has _not_ already been seen
+    # (via aggregate gossip, within a verified block, or through the creation of
+    # an equivalent aggregate locally).
+
+    # Our implementation of this check is slightly different in that it doesn't
+    # consider aggregates from verified blocks - this would take a rather heavy
+    # index to work correcly under fork conditions - we also check for coverage
+    # of attestation bits instead of comparing with full root of aggreagte:
+    # this captures the spirit of the checkk by ignoring aggregates that are
+    # strict subsets of other, already-seen aggregates.
+    return errIgnore("Aggregate already covered")
+
   let
     epochRef = block:
       let tmp = pool.dag.getEpochRef(target.blck, target.slot.epoch, false)
@@ -641,6 +656,9 @@ proc validateAggregate*(
       return checkedReject("Attestation: committee index not within expected range")
     idx.get()
 
+  # [REJECT] aggregate_and_proof.selection_proof selects the validator as an
+  # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
+  # aggregate.data.index, aggregate_and_proof.selection_proof) returns True.
   if not is_aggregator(
       epochRef, slot, committee_index, aggregate_and_proof.selection_proof):
     return checkedReject("Aggregate: incorrect aggregator")
@@ -807,7 +825,7 @@ proc validateVoluntaryExit*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/p2p-interface.md#sync_committee_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/p2p-interface.md#sync_committee_subnet_id
 proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
     batchCrypto: ref BatchCrypto,
@@ -891,7 +909,7 @@ proc validateSyncCommitteeMessage*(
 
   return ok((positionsInSubcommittee, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
 proc validateContribution*(
     dag: ChainDAGRef,
     batchCrypto: ref BatchCrypto,

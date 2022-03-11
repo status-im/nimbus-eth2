@@ -311,7 +311,7 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + Slashing test: multiple_interchanges_overlapping_validators_repeat_idem.json               OK
 + Slashing test: multiple_interchanges_single_validator_fail_iff_imported.json               OK
 + Slashing test: multiple_interchanges_single_validator_first_surrounds_second.json          OK
-  Slashing test: multiple_interchanges_single_validator_multiple_blocks_out_of_order.json    Skip
++ Slashing test: multiple_interchanges_single_validator_multiple_blocks_out_of_order.json    OK
 + Slashing test: multiple_interchanges_single_validator_second_surrounds_first.json          OK
 + Slashing test: multiple_interchanges_single_validator_single_att_out_of_order.json         OK
 + Slashing test: multiple_interchanges_single_validator_single_block_out_of_order.json       OK
@@ -324,7 +324,7 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + Slashing test: single_validator_multiple_blocks_and_attestations.json                      OK
 + Slashing test: single_validator_out_of_order_attestations.json                             OK
 + Slashing test: single_validator_out_of_order_blocks.json                                   OK
-+ Slashing test: single_validator_resign_attestation.json                                    OK
+  Slashing test: single_validator_resign_attestation.json                                    Skip
 + Slashing test: single_validator_resign_block.json                                          OK
 + Slashing test: single_validator_single_attestation.json                                    OK
 + Slashing test: single_validator_single_block.json                                          OK
@@ -337,18 +337,12 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + Slashing test: single_validator_slashable_blocks_no_root.json                              OK
 + Slashing test: single_validator_source_greater_than_target.json                            OK
 + Slashing test: single_validator_source_greater_than_target_sensible_iff_minified.json      OK
-+ Slashing test: single_validator_source_greater_than_target_surrounded.json                 OK
+  Slashing test: single_validator_source_greater_than_target_surrounded.json                 Skip
   Slashing test: single_validator_source_greater_than_target_surrounding.json                Skip
 + Slashing test: single_validator_two_blocks_no_signing_root.json                            OK
 + Slashing test: wrong_genesis_validators_root.json                                          OK
 ```
-OK: 36/38 Fail: 0/38 Skip: 2/38
-## Slashing Protection DB - Interchange [Preset: mainnet]
-```diff
-+ Smoke test - Complete format - Invalid database is refused [Preset: mainnet]               OK
-+ Smoke test - Complete format [Preset: mainnet]                                             OK
-```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 35/38 Fail: 0/38 Skip: 3/38
 ## Slashing Protection DB [Preset: mainnet]
 ```diff
 + Attestation ordering #1698                                                                 OK
@@ -465,6 +459,13 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + `createValidatorFiles` with already existing dirs and any error                            OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
+## engine API authentication
+```diff
++ HS256 JWS iat token signing                                                                OK
++ HS256 JWS signing                                                                          OK
++ getIatToken                                                                                OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## eth2.0-deposits-cli compatibility
 ```diff
 + restoring mnemonic with password                                                           OK
@@ -512,4 +513,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 282/286 Fail: 0/286 Skip: 4/286
+OK: 282/287 Fail: 0/287 Skip: 5/287

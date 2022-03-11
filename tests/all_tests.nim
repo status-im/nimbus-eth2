@@ -21,6 +21,7 @@ import # Unit test
   ./test_block_quarantine,
   ./test_datatypes,
   ./test_discovery,
+  ./test_engine_authentication,
   ./test_eth1_monitor,
   ./test_eth2_ssz_serialization,
   ./test_exit_pool,
@@ -40,7 +41,6 @@ import # Unit test
   ./fork_choice/tests_fork_choice,
   ./consensus_spec/all_tests as consensus_all_tests,
   ./slashing_protection/test_fixtures,
-  ./slashing_protection/test_slashing_interchange,
   ./slashing_protection/test_slashing_protection_db
 
 import # Refactor state transition unit tests

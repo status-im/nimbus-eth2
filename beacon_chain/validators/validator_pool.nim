@@ -228,7 +228,7 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
         validator = shortLog(v)
   return await v.client.signData(v.pubkey, request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#signature
 proc signBlockProposal*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         blockRoot: Eth2Digest, blck: ForkedBeaconBlock
@@ -309,7 +309,7 @@ proc signAggregateAndProof*(v: AttachedValidator,
       else:
         SignatureResult.ok(res.get().toValidatorSig())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/validator.md#prepare-sync-committee-message
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#prepare-sync-committee-message
 proc signSyncCommitteeMessage*(v: AttachedValidator,
                                fork: Fork,
                                genesis_validators_root: Eth2Digest,
@@ -339,7 +339,7 @@ proc signSyncCommitteeMessage*(v: AttachedValidator,
       )
     )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#aggregation-selection
 proc getSyncCommitteeSelectionProof*(v: AttachedValidator,
                                      fork: Fork,
                                      genesis_validators_root: Eth2Digest,
@@ -360,7 +360,7 @@ proc getSyncCommitteeSelectionProof*(v: AttachedValidator,
       else:
         SignatureResult.ok(res.get().toValidatorSig())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#signature
 proc sign*(v: AttachedValidator, msg: ref SignedContributionAndProof,
            fork: Fork, genesis_validators_root: Eth2Digest
           ): Future[SignatureResult] {.async.} =
@@ -377,7 +377,7 @@ proc sign*(v: AttachedValidator, msg: ref SignedContributionAndProof,
       res.get().toValidatorSig()
   return SignatureResult.ok(msg.signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#randao-reveal
 func genRandaoReveal*(k: ValidatorPrivKey, fork: Fork,
                       genesis_validators_root: Eth2Digest,
                       slot: Slot): CookedSig =

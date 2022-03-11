@@ -107,6 +107,7 @@ type
     eth1Network: Option[Eth1Network]
     depositContractAddress*: Eth1Address
     forcePolling: bool
+    jwtSecret: seq[byte]
 
     dataProvider: Web3DataProviderRef
     latestEth1Block: Option[FullBlockId]
@@ -273,11 +274,11 @@ template toGaugeValue(x: Quantity): int64 =
 #  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
 #             "Invalid configuration: GENESIS_DELAY is set too low"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#get_eth1_data
 func compute_time_at_slot(genesis_time: uint64, slot: Slot): uint64 =
   genesis_time + slot * SECONDS_PER_SLOT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#get_eth1_data
 func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   let eth1_voting_period_start_slot =
     getStateField(state, slot) - getStateField(state, slot) mod
@@ -285,7 +286,7 @@ func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   compute_time_at_slot(
     getStateField(state, genesis_time), eth1_voting_period_start_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#get_eth1_data
 func is_candidate_block(cfg: RuntimeConfig,
                         blk: Eth1Block,
                         period_start: uint64): bool =
@@ -310,7 +311,7 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
     state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
     receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
     logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
-    random: rpcExecutionPayload.prevRandao.asEth2Digest,
+    prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
     block_number: rpcExecutionPayload.blockNumber.uint64,
     gas_limit: rpcExecutionPayload.gasLimit.uint64,
     gas_used: rpcExecutionPayload.gasUsed.uint64,
@@ -336,7 +337,7 @@ func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:
       FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    prevRandao: executionPayload.random.asBlockHash,
+    prevRandao: executionPayload.prev_randao.asBlockHash,
     blockNumber: Quantity(executionPayload.block_number),
     gasLimit: Quantity(executionPayload.gas_limit),
     gasUsed: Quantity(executionPayload.gas_used),
@@ -758,7 +759,7 @@ template trackFinalizedState*(m: Eth1Monitor,
                               finalizedStateDepositIndex: uint64): bool =
   trackFinalizedState(m.depositsChain, finalizedEth1Data, finalizedStateDepositIndex)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#get_eth1_data
 proc getBlockProposalData*(chain: var Eth1Chain,
                            state: ForkedHashedBeaconState,
                            finalizedEth1Data: Eth1Data,
@@ -901,7 +902,8 @@ proc init*(T: type Eth1Monitor,
            web3Urls: seq[string],
            depositContractSnapshot: Option[DepositContractSnapshot],
            eth1Network: Option[Eth1Network],
-           forcePolling: bool): T =
+           forcePolling: bool,
+           jwtSecret: seq[byte]): T =
   doAssert web3Urls.len > 0
   var web3Urls = web3Urls
   for url in mitems(web3Urls):
@@ -916,7 +918,8 @@ proc init*(T: type Eth1Monitor,
     web3Urls: web3Urls,
     eth1Network: eth1Network,
     eth1Progress: newAsyncEvent(),
-    forcePolling: forcePolling)
+    forcePolling: forcePolling,
+    jwtSecret: jwtSecret)
 
 proc safeCancel(fut: var Future[void]) =
   if not fut.isNil and not fut.finished:

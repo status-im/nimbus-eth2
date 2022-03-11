@@ -21,6 +21,7 @@ nimbus_beacon_node [OPTIONS]... command
 
 The following options are available:
 
+     --config-file             Loads the configuration from a TOML file.
      --log-level               Sets the log level for process and topics (e.g. "DEBUG; TRACE:discv5,libp2p;
                                REQUIRED:none; DISABLED:none") [=INFO].
      --log-file                Specifies a path for the written Json log file (deprecated).
@@ -34,7 +35,7 @@ The following options are available:
      --netkey-file             Source of network (secp256k1) private key file (random|<path>) [=random].
      --insecure-netkey-password  Use pre-generated INSECURE password for network private key file [=false].
      --agent-string            Node agent string which is used as identifier in network [=nimbus].
-     --subscribe-all-subnets   Subscribe to all attestation subnet topics when gossiping [=false].
+     --subscribe-all-subnets   Subscribe to all subnet topics when gossiping [=false].
      --num-threads             Number of worker threads (set this to 0 to use as many threads as there are CPU
                                cores available) [=1].
  -b, --bootstrap-node          Specifies one or more bootstrap nodes to use when connecting to the network.
@@ -49,31 +50,39 @@ The following options are available:
                                seen by other nodes it communicates with. This option allows to enable/disable
                                this functionality [=false].
      --weak-subjectivity-checkpoint  Weak subjectivity checkpoint in the format block_root:epoch_number.
+     --finalized-checkpoint-state  SSZ file specifying a recent finalized state.
+     --finalized-checkpoint-block  SSZ file specifying a recent finalized block.
      --node-name               A name for this node that will appear in the logs. If you set this to 'auto', a
                                persistent automatically generated ID will be selected for each --data-dir
                                folder.
      --graffiti                The graffiti value that will appear in proposed blocks. You can use a
                                0x-prefixed hex encoded string to specify raw bytes.
-     --verify-finalization     Specify whether to verify finalization occurs on schedule, for testing [=false].
-     --stop-at-epoch           A positive epoch selects the epoch at which to stop [=0].
      --metrics                 Enable the metrics server [=false].
      --metrics-address         Listening address of the metrics server [=127.0.0.1].
      --metrics-port            Listening HTTP port of the metrics server [=8008].
      --status-bar              Display a status bar at the bottom of the terminal screen [=true].
      --status-bar-contents     Textual template for the contents of the status bar.
-     --rpc                     Enable the JSON-RPC server [=false].
+     --rpc                     Enable the JSON-RPC server (deprecated) [=false].
      --rpc-port                HTTP port for the JSON-RPC service [=9190].
      --rpc-address             Listening address of the RPC server [=127.0.0.1].
      --rest                    Enable the REST server [=false].
      --rest-port               Port for the REST server [=5052].
      --rest-address            Listening address of the REST server [=127.0.0.1].
+     --rest-allow-origin       Limit the access to the REST API to a particular hostname (for CORS-enabled
+                               clients such as browsers).
      --rest-statecache-size    The maximum number of recently accessed states that are kept in memory. Speeds
                                up requests obtaining information for consecutive slots or epochs. [=3].
      --rest-statecache-ttl     The number of seconds to keep recently accessed states in memory [=60].
+     --rest-request-timeout    The number of seconds to wait until complete REST request will be received
+                               [=infinite].
+     --rest-max-body-size      Maximum size of REST request body (kilobytes) [=16384].
+     --rest-max-headers-size   Maximum size of REST request headers (kilobytes) [=64].
      --keymanager              Enable the REST keymanager API (BETA version) [=false].
      --keymanager-port         Listening port for the REST keymanager API [=5052].
      --keymanager-address      Listening port for the REST keymanager API [=127.0.0.1].
-     --keymanager-token-file   A file specifying the authorizition token required for accessing the keymanager
+     --keymanager-allow-origin  Limit the access to the Keymanager API to a particular hostname (for
+                               CORS-enabled clients such as browsers).
+     --keymanager-token-file   A file specifying the authorization token required for accessing the keymanager
                                API.
      --in-process-validators   Disable the push model (the beacon node tells a signing process with the private
                                keys of the validators what to sign and when) and load the validators in the
@@ -96,3 +105,29 @@ The following options are available:
 
 ...
 ```
+
+All command line options can also be provided in a [TOML](https://toml.io/en/)
+config file specified through the `--config-file` flag. Within the config file,
+you need to use the long names of all options. Please note that certain options
+such as `web3-url`, `bootstrap-node`, `direct-peer`, and `validator-monitor-pubkey`
+can be supplied more than once on the command line - in the TOML file, you need
+to supply them as arrays. There are also some minor differences in the parsing
+of certain option values in the TOML files in order to conform more closely to
+existing TOML standards. For example, you can freely use keywords such as `on`,
+`off`, `yes` and `no` on the command-line as synonyms for the canonical values
+`true` and `false` which are mandatory to use in TOML. Options affecting Nimbus
+sub-commands should appear in a section of the file matching the sub-command name.
+
+Here is an example config file illustrating all of the above:
+
+```
+# nimbus-eth2-config.toml
+
+doppelganger-detection = true
+web3-url = ["ws://192.168.1.10:8000"]
+num-threads = 0
+
+[trustedNodeSync]
+trusted-node-url = "http://192.168.1.20:5052"
+```
+

@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 #
 # The entry point is `state_transition` which is at the bottom of the file!
 #
@@ -51,7 +51,7 @@ import
 
 export results, extras, phase0, altair, bellatrix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
     state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock):
     Result[void, cstring] =
@@ -68,7 +68,7 @@ proc verify_block_signature(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func verifyStateRoot(
     state: ForkyBeaconState, blck: ForkyBeaconBlock | ForkySigVerifiedBeaconBlock):
     Result[void, cstring] =
@@ -97,7 +97,7 @@ func noRollback*() =
 # Hashed-state transition functions
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func process_slot*(
     state: var ForkyBeaconState, pre_state_root: Eth2Digest) =
   # `process_slot` is the first stage of per-slot processing - it is run for
@@ -250,11 +250,11 @@ proc state_transition_block*(
   ## before the state has been updated, `rollback` will not be called.
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
 
-  # Ensure state_transition_block()-only callers trigger this
-  maybeUpgradeStateToAltair(cfg, state)
-
   let res = withState(state):
-    state_transition_block_aux(cfg, state, signedBlock, cache, flags)
+    when stateFork.toBeaconBlockFork() == type(signedBlock).toFork:
+      state_transition_block_aux(cfg, state, signedBlock, cache, flags)
+    else:
+      err("State/block fork mismatch")
 
   if res.isErr():
     rollback(state)
@@ -289,7 +289,7 @@ proc state_transition*(
   state_transition_block(
     cfg, state, signedBlock, cache, flags, rollback)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#preparing-for-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#preparing-for-a-beaconblock
 template partialBeaconBlock(
     cfg: RuntimeConfig,
     state: var phase0.HashedBeaconState,
@@ -353,7 +353,7 @@ proc makeBeaconBlock*(
 
   ok(blck)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/validator.md#preparing-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#preparing-a-beaconblock
 template partialBeaconBlock(
     cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,

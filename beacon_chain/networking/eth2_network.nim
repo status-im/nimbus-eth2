@@ -159,6 +159,7 @@ type
     Success
     InvalidRequest
     ServerError
+    ResourceUnavailable
 
   PeerStateInitializer* = proc(peer: Peer): RootRef {.gcsafe, raises: [Defect].}
   NetworkStateInitializer* = proc(network: EthereumNode): RootRef {.gcsafe, raises: [Defect].}
@@ -206,6 +207,8 @@ type
       discard
 
   InvalidInputsError* = object of CatchableError
+
+  ResourceUnavailableError* = object of CatchableError
 
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
@@ -721,6 +724,13 @@ proc handleIncomingStream(network: Eth2Node,
     template returnInvalidRequest(msg: string) =
       returnInvalidRequest(ErrorMsg msg.toBytes)
 
+    template returnResourceUnavailable(msg: ErrorMsg) =
+      await sendErrorResponse(peer, conn, ResourceUnavailable, msg)
+      return
+
+    template returnResourceUnavailable(msg: string) =
+      returnResourceUnavailable(ErrorMsg msg.toBytes)
+
     let s = when useNativeSnappy:
       let fs = libp2pInput(conn)
 
@@ -734,7 +744,19 @@ proc handleIncomingStream(network: Eth2Node,
 
     let deadline = sleepAsync RESP_TIMEOUT
 
-    let msg = if sizeof(MsgRec) > 0:
+    const isEmptyMsg = when MsgRec is object:
+      # We need nested `when` statements here, because Nim doesn't properly
+      # apply boolean short-circuit logic at compile time and this causes
+      # `totalSerializedFields` to be applied to non-object types that it
+      # doesn't know how to support.
+      when totalSerializedFields(MsgRec) == 0: true
+      else: false
+    else:
+      false
+
+    let msg = when isEmptyMsg:
+      NetRes[MsgRec].ok default(MsgRec)
+    else:
       try:
         awaitWithTimeout(readChunkPayload(s, peer, MsgRec), deadline):
           returnInvalidRequest(errorMsgLit "Request full data not sent in time")
@@ -744,8 +766,6 @@ proc handleIncomingStream(network: Eth2Node,
 
       except SnappyError as err:
         returnInvalidRequest err.msg
-    else:
-      NetRes[MsgRec].ok default(MsgRec)
 
     if msg.isErr:
       let (responseCode, errMsg) = case msg.error.kind
@@ -785,8 +805,8 @@ proc handleIncomingStream(network: Eth2Node,
       await callUserHandler(MsgType, peer, conn, msg.get)
     except InvalidInputsError as err:
       returnInvalidRequest err.msg
-      await sendErrorResponse(peer, conn, ServerError,
-                              ErrorMsg err.msg.toBytes)
+    except ResourceUnavailableError as err:
+      returnResourceUnavailable err.msg
     except CatchableError as err:
       await sendErrorResponse(peer, conn, ServerError,
                               ErrorMsg err.msg.toBytes)
@@ -1871,15 +1891,14 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
     NetKeyPair(seckey: privKey, pubkey: pubKey)
 
 func gossipId(
-    data: openArray[byte], altairPrefix, topic: string, valid: bool): seq[byte] =
+    data: openArray[byte], altairPrefix, topic: string): seq[byte] =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/p2p-interface.md#topics-and-messages
   const
     MESSAGE_DOMAIN_INVALID_SNAPPY = [0x00'u8, 0x00, 0x00, 0x00]
     MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
   let messageDigest = withEth2Hash:
-    h.update(
-      if valid: MESSAGE_DOMAIN_VALID_SNAPPY else: MESSAGE_DOMAIN_INVALID_SNAPPY)
+    h.update(MESSAGE_DOMAIN_VALID_SNAPPY)
 
     if topic.startsWith(altairPrefix):
       h.update topic.len.uint64.toBytesLE
@@ -1969,9 +1988,9 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       # This doesn't have to be a tight bound, just enough to avoid denial of
       # service attacks.
       let decoded = snappy.decode(m.data, maxGossipMaxSize())
-      ok(gossipId(decoded, altairPrefix, topic, true))
+      ok(gossipId(decoded, altairPrefix, topic))
     except CatchableError:
-      ok(gossipId(m.data, altairPrefix, topic, false))
+      err(ValidationResult.Reject)
 
   let
     params = GossipSubParams(
@@ -2189,7 +2208,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
   node.metadata.seq_number += 1
   node.metadata.attnets = attnets
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
   let res = node.discovery.updateRecord({
     enrAttestationSubnetsField: SSZ.encode(node.metadata.attnets)
@@ -2202,7 +2221,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#sync-committee-subnet-stability
   if node.metadata.syncnets == syncnets:
     return
 
@@ -2245,7 +2264,7 @@ proc getWallEpoch(node: Eth2Node): Epoch =
 proc broadcastAttestation*(node: Eth2Node, subnet_id: SubnetId,
                            attestation: Attestation) =
   # Regardless of the contents of the attestation,
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/p2p-interface.md#transitioning-the-gossip
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/p2p-interface.md#transitioning-the-gossip
   # implies that pre-fork, messages using post-fork digests might be
   # ignored, whilst post-fork, there is effectively a seen_ttl-based
   # timer unsubscription point that means no new pre-fork-forkdigest

@@ -119,10 +119,28 @@ type
       ## are stored in a mod-increment pattern across fixed-sized arrays, which
       ## addresses most of the rest of the BeaconState sizes.
 
-    summaries: KvStoreRef # BlockRoot -> BeaconBlockSummary
+    summaries: KvStoreRef
+      ## BlockRoot -> BeaconBlockSummary - permits looking up basic block
+      ## information via block root - contains only summaries that were valid
+      ## at some point in history - it is however possible that entries exist
+      ## that are no longer part of the finalized chain history, thus the
+      ## cache should not be used to answer fork choice questions - see
+      ## `getHeadBlock` and `finalizedBlocks` instead.
+      ##
+      ## May contain entries for blocks that are not stored in the database.
+      ##
+      ## See `finalizedBlocks` for an index in the other direction.
 
     finalizedBlocks*: FinalizedBlocks
       ## Blocks that are known to be finalized, per the latest head (v1.7.0+)
+      ## Only blocks that have passed verification, either via state transition
+      ## or backfilling are indexed here - thus, similar to `head`, it is part
+      ## of the inner security ring and is used to answer security questions
+      ## in the chaindag.
+      ##
+      ## May contain entries for blocks that are not stored in the database.
+      ##
+      ## See `summaries` for an index in the other direction.
 
   DbKeyKind = enum
     kHashToState

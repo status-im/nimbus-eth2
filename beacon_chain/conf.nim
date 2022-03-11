@@ -12,13 +12,17 @@ import
   metrics,
 
   chronicles, chronicles/options as chroniclesOptions,
-  confutils, confutils/defs, confutils/std/net, stew/shims/net as stewNet,
+  confutils, confutils/defs, confutils/std/net,
+  confutils/toml/defs as confTomlDefs,
+  confutils/toml/std/net as confTomlNet,
+  confutils/toml/std/uri as confTomlUri,
+  serialization/errors, stew/shims/net as stewNet,
   stew/[io2, byteutils], unicodedb/properties, normalize,
   eth/common/eth_types as commonEthTypes, eth/net/nat,
   eth/p2p/discoveryv5/enr,
   json_serialization, web3/[ethtypes, confutils_defs],
 
-  ./spec/[keystore, network],
+  ./spec/[keystore, network, crypto],
   ./spec/datatypes/base,
   ./networking/network_metadata,
   ./validators/slashing_protection_common,
@@ -28,7 +32,8 @@ export
   uri, nat, enr,
   defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
   defs, parseCmdArg, completeCmdArg, network_metadata,
-  network, BlockHashOrNumber
+  network, BlockHashOrNumber,
+  confTomlDefs, confTomlNet, confTomlUri
 
 declareGauge network_name, "network name", ["name"]
 
@@ -38,6 +43,11 @@ const
   defaultListenAddress* = (static ValidIpAddress.init("0.0.0.0"))
   defaultAdminListenAddress* = (static ValidIpAddress.init("127.0.0.1"))
   defaultSigningNodeRequestTimeout* = 60
+
+when defined(windows):
+  {.pragma: windowsOnly.}
+else:
+  {.pragma: windowsOnly, hidden.}
 
 type
   BNStartUpCmd* {.pure.} = enum
@@ -60,9 +70,6 @@ type
     `import` = "Imports password-protected keystores interactively"
     # status   = "Displays status information about all deposits"
     exit     = "Submits a validator voluntary exit"
-
-  VCStartUpCmd* = enum
-    VCNoCommand
 
   SNStartUpCmd* = enum
     SNNoCommand
@@ -93,6 +100,10 @@ type
     # migrate = "Export and remove specified validators from Nimbus."
 
   BeaconNodeConf* = object
+    configFile* {.
+      desc: "Loads the configuration from a TOML file"
+      name: "config-file" }: Option[InputFile]
+
     logLevel* {.
       desc: "Sets the log level for process and topics (e.g. \"DEBUG; TRACE:discv5,libp2p; REQUIRED:none; DISABLED:none\")"
       defaultValue: "INFO"
@@ -184,6 +195,12 @@ type
       defaultValue: BNStartUpCmd.noCommand }: BNStartUpCmd
 
     of BNStartUpCmd.noCommand:
+      runAsServiceFlag* {.
+        windowsOnly
+        defaultValue: false,
+        desc: "Run as a Windows service"
+        name: "run-as-service" }: bool
+
       bootstrapNodes* {.
         desc: "Specifies one or more bootstrap nodes to use when connecting to the network"
         abbr: "b"
@@ -265,9 +282,16 @@ type
         name: "verify-finalization" }: bool
 
       stopAtEpoch* {.
-        desc: "A positive epoch selects the epoch at which to stop"
+        hidden
+        desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
         defaultValue: 0
         name: "stop-at-epoch" }: uint64
+
+      stopAtSyncedEpoch* {.
+        hidden
+        desc: "The synced epoch at which to exit the program. (for testing purposes)"
+        defaultValue: 0
+        name: "stop-at-synced-epoch" }: uint64
 
       metricsEnabled* {.
         desc: "Enable the metrics server"
@@ -302,7 +326,7 @@ type
         name: "status-bar-contents" }: string
 
       rpcEnabled* {.
-        desc: "Enable the JSON-RPC server"
+        desc: "Enable the JSON-RPC server (deprecated)"
         defaultValue: false
         name: "rpc" }: bool
 
@@ -392,7 +416,7 @@ type
         name: "keymanager-allow-origin" }: Option[string]
 
       keymanagerTokenFile* {.
-        desc: "A file specifying the authorizition token required for accessing the keymanager API"
+        desc: "A file specifying the authorization token required for accessing the keymanager API"
         name: "keymanager-token-file" }: Option[InputFile]
 
       inProcessValidators* {.
@@ -464,6 +488,12 @@ type
         # https://github.com/ethereum/consensus-specs/blob/v1.1.9/sync/optimistic.md#constants
         defaultValue: 128
         name: "safe-slots-to-import-optimistically" }: uint64
+
+      # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.7/src/engine/authentication.md#key-distribution
+      jwtSecret* {.
+        hidden
+        desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating jwt tokens"
+        name: "jwt-secret" .}: Option[string]
 
     of BNStartUpCmd.createTestnet:
       testnetDepositsFile* {.
@@ -665,6 +695,10 @@ type
         name: "backfill"}: bool
 
   ValidatorClientConf* = object
+    configFile* {.
+      desc: "Loads the configuration from a TOML file"
+      name: "config-file" }: Option[InputFile]
+
     logLevel* {.
       desc: "Sets the log level"
       defaultValue: "INFO"
@@ -721,27 +755,26 @@ type
       desc: "A file specifying the authorizition token required for accessing the keymanager API"
       name: "keymanager-token-file" }: Option[InputFile]
 
-    case cmd* {.
-      command
-      defaultValue: VCNoCommand }: VCStartUpCmd
+    graffiti* {.
+      desc: "The graffiti value that will appear in proposed blocks. " &
+            "You can use a 0x-prefixed hex encoded string to specify " &
+            "raw bytes"
+      name: "graffiti" }: Option[GraffitiBytes]
 
-    of VCNoCommand:
-      graffiti* {.
-        desc: "The graffiti value that will appear in proposed blocks. " &
-              "You can use a 0x-prefixed hex encoded string to specify " &
-              "raw bytes"
-        name: "graffiti" }: Option[GraffitiBytes]
+    stopAtEpoch* {.
+      desc: "A positive epoch selects the epoch at which to stop"
+      defaultValue: 0
+      name: "stop-at-epoch" }: uint64
 
-      stopAtEpoch* {.
-        desc: "A positive epoch selects the epoch at which to stop"
-        defaultValue: 0
-        name: "stop-at-epoch" }: uint64
-
-      beaconNodes* {.
-        desc: "URL addresses to one or more beacon node HTTP REST APIs",
-        name: "beacon-node" }: seq[string]
+    beaconNodes* {.
+      desc: "URL addresses to one or more beacon node HTTP REST APIs",
+      name: "beacon-node" }: seq[string]
 
   SigningNodeConf* = object
+    configFile* {.
+      desc: "Loads the configuration from a TOML file"
+      name: "config-file" }: Option[InputFile]
+
     logLevel* {.
       desc: "Sets the log level"
       defaultValue: "INFO"
@@ -786,35 +819,30 @@ type
       defaultValue: defaultSigningNodeRequestTimeout
       name: "request-timeout" }: int
 
-    case cmd* {.
-      command
-      defaultValue: SNNoCommand }: SNStartUpCmd
+    bindPort* {.
+      desc: "Port for the REST (BETA version) HTTP server"
+      defaultValue: DefaultEth2RestPort
+      defaultValueDesc: "5052"
+      name: "bind-port" }: Port
 
-    of SNNoCommand:
-      bindPort* {.
-        desc: "Port for the REST (BETA version) HTTP server"
-        defaultValue: DefaultEth2RestPort
-        defaultValueDesc: "5052"
-        name: "bind-port" }: Port
+    bindAddress* {.
+      desc: "Listening address of the REST (BETA version) HTTP server"
+      defaultValue: defaultAdminListenAddress
+      defaultValueDesc: "127.0.0.1"
+      name: "bind-address" }: ValidIpAddress
 
-      bindAddress* {.
-        desc: "Listening address of the REST (BETA version) HTTP server"
-        defaultValue: defaultAdminListenAddress
-        defaultValueDesc: "127.0.0.1"
-        name: "bind-address" }: ValidIpAddress
+    tlsEnabled* {.
+      desc: "Use secure TLS communication for REST (BETA version) server"
+      defaultValue: false
+      name: "tls" }: bool
 
-      tlsEnabled* {.
-        desc: "Use secure TLS communication for REST (BETA version) server"
-        defaultValue: false
-        name: "tls" }: bool
+    tlsCertificate* {.
+      desc: "Path to SSL certificate file"
+      name: "tls-cert" }: Option[InputFile]
 
-      tlsCertificate* {.
-        desc: "Path to SSL certificate file"
-        name: "tls-cert" }: Option[InputFile]
-
-      tlsPrivateKey* {.
-        desc: "Path to SSL ceritificate's private key"
-        name: "tls-key" }: Option[InputFile]
+    tlsPrivateKey* {.
+      desc: "Path to SSL ceritificate's private key"
+      name: "tls-key" }: Option[InputFile]
 
   AnyConf* = BeaconNodeConf | ValidatorClientConf | SigningNodeConf
 
@@ -980,9 +1008,70 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
 func databaseDir*(config: AnyConf): string =
   config.dataDir / "db"
 
+func runAsService*(config: BeaconNodeConf): bool =
+  config.cmd == noCommand and config.runAsServiceFlag
+
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =
   writer.writeValue(string value)
+
+template raiseUnexpectedValue(r: var TomlReader, msg: string) =
+  # TODO: We need to implement `raiseUnexpectedValue` for TOML,
+  # so the correct line and column information can be included
+  # in error messages:
+  raise newException(SerializationError, msg)
+
+proc readValue*(r: var TomlReader, value: var Epoch)
+               {.raises: [Defect, SerializationError, IOError].} =
+  value = Epoch r.parseInt(uint64)
+
+proc readValue*(r: var TomlReader, value: var GraffitiBytes)
+               {.raises: [Defect, SerializationError, IOError].} =
+  try:
+    value = GraffitiBytes.init(r.readValue(string))
+  except ValueError as err:
+    r.raiseUnexpectedValue("A printable string or 0x-prefixed hex-encoded raw bytes expected")
+
+proc readValue*(r: var TomlReader, val: var NatConfig)
+               {.raises: [Defect, IOError, SerializationError].} =
+  val = try: parseCmdArg(NatConfig, TaintedString r.readValue(string))
+        except CatchableError as err:
+          raise newException(SerializationError, err.msg)
+
+proc readValue*(r: var TomlReader, a: var Eth2Digest)
+               {.raises: [Defect, IOError, SerializationError].} =
+  try:
+    a = fromHex(type(a), r.readValue(string))
+  except ValueError:
+    r.raiseUnexpectedValue("Hex string expected")
+
+proc readValue*(reader: var TomlReader, value: var ValidatorPubKey)
+               {.raises: [Defect, IOError, SerializationError].} =
+  let keyAsString = try:
+    reader.readValue(string)
+  except CatchableError:
+    raiseUnexpectedValue(reader, "A hex-encoded string expected")
+
+  let key = ValidatorPubKey.fromHex(keyAsString)
+  if key.isOk:
+    value = key.get
+  else:
+    # TODO: Can we provide better diagnostic?
+    raiseUnexpectedValue(reader, "Valid hex-encoded public key expected")
+
+proc readValue*(r: var TomlReader, a: var PubKey0x)
+               {.raises: [Defect, IOError, SerializationError].} =
+  try:
+    a = parseCmdArg(PubKey0x, TaintedString r.readValue(string))
+  except CatchableError:
+    r.raiseUnexpectedValue("a 0x-prefixed hex-encoded string expected")
+
+proc readValue*(r: var TomlReader, a: var WalletName)
+               {.raises: [Defect, IOError, SerializationError].} =
+  try:
+    a = parseCmdArg(WalletName, TaintedString r.readValue(string))
+  except CatchableError:
+    r.raiseUnexpectedValue("string expected")
 
 proc loadEth2Network*(config: BeaconNodeConf): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
   network_name.set(2, labelValues = [config.eth2Network.get(otherwise = "mainnet")])

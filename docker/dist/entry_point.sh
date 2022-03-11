@@ -53,6 +53,9 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   # undefined symbols, so we're forced to use g++ as a linker wrapper.
   # For some reason, macOS's Clang doesn't need this trick, nor do native (and
   # newer) Mingw-w64 toolchains on Windows.
+  #
+  # nim-blscurve's Windows SSSE3 detection doesn't work when cross-compiling,
+  # so we enable it here.
   make \
     -j$(nproc) \
     CC="${CC}" \
@@ -60,7 +63,7 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
     CXXFLAGS="${CXXFLAGS} -D__STDC_FORMAT_MACROS -D_WIN32_WINNT=0x0600" \
     USE_VENDORED_LIBUNWIND=1 \
     LOG_LEVEL="TRACE" \
-    NIMFLAGS="${NIMFLAGS_COMMON} --os:windows --gcc.exe=${CC} --gcc.linkerexe=${CXX} --passL:-static" \
+    NIMFLAGS="${NIMFLAGS_COMMON} --os:windows --gcc.exe=${CC} --gcc.linkerexe=${CXX} --passL:-static -d:BLSTuseSSSE3=1" \
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
   CC="arm-linux-gnueabihf-gcc"

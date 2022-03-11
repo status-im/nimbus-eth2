@@ -799,13 +799,19 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 35/35 Fail: 0/35 Skip: 0/35
+## EF - Altair - Sync protocol - Light client [Preset: mainnet]
+```diff
+  All tests                                                                                  Skip
+```
+OK: 0/1 Fail: 0/1 Skip: 1/1
 ## EF - Altair - Unittests - Sync protocol [Preset: mainnet]
 ```diff
 + process_light_client_update_finality_updated                                               OK
 + process_light_client_update_timeout                                                        OK
++ test_process_light_client_update_at_period_boundary                                        OK
 + test_process_light_client_update_not_timeout                                               OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Bellatrix - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -1209,4 +1215,4 @@ OK: 44/44 Fail: 0/44 Skip: 0/44
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 1034/1035 Fail: 0/1035 Skip: 1/1035
+OK: 1035/1037 Fail: 0/1037 Skip: 2/1037

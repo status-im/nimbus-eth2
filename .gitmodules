@@ -228,3 +228,8 @@
 	url = https://github.com/status-im/nim-zlib.git
 	ignore = untracked
 	branch = master
+[submodule "vendor/nim-toml-serialization"]
+	path = vendor/nim-toml-serialization
+	url = https://github.com/status-im/nim-toml-serialization.git
+	ignore = untracked
+	branch = master

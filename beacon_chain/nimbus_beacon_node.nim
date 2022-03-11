@@ -15,7 +15,7 @@ import
   eth/keys,
   ./rpc/[rest_api, rpc_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
-  ./spec/weak_subjectivity,
+  ./spec/[engine_authentication, weak_subjectivity],
   ./validators/[keystore_management, validator_duties],
   "."/[
     beacon_node, deposits, interop, nimbus_binary_common, statusbar,
@@ -28,6 +28,64 @@ from
   libp2p/protocols/pubsub/gossipsub
 import
   TopicParams, validateParameters, init
+
+when defined(windows):
+  import winlean
+
+  type
+    LPCSTR* = cstring
+    LPSTR* = cstring
+
+    SERVICE_STATUS* {.final, pure.} = object
+      dwServiceType*: DWORD
+      dwCurrentState*: DWORD
+      dwControlsAccepted*: DWORD
+      dwWin32ExitCode*: DWORD
+      dwServiceSpecificExitCode*: DWORD
+      dwCheckPoint*: DWORD
+      dwWaitHint*: DWORD
+
+    SERVICE_STATUS_HANDLE* = DWORD
+    LPSERVICE_STATUS* = ptr SERVICE_STATUS
+    LPSERVICE_MAIN_FUNCTION* = proc (para1: DWORD, para2: LPSTR) {.stdcall.}
+
+    SERVICE_TABLE_ENTRY* {.final, pure.} = object
+      lpServiceName*: LPSTR
+      lpServiceProc*: LPSERVICE_MAIN_FUNCTION
+
+    LPSERVICE_TABLE_ENTRY* = ptr SERVICE_TABLE_ENTRY
+    LPHANDLER_FUNCTION* = proc (para1: DWORD): WINBOOL{.stdcall.}
+
+  const
+    SERVICE_WIN32_OWN_PROCESS = 16
+    SERVICE_RUNNING = 4
+    SERVICE_STOPPED = 1
+    SERVICE_START_PENDING = 2
+    SERVICE_STOP_PENDING = 3
+    SERVICE_CONTROL_STOP = 1
+    SERVICE_CONTROL_PAUSE = 2
+    SERVICE_CONTROL_CONTINUE = 3
+    SERVICE_CONTROL_INTERROGATE = 4
+    SERVICE_ACCEPT_STOP = 1
+    NO_ERROR = 0
+    SERVICE_NAME = LPCSTR "NIMBUS_BEACON_NODE"
+
+  var
+    gSvcStatusHandle: SERVICE_STATUS_HANDLE
+    gSvcStatus: SERVICE_STATUS
+
+  proc reportServiceStatus*(dwCurrentState, dwWin32ExitCode, dwWaitHint: DWORD) {.gcsafe.}
+
+  proc StartServiceCtrlDispatcher*(lpServiceStartTable: LPSERVICE_TABLE_ENTRY): WINBOOL{.
+      stdcall, dynlib: "advapi32", importc: "StartServiceCtrlDispatcherA".}
+
+  proc SetServiceStatus*(hServiceStatus: SERVICE_STATUS_HANDLE,
+                       lpServiceStatus: LPSERVICE_STATUS): WINBOOL{.stdcall,
+    dynlib: "advapi32", importc: "SetServiceStatus".}
+
+  proc RegisterServiceCtrlHandler*(lpServiceName: LPCSTR,
+                                  lpHandlerProc: LPHANDLER_FUNCTION): SERVICE_STATUS_HANDLE{.
+    stdcall, dynlib: "advapi32", importc: "RegisterServiceCtrlHandlerA".}
 
 type
   RpcServer = RpcHttpServer
@@ -213,6 +271,12 @@ proc init*(T: type BeaconNode,
     else:
       none(DepositContractSnapshot)
 
+  let jwtSecret = rng[].checkJwtSecret(string(config.dataDir), config.jwtSecret)
+  if jwtSecret.isErr:
+     fatal "Specified a JWT secret file which couldn't be loaded",
+       err = jwtSecret.error
+     quit 1
+
   var eth1Monitor: Eth1Monitor
   if not ChainDAGRef.isInitialized(db).isOk():
     var
@@ -240,7 +304,8 @@ proc init*(T: type BeaconNode,
           config.web3Urls,
           getDepositContractSnapshot(),
           eth1Network,
-          config.web3ForcePolling)
+          config.web3ForcePolling,
+          jwtSecret.get)
 
         eth1Monitor.loadPersistedDeposits()
 
@@ -360,7 +425,8 @@ proc init*(T: type BeaconNode,
       config.web3Urls,
       getDepositContractSnapshot(),
       eth1Network,
-      config.web3ForcePolling)
+      config.web3ForcePolling,
+      jwtSecret.get)
 
   let rpcServer = if config.rpcEnabled:
     RpcServer.init(config.rpcAddress, config.rpcPort)
@@ -588,7 +654,7 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.bellatrix]
   forkDigestsArray
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   if node.gossipState.card == 0:
     # When disconnected, updateGossipState is responsible for all things
@@ -824,7 +890,7 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
 
   var newSubcommittees: SyncnetBits
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#sync-committee-subnet-stability
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if  (not node.network.metadata.syncnets[subcommitteeIdx]) and
         nextSyncCommitteeSubnets[subcommitteeIdx] and
@@ -1080,6 +1146,10 @@ proc onSlotStart(
   # Check before any re-scheduling of onSlotStart()
   checkIfShouldStopAtEpoch(wallSlot, node.config.stopAtEpoch)
 
+  when defined(windows):
+    if node.config.runAsService:
+      reportServiceStatus(SERVICE_RUNNING, NO_ERROR, 0)
+
   beacon_slot.set wallSlot.toGaugeValue
   beacon_current_epoch.set wallSlot.epoch.toGaugeValue
 
@@ -1109,6 +1179,10 @@ proc onSecond(node: BeaconNode) =
 
   # Nim GC metrics (for the main thread)
   updateThreadMetrics()
+
+  if node.config.stopAtSyncedEpoch != 0 and node.dag.head.slot.epoch >= node.config.stopAtSyncedEpoch:
+    notice "Shutting down after having reached the target synced epoch"
+    bnStatus = BeaconNodeStatus.Stopping
 
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
   let sleepTime = chronos.seconds(1)
@@ -1715,7 +1789,96 @@ proc doSlashingInterchange(conf: BeaconNodeConf) {.raises: [Defect, CatchableErr
   of SlashProtCmd.`import`:
     conf.doSlashingImport()
 
+proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableError].} =
+  # Single RNG instance for the application - will be seeded on construction
+  # and avoid using system resources (such as urandom) after that
+  let rng = keys.newRng()
+
+  case config.cmd
+  of BNStartUpCmd.createTestnet: doCreateTestnet(config, rng[])
+  of BNStartUpCmd.noCommand: doRunBeaconNode(config, rng)
+  of BNStartUpCmd.deposits: doDeposits(config, rng[])
+  of BNStartUpCmd.wallets: doWallets(config, rng[])
+  of BNStartUpCmd.record: doRecord(config, rng[])
+  of BNStartUpCmd.web3: doWeb3Cmd(config)
+  of BNStartUpCmd.slashingdb: doSlashingInterchange(config)
+  of BNStartupCmd.trustedNodeSync:
+    let
+      network = loadEth2Network(config)
+      cfg = network.cfg
+      genesis =
+        if network.genesisData.len > 0:
+          newClone(readSszForkedHashedBeaconState(
+            cfg,
+            network.genesisData.toOpenArrayByte(0, network.genesisData.high())))
+        else: nil
+
+    waitFor doTrustedNodeSync(
+      cfg,
+      config.databaseDir,
+      config.trustedNodeUrl,
+      config.blockId,
+      config.backfillBlocks,
+      genesis)
+
 {.pop.} # TODO moduletests exceptions
+
+when defined(windows):
+  proc reportServiceStatus*(dwCurrentState, dwWin32ExitCode, dwWaitHint: DWORD) {.gcsafe.} =
+    gSvcStatus.dwCurrentState = dwCurrentState
+    gSvcStatus.dwWin32ExitCode = dwWin32ExitCode
+    gSvcStatus.dwWaitHint = dwWaitHint
+    if dwCurrentState == SERVICE_START_PENDING:
+      gSvcStatus.dwControlsAccepted = 0
+    else:
+      gSvcStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP
+
+    # TODO
+    # We can use non-zero values for the `dwCheckPoint` parameter to report
+    # progress during lengthy operations such as start-up and shut down.
+    gSvcStatus.dwCheckPoint = 0
+
+    # Report the status of the service to the SCM.
+    let status = SetServiceStatus(gSvcStatusHandle, addr gSvcStatus)
+    debug "Service status updated", status
+
+  proc serviceControlHandler(dwCtrl: DWORD): WINBOOL {.stdcall.} =
+    case dwCtrl
+    of SERVICE_CONTROL_STOP:
+      # We re reporting that we plan stop the service in 10 seconds
+      reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, 10_000)
+      bnStatus = BeaconNodeStatus.Stopping
+    of SERVICE_CONTROL_PAUSE, SERVICE_CONTROL_CONTINUE:
+      warn "The Nimbus service cannot be paused and resimed"
+    of SERVICE_CONTROL_INTERROGATE:
+      # The default behavior is correct.
+      # The service control manager will report our last status.
+      discard
+    else:
+      debug "Service received an unexpected user-defined control message",
+            msg = dwCtrl
+
+  proc serviceMainFunction(dwArgc: DWORD, lpszArgv: LPSTR) {.stdcall.} =
+    # The service is launched in a fresh thread created by Windows, so
+    # we must initialize the Nim GC here
+    setupForeignThreadGc()
+
+    gSvcStatusHandle = RegisterServiceCtrlHandler(
+      SERVICE_NAME,
+      serviceControlHandler)
+
+    gSvcStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS
+    gSvcStatus.dwServiceSpecificExitCode = 0
+    reportServiceStatus(SERVICE_RUNNING, NO_ERROR, 0)
+
+    info "Service thread started"
+
+    var config = makeBannerAndConfig(clientId, BeaconNodeConf)
+    handleStartUpCmd(config)
+
+    info "Service thread stopped"
+    reportServiceStatus(SERVICE_STOPPED, NO_ERROR, 0) # we have to report back when we stopped!
+
 programMain:
   var
     config = makeBannerAndConfig(clientId, BeaconNodeConf)
@@ -1750,33 +1913,18 @@ programMain:
       quit 0
     c_signal(SIGTERM, exitImmediatelyOnSIGTERM)
 
-  # Single RNG instance for the application - will be seeded on construction
-  # and avoid using system resources (such as urandom) after that
-  let rng = keys.newRng()
+  when defined(windows):
+    if config.runAsService:
+      var dispatchTable = [
+        SERVICE_TABLE_ENTRY(lpServiceName: SERVICE_NAME, lpServiceProc: serviceMainFunction),
+        SERVICE_TABLE_ENTRY(lpServiceName: nil, lpServiceProc: nil) # last entry must be nil
+      ]
 
-  case config.cmd
-  of BNStartUpCmd.createTestnet: doCreateTestnet(config, rng[])
-  of BNStartUpCmd.noCommand: doRunBeaconNode(config, rng)
-  of BNStartUpCmd.deposits: doDeposits(config, rng[])
-  of BNStartUpCmd.wallets: doWallets(config, rng[])
-  of BNStartUpCmd.record: doRecord(config, rng[])
-  of BNStartUpCmd.web3: doWeb3Cmd(config)
-  of BNStartUpCmd.slashingdb: doSlashingInterchange(config)
-  of BNStartupCmd.trustedNodeSync:
-    let
-      network = loadEth2Network(config)
-      cfg = network.cfg
-      genesis =
-        if network.genesisData.len > 0:
-          newClone(readSszForkedHashedBeaconState(
-            cfg,
-            network.genesisData.toOpenArrayByte(0, network.genesisData.high())))
-        else: nil
-
-    waitFor doTrustedNodeSync(
-      cfg,
-      config.databaseDir,
-      config.trustedNodeUrl,
-      config.blockId,
-      config.backfillBlocks,
-      genesis)
+      let status = StartServiceCtrlDispatcher(LPSERVICE_TABLE_ENTRY(addr dispatchTable[0]))
+      if status == 0:
+        fatal "Failed to start Windows service", errorCode = getLastError()
+        quit 1
+    else:
+      handleStartUpCmd(config)
+  else:
+    handleStartUpCmd(config)

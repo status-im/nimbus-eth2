@@ -118,11 +118,6 @@ all: | $(TOOLS) libnfuzz.so libnfuzz.a
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
 
-ifeq ($(OS), Windows_NT)
-  # libbacktrace/libunwind is disabled on Windows.
-  USE_LIBBACKTRACE := 0
-endif
-
 DEPOSITS_DELAY := 0
 
 #- "--define:release" cannot be added to "config.nims"
@@ -131,8 +126,7 @@ DEPOSITS_DELAY := 0
 NIM_PARAMS += -d:release --parallelBuild:1 -d:libp2p_agents_metrics -d:KnownLibP2PAgents=nimbus,lighthouse,prysm,teku
 
 ifeq ($(USE_LIBBACKTRACE), 0)
-# Blame Jacek for the lack of line numbers in your stack traces ;-)
-NIM_PARAMS += --stacktrace:on --excessiveStackTrace:on --linetrace:off -d:disable_libbacktrace
+NIM_PARAMS += -d:disable_libbacktrace
 endif
 
 deps: | deps-common nat-libs build/generate_makefile
@@ -471,6 +465,14 @@ clean-gnosis-chain:
 ### Other
 ###
 
+nimbus-msi: | nimbus_beacon_node
+	"$(WIX)/bin/candle" -ext WixUIExtension -ext WixUtilExtension installer/windows/*.wxs -o installer/windows/obj/
+	"$(WIX)/bin/light" -ext WixUIExtension -ext WixUtilExtension -cultures:"en-us;en-uk;neutral" installer/windows/obj/*.wixobj -out build/NimbusBeaconNode.msi
+
+nimbus-pkg: | nimbus_beacon_node
+	xcodebuild -project installer/macos/nimbus-pkg.xcodeproj -scheme nimbus-pkg build
+	packagesbuild installer/macos/nimbus-pkg.pkgproj
+
 ctail: | build deps
 	mkdir -p vendor/.nimble/bin/
 	+ $(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ctail c vendor/nim-chronicles-tail/ctail.nim
@@ -480,7 +482,7 @@ ntu: | build deps
 	+ $(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
 
 clean: | clean-common
-	rm -rf build/{$(TOOLS_CSV),all_tests,test_*,proto_array,fork_choice,*.a,*.so,*_node,*ssz*,nimbus_*,beacon_node*,block_sim,state_sim,transition*,generate_makefile}
+	rm -rf build/{$(TOOLS_CSV),all_tests,test_*,proto_array,fork_choice,*.a,*.so,*_node,*ssz*,nimbus_*,beacon_node*,block_sim,state_sim,transition*,generate_makefile,nimbus-wix/obj}
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ "$(MAKE)" -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif

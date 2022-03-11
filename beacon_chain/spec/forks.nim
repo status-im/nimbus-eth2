@@ -226,30 +226,24 @@ template init*(T: type ForkedTrustedSignedBeaconBlock, blck: altair.TrustedSigne
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: bellatrix.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Bellatrix,  bellatrixData: blck)
 
-template toFork*[T: phase0.TrustedSignedBeaconBlock](
+template toFork*[T:
+    phase0.SignedBeaconBlock |
+    phase0.SigVerifiedSignedBeaconBlock |
+    phase0.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Phase0
-template toFork*[T: altair.TrustedSignedBeaconBlock](
+template toFork*[T:
+    altair.SignedBeaconBlock |
+    altair.SigVerifiedSignedBeaconBlock |
+    altair.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Altair
-template toFork*[T: bellatrix.TrustedSignedBeaconBlock](
+template toFork*[T:
+    bellatrix.SignedBeaconBlock |
+    bellatrix.SigVerifiedSignedBeaconBlock |
+    bellatrix.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Bellatrix
-
-func toBeaconBlockHeader*(
-    blck: SomeForkyBeaconBlock): BeaconBlockHeader =
-  ## Reduce a given `BeaconBlock` to just its `BeaconBlockHeader`.
-  BeaconBlockHeader(
-    slot: blck.slot,
-    proposer_index: blck.proposer_index,
-    parent_root: blck.parent_root,
-    state_root: blck.state_root,
-    body_root: blck.body.hash_tree_root())
-
-template toBeaconBlockHeader*(
-    blck: SomeForkySignedBeaconBlock): BeaconBlockHeader =
-  ## Reduce a given `SignedBeaconBlock` to just its `BeaconBlockHeader`.
-  blck.message.toBeaconBlockHeader
 
 template init*(T: type ForkedEpochInfo, info: phase0.EpochInfo): T =
   T(kind: EpochInfoFork.Phase0, phase0Data: info)
@@ -424,6 +418,27 @@ template withStateAndBlck*(
     template blck: untyped {.inject.} = b.phase0Data
     body
 
+func toBeaconBlockHeader*(
+    blck: SomeForkyBeaconBlock): BeaconBlockHeader =
+  ## Reduce a given `BeaconBlock` to its `BeaconBlockHeader`.
+  BeaconBlockHeader(
+    slot: blck.slot,
+    proposer_index: blck.proposer_index,
+    parent_root: blck.parent_root,
+    state_root: blck.state_root,
+    body_root: blck.body.hash_tree_root())
+
+template toBeaconBlockHeader*(
+    blck: SomeForkySignedBeaconBlock): BeaconBlockHeader =
+  ## Reduce a given `SignedBeaconBlock` to its `BeaconBlockHeader`.
+  blck.message.toBeaconBlockHeader
+
+template toBeaconBlockHeader*(
+    blckParam: ForkedTrustedSignedBeaconBlock): BeaconBlockHeader =
+  ## Reduce a given `ForkedTrustedSignedBeaconBlock` to its `BeaconBlockHeader`.
+  withBlck(blckParam):
+    blck.toBeaconBlockHeader()
+
 func genesisFork*(cfg: RuntimeConfig): Fork =
   Fork(
     previous_version: cfg.GENESIS_FORK_VERSION,
@@ -526,7 +541,7 @@ func toBeaconBlockFork*(fork: BeaconStateFork): BeaconBlockFork =
   of BeaconStateFork.Altair:    BeaconBlockFork.Altair
   of BeaconStateFork.Bellatrix: BeaconBlockFork.Bellatrix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#compute_fork_data_root
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: Eth2Digest): Eth2Digest =
   ## Return the 32-byte fork data root for the ``current_version`` and
@@ -538,7 +553,7 @@ func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: genesis_validators_root
   ))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/beacon-chain.md#compute_fork_digest
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#compute_fork_digest
 func compute_fork_digest*(current_version: Version,
                           genesis_validators_root: Eth2Digest): ForkDigest =
   ## Return the 4-byte fork digest for the ``current_version`` and

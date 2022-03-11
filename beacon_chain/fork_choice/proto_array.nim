@@ -103,8 +103,8 @@ func init*(T: type ProtoArray,
     indices: {node.root: 0}.toTable()
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/fork-choice.md#configuration
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/fork-choice.md#get_latest_attesting_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
 func calculateProposerBoost(validatorBalances: openArray[Gwei]): int64 =
   const PROPOSER_SCORE_BOOST = 70
   var
@@ -189,7 +189,7 @@ func applyScoreChanges*(self: var ProtoArray,
     # If we find the node matching the current proposer boost root, increase
     # the delta by the new score amount.
     #
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/fork-choice.md#get_latest_attesting_balance
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
     if  useProposerBoost and (not proposer_boost_root.isZero) and
         proposer_boost_root == node.root:
       proposerBoostScore = calculateProposerBoost(newBalances)
