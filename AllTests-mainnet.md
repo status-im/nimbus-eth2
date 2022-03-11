@@ -252,6 +252,13 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + [SCRYPT] Network Keystore encryption                                                       OK
 ```
 OK: 9/9 Fail: 0/9 Skip: 0/9
+## Light client [Preset: mainnet]
+```diff
++ Init from checkpoint                                                                       OK
++ Light client sync                                                                          OK
++ Pre-Altair                                                                                 OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## ListKeys requests [Preset: mainnet]
 ```diff
 + Correct token provided [Preset: mainnet]                                                   OK
@@ -513,4 +520,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 282/287 Fail: 0/287 Skip: 5/287
+OK: 285/290 Fail: 0/290 Skip: 5/290

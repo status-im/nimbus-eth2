@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -31,6 +31,7 @@ import # Unit test
   ./test_helpers,
   ./test_honest_validator,
   ./test_interop,
+  ./test_light_client,
   ./test_message_signatures,
   ./test_peer_pool,
   ./test_spec,
