@@ -46,14 +46,6 @@ func getCurrentSlot*(node: BeaconNode, slot: Slot):
   else:
     err("Requesting slot too far ahead of the current head")
 
-func getCurrentBlock*(node: BeaconNode, slot: Slot):
-    Result[BlockRef, cstring] =
-  let bs = node.dag.getBlockAtSlot(? node.getCurrentSlot(slot))
-  if bs.isProposed():
-    ok(bs.blck)
-  else:
-    err("Block not found")
-
 proc getCurrentHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
   let res = node.dag.head
   # if not(node.isSynced(res)):
@@ -95,7 +87,7 @@ proc getBlockSlot*(node: BeaconNode,
       ok(node.dag.head.atEpochStart(getStateField(
         node.dag.headState.data, current_justified_checkpoint).epoch))
 
-proc getBlockId*(node: BeaconNode, id: BlockIdent): Result[BlockId, cstring] =
+proc getBlockId*(node: BeaconNode, id: BlockIdent): Opt[BlockId] =
   case id.kind
   of BlockQueryKind.Named:
     case id.value
@@ -106,33 +98,19 @@ proc getBlockId*(node: BeaconNode, id: BlockIdent): Result[BlockId, cstring] =
     of BlockIdentType.Finalized:
       ok(node.dag.finalizedHead.blck.bid)
   of BlockQueryKind.Root:
-    node.dag.getBlockId(id.root).orErr(cstring("Block not found"))
+    node.dag.getBlockId(id.root)
   of BlockQueryKind.Slot:
     let bsid = node.dag.getBlockIdAtSlot(id.slot)
     if bsid.isProposed():
       ok bsid.bid
     else:
-      err("Block not found")
+      err()
 
 proc getForkedBlock*(node: BeaconNode, id: BlockIdent):
-    Result[ForkedTrustedSignedBeaconBlock, cstring] =
-  case id.kind
-  of BlockQueryKind.Named:
-    case id.value
-    of BlockIdentType.Head:
-      ok(node.dag.getForkedBlock(node.dag.head))
-    of BlockIdentType.Genesis:
-      ok(node.dag.getForkedBlock(node.dag.genesis))
-    of BlockIdentType.Finalized:
-      ok(node.dag.getForkedBlock(node.dag.finalizedHead.blck))
-  of BlockQueryKind.Root:
-    node.dag.getForkedBlock(id.root).orErr(cstring("Block not found"))
-  of BlockQueryKind.Slot:
-    let bsid = node.dag.getBlockIdAtSlot(id.slot)
-    if bsid.isProposed():
-      node.dag.getForkedBlock(bsid.bid).orErr(cstring("Block not found"))
-    else:
-      err("Block not found")
+    Opt[ForkedTrustedSignedBeaconBlock] =
+  let bid = ? node.getBlockId(id)
+
+  node.dag.getForkedBlock(bid)
 
 proc disallowInterruptionsAux(body: NimNode) =
   for n in body:

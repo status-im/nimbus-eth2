@@ -83,10 +83,14 @@ suite "BlockSlot and helpers":
 
   test "parent sanity":
     let
+      root = block:
+        var d: Eth2Digest
+        d.data[0] = 1
+        d
       s0 = BlockRef(bid: BlockId(slot: Slot(0)))
       s00 = BlockSlot(blck: s0, slot: Slot(0))
       s01 = BlockSlot(blck: s0, slot: Slot(1))
-      s2 = BlockRef(bid: BlockId(slot: Slot(2)), parent: s0)
+      s2 = BlockRef(bid: BlockId(slot: Slot(2), root: root), parent: s0)
       s22 = BlockSlot(blck: s2, slot: Slot(2))
       s24 = BlockSlot(blck: s2, slot: Slot(4))
 

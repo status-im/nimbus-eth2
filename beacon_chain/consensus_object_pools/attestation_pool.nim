@@ -138,8 +138,9 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
         else:
           epochRef = dag.getEpochRef(blckRef, blckRef.slot.epoch, false).expect(
             "Getting an EpochRef should always work for non-finalized blocks")
-
-          withBlck(dag.getForkedBlock(blckRef)):
+          let blck = dag.getForkedBlock(blckRef.bid).expect(
+              "Should be able to load initial fork choice blocks")
+          withBlck(blck):
             forkChoice.process_block(
               dag, epochRef, blckRef, blck.message,
               blckRef.slot.start_beacon_time)

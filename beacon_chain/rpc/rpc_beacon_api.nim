@@ -159,11 +159,14 @@ proc getForkedBlockFromBlockId(
     raises: [Defect, CatchableError].} =
   case blockId:
     of "head":
-      node.dag.getForkedBlock(node.dag.head)
+      node.dag.getForkedBlock(node.dag.head.bid).valueOr:
+        raise newException(CatchableError, "Block not found")
     of "genesis":
-      node.dag.getForkedBlock(node.dag.genesis)
+      node.dag.getForkedBlock(node.dag.genesis.bid).valueOr:
+        raise newException(CatchableError, "Block not found")
     of "finalized":
-      node.dag.getForkedBlock(node.dag.finalizedHead.blck)
+      node.dag.getForkedBlock(node.dag.finalizedHead.blck.bid).valueOr:
+        raise newException(CatchableError, "Block not found")
     else:
       if blockId.startsWith("0x"):
         let
