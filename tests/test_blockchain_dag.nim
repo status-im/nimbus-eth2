@@ -766,6 +766,11 @@ suite "Backfill":
 
       dag.backfill.slot == GENESIS_SLOT
 
+    dag.rebuildIndex()
+
+    check:
+      dag.getFinalizedEpochRef() != nil
+
   test "reload backfill position":
     let
       tailBlock = blocks[^1]

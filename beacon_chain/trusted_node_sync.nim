@@ -66,10 +66,10 @@ proc isKnown(cache: DbCache, slot: Slot): bool =
 
 proc doTrustedNodeSync*(
     cfg: RuntimeConfig, databaseDir: string, restUrl: string,
-    blockId: string, backfill: bool,
+    blockId: string, backfill: bool, reindex: bool,
     genesisState: ref ForkedHashedBeaconState = nil) {.async.} =
   notice "Starting trusted node sync",
-    databaseDir, restUrl, blockId, backfill
+    databaseDir, restUrl, blockId, backfill, reindex
 
   let
     db = BeaconChainDB.new(databaseDir, inMemory = false)
@@ -86,7 +86,7 @@ proc doTrustedNodeSync*(
         error "Database missing head block summary - database too old or corrupt"
         quit 1
 
-      let slot =  dbCache.summaries[dbHead.get()].slot
+      let slot = dbCache.summaries[dbHead.get()].slot
       dbCache.updateSlots(dbHead.get(), slot)
       slot
     else:
@@ -167,121 +167,117 @@ proc doTrustedNodeSync*(
       remoteGenesisRoot = shortLog(remoteGenesisRoot)
     quit 1
 
-  notice "Downloading checkpoint block", restUrl, blockId
+  let (checkpointSlot, checkpointRoot) = if dbHead.isNone:
+    notice "Downloading checkpoint block", restUrl, blockId
 
-  let checkpointBlock = block:
-    # Finding a checkpoint block is tricky: we need the block to fall on an
-    # epoch boundary and when making the first request, we don't know exactly
-    # what slot we'll get - to find it, we'll keep walking backwards for a
-    # reasonable number of tries
-    var
-      checkpointBlock: ref ForkedSignedBeaconBlock
-      id = BlockIdent.decodeString(blockId).valueOr:
-        error "Cannot decode checkpoint block id, must be a slot, hash, 'finalized' or 'head'",
-          blockId
-        quit 1
-      found = false
+    let checkpointBlock = block:
+      # Finding a checkpoint block is tricky: we need the block to fall on an
+      # epoch boundary and when making the first request, we don't know exactly
+      # what slot we'll get - to find it, we'll keep walking backwards for a
+      # reasonable number of tries
+      var
+        checkpointBlock: ref ForkedSignedBeaconBlock
+        id = BlockIdent.decodeString(blockId).valueOr:
+          error "Cannot decode checkpoint block id, must be a slot, hash, 'finalized' or 'head'",
+            blockId
+          quit 1
+        found = false
 
-    for i in 0..<10:
-      let blck = try:
-        await client.getBlockV2(id, cfg)
-      except CatchableError as exc:
-        error "Unable to download checkpoint block",
-          error = exc.msg, restUrl
-        quit 1
-
-      if blck.isNone():
-        # Server returned 404 - no block was found at the given id, so we need
-        # to try an earlier slot - assuming we know of one!
-        if id.kind == BlockQueryKind.Slot:
-          let slot = id.slot
-          id = BlockIdent.init((id.slot.epoch() - 1).start_slot)
-
-          info "No block found at given slot, trying an earlier epoch",
-            slot, id
-          continue
-        else:
-          error "Cannot find a block at given block id, and cannot compute an earlier slot",
-            id, blockId
+      for i in 0..<10:
+        let blck = try:
+          await client.getBlockV2(id, cfg)
+        except CatchableError as exc:
+          error "Unable to download checkpoint block",
+            error = exc.msg, restUrl
           quit 1
 
-      checkpointBlock = blck.get()
+        if blck.isNone():
+          # Server returned 404 - no block was found at the given id, so we need
+          # to try an earlier slot - assuming we know of one!
+          if id.kind == BlockQueryKind.Slot:
+            let slot = id.slot
+            id = BlockIdent.init((id.slot.epoch() - 1).start_slot)
 
-      let checkpointSlot = getForkedBlockField(checkpointBlock[], slot)
-      if checkpointSlot > headSlot:
-        # When the checkpoint is newer than the head, we run into trouble: the
-        # current backfill in ChainDAG does not support filling in arbitrary gaps.
-        # If we were to update the backfill pointer in this case, the ChainDAG
-        # backfiller would re-download the entire backfill history.
-        # For now, we'll abort and let the user choose what to do.
-        error "Checkpoint block is newer than head slot - start with a new database or use a checkpoint no more recent than the head",
-          checkpointSlot, checkpointRoot = shortLog(checkpointBlock[].root), headSlot
+            info "No block found at given slot, trying an earlier epoch",
+              slot, id
+            continue
+          else:
+            error "Cannot find a block at given block id, and cannot compute an earlier slot",
+              id, blockId
+            quit 1
+
+        checkpointBlock = blck.get()
+
+        let checkpointSlot = getForkedBlockField(checkpointBlock[], slot)
+        if checkpointSlot.is_epoch():
+          found = true
+          break
+
+        id = BlockIdent.init((checkpointSlot.epoch() - 1).start_slot)
+
+        info "Downloaded checkpoint block does not fall on epoch boundary, trying an earlier epoch",
+          checkpointSlot, id
+
+      if not found:
+        # The ChainDAG requires that the tail falls on an epoch boundary, or it
+        # will be unable to load the corresponding state - this could be fixed, but
+        # for now, we ask the user to fix it instead
+        error "A checkpoint block from the first slot of an epoch could not be found with the given block id - pass an epoch slot with a block using the --block-id parameter",
+          blockId
+        quit 1
+      checkpointBlock
+
+    let checkpointSlot = getForkedBlockField(checkpointBlock[], slot)
+    if checkpointBlock[].root in dbCache.summaries:
+      notice "Checkpoint block is already known, skipping checkpoint state download"
+
+      withBlck(checkpointBlock[]):
+        dbCache.updateSlots(blck.root, blck.message.slot)
+
+    else:
+      notice "Downloading checkpoint state", restUrl, checkpointSlot
+
+      let
+        state = try:
+          await client.getStateV2(StateIdent.init(checkpointSlot), cfg)
+        except CatchableError as exc:
+          error "Unable to download checkpoint state",
+            error = exc.msg, restUrl, checkpointSlot
+          quit 1
+
+      if isNil(state):
+        notice "No state found at given checkpoint", checkpointSlot
         quit 1
 
-      if checkpointSlot.is_epoch():
-        found = true
-        break
+      withState(state[]):
+        let latest_block_root = state.latest_block_root
 
-      id = BlockIdent.init((checkpointSlot.epoch() - 1).start_slot)
+        if latest_block_root != checkpointBlock[].root:
+          error "Checkpoint state does not match checkpoint block, server error?",
+            blockRoot = shortLog(checkpointBlock[].root),
+            blck = shortLog(checkpointBlock[]),
+            stateBlockRoot = shortLog(latest_block_root)
+          quit 1
 
-      info "Downloaded checkpoint block does not fall on epoch boundary, trying an earlier epoch",
-        checkpointSlot, id
+        info "Writing checkpoint state",
+          stateRoot = shortLog(state.root)
+        db.putState(state)
 
-    if not found:
-      # The ChainDAG requires that the tail falls on an epoch boundary, or it
-      # will be unable to load the corresponding state - this could be fixed, but
-      # for now, we ask the user to fix it instead
-      error "A checkpoint block from the first slot of an epoch could not be found with the given block id - pass an epoch slot with a block using the --block-id parameter",
-        blockId
-      quit 1
-    checkpointBlock
+      withBlck(checkpointBlock[]):
+        info "Writing checkpoint block",
+          blockRoot = shortLog(blck.root),
+          blck = shortLog(blck.message)
 
-  let checkpointSlot = getForkedBlockField(checkpointBlock[], slot)
-  if checkpointBlock[].root in dbCache.summaries:
-    notice "Checkpoint block is already known, skipping checkpoint state download"
+        db.putBlock(blck.asTrusted())
+        db.putHeadBlock(blck.root)
+        db.putTailBlock(blck.root)
 
-    withBlck(checkpointBlock[]):
-      dbCache.updateSlots(blck.root, blck.message.slot)
-
+        dbCache.update(blck)
+    (checkpointSlot, checkpointBlock[].root)
   else:
-    notice "Downloading checkpoint state", restUrl, checkpointSlot
-
-    let
-      state = try:
-        await client.getStateV2(StateIdent.init(checkpointSlot), cfg)
-      except CatchableError as exc:
-        error "Unable to download checkpoint state",
-          error = exc.msg, restUrl, checkpointSlot
-        quit 1
-
-    if isNil(state):
-      notice "No state found at given checkpoint", checkpointSlot
-      quit 1
-
-    withState(state[]):
-      let latest_block_root = state.latest_block_root
-
-      if latest_block_root != checkpointBlock[].root:
-        error "Checkpoint state does not match checkpoint block, server error?",
-          blockRoot = shortLog(checkpointBlock[].root),
-          blck = shortLog(checkpointBlock[]),
-          stateBlockRoot = shortLog(latest_block_root)
-        quit 1
-
-      info "Writing checkpoint state",
-        stateRoot = shortLog(state.root)
-      db.putState(state)
-
-    withBlck(checkpointBlock[]):
-      info "Writing checkpoint block",
-        blockRoot = shortLog(blck.root),
-        blck = shortLog(blck.message)
-
-      db.putBlock(blck.asTrusted())
-      db.putHeadBlock(blck.root)
-      db.putTailBlock(blck.root)
-
-      dbCache.update(blck)
+    notice "Skipping checkpoint download, database already exists",
+      head = shortLog(dbHead.get())
+    (headSlot, dbHead.get())
 
   # Coming this far, we've done what ChainDAGRef.preInit would normally do -
   # Let's do a sanity check and start backfilling blocks from the trusted node
@@ -297,8 +293,9 @@ proc doTrustedNodeSync*(
         total += 1
     total
 
-  if missingSlots == 0:
+  let canReindex = if missingSlots == 0:
     info "Database fully backfilled"
+    true
   elif backfill:
     notice "Downloading historical blocks - you can interrupt this process at any time and it automatically be completed when you start the beacon node",
       checkpointSlot, missingSlots
@@ -394,12 +391,25 @@ proc doTrustedNodeSync*(
           continue
 
         gets[int(i mod gets.lenu64)] = downloadBlock(slot)
+    true
   else:
     notice "Database initialized, historical blocks will be backfilled when starting the node",
       missingSlots
 
+    false
+
+  if reindex and canReindex:
+    notice "Reindexing historical state lookup tables (you can interrupt this process at any time)"
+
+    # Build a DAG
+    let
+      validatorMonitor = newClone(ValidatorMonitor.init(false, false))
+      dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
+
+    dag.rebuildIndex()
+
   notice "Done, your beacon node is ready to serve you! Don't forget to check that you're on the canoncial chain by comparing the checkpoint root with other online sources. See https://nimbus.guide/trusted-node-sync.html for more information.",
-    checkpointRoot = checkpointBlock[].root
+    checkpointRoot
 
 when isMainModule:
   import std/[os]
