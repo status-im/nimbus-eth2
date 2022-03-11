@@ -995,12 +995,14 @@ proc getBeaconBlockSummary*(db: BeaconChainDB, root: Eth2Digest):
     err()
 
 proc loadStateRoots*(db: BeaconChainDB): Table[(Slot, Eth2Digest), Eth2Digest] =
-  # Load summaries into table - there's no telling what order they're in so we
-  # load them all - bugs in nim prevent this code from living in the iterator.
+  ## Load all known state roots - just because we have a state root doesn't
+  ## mean we also have a state (and vice versa)!
   var state_roots = initTable[(Slot, Eth2Digest), Eth2Digest](1024)
 
   discard db.state_roots.find([], proc(k, v: openArray[byte]) =
     if k.len() == 40 and v.len() == 32:
+      # For legacy reasons, the first byte of the slot is not part of the slot
+      # but rather a subkey identifier - see subkey
       var tmp = toArray(8, k.toOpenArray(0, 7))
       tmp[0] = 0
       state_roots[
