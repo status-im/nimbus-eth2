@@ -26,6 +26,14 @@ type
   RpcServer = RpcHttpServer
 
   ValidatorQuery = object
+    # Security note / threat model:
+    # - The validator pubkey are stored in their raw bytes representation
+    #   in the `keyset`.
+    # - While the input is from unknown source (as far as the beacon node is concerned),
+    #   users are asked to not expose their
+    #   RPC endpoints to untrusted network or use a reverse proxy in front.
+    # - At usage time, keys in the keyset are compared to keys registered
+    #   in the Ethereum BeaconState which are valid
     keyset: HashSet[ValidatorPubKey]
     ids: seq[uint64]
 
@@ -35,18 +43,7 @@ type
 template unimplemented() =
   raise (ref CatchableError)(msg: "Unimplemented")
 
-proc parsePubkey(str: string): ValidatorPubKey {.raises: [Defect, ValueError].} =
-  const expectedLen = RawPubKeySize * 2 + 2
-  if str.len != expectedLen: # +2 because of the `0x` prefix
-    raise newException(ValueError,
-      "A hex public key should be exactly " & $expectedLen & " characters. " &
-      $str.len & " provided")
-  let pubkeyRes = fromHex(ValidatorPubKey, str)
-  if pubkeyRes.isErr:
-    raise newException(ValueError, "Not a valid public key")
-  return pubkeyRes[]
-
-proc createIdQuery(ids: openArray[string]): Result[ValidatorQuery, string] =
+proc createIdQuery(ids: openArray[string]): Result[ValidatorQuery, cstring] =
   # validatorIds array should have maximum 30 items, and all items should be
   # unique.
   if len(ids) > 30:
@@ -63,19 +60,15 @@ proc createIdQuery(ids: openArray[string]): Result[ValidatorQuery, string] =
 
   for item in ids:
     if item.startsWith("0x"):
-      if len(item) != RawPubKeySize * 2 + 2:
-        return err("Incorrect hexadecimal key")
-      let pubkeyRes = ValidatorPubKey.fromHex(item)
-      if pubkeyRes.isErr:
-        return err("Incorrect public key")
-      res.keyset.incl(pubkeyRes.get())
+      let pubkey = ? ValidatorPubkey.fromHex(item)
+      res.keyset.incl(pubkey)
     else:
       var tmp: uint64
       try:
         if parseBiggestUInt(item, tmp) != len(item):
           return err("Incorrect index value")
       except ValueError:
-        return err("Cannot parse index value: " & item)
+        return err("Cannot parse index value")
       res.ids.add(tmp)
   ok(res)
 
@@ -230,7 +223,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       if validatorIds.isSome:
         let vqres = createIdQuery(validatorIds.get())
         if vqres.isErr:
-          raise newException(CatchableError, vqres.error)
+          raise newException(CatchableError, $vqres.error)
         vquery = vqres.get()
 
       if validatorIds.isNone():
@@ -280,7 +273,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     let current_epoch = getStateField(node.dag.headState.data, slot).epoch
     let vqres = createIdQuery([validatorId])
     if vqres.isErr:
-      raise newException(CatchableError, vqres.error)
+      raise newException(CatchableError, $vqres.error)
     let vquery = vqres.get()
 
     withStateForStateId(stateId):
@@ -318,7 +311,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       else:
         let vqres = createIdQuery(validatorsId.get())
         if vqres.isErr:
-          raise newException(CatchableError, vqres.error)
+          raise newException(CatchableError, $vqres.error)
 
         var vquery = vqres.get()
         for index in vquery.ids:
