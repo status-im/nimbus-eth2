@@ -214,20 +214,6 @@ func isProposed*(bsi: BlockSlotId): bool =
   ## slot)
   bsi.bid.isProposed(bsi.slot)
 
-func dependentBlock*(head, tail: BlockRef, epoch: Epoch): BlockRef =
-  ## The block that determined the proposer shuffling in the given epoch
-  let dependentSlot =
-    if epoch >= Epoch(1): epoch.start_slot() - 1
-    else: Slot(0)
-  let res = head.atSlot(dependentSlot)
-  if isNil(res.blck): tail
-  else: res.blck
-
-func prevDependentBlock*(head, tail: BlockRef, epoch: Epoch): BlockRef =
-  ## The block that determined the attester shuffling in the given epoch
-  if epoch >= 1: head.dependentBlock(tail, epoch - 1)
-  else: head.dependentBlock(tail, epoch)
-
 func shortLog*(v: BlockId): string =
   # epoch:root when logging epoch, root:slot when logging slot!
   shortLog(v.root) & ":" & $v.slot

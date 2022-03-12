@@ -18,15 +18,17 @@ import
   ./testutil, ./testblockutil
 
 suite "Beacon state" & preset():
+  setup:
+    let cfg = defaultRuntimeConfig
+
   test "Smoke test initialize_beacon_state_from_eth1" & preset():
     let state = newClone(initialize_beacon_state_from_eth1(
-      defaultRuntimeConfig, Eth2Digest(), 0,
+      cfg, Eth2Digest(), 0,
       makeInitialDeposits(SLOTS_PER_EPOCH, {}), {}))
     check: state.validators.lenu64 == SLOTS_PER_EPOCH
 
   test "process_slots":
     var
-      cfg = defaultRuntimeConfig
       state = (ref ForkedHashedBeaconState)(
         kind: BeaconStateFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
@@ -41,7 +43,6 @@ suite "Beacon state" & preset():
 
   test "latest_block_root":
     var
-      cfg = defaultRuntimeConfig
       state = (ref ForkedHashedBeaconState)(
         kind: BeaconStateFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
@@ -66,7 +67,6 @@ suite "Beacon state" & preset():
 
   test "get_beacon_proposer_index":
     var
-      cfg = defaultRuntimeConfig
       state = (ref ForkedHashedBeaconState)(
         kind: BeaconStateFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
@@ -89,3 +89,35 @@ suite "Beacon state" & preset():
         state[].phase0Data.data, cache, Epoch(1).start_slot()).isSome()
       get_beacon_proposer_index(
         state[].phase0Data.data, cache, Epoch(2).start_slot()).isNone()
+
+  test "dependent_root":
+    var
+      state = (ref ForkedHashedBeaconState)(
+        kind: BeaconStateFork.Phase0,
+        phase0Data: initialize_hashed_beacon_state_from_eth1(
+          defaultRuntimeConfig, Eth2Digest(), 0,
+          makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
+      genBlock = get_initial_beacon_block(state[])
+      cache: StateCache
+      info: ForkedEpochInfo
+
+    check:
+      state[].phase0Data.dependent_root(Epoch(0)) == genBlock.root
+
+    while getStateField(state[], slot).epoch < Epoch(1):
+      discard addTestBlock(state[], cache)
+
+    check:
+      state[].phase0Data.dependent_root(Epoch(1)) ==
+        state[].phase0Data.data.get_block_root_at_slot(Epoch(1).start_slot - 1)
+      state[].phase0Data.dependent_root(Epoch(0)) == genBlock.root
+
+    while getStateField(state[], slot).epoch < Epoch(2):
+      discard addTestBlock(state[], cache)
+
+    check:
+      state[].phase0Data.dependent_root(Epoch(2)) ==
+        state[].phase0Data.data.get_block_root_at_slot(Epoch(2).start_slot - 1)
+      state[].phase0Data.dependent_root(Epoch(1)) ==
+        state[].phase0Data.data.get_block_root_at_slot(Epoch(1).start_slot - 1)
+      state[].phase0Data.dependent_root(Epoch(0)) == genBlock.root

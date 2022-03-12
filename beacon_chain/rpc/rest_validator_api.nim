@@ -67,15 +67,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
-    let droot = qhead.prevDependentBlock(node.dag.tail, qepoch).root
+    let epochRef = node.dag.getEpochRef(qhead, qepoch, true).valueOr:
+      return RestApiResponse.jsonError(Http400, PrunedStateError)
+
     let duties =
       block:
         var res: seq[RestAttesterDuty]
-        let epochRef = block:
-          let tmp = node.dag.getEpochRef(qhead, qepoch, true)
-          if isErr(tmp):
-            return RestApiResponse.jsonError(Http400, PrunedStateError)
-          tmp.get()
 
         let
           committees_per_slot = get_committee_count_per_slot(epochRef)
@@ -98,7 +95,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                     )
                   )
         res
-    return RestApiResponse.jsonResponseWRoot(duties, droot)
+    return RestApiResponse.jsonResponseWRoot(
+      duties, epochRef.attester_dependent_root)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties
   router.api(MethodGet, "/eth/v1/validator/duties/proposer/{epoch}") do (
@@ -122,15 +120,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
-    let droot = qhead.dependentBlock(node.dag.tail, qepoch).root
+    let epochRef = node.dag.getEpochRef(qhead, qepoch, true).valueOr:
+      return RestApiResponse.jsonError(Http400, PrunedStateError)
+
     let duties =
       block:
         var res: seq[RestProposerDuty]
-        let epochRef = block:
-          let tmp = node.dag.getEpochRef(qhead, qepoch, true)
-          if isErr(tmp):
-            return RestApiResponse.jsonError(Http400, PrunedStateError)
-          tmp.get()
         for i, bp in epochRef.beacon_proposers:
           if i == 0 and qepoch == 0:
             # Fix for https://github.com/status-im/nimbus-eth2/issues/2488
@@ -146,7 +141,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               )
             )
         res
-    return RestApiResponse.jsonResponseWRoot(duties, droot)
+    return RestApiResponse.jsonResponseWRoot(
+      duties, epochRef.proposer_dependent_root)
 
   router.api(MethodPost, "/eth/v1/validator/duties/sync/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:

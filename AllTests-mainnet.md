@@ -44,11 +44,12 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
++ dependent_root                                                                             OK
 + get_beacon_proposer_index                                                                  OK
 + latest_block_root                                                                          OK
 + process_slots                                                                              OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Beacon time
 ```diff
 + basics                                                                                     OK
@@ -520,4 +521,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 285/290 Fail: 0/290 Skip: 5/290
+OK: 286/291 Fail: 0/291 Skip: 5/291

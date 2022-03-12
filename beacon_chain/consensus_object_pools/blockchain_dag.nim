@@ -137,6 +137,10 @@ func init*(
     cache: var StateCache): T =
   let
     epoch = state.data.get_current_epoch()
+    proposer_dependent_root = withState(state.data):
+      state.proposer_dependent_root
+    attester_dependent_root = withState(state.data):
+      state.attester_dependent_root
     epochRef = EpochRef(
       dag: dag, # This gives access to the validator pubkeys through an EpochRef
       key: state.blck.epochAncestor(epoch),
@@ -145,8 +149,10 @@ func init*(
       current_justified_checkpoint:
         getStateField(state.data, current_justified_checkpoint),
       finalized_checkpoint: getStateField(state.data, finalized_checkpoint),
+      proposer_dependent_root: proposer_dependent_root,
       shuffled_active_validator_indices:
         cache.get_shuffled_active_validator_indices(state.data, epoch),
+      attester_dependent_root: attester_dependent_root,
       merge_transition_complete:
         case state.data.kind:
         of BeaconStateFork.Phase0: false
@@ -1545,13 +1551,14 @@ proc updateHead*(
     if not(isNil(dag.onHeadChanged)):
       let
         currentEpoch = epoch(newHead.slot)
-        depBlock = dag.head.dependentBlock(dag.tail, currentEpoch)
-        prevDepBlock = dag.head.prevDependentBlock(dag.tail, currentEpoch)
+        depRoot = withState(dag.headState.data): state.proposer_dependent_root
+        prevDepRoot =
+          withState(dag.headState.data): state.attester_dependent_root
         epochTransition = (finalizedHead != dag.finalizedHead)
       let data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
                                            getStateRoot(dag.headState.data),
-                                           epochTransition, depBlock.root,
-                                           prevDepBlock.root)
+                                           epochTransition, depRoot,
+                                           prevDepRoot)
       dag.onHeadChanged(data)
 
   withState(dag.headState.data):

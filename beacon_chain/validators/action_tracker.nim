@@ -60,7 +60,7 @@ type
     proposingSlots*: array[2, uint32]
     lastCalculatedEpoch*: Epoch
 
-    dependentRoot*: Eth2Digest
+    attesterDepRoot*: Eth2Digest
       ## The latest dependent root we used to compute attestation duties
       ## for internal validators
 
@@ -208,27 +208,22 @@ func getNextProposalSlot*(tracker: ActionTracker, slot: Slot): Slot =
     tracker.proposingSlots,
     tracker.lastCalculatedEpoch, slot)
 
-func dependentRoot(epoch: Epoch, head, tail: BlockRef): Eth2Digest =
-  head.prevDependentBlock(tail, epoch).root
-
 func needsUpdate*(
-    tracker: ActionTracker, epoch: Epoch, head, tail: BlockRef): bool =
-  # Using prevDependentBlock here means we lock the action tracking to
+    tracker: ActionTracker, state: ForkyHashedBeaconState, epoch: Epoch): bool =
+  # Using the attester dependent root here means we lock the action tracking to
   # the dependent root for attestation duties and not block proposal -
   # however, the risk of a proposer reordering in the last epoch is small
   # and the action tracker is speculative in nature.
-  tracker.dependentRoot != dependentRoot(epoch, head, tail)
+  tracker.attesterDepRoot !=
+    state.dependent_root(if epoch > Epoch(0): epoch - 1 else: epoch)
 
 func updateActions*(
-    tracker: var ActionTracker, epochRef: EpochRef, head, tail: BlockRef) =
+    tracker: var ActionTracker, epochRef: EpochRef) =
   # Updates the schedule for upcoming attestation and proposal work
   let
     epoch = epochRef.epoch
 
-  if not tracker.needsUpdate(epoch, head, tail):
-    return
-
-  tracker.dependentRoot = dependentRoot(epoch, head, tail)
+  tracker.attesterDepRoot = epochRef.attester_dependent_root
   tracker.lastCalculatedEpoch = epoch
 
   let validatorIndices = toHashSet(toSeq(tracker.knownValidators.keys()))

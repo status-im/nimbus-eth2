@@ -982,15 +982,16 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     # it might also happen on a sufficiently fast restart
 
     # We "know" the actions for the current and the next epoch
-    if node.actionTracker.needsUpdate(slot.epoch, head, node.dag.tail):
-      let epochRef = node.dag.getEpochRef(head, slot.epoch, false).expect(
-        "Getting head EpochRef should never fail")
-      node.actionTracker.updateActions(epochRef, head, node.dag.tail)
+    withState(node.dag.headState.data):
+      if node.actionTracker.needsUpdate(state, slot.epoch):
+        let epochRef = node.dag.getEpochRef(head, slot.epoch, false).expect(
+          "Getting head EpochRef should never fail")
+        node.actionTracker.updateActions(epochRef)
 
-    if node.actionTracker.needsUpdate(slot.epoch + 1, head, node.dag.tail):
-      let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
-        "Getting head EpochRef should never fail")
-      node.actionTracker.updateActions(epochRef, head, node.dag.tail)
+      if node.actionTracker.needsUpdate(state, slot.epoch + 1):
+        let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
+          "Getting head EpochRef should never fail")
+        node.actionTracker.updateActions(epochRef)
 
   if node.gossipState.card > 0 and targetGossipState.card == 0:
     debug "Disabling topic subscriptions",
@@ -1061,10 +1062,11 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Update upcoming actions - we do this every slot in case a reorg happens
   let head = node.dag.head
   if node.isSynced(head):
-    if node.actionTracker.needsUpdate(slot.epoch + 1, head, node.dag.tail):
-      let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
-        "Getting head EpochRef should never fail")
-      node.actionTracker.updateActions(epochRef, head, node.dag.tail)
+    withState(node.dag.headState.data):
+      if node.actionTracker.needsUpdate(state, slot.epoch + 1):
+        let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
+          "Getting head EpochRef should never fail")
+        node.actionTracker.updateActions(epochRef)
 
   let
     nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot)

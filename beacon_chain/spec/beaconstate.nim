@@ -977,3 +977,27 @@ func get_sync_committee_cache*(
   cache.sync_committees[period] = res
 
   res
+
+func dependent_root*(state: ForkyHashedBeaconState, epoch: Epoch): Eth2Digest =
+  ## Return the root of the last block that contributed to the shuffling in the
+  ## given epoch
+  if epoch > state.data.slot.epoch:
+    state.latest_block_root
+  elif epoch == Epoch(0):
+    if state.data.slot == Slot(0):
+      state.latest_block_root
+    else:
+      state.data.get_block_root_at_slot(Slot(0))
+  else:
+    let dependent_slot = epoch.start_slot - 1
+    if state.data.slot <= dependent_slot + SLOTS_PER_HISTORICAL_ROOT:
+      state.data.get_block_root_at_slot(epoch.start_slot - 1)
+    else:
+      Eth2Digest() # "don't know"
+
+func proposer_dependent_root*(state: ForkyHashedBeaconState): Eth2Digest =
+  state.dependent_root(state.data.slot.epoch)
+
+func attester_dependent_root*(state: ForkyHashedBeaconState): Eth2Digest =
+  let epoch = state.data.slot.epoch
+  state.dependent_root(if epoch == Epoch(0): epoch else: epoch - 1)
