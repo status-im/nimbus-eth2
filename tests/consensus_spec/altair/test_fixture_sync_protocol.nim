@@ -151,7 +151,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
         store, update, signature_slot, cfg, state.genesis_validators_root)
 
     check:
-      res
+      res.isOk
       store.current_max_active_participants > 0
       store.optimistic_header == update.attested_header
       store.finalized_header == pre_store_finalized_header
@@ -214,7 +214,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
         store, update, signature_slot, cfg, state.genesis_validators_root)
 
     check:
-      res
+      res.isOk
       store.current_max_active_participants > 0
       store.optimistic_header == update.attested_header
       store.finalized_header == pre_store_finalized_header
@@ -277,7 +277,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
         store, update, signature_slot, cfg, state.genesis_validators_root)
 
     check:
-      res
+      res.isOk
       store.previous_max_active_participants > 0
       store.optimistic_header == update.attested_header
       store.finalized_header == update.attested_header
@@ -370,7 +370,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
         store, update, signature_slot, cfg, state.genesis_validators_root)
 
     check:
-      res
+      res.isOk
       store.current_max_active_participants > 0
       store.optimistic_header == update.attested_header
       store.finalized_header == update.finalized_header
