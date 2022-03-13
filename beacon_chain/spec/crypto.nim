@@ -360,6 +360,8 @@ func fromHex*(T: type BlsCurveType, hexStr: string): BlsResult[T] {.inline.} =
 func `==`*(a, b: ValidatorPubKey | ValidatorSig): bool =
   equalMem(unsafeAddr a.blob[0], unsafeAddr b.blob[0], sizeof(a.blob))
 
+func `==`*(a, b: ValidatorPrivKey): bool {.error: "Secret keys should stay secret".}
+
 # Hashing
 # ----------------------------------------------------------------------
 
