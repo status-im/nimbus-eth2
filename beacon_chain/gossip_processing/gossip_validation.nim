@@ -7,6 +7,10 @@
 
 {.push raises: [Defect].}
 
+# References to `vFuture` refer to the pre-release proposal of the libp2p based
+# light client sync protocol. Conflicting release versions are not in use.
+# https://github.com/ethereum/consensus-specs/pull/2802
+
 import
   # Status
   chronicles, chronos, metrics,
@@ -1028,3 +1032,20 @@ proc validateContribution*(
     sig.get()
 
   return ok((sig, participants))
+
+# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#optimistic_light_client_update
+proc validateOptimisticLightClientUpdate*(
+    dag: ChainDAGRef, optimistic_update: OptimisticLightClientUpdate):
+    Result[void, ValidationError] =
+  template local_update(): auto = dag.lightClientCache.optimisticUpdate
+
+  if optimistic_update != local_update:
+    # [IGNORE] The optimistic update is not attesting to the latest block's
+    # parent block.
+    if optimistic_update.attested_header != local_update.attested_header:
+      return errIgnore("OptimisticLightClientUpdate: not attesting to latest")
+
+    # [REJECT] The optimistic update does not match the expected value.
+    return errReject("OptimisticLightClientUpdate: not matching expected value")
+
+  ok()

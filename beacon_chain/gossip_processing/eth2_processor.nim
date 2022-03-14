@@ -7,6 +7,10 @@
 
 {.push raises: [Defect].}
 
+# References to `vFuture` refer to the pre-release proposal of the libp2p based
+# light client sync protocol. Conflicting release versions are not in use.
+# https://github.com/ethereum/consensus-specs/pull/2802
+
 import
   std/tables,
   stew/results, bearssl,
@@ -58,6 +62,10 @@ declareCounter beacon_sync_committee_contributions_received,
   "Number of valid sync committee contributions processed by this node"
 declareCounter beacon_sync_committee_contributions_dropped,
   "Number of invalid sync committee contributions dropped by this node", labels = ["reason"]
+declareCounter beacon_optimistic_light_client_updates_received,
+  "Number of valid optimistic light client updates processed by this node"
+declareCounter beacon_optimistic_light_client_updates_dropped,
+  "Number of invalid optimistic light client updates dropped by this node", labels = ["reason"]
 
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
@@ -529,3 +537,24 @@ proc contributionValidator*(
     beacon_sync_committee_contributions_dropped.inc(1, [$v.error[0]])
 
     err(v.error())
+
+# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#optimistic_light_client_update
+proc optimisticLightClientUpdateValidator*(
+    self: var Eth2Processor, src: MsgSource,
+    optimistic_update: OptimisticLightClientUpdate
+): Result[void, ValidationError] =
+  logScope:
+    optimistic_update
+
+  debug "Optimistic light client update received"
+
+  let v = self.dag.validateOptimisticLightClientUpdate(optimistic_update)
+  if v.isOk():
+    trace "Optimistic light client update validated"
+
+    beacon_optimistic_light_client_updates_received.inc()
+  else:
+    debug "Dropping optimistic light client update", error = v.error
+    beacon_optimistic_light_client_updates_dropped.inc(1, [$v.error[0]])
+
+  v
