@@ -1482,115 +1482,116 @@ func formatGwei(amount: uint64): string =
     while result[^1] == '0':
       result.setLen(result.len - 1)
 
-proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
-  if not isatty(stdout): return
-  if not node.config.statusBarEnabled: return
+when not defined(windows):
+  proc initStatusBar(node: BeaconNode) {.raises: [Defect, ValueError].} =
+    if not isatty(stdout): return
+    if not node.config.statusBarEnabled: return
 
-  try:
-    enableTrueColors()
-  except Exception as exc: # TODO Exception
-    error "Couldn't enable colors", err = exc.msg
-
-  proc dataResolver(expr: string): string {.raises: [Defect].} =
-    template justified: untyped = node.dag.head.atEpochStart(
-      getStateField(
-        node.dag.headState.data, current_justified_checkpoint).epoch)
-    # TODO:
-    # We should introduce a general API for resolving dot expressions
-    # such as `db.latest_block.slot` or `metrics.connected_peers`.
-    # Such an API can be shared between the RPC back-end, CLI tools
-    # such as ncli, a potential GraphQL back-end and so on.
-    # The status bar feature would allow the user to specify an
-    # arbitrary expression that is resolvable through this API.
-    case expr.toLowerAscii
-    of "connected_peers":
-      $(node.connectedPeersCount)
-
-    of "head_root":
-      shortLog(node.dag.head.root)
-    of "head_epoch":
-      $(node.dag.head.slot.epoch)
-    of "head_epoch_slot":
-      $(node.dag.head.slot.since_epoch_start)
-    of "head_slot":
-      $(node.dag.head.slot)
-
-    of "justifed_root":
-      shortLog(justified.blck.root)
-    of "justifed_epoch":
-      $(justified.slot.epoch)
-    of "justifed_epoch_slot":
-      $(justified.slot.since_epoch_start)
-    of "justifed_slot":
-      $(justified.slot)
-
-    of "finalized_root":
-      shortLog(node.dag.finalizedHead.blck.root)
-    of "finalized_epoch":
-      $(node.dag.finalizedHead.slot.epoch)
-    of "finalized_epoch_slot":
-      $(node.dag.finalizedHead.slot.since_epoch_start)
-    of "finalized_slot":
-      $(node.dag.finalizedHead.slot)
-
-    of "epoch":
-      $node.currentSlot.epoch
-
-    of "epoch_slot":
-      $(node.currentSlot.since_epoch_start)
-
-    of "slot":
-      $node.currentSlot
-
-    of "slots_per_epoch":
-      $SLOTS_PER_EPOCH
-
-    of "slot_trailing_digits":
-      var slotStr = $node.currentSlot
-      if slotStr.len > 3: slotStr = slotStr[^3..^1]
-      slotStr
-
-    of "attached_validators_balance":
-      formatGwei(node.attachedValidatorBalanceTotal)
-
-    of "sync_status":
-      node.syncStatus()
-    else:
-      # We ignore typos for now and just render the expression
-      # as it was written. TODO: come up with a good way to show
-      # an error message to the user.
-      "$" & expr
-
-  var statusBar = StatusBarView.init(
-    node.config.statusBarContents,
-    dataResolver)
-
-  when compiles(defaultChroniclesStream.outputs[0].writer):
-    let tmp = defaultChroniclesStream.outputs[0].writer
-
-    defaultChroniclesStream.outputs[0].writer =
-      proc (logLevel: LogLevel, msg: LogOutputStr) {.raises: [Defect].} =
-        try:
-          # p.hidePrompt
-          erase statusBar
-          # p.writeLine msg
-          tmp(logLevel, msg)
-          render statusBar
-          # p.showPrompt
-        except Exception as e: # render raises Exception
-          logLoggingFailure(cstring(msg), e)
-
-  proc statusBarUpdatesPollingLoop() {.async.} =
     try:
-      while true:
-        update statusBar
-        erase statusBar
-        render statusBar
-        await sleepAsync(chronos.seconds(1))
-    except CatchableError as exc:
-      warn "Failed to update status bar, no further updates", err = exc.msg
+      enableTrueColors()
+    except Exception as exc: # TODO Exception
+      error "Couldn't enable colors", err = exc.msg
 
-  asyncSpawn statusBarUpdatesPollingLoop()
+    proc dataResolver(expr: string): string {.raises: [Defect].} =
+      template justified: untyped = node.dag.head.atEpochStart(
+        getStateField(
+          node.dag.headState.data, current_justified_checkpoint).epoch)
+      # TODO:
+      # We should introduce a general API for resolving dot expressions
+      # such as `db.latest_block.slot` or `metrics.connected_peers`.
+      # Such an API can be shared between the RPC back-end, CLI tools
+      # such as ncli, a potential GraphQL back-end and so on.
+      # The status bar feature would allow the user to specify an
+      # arbitrary expression that is resolvable through this API.
+      case expr.toLowerAscii
+      of "connected_peers":
+        $(node.connectedPeersCount)
+
+      of "head_root":
+        shortLog(node.dag.head.root)
+      of "head_epoch":
+        $(node.dag.head.slot.epoch)
+      of "head_epoch_slot":
+        $(node.dag.head.slot.since_epoch_start)
+      of "head_slot":
+        $(node.dag.head.slot)
+
+      of "justifed_root":
+        shortLog(justified.blck.root)
+      of "justifed_epoch":
+        $(justified.slot.epoch)
+      of "justifed_epoch_slot":
+        $(justified.slot.since_epoch_start)
+      of "justifed_slot":
+        $(justified.slot)
+
+      of "finalized_root":
+        shortLog(node.dag.finalizedHead.blck.root)
+      of "finalized_epoch":
+        $(node.dag.finalizedHead.slot.epoch)
+      of "finalized_epoch_slot":
+        $(node.dag.finalizedHead.slot.since_epoch_start)
+      of "finalized_slot":
+        $(node.dag.finalizedHead.slot)
+
+      of "epoch":
+        $node.currentSlot.epoch
+
+      of "epoch_slot":
+        $(node.currentSlot.since_epoch_start)
+
+      of "slot":
+        $node.currentSlot
+
+      of "slots_per_epoch":
+        $SLOTS_PER_EPOCH
+
+      of "slot_trailing_digits":
+        var slotStr = $node.currentSlot
+        if slotStr.len > 3: slotStr = slotStr[^3..^1]
+        slotStr
+
+      of "attached_validators_balance":
+        formatGwei(node.attachedValidatorBalanceTotal)
+
+      of "sync_status":
+        node.syncStatus()
+      else:
+        # We ignore typos for now and just render the expression
+        # as it was written. TODO: come up with a good way to show
+        # an error message to the user.
+        "$" & expr
+
+    var statusBar = StatusBarView.init(
+      node.config.statusBarContents,
+      dataResolver)
+
+    when compiles(defaultChroniclesStream.outputs[0].writer):
+      let tmp = defaultChroniclesStream.outputs[0].writer
+
+      defaultChroniclesStream.outputs[0].writer =
+        proc (logLevel: LogLevel, msg: LogOutputStr) {.raises: [Defect].} =
+          try:
+            # p.hidePrompt
+            erase statusBar
+            # p.writeLine msg
+            tmp(logLevel, msg)
+            render statusBar
+            # p.showPrompt
+          except Exception as e: # render raises Exception
+            logLoggingFailure(cstring(msg), e)
+
+    proc statusBarUpdatesPollingLoop() {.async.} =
+      try:
+        while true:
+          update statusBar
+          erase statusBar
+          render statusBar
+          await sleepAsync(chronos.seconds(1))
+      except CatchableError as exc:
+        warn "Failed to update status bar, no further updates", err = exc.msg
+
+    asyncSpawn statusBarUpdatesPollingLoop()
 
 proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.raises: [Defect, CatchableError].} =
   info "Launching beacon node",
@@ -1645,7 +1646,10 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
   if bnStatus == BeaconNodeStatus.Stopping:
     return
 
-  initStatusBar(node)
+  when not defined(windows):
+    # This status bar can lock a Windows terminal emulator, blocking the whole
+    # event loop (seen on Windows 10, with a default MSYS2 terminal).
+    initStatusBar(node)
 
   if node.nickname != "":
     dynamicLogScope(node = node.nickname): node.start()
