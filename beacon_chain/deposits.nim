@@ -109,7 +109,7 @@ proc askForExitConfirmation(): ClientExitAction =
     ClientExitAction.quiting
 
 proc rpcValidatorExit(config: BeaconNodeConf) {.async.} =
-  warn "The JS0R-PRC API is deprecated. Consider using the REST API"
+  warn "The JSON-PRC API is deprecated. Consider using the REST API"
 
   let port = try:
     let value = parseInt(config.rpcUrlForExit.get.port)
