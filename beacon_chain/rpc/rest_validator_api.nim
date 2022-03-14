@@ -260,8 +260,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       # in order to compute the sync committee for the epoch. See the following
       # discussion for more details:
       # https://github.com/status-im/nimbus-eth2/pull/3133#pullrequestreview-817184693
-      let bs = node.dag.getBlockAtSlot(earliestSlotInQSyncPeriod)
-      if bs.blck.isNil:
+      let bs = node.dag.getBlockAtSlot(earliestSlotInQSyncPeriod).valueOr:
         return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
       node.withStateForBlockSlot(bs):

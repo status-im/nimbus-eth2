@@ -397,16 +397,16 @@ suite "chain DAG finalization tests" & preset():
 
     check:
       dag.heads.len() == 1
-      dag.getBlockAtSlot(0.Slot) == BlockSlot(blck: dag.genesis, slot: 0.Slot)
-      dag.getBlockAtSlot(2.Slot) ==
-        BlockSlot(blck: dag.getBlockAtSlot(1.Slot).blck, slot: 2.Slot)
+      dag.getBlockAtSlot(0.Slot).get() == BlockSlot(blck: dag.genesis, slot: 0.Slot)
+      dag.getBlockAtSlot(2.Slot).get() ==
+        BlockSlot(blck: dag.getBlockAtSlot(1.Slot).get().blck, slot: 2.Slot)
 
-      dag.getBlockAtSlot(dag.head.slot) == BlockSlot(
+      dag.getBlockAtSlot(dag.head.slot).get() == BlockSlot(
         blck: dag.head, slot: dag.head.slot.Slot)
-      dag.getBlockAtSlot(dag.head.slot + 1) == BlockSlot(
+      dag.getBlockAtSlot(dag.head.slot + 1).get() == BlockSlot(
         blck: dag.head, slot: dag.head.slot.Slot + 1)
 
-      not dag.containsForkBlock(dag.getBlockAtSlot(5.Slot).blck.root)
+      not dag.containsForkBlock(dag.getBlockAtSlot(5.Slot).get().blck.root)
       dag.containsForkBlock(dag.finalizedHead.blck.root)
 
     check:
@@ -712,12 +712,12 @@ suite "Backfill":
       dag.getBlockRef(tailBlock.root).get() == dag.tail
       dag.getBlockRef(blocks[^2].root).isNone()
 
-      dag.getBlockAtSlot(dag.tail.slot).blck == dag.tail
-      dag.getBlockAtSlot(dag.tail.slot - 1).blck == nil
+      dag.getBlockAtSlot(dag.tail.slot).get().blck == dag.tail
+      dag.getBlockAtSlot(dag.tail.slot - 1).isNone()
 
-      dag.getBlockAtSlot(Slot(0)).blck == dag.genesis
-      dag.getBlockIdAtSlot(Slot(0)) == dag.genesis.bid.atSlot(Slot(0))
-      dag.getBlockIdAtSlot(Slot(1)) == BlockSlotId()
+      dag.getBlockAtSlot(Slot(0)).get().blck == dag.genesis
+      dag.getBlockIdAtSlot(Slot(0)).get() == dag.genesis.bid.atSlot()
+      dag.getBlockIdAtSlot(Slot(1)).isNone
 
       # No epochref for pre-tail epochs
       dag.getEpochRef(dag.tail, dag.tail.slot.epoch - 1, true).isErr()
@@ -742,21 +742,21 @@ suite "Backfill":
       dag.getBlockRef(tailBlock.root).get() == dag.tail
       dag.getBlockRef(blocks[^2].root).isNone()
 
-      dag.getBlockAtSlot(dag.tail.slot).blck == dag.tail
-      dag.getBlockAtSlot(dag.tail.slot - 1).blck == nil
+      dag.getBlockAtSlot(dag.tail.slot).get().blck == dag.tail
+      dag.getBlockAtSlot(dag.tail.slot - 1).isNone()
 
-      dag.getBlockIdAtSlot(dag.tail.slot - 1) ==
+      dag.getBlockIdAtSlot(dag.tail.slot - 1).get() ==
         blocks[^2].toBlockId().atSlot()
-      dag.getBlockIdAtSlot(dag.tail.slot - 2) == BlockSlotId()
+      dag.getBlockIdAtSlot(dag.tail.slot - 2).isNone
 
       dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
 
     check:
       dag.addBackfillBlock(blocks[^3].phase0Data).isOk()
 
-      dag.getBlockIdAtSlot(dag.tail.slot - 2) ==
+      dag.getBlockIdAtSlot(dag.tail.slot - 2).get() ==
         blocks[^3].toBlockId().atSlot()
-      dag.getBlockIdAtSlot(dag.tail.slot - 3) == BlockSlotId()
+      dag.getBlockIdAtSlot(dag.tail.slot - 3).isNone
 
     for i in 3..<blocks.len:
       check: dag.addBackfillBlock(blocks[blocks.len - i - 1].phase0Data).isOk()
@@ -795,10 +795,10 @@ suite "Backfill":
       dag2.getBlockRef(tailBlock.root).get().root == dag.tail.root
       dag2.getBlockRef(blocks[^2].root).isNone()
 
-      dag2.getBlockAtSlot(dag.tail.slot).blck.root == dag.tail.root
-      dag2.getBlockAtSlot(dag.tail.slot - 1).blck == nil
+      dag2.getBlockAtSlot(dag.tail.slot).get().blck.root == dag.tail.root
+      dag2.getBlockAtSlot(dag.tail.slot - 1).isNone()
 
-      dag2.getBlockIdAtSlot(dag.tail.slot - 1) ==
+      dag2.getBlockIdAtSlot(dag.tail.slot - 1).get() ==
         blocks[^2].toBlockId().atSlot()
-      dag2.getBlockIdAtSlot(dag.tail.slot - 2) == BlockSlotId()
+      dag2.getBlockIdAtSlot(dag.tail.slot - 2).isNone
       dag2.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()

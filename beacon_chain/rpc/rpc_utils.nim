@@ -72,14 +72,15 @@ proc parseSlot(slot: string): Slot {.raises: [Defect, CatchableError].} =
 proc getBlockSlotFromString*(node: BeaconNode, slot: string): BlockSlot {.raises: [Defect, CatchableError].} =
   let parsed = parseSlot(slot)
   discard node.doChecksAndGetCurrentHead(parsed)
-  node.dag.getBlockAtSlot(parsed)
+  node.dag.getBlockAtSlot(parsed).valueOr:
+    raise newException(ValueError, "Block not found")
 
 proc getBlockIdFromString*(node: BeaconNode, slot: string): BlockId {.raises: [Defect, CatchableError].} =
   let parsed = parseSlot(slot)
   discard node.doChecksAndGetCurrentHead(parsed)
   let bsid = node.dag.getBlockIdAtSlot(parsed)
-  if bsid.isProposed():
-    bsid.bid
+  if bsid.isSome and bsid.get.isProposed():
+    bsid.get().bid
   else:
     raise (ref ValueError)(msg: "Block not found")
 

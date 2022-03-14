@@ -70,7 +70,10 @@ proc currentSyncCommitteeForPeriod(
   let
     periodStartSlot = period.start_slot
     syncCommitteeSlot = max(periodStartSlot, earliestSlot)
-  dag.withUpdatedState(tmpState, dag.getBlockAtSlot(syncCommitteeSlot)) do:
+    # TODO introduce error handling in the case that we don't have historical
+    # data for the period
+    bs = dag.getBlockAtSlot(syncCommitteeSlot).expect("TODO")
+  dag.withUpdatedState(tmpState, bs) do:
     withState(stateData.data):
       when stateFork >= BeaconStateFork.Altair:
         state.data.current_sync_committee
@@ -97,7 +100,8 @@ proc syncCommitteeRootForPeriod(
   let
     periodStartSlot = period.start_slot
     syncCommitteeSlot = max(periodStartSlot, earliestSlot)
-  dag.withUpdatedState(tmpState, dag.getBlockAtSlot(syncCommitteeSlot)) do:
+    bs = dag.getBlockAtSlot(syncCommitteeSlot).expect("TODO")
+  dag.withUpdatedState(tmpState, bs) do:
     withState(stateData.data):
       when stateFork >= BeaconStateFork.Altair:
         state.syncCommitteeRoot
@@ -145,7 +149,7 @@ proc cacheLightClientData*(
     bid =
       BlockId(root: blck.root, slot: blck.message.slot)
     finalized_bid =
-      dag.getBlockIdAtSlot(finalized_checkpoint.epoch.start_slot).bid
+      dag.getBlockIdAtSlot(finalized_checkpoint.epoch.start_slot).expect("TODO").bid
   if dag.lightClientCache.data.hasKeyOrPut(
       bid,
       CachedLightClientData(
@@ -463,7 +467,7 @@ proc processFinalizationForLightClient*(dag: ChainDAGRef) =
     let lowSlot = max(lastCheckpoint.epoch.start_slot, earliestSlot)
     var boundarySlot = dag.finalizedHead.slot
     while boundarySlot >= lowSlot:
-      let blck = dag.getBlockAtSlot(boundarySlot).blck
+      let blck = dag.getBlockAtSlot(boundarySlot).expect("historical data").blck
       if blck.slot >= lowSlot:
         dag.lightClientCache.bootstrap[blck.slot] =
           CachedLightClientBootstrap(
@@ -564,7 +568,7 @@ proc initBestLightClientUpdateForPeriod(
   let
     lowSlot = max(periodStartSlot, earliestSlot)
     highSlot = min(periodEndSlot, dag.finalizedHead.blck.slot)
-    highBlck = dag.getBlockAtSlot(highSlot).blck
+    highBlck = dag.getBlockAtSlot(highSlot).expect("TODO").blck
     bestNonFinalizedRef = maxParticipantsBlock(highBlck, lowSlot)
   if bestNonFinalizedRef == nil:
     dag.lightClientCache.bestUpdates[period] = default(altair.LightClientUpdate)
@@ -589,7 +593,8 @@ proc initBestLightClientUpdateForPeriod(
         do: raiseAssert "Unreachable"
       finalizedEpochStartSlot = finalizedEpoch.start_slot
     if finalizedEpochStartSlot >= lowSlot:
-      finalizedBlck = dag.getBlockAtSlot(finalizedEpochStartSlot).blck
+      finalizedBlck = dag.getBlockAtSlot(finalizedEpochStartSlot).expect(
+        "TODO").blck
       if finalizedBlck.slot >= lowSlot:
         break
     bestFinalizedRef = maxParticipantsBlock(highBlck, bestFinalizedRef.slot + 1)
@@ -694,7 +699,7 @@ proc initLightClientBootstrapForPeriod(
     nextBoundarySlot = lowBoundarySlot
   while nextBoundarySlot <= highBoundarySlot:
     let
-      blck = dag.getBlockAtSlot(nextBoundarySlot).blck
+      blck = dag.getBlockAtSlot(nextBoundarySlot).expect("TODO").blck
       boundarySlot = blck.slot.nextEpochBoundarySlot
     if boundarySlot == nextBoundarySlot and
         blck.slot >= lowSlot and blck.slot <= highSlot and
@@ -783,7 +788,7 @@ proc initLightClientCache*(dag: ChainDAGRef) =
             # This is because light clients are unable to advance slots.
             if checkpoint.root != dag.finalizedHead.blck.root:
               let cpRef =
-                dag.getBlockAtSlot(checkpoint.epoch.start_slot).blck
+                dag.getBlockAtSlot(checkpoint.epoch.start_slot).expect("TODO").blck
               if cpRef != nil and cpRef.slot >= earliestSlot:
                 assert cpRef.bid.root == checkpoint.root
                 doAssert dag.updateStateData(
@@ -874,7 +879,7 @@ proc getLightClientBootstrap*(
       if cachedBootstrap.current_sync_committee_branch.isZeroMemory:
         if dag.importLightClientData == ImportLightClientData.OnDemand:
           var tmpState = assignClone(dag.headState)
-          dag.withUpdatedState(tmpState[], dag.getBlockAtSlot(slot)) do:
+          dag.withUpdatedState(tmpState[], dag.getBlockAtSlot(slot).expect("TODO")) do:
             withState(stateData.data):
               when stateFork >= BeaconStateFork.Altair:
                 state.data.build_proof(
