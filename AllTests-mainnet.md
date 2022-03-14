@@ -249,11 +249,11 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Light client [Preset: mainnet]
 ```diff
-  Init from checkpoint                                                                       Skip
++ Init from checkpoint                                                                       OK
 + Light client sync                                                                          OK
 + Pre-Altair                                                                                 OK
 ```
-OK: 2/3 Fail: 0/3 Skip: 1/3
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Light client processor [Preset: mainnet]
 ```diff
 + Duplicate bootstrap [Preset: mainnet]                                                      OK
@@ -529,4 +529,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 293/299 Fail: 0/299 Skip: 6/299
+OK: 294/299 Fail: 0/299 Skip: 5/299
