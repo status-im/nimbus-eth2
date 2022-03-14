@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1276,7 +1276,7 @@ proc createWalletInteractively*(
         "a password, setting such an additional password is optional. " &
         "To ensure the strongest possible security, we recommend writing " &
         "down your seed phrase and remembering your recovery password. " &
-        "If you don'n want to set a recovery password, just press ENTER."
+        "If you don't want to set a recovery password, just press ENTER."
 
   var recoveryPassword = keyboardCreatePassword(
     "Recovery password: ", "Confirm password: ", allowEmpty = true)
