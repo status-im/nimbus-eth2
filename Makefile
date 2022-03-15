@@ -427,7 +427,7 @@ clean-prater:
 ### Gnosis chain binary
 ###
 
-# TODO The constants overrides below should not be necessary if we restrore
+# TODO The constants overrides below should not be necessary if we restore
 #      the support for compiling with custom const presets.
 #      See the prepared preset file in media/gnosis-chain/preset.yaml
 #
@@ -435,22 +435,27 @@ clean-prater:
 #      gains support for multiple "Chain Profiles" that consist of a set of
 #      consensus object (such as blocks and transactions) that are specific
 #      to the chain.
-gnosis-chain-build:
-	+ $(ENV_SCRIPT) nim $(NIM_PARAMS) \
-		-d:gnosisChainBinary \
-		-d:has_genesis_detection \
-		-d:SLOTS_PER_EPOCH=16 \
-		-d:SECONDS_PER_SLOT=5 \
-		-d:BASE_REWARD_FACTOR=25 \
-		-d:EPOCHS_PER_SYNC_COMMITTEE_PERIOD=512 \
-		-o:build/nimbus_beacon_node_gnosis c beacon_chain/nimbus_beacon_node.nim
+gnosis-chain-build: | build deps
+	+ echo -e $(BUILD_MSG) "build/nimbus_beacon_node_gnosis" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			nimbus_beacon_node_gnosis \
+			beacon_chain/nimbus_beacon_node.nim \
+			$(NIM_PARAMS) \
+			-d:gnosisChainBinary \
+			-d:has_genesis_detection \
+			-d:SLOTS_PER_EPOCH=16 \
+			-d:SECONDS_PER_SLOT=5 \
+			-d:BASE_REWARD_FACTOR=25 \
+			-d:EPOCHS_PER_SYNC_COMMITTEE_PERIOD=512 \
+			&& \
+		echo -e $(BUILD_END_MSG) "build/nimbus_beacon_node_gnosis"
 
 gnosis-chain: | gnosis-chain-build
 	$(call CONNECT_TO_NETWORK,gnosis-chain,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
 
 ifneq ($(LOG_LEVEL), TRACE)
 gnosis-chain-dev:
-	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+	+ "$(MAKE)" --no-print-directory LOG_LEVEL=TRACE $@
 else
 gnosis-chain-dev: | gnosis-chain-build
 	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,gnosis-chain,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
