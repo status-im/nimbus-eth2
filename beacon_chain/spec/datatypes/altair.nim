@@ -207,6 +207,11 @@ type
     is_signed_by_next_sync_committee*: bool ##\
     ## Whether the signature was produced by `attested_header`'s next sync committee
 
+  SomeLightClientObject* =
+    LightClientBootstrap |
+    LightClientUpdate |
+    OptimisticLightClientUpdate
+
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#lightclientstore
   LightClientStore* = object
     finalized_header*: BeaconBlockHeader ##\
