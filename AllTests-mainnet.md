@@ -98,11 +98,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + parent sanity                                                                              OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## ChainDAG helpers
-```diff
-+ epochAncestor sanity [Preset: mainnet]                                                     OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## DeleteKeys requests [Preset: mainnet]
 ```diff
 + Deleting not existing key [Preset: mainnet]                                                OK
@@ -525,4 +520,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 289/295 Fail: 0/295 Skip: 6/295
+OK: 288/294 Fail: 0/294 Skip: 6/294

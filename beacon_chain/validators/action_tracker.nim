@@ -12,7 +12,7 @@ import
   eth/p2p/discoveryv5/random2,
   ../spec/datatypes/base,
   ../spec/[helpers, network],
-  ../consensus_object_pools/[block_pools_types, spec_cache]
+  ../consensus_object_pools/[blockchain_dag, spec_cache]
 
 export base, helpers, network, sets, tables
 

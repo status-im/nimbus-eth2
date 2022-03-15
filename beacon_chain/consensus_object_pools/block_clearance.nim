@@ -60,10 +60,6 @@ proc addResolvedHeadBlock(
   if not foundHead:
     dag.heads.add(blockRef)
 
-  # Up to here, state.data was referring to the new state after the block had
-  # been applied but the `blck` field was still set to the parent
-  dag.clearanceBlck = blockRef
-
   # Regardless of the chain we're on, the deposits come in the same order so
   # as soon as we import a block, we'll also update the shared public key
   # cache
@@ -71,7 +67,7 @@ proc addResolvedHeadBlock(
 
   # Getting epochRef with the state will potentially create a new EpochRef
   let
-    epochRef = dag.getEpochRef(state, blockRef, cache)
+    epochRef = dag.getEpochRef(state, cache)
     epochRefTick = Moment.now()
 
   debug "Block resolved",
@@ -122,19 +118,20 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
   # epoch transition ahead of time.
   # Notably, we use the clearance state here because that's where the block will
   # first be seen - later, this state will be copied to the head state!
-  if dag.clearanceBlck.slot == getStateField(dag.clearanceState, slot):
-    let next = dag.clearanceBlck.atSlot(dag.clearanceBlck.slot + 1)
+  let advanced = withState(dag.clearanceState):
+    state.data.slot > state.data.latest_block_header.slot
+  if not advanced:
+    let next = getStateField(dag.clearanceState, slot) + 1
 
     let startTick = Moment.now()
-    var cache = StateCache()
-    if not updateState(dag, dag.clearanceState, next, true, cache):
-      # The next head update will likely fail - something is very wrong here
-      error "Cannot advance to next slot, database corrupt?",
-        clearance = shortLog(dag.clearanceBlck),
-        next = shortLog(next)
-    else:
-      debug "Prepared clearance state for next block",
-        next, updateStateDur = Moment.now() - startTick
+    var
+      cache = StateCache()
+      info = ForkedEpochInfo()
+
+    dag.advanceSlots(dag.clearanceState, next, true, cache, info)
+
+    debug "Prepared clearance state for next block",
+      next, updateStateDur = Moment.now() - startTick
 
 proc addHeadBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
@@ -216,17 +213,17 @@ proc addHeadBlock*(
   # by the time a new block reaches this point, the parent block will already
   # have "established" itself in the network to some degree at least.
   var cache = StateCache()
+  let clearanceBlock =
+    parent.atSlot(signedBlock.message.slot).toBlockslotId.expect("not nil")
   if not updateState(
-      dag, dag.clearanceState, parent.atSlot(signedBlock.message.slot), true,
-      cache):
+      dag, dag.clearanceState, clearanceBlock, true, cache):
     # We should never end up here - the parent must be a block no older than and
     # rooted in the finalized checkpoint, hence we should always be able to
     # load its corresponding state
     error "Unable to load clearance state for parent block, database corrupt?",
       parent = shortLog(parent.atSlot(signedBlock.message.slot)),
-      clearanceBlock = shortLog(dag.clearanceBlck)
+      clearanceBlock = shortLog(clearanceBlock)
     return err(BlockError.MissingParent)
-  dag.clearanceBlck = parent
 
   let stateDataTick = Moment.now()
 

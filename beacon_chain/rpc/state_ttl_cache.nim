@@ -9,7 +9,7 @@ import
   chronos,
   chronicles,
   ../spec/beaconstate,
-  ../consensus_object_pools/block_pools_types
+  ../consensus_object_pools/blockchain_dag
 
 type
   CacheEntry = ref object
@@ -71,7 +71,8 @@ proc add*(cache: StateTtlCache, state: ref ForkedHashedBeaconState) =
   cache.scheduleEntryExpiration(index)
 
 proc getClosestState*(
-    cache: StateTtlCache, bs: BlockSlot): ref ForkedHashedBeaconState =
+    cache: StateTtlCache, dag: ChainDAGRef,
+    bsi: BlockSlotId): ref ForkedHashedBeaconState =
   var
     bestSlotDifference = Slot.high
     index = -1
@@ -81,20 +82,21 @@ proc getClosestState*(
       continue
 
     let stateSlot = getStateField(cache.entries[i][].state[], slot)
-    if stateSlot > bs.slot:
+    if stateSlot > bsi.slot:
       # We can use only states that can be advanced forward in time.
       continue
 
-    let slotDifference = bs.slot - stateSlot
+    let slotDifference = bsi.slot - stateSlot
     if slotDifference > slotDifferenceForCacheHit:
       # The state is too old to be useful as a rewind starting point.
       continue
 
-    var cur = bs
+    var cur = bsi
     for j in 0 ..< slotDifference:
-      cur = cur.parentOrSlot
+      cur = dag.parentOrSlot(cur).valueOr:
+        break
 
-    if not cache.entries[i].state[].matches_block(cur.blck.root):
+    if not cache.entries[i].state[].matches_block(cur.bid.root):
       # The cached state and the requested BlockSlot are at different branches
       # of history.
       continue

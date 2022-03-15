@@ -169,7 +169,7 @@ proc stepOnBlock(
   # 1. Move state to proper slot.
   doAssert dag.updateState(
     state,
-    dag.head.atSlot(time.slotOrZero),
+    dag.getBlockIdAtSlot(time.slotOrZero).expect("block exists"),
     save = false,
     stateCache
   )

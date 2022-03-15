@@ -112,7 +112,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     let
       attestationHead = dag.head.atSlot(slot)
 
-    dag.withUpdatedState(tmpState[], attestationHead) do:
+    dag.withUpdatedState(tmpState[], attestationHead.toBlockSlotId.expect("not nil")) do:
       let committees_per_slot =
         get_committee_count_per_slot(state, slot.epoch, cache)
 
@@ -124,7 +124,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           if rand(r, 1.0) <= attesterRatio:
             let
               data = makeAttestationData(
-                state, slot, committee_index, blck.root)
+                state, slot, committee_index, bid.root)
               sig =
                 get_attestation_signature(getStateField(state, fork),
                   getStateField(state, genesis_validators_root),
@@ -303,7 +303,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     if rand(r, 1.0) > blockRatio:
       return
 
-    dag.withUpdatedState(tmpState[], dag.head.atSlot(slot)) do:
+    dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
       let
         newBlock = getNewBlock[phase0.SignedBeaconBlock](state, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
@@ -324,7 +324,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     if rand(r, 1.0) > blockRatio:
       return
 
-    dag.withUpdatedState(tmpState[], dag.head.atSlot(slot)) do:
+    dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
       let
         newBlock = getNewBlock[altair.SignedBeaconBlock](state, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
@@ -345,7 +345,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     if rand(r, 1.0) > blockRatio:
       return
 
-    dag.withUpdatedState(tmpState[], dag.head.atSlot(slot)) do:
+    dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
       let
         newBlock = getNewBlock[bellatrix.SignedBeaconBlock](state, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
@@ -430,7 +430,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     withTimer(timers[tReplay]):
       var cache = StateCache()
       doAssert dag.updateState(
-        replayState[], dag.head.atSlot(Slot(slots)), false, cache)
+        replayState[], dag.getBlockIdAtSlot(Slot(slots)).expect("block"),
+        false, cache)
 
   echo "Done!"
 

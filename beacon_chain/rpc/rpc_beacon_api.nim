@@ -155,7 +155,7 @@ proc getForkedBlockFromBlockId(
       node.dag.getForkedBlock(node.dag.head.bid).valueOr:
         raise newException(CatchableError, "Block not found")
     of "genesis":
-      node.dag.getForkedBlock(node.dag.genesis.bid).valueOr:
+      node.dag.getForkedBlock(node.dag.genesis).valueOr:
         raise newException(CatchableError, "Block not found")
     of "finalized":
       node.dag.getForkedBlock(node.dag.finalizedHead.blck.bid).valueOr:

@@ -253,7 +253,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateState(
-      stateData[], blockRefs[^1].atSlot(blockRefs[^1].slot - 1), false, cache)
+      stateData[],
+      dag.atSlot(blockRefs[^1], blockRefs[^1].slot - 1).expect("not nil"),
+      false, cache)
 
   template processBlocks(blocks: auto) =
     for b in blocks.mitems():
@@ -409,12 +411,13 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
 
-  let blckRef = dag.getBlockRef(fromHex(Eth2Digest, conf.blockRoot)).valueOr:
+  let bid = dag.getBlockId(fromHex(Eth2Digest, conf.blockRoot)).valueOr:
     echo "Block not found in database"
     return
 
   let tmpState = assignClone(dag.headState)
-  dag.withUpdatedState(tmpState[], blckRef.atSlot(Slot(conf.slot))) do:
+  dag.withUpdatedState(
+      tmpState[], dag.atSlot(bid, Slot(conf.slot)).expect("block found")) do:
     echo "Writing state..."
     withState(state):
       dump("./", state)
@@ -480,7 +483,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
               group.update(e2, blocks[i].slot, tmp).get()
 
       withTimer(timers[tState]):
-        dag.withUpdatedState(tmpState[], canonical) do:
+        dag.withUpdatedState(tmpState[], canonical.toBlockSlotId().expect("not nil")) do:
           withState(state):
             group.finish(e2, state.data).get()
         do: raiseAssert "withUpdatedState failed"
@@ -592,7 +595,9 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
 
   let state = newClone(dag.headState)
   doAssert dag.updateState(
-    state[], blockRefs[^1].atSlot(blockRefs[^1].slot - 1), false, cache)
+    state[],
+    dag.atSlot(blockRefs[^1], blockRefs[^1].slot - 1).expect("block found"),
+    false, cache)
 
   proc processEpoch() =
     let
@@ -865,9 +870,11 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   var cache = StateCache()
   let slot = if startSlot > 0: startSlot - 1 else: 0.Slot
   if blockRefs.len > 0:
-    discard dag.updateState(tmpState[], blockRefs[^1].atSlot(slot), false, cache)
+    discard dag.updateState(
+      tmpState[], dag.atSlot(blockRefs[^1], slot).expect("block"), false, cache)
   else:
-    discard dag.updateState(tmpState[], dag.head.atSlot(slot), false, cache)
+    discard dag.updateState(
+      tmpState[], dag.getBlockIdAtSlot(slot).expect("block"), false, cache)
 
   let savedValidatorsCount = outDb.getDbValidatorsCount
   var validatorsCount = getStateField(tmpState[], validators).len
@@ -956,7 +963,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
         clear cache
 
   for bi in 0 ..< blockRefs.len:
-    let forkedBlock = dag.getForkedBlock(blockRefs[blockRefs.len - bi - 1].bid).get()
+    let forkedBlock = dag.getForkedBlock(blockRefs[blockRefs.len - bi - 1]).get()
     withBlck(forkedBlock):
       processSlots(blck.message.slot, {skipLastStateRootCalculation})
 

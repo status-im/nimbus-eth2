@@ -25,7 +25,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if state_id.isErr():
           return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                            $state_id.error())
-        let bres = node.getBlockSlot(state_id.get())
+        let bres = node.getBlockSlotId(state_id.get())
         if bres.isErr():
           return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                            $bres.error())
@@ -37,7 +37,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
-    node.withStateForBlockSlot(bslot):
+    node.withStateForBlockSlotId(bslot):
       return
         case state.kind
         of BeaconStateFork.Phase0:
@@ -60,7 +60,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if state_id.isErr():
           return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                            $state_id.error())
-        let bres = node.getBlockSlot(state_id.get())
+        let bres = node.getBlockSlotId(state_id.get())
         if bres.isErr():
           return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                            $bres.error())
@@ -72,7 +72,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
-    node.withStateForBlockSlot(bslot):
+    node.withStateForBlockSlotId(bslot):
       return
         if contentType == jsonMediaType:
           RestApiResponse.jsonResponsePlain(state)

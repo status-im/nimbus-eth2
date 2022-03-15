@@ -24,10 +24,10 @@ template raiseNoAltairSupport*() =
 
 template withStateForStateId*(stateId: string, body: untyped): untyped =
   let
-    bs = node.stateIdToBlockSlot(stateId)
+    bsi = node.stateIdToBlockSlotId(stateId)
 
   template isState(state: ForkedHashedBeaconState): bool =
-    state.matches_block_slot(bs.blck.root, bs.slot)
+    state.matches_block_slot(bsi.bid.root, bsi.slot)
 
   if isState(node.dag.headState):
     withStateVars(node.dag.headState):
@@ -35,7 +35,7 @@ template withStateForStateId*(stateId: string, body: untyped): untyped =
       body
   else:
     let rpcState = assignClone(node.dag.headState)
-    node.dag.withUpdatedState(rpcState[], bs) do:
+    node.dag.withUpdatedState(rpcState[], bsi) do:
       body
     do:
       raise (ref CatchableError)(msg: "Trying to access pruned state")
@@ -69,10 +69,10 @@ proc parseSlot(slot: string): Slot {.raises: [Defect, CatchableError].} =
     raise newException(ValueError, "Not a valid slot number")
   Slot parsed
 
-proc getBlockSlotFromString*(node: BeaconNode, slot: string): BlockSlot {.raises: [Defect, CatchableError].} =
+proc getBlockSlotIdFromString*(node: BeaconNode, slot: string): BlockSlotId {.raises: [Defect, CatchableError].} =
   let parsed = parseSlot(slot)
   discard node.doChecksAndGetCurrentHead(parsed)
-  node.dag.getBlockAtSlot(parsed).valueOr:
+  node.dag.getBlockIdAtSlot(parsed).valueOr:
     raise newException(ValueError, "Block not found")
 
 proc getBlockIdFromString*(node: BeaconNode, slot: string): BlockId {.raises: [Defect, CatchableError].} =
@@ -84,25 +84,28 @@ proc getBlockIdFromString*(node: BeaconNode, slot: string): BlockId {.raises: [D
   else:
     raise (ref ValueError)(msg: "Block not found")
 
-proc stateIdToBlockSlot*(node: BeaconNode, stateId: string): BlockSlot {.raises: [Defect, CatchableError].} =
+proc stateIdToBlockSlotId*(node: BeaconNode, stateId: string): BlockSlotId {.raises: [Defect, CatchableError].} =
   case stateId:
   of "head":
-    node.dag.head.atSlot()
+    node.dag.head.bid.atSlot()
   of "genesis":
     node.dag.genesis.atSlot()
   of "finalized":
-    node.dag.finalizedHead
+    node.dag.finalizedHead.toBlockSlotId().expect("not nil")
   of "justified":
     node.dag.head.atEpochStart(
-      getStateField(node.dag.headState, current_justified_checkpoint).epoch)
+      getStateField(
+        node.dag.headState, current_justified_checkpoint).epoch).
+          toBlockSlotId().valueOr:
+            raise (ref ValueError)(msg: "State not found")
   else:
     if stateId.startsWith("0x"):
       let stateRoot = parseRoot(stateId)
       if stateRoot == getStateRoot(node.dag.headState):
-        node.dag.head.atSlot()
+        node.dag.head.bid.atSlot()
       else:
         # We don't have a state root -> BlockSlot mapping
         raise (ref ValueError)(msg: "State not found")
 
     else: # Parse as slot number
-      node.getBlockSlotFromString(stateId)
+      node.getBlockSlotIdFromString(stateId)

@@ -108,7 +108,9 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       head = node.doChecksAndGetCurrentHead(wallSlot)
 
     let proposalState = assignClone(node.dag.headState)
-    node.dag.withUpdatedState(proposalState[], head.atSlot(wallSlot)):
+    node.dag.withUpdatedState(
+        proposalState[],
+        head.atSlot(wallSlot).toBlockSlotId().expect("not nil")):
       return node.getBlockProposalEth1Data(state)
     do:
       raise (ref CatchableError)(msg: "Trying to access pruned state")
