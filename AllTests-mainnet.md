@@ -67,7 +67,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + getBlockRef returns none for missing blocks                                                OK
 + loading tail block works [Preset: mainnet]                                                 OK
 + updateHead updates head and headState [Preset: mainnet]                                    OK
-+ updateStateData sanity [Preset: mainnet]                                                   OK
++ updateState sanity [Preset: mainnet]                                                       OK
 ```
 OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Block processor [Preset: mainnet]

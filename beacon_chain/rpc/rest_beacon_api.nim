@@ -105,9 +105,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v1/beacon/genesis") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(
       (
-        genesis_time: getStateField(node.dag.headState.data, genesis_time),
+        genesis_time: getStateField(node.dag.headState, genesis_time),
         genesis_validators_root:
-          getStateField(node.dag.headState.data, genesis_validators_root),
+          getStateField(node.dag.headState, genesis_validators_root),
         genesis_fork_version: node.dag.cfg.GENESIS_FORK_VERSION
       )
     )
@@ -150,12 +150,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlot(bslot):
       return RestApiResponse.jsonResponse(
         (
-          previous_version:
-            getStateField(stateData.data, fork).previous_version,
-          current_version:
-            getStateField(stateData.data, fork).current_version,
-          epoch:
-            getStateField(stateData.data, fork).epoch
+          previous_version: getStateField(state, fork).previous_version,
+          current_version: getStateField(state, fork).current_version,
+          epoch: getStateField(state, fork).epoch
         )
       )
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
@@ -180,10 +177,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonResponse(
         (
           previous_justified:
-            getStateField(stateData.data, previous_justified_checkpoint),
+            getStateField(state, previous_justified_checkpoint),
           current_justified:
-            getStateField(stateData.data, current_justified_checkpoint),
-          finalized: getStateField(stateData.data, finalized_checkpoint)
+            getStateField(state, current_justified_checkpoint),
+          finalized: getStateField(state, finalized_checkpoint)
         )
       )
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
@@ -228,8 +225,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     node.withStateForBlockSlot(bslot):
       let
-        current_epoch = getStateField(stateData.data, slot).epoch()
-        validatorsCount = lenu64(getStateField(stateData.data, validators))
+        current_epoch = getStateField(state, slot).epoch()
+        validatorsCount = lenu64(getStateField(state, validators))
 
       let indices =
         block:
@@ -259,7 +256,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 indexset.incl(vindex)
 
           if len(keyset) > 0:
-            let optIndices = keysToIndices(node.restKeysCache, stateData.data,
+            let optIndices = keysToIndices(node.restKeysCache, state,
                                            keyset.toSeq())
             # Remove all the duplicates.
             for item in optIndices:
@@ -277,10 +274,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             # return empty response.
             if len(validatorIds) == 0:
               # There is no indices, so we going to filter all the validators.
-              for index, validator in getStateField(stateData.data,
+              for index, validator in getStateField(state,
                                                     validators).pairs():
                 let
-                  balance = getStateField(stateData.data, balances).asSeq()[index]
+                  balance = getStateField(state, balances).asSeq()[index]
                   status =
                     block:
                       let sres = validator.getStatus(current_epoch)
@@ -295,8 +292,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           else:
             for index in indices:
               let
-                validator = getStateField(stateData.data, validators).asSeq()[index]
-                balance = getStateField(stateData.data, balances).asSeq()[index]
+                validator = getStateField(state, validators).asSeq()[index]
+                balance = getStateField(state, balances).asSeq()[index]
                 status =
                   block:
                     let sres = validator.getStatus(current_epoch)
@@ -333,15 +330,15 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     node.withStateForBlockSlot(bslot):
       let
-        current_epoch = getStateField(stateData.data, slot).epoch()
-        validatorsCount = lenu64(getStateField(stateData.data, validators))
+        current_epoch = getStateField(state, slot).epoch()
+        validatorsCount = lenu64(getStateField(state, validators))
 
       let vindex =
         block:
           let vid = validator_id.get()
           case vid.kind
           of ValidatorQueryKind.Key:
-            let optIndices = keysToIndices(node.restKeysCache, stateData.data,
+            let optIndices = keysToIndices(node.restKeysCache, state,
                                            [vid.key])
             if optIndices[0].isNone():
               return RestApiResponse.jsonError(Http404, ValidatorNotFoundError)
@@ -362,8 +359,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             index
 
       let
-        validator = getStateField(stateData.data, validators).asSeq()[vindex]
-        balance = getStateField(stateData.data, balances).asSeq()[vindex]
+        validator = getStateField(state, validators).asSeq()[vindex]
+        balance = getStateField(state, balances).asSeq()[vindex]
         status =
           block:
             let sres = validator.getStatus(current_epoch)
@@ -405,7 +402,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         ires
 
     node.withStateForBlockSlot(bslot):
-      let validatorsCount = lenu64(getStateField(stateData.data, validators))
+      let validatorsCount = lenu64(getStateField(state, validators))
 
       let indices =
         block:
@@ -434,7 +431,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                 indexset.incl(vindex)
 
           if len(keyset) > 0:
-            let optIndices = keysToIndices(node.restKeysCache, stateData.data,
+            let optIndices = keysToIndices(node.restKeysCache, state,
                                            keyset.toSeq())
             # Remove all the duplicates.
             for item in optIndices:
@@ -453,13 +450,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if len(validatorIds) == 0:
               # There is no indices, so we going to return balances of all
               # known validators.
-              for index, balance in getStateField(stateData.data,
-                                                    balances).pairs():
+              for index, balance in getStateField(state, balances).asSeq.pairs():
                 res.add(RestValidatorBalance.init(ValidatorIndex(index),
                                                   balance))
           else:
             for index in indices:
-              let balance = getStateField(stateData.data, balances).asSeq()[index]
+              let balance = getStateField(state, balances).asSeq()[index]
               res.add(RestValidatorBalance.init(index, balance))
           res
       return RestApiResponse.jsonResponse(response)
@@ -544,15 +540,14 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlot(bslot):
       proc getCommittee(slot: Slot,
                         index: CommitteeIndex): RestBeaconStatesCommittees =
-        let validators = get_beacon_committee(stateData.data, slot, index,
-                                              cache)
+        let validators = get_beacon_committee(state, slot, index, cache)
         RestBeaconStatesCommittees(index: index, slot: slot,
                                    validators: validators)
 
       proc forSlot(slot: Slot, cindex: Option[CommitteeIndex],
                    res: var seq[RestBeaconStatesCommittees]) =
         let committees_per_slot = get_committee_count_per_slot(
-          stateData.data, slot.epoch, cache)
+          state, slot.epoch, cache)
 
         if cindex.isNone:
           for committee_index in get_committee_indices(committees_per_slot):
@@ -566,7 +561,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       var res: seq[RestBeaconStatesCommittees]
       let qepoch =
         if vepoch.isNone:
-          epoch(getStateField(stateData.data, slot))
+          epoch(getStateField(state, slot))
         else:
           vepoch.get()
 
@@ -617,7 +612,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlot(bslot):
       let keys =
         block:
-          let res = syncCommitteeParticipants(stateData().data, qepoch)
+          let res = syncCommitteeParticipants(state, qepoch)
           if res.isErr():
             return RestApiResponse.jsonError(Http400,
                                              $res.error())
@@ -630,8 +625,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let indices =
         block:
           var res: seq[ValidatorIndex]
-          let optIndices = keysToIndices(node.restKeysCache, stateData().data,
-                                         keys)
+          let optIndices = keysToIndices(node.restKeysCache, state, keys)
           # Remove all the duplicates.
           for item in optIndices:
             if item.isNone():

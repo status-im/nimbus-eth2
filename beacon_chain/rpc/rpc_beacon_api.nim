@@ -175,9 +175,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     raises: [Defect, CatchableError].} =
   rpcServer.rpc("get_v1_beacon_genesis") do () -> RpcBeaconGenesis:
     return (
-      genesis_time: getStateField(node.dag.headState.data, genesis_time),
+      genesis_time: getStateField(node.dag.headState, genesis_time),
       genesis_validators_root:
-        getStateField(node.dag.headState.data, genesis_validators_root),
+        getStateField(node.dag.headState, genesis_validators_root),
       genesis_fork_version: node.dag.cfg.GENESIS_FORK_VERSION
     )
 
@@ -187,23 +187,23 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("get_v1_beacon_states_fork") do (stateId: string) -> Fork:
     withStateForStateId(stateId):
-      return getStateField(stateData.data, fork)
+      return getStateField(state, fork)
 
   rpcServer.rpc("get_v1_beacon_states_finality_checkpoints") do (
       stateId: string) -> RpcBeaconStatesFinalityCheckpoints:
     withStateForStateId(stateId):
       return (previous_justified:
-                getStateField(stateData.data, previous_justified_checkpoint),
+                getStateField(state, previous_justified_checkpoint),
               current_justified:
-                getStateField(stateData.data, current_justified_checkpoint),
-              finalized: getStateField(stateData.data, finalized_checkpoint))
+                getStateField(state, current_justified_checkpoint),
+              finalized: getStateField(state, finalized_checkpoint))
 
   rpcServer.rpc("get_v1_beacon_states_stateId_validators") do (
       stateId: string, validatorIds: Option[seq[string]],
       status: Option[seq[string]]) -> seq[RpcBeaconStatesValidators]:
     var vquery: ValidatorQuery
     var squery: StatusQuery
-    let current_epoch = getStateField(node.dag.headState.data, slot).epoch
+    let current_epoch = getStateField(node.dag.headState, slot).epoch
 
     template statusCheck(status, statusQuery, vstatus, current_epoch): bool =
       if status.isNone():
@@ -230,7 +230,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
         vquery = vqres.get()
 
       if validatorIds.isNone():
-        for index, validator in getStateField(stateData.data, validators).pairs():
+        for index, validator in getStateField(state, validators).pairs():
           let sres = validator.getStatus(current_epoch)
           if sres.isOk:
             let vstatus = sres.get()
@@ -240,11 +240,11 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
               res.add((validator: validator,
                        index: uint64(index),
                        status: vstatus,
-                       balance: getStateField(stateData.data, balances).asSeq()[index]))
+                       balance: getStateField(state, balances).asSeq()[index]))
       else:
         for index in vquery.ids:
-          if index < lenu64(getStateField(stateData.data, validators)):
-            let validator = getStateField(stateData.data, validators).asSeq()[index]
+          if index < lenu64(getStateField(state, validators)):
+            let validator = getStateField(state, validators).asSeq()[index]
             let sres = validator.getStatus(current_epoch)
             if sres.isOk:
               let vstatus = sres.get()
@@ -255,9 +255,9 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
                 res.add((validator: validator,
                          index: uint64(index),
                          status: vstatus,
-                         balance: getStateField(stateData.data, balances).asSeq()[index]))
+                         balance: getStateField(state, balances).asSeq()[index]))
 
-        for index, validator in getStateField(stateData.data, validators).pairs():
+        for index, validator in getStateField(state, validators).pairs():
           if validator.pubkey in vquery.keyset:
             let sres = validator.getStatus(current_epoch)
             if sres.isOk:
@@ -268,12 +268,12 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
                 res.add((validator: validator,
                          index: uint64(index),
                          status: vstatus,
-                         balance: getStateField(stateData.data, balances).asSeq()[index]))
+                         balance: getStateField(state, balances).asSeq()[index]))
     return res
 
   rpcServer.rpc("get_v1_beacon_states_stateId_validators_validatorId") do (
       stateId: string, validatorId: string) -> RpcBeaconStatesValidators:
-    let current_epoch = getStateField(node.dag.headState.data, slot).epoch
+    let current_epoch = getStateField(node.dag.headState, slot).epoch
     let vqres = createIdQuery([validatorId])
     if vqres.isErr:
       raise newException(CatchableError, $vqres.error)
@@ -282,23 +282,23 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     withStateForStateId(stateId):
       if len(vquery.ids) > 0:
         let index = vquery.ids[0]
-        if index < lenu64(getStateField(stateData.data, validators)):
-          let validator = getStateField(stateData.data, validators).asSeq()[index]
+        if index < lenu64(getStateField(state, validators)):
+          let validator = getStateField(state, validators).asSeq()[index]
           let sres = validator.getStatus(current_epoch)
           if sres.isOk:
             return (validator: validator, index: uint64(index),
                     status: sres.get(),
-                    balance: getStateField(stateData.data, balances).asSeq()[index])
+                    balance: getStateField(state, balances).asSeq()[index])
           else:
             raise newException(CatchableError, "Incorrect validator's state")
       else:
-        for index, validator in getStateField(stateData.data, validators).pairs():
+        for index, validator in getStateField(state, validators).pairs():
           if validator.pubkey in vquery.keyset:
             let sres = validator.getStatus(current_epoch)
             if sres.isOk:
               return (validator: validator, index: uint64(index),
                       status: sres.get(),
-                      balance: getStateField(stateData.data, balances).asSeq()[index])
+                      balance: getStateField(state, balances).asSeq()[index])
             else:
               raise newException(CatchableError, "Incorrect validator's state")
 
@@ -308,7 +308,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     var res: seq[RpcBalance]
     withStateForStateId(stateId):
       if validatorsId.isNone():
-        for index, value in getStateField(stateData.data, balances).pairs():
+        for index, value in getStateField(state, balances).pairs():
           let balance = (index: uint64(index), balance: value)
           res.add(balance)
       else:
@@ -318,17 +318,17 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
         var vquery = vqres.get()
         for index in vquery.ids:
-          if index < lenu64(getStateField(stateData.data, validators)):
-            let validator = getStateField(stateData.data, validators).asSeq()[index]
+          if index < lenu64(getStateField(state, validators)):
+            let validator = getStateField(state, validators).asSeq()[index]
             vquery.keyset.excl(validator.pubkey)
             let balance = (index: uint64(index),
-                           balance: getStateField(stateData.data, balances).asSeq()[index])
+                           balance: getStateField(state, balances).asSeq()[index])
             res.add(balance)
 
-        for index, validator in getStateField(stateData.data, validators).pairs():
+        for index, validator in getStateField(state, validators).pairs():
           if validator.pubkey in vquery.keyset:
             let balance = (index: uint64(index),
-                           balance: getStateField(stateData.data, balances).asSeq()[index])
+                           balance: getStateField(state, balances).asSeq()[index])
             res.add(balance)
     return res
 
@@ -339,12 +339,12 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       proc getCommittee(slot: Slot,
                         index: CommitteeIndex): RpcBeaconStatesCommittees =
         let vals = get_beacon_committee(
-          stateData.data, slot, index, cache).mapIt(it.uint64)
+          state, slot, index, cache).mapIt(it.uint64)
         return (index: index.uint64, slot: slot.uint64, validators: vals)
 
       proc forSlot(slot: Slot, res: var seq[RpcBeaconStatesCommittees]) =
         let committees_per_slot =
-          get_committee_count_per_slot(stateData.data, slot.epoch, cache)
+          get_committee_count_per_slot(state, slot.epoch, cache)
 
         if index.isNone:
           for committee_index in get_committee_indices(committees_per_slot):
@@ -359,7 +359,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
       let qepoch =
         if epoch.isNone:
-          epoch(getStateField(stateData.data, slot))
+          epoch(getStateField(state, slot))
         else:
           Epoch(epoch.get())
 

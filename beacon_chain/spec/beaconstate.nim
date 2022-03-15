@@ -945,6 +945,9 @@ func latest_block_root*(state: ForkyBeaconState, state_root: Eth2Digest): Eth2Di
 func latest_block_root*(state: ForkyHashedBeaconState): Eth2Digest =
   latest_block_root(state.data, state.root)
 
+func latest_block_root*(state: ForkedHashedBeaconState): Eth2Digest =
+  withState(state): latest_block_root(state)
+
 func get_sync_committee_cache*(
     state: altair.BeaconState | bellatrix.BeaconState, cache: var StateCache):
     SyncCommitteeCache =
@@ -1001,3 +1004,30 @@ func proposer_dependent_root*(state: ForkyHashedBeaconState): Eth2Digest =
 func attester_dependent_root*(state: ForkyHashedBeaconState): Eth2Digest =
   let epoch = state.data.slot.epoch
   state.dependent_root(if epoch == Epoch(0): epoch else: epoch - 1)
+
+func matches_block*(
+    state: ForkyHashedBeaconState, block_root: Eth2Digest): bool =
+  ## Return true iff the latest block applied to this state matches the given
+  ## `block_root`
+  block_root == state.latest_block_root
+func matches_block*(
+    state: ForkedHashedBeaconState, block_root: Eth2Digest): bool =
+  withState(state): state.matches_block(block_root)
+
+func matches_block_slot*(
+    state: ForkyHashedBeaconState, block_root: Eth2Digest, slot: Slot): bool =
+  ## Return true iff the latest block applied to this state matches the given
+  ## `block_root` and the state slot has been advanced to the given slot
+  slot == state.data.slot and block_root == state.latest_block_root
+func matches_block_slot*(
+    state: ForkedHashedBeaconState, block_root: Eth2Digest, slot: Slot): bool =
+  withState(state): state.matches_block_slot(block_root, slot)
+
+func can_advance_slots*(
+    state: ForkyHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
+  ## Return true iff we can reach the given block/slot combination simply by
+  ## advancing slots
+  target_slot >= state.data.slot and block_root == state.latest_block_root
+func can_advance_slots*(
+    state: ForkedHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
+  withState(state): state.can_advance_slots(block_root, target_slot)

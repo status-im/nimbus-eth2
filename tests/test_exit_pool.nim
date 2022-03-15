@@ -34,7 +34,7 @@ suite "Exit pool testing suite":
 
         pool[].addMessage(msg)
         check: pool[].isSeen(msg)
-      withState(dag.headState.data):
+      withState(dag.headState):
         check:
           pool[].getBeaconBlockExits(state.data).proposer_slashings.lenu64 ==
             min(i + 1, MAX_PROPOSER_SLASHINGS)
@@ -54,7 +54,7 @@ suite "Exit pool testing suite":
 
         pool[].addMessage(msg)
         check: pool[].isSeen(msg)
-      withState(dag.headState.data):
+      withState(dag.headState):
         check:
           pool[].getBeaconBlockExits(state.data).attester_slashings.lenu64 ==
             min(i + 1, MAX_ATTESTER_SLASHINGS)
@@ -70,7 +70,7 @@ suite "Exit pool testing suite":
 
         pool[].addMessage(msg)
         check: pool[].isSeen(msg)
-      withState(dag.headState.data):
+      withState(dag.headState):
         check:
           pool[].getBeaconBlockExits(state.data).voluntary_exits.lenu64 ==
             min(i + 1, MAX_VOLUNTARY_EXITS)

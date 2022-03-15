@@ -68,7 +68,7 @@ proc getTestStates(stateFork: BeaconStateFork): auto =
     db = makeTestDB(SLOTS_PER_EPOCH)
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-  var testStates = getTestStates(dag.headState.data, stateFork)
+  var testStates = getTestStates(dag.headState, stateFork)
 
   # Ensure transitions beyond just adding validators and increasing slots
   sort(testStates) do (x, y: ref ForkedHashedBeaconState) -> int:
@@ -338,7 +338,7 @@ suite "Beacon chain DB" & preset():
     let restoreAddr = addr dag.headState
 
     func restore() =
-      assign(state[], restoreAddr[].data)
+      assign(state[], restoreAddr[])
 
     check:
       state[].phase0Data.data.slot == 10.Slot
@@ -361,7 +361,7 @@ suite "Beacon chain DB" & preset():
     let restoreAddr = addr dag.headState
 
     func restore() =
-      assign(state[], restoreAddr[].data)
+      assign(state[], restoreAddr[])
 
     check:
       state[].altairData.data.slot == 10.Slot
@@ -387,7 +387,7 @@ suite "Beacon chain DB" & preset():
     let restoreAddr = addr dag.headState
 
     func restore() =
-      assign(state[], restoreAddr[].data)
+      assign(state[], restoreAddr[])
 
     check:
       state[].bellatrixData.data.slot == 10.Slot

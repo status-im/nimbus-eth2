@@ -149,9 +149,8 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
 
   info "Fork choice initialized",
     justified_epoch = getStateField(
-      dag.headState.data, current_justified_checkpoint).epoch,
-    finalized_epoch = getStateField(
-      dag.headState.data, finalized_checkpoint).epoch,
+      dag.headState, current_justified_checkpoint).epoch,
+    finalized_epoch = getStateField(dag.headState, finalized_checkpoint).epoch,
     finalized_root = shortLog(dag.finalizedHead.blck.root)
 
   T(

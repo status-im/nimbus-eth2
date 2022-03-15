@@ -10,7 +10,7 @@
 import
   chronicles,
   stew/[assign2, results],
-  ../spec/[forks, signatures, signatures_batch, state_transition],
+  ../spec/[beaconstate, forks, signatures, signatures_batch, state_transition],
   "."/[block_dag, blockchain_dag, blockchain_dag_light_client]
 
 export results, signatures_batch, block_dag, blockchain_dag
@@ -27,16 +27,15 @@ logScope:
 
 proc addResolvedHeadBlock(
        dag: ChainDAGRef,
-       state: var StateData,
+       state: var ForkedHashedBeaconState,
        trustedBlock: ForkyTrustedSignedBeaconBlock,
        parent: BlockRef, cache: var StateCache,
        onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded,
        stateDataDur, sigVerifyDur, stateVerifyDur: Duration
      ): BlockRef =
-  doAssert getStateField(state.data, slot) == trustedBlock.message.slot,
-    "state must match block"
-  doAssert state.blck.root == trustedBlock.message.parent_root,
-    "the StateData passed into the addResolved function not yet updated!"
+  doAssert state.matches_block_slot(
+    trustedBlock.root, trustedBlock.message.slot),
+    "Given state must have the new block applied"
 
   let
     blockRoot = trustedBlock.root
@@ -63,17 +62,16 @@ proc addResolvedHeadBlock(
 
   # Up to here, state.data was referring to the new state after the block had
   # been applied but the `blck` field was still set to the parent
-  state.blck = blockRef
+  dag.clearanceBlck = blockRef
 
   # Regardless of the chain we're on, the deposits come in the same order so
   # as soon as we import a block, we'll also update the shared public key
   # cache
-
-  dag.updateValidatorKeys(getStateField(state.data, validators).asSeq())
+  dag.updateValidatorKeys(getStateField(state, validators).asSeq())
 
   # Getting epochRef with the state will potentially create a new EpochRef
   let
-    epochRef = dag.getEpochRef(state, cache)
+    epochRef = dag.getEpochRef(state, blockRef, cache)
     epochRefTick = Moment.now()
 
   debug "Block resolved",
@@ -101,15 +99,12 @@ proc checkStateTransition(
        cache: var StateCache): Result[void, BlockError] =
   ## Ensure block can be applied on a state
   func restore(v: var ForkedHashedBeaconState) =
-    # TODO address this ugly workaround - there should probably be a
-    #      `state_transition` that takes a `StateData` instead and updates
-    #      the block as well
-    doAssert v.addr == addr dag.clearanceState.data
     assign(dag.clearanceState, dag.headState)
 
   let res = state_transition_block(
-      dag.cfg, dag.clearanceState.data, signedBlock,
+      dag.cfg, dag.clearanceState, signedBlock,
       cache, dag.updateFlags, restore)
+
   if res.isErr():
     info "Invalid block",
       blockRoot = shortLog(signedBlock.root),
@@ -127,16 +122,15 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
   # epoch transition ahead of time.
   # Notably, we use the clearance state here because that's where the block will
   # first be seen - later, this state will be copied to the head state!
-  if dag.clearanceState.blck.slot == getStateField(dag.clearanceState.data, slot):
-    let next =
-      dag.clearanceState.blck.atSlot(dag.clearanceState.blck.slot + 1)
+  if dag.clearanceBlck.slot == getStateField(dag.clearanceState, slot):
+    let next = dag.clearanceBlck.atSlot(dag.clearanceBlck.slot + 1)
 
     let startTick = Moment.now()
     var cache = StateCache()
-    if not updateStateData(dag, dag.clearanceState, next, true, cache):
+    if not updateState(dag, dag.clearanceState, next, true, cache):
       # The next head update will likely fail - something is very wrong here
       error "Cannot advance to next slot, database corrupt?",
-        clearance = shortLog(dag.clearanceState.blck),
+        clearance = shortLog(dag.clearanceBlck),
         next = shortLog(next)
     else:
       debug "Prepared clearance state for next block",
@@ -222,7 +216,7 @@ proc addHeadBlock*(
   # by the time a new block reaches this point, the parent block will already
   # have "established" itself in the network to some degree at least.
   var cache = StateCache()
-  if not updateStateData(
+  if not updateState(
       dag, dag.clearanceState, parent.atSlot(signedBlock.message.slot), true,
       cache):
     # We should never end up here - the parent must be a block no older than and
@@ -230,8 +224,9 @@ proc addHeadBlock*(
     # load its corresponding state
     error "Unable to load clearance state for parent block, database corrupt?",
       parent = shortLog(parent.atSlot(signedBlock.message.slot)),
-      clearance = shortLog(dag.clearanceState.blck)
+      clearanceBlock = shortLog(dag.clearanceBlck)
     return err(BlockError.MissingParent)
+  dag.clearanceBlck = parent
 
   let stateDataTick = Moment.now()
 
@@ -241,7 +236,7 @@ proc addHeadBlock*(
     var sigs: seq[SignatureSet]
     if (let e = sigs.collectSignatureSets(
         signedBlock, dag.db.immutableValidators,
-        dag.clearanceState.data, cache); e.isErr()):
+        dag.clearanceState, cache); e.isErr()):
       # A PublicKey or Signature isn't on the BLS12-381 curve
       info "Unable to load signature sets",
         err = e.error()
@@ -354,7 +349,7 @@ proc addBackfillBlock*(
 
   if not verify_block_signature(
       dag.forkAtEpoch(blck.slot.epoch),
-      getStateField(dag.headState.data, genesis_validators_root),
+      getStateField(dag.headState, genesis_validators_root),
       blck.slot,
       signedBlock.root,
       proposerKey.get(),

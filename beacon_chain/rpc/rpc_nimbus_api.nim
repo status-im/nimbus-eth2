@@ -47,9 +47,9 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
   rpcServer.rpc("getChainHead") do () -> JsonNode:
     let
       head = node.dag.head
-      finalized = getStateField(node.dag.headState.data, finalized_checkpoint)
+      finalized = getStateField(node.dag.headState, finalized_checkpoint)
       justified =
-        getStateField(node.dag.headState.data, current_justified_checkpoint)
+        getStateField(node.dag.headState, current_justified_checkpoint)
     return %* {
       "head_slot": head.slot,
       "head_block_root": head.root.data.toHex(),
@@ -109,7 +109,7 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
     let proposalState = assignClone(node.dag.headState)
     node.dag.withUpdatedState(proposalState[], head.atSlot(wallSlot)):
-      return node.getBlockProposalEth1Data(stateData.data)
+      return node.getBlockProposalEth1Data(state)
     do:
       raise (ref CatchableError)(msg: "Trying to access pruned state")
 

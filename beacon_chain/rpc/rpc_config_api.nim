@@ -23,7 +23,7 @@ type
 proc installConfigApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     raises: [Defect, CatchableError].} =
   rpcServer.rpc("get_v1_config_fork_schedule") do () -> seq[Fork]:
-    return @[getStateField(node.dag.headState.data, fork)]
+    return @[getStateField(node.dag.headState, fork)]
 
   rpcServer.rpc("get_v1_config_spec") do () -> JsonNode:
     return %*{

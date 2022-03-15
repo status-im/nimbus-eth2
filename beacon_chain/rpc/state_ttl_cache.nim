@@ -8,11 +8,12 @@
 import
   chronos,
   chronicles,
+  ../spec/beaconstate,
   ../consensus_object_pools/block_pools_types
 
 type
   CacheEntry = ref object
-    state: ref StateData
+    state: ref ForkedHashedBeaconState
     lastUsed: Moment
 
   # This is ref object because we need to capture it by
@@ -49,7 +50,7 @@ proc scheduleEntryExpiration(cache: StateTtlCache,
 
   discard setTimer(Moment.now + cache.ttl, removeElement)
 
-proc add*(cache: StateTtlCache, state: ref StateData) =
+proc add*(cache: StateTtlCache, state: ref ForkedHashedBeaconState) =
   var
     now = Moment.now
     lruTime = now
@@ -69,7 +70,8 @@ proc add*(cache: StateTtlCache, state: ref StateData) =
 
   cache.scheduleEntryExpiration(index)
 
-proc getClosestState*(cache: StateTtlCache, bs: BlockSlot): ref StateData =
+proc getClosestState*(
+    cache: StateTtlCache, bs: BlockSlot): ref ForkedHashedBeaconState =
   var
     bestSlotDifference = Slot.high
     index = -1
@@ -78,7 +80,7 @@ proc getClosestState*(cache: StateTtlCache, bs: BlockSlot): ref StateData =
     if cache.entries[i] == nil:
       continue
 
-    let stateSlot = getStateField(cache.entries[i].state.data, slot)
+    let stateSlot = getStateField(cache.entries[i][].state[], slot)
     if stateSlot > bs.slot:
       # We can use only states that can be advanced forward in time.
       continue
@@ -92,7 +94,7 @@ proc getClosestState*(cache: StateTtlCache, bs: BlockSlot): ref StateData =
     for j in 0 ..< slotDifference:
       cur = cur.parentOrSlot
 
-    if cur.blck != cache.entries[i].state.blck:
+    if not cache.entries[i].state[].matches_block(cur.blck.root):
       # The cached state and the requested BlockSlot are at different branches
       # of history.
       continue

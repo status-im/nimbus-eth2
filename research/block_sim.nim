@@ -114,20 +114,20 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     dag.withUpdatedState(tmpState[], attestationHead) do:
       let committees_per_slot =
-        get_committee_count_per_slot(stateData.data, slot.epoch, cache)
+        get_committee_count_per_slot(state, slot.epoch, cache)
 
       for committee_index in get_committee_indices(committees_per_slot):
         let committee = get_beacon_committee(
-          stateData.data, slot, committee_index, cache)
+          state, slot, committee_index, cache)
 
         for index_in_committee, validator_index in committee:
           if rand(r, 1.0) <= attesterRatio:
             let
               data = makeAttestationData(
-                stateData.data, slot, committee_index, blck.root)
+                state, slot, committee_index, blck.root)
               sig =
-                get_attestation_signature(getStateField(stateData.data, fork),
-                  getStateField(stateData.data, genesis_validators_root),
+                get_attestation_signature(getStateField(state, fork),
+                  getStateField(state, genesis_validators_root),
                   data, MockPrivKeys[validator_index])
             var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
             aggregation_bits.setBit index_in_committee
@@ -237,14 +237,14 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           signedContributionAndProof, res.get()[0])
 
   proc getNewBlock[T](
-      stateData: var StateData, slot: Slot, cache: var StateCache): T =
+      state: var ForkedHashedBeaconState, slot: Slot, cache: var StateCache): T =
     let
       finalizedEpochRef = dag.getFinalizedEpochRef()
       proposerIdx = get_beacon_proposer_index(
-        stateData.data, cache, getStateField(stateData.data, slot)).get()
+        state, cache, getStateField(state, slot)).get()
       privKey = MockPrivKeys[proposerIdx]
       eth1ProposalData = eth1Chain.getBlockProposalData(
-        stateData.data,
+        state,
         finalizedEpochRef.eth1_data,
         finalizedEpochRef.eth1_deposit_index)
       sync_aggregate =
@@ -256,11 +256,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           static: doAssert false
       hashedState =
         when T is phase0.SignedBeaconBlock:
-          addr stateData.data.phase0Data
+          addr state.phase0Data
         elif T is altair.SignedBeaconBlock:
-          addr stateData.data.altairData
+          addr state.altairData
         elif T is bellatrix.SignedBeaconBlock:
-          addr stateData.data.bellatrixData
+          addr state.bellatrixData
         else:
           static: doAssert false
       message = makeBeaconBlock(
@@ -268,12 +268,12 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         hashedState[],
         proposerIdx,
         privKey.genRandaoReveal(
-          getStateField(stateData.data, fork),
-          getStateField(stateData.data, genesis_validators_root),
+          getStateField(state, fork),
+          getStateField(state, genesis_validators_root),
           slot).toValidatorSig(),
         eth1ProposalData.vote,
         default(GraffitiBytes),
-        attPool.getAttestationsForBlock(stateData.data, cache),
+        attPool.getAttestationsForBlock(state, cache),
         eth1ProposalData.deposits,
         BeaconBlockExits(),
         sync_aggregate,
@@ -292,8 +292,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     # Careful, state no longer valid after here because of the await..
     newBlock.signature = withTimerRet(timers[tSignBlock]):
       get_block_signature(
-        getStateField(stateData.data, fork),
-        getStateField(stateData.data, genesis_validators_root),
+        getStateField(state, fork),
+        getStateField(state, genesis_validators_root),
         newBlock.message.slot,
         blockRoot, privKey).toValidatorSig()
 
@@ -305,7 +305,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     dag.withUpdatedState(tmpState[], dag.head.atSlot(slot)) do:
       let
-        newBlock = getNewBlock[phase0.SignedBeaconBlock](stateData, slot, cache)
+        newBlock = getNewBlock[phase0.SignedBeaconBlock](state, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
             epochRef: EpochRef):
@@ -313,7 +313,6 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           attPool.addForkChoice(
             epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
 
-      blck() = added[]
       dag.updateHead(added[], quarantine[])
       if dag.needStateCachesAndForkChoicePruning():
         dag.pruneStateCachesDAG()
@@ -327,7 +326,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     dag.withUpdatedState(tmpState[], dag.head.atSlot(slot)) do:
       let
-        newBlock = getNewBlock[altair.SignedBeaconBlock](stateData, slot, cache)
+        newBlock = getNewBlock[altair.SignedBeaconBlock](state, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: altair.TrustedSignedBeaconBlock,
             epochRef: EpochRef):
@@ -335,7 +334,6 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           attPool.addForkChoice(
             epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
 
-      blck() = added[]
       dag.updateHead(added[], quarantine[])
       if dag.needStateCachesAndForkChoicePruning():
         dag.pruneStateCachesDAG()
@@ -349,7 +347,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     dag.withUpdatedState(tmpState[], dag.head.atSlot(slot)) do:
       let
-        newBlock = getNewBlock[bellatrix.SignedBeaconBlock](stateData, slot, cache)
+        newBlock = getNewBlock[bellatrix.SignedBeaconBlock](state, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: bellatrix.TrustedSignedBeaconBlock,
             epochRef: EpochRef):
@@ -357,7 +355,6 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           attPool.addForkChoice(
             epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
 
-      blck() = added[]
       dag.updateHead(added[], quarantine[])
       if dag.needStateCachesAndForkChoicePruning():
         dag.pruneStateCachesDAG()
@@ -420,7 +417,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     # TODO if attestation pool was smarter, it would include older attestations
     #      too!
-    verifyConsensus(dag.headState.data, attesterRatio * blockRatio)
+    verifyConsensus(dag.headState, attesterRatio * blockRatio)
 
     if t == tEpoch:
       echo &". slot: {shortLog(slot)} ",
@@ -432,9 +429,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   if replay:
     withTimer(timers[tReplay]):
       var cache = StateCache()
-      doAssert dag.updateStateData(
+      doAssert dag.updateState(
         replayState[], dag.head.atSlot(Slot(slots)), false, cache)
 
   echo "Done!"
 
-  printTimers(dag.headState.data, attesters, true, timers)
+  printTimers(dag.headState, attesters, true, timers)

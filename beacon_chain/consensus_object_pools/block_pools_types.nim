@@ -140,6 +140,9 @@ type
       ## go - the tail block is unique in that its parent is set to `nil`, even
       ## in the case where an earlier genesis block exists.
 
+    head*: BlockRef
+      ## The most recently known head, as chosen by fork choice
+
     backfill*: BeaconBlockSummary
       ## The backfill points to the oldest block with an unbroken ancestry from
       ## dag.tail - when backfilling, we'll move backwards in time starting
@@ -162,17 +165,19 @@ type
     # -----------------------------------
     # Rewinder - Mutable state processing
 
-    headState*: StateData
+    headState*: ForkedHashedBeaconState
       ## State given by the head block - must only be updated in `updateHead` -
       ## always matches dag.head
 
-    epochRefState*: StateData
+    epochRefState*: ForkedHashedBeaconState
       ## State used to produce epochRef instances - must only be used in
       ## `getEpochRef`
 
-    clearanceState*: StateData
+    clearanceState*: ForkedHashedBeaconState
       ## Cached state used during block clearance - must only be used in
       ## clearance module
+    clearanceBlck*: BlockRef
+      ## The latest block that was applied to the clearance state
 
     updateFlags*: UpdateFlags
 
@@ -248,12 +253,6 @@ type
 
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
-
-  StateData* = object
-    data*: ForkedHashedBeaconState
-
-    blck*: BlockRef
-    ## The block associated with the state found in data
 
   # TODO when Nim 1.2 support is dropped, make these generic. 1.2 generates
   # invalid C code, which gcc refuses to compile. Example test case:

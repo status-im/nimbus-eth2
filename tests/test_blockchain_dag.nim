@@ -63,7 +63,7 @@ suite "Block pool processing" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
       quarantine = Quarantine.init()
-      state = newClone(dag.headState.data)
+      state = newClone(dag.headState)
       cache = StateCache()
       info = ForkedEpochInfo()
       att0 = makeFullAttestations(state[], dag.tail.root, 0.Slot, cache)
@@ -97,7 +97,7 @@ suite "Block pool processing" & preset():
       b2Add = dag.addHeadBlock(verifier, b2, nilPhase0Callback)
       b2Get = dag.getForkedBlock(b2.root)
       er = dag.findEpochRef(b1Add[], b1Add[].slot.epoch)
-      validators = getStateField(dag.headState.data, validators).lenu64()
+      validators = getStateField(dag.headState, validators).lenu64()
 
     check:
       b2Get.isSome()
@@ -185,8 +185,8 @@ suite "Block pool processing" & preset():
       db.getStateRoot(stateCheckpoint.blck.root, stateCheckpoint.slot).isErr()
       # this is required for the test to work - it's not a "public"
       # post-condition of getEpochRef
-      getStateField(dag.epochRefState.data, slot) == nextEpochSlot
-    assign(state[], dag.epochRefState.data)
+      getStateField(dag.epochRefState, slot) == nextEpochSlot
+    assign(state[], dag.epochRefState)
 
     let
       bnext = addTestBlock(state[], cache).phase0Data
@@ -214,9 +214,9 @@ suite "Block pool processing" & preset():
 
     check:
       dag.head == b1Add[]
-      getStateField(dag.headState.data, slot) == b1Add[].slot
+      getStateField(dag.headState, slot) == b1Add[].slot
 
-  test "updateStateData sanity" & preset():
+  test "updateState sanity" & preset():
     let
       b1Add = dag.addHeadBlock(verifier, b1, nilPhase0Callback)
       b2Add = dag.addHeadBlock(verifier, b2, nilPhase0Callback)
@@ -229,39 +229,39 @@ suite "Block pool processing" & preset():
     # move to specific block
     var cache = StateCache()
     check:
-      dag.updateStateData(tmpState[], bs1, false, cache)
-      tmpState.blck == b1Add[]
-      getStateField(tmpState.data, slot) == bs1.slot
+      dag.updateState(tmpState[], bs1, false, cache)
+      tmpState[].latest_block_root == b1Add[].root
+      getStateField(tmpState[], slot) == bs1.slot
 
     # Skip slots
     check:
-      dag.updateStateData(tmpState[], bs1_3, false, cache) # skip slots
-      tmpState.blck == b1Add[]
-      getStateField(tmpState.data, slot) == bs1_3.slot
+      dag.updateState(tmpState[], bs1_3, false, cache) # skip slots
+      tmpState[].latest_block_root == b1Add[].root
+      getStateField(tmpState[], slot) == bs1_3.slot
 
     # Move back slots, but not blocks
     check:
-      dag.updateStateData(tmpState[], bs1_3.parent(), false, cache)
-      tmpState.blck == b1Add[]
-      getStateField(tmpState.data, slot) == bs1_3.parent().slot
+      dag.updateState(tmpState[], bs1_3.parent(), false, cache)
+      tmpState[].latest_block_root == b1Add[].root
+      getStateField(tmpState[], slot) == bs1_3.parent().slot
 
     # Move to different block and slot
     check:
-      dag.updateStateData(tmpState[], bs2_3, false, cache)
-      tmpState.blck == b2Add[]
-      getStateField(tmpState.data, slot) == bs2_3.slot
+      dag.updateState(tmpState[], bs2_3, false, cache)
+      tmpState[].latest_block_root == b2Add[].root
+      getStateField(tmpState[], slot) == bs2_3.slot
 
     # Move back slot and block
     check:
-      dag.updateStateData(tmpState[], bs1, false, cache)
-      tmpState.blck == b1Add[]
-      getStateField(tmpState.data, slot) == bs1.slot
+      dag.updateState(tmpState[], bs1, false, cache)
+      tmpState[].latest_block_root == b1Add[].root
+      getStateField(tmpState[], slot) == bs1.slot
 
     # Move back to genesis
     check:
-      dag.updateStateData(tmpState[], bs1.parent(), false, cache)
-      tmpState.blck == b1Add[].parent
-      getStateField(tmpState.data, slot) == bs1.parent.slot
+      dag.updateState(tmpState[], bs1.parent(), false, cache)
+      tmpState[].latest_block_root == b1Add[].parent.root
+      getStateField(tmpState[], slot) == bs1.parent.slot
 
 when declared(GC_fullCollect): # i386 test machines seem to run low..
   GC_fullCollect()
@@ -278,7 +278,7 @@ suite "Block pool altair processing" & preset():
       dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
       verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
       quarantine = Quarantine.init()
-      state = newClone(dag.headState.data)
+      state = newClone(dag.headState)
       cache = StateCache()
       info = ForkedEpochInfo()
 
@@ -359,8 +359,8 @@ suite "chain DAG finalization tests" & preset():
   test "prune heads on finalization" & preset():
     # Create a fork that will not be taken
     var
-      blck = makeTestBlock(dag.headState.data, cache).phase0Data
-      tmpState = assignClone(dag.headState.data)
+      blck = makeTestBlock(dag.headState, cache).phase0Data
+      tmpState = assignClone(dag.headState)
     check:
       process_slots(
         defaultRuntimeConfig, tmpState[],
@@ -372,7 +372,7 @@ suite "chain DAG finalization tests" & preset():
       let status = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
       check: status.isOk()
 
-    assign(tmpState[], dag.headState.data)
+    assign(tmpState[], dag.headState)
 
     # skip slots so we can test gappy getBlockAtSlot
     check process_slots(
@@ -410,7 +410,7 @@ suite "chain DAG finalization tests" & preset():
       dag.containsForkBlock(dag.finalizedHead.blck.root)
 
     check:
-      dag.db.immutableValidators.len() == getStateField(dag.headState.data, validators).len()
+      dag.db.immutableValidators.len() == getStateField(dag.headState, validators).len()
 
     let
       finalER = dag.getEpochRef(
@@ -428,11 +428,11 @@ suite "chain DAG finalization tests" & preset():
     block:
       let tmpStateData = assignClone(dag.headState)
 
-      # Check that cached data is available after updateStateData - since we
+      # Check that cached data is available after updateState - since we
       # just processed the head the relevant epochrefs should not have been
       # evicted yet
       cache = StateCache()
-      check: updateStateData(
+      check: updateState(
         dag, tmpStateData[], dag.head.atSlot(dag.head.slot), false, cache)
 
       check:
@@ -467,15 +467,15 @@ suite "chain DAG finalization tests" & preset():
       dag2.head.root == dag.head.root
       dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
       dag2.finalizedHead.slot == dag.finalizedHead.slot
-      getStateRoot(dag2.headState.data) == getStateRoot(dag.headState.data)
+      getStateRoot(dag2.headState) == getStateRoot(dag.headState)
 
   test "orphaned epoch block" & preset():
     let prestate = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0)
     for i in 0 ..< SLOTS_PER_EPOCH:
       if i == SLOTS_PER_EPOCH - 1:
-        assign(prestate[], dag.headState.data)
+        assign(prestate[], dag.headState)
 
-      let blck = makeTestBlock(dag.headState.data, cache).phase0Data
+      let blck = makeTestBlock(dag.headState, cache).phase0Data
       let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
       check: added.isOk()
       dag.updateHead(added[], quarantine)
@@ -508,7 +508,7 @@ suite "chain DAG finalization tests" & preset():
 
   test "init with gaps" & preset():
     for blck in makeTestBlocks(
-        dag.headState.data, cache, int(SLOTS_PER_EPOCH * 6 - 2),
+        dag.headState, cache, int(SLOTS_PER_EPOCH * 6 - 2),
         true):
       let added = dag.addHeadBlock(verifier, blck.phase0Data, nilPhase0Callback)
       check: added.isOk()
@@ -518,13 +518,13 @@ suite "chain DAG finalization tests" & preset():
     # Advance past epoch so that the epoch transition is gapped
     check:
       process_slots(
-        defaultRuntimeConfig, dag.headState.data, Slot(SLOTS_PER_EPOCH * 6 + 2),
+        defaultRuntimeConfig, dag.headState, Slot(SLOTS_PER_EPOCH * 6 + 2),
         cache, info, {}).isOk()
 
     let blck = makeTestBlock(
-      dag.headState.data, cache,
+      dag.headState, cache,
       attestations = makeFullAttestations(
-        dag.headState.data, dag.head.root, getStateField(dag.headState.data, slot),
+        dag.headState, dag.head.root, getStateField(dag.headState, slot),
         cache, {})).phase0Data
 
     let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
@@ -540,11 +540,11 @@ suite "chain DAG finalization tests" & preset():
       while cur.slot >= dag.finalizedHead.slot:
         assign(tmpStateData[], dag.headState)
         check:
-          dag.updateStateData(tmpStateData[], cur.atSlot(cur.slot), false, cache)
+          dag.updateState(tmpStateData[], cur.atSlot(cur.slot), false, cache)
           dag.getForkedBlock(cur.bid).get().phase0Data.message.state_root ==
-            getStateRoot(tmpStateData[].data)
-          getStateRoot(tmpStateData[].data) == hash_tree_root(
-            tmpStateData[].data.phase0Data.data)
+            getStateRoot(tmpStateData[])
+          getStateRoot(tmpStateData[]) == hash_tree_root(
+            tmpStateData[].phase0Data.data)
         cur = cur.parent
 
     let
@@ -557,7 +557,7 @@ suite "chain DAG finalization tests" & preset():
       dag2.head.root == dag.head.root
       dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
       dag2.finalizedHead.slot == dag.finalizedHead.slot
-      getStateRoot(dag2.headState.data) == getStateRoot(dag.headState.data)
+      getStateRoot(dag2.headState) == getStateRoot(dag.headState)
 
 suite "Old database versions" & preset():
   setup:
@@ -591,7 +591,7 @@ suite "Old database versions" & preset():
     var
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db,validatorMonitor, {})
-      state = newClone(dag.headState.data)
+      state = newClone(dag.headState)
       cache = StateCache()
       att0 = makeFullAttestations(state[], dag.tail.root, 0.Slot, cache)
       b1 = addTestBlock(state[], cache, attestations = att0).phase0Data
@@ -617,7 +617,7 @@ suite "Diverging hardforks":
       quarantine = newClone(Quarantine.init())
       cache = StateCache()
       info = ForkedEpochInfo()
-      tmpState = assignClone(dag.headState.data)
+      tmpState = assignClone(dag.headState)
 
   test "Tail block only in common":
     check:

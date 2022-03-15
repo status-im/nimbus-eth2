@@ -191,7 +191,7 @@ proc storeBlock*(
         vm[].registerAttestationInBlock(attestation.data, validator_index,
           trustedBlock.message)
 
-    withState(dag[].clearanceState.data):
+    withState(dag[].clearanceState):
       when stateFork >= BeaconStateFork.Altair and
           Trusted isnot phase0.TrustedSignedBeaconBlock: # altair+
         for i in trustedBlock.message.body.sync_aggregate.sync_committee_bits.oneIndices():

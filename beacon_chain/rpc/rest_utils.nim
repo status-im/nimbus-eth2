@@ -70,8 +70,8 @@ proc getBlockSlot*(node: BeaconNode,
     else:
       err("State for given slot not found, history not available?")
   of StateQueryKind.Root:
-    if stateIdent.root == getStateRoot(node.dag.headState.data):
-      ok(node.dag.headState.blck.atSlot())
+    if stateIdent.root == getStateRoot(node.dag.headState):
+      ok(node.dag.head.atSlot())
     else:
       # We don't have a state root -> BlockSlot mapping
       err("State for given root not found")
@@ -85,7 +85,7 @@ proc getBlockSlot*(node: BeaconNode,
       ok(node.dag.finalizedHead)
     of StateIdentType.Justified:
       ok(node.dag.head.atEpochStart(getStateField(
-        node.dag.headState.data, current_justified_checkpoint).epoch))
+        node.dag.headState, current_justified_checkpoint).epoch))
 
 proc getBlockId*(node: BeaconNode, id: BlockIdent): Opt[BlockId] =
   case id.kind
@@ -140,8 +140,8 @@ template withStateForBlockSlot*(nodeParam: BeaconNode,
       node = nodeParam
       blockSlot = blockSlotParam
 
-    template isState(state: StateData): bool =
-      state.blck.atSlot(getStateField(state.data, slot)) == blockSlot
+    template isState(state: ForkedHashedBeaconState): bool =
+      state.matches_block_slot(blockSlot.blck.root, blockSlot.slot)
 
     var cache {.inject, used.}: StateCache
 
@@ -175,7 +175,7 @@ template withStateForBlockSlot*(nodeParam: BeaconNode,
       else:
         assignClone(node.dag.headState)
 
-      if node.dag.updateStateData(stateToAdvance[], blockSlot, false, cache):
+      if node.dag.updateState(stateToAdvance[], blockSlot, false, cache):
         if cachedState == nil and node.stateTtlCache != nil:
           # This was not a cached state, we can cache it now
           node.stateTtlCache.add(stateToAdvance)

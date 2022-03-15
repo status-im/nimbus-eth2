@@ -27,7 +27,7 @@ suite "state diff tests" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
 
   test "random slot differences" & preset():
-    let testStates = getTestStates(dag.headState.data, BeaconStateFork.Altair)
+    let testStates = getTestStates(dag.headState, BeaconStateFork.Altair)
 
     for i in 0 ..< testStates.len:
       for j in (i+1) ..< testStates.len:

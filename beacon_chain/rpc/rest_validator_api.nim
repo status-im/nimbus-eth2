@@ -225,7 +225,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       headSyncPeriod = sync_committee_period(headEpoch)
 
     if qSyncPeriod == headSyncPeriod:
-      let res = withState(node.dag.headState.data):
+      let res = withState(node.dag.headState):
         when stateFork >= BeaconStateFork.Altair:
           produceResponse(indexList,
                           state.data.current_sync_committee.pubkeys.data,
@@ -234,7 +234,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           emptyResponse()
       return RestApiResponse.jsonResponse(res)
     elif qSyncPeriod == (headSyncPeriod + 1):
-      let res = withState(node.dag.headState.data):
+      let res = withState(node.dag.headState):
         when stateFork >= BeaconStateFork.Altair:
           produceResponse(indexList,
                           state.data.next_sync_committee.pubkeys.data,
@@ -264,7 +264,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
       node.withStateForBlockSlot(bs):
-        let res = withState(stateData().data):
+        let res = withState(state):
           when stateFork >= BeaconStateFork.Altair:
             produceResponse(indexList,
                               state.data.current_sync_committee.pubkeys.data,
@@ -531,7 +531,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400,
                                          InvalidCommitteeIndexValueError)
       if uint64(request.validator_index) >=
-                  lenu64(getStateField(node.dag.headState.data, validators)):
+                  lenu64(getStateField(node.dag.headState, validators)):
         return RestApiResponse.jsonError(Http400,
                                          InvalidValidatorIndexValueError)
       if wallSlot > request.slot + 1:
@@ -555,7 +555,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         request.is_aggregator)
 
       let validator_pubkey = getStateField(
-        node.dag.headState.data, validators).asSeq()[request.validator_index].pubkey
+        node.dag.headState, validators).asSeq()[request.validator_index].pubkey
 
       node.validatorMonitor[].addAutoMonitor(
         validator_pubkey, ValidatorIndex(request.validator_index))
@@ -583,11 +583,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(Http400,
                                              EpochFromTheIncorrectForkError)
           if uint64(item.validator_index) >=
-             lenu64(getStateField(node.dag.headState.data, validators)):
+             lenu64(getStateField(node.dag.headState, validators)):
             return RestApiResponse.jsonError(Http400,
                                              InvalidValidatorIndexValueError)
           let validator_pubkey = getStateField(
-            node.dag.headState.data, validators).asSeq()[item.validator_index].pubkey
+            node.dag.headState, validators).asSeq()[item.validator_index].pubkey
 
           node.syncCommitteeMsgPool.syncCommitteeSubscriptions[validator_pubkey] =
             item.until_epoch
