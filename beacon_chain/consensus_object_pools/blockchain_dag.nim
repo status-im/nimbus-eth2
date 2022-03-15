@@ -137,6 +137,10 @@ func init*(
     cache: var StateCache): T =
   let
     epoch = state.data.get_current_epoch()
+    proposer_dependent_root = withState(state.data):
+      state.proposer_dependent_root
+    attester_dependent_root = withState(state.data):
+      state.attester_dependent_root
     epochRef = EpochRef(
       dag: dag, # This gives access to the validator pubkeys through an EpochRef
       key: state.blck.epochAncestor(epoch),
@@ -145,8 +149,10 @@ func init*(
       current_justified_checkpoint:
         getStateField(state.data, current_justified_checkpoint),
       finalized_checkpoint: getStateField(state.data, finalized_checkpoint),
+      proposer_dependent_root: proposer_dependent_root,
       shuffled_active_validator_indices:
         cache.get_shuffled_active_validator_indices(state.data, epoch),
+      attester_dependent_root: attester_dependent_root,
       merge_transition_complete:
         case state.data.kind:
         of BeaconStateFork.Phase0: false
@@ -202,17 +208,17 @@ func getBlockRef*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockRef] =
   else:
     err()
 
-func getBlockAtSlot*(dag: ChainDAGRef, slot: Slot): BlockSlot =
+func getBlockAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlot] =
   ## Retrieve the canonical block at the given slot, or the last block that
   ## comes before - similar to atSlot, but without the linear scan - see
   ## getBlockIdAtSlot for a version that covers backfill blocks as well
   ## May return an empty BlockSlot (where blck is nil!)
 
   if slot == dag.genesis.slot:
-    return dag.genesis.atSlot(slot)
+    return ok dag.genesis.atSlot(slot)
 
   if slot > dag.finalizedHead.slot:
-    return dag.head.atSlot(slot) # Linear iteration is the fastest we have
+    return ok dag.head.atSlot(slot) # Linear iteration is the fastest we have
 
   doAssert dag.finalizedHead.slot >= dag.tail.slot
   doAssert dag.tail.slot >= dag.backfill.slot
@@ -223,23 +229,22 @@ func getBlockAtSlot*(dag: ChainDAGRef, slot: Slot): BlockSlot =
     var pos = int(slot - dag.tail.slot)
     while true:
       if dag.finalizedBlocks[pos] != nil:
-        return dag.finalizedBlocks[pos].atSlot(slot)
+        return ok dag.finalizedBlocks[pos].atSlot(slot)
 
       doAssert pos > 0, "We should have returned the tail"
 
       pos = pos - 1
 
-  BlockSlot() # nil blck!
+  err() # Not found
 
-func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): BlockSlotId =
+func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
   ## Retrieve the canonical block at the given slot, or the last block that
   ## comes before - similar to atSlot, but without the linear scan - may hit
   ## the database to look up early indices.
-  if slot == dag.genesis.slot:
-    return dag.genesis.bid.atSlot(slot)
 
-  if slot >= dag.tail.slot:
-    return dag.getBlockAtSlot(slot).toBlockSlotId()
+  let bs = dag.getBlockAtSlot(slot) # Try looking in recent blocks first
+  if bs.isSome:
+    return bs.get().toBlockSlotId()
 
   let finlow = dag.db.finalizedBlocks.low.expect("at least tailRef written")
   if slot >= finlow:
@@ -248,13 +253,14 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): BlockSlotId =
       let root = dag.db.finalizedBlocks.get(pos)
 
       if root.isSome():
-        return BlockId(root: root.get(), slot: pos).atSlot(slot)
+        return ok BlockSlotId.init(
+          BlockId(root: root.get(), slot: pos), slot)
 
       doAssert pos > finlow, "We should have returned the finlow"
 
       pos = pos - 1
 
-  BlockSlotId() # not backfilled yet, and not genesis
+  err() # not backfilled yet, and not genesis
 
 proc getBlockId*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockId] =
   ## Look up block id by root in history - useful for turning a root into a
@@ -274,7 +280,9 @@ proc getBlockId*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockId] =
   err()
 
 func isCanonical*(dag: ChainDAGRef, bid: BlockId): bool =
-  dag.getBlockIdAtSlot(bid.slot).bid == bid
+  let current = dag.getBlockIdAtSlot(bid.slot).valueOr:
+    return false # We don't know, so ..
+  return current.bid == bid
 
 func epochAncestor*(blck: BlockRef, epoch: Epoch): EpochKey =
   ## The state transition works by storing information from blocks in a
@@ -983,16 +991,16 @@ proc getBlockRange*(
   # Process all blocks that follow the start block (may be zero blocks)
   while curSlot > startSlot:
     let bs = dag.getBlockIdAtSlot(curSlot)
-    if bs.isProposed():
+    if bs.isSome and bs.get().isProposed():
       o -= 1
-      output[o] = bs.bid
+      output[o] = bs.get().bid
     curSlot -= skipStep
 
   # Handle start slot separately (to avoid underflow when computing curSlot)
   let bs = dag.getBlockIdAtSlot(startSlot)
-  if bs.isProposed():
+  if bs.isSome and bs.get().isProposed():
     o -= 1
-    output[o] = bs.bid
+    output[o] = bs.get().bid
 
   o # Return the index of the first non-nil item in the output
 
@@ -1545,13 +1553,14 @@ proc updateHead*(
     if not(isNil(dag.onHeadChanged)):
       let
         currentEpoch = epoch(newHead.slot)
-        depBlock = dag.head.dependentBlock(dag.tail, currentEpoch)
-        prevDepBlock = dag.head.prevDependentBlock(dag.tail, currentEpoch)
+        depRoot = withState(dag.headState.data): state.proposer_dependent_root
+        prevDepRoot =
+          withState(dag.headState.data): state.attester_dependent_root
         epochTransition = (finalizedHead != dag.finalizedHead)
       let data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
                                            getStateRoot(dag.headState.data),
-                                           epochTransition, depBlock.root,
-                                           prevDepBlock.root)
+                                           epochTransition, depRoot,
+                                           prevDepRoot)
       dag.onHeadChanged(data)
 
   withState(dag.headState.data):
@@ -1838,9 +1847,13 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
       continue # skip non-snapshot slots
 
-    if k[0] > 0 and dag.getBlockIdAtSlot(k[0] - 1).bid.root != k[1]:
-      junk.add((k, v))
-      continue # skip things that are no longer a canonical part of the chain
+    if k[0] > 0:
+      let bs = dag.getBlockIdAtSlot(k[0] - 1)
+      if bs.isNone or bs.get().bid.root != k[1]:
+        # remove things that are no longer a canonical part of the chain or
+        # cannot be reached via a block
+        junk.add((k, v))
+        continue
 
     if not dag.db.containsState(v):
       continue # If it's not in the database..
@@ -1877,8 +1890,7 @@ proc rebuildIndex*(dag: ChainDAGRef) =
         return
 
     for slot in startSlot..<startSlot + (EPOCHS_PER_STATE_SNAPSHOT * SLOTS_PER_EPOCH):
-      let bids = dag.getBlockIdAtSlot(slot)
-      if bids.bid.root.isZero:
+      let bids = dag.getBlockIdAtSlot(slot).valueOr:
         warn "Block id missing, cannot continue - database corrupt?", slot
         return
 

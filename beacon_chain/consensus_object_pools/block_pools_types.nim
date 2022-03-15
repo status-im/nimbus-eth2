@@ -238,7 +238,10 @@ type
     eth1_data*: Eth1Data
     eth1_deposit_index*: uint64
     beacon_proposers*: array[SLOTS_PER_EPOCH, Option[ValidatorIndex]]
+    proposer_dependent_root*: Eth2Digest
+
     shuffled_active_validator_indices*: seq[ValidatorIndex]
+    attester_dependent_root*: Eth2Digest
 
     # enables more efficient merge block validation
     merge_transition_complete*: bool

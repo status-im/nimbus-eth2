@@ -73,14 +73,6 @@ suite "BlockSlot and helpers":
 
       s4.atSlot() == s4.atSlot(s4.slot)
 
-      se2.dependentBlock(s0, Epoch(2)) == se1
-      se2.dependentBlock(s0, Epoch(1)) == s2
-      se2.dependentBlock(s0, Epoch(0)) == s0
-
-      se2.prevDependentBlock(s0, Epoch(2)) == s2
-      se2.prevDependentBlock(s0, Epoch(1)) == s0
-      se2.prevDependentBlock(s0, Epoch(0)) == s0
-
   test "parent sanity":
     let
       root = block:

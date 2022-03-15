@@ -169,17 +169,20 @@ proc addHeadBlock*(
     let existing = dag.getBlockIdAtSlot(blck.slot)
     # The exact slot match ensures we reject blocks that were orphaned in
     # the finalized chain
-    if existing.bid.slot == blck.slot and blockRoot == existing.bid.root:
-      debug "Duplicate block"
-      return err(BlockError.Duplicate)
+    if existing.isSome:
+      if existing.get().bid.slot == blck.slot and
+          existing.get().bid.root == blockRoot:
+        debug "Duplicate block"
+        return err(BlockError.Duplicate)
 
-    # Block is older than finalized, but different from the block in our
-    # canonical history: it must be from an unviable branch
-    debug "Block from unviable fork",
-      finalizedHead = shortLog(dag.finalizedHead),
-      tail = shortLog(dag.tail)
+      # Block is older than finalized, but different from the block in our
+      # canonical history: it must be from an unviable branch
+      debug "Block from unviable fork",
+        existing = shortLog(existing.get()),
+        finalizedHead = shortLog(dag.finalizedHead),
+        tail = shortLog(dag.tail)
 
-    return err(BlockError.UnviableFork)
+      return err(BlockError.UnviableFork)
 
   # Check non-finalized blocks as well
   if dag.containsForkBlock(blockRoot):
@@ -289,19 +292,22 @@ proc addBackfillBlock*(
 
   if blck.slot >= dag.backfill.slot:
     let existing = dag.getBlockIdAtSlot(blck.slot)
-    if existing.bid.slot == blck.slot and blockRoot == existing.bid.root:
-      # We should not call the block added callback for blocks that already
-      # existed in the pool, as that may confuse consumers such as the fork
-      # choice.
-      debug "Duplicate block"
-      return err(BlockError.Duplicate)
+    if existing.isSome:
+      if existing.get().bid.slot == blck.slot and
+          existing.get().bid.root == blockRoot:
+        # We should not call the block added callback for blocks that already
+        # existed in the pool, as that may confuse consumers such as the fork
+        # choice.
+        debug "Duplicate block"
+        return err(BlockError.Duplicate)
 
-    # Block is older than finalized, but different from the block in our
-    # canonical history: it must be from an unviable branch
-    debug "Block from unviable fork",
-      finalizedHead = shortLog(dag.finalizedHead)
+      # Block is older than finalized, but different from the block in our
+      # canonical history: it must be from an unviable branch
+      debug "Block from unviable fork",
+        existing = shortLog(existing.get()),
+        finalizedHead = shortLog(dag.finalizedHead)
 
-    return err(BlockError.UnviableFork)
+      return err(BlockError.UnviableFork)
 
   if blck.slot == dag.genesis.slot and
       dag.backfill.parent_root == dag.genesis.root:

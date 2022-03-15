@@ -44,11 +44,12 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
++ dependent_root                                                                             OK
 + get_beacon_proposer_index                                                                  OK
 + latest_block_root                                                                          OK
 + process_slots                                                                              OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Beacon time
 ```diff
 + basics                                                                                     OK
@@ -254,11 +255,11 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 9/9 Fail: 0/9 Skip: 0/9
 ## Light client [Preset: mainnet]
 ```diff
-+ Init from checkpoint                                                                       OK
+  Init from checkpoint                                                                       Skip
 + Light client sync                                                                          OK
 + Pre-Altair                                                                                 OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 2/3 Fail: 0/3 Skip: 1/3
 ## ListKeys requests [Preset: mainnet]
 ```diff
 + Correct token provided [Preset: mainnet]                                                   OK
@@ -520,4 +521,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 285/290 Fail: 0/290 Skip: 5/290
+OK: 285/291 Fail: 0/291 Skip: 6/291

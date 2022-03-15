@@ -65,8 +65,8 @@ proc getBlockSlot*(node: BeaconNode,
   case stateIdent.kind
   of StateQueryKind.Slot:
     let bs = node.dag.getBlockAtSlot(? node.getCurrentSlot(stateIdent.slot))
-    if not isNil(bs.blck):
-      ok(bs)
+    if bs.isSome:
+      ok(bs.get())
     else:
       err("State for given slot not found, history not available?")
   of StateQueryKind.Root:
@@ -101,8 +101,8 @@ proc getBlockId*(node: BeaconNode, id: BlockIdent): Opt[BlockId] =
     node.dag.getBlockId(id.root)
   of BlockQueryKind.Slot:
     let bsid = node.dag.getBlockIdAtSlot(id.slot)
-    if bsid.isProposed():
-      ok bsid.bid
+    if bsid.isSome and bsid.get().isProposed():
+      ok bsid.get().bid
     else:
       err()
 

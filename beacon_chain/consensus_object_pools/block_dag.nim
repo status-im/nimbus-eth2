@@ -164,11 +164,14 @@ func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
 func atSlot*(blck: BlockRef): BlockSlot =
   blck.atSlot(blck.slot)
 
-func atSlot*(bid: BlockId, slot: Slot): BlockSlotId =
+func init*(T: type BlockSlotId, bid: BlockId, slot: Slot): T =
+  doAssert slot >= bid.slot
   BlockSlotId(bid: bid, slot: slot)
 
 func atSlot*(bid: BlockId): BlockSlotId =
-  bid.atSlot(bid.slot)
+  # BlockSlotId doesn't not have an atSlot function taking slot because it does
+  # not share the parent-traversing features of `atSlot(BlockRef)`
+  BlockSlotId.init(bid, bid.slot)
 
 func atEpochStart*(blck: BlockRef, epoch: Epoch): BlockSlot =
   ## Return the BlockSlot corresponding to the first slot in the given epoch
@@ -190,11 +193,11 @@ func atSlotEpoch*(blck: BlockRef, epoch: Epoch): BlockSlot =
     else:
       tmp.blck.atSlot(start)
 
-func toBlockSlotId*(bs: BlockSlot): BlockSlotId =
+func toBlockSlotId*(bs: BlockSlot): Opt[BlockSlotId] =
   if isNil(bs.blck):
-    BlockSlotId()
+    err()
   else:
-    bs.blck.bid.atSlot(bs.slot)
+    ok BlockSlotId.init(bs.blck.bid, bs.slot)
 
 func isProposed*(bid: BlockId, slot: Slot): bool =
   ## Return true if `bid` was proposed in the given slot
@@ -213,20 +216,6 @@ func isProposed*(bsi: BlockSlotId): bool =
   ## Return true if `bs` represents the proposed block (as opposed to an empty
   ## slot)
   bsi.bid.isProposed(bsi.slot)
-
-func dependentBlock*(head, tail: BlockRef, epoch: Epoch): BlockRef =
-  ## The block that determined the proposer shuffling in the given epoch
-  let dependentSlot =
-    if epoch >= Epoch(1): epoch.start_slot() - 1
-    else: Slot(0)
-  let res = head.atSlot(dependentSlot)
-  if isNil(res.blck): tail
-  else: res.blck
-
-func prevDependentBlock*(head, tail: BlockRef, epoch: Epoch): BlockRef =
-  ## The block that determined the attester shuffling in the given epoch
-  if epoch >= 1: head.dependentBlock(tail, epoch - 1)
-  else: head.dependentBlock(tail, epoch)
 
 func shortLog*(v: BlockId): string =
   # epoch:root when logging epoch, root:slot when logging slot!

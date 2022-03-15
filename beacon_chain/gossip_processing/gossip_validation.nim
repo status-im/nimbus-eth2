@@ -301,9 +301,9 @@ proc validateBeaconBlock*(
   let
     slotBlock = getBlockAtSlot(dag, signed_beacon_block.message.slot)
 
-  if slotBlock.isProposed() and
-      slotBlock.blck.slot == signed_beacon_block.message.slot:
-    let curBlock = dag.getForkedBlock(slotBlock.blck.bid)
+  if slotBlock.isSome() and slotBlock.get().isProposed() and
+      slotBlock.get().blck.slot == signed_beacon_block.message.slot:
+    let curBlock = dag.getForkedBlock(slotBlock.get().blck.bid)
     if curBlock.isOk():
       let data = curBlock.get()
       if getForkedBlockField(data, proposer_index) ==
