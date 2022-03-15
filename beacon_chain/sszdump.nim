@@ -13,6 +13,8 @@ import
   ./spec/[beaconstate, eth2_ssz_serialization, eth2_merkleization, forks],
   ./spec/datatypes/[phase0, altair]
 
+from spec/light_client_sync import is_finality_update
+
 export
   beaconstate, eth2_ssz_serialization, eth2_merkleization, forks
 
@@ -46,3 +48,38 @@ proc dump*(dir: string, v: ForkyHashedBeaconState) =
 proc dump*(dir: string, v: SyncCommitteeMessage, validator: ValidatorPubKey) =
   logErrors:
     SSZ.saveFile(dir / &"sync-committee-msg-{v.slot}-{shortLog(validator)}.ssz", v)
+
+proc dump*(dir: string, v: altair.LightClientBootstrap) =
+  logErrors:
+    let
+      prefix = "bootstrap"
+      slot = v.header.slot
+      blck = shortLog(v.header.hash_tree_root())
+      root = shortLog(v.hash_tree_root())
+    SSZ.saveFile(
+      dir / &"{prefix}-{slot}-{blck}-{root}.ssz", v)
+
+proc dump*(dir: string, v: altair.LightClientUpdate) =
+  logErrors:
+    let
+      prefix = "update"
+      attestedSlot = v.attested_header.slot
+      attestedBlck = shortLog(v.attested_header.hash_tree_root())
+      suffix =
+        if v.is_finality_update:
+          "f"
+        else:
+          "o"
+      root = shortLog(v.hash_tree_root())
+    SSZ.saveFile(
+      dir / &"{prefix}-{attestedSlot}-{attestedBlck}-{suffix}-{root}.ssz", v)
+
+proc dump*(dir: string, v: OptimisticLightClientUpdate) =
+  logErrors:
+    let
+      prefix = "optimistic-update"
+      attestedSlot = v.attested_header.slot
+      attestedBlck = shortLog(v.attested_header.hash_tree_root())
+      root = shortLog(v.hash_tree_root())
+    SSZ.saveFile(
+      dir / &"{prefix}-{attestedSlot}-{attestedBlck}-{root}.ssz", v)
