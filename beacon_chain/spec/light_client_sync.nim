@@ -45,11 +45,11 @@ func period_contains_fork_version(
       false
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#get_active_header
-func is_finality_update(update: altair.LightClientUpdate): bool =
+func is_finality_update*(update: altair.LightClientUpdate): bool =
   not update.finalized_header.isZeroMemory
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#get_active_header
-func get_active_header(update: altair.LightClientUpdate): BeaconBlockHeader =
+func get_active_header*(update: altair.LightClientUpdate): BeaconBlockHeader =
   # The "active header" is the header that the update is trying to convince
   # us to accept. If a finalized header is present, it's the finalized
   # header, otherwise it's the attested header

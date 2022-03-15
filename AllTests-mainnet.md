@@ -254,6 +254,16 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 + Pre-Altair                                                                                 OK
 ```
 OK: 2/3 Fail: 0/3 Skip: 1/3
+## Light client processor [Preset: mainnet]
+```diff
++ Duplicate bootstrap [Preset: mainnet]                                                      OK
++ Forced update [Preset: mainnet]                                                            OK
++ Invalid bootstrap [Preset: mainnet]                                                        OK
++ Missing bootstrap (optimistic update) [Preset: mainnet]                                    OK
++ Missing bootstrap (update) [Preset: mainnet]                                               OK
++ Standard sync [Preset: mainnet]                                                            OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## ListKeys requests [Preset: mainnet]
 ```diff
 + Correct token provided [Preset: mainnet]                                                   OK
@@ -519,4 +529,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 287/293 Fail: 0/293 Skip: 6/293
+OK: 293/299 Fail: 0/299 Skip: 6/299
