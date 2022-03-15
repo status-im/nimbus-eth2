@@ -580,7 +580,7 @@ suite "Old database versions" & preset():
 
     # preInit a database to a v1.0.12 state
     db.putStateRoot(
-      genState[].latest_block_root(), genState[].data.slot, genState[].root)
+      genState[].latest_block_root, genState[].data.slot, genState[].root)
     db.putStateV0(genState[].root, genState[].data)
 
     db.putBlockV0(genBlock)

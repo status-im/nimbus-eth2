@@ -402,7 +402,7 @@ iterator makeTestBlocks*(
     state = assignClone(state)
   for _ in 0..<blocks:
     let
-      parent_root = withState(state[]): state.latest_block_root()
+      parent_root = withState(state[]): state.latest_block_root
       attestations =
         if attested:
           makeFullAttestations(

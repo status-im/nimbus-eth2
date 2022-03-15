@@ -664,7 +664,7 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: ForkyBeaconState) =
 
 proc putState*(db: BeaconChainDB, state: ForkyHashedBeaconState) =
   db.withManyWrites:
-    db.putStateRoot(state.latest_block_root(), state.data.slot, state.root)
+    db.putStateRoot(state.latest_block_root, state.data.slot, state.root)
     db.putState(state.root, state.data)
 
 # For testing rollback

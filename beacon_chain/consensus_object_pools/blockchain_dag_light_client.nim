@@ -757,9 +757,9 @@ proc initLightClientCache*(dag: ChainDAGRef) =
   for i in countdown(blocksBetween.high, blocksBetween.low):
     blockRef = blocksBetween[i]
     doAssert dag.updateState(
-      dag.headState, blockRef.atSlot(blockRef.slot), save = false, cache)
+      dag.headState, blockRef.atSlot(), save = false, cache)
     withStateVars(dag.headState):
-      let bdata = dag.getForkedBlock(dag.head.bid).get
+      let bdata = dag.getForkedBlock(blockRef.bid).get
       withStateAndBlck(state, bdata):
         when stateFork >= BeaconStateFork.Altair:
           # Cache data for `LightClientUpdate` of descendant blocks

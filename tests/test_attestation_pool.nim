@@ -82,7 +82,7 @@ suite "Attestation pool processing" & preset():
       bc0 = get_beacon_committee(
         state[], getStateField(state[], slot), 0.CommitteeIndex, cache)
       attestation = makeAttestation(
-        state[], state[].latest_block_root(), bc0[0], cache)
+        state[], state[].latest_block_root, bc0[0], cache)
 
     pool[].addAttestation(
       attestation, @[bc0[0]], attestation.loadSig,
@@ -194,14 +194,14 @@ suite "Attestation pool processing" & preset():
 
     var
       att0 = makeAttestation(
-        state[], state[].latest_block_root(), bc0[0], cache)
+        state[], state[].latest_block_root, bc0[0], cache)
       att0x = att0
       att1 = makeAttestation(
-        state[], state[].latest_block_root(), bc0[1], cache)
+        state[], state[].latest_block_root, bc0[1], cache)
       att2 = makeAttestation(
-        state[], state[].latest_block_root(), bc0[2], cache)
+        state[], state[].latest_block_root, bc0[2], cache)
       att3 = makeAttestation(
-        state[], state[].latest_block_root(), bc0[3], cache)
+        state[], state[].latest_block_root, bc0[3], cache)
 
     # Both attestations include member 2 but neither is a subset of the other
     att0.combine(att2)
@@ -288,7 +288,7 @@ suite "Attestation pool processing" & preset():
       bc0 = get_beacon_committee(
         state[], getStateField(state[], slot), 0.CommitteeIndex, cache)
       attestation0 = makeAttestation(
-        state[], state[].latest_block_root(), bc0[0], cache)
+        state[], state[].latest_block_root, bc0[0], cache)
 
     check:
       process_slots(
@@ -299,7 +299,7 @@ suite "Attestation pool processing" & preset():
       bc1 = get_beacon_committee(state[],
         getStateField(state[], slot), 0.CommitteeIndex, cache)
       attestation1 = makeAttestation(
-        state[], state[].latest_block_root(), bc1[0], cache)
+        state[], state[].latest_block_root, bc1[0], cache)
 
     # test reverse order
     pool[].addAttestation(
@@ -321,9 +321,9 @@ suite "Attestation pool processing" & preset():
       bc0 = get_beacon_committee(
         state[], getStateField(state[], slot), 0.CommitteeIndex, cache)
       attestation0 =
-        makeAttestation(state[], state[].latest_block_root(), bc0[0], cache)
+        makeAttestation(state[], state[].latest_block_root, bc0[0], cache)
       attestation1 =
-        makeAttestation(state[], state[].latest_block_root(), bc0[1], cache)
+        makeAttestation(state[], state[].latest_block_root, bc0[1], cache)
 
     pool[].addAttestation(
       attestation0, @[bc0[0]], attestation0.loadSig,
@@ -350,9 +350,9 @@ suite "Attestation pool processing" & preset():
       bc0 = get_beacon_committee(
         state[], getStateField(state[], slot), 0.CommitteeIndex, cache)
       attestation0 = makeAttestation(
-        state[], state[].latest_block_root(), bc0[0], cache)
+        state[], state[].latest_block_root, bc0[0], cache)
       attestation1 = makeAttestation(
-        state[], state[].latest_block_root(), bc0[1], cache)
+        state[], state[].latest_block_root, bc0[1], cache)
 
     attestation0.combine(attestation1)
 
@@ -380,9 +380,9 @@ suite "Attestation pool processing" & preset():
       bc0 = get_beacon_committee(state[],
         getStateField(state[], slot), 0.CommitteeIndex, cache)
       attestation0 = makeAttestation(
-        state[], state[].latest_block_root(), bc0[0], cache)
+        state[], state[].latest_block_root, bc0[0], cache)
       attestation1 = makeAttestation(
-        state[], state[].latest_block_root(), bc0[1], cache)
+        state[], state[].latest_block_root, bc0[1], cache)
 
     attestation0.combine(attestation1)
 
