@@ -302,6 +302,8 @@ func apply_light_client_update(
     didProgress = true
   if active_header.slot > store.finalized_header.slot:
     store.finalized_header = active_header
+    if store.finalized_header.slot > store.optimistic_header.slot:
+      store.optimistic_header = store.finalized_header
     didProgress = true
   didProgress
 
