@@ -758,24 +758,38 @@ proc handlePotentialSafeSlotAdvancement[T](sq: SyncQueue[T]) =
   # through an out-of-band mechanism, e.g., VC / REST.
   # If that happens, advance to the new `safeSlot` to avoid repeating requests
   # for data that is considered immutable and no longer relevant.
+  let safeSlot = sq.getSafeSlot()
+  func numSlotsBehindSafeSlot(slot: Slot): uint64 =
+    case sq.kind
+    of SyncQueueKind.Forward:
+      if safeSlot > slot:
+        safeSlot - slot
+      else:
+        0
+    of SyncQueueKind.Backward:
+      if slot > safeSlot:
+        slot - safeSlot
+      else:
+        0
+
   let
-    safeSlot = sq.getSafeSlot()
-    numSlotsAdvanced: uint64 =
+    numOutSlotsAdvanced = sq.outSlot.numSlotsBehindSafeSlot
+    numInpSlotsAdvanced =
       case sq.kind
       of SyncQueueKind.Forward:
-        if safeSlot > sq.outSlot:
-          safeSlot - sq.outSlot
-        else:
-          0
+        sq.inpSlot.numSlotsBehindSafeSlot
       of SyncQueueKind.Backward:
-        if sq.outSlot > safeSlot:
-          sq.outSlot - safeSlot
+        if sq.inpSlot == 0xFFFF_FFFF_FFFF_FFFF'u64:
+          0'u64
         else:
-          0
-  if numSlotsAdvanced != 0:
+          sq.inpSlot.numSlotsBehindSafeSlot
+  if numOutSlotsAdvanced != 0 or numInpSlotsAdvanced != 0:
     debug "Sync progress advanced out-of-band",
-      slot_before = sq.outSlot, slot_after = safeSlot
-    sq.advanceOutput(numSlotsAdvanced)
+      safeSlot, outSlot = sq.outSlot, inpSlot = sq.inpSlot
+    if numOutSlotsAdvanced != 0:
+      sq.advanceOutput(numOutSlotsAdvanced)
+    if numInpSlotsAdvanced != 0:
+      sq.advanceInput(numInpSlotsAdvanced)
     sq.wakeupWaiters()
 
 func updateRequestForNewSafeSlot[T](sq: SyncQueue[T], sr: var SyncRequest[T]) =
