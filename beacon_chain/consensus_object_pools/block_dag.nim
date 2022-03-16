@@ -14,18 +14,6 @@ import
 export chronicles, forks
 
 type
-  BlockId* = object
-    ## A BlockId is the root and the slot in which that block was
-    ## produced - there are no guarantees that this block is part of
-    ## the canonical chain, or that we have validated it
-    root*: Eth2Digest
-    slot*: Slot
-
-  BlockSlotId* = object
-    ## A BlockId at a slot equal to or higher than the slot of the block
-    bid*: BlockId
-    slot*: Slot
-
   BlockRef* = ref object
     ## Node in object graph guaranteed to lead back to tail block, and to have
     ## a corresponding entry in database.
@@ -55,9 +43,6 @@ type
       ## Slot time for this BlockSlot which may differ from blck.slot when time
       ## has advanced without blocks
 
-func hash*(bid: BlockId): Hash =
-  hash(bid.root)
-
 template root*(blck: BlockRef): Eth2Digest = blck.bid.root
 template slot*(blck: BlockRef): Slot = blck.bid.slot
 
@@ -69,12 +54,6 @@ func init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
 func init*(T: type BlockRef, root: Eth2Digest, blck: SomeForkyBeaconBlock):
     BlockRef =
   BlockRef.init(root, blck.slot)
-
-func toBlockId*(blck: SomeForkySignedBeaconBlock): BlockId =
-  BlockId(root: blck.root, slot: blck.message.slot)
-
-func toBlockId*(blck: ForkedSignedBeaconBlock): BlockId =
-  withBlck(blck): BlockId(root: blck.root, slot: blck.message.slot)
 
 func parent*(bs: BlockSlot): BlockSlot =
   ## Return a blockslot representing the previous slot, using the parent block
@@ -164,15 +143,6 @@ func atSlot*(blck: BlockRef, slot: Slot): BlockSlot =
 func atSlot*(blck: BlockRef): BlockSlot =
   blck.atSlot(blck.slot)
 
-func init*(T: type BlockSlotId, bid: BlockId, slot: Slot): T =
-  doAssert slot >= bid.slot
-  BlockSlotId(bid: bid, slot: slot)
-
-func atSlot*(bid: BlockId): BlockSlotId =
-  # BlockSlotId doesn't not have an atSlot function taking slot because it does
-  # not share the parent-traversing features of `atSlot(BlockRef)`
-  BlockSlotId.init(bid, bid.slot)
-
 func atEpochStart*(blck: BlockRef, epoch: Epoch): BlockSlot =
   ## Return the BlockSlot corresponding to the first slot in the given epoch
   atSlot(blck, epoch.start_slot())
@@ -199,10 +169,6 @@ func toBlockSlotId*(bs: BlockSlot): Opt[BlockSlotId] =
   else:
     ok BlockSlotId.init(bs.blck.bid, bs.slot)
 
-func isProposed*(bid: BlockId, slot: Slot): bool =
-  ## Return true if `bid` was proposed in the given slot
-  bid.slot == slot and not bid.root.isZero
-
 func isProposed*(blck: BlockRef, slot: Slot): bool =
   ## Return true if `blck` was proposed in the given slot
   not isNil(blck) and blck.bid.isProposed(slot)
@@ -211,22 +177,6 @@ func isProposed*(bs: BlockSlot): bool =
   ## Return true if `bs` represents the proposed block (as opposed to an empty
   ## slot)
   bs.blck.isProposed(bs.slot)
-
-func isProposed*(bsi: BlockSlotId): bool =
-  ## Return true if `bs` represents the proposed block (as opposed to an empty
-  ## slot)
-  bsi.bid.isProposed(bsi.slot)
-
-func shortLog*(v: BlockId): string =
-  # epoch:root when logging epoch, root:slot when logging slot!
-  shortLog(v.root) & ":" & $v.slot
-
-func shortLog*(v: BlockSlotId): string =
-  # epoch:root when logging epoch, root:slot when logging slot!
-  if v.bid.slot == v.slot:
-    shortLog(v.bid)
-  else: # There was a gap - log it
-    shortLog(v.bid) & "@" & $v.slot
 
 func shortLog*(v: BlockRef): string =
   # epoch:root when logging epoch, root:slot when logging slot!
@@ -244,7 +194,5 @@ func shortLog*(v: BlockSlot): string =
   else: # There was a gap - log it
     shortLog(v.blck) & "@" & $v.slot
 
-chronicles.formatIt BlockId: shortLog(it)
-chronicles.formatIt BlockSlotId: shortLog(it)
 chronicles.formatIt BlockSlot: shortLog(it)
 chronicles.formatIt BlockRef: shortLog(it)
