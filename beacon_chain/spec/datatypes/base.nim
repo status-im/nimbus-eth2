@@ -61,7 +61,7 @@ const
   ZERO_HASH* = Eth2Digest()
   MAX_GRAFFITI_SIZE* = 32
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#configuration
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
 
   SLOTS_PER_ETH1_VOTING_PERIOD* =
@@ -421,7 +421,7 @@ type
     withdrawable_epoch*: Epoch ##\
     ## When validator can withdraw or transfer funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#eth2-field
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#eth2-field
   ENRForkID* = object
     fork_digest*: ForkDigest
     next_fork_version*: Version

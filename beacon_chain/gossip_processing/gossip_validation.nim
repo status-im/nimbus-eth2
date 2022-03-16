@@ -93,7 +93,7 @@ func check_propagation_slot_range(
   let
     pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#configuration
   # The spec value of ATTESTATION_PROPAGATION_SLOT_RANGE is 32, but it can
   # retransmit attestations on the cusp of being out of spec, and which by
   # the time they reach their destination might be out of spec.
@@ -759,7 +759,7 @@ proc validateAggregate*(
 
   return ok((attesting_indices, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#attester_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
     pool: ExitPool, attester_slashing: AttesterSlashing):
     Result[void, ValidationError] =
@@ -782,7 +782,7 @@ proc validateAttesterSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#proposer_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#proposer_slashing
 proc validateProposerSlashing*(
     pool: ExitPool, proposer_slashing: ProposerSlashing):
     Result[void, ValidationError] =
@@ -805,7 +805,7 @@ proc validateProposerSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#voluntary_exit
 proc validateVoluntaryExit*(
     pool: ExitPool, signed_voluntary_exit: SignedVoluntaryExit):
     Result[void, ValidationError] =
