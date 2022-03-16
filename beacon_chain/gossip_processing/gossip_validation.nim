@@ -233,7 +233,7 @@ template validateBeaconBlockBellatrix(
     # to the slot -- i.e. execution_payload.timestamp ==
     # compute_timestamp_at_slot(state, block.slot).
     let timestampAtSlot =
-      withState(dag.headState.data):
+      withState(dag.headState):
         compute_timestamp_at_slot(state.data, signed_beacon_block.message.slot)
     if not (signed_beacon_block.message.body.execution_payload.timestamp ==
         timestampAtSlot):
@@ -340,8 +340,7 @@ proc validateBeaconBlock*(
   # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
   # store.finalized_checkpoint.root
   let
-    finalized_checkpoint = getStateField(
-      dag.headState.data, finalized_checkpoint)
+    finalized_checkpoint = getStateField(dag.headState, finalized_checkpoint)
     ancestor = get_ancestor(parent, finalized_checkpoint.epoch.start_slot)
 
   if ancestor.isNil:
@@ -378,7 +377,7 @@ proc validateBeaconBlock*(
   # with respect to the proposer_index pubkey.
   if not verify_block_signature(
       dag.forkAtEpoch(signed_beacon_block.message.slot.epoch),
-      getStateField(dag.headState.data, genesis_validators_root),
+      getStateField(dag.headState, genesis_validators_root),
       signed_beacon_block.message.slot,
       signed_beacon_block.root,
       dag.validatorKey(proposer.get()).get(),
@@ -497,7 +496,7 @@ proc validateAttestation*(
   let
     fork = pool.dag.forkAtEpoch(attestation.data.slot.epoch)
     genesis_validators_root =
-      getStateField(pool.dag.headState.data, genesis_validators_root)
+      getStateField(pool.dag.headState, genesis_validators_root)
     attesting_index = get_attesting_indices_one(
       epochRef, slot, committee_index, attestation.aggregation_bits)
 
@@ -691,7 +690,7 @@ proc validateAggregate*(
   let
     fork = pool.dag.forkAtEpoch(aggregate.data.slot.epoch)
     genesis_validators_root =
-      getStateField(pool.dag.headState.data, genesis_validators_root)
+      getStateField(pool.dag.headState, genesis_validators_root)
     attesting_indices = get_attesting_indices(
       epochRef, slot, committee_index, aggregate.aggregation_bits)
 
@@ -777,7 +776,7 @@ proc validateAttesterSlashing*(
   # [REJECT] All of the conditions within process_attester_slashing pass
   # validation.
   let attester_slashing_validity =
-    check_attester_slashing(pool.dag.headState.data, attester_slashing, {})
+    check_attester_slashing(pool.dag.headState, attester_slashing, {})
   if attester_slashing_validity.isErr:
     return err((ValidationResult.Reject, attester_slashing_validity.error))
 
@@ -800,7 +799,7 @@ proc validateProposerSlashing*(
 
   # [REJECT] All of the conditions within process_proposer_slashing pass validation.
   let proposer_slashing_validity =
-    check_proposer_slashing(pool.dag.headState.data, proposer_slashing, {})
+    check_proposer_slashing(pool.dag.headState, proposer_slashing, {})
   if proposer_slashing_validity.isErr:
     return err((ValidationResult.Reject, proposer_slashing_validity.error))
 
@@ -813,7 +812,7 @@ proc validateVoluntaryExit*(
   # [IGNORE] The voluntary exit is the first valid voluntary exit received for
   # the validator with index signed_voluntary_exit.message.validator_index.
   if signed_voluntary_exit.message.validator_index >=
-      getStateField(pool.dag.headState.data, validators).lenu64:
+      getStateField(pool.dag.headState, validators).lenu64:
     return errIgnore("VoluntaryExit: validator index too high")
 
   # Given that getStateField(pool.dag.headState, validators) is a seq,
@@ -826,7 +825,7 @@ proc validateVoluntaryExit*(
   # validation.
   let voluntary_exit_validity =
     check_voluntary_exit(
-      pool.dag.cfg, pool.dag.headState.data, signed_voluntary_exit, {})
+      pool.dag.cfg, pool.dag.headState, signed_voluntary_exit, {})
   if voluntary_exit_validity.isErr:
     return err((ValidationResult.Reject, voluntary_exit_validity.error))
 

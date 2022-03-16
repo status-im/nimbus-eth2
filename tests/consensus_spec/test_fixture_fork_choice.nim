@@ -162,12 +162,12 @@ proc stepOnBlock(
        dag: ChainDagRef,
        fkChoice: ref ForkChoice,
        verifier: var BatchVerifier,
-       state: var StateData,
+       state: var ForkedHashedBeaconState,
        stateCache: var StateCache,
        signedBlock: ForkySignedBeaconBlock,
        time: BeaconTime): Result[BlockRef, BlockError] =
   # 1. Move state to proper slot.
-  doAssert dag.updateStateData(
+  doAssert dag.updateState(
     state,
     dag.head.atSlot(time.slotOrZero),
     save = false,

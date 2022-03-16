@@ -38,7 +38,7 @@ suite "Light client" & preset():
     var cache: StateCache
     const maxAttestedSlotsPerPeriod = 3 * SLOTS_PER_EPOCH
     while true:
-      var slot = getStateField(dag.headState.data, slot)
+      var slot = getStateField(dag.headState, slot)
       doAssert targetSlot >= slot
       if targetSlot == slot: break
 
@@ -51,13 +51,13 @@ suite "Light client" & preset():
         checkpointSlot = periodSlot - maxAttestedSlotsPerPeriod
       if targetSlot > checkpointSlot and checkpointSlot > dag.head.slot:
         var info: ForkedEpochInfo
-        doAssert process_slots(cfg, dag.headState.data, checkpointSlot,
+        doAssert process_slots(cfg, dag.headState, checkpointSlot,
                                cache, info, flags = {}).isOk()
         slot = checkpointSlot
 
       # Create blocks for final few epochs
       let blocks = min(targetSlot - slot, maxAttestedSlotsPerPeriod)
-      for blck in makeTestBlocks(dag.headState.data, cache, blocks.int,
+      for blck in makeTestBlocks(dag.headState, cache, blocks.int,
                                  attested, syncCommitteeRatio, cfg):
         let added =
           case blck.kind
@@ -88,21 +88,21 @@ suite "Light client" & preset():
   test "Pre-Altair":
     # Genesis
     check:
-      dag.headState.data.kind == BeaconStateFork.Phase0
+      dag.headState.kind == BeaconStateFork.Phase0
       dag.getBestLightClientUpdateForPeriod(0.SyncCommitteePeriod).isNone
       dag.getLatestLightClientUpdate.isNone
 
     # Advance to last slot before Altair
     dag.advanceToSlot(altairStartSlot - 1, verifier, quarantine[])
     check:
-      dag.headState.data.kind == BeaconStateFork.Phase0
+      dag.headState.kind == BeaconStateFork.Phase0
       dag.getBestLightClientUpdateForPeriod(0.SyncCommitteePeriod).isNone
       dag.getLatestLightClientUpdate.isNone
 
     # Advance to Altair
     dag.advanceToSlot(altairStartSlot, verifier, quarantine[])
     check:
-      dag.headState.data.kind == BeaconStateFork.Altair
+      dag.headState.kind == BeaconStateFork.Altair
       dag.getBestLightClientUpdateForPeriod(0.SyncCommitteePeriod).isNone
       dag.getLatestLightClientUpdate.isNone
 
@@ -113,7 +113,7 @@ suite "Light client" & preset():
     # Track trusted checkpoint for light client
     let
       genesis_validators_root = dag.genesisValidatorsRoot
-      trusted_block_root = dag.headState.blck.root
+      trusted_block_root = dag.head.root
 
     # Advance to target slot
     const
@@ -121,7 +121,7 @@ suite "Light client" & preset():
       periodEpoch = headPeriod.start_epoch
       headSlot = (periodEpoch + 2).start_slot + 5
     dag.advanceToSlot(headSlot, verifier, quarantine[])
-    let currentSlot = getStateField(dag.headState.data, slot)
+    let currentSlot = getStateField(dag.headState, slot)
 
     # Initialize light client store
     let bootstrap = dag.getLightClientBootstrap(trusted_block_root)
@@ -158,7 +158,7 @@ suite "Light client" & preset():
         store, latestUpdate.get, currentSlot, cfg, genesis_validators_root)
     check:
       latestUpdate.isSome
-      latestUpdate.get.attested_header.slot == dag.headState.blck.parent.slot
+      latestUpdate.get.attested_header.slot == dag.head.parent.slot
       res.isOk
       store.finalized_header == latestUpdate.get.finalized_header
       store.optimistic_header == latestUpdate.get.attested_header
@@ -171,7 +171,7 @@ suite "Light client" & preset():
       skip
       return
 
-    let genesisState = assignClone dag.headState.data
+    let genesisState = assignClone dag.headState
 
     # Advance to target slot for checkpoint
     let finalizedSlot =
@@ -182,7 +182,7 @@ suite "Light client" & preset():
     let cpDb = BeaconChainDB.new("", inMemory = true)
     ChainDAGRef.preInit(
       cpDB, genesisState[],
-      dag.headState.data, dag.getForkedBlock(dag.head.bid).get)
+      dag.headState, dag.getForkedBlock(dag.head.bid).get)
     let cpDag = ChainDAGRef.init(
       cfg, cpDb, validatorMonitor, {},
       serveLightClientData = true,

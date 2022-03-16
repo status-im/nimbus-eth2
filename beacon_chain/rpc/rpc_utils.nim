@@ -26,8 +26,8 @@ template withStateForStateId*(stateId: string, body: untyped): untyped =
   let
     bs = node.stateIdToBlockSlot(stateId)
 
-  template isState(state: StateData): bool =
-    state.blck.atSlot(getStateField(state.data, slot)) == bs
+  template isState(state: ForkedHashedBeaconState): bool =
+    state.matches_block_slot(bs.blck.root, bs.slot)
 
   if isState(node.dag.headState):
     withStateVars(node.dag.headState):
@@ -94,12 +94,12 @@ proc stateIdToBlockSlot*(node: BeaconNode, stateId: string): BlockSlot {.raises:
     node.dag.finalizedHead
   of "justified":
     node.dag.head.atEpochStart(
-      getStateField(node.dag.headState.data, current_justified_checkpoint).epoch)
+      getStateField(node.dag.headState, current_justified_checkpoint).epoch)
   else:
     if stateId.startsWith("0x"):
       let stateRoot = parseRoot(stateId)
-      if stateRoot == getStateRoot(node.dag.headState.data):
-        node.dag.headState.blck.atSlot()
+      if stateRoot == getStateRoot(node.dag.headState):
+        node.dag.head.atSlot()
       else:
         # We don't have a state root -> BlockSlot mapping
         raise (ref ValueError)(msg: "State not found")

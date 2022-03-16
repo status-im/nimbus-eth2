@@ -65,7 +65,7 @@ proc block_for_next_slot(
 
   let attestations =
     if withAttestations:
-      let block_root = withState(forked): state.latest_block_root()
+      let block_root = withState(forked): state.latest_block_root
       makeFullAttestations(forked, block_root, state.slot, cache)
     else:
       @[]

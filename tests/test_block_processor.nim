@@ -34,7 +34,7 @@ suite "Block processor" & preset():
       quarantine = newClone(Quarantine.init())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       consensusManager = ConsensusManager.new(dag, attestationPool, quarantine)
-      state = newClone(dag.headState.data)
+      state = newClone(dag.headState)
       cache = StateCache()
       b1 = addTestBlock(state[], cache).phase0Data
       b2 = addTestBlock(state[], cache).phase0Data
@@ -92,7 +92,7 @@ suite "Block processor" & preset():
     check:
       # ensure we loaded the correct head state
       dag2.head.root == b2.root
-      getStateRoot(dag2.headState.data) == b2.message.state_root
+      getStateRoot(dag2.headState) == b2.message.state_root
       dag2.getBlockRef(b1.root).isSome()
       dag2.getBlockRef(b2.root).isSome()
       dag2.heads.len == 1

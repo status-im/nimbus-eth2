@@ -53,17 +53,17 @@ suite "Beacon state" & preset():
       info: ForkedEpochInfo
 
     check: # Works for genesis block
-      state[].phase0Data.latest_block_root() == genBlock.root
+      state[].phase0Data.latest_block_root == genBlock.root
       process_slots(cfg, state[], Slot 1, cache, info, {}).isOk()
-      state[].phase0Data.latest_block_root() == genBlock.root
+      state[].phase0Data.latest_block_root == genBlock.root
 
     let blck = addTestBlock(
       state[], cache, nextSlot = false, flags = {skipBlsValidation}).phase0Data
 
     check: # Works for random blocks
-      state[].phase0Data.latest_block_root() == blck.root
+      state[].phase0Data.latest_block_root == blck.root
       process_slots(cfg, state[], Slot 2, cache, info, {}).isOk()
-      state[].phase0Data.latest_block_root() == blck.root
+      state[].phase0Data.latest_block_root == blck.root
 
   test "get_beacon_proposer_index":
     var

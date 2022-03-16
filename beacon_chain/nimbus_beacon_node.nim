@@ -395,7 +395,7 @@ proc init*(T: type BeaconNode,
       importLightClientData = config.importLightClientData)
     quarantine = newClone(Quarantine.init())
     databaseGenesisValidatorsRoot =
-      getStateField(dag.headState.data, genesis_validators_root)
+      getStateField(dag.headState, genesis_validators_root)
 
   if genesisStateContents.len != 0:
     let
@@ -408,8 +408,7 @@ proc init*(T: type BeaconNode,
             dataDir = config.dataDir
       quit 1
 
-  let beaconClock = BeaconClock.init(
-    getStateField(dag.headState.data, genesis_time))
+  let beaconClock = BeaconClock.init(getStateField(dag.headState, genesis_time))
 
   if config.weakSubjectivityCheckpoint.isSome:
     let
@@ -417,14 +416,14 @@ proc init*(T: type BeaconNode,
       isCheckpointStale = not is_within_weak_subjectivity_period(
         cfg,
         currentSlot,
-        dag.headState.data,
+        dag.headState,
         config.weakSubjectivityCheckpoint.get)
 
     if isCheckpointStale:
       error "Weak subjectivity checkpoint is stale",
             currentSlot,
             checkpoint = config.weakSubjectivityCheckpoint.get,
-            headStateSlot = getStateField(dag.headState.data, slot)
+            headStateSlot = getStateField(dag.headState, slot)
       quit 1
 
   if eth1Monitor.isNil and config.web3Urls.len > 0:
@@ -498,7 +497,7 @@ proc init*(T: type BeaconNode,
     getBeaconTime = beaconClock.getBeaconTimeFn()
     network = createEth2Node(
       rng, config, netKeys, cfg, dag.forkDigests, getBeaconTime,
-      getStateField(dag.headState.data, genesis_validators_root))
+      getStateField(dag.headState, genesis_validators_root))
     attestationPool = newClone(
       AttestationPool.init(
         dag, quarantine, onAttestationReceived, config.proposerBoosting))
@@ -534,7 +533,7 @@ proc init*(T: type BeaconNode,
   let
     slashingProtectionDB =
       SlashingProtectionDB.init(
-          getStateField(dag.headState.data, genesis_validators_root),
+          getStateField(dag.headState, genesis_validators_root),
           config.validatorsDir(), SlashingDbName)
     validatorPool = newClone(ValidatorPool.init(slashingProtectionDB))
 
@@ -795,7 +794,7 @@ proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Sl
   # replaced as usual by trackSyncCommitteeTopics, which runs at slot end.
   let
     syncCommittee =
-      withState(node.dag.headState.data):
+      withState(node.dag.headState):
         when stateFork >= BeaconStateFork.Altair:
           state.data.current_sync_committee
         else:
@@ -839,7 +838,7 @@ proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   # for epoch alignment.
   let
     syncCommittee =
-      withState(node.dag.headState.data):
+      withState(node.dag.headState):
         when stateFork >= BeaconStateFork.Altair:
           state.data.current_sync_committee
         else:
@@ -895,7 +894,7 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
 
   let
     syncCommittee =
-      withState(node.dag.headState.data):
+      withState(node.dag.headState):
         when stateFork >= BeaconStateFork.Altair:
           state.data.next_sync_committee
         else:
@@ -989,7 +988,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     # it might also happen on a sufficiently fast restart
 
     # We "know" the actions for the current and the next epoch
-    withState(node.dag.headState.data):
+    withState(node.dag.headState):
       if node.actionTracker.needsUpdate(state, slot.epoch):
         let epochRef = node.dag.getEpochRef(head, slot.epoch, false).expect(
           "Getting head EpochRef should never fail")
@@ -1069,7 +1068,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Update upcoming actions - we do this every slot in case a reorg happens
   let head = node.dag.head
   if node.isSynced(head):
-    withState(node.dag.headState.data):
+    withState(node.dag.headState):
       if node.actionTracker.needsUpdate(state, slot.epoch + 1):
         let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
           "Getting head EpochRef should never fail")
@@ -1158,7 +1157,7 @@ proc onSlotStart(
     peers = len(node.network.peerPool),
     head = shortLog(node.dag.head),
     finalized = shortLog(getStateField(
-      node.dag.headState.data, finalized_checkpoint)),
+      node.dag.headState, finalized_checkpoint)),
     delay = shortLog(delay)
 
   # Check before any re-scheduling of onSlotStart()
@@ -1466,9 +1465,9 @@ proc start*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
       node.beaconClock.now() - finalizedHead.slot.start_beacon_time(),
     head = shortLog(head),
     justified = shortLog(getStateField(
-      node.dag.headState.data, current_justified_checkpoint)),
+      node.dag.headState, current_justified_checkpoint)),
     finalized = shortLog(getStateField(
-      node.dag.headState.data, finalized_checkpoint)),
+      node.dag.headState, finalized_checkpoint)),
     finalizedHead = shortLog(finalizedHead),
     SLOTS_PER_EPOCH,
     SECONDS_PER_SLOT,
@@ -1519,7 +1518,7 @@ when not defined(windows):
     proc dataResolver(expr: string): string {.raises: [Defect].} =
       template justified: untyped = node.dag.head.atEpochStart(
         getStateField(
-          node.dag.headState.data, current_justified_checkpoint).epoch)
+          node.dag.headState, current_justified_checkpoint).epoch)
       # TODO:
       # We should introduce a general API for resolving dot expressions
       # such as `db.latest_block.slot` or `metrics.connected_peers`.

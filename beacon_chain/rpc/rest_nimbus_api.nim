@@ -118,9 +118,9 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/nimbus/v1/chain/head") do() -> RestApiResponse:
     let
       head = node.dag.head
-      finalized = getStateField(node.dag.headState.data, finalized_checkpoint)
+      finalized = getStateField(node.dag.headState, finalized_checkpoint)
       justified =
-        getStateField(node.dag.headState.data, current_justified_checkpoint)
+        getStateField(node.dag.headState, current_justified_checkpoint)
     return RestApiResponse.jsonResponse(
       (
         head_slot: head.slot,
@@ -232,7 +232,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let proposalState = assignClone(node.dag.headState)
     node.dag.withUpdatedState(proposalState[], head.atSlot(wallSlot)) do:
       return RestApiResponse.jsonResponse(
-        node.getBlockProposalEth1Data(stateData.data))
+        node.getBlockProposalEth1Data(state))
     do:
       return RestApiResponse.jsonError(Http400, PrunedStateError)
 

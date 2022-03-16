@@ -111,13 +111,13 @@ proc addRemoteValidator(pool: var ValidatorPool, validators: auto,
 
 proc addLocalValidators*(node: BeaconNode,
                          validators: openArray[KeystoreData]) =
-  withState(node.dag.headState.data):
+  withState(node.dag.headState):
     for item in validators:
       node.addLocalValidator(state.data.validators.asSeq(), item)
 
 proc addRemoteValidators*(node: BeaconNode,
                           validators: openArray[KeystoreData]) =
-  withState(node.dag.headState.data):
+  withState(node.dag.headState):
     for item in validators:
       node.attachedValidators[].addRemoteValidator(
         state.data.validators.asSeq(), item)
@@ -253,7 +253,7 @@ proc sendSyncCommitteeMessage*(
 proc sendSyncCommitteeMessages*(node: BeaconNode,
                                 msgs: seq[SyncCommitteeMessage]
                                ): Future[seq[SendResult]] {.async.} =
-  return withState(node.dag.headState.data):
+  return withState(node.dag.headState):
     when stateFork >= BeaconStateFork.Altair:
       var statuses = newSeq[Option[SendResult]](len(msgs))
 
@@ -448,26 +448,26 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
     var info: ForkedEpochInfo
 
     process_slots(
-      node.dag.cfg, stateData.data, slot, cache, info,
+      node.dag.cfg, state, slot, cache, info,
       {skipLastStateRootCalculation}).expect("advancing 1 slot should not fail")
 
     let
-      eth1Proposal = node.getBlockProposalEth1Data(stateData.data)
+      eth1Proposal = node.getBlockProposalEth1Data(state)
 
     if eth1Proposal.hasMissingDeposits:
       warn "Eth1 deposits not available. Skipping block proposal", slot
       return ForkedBlockResult.err("Eth1 deposits not available")
 
-    let exits = withState(stateData.data):
+    let exits = withState(state):
       node.exitPool[].getBeaconBlockExits(state.data)
     let res = makeBeaconBlock(
       node.dag.cfg,
-      stateData.data,
+      state,
       validator_index,
       randao_reveal,
       eth1Proposal.vote,
       graffiti,
-      node.attestationPool[].getAttestationsForBlock(stateData.data, cache),
+      node.attestationPool[].getAttestationsForBlock(state, cache),
       eth1Proposal.deposits,
       exits,
       if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
@@ -507,7 +507,7 @@ proc proposeBlock(node: BeaconNode,
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root =
-      getStateField(node.dag.headState.data, genesis_validators_root)
+      getStateField(node.dag.headState, genesis_validators_root)
     randao =
       block:
         let res = await validator.genRandaoReveal(fork, genesis_validators_root,
@@ -639,7 +639,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     committees_per_slot = get_committee_count_per_slot(epochRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root =
-      getStateField(node.dag.headState.data, genesis_validators_root)
+      getStateField(node.dag.headState, genesis_validators_root)
 
   for committee_index in get_committee_indices(committees_per_slot):
     let committee = get_beacon_committee(epochRef, slot, committee_index)
@@ -731,7 +731,7 @@ proc handleSyncCommitteeMessages(node: BeaconNode, head: BlockRef, slot: Slot) =
   for subcommitteeIdx in SyncSubcommitteeIndex:
     for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
       let validator = node.getAttachedValidator(
-        getStateField(node.dag.headState.data, validators), valIdx)
+        getStateField(node.dag.headState, validators), valIdx)
       if isNil(validator) or validator.index.isNone():
         continue
       asyncSpawn createAndSendSyncCommitteeMessage(node, slot, validator,
@@ -787,7 +787,7 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
       #      to avoid the repeated offset calculations
       for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
         let validator = node.getAttachedValidator(
-          getStateField(node.dag.headState.data, validators), valIdx)
+          getStateField(node.dag.headState, validators), valIdx)
         if validator == nil:
           continue
 
@@ -904,7 +904,7 @@ proc sendAggregatedAttestations(
 
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root =
-      getStateField(node.dag.headState.data, genesis_validators_root)
+      getStateField(node.dag.headState, genesis_validators_root)
     committees_per_slot = get_committee_count_per_slot(epochRef)
 
   var
@@ -986,14 +986,14 @@ proc updateValidatorMetrics*(node: BeaconNode) =
       if v.index.isNone():
         0.Gwei
       elif v.index.get().uint64 >=
-          getStateField(node.dag.headState.data, balances).lenu64:
+          getStateField(node.dag.headState, balances).lenu64:
         debug "Cannot get validator balance, index out of bounds",
           pubkey = shortLog(v.pubkey), index = v.index.get(),
-          balances = getStateField(node.dag.headState.data, balances).len,
-          stateRoot = getStateRoot(node.dag.headState.data)
+          balances = getStateField(node.dag.headState, balances).len,
+          stateRoot = getStateRoot(node.dag.headState)
         0.Gwei
       else:
-        getStateField(node.dag.headState.data, balances).asSeq()[v.index.get()]
+        getStateField(node.dag.headState, balances).asSeq()[v.index.get()]
 
     if i < 64:
       attached_validator_balance.set(
@@ -1300,7 +1300,7 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
 
   let
     genesis_validators_root =
-      getStateField(node.dag.headState.data, genesis_validators_root)
+      getStateField(node.dag.headState, genesis_validators_root)
     head = node.dag.head
 
   # Getting the slot signature is expensive but cached - in "normal" cases we'll

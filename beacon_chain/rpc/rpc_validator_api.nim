@@ -146,8 +146,8 @@ proc installValidatorApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
         "Slot requested not in current or next wall-slot epoch")
 
     if not verify_slot_signature(
-        getStateField(node.dag.headState.data, fork),
-        getStateField(node.dag.headState.data, genesis_validators_root),
+        getStateField(node.dag.headState, fork),
+        getStateField(node.dag.headState, genesis_validators_root),
         slot, validator_pubkey, slot_signature):
       raise newException(CatchableError,
         "Invalid slot signature")

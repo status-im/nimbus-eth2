@@ -66,7 +66,7 @@ cli do(validatorsDir: string, secretsDir: string,
       warn "Unkownn validator", pubkey
 
   var
-    blockRoot = withState(state[]): state.latest_block_root()
+    blockRoot = withState(state[]): state.latest_block_root
     cache: StateCache
     info: ForkedEpochInfo
     aggregates: seq[Attestation]

@@ -51,17 +51,17 @@ suite "Gossip validation " & preset():
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
       process_slots(
-        defaultRuntimeConfig, state.data, getStateField(state.data, slot) + 1,
+        defaultRuntimeConfig, state[], getStateField(state[], slot) + 1,
         cache, info, {}).isOk()
 
   test "Empty committee when no committee for slot":
     template committee(idx: uint64): untyped =
       get_beacon_committee(
-        dag.headState.data, dag.head.slot, idx.CommitteeIndex, cache)
+        dag.headState, dag.head.slot, idx.CommitteeIndex, cache)
 
     template committeeLen(idx: uint64): untyped =
       get_beacon_committee_len(
-        dag.headState.data, dag.head.slot, idx.CommitteeIndex, cache)
+        dag.headState, dag.head.slot, idx.CommitteeIndex, cache)
 
     check:
       committee(0).len > 0
@@ -75,7 +75,7 @@ suite "Gossip validation " & preset():
     var
       cache: StateCache
     for blck in makeTestBlocks(
-        dag.headState.data, cache, int(SLOTS_PER_EPOCH * 5), false):
+        dag.headState, cache, int(SLOTS_PER_EPOCH * 5), false):
       let added = dag.addHeadBlock(verifier, blck.phase0Data) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
           epochRef: EpochRef):
@@ -90,15 +90,15 @@ suite "Gossip validation " & preset():
     var
       # Create attestations for slot 1
       beacon_committee = get_beacon_committee(
-        dag.headState.data, dag.head.slot, 0.CommitteeIndex, cache)
+        dag.headState, dag.head.slot, 0.CommitteeIndex, cache)
       att_1_0 = makeAttestation(
-        dag.headState.data, dag.head.root, beacon_committee[0], cache)
+        dag.headState, dag.head.root, beacon_committee[0], cache)
       att_1_1 = makeAttestation(
-        dag.headState.data, dag.head.root, beacon_committee[1], cache)
+        dag.headState, dag.head.root, beacon_committee[1], cache)
 
       committees_per_slot =
-        get_committee_count_per_slot(dag.headState.data,
-          att_1_0.data.slot.epoch, cache)
+        get_committee_count_per_slot(
+          dag.headState, att_1_0.data.slot.epoch, cache)
 
       subnet = compute_subnet_for_attestation(
         committees_per_slot,
@@ -194,7 +194,7 @@ suite "Gossip validation - Extra": # Not based on preset config
             cfg, makeTestDB(num_validators), validatorMonitor, {})
         var cache = StateCache()
         for blck in makeTestBlocks(
-            dag.headState.data, cache, int(SLOTS_PER_EPOCH), false, cfg = cfg):
+            dag.headState, cache, int(SLOTS_PER_EPOCH), false, cfg = cfg):
           let added =
             case blck.kind
             of BeaconBlockFork.Phase0:
@@ -209,7 +209,7 @@ suite "Gossip validation - Extra": # Not based on preset config
           check: added.isOk()
           dag.updateHead(added[], quarantine[])
         dag
-      state = assignClone(dag.headState.data.altairData)
+      state = assignClone(dag.headState.altairData)
       slot = state[].data.slot
 
       subcommitteeIdx = 0.SyncSubcommitteeIndex

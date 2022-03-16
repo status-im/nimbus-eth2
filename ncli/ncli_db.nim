@@ -252,17 +252,17 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       (ref bellatrix.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
-    doAssert dag.updateStateData(
+    doAssert dag.updateState(
       stateData[], blockRefs[^1].atSlot(blockRefs[^1].slot - 1), false, cache)
 
   template processBlocks(blocks: auto) =
     for b in blocks.mitems():
       if shouldShutDown: quit QuitSuccess
-      while getStateField(stateData[].data, slot) < b.message.slot:
-        let isEpoch = (getStateField(stateData[].data, slot) + 1).is_epoch()
+      while getStateField(stateData[], slot) < b.message.slot:
+        let isEpoch = (getStateField(stateData[], slot) + 1).is_epoch()
         withTimer(timers[if isEpoch: tAdvanceEpoch else: tAdvanceSlot]):
           process_slots(
-            dag.cfg, stateData[].data, getStateField(stateData[].data, slot) + 1, cache,
+            dag.cfg, stateData[], getStateField(stateData[], slot) + 1, cache,
             info, {}).expect("Slot processing can't fail with correct inputs")
 
       var start = Moment.now()
@@ -270,7 +270,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
         if conf.resetCache:
           cache = StateCache()
         let res = state_transition_block(
-            dag.cfg, stateData[].data, b, cache, {}, noRollback)
+            dag.cfg, stateData[], b, cache, {}, noRollback)
         if res.isErr():
           dump("./", b)
           echo "State transition failed (!) ", res.error()
@@ -281,7 +281,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
         withTimer(timers[tDbStore]):
           dbBenchmark.putBlock(b)
 
-      withState(stateData[].data):
+      withState(stateData[]):
         if state.data.slot.is_epoch and conf.storeStates:
           if state.data.slot.epoch < 2:
             dbBenchmark.putState(state.root, state.data)
@@ -416,7 +416,7 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   let tmpState = assignClone(dag.headState)
   dag.withUpdatedState(tmpState[], blckRef.atSlot(Slot(conf.slot))) do:
     echo "Writing state..."
-    withState(stateData.data):
+    withState(state):
       dump("./", state)
   do: raiseAssert "withUpdatedState failed"
 
@@ -462,7 +462,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
       echo "Written all complete eras"
       break
 
-    let name = withState(dag.headState.data): eraFileName(cfg, state.data, era)
+    let name = withState(dag.headState): eraFileName(cfg, state.data, era)
     if isFile(name):
       echo "Skipping ", name, " (already exists)"
     else:
@@ -481,7 +481,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
 
       withTimer(timers[tState]):
         dag.withUpdatedState(tmpState[], canonical) do:
-          withState(stateData.data):
+          withState(state):
             group.finish(e2, state.data).get()
         do: raiseAssert "withUpdatedState failed"
 
@@ -580,7 +580,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
     (start, ends) = dag.getSlotRange(conf.perfSlot, conf.perfSlots)
     blockRefs = dag.getBlockRange(start, ends)
     perfs = newSeq[ValidatorPerformance](
-      getStateField(dag.headState.data, validators).len())
+      getStateField(dag.headState, validators).len())
     cache = StateCache()
     info = ForkedEpochInfo()
     blck: phase0.TrustedSignedBeaconBlock
@@ -591,26 +591,26 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
     blockRefs[^1].slot.epoch, " - ", blockRefs[0].slot.epoch
 
   let state = newClone(dag.headState)
-  doAssert dag.updateStateData(
+  doAssert dag.updateState(
     state[], blockRefs[^1].atSlot(blockRefs[^1].slot - 1), false, cache)
 
   proc processEpoch() =
     let
       prev_epoch_target_slot =
-        state[].data.get_previous_epoch().start_slot()
+        state[].get_previous_epoch().start_slot()
       penultimate_epoch_end_slot =
         if prev_epoch_target_slot == 0: Slot(0)
         else: prev_epoch_target_slot - 1
       first_slot_empty =
-        state[].data.get_block_root_at_slot(prev_epoch_target_slot) ==
-        state[].data.get_block_root_at_slot(penultimate_epoch_end_slot)
+        state[].get_block_root_at_slot(prev_epoch_target_slot) ==
+        state[].get_block_root_at_slot(penultimate_epoch_end_slot)
 
     let first_slot_attesters = block:
-      let committees_per_slot = state[].data.get_committee_count_per_slot(
+      let committees_per_slot = state[].get_committee_count_per_slot(
         prev_epoch_target_slot.epoch, cache)
       var indices = HashSet[ValidatorIndex]()
       for committee_index in get_committee_indices(committees_per_slot):
-        for validator_index in state[].data.get_beacon_committee(
+        for validator_index in state[].get_beacon_committee(
             prev_epoch_target_slot, committee_index, cache):
           indices.incl(validator_index)
       indices
@@ -654,32 +654,32 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
     blck = db.getBlock(
       blockRefs[blockRefs.len - bi - 1].root,
       phase0.TrustedSignedBeaconBlock).get()
-    while getStateField(state[].data, slot) < blck.message.slot:
+    while getStateField(state[], slot) < blck.message.slot:
       let
-        nextSlot = getStateField(state[].data, slot) + 1
+        nextSlot = getStateField(state[], slot) + 1
         flags =
           if nextSlot == blck.message.slot: {skipLastStateRootCalculation}
           else: {}
       process_slots(
-        dag.cfg, state[].data, nextSlot, cache, info, flags).expect(
+        dag.cfg, state[], nextSlot, cache, info, flags).expect(
           "Slot processing can't fail with correct inputs")
 
-      if getStateField(state[].data, slot).is_epoch():
+      if getStateField(state[], slot).is_epoch():
         processEpoch()
 
     let res = state_transition_block(
-        dag.cfg, state[].data, blck, cache, {}, noRollback)
+        dag.cfg, state[], blck, cache, {}, noRollback)
     if res.isErr:
       echo "State transition failed (!) ", res.error()
       quit 1
 
   # Capture rewards of empty slots as well
-  while getStateField(state[].data, slot) < ends:
+  while getStateField(state[], slot) < ends:
     process_slots(
-      dag.cfg, state[].data, getStateField(state[].data, slot) + 1, cache,
+      dag.cfg, state[], getStateField(state[], slot) + 1, cache,
       info, {}).expect("Slot processing can't fail with correct inputs")
 
-    if getStateField(state[].data, slot).is_epoch():
+    if getStateField(state[], slot).is_epoch():
       processEpoch()
 
   echo "validator_index,attestation_hits,attestation_misses,head_attestation_hits,head_attestation_misses,target_attestation_hits,target_attestation_misses,delay_avg,first_slot_head_attester_when_first_slot_empty,first_slot_head_attester_when_first_slot_not_empty"
@@ -865,34 +865,34 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   var cache = StateCache()
   let slot = if startSlot > 0: startSlot - 1 else: 0.Slot
   if blockRefs.len > 0:
-    discard dag.updateStateData(tmpState[], blockRefs[^1].atSlot(slot), false, cache)
+    discard dag.updateState(tmpState[], blockRefs[^1].atSlot(slot), false, cache)
   else:
-    discard dag.updateStateData(tmpState[], dag.head.atSlot(slot), false, cache)
+    discard dag.updateState(tmpState[], dag.head.atSlot(slot), false, cache)
 
   let savedValidatorsCount = outDb.getDbValidatorsCount
-  var validatorsCount = getStateField(tmpState[].data, validators).len
-  outDb.insertValidators(tmpState[].data, savedValidatorsCount, validatorsCount)
+  var validatorsCount = getStateField(tmpState[], validators).len
+  outDb.insertValidators(tmpState[], savedValidatorsCount, validatorsCount)
 
   var previousEpochBalances: seq[uint64]
-  collectBalances(previousEpochBalances, tmpState[].data)
+  collectBalances(previousEpochBalances, tmpState[])
 
   var forkedInfo = ForkedEpochInfo()
   var rewardsAndPenalties: seq[RewardsAndPenalties]
   rewardsAndPenalties.setLen(validatorsCount)
 
   var auxiliaryState: AuxiliaryState
-  auxiliaryState.copyParticipationFlags(tmpState[].data)
+  auxiliaryState.copyParticipationFlags(tmpState[])
 
   var aggregator = ValidatorDbAggregator.init(
     aggregatedFilesOutputDir, conf.resolution, endEpoch)
 
   proc processEpoch() =
-    let epoch = getStateField(tmpState[].data, slot).epoch
+    let epoch = getStateField(tmpState[], slot).epoch
     info "Processing epoch ...", epoch = epoch
 
     var csvLines = newStringOfCap(1000000)
 
-    withState(tmpState[].data):
+    withState(tmpState[]):
       withEpochInfo(forkedInfo):
         doAssert state.data.balances.len == info.validators.len
         doAssert state.data.balances.len == previousEpochBalances.len
@@ -929,21 +929,21 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
       aggregator.advanceEpochs(epoch, shouldShutDown)
 
     if shouldShutDown: quit QuitSuccess
-    collectBalances(previousEpochBalances, tmpState[].data)
+    collectBalances(previousEpochBalances, tmpState[])
 
   proc processSlots(ends: Slot, endsFlags: UpdateFlags) =
-    var currentSlot = getStateField(tmpState[].data, slot)
+    var currentSlot = getStateField(tmpState[], slot)
     while currentSlot < ends:
       let nextSlot = currentSlot + 1
       let flags = if nextSlot == ends: endsFlags else: {}
 
       if nextSlot.isEpoch:
-        withState(tmpState[].data):
+        withState(tmpState[]):
           var stateData = newClone(state.data)
           rewardsAndPenalties.collectEpochRewardsAndPenalties(
             stateData[], cache, cfg, flags)
 
-      let res = process_slots(cfg, tmpState[].data, nextSlot, cache, forkedInfo, flags)
+      let res = process_slots(cfg, tmpState[], nextSlot, cache, forkedInfo, flags)
       doAssert res.isOk, "Slot processing can't fail with correct inputs"
 
       currentSlot = nextSlot
@@ -952,7 +952,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
         processEpoch()
         rewardsAndPenalties.setLen(0)
         rewardsAndPenalties.setLen(validatorsCount)
-        auxiliaryState.copyParticipationFlags(tmpState[].data)
+        auxiliaryState.copyParticipationFlags(tmpState[])
         clear cache
 
   for bi in 0 ..< blockRefs.len:
@@ -961,15 +961,15 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
       processSlots(blck.message.slot, {skipLastStateRootCalculation})
 
       rewardsAndPenalties.collectBlockRewardsAndPenalties(
-        tmpState[].data, forkedBlock, auxiliaryState, cache, cfg)
+        tmpState[], forkedBlock, auxiliaryState, cache, cfg)
 
       let res = state_transition_block(
-        cfg, tmpState[].data, blck, cache, {}, noRollback)
+        cfg, tmpState[], blck, cache, {}, noRollback)
       if res.isErr:
         fatal "State transition failed (!)"
         quit QuitFailure
 
-      let newValidatorsCount = getStateField(tmpState[].data, validators).len
+      let newValidatorsCount = getStateField(tmpState[], validators).len
       if newValidatorsCount > validatorsCount:
         # Resize the structures in case a new validator has appeared after
         # the state_transition_block procedure call ...
@@ -977,7 +977,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
         previousEpochBalances.setLen(newValidatorsCount)
         # ... and add the new validators to the database.
         outDb.insertValidators(
-          tmpState[].data, validatorsCount, newValidatorsCount)
+          tmpState[], validatorsCount, newValidatorsCount)
         validatorsCount = newValidatorsCount
 
   # Capture rewards of empty slots as well, including the epoch that got

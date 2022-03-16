@@ -305,7 +305,7 @@ template partialBeaconBlock(
   phase0.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
-    parent_root: state.latest_block_root(),
+    parent_root: state.latest_block_root,
     body: phase0.BeaconBlockBody(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
@@ -369,7 +369,7 @@ template partialBeaconBlock(
   altair.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
-    parent_root: state.latest_block_root(),
+    parent_root: state.latest_block_root,
     body: altair.BeaconBlockBody(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
@@ -434,7 +434,7 @@ template partialBeaconBlock(
   bellatrix.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
-    parent_root: state.latest_block_root(),
+    parent_root: state.latest_block_root,
     body: bellatrix.BeaconBlockBody(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,

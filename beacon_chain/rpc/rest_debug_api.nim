@@ -39,12 +39,12 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
     node.withStateForBlockSlot(bslot):
       return
-        case stateData.data.kind
+        case state.kind
         of BeaconStateFork.Phase0:
           if contentType == sszMediaType:
-            RestApiResponse.sszResponse(stateData.data.phase0Data.data)
+            RestApiResponse.sszResponse(state.phase0Data.data)
           elif contentType == jsonMediaType:
-            RestApiResponse.jsonResponse(stateData.data.phase0Data.data)
+            RestApiResponse.jsonResponse(state.phase0Data.data)
           else:
             RestApiResponse.jsonError(Http500, InvalidAcceptError)
         of BeaconStateFork.Altair, BeaconStateFork.Bellatrix:
@@ -75,9 +75,9 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlot(bslot):
       return
         if contentType == jsonMediaType:
-          RestApiResponse.jsonResponsePlain(stateData.data)
+          RestApiResponse.jsonResponsePlain(state)
         elif contentType == sszMediaType:
-          withState(stateData.data):
+          withState(state):
             RestApiResponse.sszResponse(state.data)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
