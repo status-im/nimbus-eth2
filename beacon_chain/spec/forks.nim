@@ -11,12 +11,12 @@ import
   stew/assign2,
   chronicles,
   ../extras,
-  "."/[eth2_merkleization, eth2_ssz_serialization, presets],
+  "."/[block_id, eth2_merkleization, eth2_ssz_serialization, presets],
   ./datatypes/[phase0, altair, bellatrix]
 
 export
-  extras, phase0, altair, bellatrix, eth2_merkleization, eth2_ssz_serialization,
-  presets
+  extras, block_id, phase0, altair, bellatrix, eth2_merkleization,
+  eth2_ssz_serialization, presets
 
 # This file contains helpers for dealing with forks - we have two ways we can
 # deal with forks:
@@ -577,3 +577,9 @@ func init*(T: type ForkDigests,
     sharding:
       compute_fork_digest(cfg.SHARDING_FORK_VERSION, genesisValidatorsRoot),
   )
+
+func toBlockId*(blck: SomeForkySignedBeaconBlock): BlockId =
+  BlockId(root: blck.root, slot: blck.message.slot)
+
+func toBlockId*(blck: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): BlockId =
+  withBlck(blck): BlockId(root: blck.root, slot: blck.message.slot)

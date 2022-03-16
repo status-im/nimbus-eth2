@@ -54,6 +54,8 @@ suite "Beacon state" & preset():
 
     check: # Works for genesis block
       state[].phase0Data.latest_block_root == genBlock.root
+      state[].phase0Data.latest_block_id == genBlock.toBlockId()
+
       process_slots(cfg, state[], Slot 1, cache, info, {}).isOk()
       state[].phase0Data.latest_block_root == genBlock.root
 

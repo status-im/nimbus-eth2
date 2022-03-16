@@ -1005,11 +1005,22 @@ func attester_dependent_root*(state: ForkyHashedBeaconState): Eth2Digest =
   let epoch = state.data.slot.epoch
   state.dependent_root(if epoch == Epoch(0): epoch else: epoch - 1)
 
+func latest_block_id*(state: ForkyHashedBeaconState): BlockId =
+  ## Block id of the latest block applied to this state
+  BlockId(
+    root: state.latest_block_root,
+    slot: state.data.latest_block_header.slot)
+
+func latest_block_id*(state: ForkedHashedBeaconState): BlockId =
+  ## Block id of the latest block applied to this state
+  withState(state): state.latest_block_id()
+
 func matches_block*(
     state: ForkyHashedBeaconState, block_root: Eth2Digest): bool =
   ## Return true iff the latest block applied to this state matches the given
   ## `block_root`
   block_root == state.latest_block_root
+
 func matches_block*(
     state: ForkedHashedBeaconState, block_root: Eth2Digest): bool =
   withState(state): state.matches_block(block_root)

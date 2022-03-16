@@ -1092,11 +1092,7 @@ proc updateState*(
   let
     startTick = Moment.now()
     current {.used.} = withState(state):
-      BlockSlotId.init(
-        BlockId(
-          root: state.latest_block_root,
-          slot: state.data.latest_block_header.slot),
-        state.data.slot)
+      BlockSlotId.init(state.latest_block_id, state.data.slot)
 
   var
     ancestors: seq[BlockRef]
@@ -1216,11 +1212,7 @@ proc updateState*(
   let
     assignTick = Moment.now()
     ancestor {.used.} = withState(state):
-      BlockSlotId.init(
-        BlockId(
-          root: state.latest_block_root,
-          slot: state.data.latest_block_header.slot),
-        state.data.slot)
+      BlockSlotId.init(state.latest_block_id, state.data.slot)
     ancestorRoot {.used.} = getStateRoot(state)
 
   var info: ForkedEpochInfo
