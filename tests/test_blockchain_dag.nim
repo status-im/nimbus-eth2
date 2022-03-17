@@ -80,6 +80,10 @@ suite "Block pool processing" & preset():
       dag.heads.len == 1
       dag.heads[0] == b2Add[]
       dag.containsForkBlock(b2.root)
+      dag.parent(b2Add[].bid).get() == b1Add[].bid
+      # head not updated yet - getBlockIdAtSlot won't give those blocks
+      dag.getBlockIdAtSlot(b2Add[].slot).get() ==
+        BlockSlotId.init(dag.genesis, b2Add[].slot)
 
       not er.isErr()
       # Same epoch - same epochRef
@@ -106,6 +110,14 @@ suite "Block pool processing" & preset():
 
     dag.updateHead(b4Add[], quarantine)
     dag.pruneAtFinalization()
+
+    check: # getBlockIdAtSlot operates on the head chain!
+      dag.getBlockIdAtSlot(b2Add[].slot).get() ==
+        BlockSlotId.init(b2Add[].bid, b2Add[].slot)
+      dag.parentOrSlot(dag.getBlockIdAtSlot(b2Add[].slot).get()).get() ==
+        BlockSlotId.init(b1Add[].bid, b2Add[].slot)
+      dag.parentOrSlot(dag.getBlockIdAtSlot(b2Add[].slot + 1).get()).get() ==
+        BlockSlotId.init(b2Add[].bid, b2Add[].slot)
 
     var blocks: array[3, BlockId]
 
@@ -515,7 +527,7 @@ suite "chain DAG finalization tests" & preset():
       var
         cur = dag.head
         tmpStateData = assignClone(dag.headState)
-      while cur != nil:
+      while cur != nil: # Go all the way to dag.finalizedHead
         assign(tmpStateData[], dag.headState)
         check:
           dag.updateState(tmpStateData[], cur.bid.atSlot(), false, cache)
