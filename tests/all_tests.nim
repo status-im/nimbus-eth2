@@ -32,6 +32,7 @@ import # Unit test
   ./test_honest_validator,
   ./test_interop,
   ./test_light_client,
+  ./test_light_client_processor,
   ./test_message_signatures,
   ./test_peer_pool,
   ./test_spec,
