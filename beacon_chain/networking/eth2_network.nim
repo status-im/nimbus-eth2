@@ -2355,3 +2355,17 @@ proc broadcastSignedContributionAndProof*(
     node: Eth2Node, msg: SignedContributionAndProof) =
   let topic = getSyncCommitteeContributionAndProofTopic(node.forkDigests.altair)
   node.broadcast(topic, msg)
+
+proc broadcastOptimisticLightClientUpdate*(
+    node: Eth2Node, msg: OptimisticLightClientUpdate) =
+  let
+    forkDigest =
+      if msg.fork_version == node.cfg.SHARDING_FORK_VERSION:
+        node.forkDigests.sharding
+      elif msg.fork_version == node.cfg.BELLATRIX_FORK_VERSION:
+        node.forkDigests.bellatrix
+      else:
+        doAssert msg.fork_version == node.cfg.ALTAIR_FORK_VERSION
+        node.forkDigests.altair
+    topic = getOptimisticLightClientUpdateTopic(forkDigest)
+  node.broadcast(topic, msg)

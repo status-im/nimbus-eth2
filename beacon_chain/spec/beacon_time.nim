@@ -7,6 +7,10 @@
 
 {.push raises: [Defect].}
 
+# References to `vFuture` refer to the pre-release proposal of the libp2p based
+# light client sync protocol. Conflicting release versions are not in use.
+# https://github.com/ethereum/consensus-specs/pull/2802
+
 import
   std/[hashes, typetraits],
   chronicles,
@@ -146,6 +150,9 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#broadcast-sync-committee-contribution
   syncContributionSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  * 2 div INTERVALS_PER_SLOT)
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#block-proposal
+  optimisticLightClientUpdateSlotOffset* = TimeDiff(nanoseconds:
+    NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
 
 func toFloatSeconds*(t: TimeDiff): float =
   float(t.nanoseconds) / 1_000_000_000.0
@@ -167,6 +174,8 @@ func sync_committee_message_deadline*(s: Slot): BeaconTime =
   s.start_beacon_time + syncCommitteeMessageSlotOffset
 func sync_contribution_deadline*(s: Slot): BeaconTime =
   s.start_beacon_time + syncContributionSlotOffset
+func optimistic_light_client_update_time*(s: Slot): BeaconTime =
+  s.start_beacon_time + optimisticLightClientUpdateSlotOffset
 
 func slotOrZero*(time: BeaconTime): Slot =
   let exSlot = time.toSlot
