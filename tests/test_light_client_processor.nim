@@ -95,7 +95,7 @@ suite "Light client processor" & preset():
 
   test "Standard sync" & preset():
     let bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
-    check bootstrap.isSome
+    check bootstrap.isOk
     setTimeToSlot(bootstrap.get.header.slot)
     res = processor[].storeObject(
       MsgSource.gossip, getBeaconTime(), bootstrap.get)
@@ -117,7 +117,7 @@ suite "Light client processor" & preset():
 
   test "Forced update" & preset():
     let bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
-    check bootstrap.isSome
+    check bootstrap.isOk
     setTimeToSlot(bootstrap.get.header.slot)
     res = processor[].storeObject(
       MsgSource.gossip, getBeaconTime(), bootstrap.get)
@@ -196,7 +196,7 @@ suite "Light client processor" & preset():
 
   test "Invalid bootstrap" & preset():
     var bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
-    check bootstrap.isSome
+    check bootstrap.isOk
     bootstrap.get.header.slot.inc()
     setTimeToSlot(bootstrap.get.header.slot)
     res = processor[].storeObject(
@@ -208,7 +208,7 @@ suite "Light client processor" & preset():
 
   test "Duplicate bootstrap" & preset():
     let bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
-    check bootstrap.isSome
+    check bootstrap.isOk
     setTimeToSlot(bootstrap.get.header.slot)
     res = processor[].storeObject(
       MsgSource.gossip, getBeaconTime(), bootstrap.get)
