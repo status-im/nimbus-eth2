@@ -44,16 +44,22 @@ suite "Block pool processing" & preset():
       b1 = addTestBlock(state[], cache, attestations = att0).phase0Data
       b2 = addTestBlock(state[], cache).phase0Data
 
-  test "getBlockRef returns none for missing blocks":
+  test "basic ops":
     check:
       dag.getBlockRef(default Eth2Digest).isNone()
 
-  test "loading tail block works" & preset():
     let
       b0 = dag.getForkedBlock(dag.tail.root)
-
+      bh = dag.getForkedBlock(dag.head.root)
+      bh2 = dag.getForkedBlock(dag.head.bid)
     check:
       b0.isSome()
+      bh.isSome()
+      bh2.isSome()
+
+      dag.getBlockRef(dag.finalizedHead.blck.root).get() ==
+        dag.finalizedHead.blck
+      dag.getBlockRef(dag.head.root).get() == dag.head
 
   test "Simple block add&get" & preset():
     let
@@ -396,6 +402,12 @@ suite "chain DAG finalization tests" & preset():
 
       not dag.containsForkBlock(dag.getBlockIdAtSlot(5.Slot).get().bid.root)
       dag.containsForkBlock(dag.finalizedHead.blck.root)
+
+      dag.getBlockRef(dag.genesis.root).isNone() # Finalized - no BlockRef
+
+      dag.getBlockRef(dag.finalizedHead.blck.root).isSome()
+
+      isNil dag.finalizedHead.blck.parent
 
     check:
       dag.db.immutableValidators.len() == getStateField(dag.headState, validators).len()

@@ -248,6 +248,7 @@ proc getBlockId*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockId] =
   err()
 
 func isCanonical*(dag: ChainDAGRef, bid: BlockId): bool =
+  ## Return true iff the given `bid` is part of the history selected by `head`
   let current = dag.getBlockIdAtSlot(bid.slot).valueOr:
     return false # We don't know, so ..
   return current.bid == bid
@@ -257,9 +258,8 @@ func parent*(dag: ChainDAGRef, bid: BlockId): Opt[BlockId] =
     return err()
 
   if bid.slot > dag.finalizedHead.slot:
-    # Have to take forks into consideration
-    let blck = dag.getBlockRef(bid.root).valueOr:
-      return err()
+    # Make sure we follow the correct history as there may be forks
+    let blck = ? dag.getBlockRef(bid.root)
 
     doAssert not isNil(blck.parent), "should reach finalized head"
     return ok blck.parent.bid
@@ -272,23 +272,21 @@ func parentOrSlot*(dag: ChainDAGRef, bsi: BlockSlotId): Opt[BlockSlotId] =
     return err()
 
   if bsi.isProposed:
-    let parent = dag.parent(bsi.bid).valueOr:
-      return err()
+    let parent = ? dag.parent(bsi.bid)
     ok BlockSlotId.init(parent, bsi.slot)
   else:
     ok BlockSlotId.init(bsi.bid, bsi.slot - 1)
 
 func atSlot*(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
   if bid.slot > dag.finalizedHead.slot:
-    let blck = dag.getBlockRef(bid.root).valueOr:
-      return err() # Not part of known / relevant history
+    let blck = ? dag.getBlockRef(bid.root)
 
     if slot > dag.finalizedHead.slot:
       return blck.atSlot(slot).toBlockSlotId()
 
-  let existing = dag.getBlockIdAtSlot(bid.slot).valueOr:
-    return err() # Not part of known / relevant history
-
+  # Check if the given `bid` is still part of history - it might hail from an
+  # orphaned fork
+  let existing = ? dag.getBlockIdAtSlot(bid.slot)
   if existing.bid != bid:
     return err() # Not part of known / relevant history
 
@@ -307,7 +305,8 @@ func epochAncestor*(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): EpochKey =
     return EpochKey(bid: dag.genesis, epoch: epoch)
 
   let bsi = dag.atSlot(bid, epoch.start_slot - 1).valueOr:
-    # Worst case, an ancestor is always its own key
+    # If we lack history for the given slot, we can use the given bid as epoch
+    # ancestor
     return EpochKey(epoch: epoch, bid: bid)
 
   EpochKey(epoch: epoch, bid: bsi.bid)
@@ -370,7 +369,7 @@ func isStateCheckpoint(dag: ChainDAGRef, bsi: BlockSlotId): bool =
   # there is only a checkpoint for the first epoch after a block.
 
   # The tail block also counts as a state checkpoint!
-  bsi.isProposed and bsi.bid == dag.tail or
+  (bsi.isProposed and bsi.bid == dag.tail) or
   (bsi.slot.is_epoch and bsi.slot.epoch == (bsi.bid.slot.epoch + 1))
 
 proc getState(
@@ -436,8 +435,7 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
 proc getBlock*(
     dag: ChainDAGRef, bid: BlockId,
     T: type ForkyTrustedSignedBeaconBlock): Opt[T] =
-  withState(dag.headState):
-    dag.db.getBlock(bid.root, T)
+  dag.db.getBlock(bid.root, T)
 
 proc getBlockSSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
   # Load the SSZ-encoded data of a block into `bytes`, overwriting the existing
@@ -554,13 +552,11 @@ proc advanceSlots*(
   # target
   doAssert getStateField(state, slot) <= slot
 
-  let stateBid = BlockId(
-    root: state.latest_block_root,
-    slot: getStateField(state, latest_block_header).slot)
-
+  let stateBid = state.latest_block_id
   while getStateField(state, slot) < slot:
     let
       preEpoch = getStateField(state, slot).epoch
+
     loadStateCache(dag, cache, stateBid, getStateField(state, slot).epoch)
 
     process_slots(
