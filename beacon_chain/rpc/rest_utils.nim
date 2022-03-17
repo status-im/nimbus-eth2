@@ -82,10 +82,10 @@ proc getBlockSlotId*(node: BeaconNode,
     of StateIdentType.Genesis:
       ok(node.dag.genesis.atSlot())
     of StateIdentType.Finalized:
-      ok(node.dag.finalizedHead.toBlockSlotId().expect("non-nil"))
+      ok(node.dag.finalizedHead.toBlockSlotId().expect("not nil"))
     of StateIdentType.Justified:
       ok(node.dag.head.atEpochStart(getStateField(
-        node.dag.headState, current_justified_checkpoint).epoch).toBlockSlotId().expect("non-nil"))
+        node.dag.headState, current_justified_checkpoint).epoch).toBlockSlotId().expect("not nil"))
 
 proc getBlockId*(node: BeaconNode, id: BlockIdent): Opt[BlockId] =
   case id.kind
@@ -132,8 +132,8 @@ macro disallowInterruptions(body: untyped) =
   disallowInterruptionsAux(body)
 
 template withStateForBlockSlotId*(nodeParam: BeaconNode,
-                                blockSlotIdParam: BlockSlotId,
-                                body: untyped): untyped =
+                                  blockSlotIdParam: BlockSlotId,
+                                  body: untyped): untyped =
 
   block:
     let

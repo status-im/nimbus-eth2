@@ -548,7 +548,7 @@ proc initBestLightClientUpdateForPeriod(
     while true:
       let parent = dag.parent(blockRef).valueOr:
         break
-      if parent.slot >= lowSlot:
+      if parent.slot < lowSlot:
         break
 
       let

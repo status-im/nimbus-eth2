@@ -168,10 +168,13 @@ suite "Block pool processing" & preset():
     let
       nextEpoch = dag.head.slot.epoch + 1
       nextEpochSlot = nextEpoch.start_slot()
-      stateCheckpoint = dag.stateCheckpoint(dag.getBlockIdAtSlot(nextEpochSlot).get())
+      parentBsi = dag.head.parent.atSlot(nextEpochSlot).toBlockSlotId().get()
+      stateCheckpoint = dag.stateCheckpoint(parentBsi)
 
     check:
-      dag.getEpochRef(dag.head.parent.parent, nextEpoch, true).isOk()
+      parentBsi.bid == dag.head.parent.bid
+      parentBsi.slot == nextEpochSlot
+      dag.getEpochRef(dag.head.parent, nextEpoch, true).isOk()
 
       # Getting an EpochRef should not result in states being stored
       db.getStateRoot(stateCheckpoint.bid.root, stateCheckpoint.slot).isErr()

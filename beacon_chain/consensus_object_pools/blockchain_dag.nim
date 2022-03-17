@@ -283,14 +283,20 @@ func atSlot*(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
 
     if slot > dag.finalizedHead.slot:
       return blck.atSlot(slot).toBlockSlotId()
+  else:
+    # Check if the given `bid` is still part of history - it might hail from an
+    # orphaned fork
+    let existing = ? dag.getBlockIdAtSlot(bid.slot)
+    if existing.bid != bid:
+      return err() # Not part of known / relevant history
 
-  # Check if the given `bid` is still part of history - it might hail from an
-  # orphaned fork
-  let existing = ? dag.getBlockIdAtSlot(bid.slot)
-  if existing.bid != bid:
-    return err() # Not part of known / relevant history
+    if existing.slot == slot: # and bid.slot == slot
+      return ok existing
 
-  dag.getBlockIdAtSlot(slot)
+  if bid.slot <= slot:
+    ok BlockSlotId.init(bid, slot)
+  else:
+    dag.getBlockIdAtSlot(slot)
 
 func epochAncestor*(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): EpochKey =
   ## The state transition works by storing information from blocks in a
@@ -301,7 +307,7 @@ func epochAncestor*(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): EpochKey =
   ## This function returns an epoch key pointing to that epoch boundary, i.e. the
   ## boundary where the last block has been applied to the state and epoch
   ## processing has been done.
-  if bid.slot.epoch == dag.genesis.slot.epoch:
+  if epoch == dag.genesis.slot.epoch:
     return EpochKey(bid: dag.genesis, epoch: epoch)
 
   let bsi = dag.atSlot(bid, epoch.start_slot - 1).valueOr:
@@ -548,8 +554,7 @@ proc advanceSlots*(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, slot: Slot, save: bool,
     cache: var StateCache, info: var ForkedEpochInfo) =
   # Given a state, advance it zero or more slots by applying empty slot
-  # processing - the state must be positions at a slot before or equal to the
-  # target
+  # processing - the state must be positioned at or before `slot`
   doAssert getStateField(state, slot) <= slot
 
   let stateBid = state.latest_block_id
@@ -667,7 +672,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     # To know the finalized checkpoint of the head, we need to recreate its
     # state - the tail is implicitly finalized, and if we have a finalized block
     # table, that provides another hint
-    finalizedSlot = db.finalizedblocks.high.get(dag.tail.slot)
+    finalizedSlot = db.finalizedBlocks.high.get(dag.tail.slot)
     newFinalized: seq[BlockId]
     cache: StateCache
     foundHeadState = false
@@ -993,19 +998,13 @@ proc updateState*(
   ## Rewind or advance state such that it matches the given block and slot -
   ## this may include replaying from an earlier snapshot if blck is on a
   ## different branch or has advanced to a higher slot number than slot
-  ## If `bs.slot` is higher than `bs.blck.slot`, `updateStateData` will fill in
+  ## If `bs.slot` is higher than `bs.blck.slot`, `updateState` will fill in
   ## with empty/non-block slots
 
   # First, see if we're already at the requested block. If we are, also check
   # that the state has not been advanced past the desired block - if it has,
   # an earlier state must be loaded since there's no way to undo the slot
   # transitions
-
-  if isZero(bsi.bid.root):
-    info "Requesting state for unknown block, historical data not available?",
-      head = shortLog(dag.head), tail = shortLog(dag.tail)
-
-    return false
 
   let
     startTick = Moment.now()
@@ -1413,7 +1412,7 @@ proc updateHead*(
     lastHead = dag.head
     lastHeadStateRoot = getStateRoot(dag.headState)
 
-  # Start off by making sure we have the right state - updateStateData will try
+  # Start off by making sure we have the right state - updateState will try
   # to use existing in-memory states to make this smooth
   var cache: StateCache
   if not updateState(

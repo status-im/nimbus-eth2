@@ -120,6 +120,9 @@ func getBlockRange*(dag: ChainDAGRef, start, ends: Slot): seq[BlockId] =
     let bsid = dag.getBlockIdAtSlot(current).valueOr:
       continue
 
+    if bsid.bid.slot < start: # current might be empty
+      break
+
     result.add(bsid.bid)
     current = bsid.bid.slot # skip empty slots
 
