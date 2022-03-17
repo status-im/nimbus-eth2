@@ -64,12 +64,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ```diff
 + Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
 + Simple block add&get [Preset: mainnet]                                                     OK
-+ getBlockRef returns none for missing blocks                                                OK
-+ loading tail block works [Preset: mainnet]                                                 OK
++ basic ops                                                                                  OK
 + updateHead updates head and headState [Preset: mainnet]                                    OK
 + updateState sanity [Preset: mainnet]                                                       OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Block processor [Preset: mainnet]
 ```diff
 + Reverse order block add & get [Preset: mainnet]                                            OK
@@ -98,11 +97,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + parent sanity                                                                              OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## ChainDAG helpers
-```diff
-+ epochAncestor sanity [Preset: mainnet]                                                     OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## DeleteKeys requests [Preset: mainnet]
 ```diff
 + Deleting not existing key [Preset: mainnet]                                                OK
@@ -525,4 +519,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 289/295 Fail: 0/295 Skip: 6/295
+OK: 287/293 Fail: 0/293 Skip: 6/293

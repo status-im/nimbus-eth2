@@ -442,7 +442,8 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
   let
     proposalState = assignClone(node.dag.headState)
 
-  node.dag.withUpdatedState(proposalState[], head.atSlot(slot - 1)) do:
+  # TODO fails at checkpoint synced head
+  node.dag.withUpdatedState(proposalState[], head.atSlot(slot - 1).toBlockSlotId().expect("not nil")) do:
     # Advance to the given slot without calculating state root - we'll only
     # need a state root _with_ the block applied
     var info: ForkedEpochInfo

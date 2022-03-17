@@ -60,32 +60,32 @@ proc getCurrentHead*(node: BeaconNode,
     return err("Requesting epoch for which slot would overflow")
   node.getCurrentHead(epoch.start_slot())
 
-proc getBlockSlot*(node: BeaconNode,
-                   stateIdent: StateIdent): Result[BlockSlot, cstring] =
+proc getBlockSlotId*(node: BeaconNode,
+                     stateIdent: StateIdent): Result[BlockSlotId, cstring] =
   case stateIdent.kind
   of StateQueryKind.Slot:
-    let bs = node.dag.getBlockAtSlot(? node.getCurrentSlot(stateIdent.slot))
-    if bs.isSome:
-      ok(bs.get())
-    else:
-      err("State for given slot not found, history not available?")
+    let bsi = node.dag.getBlockIdAtSlot(? node.getCurrentSlot(stateIdent.slot)).valueOr:
+      return err("State for given slot not found, history not available?")
+
+    ok(bsi)
+
   of StateQueryKind.Root:
     if stateIdent.root == getStateRoot(node.dag.headState):
-      ok(node.dag.head.atSlot())
+      ok(node.dag.head.bid.atSlot())
     else:
       # We don't have a state root -> BlockSlot mapping
       err("State for given root not found")
   of StateQueryKind.Named:
     case stateIdent.value
     of StateIdentType.Head:
-      ok(node.dag.head.atSlot())
+      ok(node.dag.head.bid.atSlot())
     of StateIdentType.Genesis:
       ok(node.dag.genesis.atSlot())
     of StateIdentType.Finalized:
-      ok(node.dag.finalizedHead)
+      ok(node.dag.finalizedHead.toBlockSlotId().expect("not nil"))
     of StateIdentType.Justified:
       ok(node.dag.head.atEpochStart(getStateField(
-        node.dag.headState, current_justified_checkpoint).epoch))
+        node.dag.headState, current_justified_checkpoint).epoch).toBlockSlotId().expect("not nil"))
 
 proc getBlockId*(node: BeaconNode, id: BlockIdent): Opt[BlockId] =
   case id.kind
@@ -94,7 +94,7 @@ proc getBlockId*(node: BeaconNode, id: BlockIdent): Opt[BlockId] =
     of BlockIdentType.Head:
       ok(node.dag.head.bid)
     of BlockIdentType.Genesis:
-      ok(node.dag.genesis.bid)
+      ok(node.dag.genesis)
     of BlockIdentType.Finalized:
       ok(node.dag.finalizedHead.blck.bid)
   of BlockQueryKind.Root:
@@ -131,17 +131,17 @@ proc disallowInterruptionsAux(body: NimNode) =
 macro disallowInterruptions(body: untyped) =
   disallowInterruptionsAux(body)
 
-template withStateForBlockSlot*(nodeParam: BeaconNode,
-                                blockSlotParam: BlockSlot,
-                                body: untyped): untyped =
+template withStateForBlockSlotId*(nodeParam: BeaconNode,
+                                  blockSlotIdParam: BlockSlotId,
+                                  body: untyped): untyped =
 
   block:
     let
       node = nodeParam
-      blockSlot = blockSlotParam
+      blockSlotId = blockSlotIdParam
 
     template isState(state: ForkedHashedBeaconState): bool =
-      state.matches_block_slot(blockSlot.blck.root, blockSlot.slot)
+      state.matches_block_slot(blockSlotId.bid.root, blockSlotId.slot)
 
     var cache {.inject, used.}: StateCache
 
@@ -162,11 +162,13 @@ template withStateForBlockSlot*(nodeParam: BeaconNode,
     # TODO view-types
     # Avoid the code bloat produced by the double `body` reference through a lent var
     if isState(node.dag.headState):
-      withStateVars(node.dag.headState):
-        body
+      template state: untyped {.inject, used.} = node.dag.headState
+      template stateRoot: untyped {.inject, used.} =
+        getStateRoot(node.dag.headState)
+      body
     else:
       let cachedState = if node.stateTtlCache != nil:
-        node.stateTtlCache.getClosestState(blockSlot)
+        node.stateTtlCache.getClosestState(node.dag, blockSlotId)
       else:
         nil
 
@@ -175,13 +177,15 @@ template withStateForBlockSlot*(nodeParam: BeaconNode,
       else:
         assignClone(node.dag.headState)
 
-      if node.dag.updateState(stateToAdvance[], blockSlot, false, cache):
+      if node.dag.updateState(stateToAdvance[], blockSlotId, false, cache):
         if cachedState == nil and node.stateTtlCache != nil:
           # This was not a cached state, we can cache it now
           node.stateTtlCache.add(stateToAdvance)
 
-        withStateVars(stateToAdvance[]):
-          body
+        template state: untyped {.inject, used.} = stateToAdvance[]
+        template stateRoot: untyped {.inject, used.} = getStateRoot(stateToAdvance[])
+
+        body
 
 template strData*(body: ContentBody): string =
   bind fromBytes

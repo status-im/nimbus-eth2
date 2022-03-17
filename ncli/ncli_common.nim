@@ -17,7 +17,7 @@ import
     state_transition_epoch,
     state_transition_block,
     signatures],
-  ../beacon_chain/consensus_object_pools/block_pools_types
+  ../beacon_chain/consensus_object_pools/blockchain_dag
 
 type
   RewardsAndPenalties* = object
@@ -110,18 +110,21 @@ func getFilePathForEpochs*(startEpoch, endEpoch: Epoch, dir: string): string =
                  epochAsString(endEpoch) & epochFileNameExtension
   dir / fileName
 
-func getBlockRange*(dag: ChainDAGRef, start, ends: Slot): seq[BlockRef] =
+func getBlockRange*(dag: ChainDAGRef, start, ends: Slot): seq[BlockId] =
   # Range of block in reverse order
   doAssert start < ends
-  result = newSeqOfCap[BlockRef](ends - start)
-  var current = dag.head
-  while current != nil:
-    if current.slot < ends:
-      if current.slot < start or current.slot == 0: # skip genesis
-        break
-      else:
-        result.add current
-    current = current.parent
+  result = newSeqOfCap[BlockId](ends - start)
+  var current = ends
+  while current > start:
+    current -= 1
+    let bsid = dag.getBlockIdAtSlot(current).valueOr:
+      continue
+
+    if bsid.bid.slot < start: # current might be empty
+      break
+
+    result.add(bsid.bid)
+    current = bsid.bid.slot # skip empty slots
 
 func getOutcome(delta: RewardDelta): int64 =
   delta.rewards.int64 - delta.penalties.int64

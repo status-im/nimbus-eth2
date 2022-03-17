@@ -75,10 +75,10 @@ type
     ## a snapshots and applies blocks until the desired point in history is
     ## reached.
     ##
-    ## Several indices are kept in memory to enable fast lookups - their shape
-    ## and contents somewhat depend on how the chain was instantiated: sync
-    ## from genesis or checkpoint, and therefore, what features we can offer in
-    ## terms of historical replay.
+    ## Several indices are kept in memory and database to enable fast lookups -
+    ## their shape and contents somewhat depend on how the chain was
+    ## instantiated: sync from genesis or checkpoint, and therefore, what
+    ## features we can offer in terms of historical replay.
     ##
     ## Beacuse the state transition is forwards-only, checkpoint sync generally
     ## allows replaying states from that point onwards - anything earlier
@@ -94,12 +94,12 @@ type
     ## pointers may overlap and some indices might be empty as a result.
     ##
     ##                                              / heads
-    ##                                     /-------*     |
+    ##          | archive | history        /-------*     |
     ## *--------*---------*---------------*--------------*
     ## |        |         |               |              |
     ## genesis  backfill  tail            finalizedHead  head
     ##          |         |               |
-    ##          archive   finalizedBlocks forkBlocks
+    ##          db.finalizedBlocks        dag.forkBlocks
     ##
     ## The archive is the the part of finalized history for which we no longer
     ## recreate states quickly because we don't have a reasonable state to
@@ -107,9 +107,11 @@ type
     ## case - recreating history requires either replaying from genesis or
     ## providing an earlier checkpoint state.
     ##
-    ## We do not keep an in-memory index for the archive - instead, lookups are
-    ## made via `BeaconChainDB.finalizedBlocks` which covers the full range from
-    ## `backfill` to `finalizedHead`.
+    ## We do not keep an in-memory index for finalized blocks - instead, lookups
+    ## are made via `BeaconChainDB.finalizedBlocks` which covers the full range
+    ## from `backfill` to `finalizedHead`. Finalized blocks are generally not
+    ## needed for day-to-day validation work - rather, they're used for
+    ## auxiliary functionality such as historical state access and replays.
 
     db*: BeaconChainDB
       ## Database of recent chain history as well as the state and metadata
@@ -125,16 +127,10 @@ type
       ## `finalizedHead.slot..head.slot` (inclusive) - dag.heads keeps track
       ## of each potential head block in this table.
 
-    finalizedBlocks*: seq[BlockRef]
-      ## Slot -> BlockRef mapping for the finalized portion of the canonical
-      ## chain - use getBlockAtSlot to access
-      ## Covers the slots `tail.slot..finalizedHead.slot` (including the
-      ## finalized head block). Indices offset by `tail.slot`.
-
-    genesis*: BlockRef
+    genesis*: BlockId
       ## The genesis block of the network
 
-    tail*: BlockRef
+    tail*: BlockId
       ## The earliest finalized block for which we have a corresponding state -
       ## when making a replay of chain history, this is as far back as we can
       ## go - the tail block is unique in that its parent is set to `nil`, even
@@ -158,7 +154,7 @@ type
     # -----------------------------------
     # Pruning metadata
 
-    lastPrunePoint*: BlockSlot
+    lastPrunePoint*: BlockSlotId
       ## The last prune point
       ## We can prune up to finalizedHead
 
@@ -176,8 +172,6 @@ type
     clearanceState*: ForkedHashedBeaconState
       ## Cached state used during block clearance - must only be used in
       ## clearance module
-    clearanceBlck*: BlockRef
-      ## The latest block that was applied to the clearance state
 
     updateFlags*: UpdateFlags
 
@@ -233,7 +227,7 @@ type
     ## the epoch start - we call this block the "epoch ancestor" in other parts
     ## of the code.
     epoch*: Epoch
-    blck*: BlockRef
+    bid*: BlockId
 
   EpochRef* = ref object
     dag*: ChainDAGRef
@@ -304,7 +298,7 @@ template epoch*(e: EpochRef): Epoch = e.key.epoch
 
 func shortLog*(v: EpochKey): string =
   # epoch:root when logging epoch, root:slot when logging slot!
-  $v.epoch & ":" & shortLog(v.blck)
+  $v.epoch & ":" & shortLog(v.bid)
 
 template setFinalizationCb*(dag: ChainDAGRef, cb: OnFinalizedCallback) =
   dag.onFinHappened = cb
