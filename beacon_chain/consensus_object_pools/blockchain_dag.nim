@@ -248,7 +248,7 @@ proc getBlockId*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockId] =
   err()
 
 func isCanonical*(dag: ChainDAGRef, bid: BlockId): bool =
-  ## Return true iff the given `bid` is part of the history selected by `head`
+  ## Return true iff the given `bid` is part of the history selected by `dag.head`
   let current = dag.getBlockIdAtSlot(bid.slot).valueOr:
     return false # We don't know, so ..
   return current.bid == bid
