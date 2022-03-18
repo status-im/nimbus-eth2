@@ -73,6 +73,8 @@ proc doTrustedNodeSync*(
 
   let
     db = BeaconChainDB.new(databaseDir, inMemory = false)
+  defer:
+    db.close()
 
   var
     dbCache = DbCache(summaries: db.loadSummaries())
@@ -391,6 +393,9 @@ proc doTrustedNodeSync*(
           continue
 
         gets[int(i mod gets.lenu64)] = downloadBlock(slot)
+
+      if i mod 1024 == 0:
+        db.checkpoint() # Transfer stuff from wal periodically
     true
   else:
     notice "Database initialized, historical blocks will be backfilled when starting the node",
