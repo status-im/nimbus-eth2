@@ -146,10 +146,14 @@ proc cacheLightClientData*(
 
   template finalized_checkpoint(): auto = state.data.finalized_checkpoint
   let
+    earliestSlot = dag.computeEarliestLightClientSlot
     bid =
       BlockId(root: blck.root, slot: blck.message.slot)
     finalized_bid =
-      dag.getBlockIdAtSlot(finalized_checkpoint.epoch.start_slot).expect("TODO").bid
+      if finalized_checkpoint.epoch.start_slot >= earliestSlot:
+        dag.getBlockIdAtSlot(finalized_checkpoint.epoch.start_slot).expect("TODO").bid
+      else:
+        default(BlockId)
   if dag.lightClientCache.data.hasKeyOrPut(
       bid,
       CachedLightClientData(
@@ -788,7 +792,8 @@ proc initLightClientCache*(dag: ChainDAGRef) =
             # Note that light client finality proofs refer to checkpoint blocks
             # at their original slot, without advancing to an epoch boundary.
             # This is because light clients are unable to advance slots.
-            if checkpoint.root != dag.finalizedHead.blck.root:
+            if checkpoint.root != dag.finalizedHead.blck.root and
+                checkpoint.epoch.start_slot >= earliestSlot:
               let cpRef =
                 dag.getBlockIdAtSlot(checkpoint.epoch.start_slot).expect("TODO").bid
               if cpRef.slot >= earliestSlot:
