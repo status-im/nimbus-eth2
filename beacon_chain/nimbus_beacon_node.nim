@@ -1717,9 +1717,11 @@ proc doCreateTestnet*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.rais
 
   let bootstrapFile = config.outputBootstrapFile.string
   if bootstrapFile.len > 0:
+    type MetaData = altair.MetaData
     let
       networkKeys = getPersistentNetKeys(rng, config)
-      netMetadata = getPersistentNetMetadata(config)
+
+      netMetadata = MetaData()
       forkId = getENRForkID(
         cfg,
         initialState[].slot.epoch,
