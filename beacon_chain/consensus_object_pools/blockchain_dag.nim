@@ -1247,13 +1247,14 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
 
     var cur = head.atSlot()
     while not cur.blck.isAncestorOf(dag.finalizedHead.blck):
-      # Update light client data
-      dag.deleteLightClientData(cur.blck.bid)
 
       # TODO: should we move that disk I/O to `onSlotEnd`
       dag.delState(cur.toBlockSlotId().expect("not nil"))
 
       if cur.isProposed():
+        # Update light client data
+        dag.deleteLightClientData(cur.blck.bid)
+
         dag.forkBlocks.excl(KeyedBlockRef.init(cur.blck))
         dag.db.delBlock(cur.blck.root)
 
