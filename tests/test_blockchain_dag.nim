@@ -729,6 +729,8 @@ suite "Backfill":
       # No epochref for pre-tail epochs
       dag.getEpochRef(dag.tail, dag.tail.slot.epoch - 1, true).isErr()
 
+      dag.getFinalizedEpochRef() != nil
+
       dag.backfill == tailBlock.phase0Data.message.toBeaconBlockSummary()
 
     var
@@ -800,6 +802,8 @@ suite "Backfill":
       dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor2, {})
 
     check:
+      dag2.getFinalizedEpochRef() != nil
+
       dag2.getBlockRef(tailBlock.root).get().root == dag.tail.root
       dag2.getBlockRef(blocks[^2].root).isNone()
 
