@@ -1728,6 +1728,7 @@
       "pluginVersion": "8.0.4",
       "targets": [
         {
+          "exemplar": true,
           "expr": "rate(beacon_attestations_received_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 12",
           "interval": "",
           "legendFormat": "received",
@@ -1739,14 +1740,6 @@
           "interval": "",
           "legendFormat": "sent",
           "refId": "B"
-        },
-        {
-          "exemplar": true,
-          "expr": "rate(beacon_aggregates_received_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 12",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "aggregates",
-          "refId": "C"
         }
       ],
       "timeFrom": null,
@@ -1869,6 +1862,93 @@
           "options": {}
         }
       ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [],
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 55,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "rate(beacon_aggregates_received_total{instance=\"${instance}\"}[$__rate_interval])",
+          "interval": "",
+          "legendFormat": "received",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "aggregates/slot (${instance})",
       "type": "timeseries"
     },
     {
