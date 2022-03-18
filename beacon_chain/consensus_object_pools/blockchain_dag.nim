@@ -307,8 +307,11 @@ func epochAncestor*(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): EpochKey =
   ## This function returns an epoch key pointing to that epoch boundary, i.e. the
   ## boundary where the last block has been applied to the state and epoch
   ## processing has been done.
-  if epoch == dag.genesis.slot.epoch:
-    return EpochKey(bid: dag.genesis, epoch: epoch)
+  if epoch < dag.tail.slot.epoch or bid.slot < dag.tail.slot:
+    return EpochKey() # We can't load these states
+
+  if epoch == dag.tail.slot.epoch:
+    return EpochKey(bid: dag.tail, epoch: epoch)
 
   let bsi = dag.atSlot(bid, epoch.start_slot - 1).valueOr:
     # If we lack history for the given slot, we can use the given bid as epoch
@@ -881,8 +884,10 @@ proc getEpochRef*(
   ## Requests for epochs < dag.finalizedHead.slot.epoch may fail, either because
   ## the search was limited by the `preFinalized` flag or because state history
   ## has been pruned - none will be returned in this case.
-
   if not preFinalized and epoch < dag.finalizedHead.slot.epoch:
+    return err()
+
+  if bid.slot < dag.tail.slot or epoch < dag.tail.slot.epoch:
     return err()
 
   let epochRef = dag.findEpochRef(bid, epoch)
@@ -892,6 +897,11 @@ proc getEpochRef*(
 
   beacon_state_data_cache_misses.inc
 
+  # TODO instead of using the epoch ancestor, we should really be looking
+  #      for _any_ state in the desired epoch in the history of bid since the
+  #      epoch values remain unchanged: currently `epochAncestor` itself
+  #      contains a work-around for the tail state, but it would be better to
+  #      turn that work-around into a more efficient loading solution here
   let
     ancestor = dag.epochAncestor(bid, epoch)
 
