@@ -1836,6 +1836,7 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
     withState(state[]):
       dag.db.putState(state)
+      dag.db.checkpoint()
 
       state_root = state.root
 
