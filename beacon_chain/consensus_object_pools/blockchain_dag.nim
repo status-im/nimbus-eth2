@@ -684,22 +684,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # Load head -> finalized, or all summaries in case the finalized block table
   # hasn't been written yet
   for blck in db.getAncestorSummaries(head.root):
-    if blck.summary.slot <= finalizedSlot:
-      if db.finalizedBlocks.high.isNone or
-          blck.summary.slot > db.finalizedBlocks.high.get():
-        # Versions prior to 1.7.0 did not store finalized blocks in the
-        # database, and / or the application might have crashed between the head
-        # and finalized blocks updates.
-        newFinalized.add(BlockId(slot: blck.summary.slot, root: blck.root))
-
-        if blck.summary.slot < finalizedSlot:
-          continue
-
-      if blck.summary.slot < finalizedSlot:
-        # Only non-finalized blocks get a `BlockRef` - if we don't have
-        # finalized blocks to top up, we can stop the iteration here
-        break
-
     let newRef = BlockRef.init(blck.root, blck.summary.slot)
     if headRef == nil:
       doAssert blck.root == head.root
@@ -743,6 +727,10 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       if not foundHeadState:
         headBlocks.add curRef
 
+    if curRef.slot <= finalizedSlot:
+      # Only non-finalized slots get a `BlockRef`
+      break
+
   let summariesTick = Moment.now()
 
   if not foundHeadState:
@@ -775,6 +763,21 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     "The finalized head should exist at the slot"
   doAssert dag.finalizedHead.blck.parent == nil,
     "...but that's the last BlockRef with a parent"
+
+  block: # Top up finalized blocks
+    let finHigh = db.finalizedBlocks.high.get(dag.genesis.slot)
+    if finHigh < dag.finalizedHead.blck.slot:
+      info "Loading finalized blocks",
+        finHigh, finalizedHead = shortLog(dag.finalizedHead)
+
+      for blck in db.getAncestorSummaries(dag.finalizedHead.blck.root):
+        if blck.summary.slot < finHigh:
+          break
+
+        # Versions prior to 1.7.0 did not store finalized blocks in the
+        # database, and / or the application might have crashed between the head
+        # and finalized blocks updates.
+        newFinalized.add(BlockId(slot: blck.summary.slot, root: blck.root))
 
   let finalizedBlocksTick = Moment.now()
   db.updateFinalizedBlocks(newFinalized)
