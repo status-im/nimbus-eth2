@@ -226,7 +226,6 @@ func toAltairMetadata*(phase0: phase0.MetaData): altair.MetaData =
 
 const
   clientId* = "Nimbus beacon node " & fullVersionStr
-  nodeMetadataFilename = "node-metadata.json"
 
   ConcurrentConnections = 20
     ## Maximum number of active concurrent connection requests.
@@ -1270,21 +1269,6 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
     # Also, give some time to dial the discovered nodes and update stats etc
     await sleepAsync(5.seconds)
 
-proc getPersistentNetMetadata*(config: BeaconNodeConf): altair.MetaData
-                              {.raises: [Defect, IOError, SerializationError].} =
-  let metadataPath = config.dataDir / nodeMetadataFilename
-  if not fileExists(metadataPath):
-    var res: altair.MetaData
-    for i in 0 ..< ATTESTATION_SUBNET_COUNT:
-      # TODO:
-      # Persistent (stability) subnets should be stored with their expiration
-      # epochs. For now, indicate that we participate in no persistent subnets.
-      res.attnets[i] = false
-    Json.saveFile(metadataPath, res)
-    res
-  else:
-    Json.loadFile(metadataPath, altair.MetaData)
-
 proc resolvePeer(peer: Peer) =
   # Resolve task which performs searching of peer's public key and recovery of
   # ENR using discovery5. We only resolve ENR for peers we know about to avoid
@@ -1423,8 +1407,6 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
           pubsub: GossipSub, ip: Option[ValidIpAddress], tcpPort,
           udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
           rng: ref BrHmacDrbgContext): T {.raises: [Defect, CatchableError].} =
-  let
-    metadata = getPersistentNetMetadata(config)
   when not defined(local_testnet):
     let
       connectTimeout = 1.minutes
@@ -1433,6 +1415,12 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
     let
       connectTimeout = 10.seconds
       seenThreshold = 10.seconds
+  type MetaData = altair.MetaData # Weird bug without this..
+
+  # Versions up to v22.3.0 would write an empty `MetaData` to
+  #`data-dir/node-metadata.json` which would then be reloaded on startup - don't
+  # write a file with this name or downgrades will break!
+  const metadata = MetaData()
 
   let node = T(
     switch: switch,
@@ -1444,8 +1432,6 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
     # Its important here to create AsyncQueue with limited size, otherwise
     # it could produce HIGH cpu usage.
     connQueue: newAsyncQueue[PeerAddr](ConcurrentConnections),
-    # TODO: The persistent net metadata should only be used in the case of reusing
-    # the previous netkey.
     metadata: metadata,
     forkId: enrForkId,
     discoveryForkId: discoveryForkId,
