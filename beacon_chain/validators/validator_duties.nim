@@ -1111,18 +1111,19 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       # An opposite case is that we received (or produced) a block that has
       # not yet reached our neighbours. To protect against our attestations
       # being dropped (because the others have not yet seen the block), we'll
-      # impose a minimum delay of 1000ms. The delay is enforced only when we're
+      # impose a minimum delay of 2000ms. The delay is enforced only when we're
       # not hitting the "normal" cutoff time for sending out attestations.
       # An earlier delay of 250ms has proven to be not enough, increasing the
-      # risk of losing attestations.
+      # risk of losing attestations, and with growing block sizes, 1000ms
+      # started to be risky as well.
       # Regardless, because we "just" received the block, we'll impose the
       # delay.
 
-      const afterBlockDelay = 1000
+      const afterBlockDelay = millis(2000)
       let
-        afterBlockTime = node.beaconClock.now() + millis(afterBlockDelay)
+        afterBlockTime = node.beaconClock.now() + afterBlockDelay
         afterBlockCutoff = node.beaconClock.fromNow(
-          min(afterBlockTime, slot.attestation_deadline() + millis(afterBlockDelay)))
+          min(afterBlockTime, slot.attestation_deadline() + afterBlockDelay))
 
       if afterBlockCutoff.inFuture:
         debug "Got block, waiting to send attestations",
