@@ -52,12 +52,11 @@ func computeEarliestLightClientSlot*(dag: ChainDAGRef): Slot =
       dag.cfg.CHURN_LIMIT_QUOTIENT div 2
     MIN_SLOTS_FOR_BLOCK_REQUESTS =
       MIN_EPOCHS_FOR_BLOCK_REQUESTS * SLOTS_PER_EPOCH
-    minSlot = max(minSupportedSlot, dag.tail.slot)
-  if currentSlot - minSlot < MIN_SLOTS_FOR_BLOCK_REQUESTS:
-    return minSlot
+  if currentSlot - minSupportedSlot < MIN_SLOTS_FOR_BLOCK_REQUESTS:
+    return minSupportedSlot
 
   let earliestSlot = currentSlot - MIN_SLOTS_FOR_BLOCK_REQUESTS
-  max(earliestSlot.sync_committee_period.start_slot, minSlot)
+  max(earliestSlot.sync_committee_period.start_slot, minSupportedSlot)
 
 proc currentSyncCommitteeForPeriod(
     dag: ChainDAGRef,
@@ -730,6 +729,7 @@ proc initLightClientCache*(dag: ChainDAGRef) =
   if dag.importLightClientData == ImportLightClientData.OnlyNew:
     dag.lightClientCache.importTailSlot = dag.head.slot + 1
     return
+  dag.lightClientCache.importTailSlot = dag.tail.slot
   let earliestSlot = dag.computeEarliestLightClientSlot
   if dag.head.slot < earliestSlot:
     return
