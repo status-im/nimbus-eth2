@@ -143,6 +143,65 @@ versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
 
 logScope: topics = "beacnde"
 
+proc loadChainDag(
+    config: BeaconNodeConf,
+    cfg: RuntimeConfig,
+    db: BeaconChainDB,
+    eventBus: AsyncEventBus,
+    validatorMonitor: ref ValidatorMonitor,
+    networkGenesisValidatorsRoot: Option[Eth2Digest]): ChainDAGRef =
+  info "Loading block DAG from database", path = config.databaseDir
+
+  proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
+    eventBus.emit("signed-beacon-block", data)
+  proc onHeadChanged(data: HeadChangeInfoObject) =
+    eventBus.emit("head-change", data)
+  proc onChainReorg(data: ReorgInfoObject) =
+    eventBus.emit("chain-reorg", data)
+  proc onOptimisticLightClientUpdate(data: OptimisticLightClientUpdate) =
+    discard
+
+  let
+    chainDagFlags =
+      if config.verifyFinalization: {verifyFinalization}
+      else: {}
+    onOptimisticLightClientUpdateCb =
+      if config.serveLightClientData: onOptimisticLightClientUpdate
+      else: nil
+    dag = ChainDAGRef.init(
+      cfg, db, validatorMonitor, chainDagFlags,
+      onBlockAdded, onHeadChanged, onChainReorg,
+      onOptimisticLCUpdateCb = onOptimisticLightClientUpdateCb,
+      serveLightClientData = config.serveLightClientData,
+      importLightClientData = config.importLightClientData)
+    databaseGenesisValidatorsRoot =
+      getStateField(dag.headState, genesis_validators_root)
+
+  if networkGenesisValidatorsRoot.isSome:
+    if networkGenesisValidatorsRoot.get != databaseGenesisValidatorsRoot:
+      fatal "The specified --data-dir contains data for a different network",
+            networkGenesisValidatorsRoot = networkGenesisValidatorsRoot.get,
+            databaseGenesisValidatorsRoot,
+            dataDir = config.dataDir
+      quit 1
+
+  dag
+
+proc checkWeakSubjectivityCheckpoint(
+    dag: ChainDAGRef,
+    wsCheckpoint: Checkpoint,
+    beaconClock: BeaconClock) =
+  let
+    currentSlot = beaconClock.now.slotOrZero
+    isCheckpointStale = not is_within_weak_subjectivity_period(
+      dag.cfg, currentSlot, dag.headState, wsCheckpoint)
+
+  if isCheckpointStale:
+    error "Weak subjectivity checkpoint is stale",
+          currentSlot, checkpoint = wsCheckpoint,
+          headStateSlot = getStateField(dag.headState, slot)
+    quit 1
+
 const SlashingDbName = "slashing_protection"
   # changing this requires physical file rename as well or history is lost.
 
@@ -195,12 +254,6 @@ proc init*(T: type BeaconNode,
     eventBus.emit("attestation-received", data)
   proc onVoluntaryExitAdded(data: SignedVoluntaryExit) =
     eventBus.emit("voluntary-exit", data)
-  proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
-    eventBus.emit("signed-beacon-block", data)
-  proc onHeadChanged(data: HeadChangeInfoObject) =
-    eventBus.emit("head-change", data)
-  proc onChainReorg(data: ReorgInfoObject) =
-    eventBus.emit("chain-reorg", data)
   proc makeOnFinalizationCb(
       # This `nimcall` functions helps for keeping track of what
       # needs to be captured by the onFinalization closure.
@@ -216,8 +269,6 @@ proc init*(T: type BeaconNode,
       eventBus.emit("finalization", data)
   proc onSyncContribution(data: SignedContributionAndProof) =
     eventBus.emit("sync-contribution-and-proof", data)
-  proc onOptimisticLightClientUpdate(data: OptimisticLightClientUpdate) =
-    discard
 
   if config.finalizedCheckpointState.isSome:
     let checkpointStatePath = config.finalizedCheckpointState.get.string
@@ -379,52 +430,21 @@ proc init*(T: type BeaconNode,
   for key in config.validatorMonitorPubkeys:
     validatorMonitor[].addMonitor(key, none(ValidatorIndex))
 
-  info "Loading block DAG from database", path = config.databaseDir
-
   let
-    chainDagFlags =
-      if config.verifyFinalization: {verifyFinalization}
-      else: {}
-    onOptimisticLightClientUpdateCb =
-      if config.serveLightClientData: onOptimisticLightClientUpdate
-      else: nil
-    dag = ChainDAGRef.init(
-      cfg, db, validatorMonitor, chainDagFlags, onBlockAdded, onHeadChanged,
-      onChainReorg, onOptimisticLCUpdateCb = onOptimisticLightClientUpdateCb,
-      serveLightClientData = config.serveLightClientData,
-      importLightClientData = config.importLightClientData)
-    quarantine = newClone(Quarantine.init())
-    databaseGenesisValidatorsRoot =
-      getStateField(dag.headState, genesis_validators_root)
-
-  if genesisStateContents.len != 0:
-    let
-      networkGenesisValidatorsRoot =
-        extractGenesisValidatorRootFromSnapshot(genesisStateContents)
-
-    if networkGenesisValidatorsRoot != databaseGenesisValidatorsRoot:
-      fatal "The specified --data-dir contains data for a different network",
-            networkGenesisValidatorsRoot, databaseGenesisValidatorsRoot,
-            dataDir = config.dataDir
-      quit 1
-
-  let beaconClock = BeaconClock.init(getStateField(dag.headState, genesis_time))
+    networkGenesisValidatorsRoot: Option[Eth2Digest] =
+      if genesisStateContents.len != 0:
+        some(extractGenesisValidatorRootFromSnapshot(genesisStateContents))
+      else:
+        none(Eth2Digest)
+    dag = loadChainDag(
+      config, cfg, db, eventBus,
+      validatorMonitor, networkGenesisValidatorsRoot)
+    beaconClock = BeaconClock.init(
+      getStateField(dag.headState, genesis_time))
 
   if config.weakSubjectivityCheckpoint.isSome:
-    let
-      currentSlot = beaconClock.now.slotOrZero
-      isCheckpointStale = not is_within_weak_subjectivity_period(
-        cfg,
-        currentSlot,
-        dag.headState,
-        config.weakSubjectivityCheckpoint.get)
-
-    if isCheckpointStale:
-      error "Weak subjectivity checkpoint is stale",
-            currentSlot,
-            checkpoint = config.weakSubjectivityCheckpoint.get,
-            headStateSlot = getStateField(dag.headState, slot)
-      quit 1
+    dag.checkWeakSubjectivityCheckpoint(
+      config.weakSubjectivityCheckpoint.get, beaconClock)
 
   if eth1Monitor.isNil and config.web3Urls.len > 0:
     eth1Monitor = Eth1Monitor.init(
@@ -498,6 +518,7 @@ proc init*(T: type BeaconNode,
     network = createEth2Node(
       rng, config, netKeys, cfg, dag.forkDigests, getBeaconTime,
       getStateField(dag.headState, genesis_validators_root))
+    quarantine = newClone(Quarantine.init())
     attestationPool = newClone(
       AttestationPool.init(
         dag, quarantine, onAttestationReceived, config.proposerBoosting))
