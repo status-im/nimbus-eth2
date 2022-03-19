@@ -1119,7 +1119,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       # Regardless, because we "just" received the block, we'll impose the
       # delay.
 
-      const afterBlockDelay = millis(2000)
+      # Take into consideration chains with a different slot time
+      const afterBlockDelay = nanos(attestationSlotOffset.nanoseconds div 2)
       let
         afterBlockTime = node.beaconClock.now() + afterBlockDelay
         afterBlockCutoff = node.beaconClock.fromNow(
