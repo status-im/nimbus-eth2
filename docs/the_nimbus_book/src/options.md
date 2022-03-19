@@ -36,8 +36,8 @@ The following options are available:
      --insecure-netkey-password  Use pre-generated INSECURE password for network private key file [=false].
      --agent-string            Node agent string which is used as identifier in network [=nimbus].
      --subscribe-all-subnets   Subscribe to all subnet topics when gossiping [=false].
-     --num-threads             Number of worker threads (set this to 0 to use as many threads as there are CPU
-                               cores available) [=1].
+     --num-threads             Number of worker threads ("0" = use as many threads as there are CPU cores
+                               available) [=0].
  -b, --bootstrap-node          Specifies one or more bootstrap nodes to use when connecting to the network.
      --bootstrap-file          Specifies a line-delimited file of bootstrap Ethereum network addresses.
      --listen-address          Listening address for the Ethereum LibP2P and Discovery v5 traffic [=0.0.0.0].
