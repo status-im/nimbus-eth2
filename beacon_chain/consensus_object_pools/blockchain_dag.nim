@@ -765,13 +765,15 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     "...but that's the last BlockRef with a parent"
 
   block: # Top up finalized blocks
-    let finHigh = db.finalizedBlocks.high.get(dag.genesis.slot)
-    if finHigh < dag.finalizedHead.blck.slot:
+    if db.finalizedBlocks.high.isNone or
+        db.finalizedBlocks.high.get() < dag.finalizedHead.blck.slot:
       info "Loading finalized blocks",
-        finHigh, finalizedHead = shortLog(dag.finalizedHead)
+        finHigh = db.finalizedBlocks.high,
+          finalizedHead = shortLog(dag.finalizedHead)
 
       for blck in db.getAncestorSummaries(dag.finalizedHead.blck.root):
-        if blck.summary.slot < finHigh:
+        if db.finalizedBlocks.high.isSome and
+            blck.summary.slot <= db.finalizedBlocks.high.get:
           break
 
         # Versions prior to 1.7.0 did not store finalized blocks in the
