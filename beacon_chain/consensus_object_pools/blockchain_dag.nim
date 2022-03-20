@@ -1257,6 +1257,9 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     # transition was not on the canonical chain - these will not properly get
     # cleaned up by the current logic - but they should also be rare
     # TODO clean up the above as well
+    doAssert dag.finalizedHead.blck.parent == nil,
+      "finalizedHead parent should have been pruned from memory already"
+
     while cur.blck.parent != nil:
       # TODO: should we move that disk I/O to `onSlotEnd`
       dag.delState(cur.toBlockSlotId().expect("not nil"))
