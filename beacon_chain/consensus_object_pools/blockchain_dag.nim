@@ -1251,8 +1251,13 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
       continue
 
     var cur = head.atSlot()
-    while not cur.blck.isAncestorOf(dag.finalizedHead.blck):
-
+    # The block whose parent is nil is the `BlockRef` that's part of the
+    # canonical chain but has now been finalized - in theory there could be
+    # states at empty slot iff the fork had epoch-long gaps where the epoch
+    # transition was not on the canonical chain - these will not properly get
+    # cleaned up by the current logic - but they should also be rare
+    # TODO clean up the above as well
+    while cur.blck.parent != nil:
       # TODO: should we move that disk I/O to `onSlotEnd`
       dag.delState(cur.toBlockSlotId().expect("not nil"))
 
@@ -1263,9 +1268,11 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
         dag.forkBlocks.excl(KeyedBlockRef.init(cur.blck))
         dag.db.delBlock(cur.blck.root)
 
-      if cur.blck.parent.isNil:
-        break
+      let tmp = cur
       cur = cur.parentOrSlot
+
+      if tmp.isProposed: # Release `BlockRef` memory
+        tmp.blck.parent = nil
 
     dag.heads.del(n)
 

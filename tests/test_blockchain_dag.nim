@@ -474,6 +474,15 @@ suite "chain DAG finalization tests" & preset():
       dag2.finalizedHead.slot == dag.finalizedHead.slot
       getStateRoot(dag2.headState) == getStateRoot(dag.headState)
 
+    # No canonical block data should be pruned by the removal of the fork
+    for i in Slot(0)..dag2.head.slot:
+      let bids = dag.getBlockIdAtSlot(i).expect("found it")
+      if bids.isProposed:
+        check: dag2.getForkedBlock(bids.bid).isSome
+
+    # The unviable block should have been pruned however
+    check: dag2.getForkedBlock(lateBlock.root).isNone
+
   test "orphaned epoch block" & preset():
     let prestate = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0)
     for i in 0 ..< SLOTS_PER_EPOCH:
