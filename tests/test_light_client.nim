@@ -125,7 +125,7 @@ suite "Light client" & preset():
 
     # Initialize light client store
     let bootstrap = dag.getLightClientBootstrap(trusted_block_root)
-    check bootstrap.isSome
+    check bootstrap.isOk
     var storeRes = initialize_light_client_store(
       trusted_block_root, bootstrap.get)
     check storeRes.isOk

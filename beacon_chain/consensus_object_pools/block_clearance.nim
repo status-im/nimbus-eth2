@@ -79,7 +79,7 @@ proc addResolvedHeadBlock(
     epochRefDur = epochRefTick - putBlockTick
 
   # Update light client data
-  dag.processNewBlockForLightClient(state, trustedBlock, parent)
+  dag.processNewBlockForLightClient(state, trustedBlock, parent.bid)
 
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
