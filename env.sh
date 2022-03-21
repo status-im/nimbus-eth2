@@ -7,17 +7,19 @@ ABS_PATH="$(cd ${REL_PATH}; pwd)"
 
 # Activate nvm only when this file is sourced without arguments:
 if [ -z "$*" ]; then
-  if command -v nvm > /dev/null; then
-    nvm use
-    command -v ganache-cli > /dev/null || { npm install -g ganache-cli; }
-  else
-    echo <<EOF
-  In order to use Ganache (a development ETH1 chain), please install NVM with:
-  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
+  if ! command -v ganache-cli > /dev/null; then
+    if command -v nvm > /dev/null; then
+      nvm use
+      npm install -g ganache-cli
+    else
+      echo <<EOF
+    In order to use Ganache (a development ETH1 chain), please install NVM with:
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
 
-  For more info:
-  https://github.com/nvm-sh/nvm
+    For more info:
+    https://github.com/nvm-sh/nvm
 EOF
+    fi
   fi
 fi
 
