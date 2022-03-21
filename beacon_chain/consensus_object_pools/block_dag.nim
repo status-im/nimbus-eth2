@@ -15,8 +15,8 @@ export chronicles, forks
 
 type
   BlockRef* = ref object
-    ## Node in object graph guaranteed to lead back to tail block, and to have
-    ## a corresponding entry in database.
+    ## Node in object graph guaranteed to lead back to finalized head, and to
+    ## have a corresponding entry in database.
     ##
     ## All blocks identified by a `BlockRef` are valid per the state transition
     ## rules and that at some point were candidates for head selection. The
@@ -31,7 +31,7 @@ type
       ## Root that can be used to retrieve block data from database
 
     parent*: BlockRef ##\
-    ## Not nil, except for the tail
+    ## Not nil, except for the finalized head
 
   BlockSlot* = object
     ## Unique identifier for a particular fork and time in the block chain -
