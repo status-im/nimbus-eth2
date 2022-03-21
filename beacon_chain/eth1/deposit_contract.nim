@@ -184,7 +184,12 @@ proc sendDeposits*(deposits: seq[LaunchPadDeposit],
 
 {.pop.} # TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 proc main() {.async.} =
-  var conf = CliConfig.load()
+  var conf = try: CliConfig.load()
+  except CatchableError as exc:
+    raise exc
+  except Exception as exc: # TODO fix confutils
+    raiseAssert exc.msg
+
   let rng = keys.newRng()
 
   if conf.cmd == StartUpCommand.generateSimulationDeposits:
