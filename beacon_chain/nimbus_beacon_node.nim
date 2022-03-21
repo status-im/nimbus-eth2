@@ -1076,7 +1076,13 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     # makes sure that all the scratch space we used during slot tasks (logging,
     # temporary buffers etc) gets recycled for the next slot that is likely to
     # need similar amounts of memory.
-    GC_fullCollect()
+    try:
+      GC_fullCollect()
+    except Defect as exc:
+      raise exc # Reraise to maintain call stack
+    except Exception as exc:
+      # TODO upstream
+      raiseAssert "Unexpected exception during GC collection"
 
   # Checkpoint the database to clear the WAL file and make sure changes in
   # the database are synced with the filesystem.
