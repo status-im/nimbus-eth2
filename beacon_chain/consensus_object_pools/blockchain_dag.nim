@@ -1416,16 +1416,27 @@ proc updateHead*(
   ## blocks that were once considered potential candidates for a tree will
   ## now fall from grace, or no longer be considered resolved.
   doAssert not newHead.isNil()
-  doAssert not newHead.parent.isNil() or newHead.slot <= dag.tail.slot
-  logScope:
-    newHead = shortLog(newHead)
-
-  if dag.head == newHead:
-    trace "No head block update"
-    return
 
   let
     lastHead = dag.head
+
+  logScope:
+    newHead = shortLog(newHead)
+    lastHead = shortLog(lastHead)
+
+  if lastHead == newHead:
+    trace "No head block update"
+    return
+
+  if newHead.parent.isNil:
+    # The new head should always have the finalizedHead as ancestor - thus,
+    # this should not happen except in a race condition where the selected
+    # `BlockRef` had its parent set to nil as happens during finalization -
+    # notably, resetting the head to be the finalizedHead is not allowed
+    error "Cannot update head to block without parent"
+    return
+
+  let
     lastHeadStateRoot = getStateRoot(dag.headState)
 
   # Start off by making sure we have the right state - updateState will try
@@ -1465,11 +1476,8 @@ proc updateHead*(
   let (isAncestor, ancestorDepth) = lastHead.getDepth(newHead)
   if not(isAncestor):
     notice "Updated head block with chain reorg",
-      lastHead = shortLog(lastHead),
       headParent = shortLog(newHead.parent),
       stateRoot = shortLog(getStateRoot(dag.headState)),
-      headBlock = shortLog(dag.head),
-      stateSlot = shortLog(getStateField(dag.headState, slot)),
       justified = shortLog(getStateField(
         dag.headState, current_justified_checkpoint)),
       finalized = shortLog(getStateField(dag.headState, finalized_checkpoint))
@@ -1488,7 +1496,6 @@ proc updateHead*(
     beacon_reorgs_total.inc()
   else:
     debug "Updated head block",
-      head = shortLog(dag.head),
       stateRoot = shortLog(getStateRoot(dag.headState)),
       justified = shortLog(getStateField(
         dag.headState, current_justified_checkpoint)),
@@ -1515,7 +1522,6 @@ proc updateHead*(
 
   if finalizedHead != dag.finalizedHead:
     debug "Reached new finalization checkpoint",
-      head = shortLog(dag.head),
       stateRoot = shortLog(getStateRoot(dag.headState)),
       justified = shortLog(getStateField(
         dag.headState, current_justified_checkpoint)),
