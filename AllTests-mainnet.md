@@ -231,56 +231,6 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Standard sync [Preset: mainnet]                                                            OK
 ```
 OK: 6/6 Fail: 0/6 Skip: 0/6
-## ListKeys requests [Preset: mainnet]
-```diff
-+ Correct token provided [Preset: mainnet]                                                   OK
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
-## ListRemoteKeys requests [Preset: mainnet]
-```diff
-+ Correct token provided [Preset: mainnet]                                                   OK
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
-||||||| parent of 2d93e480 (specify little-endian serialization explcitly; force-disable eth1 deposit monitoring (might be incorrect))
-## ListKeys requests [Preset: mainnet]
-```diff
-+ Correct token provided [Preset: mainnet]                                                   OK
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
-## ListRemoteKeys requests [Preset: mainnet]
-```diff
-+ Correct token provided [Preset: mainnet]                                                   OK
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
-||||||| parent of 4700c3ba (Metadata for the Kiln network (use with --network=kiln))
-## ListKeys requests [Preset: mainnet]
-```diff
-+ Correct token provided [Preset: mainnet]                                                   OK
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
-## ListRemoteKeys requests [Preset: mainnet]
-```diff
-+ Correct token provided [Preset: mainnet]                                                   OK
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Message signatures
 ```diff
 + Aggregate and proof signatures                                                             OK
@@ -530,4 +480,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 294/299 Fail: 0/299 Skip: 5/299
+OK: 269/274 Fail: 0/274 Skip: 5/274
