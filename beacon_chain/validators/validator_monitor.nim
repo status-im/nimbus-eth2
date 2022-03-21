@@ -8,8 +8,7 @@
 import
   std/[options, tables],
   metrics, chronicles,
-  ../spec/[crypto, beaconstate, forks, helpers, presets],
-  ../spec/datatypes/[phase0, altair],
+  ../spec/[beaconstate, forks, helpers],
   ../beacon_clock
 
 {.push raises: [Defect].}
@@ -461,7 +460,7 @@ proc registerEpochInfo*(
         validator_monitor_prev_epoch_on_chain_attester_miss.inc(1, [metricId])
         validator_monitor_prev_epoch_on_chain_source_attester_miss.inc(1, [metricId])
 
-        warn "Previous epoch attestation missing",
+        notice "Previous epoch attestation missing",
           epoch = prev_epoch,
           validator = id
 
@@ -642,7 +641,7 @@ proc registerAttestation*(
     if not self.totals:
       info "Attestation seen",
         attestation = shortLog(attestation),
-        src, epoch = slot.epoch, validator = id
+        src, epoch = slot.epoch, validator = id, delay
 
     self.withEpochSummary(monitor, slot.epoch):
       epochSummary.attestations += 1
@@ -668,7 +667,7 @@ proc registerAggregate*(
     if not self.totals:
       info "Aggregated attestion seen",
         aggregate = shortLog(aggregate_and_proof.aggregate),
-        src, epoch = slot.epoch, validator = id
+        src, epoch = slot.epoch, validator = id, delay
 
     self.withEpochSummary(monitor, slot.epoch):
       epochSummary.aggregates += 1
@@ -693,11 +692,11 @@ proc registerAttestationInBlock*(
     self: var ValidatorMonitor,
     data: AttestationData,
     attesting_index: ValidatorIndex,
-    blck: auto) =
+    block_slot: Slot) =
   self.withMonitor(attesting_index):
     let
       id = monitor.id
-      inclusion_lag = (blck.slot - data.slot) - MIN_ATTESTATION_INCLUSION_DELAY
+      inclusion_lag = (block_slot - data.slot) - MIN_ATTESTATION_INCLUSION_DELAY
       epoch = data.slot.epoch
 
     validator_monitor_attestation_in_block.inc(1, ["block", metricId])
@@ -709,7 +708,7 @@ proc registerAttestationInBlock*(
     if not self.totals:
       info "Attestation included in block",
         attestation_data = shortLog(data),
-        block_slot = blck.slot,
+        block_slot,
         inclusion_lag_slots = inclusion_lag,
         epoch = epoch, validator = id
 
@@ -722,7 +721,7 @@ proc registerBeaconBlock*(
     self: var ValidatorMonitor,
     src: MsgSource,
     seen_timestamp: BeaconTime,
-    blck: auto) =
+    blck: ForkyTrustedBeaconBlock) =
   self.withMonitor(blck.proposer_index):
     let
       id = monitor.id
@@ -735,7 +734,7 @@ proc registerBeaconBlock*(
 
     if not self.totals:
       info "Block seen",
-        blck = shortLog(blck), src, epoch = slot.epoch, validator = id
+        blck = shortLog(blck), src, epoch = slot.epoch, validator = id, delay
 
 proc registerSyncCommitteeMessage*(
     self: var ValidatorMonitor,
@@ -755,7 +754,7 @@ proc registerSyncCommitteeMessage*(
     if not self.totals:
       info "Sync committee message seen",
         syncCommitteeMessage = shortLog(sync_committee_message.beacon_block_root),
-        src, epoch = slot.epoch, validator = id
+        src, epoch = slot.epoch, validator = id, delay
 
     self.withEpochSummary(monitor, slot.epoch):
       epochSummary.sync_committee_messages += 1
@@ -782,7 +781,7 @@ proc registerSyncContribution*(
     if not self.totals:
       info "Sync contribution seen",
         contribution = shortLog(contribution_and_proof.contribution),
-        src, epoch = slot.epoch, validator = id
+        src, epoch = slot.epoch, validator = id, delay
 
     self.withEpochSummary(monitor, slot.epoch):
       epochSummary.sync_contributions += 1

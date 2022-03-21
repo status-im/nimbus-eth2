@@ -386,20 +386,15 @@ proc createAndSendAttestation(node: BeaconNode,
       dump(node.config.dumpDirOutgoing, attestation.data,
            validator.pubkey)
 
-    let wallTime = node.beaconClock.now()
-    let deadline = attestationData.slot.attestation_deadline()
-
-    let (delayStr, delaySecs) =
-      if wallTime < deadline:
-        ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
-      else:
-        ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
+    let
+      wallTime = node.beaconClock.now()
+      delay = wallTime - attestationData.slot.attestation_deadline()
 
     notice "Attestation sent",
       attestation = shortLog(attestation), validator = shortLog(validator),
-      delay = delayStr, subnet_id
+      delay, subnet_id
 
-    beacon_attestation_sent_delay.observe(delaySecs)
+    beacon_attestation_sent_delay.observe(delay.toFloatSeconds())
   except CatchableError as exc:
     # An error could happen here when the signature task fails - we must
     # not leak the exception because this is an asyncSpawn task
@@ -734,20 +729,14 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
 
     let
       wallTime = node.beaconClock.now()
-      deadline = msg.slot.start_beacon_time() + syncCommitteeMessageSlotOffset
-
-    let (delayStr, delaySecs) =
-      if wallTime < deadline:
-        ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
-      else:
-        ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
+      delay = wallTime - msg.slot.sync_committee_message_deadline()
 
     notice "Sync committee message sent",
             message = shortLog(msg),
             validator = shortLog(validator),
-            delay = delayStr
+            delay
 
-    beacon_sync_committee_message_sent_delay.observe(delaySecs)
+    beacon_sync_committee_message_sent_delay.observe(delay.toFloatSeconds())
   except CatchableError as exc:
     # An error could happen here when the signature task fails - we must
     # not leak the exception because this is an asyncSpawn task
@@ -998,8 +987,9 @@ proc sendAggregatedAttestations(
     node.network.broadcastAggregateAndProof(signedAP)
 
     # The subnet on which the attestations (should have) arrived
-    let subnet_id = compute_subnet_for_attestation(
-      committees_per_slot, slot, data.committee_index)
+    let
+      subnet_id = compute_subnet_for_attestation(
+        committees_per_slot, slot, data.committee_index)
     notice "Aggregated attestation sent",
       aggregate = shortLog(signedAP.message.aggregate),
       aggregator_index = signedAP.message.aggregator_index,
@@ -1233,17 +1223,12 @@ proc sendAttestation*(node: BeaconNode,
 
   let
     wallTime = node.processor.getCurrentBeaconTime()
-    deadline = attestation.data.slot.attestation_deadline()
-    (delayStr, delaySecs) =
-      if wallTime < deadline:
-        ("-" & $(deadline - wallTime), -toFloatSeconds(deadline - wallTime))
-      else:
-        ($(wallTime - deadline), toFloatSeconds(wallTime - deadline))
+    delay = wallTime - attestation.data.slot.attestation_deadline()
 
   notice "Attestation sent",
-    attestation = shortLog(attestation), delay = delayStr, subnet_id
+    attestation = shortLog(attestation), delay, subnet_id
 
-  beacon_attestation_sent_delay.observe(delaySecs)
+  beacon_attestation_sent_delay.observe(delay.toFloatSeconds())
 
   return SendResult.ok()
 
