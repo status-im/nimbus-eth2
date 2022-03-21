@@ -1271,11 +1271,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
         dag.forkBlocks.excl(KeyedBlockRef.init(cur.blck))
         dag.db.delBlock(cur.blck.root)
 
-      let tmp = cur
       cur = cur.parentOrSlot
-
-      if tmp.isProposed: # Release `BlockRef` memory
-        tmp.blck.parent = nil
 
     dag.heads.del(n)
 
