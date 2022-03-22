@@ -894,15 +894,15 @@ func dumpDirOutgoing*(config: AnyConf): string =
 
 proc createDumpDirs*(config: BeaconNodeConf) =
   if config.dumpEnabled:
-    let resInv = secureCreatePath(config.dumpDirInvalid)
-    if resInv.isErr():
-      warn "Could not create dump directory", path = config.dumpDirInvalid
-    let resInc = secureCreatePath(config.dumpDirIncoming)
-    if resInc.isErr():
-      warn "Could not create dump directory", path = config.dumpDirIncoming
-    let resOut = secureCreatePath(config.dumpDirOutgoing)
-    if resOut.isErr():
-      warn "Could not create dump directory", path = config.dumpDirOutgoing
+    if (let res = secureCreatePath(config.dumpDirInvalid); res.isErr):
+      warn "Could not create dump directory",
+        path = config.dumpDirInvalid, err = ioErrorMsg(res.error)
+    if (let res = secureCreatePath(config.dumpDirIncoming); res.isErr):
+      warn "Could not create dump directory",
+        path = config.dumpDirIncoming, err = ioErrorMsg(res.error)
+    if (let res = secureCreatePath(config.dumpDirOutgoing); res.isErr):
+      warn "Could not create dump directory",
+        path = config.dumpDirOutgoing, err = ioErrorMsg(res.error)
 
 func parseCmdArg*(T: type GraffitiBytes, input: TaintedString): T
                  {.raises: [ValueError, Defect].} =

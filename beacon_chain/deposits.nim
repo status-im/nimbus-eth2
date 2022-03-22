@@ -374,14 +374,14 @@ proc doDeposits*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
         swap(seed, walletRes.get.seed)
         walletPath = walletRes.get.walletPath
 
-    let vres = secureCreatePath(config.outValidatorsDir)
-    if vres.isErr():
-      fatal "Could not create directory", path = config.outValidatorsDir
+    if (let res = secureCreatePath(config.outValidatorsDir); res.isErr):
+      fatal "Could not create directory",
+        path = config.outValidatorsDir, err = ioErrorMsg(res.error)
       quit QuitFailure
 
-    let sres = secureCreatePath(config.outSecretsDir)
-    if sres.isErr():
-      fatal "Could not create directory", path = config.outSecretsDir
+    if (let res = secureCreatePath(config.outSecretsDir); res.isErr):
+      fatal "Could not create directory",
+        path = config.outSecretsDir, err = ioErrorMsg(res.error)
       quit QuitFailure
 
     let deposits = generateDeposits(
