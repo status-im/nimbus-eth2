@@ -164,9 +164,10 @@ Each era is identified by when it ends. Thus, the genesis era is era 0, followed
 * `era-number` is the number of the _last_ era stored in the file - for example, the genesis era file has number 0 - as a 5-digit 0-filled decimal integer
 * `era-count` is the number of eras stored in the file, as a 5-digit 0-filled decimal integer
 * `short-historical-root` is the first 4 bytes of the last historical root in the last state in the era file, lower-case hex-encoded (8 characters), except the genesis era which instead uses the `genesis_validators_root` field from the genesis state.
-  * The root is available as `state.historical_roots[era - 1]` except genesis, whose historical root is all `0`
+  * The root is available as `state.historical_roots[era - 1]` except for genesis, which is `state.genesis_validators_root`
+  * Era files with multiple eras use the root of the highest era - this determines the earlier eras as well
 
-An era file containing the mainnet genesis is thus named `mainnet-00000000-0000-0001.era`, and the era after that `mainnet-40cf2f3c-0001-0001.era`.
+An era file containing the mainnet genesis is thus named `mainnet-00000-00001-4b363db9.era`, and the era after that `mainnet-00001-00001-40cf2f3c.era`.
 
 ## Structure
 
@@ -174,16 +175,16 @@ An `.era` file is structured in the following way:
 
 ```
 era := group+
-group := Version | block* | canonical-state | other-entries* | slot-index(block)? | slot-index(state)
+group := Version | block* | era-state | other-entries* | slot-index(block)? | slot-index(state)
 block := CompressedSignedBeaconBlock
-canonical-state := CompressedBeaconState
+era-state := CompressedBeaconState
 ```
 
 The `block` entries of a group include all blocks pertaining to an era. For example, the group representing era one will have all blocks from slot 0 up to and including block 8191.
 
-The `canonical-state` is the state of the slot that immediately follows the end of the era without applying blocks from the next era. For example, era 1 that covers the first 8192 slots will have all blocks applied up to slot 8191 and will `process_slots` up to 8192. The genesis group contains only the genesis state but no blocks.
+The `era-state` is the state of the slot that immediately follows the end of the era without applying blocks from the next era. For example, era 1 that covers the first 8192 slots will have all blocks applied up to slot 8191 and will `process_slots` up to 8192. The genesis group contains only the genesis state but no blocks.
 
-`slot-index(state)` is a `SlotIndex` entry with `count = 1` for the `CompressedBeaconState` entry of that era, pointing out the offset where the state entry begins. (TODO: consider count > 1 for files that cover multiple eras - breaks trivial composability of each era snippet but allows instant lookup in multi-era files)
+`slot-index(state)` is a `SlotIndex` entry with `count = 1` for the `CompressedBeaconState` entry of that era, pointing out the offset where the state entry begins.
 
 `slot-index(block)` is a `SlotIndex` entry with `count = SLOTS_PER_HISTORICAL_ROOT` for the `CompressedSignedBeaconBlock` entries in that era, pointing out the offsets of each block in the era. It is omitted for the genesis era.
 
@@ -279,9 +280,12 @@ An era is typically 8192 slots, or roughly 27.3 hours - a bit more than a day.
 
 Era files will store execution block contents, but not execution states (these are too large) - a full era history thus gives the full ethereum history from the merge onwards, for convenient cold storage.
 
-## What is a "canonical state" and why use it?
+## What is a "era state" and why use it?
 
 The state transition function in ethereum does 3 things: slot processing, epoch processing and block processing, in that order. In particular, the slot and epoch processing is done for every slot and epoch, but the block processing may be skipped. When epoch processing is done, all the epoch-related fields in the state have been written, and a new epoch can begin - it's thus reasonable to say that the epoch processing is the last thing that happens in an epoch and the block processing happens in the context of the new epoch.
 
-Storing the "canonical state" without the block applied means that any block from the new epoch can be applied to it - if two histories exist, one that skips the first block in the epoch and one that includes it, one can use the same canonical state in both cases.
+Storing the "era state" without the block applied means that any block from the new epoch can be applied to it - if two histories exist, one that skips the first block in the epoch and one that includes it, one can use the same era state in both cases.
 
+One downside is that future blocks will store the state root of the "era state" with the block applied, making it slightly harder to verify that the state in a given era file is part of a particular history.
+
+TODO: consider workarounds for the above point - one can state-transition to find the right state root, but that increases verification requirements significantly.

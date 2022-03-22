@@ -621,7 +621,7 @@ func toBeaconBlockSummary*(v: SomeForkyBeaconBlock): BeaconBlockSummary =
     parent_root: v.parent_root,
   )
 
-proc putBeaconBlockSummary(
+proc putBeaconBlockSummary*(
     db: BeaconChainDB, root: Eth2Digest, value: BeaconBlockSummary) =
   # Summaries are too simple / small to compress, store them as plain SSZ
   db.summaries.putSSZ(root.data, value)

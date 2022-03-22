@@ -15,12 +15,12 @@ import
   # Internals
   ../spec/[signatures_batch, forks, helpers],
   ../spec/datatypes/[phase0, altair, bellatrix],
-  ".."/beacon_chain_db,
+  ".."/[beacon_chain_db, era_db],
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client
 
 export
-  options, sets, tables, hashes, helpers, beacon_chain_db, block_dag,
+  options, sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
   block_pools_types_light_client, validator_monitor
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
@@ -119,6 +119,8 @@ type
       ## the DAG and the canonical head are stored here, as well as several
       ## caches.
 
+    era*: EraDB
+
     validatorMonitor*: ref ValidatorMonitor
 
     forkBlocks*: HashSet[KeyedBlockRef]
@@ -142,7 +144,11 @@ type
     backfill*: BeaconBlockSummary
       ## The backfill points to the oldest block with an unbroken ancestry from
       ## dag.tail - when backfilling, we'll move backwards in time starting
-      ## with the parent of this block until we reach `genesis`.
+      ## with the parent of this block until we reach `frontfill`.
+
+    frontfillBlocks*: seq[Eth2Digest]
+      ## A temporary cache of blocks that we could load from era files, once
+      ## backfilling reaches this point - empty when not backfilling.
 
     heads*: seq[BlockRef]
     ## Candidate heads of candidate chains
@@ -293,6 +299,14 @@ type
     epoch*: Epoch
 
 template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
+
+template frontfill*(dagParam: ChainDAGRef): BlockId =
+  let dag = dagParam
+  if dag.frontfillBlocks.lenu64 > 0:
+    BlockId(
+      slot: Slot(dag.frontfillBlocks.lenu64 - 1), root: dag.frontfillBlocks[^1])
+  else:
+    dag.genesis
 
 template epoch*(e: EpochRef): Epoch = e.key.epoch
 

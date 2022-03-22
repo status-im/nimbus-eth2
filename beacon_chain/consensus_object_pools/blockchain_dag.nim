@@ -13,8 +13,8 @@ import
   metrics, snappy, chronicles,
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
-  ".."/beacon_chain_db,
   ../spec/datatypes/[phase0, altair, bellatrix],
+  ".."/[beacon_chain_db, era_db],
   "."/[block_pools_types, block_quarantine]
 
 export
@@ -112,6 +112,32 @@ proc updateFinalizedBlocks*(db: BeaconChainDB, newFinalized: openArray[BlockId])
   db.withManyWrites:
     for bid in newFinalized:
       db.finalizedBlocks.insert(bid.slot, bid.root)
+
+proc updateFrontfillBlocks*(dag: ChainDAGRef) =
+  # When backfilling is done and manages to reach the frontfill point, we can
+  # write the frontfill index knowing that the block information in the
+  # era files match the chain
+  if dag.db.db.readOnly: return # TODO abstraction leak - where to put this?
+
+  if dag.frontfillBlocks.len == 0 or dag.backfill.slot > 0:
+    return
+
+  info "Writing frontfill index", slots = dag.frontfillBlocks.len
+
+  dag.db.withManyWrites:
+    let low = dag.db.finalizedBlocks.low.expect(
+      "wrote at least tailRef during init")
+    let blocks = min(low.int, dag.frontfillBlocks.len - 1)
+    var parent: Eth2Digest
+    for i in 0..blocks:
+      let root = dag.frontfillBlocks[i]
+      if not isZero(root):
+        dag.db.finalizedBlocks.insert(Slot(i), root)
+        dag.db.putBeaconBlockSummary(
+          root, BeaconBlockSummary(slot: Slot(i), parent_root: parent))
+        parent = root
+
+    reset(dag.frontfillBlocks)
 
 func validatorKey*(
     dag: ChainDAGRef, index: ValidatorIndex or uint64): Option[CookedPubKey] =
@@ -444,7 +470,10 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
 proc getBlock*(
     dag: ChainDAGRef, bid: BlockId,
     T: type ForkyTrustedSignedBeaconBlock): Opt[T] =
-  dag.db.getBlock(bid.root, T)
+  dag.db.getBlock(bid.root, T) or
+    getBlock(
+      dag.era, getStateField(dag.headState, historical_roots).asSeq,
+      bid.slot, Opt[Eth2Digest].ok(bid.root), T)
 
 proc getBlockSSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
   # Load the SSZ-encoded data of a block into `bytes`, overwriting the existing
@@ -452,7 +481,11 @@ proc getBlockSSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
   # careful: there are two snappy encodings in use, with and without framing!
   # Returns true if the block is found, false if not
   let fork = dag.cfg.blockForkAtEpoch(bid.slot.epoch)
-  dag.db.getBlockSSZ(bid.root, bytes, fork)
+  dag.db.getBlockSSZ(bid.root, bytes, fork) or
+    (bid.slot <= dag.finalizedHead.slot and
+      getBlockSSZ(
+        dag.era, getStateField(dag.headState, historical_roots).asSeq,
+        bid.slot, bytes).isOk)
 
 proc getForkedBlock*(
     dag: ChainDAGRef, bid: BlockId): Opt[ForkedTrustedSignedBeaconBlock] =
@@ -462,8 +495,11 @@ proc getForkedBlock*(
   withBlck(result.get()):
     type T = type(blck)
     blck = getBlock(dag, bid, T).valueOr:
-      result.err()
-      return
+        getBlock(
+            dag.era, getStateField(dag.headState, historicalRoots).asSeq,
+            bid.slot, Opt[Eth2Digest].ok(bid.root), T).valueOr:
+          result.err()
+          return
 
 proc getForkedBlock*(
     dag: ChainDAGRef, root: Eth2Digest): Opt[ForkedTrustedSignedBeaconBlock] =
@@ -611,6 +647,7 @@ proc applyBlock(
 
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
+           eraPath = ".",
            onBlockCb: OnBlockCallback = nil, onHeadCb: OnHeadCallback = nil,
            onReorgCb: OnReorgCallback = nil,
            onFinCb: OnFinalizedCallback = nil,
@@ -751,6 +788,10 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       genesis = dag.genesis, tail = dag.tail, headRef, stateFork, configFork
     quit 1
 
+  # Need to load state to find genesis validators root, before loading era db
+  dag.era = EraDB.new(
+    cfg, eraPath, getStateField(dag.headState, genesis_validators_root))
+
   # We used an interim finalizedHead while loading the head state above - now
   # that we have loaded the dag up to the finalized slot, we can also set
   # finalizedHead to its real value
@@ -813,6 +854,71 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   updateBeaconMetrics(dag.headState, dag.head.bid, cache)
 
   let finalizedTick = Moment.now()
+
+  if dag.backfill.slot > 0: # See if we can frontfill blocks from era files
+    dag.frontfillBlocks = newSeqOfCap[Eth2Digest](dag.backfill.slot.int)
+
+    let
+      historical_roots = getStateField(dag.headState, historical_roots).asSeq()
+
+    var
+      files = 0
+      blocks = 0
+      parent: Eth2Digest
+
+    # Here, we'll build up the slot->root mapping in memory for the range of
+    # blocks from genesis to backfill, if possible.
+    for i in 0'u64..<historical_roots.lenu64():
+      var
+        found = false
+        done = false
+
+      for summary in dag.era.getBlockIds(historical_roots, Era(i)):
+        if summary.slot >= dag.backfill.slot:
+          # If we end up in here, we failed the root comparison just below in
+          # an earlier iteration
+          fatal "Era summaries don't lead up to backfill, database or era files corrupt?",
+            slot = summary.slot
+          quit 1
+
+        # In BeaconState.block_roots, empty slots are filled with the root of
+        # the previous block - in our data structure, we use a zero hash instead
+        if summary.root != parent:
+          dag.frontfillBlocks.setLen(summary.slot.int + 1)
+          dag.frontfillBlocks[summary.slot.int] = summary.root
+
+          if summary.root == dag.backfill.parent_root:
+            # We've reached the backfill point, meaning blocks are available
+            # in the sqlite database from here onwards - remember this point in
+            # time so that we can write summaries to the database - it's a lot
+            # faster to load from database than to iterate over era files with
+            # the current naive era file reader.
+            done = true
+            reset(dag.backfill)
+
+            dag.updateFrontfillBlocks()
+
+            break
+
+          parent = summary.root
+
+        found = true
+        blocks += 1
+
+      if found:
+        files += 1
+
+      # Try to load as many era files as possible, but stop when there's a
+      # gap - the current logic for loading finalized blocks from the
+      # database is unable to deal with gaps correctly
+      if not found or done: break
+
+    if files > 0:
+      info "Front-filled blocks from era files",
+        files, blocks
+
+  let frontfillTick = Moment.now()
+
   # Fill validator key cache in case we're loading an old database that doesn't
   # have a cache
   dag.updateValidatorKeys(getStateField(dag.headState, validators).asSeq())
@@ -826,9 +932,11 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     finalizedHead = shortLog(dag.finalizedHead),
     tail = shortLog(dag.tail),
     backfill = (dag.backfill.slot, shortLog(dag.backfill.parent_root)),
+
     loadDur = loadTick - startTick,
     summariesDur = summariesTick - loadTick,
     finalizedDur = finalizedTick - summariesTick,
+    frontfillDur = frontfillTick - finalizedTick,
     keysDur = Moment.now() - finalizedTick
 
   dag.initLightClientCache()

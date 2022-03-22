@@ -169,7 +169,7 @@ proc loadChainDag(
       if config.serveLightClientData: onOptimisticLightClientUpdate
       else: nil
     dag = ChainDAGRef.init(
-      cfg, db, validatorMonitor, chainDagFlags,
+      cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
       onBlockAdded, onHeadChanged, onChainReorg,
       onOptimisticLCUpdateCb = onOptimisticLightClientUpdateCb,
       serveLightClientData = config.serveLightClientData,
@@ -242,6 +242,9 @@ proc initFullNode(
   func getBackfillSlot(): Slot =
     dag.backfill.slot
 
+  func getFrontfillSlot(): Slot =
+    dag.frontfill.slot
+
   let
     quarantine = newClone(
       Quarantine.init())
@@ -274,11 +277,11 @@ proc initFullNode(
     syncManager = newSyncManager[Peer, PeerID](
       node.network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      dag.tail.slot, blockVerifier)
+      getFrontfillSlot, dag.tail.slot, blockVerifier)
     backfiller = newSyncManager[Peer, PeerID](
       node.network.peerPool, SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      dag.backfill.slot, blockVerifier, maxHeadAge = 0)
+      getFrontfillSlot, dag.backfill.slot, blockVerifier, maxHeadAge = 0)
 
   dag.setFinalizationCb makeOnFinalizationCb(node.eventBus, node.eth1Monitor)
 

@@ -423,11 +423,11 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
       dump("./", state)
   do: raiseAssert "withUpdatedState failed"
 
-func atCanonicalSlot(blck: BlockRef, slot: Slot): BlockSlot =
+func atCanonicalSlot(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
   if slot == 0:
-    blck.atSlot(slot)
+    ok dag.genesis.atSlot()
   else:
-    blck.atSlot(slot - 1).blck.atSlot(slot)
+    ok BlockSlotId.init((? dag.atSlot(bid, slot - 1)).bid, slot)
 
 proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
   let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
@@ -451,21 +451,29 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
     tmp: seq[byte]
     timers: array[Timers, RunningStat]
 
-  var era = conf.era
-  while conf.eraCount == 0 or era < conf.era + conf.eraCount:
+  var era = Era(conf.era)
+  while conf.eraCount == 0 or era < Era(conf.era) + conf.eraCount:
     if shouldShutDown: quit QuitSuccess
+    # Era files hold the blocks for the "previous" era, and the first state in
+    # the era itself
     let
       firstSlot =
         if era == 0: none(Slot)
-        else: some(Slot((era - 1) * SLOTS_PER_HISTORICAL_ROOT))
-      endSlot = Slot(era * SLOTS_PER_HISTORICAL_ROOT)
-      canonical = dag.head.atCanonicalSlot(endSlot)
+        else: some((era - 1).start_slot)
+      endSlot = era.start_slot
+      canonical = dag.atCanonicalSlot(dag.head.bid, endSlot).valueOr:
+        echo "Skipping ", era, ", blocks not available"
+        continue
 
     if endSlot > dag.head.slot:
       echo "Written all complete eras"
       break
 
-    let name = withState(dag.headState): eraFileName(cfg, state.data, era)
+    let name = withState(dag.headState):
+      eraFileName(
+        cfg, state.data.genesis_validators_root,
+        state.data.historical_roots.asSeq, era)
+
     if isFile(name):
       echo "Skipping ", name, " (already exists)"
     else:
@@ -483,7 +491,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
               group.update(e2, blocks[i].slot, tmp).get()
 
       withTimer(timers[tState]):
-        dag.withUpdatedState(tmpState[], canonical.toBlockSlotId().expect("not nil")) do:
+        dag.withUpdatedState(tmpState[], canonical) do:
           withState(state):
             group.finish(e2, state.data).get()
         do: raiseAssert "withUpdatedState failed"
