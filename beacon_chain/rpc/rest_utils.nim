@@ -62,7 +62,7 @@ proc getBlockSlotId*(node: BeaconNode,
     # head to avoid long empty slot replays (in particular a second epoch
     # transition)
     if not (stateIdent.slot.epoch <= (node.dag.head.slot.epoch + 1)):
-      return err("Requesting state too far ahead of head current head")
+      return err("Requesting state too far ahead of current head")
 
     let bsi = node.dag.getBlockIdAtSlot(stateIdent.slot).valueOr:
       return err("State for given slot not found, history not available?")
