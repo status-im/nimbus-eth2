@@ -121,10 +121,9 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 10/12 Fail: 0/12 Skip: 2/12
 ## Eth1 monitor
 ```diff
-+ Rewrite HTTPS Infura URLs                                                                  OK
 + Roundtrip engine RPC and consensus ExecutionPayload representations                        OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Eth2 specific discovery tests
 ```diff
 + Invalid attnets field                                                                      OK
@@ -480,4 +479,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 269/274 Fail: 0/274 Skip: 5/274
+OK: 268/273 Fail: 0/273 Skip: 5/273

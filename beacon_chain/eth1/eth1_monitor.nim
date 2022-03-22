@@ -265,6 +265,14 @@ template finalizedDepositsMerkleizer(m: Eth1Monitor): auto =
 
 proc fixupWeb3Urls*(web3Url: var string) =
   var normalizedUrl = toLowerAscii(web3Url)
+  # TODO https://github.com/status-im/nimbus-eth2/issues/3521
+  if  normalizedUrl.startsWith("https://") or
+      normalizedUrl.startsWith("http://"):
+    fatal "Web3 HTTP URLs not supported; use ws:// Web3 URLs",
+      normalizedUrl,
+      web3Url
+    quit 1
+
   if not (normalizedUrl.startsWith("https://") or
           normalizedUrl.startsWith("http://") or
           normalizedUrl.startsWith("wss://") or
