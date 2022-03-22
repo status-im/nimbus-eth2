@@ -7,6 +7,10 @@
 
 {.push raises: [Defect].}
 
+# References to `vFuture` refer to the pre-release proposal of the libp2p based
+# light client sync protocol. Conflicting release versions are not in use.
+# https://github.com/ethereum/consensus-specs/pull/2802
+
 import
   options, tables, sets, macros,
   chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
@@ -21,10 +25,16 @@ logScope:
 
 const
   MAX_REQUEST_BLOCKS = 1024
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#configuration
+  MAX_REQUEST_LIGHT_CLIENT_UPDATES = 128
 
   blockByRootLookupCost = allowedOpsPerSecondCost(50)
   blockResponseCost = allowedOpsPerSecondCost(100)
   blockByRangeLookupCost = allowedOpsPerSecondCost(20)
+  lightClientUpdateResponseCost = allowedOpsPerSecondCost(100)
+  lightClientUpdateByRangeLookupCost = allowedOpsPerSecondCost(20)
+  lightClientBootstrapLookupCost = allowedOpsPerSecondCost(5)
+  lightClientBootstrapResponseCost = allowedOpsPerSecondCost(100)
 
 type
   StatusMsg* = object
@@ -438,6 +448,114 @@ p2pProtocol BeaconSync(version = 1,
 
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found
+
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#bestlightclientupdatesbyrange
+  proc bestLightClientUpdatesByRange(
+      peer: Peer,
+      startPeriod: SyncCommitteePeriod,
+      reqCount: uint64,
+      response: MultipleChunksResponse[altair.LightClientUpdate])
+      {.async, libp2pProtocol("best_light_client_updates_by_range", 0,
+                              isLightClientRequest = true).} =
+    trace "Received LC updates by range request", peer, startPeriod, reqCount
+    if reqCount == 0'u64:
+      raise newException(InvalidInputsError, "Empty range requested")
+    let dag = peer.networkState.dag
+    doAssert dag.serveLightClientData
+
+    let
+      headPeriod = dag.head.slot.sync_committee_period
+      # Limit number of updates in response
+      maxSupportedCount =
+        if startPeriod > headPeriod:
+          0'u64
+        else:
+          min(headPeriod + 1 - startPeriod, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
+      count = min(reqCount, maxSupportedCount)
+      onePastPeriod = startPeriod + count
+
+    peer.updateRequestQuota(count.float * lightClientUpdateByRangeLookupCost)
+    peer.awaitNonNegativeRequestQuota()
+
+    var found = 0
+    for period in startPeriod..<onePastPeriod:
+      let update = dag.getBestLightClientUpdateForPeriod(period)
+      if update.isSome:
+        await response.write(update.get)
+        inc found
+
+    peer.updateRequestQuota(found.float * lightClientUpdateResponseCost)
+
+    debug "LC updates by range request done", peer, startPeriod, count, found
+
+    if found == 0 and count > 0:
+      raise newException(ResourceUnavailableError,
+                         "No light client update available")
+
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#getlatestlightclientupdate
+  proc latestLightClientUpdate(
+      peer: Peer,
+      response: SingleChunkResponse[altair.LightClientUpdate])
+      {.async, libp2pProtocol("latest_light_client_update", 0,
+                              isLightClientRequest = true).} =
+    trace "Received latest LC update request", peer
+    let dag = peer.networkState.dag
+    doAssert dag.serveLightClientData
+
+    peer.awaitNonNegativeRequestQuota()
+
+    let update = dag.getLatestLightClientUpdate
+    if update.isSome:
+      await response.send(update.get)
+    else:
+      raise newException(ResourceUnavailableError,
+                         "No light client update available")
+
+    peer.updateRequestQuota(lightClientUpdateResponseCost)
+
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#getoptimisticlightclientupdate
+  proc optimisticLightClientUpdate(
+      peer: Peer,
+      response: SingleChunkResponse[OptimisticLightClientUpdate])
+      {.async, libp2pProtocol("optimistic_light_client_update", 0,
+                              isLightClientRequest = true).} =
+    trace "Received optimistic LC update request", peer
+    let dag = peer.networkState.dag
+    doAssert dag.serveLightClientData
+
+    peer.awaitNonNegativeRequestQuota()
+
+    let optimistic_update = dag.getOptimisticLightClientUpdate
+    if optimistic_update.isSome:
+      await response.send(optimistic_update.get)
+    else:
+      raise newException(ResourceUnavailableError,
+                         "No optimistic light client update available")
+
+    peer.updateRequestQuota(lightClientUpdateResponseCost)
+
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#getlightclientbootstrap
+  proc lightClientBootstrap(
+      peer: Peer,
+      blockRoot: Eth2Digest,
+      response: SingleChunkResponse[altair.LightClientBootstrap])
+      {.async, libp2pProtocol("light_client_bootstrap", 0,
+                              isLightClientRequest = true).} =
+    trace "Received LC bootstrap request", peer, blockRoot
+    let dag = peer.networkState.dag
+    doAssert dag.serveLightClientData
+
+    peer.updateRequestQuota(lightClientBootstrapLookupCost)
+    peer.awaitNonNegativeRequestQuota()
+
+    let bootstrap = dag.getLightClientBootstrap(blockRoot)
+    if bootstrap.isOk:
+      await response.send(bootstrap.get)
+    else:
+      raise newException(ResourceUnavailableError,
+                         "No light client bootstrap available")
+
+    peer.updateRequestQuota(lightClientBootstrapResponseCost)
 
   proc goodbye(peer: Peer,
                reason: uint64)
