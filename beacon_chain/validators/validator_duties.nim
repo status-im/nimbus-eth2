@@ -478,7 +478,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
         SyncAggregate.init()
       else:
-        node.sync_committee_msg_pool[].produceSyncAggregate(head.root),
+        node.syncCommitteeMsgPool[].produceSyncAggregate(head.root),
       default(bellatrix.ExecutionPayload),
       noRollback, # Temporary state - no need for rollback
       cache)
