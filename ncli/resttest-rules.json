@@ -2969,6 +2969,16 @@
       "headers": {"Accept": "application/json"}
     },
     "response": {
+      "status": {"operator": "equals", "value": "400"}
+    }
+  },
+  {
+    "topics": ["validator", "attestation_data"],
+    "request": {
+      "url": "/eth/v1/validator/attestation_data?slot=0&committee_index=1",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
       "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"slot": "", "index": "", "beacon_block_root": "", "source": {"epoch": "", "root": ""}, "target": {"epoch": "", "root": ""}}}]
