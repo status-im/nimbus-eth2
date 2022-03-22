@@ -289,22 +289,23 @@ proc sendSyncCommitteeMessages*(node: BeaconNode,
       let (pending, indices) = block:
         var resFutures: seq[Future[SendResult]]
         var resIndices: seq[int]
+        template headSyncCommittees(): auto = node.dag.headSyncCommittees
         for subcommitteeIdx in SyncSubcommitteeIndex:
           for valKey in syncSubcommittee(
-              node.dag.headSyncCommittees.current_sync_committee, subcommitteeIdx):
+              headSyncCommittees.current_sync_committee, subcommitteeIdx):
             let index = keysCur.getOrDefault(uint64(valKey), -1)
             if index >= 0:
               resIndices.add(index)
-              resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
-                                                          subcommitteeIdx, true))
+              resFutures.add(node.sendSyncCommitteeMessage(
+                msgs[index], subcommitteeIdx, true))
         for subcommitteeIdx in SyncSubcommitteeIndex:
           for valKey in syncSubcommittee(
-              node.dag.headSyncCommittees.next_sync_committee, subcommitteeIdx):
+              headSyncCommittees.next_sync_committee, subcommitteeIdx):
             let index = keysNxt.getOrDefault(uint64(valKey), -1)
             if index >= 0:
               resIndices.add(index)
-              resFutures.add(node.sendSyncCommitteeMessage(msgs[index],
-                                                          subcommitteeIdx, true))
+              resFutures.add(node.sendSyncCommitteeMessage(
+                msgs[index], subcommitteeIdx, true))
         (resFutures, resIndices)
 
       await allFutures(pending)
@@ -447,7 +448,9 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
     proposalState = assignClone(node.dag.headState)
 
   # TODO fails at checkpoint synced head
-  node.dag.withUpdatedState(proposalState[], head.atSlot(slot - 1).toBlockSlotId().expect("not nil")) do:
+  node.dag.withUpdatedState(
+      proposalState[],
+      head.atSlot(slot - 1).toBlockSlotId().expect("not nil")):
     # Advance to the given slot without calculating state root - we'll only
     # need a state root _with_ the block applied
     var info: ForkedEpochInfo
@@ -849,11 +852,12 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
         continue
 
       var contribution: SyncCommitteeContribution
-      let contributionWasProduced = node.syncCommitteeMsgPool[].produceContribution(
-        slot,
-        head.root,
-        candidateAggregators[i].subcommitteeIdx,
-        contribution)
+      let contributionWasProduced =
+        node.syncCommitteeMsgPool[].produceContribution(
+          slot,
+          head.root,
+          candidateAggregators[i].subcommitteeIdx,
+          contribution)
 
       if contributionWasProduced:
         asyncSpawn signAndSendContribution(
@@ -1055,9 +1059,9 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   # If broadcastStartEpoch is 0, it hasn't had time to initialize yet, which
   # means that it'd be okay not to continue, but it won't gossip regardless.
-  if curSlot.epoch <
-        node.processor[].doppelgangerDetection.broadcastStartEpoch and
-      node.processor[].doppelgangerDetection.nodeLaunchSlot > GENESIS_SLOT and
+  let doppelgangerDetection = node.processor[].doppelgangerDetection
+  if curSlot.epoch < doppelgangerDetection.broadcastStartEpoch and
+      doppelgangerDetection.nodeLaunchSlot > GENESIS_SLOT and
       node.config.doppelgangerDetection:
     let
       nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot - 1)
@@ -1066,13 +1070,11 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     if slot in [nextAttestationSlot, nextProposalSlot]:
       notice "Doppelganger detection active - skipping validator duties while observing activity on the network",
         slot, epoch = slot.epoch,
-        broadcastStartEpoch =
-          node.processor[].doppelgangerDetection.broadcastStartEpoch
+        broadcastStartEpoch = doppelgangerDetection.broadcastStartEpoch
     else:
       debug "Doppelganger detection active - skipping validator duties while observing activity on the network",
         slot, epoch = slot.epoch,
-        broadcastStartEpoch =
-          node.processor[].doppelgangerDetection.broadcastStartEpoch
+        broadcastStartEpoch = doppelgangerDetection.broadcastStartEpoch
 
     return
 
@@ -1112,7 +1114,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       attestationCutoff = shortLog(attestationCutoff.offset)
 
     # Wait either for the block or the attestation cutoff time to arrive
-    if await node.consensusManager[].expectBlock(slot).withTimeout(attestationCutoff.offset):
+    if await node.consensusManager[].expectBlock(slot)
+        .withTimeout(attestationCutoff.offset):
       # The expected block arrived (or expectBlock was called again which
       # shouldn't happen as this is the only place we use it) - in our async
       # loop however, we might have been doing other processing that caused delays
@@ -1237,7 +1240,8 @@ proc sendAggregateAndProof*(node: BeaconNode,
                             proof: SignedAggregateAndProof): Future[SendResult] {.
      async.} =
   # REST/JSON-RPC API helper procedure.
-  let res = await node.processor.aggregateValidator(MsgSource.api, proof)
+  let res =
+    await node.processor.aggregateValidator(MsgSource.api, proof)
   return
     if res.isGoodForSending:
       node.network.broadcastAggregateAndProof(proof)
@@ -1257,7 +1261,8 @@ proc sendAggregateAndProof*(node: BeaconNode,
 proc sendVoluntaryExit*(node: BeaconNode,
                         exit: SignedVoluntaryExit): SendResult =
   # REST/JSON-RPC API helper procedure.
-  let res = node.processor[].voluntaryExitValidator(MsgSource.api, exit)
+  let res =
+    node.processor[].voluntaryExitValidator(MsgSource.api, exit)
   if res.isGoodForSending:
     node.network.broadcastVoluntaryExit(exit)
     ok()
@@ -1269,7 +1274,8 @@ proc sendVoluntaryExit*(node: BeaconNode,
 proc sendAttesterSlashing*(node: BeaconNode,
                            slashing: AttesterSlashing): SendResult =
   # REST/JSON-RPC API helper procedure.
-  let res = node.processor[].attesterSlashingValidator(MsgSource.api, slashing)
+  let res =
+    node.processor[].attesterSlashingValidator(MsgSource.api, slashing)
   if res.isGoodForSending:
     node.network.broadcastAttesterSlashing(slashing)
     ok()
@@ -1281,7 +1287,8 @@ proc sendAttesterSlashing*(node: BeaconNode,
 proc sendProposerSlashing*(node: BeaconNode,
                            slashing: ProposerSlashing): SendResult =
   # REST/JSON-RPC API helper procedure.
-  let res = node.processor[].proposerSlashingValidator(MsgSource.api, slashing)
+  let res =
+    node.processor[].proposerSlashingValidator(MsgSource.api, slashing)
   if res.isGoodForSending:
     node.network.broadcastProposerSlashing(slashing)
     ok()
@@ -1356,7 +1363,8 @@ proc registerDuty*(
 proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
   ## Register upcoming duties of attached validators with the duty tracker
 
-  if node.attachedValidators[].count() == 0 or not node.isSynced(node.dag.head):
+  if node.attachedValidators[].count() == 0 or
+      not node.isSynced(node.dag.head):
     # Nothing to do because we have no validator attached
     return
 
