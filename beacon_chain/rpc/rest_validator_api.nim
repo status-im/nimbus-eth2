@@ -287,6 +287,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
                                                $slot.error())
             slot.get()
+        if qslot <= node.dag.finalizedHead.slot:
+          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                           "Slot already finalized")
         let qrandao =
           if randao_reveal.isNone():
             return RestApiResponse.jsonError(Http400, MissingRandaoRevealValue)
@@ -345,6 +348,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
                                                $slot.error())
             slot.get()
+        if qslot <= node.dag.finalizedHead.slot:
+          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                           "Slot already finalized")
         let qrandao =
           if randao_reveal.isNone():
             return RestApiResponse.jsonError(Http400, MissingRandaoRevealValue)
@@ -400,6 +406,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
                                                $res.error())
             res.get()
+        if qslot <= node.dag.finalizedHead.slot:
+          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                           "Slot already finalized")
         let qindex =
           block:
             if committee_index.isNone():
@@ -606,19 +615,22 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v1/validator/sync_committee_contribution") do (
     slot: Option[Slot], subcommittee_index: Option[SyncSubCommitteeIndex],
     beacon_block_root: Option[Eth2Digest]) -> RestApiResponse:
-    let qslot =
+    let qslot = block:
       if slot.isNone():
         return RestApiResponse.jsonError(Http400, MissingSlotValueError)
-      else:
-        let res = slot.get()
-        if res.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                           $res.error())
-        let rslot = res.get()
-        if epoch(rslot) < node.dag.cfg.ALTAIR_FORK_EPOCH:
-          return RestApiResponse.jsonError(Http400,
-                                           SlotFromTheIncorrectForkError)
-        rslot
+
+      let res = slot.get()
+      if res.isErr():
+        return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                          $res.error())
+      let rslot = res.get()
+      if epoch(rslot) < node.dag.cfg.ALTAIR_FORK_EPOCH:
+        return RestApiResponse.jsonError(Http400,
+                                          SlotFromTheIncorrectForkError)
+      rslot
+    if qslot <= node.dag.finalizedHead.slot:
+      return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                        "Slot already finalized")
     let qindex =
       if subcommittee_index.isNone():
         return RestApiResponse.jsonError(Http400,
