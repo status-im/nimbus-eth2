@@ -198,15 +198,13 @@ proc main() {.async.} =
       seed = getSeed(mnemonic, KeyStorePass.init "")
       cfg = getRuntimeConfig(conf.eth2Network)
 
-    let vres = secureCreatePath(string conf.outValidatorsDir)
-    if vres.isErr():
+    if (let res = secureCreatePath(string conf.outValidatorsDir); res.isErr):
       warn "Could not create validators folder",
-           path = string conf.outValidatorsDir, err = ioErrorMsg(vres.error)
+        path = string conf.outValidatorsDir, err = ioErrorMsg(res.error)
 
-    let sres = secureCreatePath(string conf.outSecretsDir)
-    if sres.isErr():
+    if (let res = secureCreatePath(string conf.outSecretsDir); res.isErr):
       warn "Could not create secrets folder",
-           path = string conf.outSecretsDir, err = ioErrorMsg(sres.error)
+        path = string conf.outSecretsDir, err = ioErrorMsg(res.error)
 
     let deposits = generateDeposits(
       cfg,

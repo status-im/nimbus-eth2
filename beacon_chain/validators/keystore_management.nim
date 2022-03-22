@@ -154,10 +154,9 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
                    new_permissions = requiredPerms.toOct(4)
             return false
     else:
-      let res = secureCreatePath(dataDir)
-      if res.isErr():
-        fatal "Could not create data directory", data_dir = dataDir,
-              errorMsg = ioErrorMsg(res.error), errorCode = $res.error
+      if (let res = secureCreatePath(dataDir); res.isErr):
+        fatal "Could not create data directory",
+          path = dataDir, err = ioErrorMsg(res.error), errorCode = $res.error
         return false
   elif defined(windows):
     let amask = {AccessFlags.Read, AccessFlags.Write, AccessFlags.Execute}
@@ -165,18 +164,17 @@ proc checkAndCreateDataDir*(dataDir: string): bool =
       let cres = checkCurrentUserOnlyACL(dataDir)
       if cres.isErr():
         fatal "Could not check data folder's ACL",
-               data_dir = dataDir, errorCode = $cres.error,
+               path = dataDir, errorCode = $cres.error,
                errorMsg = ioErrorMsg(cres.error)
         return false
       else:
         if cres.get() == false:
-          fatal "Data folder has insecure ACL", data_dir = dataDir
+          fatal "Data folder has insecure ACL", path = dataDir
           return false
     else:
-      let res = secureCreatePath(dataDir)
-      if res.isErr():
-        fatal "Could not create data folder", data_dir = dataDir,
-                errorMsg = ioErrorMsg(res.error), errorCode = $res.error
+      if (let res = secureCreatePath(dataDir); res.isErr):
+        fatal "Could not create data folder",
+          path = dataDir, err = ioErrorMsg(res.error), errorCode = $res.error
         return false
   else:
     fatal "Unsupported operation system"
