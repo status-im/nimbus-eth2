@@ -40,7 +40,7 @@ proc validate(key: string, value: string): int =
   else:
     1
 
-proc getCurrentHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
+proc getSyncedHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
   let head = node.dag.head
 
   if slot > head.slot and not node.isSynced(head):
@@ -48,11 +48,11 @@ proc getCurrentHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
 
   ok(head)
 
-proc getCurrentHead*(node: BeaconNode,
+proc getSyncedHead*(node: BeaconNode,
                      epoch: Epoch): Result[BlockRef, cstring] =
   if epoch > MaxEpoch:
     return err("Requesting epoch for which slot would overflow")
-  node.getCurrentHead(epoch.start_slot())
+  node.getSyncedHead(epoch.start_slot())
 
 proc getBlockSlotId*(node: BeaconNode,
                      stateIdent: StateIdent): Result[BlockSlotId, cstring] =
@@ -61,7 +61,7 @@ proc getBlockSlotId*(node: BeaconNode,
     # Limit requests by state id to the next epoch with respect to the current
     # head to avoid long empty slot replays (in particular a second epoch
     # transition)
-    if stateIdent.slot.epoch + 1 > node.dag.head.slot.epoch:
+    if not (stateIdent.slot.epoch <= (node.dag.head.slot.epoch + 1)):
       return err("Requesting state too far ahead of head current head")
 
     let bsi = node.dag.getBlockIdAtSlot(stateIdent.slot).valueOr:
