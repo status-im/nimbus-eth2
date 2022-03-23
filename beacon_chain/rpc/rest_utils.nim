@@ -3,6 +3,7 @@ import std/[options, macros],
        ../spec/[forks],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization],
        ../beacon_node,
+       ../validators/validator_duties,
        ../consensus_object_pools/blockchain_dag,
        "."/[rest_constants, state_ttl_cache]
 
@@ -39,32 +40,31 @@ proc validate(key: string, value: string): int =
   else:
     1
 
-func getCurrentSlot*(node: BeaconNode, slot: Slot):
-    Result[Slot, cstring] =
-  if slot <= (node.dag.head.slot + (SLOTS_PER_EPOCH * 2)):
-    ok(slot)
-  else:
-    err("Requesting slot too far ahead of the current head")
+proc getSyncedHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
+  let head = node.dag.head
 
-proc getCurrentHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
-  let res = node.dag.head
-  # if not(node.isSynced(res)):
-  #   return err("Cannot fulfill request until node is synced")
-  if res.slot + uint64(2 * SLOTS_PER_EPOCH) < slot:
+  if slot > head.slot and not node.isSynced(head):
     return err("Requesting way ahead of the current head")
-  ok(res)
 
-proc getCurrentHead*(node: BeaconNode,
+  ok(head)
+
+proc getSyncedHead*(node: BeaconNode,
                      epoch: Epoch): Result[BlockRef, cstring] =
   if epoch > MaxEpoch:
     return err("Requesting epoch for which slot would overflow")
-  node.getCurrentHead(epoch.start_slot())
+  node.getSyncedHead(epoch.start_slot())
 
 proc getBlockSlotId*(node: BeaconNode,
                      stateIdent: StateIdent): Result[BlockSlotId, cstring] =
   case stateIdent.kind
   of StateQueryKind.Slot:
-    let bsi = node.dag.getBlockIdAtSlot(? node.getCurrentSlot(stateIdent.slot)).valueOr:
+    # Limit requests by state id to the next epoch with respect to the current
+    # head to avoid long empty slot replays (in particular a second epoch
+    # transition)
+    if stateIdent.slot.epoch > (node.dag.head.slot.epoch + 1):
+      return err("Requesting state too far ahead of current head")
+
+    let bsi = node.dag.getBlockIdAtSlot(stateIdent.slot).valueOr:
       return err("State for given slot not found, history not available?")
 
     ok(bsi)
@@ -84,8 +84,12 @@ proc getBlockSlotId*(node: BeaconNode,
     of StateIdentType.Finalized:
       ok(node.dag.finalizedHead.toBlockSlotId().expect("not nil"))
     of StateIdentType.Justified:
-      ok(node.dag.head.atEpochStart(getStateField(
-        node.dag.headState, current_justified_checkpoint).epoch).toBlockSlotId().expect("not nil"))
+      # Take checkpoint-synced nodes into account
+      let justifiedEpoch =
+        max(
+          getStateField(node.dag.headState, current_justified_checkpoint).epoch,
+          node.dag.finalizedHead.slot.epoch)
+      ok(node.dag.head.atEpochStart(justifiedEpoch).toBlockSlotId().expect("not nil"))
 
 proc getBlockId*(node: BeaconNode, id: BlockIdent): Opt[BlockId] =
   case id.kind

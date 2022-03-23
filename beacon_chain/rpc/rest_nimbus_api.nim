@@ -225,7 +225,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let wallSlot = node.beaconClock.now.slotOrZero
     let head =
       block:
-        let res = node.getCurrentHead(wallSlot)
+        let res = node.getSyncedHead(wallSlot)
         if res.isErr():
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()

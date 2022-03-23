@@ -63,7 +63,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     let qhead =
       block:
-        let res = node.getCurrentHead(qepoch)
+        let res = node.getSyncedHead(qepoch)
         if res.isErr():
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
@@ -116,7 +116,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     let qhead =
       block:
-        let res = node.getCurrentHead(qepoch)
+        let res = node.getSyncedHead(qepoch)
         if res.isErr():
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
@@ -281,12 +281,26 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     graffiti: Option[GraffitiBytes]) -> RestApiResponse:
     let message =
       block:
-        let qslot =
-          block:
-            if slot.isErr():
-              return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                               $slot.error())
-            slot.get()
+        let qslot = block:
+          if slot.isErr():
+            return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                              $slot.error())
+          let res = slot.get()
+
+          if res <= node.dag.finalizedHead.slot:
+            return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                             "Slot already finalized")
+          let
+            wallTime = node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+          if res > wallTime.slotOrZero:
+            return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                             "Slot cannot be in the future")
+
+          if node.dag.cfg.blockForkAtEpoch(res.epoch) != BeaconBlockFork.Phase0:
+            return RestApiResponse.jsonError(Http400,
+                                             "Use v2 for Altair+ slots")
+
+          res
         let qrandao =
           if randao_reveal.isNone():
             return RestApiResponse.jsonError(Http400, MissingRandaoRevealValue)
@@ -309,13 +323,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             res.get()
         let qhead =
           block:
-            let res = node.getCurrentHead(qslot)
+            let res = node.getSyncedHead(qslot)
             if res.isErr():
-              if not(node.isSynced(node.dag.head)):
-                return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-              else:
-                return RestApiResponse.jsonError(Http400, NoHeadForSlotError,
-                                                 $res.error())
+              return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                               $res.error())
             res.get()
         let proposer = node.dag.getProposer(qhead, qslot)
         if proposer.isNone():
@@ -331,7 +342,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         RestApiResponse.jsonResponse(message.phase0Data)
       else:
         RestApiResponse.jsonError(Http400,
-                                  "Unable to produce block for altair fork")
+                                  "Use v2 for Altair+ slots")
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV2
   router.api(MethodGet, "/eth/v2/validator/blocks/{slot}") do (
@@ -339,12 +350,21 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     graffiti: Option[GraffitiBytes]) -> RestApiResponse:
     let message =
       block:
-        let qslot =
-          block:
-            if slot.isErr():
-              return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                               $slot.error())
-            slot.get()
+        let qslot = block:
+          if slot.isErr():
+            return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                              $slot.error())
+          let res = slot.get()
+
+          if res <= node.dag.finalizedHead.slot:
+            return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                             "Slot already finalized")
+          let
+            wallTime = node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+          if res > wallTime.slotOrZero:
+            return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                             "Slot cannot be in the future")
+          res
         let qrandao =
           if randao_reveal.isNone():
             return RestApiResponse.jsonError(Http400, MissingRandaoRevealValue)
@@ -367,13 +387,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             res.get()
         let qhead =
           block:
-            let res = node.getCurrentHead(qslot)
+            let res = node.getSyncedHead(qslot)
             if res.isErr():
-              if not(node.isSynced(node.dag.head)):
-                return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-              else:
-                return RestApiResponse.jsonError(Http400, NoHeadForSlotError,
-                                                 $res.error())
+              return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                               $res.error())
             res.get()
         let proposer = node.dag.getProposer(qhead, qslot)
         if proposer.isNone():
@@ -400,6 +417,20 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
                                                $res.error())
             res.get()
+        if qslot <= node.dag.finalizedHead.slot:
+          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                           "Slot already finalized")
+        let
+          wallTime = node.beaconClock.now()
+        if qslot > (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero:
+          return RestApiResponse.jsonError(
+            Http400, InvalidSlotValueError, "Slot cannot be in the future")
+        if qslot + SLOTS_PER_EPOCH <
+            (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero:
+          return RestApiResponse.jsonError(
+            Http400, InvalidSlotValueError,
+            "Slot cannot be more than an epoch in the past")
+
         let qindex =
           block:
             if committee_index.isNone():
@@ -413,7 +444,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             res.get()
         let qhead =
           block:
-            let res = node.getCurrentHead(qslot)
+            let res = node.getSyncedHead(qslot)
             if res.isErr():
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
             res.get()
@@ -606,19 +637,22 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v1/validator/sync_committee_contribution") do (
     slot: Option[Slot], subcommittee_index: Option[SyncSubCommitteeIndex],
     beacon_block_root: Option[Eth2Digest]) -> RestApiResponse:
-    let qslot =
+    let qslot = block:
       if slot.isNone():
         return RestApiResponse.jsonError(Http400, MissingSlotValueError)
-      else:
-        let res = slot.get()
-        if res.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                           $res.error())
-        let rslot = res.get()
-        if epoch(rslot) < node.dag.cfg.ALTAIR_FORK_EPOCH:
-          return RestApiResponse.jsonError(Http400,
-                                           SlotFromTheIncorrectForkError)
-        rslot
+
+      let res = slot.get()
+      if res.isErr():
+        return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                          $res.error())
+      let rslot = res.get()
+      if epoch(rslot) < node.dag.cfg.ALTAIR_FORK_EPOCH:
+        return RestApiResponse.jsonError(Http400,
+                                          SlotFromTheIncorrectForkError)
+      rslot
+    if qslot <= node.dag.finalizedHead.slot:
+      return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                        "Slot already finalized")
     let qindex =
       if subcommittee_index.isNone():
         return RestApiResponse.jsonError(Http400,
@@ -643,7 +677,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
 
     # Check if node is fully synced.
-    let sres = node.getCurrentHead(qslot)
+    let sres = node.getSyncedHead(qslot)
     if sres.isErr():
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 

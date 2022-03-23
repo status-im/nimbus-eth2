@@ -616,6 +616,16 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       slot = shortLog(slot)
     return
 
+  if slot < node.dag.finalizedHead.slot:
+    # During checkpoint sync, we implicitly finalize the given slot even if the
+    # state transition does not yet consider it final - this is a sanity check
+    # mostly to ensure the `atSlot` below works as expected
+    warn "Skipping attestation - slot already finalized",
+      head = shortLog(head),
+      slot = shortLog(slot),
+      finalized = shortLog(node.dag.finalizedHead)
+    return
+
   let attestationHead = head.atSlot(slot)
   if head != attestationHead.blck:
     # In rare cases, such as when we're busy syncing or just slow, we'll be

@@ -213,15 +213,17 @@ proc addHeadBlock*(
   # by the time a new block reaches this point, the parent block will already
   # have "established" itself in the network to some degree at least.
   var cache = StateCache()
-  let clearanceBlock =
-    parent.atSlot(signedBlock.message.slot).toBlockslotId.expect("not nil")
+
+  # We've verified that the slot of the new block is newer than that of the
+  # parent, so we should now be able to create an approriate clearance state
+  # onto which we can apply the new block
+  let clearanceBlock = BlockSlotId.init(parent.bid, signedBlock.message.slot)
   if not updateState(
       dag, dag.clearanceState, clearanceBlock, true, cache):
     # We should never end up here - the parent must be a block no older than and
     # rooted in the finalized checkpoint, hence we should always be able to
     # load its corresponding state
     error "Unable to load clearance state for parent block, database corrupt?",
-      parent = shortLog(parent.atSlot(signedBlock.message.slot)),
       clearanceBlock = shortLog(clearanceBlock)
     return err(BlockError.MissingParent)
 
