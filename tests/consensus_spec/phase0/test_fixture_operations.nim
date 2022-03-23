@@ -44,7 +44,7 @@ proc runTest[T, U](
 
   proc testImpl() =
     let prefix =
-      if existsFile(testDir/"post.ssz_snappy"):
+      if fileExists(testDir/"post.ssz_snappy"):
         "[Valid]   "
       else:
         "[Invalid] "
@@ -55,7 +55,7 @@ proc runTest[T, U](
       let done = applyProc(
         preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
 
-      if existsFile(testDir/"post.ssz_snappy"):
+      if fileExists(testDir/"post.ssz_snappy"):
         let postState =
           newClone(parseTest(testDir/"post.ssz_snappy", SSZ, phase0.BeaconState))
 

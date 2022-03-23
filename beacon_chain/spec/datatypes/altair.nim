@@ -31,7 +31,7 @@
 import
   std/[typetraits, sets, hashes],
   chronicles,
-  stew/[assign2, bitops2, objects],
+  stew/[bitops2, objects],
   "."/[base, phase0]
 
 export base, sets
@@ -547,7 +547,7 @@ chronicles.formatIt SyncSubcommitteeIndex: uint8(it)
 template `[]`*(a: auto; i: SyncSubcommitteeIndex): auto =
   a[i.asInt]
 
-template `[]`*(arr: array[SYNC_COMMITTEE_SIZE, any] | seq;
+template `[]`*(arr: array[SYNC_COMMITTEE_SIZE, auto] | seq;
                idx: IndexInSyncCommittee): auto =
   arr[int idx]
 
