@@ -2963,6 +2963,28 @@
     }
   },
   {
+    "topics": ["validator", "blocksV2"],
+    "request": {
+      "url": "/eth/v2/validator/blocks/0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"}
+    }
+  },
+  {
+    "topics": ["validator", "blocksV2"],
+    "request": {
+      "url": "/eth/v2/validator/blocks/1?randao_reveal=0x97897b5e8526b4d0f808e7b60bcd1942935b124720bd5156da54c54adc25fe458ef7c934b4e5018afe4659978b06e6510797e5cc7fc31f329035ec6a46889ee9aea375d57b22be71dd4ff181b7f1a07b9199e73c2b80e39e04ba904596d9e4db",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"slot": "", "proposer_index": "", "parent_root": "", "state_root": "", "body": {"randao_reveal": "", "eth1_data": {"deposit_root": "", "deposit_count": "", "block_hash": ""}, "graffiti": "", "proposer_slashings": [], "attester_slashings": [], "attestations": [], "deposits": [], "voluntary_exits": []}}}]
+    }
+  },
+  {
     "topics": ["validator", "attestation_data"],
     "request": {
       "url": "/eth/v1/validator/attestation_data?slot=0&committee_index=0",
@@ -2975,7 +2997,7 @@
   {
     "topics": ["validator", "attestation_data"],
     "request": {
-      "url": "/eth/v1/validator/attestation_data?slot=0&committee_index=1",
+      "url": "/eth/v1/validator/attestation_data?slot=1&committee_index=0",
       "headers": {"Accept": "application/json"}
     },
     "response": {

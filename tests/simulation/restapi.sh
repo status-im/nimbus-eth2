@@ -189,19 +189,21 @@ cleanup() {
 }
 trap 'cleanup' SIGINT SIGTERM EXIT
 
-if [[ ! -f "${SNAPSHOT_FILE}" ]]; then
-  echo "Creating testnet genesis..."
-  ${NIMBUS_BEACON_NODE_BIN} \
-    --data-dir="${TEST_DIR}" \
-    createTestnet \
-    --deposits-file="${DEPOSITS_FILE}" \
-    --total-validators="${NUM_VALIDATORS}" \
-    --output-genesis="${SNAPSHOT_FILE}" \
-    --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
-    --netkey-file=network_key.json \
-    --insecure-netkey-password=true \
-    --genesis-offset=0 # Delay in seconds
-fi
+echo "Creating testnet genesis..."
+${NIMBUS_BEACON_NODE_BIN} \
+  --data-dir="${TEST_DIR}" \
+  createTestnet \
+  --deposits-file="${DEPOSITS_FILE}" \
+  --total-validators="${NUM_VALIDATORS}" \
+  --output-genesis="${SNAPSHOT_FILE}" \
+  --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
+  --netkey-file=network_key.json \
+  --insecure-netkey-password=true \
+  --genesis-offset=-12 # Chain that has already started allows testing empty slots
+
+# Make sure we use the newly generated genesis
+echo "Removing existing database..."
+rm -rf "${TEST_DIR}/db"
 
 DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
