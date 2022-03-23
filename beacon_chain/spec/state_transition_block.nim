@@ -558,18 +558,6 @@ proc process_block*(
 
   ok()
 
-func process_block*(
-    cfg: RuntimeConfig,
-    state: var altair.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] =
-  err("process_block: Altair state with Phase 0 block")
-
-func process_block*(
-    cfg: RuntimeConfig,
-    state: var bellatrix.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] =
-  err("process_block: Merge state with Phase 0 block")
-
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/altair.nim
@@ -600,12 +588,12 @@ proc process_block*(
   ok()
 
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-type SomeMergeBlock =
+type SomeBellatrixBlock =
   bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock
 proc process_block*(
     cfg: RuntimeConfig,
-    state: var bellatrix.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring]=
+    state: var bellatrix.BeaconState, blck: SomeBellatrixBlock,
+    flags: UpdateFlags, cache: var StateCache): Result[void, cstring]=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
@@ -629,27 +617,3 @@ proc process_block*(
     state, blck.body.sync_aggregate, total_active_balance, cache)
 
   ok()
-
-func process_block*(
-    cfg: RuntimeConfig,
-    state: var phase0.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring]=
-  err("process_block: Phase 0 state with Altair block")
-
-func process_block*(
-    cfg: RuntimeConfig,
-    state: var phase0.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring]=
-  err("process_block: Phase 0 state with Merge block")
-
-func process_block*(
-    cfg: RuntimeConfig,
-    state: var altair.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring]=
-  err("process_block: Altair state with Merge block")
-
-func process_block*(
-    cfg: RuntimeConfig,
-    state: var bellatrix.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring]=
-  err("process_block: Merge state with Altair block")
