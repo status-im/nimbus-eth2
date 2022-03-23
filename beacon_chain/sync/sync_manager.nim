@@ -113,6 +113,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getLocalWallSlotCb: GetSlotCallback,
                            getFinalizedSlotCb: GetSlotCallback,
                            getBackfillSlotCb: GetSlotCallback,
+                           getFrontfillSlotCb: GetSlotCallback,
                            progressPivot: Slot,
                            blockVerifier: BlockVerifier,
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
@@ -124,8 +125,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
   of SyncQueueKind.Forward:
     (getLocalHeadSlotCb, getLocalWallSlotCb, getFinalizedSlotCb)
   of SyncQueueKind.Backward:
-    (getBackfillSlotCb, GetSlotCallback(proc(): Slot = Slot(0)),
-     getBackfillSlotCb)
+    (getBackfillSlotCb, getFrontfillSlotCb, getBackfillSlotCb)
 
   var res = SyncManager[A, B](
     pool: pool,

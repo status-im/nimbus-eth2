@@ -33,6 +33,8 @@ export proto_array.len
 # Forward declarations
 # ----------------------------------------------------------------------
 
+type Index = fork_choice_types.Index
+
 func compute_deltas(
        deltas: var openArray[Delta],
        indices: Table[Eth2Digest, Index],

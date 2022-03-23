@@ -4,8 +4,13 @@ import
   std/strformat,
   stew/[arrayops, endians2, io2, results],
   snappy, snappy/framing,
-  ../beacon_chain/spec/forks,
+  ../beacon_chain/spec/[beacon_time, forks],
   ../beacon_chain/spec/eth2_ssz_serialization
+
+export io2
+
+type
+  Era* = distinct uint64 # Time unit, similar to slot
 
 const
   E2Version* = [byte 0x65, 0x32]
@@ -18,7 +23,10 @@ const
   LengthFieldLen = 6
   HeaderFieldLen = TypeFieldLen + LengthFieldLen
 
+  FAR_FUTURE_ERA* = Era(not 0'u64)
+
 type
+
   Type* = array[2, byte]
 
   Header* = object
@@ -33,19 +41,32 @@ type
     startSlot*: Slot
     offsets*: seq[int64] # Absolute positions in file
 
+ethTimeUnit Era
+
+func era*(s: Slot): Era =
+  if s == FAR_FUTURE_SLOT: FAR_FUTURE_ERA
+  else: Era(s div SLOTS_PER_HISTORICAL_ROOT)
+
+func start_slot*(e: Era): Slot =
+  const maxEra = Era(FAR_FUTURE_SLOT div SLOTS_PER_HISTORICAL_ROOT)
+  if e >= maxEra: FAR_FUTURE_SLOT
+  else: Slot(e.uint64 * SLOTS_PER_HISTORICAL_ROOT)
+
 proc toString(v: IoErrorCode): string =
   try: ioErrorMsg(v)
   except Exception as e: raiseAssert e.msg
 
-func eraFileName*(cfg: RuntimeConfig, state: ForkyBeaconState, era: uint64): string =
+func eraFileName*(
+    cfg: RuntimeConfig, genesis_validators_root: Eth2Digest,
+    historical_roots: openArray[Eth2Digest], era: Era): string =
   try:
     let
       historicalRoot =
-        if era == 0: state.genesis_validators_root
-        elif era > state.historical_roots.lenu64(): Eth2Digest()
-        else: state.historical_roots.asSeq()[era - 1]
+        if era == Era(0): genesis_validators_root
+        elif era > historical_roots.lenu64(): Eth2Digest()
+        else: historical_roots[int(uint64(era)) - 1]
 
-    &"{cfg.name()}-{era.int:05}-{1:05}-{shortLog(historicalRoot)}.era"
+    &"{cfg.name()}-{era.uint64:05}-{1:05}-{shortLog(historicalRoot)}.era"
   except ValueError as exc:
     raiseAssert exc.msg
 
@@ -186,10 +207,13 @@ proc readIndex*(f: IoHandle): Result[Index, string] =
   for i in 0..<count:
     ? f.readFileExact(buf)
 
-    let offset = uint64.fromBytesLE(buf)
-
-    # Wrapping math is actually convenient here
-    let absolute = cast[int64](cast[uint64](startPos) + offset)
+    let
+      offset = uint64.fromBytesLE(buf)
+      absolute =
+        if offset == 0: 0'i64
+        else:
+          # Wrapping math is actually convenient here
+          cast[int64](cast[uint64](startPos) + offset)
 
     if absolute < 0 or absolute > fileSize: return err("Invalid offset")
     offsets[i] = absolute

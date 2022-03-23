@@ -59,7 +59,7 @@ const
 
 # TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
 # switch proc {.noSideEffect.} to func.
-template ethTimeUnit(typ: type) {.dirty.} =
+template ethTimeUnit*(typ: type) {.dirty.} =
   proc `+`*(x: typ, y: uint64): typ {.borrow, noSideEffect.}
   proc `-`*(x: typ, y: uint64): typ {.borrow, noSideEffect.}
   proc `-`*(x: uint64, y: typ): typ {.borrow, noSideEffect.}

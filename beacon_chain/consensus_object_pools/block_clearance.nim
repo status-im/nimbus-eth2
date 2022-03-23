@@ -301,11 +301,11 @@ proc addBackfillBlock*(
 
       return err(BlockError.UnviableFork)
 
-  if blck.slot == dag.genesis.slot and
-      dag.backfill.parent_root == dag.genesis.root:
-    if blockRoot != dag.genesis.root:
-      # We've matched the backfill blocks all the way back to genesis via the
-      # `parent_root` chain and ended up at a different genesis - one way this
+  if blck.slot == dag.frontfill.slot and
+      dag.backfill.parent_root == dag.frontfill.root:
+    if blockRoot != dag.frontfill.root:
+      # We've matched the backfill blocks all the way back to frontfill via the
+      # `parent_root` chain and ended up at a different block - one way this
       # can happen is when an invalid `--network` parameter is given during
       # startup (though in theory, we check that - maybe the database was
       # swapped or something?).
@@ -316,6 +316,7 @@ proc addBackfillBlock*(
 
     dag.backfill = blck.toBeaconBlockSummary()
     dag.db.finalizedBlocks.insert(blck.slot, blockRoot)
+    dag.updateFrontfillBlocks()
 
     notice "Received final block during backfill, backfill complete"
 
