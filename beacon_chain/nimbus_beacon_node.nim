@@ -256,7 +256,7 @@ proc initFullNode(
     exitPool = newClone(
       ExitPool.init(dag, onVoluntaryExitAdded))
     consensusManager = ConsensusManager.new(
-      dag, attestationPool, quarantine)
+      dag, attestationPool, quarantine, node.eth1Monitor)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime)
