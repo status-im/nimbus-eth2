@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 {.used.}
 
 import
@@ -128,7 +135,7 @@ proc startSingleNodeNetwork =
     "--output-bootstrap-file=" & bootstrapEnrFile,
     "--netkey-file=network_key.json",
     "--insecure-netkey-password=true",
-    "--genesis-offset=0"], TaintedString it))
+    "--genesis-offset=0"], it))
 
   doCreateTestnet(createTestnetConf, rng[])
 
@@ -147,7 +154,7 @@ proc startSingleNodeNetwork =
     "--keymanager-address=127.0.0.1",
     "--keymanager-port=" & $keymanagerPort,
     "--keymanager-token-file=" & tokenFilePath,
-    "--doppelganger-detection=off"], TaintedString it))
+    "--doppelganger-detection=off"], it))
 
   let metadata = loadEth2NetworkMetadata(dataDir)
 

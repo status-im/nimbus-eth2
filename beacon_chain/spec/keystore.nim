@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -239,7 +239,7 @@ template `$`*(x: WalletName): string =
 
 # TODO: `burnMem` in nimcrypto could use distinctBase
 #       to make its usage less error-prone.
-template burnMem*(m: var (Mnemonic|TaintedString)) =
+template burnMem*(m: var (Mnemonic|string)) =
   ncrutils.burnMem(string m)
 
 template burnMem*(m: var KeySeed) =
@@ -291,7 +291,7 @@ proc checkEnglishWords(): bool =
 static:
   doAssert(checkEnglishWords(), "English words array is corrupted!")
 
-func validateKeyPath*(path: TaintedString): Result[KeyPath, cstring] =
+func validateKeyPath*(path: string): Result[KeyPath, cstring] =
   var digitCount: int
   var number: BiggestUint
   try:
@@ -389,7 +389,7 @@ proc cmpIgnoreCase(lhs: cstring, rhs: string): int =
   # Nim should have a `cmp` function for C strings.
   cmpIgnoreCase($lhs, rhs)
 
-proc validateMnemonic*(inputWords: TaintedString,
+proc validateMnemonic*(inputWords: string,
                        outputMnemonic: var Mnemonic): bool =
   ## Accept a case-insensitive input string and returns `true`
   ## if it represents a valid mnenomic. The `outputMnemonic`

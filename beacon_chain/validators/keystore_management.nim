@@ -1000,7 +1000,7 @@ proc saveWallet*(wallet: Wallet, outWalletPath: string): Result[void, string] =
 proc saveWallet*(wallet: WalletPathPair): Result[void, string] =
   saveWallet(wallet.wallet, wallet.path)
 
-proc readPasswordInput(prompt: string, password: var TaintedString): bool =
+proc readPasswordInput(prompt: string, password: var string): bool =
   try:
     when defined(windows):
       # readPasswordFromStdin() on Windows always returns `false`.
@@ -1038,7 +1038,7 @@ proc resetAttributesNoError() =
 
 proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
                              importedDir, validatorsDir, secretsDir: string) =
-  var password: TaintedString
+  var password: string
   defer: burnMem(password)
 
   try:
@@ -1298,7 +1298,7 @@ proc createWalletInteractively*(
 proc restoreWalletInteractively*(rng: var BrHmacDrbgContext,
                                  config: BeaconNodeConf) =
   var
-    enteredMnemonic: TaintedString
+    enteredMnemonic: string
     validatedMnemonic: Mnemonic
 
   defer:
