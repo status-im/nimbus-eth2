@@ -415,6 +415,34 @@ suite "chain DAG finalization tests" & preset():
     check:
       dag.db.immutableValidators.len() == getStateField(dag.headState, validators).len()
 
+    block:
+      var cur = dag.head.bid
+      while true:
+        let parent = dag.parent(cur)
+        if cur.slot > 0:
+          check:
+            parent.isSome and parent.get().slot < cur.slot
+          cur = parent.get()
+        else:
+          check:
+            parent.isErr()
+          break
+      check: cur.slot == 0
+
+    block:
+      var cur = dag.head.bid.atSlot()
+      while true:
+        let parent = dag.parentOrSlot(cur)
+        if cur.slot > 0:
+          check:
+            parent.isSome and (parent.get().slot < cur.slot or parent.get().bid != cur.bid)
+          cur = parent.get()
+        else:
+          check:
+            parent.isErr()
+          break
+      check: cur.slot == 0
+
     let
       finalER = dag.getEpochRef(
         dag.finalizedHead.blck, dag.finalizedHead.slot.epoch, false)
@@ -458,9 +486,11 @@ suite "chain DAG finalization tests" & preset():
       let
         finalizedCheckpoint = dag.stateCheckpoint(dag.finalizedHead.toBlockSlotId().get())
         headCheckpoint = dag.stateCheckpoint(dag.head.bid.atSlot())
+        prunedCheckpoint = dag.stateCheckpoint(dag.parent(dag.finalizedHead.blck.bid).get().atSlot())
       check:
         db.getStateRoot(headCheckpoint.bid.root, headCheckpoint.slot).isSome
         db.getStateRoot(finalizedCheckpoint.bid.root, finalizedCheckpoint.slot).isSome
+        db.getStateRoot(prunedCheckpoint.bid.root, prunedCheckpoint.slot).isNone
 
     let
       validatorMonitor2 = newClone(ValidatorMonitor.init())

@@ -1499,7 +1499,9 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
       if not isFinalizedStateSnapshot(cur.get().slot) and
           cur.get().slot != dag.tail.slot:
         dag.delState(cur.get())
-      cur = dag.parentOrSlot(cur.get())
+      # TODO https://github.com/nim-lang/Nim/issues/19613
+      let tmp = cur.get()
+      cur = dag.parentOrSlot(tmp)
 
   let statePruneTick = Moment.now()
 
