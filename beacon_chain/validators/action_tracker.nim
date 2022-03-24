@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[tables, sequtils],
+  std/[sequtils, tables],
   bearssl,
   stew/shims/[sets, hashes], chronicles,
   eth/p2p/discoveryv5/random2,
@@ -41,9 +41,9 @@ type
   ActionTracker* = object
     rng: ref BrHmacDrbgContext
 
-    subscribeAllAttnets*: bool
+    subscribeAllAttnets: bool
 
-    currentSlot*: Slot ##\
+    currentSlot: Slot ##\
       ## Duties that we accept are limited to a range around the current slot
 
     subscribedSubnets*: AttnetBits ##\
@@ -52,12 +52,12 @@ type
     stabilitySubnets: seq[tuple[subnet_id: SubnetId, expiration: Epoch]] ##\
       ## The subnets on which we listen and broadcast gossip traffic to maintain
       ## the health of the network - these are advertised in the ENR
-    nextCycleEpoch*: Epoch
+    nextCycleEpoch: Epoch
 
     # Used to track the next attestation and proposal slots using an
     # epoch-relative coordinate system. Doesn't need initialization.
-    attestingSlots*: array[2, uint32]
-    proposingSlots*: array[2, uint32]
+    attestingSlots: array[2, uint32]
+    proposingSlots: array[2, uint32]
     lastCalculatedEpoch*: Epoch
 
     attesterDepRoot*: Eth2Digest
@@ -69,7 +69,7 @@ type
       ## subnet for each such validator - the slot is used to expire validators
       ## that no longer are posting duties
 
-    duties*: HashSet[AggregatorDuty] ##\
+    duties: HashSet[AggregatorDuty] ##\
       ## Known aggregation duties in the near future - before each such
       ## duty, we'll subscribe to the corresponding subnet to collect
       ## attestations for the aggregate
@@ -78,7 +78,7 @@ func hash*(x: AggregatorDuty): Hash =
   hashAllFields(x)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#phase-0-attestation-subnet-stability
-func randomStabilitySubnet*(
+func randomStabilitySubnet(
     self: ActionTracker, epoch: Epoch): tuple[subnet_id: SubnetId, expiration: Epoch] =
   (
     self.rng[].rand(ATTESTATION_SUBNET_COUNT - 1).SubnetId,
@@ -170,7 +170,7 @@ func updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
 
   tracker.currentSlot = wallSlot
 
-func getNextValidatorAction*(
+func getNextValidatorAction(
     actionSlotSource: auto, lastCalculatedEpoch: Epoch, slot: Slot): Slot =
   # The relevant actions are in, depending on calculated bounds:
   # [aS[epoch mod 2], aS[1 - (epoch mod 2)]]
