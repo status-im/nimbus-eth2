@@ -880,7 +880,7 @@ proc defaultDataDir*(config: AnyConf): string =
 
   getHomeDir() / dataDir / "BeaconNode"
 
-func dumpDir*(config: AnyConf): string =
+func dumpDir(config: AnyConf): string =
   config.dataDir / "dump"
 
 func dumpDirInvalid*(config: AnyConf): string =
