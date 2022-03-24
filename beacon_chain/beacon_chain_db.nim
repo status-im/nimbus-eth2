@@ -442,14 +442,14 @@ proc new*(T: type BeaconChainDB,
     blocks = [
       kvStore db.openKvStore("blocks").expectDb(),
       kvStore db.openKvStore("altair_blocks").expectDb(),
-      kvStore db.openKvStore("merge_blocks").expectDb()]
+      kvStore db.openKvStore("bellatrix_blocks").expectDb()]
 
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
 
     statesNoVal = [
       kvStore db.openKvStore("state_no_validators2").expectDb(),
       kvStore db.openKvStore("altair_state_no_validators").expectDb(),
-      kvStore db.openKvStore("merge_state_no_validators").expectDb()]
+      kvStore db.openKvStore("bellatrix_state_no_validators").expectDb()]
 
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
