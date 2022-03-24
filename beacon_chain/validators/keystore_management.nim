@@ -482,10 +482,10 @@ proc removeValidatorFiles*(validatorsDir, secretsDir, keyName: string,
         keystoreDir / RemoteKeystoreFileName
     secretFile = secretsDir / keyName
 
-  if not(existsDir(keystoreDir)):
+  if not(dirExists(keystoreDir)):
     return ok(RemoveValidatorStatus.notFound)
 
-  if not(existsFile(keystoreFile)):
+  if not(fileExists(keystoreFile)):
     return ok(RemoveValidatorStatus.notFound)
 
   case kind
@@ -496,7 +496,7 @@ proc removeValidatorFiles*(validatorsDir, secretsDir, keyName: string,
         return err("Could not remove keystore file")
     block:
       let res = io2.removeFile(secretFile)
-      if res.isErr() and existsFile(secretFile):
+      if res.isErr() and fileExists(secretFile):
         return err("Could not remove password file")
     # We remove folder with all subfolders and files inside.
     try:
@@ -553,9 +553,9 @@ proc existsKeystore*(keystoreDir: string, keyKind: KeystoreKind): bool {.
      raises: [Defect].} =
   case keyKind
   of KeystoreKind.Local:
-    existsFile(keystoreDir / KeystoreFileName)
+    fileExists(keystoreDir / KeystoreFileName)
   of KeystoreKind.Remote:
-    existsFile(keystoreDir / RemoteKeystoreFileName)
+    fileExists(keystoreDir / RemoteKeystoreFileName)
 
 proc existsKeystore*(keystoreDir: string,
                      keysMask: set[KeystoreKind]): bool {.raises: [Defect].} =
@@ -794,10 +794,10 @@ proc saveKeystore*(rng: var BrHmacDrbgContext,
     keystoreDir = validatorsDir / keyName
     keystoreFile = keystoreDir / KeystoreFileName
 
-  if existsDir(keystoreDir):
+  if dirExists(keystoreDir):
     return err(KeystoreGenerationError(kind: DuplicateKeystoreDir,
       error: "Keystore directory already exists"))
-  if existsFile(keystoreFile):
+  if fileExists(keystoreFile):
     return err(KeystoreGenerationError(kind: DuplicateKeystoreFile,
       error: "Keystore file already exists"))
 
@@ -837,10 +837,10 @@ proc saveKeystore*(validatorsDir: string,
       pubkey: publicKey, remote: url, flags: flags
     )
 
-  if existsDir(keystoreDir):
+  if dirExists(keystoreDir):
     return err(KeystoreGenerationError(kind: DuplicateKeystoreDir,
       error: "Keystore directory already exists"))
-  if existsFile(keystoreFile):
+  if fileExists(keystoreFile):
     return err(KeystoreGenerationError(kind: DuplicateKeystoreFile,
       error: "Keystore file already exists"))
 

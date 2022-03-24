@@ -13,7 +13,7 @@
 {.push raises: [Defect].}
 
 import
-  stew/[assign2, byteutils],
+  stew/byteutils,
   json_serialization,
   ssz_serialization/types as sszTypes,
   ../digest,

@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[os, sequtils, strutils],
+  std/[os, sequtils],
   # Nimble
   chronicles,
   # Beacon chain internals
@@ -30,7 +30,7 @@ proc runTest(testName, testDir, unitTestName: string) =
 
   proc `testImpl _ blck _ testName`() =
     let
-      hasPostState = existsFile(testPath/"post.ssz_snappy")
+      hasPostState = fileExists(testPath/"post.ssz_snappy")
       prefix = if hasPostState: "[Valid]   " else: "[Invalid] "
 
     test prefix & testName & " - " & unitTestName & preset():
