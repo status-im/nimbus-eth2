@@ -400,6 +400,8 @@ proc validateMnemonic*(inputWords: string,
   ## with sensitive data even in case of validator failure.
   ## Make sure to burn the received data after usage.
 
+  # TODO consider using a SecretString type for inputWords
+
   let words = strutils.strip(inputWords.string.toNFKD).split(Whitespace)
   if words.len < 12 or words.len > 24 or words.len mod 3 != 0:
     return false

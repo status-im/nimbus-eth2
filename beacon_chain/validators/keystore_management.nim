@@ -1038,7 +1038,7 @@ proc resetAttributesNoError() =
 
 proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
                              importedDir, validatorsDir, secretsDir: string) =
-  var password: string
+  var password: string  # TODO consider using a SecretString type
   defer: burnMem(password)
 
   try:

@@ -231,7 +231,7 @@ proc main() {.async.} =
 
   if conf.askForKey:
     var
-      privateKey: string
+      privateKey: string  # TODO consider using a SecretString type
       reasonForKey = ""
 
     if conf.cmd == StartUpCommand.sendDeposits:
