@@ -76,7 +76,7 @@ type
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
 
   PresetFile* = object
-    values*: Table[TaintedString, TaintedString]
+    values*: Table[string, string]
     missingValues*: seq[string]
 
   PresetFileError* = object of CatchableError

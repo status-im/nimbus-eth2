@@ -880,7 +880,7 @@ proc defaultDataDir*(config: AnyConf): string =
 
   getHomeDir() / dataDir / "BeaconNode"
 
-func dumpDir*(config: AnyConf): string =
+func dumpDir(config: AnyConf): string =
   config.dataDir / "dump"
 
 func dumpDirInvalid*(config: AnyConf): string =
@@ -904,50 +904,50 @@ proc createDumpDirs*(config: BeaconNodeConf) =
       warn "Could not create dump directory",
         path = config.dumpDirOutgoing, err = ioErrorMsg(res.error)
 
-func parseCmdArg*(T: type GraffitiBytes, input: TaintedString): T
+func parseCmdArg*(T: type GraffitiBytes, input: string): T
                  {.raises: [ValueError, Defect].} =
-  GraffitiBytes.init(string input)
+  GraffitiBytes.init(input)
 
-func completeCmdArg*(T: type GraffitiBytes, input: TaintedString): seq[string] =
+func completeCmdArg*(T: type GraffitiBytes, input: string): seq[string] =
   return @[]
 
-func parseCmdArg*(T: type BlockHashOrNumber, input: TaintedString): T
+func parseCmdArg*(T: type BlockHashOrNumber, input: string): T
                  {.raises: [ValueError, Defect].} =
-  init(BlockHashOrNumber, string input)
+  init(BlockHashOrNumber, input)
 
-func completeCmdArg*(T: type BlockHashOrNumber, input: TaintedString): seq[string] =
+func completeCmdArg*(T: type BlockHashOrNumber, input: string): seq[string] =
   return @[]
 
-func parseCmdArg*(T: type Uri, input: TaintedString): T
+func parseCmdArg*(T: type Uri, input: string): T
                  {.raises: [ValueError, Defect].} =
-  parseUri(input.string)
+  parseUri(input)
 
-func completeCmdArg*(T: type Uri, input: TaintedString): seq[string] =
+func completeCmdArg*(T: type Uri, input: string): seq[string] =
   return @[]
 
-func parseCmdArg*(T: type PubKey0x, input: TaintedString): T
+func parseCmdArg*(T: type PubKey0x, input: string): T
                  {.raises: [ValueError, Defect].} =
-  PubKey0x(hexToPaddedByteArray[RawPubKeySize](input.string))
+  PubKey0x(hexToPaddedByteArray[RawPubKeySize](input))
 
-func parseCmdArg*(T: type ValidatorPubKey, input: TaintedString): T
+func parseCmdArg*(T: type ValidatorPubKey, input: string): T
                  {.raises: [ValueError, Defect].} =
-  let res = ValidatorPubKey.fromHex(input.string)
+  let res = ValidatorPubKey.fromHex(input)
   if res.isErr(): raise (ref ValueError)(msg: $res.error())
   res.get()
 
-func completeCmdArg*(T: type PubKey0x, input: TaintedString): seq[string] =
+func completeCmdArg*(T: type PubKey0x, input: string): seq[string] =
   return @[]
 
-func parseCmdArg*(T: type Checkpoint, input: TaintedString): T
+func parseCmdArg*(T: type Checkpoint, input: string): T
                  {.raises: [ValueError, Defect].} =
-  let sepIdx = find(input.string, ':')
+  let sepIdx = find(input, ':')
   if sepIdx == -1:
     raise newException(ValueError,
       "The weak subjectivity checkpoint must be provided in the `block_root:epoch_number` format")
   T(root: Eth2Digest.fromHex(input[0 ..< sepIdx]),
     epoch: parseBiggestUInt(input[sepIdx .. ^1]).Epoch)
 
-func completeCmdArg*(T: type Checkpoint, input: TaintedString): seq[string] =
+func completeCmdArg*(T: type Checkpoint, input: string): seq[string] =
   return @[]
 
 func isPrintable(rune: Rune): bool =
@@ -957,13 +957,13 @@ func isPrintable(rune: Rune): bool =
   # https://github.com/nitely/nim-segmentation
   rune == Rune(0x20) or unicodeCategory(rune) notin ctgC+ctgZ
 
-func parseCmdArg*(T: type WalletName, input: TaintedString): T
+func parseCmdArg*(T: type WalletName, input: string): T
                  {.raises: [ValueError, Defect].} =
   if input.len == 0:
     raise newException(ValueError, "The wallet name should not be empty")
   if input[0] == '_':
     raise newException(ValueError, "The wallet name should not start with an underscore")
-  for rune in runes(input.string):
+  for rune in runes(input):
     if not rune.isPrintable:
       raise newException(ValueError, "The wallet name should consist only of printable characters")
 
@@ -972,15 +972,15 @@ func parseCmdArg*(T: type WalletName, input: TaintedString): T
   # (see UTR #36 http://www.unicode.org/reports/tr36/)
   return T(toNFKC(input))
 
-func completeCmdArg*(T: type WalletName, input: TaintedString): seq[string] =
+func completeCmdArg*(T: type WalletName, input: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type enr.Record, p: TaintedString): T
+proc parseCmdArg*(T: type enr.Record, p: string): T
     {.raises: [ConfigurationError, Defect].} =
   if not fromURI(result, p):
     raise newException(ConfigurationError, "Invalid ENR")
 
-func completeCmdArg*(T: type enr.Record, val: TaintedString): seq[string] =
+func completeCmdArg*(T: type enr.Record, val: string): seq[string] =
   return @[]
 
 func validatorsDir*(config: AnyConf): string =
@@ -1062,7 +1062,7 @@ proc readValue*(r: var TomlReader, value: var GraffitiBytes)
 
 proc readValue*(r: var TomlReader, val: var NatConfig)
                {.raises: [Defect, IOError, SerializationError].} =
-  val = try: parseCmdArg(NatConfig, TaintedString r.readValue(string))
+  val = try: parseCmdArg(NatConfig, r.readValue(string))
         except CatchableError as err:
           raise newException(SerializationError, err.msg)
 
@@ -1090,14 +1090,14 @@ proc readValue*(reader: var TomlReader, value: var ValidatorPubKey)
 proc readValue*(r: var TomlReader, a: var PubKey0x)
                {.raises: [Defect, IOError, SerializationError].} =
   try:
-    a = parseCmdArg(PubKey0x, TaintedString r.readValue(string))
+    a = parseCmdArg(PubKey0x, r.readValue(string))
   except CatchableError:
     r.raiseUnexpectedValue("a 0x-prefixed hex-encoded string expected")
 
 proc readValue*(r: var TomlReader, a: var WalletName)
                {.raises: [Defect, IOError, SerializationError].} =
   try:
-    a = parseCmdArg(WalletName, TaintedString r.readValue(string))
+    a = parseCmdArg(WalletName, r.readValue(string))
   except CatchableError:
     r.raiseUnexpectedValue("string expected")
 
