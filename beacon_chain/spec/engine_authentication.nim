@@ -83,14 +83,16 @@ proc checkJwtSecret*(
 
   try:
     let lines = readLines(jwtSecret.get, 1)
-    if lines.len > 0 and lines[0].startswith("0x"):
+    if lines.len > 0:
+      # Secret JWT key is parsed in constant time using nimcrypto:
+      # https://github.com/cheatfate/nimcrypto/pull/44
       let secret = utils.fromHex(lines[0])
       if secret.len >= MIN_SECRET_LEN:
         ok(secret)
       else:
         err("JWT secret not at least 256 bits")
     else:
-      err("no 0x-prefixed hex string found")
+      err("no hex string found")
   except IOError:
     err("couldn't open specified JWT secret file")
   except ValueError:

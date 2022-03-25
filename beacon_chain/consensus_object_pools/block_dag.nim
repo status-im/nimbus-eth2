@@ -9,6 +9,7 @@
 
 import
   chronicles,
+  ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/forks
 
 export chronicles, forks
@@ -30,6 +31,8 @@ type
     bid*: BlockId ##\
       ## Root that can be used to retrieve block data from database
 
+    executionBlockRoot*: Eth2Digest
+
     parent*: BlockRef ##\
     ## Not nil, except for the finalized head
 
@@ -46,14 +49,25 @@ type
 template root*(blck: BlockRef): Eth2Digest = blck.bid.root
 template slot*(blck: BlockRef): Slot = blck.bid.slot
 
-func init*(T: type BlockRef, root: Eth2Digest, slot: Slot): BlockRef =
+func init*(
+    T: type BlockRef, root: Eth2Digest, executionPayloadRoot: Eth2Digest,
+    slot: Slot): BlockRef =
   BlockRef(
-    bid: BlockId(root: root, slot: slot)
+    bid: BlockId(root: root, slot: slot),
+    executionBlockRoot: executionPayloadRoot,
   )
 
-func init*(T: type BlockRef, root: Eth2Digest, blck: SomeForkyBeaconBlock):
-    BlockRef =
-  BlockRef.init(root, blck.slot)
+func init*(
+    T: type BlockRef, root: Eth2Digest,
+    blck: phase0.SomeBeaconBlock | altair.SomeBeaconBlock |
+          phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock): BlockRef =
+  BlockRef.init(root, Eth2Digest(), blck.slot)
+
+func init*(
+    T: type BlockRef, root: Eth2Digest,
+    blck: bellatrix.SomeBeaconBlock | bellatrix.TrustedBeaconBlock): BlockRef =
+  BlockRef.init(
+    root, Eth2Digest(blck.body.execution_payload.block_hash), blck.slot)
 
 func parent*(bs: BlockSlot): BlockSlot =
   ## Return a blockslot representing the previous slot, using the parent block

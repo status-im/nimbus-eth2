@@ -11,13 +11,16 @@ import
   std/math,
   stew/results,
   chronicles, chronos, metrics,
-  ../spec/datatypes/[phase0, altair],
+  eth/async_utils,
+  web3/engine_api_types,
+  ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[forks, signatures_batch],
   ../consensus_object_pools/[
     attestation_pool, block_clearance, blockchain_dag, block_quarantine,
     spec_cache],
+  ../eth1/eth1_monitor,
   ./consensus_manager,
-  ".."/[beacon_clock],
+  ../beacon_clock,
   ../sszdump
 
 export sszdump, signatures_batch
@@ -28,6 +31,8 @@ export sszdump, signatures_batch
 
 declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
+
+const web3Timeout = 650.milliseconds
 
 type
   BlockEntry* = object
@@ -69,10 +74,16 @@ type
     # ----------------------------------------------------------------
     consensusManager: ref ConsensusManager
       ## Blockchain DAG, AttestationPool and Quarantine
+      ## Blockchain DAG, AttestationPool, Quarantine, and Eth1Manager
     validatorMonitor: ref ValidatorMonitor
     getBeaconTime: GetBeaconTimeFn
 
     verifier: BatchVerifier
+
+proc addBlock*(
+    self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
+    resfut: Future[Result[void, BlockError]] = nil,
+    validationDur = Duration())
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -311,6 +322,66 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
       if res.isOk(): Result[void, BlockError].ok()
       else: Result[void, BlockError].err(res.error()))
 
+proc runForkchoiceUpdated(
+    self: ref BlockProcessor, headBlockRoot, finalizedBlockRoot: Eth2Digest)
+    {.async.} =
+  if headBlockRoot.isZero or finalizedBlockRoot.isZero:
+    return
+
+  try:
+    # Minimize window for Eth1 monitor to shut down connection
+    await self.consensusManager.eth1Monitor.ensureDataProvider()
+
+    debug "runForkChoiceUpdated: running forkchoiceUpdated",
+      headBlockRoot,
+      finalizedBlockRoot
+
+    discard awaitWithTimeout(
+      forkchoiceUpdated(
+        self.consensusManager.eth1Monitor, headBlockRoot, finalizedBlockRoot),
+      web3Timeout):
+        info "runForkChoiceUpdated: forkchoiceUpdated timed out"
+        default(ForkchoiceUpdatedResponse)
+  except CatchableError as err:
+    info "runForkChoiceUpdated: forkchoiceUpdated failed",
+      err = err.msg
+    discard
+
+proc newExecutionPayload(
+    eth1Monitor: Eth1Monitor, executionPayload: bellatrix.ExecutionPayload):
+    Future[PayloadExecutionStatus] {.async.} =
+  debug "newPayload: inserting block into execution engine",
+    parentHash = executionPayload.parent_hash,
+    blockHash = executionPayload.block_hash,
+    stateRoot = shortLog(executionPayload.state_root),
+    receiptsRoot = shortLog(executionPayload.receipts_root),
+    prevRandao = shortLog(executionPayload.prev_randao),
+    blockNumber = executionPayload.block_number,
+    gasLimit = executionPayload.gas_limit,
+    gasUsed = executionPayload.gas_used,
+    timestamp = executionPayload.timestamp,
+    extraDataLen = executionPayload.extra_data.len,
+    blockHash = executionPayload.block_hash,
+    baseFeePerGas =
+      UInt256.fromBytesLE(executionPayload.base_fee_per_gas.data),
+    numTransactions = executionPayload.transactions.len
+
+  try:
+    let
+      payloadResponse =
+        awaitWithTimeout(
+            eth1Monitor.newPayload(
+              executionPayload.asEngineExecutionPayload),
+            web3Timeout):
+          info "newPayload: newExecutionPayload timed out"
+          PayloadStatusV1(status: PayloadExecutionStatus.syncing)
+      payloadStatus = payloadResponse.status
+
+    return payloadStatus
+  except CatchableError as err:
+    info "newExecutionPayload failed", msg = err.msg
+    return PayloadExecutionStatus.syncing
+
 proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
   while true:
     # Cooperative concurrency: one block per loop iteration - because
@@ -324,6 +395,64 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       # larger network reads when under load.
       idleTimeout = 10.milliseconds
 
+      defaultBellatrixPayload = default(bellatrix.ExecutionPayload)
+
     discard await idleAsync().withTimeout(idleTimeout)
 
-    self[].processBlock(await self[].blockQueue.popFirst())
+    let
+      blck = await self[].blockQueue.popFirst()
+      hasExecutionPayload = blck.blck.kind >= BeaconBlockFork.Bellatrix
+      executionPayloadStatus =
+        if  hasExecutionPayload and
+            # Allow local testnets to run without requiring an execution layer
+            blck.blck.bellatrixData.message.body.execution_payload !=
+              defaultBellatrixPayload:
+          try:
+            # Minimize window for Eth1 monitor to shut down connection
+            await self.consensusManager.eth1Monitor.ensureDataProvider()
+
+            await newExecutionPayload(
+              self.consensusManager.eth1Monitor,
+              blck.blck.bellatrixData.message.body.execution_payload)
+          except CatchableError as err:
+            info "runQueueProcessingLoop: newExecutionPayload failed",
+              err = err.msg
+            PayloadExecutionStatus.syncing
+        else:
+          # Vacuously
+          PayloadExecutionStatus.valid
+
+    if executionPayloadStatus in [
+        PayloadExecutionStatus.invalid,
+        PayloadExecutionStatus.invalid_block_hash,
+        PayloadExecutionStatus.invalid_terminal_block]:
+      info "runQueueProcessingLoop: execution payload invalid",
+        executionPayloadStatus
+      if not blck.resfut.isNil:
+        blck.resfut.complete(Result[void, BlockError].err(BlockError.Invalid))
+      continue
+
+    if executionPayloadStatus == PayloadExecutionStatus.valid:
+      self[].processBlock(blck)
+    else:
+      # Every non-nil future must be completed here, but don't want to process
+      # the block any further in CL terms. Also don't want to specify Invalid,
+      # as if it gets here, it's something more like MissingParent (except, on
+      # the EL side).
+      if not blck.resfut.isNil:
+        blck.resfut.complete(
+          Result[void, BlockError].err(BlockError.MissingParent))
+
+    if  executionPayloadStatus == PayloadExecutionStatus.valid and
+        hasExecutionPayload:
+      let
+        headBlockRoot = self.consensusManager.dag.head.executionBlockRoot
+
+        finalizedBlockRoot =
+          if not isZero(
+              self.consensusManager.dag.finalizedHead.blck.executionBlockRoot):
+            self.consensusManager.dag.finalizedHead.blck.executionBlockRoot
+          else:
+            default(Eth2Digest)
+
+      await self.runForkchoiceUpdated(headBlockRoot, finalizedBlockRoot)

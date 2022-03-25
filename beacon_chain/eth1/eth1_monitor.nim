@@ -14,13 +14,13 @@ import
   chronos, json, metrics, chronicles/timings, stint/endians2,
   web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
   eth/common/eth_types,
-  eth/async_utils, stew/[byteutils, shims/hashes],
+  eth/async_utils, stew/[byteutils, objects, shims/hashes],
   # Local modules:
   ../spec/[eth2_merkleization, forks, helpers],
   ../spec/datatypes/[base, phase0, bellatrix],
   ../networking/network_metadata,
   ../consensus_object_pools/block_pools_types,
-  ".."/[beacon_chain_db, beacon_node_status],
+  ".."/[beacon_chain_db, beacon_node_status, beacon_clock],
   ./merkle_minimal
 
 export
@@ -296,7 +296,7 @@ func is_candidate_block(cfg: RuntimeConfig,
 func asEth2Digest*(x: BlockHash): Eth2Digest =
   Eth2Digest(data: array[32, byte](x))
 
-template asBlockHash(x: Eth2Digest): BlockHash =
+template asBlockHash*(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
 
 func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
@@ -445,16 +445,38 @@ proc getBlockByNumber*(p: Web3DataProviderRef,
 
 proc getPayload*(p: Web3DataProviderRef,
                  payloadId: bellatrix.PayloadID): Future[engine_api.ExecutionPayloadV1] =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.isNil:
+    var epr: Future[engine_api.ExecutionPayloadV1]
+    epr.complete(default(engine_api.ExecutionPayloadV1))
+    return epr
+
   p.web3.provider.engine_getPayloadV1(FixedBytes[8] payloadId)
 
-proc newPayload*(p: Web3DataProviderRef,
-                 payload: engine_api.ExecutionPayloadV1): Future[PayloadStatusV1] =
-  p.web3.provider.engine_newPayloadV1(payload)
+proc newPayload*(p: Eth1Monitor, payload: engine_api.ExecutionPayloadV1):
+    Future[PayloadStatusV1] =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.dataProvider.isNil:
+    var epr: Future[PayloadStatusV1]
+    epr.complete(PayloadStatusV1(status: PayloadExecutionStatus.syncing))
+    return epr
 
-proc forkchoiceUpdated*(p: Web3DataProviderRef,
+  p.dataProvider.web3.provider.engine_newPayloadV1(payload)
+
+proc forkchoiceUpdated*(p: Eth1Monitor,
                         headBlock, finalizedBlock: Eth2Digest):
                         Future[engine_api.ForkchoiceUpdatedResponse] =
-  p.web3.provider.engine_forkchoiceUpdatedV1(
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.dataProvider.isNil:
+    var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
+    fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
+      payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
+    return fcuR
+
+  p.dataProvider.web3.provider.engine_forkchoiceUpdatedV1(
     ForkchoiceStateV1(
       headBlockHash: headBlock.asBlockHash,
 
@@ -472,6 +494,14 @@ proc forkchoiceUpdated*(p: Web3DataProviderRef,
                         randomData: array[32, byte],
                         suggestedFeeRecipient: Eth1Address):
                         Future[engine_api.ForkchoiceUpdatedResponse] =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.isNil:
+    var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
+    fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
+      payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
+    return fcuR
+
   p.web3.provider.engine_forkchoiceUpdatedV1(
     ForkchoiceStateV1(
       headBlockHash: headBlock.asBlockHash,
