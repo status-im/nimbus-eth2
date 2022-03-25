@@ -338,8 +338,7 @@ proc runForkchoiceUpdated(
 
     discard awaitWithTimeout(
       forkchoiceUpdated(
-        self.consensusManager.eth1Monitor.dataProvider, headBlockRoot,
-        finalizedBlockRoot),
+        self.consensusManager.eth1Monitor, headBlockRoot, finalizedBlockRoot),
       web3Timeout):
         info "runForkChoiceUpdated: forkchoiceUpdated timed out"
         default(ForkchoiceUpdatedResponse)
@@ -349,7 +348,7 @@ proc runForkchoiceUpdated(
     discard
 
 proc newExecutionPayload(
-    web3Provider: auto, executionPayload: bellatrix.ExecutionPayload):
+    eth1Monitor: Eth1Monitor, executionPayload: bellatrix.ExecutionPayload):
     Future[PayloadExecutionStatus] {.async.} =
   debug "newPayload: inserting block into execution engine",
     parentHash = executionPayload.parent_hash,
@@ -371,7 +370,7 @@ proc newExecutionPayload(
     let
       payloadResponse =
         awaitWithTimeout(
-            web3Provider.newPayload(
+            eth1Monitor.newPayload(
               executionPayload.asEngineExecutionPayload),
             web3Timeout):
           info "newPayload: newExecutionPayload timed out"
@@ -413,7 +412,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
             await self.consensusManager.eth1Monitor.ensureDataProvider()
 
             await newExecutionPayload(
-              self.consensusManager.eth1Monitor.dataProvider,
+              self.consensusManager.eth1Monitor,
               blck.blck.bellatrixData.message.body.execution_payload)
           except CatchableError as err:
             info "runQueueProcessingLoop: newExecutionPayload failed",
