@@ -76,7 +76,7 @@ type
 
 const
   eth2NetworksDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-networks"
-  mergeNetworksDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/merge-networks"
+  mergeNetworksDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/merge-testnets"
 
 proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError, Defect].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
