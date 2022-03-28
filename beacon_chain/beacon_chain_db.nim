@@ -10,7 +10,7 @@
 import
   std/[typetraits, tables],
   stew/[arrayops, assign2, byteutils, endians2, io2, objects, results],
-  serialization, chronicles, snappy,
+  serialization, chronicles, snappy, snappy/framing,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./beacon_chain_db_immutable,
   ./spec/[eth2_ssz_serialization, eth2_merkleization, forks, state_transition],
@@ -69,6 +69,9 @@ type
     ## 1.3 creates `kvstore` with rowid, making it quite fast, but doesn't do
     ## anything about existing databases. Versions after that use a separate
     ## file instead (V1)
+    ##
+    ## Starting with bellatrix, we store blocks and states using snappy framed
+    ## encoding so as to match the `Req`/`Resp` protocols and era files ("SZ").
     backend: KvStoreRef # kvstore
     stateStore: KvStoreRef # state_no_validators
 
@@ -521,6 +524,18 @@ proc decodeSnappySSZ[T](data: openArray[byte], output: var T): bool =
       err = e.msg, typ = name(T), dataLen = data.len
     false
 
+proc decodeSZSSZ[T](data: openArray[byte], output: var T): bool =
+  try:
+    let decompressed = framingFormatUncompress(data)
+    readSszBytes(decompressed, output, updateRoot = false)
+    true
+  except CatchableError as e:
+    # If the data can't be deserialized, it could be because it's from a
+    # version of the software that uses a different SSZ encoding
+    warn "Unable to deserialize data, old database?",
+      err = e.msg, typ = name(T), dataLen = data.len
+    false
+
 proc encodeSSZ(v: auto): seq[byte] =
   try:
     SSZ.encode(v)
@@ -530,6 +545,14 @@ proc encodeSSZ(v: auto): seq[byte] =
 proc encodeSnappySSZ(v: auto): seq[byte] =
   try:
     snappy.encode(SSZ.encode(v))
+  except CatchableError as err:
+    # In-memory encode shouldn't fail!
+    raiseAssert err.msg
+
+proc encodeSZSSZ(v: auto): seq[byte] =
+  # https://github.com/google/snappy/blob/main/framing_format.txt
+  try:
+    framingFormatCompress(SSZ.encode(v))
   except CatchableError as err:
     # In-memory encode shouldn't fail!
     raiseAssert err.msg
@@ -594,6 +617,24 @@ proc getSnappySSZ[T](db: KvStoreRef, key: openArray[byte], output: var T): GetRe
 proc putSnappySSZ(db: KvStoreRef, key: openArray[byte], v: auto) =
   db.put(key, encodeSnappySSZ(v)).expectDb()
 
+proc getSZSSZ[T](db: KvStoreRef, key: openArray[byte], output: var T): GetResult =
+  var status = GetResult.notFound
+
+  # TODO address is needed because there's no way to express lifetimes in nim
+  #      we'll use unsafeAddr to find the code later
+  var outputPtr = unsafeAddr output # callback is local, ptr wont escape
+  proc decode(data: openArray[byte]) =
+    status =
+      if decodeSZSSZ(data, outputPtr[]): GetResult.found
+      else: GetResult.corrupted
+
+  discard db.get(key, decode).expectDb()
+
+  status
+
+proc putSZSSZ(db: KvStoreRef, key: openArray[byte], v: auto) =
+  db.put(key, encodeSZSSZ(v)).expectDb()
+
 proc close*(db: BeaconChainDBV0) =
   discard db.stateStore.close()
   discard db.backend.close()
@@ -628,9 +669,18 @@ proc putBeaconBlockSummary*(
   # Summaries are too simple / small to compress, store them as plain SSZ
   db.summaries.putSSZ(root.data, value)
 
-proc putBlock*(db: BeaconChainDB, value: ForkyTrustedSignedBeaconBlock) =
+proc putBlock*(
+    db: BeaconChainDB,
+    value: phase0.TrustedSignedBeaconBlock | altair.TrustedSignedBeaconBlock) =
   db.withManyWrites:
     db.blocks[type(value).toFork].putSnappySSZ(value.root.data, value)
+    db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
+
+proc putBlock*(
+    db: BeaconChainDB,
+    value: bellatrix.TrustedSignedBeaconBlock) =
+  db.withManyWrites:
+    db.blocks[type(value).toFork].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
 proc updateImmutableValidators*(
@@ -659,9 +709,16 @@ template toBeaconStateNoImmutableValidators(state: bellatrix.BeaconState):
     BellatrixBeaconStateNoImmutableValidators =
   isomorphicCast[BellatrixBeaconStateNoImmutableValidators](state)
 
-proc putState*(db: BeaconChainDB, key: Eth2Digest, value: ForkyBeaconState) =
+proc putState*(
+    db: BeaconChainDB, key: Eth2Digest,
+    value: phase0.BeaconState | altair.BeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
   db.statesNoVal[type(value).toFork()].putSnappySSZ(
+    key.data, toBeaconStateNoImmutableValidators(value))
+
+proc putState*(db: BeaconChainDB, key: Eth2Digest, value: bellatrix.BeaconState) =
+  db.updateImmutableValidators(value.validators.asSeq())
+  db.statesNoVal[type(value).toFork()].putSZSSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
 
 proc putState*(db: BeaconChainDB, state: ForkyHashedBeaconState) =
@@ -740,13 +797,24 @@ proc getBlock*(
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
 
+proc getBlock*(
+    db: BeaconChainDB, key: Eth2Digest,
+    T: type altair.TrustedSignedBeaconBlock): Opt[T] =
+  # We only store blocks that we trust in the database
+  result.ok(default(T))
+  if db.blocks[T.toFork].getSnappySSZ(key.data, result.get) == GetResult.found:
+    # set root after deserializing (so it doesn't get zeroed)
+    result.get().root = key
+  else:
+    result.err()
+
 proc getBlock*[
-    X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock](
+    X: bellatrix.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest,
     T: type X): Opt[T] =
   # We only store blocks that we trust in the database
   result.ok(default(T))
-  if db.blocks[T.toFork].getSnappySSZ(key.data, result.get) == GetResult.found:
+  if db.blocks[T.toFork].getSZSSZ(key.data, result.get) == GetResult.found:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
   else:
@@ -772,14 +840,23 @@ proc getBlockSSZ*(
   db.blocks[BeaconBlockFork.Phase0].get(key.data, decode).expectDb() and success or
     db.v0.getPhase0BlockSSZ(key, data)
 
-proc getBlockSSZ*[
-    X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock](
+proc getBlockSSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
-    T: type X): bool =
+    T: type altair.TrustedSignedBeaconBlock): bool =
   let dataPtr = unsafeAddr data # Short-lived
   var success = true
   proc decode(data: openArray[byte]) =
     try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
+    except CatchableError: success = false
+  db.blocks[T.toFork].get(key.data, decode).expectDb() and success
+
+proc getBlockSSZ*(
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
+    T: type bellatrix.TrustedSignedBeaconBlock): bool =
+  let dataPtr = unsafeAddr data # Short-lived
+  var success = true
+  proc decode(data: openArray[byte]) =
+    try: dataPtr[] = framingFormatUncompress(data)
     except CatchableError: success = false
   db.blocks[T.toFork].get(key.data, decode).expectDb() and success
 
@@ -794,9 +871,53 @@ proc getBlockSSZ*(
   of BeaconBlockFork.Bellatrix:
     getBlockSSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
 
+proc getBlockSZ*(
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
+    T: type phase0.TrustedSignedBeaconBlock): bool =
+  let dataPtr = unsafeAddr data # Short-lived
+  var success = true
+  proc decode(data: openArray[byte]) =
+    try: dataPtr[] = framingFormatCompress(
+      snappy.decode(data, maxDecompressedDbRecordSize))
+    except CatchableError: success = false
+  db.blocks[BeaconBlockFork.Phase0].get(key.data, decode).expectDb() and success or
+    db.v0.getPhase0BlockSSZ(key, data)
+
+proc getBlockSZ*(
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
+    T: type altair.TrustedSignedBeaconBlock): bool =
+  let dataPtr = unsafeAddr data # Short-lived
+  var success = true
+  proc decode(data: openArray[byte]) =
+    try: dataPtr[] = framingFormatCompress(
+      snappy.decode(data, maxDecompressedDbRecordSize))
+    except CatchableError: success = false
+  db.blocks[T.toFork].get(key.data, decode).expectDb() and success
+
+proc getBlockSZ*(
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
+    T: type bellatrix.TrustedSignedBeaconBlock): bool =
+  let dataPtr = unsafeAddr data # Short-lived
+  var success = true
+  proc decode(data: openArray[byte]) =
+    assign(dataPtr[], data)
+  db.blocks[T.toFork].get(key.data, decode).expectDb() and success
+
+proc getBlockSZ*(
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
+    fork: BeaconBlockFork): bool =
+  case fork
+  of BeaconBlockFork.Phase0:
+    getBlockSZ(db, key, data, phase0.TrustedSignedBeaconBlock)
+  of BeaconBlockFork.Altair:
+    getBlockSZ(db, key, data, altair.TrustedSignedBeaconBlock)
+  of BeaconBlockFork.Bellatrix:
+    getBlockSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
+
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
-    store: KvStoreRef, key: openArray[byte], output: var ForkyBeaconState,
+    store: KvStoreRef, key: openArray[byte],
+    output: var (phase0.BeaconState | altair.BeaconState),
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -810,6 +931,47 @@ proc getStateOnlyMutableValidators(
   #      https://github.com/nim-lang/Nim/issues/13879
 
   case store.getSnappySSZ(key, toBeaconStateNoImmutableValidators(output))
+  of GetResult.found:
+    let numValidators = output.validators.len
+    doAssert immutableValidators.len >= numValidators
+
+    for i in 0 ..< numValidators:
+      let
+        # Bypass hash cache invalidation
+        dstValidator = addr output.validators.data[i]
+
+      assign(
+        dstValidator.pubkey,
+        immutableValidators[i].pubkey.toPubKey())
+      assign(
+        dstValidator.withdrawal_credentials,
+        immutableValidators[i].withdrawal_credentials)
+
+    output.validators.resetCache()
+
+    true
+  of GetResult.notFound:
+    false
+  of GetResult.corrupted:
+    rollback()
+    false
+
+proc getStateOnlyMutableValidators(
+    immutableValidators: openArray[ImmutableValidatorData2],
+    store: KvStoreRef, key: openArray[byte], output: var bellatrix.BeaconState,
+    rollback: RollbackProc): bool =
+  ## Load state into `output` - BeaconState is large so we want to avoid
+  ## re-allocating it if possible
+  ## Return `true` iff the entry was found in the database and `output` was
+  ## overwritten.
+  ## Rollback will be called only if output was partially written - if it was
+  ## not found at all, rollback will not be called
+  # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
+  #      https://github.com/nim-lang/Nim/issues/14126
+  # TODO RVO is inefficient for large objects:
+  #      https://github.com/nim-lang/Nim/issues/13879
+
+  case store.getSZSSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
     let numValidators = output.validators.len
     doAssert immutableValidators.len >= numValidators

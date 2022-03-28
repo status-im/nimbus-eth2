@@ -243,11 +243,11 @@ proc init*(T: type EraGroup, f: IoHandle, startSlot: Option[Slot]): Result[T, st
         else: 0
   ))))
 
-proc update*(g: var EraGroup, f: IoHandle, slot: Slot, sszBytes: openArray[byte]): Result[void, string] =
+proc update*(g: var EraGroup, f: IoHandle, slot: Slot, szBytes: openArray[byte]): Result[void, string] =
   doAssert slot >= g.slotIndex.startSlot
   g.slotIndex.offsets[int(slot - g.slotIndex.startSlot)] =
     try:
-      ? f.appendRecord(SnappyBeaconBlock, framingFormatCompress(sszBytes))
+      ? f.appendRecord(SnappyBeaconBlock, szBytes)
     except CatchableError as e: raiseAssert e.msg # TODO fix snappy
 
   ok()
