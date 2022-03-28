@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2020-2021 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2020-2022 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -19,14 +19,19 @@ fi
 PLATFORM="${1}"
 BINARIES="nimbus_beacon_node"
 
+echo -e "\nPLATFORM=${PLATFORM}"
+
 #- we need to build everything against libraries available inside this container, including the Nim compiler
 make clean
 NIMFLAGS_COMMON="-d:disableMarchNative --gcc.options.debug:'-g1' --clang.options.debug:'-gline-tables-only'"
 if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   # Cross-compilation using the MXE distribution of Mingw-w64
-  export PATH="/usr/lib/mxe/usr/bin:${PATH}"
+  export PATH="/opt/mxe/usr/bin:${PATH}"
   CC=x86_64-w64-mingw32.static-gcc
   CXX=x86_64-w64-mingw32.static-g++
+  ${CC} --version
+  echo
+
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
@@ -67,6 +72,9 @@ if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
   CC="arm-linux-gnueabihf-gcc"
+  ${CC} --version
+  echo
+
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
@@ -81,6 +89,9 @@ elif [[ "${PLATFORM}" == "Linux_arm32v7" ]]; then
     ${BINARIES}
 elif [[ "${PLATFORM}" == "Linux_arm64v8" ]]; then
   CC="aarch64-linux-gnu-gcc"
+  ${CC} --version
+  echo
+
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
@@ -99,6 +110,9 @@ elif [[ "${PLATFORM}" == "macOS_amd64" ]]; then
   export ZERO_AR_DATE=1 # avoid timestamps in binaries
   DARWIN_VER="20.4"
   CC="o64-clang"
+  ${CC} --version
+  echo
+
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
@@ -129,6 +143,9 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
   export ZERO_AR_DATE=1 # avoid timestamps in binaries
   DARWIN_VER="20.4"
   CC="oa64-clang"
+  ${CC} --version
+  echo
+
   make \
     -j$(nproc) \
     USE_LIBBACKTRACE=0 \
@@ -155,6 +172,9 @@ elif [[ "${PLATFORM}" == "macOS_arm64" ]]; then
     ${BINARIES}
 else
   # Linux AMD64
+  gcc --version
+  echo
+
   make \
     -j$(nproc) \
     LOG_LEVEL="TRACE" \
@@ -181,17 +201,18 @@ mkdir "${DIST_PATH}/scripts"
 mkdir "${DIST_PATH}/build"
 
 # copy and checksum binaries, copy scripts and docs
+EXT=""
+if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
+  EXT=".exe"
+fi
 for BINARY in ${BINARIES}; do
-  cp -a "./build/${BINARY}" "${DIST_PATH}/build/"
+  cp -a "./build/${BINARY}${EXT}" "${DIST_PATH}/build/"
   if [[ "${PLATFORM}" =~ macOS ]]; then
     # debug info
     cp -a "./build/${BINARY}.dSYM" "${DIST_PATH}/build/"
   fi
   cd "${DIST_PATH}/build"
-  sha512sum "${BINARY}" > "${BINARY}.sha512sum"
-  if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
-    mv "${BINARY}" "${BINARY}.exe"
-  fi
+  sha512sum "${BINARY}${EXT}" > "${BINARY}.sha512sum"
   cd - >/dev/null
 done
 sed -e "s/GIT_COMMIT/${GIT_COMMIT}/" docker/dist/README.md.tpl > "${DIST_PATH}/README.md"

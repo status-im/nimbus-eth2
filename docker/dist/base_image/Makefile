@@ -25,7 +25,7 @@ build-arm:
 	$(CURDIR)/make_base_image.sh arm "$(IMAGE_NAME)_arm_v2"
 
 build-win64:
-	$(CURDIR)/make_base_image.sh win64 "$(IMAGE_NAME)_win64"
+	$(CURDIR)/make_base_image.sh win64 "$(IMAGE_NAME)_win64_v2"
 
 build-macos:
 	$(CURDIR)/make_base_image.sh macos "$(IMAGE_NAME)_macos"
@@ -33,6 +33,9 @@ build-macos:
 # You probably don't want to recreate and push these base images to Docker Hub,
 # because when older images expire and get deleted, it will no longer be possible
 # to reproduce old releases.
+#
+# When you really have to, change the Docker tags by appending "_v2", "_v3", etc. to them.
+# This way you won't overwrite the old image.
 
 #push-amd64: build-amd64
 #	docker push $(IMAGE_NAME)
@@ -44,7 +47,7 @@ build-macos:
 #	docker push $(IMAGE_NAME)_arm_v2
 
 #push-win64: build-win64
-#	docker push $(IMAGE_NAME)_win64
+#	docker push $(IMAGE_NAME)_win64_v2
 
 #push-macos: build-macos
 	#docker push $(IMAGE_NAME)_macos
