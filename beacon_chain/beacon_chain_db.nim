@@ -584,9 +584,7 @@ type GetResult = enum
 proc getSSZ[T](db: KvStoreRef, key: openArray[byte], output: var T): GetResult =
   var status = GetResult.notFound
 
-  # TODO address is needed because there's no way to express lifetimes in nim
-  #      we'll use unsafeAddr to find the code later
-  var outputPtr = unsafeAddr output # callback is local, ptr wont escape
+  var outputPtr = addr output # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
     status =
       if decodeSSZ(data, outputPtr[]): GetResult.found
@@ -602,9 +600,7 @@ proc putSSZ(db: KvStoreRef, key: openArray[byte], v: auto) =
 proc getSnappySSZ[T](db: KvStoreRef, key: openArray[byte], output: var T): GetResult =
   var status = GetResult.notFound
 
-  # TODO address is needed because there's no way to express lifetimes in nim
-  #      we'll use unsafeAddr to find the code later
-  var outputPtr = unsafeAddr output # callback is local, ptr wont escape
+  var outputPtr = addr output # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
     status =
       if decodeSnappySSZ(data, outputPtr[]): GetResult.found
@@ -620,9 +616,7 @@ proc putSnappySSZ(db: KvStoreRef, key: openArray[byte], v: auto) =
 proc getSZSSZ[T](db: KvStoreRef, key: openArray[byte], output: var T): GetResult =
   var status = GetResult.notFound
 
-  # TODO address is needed because there's no way to express lifetimes in nim
-  #      we'll use unsafeAddr to find the code later
-  var outputPtr = unsafeAddr output # callback is local, ptr wont escape
+  var outputPtr = addr output # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
     status =
       if decodeSZSSZ(data, outputPtr[]): GetResult.found
@@ -820,19 +814,21 @@ proc getBlock*[
   else:
     result.err()
 
-proc getPhase0BlockSSZ(db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]): bool =
-  let dataPtr = unsafeAddr data # Short-lived
+proc getPhase0BlockSSZ(
+    db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]): bool =
+  let dataPtr = addr data # Short-lived
   var success = true
   proc decode(data: openArray[byte]) =
     try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
     except CatchableError: success = false
-  db.backend.get(subkey(phase0.SignedBeaconBlock, key), decode).expectDb() and success
+  db.backend.get(subkey(phase0.SignedBeaconBlock, key), decode).expectDb() and
+    success
 
 # SSZ implementations are separate so as to avoid unnecessary data copies
 proc getBlockSSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
     T: type phase0.TrustedSignedBeaconBlock): bool =
-  let dataPtr = unsafeAddr data # Short-lived
+  let dataPtr = addr data # Short-lived
   var success = true
   proc decode(data: openArray[byte]) =
     try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
@@ -843,7 +839,7 @@ proc getBlockSSZ*(
 proc getBlockSSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
     T: type altair.TrustedSignedBeaconBlock): bool =
-  let dataPtr = unsafeAddr data # Short-lived
+  let dataPtr = addr data # Short-lived
   var success = true
   proc decode(data: openArray[byte]) =
     try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
@@ -853,7 +849,7 @@ proc getBlockSSZ*(
 proc getBlockSSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
     T: type bellatrix.TrustedSignedBeaconBlock): bool =
-  let dataPtr = unsafeAddr data # Short-lived
+  let dataPtr = addr data # Short-lived
   var success = true
   proc decode(data: openArray[byte]) =
     try: dataPtr[] = framingFormatUncompress(data)
@@ -874,7 +870,7 @@ proc getBlockSSZ*(
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
     T: type phase0.TrustedSignedBeaconBlock): bool =
-  let dataPtr = unsafeAddr data # Short-lived
+  let dataPtr = addr data # Short-lived
   var success = true
   proc decode(data: openArray[byte]) =
     try: dataPtr[] = framingFormatCompress(
@@ -886,7 +882,7 @@ proc getBlockSZ*(
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
     T: type altair.TrustedSignedBeaconBlock): bool =
-  let dataPtr = unsafeAddr data # Short-lived
+  let dataPtr = addr data # Short-lived
   var success = true
   proc decode(data: openArray[byte]) =
     try: dataPtr[] = framingFormatCompress(
@@ -897,7 +893,7 @@ proc getBlockSZ*(
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
     T: type bellatrix.TrustedSignedBeaconBlock): bool =
-  let dataPtr = unsafeAddr data # Short-lived
+  let dataPtr = addr data # Short-lived
   var success = true
   proc decode(data: openArray[byte]) =
     assign(dataPtr[], data)
