@@ -352,7 +352,7 @@ proc init*(T: type BeaconNode,
       fatal "The number of threads --numThreads cannot be negative."
       quit 1
     elif config.numThreads == 0:
-      taskpool = TaskpoolPtr.new()
+      taskpool = TaskpoolPtr.new(numThreads = min(countProcessors(), 16))
     else:
       taskpool = TaskpoolPtr.new(numThreads = config.numThreads)
 
