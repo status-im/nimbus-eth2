@@ -352,8 +352,7 @@ proc init*(T: type BeaconNode,
       fatal "The number of threads --numThreads cannot be negative."
       quit 1
     elif config.numThreads == 0:
-      # TODO nim-taskpools only supports up to 255 threads
-      taskpool = TaskpoolPtr.new(numThreads = min(countProcessors(), 255))
+      taskpool = TaskpoolPtr.new(numThreads = min(countProcessors(), 16))
     else:
       taskpool = TaskpoolPtr.new(numThreads = config.numThreads)
 
