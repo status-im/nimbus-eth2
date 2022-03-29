@@ -26,6 +26,8 @@ declareHistogram light_client_store_object_duration_seconds,
   "storeObject() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
 type
+  GetTrustedBlockRootCallback* =
+    proc(): Option[Eth2Digest] {.gcsafe, raises: [Defect].}
   DidInitializeStoreCallback* =
     proc() {.gcsafe, raises: [Defect].}
 
@@ -57,12 +59,12 @@ type
     # Consumer
     # ----------------------------------------------------------------
     store: ref Option[LightClientStore]
-    getBeaconTime*: GetBeaconTimeFn
+    getBeaconTime: GetBeaconTimeFn
+    getTrustedBlockRoot: GetTrustedBlockRootCallback
     didInitializeStoreCallback: DidInitializeStoreCallback
 
     cfg: RuntimeConfig
     genesisValidatorsRoot: Eth2Digest
-    trustedBlockRoot: Eth2Digest
 
     lastProgressTick: BeaconTime # Moment when last update made progress
     lastDuplicateTick: BeaconTime # Moment when last duplicate update received
@@ -83,9 +85,10 @@ proc new*(
     dumpEnabled: bool,
     dumpDirInvalid, dumpDirIncoming: string,
     cfg: RuntimeConfig,
-    genesisValidatorsRoot, trustedBlockRoot: Eth2Digest,
+    genesisValidatorsRoot: Eth2Digest,
     store: ref Option[LightClientStore],
     getBeaconTime: GetBeaconTimeFn,
+    getTrustedBlockRoot: GetTrustedBlockRootCallback,
     didInitializeStoreCallback: DidInitializeStoreCallback = nil
 ): ref LightClientProcessor =
   (ref LightClientProcessor)(
@@ -94,11 +97,17 @@ proc new*(
     dumpDirIncoming: dumpDirIncoming,
     store: store,
     getBeaconTime: getBeaconTime,
+    getTrustedBlockRoot: getTrustedBlockRoot,
     didInitializeStoreCallback: didInitializeStoreCallback,
     cfg: cfg,
-    genesisValidatorsRoot: genesisValidatorsRoot,
-    trustedBlockRoot: trustedBlockRoot
+    genesisValidatorsRoot: genesisValidatorsRoot
   )
+
+func resetStore*(self: var LightClientProcessor) =
+  self.store[].reset()
+  self.lastProgressTick.reset()
+  self.lastDuplicateTick.reset()
+  self.numDuplicatesSinceProgress.reset()
 
 # Storage
 # ------------------------------------------------------------------------------
@@ -160,13 +169,17 @@ proc storeObject*(
         if store[].isSome:
           err(BlockError.Duplicate)
         else:
-          let initRes = initialize_light_client_store(
-            self.trustedBlockRoot, obj)
-          if initRes.isErr:
-            err(initRes.error)
+          let trustedBlockRoot = self.getTrustedBlockRoot()
+          if trustedBlockRoot.isNone:
+            err(BlockError.MissingParent)
           else:
-            store[] = some(initRes.get)
-            ok()
+            let initRes =
+              initialize_light_client_store(trustedBlockRoot.get, obj)
+            if initRes.isErr:
+              err(initRes.error)
+            else:
+              store[] = some(initRes.get)
+              ok()
       elif obj is altair.LightClientUpdate:
         if store[].isNone:
           err(BlockError.MissingParent)
@@ -174,7 +187,7 @@ proc storeObject*(
           store[].get.process_light_client_update(
             obj, wallSlot, self.cfg, self.genesisValidatorsRoot,
             allowForceUpdate = false)
-      elif obj is altair.OptimisticLightClientUpdate:
+      elif obj is OptimisticLightClientUpdate:
         if store[].isNone:
           err(BlockError.MissingParent)
         else:

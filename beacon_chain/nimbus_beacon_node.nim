@@ -644,7 +644,7 @@ proc init*(T: type BeaconNode,
       else:
         nil
 
-  var node = BeaconNode(
+  let node = BeaconNode(
     nickname: nickname,
     graffitiBytes: if config.graffiti.isSome: config.graffiti.get
                    else: defaultGraffitiBytes(),
@@ -665,10 +665,8 @@ proc init*(T: type BeaconNode,
     validatorMonitor: validatorMonitor,
     stateTtlCache: stateTtlCache
   )
-
-  node.initFullNode(
-    rng, dag, taskpool, getBeaconTime)
-
+  node.initLightClient(cfg, rng, dag.genesisValidatorsRoot, getBeaconTime)
+  node.initFullNode(rng, dag, taskpool, getBeaconTime)
   node
 
 func verifyFinalization(node: BeaconNode, slot: Slot) =
@@ -1439,6 +1437,7 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     wallTime = node.beaconClock.now()
     wallSlot = wallTime.slotOrZero()
 
+  node.startLightClient()
   node.requestManager.start()
   node.syncManager.start()
 

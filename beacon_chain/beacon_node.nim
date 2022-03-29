@@ -15,14 +15,15 @@ import
 
   # Local modules
   "."/[beacon_clock, beacon_chain_db, conf],
-  ./gossip_processing/[eth2_processor, block_processor, consensus_manager],
+  ./gossip_processing/[
+    eth2_processor, block_processor, consensus_manager, light_client_processor],
   ./networking/eth2_network,
   ./eth1/eth1_monitor,
   ./consensus_object_pools/[
     blockchain_dag, block_quarantine, exit_pool, attestation_pool,
     sync_committee_msg_pool],
   ./spec/datatypes/base,
-  ./sync/[sync_manager, request_manager],
+  ./sync/[light_client_manager, sync_manager, request_manager],
   ./validators/[action_tracker, validator_monitor, validator_pool],
   ./rpc/state_ttl_cache
 
@@ -38,6 +39,12 @@ type
 
   GossipState* = set[BeaconStateFork]
 
+  LightClient* = object
+    trustedBlockRoot*: Option[Eth2Digest]
+    store*: ref Option[LightClientStore]
+    processor*: ref LightClientProcessor
+    manager*: LightClientManager
+
   BeaconNode* = ref object
     nickname*: string
     graffitiBytes*: GraffitiBytes
@@ -46,6 +53,7 @@ type
     db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
+    lightClient*: LightClient
     dag*: ChainDAGRef
     quarantine*: ref Quarantine
     attestationPool*: ref AttestationPool
@@ -87,3 +95,6 @@ template findIt*(s: openArray, predicate: untyped): int =
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
+
+import beacon_node_light_client
+export beacon_node_light_client

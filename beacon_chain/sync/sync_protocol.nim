@@ -26,7 +26,7 @@ logScope:
 const
   MAX_REQUEST_BLOCKS = 1024
   # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#configuration
-  MAX_REQUEST_LIGHT_CLIENT_UPDATES = 128
+  MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
 
   blockByRootLookupCost = allowedOpsPerSecondCost(50)
   blockResponseCost = allowedOpsPerSecondCost(100)

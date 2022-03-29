@@ -83,14 +83,17 @@ suite "Light client processor" & preset():
     func setTimeToSlot(slot: Slot) =
       time = chronos.seconds((slot * SECONDS_PER_SLOT).int64)
 
+    proc getTrustedBlockRoot(): Option[Eth2Digest] =
+      some trustedBlockRoot
+
     var numDidInitializeStoreCalls = 0
     proc didInitializeStore() = inc numDidInitializeStoreCalls
 
     let store = (ref Option[LightClientStore])()
     var
       processor = LightClientProcessor.new(
-        false, "", "", cfg, genesisValidatorsRoot, trustedBlockRoot,
-        store, getBeaconTime, didInitializeStore)
+        false, "", "", cfg, genesisValidatorsRoot,
+        store, getBeaconTime, getTrustedBlockRoot, didInitializeStore)
       res: Result[void, BlockError]
 
   test "Standard sync" & preset():
