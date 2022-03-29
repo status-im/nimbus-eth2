@@ -213,18 +213,18 @@ jobs:
         run: |
           if [[ "${{ matrix.branch }}" == "version-1-6" ]]; then
             # hide the CI failure in GitHub's UI
-            ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE nimbus_beacon_node nimbus_validator_client || true
+            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE nimbus_beacon_node nimbus_validator_client || true
           else
-            ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE nimbus_beacon_node nimbus_validator_client
+            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE nimbus_beacon_node nimbus_validator_client
           fi
 
       - name: Build all tools
         run: |
           if [[ "${{ matrix.branch }}" == "version-1-6" ]]; then
             # hide the CI failure in GitHub's UI
-            ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} || true
+            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} || true
           else
-            ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }}
+            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }}
           fi
           # The Windows image runs out of disk space, so make some room
           rm -rf nimcache
@@ -233,9 +233,9 @@ jobs:
         run: |
           if [[ "${{ matrix.branch }}" == "version-1-6" ]]; then
             # hide the CI failure in GitHub's UI
-            ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test || true
+            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test || true
           else
-            ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test
+            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test
           fi
 
       # The upload creates a combined report that gets posted as a comment on the PR
