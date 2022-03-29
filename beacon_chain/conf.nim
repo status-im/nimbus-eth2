@@ -266,6 +266,16 @@ type
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
         name: "weak-subjectivity-checkpoint" }: Option[Checkpoint]
 
+      lightClientEnable* {.
+        hidden
+        desc: "BETA: Accelerate sync using light client."
+        name: "light-client-enable" .}: Option[bool]
+
+      lightClientTrustedBlockRoot* {.
+        hidden
+        desc: "BETA: Recent trusted finalized block root to initialize light client from."
+        name: "light-client-trusted-block-root" }: Option[Eth2Digest]
+
       finalizedCheckpointState* {.
         desc: "SSZ file specifying a recent finalized state"
         name: "finalized-checkpoint-state" }: Option[InputFile]
@@ -903,6 +913,13 @@ proc createDumpDirs*(config: BeaconNodeConf) =
     if (let res = secureCreatePath(config.dumpDirOutgoing); res.isErr):
       warn "Could not create dump directory",
         path = config.dumpDirOutgoing, err = ioErrorMsg(res.error)
+
+func parseCmdArg*(T: type Eth2Digest, input: string): T
+                 {.raises: [ValueError, Defect].} =
+  Eth2Digest.fromHex(input)
+
+func completeCmdArg*(T: type Eth2Digest, input: string): seq[string] =
+  return @[]
 
 func parseCmdArg*(T: type GraffitiBytes, input: string): T
                  {.raises: [ValueError, Defect].} =

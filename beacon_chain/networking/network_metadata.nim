@@ -43,6 +43,7 @@ type
 
   Eth2NetworkConfigDefaults* = object
     ## Network specific config defaults
+    lightClientEnable*: bool
     serveLightClientData*: bool
     importLightClientData*: ImportLightClientData
 
@@ -164,7 +165,7 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       else:
         ""
 
-      enableLightClientData =
+      shouldSupportLightClient =
         if genesisData.len >= 40:
           # SSZ processing at compile time does not work well.
           #
@@ -191,10 +192,12 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
 
       configDefaults =
         Eth2NetworkConfigDefaults(
+          lightClientEnable:
+            false, # Only produces debug logs so far
           serveLightClientData:
-            enableLightClientData,
+            shouldSupportLightClient,
           importLightClientData:
-            if enableLightClientData:
+            if shouldSupportLightClient:
               ImportLightClientData.OnlyNew
             else:
               ImportLightClientData.None
