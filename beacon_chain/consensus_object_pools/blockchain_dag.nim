@@ -478,12 +478,22 @@ proc getBlock*(
 proc getBlockSSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
   # Load the SSZ-encoded data of a block into `bytes`, overwriting the existing
   # content
-  # careful: there are two snappy encodings in use, with and without framing!
-  # Returns true if the block is found, false if not
   let fork = dag.cfg.blockForkAtEpoch(bid.slot.epoch)
   dag.db.getBlockSSZ(bid.root, bytes, fork) or
     (bid.slot <= dag.finalizedHead.slot and
       getBlockSSZ(
+        dag.era, getStateField(dag.headState, historical_roots).asSeq,
+        bid.slot, bytes).isOk)
+
+proc getBlockSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
+  # Load the snappy-frame-compressed ("SZ") SSZ-encoded data of a block into
+  # `bytes`, overwriting the existing content
+  # careful: there are two snappy encodings in use, with and without framing!
+  # Returns true if the block is found, false if not
+  let fork = dag.cfg.blockForkAtEpoch(bid.slot.epoch)
+  dag.db.getBlockSZ(bid.root, bytes, fork) or
+    (bid.slot <= dag.finalizedHead.slot and
+      getBlockSZ(
         dag.era, getStateField(dag.headState, historical_roots).asSeq,
         bid.slot, bytes).isOk)
 

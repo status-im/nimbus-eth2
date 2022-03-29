@@ -14,7 +14,7 @@ import
   ../beacon_chain/spec/[beaconstate, forks, state_transition],
   ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
-  eth/db/kvstore,
+  eth/db/kvstore, snappy/framing,
   # test utilies
   ./testutil, ./testdbutil, ./testblockutil, ./teststateutil
 
@@ -100,7 +100,7 @@ suite "Beacon chain DB" & preset():
 
     db.putBlock(signedBlock)
 
-    var tmp: seq[byte]
+    var tmp, tmp2: seq[byte]
     check:
       db.containsBlock(root)
       db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
@@ -108,7 +108,9 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       db.getBlock(root, phase0.TrustedSignedBeaconBlock).get() == signedBlock
       db.getBlockSSZ(root, tmp, phase0.TrustedSignedBeaconBlock)
+      db.getBlockSZ(root, tmp2, phase0.TrustedSignedBeaconBlock)
       tmp == SSZ.encode(signedBlock)
+      tmp2 == framingFormatCompress(tmp)
 
     db.delBlock(root)
     check:
@@ -118,6 +120,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       db.getBlock(root, phase0.TrustedSignedBeaconBlock).isErr()
       not db.getBlockSSZ(root, tmp, phase0.TrustedSignedBeaconBlock)
+      not db.getBlockSZ(root, tmp2, phase0.TrustedSignedBeaconBlock)
 
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root
@@ -139,7 +142,7 @@ suite "Beacon chain DB" & preset():
 
     db.putBlock(signedBlock)
 
-    var tmp: seq[byte]
+    var tmp, tmp2: seq[byte]
     check:
       db.containsBlock(root)
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
@@ -147,7 +150,9 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       db.getBlock(root, altair.TrustedSignedBeaconBlock).get() == signedBlock
       db.getBlockSSZ(root, tmp, altair.TrustedSignedBeaconBlock)
+      db.getBlockSZ(root, tmp2, altair.TrustedSignedBeaconBlock)
       tmp == SSZ.encode(signedBlock)
+      tmp2 == framingFormatCompress(tmp)
 
     db.delBlock(root)
     check:
@@ -157,6 +162,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       db.getBlock(root, altair.TrustedSignedBeaconBlock).isErr()
       not db.getBlockSSZ(root, tmp, altair.TrustedSignedBeaconBlock)
+      not db.getBlockSZ(root, tmp2, altair.TrustedSignedBeaconBlock)
 
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root
@@ -178,7 +184,7 @@ suite "Beacon chain DB" & preset():
 
     db.putBlock(signedBlock)
 
-    var tmp: seq[byte]
+    var tmp, tmp2: seq[byte]
     check:
       db.containsBlock(root)
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
@@ -186,7 +192,9 @@ suite "Beacon chain DB" & preset():
       db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       db.getBlock(root, bellatrix.TrustedSignedBeaconBlock).get() == signedBlock
       db.getBlockSSZ(root, tmp, bellatrix.TrustedSignedBeaconBlock)
+      db.getBlockSZ(root, tmp2, bellatrix.TrustedSignedBeaconBlock)
       tmp == SSZ.encode(signedBlock)
+      tmp2 == framingFormatCompress(tmp)
 
     db.delBlock(root)
     check:
@@ -196,6 +204,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
       db.getBlock(root, bellatrix.TrustedSignedBeaconBlock).isErr()
       not db.getBlockSSZ(root, tmp, bellatrix.TrustedSignedBeaconBlock)
+      not db.getBlockSZ(root, tmp2, bellatrix.TrustedSignedBeaconBlock)
 
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root

@@ -487,7 +487,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
         withTimer(timers[tBlocks]):
           var blocks: array[SLOTS_PER_HISTORICAL_ROOT.int, BlockId]
           for i in dag.getBlockRange(firstSlot.get(), 1, blocks)..<blocks.len:
-            if dag.getBlockSSZ(blocks[i], tmp):
+            if dag.getBlockSZ(blocks[i], tmp):
               group.update(e2, blocks[i].slot, tmp).get()
 
       withTimer(timers[tState]):
