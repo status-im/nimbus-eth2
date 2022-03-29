@@ -267,7 +267,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let res = withState(state):
           when stateFork >= BeaconStateFork.Altair:
             produceResponse(indexList,
-                              state.data.current_sync_committee.pubkeys.data,
+                            state.data.current_sync_committee.pubkeys.data,
                             state.data.validators.asSeq)
           else:
             emptyResponse()
@@ -481,7 +481,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http400,
                              InvalidAttestationDataRootValueError, $res.error())
             res.get()
-        let res = node.attestationPool[].getAggregatedAttestation(qslot, qroot)
+        let res =
+          node.attestationPool[].getAggregatedAttestation(qslot, qroot)
         if res.isNone():
           return RestApiResponse.jsonError(Http400,
                                           UnableToGetAggregatedAttestationError)
@@ -585,8 +586,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         request.slot, subnet_id, request.validator_index,
         request.is_aggregator)
 
-      let validator_pubkey = getStateField(
-        node.dag.headState, validators).asSeq()[request.validator_index].pubkey
+      let validator_pubkey =
+        getStateField(node.dag.headState, validators)
+          .asSeq()[request.validator_index].pubkey
 
       node.validatorMonitor[].addAutoMonitor(
         validator_pubkey, ValidatorIndex(request.validator_index))
@@ -617,11 +619,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
              lenu64(getStateField(node.dag.headState, validators)):
             return RestApiResponse.jsonError(Http400,
                                              InvalidValidatorIndexValueError)
-          let validator_pubkey = getStateField(
-            node.dag.headState, validators).asSeq()[item.validator_index].pubkey
+          let validator_pubkey =
+            getStateField(node.dag.headState, validators)
+              .asSeq()[item.validator_index].pubkey
 
-          node.syncCommitteeMsgPool.syncCommitteeSubscriptions[validator_pubkey] =
-            item.until_epoch
+          node.syncCommitteeMsgPool
+            .syncCommitteeSubscriptions[validator_pubkey] = item.until_epoch
 
           node.validatorMonitor[].addAutoMonitor(
             validator_pubkey, ValidatorIndex(item.validator_index))

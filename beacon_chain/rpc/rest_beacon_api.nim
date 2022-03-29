@@ -756,7 +756,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       bid = node.getBlockId(blockIdent).valueOr:
         return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
-    if node.dag.cfg.blockForkAtEpoch(bid.slot.epoch) != BeaconBlockFork.Phase0:
+    if node.dag.cfg.blockForkAtEpoch(bid.slot.epoch) !=
+        BeaconBlockFork.Phase0:
       return RestApiResponse.jsonError(
         Http404, BlockNotFoundError, "v1 API supports only phase 0 blocks")
 

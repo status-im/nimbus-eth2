@@ -1174,9 +1174,12 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   await node.updateGossipStatus(slot + 1)
 
 func syncStatus(node: BeaconNode): string =
-  if node.syncManager.inProgress: node.syncManager.syncStatus
-  elif node.backfiller.inProgress: "backfill: " & node.backfiller.syncStatus
-  else: "synced"
+  if node.syncManager.inProgress:
+    node.syncManager.syncStatus
+  elif node.backfiller.inProgress:
+    "backfill: " & node.backfiller.syncStatus
+  else:
+    "synced"
 
 proc onSlotStart(
     node: BeaconNode, wallTime: BeaconTime, lastSlot: Slot) {.async.} =
@@ -1241,7 +1244,8 @@ proc onSecond(node: BeaconNode) =
   # Nim GC metrics (for the main thread)
   updateThreadMetrics()
 
-  if node.config.stopAtSyncedEpoch != 0 and node.dag.head.slot.epoch >= node.config.stopAtSyncedEpoch:
+  if node.config.stopAtSyncedEpoch != 0 and
+      node.dag.head.slot.epoch >= node.config.stopAtSyncedEpoch:
     notice "Shutting down after having reached the target synced epoch"
     bnStatus = BeaconNodeStatus.Stopping
 
@@ -1285,11 +1289,13 @@ proc installMessageValidators(node: BeaconNode) =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
+  let forkDigests = node.dag.forkDigests
+
   func toValidationResult(res: ValidationRes): ValidationResult =
     if res.isOk(): ValidationResult.Accept else: res.error()[0]
 
   node.network.addValidator(
-    getBeaconBlocksTopic(node.dag.forkDigests.phase0),
+    getBeaconBlocksTopic(forkDigests.phase0),
     proc (signedBlock: phase0.SignedBeaconBlock): ValidationResult =
       toValidationResult(node.processor[].blockValidator(
         MsgSource.gossip, signedBlock)))
@@ -1335,21 +1341,21 @@ proc installMessageValidators(node: BeaconNode) =
           node.processor[].voluntaryExitValidator(
             MsgSource.gossip, signedVoluntaryExit)))
 
-  installPhase0Validators(node.dag.forkDigests.phase0)
+  installPhase0Validators(forkDigests.phase0)
 
   # Validators introduced in phase0 are also used in altair and merge, but with
   # different fork digest
-  installPhase0Validators(node.dag.forkDigests.altair)
-  installPhase0Validators(node.dag.forkDigests.bellatrix)
+  installPhase0Validators(forkDigests.altair)
+  installPhase0Validators(forkDigests.bellatrix)
 
   node.network.addValidator(
-    getBeaconBlocksTopic(node.dag.forkDigests.altair),
+    getBeaconBlocksTopic(forkDigests.altair),
     proc (signedBlock: altair.SignedBeaconBlock): ValidationResult =
       toValidationResult(node.processor[].blockValidator(
         MsgSource.gossip, signedBlock)))
 
   node.network.addValidator(
-    getBeaconBlocksTopic(node.dag.forkDigests.bellatrix),
+    getBeaconBlocksTopic(forkDigests.bellatrix),
     proc (signedBlock: bellatrix.SignedBeaconBlock): ValidationResult =
       toValidationResult(node.processor[].blockValidator(
         MsgSource.gossip, signedBlock)))
@@ -1370,10 +1376,11 @@ proc installMessageValidators(node: BeaconNode) =
       getSyncCommitteeContributionAndProofTopic(digest),
       proc(msg: SignedContributionAndProof): Future[ValidationResult] {.async.} =
         return toValidationResult(
-          await node.processor.contributionValidator(MsgSource.gossip, msg)))
+          await node.processor.contributionValidator(
+            MsgSource.gossip, msg)))
 
-  installSyncCommitteeeValidators(node.dag.forkDigests.altair)
-  installSyncCommitteeeValidators(node.dag.forkDigests.bellatrix)
+  installSyncCommitteeeValidators(forkDigests.altair)
+  installSyncCommitteeeValidators(forkDigests.bellatrix)
 
   template installOptimisticLightClientUpdateValidator(digest: auto) =
     node.network.addValidator(
@@ -1387,8 +1394,8 @@ proc installMessageValidators(node: BeaconNode) =
           debug "Ignoring optimistic light client update: Feature disabled"
           ValidationResult.Ignore)
 
-  installOptimisticLightClientUpdateValidator(node.dag.forkDigests.altair)
-  installOptimisticLightClientUpdateValidator(node.dag.forkDigests.bellatrix)
+  installOptimisticLightClientUpdateValidator(forkDigests.altair)
+  installOptimisticLightClientUpdateValidator(forkDigests.bellatrix)
 
 proc stop(node: BeaconNode) =
   bnStatus = BeaconNodeStatus.Stopping
