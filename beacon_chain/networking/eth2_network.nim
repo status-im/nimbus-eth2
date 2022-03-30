@@ -1410,8 +1410,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
           getBeaconTime: GetBeaconTimeFn, switch: Switch,
           pubsub: GossipSub, ip: Option[ValidIpAddress], tcpPort,
           udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
-          rng: ref BrHmacDrbgContext, externalIp: Option[ValidIpAddress],
-          externalTcpPort, externalUdpPort: Option[Port]): T {.raises: [Defect, CatchableError].} =
+          rng: ref BrHmacDrbgContext): T {.raises: [Defect, CatchableError].} =
   when not defined(local_testnet):
     let
       connectTimeout = 1.minutes
@@ -1453,9 +1452,9 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
     rng: rng,
     connectTimeout: connectTimeout,
     seenThreshold: seenThreshold,
-    externalIp: externalIp,
-    externalTcpPort: externalTcpPort,
-    externalUdpPort: externalUdpPort,
+    externalIp: ip,
+    externalTcpPort: tcpPort,
+    externalUdpPort: udpPort,
   )
 
   newSeq node.protocolStates, allProtocols.len
@@ -2101,9 +2100,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
   let node = Eth2Node.new(
     config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
     extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
-    discovery = config.discv5Enabled, rng = rng,
-    externalIp = extIp, externalTcpPort = extTcpPort,
-    externalUdpPort = extUdpPort)
+    discovery = config.discv5Enabled, rng = rng)
 
   node.pubsub.subscriptionValidator =
     proc(topic: string): bool {.gcsafe, raises: [Defect].} =
