@@ -84,6 +84,10 @@ type
     peerTrimmerHeartbeatFut: Future[void]
     cfg: RuntimeConfig
     getBeaconTime: GetBeaconTimeFn
+    externalIp: Option[ValidIpAddress]
+    externalTcpPort: Option[Port]
+    externalUdpPort: Option[Port]
+    externalIpUpdateFut: Future[void]
 
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
@@ -1406,7 +1410,8 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
           getBeaconTime: GetBeaconTimeFn, switch: Switch,
           pubsub: GossipSub, ip: Option[ValidIpAddress], tcpPort,
           udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
-          rng: ref BrHmacDrbgContext): T {.raises: [Defect, CatchableError].} =
+          rng: ref BrHmacDrbgContext, externalIp: Option[ValidIpAddress],
+          externalTcpPort, externalUdpPort: Option[Port]): T {.raises: [Defect, CatchableError].} =
   when not defined(local_testnet):
     let
       connectTimeout = 1.minutes
@@ -1447,7 +1452,10 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
     discoveryEnabled: discovery,
     rng: rng,
     connectTimeout: connectTimeout,
-    seenThreshold: seenThreshold
+    seenThreshold: seenThreshold,
+    externalIp: externalIp,
+    externalTcpPort: externalTcpPort,
+    externalUdpPort: externalUdpPort,
   )
 
   newSeq node.protocolStates, allProtocols.len
@@ -1539,6 +1547,9 @@ proc start*(node: Eth2Node) {.async.} =
   node.peerTrimmerHeartbeatFut = node.peerTrimmerHeartbeat()
 
 proc stop*(node: Eth2Node) {.async.} =
+  if node.externalIpUpdateFut != nil:
+    node.externalIpUpdateFut.cancel()
+
   # Ignore errors in futures, since we're shutting down (but log them on the
   # TRACE level, if a timeout is reached).
   var waitedFutures =
@@ -1967,6 +1978,25 @@ template gossipMaxSize(T: untyped): uint32 =
   static: doAssert maxSize <= maxGossipMaxSize()
   maxSize.uint32
 
+proc externalIpUpdateLoop(node: Eth2Node,
+                      config: BeaconNodeConf) {.async.} =
+  try:
+    while true:
+      # Trade-off between reacting quickly to dynamic IP changes (rather rare)
+      # and blocking the main event loop while we chat with the router.
+      await sleepAsync(10.minutes)
+
+      let extIpRes = getExternalIP(config.nat.nat, quiet = true)
+      if extIpRes.isSome():
+        let extIp = ValidIpAddress.init(extIpRes.get)
+        if some(extIp) != node.externalIp and node.externalUdpPort.isSome():
+          # Let the discovery subsystem know about this new external IP.
+          info "New external IP detected. Using it.", oldExtIP = node.externalIp, newExtIP = extIp
+          discard node.discovery.updateExternalIp(extIp, node.externalUdpPort.get())
+          node.externalIp = some(extIp)
+  except CancelledError:
+    trace "externalIpUpdateLoop() cancelled"
+
 proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      config: BeaconNodeConf,
                      netKeys: NetKeyPair,
@@ -1982,10 +2012,8 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
     discoveryForkId = getDiscoveryForkID(
       cfg, getBeaconTime().slotOrZero.epoch, genesisValidatorsRoot)
 
-    (extIp, extTcpPort, extUdpPort) = try: setupAddress(
+    (extIp, extTcpPort, extUdpPort) = setupAddress(
       config.nat, config.listenAddress, config.tcpPort, config.udpPort, clientId)
-    except CatchableError as exc: raise exc
-    except Exception as exc: raiseAssert exc.msg
 
     hostAddress = tcpEndPoint(config.listenAddress, config.tcpPort)
     announcedAddresses = if extIp.isNone() or extTcpPort.isNone(): @[]
@@ -2073,11 +2101,17 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
   let node = Eth2Node.new(
     config, cfg, enrForkId, discoveryForkId, forkDigests, getBeaconTime, switch, pubsub, extIp,
     extTcpPort, extUdpPort, netKeys.seckey.asEthKey,
-    discovery = config.discv5Enabled, rng = rng)
+    discovery = config.discv5Enabled, rng = rng,
+    externalIp = extIp, externalTcpPort = extTcpPort,
+    externalUdpPort = extUdpPort)
 
   node.pubsub.subscriptionValidator =
     proc(topic: string): bool {.gcsafe, raises: [Defect].} =
       topic in node.validTopics
+
+  if extIp.isSome() and not config.nat.hasExtIp and config.nat.nat in [NatAny, NatUpnp, NatPmp]:
+    # Start the external IP update loop that handles dynamic IP changes.
+    node.externalIpUpdateFut = externalIpUpdateLoop(node, config)
 
   node
 
