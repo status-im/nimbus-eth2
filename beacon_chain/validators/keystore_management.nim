@@ -11,6 +11,7 @@ import
   std/[os, strutils, terminal, wordwrap, unicode],
   chronicles, chronos, json_serialization, zxcvbn,
   serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
+  nimbus_security_resources,
   ".."/spec/[eth2_merkleization, keystore, crypto],
   ".."/spec/datatypes/base,
   stew/io2, libp2p/crypto/crypto as lcrypto,
@@ -68,8 +69,8 @@ const
   minPasswordEntropy = 60.0
 
   mostCommonPasswords = wordListArray(
-    currentSourcePath.parentDir /
-      "../../vendor/nimbus-security-resources/passwords/10-million-password-list-top-100000.txt",
+    nimbusSecurityResourcesPath /
+      "passwords" / "10-million-password-list-top-100000.txt",
     minWordLen = minPasswordLen)
 
 proc echoP*(msg: string) =
