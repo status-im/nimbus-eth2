@@ -55,3 +55,7 @@ resttest0_data
 # OSX
 .DS_Store
 **/.DS_Store
+
+# Nimble user files
+nimble.develop
+nimble.paths
