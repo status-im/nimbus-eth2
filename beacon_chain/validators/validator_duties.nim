@@ -1155,7 +1155,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   handleAttestations(node, head, slot)
   handleSyncCommitteeMessages(node, head, slot)
 
-  if node.config.serveLightClientData and didSubmitBlock:
+  if node.config.serveLightClientData.get and didSubmitBlock:
     let cutoff = node.beaconClock.fromNow(
       slot.optimistic_light_client_update_time())
     if cutoff.inFuture:
@@ -1327,7 +1327,7 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
           blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
           signature = shortLog(blck.signature)
 
-        if node.config.serveLightClientData:
+        if node.config.serveLightClientData.get:
           # The optimistic light client update is sent with a delay because it
           # only validates once the new block has been processed by the peers.
           # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#block-proposal

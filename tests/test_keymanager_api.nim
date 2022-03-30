@@ -154,6 +154,8 @@ proc startSingleNodeNetwork =
     "--keymanager-address=127.0.0.1",
     "--keymanager-port=" & $keymanagerPort,
     "--keymanager-token-file=" & tokenFilePath,
+    "--serve-light-client-data=off",
+    "--import-light-client-data=none",
     "--doppelganger-detection=off"], it))
 
   let metadata = loadEth2NetworkMetadata(dataDir)
