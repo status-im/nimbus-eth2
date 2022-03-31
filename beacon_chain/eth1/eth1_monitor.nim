@@ -23,6 +23,9 @@ import
   ".."/[beacon_chain_db, beacon_node_status, beacon_clock],
   ./merkle_minimal
 
+from std/times import getTime, inSeconds, initTime, `-`
+from ../spec/engine_authentication import getSignedIatToken
+
 export
   web3Types, deques
 
@@ -107,7 +110,7 @@ type
     eth1Network: Option[Eth1Network]
     depositContractAddress*: Eth1Address
     forcePolling: bool
-    jwtSecret: seq[byte]
+    jwtSecret: Option[seq[byte]]
 
     dataProvider: Web3DataProviderRef
     latestEth1Block: Option[FullBlockId]
@@ -117,6 +120,7 @@ type
 
     runFut: Future[void]
     stopFut: Future[void]
+    getBeaconTime: GetBeaconTimeFn
 
     when hasGenesisDetection:
       genesisValidators: seq[ImmutableValidatorData]
@@ -862,13 +866,28 @@ proc getBlockProposalData*(chain: var Eth1Chain,
 template getBlockProposalData*(m: Eth1Monitor,
                                state: ForkedHashedBeaconState,
                                finalizedEth1Data: Eth1Data,
-                               finalizedStateDepositIndex: uint64): BlockProposalEth1Data =
-  getBlockProposalData(m.depositsChain, state, finalizedEth1Data, finalizedStateDepositIndex)
+                               finalizedStateDepositIndex: uint64):
+                               BlockProposalEth1Data =
+  getBlockProposalData(
+    m.depositsChain, state, finalizedEth1Data, finalizedStateDepositIndex)
+
+proc getJsonRpcRequestHeaders(jwtSecret: Option[seq[byte]]):
+    auto =
+  if jwtSecret.isSome:
+    let secret = jwtSecret.get
+    (proc(): seq[(string, string)] =
+      # https://www.rfc-editor.org/rfc/rfc6750#section-6.1.1
+      @[("Authorization", "Bearer " & getSignedIatToken(
+        secret, (getTime() - initTime(0, 0)).inSeconds))])
+  else:
+    (proc(): seq[(string, string)] = @[])
 
 proc new*(T: type Web3DataProvider,
           depositContractAddress: Eth1Address,
-          web3Url: string): Future[Result[Web3DataProviderRef, string]] {.async.} =
-  let web3Fut = newWeb3(web3Url)
+          web3Url: string,
+          jwtSecret: Option[seq[byte]]):
+          Future[Result[Web3DataProviderRef, string]] {.async.} =
+  let web3Fut = newWeb3(web3Url, getJsonRpcRequestHeaders(jwtSecret))
   yield web3Fut or sleepAsync(chronos.seconds(10))
   if (not web3Fut.finished) or web3Fut.failed:
     await cancelAndWait(web3Fut)
@@ -905,10 +924,12 @@ proc init*(T: type Eth1Chain, cfg: RuntimeConfig, db: BeaconChainDB): T =
 proc createInitialDepositSnapshot*(
     depositContractAddress: Eth1Address,
     depositContractDeployedAt: BlockHashOrNumber,
-    web3Url: string): Future[Result[DepositContractSnapshot, string]] {.async.} =
+    web3Url: string,
+    jwtSecret: Option[seq[byte]]): Future[Result[DepositContractSnapshot, string]]
+    {.async.} =
 
   let dataProviderRes =
-    await Web3DataProvider.new(depositContractAddress, web3Url)
+    await Web3DataProvider.new(depositContractAddress, web3Url, jwtSecret)
   if dataProviderRes.isErr:
     return err(dataProviderRes.error)
   var dataProvider = dataProviderRes.get
@@ -929,11 +950,12 @@ proc createInitialDepositSnapshot*(
 proc init*(T: type Eth1Monitor,
            cfg: RuntimeConfig,
            db: BeaconChainDB,
+           getBeaconTime: GetBeaconTimeFn,
            web3Urls: seq[string],
            depositContractSnapshot: Option[DepositContractSnapshot],
            eth1Network: Option[Eth1Network],
            forcePolling: bool,
-           jwtSecret: seq[byte]): T =
+           jwtSecret: Option[seq[byte]]): T =
   doAssert web3Urls.len > 0
   var web3Urls = web3Urls
   for url in mitems(web3Urls):
@@ -945,6 +967,7 @@ proc init*(T: type Eth1Monitor,
   T(state: Initialized,
     depositsChain: Eth1Chain.init(cfg, db),
     depositContractAddress: cfg.DEPOSIT_CONTRACT_ADDRESS,
+    getBeaconTime: getBeaconTime,
     web3Urls: web3Urls,
     eth1Network: eth1Network,
     eth1Progress: newAsyncEvent(),
@@ -973,7 +996,8 @@ proc detectPrimaryProviderComingOnline(m: Eth1Monitor) {.async.} =
   while m.runFut == initialRunFut:
     let tempProviderRes = await Web3DataProvider.new(
       m.depositContractAddress,
-      web3Url)
+      web3Url,
+      m.jwtSecret)
 
     if tempProviderRes.isErr:
       await sleepAsync(checkInterval)
@@ -1007,7 +1031,8 @@ proc ensureDataProvider*(m: Eth1Monitor) {.async.} =
   inc m.startIdx
 
   m.dataProvider = block:
-    let v = await Web3DataProvider.new(m.depositContractAddress, web3Url)
+    let v = await Web3DataProvider.new(
+      m.depositContractAddress, web3Url, m.jwtSecret)
     if v.isErr():
       raise (ref CatchableError)(msg: v.error())
     v.get()
@@ -1382,8 +1407,10 @@ proc start(m: Eth1Monitor, delayBeforeStart: Duration) {.gcsafe.} =
 proc start*(m: Eth1Monitor) =
   m.start(0.seconds)
 
-proc getEth1BlockHash*(url: string, blockId: RtBlockIdentifier): Future[BlockHash] {.async.} =
-  let web3 = await newWeb3(url)
+proc getEth1BlockHash*(
+    url: string, blockId: RtBlockIdentifier, jwtSecret: Option[seq[byte]]):
+    Future[BlockHash] {.async.} =
+  let web3 = await newWeb3(url, getJsonRpcRequestHeaders(jwtSecret))
   try:
     let blk = awaitWithRetries(
       web3.provider.eth_getBlockByNumber(blockId, false))
@@ -1392,7 +1419,8 @@ proc getEth1BlockHash*(url: string, blockId: RtBlockIdentifier): Future[BlockHas
     await web3.close()
 
 proc testWeb3Provider*(web3Url: Uri,
-                       depositContractAddress: Eth1Address) {.async.} =
+                       depositContractAddress: Eth1Address,
+                       jwtSecret: Option[seq[byte]]) {.async.} =
   template mustSucceed(action: static string, expr: untyped): untyped =
     try: expr
     except CatchableError as err:
@@ -1401,7 +1429,8 @@ proc testWeb3Provider*(web3Url: Uri,
 
   let
     web3 = mustSucceed "connect to web3 provider":
-      await newWeb3($web3Url)
+      await newWeb3(
+        $web3Url, getJsonRpcRequestHeaders(jwtSecret))
     networkVersion = mustSucceed "get network version":
       awaitWithRetries web3.provider.net_version()
     latestBlock = mustSucceed "get latest block":

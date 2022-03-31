@@ -19,7 +19,7 @@ proc base64urlEncode(x: auto): string =
   # encoding quirks.
   base64.encode(x, safe = true).replace("=", "")
 
-func getIatToken*(time: uint64): JsonNode =
+func getIatToken*(time: int64): JsonNode =
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.8/src/engine/authentication.md#jwt-claims
   # "Required: iat (issued-at) claim. The EL SHOULD only accept iat timestamps
   # which are within +-5 seconds from the current time."
@@ -46,7 +46,7 @@ proc getSignedToken*(key: openArray[byte], payload: string): string =
 
   signingInput & "." & base64_urlencode(sha256.hmac(key, signingInput).data)
 
-proc getSignedIatToken*(key: openArray[byte], time: uint64): string =
+proc getSignedIatToken*(key: openArray[byte], time: int64): string =
   getSignedToken(key, $getIatToken(time))
 
 proc checkJwtSecret*(
@@ -74,11 +74,12 @@ proc checkJwtSecret*(
     rng.brHmacDrbgGenerate(newSecret)
     try:
       writeFile(jwtSecretPath, newSecret.to0xHex())
-    except IOError as e:
+    except IOError as exc:
       # Allow continuing to run, though this is effectively fatal for a merge
       # client using authentication. This keeps it lower-risk initially.
       warn "Could not write JWT secret to data directory",
-        jwtSecretPath
+        jwtSecretPath,
+        err = exc.msg
     return ok(newSecret)
 
   try:
