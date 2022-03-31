@@ -497,9 +497,15 @@ type
 
       proposerBoosting* {.
         hidden
-        desc: "Enable proposer boosting; temporary option feature gate (debugging; option will be removed)",
+        desc: "Enable proposer boosting; temporary option feature gate (debugging; option may be removed without warning)",
         defaultValue: false
         name: "proposer-boosting-debug" }: bool
+
+      useJwt* {.
+        hidden
+        desc: "Enable JWT authentication headers; temporary option feature gate (debugging; option may be remove without warning)",
+        defaultValue: false
+        name: "use-jwt-debug" }: bool
 
       # https://github.com/ethereum/consensus-specs/blob/v1.1.10/sync/optimistic.md#fork-choice-poisoning
       safeSlotsToImportOptimistically* {.
