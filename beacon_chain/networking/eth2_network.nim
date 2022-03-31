@@ -1985,14 +1985,12 @@ proc externalIpUpdateLoop(node: Eth2Node,
       # and blocking the main event loop while we chat with the router.
       await sleepAsync(10.minutes)
 
-      let extIpRes = getExternalIP(config.nat.nat, quiet = true)
-      if extIpRes.isSome():
-        let extIp = ValidIpAddress.init(extIpRes.get)
-        if some(extIp) != node.externalIp and node.externalUdpPort.isSome():
-          # Let the discovery subsystem know about this new external IP.
-          info "New external IP detected. Using it.", oldExtIP = node.externalIp, newExtIP = extIp
-          discard node.discovery.updateExternalIp(extIp, node.externalUdpPort.get())
-          node.externalIp = some(extIp)
+      let extIp = getPublicRoutePrefSrcOrExternalIP(config.nat.nat, config.listenAddress)
+      if extIP.isSome() and extIp != node.externalIp and node.externalUdpPort.isSome():
+        # Let the discovery subsystem know about this new external IP.
+        info "New external IP detected. Using it.", oldExtIP = node.externalIp, newExtIP = extIp.get()
+        discard node.discovery.updateExternalIp(extIp.get(), node.externalUdpPort.get())
+        node.externalIp = extIp
   except CancelledError:
     trace "externalIpUpdateLoop() cancelled"
 
