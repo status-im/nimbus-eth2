@@ -14,7 +14,7 @@ import
   ../beacon_chain/spec/[beaconstate, forks, state_transition],
   ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
-  eth/db/kvstore, snappy/framing,
+  eth/db/kvstore,
   # test utilies
   ./testutil, ./testdbutil, ./testblockutil, ./teststateutil
 

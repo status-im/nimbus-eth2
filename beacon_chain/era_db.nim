@@ -6,8 +6,7 @@
 
 import
   std/os,
-  stew/results,
-  snappy/framing,
+  stew/results, snappy,
   ../ncli/e2store,
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/forks,
@@ -118,7 +117,7 @@ proc getBlockSSZ*(
   ? db.getBlockSZ(historical_roots, slot, tmp)
 
   try:
-    bytes = framingFormatUncompress(tmp)
+    bytes = decodeFramed(tmp)
     ok()
   except CatchableError as exc:
     err(exc.msg)
@@ -172,7 +171,7 @@ proc getStateSSZ*(
   ? db.getStateSZ(historical_roots, slot, tmp)
 
   try:
-    bytes = framingFormatUncompress(tmp)
+    bytes = decodeFramed(tmp)
     ok()
   except CatchableError as exc:
     err(exc.msg)

@@ -3,7 +3,7 @@
 import
   std/strformat,
   stew/[arrayops, endians2, io2, results],
-  snappy, snappy/framing,
+  snappy,
   ../beacon_chain/spec/[beacon_time, forks],
   ../beacon_chain/spec/eth2_ssz_serialization
 
@@ -89,10 +89,7 @@ proc appendRecord*(f: IoHandle, typ: Type, data: openArray[byte]): Result[int64,
   ok(start)
 
 proc toCompressedBytes(item: auto): seq[byte] =
-  try:
-    framingFormatCompress(SSZ.encode(item))
-  except CatchableError as exc:
-    raiseAssert exc.msg # shouldn't happen
+  snappy.encodeFramed(SSZ.encode(item))
 
 proc appendRecord*(f: IoHandle, v: ForkyTrustedSignedBeaconBlock): Result[int64, string] =
   f.appendRecord(SnappyBeaconBlock, toCompressedBytes(v))
