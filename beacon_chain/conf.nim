@@ -429,15 +429,13 @@ type
       serveLightClientData* {.
         hidden
         desc: "BETA: Serve data for enabling light clients to stay in sync with the network"
-        defaultValue: false
-        name: "serve-light-client-data"}: bool
+        name: "serve-light-client-data"}: Option[bool]
 
       importLightClientData* {.
         hidden
         desc: "BETA: Which classes of light client data to import. " &
               "Must be one of: none, only-new, full (slow startup), on-demand (may miss validator duties)"
-        defaultValue: ImportLightClientData.None
-        name: "import-light-client-data"}: ImportLightClientData
+        name: "import-light-client-data"}: Option[ImportLightClientData]
 
       inProcessValidators* {.
         desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"

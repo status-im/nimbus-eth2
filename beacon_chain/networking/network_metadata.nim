@@ -9,7 +9,7 @@
 
 import
   std/[sequtils, strutils, os],
-  stew/shims/macros, nimcrypto/hash,
+  stew/byteutils, stew/shims/macros, nimcrypto/hash,
   eth/common/eth_types as commonEthTypes,
   web3/[ethtypes, conversions],
   chronicles,
@@ -17,6 +17,9 @@ import
   ssz_serialization/navigator,
   ../spec/eth2_ssz_serialization,
   ../spec/datatypes/phase0
+
+from ../consensus_object_pools/block_pools_types_light_client
+  import ImportLightClientData
 
 # ATTENTION! This file will produce a large C file, because we are inlining
 # genesis states as C literals in the generated code (and blobs in the final
@@ -36,6 +39,11 @@ type
     mainnet
     rinkeby
     goerli
+
+  Eth2NetworkConfigDefaults* = object
+    ## Network specific config defaults
+    serveLightClientData*: bool
+    importLightClientData*: ImportLightClientData
 
   Eth2NetworkMetadata* = object
     case incompatible*: bool
@@ -71,6 +79,8 @@ type
       # unknown genesis state.
       genesisData*: string
       genesisDepositsSnapshot*: string
+
+      configDefaults*: Eth2NetworkConfigDefaults
     else:
       incompatibilityDesc*: string
 
@@ -143,6 +153,38 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       else:
         ""
 
+      enableLightClientData =
+        if genesisData.len >= 40:
+          # SSZ processing at compile time does not work well.
+          #
+          # `BeaconState` layout:
+          # ```
+          # - genesis_time: uint64
+          # - genesis_validators_root: Eth2Digest
+          # - ...
+          # ```
+          #
+          # Comparing the first 40 bytes covers those two fields,
+          # which should identify the network with high likelihood.
+          let data = (genesisData[0 ..< 40].toHex())
+          data in [
+            # Prater
+            "60F4596000000000043DB0D9A83813551EE2F33450D23797757D430911A9320530AD8A0EABC43EFB"
+          ]
+        else:
+          false
+
+      configDefaults =
+        Eth2NetworkConfigDefaults(
+          serveLightClientData:
+            enableLightClientData,
+          importLightClientData:
+            if enableLightClientData:
+              ImportLightClientData.OnlyNew
+            else:
+              ImportLightClientData.None
+        )
+
     Eth2NetworkMetadata(
       incompatible: false,
       eth1Network: eth1Network,
@@ -150,7 +192,8 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       bootstrapNodes: bootstrapNodes,
       depositContractDeployedAt: depositContractDeployedAt,
       genesisData: genesisData,
-      genesisDepositsSnapshot: genesisDepositsSnapshot)
+      genesisDepositsSnapshot: genesisDepositsSnapshot,
+      configDefaults: configDefaults)
 
   except PresetIncompatibleError as err:
     Eth2NetworkMetadata(incompatible: true,

@@ -166,14 +166,14 @@ proc loadChainDag(
       if config.verifyFinalization: {verifyFinalization}
       else: {}
     onOptimisticLightClientUpdateCb =
-      if config.serveLightClientData: onOptimisticLightClientUpdate
+      if config.serveLightClientData.get: onOptimisticLightClientUpdate
       else: nil
     dag = ChainDAGRef.init(
       cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
       onBlockAdded, onHeadChanged, onChainReorg,
       onOptimisticLCUpdateCb = onOptimisticLightClientUpdateCb,
-      serveLightClientData = config.serveLightClientData,
-      importLightClientData = config.importLightClientData)
+      serveLightClientData = config.serveLightClientData.get,
+      importLightClientData = config.importLightClientData.get)
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState, genesis_validators_root)
 
@@ -857,7 +857,7 @@ proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Sl
 
   node.network.updateSyncnetsMetadata(currentSyncCommitteeSubnets)
 
-  if node.config.serveLightClientData:
+  if node.config.serveLightClientData.get:
     node.network.subscribe(
       getOptimisticLightClientUpdateTopic(forkDigest), basicParams)
 
@@ -872,7 +872,7 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.network.unsubscribe(
     getSyncCommitteeContributionAndProofTopic(forkDigest))
 
-  if node.config.serveLightClientData:
+  if node.config.serveLightClientData.get:
     node.network.unsubscribe(getOptimisticLightClientUpdateTopic(forkDigest))
 
 proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
@@ -1392,7 +1392,7 @@ proc installMessageValidators(node: BeaconNode) =
     node.network.addValidator(
       getOptimisticLightClientUpdateTopic(digest),
       proc(msg: OptimisticLightClientUpdate): ValidationResult =
-        if node.config.serveLightClientData:
+        if node.config.serveLightClientData.get:
           toValidationResult(
             node.processor[].optimisticLightClientUpdateValidator(
               MsgSource.gossip, msg))
@@ -1713,6 +1713,21 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
   # works
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
+  if config.serveLightClientData.isNone:
+    if metadata.configDefaults.serveLightClientData:
+      info "Applying network config default",
+        serveLightClientData = metadata.configDefaults.serveLightClientData,
+        eth2Network = config.eth2Network
+    config.serveLightClientData =
+      some metadata.configDefaults.serveLightClientData
+  if config.importLightClientData.isNone:
+    if metadata.configDefaults.importLightClientData !=
+        ImportLightClientData.None:
+      info "Applying network config default",
+        importLightClientData = metadata.configDefaults.importLightClientData,
+        eth2Network = config.eth2Network
+    config.importLightClientData =
+      some metadata.configDefaults.importLightClientData
 
   let node = BeaconNode.init(
     metadata.cfg,

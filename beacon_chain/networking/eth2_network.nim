@@ -1456,7 +1456,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
       node.protocolStates[proto.index] = proto.networkStateInitializer(node)
 
     for msg in proto.messages:
-      if msg.isLightClientRequest and not config.serveLightClientData:
+      if msg.isLightClientRequest and not config.serveLightClientData.get:
         continue
       if msg.protocolMounter != nil:
         msg.protocolMounter node
