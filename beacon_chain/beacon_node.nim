@@ -44,6 +44,7 @@ type
     store*: ref Option[LightClientStore]
     processor*: ref LightClientProcessor
     manager*: LightClientManager
+    gossipState*: GossipState
 
   BeaconNode* = ref object
     nickname*: string

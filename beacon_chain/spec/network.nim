@@ -135,6 +135,12 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
       next_fork_version: current_fork_version,
       next_fork_epoch: FAR_FUTURE_EPOCH)
 
+# We start subscribing to gossip before we're fully synced - this allows time
+# to subscribe before the sync end game
+const
+  TOPIC_SUBSCRIBE_THRESHOLD_SLOTS* = 64
+  HYSTERESIS_BUFFER* = 16
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/p2p-interface.md#transitioning-the-gossip
 func getTargetGossipState*(
     epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH: Epoch, isBehind: bool):

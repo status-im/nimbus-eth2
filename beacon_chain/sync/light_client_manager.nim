@@ -291,6 +291,23 @@ template query[E](
 ): Future[bool] =
   self.query(e, Nothing())
 
+proc isGossipSupported*(
+    self: LightClientManager,
+    period: SyncCommitteePeriod
+): bool =
+  ## Indicate whether the light client is sufficiently synced to accept
+  ## light client gossip data (`optimistic_light_client_update`).
+  if not self.isLightClientStoreInitialized():
+    return false
+
+  let
+    finalizedPeriod = self.getFinalizedPeriod()
+    isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown()
+  if isNextSyncCommitteeKnown:
+    period in [finalizedPeriod, finalizedPeriod + 1]
+  else:
+    period == finalizedPeriod
+
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#sync-via-libp2p
 proc loop(self: LightClientManager) {.async.} =
   var nextFetchTick = Moment.now()
@@ -309,19 +326,10 @@ proc loop(self: LightClientManager) {.async.} =
         await sleepAsync(chronos.seconds(60))
         continue
 
-    # Determine whether latest light client data can be applied
-    let
-      currentPeriod = self.getLocalWallPeriod()
-      finalizedPeriod = self.getFinalizedPeriod()
-      isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown()
-      isInSync =
-        if isNextSyncCommitteeKnown:
-          currentPeriod in [finalizedPeriod, finalizedPeriod + 1]
-        else:
-          currentPeriod == finalizedPeriod
-
-    # If not in sync, request light client data for older periods
-    if not isInSync:
+    # Request light client data for older periods if necessary to support gossip
+    let currentPeriod = self.getLocalWallPeriod()
+    if not self.isGossipSupported(currentPeriod):
+      let finalizedPeriod = self.getFinalizedPeriod()
       doAssert currentPeriod > finalizedPeriod
       let didProgress = await self.query(
         BestLightClientUpdatesByRangeEndpoint,
@@ -356,7 +364,7 @@ proc loop(self: LightClientManager) {.async.} =
             (minDelaySeconds + self.rng[].rand(jitterSeconds).uint64).int64
       nextFetchTick = Moment.fromNow(chronos.seconds(delaySeconds))
 
-    # Periodically wake and check if still in sync
+    # Periodically wake and check for changes
     await sleepAsync(chronos.seconds(2))
 
 proc start*(self: var LightClientManager) =

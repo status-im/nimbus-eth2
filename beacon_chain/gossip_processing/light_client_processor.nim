@@ -13,8 +13,8 @@ import
   ../spec/datatypes/altair,
   ../spec/light_client_sync,
   ../consensus_object_pools/block_pools_types,
-  ".."/[beacon_clock],
-  ../sszdump
+  ".."/[beacon_clock, sszdump],
+  ./gossip_validation
 
 export sszdump
 
@@ -291,3 +291,48 @@ proc addObject*(
 
   if resFut != nil:
     resFut.complete(res)
+
+# Message validators
+# ------------------------------------------------------------------------------
+
+declareCounter lc_optimistic_light_client_updates_received,
+  "Number of valid optimistic light client updates processed by this node's LC"
+declareCounter lc_optimistic_light_client_updates_dropped,
+  "Number of invalid optimistic light client updates dropped by this node's LC", labels = ["reason"]
+
+func toValidationError(
+    v: Result[void, BlockError]): Result[void, ValidationError] =
+  if v.isOk:
+    ok()
+  else:
+    case v.error
+    of BlockError.Invalid:
+      errReject($v.error)
+    of BlockError.MissingParent:
+      errIgnore($v.error)
+    of BlockError.UnviableFork:
+      errReject($v.error)
+    of BlockError.Duplicate:
+      errIgnore($v.error)
+
+proc optimisticLightClientUpdateValidator*(
+    self: var LightClientProcessor, src: MsgSource,
+    optimistic_update: OptimisticLightClientUpdate
+): Result[void, ValidationError] =
+  logScope:
+    optimistic_update
+
+  debug "Optimistic light client update received"
+
+  let
+    r = self.storeObject(src, self.getBeaconTime(), optimistic_update)
+    v = r.toValidationError
+  if v.isOk():
+    trace "Optimistic light client update validated"
+
+    lc_optimistic_light_client_updates_received.inc()
+  else:
+    debug "Dropping optimistic light client update", error = v.error
+    lc_optimistic_light_client_updates_dropped.inc(1, [$v.error[0]])
+
+  v

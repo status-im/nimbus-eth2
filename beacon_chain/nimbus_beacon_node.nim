@@ -849,10 +849,6 @@ proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Sl
 
   node.network.updateSyncnetsMetadata(currentSyncCommitteeSubnets)
 
-  if node.config.serveLightClientData:
-    node.network.subscribe(
-      getOptimisticLightClientUpdateTopic(forkDigest), basicParams)
-
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -863,9 +859,6 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
   node.network.unsubscribe(
     getSyncCommitteeContributionAndProofTopic(forkDigest))
-
-  if node.config.serveLightClientData:
-    node.network.unsubscribe(getOptimisticLightClientUpdateTopic(forkDigest))
 
 proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   # Unlike trackNextSyncCommitteeTopics, just snap to the currently correct
@@ -972,12 +965,6 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   # these arrive
   await node.registerDuties(slot)
 
-  # We start subscribing to gossip before we're fully synced - this allows time
-  # to subscribe before the sync end game
-  const
-    TOPIC_SUBSCRIBE_THRESHOLD_SLOTS = 64
-    HYSTERESIS_BUFFER = 16
-
   let
     head = node.dag.head
     headDistance =
@@ -1063,6 +1050,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
   node.gossipState = targetGossipState
   node.updateAttestationSubnetHandlers(slot)
+  node.updateLightClientGossipStatus(slot)
 
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
@@ -1283,8 +1271,6 @@ proc installMessageValidators(node: BeaconNode) =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
-  func toValidationResult(res: ValidationRes): ValidationResult =
-    if res.isOk(): ValidationResult.Accept else: res.error()[0]
 
   node.network.addValidator(
     getBeaconBlocksTopic(node.dag.forkDigests.phase0),
@@ -1382,11 +1368,12 @@ proc installMessageValidators(node: BeaconNode) =
             node.processor[].optimisticLightClientUpdateValidator(
               MsgSource.gossip, msg))
         else:
-          debug "Ignoring optimistic light client update: Feature disabled"
           ValidationResult.Ignore)
 
   installOptimisticLightClientUpdateValidator(node.dag.forkDigests.altair)
   installOptimisticLightClientUpdateValidator(node.dag.forkDigests.bellatrix)
+
+  node.installLightClientMessageValidators()
 
 proc stop(node: BeaconNode) =
   bnStatus = BeaconNodeStatus.Stopping

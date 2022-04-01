@@ -1051,11 +1051,14 @@ func stateCheckpoint*(dag: ChainDAGRef, bsi: BlockSlotId): BlockSlotId =
 template forkAtEpoch*(dag: ChainDAGRef, epoch: Epoch): Fork =
   forkAtEpoch(dag.cfg, epoch)
 
-func forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
-  case dag.cfg.stateForkAtEpoch(epoch)
+func forkDigest*(dag: ChainDAGRef, kind: BeaconStateFork): ForkDigest =
+  case kind
   of BeaconStateFork.Bellatrix: dag.forkDigests.bellatrix
   of BeaconStateFork.Altair:    dag.forkDigests.altair
   of BeaconStateFork.Phase0:    dag.forkDigests.phase0
+
+func forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
+  dag.forkDigest(dag.cfg.stateForkAtEpoch(epoch))
 
 proc getBlockRange*(
     dag: ChainDAGRef, startSlot: Slot, skipStep: uint64,
