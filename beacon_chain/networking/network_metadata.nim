@@ -162,7 +162,7 @@ proc loadCompileTimeNetworkMetadata(
   try:
     result = loadEth2NetworkMetadata(path, eth1Network)
     if result.incompatible:
-      macros.error "The current build is miscondigured. " &
+      macros.error "The current build is misconfigured. " &
                    "Attempt to load an incompatible network metadata: " &
                    result.incompatibilityDesc
   except CatchableError as err:
