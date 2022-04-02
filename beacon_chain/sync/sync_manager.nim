@@ -49,7 +49,6 @@ type
     pool: PeerPool[A, B]
     responseTimeout: chronos.Duration
     maxHeadAge: uint64
-    toleranceValue: uint64
     getLocalHeadSlot: GetSlotCallback
     getLocalWallSlot: GetSlotCallback
     getSafeSlot: GetSlotCallback
@@ -122,7 +121,6 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            blockVerifier: BlockVerifier,
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
                            chunkSize = uint64(SLOTS_PER_EPOCH),
-                           toleranceValue = uint64(1),
                            flags: set[SyncManagerFlag] = {},
                            ident = "main"
                            ): SyncManager[A, B] =

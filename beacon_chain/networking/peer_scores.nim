@@ -17,8 +17,6 @@ const
   PeerScoreInvalidRequest* = -500
     ## This peer is sending malformed or nonsensical data
 
-  PeerScoreHeadTooNew* = -100
-    ## The peer reports a head newer than our wall clock slot
   PeerScoreNoStatus* = -100
     ## Peer did not answer `status` request.
   PeerScoreStaleStatus* = -50
