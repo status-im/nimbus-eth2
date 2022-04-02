@@ -130,8 +130,7 @@ func applyScoreChanges*(self: var ProtoArray,
                         justifiedCheckpoint: Checkpoint,
                         finalizedCheckpoint: Checkpoint,
                         newBalances: openArray[Gwei],
-                        proposerBoostRoot: Eth2Digest,
-                        useProposerBoost: bool): FcResult[void] =
+                        proposerBoostRoot: Eth2Digest): FcResult[void] =
   ## Iterate backwards through the array, touching all nodes and their parents
   ## and potentially the best-child of each parent.
   #
@@ -146,9 +145,6 @@ func applyScoreChanges*(self: var ProtoArray,
   #    updating if the current node should become the best-child
   # 4. If required, update the parent's best-descendant with the current node
   #    or its best-descendant
-  #
-  # useProposerBoost is temporary, until it can be either permanently enabled
-  # or is removed from the Eth2 spec.
   doAssert self.indices.len == self.nodes.len # By construction
   if deltas.len != self.indices.len:
     return err ForkChoiceError(
@@ -176,8 +172,7 @@ func applyScoreChanges*(self: var ProtoArray,
 
     # If we find the node for which the proposer boost was previously applied,
     # decrease the delta by the previous score amount.
-    if  useProposerBoost and
-        (not self.previousProposerBoostRoot.isZero) and
+    if  (not self.previousProposerBoostRoot.isZero) and
         self.previousProposerBoostRoot == node.root:
           if  nodeDelta < 0 and
               nodeDelta - low(Delta) < self.previousProposerBoostScore:
@@ -190,8 +185,7 @@ func applyScoreChanges*(self: var ProtoArray,
     # the delta by the new score amount.
     #
     # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
-    if  useProposerBoost and (not proposerBoostRoot.isZero) and
-        proposerBoostRoot == node.root:
+    if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.root:
       proposerBoostScore = calculateProposerBoost(newBalances)
       if  nodeDelta >= 0 and
           high(Delta) - nodeDelta < self.previousProposerBoostScore:
@@ -245,9 +239,8 @@ func applyScoreChanges*(self: var ProtoArray,
       deltas[parentPhysicalIdx] += nodeDelta
 
   # After applying all deltas, update the `previous_proposer_boost`.
-  if useProposerBoost:
-    self.previousProposerBoostRoot = proposerBoostRoot
-    self.previousProposerBoostScore = proposerBoostScore
+  self.previousProposerBoostRoot = proposerBoostRoot
+  self.previousProposerBoostScore = proposerBoostScore
 
   for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
     if node.root.isZero:

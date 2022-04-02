@@ -493,9 +493,9 @@ type
         defaultValue: false
         name: "validator-monitor-totals" }: bool
 
-      proposerBoosting* {.
+      proposerBoostingNoEffect* {.
         hidden
-        desc: "Enable proposer boosting; temporary option feature gate (debugging; option may be removed without warning)",
+        desc: "No-op stub; may be removed without warning",
         defaultValue: false
         name: "proposer-boosting-debug" }: bool
 

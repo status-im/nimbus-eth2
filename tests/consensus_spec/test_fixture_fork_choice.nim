@@ -100,7 +100,6 @@ proc initialLoad(
     fkChoice = newClone(ForkChoice.init(
       dag.getFinalizedEpochRef(),
       dag.finalizedHead.blck,
-      true
     ))
 
   (dag, fkChoice)

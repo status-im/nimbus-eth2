@@ -15,8 +15,7 @@ func setup_no_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]
   # We start with epoch 0 fully finalized to avoid epoch 0 special cases.
   result.fork_choice = ForkChoiceBackend.init(
     justifiedCheckpoint = Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    finalizedCheckpoint = Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    true # use proposer boosting, though the proposer boost root not set
+    finalizedCheckpoint = Checkpoint(root: GenesisRoot, epoch: Epoch(1))
   )
 
   # ----------------------------------

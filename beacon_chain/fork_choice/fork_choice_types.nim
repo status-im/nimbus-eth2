@@ -130,7 +130,6 @@ type
     proto_array*: ProtoArray
     votes*: seq[VoteTracker]
     balances*: seq[Gwei]
-    proposer_boosting*: bool
 
   QueuedAttestation* = object
     slot*: Slot
