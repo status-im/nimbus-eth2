@@ -143,11 +143,6 @@
 	url = https://github.com/status-im/nim-protobuf-serialization.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/nim-rocksdb"]
-	path = vendor/nim-rocksdb
-	url = https://github.com/status-im/nim-rocksdb.git
-	ignore = untracked
-	branch = master
 [submodule "vendor/asynctools"]
 	path = vendor/asynctools
 	url = https://github.com/cheatfate/asynctools.git
