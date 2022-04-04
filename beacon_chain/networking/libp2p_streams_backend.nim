@@ -35,8 +35,11 @@ proc uncompressFramedStream*(conn: Connection,
 
     let (id, dataLen) = decodeFrameHeader(frameHeader)
 
-    if dataLen.uint64 > maxCompressedFrameDataLen.uint64:
-      return err "invalid snappy frame length"
+    if dataLen > frameData.len:
+      # In theory, compressed frames could be bigger and still result in a
+      # valid, small snappy frame, but this would mean they are not getting
+      # compressed correctly
+      return err "Snappy frame too big"
 
     if dataLen > 0:
       try:
