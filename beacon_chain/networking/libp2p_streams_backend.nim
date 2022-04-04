@@ -41,39 +41,45 @@ proc uncompressFramedStream*(conn: Connection,
     try:
       await conn.readExactly(addr frameData[0], dataLen)
     except LPStreamEOFError, LPStreamIncompleteError:
-      return err "no snappy frame"
+      return err "no snappy frame data"
 
     if id == chunkCompressed:
-      if dataLen < 4:
-        return err "Snappy frame size too low to contain CRC checksum"
+      if dataLen < 6: # At least CRC + 2 bytes of frame data
+        return err "Compressed snappy frame too small"
 
       let
         crc = uint32.fromBytesLE frameData.toOpenArray(0, 3)
-        uncompressedLen =
+        uncompressed =
           snappy.uncompress(
             frameData.toOpenArray(4, dataLen - 1),
             output.toOpenArray(written, output.high)).valueOr:
               return err "Failed to decompress content"
 
       if maskedCrc(
-          output.toOpenArray(written, written + uncompressedLen-1)) != crc:
+          output.toOpenArray(written, written + uncompressed-1)) != crc:
         return err "Snappy content CRC checksum failed"
 
-    elif id == chunkUncompressed:
-      if dataLen < 4:
-        return err "Snappy frame size too low to contain CRC checksum"
+      written += uncompressed
 
-      if dataLen - 4 > maxUncompressedFrameDataLen.int:
+    elif id == chunkUncompressed:
+      if dataLen < 5: # At least one byte of data
+        return err "Uncompressed snappy frame too small"
+
+      let uncompressed = dataLen - 4
+
+      if uncompressed > maxUncompressedFrameDataLen.int:
         return err "Snappy frame size too large"
 
-      if dataLen - 4 > output.len - written:
+      if uncompressed > output.len - written:
         return err "Too much data"
 
       let crc = uint32.fromBytesLE frameData.toOpenArray(0, 3)
       if maskedCrc(frameData.toOpenArray(4, dataLen - 1)) != crc:
         return err "Snappy content CRC checksum failed"
 
-      output[written..<written + dataLen - 4] = frameData.toOpenArray(4, dataLen-1)
+      output[written..<written + uncompressed] =
+        frameData.toOpenArray(4, dataLen-1)
+      written += uncompressed
 
     elif id < 0x80:
       # Reserved unskippable chunks (chunk types 0x02-0x7f)
