@@ -18,10 +18,14 @@ proc uncompressFramedStream*(conn: Connection,
   if header != framingHeader:
     return err "Incorrect snappy header"
 
+  static:
+    doAssert maxCompressedFrameDataLen >= maxUncompressedFrameDataLen.uint64
+
   var
-    frameData = newSeq[byte](maxUncompressedFrameDataLen)
+    frameData = newSeq[byte](maxCompressedFrameDataLen + 4)
     output = newSeqUninitialized[byte](expectedSize)
     written = 0
+
   while written < expectedSize:
     var frameHeader: array[4, byte]
     try:
@@ -34,11 +38,10 @@ proc uncompressFramedStream*(conn: Connection,
     if dataLen.uint64 > maxCompressedFrameDataLen.uint64:
       return err "invalid snappy frame length"
 
-    if dataLen > 0:
-      try:
-        await conn.readExactly(addr frameData[0], dataLen)
-      except LPStreamEOFError, LPStreamIncompleteError:
-        return err "Incomplete snappy frame"
+    try:
+      await conn.readExactly(addr frameData[0], dataLen)
+    except LPStreamEOFError, LPStreamIncompleteError:
+      return err "no snappy frame"
 
     if id == chunkCompressed:
       if dataLen < 4:
@@ -60,7 +63,10 @@ proc uncompressFramedStream*(conn: Connection,
       if dataLen < 4:
         return err "Snappy frame size too low to contain CRC checksum"
 
-      if output.len - written < dataLen - 4:
+      if dataLen - 4 > maxUncompressedFrameDataLen.int:
+        return err "Snappy frame size too large"
+
+      if dataLen - 4 > output.len - written:
         return err "Too much data"
 
       let crc = uint32.fromBytesLE frameData.toOpenArray(0, 3)
