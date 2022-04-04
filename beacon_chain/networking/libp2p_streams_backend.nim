@@ -60,14 +60,14 @@ proc uncompressFramedStream*(conn: Connection,
       if dataLen < 4:
         return err "Snappy frame size too low to contain CRC checksum"
 
-      if output.len - written - 4 < dataLen:
+      if output.len - written < dataLen - 4:
         return err "Too much data"
 
       let crc = uint32.fromBytesLE frameData.toOpenArray(0, 3)
       if maskedCrc(frameData.toOpenArray(4, dataLen - 1)) != crc:
         return err "Snappy content CRC checksum failed"
 
-      output[written..<written + dataLen] = frameData.toOpenArray(4, dataLen-1)
+      output[written..<written + dataLen - 4] = frameData.toOpenArray(4, dataLen-1)
 
     elif id < 0x80:
       # Reserved unskippable chunks (chunk types 0x02-0x7f)
