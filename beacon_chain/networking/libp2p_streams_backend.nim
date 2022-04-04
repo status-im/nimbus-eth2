@@ -31,17 +31,18 @@ proc uncompressFramedStream*(conn: Connection,
     try:
       await conn.readExactly(addr frameHeader[0], frameHeader.len)
     except LPStreamEOFError, LPStreamIncompleteError:
-      return err "no snappy frame"
+      return err "Snappy frame header missing"
 
     let (id, dataLen) = decodeFrameHeader(frameHeader)
 
     if dataLen.uint64 > maxCompressedFrameDataLen.uint64:
       return err "invalid snappy frame length"
 
-    try:
-      await conn.readExactly(addr frameData[0], dataLen)
-    except LPStreamEOFError, LPStreamIncompleteError:
-      return err "no snappy frame data"
+    if dataLen > 0:
+      try:
+        await conn.readExactly(addr frameData[0], dataLen)
+      except LPStreamEOFError, LPStreamIncompleteError:
+        return err "Incomplete snappy frame"
 
     if id == chunkCompressed:
       if dataLen < 6: # At least CRC + 2 bytes of frame data
