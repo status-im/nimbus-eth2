@@ -39,6 +39,9 @@ import
   ".."/[conf, beacon_clock, beacon_node, version],
   "."/[slashing_protection, validator_pool, keystore_management]
 
+from eth/async_utils import awaitWithTimeout
+from web3/engine_api import ForkchoiceUpdatedResponse
+
 # Metrics for tracking attestation and beacon block loss
 const delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
                       0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
@@ -423,15 +426,23 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
                         head_block_hash: Eth2Digest,
                         finalized_block_hash: Eth2Digest,
                         fee_recipient: ethtypes.Address,
-                        execution_engine: Web3DataProviderRef):
+                        execution_engine: Eth1Monitor):
                         Future[Option[bellatrix.PayloadId]] {.async.} =
+  const web3Timeout = 3.seconds
+
   let
     timestamp = compute_timestamp_at_slot(state, state.slot)
     random = get_randao_mix(state, get_current_epoch(state))
-    payloadId =
-      (await execution_engine.forkchoiceUpdated(
-        head_block_hash, finalized_block_hash, timestamp, random.data,
-        fee_recipient)).payloadId
+    forkchoiceResponse =
+      awaitWithTimeout(
+        execution_engine.forkchoiceUpdated(
+          head_block_hash, finalized_block_hash, timestamp, random.data,
+          fee_recipient),
+        web3Timeout):
+          debug "forkchoice_updated: forkchoiceUpdated timed out"
+          default(ForkchoiceUpdatedResponse)
+    payloadId = forkchoiceResponse.payloadId
+
   return if payloadId.isSome:
     some(bellatrix.PayloadId(payloadId.get))
   else:

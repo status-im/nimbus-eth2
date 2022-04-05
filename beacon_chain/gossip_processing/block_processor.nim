@@ -32,7 +32,7 @@ export sszdump, signatures_batch
 declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
-const web3Timeout = 650.milliseconds
+const web3Timeout = 4.seconds
 
 type
   BlockEntry* = object
@@ -325,7 +325,17 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
 proc runForkchoiceUpdated(
     self: ref BlockProcessor, headBlockRoot, finalizedBlockRoot: Eth2Digest)
     {.async.} =
-  if headBlockRoot.isZero or finalizedBlockRoot.isZero:
+  # Allow finalizedBlockRoot to be 0 to avoid sync deadlocks.
+  #
+  # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3675.md#pos-events
+  # has "Before the first finalized block occurs in the system the finalized
+  # block hash provided by this event is stubbed with
+  # `0x0000000000000000000000000000000000000000000000000000000000000000`."
+  # and
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/validator.md#executionpayload
+  # notes "`finalized_block_hash` is the hash of the latest finalized execution
+  # payload (`Hash32()` if none yet finalized)"
+  if headBlockRoot.isZero:
     return
 
   try:
@@ -340,14 +350,14 @@ proc runForkchoiceUpdated(
       forkchoiceUpdated(
         self.consensusManager.eth1Monitor, headBlockRoot, finalizedBlockRoot),
       web3Timeout):
-        info "runForkChoiceUpdated: forkchoiceUpdated timed out"
+        debug "runForkChoiceUpdated: forkchoiceUpdated timed out"
         default(ForkchoiceUpdatedResponse)
   except CatchableError as err:
-    info "runForkChoiceUpdated: forkchoiceUpdated failed",
+    debug "runForkChoiceUpdated: forkchoiceUpdated failed",
       err = err.msg
     discard
 
-proc newExecutionPayload(
+proc newExecutionPayload*(
     eth1Monitor: Eth1Monitor, executionPayload: bellatrix.ExecutionPayload):
     Future[PayloadExecutionStatus] {.async.} =
   debug "newPayload: inserting block into execution engine",
@@ -373,16 +383,23 @@ proc newExecutionPayload(
             eth1Monitor.newPayload(
               executionPayload.asEngineExecutionPayload),
             web3Timeout):
-          info "newPayload: newExecutionPayload timed out"
+          debug "newPayload: newPayload timed out"
           PayloadStatusV1(status: PayloadExecutionStatus.syncing)
       payloadStatus = payloadResponse.status
 
     return payloadStatus
   except CatchableError as err:
-    info "newExecutionPayload failed", msg = err.msg
+    debug "newPayload failed", msg = err.msg
     return PayloadExecutionStatus.syncing
 
 proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
+  # Don't want to vacillate between "optimistic" sync and non-optimistic
+  # sync heads. Relies on runQueueProcessingLoop() being the only place,
+  # in Nimbus, which does this.
+  var
+    optForkchoiceHeadSlot = GENESIS_SLOT # safe default
+    optForkchoiceHeadRoot: Eth2Digest
+
   while true:
     # Cooperative concurrency: one block per loop iteration - because
     # we run both networking and CPU-heavy things like block processing
@@ -415,7 +432,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
               self.consensusManager.eth1Monitor,
               blck.blck.bellatrixData.message.body.execution_payload)
           except CatchableError as err:
-            info "runQueueProcessingLoop: newExecutionPayload failed",
+            debug "runQueueProcessingLoop: newExecutionPayload failed",
               err = err.msg
             PayloadExecutionStatus.syncing
         else:
@@ -426,10 +443,50 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
         PayloadExecutionStatus.invalid,
         PayloadExecutionStatus.invalid_block_hash,
         PayloadExecutionStatus.invalid_terminal_block]:
-      info "runQueueProcessingLoop: execution payload invalid",
+      debug "runQueueProcessingLoop: execution payload invalid",
         executionPayloadStatus
       if not blck.resfut.isNil:
         blck.resfut.complete(Result[void, BlockError].err(BlockError.Invalid))
+      continue
+
+    if  executionPayloadStatus == PayloadExecutionStatus.accepted and
+        hasExecutionPayload:
+      # The EL client doesn't know here whether the payload is valid, because,
+      # for example, in Geth's case, its parent isn't known. When Geth logs an
+      # "Ignoring payload with missing parent" message, this is the result. It
+      # is distinct from the invalid cases above, and shouldn't cause the same
+      # BlockError.Invalid error, because it doesn't badly on the peer sending
+      # it, it's just not fully verifiable yet for this node. Furthermore, the
+      # EL client can, e.g. via Geth, "rely on the beacon client to forcefully
+      # update the head with a forkchoice update request". This can occur when
+      # an EL client is substantially more synced than a CL client, and when a
+      # CL client in that position attempts to serially sync it will encounter
+      # potential for this message until it nearly catches up, unless using an
+      # approach such as forkchoiceUpdated to trigger sync.
+      #
+      # Since the code doesn't reach here unless it's not optimistic sync, and
+      # it doesn't set the finalized block, it's safe enough to try this chain
+      # until either the EL client resyncs or returns invalid on the chain.
+      #
+      # Returning the MissingParent error causes the sync manager to loop in
+      # place until the EL does resync/catch up, then the normal process can
+      # resume where there's a hybrid serial and optimistic sync model.
+      #
+      # When this occurs within a couple of epochs of the Merge, before there
+      # has been a chance to justify and finalize a post-merge block this can
+      # cause a sync deadlock unless the EL can be convinced to sync back, or
+      # the CL is rather more open-endedly optimistic (potentially for entire
+      # weak subjectivity periods) than seems optimal.
+      debug "runQueueProcessingLoop: execution payload accepted",
+        executionPayloadStatus
+
+      await self.runForkchoiceUpdated(
+        blck.blck.bellatrixData.message.body.execution_payload.block_hash,
+        self.consensusManager.dag.finalizedHead.blck.executionBlockRoot)
+
+      if not blck.resfut.isNil:
+        blck.resfut.complete(Result[void, BlockError].err(
+          BlockError.MissingParent))
       continue
 
     if executionPayloadStatus == PayloadExecutionStatus.valid:
