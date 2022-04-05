@@ -2,7 +2,7 @@
 
  - [ethstaker discord](https://discord.com/invite/e84CFep): great place for tips and discussions
 
- - [Validator launchpad](https://prater.launchpad.ethereum.org): to send Prater deposits
+ - [Validator launchpad](https://launchpad.ethereum.org): to send deposits
 
  - [Beacon chain explorer](https://beaconcha.in/) : to monitor network health
 
