@@ -372,32 +372,6 @@ define CLEAN_NETWORK
 endef
 
 ###
-### Pyrmont
-###
-pyrmont-build: | nimbus_beacon_node nimbus_signing_node
-
-# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-pyrmont: | pyrmont-build
-	$(call CONNECT_TO_NETWORK,pyrmont,nimbus_beacon_node,$(GOERLI_WEB3_URL))
-
-pyrmont-vc: | pyrmont-build nimbus_validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,pyrmont,nimbus_beacon_node,$(GOERLI_WEB3_URL))
-
-ifneq ($(LOG_LEVEL), TRACE)
-pyrmont-dev:
-	+ "$(MAKE)" LOG_LEVEL=TRACE $@
-else
-pyrmont-dev: | pyrmont-build
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,pyrmont,nimbus_beacon_node,$(GOERLI_WEB3_URL))
-endif
-
-pyrmont-dev-deposit: | pyrmont-build deposit_contract
-	$(call MAKE_DEPOSIT,pyrmont,$(GOERLI_WEB3_URL))
-
-clean-pyrmont:
-	$(call CLEAN_NETWORK,pyrmont)
-
-###
 ### Prater
 ###
 prater-build: | nimbus_beacon_node nimbus_signing_node

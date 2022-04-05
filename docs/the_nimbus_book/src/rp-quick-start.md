@@ -129,7 +129,7 @@ Request **35** Goerli ETH from [the faucet](https://faucet.goerli.mudit.blog/) t
 
 ## 10. Request Goerli RPL
 
-You'll also need some RPL. To request RPL directly from the Rocket Pool faucet, run: 
+You'll also need some RPL. To request RPL directly from the Rocket Pool faucet, run:
 
 ```
 rocketpool faucet withdraw-rpl

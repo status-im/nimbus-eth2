@@ -26,20 +26,23 @@ make dist
 
 ## Significant differences from self-built binaries
 
-No `-march=native`.
+Binary builds are configured to maximise portability, disabling the use of
+advanced CPU features which may result in lower performance on some hardware.
 
-## Running a Pyrmont node
+## Running a node
 
-With default options:
+See https://nimbus.guide for full instructions on running a node.
+
+To connect to mainnet with default options:
 
 ```bash
-./run-pyrmont-beacon-node.sh
+./run-mainnet-beacon-node.sh
 ```
 
 The script will forward all supplied options to the beacon node executable:
 
 ```bash
-./run-pyrmont-beacon-node.sh --log-level=DEBUG --tcp-port=9050
+./run-mainnet-beacon-node.sh --log-level=DEBUG --tcp-port=9050
 ```
 
 To monitor the Eth1 validator deposit contract, you'll need to pair
@@ -54,26 +57,15 @@ By default, the script will ask you to enter a web3 provider URL interactively,
 but this can be bypassed by specifying a websocket `WEB3_URL` environment variable:
 
 ```bash
-WEB3_URL="<YOUR_WEB3_URL>" ./run-pyrmont-beacon-node.sh
+# using a local mainnet instance
+WEB3_URL="ws://localhost:8545" ./run-mainnet-beacon-node.sh
 ```
 
-## Running a mainnet node
+## Testnet
 
-`run-mainnet-beacon-node.sh` is a similar script intended for connecting to mainnet.
-All the same conventions apply:
+The `prater` testnet runs on
 
 ```bash
-# using a local Geth instance
+# using a local Goerli instance
 WEB3_URL="ws://localhost:8545" ./run-mainnet-node.sh --max-peers=150
 ```
-
-## Running a Prater node
-
-`run-prater-beacon-node.sh` is a similar script intended for connecting to the Prater
-testnet. All the same conventions apply:
-
-```bash
-# using a local Geth instance
-WEB3_URL="ws://localhost:8545" ./run-prater-node.sh --max-peers=150
-```
-
