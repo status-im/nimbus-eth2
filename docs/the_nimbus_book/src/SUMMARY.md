@@ -62,7 +62,6 @@
 - [Contribute](./contribute.md)
 - [Resources](./resources.md)
 - [Binary distribution internals](./distribution_internals.md)
-- [Prater: What you should know](./prater.md)
+- [Prater testnet](./prater.md)
 - [Security Audit](./audit.md)
 - [FAQ](./faq.md)
-

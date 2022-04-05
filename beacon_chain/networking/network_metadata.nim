@@ -219,7 +219,6 @@ when not defined(gnosisChainBinary):
   when const_preset == "mainnet":
     const
       mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
-      pyrmontMetadata* = eth2Network("shared/pyrmont", goerli)
       praterMetadata* = eth2Network("shared/prater", goerli)
 
   proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
@@ -239,8 +238,6 @@ when not defined(gnosisChainBinary):
         case toLowerAscii(networkName)
         of "mainnet":
           mainnetMetadata
-        of "pyrmont":
-          pyrmontMetadata
         of "prater":
           praterMetadata
         else:

@@ -4,7 +4,7 @@
 
  - [Validator launchpad](https://prater.launchpad.ethereum.org): to send Prater deposits
 
- - [Beacon chain explorer](https://pyrmont.beaconcha.in/) : to monitor testnet health
+ - [Beacon chain explorer](https://beaconcha.in/) : to monitor network health
 
  - [Nimbus discord](https://discord.com/invite/XRxWahP) : best place to ask questions and to stay up-to-date with critical updates
 
