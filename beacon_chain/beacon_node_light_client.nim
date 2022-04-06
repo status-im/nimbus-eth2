@@ -54,7 +54,8 @@ proc initLightClient*(
 
   let lightClientProcessor = LightClientProcessor.new(
     config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-    cfg, genesisValidatorsRoot, store, getBeaconTime, getTrustedBlockRoot)
+    cfg, genesisValidatorsRoot, LightClientFinalizationMode.Strict,
+    store, getBeaconTime, getTrustedBlockRoot)
 
   proc lightClientVerifier(obj: SomeLightClientObject):
       Future[Result[void, BlockError]] =

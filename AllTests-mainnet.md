@@ -256,14 +256,20 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Light client processor [Preset: mainnet]
 ```diff
-+ Duplicate bootstrap [Preset: mainnet]                                                      OK
-+ Forced update [Preset: mainnet]                                                            OK
-+ Invalid bootstrap [Preset: mainnet]                                                        OK
-+ Missing bootstrap (optimistic update) [Preset: mainnet]                                    OK
-+ Missing bootstrap (update) [Preset: mainnet]                                               OK
-+ Standard sync [Preset: mainnet]                                                            OK
++ Duplicate bootstrap (Optimistic) [Preset: mainnet]                                         OK
++ Duplicate bootstrap (Strict) [Preset: mainnet]                                             OK
++ Forced update (Optimistic) [Preset: mainnet]                                               OK
++ Forced update (Strict) [Preset: mainnet]                                                   OK
++ Invalid bootstrap (Optimistic) [Preset: mainnet]                                           OK
++ Invalid bootstrap (Strict) [Preset: mainnet]                                               OK
++ Missing bootstrap (optimistic update) (Optimistic) [Preset: mainnet]                       OK
++ Missing bootstrap (optimistic update) (Strict) [Preset: mainnet]                           OK
++ Missing bootstrap (update) (Optimistic) [Preset: mainnet]                                  OK
++ Missing bootstrap (update) (Strict) [Preset: mainnet]                                      OK
++ Standard sync (Optimistic) [Preset: mainnet]                                               OK
++ Standard sync (Strict) [Preset: mainnet]                                                   OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 12/12 Fail: 0/12 Skip: 0/12
 ## ListKeys requests [Preset: mainnet]
 ```diff
 + Correct token provided [Preset: mainnet]                                                   OK
@@ -529,4 +535,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 294/299 Fail: 0/299 Skip: 5/299
+OK: 300/305 Fail: 0/305 Skip: 5/305

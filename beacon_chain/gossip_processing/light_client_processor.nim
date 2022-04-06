@@ -31,6 +31,33 @@ type
   DidInitializeStoreCallback* =
     proc() {.gcsafe, raises: [Defect].}
 
+  LightClientFinalizationMode* {.pure.} = enum
+    Strict
+      ## Only finalize light client data that:
+      ## - has been signed by a supermajority (2/3) of the sync committee
+      ## - has a valid finality proof
+      ##
+      ## Optimizes for security, but may become stuck if there is any of:
+      ## - non-finality for an entire sync committee period
+      ## - low sync committee participation for an entire sync committee period
+      ## Such periods need to be covered by an out-of-band syncing mechanism.
+      ##
+      ## Note that a compromised supermajority of the sync committee is able to
+      ## sign arbitrary light client data, even after being slashed. The light
+      ## client cannot validate the slashing status of sync committee members.
+      ## Likewise, voluntarily exited validators may sign bad light client data
+      ## for the sync committee periods in which they used to be selected.
+
+    Optimistic
+      ## Attempt to finalize light client data not satisfying strict conditions
+      ## if there is no progress for an extended period of time and if there are
+      ## repeated messages indicating that it is the best available data on the
+      ## network for the affected time period.
+      ##
+      ## Optimizes for availability of recent data, but may end up on incorrect
+      ## forks if run in a hostile network environment (no honest peers), or if
+      ## the low sync committee participation is being exploited by bad actors.
+
   LightClientProcessor* = object
     ## This manages the processing of received light client objects
     ##
@@ -42,13 +69,6 @@ type
     ##
     ## are then verified and added to:
     ## - `LightClientStore`
-    ##
-    ## The processor will also attempt to force-update the light client state
-    ## if no update seems to be available on the network, that is both signed by
-    ## a supermajority of sync committee members and also has a finality proof.
-    ## This logic is triggered if there is no progress for an extended period
-    ## of time, and there are repeated messages indicating that this is the best
-    ## available data on the network during that time period.
 
     # Config
     # ----------------------------------------------------------------
@@ -66,9 +86,13 @@ type
     cfg: RuntimeConfig
     genesisValidatorsRoot: Eth2Digest
 
-    lastProgressTick: BeaconTime # Moment when last update made progress
-    lastDuplicateTick: BeaconTime # Moment when last duplicate update received
-    numDuplicatesSinceProgress: int # Number of duplicates since last progress
+    case finalizationMode: LightClientFinalizationMode
+    of LightClientFinalizationMode.Strict:
+      discard
+    of LightClientFinalizationMode.Optimistic:
+      lastProgressTick: BeaconTime # Moment when last update made progress
+      lastDuplicateTick: BeaconTime # Moment when last duplicate update received
+      numDuplicatesSinceProgress: int # Number of duplicates since last progress
 
 const
   # These constants have been chosen empirically and are not backed by spec
@@ -86,6 +110,7 @@ proc new*(
     dumpDirInvalid, dumpDirIncoming: string,
     cfg: RuntimeConfig,
     genesisValidatorsRoot: Eth2Digest,
+    finalizationMode: LightClientFinalizationMode,
     store: ref Option[LightClientStore],
     getBeaconTime: GetBeaconTimeFn,
     getTrustedBlockRoot: GetTrustedBlockRootCallback,
@@ -100,7 +125,8 @@ proc new*(
     getTrustedBlockRoot: getTrustedBlockRoot,
     didInitializeStoreCallback: didInitializeStoreCallback,
     cfg: cfg,
-    genesisValidatorsRoot: genesisValidatorsRoot
+    genesisValidatorsRoot: genesisValidatorsRoot,
+    finalizationMode: finalizationMode
   )
 
 func resetStore*(self: var LightClientProcessor) =
@@ -140,6 +166,7 @@ proc tryForceUpdate(
     store = self.store
 
   if store[].isSome:
+    doAssert self.finalizationMode == LightClientFinalizationMode.Optimistic
     case store[].get.process_slot_for_light_client_store(wallSlot)
     of NoUpdate:
       discard
@@ -198,7 +225,8 @@ proc storeObject*(
 
   if res.isErr:
     when obj is altair.LightClientUpdate:
-      if store[].isSome and store[].get.best_valid_update.isSome:
+      if self.finalizationMode == LightClientFinalizationMode.Optimistic and
+          store[].isSome and store[].get.best_valid_update.isSome:
         # `best_valid_update` gets set when no supermajority / finality proof
         # is available. In that case, we will wait for a better update.
         # If none is made available within reasonable time, the light client
@@ -233,9 +261,10 @@ proc storeObject*(
     return res
 
   when obj is altair.LightClientBootstrap | altair.LightClientUpdate:
-    self.lastProgressTick = wallTime
-    self.lastDuplicateTick = wallTime + duplicateCountDelay
-    self.numDuplicatesSinceProgress = 0
+    if self.finalizationMode == LightClientFinalizationMode.Optimistic:
+      self.lastProgressTick = wallTime
+      self.lastDuplicateTick = wallTime + duplicateCountDelay
+      self.numDuplicatesSinceProgress = 0
 
   let
     storeObjectTick = Moment.now()
