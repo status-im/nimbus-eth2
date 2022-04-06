@@ -43,33 +43,6 @@ func sign_block(state: ForkyBeaconState, blck: var ForkySignedBeaconBlock) =
     blck.root,
     privkey).toValidatorSig()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/tests/core/pyspec/eth2spec/test/helpers/execution_payload.py#L1-L31
-func build_empty_execution_payload(state: bellatrix.BeaconState): ExecutionPayload =
-  ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
-  ## without any transactions.
-  let
-    latest = state.latest_execution_payload_header
-    timestamp = compute_timestamp_at_slot(state, state.slot)
-    randao_mix = get_randao_mix(state, get_current_epoch(state))
-
-  var payload = ExecutionPayload(
-    parent_hash: latest.block_hash,
-    state_root: latest.state_root, # no changes to the state
-    receipts_root: Eth2Digest(data: cast[array[32, uint8]](
-      "no receipts here\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0")),
-    block_number: latest.block_number + 1,
-    prev_randao: randao_mix,
-    gas_limit: latest.gas_limit, # retain same limit
-    gas_used: 0, # empty block, 0 gas
-    timestamp: timestamp,
-    base_fee_per_gas: latest.base_fee_per_gas) # retain same base_fee
-
-  payload.block_hash = withEth2Hash:
-    h.update payload.hash_tree_root().data
-    h.update cast[array[13, uint8]]("FAKE RLP HASH")
-
-  payload
-
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/tests/core/pyspec/eth2spec/test/helpers/block.py#L75-L104
 proc mockBlock*(
     state: ForkedHashedBeaconState,

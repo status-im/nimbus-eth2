@@ -169,7 +169,9 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
           let data = (genesisData[0 ..< 40].toHex())
           data in [
             # Prater
-            "60F4596000000000043DB0D9A83813551EE2F33450D23797757D430911A9320530AD8A0EABC43EFB"
+            "60F4596000000000043DB0D9A83813551EE2F33450D23797757D430911A9320530AD8A0EABC43EFB",
+            # Kiln
+            "0C572B620000000099B09FCD43E5905236C370F184056BEC6E6638CFC31A323B304FC4AA789CB4AD"
           ]
         else:
           false

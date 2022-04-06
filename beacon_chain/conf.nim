@@ -513,6 +513,13 @@ type
         defaultValue: 128
         name: "safe-slots-to-import-optimistically" }: uint64
 
+      # Same option as appears in Lighthouse and Prysm
+      # https://lighthouse-book.sigmaprime.io/suggested-fee-recipient.html
+      # https://github.com/prysmaticlabs/prysm/pull/10312
+      suggestedFeeRecipient* {.
+        desc: "Suggested fee recipient"
+        name: "suggested-fee-recipient" .}: Option[string]
+
     of BNStartUpCmd.createTestnet:
       testnetDepositsFile* {.
         desc: "A LaunchPad deposits file for the genesis state validators"
