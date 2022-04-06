@@ -1022,7 +1022,7 @@ proc doStop(m: Eth1Monitor) {.async.} =
     m.dataProvider = nil
 
 proc ensureDataProvider*(m: Eth1Monitor) {.async.} =
-  if not m.dataProvider.isNil:
+  if m.isNil or not m.dataProvider.isNil:
     return
 
   let web3Url = m.web3Urls[m.startIdx mod m.web3Urls.len]

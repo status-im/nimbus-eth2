@@ -376,6 +376,10 @@ proc newExecutionPayload*(
       UInt256.fromBytesLE(executionPayload.base_fee_per_gas.data),
     numTransactions = executionPayload.transactions.len
 
+  if eth1Monitor.isNil:
+    info "newPayload: attempting to process execution payload without an Eth1Monitor. Ensure --web3-url setting is correct."
+    return PayloadExecutionStatus.syncing
+
   try:
     let
       payloadResponse =

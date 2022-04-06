@@ -459,7 +459,7 @@ proc getExecutionPayload(node: BeaconNode, proposalState: auto):
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/validator.md#executionpayload
 
   # Only current hardfork with execution payloads is Bellatrix
-  static: doAssert high(BeaconBlockFork) == BeaconBlockFork.Bellatrix
+  static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
   template empty_execution_payload(): auto =
     build_empty_execution_payload(proposalState.bellatrixData.data)
 
@@ -533,6 +533,9 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       warn "Eth1 deposits not available. Skipping block proposal", slot
       return ForkedBlockResult.err("Eth1 deposits not available")
 
+    # Only current hardfork with execution payloads is Bellatrix
+    static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
+
     let exits = withState(state):
       node.exitPool[].getBeaconBlockExits(state.data)
     let res = makeBeaconBlock(
@@ -549,7 +552,10 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
         SyncAggregate.init()
       else:
         node.syncCommitteeMsgPool[].produceSyncAggregate(head.root),
-      if slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH:
+      if  slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
+          # TODO when Eth1Monitor TTD following comes in, actually detect
+          # transition block directly
+          not is_merge_transition_complete(proposalState.bellatrixData.data):
         default(bellatrix.ExecutionPayload)
       else:
         (await getExecutionPayload(node, proposalState)),
