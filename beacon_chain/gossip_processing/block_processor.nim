@@ -200,7 +200,7 @@ proc storeBlock*(
             "index has been checked"),
           attestation.aggregation_bits):
         vm[].registerAttestationInBlock(attestation.data, validator_index,
-          trustedBlock.message)
+          trustedBlock.message.slot)
 
     withState(dag[].clearanceState):
       when stateFork >= BeaconStateFork.Altair and

@@ -4,7 +4,7 @@
 
 The validator monitoring feature allows for tracking the life-cycle and performance of one or more validators in detail.
 
-Monitoring can be carried out for any validator, with slightly more detail for validators that are running through the same beacon node.
+Monitoring can be carried out for any validator, with slightly more detail for validators that are running in the same beacon node.
 
 Every time the validator performs a duty, the duty is recorded and the monitor keeps track of the reward-related events for having performed it. For example:
 
@@ -13,7 +13,7 @@ Every time the validator performs a duty, the duty is recorded and the monitor k
 
 Validator actions can be traced either through logging, or comprehensive metrics that allow for creating alerts in monitoring tools.
 
-The metrics are broadly compatible with [Lighthouse](https://lighthouse-book.sigmaprime.io/validator-monitoring.html), thus dashboards and alerts can be used with either client.
+The metrics are broadly compatible with [Lighthouse](https://lighthouse-book.sigmaprime.io/validator-monitoring.html), thus dashboards and alerts can be used with either client with minor adjustments.
 
 ## Enabling validator monitoring
 
@@ -53,6 +53,8 @@ Failures at any point are recorded at a higher logging level, such as `NOT`(ice)
 ```
 NOT 2021-11-17 20:53:42.108+01:00 Attestation failed to match head           topics="chaindag" epoch=81972 validator=...
 ```
+
+Failures are reported with a lag of two epochs (~13 minutes) - to examine the log for potential root causes, the logs from the epoch in the failure message should be looked at.
 
 > ⚠️ It should be noted that metrics are tracked for the current history - in the case of a reorg on the chain - in particular a deep reorg - no attempt is made to revisit previously reported values. In the case that finality is delayed, the risk of stale metrics increases.
 
