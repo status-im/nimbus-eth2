@@ -79,166 +79,217 @@ suite "Light client processor" & preset():
         0.82
     addBlocks(numFilledEpochsPerPeriod * SLOTS_PER_EPOCH, syncCommitteeRatio)
 
-  setup:
-    var time = chronos.seconds(0)
-    proc getBeaconTime(): BeaconTime =
-      BeaconTime(ns_since_genesis: time.nanoseconds)
-    func setTimeToSlot(slot: Slot) =
-      time = chronos.seconds((slot * SECONDS_PER_SLOT).int64)
+  for finalizationMode in LightClientFinalizationMode:
+    let testNameSuffix = " (" & $finalizationMode & ")" & preset()
 
-    var numOnStoreInitializedCalls = 0
-    proc onStoreInitialized() = inc numOnStoreInitializedCalls
+    setup:
+      var time = chronos.seconds(0)
+      proc getBeaconTime(): BeaconTime =
+        BeaconTime(ns_since_genesis: time.nanoseconds)
+      func setTimeToSlot(slot: Slot) =
+        time = chronos.seconds((slot * SECONDS_PER_SLOT).int64)
 
-    let store = (ref Option[LightClientStore])()
-    var
-      processor = LightClientProcessor.new(
-        false, "", "", cfg, genesis_validators_root,
-        store, getBeaconTime, getTrustedBlockRoot, onStoreInitialized)
-      res: Result[bool, BlockError]
+      var numOnStoreInitializedCalls = 0
+      func onStoreInitialized() = inc numOnStoreInitializedCalls
 
-  test "Sync" & preset():
-    let bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
-    check bootstrap.isOk
-    setTimeToSlot(bootstrap.get.header.slot)
-    res = processor[].storeObject(
-      MsgSource.gossip, getBeaconTime(), bootstrap.get)
-    check:
-      res.isOk
-      numOnStoreInitializedCalls == 1
+      let store = (ref Option[LightClientStore])()
+      var
+        processor = LightClientProcessor.new(
+          false, "", "", cfg, genesis_validators_root, finalizationMode,
+          store, getBeaconTime, getTrustedBlockRoot, onStoreInitialized)
+        res: Result[bool, BlockError]
 
-    for period in lowPeriod .. lastPeriodWithSupermajority:
-      let update = dag.getLightClientUpdateForPeriod(period)
-      check update.isSome
-      setTimeToSlot(update.get.signature_slot)
+    test "Sync" & testNameSuffix:
+      let bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
+      check bootstrap.isOk
+      setTimeToSlot(bootstrap.get.header.slot)
       res = processor[].storeObject(
-        MsgSource.gossip, getBeaconTime(), update.get)
+        MsgSource.gossip, getBeaconTime(), bootstrap.get)
       check:
         res.isOk
-        store[].isSome
-        if update.get.finalized_header.slot > bootstrap.get.header.slot:
-          store[].get.finalized_header == update.get.finalized_header
-        else:
-          store[].get.finalized_header == bootstrap.get.header
-        store[].get.optimistic_header == update.get.attested_header
+        numOnStoreInitializedCalls == 1
 
-    for period in lastPeriodWithSupermajority + 1 .. highPeriod:
-      let update = dag.getLightClientUpdateForPeriod(period)
-      check update.isSome
-      setTimeToSlot(update.get.signature_slot)
-
-      for i in 0 ..< 2:
+      for period in lowPeriod .. lastPeriodWithSupermajority:
+        let update = dag.getLightClientUpdateForPeriod(period)
+        check update.isSome
+        setTimeToSlot(update.get.signature_slot)
         res = processor[].storeObject(
           MsgSource.gossip, getBeaconTime(), update.get)
         check:
           res.isOk
           store[].isSome
-          store[].get.best_valid_update.isSome
-          store[].get.best_valid_update.get == update.get
+          if update.get.finalized_header.slot > bootstrap.get.header.slot:
+            store[].get.finalized_header == update.get.finalized_header
+          else:
+            store[].get.finalized_header == bootstrap.get.header
+          store[].get.optimistic_header == update.get.attested_header
 
-        proc applyDuplicate() = # Reduce stack size by making this a `proc`
+      for period in lastPeriodWithSupermajority + 1 .. highPeriod:
+        let update = dag.getLightClientUpdateForPeriod(period)
+        check update.isSome
+        setTimeToSlot(update.get.signature_slot)
+
+        for i in 0 ..< 2:
           res = processor[].storeObject(
             MsgSource.gossip, getBeaconTime(), update.get)
-          check:
-            res.isErr
-            res.error == BlockError.Duplicate
-            store[].isSome
-            store[].get.best_valid_update.isSome
-            store[].get.best_valid_update.get == update.get
+          if finalizationMode == LightClientFinalizationMode.Optimistic or
+              period == lastPeriodWithSupermajority + 1:
+            if finalizationMode == LightClientFinalizationMode.Optimistic or
+                i == 0:
+              check:
+                res.isOk
+                store[].isSome
+                store[].get.best_valid_update.isSome
+                store[].get.best_valid_update.get == update.get
+            else:
+              check:
+                res.isErr
+                res.error == BlockError.Duplicate
+                store[].isSome
+                store[].get.best_valid_update.isSome
+                store[].get.best_valid_update.get == update.get
+          else:
+            check:
+              res.isErr
+              res.error == BlockError.MissingParent
+              store[].isSome
+              store[].get.best_valid_update.isSome
+              store[].get.best_valid_update.get != update.get
 
-        applyDuplicate()
-        time += chronos.minutes(15)
-        for _ in 0 ..< 150:
+          proc applyDuplicate() = # Reduce stack size by making this a `proc`
+            res = processor[].storeObject(
+              MsgSource.gossip, getBeaconTime(), update.get)
+            if finalizationMode == LightClientFinalizationMode.Optimistic or
+                period == lastPeriodWithSupermajority + 1:
+              check:
+                res.isErr
+                res.error == BlockError.Duplicate
+                store[].isSome
+                store[].get.best_valid_update.isSome
+                store[].get.best_valid_update.get == update.get
+            else:
+              check:
+                res.isErr
+                res.error == BlockError.MissingParent
+                store[].isSome
+                store[].get.best_valid_update.isSome
+                store[].get.best_valid_update.get != update.get
+
           applyDuplicate()
-          time += chronos.seconds(5)
-        time += chronos.minutes(15)
+          time += chronos.minutes(15)
+          for _ in 0 ..< 150:
+            applyDuplicate()
+            time += chronos.seconds(5)
+          time += chronos.minutes(15)
 
-        res = processor[].storeObject(
-          MsgSource.gossip, getBeaconTime(), update.get)
+          res = processor[].storeObject(
+            MsgSource.gossip, getBeaconTime(), update.get)
+          if finalizationMode == LightClientFinalizationMode.Optimistic:
+            check:
+              res.isErr
+              res.error == BlockError.Duplicate
+              store[].isSome
+              store[].get.best_valid_update.isNone
+            if store[].get.finalized_header == update.get.attested_header:
+              break
+            check store[].get.finalized_header == update.get.finalized_header
+          elif period == lastPeriodWithSupermajority + 1:
+            check:
+              res.isErr
+              res.error == BlockError.Duplicate
+              store[].isSome
+              store[].get.best_valid_update.isSome
+              store[].get.best_valid_update.get == update.get
+          else:
+            check:
+              res.isErr
+              res.error == BlockError.MissingParent
+              store[].isSome
+              store[].get.best_valid_update.isSome
+              store[].get.best_valid_update.get != update.get
+        if finalizationMode == LightClientFinalizationMode.Optimistic:
+          check store[].get.finalized_header == update.get.attested_header
+        else:
+          check store[].get.finalized_header != update.get.attested_header
+
+      let
+        previousFinalized = store[].get.finalized_header
+        finalityUpdate = dag.getLightClientFinalityUpdate()
+      check finalityUpdate.isSome
+      setTimeToSlot(finalityUpdate.get.signature_slot)
+      res = processor[].storeObject(
+        MsgSource.gossip, getBeaconTime(), finalityUpdate.get)
+      if res.isOk:
         check:
-          res.isErr
-          res.error == BlockError.Duplicate
+          finalizationMode == LightClientFinalizationMode.Optimistic
           store[].isSome
-          store[].get.best_valid_update.isNone
-        if store[].get.finalized_header == update.get.attested_header:
-          break
-        check store[].get.finalized_header == update.get.finalized_header
-      check store[].get.finalized_header == update.get.attested_header
+          store[].get.finalized_header == previousFinalized
+          store[].get.best_valid_update.isSome
+          store[].get.best_valid_update.get.matches(finalityUpdate.get)
+          store[].get.optimistic_header == finalityUpdate.get.attested_header
+      elif finalizationMode == LightClientFinalizationMode.Optimistic:
+        check res.error == BlockError.Duplicate
+      else:
+        check res.error == BlockError.MissingParent
+      check numOnStoreInitializedCalls == 1
 
-    let
-      previousFinalized = store[].get.finalized_header
-      finalityUpdate = dag.getLightClientFinalityUpdate()
-    check finalityUpdate.isSome
-    setTimeToSlot(finalityUpdate.get.signature_slot)
-    res = processor[].storeObject(
-      MsgSource.gossip, getBeaconTime(), finalityUpdate.get)
-    if res.isOk:
+    test "Invalid bootstrap" & testNameSuffix:
+      var bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
+      check bootstrap.isOk
+      bootstrap.get.header.slot.inc()
+      setTimeToSlot(bootstrap.get.header.slot)
+      res = processor[].storeObject(
+        MsgSource.gossip, getBeaconTime(), bootstrap.get)
       check:
-        store[].isSome
-        store[].get.finalized_header == previousFinalized
-        store[].get.best_valid_update.isSome
-        store[].get.best_valid_update.get.matches(finalityUpdate.get)
-        store[].get.optimistic_header == finalityUpdate.get.attested_header
-    else:
-      check res.error == BlockError.Duplicate
-    check numOnStoreInitializedCalls == 1
+        res.isErr
+        res.error == BlockError.Invalid
+        numOnStoreInitializedCalls == 0
 
-  test "Invalid bootstrap" & preset():
-    var bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
-    check bootstrap.isOk
-    bootstrap.get.header.slot.inc()
-    setTimeToSlot(bootstrap.get.header.slot)
-    res = processor[].storeObject(
-      MsgSource.gossip, getBeaconTime(), bootstrap.get)
-    check:
-      res.isErr
-      res.error == BlockError.Invalid
-      numOnStoreInitializedCalls == 0
+    test "Duplicate bootstrap" & testNameSuffix:
+      let bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
+      check bootstrap.isOk
+      setTimeToSlot(bootstrap.get.header.slot)
+      res = processor[].storeObject(
+        MsgSource.gossip, getBeaconTime(), bootstrap.get)
+      check:
+        res.isOk
+        numOnStoreInitializedCalls == 1
+      res = processor[].storeObject(
+        MsgSource.gossip, getBeaconTime(), bootstrap.get)
+      check:
+        res.isErr
+        res.error == BlockError.Duplicate
+        numOnStoreInitializedCalls == 1
 
-  test "Duplicate bootstrap" & preset():
-    let bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
-    check bootstrap.isOk
-    setTimeToSlot(bootstrap.get.header.slot)
-    res = processor[].storeObject(
-      MsgSource.gossip, getBeaconTime(), bootstrap.get)
-    check:
-      res.isOk
-      numOnStoreInitializedCalls == 1
-    res = processor[].storeObject(
-      MsgSource.gossip, getBeaconTime(), bootstrap.get)
-    check:
-      res.isErr
-      res.error == BlockError.Duplicate
-      numOnStoreInitializedCalls == 1
+    test "Missing bootstrap (update)" & testNameSuffix:
+      let update = dag.getLightClientUpdateForPeriod(lowPeriod)
+      check update.isSome
+      setTimeToSlot(update.get.signature_slot)
+      res = processor[].storeObject(
+        MsgSource.gossip, getBeaconTime(), update.get)
+      check:
+        res.isErr
+        res.error == BlockError.MissingParent
+        numOnStoreInitializedCalls == 0
 
-  test "Missing bootstrap (update)" & preset():
-    let update = dag.getLightClientUpdateForPeriod(lowPeriod)
-    check update.isSome
-    setTimeToSlot(update.get.signature_slot)
-    res = processor[].storeObject(
-      MsgSource.gossip, getBeaconTime(), update.get)
-    check:
-      res.isErr
-      res.error == BlockError.MissingParent
-      numOnStoreInitializedCalls == 0
+    test "Missing bootstrap (finality update)" & testNameSuffix:
+      let finalityUpdate = dag.getLightClientFinalityUpdate()
+      check finalityUpdate.isSome
+      setTimeToSlot(finalityUpdate.get.signature_slot)
+      res = processor[].storeObject(
+        MsgSource.gossip, getBeaconTime(), finalityUpdate.get)
+      check:
+        res.isErr
+        res.error == BlockError.MissingParent
+        numOnStoreInitializedCalls == 0
 
-  test "Missing bootstrap (finality update)" & preset():
-    let finalityUpdate = dag.getLightClientFinalityUpdate()
-    check finalityUpdate.isSome
-    setTimeToSlot(finalityUpdate.get.signature_slot)
-    res = processor[].storeObject(
-      MsgSource.gossip, getBeaconTime(), finalityUpdate.get)
-    check:
-      res.isErr
-      res.error == BlockError.MissingParent
-      numOnStoreInitializedCalls == 0
-
-  test "Missing bootstrap (optimistic update)" & preset():
-    let optimisticUpdate = dag.getLightClientOptimisticUpdate()
-    check optimisticUpdate.isSome
-    setTimeToSlot(optimisticUpdate.get.signature_slot)
-    res = processor[].storeObject(
-      MsgSource.gossip, getBeaconTime(), optimisticUpdate.get)
-    check:
-      res.isErr
-      res.error == BlockError.MissingParent
-      numOnStoreInitializedCalls == 0
+    test "Missing bootstrap (optimistic update)" & testNameSuffix:
+      let optimisticUpdate = dag.getLightClientOptimisticUpdate()
+      check optimisticUpdate.isSome
+      setTimeToSlot(optimisticUpdate.get.signature_slot)
+      res = processor[].storeObject(
+        MsgSource.gossip, getBeaconTime(), optimisticUpdate.get)
+      check:
+        res.isErr
+        res.error == BlockError.MissingParent
+        numOnStoreInitializedCalls == 0
