@@ -1,6 +1,6 @@
 # Validator monitoring
 
-> ⚠️ This feature is currently in BETA - implementation details such as metric names and counters may change in response to community feedback.
+> **Note:** This feature is available from `v1.7.0` onwards
 
 The validator monitoring feature allows for tracking the life-cycle and performance of one or more validators in detail.
 

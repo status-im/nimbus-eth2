@@ -390,7 +390,7 @@ proc createAndSendAttestation(node: BeaconNode,
       wallTime = node.beaconClock.now()
       delay = wallTime - attestationData.slot.attestation_deadline()
 
-    notice "Attestation sent",
+    info "Attestation sent",
       attestation = shortLog(attestation), validator = shortLog(validator),
       delay, subnet_id
 
@@ -990,7 +990,7 @@ proc sendAggregatedAttestations(
     let
       subnet_id = compute_subnet_for_attestation(
         committees_per_slot, slot, data.committee_index)
-    notice "Aggregated attestation sent",
+    info "Aggregated attestation sent",
       aggregate = shortLog(signedAP.message.aggregate),
       aggregator_index = signedAP.message.aggregator_index,
       signature = shortLog(signedAP.signature),
@@ -1225,7 +1225,7 @@ proc sendAttestation*(node: BeaconNode,
     wallTime = node.processor.getCurrentBeaconTime()
     delay = wallTime - attestation.data.slot.attestation_deadline()
 
-  notice "Attestation sent",
+  info "Attestation sent",
     attestation = shortLog(attestation), delay, subnet_id
 
   beacon_attestation_sent_delay.observe(delay.toFloatSeconds())
@@ -1242,7 +1242,7 @@ proc sendAggregateAndProof*(node: BeaconNode,
     if res.isGoodForSending:
       node.network.broadcastAggregateAndProof(proof)
 
-      notice "Aggregated attestation sent",
+      info "Aggregated attestation sent",
         attestation = shortLog(proof.message.aggregate),
         aggregator_index = proof.message.aggregator_index,
         signature = shortLog(proof.signature)
