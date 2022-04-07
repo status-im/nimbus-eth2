@@ -422,7 +422,7 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
                         finalized_block_hash: Eth2Digest,
                         fee_recipient: ethtypes.Address,
                         execution_engine: Eth1Monitor):
-                        Future[Option[bellatrix.PayloadId]] {.async.} =
+                        Future[Option[bellatrix.PayloadID]] {.async.} =
   const web3Timeout = 3.seconds
 
   let
@@ -439,9 +439,9 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
     payloadId = forkchoiceResponse.payloadId
 
   return if payloadId.isSome:
-    some(bellatrix.PayloadId(payloadId.get))
+    some(bellatrix.PayloadID(payloadId.get))
   else:
-    none(bellatrix.PayloadId)
+    none(bellatrix.PayloadID)
 
 proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
                                     randao_reveal: ValidatorSig,
@@ -705,11 +705,11 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
   try:
     let
       fork = node.dag.forkAtEpoch(slot.epoch)
-      genesisValidatorsRoot = node.dag.genesisValidatorsRoot
+      genesis_validators_root = node.dag.genesis_validators_root
       msg =
         block:
           let res = await signSyncCommitteeMessage(validator, fork,
-                                                   genesisValidatorsRoot,
+                                                   genesis_validators_root,
                                                    slot, head.root)
           if res.isErr():
             error "Unable to sign committee message using remote signer",
@@ -781,7 +781,7 @@ proc signAndSendContribution(node: BeaconNode,
 
     let res = await validator.sign(
       msg, node.dag.forkAtEpoch(contribution.slot.epoch),
-      node.dag.genesisValidatorsRoot)
+      node.dag.genesis_validators_root)
 
     if res.isErr():
       error "Unable to sign sync committee contribution usign remote signer",
@@ -801,7 +801,7 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
   # TODO Use a view type to avoid the copy
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
-    genesisValidatorsRoot = node.dag.genesisValidatorsRoot
+    genesis_validators_root = node.dag.genesis_validators_root
     syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
 
   type
@@ -827,7 +827,7 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
           subcommitteeIdx: subcommitteeIdx)
 
         selectionProofs.add validator.getSyncCommitteeSelectionProof(
-          fork, genesisValidatorsRoot, slot, subcommitteeIdx.asUInt64)
+          fork, genesis_validators_root, slot, subcommitteeIdx.asUInt64)
 
     await allFutures(selectionProofs)
 

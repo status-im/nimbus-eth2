@@ -285,8 +285,8 @@ proc addBlock*(
       # because there are no state rewinds to deal with
       let res = self.storeBackfillBlock(blck)
 
-      if resFut != nil:
-        resFut.complete(res)
+      if resfut != nil:
+        resfut.complete(res)
       return
 
   try:

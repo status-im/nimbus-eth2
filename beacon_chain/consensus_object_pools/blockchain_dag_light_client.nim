@@ -229,7 +229,7 @@ proc deleteLightClientData*(dag: ChainDAGRef, bid: BlockId) =
 template lazy_header(name: untyped): untyped {.dirty.} =
   ## `createLightClientUpdates` helper to lazily load a known block header.
   var `name ptr`: ptr[BeaconBlockHeader]
-  template `assign name`(target: var BeaconBlockHeader,
+  template `assign _ name`(target: var BeaconBlockHeader,
                          bid: BlockId): untyped =
     if `name ptr` != nil:
       target = `name ptr`[]
@@ -243,7 +243,7 @@ template lazy_data(name: untyped): untyped {.dirty.} =
   ## `createLightClientUpdates` helper to lazily load cached light client state.
   var `name` {.noinit.}: CachedLightClientData
   `name`.finalized_bid.slot = FAR_FUTURE_SLOT
-  template `load name`(bid: BlockId): untyped =
+  template `load _ name`(bid: BlockId): untyped =
     if `name`.finalized_bid.slot == FAR_FUTURE_SLOT:
       `name` = dag.getLightClientData(bid)
 

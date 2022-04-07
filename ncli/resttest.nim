@@ -265,6 +265,8 @@ proc getTestRules(conf: RestTesterConf): Result[seq[JsonNode], cstring] =
       fatal "JSON processing error while reading rules file",
             error_msg = exc.msg, filename = conf.rulesFilename
       return err("Unable to parse json")
+    except Exception as exc:
+      raiseAssert exc.msg
 
   let elems = node.getElems()
   if len(elems) == 0:
@@ -727,13 +729,15 @@ proc validateHeaders(resp: HttpResponseHeader, expect: HeadersExpect): bool =
           return false
     true
 
-proc jsonBody(body: openarray[byte]): Result[JsonNode, cstring] =
+proc jsonBody(body: openArray[byte]): Result[JsonNode, cstring] =
   var sbody = cast[string](@body)
   let res =
     try:
       parseJson(sbody)
     except CatchableError as exc:
       return err("Unable to parse json")
+    except Exception as exc:
+      raiseAssert exc.msg
   ok(res)
 
 proc getPath(jobj: JsonNode, path: seq[string]): Result[JsonNode, cstring] =
@@ -784,7 +788,7 @@ proc structCmp(j1, j2: JsonNode, strict: bool): bool =
   else:
     true
 
-proc validateBody(body: openarray[byte], expect: BodyExpect): bool =
+proc validateBody(body: openArray[byte], expect: BodyExpect): bool =
   if len(expect.items) == 0:
     true
   else:

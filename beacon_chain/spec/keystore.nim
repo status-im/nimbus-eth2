@@ -29,7 +29,7 @@ import nimcrypto/utils as ncrutils
 export
   results, burnMem, writeValue, readValue
 
-{.localPassC: "-fno-lto".} # no LTO for crypto
+{.localPassc: "-fno-lto".} # no LTO for crypto
 
 type
   KeystoreMode* = enum
@@ -61,7 +61,7 @@ type
 
   Cipher* = object
     case function*: CipherFunctionKind
-    of aes128ctrCipher:
+    of aes128CtrCipher:
       params*: Aes128CtrParams
     message*: CipherBytes
 
@@ -293,7 +293,7 @@ static:
 
 func validateKeyPath*(path: string): Result[KeyPath, cstring] =
   var digitCount: int
-  var number: BiggestUint
+  var number: BiggestUInt
   try:
     for elem in path.string.split("/"):
       # TODO: doesn't "m" have to be the first character and is it the only
@@ -675,7 +675,7 @@ func scrypt(password: openArray[char], salt: openArray[byte],
   discard scrypt(password, salt, N, r, p, xyv, b, result)
 
 func areValid(params: Pbkdf2Params): bool =
-  if params.c == 0 or params.dkLen < 32 or params.salt.bytes.len == 0:
+  if params.c == 0 or params.dklen < 32 or params.salt.bytes.len == 0:
     return false
 
   # https://www.ietf.org/rfc/rfc2898.txt
@@ -875,7 +875,7 @@ proc createNetKeystore*(kdfKind: KdfKind,
 
 proc createKeystore*(kdfKind: KdfKind,
                      rng: var BrHmacDrbgContext,
-                     privKey: ValidatorPrivkey,
+                     privKey: ValidatorPrivKey,
                      password = KeystorePass.init "",
                      path = KeyPath "",
                      description = "",

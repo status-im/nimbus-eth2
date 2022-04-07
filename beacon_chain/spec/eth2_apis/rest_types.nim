@@ -435,8 +435,7 @@ type
 
   Web3SignerForkInfo* = object
     fork*: Fork
-    genesisValidatorsRoot* {.
-      serializedFieldName: "genesis_validators_root".}: Eth2Digest
+    genesis_validators_root*: Eth2Digest
 
   Web3SignerAggregationSlotData* = object
     slot*: Slot
@@ -593,65 +592,65 @@ func init*(t: typedesc[RestValidatorBalance], index: ValidatorIndex,
   RestValidatorBalance(index: index, balance: Base10.toString(balance))
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesisValidatorsRoot: Eth2Digest, data: Slot,
+           genesis_validators_root: Eth2Digest, data: Slot,
            signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.AggregationSlot,
     forkInfo: some(Web3SignerForkInfo(
-      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+      fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
     aggregationSlot: Web3SignerAggregationSlotData(slot: data)
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesisValidatorsRoot: Eth2Digest, data: AggregateAndProof,
+           genesis_validators_root: Eth2Digest, data: AggregateAndProof,
            signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.AggregateAndProof,
     forkInfo: some(Web3SignerForkInfo(
-      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+      fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
     aggregateAndProof: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesisValidatorsRoot: Eth2Digest, data: AttestationData,
+           genesis_validators_root: Eth2Digest, data: AttestationData,
            signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.Attestation,
     forkInfo: some(Web3SignerForkInfo(
-      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+      fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
     attestation: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesisValidatorsRoot: Eth2Digest, data: phase0.BeaconBlock,
+           genesis_validators_root: Eth2Digest, data: phase0.BeaconBlock,
            signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.Block,
     forkInfo: some(Web3SignerForkInfo(
-      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+      fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
     blck: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesisValidatorsRoot: Eth2Digest, data: ForkedBeaconBlock,
+           genesis_validators_root: Eth2Digest, data: ForkedBeaconBlock,
            signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.BlockV2,
     forkInfo: some(Web3SignerForkInfo(
-      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+      fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
     beaconBlock: data
@@ -673,39 +672,39 @@ func init*(t: typedesc[Web3SignerRequest], genesisForkVersion: Version,
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesisValidatorsRoot: Eth2Digest, data: Epoch,
+           genesis_validators_root: Eth2Digest, data: Epoch,
            signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.RandaoReveal,
     forkInfo: some(Web3SignerForkInfo(
-      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+      fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
     randaoReveal: Web3SignerRandaoRevealData(epoch: data)
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesisValidatorsRoot: Eth2Digest, data: VoluntaryExit,
+           genesis_validators_root: Eth2Digest, data: VoluntaryExit,
            signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.VoluntaryExit,
     forkInfo: some(Web3SignerForkInfo(
-      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+      fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
     voluntaryExit: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesisValidatorsRoot: Eth2Digest, blockRoot: Eth2Digest,
+           genesis_validators_root: Eth2Digest, blockRoot: Eth2Digest,
            slot: Slot, signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.SyncCommitteeMessage,
     forkInfo: some(Web3SignerForkInfo(
-      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+      fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
     syncCommitteeMessage: Web3SignerSyncCommitteeMessageData(
@@ -714,28 +713,28 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesisValidatorsRoot: Eth2Digest,
+           genesis_validators_root: Eth2Digest,
            data: SyncAggregatorSelectionData,
            signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.SyncCommitteeSelectionProof,
     forkInfo: some(Web3SignerForkInfo(
-      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+      fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
     syncAggregatorSelectionData: data
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesisValidatorsRoot: Eth2Digest,
+           genesis_validators_root: Eth2Digest,
            data: ContributionAndProof,
            signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
           ): Web3SignerRequest =
   Web3SignerRequest(
     kind: Web3SignerRequestKind.SyncCommitteeContributionAndProof,
     forkInfo: some(Web3SignerForkInfo(
-      fork: fork, genesisValidatorsRoot: genesisValidatorsRoot
+      fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
     syncCommitteeContributionAndProof: data

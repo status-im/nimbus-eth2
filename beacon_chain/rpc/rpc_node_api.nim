@@ -128,7 +128,7 @@ proc getDiscoveryAddresses(node: BeaconNode): Option[seq[string]] =
   if respa.isErr():
     return none[seq[string]]()
   let pa = respa.get()
-  let mpa = MultiAddress.init(multicodec("p2p"), pa.peerId)
+  let mpa = MultiAddress.init(multiCodec("p2p"), pa.peerId)
   if mpa.isErr():
     return none[seq[string]]()
   var addresses = newSeqOfCap[string](len(pa.addrs))
@@ -140,7 +140,7 @@ proc getDiscoveryAddresses(node: BeaconNode): Option[seq[string]] =
 
 proc getP2PAddresses(node: BeaconNode): Option[seq[string]] =
   let pinfo = node.network.switch.peerInfo
-  let mpa = MultiAddress.init(multicodec("p2p"), pinfo.peerId)
+  let mpa = MultiAddress.init(multiCodec("p2p"), pinfo.peerId)
   if mpa.isErr():
     return none[seq[string]]()
   var addresses = newSeqOfCap[string](len(pinfo.addrs))
@@ -171,7 +171,7 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
     return (
       peer_id: $node.network.peerId(),
-      enr: node.network.enrRecord().toUri(),
+      enr: node.network.enrRecord().toURI(),
       p2p_addresses: p2pAddresses,
       discovery_addresses: discoveryAddresses,
       metadata: (node.network.metadata.seq_number,
@@ -193,7 +193,7 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       if (peer.connectionState in states) and (peer.direction in dirs):
         let resPeer = (
           peer_id: $peer.peerId,
-          enr: if peer.enr.isSome(): peer.enr.get().toUri() else: "",
+          enr: if peer.enr.isSome(): peer.enr.get().toURI() else: "",
           last_seen_p2p_address: getLastSeenAddress(node, peer.peerId),
           state: peer.connectionState.toString(),
           direction: peer.direction.toString(),
@@ -221,7 +221,7 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
   rpcServer.rpc("get_v1_node_peers_peerId") do (
     peer_id: string) -> RpcNodePeer:
-    let pres = PeerID.init(peer_id)
+    let pres = PeerId.init(peer_id)
     if pres.isErr():
       raise newException(CatchableError,
                          "The peer ID supplied could not be parsed")
@@ -232,7 +232,7 @@ proc installNodeApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
 
     return (
       peer_id: $peer.peerId,
-      enr: if peer.enr.isSome(): peer.enr.get().toUri() else: "",
+      enr: if peer.enr.isSome(): peer.enr.get().toURI() else: "",
       last_seen_p2p_address: getLastSeenAddress(node, peer.peerId),
       state: peer.connectionState.toString(),
       direction: peer.direction.toString(),

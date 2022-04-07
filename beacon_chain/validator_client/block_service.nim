@@ -108,7 +108,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
           error_name = exc.name, error_msg = exc.msg
 
 proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
-                  proposerKey: ValidatorPubkey) {.async.} =
+                  proposerKey: ValidatorPubKey) {.async.} =
   let (inFuture, timeToSleep) = vc.beaconClock.fromNow(slot)
   try:
     if inFuture:

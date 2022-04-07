@@ -190,8 +190,8 @@ func applyScoreChanges*(self: var ProtoArray,
     # the delta by the new score amount.
     #
     # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
-    if  useProposerBoost and (not proposer_boost_root.isZero) and
-        proposer_boost_root == node.root:
+    if  useProposerBoost and (not proposerBoostRoot.isZero) and
+        proposerBoostRoot == node.root:
       proposerBoostScore = calculateProposerBoost(newBalances)
       if  nodeDelta >= 0 and
           high(Delta) - nodeDelta < self.previousProposerBoostScore:

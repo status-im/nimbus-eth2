@@ -14,7 +14,7 @@ proc new(T: type Eth2DiscoveryProtocol,
     bindPort: Port, bindIp: ValidIpAddress,
     enrFields: openArray[(string, seq[byte])] = [],
     rng: ref BrHmacDrbgContext):
-    T {.raises: [Exception, Defect].} =
+    T {.raises: [CatchableError, Defect].} =
 
   newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields,
     bindPort = bindPort, bindIp = bindIp, rng = rng)

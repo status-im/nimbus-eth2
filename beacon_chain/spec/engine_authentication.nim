@@ -37,14 +37,14 @@ proc getSignedToken*(key: openArray[byte], payload: string): string =
 
   # https://datatracker.ietf.org/doc/html/rfc7515#appendix-A.1.1
   const jwsProtectedHeader =
-    base64url_encode($ %* {"typ": "JWT", "alg": "HS256"}) & "."
+    base64urlEncode($ %* {"typ": "JWT", "alg": "HS256"}) & "."
   # In theory, std/json might change how it encodes, and it doesn't per-se
   # matter but can also simply specify the base64-encoded form directly if
   # useful, since it's never checked here on its own.
   static: doAssert jwsProtectedHeader == "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9."
   let signingInput = jwsProtectedHeader & base64urlEncode(payload)
 
-  signingInput & "." & base64_urlencode(sha256.hmac(key, signingInput).data)
+  signingInput & "." & base64urlEncode(sha256.hmac(key, signingInput).data)
 
 proc getSignedIatToken*(key: openArray[byte], time: int64): string =
   getSignedToken(key, $getIatToken(time))

@@ -33,7 +33,7 @@ suite "Light client processor" & preset():
       serveLightClientData = true,
       importLightClientData = ImportLightClientData.OnlyNew)
     quarantine = newClone(Quarantine.init())
-    taskpool = TaskPool.new()
+    taskpool = Taskpool.new()
   var verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
 
   var cache: StateCache
@@ -56,7 +56,7 @@ suite "Light client processor" & preset():
 
   addBlocks(SLOTS_PER_EPOCH, 0.75)
   let
-    genesisValidatorsRoot = dag.genesisValidatorsRoot
+    genesis_validators_root = dag.genesis_validators_root
     trustedBlockRoot = dag.head.root
 
   const
@@ -89,7 +89,7 @@ suite "Light client processor" & preset():
     let store = (ref Option[LightClientStore])()
     var
       processor = LightClientProcessor.new(
-        false, "", "", cfg, genesisValidatorsRoot, trustedBlockRoot,
+        false, "", "", cfg, genesis_validators_root, trustedBlockRoot,
         store, getBeaconTime, didInitializeStore)
       res: Result[void, BlockError]
 

@@ -55,7 +55,7 @@ type
   GossipMsg = messages.Message
 
   SeenItem* = object
-    peerId*: PeerID
+    peerId*: PeerId
     stamp*: chronos.Moment
 
   Eth2Node* = ref object of RootObj
@@ -65,20 +65,20 @@ type
     discoveryEnabled*: bool
     wantedPeers*: int
     hardMaxPeers*: int
-    peerPool*: PeerPool[Peer, PeerID]
+    peerPool*: PeerPool[Peer, PeerId]
     protocolStates*: seq[RootRef]
     metadata*: altair.MetaData
     connectTimeout*: chronos.Duration
     seenThreshold*: chronos.Duration
     connQueue: AsyncQueue[PeerAddr]
-    seenTable: Table[PeerID, SeenItem]
+    seenTable: Table[PeerId, SeenItem]
     connWorkers: seq[Future[void]]
-    connTable: HashSet[PeerID]
+    connTable: HashSet[PeerId]
     forkId*: ENRForkID
     discoveryForkId*: ENRForkID
     forkDigests*: ref ForkDigests
     rng*: ref BrHmacDrbgContext
-    peers*: Table[PeerID, Peer]
+    peers*: Table[PeerId, Peer]
     validTopics: HashSet[string]
     peerPingerHeartbeatFut: Future[void]
     peerTrimmerHeartbeatFut: Future[void]
@@ -110,7 +110,7 @@ type
     disconnectedFut: Future[void]
 
   PeerAddr* = object
-    peerId*: PeerID
+    peerId*: PeerId
     addrs*: seq[MultiAddress]
 
   ConnectionState* = enum
@@ -342,13 +342,13 @@ proc openStream(node: Eth2Node,
 
 proc init*(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
 
-func peerId*(node: Eth2Node): PeerID =
+func peerId*(node: Eth2Node): PeerId =
   node.switch.peerInfo.peerId
 
 func enrRecord*(node: Eth2Node): Record =
   node.discovery.localNode.record
 
-proc getPeer*(node: Eth2Node, peerId: PeerID): Peer =
+proc getPeer*(node: Eth2Node, peerId: PeerId): Peer =
   node.peers.withValue(peerId, peer) do:
     return peer[]
   do:
@@ -359,7 +359,7 @@ proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerId)
   result.peerId = conn.peerId
 
-proc getKey*(peer: Peer): PeerID {.inline.} =
+proc getKey*(peer: Peer): PeerId {.inline.} =
   peer.peerId
 
 proc getFuture*(peer: Peer): Future[void] {.inline.} =
@@ -437,7 +437,7 @@ template awaitNonNegativeRequestQuota*(peer: Peer) =
 func allowedOpsPerSecondCost*(n: int): float =
   (replenishRate * 1000000000'f / n.float)
 
-proc isSeen*(network: Eth2Node, peerId: PeerID): bool =
+proc isSeen*(network: Eth2Node, peerId: PeerId): bool =
   ## Returns ``true`` if ``peerId`` present in SeenTable and time period is not
   ## yet expired.
   let currentTime = now(chronos.Moment)
@@ -453,9 +453,9 @@ proc isSeen*(network: Eth2Node, peerId: PeerID): bool =
     else:
       true
 
-proc addSeen*(network: Eth2Node, peerId: PeerID,
+proc addSeen*(network: Eth2Node, peerId: PeerId,
               period: chronos.Duration) =
-  ## Adds peer with PeerID ``peerId`` to SeenTable and timeout ``period``.
+  ## Adds peer with PeerId ``peerId`` to SeenTable and timeout ``period``.
   let item = SeenItem(peerId: peerId, stamp: now(chronos.Moment) + period)
   withValue(network.seenTable, peerId, entry) do:
     if entry.stamp < item.stamp:
@@ -854,7 +854,7 @@ proc toPeerAddr*(r: enr.TypedRecord,
 
   let
     pubKey = ? keys.PublicKey.fromRaw(r.secp256k1.get)
-    peerId = ? PeerID.init(crypto.PublicKey(
+    peerId = ? PeerId.init(crypto.PublicKey(
       scheme: Secp256k1, skkey: secp.SkPublicKey(pubKey)))
 
   var addrs = newSeq[MultiAddress]()
@@ -1044,7 +1044,7 @@ proc queryRandom*(
 proc trimConnections(node: Eth2Node, count: int) =
   # Kill `count` peers, scoring them to remove the least useful ones
 
-  var scores = initOrderedTable[PeerID, int]()
+  var scores = initOrderedTable[PeerId, int]()
 
   # Take into account the stabilitySubnets
   # During sync, only this will be used to score peers
@@ -1084,7 +1084,7 @@ proc trimConnections(node: Eth2Node, count: int) =
   # Then, use the average of all topics per peers, to avoid giving too much
   # point to big peers
 
-  var gossipScores = initTable[PeerID, tuple[sum: int, count: int]]()
+  var gossipScores = initTable[PeerId, tuple[sum: int, count: int]]()
   for topic, _ in node.pubsub.gossipsub:
     let
       peersInMesh = node.pubsub.mesh.peers(topic)
@@ -1116,7 +1116,7 @@ proc trimConnections(node: Eth2Node, count: int) =
     scores[peerId] =
       scores.getOrDefault(peerId) + (gScore.sum div gScore.count)
 
-  proc sortPerScore(a, b: (PeerID, int)): int =
+  proc sortPerScore(a, b: (PeerId, int)): int =
     system.cmp(a[1], b[1])
 
   scores.sort(sortPerScore)
@@ -1153,7 +1153,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
 
     for subNetId in 0 ..< totalSubnets:
       let topic =
-        topicNameGenerator(node.forkId.forkDigest, SubnetIdType(subNetId))
+        topicNameGenerator(node.forkId.fork_digest, SubnetIdType(subNetId))
 
       if node.pubsub.gossipsub.peers(topic) < node.pubsub.parameters.dLow:
         lowOutgoingSubnets.setBit(subNetId)
@@ -1228,7 +1228,7 @@ proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
           let res = discNode.toPeerAddr()
           if res.isErr():
             debug "Failed to decode discovery's node address",
-                  node = discnode, errMsg = res.error
+                  node = discNode, errMsg = res.error
             continue
 
           let peerAddr = res.get()
@@ -1279,7 +1279,7 @@ proc resolvePeer(peer: Peer) =
   let nodeId =
     block:
       var key: PublicKey
-      # `secp256k1` keys are always stored inside PeerID.
+      # `secp256k1` keys are always stored inside PeerId.
       discard peer.peerId.extractPublicKey(key)
       keys.PublicKey.fromRaw(key.skkey.getBytes()).get().toNodeId()
 
@@ -1327,7 +1327,7 @@ proc handlePeer*(peer: Peer) {.async.} =
     debug "Peer successfully connected", peer = peer,
                                          connections = peer.connections
 
-proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
+proc onConnEvent(node: Eth2Node, peerId: PeerId, event: ConnEvent) {.async.} =
   let peer = node.getPeer(peerId)
   case event.kind
   of ConnEventKind.Connected:
@@ -1402,7 +1402,7 @@ proc onConnEvent(node: Eth2Node, peerId: PeerID, event: ConnEvent) {.async.} =
       peer.connectionState = Disconnected
 
 proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
-          enrForkId: ENRForkID, discoveryForkId: ENRForkId, forkDigests: ref ForkDigests,
+          enrForkId: ENRForkID, discoveryForkId: ENRForkID, forkDigests: ref ForkDigests,
           getBeaconTime: GetBeaconTimeFn, switch: Switch,
           pubsub: GossipSub, ip: Option[ValidIpAddress], tcpPort,
           udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
@@ -1428,7 +1428,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
     wantedPeers: config.maxPeers,
     hardMaxPeers: config.hardMaxPeers.get(config.maxPeers * 3 div 2), #*1.5
     cfg: runtimeCfg,
-    peerPool: newPeerPool[Peer, PeerID](),
+    peerPool: newPeerPool[Peer, PeerId](),
     # Its important here to create AsyncQueue with limited size, otherwise
     # it could produce HIGH cpu usage.
     connQueue: newAsyncQueue[PeerAddr](ConcurrentConnections),
@@ -1705,7 +1705,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 #Must import here because of cyclicity
 import ../sync/sync_protocol
 
-proc updatePeerMetadata(node: Eth2Node, peerId: PeerID) {.async.} =
+proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async.} =
   trace "updating peer metadata", peerId
 
   var peer = node.getPeer(peerId)
@@ -1803,9 +1803,9 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
       let
         privKey = res.get()
         pubKey = privKey.getPublicKey().expect("working public key from random")
-        pres = PeerID.init(pubKey)
+        pres = PeerId.init(pubKey)
       if pres.isErr():
-        fatal "Could not obtain PeerID from network key"
+        fatal "Could not obtain PeerId from network key"
         quit QuitFailure
       info "Generating new networking key", network_public_key = pubKey,
                                             network_peer_id = $pres.get()
@@ -1973,14 +1973,14 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
                      cfg: RuntimeConfig,
                      forkDigests: ref ForkDigests,
                      getBeaconTime: GetBeaconTimeFn,
-                     genesisValidatorsRoot: Eth2Digest): Eth2Node
+                     genesis_validators_root: Eth2Digest): Eth2Node
                     {.raises: [Defect, CatchableError].} =
   let
     enrForkId = getENRForkID(
-      cfg, getBeaconTime().slotOrZero.epoch, genesisValidatorsRoot)
+      cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
 
     discoveryForkId = getDiscoveryForkID(
-      cfg, getBeaconTime().slotOrZero.epoch, genesisValidatorsRoot)
+      cfg, getBeaconTime().slotOrZero.epoch, genesis_validators_root)
 
     (extIp, extTcpPort, extUdpPort) = try: setupAddress(
       config.nat, config.listenAddress, config.tcpPort, config.udpPort, clientId)
@@ -2053,7 +2053,7 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
               let
                 maddress = MultiAddress.init(s).tryGet()
                 mpeerId = maddress[multiCodec("p2p")].tryGet()
-                peerId = PeerID.init(mpeerId.protoAddress().tryGet()).tryGet()
+                peerId = PeerId.init(mpeerId.protoAddress().tryGet()).tryGet()
               res.mgetOrPut(peerId, @[]).add(maddress)
               info "Adding priviledged direct peer", peerId, address = maddress
           res
@@ -2086,7 +2086,7 @@ proc announcedENR*(node: Eth2Node): enr.Record =
   node.discovery.localNode.record
 
 proc shortForm*(id: NetKeyPair): string =
-  $PeerID.init(id.pubkey)
+  $PeerId.init(id.pubkey)
 
 proc subscribe*(
     node: Eth2Node, topic: string, topicParams: TopicParams,
@@ -2270,9 +2270,9 @@ proc updateForkId(node: Eth2Node, value: ENRForkID) =
   else:
     debug "ENR fork id changed", value
 
-proc updateForkId*(node: Eth2Node, epoch: Epoch, genesisValidatorsRoot: Eth2Digest) =
-  node.updateForkId(getENRForkId(node.cfg, epoch, genesisValidatorsRoot))
-  node.discoveryForkId = getDiscoveryForkID(node.cfg, epoch, genesisValidatorsRoot)
+proc updateForkId*(node: Eth2Node, epoch: Epoch, genesis_validators_root: Eth2Digest) =
+  node.updateForkId(getENRForkID(node.cfg, epoch, genesis_validators_root))
+  node.discoveryForkId = getDiscoveryForkID(node.cfg, epoch, genesis_validators_root)
 
 func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
   case node.cfg.stateForkAtEpoch(epoch)

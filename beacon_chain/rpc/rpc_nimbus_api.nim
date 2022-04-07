@@ -170,7 +170,7 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       var peers = newJArray()
       let backoff = node.network.pubsub.backingOff.getOrDefault(topic)
       for peer in v:
-        peers.add(peer.toNode(backOff.getOrDefault(peer.peerId)))
+        peers.add(peer.toNode(backoff.getOrDefault(peer.peerId)))
 
       gossipsub.add(topic, peers)
 
@@ -181,7 +181,7 @@ proc installNimbusApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
       var peers = newJArray()
       let backoff = node.network.pubsub.backingOff.getOrDefault(topic)
       for peer in v:
-        peers.add(peer.toNode(backOff.getOrDefault(peer.peerId)))
+        peers.add(peer.toNode(backoff.getOrDefault(peer.peerId)))
 
       mesh.add(topic, peers)
 

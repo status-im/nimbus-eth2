@@ -25,7 +25,7 @@ import
 export results, altair, phase0, taskpools, bearssl, signatures
 
 type
-  TaskPoolPtr* = TaskPool
+  TaskPoolPtr* = Taskpool
 
   BatchVerifier* = object
     sigVerifCache*: BatchedBLSVerifierCache ##\

@@ -26,7 +26,7 @@ export
 when defined(windows):
   import stew/[windows/acl]
 
-{.localPassC: "-fno-lto".} # no LTO for crypto
+{.localPassc: "-fno-lto".} # no LTO for crypto
 
 const
   KeystoreFileName* = "keystore.json"
@@ -415,7 +415,7 @@ proc loadKeystoreImpl(validatorsDir, secretsDir, keyName: string,
   let passphrasePath = secretsDir / keyName
   if fileExists(passphrasePath):
     if not(checkSensitiveFilePermissions(passphrasePath)):
-      error "Password file has insecure permissions", key_path = keyStorePath
+      error "Password file has insecure permissions", key_path = keystorePath
       return
 
     let passphrase =
@@ -636,12 +636,12 @@ proc mapErrTo*[T, E](r: Result[T, E], v: static KeystoreGenerationErrorKind):
   r.mapErr(proc (e: E): KeystoreGenerationError =
     KeystoreGenerationError(kind: v, error: $e))
 
-proc loadNetKeystore*(keyStorePath: string,
+proc loadNetKeystore*(keystorePath: string,
                       insecurePwd: Option[string]): Option[lcrypto.PrivateKey] =
 
   if not(checkSensitiveFilePermissions(keystorePath)):
     error "Network keystorage file has insecure permissions",
-          key_path = keyStorePath
+          key_path = keystorePath
     return
 
   let keyStore =
@@ -657,18 +657,18 @@ proc loadNetKeystore*(keyStorePath: string,
 
   if insecurePwd.isSome():
     warn "Using insecure password to unlock networking key"
-    let decrypted = decryptNetKeystore(keystore,
+    let decrypted = decryptNetKeystore(keyStore,
                                        KeystorePass.init(insecurePwd.get()))
     if decrypted.isOk:
       return some(decrypted.get())
     else:
-      error "Network keystore decryption failed", key_store = keyStorePath
+      error "Network keystore decryption failed", key_store = keystorePath
       return
   else:
     let prompt = "Please enter passphrase to unlock networking key: "
     let res = keyboardGetPassword[lcrypto.PrivateKey](prompt, 3,
       proc (password: string): KsResult[lcrypto.PrivateKey] =
-        let decrypted = decryptNetKeystore(keystore, KeystorePass.init password)
+        let decrypted = decryptNetKeystore(keyStore, KeystorePass.init password)
         if decrypted.isErr():
           error "Keystore decryption failed. Please try again", keystorePath
         decrypted
@@ -678,13 +678,13 @@ proc loadNetKeystore*(keyStorePath: string,
     else:
       return
 
-proc saveNetKeystore*(rng: var BrHmacDrbgContext, keyStorePath: string,
+proc saveNetKeystore*(rng: var BrHmacDrbgContext, keystorePath: string,
                       netKey: lcrypto.PrivateKey, insecurePwd: Option[string]
                      ): Result[void, KeystoreGenerationError] =
   let password =
     if insecurePwd.isSome():
       warn "Using insecure password to lock networking key",
-           key_path = keyStorePath
+           key_path = keystorePath
       insecurePwd.get()
     else:
       let prompt = "Please enter NEW password to lock network key storage: "
@@ -698,16 +698,16 @@ proc saveNetKeystore*(rng: var BrHmacDrbgContext, keyStorePath: string,
   try:
     encodedStorage = Json.encode(keyStore)
   except SerializationError as exc:
-    error "Could not serialize network key storage", key_path = keyStorePath
+    error "Could not serialize network key storage", key_path = keystorePath
     return err(KeystoreGenerationError(
       kind: FailedToCreateKeystoreFile, error: exc.msg))
 
-  let res = secureWriteFile(keyStorePath, encodedStorage)
+  let res = secureWriteFile(keystorePath, encodedStorage)
   if res.isOk():
     ok()
   else:
     error "Could not write to network key storage file",
-          key_path = keyStorePath
+          key_path = keystorePath
     res.mapErrTo(FailedToCreateKeystoreFile)
 
 proc createValidatorFiles*(secretsDir, validatorsDir, keystoreDir, secretFile,

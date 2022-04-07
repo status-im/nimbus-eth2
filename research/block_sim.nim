@@ -150,7 +150,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     let
       syncCommittee = @(dag.syncCommitteeParticipants(slot + 1))
-      genesis_validators_root = dag.genesisValidatorsRoot
+      genesis_validators_root = dag.genesis_validators_root
       fork = dag.forkAtEpoch(slot.epoch)
       messagesTime = slot.attestation_deadline()
       contributionsTime = slot.sync_contribution_deadline()

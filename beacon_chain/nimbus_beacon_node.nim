@@ -206,7 +206,7 @@ proc initFullNode(
     node: BeaconNode,
     rng: ref BrHmacDrbgContext,
     dag: ChainDAGRef,
-    taskpool: TaskpoolPtr,
+    taskpool: TaskPoolPtr,
     getBeaconTime: GetBeaconTimeFn) =
   template config(): auto = node.config
 
@@ -274,11 +274,11 @@ proc initFullNode(
       blockProcessor, node.validatorMonitor, dag, attestationPool, exitPool,
       node.attachedValidators, syncCommitteeMsgPool, quarantine, rng,
       getBeaconTime, taskpool)
-    syncManager = newSyncManager[Peer, PeerID](
+    syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.tail.slot, blockVerifier)
-    backfiller = newSyncManager[Peer, PeerID](
+    backfiller = newSyncManager[Peer, PeerId](
       node.network.peerPool, SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.backfill.slot, blockVerifier, maxHeadAge = 0)
@@ -336,7 +336,7 @@ proc init*(T: type BeaconNode,
            depositContractSnapshotContents: string): BeaconNode {.
     raises: [Defect, CatchableError].} =
 
-  var taskpool: TaskpoolPtr
+  var taskpool: TaskPoolPtr
 
   let depositContractSnapshot = if depositContractSnapshotContents.len > 0:
     try:
@@ -352,9 +352,9 @@ proc init*(T: type BeaconNode,
       fatal "The number of threads --numThreads cannot be negative."
       quit 1
     elif config.numThreads == 0:
-      taskpool = TaskpoolPtr.new(numThreads = min(countProcessors(), 16))
+      taskpool = TaskPoolPtr.new(numThreads = min(countProcessors(), 16))
     else:
-      taskpool = TaskpoolPtr.new(numThreads = config.numThreads)
+      taskpool = TaskPoolPtr.new(numThreads = config.numThreads)
 
     info "Threadpool started", numThreads = taskpool.numThreads
   except Exception as exc:
@@ -1155,7 +1155,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   let epoch = slot.epoch
   if epoch + 1 >= node.network.forkId.next_fork_epoch:
     # Update 1 epoch early to block non-fork-ready peers
-    node.network.updateForkId(epoch, node.dag.genesisValidatorsRoot)
+    node.network.updateForkId(epoch, node.dag.genesis_validators_root)
 
   # When we're not behind schedule, we'll speculatively update the clearance
   # state in anticipation of receiving the next block - we do it after logging
@@ -1892,10 +1892,10 @@ proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOErr
 
   var spdir: SPDIR
   try:
-    spdir = JSON.loadFile(interchange, SPDIR)
+    spdir = Json.loadFile(interchange, SPDIR)
   except SerializationError as err:
     writeStackTrace()
-    stderr.write $JSON & " load issue for file \"", interchange, "\"\n"
+    stderr.write $Json & " load issue for file \"", interchange, "\"\n"
     stderr.write err.formatMsg(interchange), "\n"
     quit 1
 
@@ -1936,7 +1936,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableEr
   of BNStartUpCmd.record: doRecord(config, rng[])
   of BNStartUpCmd.web3: doWeb3Cmd(config, rng[])
   of BNStartUpCmd.slashingdb: doSlashingInterchange(config)
-  of BNStartupCmd.trustedNodeSync:
+  of BNStartUpCmd.trustedNodeSync:
     let
       network = loadEth2Network(config)
       cfg = network.cfg

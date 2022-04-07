@@ -104,7 +104,7 @@ proc getDiscoveryAddresses(node: BeaconNode): Option[seq[string]] =
   if respa.isErr():
     return none[seq[string]]()
   let pa = respa.get()
-  let mpa = MultiAddress.init(multicodec("p2p"), pa.peerId)
+  let mpa = MultiAddress.init(multiCodec("p2p"), pa.peerId)
   if mpa.isErr():
     return none[seq[string]]()
   var addresses = newSeqOfCap[string](len(pa.addrs))
@@ -116,7 +116,7 @@ proc getDiscoveryAddresses(node: BeaconNode): Option[seq[string]] =
 
 proc getP2PAddresses(node: BeaconNode): Option[seq[string]] =
   let pinfo = node.network.switch.peerInfo
-  let mpa = MultiAddress.init(multicodec("p2p"), pinfo.peerId)
+  let mpa = MultiAddress.init(multiCodec("p2p"), pinfo.peerId)
   if mpa.isErr():
     return none[seq[string]]()
   var addresses = newSeqOfCap[string](len(pinfo.addrs))
@@ -152,7 +152,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponse(
       (
         peer_id: $node.network.peerId(),
-        enr: node.network.enrRecord().toUri(),
+        enr: node.network.enrRecord().toURI(),
         p2p_addresses: p2pAddresses,
         discovery_addresses: discoveryAddresses,
         metadata: (
@@ -196,7 +196,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
          (peer.direction in directionMask):
         let peer = (
           peer_id: $peer.peerId,
-          enr: if peer.enr.isSome(): peer.enr.get().toUri() else: "",
+          enr: if peer.enr.isSome(): peer.enr.get().toURI() else: "",
           last_seen_p2p_address: getLastSeenAddress(node, peer.peerId),
           state: peer.connectionState.toString(),
           direction: peer.direction.toString(),
@@ -225,7 +225,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getPeer
   router.api(MethodGet, "/eth/v1/node/peers/{peer_id}") do (
-    peer_id: PeerID) -> RestApiResponse:
+    peer_id: PeerId) -> RestApiResponse:
     let peer =
       block:
         if peer_id.isErr():
@@ -238,7 +238,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponse(
       (
         peer_id: $peer.peerId,
-        enr: if peer.enr.isSome(): peer.enr.get().toUri() else: "",
+        enr: if peer.enr.isSome(): peer.enr.get().toURI() else: "",
         last_seen_p2p_address: getLastSeenAddress(node, peer.peerId),
         state: peer.connectionState.toString(),
         direction: peer.direction.toString(),

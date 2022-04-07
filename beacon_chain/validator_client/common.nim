@@ -156,7 +156,7 @@ proc init*(t: typedesc[DutyAndProof], epoch: Epoch, dependentRoot: Eth2Digest,
                slotSig: slotSig)
 
 proc init*(t: typedesc[ProposedData], epoch: Epoch, dependentRoot: Eth2Digest,
-           data: openarray[ProposerTask]): ProposedData =
+           data: openArray[ProposerTask]): ProposedData =
   ProposedData(epoch: epoch, dependentRoot: dependentRoot, duties: @data)
 
 proc getCurrentSlot*(vc: ValidatorClientRef): Option[Slot] =
@@ -231,7 +231,7 @@ proc getDelay*(vc: ValidatorClientRef, deadline: BeaconTime): TimeDiff =
   vc.beaconClock.now() - deadline
 
 proc getValidator*(vc: ValidatorClientRef,
-                   key: ValidatorPubkey): Option[AttachedValidator] =
+                   key: ValidatorPubKey): Option[AttachedValidator] =
   let validator = vc.attachedValidators.getValidator(key)
   if isNil(validator):
     warn "Validator not in pool anymore", validator = shortLog(validator)

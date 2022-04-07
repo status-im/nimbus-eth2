@@ -78,11 +78,11 @@ proc contains*(keylist: openArray[KeystoreInfo], key: string): bool =
   let pubkey = ValidatorPubKey.fromHex(key).tryGet()
   contains(keylist, pubkey)
 
-proc startSingleNodeNetwork =
+proc startSingleNodeNetwork {.raises: [CatchableError, Defect].} =
   let
     rng = keys.newRng()
     mnemonic = generateMnemonic(rng[])
-    seed = getSeed(mnemonic, KeyStorePass.init "")
+    seed = getSeed(mnemonic, KeystorePass.init "")
     cfg = defaultRuntimeConfig
 
   let vres = secureCreatePath(validatorsDir)
@@ -126,7 +126,7 @@ proc startSingleNodeNetwork =
     fatal "Failed to create token file", err = deposits.error
     quit 1
 
-  let createTestnetConf = BeaconNodeConf.load(cmdLine = mapIt([
+  let createTestnetConf = try: BeaconNodeConf.load(cmdLine = mapIt([
     "--data-dir=" & dataDir,
     "createTestnet",
     "--total-validators=" & $simulationDepositsCount,
@@ -136,10 +136,12 @@ proc startSingleNodeNetwork =
     "--netkey-file=network_key.json",
     "--insecure-netkey-password=true",
     "--genesis-offset=0"], it))
+  except Exception as exc: # TODO Fix confutils exceptions
+    raiseAssert exc.msg
 
   doCreateTestnet(createTestnetConf, rng[])
 
-  let runNodeConf = BeaconNodeConf.load(cmdLine = mapIt([
+  let runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
     "--tcp-port=49000",
     "--udp-port=49000",
     "--network=" & dataDir,
@@ -157,6 +159,8 @@ proc startSingleNodeNetwork =
     "--serve-light-client-data=off",
     "--import-light-client-data=none",
     "--doppelganger-detection=off"], it))
+  except Exception as exc: # TODO fix confutils exceptions
+    raiseAssert exc.msg
 
   let metadata = loadEth2NetworkMetadata(dataDir)
 

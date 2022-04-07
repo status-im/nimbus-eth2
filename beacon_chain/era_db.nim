@@ -204,7 +204,6 @@ proc getPartialState(
   #      performs
   var tmp: seq[byte]
   if (let e = db.getStateSSZ(historical_roots, slot, tmp); e.isErr):
-    debugecho e.error()
     return false
 
   static: doAssert isFixedSize(PartialBeaconState)
@@ -243,7 +242,7 @@ iterator getBlockIds*(
 proc new*(
     T: type EraDB, cfg: RuntimeConfig, path: string,
     genesis_validators_root: Eth2Digest): EraDB =
-  EraDb(cfg: cfg, path: path, genesis_validators_root: genesis_validators_root)
+  EraDB(cfg: cfg, path: path, genesis_validators_root: genesis_validators_root)
 
 when isMainModule:
   # Testing EraDB gets messy because of the large amounts of data involved:

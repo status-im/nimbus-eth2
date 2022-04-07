@@ -225,7 +225,7 @@ proc writeValue*(w: var JsonWriter, a: SlotString or EpochString)
 proc readValue*(r: var JsonReader, a: var (SlotString or EpochString))
                {.raises: [SerializationError, IOError, Defect].} =
   try:
-    a = (typeof a)(r.readValue(string).parseBiggestUint())
+    a = (typeof a)(r.readValue(string).parseBiggestUInt())
   except ValueError:
     raiseUnexpectedValue(r, "Integer in a string expected")
 
@@ -361,7 +361,7 @@ proc importInterchangeV5Impl*(
     # (the last before the earliest) the minEpochViolation check stays consistent.
     var maxValidSourceEpochSeen = -1
     var maxValidTargetEpochSeen = -1
-    
+
     if dbSource.isSome():
       maxValidSourceEpochSeen = int dbSource.get()
     if dbTarget.isSome():
@@ -384,7 +384,7 @@ proc importInterchangeV5Impl*(
 
     # See formal proof https://github.com/michaelsproul/slashing-proofs
     # of synthetic attestation
-    if not(maxValidSourceEpochSeen < maxValidTargetEpochSeen) and 
+    if not(maxValidSourceEpochSeen < maxValidTargetEpochSeen) and
        not(maxValidSourceEpochSeen == 0 and maxValidTargetEpochSeen == 0):
       # Special-case genesis (Slashing prot is deactivated anyway)
       warn "Invalid attestation(s), source epochs should be less than target epochs, skipping import",
@@ -393,7 +393,7 @@ proc importInterchangeV5Impl*(
         maxValidTargetEpochSeen = maxValidTargetEpochSeen
       result = siPartial
       continue
-  
+
     db.registerSyntheticAttestation(
       parsedKey,
       Epoch maxValidSourceEpochSeen,

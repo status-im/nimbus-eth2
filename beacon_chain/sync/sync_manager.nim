@@ -572,7 +572,7 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
       )
 
     # Update status string
-    man.syncStatus = timeLeft.toTimeLeftString() & " (" &
+    man.syncStatus = timeleft.toTimeLeftString() & " (" &
                     (done * 100).formatBiggestFloat(ffDecimal, 2) & "%) " &
                     man.avgSyncSpeed.formatBiggestFloat(ffDecimal, 4) &
                     "slots/s (" & map & ":" & currentSlot & ")"

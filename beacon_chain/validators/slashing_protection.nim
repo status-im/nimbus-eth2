@@ -90,7 +90,7 @@ proc init*(
 
   if requiresMigration:
     fatal "The slashing database predates Altair hardfork from October 2021." &
-      " You can migrate to the new DB format using Nimbus 1.6.0" & 
+      " You can migrate to the new DB format using Nimbus 1.6.0" &
       " for a few minutes at https://github.com/status-im/nimbus-eth2/releases/tag/v1.6.0" &
       " until the messages \"Migrating local validators slashing DB from v1 to v2\"" &
       " and \"Slashing DB migration successful.\""
@@ -206,7 +206,7 @@ proc registerAttestation*(
 
 proc pruneBlocks*(
        db: SlashingProtectionDB,
-       validator: ValidatorPubkey,
+       validator: ValidatorPubKey,
        newMinSlot: Slot) =
   ## Prune all blocks from a validator before the specified newMinSlot
   ## This is intended for interchange import to ensure
@@ -220,7 +220,7 @@ proc pruneBlocks*(
 
 proc pruneAttestations*(
        db: SlashingProtectionDB,
-       validator: ValidatorPubkey,
+       validator: ValidatorPubKey,
        newMinSourceEpoch: int64,
        newMinTargetEpoch: int64) =
   ## Prune all blocks from a validator before the specified newMinSlot
