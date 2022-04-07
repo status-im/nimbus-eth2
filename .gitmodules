@@ -138,11 +138,6 @@
 	url = https://github.com/status-im/nim-snappy.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/nim-protobuf-serialization"]
-	path = vendor/nim-protobuf-serialization
-	url = https://github.com/status-im/nim-protobuf-serialization.git
-	ignore = untracked
-	branch = master
 [submodule "vendor/asynctools"]
 	path = vendor/asynctools
 	url = https://github.com/cheatfate/asynctools.git
