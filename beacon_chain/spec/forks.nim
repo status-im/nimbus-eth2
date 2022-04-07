@@ -578,6 +578,9 @@ func init*(T: type ForkDigests,
       compute_fork_digest(cfg.SHARDING_FORK_VERSION, genesisValidatorsRoot),
   )
 
+func toBlockId*(header: BeaconBlockHeader): BlockId =
+  BlockId(root: header.hash_tree_root(), slot: header.slot)
+
 func toBlockId*(blck: SomeForkySignedBeaconBlock): BlockId =
   BlockId(root: blck.root, slot: blck.message.slot)
 

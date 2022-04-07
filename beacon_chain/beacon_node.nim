@@ -45,6 +45,7 @@ type
     processor*: ref LightClientProcessor
     manager*: LightClientManager
     gossipState*: GossipState
+    importTrustedBlocksFut*: Future[void]
 
   BeaconNode* = ref object
     nickname*: string

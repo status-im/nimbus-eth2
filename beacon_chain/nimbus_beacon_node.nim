@@ -1221,6 +1221,7 @@ proc handleMissingBlocks(node: BeaconNode) =
 
 proc onSecond(node: BeaconNode) =
   ## This procedure will be called once per second.
+  node.lightClientOnSecond()
   if not(node.syncManager.inProgress):
     node.handleMissingBlocks()
 

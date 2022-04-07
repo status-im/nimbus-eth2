@@ -54,11 +54,12 @@ type
   LightClientManager* = object
     network: Eth2Node
     rng: ref BrHmacDrbgContext
+    getTrustedBlockRoot: GetTrustedBlockRootCallback
     bootstrapVerifier: LightClientBootstrapVerifier
     updateVerifier: LightClientUpdateVerifier
     optimisticUpdateVerifier: OptimisticLightClientUpdateVerifier
-    getTrustedBlockRoot: GetTrustedBlockRootCallback
     getLocalWallPeriod: GetSyncCommitteePeriodCallback
+    getTargetPeriod: GetSyncCommitteePeriodCallback
     getFinalizedPeriod: GetSyncCommitteePeriodCallback
     isLightClientStoreInitialized: GetBoolCallback
     isNextSyncCommitteeKnown: GetBoolCallback
@@ -68,11 +69,12 @@ func init*(
     T: type LightClientManager,
     network: Eth2Node,
     rng: ref BrHmacDrbgContext,
+    getTrustedBlockRoot: GetTrustedBlockRootCallback,
     bootstrapVerifier: LightClientBootstrapVerifier,
     updateVerifier: LightClientUpdateVerifier,
     optimisticUpdateVerifier: OptimisticLightClientUpdateVerifier,
-    getTrustedBlockRoot: GetTrustedBlockRootCallback,
     getLocalWallPeriod: GetSyncCommitteePeriodCallback,
+    getTargetPeriod: GetSyncCommitteePeriodCallback,
     getFinalizedPeriod: GetSyncCommitteePeriodCallback,
     isLightClientStoreInitialized: GetBoolCallback,
     isNextSyncCommitteeKnown: GetBoolCallback
@@ -81,11 +83,12 @@ func init*(
   LightClientManager(
     network: network,
     rng: rng,
+    getTrustedBlockRoot: getTrustedBlockRoot,
     bootstrapVerifier: bootstrapVerifier,
     updateVerifier: updateVerifier,
     optimisticUpdateVerifier: optimisticUpdateVerifier,
-    getTrustedBlockRoot: getTrustedBlockRoot,
     getLocalWallPeriod: getLocalWallPeriod,
+    getTargetPeriod: getTargetPeriod,
     getFinalizedPeriod: getFinalizedPeriod,
     isLightClientStoreInitialized: isLightClientStoreInitialized,
     isNextSyncCommitteeKnown: isNextSyncCommitteeKnown
@@ -304,9 +307,9 @@ proc isGossipSupported*(
     finalizedPeriod = self.getFinalizedPeriod()
     isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown()
   if isNextSyncCommitteeKnown:
-    period in [finalizedPeriod, finalizedPeriod + 1]
+    period <= finalizedPeriod + 1
   else:
-    period == finalizedPeriod
+    period <= finalizedPeriod
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#sync-via-libp2p
 proc loop(self: LightClientManager) {.async.} =
@@ -326,19 +329,28 @@ proc loop(self: LightClientManager) {.async.} =
         await sleepAsync(chronos.seconds(60))
         continue
 
+    # Check whether the target sync committee has been reached.
+    # Gossip may further advance the `LightClientStore` despite this check,
+    # but without a full `LightClientUpdate` that can be at most 1 extra period.
+    # Note that bootstrap data may already exceed the target period arbitrarily.
+    let
+      currentPeriod = self.getLocalWallPeriod()
+      targetPeriod = min(self.getTargetPeriod(), currentPeriod)
+      finalizedPeriod = self.getFinalizedPeriod()
+    if finalizedPeriod >= targetPeriod:
+      await sleepAsync(chronos.seconds(2))
+      continue
+
     # Request light client data for older periods if necessary to support gossip
-    let currentPeriod = self.getLocalWallPeriod()
     if not self.isGossipSupported(currentPeriod):
-      let finalizedPeriod = self.getFinalizedPeriod()
-      doAssert currentPeriod > finalizedPeriod
       let didProgress = await self.query(
         BestLightClientUpdatesByRangeEndpoint,
-        finalizedPeriod ..< currentPeriod)
+        finalizedPeriod ..< targetPeriod)
       if not didProgress:
         await sleepAsync(chronos.seconds(60))
         continue
 
-      if self.getFinalizedPeriod() >= (currentPeriod - 1):
+      if self.isGossipSupported(currentPeriod):
         # Fetch a single optimistic update to avoid waiting for gossip
         discard await self.query(OptimisticLightClientUpdateEndpoint)
 

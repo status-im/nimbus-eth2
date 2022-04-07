@@ -136,6 +136,7 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
 proc addHeadBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
+    verifyMessage: bool,
     onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded |
                   OnBellatrixBlockAdded
     ): Result[BlockRef, BlockError] =
@@ -232,23 +233,42 @@ proc addHeadBlock*(
   # First, batch-verify all signatures in block
   if skipBLSValidation notin dag.updateFlags:
     # TODO: remove skipBLSValidation
-    var sigs: seq[SignatureSet]
-    if (let e = sigs.collectSignatureSets(
-        signedBlock, dag.db.immutableValidators,
-        dag.clearanceState, cache); e.isErr()):
-      # A PublicKey or Signature isn't on the BLS12-381 curve
-      info "Unable to load signature sets",
-        err = e.error()
-      return err(BlockError.Invalid)
+    if verifyMessage:
+      var sigs: seq[SignatureSet]
+      if (let e = sigs.collectSignatureSets(
+          signedBlock, dag.db.immutableValidators,
+          dag.clearanceState, cache); e.isErr()):
+        # A PublicKey or Signature isn't on the BLS12-381 curve
+        info "Unable to load signature sets",
+          err = e.error()
+        return err(BlockError.Invalid)
 
-    if not verifier.batchVerify(sigs):
-      info "Block signature verification failed",
-        signature = shortLog(signedBlock.signature)
-      return err(BlockError.Invalid)
+      if not verifier.batchVerify(sigs):
+        info "Block signature verification failed",
+          signature = shortLog(signedBlock.signature)
+        return err(BlockError.Invalid)
+    else:
+      let proposerKey = dag.validatorKey(blck.proposer_index)
+      if proposerKey.isNone:
+        error "Invalid proposer in trusted block, database corrupt?",
+          head = shortLog(dag.head), tail = shortLog(dag.tail),
+          genesis = shortLog(dag.genesis)
+        return err(BlockError.Invalid)
+
+      if not verify_block_signature(
+          dag.forkAtEpoch(blck.slot.epoch),
+          getStateField(dag.headState, genesis_validators_root),
+          blck.slot,
+          signedBlock.root,
+          proposerKey.get(),
+          signedBlock.signature):
+        info "Trusted block signature verification failed"
+        return err(BlockError.Invalid)
 
   let sigVerifyTick = Moment.now()
 
-  ? checkStateTransition(dag, signedBlock.asSigVerified(), cache)
+  if verifyMessage:
+    ? checkStateTransition(dag, signedBlock.asSigVerified(), cache)
 
   let stateVerifyTick = Moment.now()
   # Careful, clearanceState.data has been updated but not blck - we need to
@@ -261,6 +281,14 @@ proc addHeadBlock*(
     stateDataDur = stateDataTick - startTick,
     sigVerifyDur = sigVerifyTick - stateDataTick,
     stateVerifyDur = stateVerifyTick - sigVerifyTick)
+
+template addHeadBlock*(
+    dag: ChainDAGRef, verifier: var BatchVerifier,
+    signedBlock: ForkySignedBeaconBlock,
+    onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded |
+                  OnBellatrixBlockAdded,
+    ): Result[BlockRef, BlockError] =
+  addHeadBlock(dag, verifier, signedBlock, verifyMessage = true, onBlockAdded)
 
 proc addBackfillBlock*(
     dag: ChainDAGRef,

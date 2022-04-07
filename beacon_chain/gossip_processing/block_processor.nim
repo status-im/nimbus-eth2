@@ -162,8 +162,10 @@ proc storeBackfillBlock(
 proc storeBlock*(
     self: var BlockProcessor,
     src: MsgSource, wallTime: BeaconTime,
-    signedBlock: ForkySignedBeaconBlock, queueTick: Moment = Moment.now(),
-    validationDur = Duration()): Result[BlockRef, BlockError] =
+    signedBlock: ForkySignedBeaconBlock,
+    queueTick: Moment = Moment.now(), validationDur = Duration(),
+    verifyMessage = true
+): Result[BlockRef, BlockError] =
   ## storeBlock is the main entry point for unvalidated blocks - all untrusted
   ## blocks, regardless of origin, pass through here. When storing a block,
   ## we will add it to the dag and pass it to all block consumers that need
@@ -184,7 +186,7 @@ proc storeBlock*(
   self.consensusManager.quarantine[].removeOrphan(signedBlock)
 
   type Trusted = typeof signedBlock.asTrusted()
-  let blck = dag.addHeadBlock(self.verifier, signedBlock) do (
+  let blck = dag.addHeadBlock(self.verifier, signedBlock, verifyMessage) do (
       blckRef: BlockRef, trustedBlock: Trusted, epochRef: EpochRef):
     # Callback add to fork choice if valid
     attestationPool[].addForkChoice(
