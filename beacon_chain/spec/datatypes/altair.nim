@@ -36,8 +36,8 @@ import
 
 export base, sets
 
-from ssz_serialization/merkleization import GeneralizedIndex
-export merkleization.GeneralizedIndex
+from ssz_serialization/proofs import GeneralizedIndex
+export proofs.GeneralizedIndex
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#incentivization-weights
