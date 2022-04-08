@@ -268,6 +268,9 @@ else:
       fatal "The only supported value for the --network parameter is 'gnosis'"
       quit 1
 
+    if eth2Network.isSome and eth2Network.get == "gnosis-chain":
+      warn "`--network:gnosis-chain` is deprecated, use `--network:gnosis` instead"
+
   proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
     checkNetworkParameterUse eth2Network
     gnosisMetadata.cfg
