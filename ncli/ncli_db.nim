@@ -646,7 +646,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
     case info.kind
     of EpochInfoFork.Phase0:
       template info: untyped = info.phase0Data
-      for i, s in info.validators.pairs():
+      for i, s in info.validators:
         let perf = addr perfs[i]
         if RewardFlags.isActiveInPreviousEpoch in s.flags:
           if s.is_previous_epoch_attester.isSome():
@@ -713,7 +713,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
 
   echo "validator_index,attestation_hits,attestation_misses,head_attestation_hits,head_attestation_misses,target_attestation_hits,target_attestation_misses,delay_avg,first_slot_head_attester_when_first_slot_empty,first_slot_head_attester_when_first_slot_not_empty"
 
-  for (i, perf) in perfs.pairs:
+  for i, perf in perfs:
     var
       count = 0'u64
       sum = 0'u64
@@ -929,7 +929,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
         doAssert state.data.balances.len == previousEpochBalances.len
         doAssert state.data.balances.len == rewardsAndPenalties.len
 
-        for index, validator in info.validators.pairs:
+        for index, validator in info.validators:
           template rp: untyped = rewardsAndPenalties[index]
 
           checkBalance(index, validator, state.data.balances[index].int64,

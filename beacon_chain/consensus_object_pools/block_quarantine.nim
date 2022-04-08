@@ -80,7 +80,7 @@ func checkMissing*(quarantine: var Quarantine): seq[FetchRecord] =
     quarantine.missing.del(k)
 
   # simple (simplistic?) exponential backoff for retries..
-  for k, v in quarantine.missing.pairs():
+  for k, v in quarantine.missing:
     if countOnes(v.tries.uint64) == 1:
       result.add(FetchRecord(root: k))
 
@@ -164,7 +164,7 @@ func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
 func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[(Eth2Digest, ValidatorSig)]
 
-  for k, v in quarantine.orphans.pairs():
+  for k, v in quarantine.orphans:
     if not isViableOrphan(finalizedSlot, v):
       toDel.add k
 

@@ -23,7 +23,7 @@ const
 
 type
   StartUpCommand {.pure.} = enum
-    pubsub, asl, asr, aggasr, lat
+    pubsub, asl, asr, aggasr, scmsr, csr, lat, traceAll
 
   LogTraceConf = object
     logFiles {.
@@ -74,7 +74,13 @@ type
       discard
     of aggasr:
       discard
+    of scmsr:
+      discard
+    of csr:
+      discard
     of lat:
+      discard
+    of traceAll:
       discard
 
   GossipDirection = enum
@@ -140,21 +146,70 @@ type
     wallSlot: uint64
     signature: string
 
+  SyncCommitteeMessageObject = object
+    slot: uint64
+    beaconBlockRoot {.serializedFieldName: "beacon_block_root".}: string
+    validatorIndex {.serializedFieldName: "validator_index".}: uint64
+    signature: string
+
+  ContributionObject = object
+    slot: uint64
+    beaconBlockRoot {.serializedFieldName: "beacon_block_root".}: string
+    subnetId: uint64
+    aggregationBits {.serializedFieldName: "aggregation_bits".}: string
+
+  ContributionMessageObject = object
+    aggregatorIndex {.serializedFieldName: "aggregator_index".}: uint64
+    contribution: ContributionObject
+    selectionProof {.serializedFieldName: "selection_proof".}: string
+
+  ContributionSentObject = object
+    message: ContributionMessageObject
+    signature: string
+
+  SCMSentMessage = object of LogMessage
+    message: SyncCommitteeMessageObject
+    validator: string
+
+  SCMReceivedMessage = object of LogMessage
+    wallSlot: uint64
+    syncCommitteeMsg: SyncCommitteeMessageObject
+    subcommitteeIdx: uint64
+
+  ContributionSentMessage = object of LogMessage
+    contribution: ContributionSentObject
+
+  ContributionReceivedMessage = object of LogMessage
+    contribution: ContributionObject
+    wallSlot: uint64
+    aggregatorIndex {.serializedFieldName: "aggregator_index".}: uint64
+    signature: string
+    selectionProof {.serializedFieldName: "selection_proof".}: string
+
   GossipMessage = object
     kind: GossipDirection
     id: string
     datetime: DateTime
     processed: bool
 
-  SaMessageType {.pure.} = enum
-    AttestationSent, SlotStart
+  SMessageType {.pure.} = enum
+    AttestationSent, SCMSent, SlotStart
 
-  SlotAttMessage = object
-    case kind: SaMessageType
-    of SaMessageType.AttestationSent:
+  SlotMessage = object
+    case kind: SMessageType
+    of SMessageType.AttestationSent:
       asmsg: AttestationSentMessage
-    of SaMessageType.SlotStart:
+    of SMessageType.SCMSent:
+      scmsmsg: SCMSentMessage
+    of SMessageType.SlotStart:
       ssmsg: SlotStartMessage
+
+  # SlotMessage = object
+  #   case kind: SMessageType
+  #   of SMessageType.SCMSent:
+  #     scmsmsg: SCMSentMessage
+  #   of SMessageType.SlotStart:
+  #     ssmsg: SlotStartMessage
 
   SRANode = object
     directory: NodeDirectory
@@ -162,6 +217,13 @@ type
     recvs: TableRef[string, AttestationReceivedMessage]
     aggSends: seq[AggregatedAttestationSentMessage]
     aggRecvs: TableRef[string, AggregatedAttestationReceivedMessage]
+
+  SRSCNode = object
+    directory: NodeDirectory
+    sends: seq[SCMSentMessage]
+    recvs: TableRef[string, SCMReceivedMessage]
+    contributionSends: seq[ContributionSentMessage]
+    contributionRecvs: TableRef[string, ContributionReceivedMessage]
 
 proc readValue(reader: var JsonReader, value: var DateTime) =
   let s = reader.readValue(string)
@@ -198,8 +260,8 @@ proc readLogFile(file: string): seq[JsonNode] =
 
 proc readLogFileForAttsMessages(file: string,
                                 ignoreErrors = true,
-                                dumpErrors = false): seq[SlotAttMessage] =
-  var res = newSeq[SlotAttMessage]()
+                                dumpErrors = false): seq[SlotMessage] =
+  var res = newSeq[SlotMessage]()
   var stream = newFileStream(file)
   var line: string
   var counter = 0
@@ -225,13 +287,13 @@ proc readLogFileForAttsMessages(file: string,
       if m.msg == "Attestation sent":
         let am = Json.decode(line, AttestationSentMessage,
                              allowUnknownFields = true)
-        let m = SlotAttMessage(kind: SaMessageType.AttestationSent,
+        let m = SlotMessage(kind: SMessageType.AttestationSent,
                                asmsg: am)
         res.add(m)
       elif m.msg == "Slot start":
         let sm = Json.decode(line, SlotStartMessage,
                              allowUnknownFields = true)
-        let m = SlotAttMessage(kind: SaMessageType.SlotStart,
+        let m = SlotMessage(kind: SMessageType.SlotStart,
                                ssmsg: sm)
         res.add(m)
 
@@ -286,6 +348,110 @@ proc readLogFileForASRMessages(file: string, srnode: var SRANode,
         let sm = Json.decode(line, AggregatedAttestationSentMessage,
                              allowUnknownFields = true)
         srnode.aggSends.add(sm)
+
+      if counter mod 10_000 == 0:
+        info "Processing file", file = extractFilename(file),
+                                lines_processed = counter,
+                                sends_filtered = len(srnode.sends),
+                                recvs_filtered = len(srnode.recvs)
+
+  except CatchableError as exc:
+    warn "Error reading data from file", file = file, errorMsg = exc.msg
+  finally:
+    stream.close()
+
+proc readLogFileForSCMSendMessages(file: string,
+                                   ignoreErrors = true,
+                                   dumpErrors = false): seq[SlotMessage] =
+  var res = newSeq[SlotMessage]()
+  var stream = newFileStream(file)
+  var line: string
+  var counter = 0
+  try:
+    while not(stream.atEnd()):
+      line = stream.readLine()
+      inc(counter)
+      var m: LogMessage
+      try:
+        m = Json.decode(line, LogMessage, allowUnknownFields = true)
+      except SerializationError as exc:
+        if dumpErrors:
+          error "Serialization error while reading file, ignoring", file = file,
+                 line_number = counter, errorMsg = exc.formatMsg(line)
+        else:
+          error "Serialization error while reading file, ignoring", file = file,
+                 line_number = counter
+        if not(ignoreErrors):
+          raise exc
+        else:
+          continue
+
+      if m.msg == "Sync committee message sent":
+        let scmm = Json.decode(line, SCMSentMessage,
+                             allowUnknownFields = true)
+        let m = SlotMessage(kind: SMessageType.SCMSent,
+                               scmsmsg: scmm)
+        res.add(m)
+      elif m.msg == "Slot start":
+        let sm = Json.decode(line, SlotStartMessage,
+                             allowUnknownFields = true)
+        let m = SlotMessage(kind: SMessageType.SlotStart,
+                               ssmsg: sm)
+        res.add(m)
+
+      if counter mod 10_000 == 0:
+        info "Processing file", file = extractFilename(file),
+                                lines_processed = counter,
+                                lines_filtered = len(res)
+    result = res
+
+  except CatchableError as exc:
+    warn "Error reading data from file", file = file, errorMsg = exc.msg
+  finally:
+    stream.close()
+
+proc readLogFileForSCMSRMessages(file: string, srnode: var SRSCNode,
+                                 ignoreErrors = true, dumpErrors = false) =
+  var stream = newFileStream(file)
+  var line: string
+  var counter = 0
+  try:
+    while not(stream.atEnd()):
+      var m: LogMessage
+      line = stream.readLine()
+      inc(counter)
+      try:
+        m = Json.decode(line, LogMessage, allowUnknownFields = true)
+      except SerializationError as exc:
+        if dumpErrors:
+          error "Serialization error while reading file, ignoring", file = file,
+                 line_number = counter, errorMsg = exc.formatMsg(line)
+        else:
+          error "Serialization error while reading file, ignoring", file = file,
+                 line_number = counter
+        if not(ignoreErrors):
+          raise exc
+        else:
+          continue
+
+      if m.msg == "Sync committee message sent":
+        let sm = Json.decode(line, SCMSentMessage,
+                             allowUnknownFields = true)
+        srnode.sends.add(sm)
+      elif m.msg == "Sync committee message received":
+        let rm = Json.decode(line, SCMReceivedMessage,
+                             allowUnknownFields = true)
+        discard srnode.recvs.hasKeyOrPut(rm.syncCommitteeMsg.signature, rm)
+
+      elif m.msg == "Contribution received":
+        let rm = Json.decode(line, ContributionReceivedMessage,
+                             allowUnknownFields = true)
+        discard srnode.contributionRecvs.hasKeyOrPut(rm.signature, rm)
+
+      elif m.msg == "Contribution sent":
+        let sm = Json.decode(line, ContributionSentMessage,
+                             allowUnknownFields = true)
+        srnode.contributionSends.add(sm)
 
       if counter mod 10_000 == 0:
         info "Processing file", file = extractFilename(file),
@@ -480,10 +646,10 @@ proc runAttSend(logConf: LogTraceConf, logFiles: seq[string]) =
 
     var currentSlot: Option[SlotStartMessage]
     for item in data:
-      if item.kind == SaMessageType.SlotStart:
+      if item.kind == SMessageType.SlotStart:
         currentSlot = some(item.ssmsg)
         inc(slotMessagesCount)
-      elif item.kind == SaMessageType.AttestationSent:
+      elif item.kind == SMessageType.AttestationSent:
         if currentSlot.isSome():
           let attestationTime = currentSlot.get().timestamp -
                                 item.asmsg.timestamp
@@ -606,6 +772,109 @@ proc runAggAttSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
        successful_broadcasts = success, failed_broadcasts = failed,
        total_broadcasts = len(srnodes[i].aggSends)
 
+proc runSCMSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
+  info "Check for Sync Committee Message sent/received messages"
+  if len(nodes) < 2:
+    error "Number of nodes' log files insufficient", nodes_count = len(nodes)
+    quit(1)
+  var srnodes = newSeq[SRSCNode]()
+
+  for node in nodes:
+    var srnode = SRSCNode(
+      directory: node,
+      sends: newSeq[SCMSentMessage](),
+      recvs: newTable[string, SCMReceivedMessage](),
+      contributionSends: newSeq[ContributionSentMessage](),
+      contributionRecvs: newTable[string, ContributionReceivedMessage]()
+    )
+    info "Processing node", node = node.name
+    for logfile in node.logs:
+      let path = node.path & DirSep & logfile
+      info "Processing node's logfile", node = node.name, logfile = path
+      readLogFileForSCMSRMessages(path, srnode,
+                                  logConf.ignoreSerializationErrors,
+                                  logConf.dumpSerializationErrors)
+    srnodes.add(srnode)
+
+  if len(nodes) < 2:
+    error "Number of nodes' log files insufficient", nodes_count = len(nodes)
+    quit(1)
+
+  for i in 0 ..< len(srnodes):
+    var success = 0
+    var failed = 0
+    for item in srnodes[i].sends:
+      var k = (i + 1) mod len(srnodes)
+      var misses = newSeq[string]()
+      while k != i:
+        if item.message.signature notin srnodes[k].recvs:
+          misses.add(srnodes[k].directory.name)
+        k = (k + 1) mod len(srnodes)
+
+      if len(misses) == 0:
+        inc(success)
+      else:
+        inc(failed)
+        info "Sync committee message was not received", sender = srnodes[i].directory.name,
+             signature = item.message.signature,
+             receivers = misses.toSimple(), send_stamp = item.timestamp
+
+    info "Statistics for sender node", sender = srnodes[i].directory.name,
+         successful_broadcasts = success, failed_broadcasts = failed,
+         total_broadcasts = len(srnodes[i].sends)
+
+proc runContributionSendReceive(logConf: LogTraceConf, nodes: seq[NodeDirectory]) =
+  info "Check for contribution sent/received messages"
+  if len(nodes) < 2:
+    error "Number of nodes' log files insufficient", nodes_count = len(nodes)
+    quit(1)
+  var srnodes = newSeq[SRSCNode]()
+
+  for node in nodes:
+    var srnode = SRSCNode(
+      directory: node,
+      sends: newSeq[SCMSentMessage](),
+      recvs: newTable[string, SCMReceivedMessage](),
+      contributionSends: newSeq[ContributionSentMessage](),
+      contributionRecvs: newTable[string, ContributionReceivedMessage]()
+    )
+    info "Processing node", node = node.name
+    for logfile in node.logs:
+      let path = node.path & DirSep & logfile
+      info "Processing node's logfile", node = node.name, logfile = path
+      readLogFileForSCMSRMessages(path, srnode,
+                                  logConf.ignoreSerializationErrors,
+                                  logConf.dumpSerializationErrors)
+    srnodes.add(srnode)
+
+  if len(nodes) < 2:
+    error "Number of nodes' log files insufficient", nodes_count = len(nodes)
+    quit(1)
+
+  for i in 0 ..< len(srnodes):
+    var success = 0
+    var failed = 0
+    for item in srnodes[i].contributionSends:
+      var k = (i + 1) mod len(srnodes)
+      var misses = newSeq[string]()
+      while k != i:
+        if item.contribution.signature notin srnodes[k].contributionRecvs:
+          misses.add(srnodes[k].directory.name)
+        k = (k + 1) mod len(srnodes)
+
+      if len(misses) == 0:
+        inc(success)
+      else:
+        inc(failed)
+        info "Contribution was not received",
+           sender = srnodes[i].directory.name,
+           signature = item.contribution.signature,
+           receivers = misses.toSimple(), send_stamp = item.timestamp
+
+    info "Statistics for sender node", sender = srnodes[i].directory.name,
+       successful_broadcasts = success, failed_broadcasts = failed,
+       total_broadcasts = len(srnodes[i].contributionSends)
+
 proc runLatencyCheck(logConf: LogTraceConf, logFiles: seq[string],
                      nodes: seq[NodeDirectory]) =
   info "Check for async responsiveness"
@@ -686,8 +955,20 @@ proc run(conf: LogTraceConf) =
     runAttSendReceive(conf, logNodes)
   of StartUpCommand.aggasr:
     runAggAttSendReceive(conf, logNodes)
+  of StartUpCommand.scmsr:
+    runSCMSendReceive(conf, logNodes)
+  of StartUpCommand.csr:
+    runContributionSendReceive(conf, logNodes)
   of StartUpCommand.lat:
     runLatencyCheck(conf, logFiles, logNodes)
+  of StartUpCommand.traceAll:
+    runContributionSendReceive(conf, logNodes)
+    runSCMSendReceive(conf, logNodes)
+    runAggAttSendReceive(conf, logNodes)
+    runAttSendReceive(conf, logNodes)
+    runLatencyCheck(conf, logFiles, logNodes)
+    runPubsub(conf, logFiles)
+    runAttSend(conf, logFiles)
 
 when isMainModule:
   echo LogTraceHeader

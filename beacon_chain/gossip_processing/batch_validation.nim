@@ -455,7 +455,7 @@ proc scheduleContributionChecks*(
     proofFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.selection_proof"):
       sync_committee_selection_proof_set(
         fork, genesis_validators_root, contribution.slot,
-        contribution.subcommittee_index, aggregatorKey, proofSig)
+        subcommitteeIdx, aggregatorKey, proofSig)
     contributionFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.contribution"):
       sync_committee_message_signature_set(
         fork, genesis_validators_root, contribution.slot,

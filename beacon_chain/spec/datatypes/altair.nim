@@ -547,7 +547,8 @@ template `[]`*(arr: array[SYNC_COMMITTEE_SIZE, auto] | seq;
                idx: IndexInSyncCommittee): auto =
   arr[int idx]
 
-makeLimitedU64(SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
+makeLimitedU8(SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
+makeLimitedU16(IndexInSyncCommittee, SYNC_COMMITTEE_SIZE)
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (

@@ -304,6 +304,7 @@ proc makeSyncAggregate(
     cfg: RuntimeConfig): SyncAggregate =
   if syncCommitteeRatio <= 0.0:
     return SyncAggregate.init()
+
   let
     syncCommittee =
       withState(state):
@@ -323,11 +324,13 @@ proc makeSyncAggregate(
     latest_block_root =
       withState(state): state.latest_block_root
     syncCommitteePool = newClone(SyncCommitteeMsgPool.init(keys.newRng()))
+  
   type
     Aggregator = object
       subcommitteeIdx: SyncSubcommitteeIndex
       validatorIdx: ValidatorIndex
       selectionProof: ValidatorSig
+
   var aggregators: seq[Aggregator]
   for subcommitteeIdx in SyncSubcommitteeIndex:
     let
@@ -357,8 +360,9 @@ proc makeSyncAggregate(
           MockPrivKeys[validatorIdx])
         selectionProofSig = get_sync_committee_selection_proof(
           fork, genesis_validators_root,
-          slot, subcommitteeIdx.uint64,
+          slot, subcommitteeIdx,
           MockPrivKeys[validatorIdx])
+
       syncCommitteePool[].addSyncCommitteeMessage(
         slot,
         latest_block_root,
@@ -366,11 +370,13 @@ proc makeSyncAggregate(
         signature,
         subcommitteeIdx,
         positions)
+
       if is_sync_committee_aggregator(selectionProofSig.toValidatorSig):
         aggregators.add Aggregator(
           subcommitteeIdx: subcommitteeIdx,
           validatorIdx: validatorIdx,
           selectionProof: selectionProofSig.toValidatorSig)
+
   for aggregator in aggregators:
     var contribution: SyncCommitteeContribution
     if syncCommitteePool[].produceContribution(
@@ -389,6 +395,7 @@ proc makeSyncAggregate(
           signature: contributionSig.toValidatorSig)
       syncCommitteePool[].addContribution(
         signedContributionAndProof, contribution.signature.load.get)
+
   syncCommitteePool[].produceSyncAggregate(latest_block_root)
 
 iterator makeTestBlocks*(

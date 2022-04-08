@@ -241,7 +241,7 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
   var keyset =
     block:
       var res: Table[ValidatorPubKey, int]
-      for inputIndex, pubkey in keys.pairs():
+      for inputIndex, pubkey in keys:
         # Try to search in cache first.
         cacheTable.withValue(pubkey, vindex):
           if uint64(vindex[]) < totalValidatorsInState:
@@ -250,8 +250,7 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
           res[pubkey] = inputIndex
       res
   if len(keyset) > 0:
-    for validatorIndex, validator in getStateField(forkedState,
-                                                   validators).pairs():
+    for validatorIndex, validator in getStateField(forkedState, validators):
       keyset.withValue(validator.pubkey, listIndex):
         # Store pair (pubkey, index) into cache table.
         cacheTable[validator.pubkey] = ValidatorIndex(validatorIndex)

@@ -165,7 +165,7 @@ proc collectEpochRewardsAndPenalties*(
     total_balance = info.balances.current_epoch
     total_balance_sqrt = integer_squareroot(total_balance)
 
-  for index, validator in info.validators.pairs:
+  for index, validator in info.validators:
     if not is_eligible_validator(validator):
       continue
 

@@ -7,7 +7,7 @@ logScope: service = "fork_service"
 proc validateForkSchedule(forks: openArray[Fork]): bool {.raises: [Defect].} =
   # Check if `forks` list is linked list.
   var current_version = forks[0].current_version
-  for index, item in forks.pairs():
+  for index, item in forks:
     if index > 0:
       if item.previous_version != current_version:
         return false

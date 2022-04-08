@@ -450,7 +450,7 @@ func get_attesting_indices*(state: ForkyBeaconState,
     trace "get_attesting_indices: invalid attestation data"
   else:
     for index_in_committee, validator_index in get_beacon_committee(
-        state, data.slot, committee_index.get(), cache).pairs():
+        state, data.slot, committee_index.get(), cache):
       if bits[index_in_committee]:
         res.add validator_index
 

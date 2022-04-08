@@ -543,7 +543,6 @@ type
   GetPoolProposerSlashingsResponse* = DataEnclosedObject[seq[ProposerSlashing]]
   GetPoolVoluntaryExitsResponse* = DataEnclosedObject[seq[SignedVoluntaryExit]]
   GetProposerDutiesResponse* = DataRootEnclosedObject[seq[RestProposerDuty]]
-  GetSyncCommitteeDutiesResponse* = DataEnclosedObject[seq[RestSyncCommitteeDuty]]
   GetSpecResponse* = DataEnclosedObject[RestSpec]
   GetSpecVCResponse* = DataEnclosedObject[RestSpecVC]
   GetStateFinalityCheckpointsResponse* = DataEnclosedObject[RestBeaconStatesFinalityCheckpoints]
@@ -552,12 +551,14 @@ type
   GetStateValidatorBalancesResponse* = DataEnclosedObject[seq[RestValidatorBalance]]
   GetStateValidatorResponse* = DataEnclosedObject[RestValidator]
   GetStateValidatorsResponse* = DataEnclosedObject[seq[RestValidator]]
+  GetSyncCommitteeDutiesResponse* = DataRootEnclosedObject[seq[RestSyncCommitteeDuty]]
   GetSyncingStatusResponse* = DataEnclosedObject[RestSyncInfo]
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]
   GetEpochSyncCommitteesResponse* = DataEnclosedObject[RestEpochSyncCommittee]
   ProduceAttestationDataResponse* = DataEnclosedObject[AttestationData]
   ProduceBlockResponse* = DataEnclosedObject[phase0.BeaconBlock]
   ProduceBlockResponseV2* = ForkedBeaconBlock
+  ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
 
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)
@@ -749,3 +750,54 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
     signingRoot: signingRoot,
     syncCommitteeContributionAndProof: data
   )
+
+func init*(t: typedesc[RestSyncCommitteeMessage],
+           slot: Slot,
+           beacon_block_root: Eth2Digest,
+           validator_index: uint64,
+           signature: ValidatorSig): RestSyncCommitteeMessage =
+  RestSyncCommitteeMessage(
+    slot: slot,
+    beacon_block_root: beacon_block_root,
+    validator_index: validator_index,
+    signature: signature
+  )
+
+func init*(t: typedesc[RestSyncCommitteeContribution],
+           slot: Slot,
+           beacon_block_root: Eth2Digest,
+           subcommittee_index: uint64,
+           aggregation_bits: SyncCommitteeAggregationBits,
+           signature: ValidatorSig): RestSyncCommitteeContribution =
+  RestSyncCommitteeContribution(
+    slot: slot,
+    beacon_block_root: beacon_block_root,
+    subcommittee_index: subcommittee_index,
+    aggregation_bits: aggregation_bits,
+    signature: signature)
+
+func init*(t: typedesc[RestContributionAndProof],
+           aggregator_index: uint64,
+           selection_proof: ValidatorSig,
+           contribution: SyncCommitteeContribution): RestContributionAndProof =
+  RestContributionAndProof(
+    aggregator_index: aggregator_index,
+    selection_proof: selection_proof,
+    contribution: RestSyncCommitteeContribution.init(
+      contribution.slot,
+      contribution.beacon_block_root,
+      contribution.subcommittee_index,
+      contribution.aggregation_bits,
+      contribution.signature
+    ))
+
+func init*(t: typedesc[RestSignedContributionAndProof],
+           message: ContributionAndProof,
+           signature: ValidatorSig): RestSignedContributionAndProof =
+  RestSignedContributionAndProof(
+    message: RestContributionAndProof.init(
+      message.aggregator_index,
+      message.selection_proof,
+      message.contribution
+    ),
+    signature: signature)

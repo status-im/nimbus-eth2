@@ -194,7 +194,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
         let
           selectionProofSig = get_sync_committee_selection_proof(
-            fork, genesis_validators_root, slot, uint64 subcommitteeIdx,
+            fork, genesis_validators_root, slot, subcommitteeIdx,
             validatorPrivKey).toValidatorSig
 
         if is_sync_committee_aggregator(selectionProofSig):

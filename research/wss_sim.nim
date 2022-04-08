@@ -244,7 +244,7 @@ cli do(validatorsDir: string, secretsDir: string,
           agg: AggregateSignature
           inited = false
 
-        for i, pubkey in pubkeys.pairs():
+        for i, pubkey in pubkeys:
           validatorKeys.withValue(pubkey, privkey):
             let sig = get_sync_committee_message_signature(
               fork, genesis_validators_root, slot, blockRoot, privkey[])

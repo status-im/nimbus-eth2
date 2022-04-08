@@ -209,7 +209,7 @@ template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
       except CancelledError:
         ApiOperation.Interrupt
 
-    for idx, node {.inject.} in onlineNodes.pairs():
+    for idx, node {.inject.} in onlineNodes:
       it = node.client
       let apiResponse {.inject.} =
         block:
@@ -342,16 +342,17 @@ template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
     if exitNow:
       break
 
-    let offlineMask = {RestBeaconNodeStatus.Offline,
-                       RestBeaconNodeStatus.NotSynced,
-                       RestBeaconNodeStatus.Uninitalized}
-    let offlineNodes = vc.beaconNodes.filterIt(it.status in offlineMask)
-    let onlineNodesCount = len(vc.beaconNodes) - len(offlineNodes)
+    let unusableModeMask = {RestBeaconNodeStatus.Offline,
+                            RestBeaconNodeStatus.NotSynced,
+                            RestBeaconNodeStatus.Uninitalized,
+                            RestBeaconNodeStatus.Incompatible}
+    let unusableNodes = vc.beaconNodes.filterIt(it.status in unusableModeMask)
+    let onlineNodesCount = len(vc.beaconNodes) - len(unusableNodes)
 
     warn "No working beacon nodes available, refreshing nodes status",
-         online_nodes = onlineNodesCount, offline_nodes = len(offlineNodes)
+         online_nodes = onlineNodesCount, unusable_nodes = len(unusableNodes)
 
-    var checkFut = vc.checkNodes(offlineMask)
+    var checkFut = vc.checkNodes(unusableModeMask)
 
     let checkOp =
       block:
@@ -410,8 +411,7 @@ template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
       break
 
 proc getProposerDuties*(vc: ValidatorClientRef,
-                        epoch: Epoch): Future[GetProposerDutiesResponse] {.
-     async.} =
+                        epoch: Epoch): Future[GetProposerDutiesResponse] {.async.} =
   logScope: request = "getProposerDuties"
   vc.firstSuccessTimeout(RestResponse[GetProposerDutiesResponse], SlotDuration,
                          getProposerDuties(it, epoch)):
@@ -428,7 +428,7 @@ proc getProposerDuties*(vc: ValidatorClientRef,
       of 400:
         debug "Received invalid request response",
               response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+        RestBeaconNodeStatus.Incompatible
       of 500:
         debug "Received internal error response",
               response_code = response.status, endpoint = node
@@ -444,9 +444,10 @@ proc getProposerDuties*(vc: ValidatorClientRef,
 
   raise newException(ValidatorApiError, "Unable to retrieve proposer duties")
 
-proc getAttesterDuties*(vc: ValidatorClientRef, epoch: Epoch,
-                        validators: seq[ValidatorIndex]
-                       ): Future[GetAttesterDutiesResponse] {.async.} =
+proc getAttesterDuties*(
+    vc: ValidatorClientRef,
+    epoch: Epoch,
+    validators: seq[ValidatorIndex]): Future[GetAttesterDutiesResponse] {.async.} =
   logScope: request = "getAttesterDuties"
   vc.firstSuccessTimeout(RestResponse[GetAttesterDutiesResponse], SlotDuration,
                          getAttesterDuties(it, epoch, validators)):
@@ -463,7 +464,7 @@ proc getAttesterDuties*(vc: ValidatorClientRef, epoch: Epoch,
       of 400:
         debug "Received invalid request response",
               response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+        RestBeaconNodeStatus.Incompatible
       of 500:
         debug "Received internal error response",
               response_code = response.status, endpoint = node
@@ -478,6 +479,42 @@ proc getAttesterDuties*(vc: ValidatorClientRef, epoch: Epoch,
         RestBeaconNodeStatus.Offline
 
   raise newException(ValidatorApiError, "Unable to retrieve attester duties")
+
+proc getSyncCommitteeDuties*(
+    vc: ValidatorClientRef,
+    epoch: Epoch,
+    validators: seq[ValidatorIndex]): Future[GetSyncCommitteeDutiesResponse] {.async.} =
+  logScope: request = "getSyncCommitteeDuties"
+  vc.firstSuccessTimeout(RestResponse[GetSyncCommitteeDutiesResponse], SlotDuration,
+                         getSyncCommitteeDuties(it, epoch, validators)):
+    if apiResponse.isErr():
+      debug "Unable to retrieve sync committee duties", endpoint = node,
+            error = apiResponse.error()
+      RestBeaconNodeStatus.Offline
+    else:
+      let response = apiResponse.get()
+      case response.status
+      of 200:
+        debug "Received successful response", endpoint = node
+        return response.data
+      of 400:
+        debug "Received invalid request response",
+              response_code = response.status, endpoint = node
+        RestBeaconNodeStatus.Incompatible
+      of 500:
+        debug "Received internal error response",
+              response_code = response.status, endpoint = node
+        RestBeaconNodeStatus.Offline
+      of 503:
+        debug "Received not synced error response",
+              response_code = response.status, endpoint = node
+        RestBeaconNodeStatus.NotSynced
+      else:
+        debug "Received unexpected error response",
+              response_code = response.status, endpoint = node
+        RestBeaconNodeStatus.Offline
+
+  raise newException(ValidatorApiError, "Unable to retrieve sync committee duties")
 
 proc getForkSchedule*(vc: ValidatorClientRef): Future[seq[Fork]] {.async.} =
   logScope: request = "getForkSchedule"
@@ -521,7 +558,7 @@ proc getHeadStateFork*(vc: ValidatorClientRef): Future[Fork] {.async.} =
       of 400, 404:
         debug "Received invalid request response",
               response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+        RestBeaconNodeStatus.Incompatible
       of 500:
         debug "Received internal error response",
               response_code = response.status, endpoint = node
@@ -533,9 +570,39 @@ proc getHeadStateFork*(vc: ValidatorClientRef): Future[Fork] {.async.} =
 
   raise newException(ValidatorApiError, "Unable to retrieve head state's fork")
 
-proc getValidators*(vc: ValidatorClientRef,
-                    id: seq[ValidatorIdent]): Future[seq[RestValidator]] {.
-     async.} =
+proc getHeadBlockRoot*(vc: ValidatorClientRef): Future[RestRoot] {.async.} =
+  logScope: request = "getHeadBlockRoot"
+  let blockIdent = BlockIdent.init(BlockIdentType.Head)
+  vc.firstSuccessTimeout(RestResponse[GetBlockRootResponse], SlotDuration,
+                         getBlockRoot(it, blockIdent)):
+    if apiResponse.isErr():
+      debug "Unable to retrieve head block's root", endpoint = node,
+            error = apiResponse.error()
+      RestBeaconNodeStatus.Offline
+    else:
+      let response = apiResponse.get()
+      case response.status
+      of 200:
+        debug "Received successful response", endpoint = node
+        return response.data.data
+      of 400, 404:
+        debug "Received invalid request response",
+              response_code = response.status, endpoint = node
+        RestBeaconNodeStatus.Incompatible
+      of 500:
+        debug "Received internal error response",
+              response_code = response.status, endpoint = node
+        RestBeaconNodeStatus.Offline
+      else:
+        debug "Received unexpected error response",
+              response_code = response.status, endpoint = node
+        RestBeaconNodeStatus.Offline
+
+  raise newException(ValidatorApiError, "Unable to retrieve head block's root")
+
+proc getValidators*(
+    vc: ValidatorClientRef,
+    id: seq[ValidatorIdent]): Future[seq[RestValidator]] {.async.} =
   logScope: request = "getStateValidators"
   let stateIdent = StateIdent.init(StateIdentType.Head)
   vc.firstSuccessTimeout(RestResponse[GetStateValidatorsResponse], SlotDuration,
@@ -553,7 +620,7 @@ proc getValidators*(vc: ValidatorClientRef,
       of 400, 404:
         debug "Received invalid request response",
               response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+        RestBeaconNodeStatus.Incompatible
       of 500:
         debug "Received internal error response",
               response_code = response.status, endpoint = node
@@ -566,9 +633,10 @@ proc getValidators*(vc: ValidatorClientRef,
   raise newException(ValidatorApiError,
                      "Unable to retrieve head state's validator information")
 
-proc produceAttestationData*(vc: ValidatorClientRef,  slot: Slot,
-                             committee_index: CommitteeIndex
-                            ): Future[AttestationData] {.async.} =
+proc produceAttestationData*(
+    vc: ValidatorClientRef,
+    slot: Slot,
+    committee_index: CommitteeIndex): Future[AttestationData] {.async.} =
   logScope: request = "produceAttestationData"
   vc.firstSuccessTimeout(RestResponse[ProduceAttestationDataResponse],
                          OneThirdDuration,
@@ -586,7 +654,7 @@ proc produceAttestationData*(vc: ValidatorClientRef,  slot: Slot,
       of 400:
         debug "Received invalid request response",
               response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+        RestBeaconNodeStatus.Incompatible
       of 500:
         debug "Received internal error response",
               response_code = response.status, endpoint = node
@@ -602,8 +670,8 @@ proc produceAttestationData*(vc: ValidatorClientRef,  slot: Slot,
 
   raise newException(ValidatorApiError, "Unable to retrieve attestation data")
 
-proc getAttestationErrorMessage(response: RestPlainResponse): string =
-  let res = decodeBytes(RestAttestationError, response.data,
+proc getDutyErrorMessage(response: RestPlainResponse): string =
+  let res = decodeBytes(RestDutyError, response.data,
                         response.contentType)
   if res.isOk():
     let errorObj = res.get()
@@ -626,8 +694,7 @@ proc getGenericErrorMessage(response: RestPlainResponse): string =
     "Unable to decode error response: [" & $res.error() & "]"
 
 proc submitPoolAttestations*(vc: ValidatorClientRef,
-                             data: seq[Attestation]): Future[bool] {.
-     async.} =
+                             data: seq[Attestation]): Future[bool] {.async.} =
   logScope: request = "submitPoolAttestations"
   vc.firstSuccessTimeout(RestPlainResponse, SlotDuration,
                          submitPoolAttestations(it, data)):
@@ -644,24 +711,62 @@ proc submitPoolAttestations*(vc: ValidatorClientRef,
       of 400:
         debug "Received invalid request response",
               response_code = response.status, endpoint = node,
-              response_error = response.getAttestationErrorMessage()
-        RestBeaconNodeStatus.Offline
+              response_error = response.getDutyErrorMessage()
+        RestBeaconNodeStatus.Incompatible
       of 500:
         debug "Received internal error response",
               response_code = response.status, endpoint = node,
-              response_error = response.getAttestationErrorMessage()
+              response_error = response.getDutyErrorMessage()
         RestBeaconNodeStatus.Offline
       else:
         debug "Received unexpected error response",
               response_code = response.status, endpoint = node,
-              response_error = response.getAttestationErrorMessage()
+              response_error = response.getDutyErrorMessage()
         RestBeaconNodeStatus.Offline
 
   raise newException(ValidatorApiError, "Unable to submit attestation")
 
+proc submitPoolSyncCommitteeSignature*(vc: ValidatorClientRef,
+                                       data: SyncCommitteeMessage): Future[bool] {.async.} =
+  logScope: request = "submitPoolSyncCommitteeSignatures"
+  let restData = RestSyncCommitteeMessage.init(
+    data.slot,
+    data.beacon_block_root,
+    data.validator_index,
+    data.signature
+  )
+  vc.firstSuccessTimeout(RestPlainResponse, SlotDuration,
+                         submitPoolSyncCommitteeSignatures(it, @[restData])):
+    if apiResponse.isErr():
+      debug "Unable to submit sync committee message", endpoint = node,
+            error = apiResponse.error()
+      RestBeaconNodeStatus.Offline
+    else:
+      let response = apiResponse.get()
+      case response.status
+      of 200:
+        debug "Sync committee message was successfully published", endpoint = node
+        return true
+      of 400:
+        debug "Received invalid request response",
+              response_code = response.status, endpoint = node,
+              response_error = response.getDutyErrorMessage()
+        RestBeaconNodeStatus.Incompatible
+      of 500:
+        debug "Received internal error response",
+              response_code = response.status, endpoint = node,
+              response_error = response.getDutyErrorMessage()
+        RestBeaconNodeStatus.Offline
+      else:
+        debug "Received unexpected error response",
+              response_code = response.status, endpoint = node,
+              response_error = response.getDutyErrorMessage()
+        RestBeaconNodeStatus.Offline
+
+  raise newException(ValidatorApiError, "Unable to submit sync committee message")
+
 proc getAggregatedAttestation*(vc: ValidatorClientRef, slot: Slot,
-                               root: Eth2Digest): Future[Attestation] {.
-     async.} =
+                               root: Eth2Digest): Future[Attestation] {.async.} =
   logScope: request = "getAggregatedAttestation"
   vc.firstSuccessTimeout(RestResponse[GetAggregatedAttestationResponse],
                          OneThirdDuration,
@@ -679,7 +784,7 @@ proc getAggregatedAttestation*(vc: ValidatorClientRef, slot: Slot,
       of 400:
         debug "Received invalid request response",
               response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+        RestBeaconNodeStatus.Incompatible
       of 500:
         debug "Received internal error response",
               response_code = response.status, endpoint = node
@@ -692,9 +797,48 @@ proc getAggregatedAttestation*(vc: ValidatorClientRef, slot: Slot,
   raise newException(ValidatorApiError,
                      "Unable to retrieve aggregated attestation data")
 
-proc publishAggregateAndProofs*(vc: ValidatorClientRef,
-                            data: seq[SignedAggregateAndProof]): Future[bool] {.
-     async.} =
+proc produceSyncCommitteeContribution*(
+    vc: ValidatorClientRef,
+    slot: Slot,
+    subcommitteeIndex: SyncSubcommitteeIndex,
+    root: Eth2Digest): Future[SyncCommitteeContribution] {.async.} =
+  logScope: request = "produceSyncCommitteeContribution"
+  vc.firstSuccessTimeout(RestResponse[ProduceSyncCommitteeContributionResponse],
+                         OneThirdDuration,
+                         produceSyncCommitteeContribution(it,
+                                                          slot,
+                                                          subcommitteeIndex,
+                                                          root)):
+    if apiResponse.isErr():
+      debug "Unable to retrieve sync committee contribution data",
+            endpoint = node,
+            error = apiResponse.error()
+      RestBeaconNodeStatus.Offline
+    else:
+      let response = apiResponse.get()
+      case response.status:
+      of 200:
+        debug "Received successful response", endpoint = node
+        return response.data.data
+      of 400:
+        debug "Received invalid request response",
+              response_code = response.status, endpoint = node
+        RestBeaconNodeStatus.Incompatible
+      of 500:
+        debug "Received internal error response",
+              response_code = response.status, endpoint = node
+        RestBeaconNodeStatus.Offline
+      else:
+        debug "Received unexpected error response",
+              response_code = response.status, endpoint = node
+        RestBeaconNodeStatus.Offline
+
+  raise newException(ValidatorApiError,
+                     "Unable to retrieve sync committee contribution data")
+
+proc publishAggregateAndProofs*(
+    vc: ValidatorClientRef,
+    data: seq[SignedAggregateAndProof]): Future[bool] {.async.} =
   logScope: request = "publishAggregateAndProofs"
   vc.firstSuccessTimeout(RestPlainResponse, SlotDuration,
                          publishAggregateAndProofs(it, data)):
@@ -712,7 +856,7 @@ proc publishAggregateAndProofs*(vc: ValidatorClientRef,
         debug "Received invalid request response",
               response_code = response.status, endpoint = node,
               response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.Offline
+        RestBeaconNodeStatus.Incompatible
       of 500:
         debug "Received internal error response",
               response_code = response.status, endpoint = node,
@@ -727,10 +871,46 @@ proc publishAggregateAndProofs*(vc: ValidatorClientRef,
   raise newException(ValidatorApiError,
                      "Unable to publish aggregate and proofs")
 
-proc produceBlockV2*(vc: ValidatorClientRef, slot: Slot,
-                    randao_reveal: ValidatorSig,
-                    graffiti: GraffitiBytes): Future[ProduceBlockResponseV2] {.
-     async.} =
+proc publishContributionAndProofs*(
+    vc: ValidatorClientRef,
+    data: seq[RestSignedContributionAndProof]): Future[bool] {.async.} =
+  logScope: request = "publishContributionAndProofs"
+  vc.firstSuccessTimeout(RestPlainResponse, SlotDuration,
+                         publishContributionAndProofs(it, data)):
+    if apiResponse.isErr():
+      debug "Unable to publish contribution and proofs", endpoint = node,
+            error = apiResponse.error()
+      RestBeaconNodeStatus.Offline
+    else:
+      let response = apiResponse.get()
+      case response.status:
+      of 200:
+        debug "Contribution and proofs were successfully published", endpoint = node
+        return true
+      of 400:
+        debug "Received invalid request response",
+              response_code = response.status, endpoint = node,
+              response_error = response.getGenericErrorMessage()
+        RestBeaconNodeStatus.Incompatible
+      of 500:
+        debug "Received internal error response",
+              response_code = response.status, endpoint = node,
+              response_error = response.getGenericErrorMessage()
+        RestBeaconNodeStatus.Offline
+      else:
+        debug "Received unexpected error response",
+              response_code = response.status, endpoint = node,
+              response_error = response.getGenericErrorMessage()
+        RestBeaconNodeStatus.Offline
+
+  raise newException(ValidatorApiError,
+                     "Unable to publish contribution and proofs")
+
+proc produceBlockV2*(
+    vc: ValidatorClientRef,
+    slot: Slot,
+    randao_reveal: ValidatorSig,
+    graffiti: GraffitiBytes): Future[ProduceBlockResponseV2] {.async.} =
   logScope: request = "produceBlockV2"
   vc.firstSuccessTimeout(RestResponse[ProduceBlockResponseV2],
                          SlotDuration,
@@ -748,7 +928,7 @@ proc produceBlockV2*(vc: ValidatorClientRef, slot: Slot,
       of 400:
         debug "Received invalid request response",
               response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+        RestBeaconNodeStatus.Incompatible
       of 500:
         debug "Received internal error response",
               response_code = response.status, endpoint = node
@@ -794,7 +974,7 @@ proc publishBlock*(vc: ValidatorClientRef,
         debug "Received invalid request response",
               response_code = response.status, endpoint = node,
               response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.Offline
+        RestBeaconNodeStatus.Incompatible
       of 500:
         debug "Received internal error response",
               response_code = response.status, endpoint = node,
@@ -813,9 +993,9 @@ proc publishBlock*(vc: ValidatorClientRef,
 
   raise newException(ValidatorApiError, "Unable to publish block")
 
-proc prepareBeaconCommitteeSubnet*(vc: ValidatorClientRef,
-                                   data: seq[RestCommitteeSubscription]
-                                  ): Future[bool] {.async.} =
+proc prepareBeaconCommitteeSubnet*(
+    vc: ValidatorClientRef,
+    data: seq[RestCommitteeSubscription]): Future[bool] {.async.} =
   logScope: request = "prepareBeaconCommitteeSubnet"
   vc.firstSuccessTimeout(RestPlainResponse, OneThirdDuration,
                          prepareBeaconCommitteeSubnet(it, data)):
@@ -851,3 +1031,44 @@ proc prepareBeaconCommitteeSubnet*(vc: ValidatorClientRef,
         RestBeaconNodeStatus.Offline
 
   raise newException(ValidatorApiError, "Unable to prepare committee subnet")
+
+proc prepareSyncCommitteeSubnets*(
+    vc: ValidatorClientRef,
+    data: seq[RestSyncCommitteeSubscription]): Future[bool] {.async.} =
+  logScope: request = "prepareSyncCommitteeSubnet"
+  vc.firstSuccessTimeout(RestPlainResponse, OneThirdDuration,
+                         prepareSyncCommitteeSubnets(it, data)):
+    if apiResponse.isErr():
+      debug "Unable to prepare sync committee subnet", endpoint = node,
+            error = apiResponse.error()
+      RestBeaconNodeStatus.Offline
+    else:
+      let response = apiResponse.get()
+      case response.status
+      of 200:
+        debug "Sync committee subnet was successfully prepared",
+              endpoint = node
+        return true
+      of 400:
+        debug "Received invalid request response",
+              response_code = response.status, endpoint = node,
+              response_error = response.getGenericErrorMessage()
+        return false
+      of 500:
+        debug "Received internal error response",
+              response_code = response.status, endpoint = node,
+              response_error = response.getGenericErrorMessage()
+        RestBeaconNodeStatus.Offline
+      of 503:
+        debug "Received not synced error response",
+              response_code = response.status, endpoint = node,
+              response_error = response.getGenericErrorMessage()
+        RestBeaconNodeStatus.NotSynced
+      else:
+        debug "Received unexpected error response",
+              response_code = response.status, endpoint = node,
+              response_error = response.getGenericErrorMessage()
+        RestBeaconNodeStatus.Offline
+
+  raise newException(ValidatorApiError,
+                     "Unable to prepare sync committee subnet")

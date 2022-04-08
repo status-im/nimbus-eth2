@@ -260,11 +260,11 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
 proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
                               slot: Slot,
-                              subIndex: uint64): Future[SignatureResult]
+                              subcommittee: SyncSubcommitteeIndex): Future[SignatureResult]
                              {.async.} =
   let request = Web3SignerRequest.init(
     fork, genesis_validators_root,
-    SyncAggregatorSelectionData(slot: slot, subcommittee_index: subIndex),
+    SyncAggregatorSelectionData(slot: slot, subcommittee_index: uint64 subcommittee)
   )
   debug "Signing sync aggregator selection data using remote signer",
         validator = shortLog(v)
@@ -384,7 +384,7 @@ proc getSyncCommitteeSelectionProof*(v: AttachedValidator,
                                      fork: Fork,
                                      genesis_validators_root: Eth2Digest,
                                      slot: Slot,
-                                     subcommittee_index: uint64
+                                     subcommittee_index: SyncSubcommitteeIndex
                                     ): Future[SignatureResult] {.async.} =
   return
     case v.kind

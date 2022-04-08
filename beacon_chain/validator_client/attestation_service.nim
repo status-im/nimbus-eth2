@@ -353,7 +353,7 @@ proc spawnAttestationTasks(service: AttestationServiceRef,
       for item in attesters:
         res.mgetOrPut(item.data.committee_index, default).add(item)
       res
-  for index, duties in dutiesByCommittee.pairs():
+  for index, duties in dutiesByCommittee:
     if len(duties) > 0:
       asyncSpawn service.publishAttestationsAndAggregates(slot, index, duties)
 

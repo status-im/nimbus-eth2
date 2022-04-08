@@ -242,7 +242,7 @@ suite "Message signatures":
   test "Sync committee selection proof signatures":
     let
       slot = default(Slot)
-      subcommittee_index = default(uint64)
+      subcommittee_index = default(SyncSubcommitteeIndex)
 
     check:
       # Matching public/private keys and genesis validator roots
