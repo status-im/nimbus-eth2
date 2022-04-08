@@ -445,7 +445,7 @@ proc scheduleContributionChecks*(
       "SignedContributionAndProof: invalid contribution signature")
 
     contributionKey = ? aggregateAll(
-      dag, dag.syncCommitteeParticipants(contribution.slot, subcommitteeIdx),
+      dag, dag.syncCommitteeParticipants(contribution.slot + 1, subcommitteeIdx),
       contribution.aggregation_bits)
   let
     aggregatorFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.aggregator"):
