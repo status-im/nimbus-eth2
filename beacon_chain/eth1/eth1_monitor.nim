@@ -1446,13 +1446,10 @@ proc testWeb3Provider*(web3Url: Uri,
         0
     clientVersion = mustSucceed "get client version":
       awaitWithRetries web3.provider.web3_clientVersion()
-    protocolVersion = mustSucceed "get protocol version":
-      awaitWithRetries web3.provider.eth_protocolVersion()
     mining = mustSucceed "get mining status":
       awaitWithRetries web3.provider.eth_mining()
 
   echo "Client Version: ", clientVersion
-  echo "Protocol Version: ", protocolVersion, " (", $protocolVersion.fromHex[:int], ")"
   echo "Network Version: ", networkVersion
   echo "Network Listening: ", listening
   echo "Network Peers: ", peers
