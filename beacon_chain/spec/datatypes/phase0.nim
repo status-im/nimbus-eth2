@@ -25,7 +25,6 @@
 {.push raises: [Defect].}
 
 import
-  stew/[assign2],
   chronicles,
   ./base
 
