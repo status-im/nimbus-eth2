@@ -20,6 +20,7 @@ import
   "."/[base, phase0, altair]
 
 from std/typetraits import distinctBase
+from nimcrypto/utils import fromHex  # needed to disambiguate properly
 
 export json_serialization, base
 
@@ -354,6 +355,14 @@ proc readValue*(reader: var JsonReader, value: var ExecutionAddress) {.
 proc writeValue*(writer: var JsonWriter, value: ExtraData) {.
      raises: [Defect, IOError].} =
   writer.writeValue encodeQuantityHex(distinctBase(value))
+
+proc readValue*(reader: var JsonReader, value: var ExtraData) {.
+     raises: [Defect, IOError, SerializationError].} =
+  try:
+    value = ExtraData(utils.fromHex(reader.readValue(string)))
+  except ValueError:
+    raiseUnexpectedValue(reader,
+                         "ExecutionAddress value should be a valid hex string")
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (
