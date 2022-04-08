@@ -6,7 +6,6 @@
 
 import
   std/os,
-  chronicles,
   stew/results,
   snappy/framing,
   ../ncli/e2store,
