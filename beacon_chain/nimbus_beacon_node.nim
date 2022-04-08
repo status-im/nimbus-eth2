@@ -467,9 +467,12 @@ proc init*(T: type BeaconNode,
         eth1Monitor.loadPersistedDeposits()
 
         let phase0Genesis = waitFor eth1Monitor.waitGenesis()
-        genesisState = newClone ForkedHashedBeaconState.init(
-          phase0.HashedBeaconState(data: phase0Genesis[],
-                                   root: hash_tree_root(phase0Genesis[])))
+        genesisState = (ref ForkedHashedBeaconState)(
+          kind: BeaconStateFork.Phase0,
+          phase0Data:
+            (ref phase0.HashedBeaconState)(
+              data: phase0Genesis[],
+              root: hash_tree_root(phase0Genesis[]))[])
 
         if bnStatus == BeaconNodeStatus.Stopping:
           return nil

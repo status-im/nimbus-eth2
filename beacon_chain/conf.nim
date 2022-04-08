@@ -1120,4 +1120,4 @@ proc loadEth2Network*(config: BeaconNodeConf): Eth2NetworkMetadata {.raises: [De
         quit 1
   else:
     checkNetworkParameterUse config.eth2Network
-    gnosisChainMetadata
+    gnosisMetadata

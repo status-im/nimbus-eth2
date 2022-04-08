@@ -403,13 +403,13 @@ clean-prater:
 
 # TODO The constants overrides below should not be necessary if we restore
 #      the support for compiling with custom const presets.
-#      See the prepared preset file in media/gnosis-chain/preset.yaml
+#      See the prepared preset file in media/gnosis/preset.yaml
 #
 #      The `-d:gnosisChainBinary` override can be removed if the web3 library
 #      gains support for multiple "Chain Profiles" that consist of a set of
 #      consensus object (such as blocks and transactions) that are specific
 #      to the chain.
-gnosis-chain-build: | build deps
+gnosis-build gnosis-chain-build: | build deps
 	+ echo -e $(BUILD_MSG) "build/nimbus_beacon_node_gnosis" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			nimbus_beacon_node_gnosis \
@@ -424,18 +424,39 @@ gnosis-chain-build: | build deps
 			&& \
 		echo -e $(BUILD_END_MSG) "build/nimbus_beacon_node_gnosis"
 
-gnosis-chain: | gnosis-chain-build
+gnosis: | gnosis-build
+	$(call CONNECT_TO_NETWORK,gnosis,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
+
+ifneq ($(LOG_LEVEL), TRACE)
+gnosis-dev:
+	+ "$(MAKE)" --no-print-directory LOG_LEVEL=TRACE $@
+else
+gnosis-dev: | gnosis-build
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,gnosis,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
+endif
+
+gnosis-dev-deposit: | gnosis-build deposit_contract
+	$(call MAKE_DEPOSIT,gnosis,$(GNOSIS_WEB3_URLS))
+
+clean-gnosis:
+	$(call CLEAN_NETWORK,gnosis)
+
+# v22.3 names
+gnosis-chain: | gnosis-build
+	echo `gnosis-chain` is deprecated, use `gnosis` after migrating data folder
 	$(call CONNECT_TO_NETWORK,gnosis-chain,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
 
 ifneq ($(LOG_LEVEL), TRACE)
 gnosis-chain-dev:
 	+ "$(MAKE)" --no-print-directory LOG_LEVEL=TRACE $@
 else
-gnosis-chain-dev: | gnosis-chain-build
+gnosis-chain-dev: | gnosis-build
+	echo `gnosis-chain-dev` is deprecated, use `gnosis-dev` instead
 	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,gnosis-chain,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
 endif
 
-gnosis-chain-dev-deposit: | gnosis-chain-build deposit_contract
+gnosis-chain-dev-deposit: | gnosis-build deposit_contract
+	echo `gnosis-chain-dev-deposit` is deprecated, use `gnosis-chain-dev-deposit` instead
 	$(call MAKE_DEPOSIT,gnosis-chain,$(GNOSIS_WEB3_URLS))
 
 clean-gnosis-chain:
