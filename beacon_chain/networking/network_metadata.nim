@@ -260,11 +260,11 @@ when not defined(gnosisChainBinary):
 else:
   const
     gnosisChainMetadata* = loadCompileTimeNetworkMetadata(
-      currentSourcePath.parentDir.replace('\\', '/') & "/../../media/gnosis-chain")
+      currentSourcePath.parentDir.replace('\\', '/') & "/../../media/gnosis")
 
   proc checkNetworkParameterUse*(eth2Network: Option[string]) =
-    if eth2Network.isSome and eth2Network.get != "gnosis-chain":
-      fatal "The only supported value for the --network parameter is 'gnosis-chain'"
+    if eth2Network.isSome and eth2Network.get != "gnosis":
+      fatal "The only supported value for the --network parameter is 'gnosis'"
       quit 1
 
   proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =

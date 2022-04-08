@@ -172,12 +172,13 @@ template toFork*[T: bellatrix.BeaconState | bellatrix.HashedBeaconState](
     t: type T): BeaconStateFork =
   BeaconStateFork.Bellatrix
 
-template init*(T: type ForkedHashedBeaconState, data: phase0.HashedBeaconState): T =
-  T(kind: BeaconStateFork.Phase0, phase0Data: data)
-template init*(T: type ForkedHashedBeaconState, data: altair.HashedBeaconState): T =
-  T(kind: BeaconStateFork.Altair, altairData: data)
-template init*(T: type ForkedHashedBeaconState, data: bellatrix.HashedBeaconState): T =
-  T(kind: BeaconStateFork.Bellatrix, bellatrixData: data)
+# TODO these cause stack overflows due to large temporaries getting allocated
+# template init*(T: type ForkedHashedBeaconState, data: phase0.HashedBeaconState): T =
+#   T(kind: BeaconStateFork.Phase0, phase0Data: data)
+# template init*(T: type ForkedHashedBeaconState, data: altair.HashedBeaconState): T =
+#   T(kind: BeaconStateFork.Altair, altairData: data)
+# template init*(T: type ForkedHashedBeaconState, data: bellatrix.HashedBeaconState): T =
+#   T(kind: BeaconStateFork.Bellatrix, bellatrixData: data)
 
 template init*(T: type ForkedBeaconBlock, blck: phase0.BeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
