@@ -362,7 +362,7 @@ proc readValue*(reader: var JsonReader, value: var ExtraData) {.
     value = ExtraData(utils.fromHex(reader.readValue(string)))
   except ValueError:
     raiseUnexpectedValue(reader,
-                         "ExecutionAddress value should be a valid hex string")
+                         "ExtraData value should be a valid hex string")
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (
