@@ -19,6 +19,8 @@ import
   ../digest,
   "."/[base, phase0, altair]
 
+from std/typetraits import distinctBase
+
 export json_serialization, base
 
 const
@@ -37,6 +39,8 @@ type
 
   PayloadID* = array[8, byte]
 
+  ExtraData = List[byte, MAX_EXTRA_DATA_BYTES]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
@@ -49,7 +53,7 @@ type
     gas_limit*: uint64
     gas_used*: uint64
     timestamp*: uint64
-    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
+    extra_data*: ExtraData
     base_fee_per_gas*: Eth2Digest  # base fee introduced in EIP-1559, little-endian serialized
 
     # Extra payload fields
@@ -68,7 +72,7 @@ type
     gas_limit*: uint64
     gas_used*: uint64
     timestamp*: uint64
-    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
+    extra_data*: ExtraData
     base_fee_per_gas*: Eth2Digest  # base fee introduced in EIP-1559, little-endian serialized
 
     # Extra payload fields
@@ -325,7 +329,7 @@ type
     success*: bool
 
 func encodeQuantityHex*(x: auto): string =
-  "0x" & x.toHex
+  "0x" & byteutils.toHex(x)
 
 func fromHex*(T: typedesc[BloomLogs], s: string): T {.
      raises: [Defect, ValueError].} =
@@ -346,6 +350,10 @@ proc readValue*(reader: var JsonReader, value: var ExecutionAddress) {.
   except ValueError:
     raiseUnexpectedValue(reader,
                          "ExecutionAddress value should be a valid hex string")
+
+proc writeValue*(writer: var JsonWriter, value: ExtraData) {.
+     raises: [Defect, IOError].} =
+  writer.writeValue encodeQuantityHex(distinctBase(value))
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (
