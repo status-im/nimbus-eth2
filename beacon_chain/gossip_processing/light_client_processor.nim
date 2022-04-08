@@ -61,7 +61,7 @@ type
     didInitializeStoreCallback: DidInitializeStoreCallback
 
     cfg: RuntimeConfig
-    genesisValidatorsRoot: Eth2Digest
+    genesis_validators_root: Eth2Digest
     trustedBlockRoot: Eth2Digest
 
     lastProgressTick: BeaconTime # Moment when last update made progress
@@ -83,7 +83,7 @@ proc new*(
     dumpEnabled: bool,
     dumpDirInvalid, dumpDirIncoming: string,
     cfg: RuntimeConfig,
-    genesisValidatorsRoot, trustedBlockRoot: Eth2Digest,
+    genesis_validators_root, trustedBlockRoot: Eth2Digest,
     store: ref Option[LightClientStore],
     getBeaconTime: GetBeaconTimeFn,
     didInitializeStoreCallback: DidInitializeStoreCallback = nil
@@ -96,7 +96,7 @@ proc new*(
     getBeaconTime: getBeaconTime,
     didInitializeStoreCallback: didInitializeStoreCallback,
     cfg: cfg,
-    genesisValidatorsRoot: genesisValidatorsRoot,
+    genesis_validators_root: genesis_validators_root,
     trustedBlockRoot: trustedBlockRoot
   )
 
@@ -172,14 +172,14 @@ proc storeObject*(
           err(BlockError.MissingParent)
         else:
           store[].get.process_light_client_update(
-            obj, wallSlot, self.cfg, self.genesisValidatorsRoot,
+            obj, wallSlot, self.cfg, self.genesis_validators_root,
             allowForceUpdate = false)
       elif obj is altair.OptimisticLightClientUpdate:
         if store[].isNone:
           err(BlockError.MissingParent)
         else:
           store[].get.process_optimistic_light_client_update(
-            obj, wallSlot, self.cfg, self.genesisValidatorsRoot)
+            obj, wallSlot, self.cfg, self.genesis_validators_root)
 
   self.dumpObject(obj, res)
 

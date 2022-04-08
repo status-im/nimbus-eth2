@@ -401,9 +401,9 @@ type
     # serialized. They're represented in memory to allow in-place SSZ reading
     # and writing compatibly with the full Validator object.
 
-    pubkey* {.dontserialize.}: ValidatorPubKey
+    pubkey* {.dontSerialize.}: ValidatorPubKey
 
-    withdrawal_credentials* {.dontserialize.}: Eth2Digest ##\
+    withdrawal_credentials* {.dontSerialize.}: Eth2Digest ##\
     ## Commitment to pubkey for withdrawals and transfers
 
     effective_balance*: uint64 ##\
@@ -908,7 +908,7 @@ func prune*(cache: var StateCache, epoch: Epoch) =
   block:
     for k in cache.shuffled_active_validator_indices.keys:
       if k < pruneEpoch:
-        drops.add prune_epoch.start_slot
+        drops.add pruneEpoch.start_slot
     for drop in drops:
       cache.shuffled_active_validator_indices.del drop.epoch
     drops.setLen(0)

@@ -49,7 +49,7 @@ func get_slot_signature*(
   let signing_root = compute_slot_signing_root(
     fork, genesis_validators_root, slot)
 
-  blsSign(privKey, signing_root.data)
+  blsSign(privkey, signing_root.data)
 
 proc verify_slot_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
@@ -73,7 +73,7 @@ func get_epoch_signature*(
   let signing_root = compute_epoch_signing_root(
     fork, genesis_validators_root, epoch)
 
-  blsSign(privKey, signing_root.data)
+  blsSign(privkey, signing_root.data)
 
 proc verify_epoch_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
@@ -100,7 +100,7 @@ func get_block_signature*(
   let signing_root = compute_block_signing_root(
     fork, genesis_validators_root, slot, root)
 
-  blsSign(privKey, signing_root.data)
+  blsSign(privkey, signing_root.data)
 
 proc verify_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
@@ -125,11 +125,11 @@ func compute_aggregate_and_proof_signing_root*(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#broadcast-aggregate
 func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
                                         aggregate_and_proof: AggregateAndProof,
-                                        privKey: ValidatorPrivKey): CookedSig =
+                                        privkey: ValidatorPrivKey): CookedSig =
   let signing_root = compute_aggregate_and_proof_signing_root(
     fork, genesis_validators_root, aggregate_and_proof)
 
-  blsSign(privKey, signing_root.data)
+  blsSign(privkey, signing_root.data)
 
 proc verify_aggregate_and_proof_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
@@ -158,7 +158,7 @@ func get_attestation_signature*(
   let signing_root = compute_attestation_signing_root(
     fork, genesis_validators_root, attestation_data)
 
-  blsSign(privKey, signing_root.data)
+  blsSign(privkey, signing_root.data)
 
 proc verify_attestation_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
@@ -185,7 +185,7 @@ func get_deposit_signature*(preset: RuntimeConfig,
   let signing_root = compute_deposit_signing_root(
     preset.GENESIS_FORK_VERSION, deposit.getDepositMessage())
 
-  blsSign(privKey, signing_root.data)
+  blsSign(privkey, signing_root.data)
 
 func get_deposit_signature*(message: DepositMessage, version: Version,
                             privkey: ValidatorPrivKey): CookedSig =
@@ -218,7 +218,7 @@ func get_voluntary_exit_signature*(
   let signing_root = compute_voluntary_exit_signing_root(
     fork, genesis_validators_root, voluntary_exit)
 
-  blsSign(privKey, signing_root.data)
+  blsSign(privkey, signing_root.data)
 
 proc verify_voluntary_exit_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,

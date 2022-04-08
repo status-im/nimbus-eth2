@@ -59,8 +59,8 @@ type
     eventBus*: AsyncEventBus
     vcProcess*: Process
     requestManager*: RequestManager
-    syncManager*: SyncManager[Peer, PeerID]
-    backfiller*: SyncManager[Peer, PeerID]
+    syncManager*: SyncManager[Peer, PeerId]
+    backfiller*: SyncManager[Peer, PeerId]
     genesisSnapshotContent*: string
     actionTracker*: ActionTracker
     processor*: ref Eth2Processor

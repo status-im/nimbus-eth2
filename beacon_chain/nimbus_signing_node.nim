@@ -222,7 +222,7 @@ proc installApiHandlers*(node: SigningNode) =
         let
           forkInfo = request.forkInfo.get()
           cooked = get_slot_signature(forkInfo.fork,
-            forkInfo.genesisValidatorsRoot,
+            forkInfo.genesis_validators_root,
             request.aggregationSlot.slot, validator.data.privateKey)
           signature = cooked.toValidatorSig().toHex()
         signatureResponse(Http200, signature)
@@ -230,7 +230,7 @@ proc installApiHandlers*(node: SigningNode) =
         let
           forkInfo = request.forkInfo.get()
           cooked = get_aggregate_and_proof_signature(forkInfo.fork,
-            forkInfo.genesisValidatorsRoot, request.aggregateAndProof,
+            forkInfo.genesis_validators_root, request.aggregateAndProof,
             validator.data.privateKey)
           signature = cooked.toValidatorSig().toHex()
         signatureResponse(Http200, signature)
@@ -238,7 +238,7 @@ proc installApiHandlers*(node: SigningNode) =
         let
           forkInfo = request.forkInfo.get()
           cooked = get_attestation_signature(forkInfo.fork,
-            forkInfo.genesisValidatorsRoot, request.attestation,
+            forkInfo.genesis_validators_root, request.attestation,
             validator.data.privateKey)
           signature = cooked.toValidatorSig().toHex()
         signatureResponse(Http200, signature)
@@ -248,7 +248,7 @@ proc installApiHandlers*(node: SigningNode) =
           blck = request.blck
           blockRoot = hash_tree_root(blck)
           cooked = get_block_signature(forkInfo.fork,
-            forkInfo.genesisValidatorsRoot, blck.slot, blockRoot,
+            forkInfo.genesis_validators_root, blck.slot, blockRoot,
             validator.data.privateKey)
           signature = cooked.toValidatorSig().toHex()
         signatureResponse(Http200, signature)
@@ -260,7 +260,7 @@ proc installApiHandlers*(node: SigningNode) =
           cooked =
             withBlck(forked):
               get_block_signature(forkInfo.fork,
-                forkInfo.genesisValidatorsRoot, blck.slot, blockRoot,
+                forkInfo.genesis_validators_root, blck.slot, blockRoot,
                 validator.data.privateKey)
           signature = cooked.toValidatorSig().toHex()
         signatureResponse(Http200, signature)
@@ -277,7 +277,7 @@ proc installApiHandlers*(node: SigningNode) =
         let
           forkInfo = request.forkInfo.get()
           cooked = get_epoch_signature(forkInfo.fork,
-            forkInfo.genesisValidatorsRoot, request.randaoReveal.epoch,
+            forkInfo.genesis_validators_root, request.randaoReveal.epoch,
             validator.data.privateKey)
           signature = cooked.toValidatorSig().toHex()
         signatureResponse(Http200, signature)
@@ -285,7 +285,7 @@ proc installApiHandlers*(node: SigningNode) =
         let
           forkInfo = request.forkInfo.get()
           cooked = get_voluntary_exit_signature(forkInfo.fork,
-            forkInfo.genesisValidatorsRoot, request.voluntaryExit,
+            forkInfo.genesis_validators_root, request.voluntaryExit,
             validator.data.privateKey)
           signature = cooked.toValidatorSig().toHex()
         signatureResponse(Http200, signature)
@@ -294,7 +294,7 @@ proc installApiHandlers*(node: SigningNode) =
           forkInfo = request.forkInfo.get()
           msg = request.syncCommitteeMessage
           cooked = get_sync_committee_message_signature(forkInfo.fork,
-            forkInfo.genesisValidatorsRoot, msg.slot, msg.beaconBlockRoot,
+            forkInfo.genesis_validators_root, msg.slot, msg.beaconBlockRoot,
             validator.data.privateKey)
           signature = cooked.toValidatorSig().toHex()
         signatureResponse(Http200, signature)
@@ -303,7 +303,7 @@ proc installApiHandlers*(node: SigningNode) =
           forkInfo = request.forkInfo.get()
           msg = request.syncAggregatorSelectionData
           cooked = get_sync_committee_selection_proof(forkInfo.fork,
-            forkInfo.genesisValidatorsRoot, msg.slot, msg.subcommittee_index,
+            forkInfo.genesis_validators_root, msg.slot, msg.subcommittee_index,
             validator.data.privateKey)
           signature = cooked.toValidatorSig().toHex()
         signatureResponse(Http200, signature)
@@ -312,7 +312,7 @@ proc installApiHandlers*(node: SigningNode) =
           forkInfo = request.forkInfo.get()
           msg = request.syncCommitteeContributionAndProof
           cooked = get_contribution_and_proof_signature(
-            forkInfo.fork, forkInfo.genesisValidatorsRoot, msg,
+            forkInfo.fork, forkInfo.genesis_validators_root, msg,
             validator.data.privateKey)
           signature = cooked.toValidatorSig().toHex()
         signatureResponse(Http200, signature)

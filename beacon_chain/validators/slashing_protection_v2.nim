@@ -664,7 +664,7 @@ proc initCompatV1*(T: type SlashingProtectionDB_v2,
   ## or load an existing one with matching genesis root
   ## `dbname` MUST not be ending with .sqlite3
 
-  let alreadyExists = fileExists(basepath/dbname&".sqlite3")
+  let alreadyExists = fileExists(basePath/dbname&".sqlite3")
 
   result.db = T(backend: SqStoreRef.init(
       basePath, dbname,
@@ -698,7 +698,7 @@ proc init*(T: type SlashingProtectionDB_v2,
   ## or load an existing one with matching genesis root
   ## `dbname` MUST not be ending with .sqlite3
 
-  let alreadyExists = fileExists(basepath/dbname&".sqlite3")
+  let alreadyExists = fileExists(basePath/dbname&".sqlite3")
 
   result = T(backend: SqStoreRef.init(basePath, dbname, keyspaces = []).get())
   if alreadyExists:
@@ -718,7 +718,7 @@ proc loadUnchecked*(
   ##       this doesn't check the genesis validator root
   ##
   ## Privacy: This leaks user folder hierarchy in case the file does not exist
-  let path = basepath/dbname&".sqlite3"
+  let path = basePath/dbname&".sqlite3"
   let alreadyExists = fileExists(path)
   if not alreadyExists:
     raise newException(IOError, "DB '" & path & "' does not exist.")
@@ -734,7 +734,7 @@ proc close*(db: SlashingProtectionDB_v2) =
 # DB Queries
 # -------------------------------------------------------------
 
-proc foundAnyResult(status: KVResult[bool]): bool {.inline.}=
+proc foundAnyResult(status: KvResult[bool]): bool {.inline.}=
   ## Checks a DB query status for errors
   ## Then returns true if any result was found
   ## and false otherwise.
@@ -833,7 +833,7 @@ proc checkSlashableBlockProposalDoubleProposal(
   # ---------------------------------
   block:
     # Condition 1 at https://eips.ethereum.org/EIPS/eip-3076
-    var root: ETH2Digest
+    var root: Eth2Digest
     let status = db.sqlBlockForSameSlot.exec(
           (valID, int64 slot)
         ) do (res: Hash32):
@@ -902,7 +902,7 @@ proc checkSlashableAttestationDoubleVote(
   # ---------------------------------
   block:
     # Condition 3 part 1/3 at https://eips.ethereum.org/EIPS/eip-3076
-    var root: ETH2Digest
+    var root: Eth2Digest
 
     # Overflows in 14 trillion years (minimal) or 112 trillion years (mainnet)
     doAssert target <= high(int64).uint64
@@ -952,7 +952,7 @@ proc checkSlashableAttestationOther(
   block:
     # Condition 3 part 2/3 at https://eips.ethereum.org/EIPS/eip-3076
     # Condition 3 part 3/3 at https://eips.ethereum.org/EIPS/eip-3076
-    var root: ETH2Digest
+    var root: Eth2Digest
     var db_source, db_target: Epoch
 
     # Overflows in 14 trillion years (minimal) or 112 trillion years (mainnet)
@@ -1167,7 +1167,7 @@ proc registerAttestation*(
 proc pruneBlocks*(
     db: SlashingProtectionDB_v2,
     index: Option[ValidatorIndex],
-    validator: ValidatorPubkey, newMinSlot: Slot) =
+    validator: ValidatorPubKey, newMinSlot: Slot) =
   ## Prune all blocks from a validator before the specified newMinSlot
   ## This is intended for interchange import to ensure
   ## that in case of a gap, we don't allow signing in that gap.
@@ -1180,13 +1180,13 @@ proc pruneBlocks*(
 
 proc pruneBlocks*(
     db: SlashingProtectionDB_v2,
-    validator: ValidatorPubkey, newMinSlot: Slot) =
+    validator: ValidatorPubKey, newMinSlot: Slot) =
   pruneBlocks(db, none(ValidatorIndex), validator, newMinSlot)
 
 proc pruneAttestations*(
        db: SlashingProtectionDB_v2,
        index: Option[ValidatorIndex],
-       validator: ValidatorPubkey,
+       validator: ValidatorPubKey,
        newMinSourceEpoch: int64,
        newMinTargetEpoch: int64) =
   ## Prune all blocks from a validator before the specified newMinSlot
@@ -1205,7 +1205,7 @@ proc pruneAttestations*(
 
 proc pruneAttestations*(
        db: SlashingProtectionDB_v2,
-       validator: ValidatorPubkey,
+       validator: ValidatorPubKey,
        newMinSourceEpoch: int64,
        newMinTargetEpoch: int64) =
   pruneAttestations(
@@ -1245,14 +1245,14 @@ proc pruneAfterFinalization*(
 
 proc retrieveLatestValidatorData*(
        db: SlashingProtectionDB_v2,
-       validator: ValidatorPubkey
+       validator: ValidatorPubKey
      ): tuple[
-          maxBlockSlot: Option[Slot], 
+          maxBlockSlot: Option[Slot],
           maxAttSourceEpoch: Option[Epoch],
           maxAttTargetEpoch: Option[Epoch]] =
-  
+
   let valID = db.getOrRegisterValidator(none(ValidatorIndex), validator)
-  
+
   var slot, source, target: int64
   let status = db.sqlMaxBlockAtt.exec(
       valID
@@ -1283,7 +1283,7 @@ proc registerSyntheticAttestation*(
        validator: ValidatorPubKey,
        source, target: Epoch) =
   ## Add a synthetic attestation to the slashing protection DB
-  
+
   # Spec require source < target (except genesis?), for synthetic attestation for slashing protection we want max(source, target)
   doAssert (source < target) or (source == Epoch(0) and target == Epoch(0))
 
@@ -1332,7 +1332,7 @@ proc toSPDIR*(db: SlashingProtectionDB_v2): SPDIR
     # Can't capture var SPDIR in a closure
     let genesis_validators_root {.byaddr.} = result.metadata.genesis_validators_root
     let status = selectRootStmt.exec do (res: Hash32):
-      genesis_validators_root = Eth2Digest0x(ETH2Digest(data: res))
+      genesis_validators_root = Eth2Digest0x(Eth2Digest(data: res))
     doAssert status.isOk()
 
     selectRootStmt.dispose()
@@ -1430,7 +1430,7 @@ proc inclSPDIR*(db: SlashingProtectionDB_v2, spdir: SPDIR): SlashingImportStatus
   # genesis_validators_root
   # -----------------------------------------------------
   block:
-    var dbGenValRoot: ETH2Digest
+    var dbGenValRoot: Eth2Digest
 
     let selectRootStmt = db.backend.prepareStmt(
       "SELECT genesis_validators_root FROM metadata;",

@@ -271,7 +271,7 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
 
 proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
                 msg: string = "",
-                stacktraces: openarray[string]): RestApiResponse =
+                stacktraces: openArray[string]): RestApiResponse =
   let data =
     block:
       var default: string
@@ -326,7 +326,7 @@ proc sszResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
         default
   RestApiResponse.response(res, Http200, "application/octet-stream")
 
-template hexOriginal(data: openarray[byte]): string =
+template hexOriginal(data: openArray[byte]): string =
   to0xHex(data)
 
 proc decodeJsonString*[T](t: typedesc[T],
@@ -920,7 +920,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestPublishedBeaconBlock")
       proposer_index = some(reader.readValue(uint64))
     of "parent_root":
-      if parentRoot.isSome():
+      if parent_root.isSome():
         reader.raiseUnexpectedField("Multiple `parent_root` fields found",
                                     "RestPublishedBeaconBlock")
       parent_root = some(reader.readValue(Eth2Digest))
@@ -1941,7 +1941,7 @@ proc encodeBytes*[T: EncodeArrays](value: T,
   else:
     err("Content-Type not supported")
 
-proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openarray[byte],
+proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openArray[byte],
                                   contentType: string): RestResult[T] =
   const isExtensibleType = t is ExtensibleDecodeTypes
   case contentType
@@ -1953,7 +1953,7 @@ proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openarray[byte],
   else:
     err("Content-Type not supported")
 
-proc decodeBytes*[T: SszDecodeTypes](t: typedesc[T], value: openarray[byte],
+proc decodeBytes*[T: SszDecodeTypes](t: typedesc[T], value: openArray[byte],
                                      contentType: string, updateRoot = true): RestResult[T] =
   case contentType
   of "application/octet-stream":
@@ -2066,7 +2066,7 @@ proc encodeString*(value: PeerDirectKind): Result[string, cstring] =
   of PeerDirectKind.Outbound:
     ok("outbound")
 
-proc encodeString*(peerid: PeerID): Result[string, cstring] =
+proc encodeString*(peerid: PeerId): Result[string, cstring] =
   ok($peerid)
 
 proc decodeString*(t: typedesc[EventTopic],
@@ -2211,9 +2211,9 @@ proc decodeString*(t: typedesc[ValidatorIdent],
     ok(ValidatorIdent(kind: ValidatorQueryKind.Index,
                       index: RestValidatorIndex(res)))
 
-proc decodeString*(t: typedesc[PeerID],
-                   value: string): Result[PeerID, cstring] =
-  PeerID.init(value)
+proc decodeString*(t: typedesc[PeerId],
+                   value: string): Result[PeerId, cstring] =
+  PeerId.init(value)
 
 proc decodeString*(t: typedesc[CommitteeIndex],
                    value: string): Result[CommitteeIndex, cstring] =

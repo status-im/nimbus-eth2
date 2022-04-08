@@ -193,7 +193,7 @@ func getSyncSubnets*(
     syncCommittee: SyncCommittee): SyncnetBits =
   var res: SyncnetBits
   for i, pubkey in syncCommittee.pubkeys:
-    if not nodeHasPubKey(pubkey):
+    if not nodeHasPubkey(pubkey):
       continue
 
     # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#broadcast-sync-committee-message

@@ -15,7 +15,7 @@ type
   ValidatorIndexError* {.pure.} = enum
     UnsupportedValue, TooHighValue
 
-func match(data: openarray[char], charset: set[char]): int =
+func match(data: openArray[char], charset: set[char]): int =
   for ch in data:
     if ch notin charset:
       return 1

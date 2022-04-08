@@ -44,7 +44,7 @@ let
   cfg = defaultRuntimeConfig
   validatorDirRes = secureCreatePath(testValidatorsDir)
 
-proc namesEqual(a, b: openarray[string]): bool =
+proc namesEqual(a, b: openArray[string]): bool =
   sorted(a) == sorted(b)
 
 when not defined(windows):

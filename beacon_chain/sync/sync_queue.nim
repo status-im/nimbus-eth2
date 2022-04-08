@@ -586,9 +586,9 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         else:
           some(sq.readyQueue.pop())
       of SyncQueueKind.Backward:
-        let maxSlot = sq.readyQueue[0].request.slot +
+        let maxslot = sq.readyQueue[0].request.slot +
                       (sq.readyQueue[0].request.count - 1'u64)
-        if sq.outSlot > maxSlot:
+        if sq.outSlot > maxslot:
           none[SyncResult[T]]()
         else:
           some(sq.readyQueue.pop())
@@ -820,10 +820,10 @@ proc pop*[T](sq: SyncQueue[T], maxslot: Slot, item: T): SyncRequest[T] =
   ## Create new request according to current SyncQueue parameters.
   sq.handlePotentialSafeSlotAdvancement()
   while len(sq.debtsQueue) > 0:
-    if maxSlot < sq.debtsQueue[0].slot:
+    if maxslot < sq.debtsQueue[0].slot:
       # Peer's latest slot is less than starting request's slot.
       return SyncRequest.empty(sq.kind, T)
-    if maxSlot < sq.debtsQueue[0].lastSlot():
+    if maxslot < sq.debtsQueue[0].lastSlot():
       # Peer's latest slot is less than finishing request's slot.
       return SyncRequest.empty(sq.kind, T)
     var sr = sq.debtsQueue.pop()
@@ -837,7 +837,7 @@ proc pop*[T](sq: SyncQueue[T], maxslot: Slot, item: T): SyncRequest[T] =
 
   case sq.kind
   of SyncQueueKind.Forward:
-    if maxSlot < sq.inpSlot:
+    if maxslot < sq.inpSlot:
       # Peer's latest slot is less than queue's input slot.
       return SyncRequest.empty(sq.kind, T)
     if sq.inpSlot > sq.finalSlot:
@@ -862,7 +862,7 @@ proc pop*[T](sq: SyncQueue[T], maxslot: Slot, item: T): SyncRequest[T] =
           (baseSlot - count, count)
         else:
           (baseSlot - sq.chunkSize, sq.chunkSize)
-    if (maxSlot + 1'u64) < slot + count:
+    if (maxslot + 1'u64) < slot + count:
       # Peer's latest slot is less than queue's input slot.
       return SyncRequest.empty(sq.kind, T)
     var sr = SyncRequest.init(sq.kind, slot, count, item)

@@ -82,7 +82,7 @@ suite "Light client" & preset():
         serveLightClientData = true,
         importLightClientData = ImportLightClientData.OnlyNew)
       quarantine = newClone(Quarantine.init())
-      taskpool = TaskPool.new()
+      taskpool = Taskpool.new()
     var verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
 
   test "Pre-Altair":
@@ -112,7 +112,7 @@ suite "Light client" & preset():
 
     # Track trusted checkpoint for light client
     let
-      genesis_validators_root = dag.genesisValidatorsRoot
+      genesis_validators_root = dag.genesis_validators_root
       trusted_block_root = dag.head.root
 
     # Advance to target slot

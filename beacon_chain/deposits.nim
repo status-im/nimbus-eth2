@@ -19,7 +19,7 @@ proc getSignedExitMessage(config: BeaconNodeConf,
                           exitAtEpoch: Epoch,
                           validatorIdx: uint64 ,
                           fork: Fork,
-                          genesisValidatorsRoot: Eth2Digest): SignedVoluntaryExit =
+                          genesis_validators_root: Eth2Digest): SignedVoluntaryExit =
   let
     validatorsDir = config.validatorsDir
     keystoreDir = validatorsDir / validatorKeyAsStr
@@ -48,7 +48,7 @@ proc getSignedExitMessage(config: BeaconNodeConf,
   signedExit.signature =
     block:
       let key = signingItem.get.privateKey
-      get_voluntary_exit_signature(fork, genesisValidatorsRoot,
+      get_voluntary_exit_signature(fork, genesis_validators_root,
                                    signedExit.message, key).toValidatorSig()
 
   signedExit
@@ -153,7 +153,7 @@ proc rpcValidatorExit(config: BeaconNodeConf) {.async.} =
     fatal "Failed to obtain the fork id of the head state", err = err.msg
     quit 1
 
-  let genesisValidatorsRoot = try:
+  let genesis_validators_root = try:
     (await rpcClient.get_v1_beacon_genesis()).genesis_validators_root
   except CatchableError as err:
     fatal "Failed to obtain the genesis validators root of the network",
@@ -167,7 +167,7 @@ proc rpcValidatorExit(config: BeaconNodeConf) {.async.} =
                                       exitAtEpoch,
                                       validatorIdx,
                                       fork,
-                                      genesisValidatorsRoot)
+                                      genesis_validators_root)
 
   try:
     let choice = askForExitConfirmation()
@@ -281,14 +281,14 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
     quit 1
 
   let
-    genesisValidatorsRoot = genesis.genesis_validators_root
+    genesis_validators_root = genesis.genesis_validators_root
     validatorKeyAsStr = "0x" & $validator.pubkey
     signedExit = getSignedExitMessage(config,
                                       validatorKeyAsStr,
                                       exitAtEpoch,
                                       validatorIdx,
                                       fork,
-                                      genesisValidatorsRoot)
+                                      genesis_validators_root)
 
   try:
     let choice = askForExitConfirmation()

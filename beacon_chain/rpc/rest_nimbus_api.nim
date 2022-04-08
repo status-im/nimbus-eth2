@@ -52,7 +52,7 @@ type
     state*: string
 
   RestPubSubPeer* = object
-    peerId*: PeerID
+    peerId*: PeerId
     score*: float64
     iWantBudget*: int
     iHaveBudget*: int
@@ -67,14 +67,14 @@ type
     agent*: string
 
   RestPeerStats* = object
-    peerId*: PeerID
+    peerId*: PeerId
     null*: bool
     connected*: bool
     expire*: string
     score*: float64
 
   RestPeerStatus* = object
-    peerId*: PeerID
+    peerId*: PeerId
     connected*: bool
 
 proc toInfo(node: BeaconNode, peerId: PeerId): RestPeerInfo =
@@ -146,7 +146,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   router.api(MethodGet, "/nimbus/v1/network/ids") do (
     ) -> RestApiResponse:
-    var res: seq[PeerID]
+    var res: seq[PeerId]
     for peerId, peer in node.network.peerPool:
       res.add(peerId)
     return RestApiResponse.jsonResponse((peerids: res))
@@ -273,7 +273,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
           var peers: seq[RestPubSubPeer]
           let backoff = node.network.pubsub.backingOff.getOrDefault(topic)
           for peer in v:
-            peers.add(peer.toNode(backOff.getOrDefault(peer.peerId)))
+            peers.add(peer.toNode(backoff.getOrDefault(peer.peerId)))
           res.add((topic: topic, peers: peers))
         res
     let meshPeers =
@@ -283,14 +283,14 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
           var peers: seq[RestPubSubPeer]
           let backoff = node.network.pubsub.backingOff.getOrDefault(topic)
           for peer in v:
-            peers.add(peer.toNode(backOff.getOrDefault(peer.peerId)))
+            peers.add(peer.toNode(backoff.getOrDefault(peer.peerId)))
           res.add((topic: topic, peers: peers))
         res
     let colocationPeers =
       block:
-        var res: seq[tuple[address: string, peerids: seq[PeerID]]]
+        var res: seq[tuple[address: string, peerids: seq[PeerId]]]
         for k, v in node.network.pubsub.peersInIP:
-          var peerids: seq[PeerID]
+          var peerids: seq[PeerId]
           for id in v:
             peerids.add(id)
           res.add(($k, peerids))

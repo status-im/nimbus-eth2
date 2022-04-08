@@ -4,7 +4,7 @@ import common, api
 
 logScope: service = "fork_service"
 
-proc validateForkSchedule(forks: openarray[Fork]): bool {.raises: [Defect].} =
+proc validateForkSchedule(forks: openArray[Fork]): bool {.raises: [Defect].} =
   # Check if `forks` list is linked list.
   var current_version = forks[0].current_version
   for index, item in forks.pairs():
@@ -17,7 +17,7 @@ proc validateForkSchedule(forks: openarray[Fork]): bool {.raises: [Defect].} =
     current_version = item.current_version
   true
 
-proc sortForks(forks: openarray[Fork]): Result[seq[Fork], cstring] {.
+proc sortForks(forks: openArray[Fork]): Result[seq[Fork], cstring] {.
      raises: [Defect].} =
   proc cmp(x, y: Fork): int {.closure.} =
     if uint64(x.epoch) == uint64(y.epoch): return 0

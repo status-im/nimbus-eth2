@@ -1159,7 +1159,7 @@ proc loadStateRoots*(db: BeaconChainDB): Table[(Slot, Eth2Digest), Eth2Digest] =
   ## mean we also have a state (and vice versa)!
   var state_roots = initTable[(Slot, Eth2Digest), Eth2Digest](1024)
 
-  discard db.state_roots.find([], proc(k, v: openArray[byte]) =
+  discard db.stateRoots.find([], proc(k, v: openArray[byte]) =
     if k.len() == 40 and v.len() == 32:
       # For legacy reasons, the first byte of the slot is not part of the slot
       # but rather a subkey identifier - see subkey

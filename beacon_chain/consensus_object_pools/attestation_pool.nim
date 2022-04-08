@@ -379,7 +379,7 @@ proc addAttestation*(pool: var AttestationPool,
     pool.onAttestationAdded(attestation)
 
 func covers*(
-    pool: var AttestationPool, data: Attestationdata,
+    pool: var AttestationPool, data: AttestationData,
     bits: CommitteeValidatorsBits): bool =
   ## Return true iff the given attestation already is fully covered by one of
   ## the existing aggregates, making it redundant

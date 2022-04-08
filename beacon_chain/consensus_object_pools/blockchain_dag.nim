@@ -506,7 +506,7 @@ proc getForkedBlock*(
     type T = type(blck)
     blck = getBlock(dag, bid, T).valueOr:
         getBlock(
-            dag.era, getStateField(dag.headState, historicalRoots).asSeq,
+            dag.era, getStateField(dag.headState, historical_roots).asSeq,
             bid.slot, Opt[Eth2Digest].ok(bid.root), T).valueOr:
           result.err()
           return
@@ -792,7 +792,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of BeaconStateFork.Phase0: genesisFork(cfg)
       of BeaconStateFork.Altair: altairFork(cfg)
       of BeaconStateFork.Bellatrix: bellatrixFork(cfg)
-    statefork = getStateField(dag.headState, fork)
+    stateFork = getStateField(dag.headState, fork)
 
   if stateFork != configFork:
     error "State from database does not match network, check --network parameter",
@@ -954,7 +954,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   dag
 
-template genesisValidatorsRoot*(dag: ChainDAGRef): Eth2Digest =
+template genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =
   getStateField(dag.headState, genesis_validators_root)
 
 func getEpochRef*(
@@ -1050,7 +1050,7 @@ proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
 func stateCheckpoint*(dag: ChainDAGRef, bsi: BlockSlotId): BlockSlotId =
   ## The first ancestor BlockSlot that is a state checkpoint
   var bsi = bsi
-  while not dag.isStateCheckPoint(bsi):
+  while not dag.isStateCheckpoint(bsi):
     if bsi.isProposed:
       bsi.bid = dag.parent(bsi.bid).valueOr:
         break

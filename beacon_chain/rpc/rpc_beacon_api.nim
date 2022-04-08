@@ -60,7 +60,7 @@ proc createIdQuery(ids: openArray[string]): Result[ValidatorQuery, cstring] =
 
   for item in ids:
     if item.startsWith("0x"):
-      let pubkey = ? ValidatorPubkey.fromHex(item)
+      let pubkey = ? ValidatorPubKey.fromHex(item)
       res.keyset.incl(pubkey)
     else:
       var tmp: uint64

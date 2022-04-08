@@ -7,7 +7,7 @@ import
   ../beacon_chain/consensus_object_pools/sync_committee_msg_pool,
   ./testblockutil
 
-func aggregate(sigs: openarray[CookedSig]): CookedSig =
+func aggregate(sigs: openArray[CookedSig]): CookedSig =
   var agg {.noinit.}: AggregateSignature
   agg.init sigs[0]
   for i in 1 ..< sigs.len:
@@ -45,7 +45,7 @@ suite "Sync committee pool":
   test "Aggregating votes":
     let
       fork = altairFork(defaultRuntimeConfig)
-      genesisValidatorsRoot = eth2digest(@[5.byte, 6, 7])
+      genesis_validators_root = eth2digest(@[5.byte, 6, 7])
 
       privkey1 = MockPrivKeys[1.ValidatorIndex]
       privkey2 = MockPrivKeys[2.ValidatorIndex]
@@ -64,13 +64,13 @@ suite "Sync committee pool":
       subcommittee2 = SyncSubcommitteeIndex(1)
 
       sig1 = get_sync_committee_message_signature(
-        fork, genesisValidatorsRoot, root1Slot, root1, privkey1)
+        fork, genesis_validators_root, root1Slot, root1, privkey1)
       sig2 = get_sync_committee_message_signature(
-        fork, genesisValidatorsRoot, root2Slot, root2, privkey1)
+        fork, genesis_validators_root, root2Slot, root2, privkey1)
       sig3 = get_sync_committee_message_signature(
-        fork, genesisValidatorsRoot, root3Slot, root3, privkey1)
+        fork, genesis_validators_root, root3Slot, root3, privkey1)
       sig4 = get_sync_committee_message_signature(
-        fork, genesisValidatorsRoot, root3Slot, root2, privkey1)
+        fork, genesis_validators_root, root3Slot, root2, privkey1)
 
     # Inserting sync committee messages
     #

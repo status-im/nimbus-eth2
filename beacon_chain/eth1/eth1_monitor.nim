@@ -336,7 +336,7 @@ func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
 
   engine_api.ExecutionPayloadV1(
     parentHash: executionPayload.parent_hash.asBlockHash,
-    feeRecipient: Address(executionPayload.feeRecipient.data),
+    feeRecipient: Address(executionPayload.fee_recipient.data),
     stateRoot: executionPayload.state_root.asBlockHash,
     receiptsRoot: executionPayload.receipts_root.asBlockHash,
     logsBloom:
@@ -362,7 +362,7 @@ template findBlock(chain: Eth1Chain, eth1Data: Eth1Data): Eth1Block =
   getOrDefault(chain.blocksByHash, asBlockHash(eth1Data.block_hash), nil)
 
 func makeSuccessorWithoutDeposits(existingBlock: Eth1Block,
-                                  successor: BlockObject): ETh1Block =
+                                  successor: BlockObject): Eth1Block =
   result = Eth1Block(
     number: Eth1BlockNumber successor.number,
     timestamp: Eth1BlockTimestamp successor.timestamp,
@@ -409,11 +409,9 @@ template awaitWithRetries*[T](lazyFutExpr: Future[T],
     if not f.finished:
       await cancelAndWait(f)
     elif f.failed:
-      if f.error[] of Defect:
-        raise f.error
-      else:
-        debug "Web3 request failed", req = reqType, err = f.error.msg
-        inc failed_web3_requests
+      static: doAssert f.error of CatchableError
+      debug "Web3 request failed", req = reqType, err = f.error.msg
+      inc failed_web3_requests
     else:
       break
 

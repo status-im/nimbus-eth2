@@ -697,7 +697,7 @@ proc validateAggregate*(
   let deferredCrypto = batchCrypto
                 .scheduleAggregateChecks(
                   fork, genesis_validators_root,
-                  signed_aggregate_and_proof, epochRef, attesting_indices
+                  signedAggregateAndProof, epochRef, attesting_indices
                 )
   if deferredCrypto.isErr():
     return checkedReject(deferredCrypto.error)
@@ -881,7 +881,7 @@ proc validateSyncCommitteeMessage*(
   let
     epoch = msg.slot.epoch
     fork = dag.forkAtEpoch(epoch)
-    genesisValidatorsRoot = dag.genesisValidatorsRoot
+    genesis_validators_root = dag.genesis_validators_root
     senderPubKey = dag.validatorKey(msg.validator_index)
 
   if senderPubKey.isNone():
@@ -967,7 +967,7 @@ proc validateContribution*(
   let
     epoch = msg.message.contribution.slot.epoch
     fork = dag.forkAtEpoch(epoch)
-    genesis_validators_root = dag.genesisValidatorsRoot
+    genesis_validators_root = dag.genesis_validators_root
 
   if msg.message.contribution.aggregation_bits.countOnes() == 0:
     # [REJECT] The contribution has participants

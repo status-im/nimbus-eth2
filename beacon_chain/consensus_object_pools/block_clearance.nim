@@ -367,6 +367,6 @@ proc addBackfillBlock*(
   let putBlockTick = Moment.now
   debug "Block backfilled",
     sigVerifyDur = sigVerifyTick - startTick,
-    putBlockDur = putBlocktick - sigVerifyTick
+    putBlockDur = putBlockTick - sigVerifyTick
 
   ok()

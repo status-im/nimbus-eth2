@@ -566,16 +566,16 @@ func compute_fork_digest*(current_version: Version,
 
 func init*(T: type ForkDigests,
            cfg: RuntimeConfig,
-           genesisValidatorsRoot: Eth2Digest): T =
+           genesis_validators_root: Eth2Digest): T =
   T(
     phase0:
-      compute_fork_digest(cfg.GENESIS_FORK_VERSION, genesisValidatorsRoot),
+      compute_fork_digest(cfg.GENESIS_FORK_VERSION, genesis_validators_root),
     altair:
-      compute_fork_digest(cfg.ALTAIR_FORK_VERSION, genesisValidatorsRoot),
+      compute_fork_digest(cfg.ALTAIR_FORK_VERSION, genesis_validators_root),
     bellatrix:
-      compute_fork_digest(cfg.BELLATRIX_FORK_VERSION, genesisValidatorsRoot),
+      compute_fork_digest(cfg.BELLATRIX_FORK_VERSION, genesis_validators_root),
     sharding:
-      compute_fork_digest(cfg.SHARDING_FORK_VERSION, genesisValidatorsRoot),
+      compute_fork_digest(cfg.SHARDING_FORK_VERSION, genesis_validators_root),
   )
 
 func toBlockId*(blck: SomeForkySignedBeaconBlock): BlockId =
