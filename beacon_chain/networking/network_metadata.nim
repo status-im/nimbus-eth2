@@ -259,17 +259,18 @@ when not defined(gnosisChainBinary):
 
 else:
   const
-    gnosisChainMetadata* = loadCompileTimeNetworkMetadata(
+    gnosisMetadata* = loadCompileTimeNetworkMetadata(
       currentSourcePath.parentDir.replace('\\', '/') & "/../../media/gnosis")
 
   proc checkNetworkParameterUse*(eth2Network: Option[string]) =
-    if eth2Network.isSome and eth2Network.get != "gnosis":
+    # Support `gnosis-chain` as network name which was used in v22.3
+    if eth2Network.isSome and eth2Network.get notin ["gnosis", "gnosis-chain"]:
       fatal "The only supported value for the --network parameter is 'gnosis'"
       quit 1
 
   proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
     checkNetworkParameterUse eth2Network
-    gnosisChainMetadata.cfg
+    gnosisMetadata.cfg
 
 proc extractGenesisValidatorRootFromSnapshot*(
     snapshot: string): Eth2Digest {.raises: [Defect, IOError, SszError].} =
