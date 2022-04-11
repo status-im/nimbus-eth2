@@ -1,3 +1,57 @@
+2022-03-12 v22.4.0
+==================
+
+Nimbus `v22.4.0` is a `low-urgency` upgrade which brings with it further optimisations, and better user experience around [trusted node sync](https://nimbus.guide/trusted-node-sync.html). It lays the foundations for upcoming the merge hard-fork which will be fully supported in our next release (`v22.5.0`).
+
+### Improvements:
+
+* All CPU cores are now used by default: previously enabled by passing `--threads:0` on the command-line
+  https://github.com/status-im/nimbus-eth2/pull/3493
+
+* 250 MB reduction in memory usage:  thanks to more efficient data structures for the finalized portion of the chain history
+  https://github.com/status-im/nimbus-eth2/pull/3513
+
+* Higher performance historic queries (using REST API) after trusted node sync: Nimbus now re-indexes the backfilled chain of blocks
+  https://github.com/status-im/nimbus-eth2/pull/3452
+
+*  Broadcasted attestations are more likely to be included in blocks by other nodes: thanks to a tweak to the attestation sending time
+  https://github.com/status-im/nimbus-eth2/pull/3518
+
+* The REST API now *only* returns current and relevant information in response to VC queries: in other words, information from the recent non-finalized portion of the chain history
+  https://github.com/status-im/nimbus-eth2/pull/3538
+
+* Better and more consistent gossip mesh health: the `--max-peers` option now works as a target that can be exceeded by the client temporarily in order to maintain good gossip mesh health; the newly introduced `--hard-max-peers` option now acts as the hard limit that should not be exceeded (default set to `max-peers * 1.5`)
+  https://github.com/status-im/nimbus-eth2/pull/3346
+
+* An [ERA files](https://our.status.im/nimbus-update-march/#era-files-a-proposed-solution-to-historical-data-queries) developer preview: ERA files are an ultra-efficient long-term storage format for finalized chain history
+  https://github.com/status-im/nimbus-eth2/blob/unstable/docs/e2store.md
+
+### We've fixed:
+
+* Nimbus no longer crashes when a HTTP URL is specified as a `--web3-url` end-point:
+  https://github.com/status-im/nimbus-eth2/pull/3582
+
+* The REST end-point `/eth/v1/beacon/headers` is now able to return backfilled blocks:
+  https://github.com/status-im/nimbus-eth2/pull/3472
+
+* The Nimbus status bar has been disabled on Windows in order to avoid sporadic hangs in certain terminal emulators:
+  https://github.com/status-im/nimbus-eth2/pull/3484
+
+* A large start-up delay after backfilling:
+  https://github.com/status-im/nimbus-eth2/pull/3516
+
+* A rare problem which prevented the node from starting successfully after a trusted node sync:
+  https://github.com/status-im/nimbus-eth2/pull/3517
+
+* Confusing error messages when Nimbus lacks the necessary file system permissions to create its database:
+  https://github.com/status-im/nimbus-eth2/pull/3536
+
+### Removed functionality:
+
+* The support for the Pyrmont testnet has been removed in order to reduce the Nimbus binary size:
+  https://github.com/status-im/nimbus-eth2/pull/3568
+
+
 2022-03-10 v22.3.0
 ==================
 
@@ -70,7 +124,7 @@ Of particular note: the [Keymanager API](https://nimbus.guide/keymanager-api.htm
 * A new `--rest-url` parameter for the `deposits exit` command: https://github.com/status-im/nimbus-eth2/pull/3344, https://github.com/status-im/nimbus-eth2/pull/3318
   * You can now issue exits uing any beacon node which provides the [official REST API](https://nimbus.guide/rest-api.html). The Nimbus-specific [JSON-RPC API](https://nimbus.guide/api.html) will be deprecated in our next release, with a view to completely phasing it out over the next few months.
 * The REST API will now returns JSON data by default which simplifies testing the API with `curl`.
-  * The notable exception here is when the client requests SSZ data by supplying an `Accept: application/octet-stream` header. 
+  * The notable exception here is when the client requests SSZ data by supplying an `Accept: application/octet-stream` header.
 * Fairer request capping strategy for block sync requests and reduced CPU usage when serving them: https://github.com/status-im/nimbus-eth2/pull/3358
 * More accurate Nim GC memory usage metrics.
 * BLST upgrade (latest version): https://github.com/status-im/nimbus-eth2/pull/3364
@@ -98,9 +152,9 @@ https://nimbus.guide/keymanager-api.html
 
 As well as a comprehensive set of metrics for  validator performance monitoring:
 
-https://nimbus.guide/validator-monitor.html 
+https://nimbus.guide/validator-monitor.html
 
-### Improvements: 
+### Improvements:
 
 * Tuned peer management: reduces the likelihood of missed attestations
     * If you've seen frequent "No peers for topic" in your logs, this release will help
