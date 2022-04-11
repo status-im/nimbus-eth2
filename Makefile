@@ -421,7 +421,6 @@ gnosis-build gnosis-chain-build: | build deps
 			-d:SECONDS_PER_SLOT=5 \
 			-d:BASE_REWARD_FACTOR=25 \
 			-d:EPOCHS_PER_SYNC_COMMITTEE_PERIOD=512 \
-			-d:EPOCHS_PER_STATE_SNAPSHOT=128 \
 			&& \
 		echo -e $(BUILD_END_MSG) "build/nimbus_beacon_node_gnosis"
 
