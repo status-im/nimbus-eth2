@@ -14,8 +14,7 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   # Initialize the fork choice context
   result.fork_choice = ForkChoiceBackend.init(
     justifiedCheckpoint = Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    finalizedCheckpoint = Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    true # use proposer boosting, though the proposer boost root not set
+    finalizedCheckpoint = Checkpoint(root: GenesisRoot, epoch: Epoch(1))
   )
 
   # ----------------------------------

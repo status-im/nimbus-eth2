@@ -448,6 +448,8 @@ suite "Attestation pool processing" & preset():
     check:
       head == b10Add[]
 
+    # Add a block too late to be timely enough to be proposer-boosted, which
+    # would otherwise cause it to be selected as head
     let
       b11 = makeTestBlock(state[], cache,
         graffiti = GraffitiBytes [1'u8, 0, 0, 0 ,0 ,0 ,0 ,0 ,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -457,7 +459,8 @@ suite "Attestation pool processing" & preset():
           epochRef: EpochRef):
         # Callback add to fork choice if valid
         pool[].addForkChoice(
-          epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
+          epochRef, blckRef, signedBlock.message,
+          blckRef.slot.start_beacon_time + SECONDS_PER_SLOT.int64.seconds)
 
       bc1 = get_beacon_committee(
         state[], getStateField(state[], slot) - 1, 1.CommitteeIndex,

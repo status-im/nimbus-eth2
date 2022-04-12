@@ -249,8 +249,7 @@ proc initFullNode(
     quarantine = newClone(
       Quarantine.init())
     attestationPool = newClone(
-      AttestationPool.init(
-        dag, quarantine, onAttestationReceived, config.proposerBoosting))
+      AttestationPool.init(dag, quarantine, onAttestationReceived))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, onSyncContribution))
     exitPool = newClone(

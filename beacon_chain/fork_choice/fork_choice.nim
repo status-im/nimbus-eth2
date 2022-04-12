@@ -51,19 +51,14 @@ logScope:
 
 func init*(T: type ForkChoiceBackend,
            justifiedCheckpoint: Checkpoint,
-           finalizedCheckpoint: Checkpoint,
-           useProposerBoosting: bool): T =
-  T(
-    proto_array: ProtoArray.init(
+           finalizedCheckpoint: Checkpoint): T =
+  T(proto_array: ProtoArray.init(
       justifiedCheckpoint,
-      finalizedCheckpoint),
-    proposer_boosting: useProposerBoosting
-  )
+      finalizedCheckpoint))
 
 proc init*(T: type ForkChoice,
            epochRef: EpochRef,
-           blck: BlockRef,
-           proposerBoosting: bool): T =
+           blck: BlockRef): T =
   ## Initialize a fork choice context for a finalized state - in the finalized
   ## state, the justified and finalized checkpoints are the same, so only one
   ## is used here
@@ -80,7 +75,7 @@ proc init*(T: type ForkChoice,
 
   ForkChoice(
     backend: ForkChoiceBackend.init(
-      best_justified, finalized, proposerBoosting),
+      best_justified, finalized),
     checkpoints: Checkpoints(
       justified: justified,
       finalized: finalized,
@@ -413,7 +408,7 @@ func find_head*(
   # Apply score changes
   ? self.proto_array.applyScoreChanges(
     deltas, justifiedCheckpoint, finalizedCheckpoint,
-    justified_state_balances, proposer_boost_root, self.proposer_boosting
+    justified_state_balances, proposer_boost_root
   )
 
   self.balances = justified_state_balances
