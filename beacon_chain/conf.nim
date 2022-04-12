@@ -505,12 +505,6 @@ type
         defaultValue: false
         name: "validator-monitor-totals" }: bool
 
-      proposerBoostingNoEffect* {.
-        hidden
-        desc: "No-op stub; may be removed without warning",
-        defaultValue: false
-        name: "proposer-boosting-debug" }: bool
-
       # https://github.com/ethereum/consensus-specs/blob/v1.1.10/sync/optimistic.md#fork-choice-poisoning
       safeSlotsToImportOptimistically* {.
         hidden
