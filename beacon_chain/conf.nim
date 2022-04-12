@@ -195,6 +195,18 @@ type
       desc: "Number of worker threads (\"0\" = use as many threads as there are CPU cores available)"
       name: "num-threads" }: int
 
+    useJwt* {.
+      hidden
+      desc: "Enable JWT authentication headers; temporary option feature gate (debugging; option may be remove without warning)",
+      defaultValue: false
+      name: "use-jwt-debug" }: bool
+
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.8/src/engine/authentication.md#key-distribution
+    jwtSecret* {.
+      hidden
+      desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating jwt tokens"
+      name: "jwt-secret" .}: Option[string]
+
     case cmd* {.
       command
       defaultValue: BNStartUpCmd.noCommand }: BNStartUpCmd
@@ -499,12 +511,6 @@ type
         defaultValue: false
         name: "proposer-boosting-debug" }: bool
 
-      useJwt* {.
-        hidden
-        desc: "Enable JWT authentication headers; temporary option feature gate (debugging; option may be remove without warning)",
-        defaultValue: false
-        name: "use-jwt-debug" }: bool
-
       # https://github.com/ethereum/consensus-specs/blob/v1.1.10/sync/optimistic.md#fork-choice-poisoning
       safeSlotsToImportOptimistically* {.
         hidden
@@ -512,12 +518,6 @@ type
         # https://github.com/ethereum/consensus-specs/blob/v1.1.10/sync/optimistic.md#constants
         defaultValue: 128
         name: "safe-slots-to-import-optimistically" }: uint64
-
-      # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.8/src/engine/authentication.md#key-distribution
-      jwtSecret* {.
-        hidden
-        desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating jwt tokens"
-        name: "jwt-secret" .}: Option[string]
 
     of BNStartUpCmd.createTestnet:
       testnetDepositsFile* {.
