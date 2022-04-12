@@ -499,7 +499,6 @@ proc getExecutionPayload(node: BeaconNode, proposalState: auto):
 
     return payload
   except CatchableError as err:
-    # Prefer not to create block at all if it can't get ExecutionPayload
     error "Error creating non-empty execution payload; using empty execution payload",
       msg = err.msg
     return empty_execution_payload
