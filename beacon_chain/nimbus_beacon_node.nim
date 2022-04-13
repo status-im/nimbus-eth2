@@ -417,21 +417,6 @@ proc init*(T: type BeaconNode,
     else:
       none(seq[byte])
 
-  # Better to find out at startup
-  if config.suggestedFeeRecipient.isSome:
-    try:
-      discard Eth1Address.fromHex(config.suggestedFeeRecipient.get)
-    except ValueError as exc:
-      fatal "Specified an invalid suggested fee recipient",
-        msg = exc.msg
-      quit 1
-  else:
-    # TODO should warn on this not being configured but not useful yet to do so
-    # and there will be other ways of specifying these so it's premature to use
-    # any particular design yet for this part.
-    #warn "No suggested fee recipient provided; use --suggested-fee-recipient"
-    discard
-
   template getDepositContractSnapshot: auto =
     if depositContractSnapshot.isSome:
       depositContractSnapshot

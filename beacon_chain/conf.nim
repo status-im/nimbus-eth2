@@ -518,7 +518,7 @@ type
       # https://github.com/prysmaticlabs/prysm/pull/10312
       suggestedFeeRecipient* {.
         desc: "Suggested fee recipient"
-        name: "suggested-fee-recipient" .}: Option[string]
+        name: "suggested-fee-recipient" .}: Option[Address]
 
     of BNStartUpCmd.createTestnet:
       testnetDepositsFile* {.
@@ -1103,6 +1103,13 @@ proc readValue*(r: var TomlReader, a: var WalletName)
                {.raises: [Defect, IOError, SerializationError].} =
   try:
     a = parseCmdArg(WalletName, r.readValue(string))
+  except CatchableError:
+    r.raiseUnexpectedValue("string expected")
+
+proc readValue*(r: var TomlReader, a: var Address)
+               {.raises: [Defect, IOError, SerializationError].} =
+  try:
+    a = parseCmdArg(Address, r.readValue(string))
   except CatchableError:
     r.raiseUnexpectedValue("string expected")
 

@@ -474,7 +474,7 @@ proc getExecutionPayload(node: BeaconNode, proposalState: auto):
     let
       feeRecipient =
         if node.config.suggestedFeeRecipient.isSome:
-          Eth1Address.fromHex(node.config.suggestedFeeRecipient.get)
+          node.config.suggestedFeeRecipient.get
         else:
           default(Eth1Address)
       latestHead =
