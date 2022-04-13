@@ -519,8 +519,8 @@ func build_empty_execution_payload*(state: bellatrix.BeaconState): ExecutionPayl
   var payload = ExecutionPayload(
     parent_hash: latest.block_hash,
     state_root: latest.state_root, # no changes to the state
-    receipts_root: Eth2Digest(data: cast[array[32, uint8]](
-      "nimbus was here\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0")),
+    receipts_root: static(Eth2Digest.fromHex(
+      "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")),
     block_number: latest.block_number + 1,
     prev_randao: randao_mix,
     gas_limit: latest.gas_limit, # retain same limit
