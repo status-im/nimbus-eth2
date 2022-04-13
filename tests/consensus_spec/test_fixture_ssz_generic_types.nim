@@ -88,7 +88,7 @@ proc checkBasic(T: typedesc,
   let deserialized = newClone(sszDecodeEntireInput(fileContents, T))
 
   let expectedHash = expectedHash.root
-  let actualHash = "0x" & toLowerASCII($hash_tree_root(deserialized[]))
+  let actualHash = "0x" & toLowerAscii($hash_tree_root(deserialized[]))
 
   check expectedHash == actualHash
   check sszSize(deserialized[]) == fileContents.len

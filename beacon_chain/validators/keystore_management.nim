@@ -26,7 +26,7 @@ export
 when defined(windows):
   import stew/[windows/acl]
 
-{.localPassc: "-fno-lto".} # no LTO for crypto
+{.localPassC: "-fno-lto".} # no LTO for crypto
 
 const
   KeystoreFileName* = "keystore.json"

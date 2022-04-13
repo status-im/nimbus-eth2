@@ -375,7 +375,7 @@ func prune*(self: var ProtoArray, finalizedRoot: Eth2Digest): FcResult[void] =
       finalizedRoot: finalizedRoot)
 
   trace "Pruning blocks from fork choice",
-    finalizedRoot = shortlog(finalizedRoot)
+    finalizedRoot = shortLog(finalizedRoot)
 
   let finalPhysicalIdx = finalizedIdx - self.nodes.offset
   for nodeIdx in 0 ..< finalPhysicalIdx:
