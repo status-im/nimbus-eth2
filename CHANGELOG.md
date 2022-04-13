@@ -5,7 +5,7 @@ Nimbus `v22.4.0` is a `low-urgency` upgrade which brings with it further optimis
 
 ### Improvements:
 
-* All CPU cores are now used by default: previously enabled by passing `--threads:0` on the command-line
+* All CPU cores are now used by default: previously enabled by passing `--num-threads:0` on the command-line
   https://github.com/status-im/nimbus-eth2/pull/3493
 
 * 250 MB reduction in memory usage:  thanks to more efficient data structures for the finalized portion of the chain history
