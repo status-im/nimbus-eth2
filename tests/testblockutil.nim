@@ -53,7 +53,7 @@ func makeDeposit*(
     withdrawal_credentials: withdrawal_credentials,
     amount: MAX_EFFECTIVE_BALANCE)
 
-  if skipBLSValidation notin flags:
+  if skipBlsValidation notin flags:
     result.signature = get_deposit_signature(cfg, result, privkey).toValidatorSig()
 
 func makeInitialDeposits*(
@@ -234,7 +234,7 @@ func makeAttestation*(
   var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
   aggregation_bits.setBit sac_index
 
-  let sig = if skipBLSValidation in flags:
+  let sig = if skipBlsValidation in flags:
     ValidatorSig()
   else:
     makeAttestationSig(

@@ -390,7 +390,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       let newDeposits = int clamp(gauss(r, 5.0, 8.0), 0.0, 1000.0)
       for i in 0 ..< newDeposits:
         let validatorIdx = merkleizer.getChunkCount.int
-        let d = makeDeposit(validatorIdx, {skipBLSValidation})
+        let d = makeDeposit(validatorIdx, {skipBlsValidation})
         eth1Block.deposits.add d
         merkleizer.addChunk hash_tree_root(d).data
 

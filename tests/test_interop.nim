@@ -136,7 +136,7 @@ suite "Interop":
 
   test "Interop signatures":
     for dep in depositsConfig:
-      let computed_sig = bls_sign(
+      let computed_sig = blsSign(
         privkey = dep.privkey,
         message = dep.signing_root
       )

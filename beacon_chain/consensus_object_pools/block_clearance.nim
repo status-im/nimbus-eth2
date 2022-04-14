@@ -142,7 +142,7 @@ proc addHeadBlock*(
   ## Try adding a block to the chain, verifying first that it passes the state
   ## transition function and contains correct cryptographic signature.
   ##
-  ## Cryptographic checks can be skipped by adding skipBLSValidation to
+  ## Cryptographic checks can be skipped by adding skipBlsValidation to
   ## dag.updateFlags
   logScope:
     blockRoot = shortLog(signedBlock.root)
@@ -230,8 +230,8 @@ proc addHeadBlock*(
   let stateDataTick = Moment.now()
 
   # First, batch-verify all signatures in block
-  if skipBLSValidation notin dag.updateFlags:
-    # TODO: remove skipBLSValidation
+  if skipBlsValidation notin dag.updateFlags:
+    # TODO: remove skipBlsValidation
     var sigs: seq[SignatureSet]
     if (let e = sigs.collectSignatureSets(
         signedBlock, dag.db.immutableValidators,
