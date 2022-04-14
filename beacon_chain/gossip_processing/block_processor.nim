@@ -376,6 +376,10 @@ proc newExecutionPayload*(
       UInt256.fromBytesLE(executionPayload.base_fee_per_gas.data),
     numTransactions = executionPayload.transactions.len
 
+  if eth1Monitor.isNil:
+    info "newPayload: attempting to process execution payload without an Eth1Monitor. Ensure --web3-url setting is correct."
+    return PayloadExecutionStatus.syncing
+
   try:
     let
       payloadResponse =
@@ -383,7 +387,7 @@ proc newExecutionPayload*(
             eth1Monitor.newPayload(
               executionPayload.asEngineExecutionPayload),
             web3Timeout):
-          debug "newPayload: newPayload timed out"
+          info "newPayload: newPayload timed out"
           PayloadStatusV1(status: PayloadExecutionStatus.syncing)
       payloadStatus = payloadResponse.status
 
@@ -432,7 +436,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
               self.consensusManager.eth1Monitor,
               blck.blck.bellatrixData.message.body.execution_payload)
           except CatchableError as err:
-            debug "runQueueProcessingLoop: newExecutionPayload failed",
+            debug "runQueueProcessingLoop: newPayload failed",
               err = err.msg
             PayloadExecutionStatus.syncing
         else:
@@ -502,14 +506,6 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
 
     if  executionPayloadStatus == PayloadExecutionStatus.valid and
         hasExecutionPayload:
-      let
-        headBlockRoot = self.consensusManager.dag.head.executionBlockRoot
-
-        finalizedBlockRoot =
-          if not isZero(
-              self.consensusManager.dag.finalizedHead.blck.executionBlockRoot):
-            self.consensusManager.dag.finalizedHead.blck.executionBlockRoot
-          else:
-            default(Eth2Digest)
-
-      await self.runForkchoiceUpdated(headBlockRoot, finalizedBlockRoot)
+      await self.runForkchoiceUpdated(
+        self.consensusManager.dag.head.executionBlockRoot,
+        self.consensusManager.dag.finalizedHead.blck.executionBlockRoot)

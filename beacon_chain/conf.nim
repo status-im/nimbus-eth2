@@ -513,6 +513,13 @@ type
         defaultValue: 128
         name: "safe-slots-to-import-optimistically" }: uint64
 
+      # Same option as appears in Lighthouse and Prysm
+      # https://lighthouse-book.sigmaprime.io/suggested-fee-recipient.html
+      # https://github.com/prysmaticlabs/prysm/pull/10312
+      suggestedFeeRecipient* {.
+        desc: "Suggested fee recipient"
+        name: "suggested-fee-recipient" .}: Option[Address]
+
     of BNStartUpCmd.createTestnet:
       testnetDepositsFile* {.
         desc: "A LaunchPad deposits file for the genesis state validators"
@@ -1096,6 +1103,13 @@ proc readValue*(r: var TomlReader, a: var WalletName)
                {.raises: [Defect, IOError, SerializationError].} =
   try:
     a = parseCmdArg(WalletName, r.readValue(string))
+  except CatchableError:
+    r.raiseUnexpectedValue("string expected")
+
+proc readValue*(r: var TomlReader, a: var Address)
+               {.raises: [Defect, IOError, SerializationError].} =
+  try:
+    a = parseCmdArg(Address, r.readValue(string))
   except CatchableError:
     r.raiseUnexpectedValue("string expected")
 
