@@ -47,7 +47,7 @@ proc checkSSZ(T: type altair.SignedBeaconBlock, dir: string, expectedHash: SSZHa
 
   # SignedBeaconBlocks usually not hashed because they're identified by
   # htr(BeaconBlock), so do it manually
-  check: expectedHash.root == "0x" & toLowerASCII($hash_tree_root(
+  check: expectedHash.root == "0x" & toLowerAscii($hash_tree_root(
     [hash_tree_root(deserialized.message),
     hash_tree_root(deserialized.signature)]))
 
@@ -63,7 +63,7 @@ proc checkSSZ(T: type, dir: string, expectedHash: SSZHashTreeRoot) =
     readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
   let deserialized = newClone(sszDecodeEntireInput(encoded, T))
 
-  check: expectedHash.root == "0x" & toLowerASCII($hash_tree_root(deserialized[]))
+  check: expectedHash.root == "0x" & toLowerAscii($hash_tree_root(deserialized[]))
 
   check SSZ.encode(deserialized[]) == encoded
   check sszSize(deserialized[]) == encoded.len

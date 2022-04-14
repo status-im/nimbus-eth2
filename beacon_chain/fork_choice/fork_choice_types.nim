@@ -142,7 +142,7 @@ type
     checkpoints*: Checkpoints
     queuedAttestations*: seq[QueuedAttestation]
 
-func shortlog*(vote: VoteTracker): auto =
+func shortLog*(vote: VoteTracker): auto =
   (
     current_root: vote.current_root,
     next_root: vote.next_root,

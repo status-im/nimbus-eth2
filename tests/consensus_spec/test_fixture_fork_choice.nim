@@ -58,7 +58,7 @@ type
 proc initialLoad(
        path: string, db: BeaconChainDB,
        StateType, BlockType: typedesc): tuple[
-       dag: ChainDagRef, fkChoice: ref ForkChoice
+       dag: ChainDAGRef, fkChoice: ref ForkChoice
     ] =
 
    # TODO: support more than phase 0 genesis
@@ -87,7 +87,7 @@ proc initialLoad(
         root: hashTreeRoot(blk)
       ))
 
-  ChainDagRef.preInit(
+  ChainDAGRef.preInit(
     db,
     forkedState[], forkedState[],
     asTrusted(signedBlock)
@@ -158,7 +158,7 @@ proc loadOps(path: string, fork: BeaconBlockFork): seq[Operation] =
       result[^1].valid = true
 
 proc stepOnBlock(
-       dag: ChainDagRef,
+       dag: ChainDAGRef,
        fkChoice: ref ForkChoice,
        verifier: var BatchVerifier,
        state: var ForkedHashedBeaconState,
@@ -198,7 +198,7 @@ proc stepOnBlock(
   blockAdded
 
 proc stepOnAttestation(
-       dag: ChainDagRef,
+       dag: ChainDAGRef,
        fkChoice: ref ForkChoice,
        att: Attestation,
        time: BeaconTime): FcResult[void] =
@@ -217,7 +217,7 @@ proc stepOnAttestation(
 
 proc stepChecks(
        checks: JsonNode,
-       dag: ChainDagRef,
+       dag: ChainDAGRef,
        fkChoice: ref ForkChoice,
        time: BeaconTime
      ) =

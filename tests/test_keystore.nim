@@ -292,7 +292,7 @@ suite "KeyStorage testing suite":
     badKdf{"crypto", "kdf", "function"} = %"invalid"
 
     check decryptKeystore(JsonString $badKdf,
-                          KeystorePass.init password).iserr
+                          KeystorePass.init password).isErr
 
 suite "eth2.0-deposits-cli compatibility":
   test "restoring mnemonic without password":

@@ -574,7 +574,7 @@ suite "Attestation pool processing" & preset():
         dag.updateHead(head, quarantine[])
         pruneAtFinalization(dag, pool[])
 
-        attestations.setlen(0)
+        attestations.setLen(0)
         for committee_index in get_committee_indices(committees_per_slot):
           let committee = get_beacon_committee(
             state[], getStateField(state[], slot), committee_index,

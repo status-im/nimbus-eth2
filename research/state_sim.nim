@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2021 Status Research & Development GmbH
+# Copyright (c) 2019-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -140,7 +140,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
               # actually added to the block per the attestation delay rule!
               let
                 target_slot = slot + MIN_ATTESTATION_INCLUSION_DELAY - 1
-              attestations.mGetOrPut(target_slot, default(seq[Attestation])).add(
+              attestations.mgetOrPut(target_slot, default(seq[Attestation])).add(
                 attestation)
 
     flushFile(stdout)

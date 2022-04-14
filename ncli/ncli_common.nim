@@ -92,7 +92,7 @@ proc getAggregatedFilesLastEpoch*(dir: string): Epoch =
   var largestEpochInFileName = 0'u
   for (_, fn) in walkDir(dir.string, relative = true):
     if fn.match(pattern):
-      let fileLastEpoch = parseUint(
+      let fileLastEpoch = parseUInt(
         fn[epochInfoFileNameDigitsCount + 1 .. 2 * epochInfoFileNameDigitsCount])
       if fileLastEpoch > largestEpochInFileName:
         largestEpochInFileName = fileLastEpoch

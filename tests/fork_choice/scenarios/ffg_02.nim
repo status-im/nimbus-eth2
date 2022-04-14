@@ -75,7 +75,7 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
     kind: ProcessBlock,
     root: fakeHash(9),
     parent_root: fakeHash(7),
-    blk_justified_checkpoint: Checkpoint(root: fakehash(3), epoch: Epoch(2)),
+    blk_justified_checkpoint: Checkpoint(root: fakeHash(3), epoch: Epoch(2)),
     blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0))
   )
 
@@ -119,14 +119,14 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
     kind: ProcessBlock,
     root: fakeHash(8),
     parent_root: fakeHash(6),
-    blk_justified_checkpoint: Checkpoint(root: fakehash(2), epoch: Epoch(1)),
+    blk_justified_checkpoint: Checkpoint(root: fakeHash(2), epoch: Epoch(1)),
     blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0))
   )
   result.ops.add Operation(
     kind: ProcessBlock,
     root: fakeHash(10),
     parent_root: fakeHash(8),
-    blk_justified_checkpoint: Checkpoint(root: fakehash(4), epoch: Epoch(2)),
+    blk_justified_checkpoint: Checkpoint(root: fakeHash(4), epoch: Epoch(2)),
     blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0))
   )
 
@@ -154,7 +154,7 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   # Same with justified_epoch 2
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: fakehash(4), epoch: Epoch(2)),
+    justified_checkpoint: Checkpoint(root: fakeHash(4), epoch: Epoch(2)),
     finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
     justified_state_balances: balances,
     expected_head: fakeHash(10)
@@ -163,7 +163,7 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   # Justified epoch 3 is invalid
   result.ops.add Operation(
     kind: InvalidFindHead,
-    justified_checkpoint: Checkpoint(root: fakehash(4), epoch: Epoch(3)), # <--- Wrong epoch
+    justified_checkpoint: Checkpoint(root: fakeHash(4), epoch: Epoch(3)), # <--- Wrong epoch
     finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
     justified_state_balances: balances
   )
@@ -184,7 +184,7 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   result.ops.add Operation(
     kind: ProcessAttestation,
     validator_index: ValidatorIndex(0),
-    block_root: fake_hash(1),
+    block_root: fakeHash(1),
     target_epoch: Epoch(0)
   )
 
@@ -212,7 +212,7 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   # Same with justified_epoch 2
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: fakehash(3), epoch: Epoch(2)),
+    justified_checkpoint: Checkpoint(root: fakeHash(3), epoch: Epoch(2)),
     finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
     justified_state_balances: balances,
     expected_head: fakeHash(9)
@@ -242,7 +242,7 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   result.ops.add Operation(
     kind: ProcessAttestation,
     validator_index: ValidatorIndex(1),
-    block_root: fake_hash(2),
+    block_root: fakeHash(2),
     target_epoch: Epoch(0)
   )
 
@@ -299,7 +299,7 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   # head -> 9  10
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: fakehash(1), epoch: Epoch(0)), # <- in production the root/epoch mismatch isn't used.
+    justified_checkpoint: Checkpoint(root: fakeHash(1), epoch: Epoch(0)), # <- in production the root/epoch mismatch isn't used.
     finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
     justified_state_balances: balances,
     expected_head: fakeHash(9)
@@ -308,7 +308,7 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   # Same with justified_epoch 2
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: fakehash(3), epoch: Epoch(2)),
+    justified_checkpoint: Checkpoint(root: fakeHash(3), epoch: Epoch(2)),
     finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
     justified_state_balances: balances,
     expected_head: fakeHash(9)
@@ -317,7 +317,7 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   # Justified epoch 3 is invalid
   result.ops.add Operation(
     kind: InvalidFindHead,
-    justified_checkpoint: Checkpoint(root: fakehash(5), epoch: Epoch(3)), # <--- Wrong epoch
+    justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(3)), # <--- Wrong epoch
     finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
     justified_state_balances: balances
   )
@@ -337,7 +337,7 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   #         9  10 <- head
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: fakehash(2), epoch: Epoch(0)), # In production this can't happen
+    justified_checkpoint: Checkpoint(root: fakeHash(2), epoch: Epoch(0)), # In production this can't happen
     finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
     justified_state_balances: balances,
     expected_head: fakeHash(10)
@@ -346,7 +346,7 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   # Same with justified_epoch 2
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: fakehash(4), epoch: Epoch(2)),
+    justified_checkpoint: Checkpoint(root: fakeHash(4), epoch: Epoch(2)),
     finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
     justified_state_balances: balances,
     expected_head: fakeHash(10)
@@ -355,7 +355,7 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   # Justified epoch 3 is invalid
   result.ops.add Operation(
     kind: InvalidFindHead,
-    justified_checkpoint: Checkpoint(root: fakehash(4), epoch: Epoch(3)), # <--- Wrong epoch
+    justified_checkpoint: Checkpoint(root: fakeHash(4), epoch: Epoch(3)), # <--- Wrong epoch
     finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
     justified_state_balances: balances
   )
