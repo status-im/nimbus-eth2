@@ -305,8 +305,8 @@ template asBlockHash*(x: Eth2Digest): BlockHash =
 
 func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
     bellatrix.ExecutionPayload =
-  template getTransaction(t: TypedTransaction): bellatrix.Transaction =
-    bellatrix.Transaction.init(t.distinctBase)
+  template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
+    bellatrix.Transaction.init(tt.distinctBase)
 
   bellatrix.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
@@ -331,8 +331,8 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
 
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =
-  template getTypedTransaction(t: bellatrix.Transaction): TypedTransaction =
-    TypedTransaction(t.distinctBase)
+  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
+    TypedTransaction(tt.distinctBase)
 
   engine_api.ExecutionPayloadV1(
     parentHash: executionPayload.parent_hash.asBlockHash,

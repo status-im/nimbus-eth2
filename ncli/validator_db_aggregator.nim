@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   std/[os, strutils, streams, parsecsv],
   stew/[io2, byteutils], chronicles, confutils, snappy,
@@ -158,7 +165,7 @@ proc addValidatorData*(aggregator: var ValidatorDbAggregator,
   else:
     aggregator.aggregatedRewardsAndPenalties[index] += rp
     inc aggregator.participationEpochsCount[index]
-    if rp.inclusionDelay.isSome:
+    if rp.inclusion_delay.isSome:
       inc aggregator.inclusionDelaysCount[index]
 
 proc advanceEpochs*(aggregator: var ValidatorDbAggregator, epoch: Epoch,

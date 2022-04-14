@@ -33,7 +33,7 @@ template findIt*(s: openArray, predicate: untyped): int =
 
 proc findValidator(validators: seq[Validator], pubKey: ValidatorPubKey):
     Option[ValidatorIndex] =
-  let idx = validators.findIt(it.pubKey == pubKey)
+  let idx = validators.findIt(it.pubkey == pubKey)
   if idx == -1:
     none(ValidatorIndex)
   else:
@@ -254,7 +254,7 @@ cli do(validatorsDir: string, secretsDir: string,
             else:
               agg = AggregateSignature.init(sig)
               inited = true
-            sync_aggregate.sync_committee_bits.setBit(i)
+            syncAggregate.sync_committee_bits.setBit(i)
 
         if inited:
-          sync_aggregate.sync_committee_signature = finish(agg).toValidatorSig()
+          syncAggregate.sync_committee_signature = finish(agg).toValidatorSig()

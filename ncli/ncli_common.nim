@@ -246,7 +246,7 @@ proc collectEpochRewardsAndPenalties*(
           state, base_reward, active_increments,
           unslashed_participating_increment,
           PARTICIPATION_FLAG_WEIGHTS[flag_index].uint64,
-          finalityDelay)
+          finality_delay)
 
       case flag_index
       of TIMELY_SOURCE_FLAG_INDEX:

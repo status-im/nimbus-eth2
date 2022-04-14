@@ -84,7 +84,7 @@ proc initialLoad(
   let signedBlock = ForkedSignedBeaconBlock.init(phase0.SignedBeaconBlock(
         message: blk,
         # signature: - unused as it's trusted
-        root: hashTreeRoot(blk)
+        root: hash_tree_root(blk)
       ))
 
   ChainDAGRef.preInit(
