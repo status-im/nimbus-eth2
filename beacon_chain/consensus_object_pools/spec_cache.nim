@@ -128,7 +128,7 @@ proc is_valid_indexed_attestation*(
     return err("is_valid_indexed_attestation: no attesting indices")
 
   # Verify aggregate signature
-  if not (skipBLSValidation in flags or attestation.signature is TrustedSig):
+  if not (skipBlsValidation in flags or attestation.signature is TrustedSig):
     var
       pubkeys = newSeqOfCap[CookedPubKey](sigs)
     for index in get_attesting_indices(

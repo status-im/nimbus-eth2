@@ -532,7 +532,7 @@ suite "Attestation pool processing" & preset():
   test "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
     # Note: very sensitive to stack usage
 
-    dag.updateFlags.incl {skipBLSValidation}
+    dag.updateFlags.incl {skipBlsValidation}
     var cache = StateCache()
     let
       b10 = addTestBlock(state[], cache).phase0Data

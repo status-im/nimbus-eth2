@@ -214,7 +214,7 @@ proc state_transition_block_aux(
   # by the block proposer. Every actor in the network will update its state
   # according to the contents of this block - but first they will validate
   # that the block is sane.
-  if skipBLSValidation notin flags:
+  if skipBlsValidation notin flags:
     ? verify_block_signature(state.data, signedBlock)
 
   trace "state_transition: processing block, signature passed",

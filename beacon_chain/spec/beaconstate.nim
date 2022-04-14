@@ -424,7 +424,7 @@ proc is_valid_indexed_attestation*(
     return err("indexed attestation: indices not sorted and unique")
 
   # Verify aggregate signature
-  if not (skipBLSValidation in flags or indexed_attestation.signature is TrustedSig):
+  if not (skipBlsValidation in flags or indexed_attestation.signature is TrustedSig):
     let pubkeys = mapIt(
       indexed_attestation.attesting_indices, state.validators[it].pubkey)
     if not verify_attestation_signature(
@@ -483,7 +483,7 @@ proc is_valid_indexed_attestation*(
     return err("is_valid_indexed_attestation: no attesting indices")
 
   # Verify aggregate signature
-  if not (skipBLSValidation in flags or attestation.signature is TrustedSig):
+  if not (skipBlsValidation in flags or attestation.signature is TrustedSig):
     var
       pubkeys = newSeqOfCap[ValidatorPubKey](sigs)
     for index in get_attesting_indices(
