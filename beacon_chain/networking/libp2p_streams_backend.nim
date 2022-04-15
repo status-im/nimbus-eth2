@@ -9,33 +9,37 @@
 proc uncompressFramedStream*(conn: Connection,
                              expectedSize: int): Future[Result[seq[byte], cstring]]
                             {.async.} =
-  var header: array[STREAM_HEADER.len, byte]
+  var header: array[framingHeader.len, byte]
   try:
     await conn.readExactly(addr header[0], header.len)
   except LPStreamEOFError, LPStreamIncompleteError:
     return err "Unexpected EOF before snappy header"
 
-  if header != STREAM_HEADER.toOpenArrayByte(0, STREAM_HEADER.high):
+  if header != framingHeader:
     return err "Incorrect snappy header"
 
-  var
-    uncompressedData = newSeq[byte](MAX_UNCOMPRESSED_DATA_LEN)
-    frameData = newSeq[byte](MAX_COMPRESSED_DATA_LEN)
-    output = newSeqOfCap[byte](expectedSize)
+  static:
+    doAssert maxCompressedFrameDataLen >= maxUncompressedFrameDataLen.uint64
 
-  while output.len < expectedSize:
+  var
+    frameData = newSeq[byte](maxCompressedFrameDataLen + 4)
+    output = newSeqUninitialized[byte](expectedSize)
+    written = 0
+
+  while written < expectedSize:
     var frameHeader: array[4, byte]
     try:
       await conn.readExactly(addr frameHeader[0], frameHeader.len)
     except LPStreamEOFError, LPStreamIncompleteError:
-      return err "no snappy frame"
+      return err "Snappy frame header missing"
 
-    let x = uint32.fromBytesLE frameHeader
-    let id = x and 0xFF
-    let dataLen = (x shr 8).int
+    let (id, dataLen) = decodeFrameHeader(frameHeader)
 
-    if dataLen > MAX_COMPRESSED_DATA_LEN:
-      return err "invalid snappy frame length"
+    if dataLen > frameData.len:
+      # In theory, compressed frames could be bigger and still result in a
+      # valid, small snappy frame, but this would mean they are not getting
+      # compressed correctly
+      return err "Snappy frame too big"
 
     if dataLen > 0:
       try:
@@ -43,49 +47,43 @@ proc uncompressFramedStream*(conn: Connection,
       except LPStreamEOFError, LPStreamIncompleteError:
         return err "Incomplete snappy frame"
 
-    if id == COMPRESSED_DATA_IDENTIFIER:
-      if dataLen < 4:
-        return err "Snappy frame size too low to contain CRC checksum"
+    if id == chunkCompressed:
+      if dataLen < 6: # At least CRC + 2 bytes of frame data
+        return err "Compressed snappy frame too small"
 
       let
         crc = uint32.fromBytesLE frameData.toOpenArray(0, 3)
-        remaining = expectedSize - output.len
-        chunkLen = min(remaining, uncompressedData.len)
+        uncompressed =
+          snappy.uncompress(
+            frameData.toOpenArray(4, dataLen - 1),
+            output.toOpenArray(written, output.high)).valueOr:
+              return err "Failed to decompress content"
 
-      # Grab up to MAX_UNCOMPRESSED_DATA_LEN bytes, but no more than remains
-      # according to the expected size. If it turns out that the uncompressed
-      # data is longer than that, snappyUncompress will fail and we will not
-      # decompress the chunk at all, instead reporting failure.
-      let
-        # The `int` conversion below is safe, because `uncompressedLen` is
-        # bounded to `chunkLen` (which in turn is bounded by `MAX_CHUNK_SIZE`).
-        # TODO: Use a range type for the parameter.
-        uncompressedLen = int snappyUncompress(
-          frameData.toOpenArray(4, dataLen - 1),
-          uncompressedData.toOpenArray(0, chunkLen - 1))
-
-      if uncompressedLen == 0:
-        return err "Failed to decompress snappy frame"
-      doAssert output.len + uncompressedLen <= expectedSize,
-        "enforced by `remains` limit above"
-
-      if not checkCrc(uncompressedData.toOpenArray(0, uncompressedLen-1), crc):
+      if maskedCrc(
+          output.toOpenArray(written, written + uncompressed-1)) != crc:
         return err "Snappy content CRC checksum failed"
 
-      output.add uncompressedData.toOpenArray(0, uncompressedLen-1)
+      written += uncompressed
 
-    elif id == UNCOMPRESSED_DATA_IDENTIFIER:
-      if dataLen < 4:
-        return err "Snappy frame size too low to contain CRC checksum"
+    elif id == chunkUncompressed:
+      if dataLen < 5: # At least one byte of data
+        return err "Uncompressed snappy frame too small"
 
-      if output.len + dataLen - 4 > expectedSize:
+      let uncompressed = dataLen - 4
+
+      if uncompressed > maxUncompressedFrameDataLen.int:
+        return err "Snappy frame size too large"
+
+      if uncompressed > output.len - written:
         return err "Too much data"
 
       let crc = uint32.fromBytesLE frameData.toOpenArray(0, 3)
-      if not checkCrc(frameData.toOpenArray(4, dataLen - 1), crc):
+      if maskedCrc(frameData.toOpenArray(4, dataLen - 1)) != crc:
         return err "Snappy content CRC checksum failed"
 
-      output.add frameData.toOpenArray(4, dataLen-1)
+      output[written..<written + uncompressed] =
+        frameData.toOpenArray(4, dataLen-1)
+      written += uncompressed
 
     elif id < 0x80:
       # Reserved unskippable chunks (chunk types 0x02-0x7f)

@@ -15,7 +15,7 @@ import
   stew/[leb128, endians2, results, byteutils, io2, bitops2], bearssl,
   stew/shims/net as stewNet,
   stew/shims/[macros],
-  faststreams/[inputs, outputs, buffers], snappy, snappy/framing,
+  faststreams/[inputs, outputs, buffers], snappy, snappy/faststreams,
   json_serialization, json_serialization/std/[net, sets, options],
   chronos, chronicles, metrics,
   libp2p/[switch, peerinfo, multiaddress, multicodec, crypto/crypto,
@@ -548,7 +548,7 @@ proc writeChunk*(conn: Connection,
 
     output.write toBytes(payload.lenu64, Leb128).toOpenArray()
 
-    framingFormatCompress(output, payload)
+    compressFramed(payload, output)
   except IOError as exc:
     raiseAssert exc.msg # memoryOutput shouldn't raise
   conn.write(output.getOutput)

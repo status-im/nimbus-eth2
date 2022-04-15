@@ -9,12 +9,12 @@
 
 import
   std/[algorithm, options, sequtils],
-  unittest2,
+  unittest2, snappy,
   ../beacon_chain/[beacon_chain_db, interop],
   ../beacon_chain/spec/[beaconstate, forks, state_transition],
   ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
-  eth/db/kvstore, snappy/framing,
+  eth/db/kvstore,
   # test utilies
   ./testutil, ./testdbutil, ./testblockutil, ./teststateutil
 
@@ -110,7 +110,7 @@ suite "Beacon chain DB" & preset():
       db.getBlockSSZ(root, tmp, phase0.TrustedSignedBeaconBlock)
       db.getBlockSZ(root, tmp2, phase0.TrustedSignedBeaconBlock)
       tmp == SSZ.encode(signedBlock)
-      tmp2 == framingFormatCompress(tmp)
+      tmp2 == encodeFramed(tmp)
 
     db.delBlock(root)
     check:
@@ -152,7 +152,7 @@ suite "Beacon chain DB" & preset():
       db.getBlockSSZ(root, tmp, altair.TrustedSignedBeaconBlock)
       db.getBlockSZ(root, tmp2, altair.TrustedSignedBeaconBlock)
       tmp == SSZ.encode(signedBlock)
-      tmp2 == framingFormatCompress(tmp)
+      tmp2 == encodeFramed(tmp)
 
     db.delBlock(root)
     check:
@@ -194,7 +194,7 @@ suite "Beacon chain DB" & preset():
       db.getBlockSSZ(root, tmp, bellatrix.TrustedSignedBeaconBlock)
       db.getBlockSZ(root, tmp2, bellatrix.TrustedSignedBeaconBlock)
       tmp == SSZ.encode(signedBlock)
-      tmp2 == framingFormatCompress(tmp)
+      tmp2 == encodeFramed(tmp)
 
     db.delBlock(root)
     check:

@@ -10,7 +10,7 @@
 import
   std/[typetraits, tables],
   stew/[arrayops, assign2, byteutils, endians2, io2, objects, results],
-  serialization, chronicles, snappy, snappy/framing,
+  serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./beacon_chain_db_immutable,
   ./spec/[eth2_ssz_serialization, eth2_merkleization, forks, state_transition],
@@ -526,7 +526,7 @@ proc decodeSnappySSZ[T](data: openArray[byte], output: var T): bool =
 
 proc decodeSZSSZ[T](data: openArray[byte], output: var T): bool =
   try:
-    let decompressed = framingFormatUncompress(data)
+    let decompressed = decodeFramed(data)
     readSszBytes(decompressed, output, updateRoot = false)
     true
   except CatchableError as e:
@@ -552,7 +552,7 @@ proc encodeSnappySSZ(v: auto): seq[byte] =
 proc encodeSZSSZ(v: auto): seq[byte] =
   # https://github.com/google/snappy/blob/main/framing_format.txt
   try:
-    framingFormatCompress(SSZ.encode(v))
+    encodeFramed(SSZ.encode(v))
   except CatchableError as err:
     # In-memory encode shouldn't fail!
     raiseAssert err.msg
@@ -852,7 +852,7 @@ proc getBlockSSZ*(
   let dataPtr = addr data # Short-lived
   var success = true
   proc decode(data: openArray[byte]) =
-    try: dataPtr[] = framingFormatUncompress(data)
+    try: dataPtr[] = decodeFramed(data)
     except CatchableError: success = false
   db.blocks[T.toFork].get(key.data, decode).expectDb() and success
 
@@ -873,7 +873,7 @@ proc getBlockSZ*(
   let dataPtr = addr data # Short-lived
   var success = true
   proc decode(data: openArray[byte]) =
-    try: dataPtr[] = framingFormatCompress(
+    try: dataPtr[] = snappy.encodeFramed(
       snappy.decode(data, maxDecompressedDbRecordSize))
     except CatchableError: success = false
   db.blocks[BeaconBlockFork.Phase0].get(key.data, decode).expectDb() and success or
@@ -885,7 +885,7 @@ proc getBlockSZ*(
   let dataPtr = addr data # Short-lived
   var success = true
   proc decode(data: openArray[byte]) =
-    try: dataPtr[] = framingFormatCompress(
+    try: dataPtr[] = snappy.encodeFramed(
       snappy.decode(data, maxDecompressedDbRecordSize))
     except CatchableError: success = false
   db.blocks[T.toFork].get(key.data, decode).expectDb() and success
