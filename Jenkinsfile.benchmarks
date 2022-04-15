@@ -18,15 +18,11 @@ node("metal") {
 				sh "git submodule update --init --recursive"
 			}
 
-			cache(maxCacheSize: 250, caches: [
-				[$class: "ArbitraryFileCache", excludes: "", includes: "**/*", path: "${WORKSPACE}/vendor/nimbus-build-system/vendor/Nim/bin"],
-			]) {
-				stage("Build") {
-					sh """#!/bin/bash
-					set -e
-					make -j${env.NPROC} update # to allow a newer Nim version to be detected
-					"""
-				}
+			stage("Build") {
+				sh """#!/bin/bash
+				set -e
+				make -j${env.NPROC} update # to allow a newer Nim version to be detected
+				"""
 			}
 
 			stage("Benchmark") {
