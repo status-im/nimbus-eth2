@@ -12,8 +12,9 @@
 # https://github.com/ethereum/consensus-specs/pull/2802
 
 import
-  options, tables, sets, macros,
-  chronicles, chronos, stew/ranges/bitranges, libp2p/switch,
+  std/[options, tables, sets, macros],
+  chronicles, chronos, snappy/codec,
+  stew/ranges/bitranges, libp2p/switch,
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[helpers, forks, network],
   ".."/[beacon_clock],
@@ -271,15 +272,16 @@ p2pProtocol BeaconSync(version = 1,
         # Also, our response would be indistinguishable from a node
         # that have been synced exactly to the altair transition slot.
         break
-
-      if dag.getBlockSSZ(blocks[i], bytes):
-        trace "writing response block",
-          slot = blocks[i].slot, roor = shortLog(blocks[i].root)
+      if dag.getBlockSZ(blocks[i], bytes):
+        let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+          warn "Cannot read block size, database corrupt?",
+            bytes = bytes.len(), blck = shortLog(blocks[i])
+          continue
 
         peer.updateRequestQuota(blockResponseCost)
         peer.awaitNonNegativeRequestQuota()
 
-        await response.writeRawBytes(bytes, []) # phase0 bytes
+        await response.writeBytesSZ(uncompressedLen, bytes, []) # phase0 bytes
 
         inc found
 
@@ -334,11 +336,16 @@ p2pProtocol BeaconSync(version = 1,
         # that have been synced exactly to the altair transition slot.
         continue
 
-      if dag.getBlockSSZ(blockRef.bid, bytes):
+      if dag.getBlockSZ(blockRef.bid, bytes):
+        let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+          warn "Cannot read block size, database corrupt?",
+            bytes = bytes.len(), blck = shortLog(blockRef)
+          continue
+
         peer.updateRequestQuota(blockResponseCost)
         peer.awaitNonNegativeRequestQuota()
 
-        await response.writeRawBytes(bytes, []) # phase0 bytes
+        await response.writeBytesSZ(uncompressedLen, bytes, []) # phase0
         inc found
 
     debug "Block root request done",
@@ -388,11 +395,17 @@ p2pProtocol BeaconSync(version = 1,
 
     for i in startIndex..endIndex:
       if dag.getBlockSSZ(blocks[i], bytes):
+        let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+          warn "Cannot read block size, database corrupt?",
+            bytes = bytes.len(), blck = shortLog(blocks[i])
+          continue
+
         peer.updateRequestQuota(blockResponseCost)
         peer.awaitNonNegativeRequestQuota()
 
-        await response.writeRawBytes(
-          bytes, dag.forkDigestAtEpoch(blocks[i].slot.epoch).data)
+        await response.writeBytesSZ(
+          uncompressedLen, bytes,
+          dag.forkDigestAtEpoch(blocks[i].slot.epoch).data)
 
         inc found
 
@@ -438,11 +451,17 @@ p2pProtocol BeaconSync(version = 1,
           continue
 
       if dag.getBlockSSZ(blockRef.bid, bytes):
+        let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+          warn "Cannot read block size, database corrupt?",
+            bytes = bytes.len(), blck = shortLog(blockRef)
+          continue
+
         peer.updateRequestQuota(blockResponseCost)
         peer.awaitNonNegativeRequestQuota()
 
-        await response.writeRawBytes(
-          bytes, dag.forkDigestAtEpoch(blockRef.slot.epoch).data)
+        await response.writeBytesSZ(
+          uncompressedLen, bytes,
+          dag.forkDigestAtEpoch(blockRef.slot.epoch).data)
 
         inc found
 

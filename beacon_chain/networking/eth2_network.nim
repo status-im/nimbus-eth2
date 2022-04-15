@@ -533,6 +533,25 @@ proc isLightClientRequestProto(fn: NimNode): NimNode =
 
   return newLit(false)
 
+proc writeChunkSZ*(
+    conn: Connection, responseCode: Option[ResponseCode],
+    uncompressedLen: uint64, payloadSZ: openArray[byte],
+    contextBytes: openArray[byte] = []): Future[void] =
+  var output = memoryOutput(payloadSZ.len + contextBytes.len + 11)
+  try:
+    if responseCode.isSome:
+      output.write byte(responseCode.get)
+
+    if contextBytes.len > 0:
+      output.write contextBytes
+
+    output.write toBytes(uncompressedLen, Leb128).toOpenArray()
+    output.write payloadSZ
+  except IOError as exc:
+    raiseAssert exc.msg # memoryOutput shouldn't raise
+
+  conn.write(output.getOutput)
+
 proc writeChunk*(conn: Connection,
                  responseCode: Option[ResponseCode],
                  payload: openArray[byte],
@@ -590,6 +609,14 @@ proc sendNotificationMsg(peer: Peer, protocolId: string, requestBytes: Bytes) {.
     await stream.writeChunk(none ResponseCode, requestBytes)
   finally:
     await stream.close()
+
+proc sendResponseChunkBytesSZ(
+    response: UntypedResponse, uncompressedLen: uint64,
+    payloadSZ: openArray[byte],
+    contextBytes: openArray[byte] = []): Future[void] =
+  inc response.writtenChunks
+  response.stream.writeChunkSZ(
+    some Success, uncompressedLen, payloadSZ, contextBytes)
 
 proc sendResponseChunkBytes(
     response: UntypedResponse, payload: openArray[byte],
@@ -651,10 +678,10 @@ template write*[M](r: MultipleChunksResponse[M], val: M): untyped =
   mixin sendResponseChunk
   sendResponseChunk(UntypedResponse(r), val)
 
-template writeRawBytes*[M](
-    r: MultipleChunksResponse[M], bytes: openArray[byte],
-    contextBytes: openArray[byte]): untyped =
-  sendResponseChunkBytes(UntypedResponse(r), bytes, contextBytes)
+template writeBytesSZ*[M](
+    r: MultipleChunksResponse[M], uncompressedLen: uint64,
+    bytes: openArray[byte], contextBytes: openArray[byte]): untyped =
+  sendResponseChunkBytesSZ(UntypedResponse(r), uncompressedLen, bytes, contextBytes)
 
 template send*[M](r: SingleChunkResponse[M], val: M): untyped =
   mixin sendResponseChunk
