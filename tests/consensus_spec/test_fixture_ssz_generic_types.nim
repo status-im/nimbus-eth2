@@ -221,7 +221,7 @@ proc sszCheck(baseDir, sszType, sszSubType: string) =
   of "bitlist": checkBitList(sszSubType, dir, expectedHash)
   of "containers":
     var name: string
-    let wasMatched = scanf(sszSubtype, "$+_", name)
+    let wasMatched = scanf(sszSubType, "$+_", name)
     doAssert wasMatched
     case name
     of "SingleFieldTestStruct": checkBasic(SingleFieldTestStruct, dir, expectedHash)

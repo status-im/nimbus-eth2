@@ -165,7 +165,7 @@ proc sendDeposits*(deposits: seq[LaunchPadDeposit],
     while true:
       try:
         let tx = depositContract.deposit(
-          Bytes48(dp.pubKey.toRaw()),
+          Bytes48(dp.pubkey.toRaw()),
           Bytes32(dp.withdrawal_credentials.data),
           Bytes96(dp.signature.toRaw()),
           FixedBytes[32](hash_tree_root(dp).data))
@@ -195,7 +195,7 @@ proc main() {.async.} =
   if conf.cmd == StartUpCommand.generateSimulationDeposits:
     let
       mnemonic = generateMnemonic(rng[])
-      seed = getSeed(mnemonic, KeyStorePass.init "")
+      seed = getSeed(mnemonic, KeystorePass.init "")
       cfg = getRuntimeConfig(conf.eth2Network)
 
     if (let res = secureCreatePath(string conf.outValidatorsDir); res.isErr):
