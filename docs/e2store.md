@@ -86,7 +86,7 @@ type: [0x01, 0x00]
 data: snappyFramed(ssz(SignedBeaconBlock))
 ```
 
-`CompressedSignedBeackBlock` entries are entries whose data field matches the payload of `BeaconBlocksByRange` and `BeaconBlocksByRoot` chunks in the phase0 p2p specification. In particular, the SignedBeaconBlock is serialized using SSZ, then compressed using the snappy [framing format](https://github.com/google/snappy/blob/master/framing_format.txt).
+`CompressedSignedBeaconBlock` entries are entries whose data field matches the payload of `BeaconBlocksByRange` and `BeaconBlocksByRoot` chunks in the phase0 p2p specification. In particular, the SignedBeaconBlock is serialized using SSZ, then compressed using the snappy [framing format](https://github.com/google/snappy/blob/master/framing_format.txt).
 
 ## CompressedBeaconState
 
