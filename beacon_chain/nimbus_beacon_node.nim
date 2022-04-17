@@ -396,9 +396,21 @@ proc initFullNode(
 
   dag.setFinalizationCb makeOnFinalizationCb(node.eventBus, node.eth1Monitor)
 
-  if isTransitionFromLight:
-    node.cfg = RuntimeConfig() # Without this, GC seems to go bonkers.
+  when declared(GC_fullCollect):
+    try:
+      GC_fullCollect()
+    except Exception:
+      discard
+    notice "before changing discriminator"
+  # if isTransitionFromLight:
+  #   node.cfg = RuntimeConfig() # Without this, GC seems to go bonkers.
   node.kind = BeaconNodeKind.Full
+  when declared(GC_fullCollect):
+    try:
+      GC_fullCollect()
+    except Exception:
+      discard
+    notice "after changing discriminator"
   node.dag = dag
   node.quarantine = quarantine
   node.attestationPool = attestationPool
@@ -1457,30 +1469,30 @@ proc tryTransitionToFullNode(node: BeaconNode) {.async.} =
   template db(): auto = node.db
   template beaconClock(): auto = node.beaconClock
 
-  let store = node.lightClientStore
-  if store[].isNone:
-    return
+  # let store = node.lightClientStore
+  # if store[].isNone:
+  #   return
   var wallSlot = beaconClock.now.slotOrZero
-  const maxSlotsBehind = SLOTS_PER_EPOCH
-  if node.headSlot + 1 + maxSlotsBehind < wallSlot: # 1 slot forced by protocol
-    return
-  let now = Moment.now()
-  if now < node.tryTransitionAfter:
-    return
-  node.transitionBackoff = node.transitionBackoff * 2
-  if node.transitionBackoff < chronos.seconds(1):
-    node.transitionBackoff = chronos.seconds(1)
-  if node.transitionBackoff > chronos.minutes(10):
-    node.transitionBackoff = chronos.minutes(10)
-  node.tryTransitionAfter = now + node.transitionBackoff
+  # const maxSlotsBehind = SLOTS_PER_EPOCH
+  # if node.headSlot + 1 + maxSlotsBehind < wallSlot: # 1 slot forced by protocol
+  #   return
+  # let now = Moment.now()
+  # if now < node.tryTransitionAfter:
+  #   return
+  # node.transitionBackoff = node.transitionBackoff * 2
+  # if node.transitionBackoff < chronos.seconds(1):
+  #   node.transitionBackoff = chronos.seconds(1)
+  # if node.transitionBackoff > chronos.minutes(10):
+  #   node.transitionBackoff = chronos.minutes(10)
+  # node.tryTransitionAfter = now + node.transitionBackoff
 
   let stateNodeUrl = node.config.lightClientStateNodeUrl
-  info "Fetching tail state and block",
-    finalizedHeader = store[].get.finalized_header, stateNodeUrl
+  # info "Fetching tail state and block",
+    # finalizedHeader = store[].get.finalized_header, stateNodeUrl
   let
-    tailSlot = store[].get.finalized_header.slot
-    tailStateRoot = store[].get.finalized_header.state_root
-    tailBlockRoot = store[].get.finalized_header.hash_tree_root()
+    tailSlot = 2807072.Slot # store[].get.finalized_header.slot
+    tailStateRoot = Eth2Digest.fromHex("0x3df014514a8b3b65984953f19ca28e2eb84ece23f6f49f0d4cc59f9844dd32a3") # store[].get.finalized_header.state_root
+    tailBlockRoot = Eth2Digest.fromHex("0xc1bf9eb228a6b7fb1355b801af723aa416a9765bac1bf480546d21c99ac7e4a1") # store[].get.finalized_header.hash_tree_root()
     client = RestClientRef.new(stateNodeUrl).get()
     tailStateFut =
       try:
@@ -1534,8 +1546,8 @@ proc tryTransitionToFullNode(node: BeaconNode) {.async.} =
     return
   let tailBlock = untrustedTailBlock[].asTrusted()
 
-  notice "Transitioning to full node",
-    finalizedHeader = store[].get.finalized_header, stateNodeUrl
+  # notice "Transitioning to full node",
+  #   finalizedHeader = store[].get.finalized_header, stateNodeUrl
   node.lightClientSyncManager.stop()
   node.lightClientManager.stop()
 
