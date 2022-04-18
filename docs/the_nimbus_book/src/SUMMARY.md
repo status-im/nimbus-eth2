@@ -7,6 +7,7 @@
 # Quickstart
 - [Run the beacon node](./quick-start.md)
 - [Run a validator](./run-a-validator.md)
+- [Run Kiln](./kiln.md)
 
 # How-to (beacon node)
 - [Install dependencies](./install.md)
