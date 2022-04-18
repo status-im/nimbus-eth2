@@ -1,8 +1,6 @@
 # Run Kiln 
 
-Kiln is the latest long-running  merge testnet (the previous one was known as Kintsugi).
-
-Kiln is the perfect opportunity to verify your setup works as expected through the proof-of-stake transition and in a post-merge context. If you come across any issues, please [report them here](https://github.com/eth-clients/merge-testnets/).
+Kiln is the latest long-running  merge testnet. It provides the perfect opportunity to verify your setup works as expected through the proof-of-stake transition and in a post-merge context. If you come across any issues, please [report them here](https://github.com/status-im/nimbus-eth2/issues).
 
 > **N.B.** Post merge, Node runners will need to run both a consensus and execution layer client.
 
