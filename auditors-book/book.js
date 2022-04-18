@@ -371,14 +371,7 @@ function playground_text(playground) {
     });
 
     themePopup.addEventListener('click', function (e) {
-        var theme;
-        if (e.target.className === "theme") {
-            theme = e.target.id;
-        } else if (e.target.parentElement.className === "theme") {
-            theme = e.target.parentElement.id;
-        } else {
-            return;
-        }
+        var theme = e.target.id || e.target.parentElement.id;
         set_theme(theme);
     });
 
