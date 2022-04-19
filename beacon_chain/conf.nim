@@ -203,7 +203,6 @@ type
 
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.8/src/engine/authentication.md#key-distribution
     jwtSecret* {.
-      hidden
       desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating jwt tokens"
       name: "jwt-secret" .}: Option[string]
 
