@@ -10,7 +10,7 @@ import
   snappy,
   chronicles, confutils, stew/[byteutils, io2], eth/db/kvstore_sqlite3,
   ../beacon_chain/networking/network_metadata,
-  ../beacon_chain/[beacon_chain_db],
+  ../beacon_chain/[beacon_chain_db, era_db],
   ../beacon_chain/consensus_object_pools/[blockchain_dag],
   ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/spec/[
@@ -41,6 +41,7 @@ type
     dumpBlock = "Extract a (trusted) SignedBeaconBlock from the database"
     putBlock = "Store a given SignedBeaconBlock in the database, potentially updating some of the pointers"
     rewindState = "Extract any state from the database based on a given block and slot, replaying if needed"
+    verifyEra = "Verify a single era file"
     exportEra = "Write an experimental era file"
     importEra = "Import era files to the database"
     validatorPerf
@@ -133,6 +134,10 @@ type
       slot* {.
         argument
         desc: "Slot".}: uint64
+
+    of DbCmd.verifyEra:
+      eraFile* {.
+        desc: "Era file name".}: string
 
     of DbCmd.exportEra:
       era* {.
@@ -436,6 +441,16 @@ func atCanonicalSlot(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotI
   else:
     ok BlockSlotId.init((? dag.atSlot(bid, slot - 1)).bid, slot)
 
+proc cmdVerifyEra(conf: DbConf, cfg: RuntimeConfig) =
+  let
+    f = EraFile.open(conf.eraFile).valueOr:
+      echo error
+      quit 1
+    root = f.verify(cfg).valueOr:
+      echo error
+      quit 1
+  echo root
+
 proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
   let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
   defer: db.close()
@@ -468,7 +483,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
         if era == 0: none(Slot)
         else: some((era - 1).start_slot)
       endSlot = era.start_slot
-      canonical = dag.atCanonicalSlot(dag.head.bid, endSlot).valueOr:
+      eraBid = dag.atSlot(dag.head.bid, endSlot).valueOr:
         echo "Skipping ", era, ", blocks not available"
         continue
 
@@ -476,10 +491,12 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
       echo "Written all complete eras"
       break
 
-    let name = withState(dag.headState):
-      eraFileName(
-        cfg, state.data.genesis_validators_root,
-        state.data.historical_roots.asSeq, era)
+    let
+      eraRoot = withState(dag.headState):
+        eraRoot(
+          state.data.genesis_validators_root, state.data.historical_roots.asSeq,
+          era).expect("have era root since we checked slot")
+      name = eraFileName(cfg, era, eraRoot)
 
     if isFile(name):
       echo "Skipping ", name, " (already exists)"
@@ -498,7 +515,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
               group.update(e2, blocks[i].slot, tmp).get()
 
       withTimer(timers[tState]):
-        dag.withUpdatedState(tmpState[], canonical) do:
+        dag.withUpdatedState(tmpState[], eraBid) do:
           withState(state):
             group.finish(e2, state.data).get()
         do: raiseAssert "withUpdatedState failed"
@@ -546,15 +563,7 @@ proc cmdImportEra(conf: DbConf, cfg: RuntimeConfig) =
             db.putBlock(blck)
         blocks += 1
       elif header.typ == SnappyBeaconState:
-        withTimer(timers[tState]):
-          let uncompressed = decodeFramed(data)
-          let state = try: newClone(
-            readSszForkedHashedBeaconState(cfg, uncompressed))
-          except CatchableError as exc:
-            error "Invalid snappy state", msg = exc.msg, file
-            continue
-          withState(state[]):
-            db.putState(state)
+        info "Skipping beacon state (use reindexing to recreate state snapshots)"
         states += 1
       else:
         info "Skipping record", typ = toHex(header.typ)
@@ -1036,6 +1045,8 @@ when isMainModule:
     cmdPutBlock(conf, cfg)
   of DbCmd.rewindState:
     cmdRewindState(conf, cfg)
+  of DbCmd.verifyEra:
+    cmdVerifyEra(conf, cfg)
   of DbCmd.exportEra:
     cmdExportEra(conf, cfg)
   of DbCmd.importEra:

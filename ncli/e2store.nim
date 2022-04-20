@@ -26,16 +26,11 @@ const
   FAR_FUTURE_ERA* = Era(not 0'u64)
 
 type
-
   Type* = array[2, byte]
 
   Header* = object
     typ*: Type
     len*: int
-
-  EraFile* = object
-    handle: IoHandle
-    start: Slot
 
   Index* = object
     startSlot*: Slot
@@ -56,17 +51,17 @@ proc toString(v: IoErrorCode): string =
   try: ioErrorMsg(v)
   except Exception as e: raiseAssert e.msg
 
-func eraFileName*(
-    cfg: RuntimeConfig, genesis_validators_root: Eth2Digest,
-    historical_roots: openArray[Eth2Digest], era: Era): string =
-  try:
-    let
-      historicalRoot =
-        if era == Era(0): genesis_validators_root
-        elif era > historical_roots.lenu64(): Eth2Digest()
-        else: historical_roots[int(uint64(era)) - 1]
+func eraRoot*(
+    genesis_validators_root: Eth2Digest,
+    historical_roots: openArray[Eth2Digest], era: Era): Opt[Eth2Digest] =
+  if era == Era(0): ok(genesis_validators_root)
+  elif era <= historical_roots.lenu64(): ok(historical_roots[int(uint64(era) - 1)])
+  else: err()
 
-    &"{cfg.name()}-{era.uint64:05}-{1:05}-{shortLog(historicalRoot)}.era"
+func eraFileName*(
+    cfg: RuntimeConfig, era: Era, eraRoot: Eth2Digest): string =
+  try:
+    &"{cfg.name()}-{era.uint64:05}-{shortLog(eraRoot)}.era"
   except ValueError as exc:
     raiseAssert exc.msg
 
