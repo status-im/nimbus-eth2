@@ -29,7 +29,7 @@ type
   Eth1Address* = ethtypes.Address
 
   RuntimeConfig* = object
-    ## https://github.com/ethereum/consensus-specs/tree/v1.1.3/configs
+    ## https://github.com/ethereum/consensus-specs/tree/v1.1.10/configs
 
     PRESET_BASE*: string
 
@@ -49,7 +49,7 @@ type
     ALTAIR_FORK_VERSION*: Version
     ALTAIR_FORK_EPOCH*: Epoch
 
-    # Merge
+    # Bellatrix
     BELLATRIX_FORK_VERSION*: Version
     BELLATRIX_FORK_EPOCH*: Epoch
 
