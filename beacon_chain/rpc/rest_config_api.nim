@@ -9,6 +9,7 @@ import ".."/beacon_node,
        ".."/eth1/eth1_monitor,
        ".."/spec/forks,
        "."/rest_utils
+from ../fork_choice/proto_array import PROPOSER_SCORE_BOOST
 
 export rest_utils
 
@@ -22,10 +23,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
     cachedConfigSpec =
       RestApiResponse.prepareJsonResponse(
         (
-          # https://github.com/ethereum/consensus-specs/blob/v1.0.1/configs/mainnet/phase0.yaml
-          CONFIG_NAME: cfg.name(),
-
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.3/presets/mainnet/phase0.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/presets/mainnet/phase0.yaml
           MAX_COMMITTEES_PER_SLOT:
             Base10.toString(MAX_COMMITTEES_PER_SLOT),
           TARGET_COMMITTEE_SIZE:
@@ -93,7 +91,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_VOLUNTARY_EXITS:
             Base10.toString(MAX_VOLUNTARY_EXITS),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.4/presets/mainnet/altair.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/presets/mainnet/altair.yaml
           INACTIVITY_PENALTY_QUOTIENT_ALTAIR:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT_ALTAIR),
           MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR:
@@ -106,14 +104,36 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(EPOCHS_PER_SYNC_COMMITTEE_PERIOD),
           MIN_SYNC_COMMITTEE_PARTICIPANTS:
             Base10.toString(uint64(MIN_SYNC_COMMITTEE_PARTICIPANTS)),
+          UPDATE_TIMEOUT:
+            Base10.toString(UPDATE_TIMEOUT),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.3/configs/mainnet.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/presets/mainnet/bellatrix.yaml
+          INACTIVITY_PENALTY_QUOTIENT_BELLATRIX:
+            Base10.toString(INACTIVITY_PENALTY_QUOTIENT_BELLATRIX),
+          MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX:
+            Base10.toString(MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX),
+          PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX:
+            Base10.toString(PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX),
+          MAX_BYTES_PER_TRANSACTION:
+            Base10.toString(uint64(MAX_BYTES_PER_TRANSACTION)),
+          MAX_TRANSACTIONS_PER_PAYLOAD:
+            Base10.toString(uint64(MAX_TRANSACTIONS_PER_PAYLOAD)),
+          BYTES_PER_LOGS_BLOOM:
+            Base10.toString(uint64(BYTES_PER_LOGS_BLOOM)),
+          MAX_EXTRA_DATA_BYTES:
+            Base10.toString(uint64(MAX_EXTRA_DATA_BYTES)),
+
+          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/configs/mainnet.yaml
           PRESET_BASE:
             cfg.PRESET_BASE,
+          CONFIG_NAME:
+            cfg.name(),
           TERMINAL_TOTAL_DIFFICULTY:
             toString(cfg.TERMINAL_TOTAL_DIFFICULTY),
           TERMINAL_BLOCK_HASH:
             $cfg.TERMINAL_BLOCK_HASH,
+          TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH:
+            Base10.toString(uint64(TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH)),
           MIN_GENESIS_ACTIVE_VALIDATOR_COUNT:
             Base10.toString(cfg.MIN_GENESIS_ACTIVE_VALIDATOR_COUNT),
           MIN_GENESIS_TIME:
@@ -154,6 +174,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(cfg.MIN_PER_EPOCH_CHURN_LIMIT),
           CHURN_LIMIT_QUOTIENT:
             Base10.toString(cfg.CHURN_LIMIT_QUOTIENT),
+          PROPOSER_SCORE_BOOST:
+            Base10.toString(uint64(PROPOSER_SCORE_BOOST)),
           DEPOSIT_CHAIN_ID:
             Base10.toString(cfg.DEPOSIT_CHAIN_ID),
           DEPOSIT_NETWORK_ID:
@@ -230,10 +252,6 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(uint64(TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE)),
           SYNC_COMMITTEE_SUBNET_COUNT:
             Base10.toString(uint64(SYNC_COMMITTEE_SUBNET_COUNT)),
-
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/beacon-chain.md#transition-settings
-          TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH:
-            Base10.toString(uint64(TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH)),
         )
       )
     cachedDepositContract =

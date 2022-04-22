@@ -243,10 +243,7 @@ type
     of BeaconBlockFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
 
   RestSpec* = object
-    # https://github.com/ethereum/consensus-specs/blob/v1.0.1/configs/mainnet/phase0.yaml
-    CONFIG_NAME*: string
-
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.3/presets/mainnet/phase0.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/presets/mainnet/phase0.yaml
     MAX_COMMITTEES_PER_SLOT*: uint64
     TARGET_COMMITTEE_SIZE*: uint64
     MAX_VALIDATORS_PER_COMMITTEE*: uint64
@@ -281,18 +278,30 @@ type
     MAX_DEPOSITS*: uint64
     MAX_VOLUNTARY_EXITS*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.3/presets/mainnet/altair.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/presets/mainnet/altair.yaml
     INACTIVITY_PENALTY_QUOTIENT_ALTAIR*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR*: uint64
     SYNC_COMMITTEE_SIZE*: uint64
     EPOCHS_PER_SYNC_COMMITTEE_PERIOD*: uint64
     MIN_SYNC_COMMITTEE_PARTICIPANTS*: uint64
+    UPDATE_TIMEOUT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.3/configs/mainnet.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/presets/mainnet/bellatrix.yaml
+    INACTIVITY_PENALTY_QUOTIENT_BELLATRIX*: uint64
+    MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX*: uint64
+    PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX*: uint64
+    MAX_BYTES_PER_TRANSACTION*: uint64
+    MAX_TRANSACTIONS_PER_PAYLOAD*: uint64
+    BYTES_PER_LOGS_BLOOM*: uint64
+    MAX_EXTRA_DATA_BYTES*: uint64
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/configs/mainnet.yaml
     PRESET_BASE*: string
+    CONFIG_NAME*: string
     TERMINAL_TOTAL_DIFFICULTY*: UInt256
     TERMINAL_BLOCK_HASH*: BlockHash
+    TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH*: uint64
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64
     MIN_GENESIS_TIME*: uint64
     GENESIS_FORK_VERSION*: Version
@@ -313,6 +322,7 @@ type
     EJECTION_BALANCE*: uint64
     MIN_PER_EPOCH_CHURN_LIMIT*: uint64
     CHURN_LIMIT_QUOTIENT*: uint64
+    PROPOSER_SCORE_BOOST*: uint64
     DEPOSIT_CHAIN_ID*: uint64
     DEPOSIT_NETWORK_ID*: uint64
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
