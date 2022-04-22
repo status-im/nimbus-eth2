@@ -1482,7 +1482,148 @@ proc initializeNetworking(node: BeaconNode) {.async.} =
 
   await node.network.start()
 
+import snappy
+import std/random
+import std/algorithm
+
 proc start*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
+  proc snappyEncode(inp: openArray[byte]): seq[byte] =
+    try:
+      snappy.encode(inp)
+    except CatchableError as err:
+      raiseAssert err.msg
+
+  block:
+    var randomUpdate {.noinit.}: LightClientUpdate
+    let p = cast[ptr UncheckedArray[byte]](unsafeAddr randomUpdate)
+    randomize(12345)
+    for i in 0.uint ..< sizeof(randomUpdate).uint:
+      p[i] = byte.rand()
+
+    let x = snappyEncode(SSZ.encode(randomUpdate))
+    randomUpdate.next_sync_committee = SyncCommittee()
+    randomUpdate.next_sync_committee_branch.fill(Eth2Digest())
+    let y = snappyEncode(SSZ.encode(randomUpdate))
+    randomUpdate.finalized_header = BeaconBlockHeader()
+    randomUpdate.finality_branch.fill(Eth2Digest())
+    let z = snappyEncode(SSZ.encode(randomUpdate))
+
+    var realOptimisticUpdate {.noinit.}: OptimisticLightClientUpdate
+    let q = cast[ptr UncheckedArray[byte]](unsafeAddr realOptimisticUpdate)
+    for i in 0.uint ..< sizeof(realOptimisticUpdate).uint:
+      q[i] = byte.rand()
+    let encodedRealOptimisticUpdate = snappyEncode(SSZ.encode(realOptimisticUpdate))
+
+    var realFinalityUpdate {.noinit.}: FinalityLightClientUpdate
+    let r = cast[ptr UncheckedArray[byte]](unsafeAddr realFinalityUpdate)
+    for i in 0.uint ..< sizeof(realFinalityUpdate).uint:
+      r[i] = byte.rand()
+    let encodedRealFinalityUpdate = snappyEncode(SSZ.encode(realFinalityUpdate))
+    realFinalityUpdate.finalized_header = BeaconBlockHeader()
+    realFinalityUpdate.finality_branch.fill(Eth2Digest())
+    let fakeOptimisticFinalityUpdate = snappyEncode(SSZ.encode(realFinalityUpdate))
+
+    var newUpdate: NewLightClientUpdate
+    block:
+      let s = cast[ptr UncheckedArray[byte]](unsafeAddr newUpdate.attested_header)
+      for i in 0.uint ..< sizeof(newUpdate.attested_header).uint:
+        s[i] = byte.rand()
+    block:
+      let s = cast[ptr UncheckedArray[byte]](unsafeAddr newUpdate.next_sync_committee)
+      for i in 0.uint ..< sizeof(newUpdate.next_sync_committee).uint:
+        s[i] = byte.rand()
+    block:
+      let s = cast[ptr UncheckedArray[byte]](unsafeAddr newUpdate.finalized_header)
+      for i in 0.uint ..< sizeof(newUpdate.finalized_header).uint:
+        s[i] = byte.rand()
+    block:
+      doAssert newUpdate.branch.setLen(6)
+      for i in 0 ..< 6:
+        let s = cast[ptr UncheckedArray[byte]](unsafeAddr newUpdate.branch[i])
+        for i in 0.uint ..< sizeof(newUpdate.branch[i]).uint:
+          s[i] = byte.rand()
+    block:
+      let s = cast[ptr UncheckedArray[byte]](unsafeAddr newUpdate.sync_aggregate)
+      for i in 0.uint ..< sizeof(newUpdate.sync_aggregate).uint:
+        s[i] = byte.rand()
+    block:
+      let s = cast[ptr UncheckedArray[byte]](unsafeAddr newUpdate.fork_version)
+      for i in 0.uint ..< sizeof(newUpdate.fork_version).uint:
+        s[i] = byte.rand()
+    let newUpdateSize = snappyEncode(SSZ.encode(newUpdate))
+
+    var trickyUpdate {.noinit.}: TrickyLightClientUpdate
+    let t = cast[ptr UncheckedArray[byte]](unsafeAddr trickyUpdate)
+    for i in 0.uint ..< sizeof(trickyUpdate).uint:
+      t[i] = byte.rand()
+    let trickyUpdateSize = snappyEncode(SSZ.encode(trickyUpdate))
+
+
+    notice "Update sizes after compress",
+      fullUpdate = len(x),
+      finalityUpdate = len(y),
+      optimisticUpdate = len(z),
+      encodedRealOptimisticUpdate = len(encodedRealOptimisticUpdate),
+      encodedRealFinalityUpdate = len(encodedRealFinalityUpdate),
+      fakeOptimisticFinalityUpdate = len(fakeOptimisticFinalityUpdate),
+      newUpdate = len(newUpdateSize),
+      trickyUpdate = len(trickyUpdateSize)
+
+  block:
+    var randomUpdate {.noinit.}: LightClientUpdate2
+    let p = cast[ptr UncheckedArray[byte]](unsafeAddr randomUpdate)
+    randomize(12345)
+    for i in 0.uint ..< sizeof(randomUpdate).uint:
+      p[i] = byte.rand()
+
+    let x = snappyEncode(SSZ.encode(randomUpdate))
+    randomUpdate.next_sync_committee = SyncCommittee()
+    randomUpdate.next_sync_committee_branch.fill(Eth2Digest())
+    let y = snappyEncode(SSZ.encode(randomUpdate))
+    randomUpdate.finalized_header = BeaconBlockHeader()
+    randomUpdate.finality_branch.fill(Eth2Digest())
+    let z = snappyEncode(SSZ.encode(randomUpdate))
+
+
+    notice "Update sizes after compress (2)",
+      fullUpdate = len(x),
+      finalityUpdate = len(y),
+      optimisticUpdate = len(z)
+  doAssert false
+
+
+  # class FullUpdate(Container):  #
+  #   attested_header: BeaconBlockHeader
+
+  #   next_sync_committee: SyncCommittee
+  #   next_sync_committee_branch: Vector[Bytes32, 5]
+
+  #   finalized_header: BeaconBlockHeader
+  #   finality_branch: Vector[Bytes32, 6]
+
+  #   sync_aggregate: SyncAggregate
+  #   fork_version: Version
+
+                                           #  snappy compressed
+  # class FinalityUpdate(Container):       #   586 (full random data)
+  #   attested_header: BeaconBlockHeader   #   304 (with finality zero)
+
+  #   finalized_header: BeaconBlockHeader
+  #   finality_branch: Vector[Bytes32, 6]
+
+  #   sync_aggregate: SyncAggregate
+  #   fork_version: Version
+
+  # class OptimisticUpdate(Container):     #   282
+  #   attested_header: BeaconBlockHeader
+
+  #   sync_aggregate: SyncAggregate
+  #   fork_version: Version
+
+
+
+
+
   let
     head = node.dag.head
     finalizedHead = node.dag.finalizedHead

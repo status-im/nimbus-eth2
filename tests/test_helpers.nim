@@ -83,6 +83,22 @@ suite "Spec helpers":
           0b10.GeneralizedIndex
         ]
 
+  test "fix":
+    echo get_helper_indices([FINALIZED_ROOT_INDEX])
+    echo get_helper_indices([CURRENT_SYNC_COMMITTEE_INDEX])
+    echo get_helper_indices([NEXT_SYNC_COMMITTEE_INDEX])
+    echo get_helper_indices([898.GeneralizedIndex])
+    echo ".."
+    echo get_helper_indices([FINALIZED_ROOT_INDEX, CURRENT_SYNC_COMMITTEE_INDEX, NEXT_SYNC_COMMITTEE_INDEX, 898.GeneralizedIndex])
+    echo ".."
+    echo get_helper_indices([FINALIZED_ROOT_INDEX, NEXT_SYNC_COMMITTEE_INDEX, 898.GeneralizedIndex])
+    echo get_helper_indices([FINALIZED_ROOT_INDEX, 898.GeneralizedIndex])
+    echo get_helper_indices([898.GeneralizedIndex])
+    echo ".."
+    echo get_helper_indices([CURRENT_SYNC_COMMITTEE_INDEX, NEXT_SYNC_COMMITTEE_INDEX])
+    echo get_helper_indices([FINALIZED_ROOT_INDEX, NEXT_SYNC_COMMITTEE_INDEX])
+    echo get_helper_indices([CURRENT_SYNC_COMMITTEE_INDEX, FINALIZED_ROOT_INDEX])
+
   test "get_helper_indices":
     check:
       get_helper_indices(

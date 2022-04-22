@@ -193,6 +193,82 @@ type
     fork_version*: Version ##\
     ## Fork version for the aggregate signature
 
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientupdate
+  LightClientUpdate2* = object
+    attested_header*: BeaconBlockHeader ##\
+    ## The beacon block header that is attested to by the sync committee
+
+    # Sync committee aggregate signature
+    sync_aggregate*: SyncAggregate
+
+    fork_version*: Version ##\
+    ## Fork version for the aggregate signature
+
+    # The finalized beacon block header attested to by Merkle branch
+    finalized_header*: BeaconBlockHeader
+    finality_branch*: array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
+
+    # Next sync committee corresponding to the active header,
+    # if signature is from current sync committee
+    next_sync_committee*: SyncCommittee
+    next_sync_committee_branch*:
+      array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
+
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientupdate
+  NewLightClientUpdate* = object
+    attested_header*: BeaconBlockHeader ##\
+    ## The beacon block header that is attested to by the sync committee
+
+    # Next sync committee corresponding to the active header,
+    # if signature is from current sync committee
+    next_sync_committee*: SyncCommittee
+
+    # The finalized beacon block header attested to by Merkle branch
+    finalized_header*: BeaconBlockHeader
+    branch*: List[Eth2Digest, Limit 6]
+
+    # Sync committee aggregate signature
+    sync_aggregate*: SyncAggregate
+
+    fork_version*: Version ##\
+    ## Fork version for the aggregate signature
+
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientupdate
+  TrickyLightClientUpdate* = object
+    attested_header*: BeaconBlockHeader ##\
+    ## The beacon block header that is attested to by the sync committee
+
+    # Next sync committee corresponding to the active header,
+    # if signature is from current sync committee
+    next_sync_committee*: SyncCommittee
+
+    # The finalized beacon block header attested to by Merkle branch
+    finalized_header*: BeaconBlockHeader
+    branch*: array[6, Eth2Digest]
+
+    # Sync committee aggregate signature
+    sync_aggregate*: SyncAggregate
+
+    fork_version*: Version ##\
+    ## Fork version for the aggregate signature
+
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#optimisticlightclientupdate
+  FinalityLightClientUpdate* = object
+    attested_header*: BeaconBlockHeader ##\
+    ## The beacon block header that is attested to by the sync committee
+
+    finalized_header*: BeaconBlockHeader
+    finality_branch*: array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
+
+    sync_aggregate*: SyncAggregate ##\
+    ## Sync committee aggregate signature
+
+    fork_version*: Version ##\
+    ## Fork version for the aggregate signature
+
+    is_signed_by_next_sync_committee*: bool ##\
+    ## Whether the signature was produced by `attested_header`'s next sync committee
+
   # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#optimisticlightclientupdate
   OptimisticLightClientUpdate* = object
     attested_header*: BeaconBlockHeader ##\
