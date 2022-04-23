@@ -817,16 +817,17 @@ proc getBlockProposalData*(chain: var Eth1Chain,
             depositsRoot = vote.deposit_root,
             localDeposits = getStateField(state, eth1_data).deposit_count
 
+  let stateDepositIdx = getStateField(state, eth1_deposit_index)
   var pendingDepositsCount =
-    getStateField(state, eth1_data).deposit_count -
-      getStateField(state, eth1_deposit_index)
+    getStateField(state, eth1_data).deposit_count - stateDepositIdx
+
   if otherVotesCountTable.len > 0:
     let (winningVote, votes) = otherVotesCountTable.largest
     debug "Voting on eth1 head with majority", votes
     result.vote = winningVote
     if uint64((votes + 1) * 2) > SLOTS_PER_ETH1_VOTING_PERIOD:
-      pendingDepositsCount = winningVote.deposit_count -
-        getStateField(state, eth1_deposit_index)
+      pendingDepositsCount = winningVote.deposit_count - stateDepositIdx
+
   else:
     let latestBlock = chain.latestCandidateBlock(periodStart)
     if latestBlock == nil:
@@ -840,20 +841,18 @@ proc getBlockProposalData*(chain: var Eth1Chain,
     if hasLatestDeposits:
       let
         totalDepositsInNewBlock = min(MAX_DEPOSITS, pendingDepositsCount)
-        deposits = chain.getDepositsRange(
-          getStateField(state, eth1_deposit_index),
-          getStateField(state, eth1_deposit_index) + pendingDepositsCount)
+        postStateDepositIdx = stateDepositIdx + pendingDepositsCount
+        deposits = chain.getDepositsRange(stateDepositIdx, postStateDepositIdx)
         depositRoots = mapIt(deposits, hash_tree_root(it))
 
       var scratchMerkleizer = copy chain.finalizedDepositsMerkleizer
-      if chain.advanceMerkleizer(
-          scratchMerkleizer, getStateField(state, eth1_deposit_index)):
+      if chain.advanceMerkleizer(scratchMerkleizer, stateDepositIdx):
         let proofs = scratchMerkleizer.addChunksAndGenMerkleProofs(depositRoots)
         for i in 0 ..< totalDepositsInNewBlock:
           var proof: array[33, Eth2Digest]
           proof[0..31] = proofs.getProof(i.int)
           proof[32] = default(Eth2Digest)
-          proof[32].data[0..7] = toBytesLE uint64(result.vote.deposit_count)
+          proof[32].data[0..7] = toBytesLE uint64(postStateDepositIdx)
           result.deposits.add Deposit(data: deposits[i], proof: proof)
       else:
         error "The Eth1 chain is in inconsistent state" # This should not really happen
