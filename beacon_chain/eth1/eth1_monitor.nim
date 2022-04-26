@@ -817,9 +817,16 @@ proc getBlockProposalData*(chain: var Eth1Chain,
             depositsRoot = vote.deposit_root,
             localDeposits = getStateField(state, eth1_data).deposit_count
 
-  let stateDepositIdx = getStateField(state, eth1_deposit_index)
-  var pendingDepositsCount =
-    getStateField(state, eth1_data).deposit_count - stateDepositIdx
+  let
+    stateDepositIdx = getStateField(state, eth1_deposit_index)
+    stateDepositsCount = getStateField(state, eth1_data).deposit_count
+
+  # A valid state should never have this condition, but it doesn't hurt
+  # to be extra defensive here because we are working with uint types
+  var pendingDepositsCount = if stateDepositsCount > stateDepositIdx:
+    stateDepositsCount - stateDepositIdx
+  else:
+    0
 
   if otherVotesCountTable.len > 0:
     let (winningVote, votes) = otherVotesCountTable.largest
