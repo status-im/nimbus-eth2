@@ -2334,12 +2334,14 @@ proc broadcastBeaconBlock*(node: Eth2Node, forked: ForkedSignedBeaconBlock) =
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex) =
-  let topic = getSyncCommitteeTopic(node.forkDigests.altair, subcommitteeIdx)
+  let topic = getSyncCommitteeTopic(
+    node.forkDigestAtEpoch(node.getWallEpoch), subcommitteeIdx)
   node.broadcast(topic, msg)
 
 proc broadcastSignedContributionAndProof*(
     node: Eth2Node, msg: SignedContributionAndProof) =
-  let topic = getSyncCommitteeContributionAndProofTopic(node.forkDigests.altair)
+  let topic = getSyncCommitteeContributionAndProofTopic(
+    node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, msg)
 
 proc broadcastOptimisticLightClientUpdate*(
