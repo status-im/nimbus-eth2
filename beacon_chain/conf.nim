@@ -198,7 +198,7 @@ type
     useJwt* {.
       hidden
       desc: "Enable JWT authentication headers; temporary option feature gate (debugging; option may be remove without warning)",
-      defaultValue: false
+      defaultValue: true
       name: "use-jwt-debug" }: bool
 
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.8/src/engine/authentication.md#key-distribution
