@@ -113,7 +113,7 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
     except InvalidVarintError:
       return neterr UnexpectedEOF
 
-  if size > MAX_CHUNK_SIZE:
+  if size > maxChunkSize:
     return neterr SizePrefixOverflow
   if size == 0:
     return neterr ZeroSizePrefix
