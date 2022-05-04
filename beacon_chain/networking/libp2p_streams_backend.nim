@@ -99,6 +99,7 @@ proc uncompressFramedStream*(conn: Connection,
   return ok output
 
 proc readChunkPayload*(conn: Connection, peer: Peer,
+                       maxChunkSize: uint32,
                        MsgType: type): Future[NetRes[MsgType]] {.async.} =
   let sm = now(chronos.Moment)
   let size =
@@ -129,7 +130,7 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
     debug "Snappy decompression/read failed", msg = $data.error, conn
     return neterr InvalidSnappyBytes
 
-proc readResponseChunk(conn: Connection, peer: Peer,
+proc readResponseChunk(conn: Connection, peer: Peer, maxChunkSize: uint32,
                        MsgType: typedesc): Future[NetRes[MsgType]] {.async.} =
   mixin readChunkPayload
 
@@ -148,7 +149,8 @@ proc readResponseChunk(conn: Connection, peer: Peer,
     case responseCode:
     of InvalidRequest, ServerError, ResourceUnavailable:
       let
-        errorMsgChunk = await readChunkPayload(conn, peer, ErrorMsg)
+        errorMsgChunk = await readChunkPayload(
+          conn, peer, maxChunkSize, ErrorMsg)
         errorMsg = if errorMsgChunk.isOk: errorMsgChunk.value
                    else: return err(errorMsgChunk.error)
         errorMsgStr = toPrettyString(errorMsg.asSeq)
@@ -159,12 +161,12 @@ proc readResponseChunk(conn: Connection, peer: Peer,
     of Success:
       discard
 
-    return await readChunkPayload(conn, peer, MsgType)
+    return await readChunkPayload(conn, peer, maxChunkSize, MsgType)
 
   except LPStreamEOFError, LPStreamIncompleteError:
     return neterr UnexpectedEOF
 
-proc readResponse(conn: Connection, peer: Peer,
+proc readResponse(conn: Connection, peer: Peer, maxChunkSize: uint32,
                   MsgType: type, timeout: Duration): Future[NetRes[MsgType]] {.async.} =
   when MsgType is seq:
     type E = ElemType(MsgType)
@@ -176,7 +178,7 @@ proc readResponse(conn: Connection, peer: Peer,
       # The problem is exacerbated by the large number of round-trips to the
       # poll loop that each future along the way causes.
       trace "reading chunk", conn
-      let nextFut = conn.readResponseChunk(peer, E)
+      let nextFut = conn.readResponseChunk(peer, maxChunkSize, E)
       if not await nextFut.withTimeout(timeout):
         return neterr(ReadResponseTimeout)
       let nextRes = nextFut.read()
@@ -192,7 +194,7 @@ proc readResponse(conn: Connection, peer: Peer,
         trace "Got chunk", conn
         results.add nextRes.value
   else:
-    let nextFut = conn.readResponseChunk(peer, MsgType)
+    let nextFut = conn.readResponseChunk(peer, maxChunkSize, MsgType)
     if not await nextFut.withTimeout(timeout):
       return neterr(ReadResponseTimeout)
     return nextFut.read()
