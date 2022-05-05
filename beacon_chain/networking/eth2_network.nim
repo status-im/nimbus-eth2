@@ -537,6 +537,7 @@ proc writeChunkSZ*(
     conn: Connection, responseCode: Option[ResponseCode],
     uncompressedLen: uint64, payloadSZ: openArray[byte],
     contextBytes: openArray[byte] = []): Future[void] =
+  # max 10 bytes varint length + 1 byte response code + data
   var output = memoryOutput(payloadSZ.len + contextBytes.len + 11)
   try:
     if responseCode.isSome:
