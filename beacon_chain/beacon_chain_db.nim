@@ -888,7 +888,7 @@ proc getBlockSZ*(
       snappy.decode(data, maxDecompressedDbRecordSize))
     except CatchableError: success = false
   db.blocks[BeaconBlockFork.Phase0].get(key.data, decode).expectDb() and success or
-    db.v0.getPhase0BlockSSZ(key, data)
+    db.v0.getPhase0BlockSZ(key, data)
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
