@@ -394,7 +394,7 @@ p2pProtocol BeaconSync(version = 1,
       bytes: seq[byte]
 
     for i in startIndex..endIndex:
-      if dag.getBlockSSZ(blocks[i], bytes):
+      if dag.getBlockSZ(blocks[i], bytes):
         let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
           warn "Cannot read block size, database corrupt?",
             bytes = bytes.len(), blck = shortLog(blocks[i])
@@ -450,7 +450,7 @@ p2pProtocol BeaconSync(version = 1,
         blockRef = dag.getBlockRef(blockRoots[i]).valueOr:
           continue
 
-      if dag.getBlockSSZ(blockRef.bid, bytes):
+      if dag.getBlockSZ(blockRef.bid, bytes):
         let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
           warn "Cannot read block size, database corrupt?",
             bytes = bytes.len(), blck = shortLog(blockRef)
