@@ -824,6 +824,17 @@ proc getPhase0BlockSSZ(
   db.backend.get(subkey(phase0.SignedBeaconBlock, key), decode).expectDb() and
     success
 
+proc getPhase0BlockSZ(
+    db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]): bool =
+  let dataPtr = addr data # Short-lived
+  var success = true
+  proc decode(data: openArray[byte]) =
+    try: dataPtr[] = snappy.encodeFramed(
+      snappy.decode(data, maxDecompressedDbRecordSize))
+    except CatchableError: success = false
+  db.backend.get(subkey(phase0.SignedBeaconBlock, key), decode).expectDb() and
+    success
+
 # SSZ implementations are separate so as to avoid unnecessary data copies
 proc getBlockSSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
@@ -877,7 +888,7 @@ proc getBlockSZ*(
       snappy.decode(data, maxDecompressedDbRecordSize))
     except CatchableError: success = false
   db.blocks[BeaconBlockFork.Phase0].get(key.data, decode).expectDb() and success or
-    db.v0.getPhase0BlockSSZ(key, data)
+    db.v0.getPhase0BlockSZ(key, data)
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],

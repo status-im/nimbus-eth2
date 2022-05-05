@@ -111,6 +111,7 @@ suite "Beacon chain DB" & preset():
       db.getBlockSZ(root, tmp2, phase0.TrustedSignedBeaconBlock)
       tmp == SSZ.encode(signedBlock)
       tmp2 == encodeFramed(tmp)
+      uncompressedLenFramed(tmp2).isSome
 
     db.delBlock(root)
     check:
@@ -153,6 +154,7 @@ suite "Beacon chain DB" & preset():
       db.getBlockSZ(root, tmp2, altair.TrustedSignedBeaconBlock)
       tmp == SSZ.encode(signedBlock)
       tmp2 == encodeFramed(tmp)
+      uncompressedLenFramed(tmp2).isSome
 
     db.delBlock(root)
     check:
@@ -195,6 +197,7 @@ suite "Beacon chain DB" & preset():
       db.getBlockSZ(root, tmp2, bellatrix.TrustedSignedBeaconBlock)
       tmp == SSZ.encode(signedBlock)
       tmp2 == encodeFramed(tmp)
+      uncompressedLenFramed(tmp2).isSome
 
     db.delBlock(root)
     check:
