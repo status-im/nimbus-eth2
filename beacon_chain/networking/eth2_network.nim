@@ -614,10 +614,10 @@ when useNativeSnappy:
 else:
   include libp2p_streams_backend
 
-func maxChunkSize(t: typedesc[bellatrix.SignedBeaconBlock]): uint32 =
+func maxChunkSize*(t: typedesc[bellatrix.SignedBeaconBlock]): uint32 =
   MAX_CHUNK_SIZE_BELLATRIX
 
-func maxChunkSize(t: typedesc): uint32 =
+func maxChunkSize*(t: typedesc): uint32 =
   MAX_CHUNK_SIZE
 
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,

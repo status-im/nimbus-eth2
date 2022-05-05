@@ -69,6 +69,11 @@ type
 
   BlockRootsList* = List[Eth2Digest, Limit MAX_REQUEST_BLOCKS]
 
+template readChunkPayload*(
+    conn: Connection, peer: Peer, MsgType: type ForkySignedBeaconBlock):
+    Future[NetRes[MsgType]] =
+  readChunkPayload(conn, peer, maxChunkSize(MsgType), MsgType)
+
 proc readChunkPayload*(
     conn: Connection, peer: Peer, maxChunkSize: uint32,
     MsgType: type (ref ForkedSignedBeaconBlock)):
@@ -82,22 +87,19 @@ proc readChunkPayload*(
   # Ignores maxChunkSize; needs to be consistent formal parameters,
   # but this function is where that's determined.
   if contextBytes == peer.network.forkDigests.phase0:
-    let res = await readChunkPayload(
-      conn, peer, MAX_CHUNK_SIZE, phase0.SignedBeaconBlock)
+    let res = await readChunkPayload(conn, peer, phase0.SignedBeaconBlock)
     if res.isOk:
       return ok newClone(ForkedSignedBeaconBlock.init(res.get))
     else:
       return err(res.error)
   elif contextBytes == peer.network.forkDigests.altair:
-    let res = await readChunkPayload(
-      conn, peer, MAX_CHUNK_SIZE, altair.SignedBeaconBlock)
+    let res = await readChunkPayload(conn, peer, altair.SignedBeaconBlock)
     if res.isOk:
       return ok newClone(ForkedSignedBeaconBlock.init(res.get))
     else:
       return err(res.error)
   elif contextBytes == peer.network.forkDigests.bellatrix:
-    let res = await readChunkPayload(
-      conn, peer, MAX_CHUNK_SIZE_BELLATRIX, bellatrix.SignedBeaconBlock)
+    let res = await readChunkPayload(conn, peer, bellatrix.SignedBeaconBlock)
     if res.isOk:
       return ok newClone(ForkedSignedBeaconBlock.init(res.get))
     else:
