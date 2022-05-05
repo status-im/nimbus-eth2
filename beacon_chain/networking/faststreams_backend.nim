@@ -86,6 +86,8 @@ proc readSszValue(s: AsyncInputStream,
 proc readChunkPayload(s: AsyncInputStream,
                       noSnappy: bool,
                       MsgType: type): Future[NetRes[MsgType]] {.async.} =
+  # TODO this needs to sometimes be MAX_CHUNK_SIZE_BELLATRIX, for at least
+  # bellatrix.SignedBeaconBlock
   let prefix = await readSizePrefix(s, MAX_CHUNK_SIZE)
   let size = if prefix.isOk: prefix.value.int
              else: return err(prefix.error)

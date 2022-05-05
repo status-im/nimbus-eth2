@@ -181,7 +181,7 @@ switch("warning", "LockLevel:off")
 # ############################################################
 
 # This applies per-file compiler flags to C files
-# which do not support {.localPassC: "-fno-lto".}
+# which do not support {.localPassc: "-fno-lto".}
 # Unfortunately this is filename based instead of path-based
 # Assumes GCC
 

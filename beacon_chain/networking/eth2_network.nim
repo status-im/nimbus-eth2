@@ -614,6 +614,12 @@ when useNativeSnappy:
 else:
   include libp2p_streams_backend
 
+func maxChunkSize(t: typedesc[bellatrix.SignedBeaconBlock]): uint32 =
+  MAX_CHUNK_SIZE_BELLATRIX
+
+func maxChunkSize(t: typedesc): uint32 =
+  MAX_CHUNK_SIZE
+
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
                      timeout: Duration): Future[NetRes[ResponseMsg]]
@@ -635,7 +641,7 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
     # Read the response
     return
       await readResponse(when useNativeSnappy: libp2pInput(stream) else: stream,
-                         peer, ResponseMsg, timeout)
+                         peer, maxChunkSize(ResponseMsg), ResponseMsg, timeout)
   finally:
     await stream.closeWithEOF()
 
@@ -787,8 +793,10 @@ proc handleIncomingStream(network: Eth2Node,
       NetRes[MsgRec].ok default(MsgRec)
     else:
       try:
-        awaitWithTimeout(readChunkPayload(s, peer, MsgRec), deadline):
-          returnInvalidRequest(errorMsgLit "Request full data not sent in time")
+        awaitWithTimeout(
+          readChunkPayload(s, peer, maxChunkSize(MsgRec), MsgRec), deadline):
+            returnInvalidRequest(
+              errorMsgLit "Request full data not sent in time")
 
       except SerializationError as err:
         returnInvalidRequest err.formatMsg("msg")
@@ -1963,7 +1971,7 @@ template gossipMaxSize(T: untyped): uint32 =
          T is altair.SignedBeaconBlock:
       GOSSIP_MAX_SIZE
     else:
-      {.fatal: "unknown type".}
+      {.fatal: "unknown type " & name(T).}
   static: doAssert maxSize <= maxGossipMaxSize()
   maxSize.uint32
 
