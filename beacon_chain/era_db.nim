@@ -162,9 +162,6 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
 
   # We'll load the full state and compute its root - then we'll load the blocks
   # and make sure that they match the state and that their signatures check out
-  # TODO it's starting to make more and more sense to store state with block
-  #      applied - this makes it trivial to verify a chain of era files simply
-  #      by using the state root found in (era + 1).state_roots
   let
     startSlot = f.stateIdx.startSlot
     era = startSlot.era
