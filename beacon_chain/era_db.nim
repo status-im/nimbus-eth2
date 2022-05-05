@@ -352,28 +352,29 @@ proc getPartialState(
     false
 
 iterator getBlockIds*(
-    db: EraDB, historical_roots: openArray[Eth2Digest], era: Era): BlockId =
-  # The state from which we load block roots is stored in the file corresponding
-  # to the "next" era
-  let fileEra = era + 1
-
+    db: EraDB, historical_roots: openArray[Eth2Digest], startSlot: Slot): BlockId =
   var
     state = (ref PartialBeaconState)() # avoid stack overflow
+    slot = startSlot
 
-  # `case` ensures we're on a fork for which the `PartialBeaconState`
-  # definition is consistent
-  case db.cfg.stateForkAtEpoch(fileEra.start_slot().epoch)
-  of BeaconStateFork.Phase0, BeaconStateFork.Altair, BeaconStateFork.Bellatrix:
-    if not getPartialState(db, historical_roots, fileEra.start_slot(), state[]):
-      state = nil # No `return` in iterators
+  while true:
+    # `case` ensures we're on a fork for which the `PartialBeaconState`
+    # definition is consistent
+    case db.cfg.stateForkAtEpoch(slot.epoch)
+    of BeaconStateFork.Phase0, BeaconStateFork.Altair, BeaconStateFork.Bellatrix:
+      let stateSlot = (slot.era() + 1).start_slot()
+      if not getPartialState(db, historical_roots, stateSlot, state[]):
+        state = nil # No `return` in iterators
 
-  if state != nil:
-    var
-      slot = era.start_slot()
-    for root in state[].block_roots:
+    if state == nil:
+      break
+
+    let
+      x = slot.int mod state[].block_roots.len
+    for i in x..<state[].block_roots.len():
       # TODO these are not actually valid BlockId instances in the case where
       #      the slot is missing a block - use index to filter..
-      yield BlockId(root: root, slot: slot)
+      yield BlockId(root: state[].block_roots[i], slot: slot)
       slot += 1
 
 proc new*(

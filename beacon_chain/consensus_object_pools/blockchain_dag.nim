@@ -873,60 +873,43 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       historical_roots = getStateField(dag.headState, historical_roots).asSeq()
 
     var
-      files = 0
       blocks = 0
       parent: Eth2Digest
 
     # Here, we'll build up the slot->root mapping in memory for the range of
     # blocks from genesis to backfill, if possible.
-    for i in 0'u64..<historical_roots.lenu64():
-      var
-        found = false
-        done = false
+    for summary in dag.era.getBlockIds(historical_roots, Slot(0)):
+      if summary.slot >= dag.backfill.slot:
+        # If we end up in here, we failed the root comparison just below in
+        # an earlier iteration
+        fatal "Era summaries don't lead up to backfill, database or era files corrupt?",
+          slot = summary.slot
+        quit 1
 
-      for summary in dag.era.getBlockIds(historical_roots, Era(i)):
-        if summary.slot >= dag.backfill.slot:
-          # If we end up in here, we failed the root comparison just below in
-          # an earlier iteration
-          fatal "Era summaries don't lead up to backfill, database or era files corrupt?",
-            slot = summary.slot
-          quit 1
+      # In BeaconState.block_roots, empty slots are filled with the root of
+      # the previous block - in our data structure, we use a zero hash instead
+      if summary.root != parent:
+        dag.frontfillBlocks.setLen(summary.slot.int + 1)
+        dag.frontfillBlocks[summary.slot.int] = summary.root
 
-        # In BeaconState.block_roots, empty slots are filled with the root of
-        # the previous block - in our data structure, we use a zero hash instead
-        if summary.root != parent:
-          dag.frontfillBlocks.setLen(summary.slot.int + 1)
-          dag.frontfillBlocks[summary.slot.int] = summary.root
+        if summary.root == dag.backfill.parent_root:
+          # We've reached the backfill point, meaning blocks are available
+          # in the sqlite database from here onwards - remember this point in
+          # time so that we can write summaries to the database - it's a lot
+          # faster to load from database than to iterate over era files with
+          # the current naive era file reader.
+          reset(dag.backfill)
 
-          if summary.root == dag.backfill.parent_root:
-            # We've reached the backfill point, meaning blocks are available
-            # in the sqlite database from here onwards - remember this point in
-            # time so that we can write summaries to the database - it's a lot
-            # faster to load from database than to iterate over era files with
-            # the current naive era file reader.
-            done = true
-            reset(dag.backfill)
+          dag.updateFrontfillBlocks()
 
-            dag.updateFrontfillBlocks()
+          break
 
-            break
+        parent = summary.root
 
-          parent = summary.root
+      blocks += 1
 
-        found = true
-        blocks += 1
-
-      if found:
-        files += 1
-
-      # Try to load as many era files as possible, but stop when there's a
-      # gap - the current logic for loading finalized blocks from the
-      # database is unable to deal with gaps correctly
-      if not found or done: break
-
-    if files > 0:
-      info "Front-filled blocks from era files",
-        files, blocks
+    if blocks > 0:
+      info "Front-filled blocks from era files", blocks
 
   let frontfillTick = Moment.now()
 

@@ -78,7 +78,8 @@ proc appendHeader(f: IoHandle, typ: Type, dataLen: int): Result[int64, string] =
 
   ok(start)
 
-proc appendRecord*(f: IoHandle, typ: Type, data: openArray[byte]): Result[int64, string] =
+proc appendRecord*(
+    f: IoHandle, typ: Type, data: openArray[byte]): Result[int64, string] =
   let start = ? appendHeader(f, typ, data.len())
   ? append(f, data)
   ok(start)
@@ -86,13 +87,16 @@ proc appendRecord*(f: IoHandle, typ: Type, data: openArray[byte]): Result[int64,
 proc toCompressedBytes(item: auto): seq[byte] =
   snappy.encodeFramed(SSZ.encode(item))
 
-proc appendRecord*(f: IoHandle, v: ForkyTrustedSignedBeaconBlock): Result[int64, string] =
+proc appendRecord*(
+    f: IoHandle, v: ForkyTrustedSignedBeaconBlock): Result[int64, string] =
   f.appendRecord(SnappyBeaconBlock, toCompressedBytes(v))
 
 proc appendRecord*(f: IoHandle, v: ForkyBeaconState): Result[int64, string] =
   f.appendRecord(SnappyBeaconState, toCompressedBytes(v))
 
-proc appendIndex*(f: IoHandle, startSlot: Slot, offsets: openArray[int64]): Result[int64, string] =
+proc appendIndex*(
+    f: IoHandle, startSlot: Slot, offsets: openArray[int64]):
+    Result[int64, string] =
   let
     len = offsets.len() * sizeof(int64) + 16
     pos = ? f.appendHeader(E2Index, len)
@@ -220,14 +224,13 @@ proc readIndex*(f: IoHandle): Result[Index, string] =
 
 type
   EraGroup* = object
-    eraStart: int64
     slotIndex*: Index
 
-proc init*(T: type EraGroup, f: IoHandle, startSlot: Option[Slot]): Result[T, string] =
-  let eraStart = ? f.appendHeader(E2Version, 0)
+proc init*(
+    T: type EraGroup, f: IoHandle, startSlot: Option[Slot]): Result[T, string] =
+  discard ? f.appendHeader(E2Version, 0)
 
   ok(EraGroup(
-    eraStart: eraStart,
     slotIndex: Index(
       startSlot: startSlot.get(Slot(0)),
       offsets: newSeq[int64](
@@ -235,16 +238,20 @@ proc init*(T: type EraGroup, f: IoHandle, startSlot: Option[Slot]): Result[T, st
         else: 0
   ))))
 
-proc update*(g: var EraGroup, f: IoHandle, slot: Slot, szBytes: openArray[byte]): Result[void, string] =
+proc update*(
+    g: var EraGroup, f: IoHandle, slot: Slot, szBytes: openArray[byte]):
+    Result[void, string] =
   doAssert slot >= g.slotIndex.startSlot
+  #  doAssert slot < g.slotIndex.startSlot + g.slotIndex.offsets.len
+
   g.slotIndex.offsets[int(slot - g.slotIndex.startSlot)] =
-    try:
-      ? f.appendRecord(SnappyBeaconBlock, szBytes)
-    except CatchableError as e: raiseAssert e.msg # TODO fix snappy
+    ? f.appendRecord(SnappyBeaconBlock, szBytes)
 
   ok()
 
-proc finish*(g: var EraGroup, f: IoHandle, state: ForkyBeaconState): Result[void, string] =
+proc finish*(
+    g: var EraGroup, f: IoHandle, state: ForkyBeaconState):
+    Result[void, string] =
   let
     statePos = ? f.appendRecord(state)
 
