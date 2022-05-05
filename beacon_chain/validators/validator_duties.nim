@@ -101,6 +101,7 @@ proc addLocalValidator(node: BeaconNode, validators: auto,
 
 proc addRemoteValidator(pool: var ValidatorPool, validators: auto,
                         item: KeystoreData) =
+  var clients: seq[(RestClientRef, RemoteSignerInfo)]
   let httpFlags =
     block:
       var res: set[HttpClientFlag]
@@ -109,13 +110,14 @@ proc addRemoteValidator(pool: var ValidatorPool, validators: auto,
                   HttpClientFlag.NoVerifyServerName})
       res
   let prestoFlags = {RestClientFlag.CommaSeparatedArray}
-  let client = RestClientRef.new($item.remoteUrl, prestoFlags, httpFlags)
-  if client.isErr():
-    warn "Unable to resolve remote signer address",
-         remote_url = $item.remoteUrl, validator = item.pubkey
-    return
+  for remote in item.remotes:
+    let client = RestClientRef.new($remote.url, prestoFlags, httpFlags)
+    if client.isErr():
+      warn "Unable to resolve distributed signer address",
+          remote_url = $remote.url, validator = $remote.pubkey
+    clients.add((client.get(), remote))
   let index = findValidator(validators, item.pubkey)
-  pool.addRemoteValidator(item, client.get(), index)
+  pool.addRemoteValidator(item, clients, index)
 
 proc addLocalValidators*(node: BeaconNode,
                          validators: openArray[KeystoreData]) =
@@ -133,7 +135,7 @@ proc addRemoteValidators*(node: BeaconNode,
 proc addValidators*(node: BeaconNode) =
   let (localValidators, remoteValidators) =
     block:
-      var local, remote: seq[KeystoreData]
+      var local, remote, distributed: seq[KeystoreData]
       for keystore in listLoadableKeystores(node.config):
         case keystore.kind
         of KeystoreKind.Local:

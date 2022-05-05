@@ -102,6 +102,9 @@ proc startSingleNodeNetwork {.raises: [CatchableError, Defect].} =
     0, simulationDepositsCount,
     validatorsDir,
     secretsDir,
+    @[],
+    0,
+    0,
     KeystoreMode.Fast)
 
   if deposits.isErr:
@@ -213,7 +216,7 @@ proc listRemoteValidators(validatorsDir,
     for el in listLoadableKeystores(validatorsDir, secretsDir, true,
                                     {KeystoreKind.Remote}):
       validators.add RemoteKeystoreInfo(pubkey: el.pubkey,
-                                        url: el.remoteUrl)
+                                        url: el.remotes[0].url)
 
   except OSError as err:
     error "Failure to list the validator directories",

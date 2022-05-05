@@ -69,6 +69,20 @@ proc deleteRemoteKeysPlain*(body: DeleteKeystoresBody): RestPlainResponse {.
      meth: MethodDelete.}
   ## https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/DeleteRemoteKeys
 
+proc listRemoteDistributedKeysPlain*(): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/remotekeys/distributed",
+     meth: MethodGet.}
+
+proc importRemoteDistributedKeysPlain*(body: ImportDistributedKeystoresBody
+                           ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/remotekeys/distributed",
+     meth: MethodPost.}
+
+proc deleteRemoteDistributedKeysPlain*(body: DeleteKeystoresBody): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/remotekeys/distributed",
+     meth: MethodDelete.}
+
+
 proc listRemoteKeys*(client: RestClientRef,
                      token: string): Future[GetRemoteKeystoresResponse] {.
      async.} =

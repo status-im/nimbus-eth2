@@ -27,7 +27,6 @@ type
 
   StartUpCommand {.pure.} = enum
     deploy
-    drain
     sendEth
     generateSimulationDeposits
     sendDeposits
@@ -56,11 +55,6 @@ type
     of deploy:
       discard
 
-    of drain:
-      drainedContractAddress* {.
-        desc: "Address of the contract to drain"
-        name: "deposit-contract" }: Eth1Address
-
     of sendEth:
       toAddress {.name: "to".}: Eth1Address
       valueEth {.name: "eth".}: string
@@ -82,6 +76,20 @@ type
         desc: "A LaunchPad deposits file to write"
         name: "out-deposits-file" }: OutFile
 
+      threshold {.
+        defaultValue: 1
+        desc: "Used to generate distributed keys"
+        name: "threshold" }: uint32
+
+      remoteValidatorsCount {.
+        defaultValue: 0
+        desc: "The number of distributed validators validator"
+        name: "remote-validators-count" }: uint32
+
+      remoteSignersUrls {.
+        desc: "URLs of the remote signers"
+        name: "remote-signer" }: seq[string]
+
     of sendDeposits:
       depositsFile {.
         desc: "A LaunchPad deposits file"
@@ -101,13 +109,16 @@ type
         desc: "Maximum possible delay between making two deposits (in seconds)"
         name: "max-delay" }: float
 
-contract(DepositContract):
-  proc deposit(pubkey: Bytes48,
-               withdrawalCredentials: Bytes32,
-               signature: Bytes96,
-               deposit_data_root: FixedBytes[32])
+type
+  PubKeyBytes = DynamicBytes[48, 48]
+  WithdrawalCredentialsBytes = DynamicBytes[32, 32]
+  SignatureBytes = DynamicBytes[96, 96]
 
-  proc drain()
+contract(DepositContract):
+  proc deposit(pubkey: PubKeyBytes,
+               withdrawalCredentials: WithdrawalCredentialsBytes,
+               signature: SignatureBytes,
+               deposit_data_root: FixedBytes[32])
 
 proc deployContract*(web3: Web3, code: string): Future[ReceiptObject] {.async.} =
   var code = code
@@ -157,22 +168,23 @@ proc sendDeposits*(deposits: seq[LaunchPadDeposit],
     depositContract = depositContractAddress
 
   var web3 = await initWeb3(web3Url, privateKey)
+  let gasPrice = int(await web3.provider.eth_gasPrice()) * 2
   let depositContract = web3.contractSender(DepositContract,
                                             Address depositContractAddress)
-  for i, launchPadDeposit in deposits:
-    let dp = launchPadDeposit as DepositData
+  for i in 4200 ..< deposits.len:
+    let dp = deposits[i] as DepositData
 
     while true:
       try:
         let tx = depositContract.deposit(
-          Bytes48(dp.pubkey.toRaw()),
-          Bytes32(dp.withdrawal_credentials.data),
-          Bytes96(dp.signature.toRaw()),
+          PubKeyBytes(@(dp.pubkey.toRaw())),
+          WithdrawalCredentialsBytes(@(dp.withdrawal_credentials.data)),
+          SignatureBytes(@(dp.signature.toRaw())),
           FixedBytes[32](hash_tree_root(dp).data))
 
-        let status = await tx.send(value = 32.u256.ethToWei, gasPrice = 1)
+        let status = await tx.send(value = 32.u256.ethToWei, gasPrice = gasPrice)
 
-        info "Deposit sent", status = $status
+        info "Deposit sent", tx = $status
 
         if delayGenerator != nil:
           await sleepAsync(delayGenerator())
@@ -212,7 +224,11 @@ proc main() {.async.} =
       seed,
       0, conf.simulationDepositsCount,
       string conf.outValidatorsDir,
-      string conf.outSecretsDir)
+      string conf.outSecretsDir,
+      conf.remoteSignersUrls,
+      conf.threshold,
+      conf.remoteValidatorsCount,
+      KeystoreMode.Fast)
 
     if deposits.isErr:
       fatal "Failed to generate deposits", err = deposits.error
@@ -256,11 +272,6 @@ proc main() {.async.} =
   of StartUpCommand.deploy:
     let receipt = await web3.deployContract(contractCode)
     echo receipt.contractAddress.get, ";", receipt.blockHash
-
-  of StartUpCommand.drain:
-    let sender = web3.contractSender(DepositContract,
-                                     conf.drainedContractAddress)
-    discard await sender.drain().send(gasPrice = 1)
 
   of StartUpCommand.sendEth:
     echo await sendEth(web3, conf.toAddress, conf.valueEth.parseInt)

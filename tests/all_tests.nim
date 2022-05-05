@@ -40,6 +40,8 @@ import # Unit test
   ./test_sync_committee_pool,
   ./test_sync_manager,
   ./test_zero_signature,
+  ./test_key_splitting,
+  ./test_remote_keystore,
   ./fork_choice/tests_fork_choice,
   ./consensus_spec/all_tests as consensus_all_tests,
   ./slashing_protection/test_fixtures,

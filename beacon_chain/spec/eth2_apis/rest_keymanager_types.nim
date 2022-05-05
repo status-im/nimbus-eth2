@@ -13,6 +13,11 @@ type
     pubkey*: ValidatorPubKey
     url*: HttpHostUri
 
+  DistributedKeystoreInfo* = object
+    threshold*: int
+    pubkey*: ValidatorPubKey
+    remotes*: seq[RemoteSignerInfo]
+
   RequestItemStatus* = object
     status*: string
     message*: string
@@ -31,8 +36,14 @@ type
   GetRemoteKeystoresResponse* = object
     data*: seq[RemoteKeystoreInfo]
 
+  GetDistributedKeystoresResponse* = object
+    data*: seq[DistributedKeystoreInfo]
+
   ImportRemoteKeystoresBody* = object
     remote_keys*: seq[RemoteKeystoreInfo]
+
+  ImportDistributedKeystoresBody* = object
+    remote_keys*: seq[DistributedKeystoreInfo]
 
   PostKeystoresResponse* = object
     data*: seq[RequestItemStatus]

@@ -391,7 +391,9 @@ proc doDeposits*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
       walletPath.wallet.nextAccount,
       config.totalDeposits,
       config.outValidatorsDir,
-      config.outSecretsDir)
+      config.outSecretsDir,
+      @[], 0, 0,
+      KeystoreMode.Fast)
 
     if deposits.isErr:
       fatal "Failed to generate deposits", err = deposits.error

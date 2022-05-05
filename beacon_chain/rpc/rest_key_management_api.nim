@@ -16,8 +16,8 @@ import ".."/spec/eth2_apis/rest_keymanager_types
 
 export rest_utils, results
 
-proc listLocalValidators*(node: BeaconNode): seq[KeystoreInfo] {.
-     raises: [Defect].} =
+proc listLocalValidators*(node: BeaconNode): seq[KeystoreInfo]
+                         {.raises: [Defect].} =
   var validators: seq[KeystoreInfo]
   for item in node.attachedValidators[].items():
     if item.kind == ValidatorKind.Local:
@@ -28,14 +28,25 @@ proc listLocalValidators*(node: BeaconNode): seq[KeystoreInfo] {.
       )
   validators
 
-proc listRemoteValidators*(node: BeaconNode): seq[RemoteKeystoreInfo] {.
-     raises: [Defect].} =
+proc listRemoteValidators*(node: BeaconNode): seq[RemoteKeystoreInfo]
+                          {.raises: [Defect].} =
   var validators: seq[RemoteKeystoreInfo]
   for item in node.attachedValidators[].items():
-    if item.kind == ValidatorKind.Remote:
+    if item.kind == ValidatorKind.Remote and item.data.remotes.len == 1:
       validators.add RemoteKeystoreInfo(
         pubkey: item.pubkey,
-        url: HttpHostUri(item.data.remoteUrl)
+        url: HttpHostUri(item.data.remotes[0].url)
+      )
+  validators
+
+proc listRemoteDistributedValidators*(node: BeaconNode): seq[DistributedKeystoreInfo]
+                                     {.raises: [Defect].} =
+  var validators: seq[DistributedKeystoreInfo]
+  for item in node.attachedValidators[].items():
+    if item.kind == ValidatorKind.Remote and item.data.remotes.len > 1:
+      validators.add DistributedKeystoreInfo(
+        pubkey: item.pubkey,
+        remotes: item.data.remotes
       )
   validators
 
@@ -61,6 +72,34 @@ proc validateUri*(url: string): Result[Uri, cstring] =
   if len(surl.hostname) == 0:
     return err("Empty URL hostname")
   ok(surl)
+
+proc removeValidator(node: BeaconNode,
+                     key: ValidatorPubKey): RemoteKeystoreStatus =
+    let res = removeValidator(node.attachedValidators[], node.config,
+                              key, KeystoreKind.Remote)
+    if res.isOk:
+      case res.value()
+      of RemoveValidatorStatus.deleted:
+        return RemoteKeystoreStatus(status: KeystoreStatus.deleted)
+      of RemoveValidatorStatus.notFound:
+        return RemoteKeystoreStatus(status: KeystoreStatus.notFound)
+    else:
+      return RemoteKeystoreStatus(status: KeystoreStatus.error,
+                                  message: some($res.error()))
+
+proc addRemoteValidator(node: BeaconNode,
+                        keystore: RemoteKeystore): RequestItemStatus =
+  let res = importKeystore(node.attachedValidators[], node.config, keystore)
+  if res.isErr():
+    case res.error().status
+    of AddValidatorStatus.failed:
+      return RequestItemStatus(status: $KeystoreStatus.error,
+                               message: $res.error().message)
+    of AddValidatorStatus.existingArtifacts:
+      return RequestItemStatus(status: $KeystoreStatus.duplicate)
+  else:
+    node.addRemoteValidators([res.get()])
+    return RequestItemStatus(status: $KeystoreStatus.imported)
 
 proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/keymanager-APIs/#/Keymanager/ListKeys
@@ -216,25 +255,17 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
     var response: PostKeystoresResponse
 
     for index, key in keys.pairs():
-      let keystore = RemoteKeystore(
-        version: 1'u64, remoteType: RemoteSignerType.Web3Signer,
-        pubkey: key.pubkey, remote: key.url
-      )
-      let res = importKeystore(node.attachedValidators[], node.config,
-                               keystore)
-      if res.isErr():
-        case res.error().status
-        of AddValidatorStatus.failed:
-          response.data.add(
-            RequestItemStatus(status: $KeystoreStatus.error,
-                              message: $res.error().message))
-        of AddValidatorStatus.existingArtifacts:
-          response.data.add(
-            RequestItemStatus(status: $KeystoreStatus.duplicate))
-      else:
-        node.addRemoteValidators([res.get()])
-        response.data.add(
-          RequestItemStatus(status: $KeystoreStatus.imported))
+      let
+        remoteInfo = RemoteSignerInfo(
+          url: key.url,
+          pubkey: key.pubkey,
+          id: 0)
+        keystore = RemoteKeystore(
+          version: 1'u64, remoteType: RemoteSignerType.Web3Signer,
+          pubkey: key.pubkey, remotes: @[remoteInfo])
+        status = node.addRemoteValidator(keystore)
+
+      response.data.add(status)
 
     return RestApiResponse.jsonResponsePlain(response)
 
@@ -255,25 +286,75 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $dres.error())
         dres.get().pubkeys
 
-    let response =
+    var response: DeleteRemoteKeystoresResponse
+    for index, key in keys.pairs():
+      let status = node.removeValidator(key)
+      response.data.add(status)
+    return RestApiResponse.jsonResponsePlain(response)
+
+  # TODO: These URLs will be changed once we submit a proposal for
+  #       /api/eth/v2/remotekeys that supports distributed keys.
+  router.api(MethodGet, "/api/eth/v1/remotekeys/distributed") do () -> RestApiResponse:
+    let authStatus = checkAuthorization(request, node)
+    if authStatus.isErr():
+      return RestApiResponse.jsonError(Http401, InvalidAuthorization,
+                                       $authStatus.error())
+    let response = GetDistributedKeystoresResponse(data: listRemoteDistributedValidators(node))
+    return RestApiResponse.jsonResponsePlain(response)
+
+  # TODO: These URLs will be changed once we submit a proposal for
+  #       /api/eth/v2/remotekeys that supports distributed keys.
+  router.api(MethodPost, "/api/eth/v1/remotekeys/distributed") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, node)
+    if authStatus.isErr():
+      return RestApiResponse.jsonError(Http401, InvalidAuthorization,
+                                       $authStatus.error())
+    let keys =
       block:
-        var resp: DeleteRemoteKeystoresResponse
-        for index, key in keys.pairs():
-          let res = removeValidator(node.attachedValidators[], node.config, key,
-                                    KeystoreKind.Remote)
-          if res.isOk:
-            case res.value()
-            of RemoveValidatorStatus.deleted:
-              resp.data.add(
-                RemoteKeystoreStatus(status: KeystoreStatus.deleted))
-            of RemoveValidatorStatus.notFound:
-              resp.data.add(
-                RemoteKeystoreStatus(status: KeystoreStatus.notFound))
-          else:
-            resp.data.add(
-              RemoteKeystoreStatus(status: KeystoreStatus.error,
-                                   message: some($res.error())))
-        resp
+        if contentBody.isNone():
+          return RestApiResponse.jsonError(Http404, EmptyRequestBodyError)
+        let dres = decodeBody(ImportDistributedKeystoresBody, contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidKeystoreObjects,
+                                           $dres.error())
+        dres.get.remote_keys
+
+    var response: PostKeystoresResponse
+
+    for index, key in keys.pairs():
+      let keystore = RemoteKeystore(
+        version: 2'u64,
+        remoteType: RemoteSignerType.Web3Signer,
+        pubkey: key.pubkey,
+        remotes: key.remotes,
+        threshold: uint32 key.threshold
+      )
+      let status = node.addRemoteValidator(keystore)
+      response.data.add(status)
+
+    return RestApiResponse.jsonResponsePlain(response)
+
+  router.api(MethodDelete, "/api/eth/v1/remotekeys/distributed") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, node)
+    if authStatus.isErr():
+      return RestApiResponse.jsonError(Http401, InvalidAuthorization,
+                                       $authStatus.error())
+    let keys =
+      block:
+        if contentBody.isNone():
+          return RestApiResponse.jsonError(Http404, EmptyRequestBodyError)
+        let dres = decodeBody(DeleteKeystoresBody, contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidValidatorPublicKey,
+                                           $dres.error())
+        dres.get.pubkeys
+
+    var response: DeleteRemoteKeystoresResponse
+    for index, key in keys.pairs():
+      let status = node.removeValidator(key)
+      response.data.add(status)
 
     return RestApiResponse.jsonResponsePlain(response)
 
@@ -306,3 +387,18 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
     MethodDelete,
     "/eth/v1/remotekeys",
     "/api/eth/v1/remotekeys")
+
+  router.redirect(
+    MethodGet,
+    "/eth/v1/remotekeys/distributed",
+    "/api/eth/v1/remotekeys/distributed")
+
+  router.redirect(
+    MethodPost,
+    "/eth/v1/remotekeys/distributed",
+    "/api/eth/v1/remotekeys/distributed")
+
+  router.redirect(
+    MethodDelete,
+    "/eth/v1/remotekeys/distributed",
+    "/api/eth/v1/remotekeys/distributed")
