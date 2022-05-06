@@ -13,13 +13,16 @@
 import
   # Status libraries
   stew/bitops2,
+  chronos,
   # Beacon chain internals
   ../spec/datatypes/altair,
   ./block_dag
 
 type
-  OnOptimisticLightClientUpdateCallback* =
-    proc(data: OptimisticLightClientUpdate) {.gcsafe, raises: [Defect].}
+  OnLightClientFinalityUpdateCallback* =
+    proc(data: altair.LightClientFinalityUpdate) {.gcsafe, raises: [Defect].}
+  OnLightClientOptimisticUpdateCallback* =
+    proc(data: altair.LightClientOptimisticUpdate) {.gcsafe, raises: [Defect].}
 
   ImportLightClientData* {.pure.} = enum
     ## Controls which classes of light client data are imported.
@@ -30,18 +33,17 @@ type
     Full = "full"
       ## Import light client data for entire weak subjectivity period.
     OnDemand = "on-demand"
-      ## No precompute of historic data. Is slow and may miss validator duties.
+      ## Don't precompute historic data. Slow, may miss validator duties.
 
   CachedLightClientData* = object
     ## Cached data from historical non-finalized states to improve speed when
     ## creating future `LightClientUpdate` and `LightClientBootstrap` instances.
     current_sync_committee_branch*:
       array[log2trunc(altair.CURRENT_SYNC_COMMITTEE_INDEX), Eth2Digest]
-
     next_sync_committee_branch*:
       array[log2trunc(altair.NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
 
-    finalized_bid*: BlockId
+    finalized_slot*: Slot
     finality_branch*:
       array[log2trunc(altair.FINALIZED_ROOT_INDEX), Eth2Digest]
 
@@ -55,40 +57,44 @@ type
     data*: Table[BlockId, CachedLightClientData]
       ## Cached data for creating future `LightClientUpdate` instances.
       ## Key is the block ID of which the post state was used to get the data.
-      ## Data is stored for the most recent 4 finalized checkpoints, as well as
-      ## for all non-finalized blocks.
+      ## Data stored for the finalized head block and all non-finalized blocks.
 
     bootstrap*: Table[Slot, CachedLightClientBootstrap]
       ## Cached data for creating future `LightClientBootstrap` instances.
       ## Key is the block slot of which the post state was used to get the data.
-      ## Data is stored for finalized epoch boundary blocks.
+      ## Data stored for all finalized epoch boundary blocks.
 
-    latestCheckpoints*: array[4, Checkpoint]
-      ## Keeps track of the latest four `finalized_checkpoint` references
-      ## leading to `finalizedHead`. Used to prune `data`.
-      ## Non-finalized states may only refer to these checkpoints.
-
-    lastCheckpointIndex*: int
-      ## Last index that was modified in `latestCheckpoints`.
-
-    bestUpdates*: Table[SyncCommitteePeriod, altair.LightClientUpdate]
+    best*: Table[SyncCommitteePeriod, altair.LightClientUpdate]
       ## Stores the `LightClientUpdate` with the most `sync_committee_bits` per
-      ## `SyncCommitteePeriod`. Updates with a finality proof have precedence.
+      ## `SyncCommitteePeriod`. Sync committee finality gives precedence.
 
-    pendingBestUpdates*:
+    pendingBest*:
       Table[(SyncCommitteePeriod, Eth2Digest), altair.LightClientUpdate]
-      ## Same as `bestUpdates`, but for `SyncCommitteePeriod` with
-      ## `next_sync_committee` that are not finalized. Key is `(period,
+      ## Same as `best`, but for `SyncCommitteePeriod` with not yet finalized
+      ## `next_sync_committee`. Key is `(attested_period,
       ## hash_tree_root(current_sync_committee | next_sync_committee)`.
 
-    latestUpdate*: altair.LightClientUpdate
-      ## Tracks the `LightClientUpdate` for the latest slot. This may be older
-      ## than head for empty slots or if not signed by sync committee.
-
-    optimisticUpdate*: OptimisticLightClientUpdate
-      ## Tracks the `OptimisticLightClientUpdate` for the latest slot. This may
-      ## be older than head for empty slots or if not signed by sync committee.
+    latest*: altair.LightClientFinalityUpdate
+      ## Tracks light client data for the latest slot that was signed by
+      ## at least `MIN_SYNC_COMMITTEE_PARTICIPANTS`. May be older than head.
 
     importTailSlot*: Slot
-      ## The earliest slot for which light client data is collected.
-      ## Only relevant for `ImportLightClientData.OnlyNew`.
+      ## The earliest slot for which light client data is imported.
+
+    latestForwardedFinalitySlot*: Slot
+      ## Latest finality update that was forwarded on libp2p gossip.
+      ## Tracks `finality_update.finalized_header.slot`.
+
+    latestForwardedOptimisticSlot*: Slot
+      ## Latest optimistic update that was forwarded on libp2p gossip.
+      ## Tracks `optimistic_update.attested_header.slot`.
+
+    latestBroadcastedSlot*: Slot
+      ## Latest slot for which updates were broadcasted on libp2p gossip.
+      ## Tracks `update.signature_slot`.
+
+    broadcastGossipFut*: Future[void]
+      ## Task to broadcast libp2p gossip. Started when a sync committee message
+      ## is sent. Tracked separately from `handleValidatorDuties` to catch the
+      ## case where `node.attachedValidators[].count == 0` at function start,
+      ## and then a sync committee message gets sent from a remote VC via REST.

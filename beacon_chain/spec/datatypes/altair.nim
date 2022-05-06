@@ -160,53 +160,74 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientbootstrap
   LightClientBootstrap* = object
-    header*: BeaconBlockHeader ##\
-    ## The requested beacon block header
+    # The requested beacon block header
+    header*: BeaconBlockHeader
 
-    # Current sync committee corresponding to the requested header
+    # Current sync committee corresponding to `header`
     current_sync_committee*: SyncCommittee
     current_sync_committee_branch*:
       array[log2trunc(CURRENT_SYNC_COMMITTEE_INDEX), Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
-    attested_header*: BeaconBlockHeader ##\
-    ## The beacon block header that is attested to by the sync committee
+    # The beacon block header that is attested to by the sync committee
+    attested_header*: BeaconBlockHeader
 
-    # Next sync committee corresponding to the active header,
-    # if signature is from current sync committee
+    # Next sync committee corresponding to `attested_header`
     next_sync_committee*: SyncCommittee
     next_sync_committee_branch*:
       array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
 
     # The finalized beacon block header attested to by Merkle branch
     finalized_header*: BeaconBlockHeader
-    finality_branch*: array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
+    finality_branch*:
+      array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
 
     # Sync committee aggregate signature
     sync_aggregate*: SyncAggregate
+    # Slot at which the aggregate signature was created (untrusted)
+    signature_slot*: Slot
 
-    fork_version*: Version ##\
-    ## Fork version for the aggregate signature
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientfinalityupdate
+  LightClientFinalityUpdate* = object
+    # The beacon block header that is attested to by the sync committee
+    attested_header*: BeaconBlockHeader
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#optimisticlightclientupdate
-  OptimisticLightClientUpdate* = object
-    attested_header*: BeaconBlockHeader ##\
-    ## The beacon block header that is attested to by the sync committee
+    # The finalized beacon block header attested to by Merkle branch
+    finalized_header*: BeaconBlockHeader
+    finality_branch*:
+      array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
 
-    sync_aggregate*: SyncAggregate ##\
-    ## Sync committee aggregate signature
+    # Sync committee aggregate signature
+    sync_aggregate*: SyncAggregate
+    # Slot at which the aggregate signature was created (untrusted)
+    signature_slot*: Slot
 
-    fork_version*: Version ##\
-    ## Fork version for the aggregate signature
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientoptimisticupdate
+  LightClientOptimisticUpdate* = object
+    # The beacon block header that is attested to by the sync committee
+    attested_header*: BeaconBlockHeader
 
-    is_signed_by_next_sync_committee*: bool ##\
-    ## Whether the signature was produced by `attested_header`'s next sync committee
+    # Sync committee aggregate signature
+    sync_aggregate*: SyncAggregate
+    # Slot at which the aggregate signature was created (untrusted)
+    signature_slot*: Slot
+
+  SomeLightClientUpdateWithSyncCommittee* =
+    LightClientUpdate
+
+  SomeLightClientUpdateWithFinality* =
+    LightClientUpdate |
+    LightClientFinalityUpdate
+
+  SomeLightClientUpdate* =
+    LightClientUpdate |
+    LightClientFinalityUpdate |
+    LightClientOptimisticUpdate
 
   SomeLightClientObject* =
     LightClientBootstrap |
-    LightClientUpdate |
-    OptimisticLightClientUpdate
+    SomeLightClientUpdate
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#lightclientstore
   LightClientStore* = object
@@ -612,37 +633,104 @@ chronicles.formatIt SyncCommitteeContribution: shortLog(it)
 chronicles.formatIt ContributionAndProof: shortLog(it)
 chronicles.formatIt SignedContributionAndProof: shortLog(it)
 
-template hash*(x: LightClientUpdate): Hash =
-  hash(x.header)
-
 func shortLog*(v: LightClientBootstrap): auto =
   (
     header: shortLog(v.header)
   )
 
 func shortLog*(v: LightClientUpdate): auto =
-  # `next_sync_committee` is set when the current sync committee is signing.
-  # When the next sync committee is signing instead, this field is kept empty,
-  # as it cannot be verified without already knowing the next sync committee.
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientupdate
-  let is_signed_by_next_sync_committee = v.next_sync_committee.isZeroMemory
+  (
+    attested: shortLog(v.attested_header),
+    has_next_sync_committee: not v.next_sync_committee.isZeroMemory,
+    finalized: shortLog(v.finalized_header),
+    num_active_participants: countOnes(v.sync_aggregate.sync_committee_bits),
+    signature_slot: v.signature_slot
+  )
+
+func shortLog*(v: LightClientFinalityUpdate): auto =
   (
     attested: shortLog(v.attested_header),
     finalized: shortLog(v.finalized_header),
     num_active_participants: countOnes(v.sync_aggregate.sync_committee_bits),
-    is_signed_by_next: is_signed_by_next_sync_committee
+    signature_slot: v.signature_slot
   )
 
-func shortLog*(v: OptimisticLightClientUpdate): auto =
+func shortLog*(v: LightClientOptimisticUpdate): auto =
   (
-    attested_header: shortLog(v.attested_header),
+    attested: shortLog(v.attested_header),
     num_active_participants: countOnes(v.sync_aggregate.sync_committee_bits),
-    is_signed_by_next: v.is_signed_by_next_sync_committee
+    signature_slot: v.signature_slot,
   )
 
 chronicles.formatIt LightClientBootstrap: shortLog(it)
 chronicles.formatIt LightClientUpdate: shortLog(it)
-chronicles.formatIt OptimisticLightClientUpdate: shortLog(it)
+chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
+chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
+
+template toFull*(
+    update: SomeLightClientUpdate): LightClientUpdate =
+  when update is LightClientUpdate:
+    update
+  elif update is SomeLightClientUpdateWithFinality:
+    LightClientUpdate(
+      attested_header: update.attested_header,
+      finalized_header: update.finalized_header,
+      finality_branch: update.finality_branch,
+      sync_aggregate: update.sync_aggregate,
+      signature_slot: update.signature_slot)
+  else:
+    LightClientUpdate(
+      attested_header: update.attested_header,
+      sync_aggregate: update.sync_aggregate,
+      signature_slot: update.signature_slot)
+
+template toFinality*(
+    update: SomeLightClientUpdate): LightClientFinalityUpdate =
+  when update is LightClientFinalityUpdate:
+    update
+  elif update is SomeLightClientUpdateWithFinality:
+    LightClientFinalityUpdate(
+      attested_header: update.attested_header,
+      finalized_header: update.finalized_header,
+      finality_branch: update.finality_branch,
+      sync_aggregate: update.sync_aggregate,
+      signature_slot: update.signature_slot)
+  else:
+    LightClientFinalityUpdate(
+      attested_header: update.attested_header,
+      sync_aggregate: update.sync_aggregate,
+      signature_slot: update.signature_slot)
+
+template toOptimistic*(
+    update: SomeLightClientUpdate): LightClientOptimisticUpdate =
+  when update is LightClientOptimisticUpdate:
+    update
+  else:
+    LightClientOptimisticUpdate(
+      attested_header: update.attested_header,
+      sync_aggregate: update.sync_aggregate,
+      signature_slot: update.signature_slot)
+
+func matches*[A, B: SomeLightClientUpdate](a: A, b: B): bool =
+  if a.attested_header != b.attested_header:
+    return false
+  when a is SomeLightClientUpdateWithSyncCommittee and
+      b is SomeLightClientUpdateWithSyncCommittee:
+    if a.next_sync_committee != b.next_sync_committee:
+      return false
+    if a.next_sync_committee_branch != b.next_sync_committee_branch:
+      return false
+  when a is SomeLightClientUpdateWithFinality and
+      b is SomeLightClientUpdateWithFinality:
+    if a.finalized_header != b.finalized_header:
+      return false
+    if a.finality_branch != b.finality_branch:
+      return false
+  if a.sync_aggregate != b.sync_aggregate:
+    return false
+  if a.signature_slot != b.signature_slot:
+    return false
+  true
 
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)

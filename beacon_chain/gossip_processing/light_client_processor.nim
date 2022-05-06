@@ -33,17 +33,21 @@ type
     ## This manages the processing of received light client objects
     ##
     ## from:
-    ## - Gossip (`OptimisticLightClientUpdate`)
-    ## - SyncManager (`BestLightClientUpdatesByRange`)
-    ## - LightClientManager (`GetLatestLightClientUpdate`,
-    ##   `GetOptimisticLightClientUpdate`, `GetLightClientBootstrap`)
+    ## - Gossip:
+    ##   - `LightClientFinalityUpdate`
+    ##   - `LightClientOptimisticUpdate`
+    ## - `LightClientManager`:
+    ##   - `GetLightClientBootstrap`
+    ##   - `LightClientUpdatesByRange`
+    ##   - `GetLightClientFinalityUpdate`
+    ##   - `GetLightClientOptimisticUpdate`
     ##
     ## are then verified and added to:
     ## - `LightClientStore`
     ##
     ## The processor will also attempt to force-update the light client state
     ## if no update seems to be available on the network, that is both signed by
-    ## a supermajority of sync committee members and also has a finality proof.
+    ## a supermajority of sync committee members and also improves finality.
     ## This logic is triggered if there is no progress for an extended period
     ## of time, and there are repeated messages indicating that this is the best
     ## available data on the network during that time period.
@@ -131,17 +135,17 @@ proc tryForceUpdate(
     store = self.store
 
   if store[].isSome:
-    case store[].get.process_slot_for_light_client_store(wallSlot)
+    case store[].get.try_light_client_store_force_update(wallSlot)
     of NoUpdate:
       discard
-    of UpdatedWithoutSupermajority:
-      warn "Light client force-update without supermajority",
-        localHeadSlot = store[].get.optimistic_header.slot,
-        finalized = store[].get.finalized_header
-    of UpdatedWithoutFinalityProof:
-      warn "Light client force-update without finality proof",
-        localHeadSlot = store[].get.optimistic_header.slot,
-        finalized = store[].get.finalized_header
+    of DidUpdateWithoutSupermajority:
+      warn "Light client force-updated without supermajority",
+        finalizedSlot = store[].get.finalized_header.slot,
+        optimisticSlot = store[].get.optimistic_header.slot
+    of DidUpdateWithoutFinality:
+      warn "Light client force-updated without finality proof",
+        finalizedSlot = store[].get.finalized_header.slot,
+        optimisticSlot = store[].get.optimistic_header.slot
 
 proc storeObject*(
     self: var LightClientProcessor,
@@ -167,18 +171,11 @@ proc storeObject*(
           else:
             store[] = some(initRes.get)
             ok()
-      elif obj is altair.LightClientUpdate:
+      elif obj is SomeLightClientUpdate:
         if store[].isNone:
           err(BlockError.MissingParent)
         else:
           store[].get.process_light_client_update(
-            obj, wallSlot, self.cfg, self.genesis_validators_root,
-            allowForceUpdate = false)
-      elif obj is altair.OptimisticLightClientUpdate:
-        if store[].isNone:
-          err(BlockError.MissingParent)
-        else:
-          store[].get.process_optimistic_light_client_update(
             obj, wallSlot, self.cfg, self.genesis_validators_root)
 
   self.dumpObject(obj, res)
@@ -186,27 +183,15 @@ proc storeObject*(
   if res.isErr:
     when obj is altair.LightClientUpdate:
       if store[].isSome and store[].get.best_valid_update.isSome:
-        # `best_valid_update` gets set when no supermajority / finality proof
-        # is available. In that case, we will wait for a better update.
-        # If none is made available within reasonable time, the light client
-        # is force-updated using the best known data to ensure sync progress.
+        # `best_valid_update` gets set when no supermajority / improved finality
+        # is available. In that case, we will wait for a better update that once
+        # again fulfills those conditions. If none is received within reasonable
+        # time, the light client store is force-updated to `best_valid_update`.
         case res.error
         of BlockError.Duplicate:
           if wallTime >= self.lastDuplicateTick + duplicateRateLimit:
             if self.numDuplicatesSinceProgress < minForceUpdateDuplicates:
-              let
-                finalized_period =
-                  store[].get.finalized_header.slot.sync_committee_period
-                update_period =
-                  obj.get_active_header().slot.sync_committee_period
-                is_next_sync_committee_known =
-                  not store[].get.next_sync_committee.isZeroMemory
-                update_can_advance_period =
-                  if is_next_sync_committee_known:
-                    update_period == finalized_period + 1
-                  else:
-                    update_period == finalized_period
-              if update_can_advance_period:
+              if obj.matches(store[].get.best_valid_update.get):
                 self.lastDuplicateTick = wallTime
                 inc self.numDuplicatesSinceProgress
             if self.numDuplicatesSinceProgress >= minForceUpdateDuplicates and
@@ -234,10 +219,14 @@ proc storeObject*(
   let objSlot =
     when obj is altair.LightClientBootstrap:
       obj.header.slot
+    elif obj is SomeLightClientUpdateWithFinality:
+      obj.finalized_header.slot
     else:
       obj.attested_header.slot
-  debug "Light client object processed", kind = typeof(obj).name,
-    localHeadSlot = store[].get.optimistic_header.slot,
+  debug "Light client object processed",
+    finalizedSlot = store[].get.finalized_header.slot,
+    optimisticSlot = store[].get.optimistic_header.slot,
+    kind = typeof(obj).name,
     objectSlot = objSlot,
     storeObjectDur
 
@@ -261,10 +250,14 @@ proc addObject*(
   #   Only one object is validated at any time -
   #   Light client objects are always "fast" to process
   # Producers:
-  # - Gossip (`OptimisticLightClientUpdate`)
-  # - SyncManager (`BestLightClientUpdatesByRange`)
-  # - LightClientManager (`GetLatestLightClientUpdate`,
-  #   `GetOptimisticLightClientUpdate`, `GetLightClientBootstrap`)
+  # - Gossip:
+  #   - `LightClientFinalityUpdate`
+  #   - `LightClientOptimisticUpdate`
+  # - `LightClientManager`:
+  #   - `GetLightClientBootstrap`
+  #   - `LightClientUpdatesByRange`
+  #   - `GetLightClientFinalityUpdate`
+  #   - `GetLightClientOptimisticUpdate`
 
   let
     wallTime = self.getBeaconTime()

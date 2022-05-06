@@ -619,8 +619,10 @@ proc sendResponseChunkBytes(
   inc response.writtenChunks
   response.stream.writeChunk(some Success, payload, contextBytes)
 
-proc sendResponseChunk*(response: UntypedResponse, val: auto): Future[void] =
-  sendResponseChunkBytes(response, SSZ.encode(val))
+proc sendResponseChunk*(
+    response: UntypedResponse, val: auto,
+    contextBytes: openArray[byte] = []): Future[void] =
+  sendResponseChunkBytes(response, SSZ.encode(val), contextBytes)
 
 template sendUserHandlerResultAsChunkImpl*(stream: Connection,
                                            handlerResultFut: Future): untyped =
@@ -862,19 +864,23 @@ proc init*[MsgType](T: type SingleChunkResponse[MsgType],
                     peer: Peer, conn: Connection): T =
   T(UntypedResponse(peer: peer, stream: conn))
 
-template write*[M](r: MultipleChunksResponse[M], val: M): untyped =
+template write*[M](
+    r: MultipleChunksResponse[M], val: M,
+    contextBytes: openArray[byte] = []): untyped =
   mixin sendResponseChunk
-  sendResponseChunk(UntypedResponse(r), val)
+  sendResponseChunk(UntypedResponse(r), val, contextBytes)
 
 template writeBytesSZ*[M](
     r: MultipleChunksResponse[M], uncompressedLen: uint64,
     bytes: openArray[byte], contextBytes: openArray[byte]): untyped =
   sendResponseChunkBytesSZ(UntypedResponse(r), uncompressedLen, bytes, contextBytes)
 
-template send*[M](r: SingleChunkResponse[M], val: M): untyped =
+template send*[M](
+    r: SingleChunkResponse[M], val: M,
+    contextBytes: openArray[byte] = []): untyped =
   mixin sendResponseChunk
   doAssert UntypedResponse(r).writtenChunks == 0
-  sendResponseChunk(UntypedResponse(r), val)
+  sendResponseChunk(UntypedResponse(r), val, contextBytes)
 
 proc performProtocolHandshakes*(peer: Peer, incoming: bool) {.async.} =
   # Loop down serially because it's easier to reason about the connection state
@@ -2551,16 +2557,14 @@ proc broadcastSignedContributionAndProof*(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, msg)
 
-proc broadcastOptimisticLightClientUpdate*(
-    node: Eth2Node, msg: OptimisticLightClientUpdate) =
-  let
-    forkDigest =
-      if msg.fork_version == node.cfg.SHARDING_FORK_VERSION:
-        node.forkDigests.sharding
-      elif msg.fork_version == node.cfg.BELLATRIX_FORK_VERSION:
-        node.forkDigests.bellatrix
-      else:
-        doAssert msg.fork_version == node.cfg.ALTAIR_FORK_VERSION
-        node.forkDigests.altair
-    topic = getOptimisticLightClientUpdateTopic(forkDigest)
+proc broadcastLightClientFinalityUpdate*(
+    node: Eth2Node, msg: altair.LightClientFinalityUpdate) =
+  let topic = getLightClientFinalityUpdateTopic(
+    node.forkDigestAtEpoch(msg.attested_header.slot.epoch))
+  node.broadcast(topic, msg)
+
+proc broadcastLightClientOptimisticUpdate*(
+    node: Eth2Node, msg: altair.LightClientOptimisticUpdate) =
+  let topic = getLightClientOptimisticUpdateTopic(
+    node.forkDigestAtEpoch(msg.attested_header.slot.epoch))
   node.broadcast(topic, msg)

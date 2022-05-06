@@ -845,6 +845,11 @@ OK: 35/35 Fail: 0/35 Skip: 0/35
   All tests                                                                                  Skip
 ```
 OK: 0/1 Fail: 0/1 Skip: 1/1
+## EF - Altair - Sync protocol - Update ranking [Preset: minimal]
+```diff
+  All tests                                                                                  Skip
+```
+OK: 0/1 Fail: 0/1 Skip: 1/1
 ## EF - Altair - Unittests - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -1292,4 +1297,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 30/30 Fail: 0/30 Skip: 0/30
 
 ---TOTAL---
-OK: 1085/1106 Fail: 0/1106 Skip: 21/1106
+OK: 1085/1107 Fail: 0/1107 Skip: 22/1107

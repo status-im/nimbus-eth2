@@ -54,7 +54,7 @@ suite "Light client processor" & preset():
       doAssert added.isOk()
       dag.updateHead(added[], quarantine[])
 
-  addBlocks(SLOTS_PER_EPOCH, 0.75)
+  addBlocks(SLOTS_PER_EPOCH, 0.82)
   let
     genesis_validators_root = dag.genesis_validators_root
     trustedBlockRoot = dag.head.root
@@ -71,9 +71,9 @@ suite "Light client processor" & preset():
                            cache, info, flags = {}).isOk()
     let syncCommitteeRatio =
       if period > lastPeriodWithSupermajority:
-        0.25
+        0.52
       else:
-        0.75
+        0.82
     addBlocks(numFilledEpochsPerPeriod * SLOTS_PER_EPOCH, syncCommitteeRatio)
 
   setup:
@@ -93,7 +93,7 @@ suite "Light client processor" & preset():
         store, getBeaconTime, didInitializeStore)
       res: Result[void, BlockError]
 
-  test "Standard sync" & preset():
+  test "Sync" & preset():
     let bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
     check bootstrap.isOk
     setTimeToSlot(bootstrap.get.header.slot)
@@ -104,63 +104,34 @@ suite "Light client processor" & preset():
       numDidInitializeStoreCalls == 1
 
     for period in lowPeriod .. lastPeriodWithSupermajority:
-      let update = dag.getBestLightClientUpdateForPeriod(period)
+      let update = dag.getLightClientUpdateForPeriod(period)
       check update.isSome
-      setTimeToSlot(update.get.attested_header.slot + 1)
+      setTimeToSlot(update.get.signature_slot)
       res = processor[].storeObject(
         MsgSource.gossip, getBeaconTime(), update.get)
       check:
         res.isOk
         store[].isSome
-        store[].get.finalized_header == update.get.finalized_header
-        store[].get.optimistic_header == update.get.attested_header
-
-  test "Forced update" & preset():
-    let bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
-    check bootstrap.isOk
-    setTimeToSlot(bootstrap.get.header.slot)
-    res = processor[].storeObject(
-      MsgSource.gossip, getBeaconTime(), bootstrap.get)
-    check:
-      res.isOk
-      numDidInitializeStoreCalls == 1
-
-    for period in lowPeriod .. lastPeriodWithSupermajority:
-      let update = dag.getBestLightClientUpdateForPeriod(period)
-      check update.isSome
-      setTimeToSlot(update.get.attested_header.slot + 1)
-      res = processor[].storeObject(
-        MsgSource.gossip, getBeaconTime(), update.get)
-      check:
-        res.isOk
-        store[].isSome
-        store[].get.finalized_header == update.get.finalized_header
+        if update.get.finalized_header.slot > bootstrap.get.header.slot:
+          store[].get.finalized_header == update.get.finalized_header
+        else:
+          store[].get.finalized_header == bootstrap.get.header
         store[].get.optimistic_header == update.get.attested_header
 
     for period in lastPeriodWithSupermajority + 1 .. highPeriod:
-      let update = dag.getBestLightClientUpdateForPeriod(period)
+      let update = dag.getLightClientUpdateForPeriod(period)
       check update.isSome
-      setTimeToSlot(update.get.attested_header.slot + 1)
-      res = processor[].storeObject(
-        MsgSource.gossip, getBeaconTime(), update.get)
-      check:
-        res.isOk
-        store[].isSome
-        store[].get.best_valid_update.isSome
-        store[].get.best_valid_update.get == update.get
+      setTimeToSlot(update.get.signature_slot)
 
-      res = processor[].storeObject(
-        MsgSource.gossip, getBeaconTime(), update.get)
-      check:
-        res.isErr
-        res.error == BlockError.Duplicate
-        store[].isSome
-        store[].get.best_valid_update.isSome
-        store[].get.best_valid_update.get == update.get
-      time += chronos.minutes(15)
+      for i in 0 ..< 2:
+        res = processor[].storeObject(
+          MsgSource.gossip, getBeaconTime(), update.get)
+        check:
+          res.isOk
+          store[].isSome
+          store[].get.best_valid_update.isSome
+          store[].get.best_valid_update.get == update.get
 
-      for _ in 0 ..< 150:
-        time += chronos.seconds(5)
         res = processor[].storeObject(
           MsgSource.gossip, getBeaconTime(), update.get)
         check:
@@ -169,27 +140,48 @@ suite "Light client processor" & preset():
           store[].isSome
           store[].get.best_valid_update.isSome
           store[].get.best_valid_update.get == update.get
+        time += chronos.minutes(15)
 
-      time += chronos.minutes(15)
+        for _ in 0 ..< 150:
+          time += chronos.seconds(5)
+          res = processor[].storeObject(
+            MsgSource.gossip, getBeaconTime(), update.get)
+          check:
+            res.isErr
+            res.error == BlockError.Duplicate
+            store[].isSome
+            store[].get.best_valid_update.isSome
+            store[].get.best_valid_update.get == update.get
 
-      res = processor[].storeObject(
-        MsgSource.gossip, getBeaconTime(), update.get)
-      check:
-        res.isErr
-        res.error == BlockError.Duplicate
-        store[].isSome
-        store[].get.best_valid_update.isNone
-        store[].get.finalized_header == update.get.finalized_header
+        time += chronos.minutes(15)
 
-    let optimisticUpdate = dag.getOptimisticLightClientUpdate()
-    check optimisticUpdate.isSome
-    setTimeToSlot(optimisticUpdate.get.attested_header.slot + 1)
+        res = processor[].storeObject(
+          MsgSource.gossip, getBeaconTime(), update.get)
+        check:
+          res.isErr
+          res.error == BlockError.Duplicate
+          store[].isSome
+          store[].get.best_valid_update.isNone
+        if store[].get.finalized_header == update.get.attested_header:
+          break
+        check: store[].get.finalized_header == update.get.finalized_header
+      check: store[].get.finalized_header == update.get.attested_header
+
+    let
+      previousFinalized = store[].get.finalized_header
+      finalityUpdate = dag.getLightClientFinalityUpdate()
+    check finalityUpdate.isSome
+    setTimeToSlot(finalityUpdate.get.signature_slot)
     res = processor[].storeObject(
-      MsgSource.gossip, getBeaconTime(), optimisticUpdate.get)
+      MsgSource.gossip, getBeaconTime(), finalityUpdate.get)
     if res.isOk:
       check:
         store[].isSome
-        store[].get.optimistic_header == optimisticUpdate.get.attested_header
+        if finalityUpdate.get.finalized_header.slot > previousFinalized.slot:
+          store[].get.finalized_header == finalityUpdate.get.finalized_header
+        else:
+          store[].get.finalized_header == previousFinalized
+        store[].get.optimistic_header == finalityUpdate.get.attested_header
     else:
       check res.error == BlockError.Duplicate
     check numDidInitializeStoreCalls == 1
@@ -223,9 +215,9 @@ suite "Light client processor" & preset():
       numDidInitializeStoreCalls == 1
 
   test "Missing bootstrap (update)" & preset():
-    let update = dag.getBestLightClientUpdateForPeriod(lowPeriod)
+    let update = dag.getLightClientUpdateForPeriod(lowPeriod)
     check update.isSome
-    setTimeToSlot(update.get.attested_header.slot + 1)
+    setTimeToSlot(update.get.signature_slot)
     res = processor[].storeObject(
       MsgSource.gossip, getBeaconTime(), update.get)
     check:
@@ -233,10 +225,21 @@ suite "Light client processor" & preset():
       res.error == BlockError.MissingParent
       numDidInitializeStoreCalls == 0
 
+  test "Missing bootstrap (finality update)" & preset():
+    let finalityUpdate = dag.getLightClientFinalityUpdate()
+    check finalityUpdate.isSome
+    setTimeToSlot(finalityUpdate.get.signature_slot)
+    res = processor[].storeObject(
+      MsgSource.gossip, getBeaconTime(), finalityUpdate.get)
+    check:
+      res.isErr
+      res.error == BlockError.MissingParent
+      numDidInitializeStoreCalls == 0
+
   test "Missing bootstrap (optimistic update)" & preset():
-    let optimisticUpdate = dag.getOptimisticLightClientUpdate()
+    let optimisticUpdate = dag.getLightClientOptimisticUpdate()
     check optimisticUpdate.isSome
-    setTimeToSlot(optimisticUpdate.get.attested_header.slot + 1)
+    setTimeToSlot(optimisticUpdate.get.signature_slot)
     res = processor[].storeObject(
       MsgSource.gossip, getBeaconTime(), optimisticUpdate.get)
     check:

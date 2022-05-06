@@ -328,15 +328,26 @@ func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconStateFork =
     doAssert BeaconStateFork.Altair    > BeaconStateFork.Phase0
     doAssert GENESIS_EPOCH == 0
 
-  if   epoch >= cfg.BELLATRIX_FORK_EPOCH:  BeaconStateFork.Bellatrix
-  elif epoch >= cfg.ALTAIR_FORK_EPOCH: BeaconStateFork.Altair
-  else:                                BeaconStateFork.Phase0
+  if   epoch >= cfg.BELLATRIX_FORK_EPOCH: BeaconStateFork.Bellatrix
+  elif epoch >= cfg.ALTAIR_FORK_EPOCH:    BeaconStateFork.Altair
+  else:                                   BeaconStateFork.Phase0
 
 func blockForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconBlockFork =
   ## Return the current fork for the given epoch.
-  if   epoch >= cfg.BELLATRIX_FORK_EPOCH:  BeaconBlockFork.Bellatrix
-  elif epoch >= cfg.ALTAIR_FORK_EPOCH: BeaconBlockFork.Altair
-  else:                                BeaconBlockFork.Phase0
+  if   epoch >= cfg.BELLATRIX_FORK_EPOCH: BeaconBlockFork.Bellatrix
+  elif epoch >= cfg.ALTAIR_FORK_EPOCH:    BeaconBlockFork.Altair
+  else:                                   BeaconBlockFork.Phase0
+
+func stateForkForDigest*(
+    forkDigests: ForkDigests, forkDigest: ForkDigest): Opt[BeaconStateFork] =
+  if   forkDigest == forkDigests.bellatrix:
+    ok BeaconStateFork.Bellatrix
+  elif forkDigest == forkDigests.altair:
+    ok BeaconStateFork.Altair
+  elif forkDigest == forkDigests.phase0:
+    ok BeaconStateFork.Phase0
+  else:
+    err()
 
 template asSigned*(x: ForkedTrustedSignedBeaconBlock): ForkedSignedBeaconBlock =
   isomorphicCast[ForkedSignedBeaconBlock](x)

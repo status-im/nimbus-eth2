@@ -150,8 +150,11 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#broadcast-sync-committee-contribution
   syncContributionSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  * 2 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#block-proposal
-  optimisticLightClientUpdateSlotOffset* = TimeDiff(nanoseconds:
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_finality_update
+  lightClientFinalityUpdateSlotOffset* = TimeDiff(nanoseconds:
+    NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_optimistic_update
+  lightClientOptimisticUpdateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
 
 func toFloatSeconds*(t: TimeDiff): float =
@@ -174,8 +177,10 @@ func sync_committee_message_deadline*(s: Slot): BeaconTime =
   s.start_beacon_time + syncCommitteeMessageSlotOffset
 func sync_contribution_deadline*(s: Slot): BeaconTime =
   s.start_beacon_time + syncContributionSlotOffset
-func optimistic_light_client_update_time*(s: Slot): BeaconTime =
-  s.start_beacon_time + optimisticLightClientUpdateSlotOffset
+func light_client_finality_update_time*(s: Slot): BeaconTime =
+  s.start_beacon_time + lightClientFinalityUpdateSlotOffset
+func light_client_optimistic_update_time*(s: Slot): BeaconTime =
+  s.start_beacon_time + lightClientOptimisticUpdateSlotOffset
 
 func slotOrZero*(time: BeaconTime): Slot =
   let exSlot = time.toSlot

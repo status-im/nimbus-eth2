@@ -10,10 +10,9 @@
 import
   std/[os, strformat],
   chronicles,
-  ./spec/[beaconstate, eth2_ssz_serialization, eth2_merkleization, forks],
+  ./spec/[
+    beaconstate, eth2_ssz_serialization, eth2_merkleization, forks, helpers],
   ./spec/datatypes/[phase0, altair]
-
-from spec/light_client_sync import is_finality_update
 
 export
   beaconstate, eth2_ssz_serialization, eth2_merkleization, forks
@@ -59,27 +58,35 @@ proc dump*(dir: string, v: altair.LightClientBootstrap) =
     SSZ.saveFile(
       dir / &"{prefix}-{slot}-{blck}-{root}.ssz", v)
 
-proc dump*(dir: string, v: altair.LightClientUpdate) =
+proc dump*(dir: string, v: SomeLightClientUpdate) =
   logErrors:
     let
-      prefix = "update"
+      prefix =
+        when v is altair.LightClientUpdate:
+          "update"
+        elif v is altair.LightClientFinalityUpdate:
+          "finality-update"
+        elif v is altair.LightClientOptimisticUpdate:
+          "optimistic-update"
       attestedSlot = v.attested_header.slot
       attestedBlck = shortLog(v.attested_header.hash_tree_root())
-      suffix =
-        if v.is_finality_update:
-          "f"
+      syncCommitteeSuffix =
+        when v is SomeLightClientUpdateWithSyncCommittee:
+          if v.is_sync_committee_update:
+            "s"
+          else:
+            "x"
         else:
-          "o"
+          ""
+      finalitySuffix =
+        when v is SomeLightClientUpdateWithFinality:
+          if v.is_finality_update:
+            "f"
+          else:
+            "x"
+        else:
+          ""
+      suffix = syncCommitteeSuffix & finalitySuffix
       root = shortLog(v.hash_tree_root())
     SSZ.saveFile(
       dir / &"{prefix}-{attestedSlot}-{attestedBlck}-{suffix}-{root}.ssz", v)
-
-proc dump*(dir: string, v: OptimisticLightClientUpdate) =
-  logErrors:
-    let
-      prefix = "optimistic-update"
-      attestedSlot = v.attested_header.slot
-      attestedBlck = shortLog(v.attested_header.hash_tree_root())
-      root = shortLog(v.hash_tree_root())
-    SSZ.saveFile(
-      dir / &"{prefix}-{attestedSlot}-{attestedBlck}-{root}.ssz", v)

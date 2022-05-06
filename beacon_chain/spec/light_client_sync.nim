@@ -17,53 +17,7 @@ import
   helpers
 
 from ../consensus_object_pools/block_pools_types import BlockError
-
-func period_contains_fork_version(
-    cfg: RuntimeConfig,
-    period: SyncCommitteePeriod,
-    fork_version: Version): bool =
-  ## Determine whether a given `fork_version` is used during a given `period`.
-  let
-    periodStartEpoch = period.start_epoch
-    periodEndEpoch = periodStartEpoch + EPOCHS_PER_SYNC_COMMITTEE_PERIOD - 1
-  return
-    if fork_version == cfg.SHARDING_FORK_VERSION:
-      periodEndEpoch >= cfg.SHARDING_FORK_EPOCH
-    elif fork_version == cfg.BELLATRIX_FORK_VERSION:
-      periodStartEpoch < cfg.SHARDING_FORK_EPOCH and
-      cfg.SHARDING_FORK_EPOCH != cfg.BELLATRIX_FORK_EPOCH and
-      periodEndEpoch >= cfg.BELLATRIX_FORK_EPOCH
-    elif fork_version == cfg.ALTAIR_FORK_VERSION:
-      periodStartEpoch < cfg.BELLATRIX_FORK_EPOCH and
-      cfg.BELLATRIX_FORK_EPOCH != cfg.ALTAIR_FORK_EPOCH and
-      periodEndEpoch >= cfg.ALTAIR_FORK_EPOCH
-    elif fork_version == cfg.GENESIS_FORK_VERSION:
-      # Light client sync protocol requires Altair
-      false
-    else:
-      # Unviable fork
-      false
-
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#get_active_header
-func is_finality_update*(update: altair.LightClientUpdate): bool =
-  not update.finalized_header.isZeroMemory
-
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#get_active_header
-func get_active_header*(update: altair.LightClientUpdate): BeaconBlockHeader =
-  # The "active header" is the header that the update is trying to convince
-  # us to accept. If a finalized header is present, it's the finalized
-  # header, otherwise it's the attested header
-  if update.is_finality_update:
-    update.finalized_header
-  else:
-    update.attested_header
-
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#get_safety_threshold
-func get_safety_threshold(store: LightClientStore): uint64 =
-  max(
-    store.previous_max_active_participants,
-    store.current_max_active_participants
-  ) div 2
+export block_pools_types.BlockError
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#initialize_light_client_store
 func initialize_light_client_store*(
@@ -89,7 +43,7 @@ func initialize_light_client_store*(
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#validate_light_client_update
 proc validate_light_client_update*(
     store: LightClientStore,
-    update: altair.LightClientUpdate,
+    update: SomeLightClientUpdate,
     current_slot: Slot,
     cfg: RuntimeConfig,
     genesis_validators_root: Eth2Digest): Result[void, BlockError] =
@@ -100,88 +54,81 @@ proc validate_light_client_update*(
   if num_active_participants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
     return err(BlockError.Invalid)
 
-  # Determine update header
-  template attested_header(): auto = update.attested_header
-  if current_slot < attested_header.slot:
-    return err(BlockError.UnviableFork)
-  let active_header = get_active_header(update)
-  if attested_header.slot < active_header.slot:
+  # Verify update does not skip a sync committee period
+  when update is SomeLightClientUpdateWithFinality:
+    if update.attested_header.slot < update.finalized_header.slot:
+      return err(BlockError.Invalid)
+  if update.signature_slot <= update.attested_header.slot:
     return err(BlockError.Invalid)
+  if current_slot < update.signature_slot:
+    return err(BlockError.UnviableFork)
+  let
+    store_period = store.finalized_header.slot.sync_committee_period
+    signature_period = update.signature_slot.sync_committee_period
+    is_next_sync_committee_known = store.is_next_sync_committee_known
+  if is_next_sync_committee_known:
+    if signature_period notin [store_period, store_period + 1]:
+      return err(BlockError.MissingParent)
+  else:
+    if signature_period != store_period:
+      return err(BlockError.MissingParent)
 
   # Verify update is relevant
-  let is_next_sync_committee_known = not store.next_sync_committee.isZeroMemory
-  if is_next_sync_committee_known:
-    if active_header.slot < store.finalized_header.slot:
-      return err(BlockError.Duplicate)
-    if active_header.slot == store.finalized_header.slot:
-      if attested_header.slot <= store.optimistic_header.slot:
+  let attested_period = update.attested_header.slot.sync_committee_period
+  when update is SomeLightClientUpdateWithSyncCommittee:
+    let is_sync_committee_update = update.is_sync_committee_update
+  if update.attested_header.slot <= store.finalized_header.slot:
+    when update is SomeLightClientUpdateWithSyncCommittee:
+      if is_next_sync_committee_known:
         return err(BlockError.Duplicate)
+      if attested_period != store_period or not is_sync_committee_update:
+        return err(BlockError.Duplicate)
+    else:
+      return err(BlockError.Duplicate)
 
-  # Verify update does not skip a sync committee period
-  let
-    finalized_period = store.finalized_header.slot.sync_committee_period
-    update_period = active_header.slot.sync_committee_period
-  if update_period < finalized_period:
-    return err(BlockError.Duplicate)
-  if update_period > finalized_period + 1:
-    return err(BlockError.MissingParent)
-  let
-    is_signed_by_next_sync_committee =
-      update.next_sync_committee.isZeroMemory
-    signature_period =
-      if is_signed_by_next_sync_committee:
-        update_period + 1
+  # Verify that the `finalized_header`, if present, actually is the
+  # finalized header saved in the state of the `attested_header`
+  when update is SomeLightClientUpdateWithFinality:
+    if not update.is_finality_update:
+      if not update.finalized_header.isZeroMemory:
+        return err(BlockError.Invalid)
+    else:
+      var finalized_root {.noinit.}: Eth2Digest
+      if update.finalized_header.slot != GENESIS_SLOT:
+        finalized_root = hash_tree_root(update.finalized_header)
+      elif update.finalized_header.isZeroMemory:
+        finalized_root.reset()
       else:
-        update_period
-    current_period = current_slot.sync_committee_period
-  if current_period < signature_period:
-    return err(BlockError.UnviableFork)
-  if is_next_sync_committee_known:
-    if signature_period notin [finalized_period, finalized_period + 1]:
-      return err(BlockError.MissingParent)
-  else:
-    if signature_period != finalized_period:
-      return err(BlockError.MissingParent)
-
-  # Verify fork version is acceptable
-  let fork_version = update.fork_version
-  if not cfg.period_contains_fork_version(signature_period, fork_version):
-    return err(BlockError.UnviableFork)
-
-  # Verify that the `finalized_header`, if present, actually is the finalized
-  # header saved in the state of the `attested_header`
-  if not update.is_finality_update:
-    if not update.finality_branch.isZeroMemory:
-      return err(BlockError.Invalid)
-  else:
-    if not is_valid_merkle_branch(
-        hash_tree_root(update.finalized_header),
-        update.finality_branch,
-        log2trunc(altair.FINALIZED_ROOT_INDEX),
-        get_subtree_index(altair.FINALIZED_ROOT_INDEX),
-        update.attested_header.state_root):
-      return err(BlockError.Invalid)
+        return err(BlockError.Invalid)
+      if not is_valid_merkle_branch(
+          finalized_root,
+          update.finality_branch,
+          log2trunc(altair.FINALIZED_ROOT_INDEX),
+          get_subtree_index(altair.FINALIZED_ROOT_INDEX),
+          update.attested_header.state_root):
+        return err(BlockError.Invalid)
 
   # Verify that the `next_sync_committee`, if present, actually is the
-  # next sync committee saved in the state of the `active_header`
-  if is_signed_by_next_sync_committee:
-    if not update.next_sync_committee_branch.isZeroMemory:
-      return err(BlockError.Invalid)
-  else:
-    if update_period == finalized_period and is_next_sync_committee_known:
-      if update.next_sync_committee != store.next_sync_committee:
-        return err(BlockError.UnviableFork)
-    if not is_valid_merkle_branch(
-        hash_tree_root(update.next_sync_committee),
-        update.next_sync_committee_branch,
-        log2trunc(altair.NEXT_SYNC_COMMITTEE_INDEX),
-        get_subtree_index(altair.NEXT_SYNC_COMMITTEE_INDEX),
-        active_header.state_root):
-      return err(BlockError.Invalid)
+  # next sync committee saved in the state of the `attested_header`
+  when update is SomeLightClientUpdateWithSyncCommittee:
+    if not is_sync_committee_update:
+      if not update.next_sync_committee.isZeroMemory:
+        return err(BlockError.Invalid)
+    else:
+      if attested_period == store_period and is_next_sync_committee_known:
+        if update.next_sync_committee != store.next_sync_committee:
+          return err(BlockError.UnviableFork)
+      if not is_valid_merkle_branch(
+          hash_tree_root(update.next_sync_committee),
+          update.next_sync_committee_branch,
+          log2trunc(altair.NEXT_SYNC_COMMITTEE_INDEX),
+          get_subtree_index(altair.NEXT_SYNC_COMMITTEE_INDEX),
+          update.attested_header.state_root):
+        return err(BlockError.Invalid)
 
   # Verify sync committee aggregate signature
   let sync_committee =
-    if signature_period == finalized_period:
+    if signature_period == store_period:
       unsafeAddr store.current_sync_committee
     else:
       unsafeAddr store.next_sync_committee
@@ -191,240 +138,125 @@ proc validate_light_client_update*(
     if bit:
       participant_pubkeys.add(sync_committee.pubkeys[idx])
   let
+    fork_version = cfg.forkVersionAtEpoch(update.signature_slot.epoch)
     domain = compute_domain(
       DOMAIN_SYNC_COMMITTEE, fork_version, genesis_validators_root)
-    signing_root = compute_signing_root(attested_header, domain)
+    signing_root = compute_signing_root(update.attested_header, domain)
   if not blsFastAggregateVerify(
       participant_pubkeys, signing_root.data,
       sync_aggregate.sync_committee_signature):
-    return err(BlockError.Invalid)
-
-  ok()
-
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#validate_optimistic_light_client_update
-proc validate_optimistic_light_client_update*(
-    store: LightClientStore,
-    optimistic_update: OptimisticLightClientUpdate,
-    current_slot: Slot,
-    cfg: RuntimeConfig,
-    genesis_validators_root: Eth2Digest): Result[void, BlockError] =
-  # Verify sync committee has sufficient participants
-  template sync_aggregate(): auto = optimistic_update.sync_aggregate
-  template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
-  let num_active_participants = countOnes(sync_committee_bits).uint64
-  if num_active_participants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
-    return err(BlockError.Invalid)
-
-  # Determine update header
-  template attested_header(): auto = optimistic_update.attested_header
-  if current_slot < attested_header.slot:
-    return err(BlockError.Invalid)
-  template active_header(): auto = attested_header
-
-  # Verify update is relevant
-  if attested_header.slot <= store.optimistic_header.slot:
-    return err(BlockError.Duplicate)
-
-  # Verify update does not skip a sync committee period
-  let
-    finalized_period = store.finalized_header.slot.sync_committee_period
-    update_period = active_header.slot.sync_committee_period
-  if update_period < finalized_period:
-    return err(BlockError.Duplicate)
-  if update_period > finalized_period + 1:
-    return err(BlockError.MissingParent)
-  let
-    is_signed_by_next_sync_committee =
-      optimistic_update.is_signed_by_next_sync_committee
-    signature_period =
-      if is_signed_by_next_sync_committee:
-        update_period + 1
-      else:
-        update_period
-    current_period = current_slot.sync_committee_period
-  if current_period < signature_period:
-    return err(BlockError.Invalid)
-  let is_next_sync_committee_known = not store.next_sync_committee.isZeroMemory
-  if is_next_sync_committee_known:
-    if signature_period notin [finalized_period, finalized_period + 1]:
-      return err(BlockError.MissingParent)
-  else:
-    if signature_period != finalized_period:
-      return err(BlockError.MissingParent)
-
-  # Verify fork version is acceptable
-  let fork_version = optimistic_update.fork_version
-  if not cfg.period_contains_fork_version(signature_period, fork_version):
     return err(BlockError.UnviableFork)
-
-  # Verify sync committee aggregate signature
-  let sync_committee =
-    if signature_period == finalized_period:
-      unsafeAddr store.current_sync_committee
-    else:
-      unsafeAddr store.next_sync_committee
-  var participant_pubkeys =
-    newSeqOfCap[ValidatorPubKey](num_active_participants)
-  for idx, bit in sync_aggregate.sync_committee_bits:
-    if bit:
-      participant_pubkeys.add(sync_committee.pubkeys[idx])
-  let
-    domain = compute_domain(
-      DOMAIN_SYNC_COMMITTEE, fork_version, genesis_validators_root)
-    signing_root = compute_signing_root(attested_header, domain)
-  if not blsFastAggregateVerify(
-      participant_pubkeys, signing_root.data,
-      sync_aggregate.sync_committee_signature):
-    return err(BlockError.Invalid)
 
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#apply_light_client_update
 func apply_light_client_update(
     store: var LightClientStore,
-    update: altair.LightClientUpdate): bool =
+    update: SomeLightClientUpdate): bool =
   var didProgress = false
   let
-    active_header = get_active_header(update)
-    finalized_period = store.finalized_header.slot.sync_committee_period
-    update_period = active_header.slot.sync_committee_period
-  if store.next_sync_committee.isZeroMemory:
-    assert update_period == finalized_period
-    store.next_sync_committee = update.next_sync_committee
-    didProgress = true
-  elif update_period == finalized_period + 1:
+    store_period = store.finalized_header.slot.sync_committee_period
+    finalized_period = update.finalized_header.slot.sync_committee_period
+  if not store.is_next_sync_committee_known:
+    assert finalized_period == store_period
+    when update is SomeLightClientUpdateWithSyncCommittee:
+      store.next_sync_committee = update.next_sync_committee
+      if store.is_next_sync_committee_known:
+        didProgress = true
+  elif finalized_period == store_period + 1:
+    store.current_sync_committee = store.next_sync_committee
+    when update is SomeLightClientUpdateWithSyncCommittee:
+      store.next_sync_committee = update.next_sync_committee
+    else:
+      store.next_sync_committee.reset()
     store.previous_max_active_participants =
       store.current_max_active_participants
     store.current_max_active_participants = 0
-    store.current_sync_committee = store.next_sync_committee
-    store.next_sync_committee = update.next_sync_committee
-    assert not store.next_sync_committee.isZeroMemory
     didProgress = true
-  if active_header.slot > store.finalized_header.slot:
-    store.finalized_header = active_header
+  if update.finalized_header.slot > store.finalized_header.slot:
+    store.finalized_header = update.finalized_header
     if store.finalized_header.slot > store.optimistic_header.slot:
       store.optimistic_header = store.finalized_header
     didProgress = true
   didProgress
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#apply_optimistic_light_client_header
-func apply_optimistic_light_client_header(
-    store: var LightClientStore,
-    attested_header: BeaconBlockHeader,
-    num_active_participants: uint64): bool =
-  var didProgress = false
-
-  if store.current_max_active_participants < num_active_participants:
-    store.current_max_active_participants = num_active_participants
-
-  if num_active_participants > get_safety_threshold(store) and
-      attested_header.slot > store.optimistic_header.slot:
-    store.optimistic_header = attested_header
-    didProgress = true
-
-  didProgress
-
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#process_slot_for_light_client_store
+# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#try_light_client_store_force_update
 type
-  ProcessSlotForLightClientStoreResult* = enum
+  ForceUpdateResult* = enum
     NoUpdate,
-    UpdatedWithoutSupermajority,
-    UpdatedWithoutFinalityProof
+    DidUpdateWithoutSupermajority,
+    DidUpdateWithoutFinality
 
-func process_slot_for_light_client_store*(
+func try_light_client_store_force_update*(
     store: var LightClientStore,
-    current_slot: Slot): ProcessSlotForLightClientStoreResult {.discardable.} =
+    current_slot: Slot): ForceUpdateResult {.discardable.} =
   var res = NoUpdate
   if store.best_valid_update.isSome and
       current_slot > store.finalized_header.slot + UPDATE_TIMEOUT:
-    template sync_aggregate(): auto = store.best_valid_update.get.sync_aggregate
-    template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
-    let num_active_participants = countOnes(sync_committee_bits).uint64
-    if apply_light_client_update(store, store.best_valid_update.get):
+    # Forced best update when the update timeout has elapsed
+    template best(): auto = store.best_valid_update.get
+    if best.finalized_header.slot <= store.finalized_header.slot:
+      best.finalized_header = best.attested_header
+    if apply_light_client_update(store, best):
+      template sync_aggregate(): auto = best.sync_aggregate
+      template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
+      let num_active_participants = countOnes(sync_committee_bits).uint64
       if num_active_participants * 3 < static(sync_committee_bits.len * 2):
-        res = UpdatedWithoutSupermajority
+        res = DidUpdateWithoutSupermajority
       else:
-        res = UpdatedWithoutFinalityProof
-    store.best_valid_update = none(altair.LightClientUpdate)
+        res = DidUpdateWithoutFinality
+    store.best_valid_update.reset()
   res
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#process_light_client_update
 proc process_light_client_update*(
     store: var LightClientStore,
-    update: altair.LightClientUpdate,
+    update: SomeLightClientUpdate,
     current_slot: Slot,
     cfg: RuntimeConfig,
-    genesis_validators_root: Eth2Digest,
-    allowForceUpdate = true): Result[void, BlockError] =
+    genesis_validators_root: Eth2Digest): Result[void, BlockError] =
   ? validate_light_client_update(
     store, update, current_slot, cfg, genesis_validators_root)
 
   var didProgress = false
 
+  # Update the best update in case we have to force-update to it
+  # if the timeout elapses
+  if store.best_valid_update.isNone or
+      is_better_update(update, store.best_valid_update.get):
+    store.best_valid_update = some(update.toFull)
+    didProgress = true
+
+  # Track the maximum number of active participants in the committee signatures
   template sync_aggregate(): auto = update.sync_aggregate
   template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
   let num_active_participants = countOnes(sync_committee_bits).uint64
+  if num_active_participants > store.current_max_active_participants:
+    store.current_max_active_participants = num_active_participants
 
   # Update the optimistic header
-  if apply_optimistic_light_client_header(
-      store, update.attested_header, num_active_participants):
-    didProgress = true
-
-  # Update the best update in case we have to force-update to it
-  # if the timeout elapses
-  let best_active_participants =
-    if store.best_valid_update.isNone:
-      0.uint64
-    else:
-      template best_sync_aggregate(): auto =
-        store.best_valid_update.get.sync_aggregate
-      countOnes(best_sync_aggregate.sync_committee_bits).uint64
-  if num_active_participants > best_active_participants:
-    store.best_valid_update = some(update)
+  if num_active_participants > get_safety_threshold(store) and
+      update.attested_header.slot > store.optimistic_header.slot:
+    store.optimistic_header = update.attested_header
     didProgress = true
 
   # Update finalized header
-  if num_active_participants * 3 >= static(sync_committee_bits.len * 2) and
-      update.is_finality_update:
-    # Normal update through 2/3 threshold
-    if apply_light_client_update(store, update):
-      didProgress = true
-    store.best_valid_update = none(altair.LightClientUpdate)
-  else:
-    if allowForceUpdate:
-      # Force-update to best update if the timeout elapsed
-      case process_slot_for_light_client_store(store, current_slot)
-      of UpdatedWithoutSupermajority, UpdatedWithoutFinalityProof:
-        didProgress = true
-      of NoUpdate: discard
+  when update is SomeLightClientUpdateWithFinality:
+    if num_active_participants * 3 >= static(sync_committee_bits.len * 2):
+      var improvesFinality =
+        update.finalized_header.slot > store.finalized_header.slot
+      when update is SomeLightClientUpdateWithSyncCommittee:
+        if not improvesFinality and not store.is_next_sync_committee_known:
+          improvesFinality =
+            update.is_sync_committee_update and update.is_finality_update and
+            update.finalized_header.slot.sync_committee_period ==
+            update.attested_header.slot.sync_committee_period
+      if improvesFinality:
+        # Normal update through 2/3 threshold
+        if apply_light_client_update(store, update):
+          didProgress = true
+        store.best_valid_update.reset()
 
   if not didProgress:
-    err(BlockError.Duplicate)
-  else:
-    ok()
-
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#process_light_client_update
-proc process_optimistic_light_client_update*(
-    store: var LightClientStore,
-    optimistic_update: OptimisticLightClientUpdate,
-    current_slot: Slot,
-    cfg: RuntimeConfig,
-    genesis_validators_root: Eth2Digest): Result[void, BlockError] =
-  ? validate_optimistic_light_client_update(
-    store, optimistic_update, current_slot, cfg, genesis_validators_root)
-
-  var didProgress = false
-
-  template sync_aggregate(): auto = optimistic_update.sync_aggregate
-  template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
-  let num_active_participants = countOnes(sync_committee_bits).uint64
-
-  # Update the optimistic header
-  if apply_optimistic_light_client_header(
-      store, optimistic_update.attested_header, num_active_participants):
-    didProgress = true
-
-  if not didProgress:
-    err(BlockError.Duplicate)
-  else:
-    ok()
+    return err(BlockError.Duplicate)
+  ok()

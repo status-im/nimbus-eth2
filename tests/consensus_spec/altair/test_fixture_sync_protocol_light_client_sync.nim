@@ -33,18 +33,15 @@ type
     trusted_block_root: string
 
   TestStepKind {.pure.} = enum
-    ProcessSlot
+    ForceUpdate
     ProcessUpdate
-    ProcessOptimisticUpdate
 
   TestStep = object
     case kind: TestStepKind
-    of TestStepKind.ProcessSlot:
+    of TestStepKind.ForceUpdate:
       discard
     of TestStepKind.ProcessUpdate:
       update: altair.LightClientUpdate
-    of TestStepKind.ProcessOptimisticUpdate:
-      optimistic_update: OptimisticLightClientUpdate
     current_slot: Slot
 
 proc loadSteps(path: string): seq[TestStep] =
@@ -53,9 +50,9 @@ proc loadSteps(path: string): seq[TestStep] =
 
   result = @[]
   for step in steps[0]:
-    if step.hasKey"process_slot":
-      let s = step["process_slot"]
-      result.add TestStep(kind: TestStepKind.ProcessSlot,
+    if step.hasKey"force_update":
+      let s = step["force_update"]
+      result.add TestStep(kind: TestStepKind.ForceUpdate,
                           current_slot: s["current_slot"].getInt().Slot)
     elif step.hasKey"process_update":
       let
@@ -65,15 +62,6 @@ proc loadSteps(path: string): seq[TestStep] =
                            altair.LightClientUpdate)
       result.add TestStep(kind: TestStepKind.ProcessUpdate,
                           update: update,
-                          current_slot: s["current_slot"].getInt().Slot)
-    elif step.hasKey"process_optimistic_update":
-      let
-        s = step["process_optimistic_update"]
-        filename = s["optimistic_update"].getStr()
-        optimistic_update = parseTest(path/filename & ".ssz_snappy", SSZ,
-                                      OptimisticLightClientUpdate)
-      result.add TestStep(kind: TestStepKind.ProcessOptimisticUpdate,
-                          optimistic_update: optimistic_update,
                           current_slot: s["current_slot"].getInt().Slot)
     else:
       doAssert false, "Unreachable: " & $step
@@ -114,17 +102,12 @@ proc runTest(identifier: string) =
 
       for step in steps:
         case step.kind
-        of TestStepKind.ProcessSlot:
-          process_slot_for_light_client_store(
+        of TestStepKind.ForceUpdate:
+          try_light_client_store_force_update(
             store, step.current_slot)
         of TestStepKind.ProcessUpdate:
           let res = process_light_client_update(
             store, step.update, step.current_slot,
-            cfg, genesis_validators_root)
-          check res.isOk
-        of TestStepKind.ProcessOptimisticUpdate:
-          let res = process_optimistic_light_client_update(
-            store, step.optimistic_update, step.current_slot,
             cfg, genesis_validators_root)
           check res.isOk
 
