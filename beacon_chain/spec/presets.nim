@@ -29,15 +29,14 @@ type
   Eth1Address* = ethtypes.Address
 
   RuntimeConfig* = object
-    ## https://github.com/ethereum/consensus-specs/tree/v1.1.3/configs
-
+    ## https://github.com/ethereum/consensus-specs/tree/v1.1.10/configs
     PRESET_BASE*: string
-
     CONFIG_NAME*: string
 
     # Transition
     TERMINAL_TOTAL_DIFFICULTY*: UInt256
     TERMINAL_BLOCK_HASH*: BlockHash
+    # TODO TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH*: Epoch
 
     # Genesis
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64
@@ -45,32 +44,32 @@ type
     GENESIS_FORK_VERSION*: Version
     GENESIS_DELAY*: uint64
 
-    # Altair
+    # Forking
     ALTAIR_FORK_VERSION*: Version
     ALTAIR_FORK_EPOCH*: Epoch
-
-    # Merge
     BELLATRIX_FORK_VERSION*: Version
     BELLATRIX_FORK_EPOCH*: Epoch
-
-    # Sharding
     SHARDING_FORK_VERSION*: Version
     SHARDING_FORK_EPOCH*: Epoch
 
-    MIN_ANCHOR_POW_BLOCK_DIFFICULTY*: uint64
-
+    # Time parameters
     # TODO SECONDS_PER_SLOT*: uint64
     SECONDS_PER_ETH1_BLOCK*: uint64
     MIN_VALIDATOR_WITHDRAWABILITY_DELAY*: uint64
     SHARD_COMMITTEE_PERIOD*: uint64
     ETH1_FOLLOW_DISTANCE*: uint64
 
+    # Validator cycle
     INACTIVITY_SCORE_BIAS*: uint64
     INACTIVITY_SCORE_RECOVERY_RATE*: uint64
     EJECTION_BALANCE*: uint64
     MIN_PER_EPOCH_CHURN_LIMIT*: uint64
     CHURN_LIMIT_QUOTIENT*: uint64
 
+    # Fork choice
+    # TODO PROPOSER_SCORE_BOOST*: uint64
+
+    # Deposit contract
     DEPOSIT_CHAIN_ID*: uint64
     DEPOSIT_NETWORK_ID*: uint64
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
@@ -148,6 +147,7 @@ const
     "DOMAIN_CONTRIBUTION_AND_PROOF",
 
     "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
+    "MIN_ANCHOR_POW_BLOCK_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
   ]
 
 when const_preset == "mainnet":
@@ -157,19 +157,32 @@ when const_preset == "mainnet":
   # TODO Move this to RuntimeConfig
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.3/configs/mainnet.yaml
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/configs/mainnet.yaml
   # TODO Read these from yaml file
   const defaultRuntimeConfig* = RuntimeConfig(
+    # Mainnet config
+
+    # Extends the mainnet preset
     PRESET_BASE: "mainnet",
+
+    # Free-form short name of the network that this configuration applies to - known
+    # canonical network names include:
+    # * 'mainnet' - there can be only one
+    # * 'prater' - testnet
+    # Must match the regex: [a-z0-9\-]
+    CONFIG_NAME: "mainnet",
 
     # Transition
     # ---------------------------------------------------------------
     # TBD, 2**256-2**10 is a placeholder
     TERMINAL_TOTAL_DIFFICULTY:
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
-    # By default, don't use this param
+    # By default, don't use these params
     TERMINAL_BLOCK_HASH: BlockHash.fromHex(
       "0x0000000000000000000000000000000000000000000000000000000000000000"),
+    # TODO TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH: Epoch(uint64.high),
+
+
 
     # Genesis
     # ---------------------------------------------------------------
@@ -192,15 +205,12 @@ when const_preset == "mainnet":
     # Altair
     ALTAIR_FORK_VERSION: Version [byte 0x01, 0x00, 0x00, 0x00],
     ALTAIR_FORK_EPOCH: Epoch(74240), # Oct 27, 2021, 10:56:23am UTC
-    # Merge
+    # Bellatrix
     BELLATRIX_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x00],
     BELLATRIX_FORK_EPOCH: Epoch(uint64.high),
     # Sharding
     SHARDING_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x00],
     SHARDING_FORK_EPOCH: Epoch(uint64.high),
-
-    # TBD, 2**32 is a placeholder. Merge transition approach is in active R&D.
-    MIN_ANCHOR_POW_BLOCK_DIFFICULTY: 4294967296'u64,
 
 
     # Time parameters
@@ -231,6 +241,11 @@ when const_preset == "mainnet":
     CHURN_LIMIT_QUOTIENT: 65536,
 
 
+    # Fork choice
+    # ---------------------------------------------------------------
+    # 70%
+    # TODO PROPOSER_SCORE_BOOST: 70,
+
     # Deposit contract
     # ---------------------------------------------------------------
     # Ethereum PoW Mainnet
@@ -245,21 +260,31 @@ elif const_preset == "minimal":
 
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.3/configs/minimal.yaml
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/configs/minimal.yaml
   const defaultRuntimeConfig* = RuntimeConfig(
     # Minimal config
 
     # Extends the minimal preset
     PRESET_BASE: "minimal",
 
+    # Free-form short name of the network that this configuration applies to - known
+    # canonical network names include:
+    # * 'mainnet' - there can be only one
+    # * 'prater' - testnet
+    # Must match the regex: [a-z0-9\-]
+    CONFIG_NAME: "minimal",
+
     # Transition
     # ---------------------------------------------------------------
     # TBD, 2**256-2**10 is a placeholder
     TERMINAL_TOTAL_DIFFICULTY:
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
-    # By default, don't use this param
+    # By default, don't use these params
     TERMINAL_BLOCK_HASH: BlockHash.fromHex(
       "0x0000000000000000000000000000000000000000000000000000000000000000"),
+    # TODO TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH: Epoch(uint64.high),
+
+
 
     # Genesis
     # ---------------------------------------------------------------
@@ -281,15 +306,12 @@ elif const_preset == "minimal":
     # Altair
     ALTAIR_FORK_VERSION: Version [byte 0x01, 0x00, 0x00, 0x01],
     ALTAIR_FORK_EPOCH: Epoch(uint64.high),
-    # Merge
+    # Bellatrix
     BELLATRIX_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x01],
     BELLATRIX_FORK_EPOCH: Epoch(uint64.high),
     # Sharding
     SHARDING_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x01],
     SHARDING_FORK_EPOCH: Epoch(uint64.high),
-
-    # TBD, 2**32 is a placeholder. Merge transition approach is in active R&D.
-    MIN_ANCHOR_POW_BLOCK_DIFFICULTY: 4294967296'u64,
 
 
     # Time parameters
@@ -318,6 +340,12 @@ elif const_preset == "minimal":
     MIN_PER_EPOCH_CHURN_LIMIT: 4,
     # [customized] scale queue churn at much lower validator counts for testing
     CHURN_LIMIT_QUOTIENT: 32,
+
+
+    # Fork choice
+    # ---------------------------------------------------------------
+    # 70%
+    # TODO PROPOSER_SCORE_BOOST: 70,
 
 
     # Deposit contract

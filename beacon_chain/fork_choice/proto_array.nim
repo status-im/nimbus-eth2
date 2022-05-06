@@ -105,8 +105,8 @@ func init*(T: type ProtoArray,
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#configuration
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
+const PROPOSER_SCORE_BOOST* = 70
 func calculateProposerBoost(validatorBalances: openArray[Gwei]): int64 =
-  const PROPOSER_SCORE_BOOST = 70
   var
     total_balance: uint64
     num_validators: int64

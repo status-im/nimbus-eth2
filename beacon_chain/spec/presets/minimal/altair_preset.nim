@@ -1,5 +1,5 @@
 # Minimal preset - Altair
-# https://github.com/ethereum/consensus-specs/blob/v1.1.6/presets/minimal/altair.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/presets/minimal/altair.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------
@@ -13,9 +13,9 @@ const
 
   # Sync committee
   # ---------------------------------------------------------------
-  # customized
+  # [customized]
   SYNC_COMMITTEE_SIZE* = 32
-  # customized
+  # [customized]
   EPOCHS_PER_SYNC_COMMITTEE_PERIOD* {.intdefine.}: uint64 = 8
 
 
@@ -23,3 +23,5 @@ const
   # ---------------------------------------------------------------
   # 1
   MIN_SYNC_COMMITTEE_PARTICIPANTS* = 1
+  # SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD (= 8 * 8)
+  UPDATE_TIMEOUT*: uint64 = 64
