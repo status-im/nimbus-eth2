@@ -453,7 +453,8 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
         blck.resfut.complete(Result[void, BlockError].err(BlockError.Invalid))
       continue
 
-    if  executionPayloadStatus == PayloadExecutionStatus.accepted and
+    if  executionPayloadStatus in
+          [PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing] and
         hasExecutionPayload:
       # The EL client doesn't know here whether the payload is valid, because,
       # for example, in Geth's case, its parent isn't known. When Geth logs an
@@ -481,7 +482,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       # cause a sync deadlock unless the EL can be convinced to sync back, or
       # the CL is rather more open-endedly optimistic (potentially for entire
       # weak subjectivity periods) than seems optimal.
-      debug "runQueueProcessingLoop: execution payload accepted",
+      debug "runQueueProcessingLoop: execution payload accepted or syncing",
         executionPayloadStatus
 
       await self.runForkchoiceUpdated(
