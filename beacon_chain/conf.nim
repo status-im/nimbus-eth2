@@ -195,12 +195,6 @@ type
       desc: "Number of worker threads (\"0\" = use as many threads as there are CPU cores available)"
       name: "num-threads" }: int
 
-    useJwt* {.
-      hidden
-      desc: "Enable JWT authentication headers; temporary option feature gate (debugging; option may be remove without warning)",
-      defaultValue: true
-      name: "use-jwt-debug" }: bool
-
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.8/src/engine/authentication.md#key-distribution
     jwtSecret* {.
       desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating jwt tokens"
