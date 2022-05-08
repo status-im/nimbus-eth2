@@ -118,8 +118,6 @@ switch("passL", "-fno-omit-frame-pointer")
 # for heap-usage-by-instance-type metrics and object base-type strings
 --define:nimTypeNames
 
-# switch("define", "snappy_implementation=libp2p")
-
 # TODO https://github.com/status-im/nimbus-eth2/issues/3130
 # We are still seeing problems with the websock package, se we stick to using news:
 switch("define", "json_rpc_websocket_package=news")
