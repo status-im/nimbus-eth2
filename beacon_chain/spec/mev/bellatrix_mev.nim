@@ -10,20 +10,35 @@ import ".."/datatypes/[altair, bellatrix]
 {.push raises: [Defect].}
 
 type
-  # https://github.com/lightclient/builder-specs/blob/198f9e15c3764b7c3b0fbd9ec8bef3391ceeab61/specs/README.md#validatorregistrationv1
+  # https://github.com/lightclient/builder-specs/blob/90238e1b78e3c710e94f5bad01fa1f48ded34f99/specs/README.md#validatorregistrationv1
   ValidatorRegistrationV1 = object
     feeRecipient*: ExecutionAddress
     gasLimit*: uint64
     timestamp*: uint64
     pubkey*: ValidatorPubKey
 
-  # https://github.com/lightclient/builder-specs/blob/198f9e15c3764b7c3b0fbd9ec8bef3391ceeab61/specs/README.md#builderbidv1
+  # https://github.com/lightclient/builder-specs/blob/90238e1b78e3c710e94f5bad01fa1f48ded34f99/specs/README.md#signedvalidatorregistrationv1
+  SignedValidatorRegistrationV1 = object
+    message*: ValidatorRegistrationV1
+    signature*: ValidatorSig
+
+  # https://github.com/lightclient/builder-specs/blob/90238e1b78e3c710e94f5bad01fa1f48ded34f99/specs/README.md#builderbidv1
   BuilderBidV1 = object
     header*: ExecutionPayloadHeader
     value*: Eth2Digest   # uint256
     pubkey*: ValidatorPubKey
 
-  # https://github.com/lightclient/builder-specs/blob/198f9e15c3764b7c3b0fbd9ec8bef3391ceeab61/specs/README.md#blindedbeaconblock
+  # https://github.com/lightclient/builder-specs/blob/90238e1b78e3c710e94f5bad01fa1f48ded34f99/specs/README.md#signedbuilderbidv1
+  SignedBuilderBidV1 = object
+    message*: BuilderBidV1
+    signature*: ValidatorSig
+
+  # https://github.com/lightclient/builder-specs/blob/90238e1b78e3c710e94f5bad01fa1f48ded34f99/specs/README.md#signedblindedbeaconblock
+  SignedBlindedBeaconBlock = object
+    message*: BlindedBeaconBlock
+    signature*: ValidatorSig
+
+  # https://github.com/lightclient/builder-specs/blob/90238e1b78e3c710e94f5bad01fa1f48ded34f99/specs/README.md#blindedbeaconblock
   BlindedBeaconBlock = object
     slot*: Slot
     proposer_index*: uint64
@@ -31,7 +46,7 @@ type
     state_root*: Eth2Digest
     body*: BlindedBeaconBlockBody
 
-  # https://github.com/lightclient/builder-specs/blob/198f9e15c3764b7c3b0fbd9ec8bef3391ceeab61/specs/README.md#blindedbeaconblockbody
+  # https://github.com/lightclient/builder-specs/blob/90238e1b78e3c710e94f5bad01fa1f48ded34f99/specs/README.md#blindedbeaconblockbody
   BlindedBeaconBlockBody = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -43,9 +58,3 @@ type
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
     sync_aggregate*: SyncAggregate
     execution_payload_header*: ExecutionPayloadHeader
-
-  # TODO current spec PR doesn't have this yet
-  # https://github.com/flashbots/mev-boost/blob/thegostep/docs/docs/milestone-1.md#signedblindedbeaconblock
-  SignedBlindedBeaconBlock = object
-    message*: BlindedBeaconBlock
-    signature*: ValidatorSig
