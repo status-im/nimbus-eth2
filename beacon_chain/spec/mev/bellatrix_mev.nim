@@ -10,35 +10,35 @@ import ".."/datatypes/[altair, bellatrix]
 {.push raises: [Defect].}
 
 type
-  # https://github.com/lightclient/builder-specs/blob/90238e1b78e3c710e94f5bad01fa1f48ded34f99/specs/README.md#validatorregistrationv1
+  # https://github.com/lightclient/builder-specs/blob/b286dbae3e9d065c63df687a90cb9e9b1687519a/specs/README.md#validatorregistrationv1
   ValidatorRegistrationV1 = object
-    feeRecipient*: ExecutionAddress
-    gasLimit*: uint64
+    fee_recipient*: ExecutionAddress
+    gas_limit*: uint64
     timestamp*: uint64
     pubkey*: ValidatorPubKey
 
-  # https://github.com/lightclient/builder-specs/blob/90238e1b78e3c710e94f5bad01fa1f48ded34f99/specs/README.md#signedvalidatorregistrationv1
+  # https://github.com/lightclient/builder-specs/blob/b286dbae3e9d065c63df687a90cb9e9b1687519a/specs/README.md#signedvalidatorregistrationv1
   SignedValidatorRegistrationV1 = object
     message*: ValidatorRegistrationV1
     signature*: ValidatorSig
 
-  # https://github.com/lightclient/builder-specs/blob/90238e1b78e3c710e94f5bad01fa1f48ded34f99/specs/README.md#builderbidv1
-  BuilderBidV1 = object
+  # https://github.com/lightclient/builder-specs/blob/b286dbae3e9d065c63df687a90cb9e9b1687519a/specs/README.md#builderbid
+  BuilderBid = object
     header*: ExecutionPayloadHeader
     value*: Eth2Digest   # uint256
     pubkey*: ValidatorPubKey
 
-  # https://github.com/lightclient/builder-specs/blob/90238e1b78e3c710e94f5bad01fa1f48ded34f99/specs/README.md#signedbuilderbidv1
-  SignedBuilderBidV1 = object
-    message*: BuilderBidV1
+  # https://github.com/lightclient/builder-specs/blob/b286dbae3e9d065c63df687a90cb9e9b1687519a/specs/README.md#signedbuilderbid
+  SignedBuilderBid = object
+    message*: BuilderBid
     signature*: ValidatorSig
 
-  # https://github.com/lightclient/builder-specs/blob/90238e1b78e3c710e94f5bad01fa1f48ded34f99/specs/README.md#signedblindedbeaconblock
+  # https://github.com/lightclient/builder-specs/blob/b286dbae3e9d065c63df687a90cb9e9b1687519a/specs/README.md#signedblindedbeaconblock
   SignedBlindedBeaconBlock = object
     message*: BlindedBeaconBlock
     signature*: ValidatorSig
 
-  # https://github.com/lightclient/builder-specs/blob/90238e1b78e3c710e94f5bad01fa1f48ded34f99/specs/README.md#blindedbeaconblock
+  # https://github.com/lightclient/builder-specs/blob/b286dbae3e9d065c63df687a90cb9e9b1687519a/specs/README.md#blindedbeaconblock
   BlindedBeaconBlock = object
     slot*: Slot
     proposer_index*: uint64
@@ -46,7 +46,7 @@ type
     state_root*: Eth2Digest
     body*: BlindedBeaconBlockBody
 
-  # https://github.com/lightclient/builder-specs/blob/90238e1b78e3c710e94f5bad01fa1f48ded34f99/specs/README.md#blindedbeaconblockbody
+  # https://github.com/lightclient/builder-specs/blob/b286dbae3e9d065c63df687a90cb9e9b1687519a/specs/README.md#blindedbeaconblockbody
   BlindedBeaconBlockBody = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
