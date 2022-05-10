@@ -6,17 +6,17 @@
 
 import
   std/os,
-  stew/results, snappy,
-  ../ncli/e2store,
+  stew/results, snappy, taskpools,
+  ../ncli/e2store, eth/keys,
   ./spec/datatypes/[altair, bellatrix, phase0],
-  ./spec/forks,
+  ./spec/[beaconstate, forks, signatures_batch],
   ./consensus_object_pools/block_dag # TODO move to somewhere else to avoid circular deps
 
 export results, forks, e2store
 
 type
-  EraFile = ref object
-    handle: IoHandle
+  EraFile* = ref object
+    handle: Opt[IoHandle]
     stateIdx: Index
     blockIdx: Index
 
@@ -29,25 +29,9 @@ type
 
     files: seq[EraFile]
 
-proc getEraFile(
-    db: EraDB, historical_roots: openArray[Eth2Digest], era: Era):
-    Result[EraFile, string] =
-  for f in db.files:
-    if f.stateIdx.startSlot.era == era:
-      return ok(f)
-
-  if db.files.len > 16:
-    discard closeFile(db.files[0].handle)
-    db.files.delete(0)
-
-  if era.uint64 > historical_roots.lenu64():
-    return err("Era outside of known history")
-
-  let
-    name = eraFileName(db.cfg, db.genesis_validators_root, historical_roots, era)
-
+proc open*(_: type EraFile, name: string): Result[EraFile, string] =
   var
-    f = Opt[IoHandle].ok(? openFile(db.path / name, {OpenFlags.Read}).mapErr(ioErrorMsg))
+    f = Opt[IoHandle].ok(? openFile(name, {OpenFlags.Read}).mapErr(ioErrorMsg))
 
   defer:
     if f.isSome(): discard closeFile(f[])
@@ -81,46 +65,214 @@ proc getEraFile(
   else:
     Index()
 
-  let res = EraFile(handle: f[], stateIdx: stateIdx, blockIdx: blockIdx)
+  let res = EraFile(handle: f, stateIdx: stateIdx, blockIdx: blockIdx)
   reset(f)
+  ok res
 
-  db.files.add(res)
-  ok(res)
+proc close(f: EraFile) =
+  if f.handle.isSome():
+    discard closeFile(f.handle.get())
+    reset(f.handle)
 
 proc getBlockSZ*(
-    db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot, bytes: var seq[byte]):
-    Result[void, string] =
+    f: EraFile, slot: Slot, bytes: var seq[byte]): Result[void, string] =
   ## Get a snappy-frame-compressed version of the block data - may overwrite
   ## `bytes` on error
+  ##
+  ## Sets `bytes` to an empty seq and returns success if there is no block at
+  ## the given slot, according to the index
 
   # Block content for the blocks of an era is found in the file for the _next_
   # era
+  doAssert not isNil(f) and f[].handle.isSome
+
   let
-    f = ? db.getEraFile(historical_roots, slot.era + 1)
     pos = f[].blockIdx.offsets[slot - f[].blockIdx.startSlot]
 
   if pos == 0:
-    return err("No block at given slot")
+    bytes = @[]
+    return ok()
 
-  ? f.handle.setFilePos(pos, SeekPosition.SeekBegin).mapErr(ioErrorMsg)
+  ? f[].handle.get().setFilePos(pos, SeekPosition.SeekBegin).mapErr(ioErrorMsg)
 
-  let header = ? f.handle.readRecord(bytes)
+  let header = ? f[].handle.get().readRecord(bytes)
   if header.typ != SnappyBeaconBlock:
     return err("Invalid era file: didn't find block at index position")
 
   ok()
 
 proc getBlockSSZ*(
-    db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot,
-    bytes: var seq[byte]): Result[void, string] =
+    f: EraFile, slot: Slot, bytes: var seq[byte]): Result[void, string] =
   var tmp: seq[byte]
-  ? db.getBlockSZ(historical_roots, slot, tmp)
+  ? f.getBlockSZ(slot, tmp)
 
   try:
     bytes = decodeFramed(tmp)
     ok()
   except CatchableError as exc:
     err(exc.msg)
+
+proc getStateSZ*(
+    f: EraFile, slot: Slot, bytes: var seq[byte]): Result[void, string] =
+  ## Get a snappy-frame-compressed version of the state data - may overwrite
+  ## `bytes` on error
+  ## https://github.com/google/snappy/blob/8dd58a519f79f0742d4c68fbccb2aed2ddb651e8/framing_format.txt#L34
+  doAssert not isNil(f) and f[].handle.isSome
+
+  # TODO consider multi-era files
+  if f[].stateIdx.startSlot != slot:
+    return err("State not found in era file")
+
+  let pos = f[].stateIdx.offsets[0]
+  if pos == 0:
+    return err("No state at given slot")
+
+  ? f[].handle.get().setFilePos(pos, SeekPosition.SeekBegin).mapErr(ioErrorMsg)
+
+  let header = ? f[].handle.get().readRecord(bytes)
+  if header.typ != SnappyBeaconState:
+    return err("Invalid era file: didn't find state at index position")
+
+  ok()
+
+proc getStateSSZ*(
+    f: EraFile, slot: Slot, bytes: var seq[byte],
+    partial: Opt[int] = default(Opt[int])): Result[void, string] =
+  var tmp: seq[byte]
+  ? f.getStateSZ(slot, tmp)
+
+  let
+    len = uncompressedLenFramed(tmp).valueOr:
+      return err("Cannot read uncompressed length, era file corrupt?")
+    wanted =
+      if partial.isSome():
+        min(len, partial.get().uint64 + maxUncompressedFrameDataLen - 1)
+      else: len
+
+  bytes = newSeqUninitialized[byte](wanted)
+  let (_, written) = uncompressFramed(tmp, bytes).valueOr:
+    return err("State failed to decompress, era file corrupt?")
+
+  ok()
+
+proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
+  ## Verify that an era file is internally consistent, returning the state root
+  ## Verification is dominated by block signature checks - about 4-10s on
+  ## decent hardware.
+
+  # We'll load the full state and compute its root - then we'll load the blocks
+  # and make sure that they match the state and that their signatures check out
+  let
+    startSlot = f.stateIdx.startSlot
+    era = startSlot.era
+
+  var
+    taskpool = Taskpool.new()
+    verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+
+  var tmp: seq[byte]
+  ? f.getStateSSZ(startSlot, tmp)
+
+  let
+    state =
+      try: newClone(readSszForkedHashedBeaconState(cfg, tmp))
+      except CatchableError as exc:
+        return err("Unable to read state: " & exc.msg)
+
+  if era > 0:
+    var sigs: seq[SignatureSet]
+
+    for slot in (era - 1).start_slot()..<era.start_slot():
+      ? f.getBlockSSZ(slot, tmp)
+
+      # TODO verify that missing blocks correspond to "repeated" block roots
+      #      in state.block_roots - how to do this for "initial" empty slots in
+      #      the era?
+      if tmp.len > 0:
+        let
+          blck =
+            try: newClone(readSszForkedSignedBeaconBlock(cfg, tmp))
+            except CatchableError as exc:
+              return err("Unable to read block: " & exc.msg)
+        if getForkedBlockField(blck[], slot) != slot:
+          return err("Block slot does not match era index")
+        if blck[].root !=
+            state[].get_block_root_at_slot(getForkedBlockField(blck[], slot)):
+          return err("Block does not match state")
+
+        let
+          proposer = getForkedBlockField(blck[], proposer_index)
+          key = withState(state[]):
+            if proposer >= state.data.validators.asSeq().lenu64:
+              return err("Invalid proposer in block")
+            state.data.validators.asSeq()[proposer].pubkey
+          cooked = key.load()
+          sig = blck[].signature.load()
+
+        if cooked.isNone():
+          return err("Cannot load proposer key")
+        if sig.isNone():
+          return err("Cannot load block signature")
+
+        if slot == GENESIS_SLOT:
+          if blck[].signature != default(type(blck[].signature)):
+            return err("Genesis slot signature not empty")
+        else:
+          # Batch-verification more than doubles total verification speed
+          sigs.add block_signature_set(
+              getStateField(state[], fork),
+              getStateField(state[], genesis_validators_root), slot, blck[].root,
+              cooked.get(), sig.get())
+
+    if not batchVerify(verifier, sigs):
+      return err("Invalid block signature")
+
+  ok(getStateRoot(state[]))
+
+proc getEraFile(
+    db: EraDB, historical_roots: openArray[Eth2Digest], era: Era):
+    Result[EraFile, string] =
+  for f in db.files:
+    if f.stateIdx.startSlot.era == era:
+      return ok(f)
+
+  let
+    eraRoot = eraRoot(
+        db.genesis_validators_root, historical_roots, era).valueOr:
+      return err("Era outside of known history")
+    name = eraFileName(db.cfg, era, eraRoot)
+    f = ? EraFile.open(db.path / name)
+
+  if db.files.len > 16: # TODO LRU
+    close(db.files[0])
+    db.files.delete(0)
+
+  db.files.add(f)
+  ok(f)
+
+proc getBlockSZ*(
+    db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot,
+    bytes: var seq[byte]): Result[void, string] =
+  ## Get a snappy-frame-compressed version of the block data - may overwrite
+  ## `bytes` on error
+  ##
+  ## Sets `bytes` to an empty seq and returns success if there is no block at
+  ## the given slot, according to the index
+
+  # Block content for the blocks of an era is found in the file for the _next_
+  # era
+  let
+    f = ? db.getEraFile(historical_roots, slot.era + 1)
+
+  f.getBlockSZ(slot, bytes)
+
+proc getBlockSSZ*(
+    db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot,
+    bytes: var seq[byte]): Result[void, string] =
+  let
+    f = ? db.getEraFile(historical_roots, slot.era + 1)
+
+  f.getBlockSSZ(slot, bytes)
 
 proc getBlock*(
     db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot,
@@ -149,32 +301,15 @@ proc getStateSZ*(
   let
     f = ? db.getEraFile(historical_roots, slot.era)
 
-  if f.stateIdx.startSlot != slot:
-    return err("State not found in era file")
-
-  let pos = f.stateIdx.offsets[0]
-  if pos == 0:
-    return err("No state at given slot")
-
-  ? f.handle.setFilePos(pos, SeekPosition.SeekBegin).mapErr(ioErrorMsg)
-
-  let header = ? f.handle.readRecord(bytes)
-  if header.typ != SnappyBeaconState:
-    return err("Invalid era file: didn't find state at index position")
-
-  ok()
+  f.getStateSZ(slot, bytes)
 
 proc getStateSSZ*(
     db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot,
-    bytes: var seq[byte]): Result[void, string] =
-  var tmp: seq[byte]
-  ? db.getStateSZ(historical_roots, slot, tmp)
+    bytes: var seq[byte], partial = Opt[int].err()): Result[void, string] =
+  let
+    f = ? db.getEraFile(historical_roots, slot.era)
 
-  try:
-    bytes = decodeFramed(tmp)
-    ok()
-  except CatchableError as exc:
-    err(exc.msg)
+  f.getStateSSZ(slot, bytes)
 
 type
   PartialBeaconState = object
@@ -197,15 +332,17 @@ type
 proc getPartialState(
     db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot,
     output: var PartialBeaconState): bool =
-  # TODO don't read all bytes: we only need a few, and shouldn't decompress the
-  #      rest - our snappy impl is very slow, in part to the crc32 check it
-  #      performs
-  var tmp: seq[byte]
-  if (let e = db.getStateSSZ(historical_roots, slot, tmp); e.isErr):
-    return false
-
   static: doAssert isFixedSize(PartialBeaconState)
   const partialBytes = fixedPortionSize(PartialBeaconState)
+
+  # TODO we don't need to read all bytes: ideally we could use something like
+  # faststreams to read uncompressed bytes up to a limit and it would take care
+  # of reading the minimal number of bytes from disk
+  var tmp: seq[byte]
+  if (let e = db.getStateSSZ(
+      historical_roots, slot, tmp, Opt[int].ok(partialBytes));
+      e.isErr):
+    return false
 
   try:
     readSszBytes(tmp.toOpenArray(0, partialBytes - 1), output)
@@ -215,26 +352,29 @@ proc getPartialState(
     false
 
 iterator getBlockIds*(
-    db: EraDB, historical_roots: openArray[Eth2Digest], era: Era): BlockId =
-  # The state from which we load block roots is stored in the file corresponding
-  # to the "next" era
-  let fileEra = era + 1
-
+    db: EraDB, historical_roots: openArray[Eth2Digest], startSlot: Slot): BlockId =
   var
     state = (ref PartialBeaconState)() # avoid stack overflow
+    slot = startSlot
 
-  # `case` ensures we're on a fork for which the `PartialBeaconState`
-  # definition is consistent
-  case db.cfg.stateForkAtEpoch(fileEra.start_slot().epoch)
-  of BeaconStateFork.Phase0, BeaconStateFork.Altair, BeaconStateFork.Bellatrix:
-    if not getPartialState(db, historical_roots, fileEra.start_slot(), state[]):
-      state = nil # No `return` in iterators
+  while true:
+    # `case` ensures we're on a fork for which the `PartialBeaconState`
+    # definition is consistent
+    case db.cfg.stateForkAtEpoch(slot.epoch)
+    of BeaconStateFork.Phase0, BeaconStateFork.Altair, BeaconStateFork.Bellatrix:
+      let stateSlot = (slot.era() + 1).start_slot()
+      if not getPartialState(db, historical_roots, stateSlot, state[]):
+        state = nil # No `return` in iterators
 
-  if state != nil:
-    var
-      slot = era.start_slot()
-    for root in state[].block_roots:
-      yield BlockId(root: root, slot: slot)
+    if state == nil:
+      break
+
+    let
+      x = slot.int mod state[].block_roots.len
+    for i in x..<state[].block_roots.len():
+      # TODO these are not actually valid BlockId instances in the case where
+      #      the slot is missing a block - use index to filter..
+      yield BlockId(root: state[].block_roots[i], slot: slot)
       slot += 1
 
 proc new*(

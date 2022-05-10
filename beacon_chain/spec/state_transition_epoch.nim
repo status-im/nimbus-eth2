@@ -949,6 +949,14 @@ func process_randao_mixes_reset*(state: var ForkyBeaconState) =
   state.randao_mixes[next_epoch mod EPOCHS_PER_HISTORICAL_VECTOR] =
     get_randao_mix(state, current_epoch)
 
+func compute_historical_root*(state: var ForkyBeaconState): Eth2Digest =
+  # Equivalent to hash_tree_root(foo: HistoricalBatch), but without using
+  # significant additional stack or heap.
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#historicalbatch
+  # In response to https://github.com/status-im/nimbus-eth2/issues/921
+  hash_tree_root([
+    hash_tree_root(state.block_roots), hash_tree_root(state.state_roots)])
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#historical-roots-updates
 func process_historical_roots_update*(state: var ForkyBeaconState) =
   ## Set historical root accumulator
@@ -959,8 +967,7 @@ func process_historical_roots_update*(state: var ForkyBeaconState) =
     # significant additional stack or heap.
     # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#historicalbatch
     # In response to https://github.com/status-im/nimbus-eth2/issues/921
-    if not state.historical_roots.add hash_tree_root(
-        [hash_tree_root(state.block_roots), hash_tree_root(state.state_roots)]):
+    if not state.historical_roots.add state.compute_historical_root():
       raiseAssert "no more room for historical roots, so long and thanks for the fish!"
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#participation-records-rotation
