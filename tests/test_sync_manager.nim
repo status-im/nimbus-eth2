@@ -618,6 +618,20 @@ suite "SyncManager test suite":
         await queue.push(request4, response4)
         check debtLen(queue) == request4.count
 
+        # Advance `safeSlot` out of band.
+        advanceSafeSlot()
+
+        # Fetch a request. It should take into account the new `safeSlot`.
+        let request5 = queue.pop(finish, p1)
+        if request5.isEmpty():
+          break
+        case kkind
+        of SyncQueueKind.Forward:
+          check request5.slot >= getFowardSafeSlotCb()
+        else:
+          check request5.lastSlot <= getBackwardSafeSlotCb()
+        queue.push(request5)
+
       await validatorFut.cancelAndWait()
 
     waitFor runTest()
@@ -664,7 +678,7 @@ suite "SyncManager test suite":
 
     test prefix & "Handle out-of-band sync progress advancement":
       const OutOfBandAdvancementTests = [
-        (Slot(0), Slot(200), SLOTS_PER_EPOCH.uint64)
+        (Slot(0), Slot(500), SLOTS_PER_EPOCH.uint64)
       ]
       for item in OutOfBandAdvancementTests:
         outOfBandAdvancementTest(k, item[0], item[1], item[2])
