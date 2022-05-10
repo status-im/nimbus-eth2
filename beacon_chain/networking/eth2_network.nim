@@ -1319,7 +1319,7 @@ proc trimConnections(node: Eth2Node, count: int) =
         currentVal.count + 1
       )
 
-  for peerId, gScore in gossipScores.pairs:
+  for peerId, gScore in gossipScores:
     scores[peerId] =
       scores.getOrDefault(peerId) + (gScore.sum div gScore.count)
 

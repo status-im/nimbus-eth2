@@ -85,7 +85,7 @@ iterator get_attesting_indices*(epochRef: EpochRef,
     trace "get_attesting_indices: inconsistent aggregation and committee length"
   else:
     for index_in_committee, validator_index in get_beacon_committee(
-        epochRef, slot, committee_index).pairs():
+        epochRef, slot, committee_index):
       if bits[index_in_committee]:
         yield validator_index
 

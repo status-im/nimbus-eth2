@@ -307,7 +307,7 @@ func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
 template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
   # The use of `unsafeAddr` avoids excessive copying in certain situations, e.g.,
   # ```
-  #   for index, validator in getStateField(stateData.data, validators).pairs():
+  #   for index, validator in getStateField(stateData.data, validators):
   # ```
   # Without `unsafeAddr`, the `validators` list would be copied to a temporary variable.
   (case x.kind

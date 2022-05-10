@@ -302,8 +302,10 @@ proc installApiHandlers*(node: SigningNode) =
         let
           forkInfo = request.forkInfo.get()
           msg = request.syncAggregatorSelectionData
+          subcommittee = SyncSubcommitteeIndex.init(msg.subcommittee_index).valueOr:
+            return errorResponse(Http400, InvalidSubCommitteeIndexValueError)
           cooked = get_sync_committee_selection_proof(forkInfo.fork,
-            forkInfo.genesis_validators_root, msg.slot, msg.subcommittee_index,
+            forkInfo.genesis_validators_root, msg.slot, subcommittee,
             validator.data.privateKey)
           signature = cooked.toValidatorSig().toHex()
         signatureResponse(Http200, signature)

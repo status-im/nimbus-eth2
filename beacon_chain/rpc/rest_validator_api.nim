@@ -631,8 +631,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
         subs
 
-    # TODO because we subscribe to all sync committee subnets, we don not need
-    #      to remember which ones are requested by validator clients
     return RestApiResponse.jsonMsgResponse(SyncCommitteeSubscriptionSuccess)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceSyncCommitteeContribution
@@ -717,7 +715,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         var res: seq[RestAttestationsFailure]
         await allFutures(pending)
-        for index, future in pending.pairs():
+        for index, future in pending:
           if future.done():
             let fres = future.read()
             if fres.isErr():

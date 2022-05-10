@@ -199,7 +199,7 @@ proc sync_committee_message_signature_set*(
 # See also: verify_sync_committee_selection_proof
 proc sync_committee_selection_proof_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    slot: Slot, subcommittee_index: uint64,
+    slot: Slot, subcommittee_index: SyncSubcommitteeIndex,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_sync_committee_selection_proof_signing_root(
     fork, genesis_validators_root, slot, subcommittee_index)

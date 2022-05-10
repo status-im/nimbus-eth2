@@ -419,7 +419,7 @@ proc prepareRequest(uri: Uri,
         var res: seq[tuple[key: string, value: string]]
         if jheaders.kind != JObject:
           return err("Field `headers` should be an object")
-        for key, value in jheaders.fields.pairs():
+        for key, value in jheaders.fields:
           if value.kind != JString:
             return err("Field `headers` element should be only strings")
           res.add((key, value.str))
@@ -770,7 +770,7 @@ proc structCmp(j1, j2: JsonNode, strict: bool): bool =
     if strict:
       if len(j1.fields) != len(j2.fields):
         return false
-      for key, value in j1.fields.pairs():
+      for key, value in j1.fields:
         let j2node = j2.getOrDefault(key)
         if isNil(j2node):
           return false
@@ -778,7 +778,7 @@ proc structCmp(j1, j2: JsonNode, strict: bool): bool =
           return false
       true
     else:
-      for key, value in j2.fields.pairs():
+      for key, value in j2.fields:
         let j1node = j1.getOrDefault(key)
         if isNil(j1node):
           return false
@@ -1017,7 +1017,7 @@ proc startTests(conf: RestTesterConf, uri: Uri,
         return 1
       res.get()
 
-  for index, item in rules.pairs():
+  for index, item in rules:
     inputQueue.addLastNoWait(TestCase(index: index, rule: item))
 
   for i in 0 ..< len(workers):
@@ -1067,7 +1067,7 @@ proc startTests(conf: RestTesterConf, uri: Uri,
     alignLeft("MESSAGE", 20) & "\r\n" &
     '-'.repeat(45 + 20 + 7 + 20 + 20)
   echo headerLine
-  for index, item in rules.pairs():
+  for index, item in rules:
     let errorFlag =
       block:
         var tmp = "---"

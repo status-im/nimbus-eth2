@@ -268,18 +268,18 @@ proc verify_sync_committee_signature*(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#aggregation-selection
 func compute_sync_committee_selection_proof_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    slot: Slot, subcommittee_index: uint64): Eth2Digest =
+    slot: Slot, subcommittee_index: SyncSubcommitteeIndex): Eth2Digest =
   let
     domain = get_domain(fork, DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF,
                         slot.epoch, genesis_validators_root)
     signing_data = SyncAggregatorSelectionData(
       slot: slot,
-      subcommittee_index: subcommittee_index)
+      subcommittee_index: uint64 subcommittee_index)
   compute_signing_root(signing_data, domain)
 
 func get_sync_committee_selection_proof*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    slot: Slot, subcommittee_index: uint64,
+    slot: Slot, subcommittee_index: SyncSubcommitteeIndex,
     privkey: ValidatorPrivKey): CookedSig =
   let signing_root = compute_sync_committee_selection_proof_signing_root(
     fork, genesis_validators_root, slot, subcommittee_index)
@@ -288,7 +288,7 @@ func get_sync_committee_selection_proof*(
 
 proc verify_sync_committee_selection_proof*(
     fork: Fork, genesis_validators_root: Eth2Digest,
-    slot: Slot, subcommittee_index: uint64,
+    slot: Slot, subcommittee_index: SyncSubcommitteeIndex,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   withTrust(signature):
     let signing_root = compute_sync_committee_selection_proof_signing_root(

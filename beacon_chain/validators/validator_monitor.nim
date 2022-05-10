@@ -281,7 +281,7 @@ proc updateEpoch(self: var ValidatorMonitor, epoch: Epoch) =
     # and hope things improve
     notice "Resetting validator monitoring", epoch, monitorEpoch
 
-    for (_, monitor) in self.monitors.mpairs():
+    for _, monitor in self.monitors:
       reset(monitor.summaries)
     return
 

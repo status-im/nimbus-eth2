@@ -10,7 +10,8 @@ import
     validator],
   ../spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client],
   ../validators/[keystore_management, validator_pool, slashing_protection],
-  ".."/[conf, beacon_clock, version, nimbus_binary_common]
+  ".."/[conf, beacon_clock, version, nimbus_binary_common],
+   ../spec/eth2_apis/eth2_rest_serialization
 
 export os, sets, sequtils, sequtils, chronos, presto, chronicles, confutils,
        nimbus_binary_common, version, conf, options, tables, results, base10,
@@ -51,11 +52,27 @@ type
 
   BlockServiceRef* = ref object of ClientServiceRef
 
+  SyncCommitteeServiceRef* = ref object of ClientServiceRef
+
   DutyAndProof* = object
     epoch*: Epoch
     dependentRoot*: Eth2Digest
     data*: RestAttesterDuty
     slotSig*: Option[ValidatorSig]
+
+  SyncCommitteeDuty* = object
+    pubkey*: ValidatorPubKey
+    validator_index*: ValidatorIndex
+    validator_sync_committee_index*: IndexInSyncCommittee
+
+  SyncDutyAndProof* = object
+    epoch*: Epoch
+    data*: SyncCommitteeDuty
+    slotSig*: Option[ValidatorSig]
+
+  SyncCommitteeSubscriptionInfo* = object
+    validator_index*: ValidatorIndex
+    validator_sync_committee_indices*: seq[IndexInSyncCommittee]
 
   ProposerTask* = object
     duty*: RestProposerDuty
@@ -78,12 +95,16 @@ type
   EpochDuties* = object
     duties*: Table[Epoch, DutyAndProof]
 
+  EpochSyncDuties* = object
+    duties*: Table[Epoch, SyncDutyAndProof]
+
   RestBeaconNodeStatus* {.pure.} = enum
     Uninitalized, Offline, Incompatible, NotSynced, Online
 
   BeaconNodeServerRef* = ref BeaconNodeServer
 
   AttesterMap* = Table[ValidatorPubKey, EpochDuties]
+  SyncCommitteeDutiesMap* = Table[ValidatorPubKey, EpochSyncDuties]
   ProposerMap* = Table[Epoch, ProposedData]
 
   ValidatorClient* = object
@@ -96,6 +117,7 @@ type
     dutiesService*: DutiesServiceRef
     attestationService*: AttestationServiceRef
     blockService*: BlockServiceRef
+    syncCommitteeService*: SyncCommitteeServiceRef
     runSlotLoop*: Future[void]
     beaconClock*: BeaconClock
     attachedValidators*: ValidatorPool
@@ -103,6 +125,7 @@ type
     forksAvailable*: AsyncEvent
     attesters*: AttesterMap
     proposers*: ProposerMap
+    syncCommitteeDuties*: SyncCommitteeDutiesMap
     beaconGenesis*: RestGenesis
     proposerTasks*: Table[Slot, seq[ProposerTask]]
 
@@ -113,6 +136,7 @@ type
 
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
+  DefaultSyncDutyAndProof* = SyncDutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
   SlotDuration* = int64(SECONDS_PER_SLOT).seconds
   OneThirdDuration* = int64(SECONDS_PER_SLOT).seconds div INTERVALS_PER_SLOT
 
@@ -146,6 +170,9 @@ proc stop*(csr: ClientServiceRef) {.async.} =
 proc isDefault*(dap: DutyAndProof): bool =
   dap.epoch == Epoch(0xFFFF_FFFF_FFFF_FFFF'u64)
 
+proc isDefault*(sdap: SyncDutyAndProof): bool =
+  sdap.epoch == Epoch(0xFFFF_FFFF_FFFF_FFFF'u64)
+
 proc isDefault*(prd: ProposedData): bool =
   prd.epoch == Epoch(0xFFFF_FFFF_FFFF_FFFF'u64)
 
@@ -154,6 +181,11 @@ proc init*(t: typedesc[DutyAndProof], epoch: Epoch, dependentRoot: Eth2Digest,
            slotSig: Option[ValidatorSig]): DutyAndProof =
   DutyAndProof(epoch: epoch, dependentRoot: dependentRoot, data: duty,
                slotSig: slotSig)
+
+proc init*(t: typedesc[SyncDutyAndProof], epoch: Epoch,
+           duty: SyncCommitteeDuty,
+           slotSig: Option[ValidatorSig]): SyncDutyAndProof =
+  SyncDutyAndProof(epoch: epoch, data: duty, slotSig: slotSig)
 
 proc init*(t: typedesc[ProposedData], epoch: Epoch, dependentRoot: Eth2Digest,
            data: openArray[ProposerTask]): ProposedData =
@@ -174,22 +206,45 @@ proc getCurrentSlot*(vc: ValidatorClientRef): Option[Slot] =
 
 proc getAttesterDutiesForSlot*(vc: ValidatorClientRef,
                                slot: Slot): seq[DutyAndProof] =
-  ## Returns all `DutyAndPrrof` for the given `slot`.
+  ## Returns all `DutyAndProof` for the given `slot`.
   var res: seq[DutyAndProof]
   let epoch = slot.epoch()
-  for key, item in vc.attesters.pairs():
+  for key, item in vc.attesters:
     let duty = item.duties.getOrDefault(epoch, DefaultDutyAndProof)
     if not(duty.isDefault()):
       if duty.data.slot == slot:
         res.add(duty)
   res
 
+proc getSyncCommitteeDutiesForSlot*(vc: ValidatorClientRef,
+                                    slot: Slot): seq[SyncDutyAndProof] =
+  ## Returns all `SyncDutyAndProof` for the given `slot`.
+  var res: seq[SyncDutyAndProof]
+  let epoch = slot.epoch()
+  for key, item in mpairs(vc.syncCommitteeDuties):
+    item.duties.withValue(epoch, duty):
+      res.add(duty[])
+  res
+
+proc removeOldSyncPeriodDuties*(vc: ValidatorClientRef,
+                                slot: Slot) =
+  if slot.is_sync_committee_period:
+    let epoch = slot.epoch()
+    var prunedDuties = SyncCommitteeDutiesMap()
+    for key, item in vc.syncCommitteeDuties:
+      var curPeriodDuties = EpochSyncDuties()
+      for epochKey, epochDuty in item.duties:
+        if epochKey >= epoch:
+          curPeriodDuties.duties[epochKey] = epochDuty
+      prunedDuties[key] = curPeriodDuties
+    vc.syncCommitteeDuties = prunedDuties
+
 proc getDurationToNextAttestation*(vc: ValidatorClientRef,
                                    slot: Slot): string =
   var minSlot = FAR_FUTURE_SLOT
   let currentEpoch = slot.epoch()
   for epoch in [currentEpoch, currentEpoch + 1'u64]:
-    for key, item in vc.attesters.pairs():
+    for key, item in vc.attesters:
       let duty = item.duties.getOrDefault(epoch, DefaultDutyAndProof)
       if not(duty.isDefault()):
         let dutySlotTime = duty.data.slot
@@ -222,10 +277,30 @@ proc getDurationToNextBlock*(vc: ValidatorClientRef, slot: Slot): string =
 
 iterator attesterDutiesForEpoch*(vc: ValidatorClientRef,
                                  epoch: Epoch): DutyAndProof =
-  for key, item in vc.attesters.pairs():
+  for key, item in vc.attesters:
     let epochDuties = item.duties.getOrDefault(epoch)
     if not(isDefault(epochDuties)):
       yield epochDuties
+
+proc syncMembersSubscriptionInfoForEpoch*(
+    vc: ValidatorClientRef,
+    epoch: Epoch): seq[SyncCommitteeSubscriptionInfo] =
+  var res: seq[SyncCommitteeSubscriptionInfo]
+  for key, item in mpairs(vc.syncCommitteeDuties):
+    var cur: SyncCommitteeSubscriptionInfo
+    var initialized = false
+
+    item.duties.withValue(epoch, epochDuties):
+      if not initialized:
+        cur.validator_index = epochDuties.data.validator_index
+        initialized = true
+      cur.validator_sync_committee_indices.add(
+        epochDuties.data.validator_sync_committee_index)
+
+    if initialized:
+      res.add cur
+
+  res
 
 proc getDelay*(vc: ValidatorClientRef, deadline: BeaconTime): TimeDiff =
   vc.beaconClock.now() - deadline
@@ -253,3 +328,6 @@ proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
     else:
       break
   res
+
+proc getSubcommitteeIndex*(syncCommitteeIndex: IndexInSyncCommittee): SyncSubcommitteeIndex =
+  SyncSubcommitteeIndex(uint16(syncCommitteeIndex) div SYNC_SUBCOMMITTEE_SIZE)

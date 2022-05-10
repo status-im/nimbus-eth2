@@ -230,7 +230,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
         vquery = vqres.get()
 
       if validatorIds.isNone():
-        for index, validator in getStateField(state, validators).pairs():
+        for index, validator in getStateField(state, validators):
           let sres = validator.getStatus(current_epoch)
           if sres.isOk:
             let vstatus = sres.get()
@@ -257,7 +257,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
                          status: vstatus,
                          balance: getStateField(state, balances).asSeq()[index]))
 
-        for index, validator in getStateField(state, validators).pairs():
+        for index, validator in getStateField(state, validators):
           if validator.pubkey in vquery.keyset:
             let sres = validator.getStatus(current_epoch)
             if sres.isOk:
@@ -292,7 +292,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
           else:
             raise newException(CatchableError, "Incorrect validator's state")
       else:
-        for index, validator in getStateField(state, validators).pairs():
+        for index, validator in getStateField(state, validators):
           if validator.pubkey in vquery.keyset:
             let sres = validator.getStatus(current_epoch)
             if sres.isOk:
@@ -308,7 +308,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
     var res: seq[RpcBalance]
     withStateForStateId(stateId):
       if validatorsId.isNone():
-        for index, value in getStateField(state, balances).pairs():
+        for index, value in getStateField(state, balances):
           let balance = (index: uint64(index), balance: value)
           res.add(balance)
       else:
@@ -325,7 +325,7 @@ proc installBeaconApiHandlers*(rpcServer: RpcServer, node: BeaconNode) {.
                            balance: getStateField(state, balances).asSeq()[index])
             res.add(balance)
 
-        for index, validator in getStateField(state, validators).pairs():
+        for index, validator in getStateField(state, validators):
           if validator.pubkey in vquery.keyset:
             let balance = (index: uint64(index),
                            balance: getStateField(state, balances).asSeq()[index])

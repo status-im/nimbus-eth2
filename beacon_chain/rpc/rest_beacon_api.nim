@@ -272,8 +272,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             # return empty response.
             if len(validatorIds) == 0:
               # There is no indices, so we going to filter all the validators.
-              for index, validator in getStateField(state,
-                                                    validators).pairs():
+              for index, validator in getStateField(state, validators):
                 let
                   balance = getStateField(state, balances).asSeq()[index]
                   status =
@@ -447,7 +446,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if len(validatorIds) == 0:
               # There is no indices, so we going to return balances of all
               # known validators.
-              for index, balance in getStateField(state, balances).pairs():
+              for index, balance in getStateField(state, balances):
                 res.add(RestValidatorBalance.init(ValidatorIndex(index),
                                                   balance))
           else:
@@ -905,7 +904,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         var res: seq[RestAttestationsFailure]
         await allFutures(pending)
-        for index, future in pending.pairs():
+        for index, future in pending:
           if future.done():
             let fres = future.read()
             if fres.isErr():
@@ -1008,7 +1007,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let failures =
       block:
         var res: seq[RestAttestationsFailure]
-        for index, item in results.pairs():
+        for index, item in results:
           if item.isErr():
             res.add(RestAttestationsFailure(index: uint64(index),
                                             message: $item.error()))

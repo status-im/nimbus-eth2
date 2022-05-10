@@ -535,9 +535,10 @@ func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
     pubkey: cookedKey.get(),
     withdrawal_credentials: validator.withdrawal_credentials)
 
-template makeLimitedU64*(T: untyped, limit: uint64) =
+template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =
   # A "tigher" type is often used for T, but for the range check to be effective
   # it must make sense..
+  type L = typeof limit
 
   static: doAssert limit <= distinctBase(T).high()
   # Many `uint64` values in the spec have a more limited range of valid values
@@ -581,6 +582,15 @@ template makeLimitedU64*(T: untyped, limit: uint64) =
 
   template toSszType(x: T): uint64 =
     {.error: "Limited types should not be used with SSZ (abi differences)".}
+
+template makeLimitedU64*(T: untyped, limit: uint64) =
+  makeLimitedUInt(T, limit)
+
+template makeLimitedU8*(T: untyped, limit: uint8) =
+  makeLimitedUInt(T, limit)
+
+template makeLimitedU16*(T: type, limit: uint16) =
+  makeLimitedUInt(T, limit)
 
 makeLimitedU64(CommitteeIndex, MAX_COMMITTEES_PER_SLOT)
 makeLimitedU64(SubnetId, ATTESTATION_SUBNET_COUNT)

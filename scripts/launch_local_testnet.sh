@@ -91,7 +91,7 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
                               and validator clients, with all beacon nodes being paired up
                               with a corresponding validator client)
   --lighthouse-vc-nodes       number of Lighthouse VC nodes (assigned before Nimbus VC nodes, default: ${LIGHTHOUSE_VC_NODES})
-  --enable-logtrace           display logtrace "aggasr" analysis
+  --enable-logtrace           display logtrace analysis
   --log-level                 set the log level (default: "${LOG_LEVEL}")
   --reuse-existing-data-dir   instead of deleting and recreating the data dir, keep it and reuse everything we can from it
   --reuse-binaries            don't (re)build the binaries we need and don't delete them at the end (speeds up testing)

@@ -43,7 +43,7 @@ type
     message*: string
     stacktraces*: Option[seq[string]]
 
-  RestAttestationError* = object
+  RestDutyError* = object
     code*: uint64
     message*: string
     failures*: seq[RestFailureItem]
@@ -82,7 +82,7 @@ type
     GetStateV2Response |
     GetStateForkResponse |
     ProduceBlockResponseV2 |
-    RestAttestationError |
+    RestDutyError |
     RestValidator |
     RestGenericError |
     Web3SignerErrorResponse |

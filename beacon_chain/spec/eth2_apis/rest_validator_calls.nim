@@ -76,7 +76,8 @@ proc prepareSyncCommitteeSubnets*(body: seq[RestSyncCommitteeSubscription]): Res
 
 proc produceSyncCommitteeContribution*(slot: Slot,
                                        subcommittee_index: SyncSubcommitteeIndex,
-                                       beacon_block_root: Eth2Digest): RestPlainResponse {.
+                                       beacon_block_root: Eth2Digest
+                                      ): RestResponse[ProduceSyncCommitteeContributionResponse] {.
      rest, endpoint: "/eth/v1/validator/sync_committee_contribution",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/produceSyncCommitteeContribution

@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 import validator_client/[common, fallback_service, duties_service,
-                         attestation_service, fork_service]
+                         attestation_service, fork_service, sync_committee_service]
 
 proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
   info "Initializing genesis", nodes_count = len(vc.beaconNodes)
@@ -126,6 +126,7 @@ proc asyncInit(vc: ValidatorClientRef) {.async.} =
   vc.forkService = await ForkServiceRef.init(vc)
   vc.dutiesService = await DutiesServiceRef.init(vc)
   vc.attestationService = await AttestationServiceRef.init(vc)
+  vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
 
 proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
                  lastSlot: Slot) {.async.} =
@@ -159,6 +160,7 @@ proc asyncRun(vc: ValidatorClientRef) {.async.} =
   vc.forkService.start()
   vc.dutiesService.start()
   vc.attestationService.start()
+  vc.syncCommitteeService.start()
 
   await runSlotLoop(vc, vc.beaconClock.now(), onSlotStart)
 
