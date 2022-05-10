@@ -132,18 +132,7 @@ suite "Light client processor" & preset():
           store[].get.best_valid_update.isSome
           store[].get.best_valid_update.get == update.get
 
-        res = processor[].storeObject(
-          MsgSource.gossip, getBeaconTime(), update.get)
-        check:
-          res.isErr
-          res.error == BlockError.Duplicate
-          store[].isSome
-          store[].get.best_valid_update.isSome
-          store[].get.best_valid_update.get == update.get
-        time += chronos.minutes(15)
-
-        for _ in 0 ..< 150:
-          time += chronos.seconds(5)
+        proc applyDuplicate() = # Reduce stack size by making this a `proc`
           res = processor[].storeObject(
             MsgSource.gossip, getBeaconTime(), update.get)
           check:
@@ -153,6 +142,11 @@ suite "Light client processor" & preset():
             store[].get.best_valid_update.isSome
             store[].get.best_valid_update.get == update.get
 
+        applyDuplicate()
+        time += chronos.minutes(15)
+        for _ in 0 ..< 150:
+          applyDuplicate()
+          time += chronos.seconds(5)
         time += chronos.minutes(15)
 
         res = processor[].storeObject(
@@ -164,8 +158,8 @@ suite "Light client processor" & preset():
           store[].get.best_valid_update.isNone
         if store[].get.finalized_header == update.get.attested_header:
           break
-        check: store[].get.finalized_header == update.get.finalized_header
-      check: store[].get.finalized_header == update.get.attested_header
+        check store[].get.finalized_header == update.get.finalized_header
+      check store[].get.finalized_header == update.get.attested_header
 
     let
       previousFinalized = store[].get.finalized_header
