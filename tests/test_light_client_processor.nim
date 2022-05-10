@@ -71,7 +71,7 @@ suite "Light client processor" & preset():
                            cache, info, flags = {}).isOk()
     let syncCommitteeRatio =
       if period > lastPeriodWithSupermajority:
-        0.52
+        0.62
       else:
         0.82
     addBlocks(numFilledEpochsPerPeriod * SLOTS_PER_EPOCH, syncCommitteeRatio)
