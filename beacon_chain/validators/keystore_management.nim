@@ -105,16 +105,18 @@ func init*(T: type KeystoreData,
     pubkey: cookedKey.toPubKey,
     description: keystore.description,
     version: keystore.version,
-    remoteUrl: keystore.remote
+    remotes: keystore.remotes,
+    threshold: keystore.threshold
   )
 
 func init*(T: type KeystoreData, cookedKey: CookedPubKey,
-           remoteUrl: HttpHostUri): T =
+           remotes: seq[RemoteSignerInfo], threshold: uint32): T =
   KeystoreData(
     kind: KeystoreKind.Remote,
     pubkey: cookedKey.toPubKey(),
-    version: 1'u64,
-    remoteUrl: remoteUrl
+    version: 2'u64,
+    remotes: remotes,
+    threshold: threshold
   )
 
 func init(T: type AddValidatorFailure, status: AddValidatorStatus,
@@ -518,15 +520,14 @@ proc removeValidatorFiles*(validatorsDir, secretsDir, keyName: string,
   ok(RemoveValidatorStatus.deleted)
 
 proc removeValidatorFiles*(conf: AnyConf, keyName: string,
-                           kind: KeystoreKind
-                          ): KmResult[RemoveValidatorStatus] {.
-     raises: [Defect].} =
+                           kind: KeystoreKind): KmResult[RemoveValidatorStatus]
+                          {.raises: [Defect].} =
   removeValidatorFiles(conf.validatorsDir(), conf.secretsDir(), keyName, kind)
 
 proc removeValidator*(pool: var ValidatorPool, conf: AnyConf,
                       publicKey: ValidatorPubKey,
-                      kind: KeystoreKind): KmResult[RemoveValidatorStatus] {.
-     raises: [Defect].} =
+                      kind: KeystoreKind): KmResult[RemoveValidatorStatus]
+                     {.raises: [Defect].} =
   let validator = pool.getValidator(publicKey)
   if isNil(validator):
     return ok(RemoveValidatorStatus.notFound)
@@ -822,21 +823,26 @@ proc saveKeystore*(rng: var BrHmacDrbgContext,
   ok()
 
 proc saveKeystore*(validatorsDir: string,
-                   publicKey: ValidatorPubKey, url: HttpHostUri,
-                   version = 1'u64,
+                   publicKey: ValidatorPubKey,
+                   urls: seq[RemoteSignerInfo],
+                   threshold: uint32,
                    flags: set[RemoteKeystoreFlag] = {},
                    remoteType = RemoteSignerType.Web3Signer,
-                   desc = ""): Result[void, KeystoreGenerationError] {.
-     raises: [Defect].} =
+                   desc = ""): Result[void, KeystoreGenerationError]
+                  {.raises: [Defect].} =
   let
     keyName = "0x" & publicKey.toHex()
     keystoreDir = validatorsDir / keyName
     keystoreFile = keystoreDir / RemoteKeystoreFileName
     keystoreDesc = if len(desc) == 0: none[string]() else: some(desc)
     keyStore = RemoteKeystore(
-      version: version, description: keystoreDesc, remoteType: remoteType,
-      pubkey: publicKey, remote: url, flags: flags
-    )
+      version: 2'u64,
+      description: keystoreDesc,
+      remoteType: remoteType,
+      pubkey: publicKey,
+      threshold: threshold,
+      remotes: urls,
+      flags: flags)
 
   if dirExists(keystoreDir):
     return err(KeystoreGenerationError(kind: DuplicateKeystoreDir,
@@ -857,18 +863,28 @@ proc saveKeystore*(validatorsDir: string,
                          encodedStorage)
   ok()
 
-proc saveKeystore*(conf: AnyConf, publicKey: ValidatorPubKey, url: HttpHostUri,
-                   version = 1'u64,
+proc saveKeystore*(validatorsDir: string,
+                   publicKey: ValidatorPubKey,
+                   url:  HttpHostUri): Result[void, KeystoreGenerationError]
+                  {.raises: [Defect].} =
+  let remoteInfo = RemoteSignerInfo(url: url, id: 0)
+  saveKeystore(validatorsDir, publicKey, @[remoteInfo], 1)
+
+proc saveKeystore*(conf: AnyConf,
+                   publicKey: ValidatorPubKey,
+                   remotes: seq[RemoteSignerInfo],
+                   threshold: uint32,
                    flags: set[RemoteKeystoreFlag] = {},
                    remoteType = RemoteSignerType.Web3Signer,
-                   desc = ""): Result[void, KeystoreGenerationError] {.
-     raises: [Defect].} =
-  saveKeystore(conf.validatorsDir(), publicKey, url, version, flags,
-               remoteType, desc)
+                   desc = ""): Result[void, KeystoreGenerationError]
+                  {.raises: [Defect].} =
+  saveKeystore(
+    conf.validatorsDir(),
+    publicKey, remotes, threshold, flags, remoteType, desc)
 
 proc importKeystore*(pool: var ValidatorPool, conf: AnyConf,
-                     keystore: RemoteKeystore): ImportResult[KeystoreData] {.
-     raises: [Defect].} =
+                     keystore: RemoteKeystore): ImportResult[KeystoreData]
+                    {.raises: [Defect].} =
   let
     publicKey = keystore.pubkey
     keyName = "0x" & publicKey.toHex()
@@ -894,11 +910,11 @@ proc importKeystore*(pool: var ValidatorPool, conf: AnyConf,
   if existsKeystore(keystoreDir, {KeystoreKind.Local, KeystoreKind.Remote}):
     return err(AddValidatorFailure.init(AddValidatorStatus.existingArtifacts))
 
-  let res = saveKeystore(conf, publicKey, keystore.remote)
+  let res = saveKeystore(conf, publicKey, keystore.remotes, keystore.threshold)
   if res.isErr():
     return err(AddValidatorFailure.init(AddValidatorStatus.failed,
                                         $res.error()))
-  ok(KeystoreData.init(cookedKey, keystore.remote))
+  ok(KeystoreData.init(cookedKey, keystore.remotes, keystore.threshold))
 
 proc importKeystore*(pool: var ValidatorPool,
                      rng: var BrHmacDrbgContext,
@@ -940,12 +956,45 @@ proc importKeystore*(pool: var ValidatorPool,
 
   ok(KeystoreData.init(privateKey, keystore))
 
+proc generateDistirbutedStore*(rng: var BrHmacDrbgContext,
+                               shares: seq[SecretShare],
+                               pubKey: ValidatorPubKey,
+                               validatorIdx: Natural,
+                               shareSecretsDir: string,
+                               shareValidatorDir: string,
+                               remoteValidatorDir: string,
+                               remoteSignersUrls: seq[string],
+                               threshold: uint32): Result[void, KeystoreGenerationError] =
+  var signers: seq[RemoteSignerInfo]
+  for (idx, share) in pairs(shares):
+    var password = KeystorePass.init ncrutils.toHex(getRandomBytes(rng, 32))
+    # remote signer shares
+    defer: burnMem(password)
+    ? saveKeystore(rng,
+                   shareValidatorDir & "/" & $idx,
+                   shareSecretsDir & "/" & $idx,
+                   share.key, share.key.toPubKey,
+                   makeKeyPath(validatorIdx, signingKeyKind),
+                   password.str,
+                   KeystoreMode.Secure)
+
+    signers.add RemoteSignerInfo(
+      url: HttpHostUri(parseUri(remoteSignersUrls[idx])),
+      id: share.id,
+      pubkey: share.key.toPubKey.toPubKey)
+
+  # actual validator
+  saveKeystore(remoteValidatorDir, pubKey, signers, threshold)
+
 proc generateDeposits*(cfg: RuntimeConfig,
                        rng: var BrHmacDrbgContext,
                        seed: KeySeed,
                        firstValidatorIdx, totalNewValidators: int,
                        validatorsDir: string,
                        secretsDir: string,
+                       remoteSignersUrls: seq[string] = @[],
+                       threshold: uint32 = 1,
+                       remoteValidatorsCount: uint32 = 0,
                        mode = Secure): Result[seq[DepositData],
                                               KeystoreGenerationError] =
   var deposits: seq[DepositData]
@@ -958,7 +1007,8 @@ proc generateDeposits*(cfg: RuntimeConfig,
   defer: burnMem(baseKey)
   baseKey = deriveChildKey(baseKey, baseKeyPath)
 
-  for i in 0 ..< totalNewValidators:
+  let localValidatorsCount = totalNewValidators - int(remoteValidatorsCount)
+  for i in 0 ..< localValidatorsCount:
     let validatorIdx = firstValidatorIdx + i
 
     # We'll reuse a single variable here to make the secret
@@ -970,12 +1020,46 @@ proc generateDeposits*(cfg: RuntimeConfig,
     let withdrawalPubKey = derivedKey.toPubKey
     derivedKey = deriveChildKey(derivedKey, 0) # This is the signing key
     let signingPubKey = derivedKey.toPubKey
+
     var password = KeystorePass.init ncrutils.toHex(getRandomBytes(rng, 32))
     defer: burnMem(password)
     ? saveKeystore(rng, validatorsDir, secretsDir,
                    derivedKey, signingPubKey,
                    makeKeyPath(validatorIdx, signingKeyKind), password.str,
                    mode)
+
+    deposits.add prepareDeposit(
+      cfg, withdrawalPubKey, derivedKey, signingPubKey)
+
+  for i in 0 ..< remoteValidatorsCount:
+    let validatorIdx = int(firstValidatorIdx) + localValidatorsCount + int(i)
+
+    # We'll reuse a single variable here to make the secret
+    # scrubbing (burnMem) easier to handle:
+    var derivedKey = baseKey
+    defer: burnMem(derivedKey)
+    derivedKey = deriveChildKey(derivedKey, validatorIdx)
+    derivedKey = deriveChildKey(derivedKey, 0) # This is witdrawal key
+    let withdrawalPubKey = derivedKey.toPubKey
+    derivedKey = deriveChildKey(derivedKey, 0) # This is the signing key
+    let signingPubKey = derivedKey.toPubKey
+
+    let sharesCount = uint32 len(remoteSignersUrls)
+
+    let shares = generateSecretShares(derivedKey, rng, threshold, sharesCount)
+    if shares.isErr():
+      error "Failed to generate distributed key: ", threshold, sharesCount
+      continue
+
+    ? generateDistirbutedStore(rng,
+                               shares.get,
+                               signingPubKey.toPubKey,
+                               validatorIdx,
+                               secretsDir & "_shares",
+                               validatorsDir & "_shares",
+                               validatorsDir,
+                               remoteSignersUrls,
+                               threshold)
 
     deposits.add prepareDeposit(
       cfg, withdrawalPubKey, derivedKey, signingPubKey)

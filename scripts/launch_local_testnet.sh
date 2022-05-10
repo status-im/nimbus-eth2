@@ -43,7 +43,7 @@ if [[ ${PIPESTATUS[0]} != 4 ]]; then
 fi
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:"
 
 # default values
 NUM_NODES="10"
@@ -54,6 +54,7 @@ LIGHTHOUSE_VC_NODES="0"
 USE_GANACHE="0"
 LOG_LEVEL="DEBUG; TRACE:networking"
 BASE_PORT="9000"
+BASE_REMOTE_SIGNER_PORT="6000"
 BASE_METRICS_PORT="8008"
 BASE_REST_PORT="7500"
 REUSE_EXISTING_DATA_DIR="0"
@@ -64,6 +65,9 @@ TIMEOUT_DURATION="0"
 CONST_PRESET="mainnet"
 KILL_OLD_PROCESSES="0"
 ETH2_DOCKER_IMAGE=""
+REMOTE_SIGNER_NODES=0
+REMOTE_SIGNER_THRESHOLD=1
+REMOTE_VALIDATORS_COUNT=0
 
 print_help() {
   cat <<EOF
@@ -94,6 +98,10 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --timeout                   timeout in seconds (default: ${TIMEOUT_DURATION} - no timeout)
   --kill-old-processes        if any process is found listening on a port we use, kill it (default: disabled)
   --eth2-docker-image         use docker image instead of compiling the beacon node
+  --remote-validators-count   number of remote validators which will be generated
+  --threshold                 used by a threshold secret sharing mechanism and determine how many shares are need to
+                              restore signature of the original secret key
+  --remote-signers            number of remote signing nodes
 EOF
 }
 
@@ -113,6 +121,18 @@ while true; do
       ;;
     -n|--nodes)
       NUM_NODES="$2"
+      shift 2
+      ;;
+    --remote-signers)
+      REMOTE_SIGNER_NODES=$2
+      shift 2
+      ;;
+    --remote-validators-count)
+      REMOTE_VALIDATORS_COUNT=$2
+      shift 2
+      ;;
+    --threshold)
+      REMOTE_SIGNER_THRESHOLD=$2
       shift 2
       ;;
     -d|--data-dir)
@@ -292,6 +312,10 @@ fi
 # Build the binaries
 BINARIES="deposit_contract"
 
+if [ "$REMOTE_SIGNER_NODES" -ge "0" ]; then
+  BINARIES="${BINARIES} nimbus_signing_node"
+fi
+
 if [[ "${USE_VC}" == "1" ]]; then
   BINARIES="${BINARIES} nimbus_validator_client"
 fi
@@ -330,10 +354,12 @@ fi
 cleanup() {
   pkill -f -P $$ nimbus_beacon_node &>/dev/null || true
   pkill -f -P $$ nimbus_validator_client &>/dev/null || true
+  pkill -f -P $$ nimbus_signing_node &>/dev/null || true
   pkill -f -P $$ ${LH_BINARY} &>/dev/null || true
   sleep 2
   pkill -f -9 -P $$ nimbus_beacon_node &>/dev/null || true
   pkill -f -9 -P $$ nimbus_validator_client &>/dev/null || true
+  pkill -f -9 -P $$ nimbus_signing_node &>/dev/null || true
   pkill -f -9 -P $$ ${LH_BINARY} &>/dev/null || true
 
   # Delete all binaries we just built, because these are unusable outside this
@@ -362,6 +388,13 @@ if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
   ( sleep ${TIMEOUT_DURATION} && kill -ALRM ${PARENT_PID} ) 2>/dev/null & WATCHER_PID=$!
 fi
 
+REMOTE_URLS=""
+
+for NUM_REMOTE in $(seq 0 $(( REMOTE_SIGNER_NODES - 1 ))); do
+  REMOTE_PORT=$(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE )) 
+  REMOTE_URLS="${REMOTE_URLS} --remote-signer=http://127.0.0.1:${REMOTE_PORT}"
+done
+
 # deposit and testnet creation
 PIDS=""
 WEB3_ARG=""
@@ -379,7 +412,10 @@ if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
     --count=${TOTAL_VALIDATORS} \
     --out-validators-dir="${VALIDATORS_DIR}" \
     --out-secrets-dir="${SECRETS_DIR}" \
-    --out-deposits-file="${DEPOSITS_FILE}"
+    --out-deposits-file="${DEPOSITS_FILE}" \
+    --threshold=${REMOTE_SIGNER_THRESHOLD} \
+    --remote-validators-count=${REMOTE_VALIDATORS_COUNT} \
+    ${REMOTE_URLS}
 fi
 
 if [[ $USE_GANACHE == "0" ]]; then
@@ -497,6 +533,11 @@ if [[ "${USE_VC}" == "1" ]]; then
   VALIDATORS_PER_NODE=$((VALIDATORS_PER_NODE / 2 ))
   NUM_JOBS=$((NUM_JOBS * 2 ))
 fi
+
+if [ "$REMOTE_SIGNER_NODES" -ge "0" ]; then
+  NUM_JOBS=$((NUM_JOBS + REMOTE_SIGNER_NODES ))
+fi
+
 VALIDATORS_PER_VALIDATOR=$(( (SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS) / 2 ))
 VALIDATOR_OFFSET=$((SYSTEM_VALIDATORS / 2))
 
@@ -523,8 +564,13 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
       scripts/makedir.sh "${VALIDATOR_DATA_DIR}/validators" 2>&1
       scripts/makedir.sh "${VALIDATOR_DATA_DIR}/secrets" 2>&1
       for VALIDATOR in $(ls "${VALIDATORS_DIR}" | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_VALIDATOR * $NUM_NODE) + 1 + $VALIDATOR_OFFSET )) | head -n $VALIDATORS_PER_VALIDATOR); do
-        cp -a "${VALIDATORS_DIR}/${VALIDATOR}" "${VALIDATOR_DATA_DIR}/validators/" 2>&1
-        cp -a "${SECRETS_DIR}/${VALIDATOR}" "${VALIDATOR_DATA_DIR}/secrets/" 2>&1
+        if [[ -f "${VALIDATORS_DIR}/${VALIDATOR}/keystore.json" ]]; then
+          cp -a "${VALIDATORS_DIR}/${VALIDATOR}" "${VALIDATOR_DATA_DIR}/validators/" 2>&1
+          cp -a "${SECRETS_DIR}/${VALIDATOR}" "${VALIDATOR_DATA_DIR}/secrets/" 2>&1
+        else
+          # TODO: validators support remote signers
+          cp -a "${VALIDATORS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/validators/" 2>&1
+        fi
       done
       if [[ "${OS}" == "Windows_NT" ]]; then
         find "${VALIDATOR_DATA_DIR}" -type f \( -iname "*.json" -o ! -iname "*.*" \) -exec icacls "{}" /inheritance:r /grant:r ${USERDOMAIN}\\${USERNAME}:\(F\) \;
@@ -532,7 +578,10 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     fi
     for VALIDATOR in $(ls "${VALIDATORS_DIR}" | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
       cp -a "${VALIDATORS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/validators/" 2>&1
-      cp -a "${SECRETS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/secrets/" 2>&1
+      if [[ -f "${VALIDATORS_DIR}/${VALIDATOR}/keystore.json" ]]; then
+        # Only remote key stores doesn't have a secret
+        cp -a "${SECRETS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/secrets/" 2>&1
+      fi
     done
     if [[ "${OS}" == "Windows_NT" ]]; then
       find "${NODE_DATA_DIR}" -type f \( -iname "*.json" -o ! -iname "*.*" \) -exec icacls "{}" /inheritance:r /grant:r ${USERDOMAIN}\\${USERNAME}:\(F\) \;
@@ -553,6 +602,17 @@ rest-address = "127.0.0.1"
 metrics = true
 metrics-address = "127.0.0.1"
 END_CLI_CONFIG
+
+for NUM_REMOTE in $(seq 0 $(( REMOTE_SIGNER_NODES - 1 ))); do
+  ./build/nimbus_signing_node \
+    --validators-dir="${DATA_DIR}/validators_shares/${NUM_REMOTE}" \
+    --secrets-dir="${DATA_DIR}/secrets_shares/${NUM_REMOTE}" \
+    --bind-port=$(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE )) \
+    > "${DATA_DIR}/log_remote_signer_${NUM_REMOTE}.txt" &
+done
+
+# give each node time to load keys
+sleep 10
 
 for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"

@@ -81,6 +81,9 @@ proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
     if pubkey in duplicates:
       error "Duplicate validator's key found", validator_pubkey = pubkey
       return false
+    elif keystore.kind == KeystoreKind.Remote:
+      info "Remote validator client was skipped", validator_pubkey = pubkey
+      continue
     else:
       duplicates.add(pubkey)
       vc.attachedValidators.addLocalValidator(keystore)

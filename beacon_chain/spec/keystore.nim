@@ -132,6 +132,11 @@ type
 
   HttpHostUri* = distinct Uri
 
+  RemoteSignerInfo* = object
+    url*: HttpHostUri
+    id*: uint32
+    pubkey*: ValidatorPubKey
+
   KeystoreData* = object
     version*: uint64
     pubkey*: ValidatorPubKey
@@ -142,8 +147,9 @@ type
       path*: KeyPath
       uuid*: string
     of KeystoreKind.Remote:
-      remoteUrl*: HttpHostUri
       flags*: set[RemoteKeystoreFlag]
+      remotes*: seq[RemoteSignerInfo]
+      threshold*: uint32
 
   NetKeystore* = object
     crypto*: Crypto
@@ -160,8 +166,9 @@ type
     description*: Option[string]
     remoteType*: RemoteSignerType
     pubkey*: ValidatorPubKey
-    remote*: HttpHostUri
     flags*: set[RemoteKeystoreFlag]
+    remotes*: seq[RemoteSignerInfo]
+    threshold*: uint32
 
   KsResult*[T] = Result[T, string]
 
@@ -560,12 +567,13 @@ proc writeValue*(writer: var JsonWriter, value: HttpHostUri) {.
   writer.writeValue($distinctBase(value))
 
 # RemoteKeystore
-proc writeValue*(writer: var JsonWriter, value: RemoteKeystore) {.
-     raises: [IOError, Defect].} =
+proc writeValue*(writer: var JsonWriter, value: RemoteKeystore)
+                {.raises: [IOError, Defect].} =
   writer.beginRecord()
   writer.writeField("version", value.version)
   writer.writeField("pubkey", "0x" & value.pubkey.toHex())
-  writer.writeField("remote", $distinctBase(value.remote))
+  writer.writeField("remotes", value.remotes)
+  writer.writeField("threshold", value.threshold)
   case value.remoteType
   of RemoteSignerType.Web3Signer:
     writer.writeField("type", "web3signer")
@@ -585,10 +593,16 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
     version: Option[uint64]
     description: Option[string]
     remote: Option[HttpHostUri]
+    remotes: Option[seq[RemoteSignerInfo]]
     remoteType: Option[string]
     ignoreSslVerification: Option[bool]
     pubkey: Option[ValidatorPubKey]
+    threshold: Option[uint32]
+    implicitVersion1 = false
 
+  # TODO: implementing deserializers for versioned objects
+  #       manually is extremely error-prone. This should use
+  #       the auto-generated deserializer from nim-json-serialization
   for fieldName in readObjectFields(reader):
     case fieldName:
     of "pubkey":
@@ -597,15 +611,33 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
                                     "RemoteKeystore")
       pubkey = some(reader.readValue(ValidatorPubKey))
     of "remote":
+      if version.isSome and version.get > 1:
+        reader.raiseUnexpectedField(
+          "The `remote` field is valid only in version 1 of the remote keystore format",
+          "RemoteKeystore")
+
       if remote.isSome():
         reader.raiseUnexpectedField("Multiple `remote` fields found",
                                     "RemoteKeystore")
       remote = some(reader.readValue(HttpHostUri))
+      implicitVersion1 = true
+    of "remotes":
+      if remotes.isSome():
+        reader.raiseUnexpectedField("Multiple `remote` fields found",
+                                    "RemoteKeystore")
+      remotes = some(reader.readValue(seq[RemoteSignerInfo]))
     of "version":
       if version.isSome():
         reader.raiseUnexpectedField("Multiple `version` fields found",
                                     "RemoteKeystore")
       version = some(reader.readValue(uint64))
+      if implicitVersion1 and version.get > 1'u64:
+        reader.raiseUnexpectedValue(
+          "Remote keystore format doesn't match the specified version number")
+      if version.get > 2'u64:
+        reader.raiseUnexpectedValue(
+          "Remote keystore version " & $version.get &
+          " requires a more recent version of Nimbus")
     of "description":
       let res = reader.readValue(string)
       if description.isSome():
@@ -620,16 +652,28 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
     of "type":
       if remoteType.isSome():
         reader.raiseUnexpectedField("Multiple `type` fields found",
-                               "RemoteKeystore")
+                                    "RemoteKeystore")
       remoteType = some(reader.readValue(string))
+    of "threshold":
+      if threshold.isSome():
+        reader.raiseUnexpectedField("Multiple `threshold` fields found",
+                                    "RemoteKeystore")
+      threshold = some(reader.readValue(uint32))
     else:
       # Ignore unknown field names.
       discard
 
   if version.isNone():
     reader.raiseUnexpectedValue("Field `version` is missing")
-  if remote.isNone():
-    reader.raiseUnexpectedValue("Field `remote` is missing")
+  if remotes.isNone():
+    if remote.isSome and pubkey.isSome:
+      remotes = some @[RemoteSignerInfo(
+        pubkey: pubkey.get,
+        id: 0,
+        url: remote.get
+      )]
+    else:
+      reader.raiseUnexpectedValue("Field `remotes` is missing")
   if pubkey.isNone():
     reader.raiseUnexpectedValue("Field `pubkey` is missing")
 
@@ -652,12 +696,12 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
       res
 
   value = RemoteKeystore(
-    version: version.get(),
-    remote: remote.get(),
-    pubkey: pubkey.get(),
+    version: 2'u64,
+    pubkey: pubkey.get,
     description: description,
     remoteType: keystoreType,
-    flags: keystoreFlags
+    remotes: remotes.get,
+    threshold: threshold.get(1),
   )
 
 template writeValue*(w: var JsonWriter,
@@ -900,13 +944,18 @@ proc createRemoteKeystore*(pubKey: ValidatorPubKey, remoteUri: HttpHostUri,
                            version = 1'u64, description = "",
                            remoteType = RemoteSignerType.Web3Signer,
                           flags: set[RemoteKeystoreFlag] = {}): RemoteKeystore =
+  let signerInfo = RemoteSignerInfo(
+    url: remoteUri,
+    pubkey: pubKey,
+    id: 0
+  )
   RemoteKeystore(
     version: version,
     description: if len(description) > 0: some(description)
                  else: none[string](),
     remoteType: remoteType,
     pubkey: pubKey,
-    remote: remoteUri,
+    remotes: @[signerInfo],
     flags: flags
   )
 

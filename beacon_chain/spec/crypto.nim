@@ -30,6 +30,7 @@ import
   stew/[endians2, objects, results, byteutils],
   blscurve,
   chronicles,
+  bearssl,
   json_serialization
 
 from nimcrypto/utils import burnMem
@@ -78,6 +79,14 @@ type
     ## Cooked signatures are those that have been loaded successfully from a
     ## ValidatorSig and are used to avoid expensive reloading as well as error
     ## checking
+
+  SignatureShare* = object
+    sign*: blscurve.Signature
+    id*: uint32
+
+  SecretShare* = object
+    key*: ValidatorPrivKey
+    id*: uint32
 
 export
   AggregateSignature
@@ -478,3 +487,59 @@ func infinity*(T: type ValidatorSig): T =
 
 func burnMem*(key: var ValidatorPrivKey) =
   burnMem(addr key, sizeof(ValidatorPrivKey))
+
+proc keyGen(rng: var BrHmacDrbgContext): BlsResult[blscurve.SecretKey] =
+  var
+    bytes: array[32, byte]
+    pubkey: blscurve.PublicKey
+  brHmacDrbgGenerate(rng, bytes)
+  result.ok default(blscurve.SecretKey)
+  if not keyGen(bytes, pubkey, result.value):
+    return err "key generation failed"
+
+proc secretShareId(x: uint32) : blscurve.ID =
+  let bytes: array[8, uint32] = [uint32 x, 0, 0, 0, 0, 0, 0, 0]
+  blscurve.ID.fromUint32(bytes)
+
+func generateSecretShares*(sk: ValidatorPrivKey,
+                           rng: var BrHmacDrbgContext,
+                           k: uint32, n: uint32): BlsResult[seq[SecretShare]] =
+  doAssert k > 0 and k <= n
+
+  var originPts: seq[blscurve.SecretKey]
+  originPts.add(blscurve.SecretKey(sk))
+  for i in 1 ..< k:
+    originPts.add(? keyGen(rng))
+
+  var shares: seq[SecretShare]
+  for i in uint32(0) ..< n:
+    let numericShareId = i + 1 # the share id must not be zero
+    let blsShareId = secretShareId(numericShareId)
+    let secret = genSecretShare(originPts, blsShareId)
+    let share = SecretShare(key: ValidatorPrivKey(secret), id: numericShareId)
+    shares.add(share)
+
+  return ok shares
+
+func toSignatureShare*(sig: CookedSig, id: uint32): SignatureShare =
+  result.sign = blscurve.Signature(sig)
+  result.id = id
+
+func recoverSignature*(sings: seq[SignatureShare]): CookedSig =
+  let signs = sings.mapIt(it.sign)
+  let ids = sings.mapIt(secretShareId(it.id))
+  CookedSig blscurve.recover(signs, ids).expect(
+    "valid shares (validated when loading the keystore)")
+
+proc confirmShares*(pubKey: ValidatorPubKey,
+                    shares: seq[SecretShare],
+                    rng: var BrHmacDrbgContext): bool =
+  var confirmationData: array[32, byte]
+  brHmacDrbgGenerate(rng, confirmationData)
+
+  var signs: seq[SignatureShare]
+  for share in items(shares):
+    let signature = share.key.blsSign(confirmationData).toSignatureShare(share.id);
+    signs.add(signature)
+  let recovered = signs.recoverSignature()
+  return pubKey.blsVerify(confirmationData, recovered)

@@ -234,6 +234,14 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Mocked start private key                                                                   OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Key spliting
+```diff
++ k < n                                                                                      OK
++ k == n                                                                                     OK
++ k == n == 100                                                                              OK
++ single share                                                                               OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## KeyStorage testing suite
 ```diff
 + Pbkdf2 errors                                                                              OK
@@ -313,6 +321,13 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + deletePeer() test                                                                          OK
 ```
 OK: 12/12 Fail: 0/12 Skip: 0/12
+## Remove keystore testing suite
+```diff
++ vesion 1                                                                                   OK
++ vesion 2 many remotes                                                                      OK
++ vesion 2 single remote                                                                     OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -529,4 +544,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 294/299 Fail: 0/299 Skip: 5/299
+OK: 301/306 Fail: 0/306 Skip: 5/306

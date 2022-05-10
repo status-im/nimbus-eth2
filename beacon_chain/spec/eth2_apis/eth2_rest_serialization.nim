@@ -58,7 +58,8 @@ type
     Web3SignerRequest |
     KeystoresAndSlashingProtection |
     DeleteKeystoresBody |
-    ImportRemoteKeystoresBody
+    ImportRemoteKeystoresBody |
+    ImportDistributedKeystoresBody
 
   EncodeArrays* =
     seq[ValidatorIndex] |
@@ -77,6 +78,7 @@ type
     GetBlockV2Response |
     GetKeystoresResponse |
     GetRemoteKeystoresResponse |
+    GetDistributedKeystoresResponse |
     GetStateV2Response |
     GetStateForkResponse |
     ProduceBlockResponseV2 |
@@ -1214,6 +1216,7 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: Web3SignerRequest) {.
      raises: [IOError, Defect].} =
+  writer.beginRecord()
   case value.kind
   of Web3SignerRequestKind.AggregationSlot:
     doAssert(value.forkInfo.isSome(),
@@ -1302,6 +1305,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
       writer.writeField("signingRoot", value.signingRoot)
     writer.writeField("contribution_and_proof",
                       value.syncCommitteeContributionAndProof)
+  writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var Web3SignerRequest) {.
@@ -1359,7 +1363,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       signingRoot = some(reader.readValue(Eth2Digest))
     of "aggregation_slot", "aggregate_and_proof", "block", "beacon_block",
        "randao_reveal", "voluntary_exit", "sync_committee_message",
-       "sync_aggregator_selection_data", "contribution_and_proof":
+       "sync_aggregator_selection_data", "contribution_and_proof", "attestation":
       if data.isSome():
         reader.raiseUnexpectedField("Multiple data fields found",
                                     "Web3SignerRequest")

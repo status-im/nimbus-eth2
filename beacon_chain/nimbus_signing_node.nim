@@ -181,7 +181,7 @@ template errorResponse(code: HttpCode, message: string): RestApiResponse =
   RestApiResponse.response("{\"error\": \"" & message & "\"}", code)
 
 template signatureResponse(code: HttpCode, signature: string): RestApiResponse =
-  RestApiResponse.response("{\"signature\": \"0x" & signature & "\"}", code)
+  RestApiResponse.response("{\"signature\": \"0x" & signature & "\"}", code, "application/json")
 
 proc installApiHandlers*(node: SigningNode) =
   var router = node.router()
