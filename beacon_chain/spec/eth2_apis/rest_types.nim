@@ -17,9 +17,10 @@ import
   std/[json, typetraits],
   stew/base10, web3/ethtypes,
   ".."/forks,
-  ".."/datatypes/[phase0, altair, bellatrix]
+  ".."/datatypes/[phase0, altair, bellatrix],
+  ".."/mev/bellatrix_mev
 
-export forks, phase0, altair, bellatrix
+export forks, phase0, altair, bellatrix, bellatrix_mev
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -534,6 +535,7 @@ type
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
+  GetHeaderResponse* = DataEnclosedObject[SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]
   GetPeerResponse* = DataMetaEnclosedObject[RestNodePeer]
@@ -559,6 +561,7 @@ type
   ProduceBlockResponse* = DataEnclosedObject[phase0.BeaconBlock]
   ProduceBlockResponseV2* = ForkedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
+  SubmitBlindedBlockResponse* = DataEnclosedObject[SignedBuilderBid]
 
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)

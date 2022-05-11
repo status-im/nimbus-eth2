@@ -17,7 +17,8 @@
 ## functions.
 
 import
-  ./datatypes/[phase0, altair, bellatrix], ./helpers, ./eth2_merkleization
+  ./datatypes/[phase0, altair, bellatrix], ./mev/bellatrix_mev, ./helpers,
+  ./eth2_merkleization
 
 export phase0, altair
 
@@ -86,7 +87,9 @@ proc verify_epoch_signature*(
 
 func compute_block_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
-    blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader): Eth2Digest =
+    blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader |
+          # https://github.com/ethereum/builder-specs/blob/v0.0.0/specs/README.md#signing
+          BlindedBeaconBlock): Eth2Digest =
   let
     epoch = epoch(slot)
     domain = get_domain(
@@ -316,7 +319,7 @@ proc get_contribution_and_proof_signature*(
 
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#aggregation-selection
-proc is_sync_committee_aggregator*(signature: ValidatorSig): bool =
+func is_sync_committee_aggregator*(signature: ValidatorSig): bool =
   let
     signatureDigest = eth2digest(signature.blob)
     modulo = max(1'u64, (SYNC_COMMITTEE_SIZE div SYNC_COMMITTEE_SUBNET_COUNT) div TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE)
