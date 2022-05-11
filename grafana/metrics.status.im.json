@@ -2352,7 +2352,7 @@
           "refId": "B"
         }
       ],
-      "title": "Mesh health",
+      "title": "Health of subnet reception",
       "type": "timeseries"
     },
     {
@@ -2566,7 +2566,7 @@
           "refId": "B"
         }
       ],
-      "title": "Fanout health",
+      "title": "Health of subnet publishing",
       "type": "timeseries"
     },
     {

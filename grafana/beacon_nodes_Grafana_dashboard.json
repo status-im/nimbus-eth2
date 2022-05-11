@@ -1491,7 +1491,7 @@
           "refId": "B"
         }
       ],
-      "title": "mesh health (${instance})",
+      "title": "health of subnets reception (${instance})",
       "type": "timeseries"
     },
     {
@@ -1738,7 +1738,7 @@
           "refId": "B"
         }
       ],
-      "title": "fanout health (${instance})",
+      "title": "health of subnets publishing (${instance})",
       "type": "timeseries"
     },
     {
