@@ -405,7 +405,7 @@ proc init*(T: type BeaconNode,
     quit 1
 
   let optJwtSecret =
-    if config.useJwt:
+    block:
       let jwtSecret = rng[].checkJwtSecret(
         string(config.dataDir), config.jwtSecret)
       if jwtSecret.isErr:
@@ -414,8 +414,6 @@ proc init*(T: type BeaconNode,
          quit 1
 
       some jwtSecret.get
-    else:
-      none(seq[byte])
 
   template getDepositContractSnapshot: auto =
     if depositContractSnapshot.isSome:
@@ -1775,7 +1773,7 @@ proc doCreateTestnet*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.rais
     eth1Hash = if config.web3Urls.len == 0: eth1BlockHash
                else: (waitFor getEth1BlockHash(
                  config.web3Urls[0], blockId("latest"),
-                 if config.useJwt:
+                 block:
                    let jwtSecret = rng.checkJwtSecret(
                      string(config.dataDir), config.jwtSecret)
                    if jwtSecret.isErr:
@@ -1783,9 +1781,7 @@ proc doCreateTestnet*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.rais
                         err = jwtSecret.error
                       quit 1
 
-                   some jwtSecret.get
-                 else:
-                   none(seq[byte]))).asEth2Digest
+                   some jwtSecret.get)).asEth2Digest
     cfg = getRuntimeConfig(config.eth2Network)
   var
     initialState = newClone(initialize_beacon_state_from_eth1(
@@ -1866,7 +1862,7 @@ proc doWeb3Cmd(config: BeaconNodeConf, rng: var BrHmacDrbgContext)
 
     waitFor testWeb3Provider(config.web3TestUrl,
                              metadata.cfg.DEPOSIT_CONTRACT_ADDRESS,
-                             if config.useJwt:
+                             block:
                                let jwtSecret = rng.checkJwtSecret(
                                  string(config.dataDir), config.jwtSecret)
 
@@ -1874,9 +1870,7 @@ proc doWeb3Cmd(config: BeaconNodeConf, rng: var BrHmacDrbgContext)
                                  fatal "Specified a JWT secret file which couldn't be loaded",
                                    err = jwtSecret.error
                                  quit 1
-                               some jwtSecret.get
-                             else:
-                               none(seq[byte]))
+                               some jwtSecret.get)
 
 proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError, Defect].}=
   let
