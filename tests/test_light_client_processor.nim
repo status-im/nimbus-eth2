@@ -171,10 +171,9 @@ suite "Light client processor" & preset():
     if res.isOk:
       check:
         store[].isSome
-        if finalityUpdate.get.finalized_header.slot > previousFinalized.slot:
-          store[].get.finalized_header == finalityUpdate.get.finalized_header
-        else:
-          store[].get.finalized_header == previousFinalized
+        store[].get.finalized_header == previousFinalized
+        store[].get.best_valid_update.isSome
+        store[].get.best_valid_update.get.matches(finalityUpdate.get)
         store[].get.optimistic_header == finalityUpdate.get.attested_header
     else:
       check res.error == BlockError.Duplicate
