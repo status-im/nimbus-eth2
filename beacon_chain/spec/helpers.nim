@@ -523,7 +523,7 @@ func toMeta*(update: SomeLightClientUpdate): LightClientUpdateMetadata =
     when update is SomeLightClientUpdateWithFinality:
       update.finalized_header.slot
     else:
-      0.Slot
+      GENESIS_SLOT
   meta.signature_slot =
     update.signature_slot
   meta.has_sync_committee =
