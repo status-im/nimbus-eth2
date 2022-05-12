@@ -331,9 +331,6 @@ proc initFullNode(
 const SlashingDbName = "slashing_protection"
   # changing this requires physical file rename as well or history is lost.
 
-func getBeaconTimeFn(clock: BeaconClock): GetBeaconTimeFn =
-  return proc(): BeaconTime = clock.now()
-
 proc init*(T: type BeaconNode,
            cfg: RuntimeConfig,
            rng: ref BrHmacDrbgContext,
@@ -1317,9 +1314,6 @@ proc installMessageValidators(node: BeaconNode) =
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
   let forkDigests = node.dag.forkDigests
-
-  func toValidationResult(res: ValidationRes): ValidationResult =
-    if res.isOk(): ValidationResult.Accept else: res.error()[0]
 
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.phase0),

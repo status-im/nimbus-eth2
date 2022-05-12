@@ -145,6 +145,9 @@ type
 
   ValidationRes* = Result[void, ValidationError]
 
+func toValidationResult*(res: ValidationRes): ValidationResult =
+  if res.isOk(): ValidationResult.Accept else: res.error()[0]
+
 # Initialization
 # ------------------------------------------------------------------------------
 

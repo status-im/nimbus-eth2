@@ -58,6 +58,8 @@ suite "Light client processor" & preset():
   let
     genesis_validators_root = dag.genesis_validators_root
     trustedBlockRoot = dag.head.root
+  proc getTrustedBlockRoot(): Option[Eth2Digest] =
+    some trustedBlockRoot
 
   const
     lowPeriod = 0.SyncCommitteePeriod
@@ -83,15 +85,15 @@ suite "Light client processor" & preset():
     func setTimeToSlot(slot: Slot) =
       time = chronos.seconds((slot * SECONDS_PER_SLOT).int64)
 
-    var numDidInitializeStoreCalls = 0
-    proc didInitializeStore() = inc numDidInitializeStoreCalls
+    var numOnStoreInitializedCalls = 0
+    proc onStoreInitialized() = inc numOnStoreInitializedCalls
 
     let store = (ref Option[LightClientStore])()
     var
       processor = LightClientProcessor.new(
-        false, "", "", cfg, genesis_validators_root, trustedBlockRoot,
-        store, getBeaconTime, didInitializeStore)
-      res: Result[void, BlockError]
+        false, "", "", cfg, genesis_validators_root,
+        store, getBeaconTime, getTrustedBlockRoot, onStoreInitialized)
+      res: Result[bool, BlockError]
 
   test "Sync" & preset():
     let bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
@@ -101,7 +103,7 @@ suite "Light client processor" & preset():
       MsgSource.gossip, getBeaconTime(), bootstrap.get)
     check:
       res.isOk
-      numDidInitializeStoreCalls == 1
+      numOnStoreInitializedCalls == 1
 
     for period in lowPeriod .. lastPeriodWithSupermajority:
       let update = dag.getLightClientUpdateForPeriod(period)
@@ -177,7 +179,7 @@ suite "Light client processor" & preset():
         store[].get.optimistic_header == finalityUpdate.get.attested_header
     else:
       check res.error == BlockError.Duplicate
-    check numDidInitializeStoreCalls == 1
+    check numOnStoreInitializedCalls == 1
 
   test "Invalid bootstrap" & preset():
     var bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
@@ -189,7 +191,7 @@ suite "Light client processor" & preset():
     check:
       res.isErr
       res.error == BlockError.Invalid
-      numDidInitializeStoreCalls == 0
+      numOnStoreInitializedCalls == 0
 
   test "Duplicate bootstrap" & preset():
     let bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
@@ -199,13 +201,13 @@ suite "Light client processor" & preset():
       MsgSource.gossip, getBeaconTime(), bootstrap.get)
     check:
       res.isOk
-      numDidInitializeStoreCalls == 1
+      numOnStoreInitializedCalls == 1
     res = processor[].storeObject(
       MsgSource.gossip, getBeaconTime(), bootstrap.get)
     check:
       res.isErr
       res.error == BlockError.Duplicate
-      numDidInitializeStoreCalls == 1
+      numOnStoreInitializedCalls == 1
 
   test "Missing bootstrap (update)" & preset():
     let update = dag.getLightClientUpdateForPeriod(lowPeriod)
@@ -216,7 +218,7 @@ suite "Light client processor" & preset():
     check:
       res.isErr
       res.error == BlockError.MissingParent
-      numDidInitializeStoreCalls == 0
+      numOnStoreInitializedCalls == 0
 
   test "Missing bootstrap (finality update)" & preset():
     let finalityUpdate = dag.getLightClientFinalityUpdate()
@@ -227,7 +229,7 @@ suite "Light client processor" & preset():
     check:
       res.isErr
       res.error == BlockError.MissingParent
-      numDidInitializeStoreCalls == 0
+      numOnStoreInitializedCalls == 0
 
   test "Missing bootstrap (optimistic update)" & preset():
     let optimisticUpdate = dag.getLightClientOptimisticUpdate()
@@ -238,4 +240,4 @@ suite "Light client processor" & preset():
     check:
       res.isErr
       res.error == BlockError.MissingParent
-      numDidInitializeStoreCalls == 0
+      numOnStoreInitializedCalls == 0

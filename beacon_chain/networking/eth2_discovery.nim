@@ -11,7 +11,7 @@ import
   std/[os, strutils],
   chronicles, stew/shims/net, stew/results, bearssl,
   eth/keys, eth/p2p/discoveryv5/[enr, protocol, node],
-  ../conf
+  ".."/[conf, conf_light_client]
 
 export protocol, keys
 
@@ -77,7 +77,7 @@ proc loadBootstrapFile*(bootstrapFile: string,
     quit 1
 
 proc new*(T: type Eth2DiscoveryProtocol,
-          config: BeaconNodeConf,
+          config: BeaconNodeConf | LightClientConf,
           enrIp: Option[ValidIpAddress], enrTcpPort, enrUdpPort: Option[Port],
           pk: PrivateKey,
           enrFields: openArray[(string, seq[byte])], rng: ref BrHmacDrbgContext):
@@ -91,9 +91,10 @@ proc new*(T: type Eth2DiscoveryProtocol,
     addBootstrapNode(node, bootstrapEnrs)
   loadBootstrapFile(string config.bootstrapNodesFile, bootstrapEnrs)
 
-  let persistentBootstrapFile = config.dataDir / "bootstrap_nodes.txt"
-  if fileExists(persistentBootstrapFile):
-    loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs)
+  when config is BeaconNodeConf:
+    let persistentBootstrapFile = config.dataDir / "bootstrap_nodes.txt"
+    if fileExists(persistentBootstrapFile):
+      loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs)
 
   newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields, bootstrapEnrs,
     bindPort = config.udpPort, bindIp = config.listenAddress,

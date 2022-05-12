@@ -35,17 +35,17 @@ CPU_LIMIT := 0
 BUILD_END_MSG := "\\x1B[92mBuild completed successfully:\\x1B[39m"
 
 ifeq ($(CPU_LIMIT), 0)
-  CPU_LIMIT_CMD :=
+	CPU_LIMIT_CMD :=
 else
-  CPU_LIMIT_CMD := cpulimit --limit=$(CPU_LIMIT) --foreground --
+	CPU_LIMIT_CMD := cpulimit --limit=$(CPU_LIMIT) --foreground --
 endif
 
 # TODO: move this to nimbus-build-system
 ifeq ($(shell uname), Darwin)
-  # Scary warnings in large volume: https://github.com/status-im/nimbus-eth2/issues/3076
-  SILENCE_WARNINGS := 2>&1 | grep -v "failed to insert symbol" | grep -v "could not find object file symbol for symbol" || true
+	# Scary warnings in large volume: https://github.com/status-im/nimbus-eth2/issues/3076
+	SILENCE_WARNINGS := 2>&1 | grep -v "failed to insert symbol" | grep -v "could not find object file symbol for symbol" || true
 else
-  SILENCE_WARNINGS :=
+	SILENCE_WARNINGS :=
 endif
 
 # unconditionally built by the default Make target
@@ -60,6 +60,7 @@ TOOLS := \
 	ncli_split_keystore \
 	wss_sim \
 	stack_sizes \
+	nimbus_light_client \
 	nimbus_validator_client \
 	nimbus_signing_node \
 	validator_db_aggregator
@@ -267,12 +268,12 @@ clean_eth2_network_simulation_all:
 	rm -rf tests/simulation/{data,validators}
 
 GOERLI_TESTNETS_PARAMS := \
-  --tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
-  --udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
-  --metrics \
-  --metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
-  --rest \
-  --rest-port=$$(( $(BASE_REST_PORT) +$(NODE_ID) ))
+	--tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
+	--udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
+	--metrics \
+	--metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
+	--rest \
+	--rest-port=$$(( $(BASE_REST_PORT) +$(NODE_ID) ))
 
 eth2_network_simulation: | build deps clean_eth2_network_simulation_all
 	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start-in-tmux.sh
@@ -281,7 +282,7 @@ eth2_network_simulation: | build deps clean_eth2_network_simulation_all
 #- https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
 #- macOS doesn't support "=" at the end of "define FOO": https://stackoverflow.com/questions/13260396/gnu-make-3-81-eval-function-not-working
 define CONNECT_TO_NETWORK
-  scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
+	scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
@@ -297,7 +298,7 @@ define CONNECT_TO_NETWORK
 endef
 
 define CONNECT_TO_NETWORK_IN_DEV_MODE
-  scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
+	scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
@@ -338,6 +339,16 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_vc_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		--rest-port=$$(( $(BASE_REST_PORT) +$(NODE_ID) ))
+endef
+
+define CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT
+	scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
+
+	$(CPU_LIMIT_CMD) build/nimbus_light_client \
+		--network=$(1) \
+		--log-level="$(RUNTIME_LOG_LEVEL)" \
+		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_lc_$$(date +"%Y%m%d%H%M%S").log \
+		--trusted-block-root="$(LC_TRUSTED_BLOCK_ROOT)"
 endef
 
 define MAKE_DEPOSIT_DATA
@@ -386,6 +397,9 @@ prater: | prater-build
 prater-vc: | prater-build nimbus_validator_client
 	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,prater,nimbus_beacon_node,$(GOERLI_WEB3_URL))
 
+prater-lc: | nimbus_light_client
+	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,prater)
+
 ifneq ($(LOG_LEVEL), TRACE)
 prater-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
@@ -411,6 +425,9 @@ ropsten: | ropsten-build
 
 ropsten-vc: | ropsten-build nimbus_validator_client
 	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,ropsten,nimbus_beacon_node,$(ROPSTEN_WEB3_URL))
+
+ropsten-lc: | nimbus_light_client
+	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,ropsten)
 
 ifneq ($(LOG_LEVEL), TRACE)
 ropsten-dev:

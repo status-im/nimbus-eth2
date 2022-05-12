@@ -543,7 +543,8 @@ proc acquire*[A, B](pool: PeerPool[A, B],
 
 proc acquireNoWait*[A, B](pool: PeerPool[A, B],
                           filter = {PeerType.Incoming,
-                                    PeerType.Outgoing}): A =
+                                    PeerType.Outgoing}
+                         ): A {.raises: [PeerPoolError, Defect].} =
   doAssert(filter != {}, "Filter must not be empty")
   if pool.lenAvailable(filter) < 1:
     raise newException(PeerPoolError, "Not enough peers in pool")

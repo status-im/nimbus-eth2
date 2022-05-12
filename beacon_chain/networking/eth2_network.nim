@@ -25,7 +25,7 @@ import
   libp2p/stream/connection,
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
-  ".."/[version, conf, beacon_clock],
+  ".."/[version, conf, beacon_clock, conf_light_client],
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
   ../validators/keystore_management,
@@ -35,7 +35,7 @@ when chronicles.enabledLogLevel == LogLevel.TRACE:
   import std/sequtils
 
 export
-  tables, version, multiaddress, peerinfo, p2pProtocol, connection,
+  tables, chronos, version, multiaddress, peerinfo, p2pProtocol, connection,
   libp2p_json_serialization, eth2_ssz_serialization, results, eth2_discovery,
   peer_pool, peer_scores
 
@@ -140,7 +140,7 @@ type
     # Private fields:
     libp2pCodecName: string
     protocolMounter*: MounterProc
-    isLightClientRequest: bool
+    isRequired, isLightClientRequest: bool
 
   ProtocolInfoObj* = object
     name*: string
@@ -311,6 +311,7 @@ const
   NetworkInsecureKeyPassword = "INSECUREPASSWORD"
 
 template libp2pProtocol*(name: string, version: int,
+                         isRequired = false,
                          isLightClientRequest = false) {.pragma.}
 
 func shortLog*(peer: Peer): string = shortLog(peer.peerId)
@@ -498,6 +499,38 @@ proc getRequestProtoName(fn: NimNode): NimNode =
 
   return newLit("")
 
+proc isRequiredProto(fn: NimNode): NimNode =
+  # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
+  # (TODO: file as an issue)
+
+  let pragmas = fn.pragma
+  if pragmas.kind == nnkPragma and pragmas.len > 0:
+    for pragma in pragmas:
+      try:
+        if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
+          if pragma.len <= 3:
+            return newLit(false)
+          for i in 3 ..< pragma.len:
+            let param = pragma[i]
+            case param.kind
+            of nnkExprEqExpr:
+              if $param[0] == "isRequired":
+                if $param[1] == "true":
+                  return newLit(true)
+                if $param[1] == "false":
+                  return newLit(false)
+                raiseAssert "Unexpected value: " & $param
+              if $param[0] != "isLightClientRequest":
+                raiseAssert "Unexpected param: " & $param
+            of nnkIdent:
+              if i == 3:
+                return newLit(param.boolVal)
+            else: raiseAssert "Unexpected kind: " & param.kind.repr
+          return newLit(false)
+      except Exception as exc: raiseAssert exc.msg # TODO https://github.com/nim-lang/Nim/issues/17454
+
+  return newLit(false)
+
 proc isLightClientRequestProto(fn: NimNode): NimNode =
   # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
   # (TODO: file as an issue)
@@ -509,19 +542,23 @@ proc isLightClientRequestProto(fn: NimNode): NimNode =
         if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
           if pragma.len <= 3:
             return newLit(false)
-          let param = pragma[3]
-          case param.kind
-          of nnkExprEqExpr:
-            if $param[0] != "isLightClientRequest":
-              raiseAssert "Unexpected param: " & $param
-            if $param[1] == "true":
-              return newLit(true)
-            if $param[1] == "false":
-              return newLit(false)
-            raiseAssert "Unexpected value: " & $param
-          of nnkIdent:
-            return newLit(param.boolVal)
-          else: raiseAssert "Unexpected kind: " & param.kind.repr
+          for i in 3 ..< pragma.len:
+            let param = pragma[i]
+            case param.kind
+            of nnkExprEqExpr:
+              if $param[0] == "isLightClientRequest":
+                if $param[1] == "true":
+                  return newLit(true)
+                if $param[1] == "false":
+                  return newLit(false)
+                raiseAssert "Unexpected value: " & $param
+              if $param[0] != "isRequired":
+                raiseAssert "Unexpected param: " & $param
+            of nnkIdent:
+              if i == 4:
+                return newLit(param.boolVal)
+            else: raiseAssert "Unexpected kind: " & param.kind.repr
+          return newLit(false)
       except Exception as exc: raiseAssert exc.msg # TODO https://github.com/nim-lang/Nim/issues/17454
 
   return newLit(false)
@@ -1614,20 +1651,22 @@ proc onConnEvent(node: Eth2Node, peerId: PeerId, event: ConnEvent) {.async.} =
               peer = peerId, peer_state = peer.connectionState
       peer.connectionState = Disconnected
 
-proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
-          enrForkId: ENRForkID, discoveryForkId: ENRForkID, forkDigests: ref ForkDigests,
-          getBeaconTime: GetBeaconTimeFn, switch: Switch,
-          pubsub: GossipSub, ip: Option[ValidIpAddress], tcpPort,
-          udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
+proc new*(T: type Eth2Node,
+          config: BeaconNodeConf | LightClientConf, runtimeCfg: RuntimeConfig,
+          enrForkId: ENRForkID, discoveryForkId: ENRForkID,
+          forkDigests: ref ForkDigests, getBeaconTime: GetBeaconTimeFn,
+          switch: Switch, pubsub: GossipSub,
+          ip: Option[ValidIpAddress], tcpPort, udpPort: Option[Port],
+          privKey: keys.PrivateKey, discovery: bool,
           rng: ref BrHmacDrbgContext): T {.raises: [Defect, CatchableError].} =
   when not defined(local_testnet):
     let
-      connectTimeout = 1.minutes
-      seenThreshold = 5.minutes
+      connectTimeout = chronos.minutes(1)
+      seenThreshold = chronos.minutes(5)
   else:
     let
-      connectTimeout = 10.seconds
-      seenThreshold = 10.seconds
+      connectTimeout = chronos.seconds(10)
+      seenThreshold = chronos.seconds(10)
   type MetaData = altair.MetaData # Weird bug without this..
 
   # Versions up to v22.3.0 would write an empty `MetaData` to
@@ -1669,11 +1708,14 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
       node.protocolStates[proto.index] = proto.networkStateInitializer(node)
 
     for msg in proto.messages:
-      if msg.isLightClientRequest and not config.serveLightClientData.get:
-        continue
+      when config is BeaconNodeConf:
+        if msg.isLightClientRequest and not config.serveLightClientData.get:
+          continue
+      when config is LightClientConf:
+        if not msg.isRequired:
+          continue
       if msg.protocolMounter != nil:
         msg.protocolMounter node
-
 
   proc peerHook(peerId: PeerId, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(node, peerId, event)
@@ -1790,10 +1832,11 @@ proc registerMsg(protocol: ProtocolInfo,
                  name: string,
                  mounter: MounterProc,
                  libp2pCodecName: string,
-                 isLightClientRequest: bool) =
+                 isRequired, isLightClientRequest: bool) =
   protocol.messages.add MessageInfo(name: name,
                                     protocolMounter: mounter,
                                     libp2pCodecName: libp2pCodecName,
+                                    isRequired: isRequired,
                                     isLightClientRequest: isLightClientRequest)
 
 proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
@@ -1833,6 +1876,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       MsgRecName = msg.recName
       MsgStrongRecName = msg.strongRecName
       codecNameLit = getRequestProtoName(msg.procDef)
+      isRequiredLit = isRequiredProto(msg.procDef)
       isLightClientRequestLit = isLightClientRequestProto(msg.procDef)
       protocolMounterName = ident(msgName & "Mounter")
 
@@ -1910,6 +1954,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
               msgNameLit,
               protocolMounterName,
               codecNameLit,
+              isRequiredLit,
               isLightClientRequestLit))
 
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
@@ -1917,6 +1962,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
 #Must import here because of cyclicity
 import ../sync/sync_protocol
+export sync_protocol
 
 proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async.} =
   trace "updating peer metadata", peerId
@@ -2004,10 +2050,21 @@ proc initAddress*(T: type MultiAddress, str: string): T =
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
+proc optimisticgetRandomNetKeys*(rng: var BrHmacDrbgContext): NetKeyPair =
+  let res = PrivateKey.random(Secp256k1, rng)
+  if res.isErr():
+    fatal "Could not generate random network key file"
+    quit QuitFailure
+
+  let
+    privKey = res.get()
+    pubKey = privKey.getPublicKey().expect("working public key from random")
+  NetKeyPair(seckey: privKey, pubkey: pubKey)
+
 proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
                            config: BeaconNodeConf): NetKeyPair =
   case config.cmd
-  of noCommand, record:
+  of BNStartUpCmd.noCommand, BNStartUpCmd.record:
     if config.netKeyFile == "random":
       let res = PrivateKey.random(Secp256k1, rng)
       if res.isErr():
@@ -2078,7 +2135,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
              network_public_key = pubKey
         NetKeyPair(seckey: privKey, pubkey: pubKey)
 
-  of createTestnet:
+  of BNStartUpCmd.createTestnet:
     if config.netKeyFile == "random":
       fatal "Could not create testnet using `random` network key"
       quit QuitFailure
@@ -2115,15 +2172,7 @@ proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
 
     NetKeyPair(seckey: privKey, pubkey: pubKey)
   else:
-    let res = PrivateKey.random(Secp256k1, rng)
-    if res.isErr():
-      fatal "Could not generate random network key file"
-      quit QuitFailure
-
-    let
-      privKey = res.get()
-      pubKey = privKey.getPublicKey().expect("working public key from random")
-    NetKeyPair(seckey: privKey, pubkey: pubKey)
+    optimisticgetRandomNetKeys(rng)
 
 func gossipId(
     data: openArray[byte], altairPrefix, topic: string): seq[byte] =
@@ -2143,8 +2192,8 @@ func gossipId(
 
   messageDigest.data[0..19]
 
-proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
-                      address: MultiAddress,
+proc newBeaconSwitch*(config: BeaconNodeConf | LightClientConf,
+                      seckey: PrivateKey, address: MultiAddress,
                       rng: ref BrHmacDrbgContext): Switch {.raises: [Defect, CatchableError].} =
   SwitchBuilder
     .new()
@@ -2152,7 +2201,7 @@ proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
     .withAddress(address)
     .withRng(rng)
     .withNoise()
-    .withMplex(5.minutes, 5.minutes)
+    .withMplex(chronos.minutes(5), chronos.minutes(5))
     .withMaxConnections(config.maxPeers)
     .withAgentVersion(config.agentString)
     .withTcpTransport({ServerFlags.ReuseAddr})
@@ -2181,7 +2230,7 @@ template gossipMaxSize(T: untyped): uint32 =
   maxSize.uint32
 
 proc createEth2Node*(rng: ref BrHmacDrbgContext,
-                     config: BeaconNodeConf,
+                     config: BeaconNodeConf | LightClientConf,
                      netKeys: NetKeyPair,
                      cfg: RuntimeConfig,
                      forkDigests: ref ForkDigests,
@@ -2230,8 +2279,8 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
   let
     params = GossipSubParams(
       explicit: true,
-      pruneBackoff: 1.minutes,
-      unsubscribeBackoff: 10.seconds,
+      pruneBackoff: chronos.minutes(1),
+      unsubscribeBackoff: chronos.seconds(10),
       floodPublish: true,
       gossipFactor: 0.05,
       d: 8,
@@ -2240,18 +2289,18 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       dScore: 6,
       dOut: 6 div 2, # less than dlow and no more than dlow/2
       dLazy: 6,
-      heartbeatInterval: 700.milliseconds,
+      heartbeatInterval: chronos.milliseconds(700),
       historyLength: 6,
       historyGossip: 3,
-      fanoutTTL: 60.seconds,
-      seenTTL: 385.seconds,
+      fanoutTTL: chronos.seconds(60),
+      seenTTL: chronos.seconds(385),
       gossipThreshold: -4000,
       publishThreshold: -8000,
       graylistThreshold: -16000, # also disconnect threshold
       opportunisticGraftThreshold: 0,
-      decayInterval: 12.seconds,
+      decayInterval: chronos.seconds(12),
       decayToZero: 0.01,
-      retainScore: 385.seconds,
+      retainScore: chronos.seconds(385),
       appSpecificWeight: 0.0,
       ipColocationFactorWeight: -53.75,
       ipColocationFactorThreshold: 3.0,
@@ -2488,10 +2537,7 @@ proc updateForkId*(node: Eth2Node, epoch: Epoch, genesis_validators_root: Eth2Di
   node.discoveryForkId = getDiscoveryForkID(node.cfg, epoch, genesis_validators_root)
 
 func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
-  case node.cfg.stateForkAtEpoch(epoch)
-  of BeaconStateFork.Bellatrix: node.forkDigests.bellatrix
-  of BeaconStateFork.Altair:    node.forkDigests.altair
-  of BeaconStateFork.Phase0:    node.forkDigests.phase0
+  node.forkDigests[].atEpoch(epoch, node.cfg)
 
 proc getWallEpoch(node: Eth2Node): Epoch =
   node.getBeaconTime().slotOrZero.epoch
