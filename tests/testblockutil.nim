@@ -331,7 +331,13 @@ proc makeSyncAggregate(
       validatorIdx: ValidatorIndex
       selectionProof: ValidatorSig
 
-  let maxActiveParticipants = (syncCommitteeRatio * SYNC_COMMITTEE_SIZE).int
+  let
+    minActiveParticipants =
+      if syncCommitteeRatio >= 2.0 / 3: # Ensure supermajority is hit
+        (SYNC_COMMITTEE_SIZE * 2 + 2) div 3
+      else:
+        0
+    maxActiveParticipants = (syncCommitteeRatio * SYNC_COMMITTEE_SIZE).int
   var
     aggregators: seq[Aggregator]
     numActiveParticipants = 0
@@ -341,9 +347,31 @@ proc makeSyncAggregate(
       lastKeyIdx = firstKeyIdx + SYNC_SUBCOMMITTEE_SIZE - 1
     var processedKeys = initHashSet[ValidatorPubKey]()
     for idx, validatorKey in syncCommittee.pubkeys[firstKeyIdx .. lastKeyIdx]:
-      if validatorKey in processedKeys: continue
+      if validatorKey in processedKeys:
+        continue
       processedKeys.incl validatorKey
-      if rand(1.0) > syncCommitteeRatio: continue
+      let
+        validatorIdx =
+          block:
+            var res = 0
+            for i, validator in getStateField(state, validators):
+              if validator.pubkey == validatorKey:
+                res = i
+                break
+            res.ValidatorIndex
+        selectionProofSig = get_sync_committee_selection_proof(
+          fork, genesis_validators_root,
+          slot, subcommitteeIdx,
+          MockPrivKeys[validatorIdx])
+      if is_sync_committee_aggregator(selectionProofSig.toValidatorSig):
+        aggregators.add Aggregator(
+          subcommitteeIdx: subcommitteeIdx,
+          validatorIdx: validatorIdx,
+          selectionProof: selectionProofSig.toValidatorSig)
+
+      if numActiveParticipants >= minActiveParticipants and
+          rand(1.0) > syncCommitteeRatio:
+        continue
       var positions: seq[uint64]
       for pos, key in syncCommittee.pubkeys[firstKeyIdx + idx .. lastKeyIdx]:
         if numActiveParticipants >= maxActiveParticipants:
@@ -351,37 +379,20 @@ proc makeSyncAggregate(
         if key == validatorKey:
           positions.add (idx + pos).uint64
           inc numActiveParticipants
-      let validatorIdx =
-        block:
-          var res = 0
-          for i, validator in getStateField(state, validators):
-            if validator.pubkey == validatorKey:
-              res = i
-              break
-          res.ValidatorIndex
+      if positions.len == 0:
+        continue
 
-      if positions.len != 0:
-        let signature = get_sync_committee_message_signature(
-          fork, genesis_validators_root,
-          slot, latest_block_root,
-          MockPrivKeys[validatorIdx])
-        syncCommitteePool[].addSyncCommitteeMessage(
-          slot,
-          latest_block_root,
-          uint64 validatorIdx,
-          signature,
-          subcommitteeIdx,
-          positions)
-          
-      let selectionProofSig = get_sync_committee_selection_proof(
+      let signature = get_sync_committee_message_signature(
         fork, genesis_validators_root,
-        slot, subcommitteeIdx,
+        slot, latest_block_root,
         MockPrivKeys[validatorIdx])
-      if is_sync_committee_aggregator(selectionProofSig.toValidatorSig):
-        aggregators.add Aggregator(
-          subcommitteeIdx: subcommitteeIdx,
-          validatorIdx: validatorIdx,
-          selectionProof: selectionProofSig.toValidatorSig)
+      syncCommitteePool[].addSyncCommitteeMessage(
+        slot,
+        latest_block_root,
+        uint64 validatorIdx,
+        signature,
+        subcommitteeIdx,
+        positions)
 
   for aggregator in aggregators:
     var contribution: SyncCommitteeContribution
