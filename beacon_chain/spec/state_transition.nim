@@ -329,7 +329,11 @@ proc makeBeaconBlock*(
     sync_aggregate: SyncAggregate,
     execution_payload: ExecutionPayload,
     rollback: RollbackHashedProc[phase0.HashedBeaconState],
-    cache: var StateCache): Result[phase0.BeaconBlock, cstring] =
+    cache: var StateCache,
+    # TODO:
+    # `verificationFlags` is needed only in tests and can be
+    # removed if we don't use invalid signatures there
+    verificationFlags: UpdateFlags = {}): Result[phase0.BeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
   ## state.slot meaning process_slots must be called up to the slot for which
@@ -342,7 +346,7 @@ proc makeBeaconBlock*(
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
                                 exits, sync_aggregate, execution_payload)
 
-  let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
+  let res = process_block(cfg, state.data, blck, verificationFlags, cache)
 
   if res.isErr:
     rollback(state)
@@ -394,7 +398,11 @@ proc makeBeaconBlock*(
     sync_aggregate: SyncAggregate,
     execution_payload: ExecutionPayload,
     rollback: RollbackHashedProc[altair.HashedBeaconState],
-    cache: var StateCache): Result[altair.BeaconBlock, cstring] =
+    cache: var StateCache,
+    # TODO:
+    # `verificationFlags` is needed only in tests and can be
+    # removed if we don't use invalid signatures there
+    verificationFlags: UpdateFlags = {}): Result[altair.BeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
   ## state.slot meaning process_slots must be called up to the slot for which
@@ -407,7 +415,7 @@ proc makeBeaconBlock*(
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
                                 exits, sync_aggregate, execution_payload)
 
-  let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
+  let res = process_block(cfg, state.data, blck, verificationFlags, cache)
 
   if res.isErr:
     rollback(state)
@@ -460,7 +468,11 @@ proc makeBeaconBlock*(
     sync_aggregate: SyncAggregate,
     execution_payload: ExecutionPayload,
     rollback: RollbackHashedProc[bellatrix.HashedBeaconState],
-    cache: var StateCache): Result[bellatrix.BeaconBlock, cstring] =
+    cache: var StateCache,
+    # TODO:
+    # `verificationFlags` is needed only in tests and can be
+    # removed if we don't use invalid signatures there
+    verificationFlags: UpdateFlags = {}): Result[bellatrix.BeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
   ## state.slot meaning process_slots must be called up to the slot for which
@@ -473,7 +485,7 @@ proc makeBeaconBlock*(
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
                                 exits, sync_aggregate, execution_payload)
 
-  let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
+  let res = process_block(cfg, state.data, blck, verificationFlags, cache)
 
   if res.isErr:
     rollback(state)
@@ -497,7 +509,11 @@ proc makeBeaconBlock*(
     sync_aggregate: SyncAggregate,
     executionPayload: ExecutionPayload,
     rollback: RollbackForkedHashedProc,
-    cache: var StateCache): Result[ForkedBeaconBlock, cstring] =
+    cache: var StateCache,
+    # TODO:
+    # `verificationFlags` is needed only in tests and can be
+    # removed if we don't use invalid signatures there
+    verificationFlags: UpdateFlags = {}): Result[ForkedBeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
   ## state.slot meaning process_slots must be called up to the slot for which
@@ -514,8 +530,7 @@ proc makeBeaconBlock*(
                            exits, sync_aggregate, executionPayload))
 
     let res = process_block(cfg, state.`kind Data`.data, blck.`kind Data`,
-                            {skipBlsValidation}, cache)
-
+                            verificationFlags, cache)
     if res.isErr:
       rollback(state)
       return err(res.error())
