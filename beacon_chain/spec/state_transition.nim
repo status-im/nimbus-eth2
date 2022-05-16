@@ -214,7 +214,7 @@ proc state_transition_block_aux(
   # by the block proposer. Every actor in the network will update its state
   # according to the contents of this block - but first they will validate
   # that the block is sane.
-  if skipBlsValidation notin flags:
+  if not flags.shouldSkipBls:
     ? verify_block_signature(state.data, signedBlock)
 
   trace "state_transition: processing block, signature passed",
@@ -342,7 +342,7 @@ proc makeBeaconBlock*(
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
                                 exits, sync_aggregate, execution_payload)
 
-  let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
+  let res = process_block(cfg, state.data, blck, {localOrigin}, cache)
 
   if res.isErr:
     rollback(state)
@@ -407,7 +407,7 @@ proc makeBeaconBlock*(
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
                                 exits, sync_aggregate, execution_payload)
 
-  let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
+  let res = process_block(cfg, state.data, blck, {localOrigin}, cache)
 
   if res.isErr:
     rollback(state)
@@ -473,7 +473,7 @@ proc makeBeaconBlock*(
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
                                 exits, sync_aggregate, execution_payload)
 
-  let res = process_block(cfg, state.data, blck, {skipBlsValidation}, cache)
+  let res = process_block(cfg, state.data, blck, {localOrigin}, cache)
 
   if res.isErr:
     rollback(state)
@@ -514,7 +514,7 @@ proc makeBeaconBlock*(
                            exits, sync_aggregate, executionPayload))
 
     let res = process_block(cfg, state.`kind Data`.data, blck.`kind Data`,
-                            {skipBlsValidation}, cache)
+                            {localOrigin}, cache)
 
     if res.isErr:
       rollback(state)

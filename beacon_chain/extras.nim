@@ -20,19 +20,33 @@
 
 type
   UpdateFlag* = enum
-    skipBlsValidation ##\
-    ## Skip verification of BLS signatures in block processing.
-    ## Predominantly intended for use in testing, e.g. to allow extra coverage.
-    ## Also useful to avoid unnecessary work when replaying known, good blocks.
-    skipStateRootValidation ##\
-    ## Skip verification of block state root.
+    skipBlsValidation
+      ## Skip verification of BLS signatures in block processing.
+      ## Predominantly intended for use in testing, e.g. to allow extra coverage.
+      ## Also useful to avoid unnecessary work when replaying known, good blocks.
+
+    skipStateRootValidation
+      ## Skip verification of block state root.
+
     verifyFinalization
-    slotProcessed ##\
-    ## Allow blocks to be applied to states with the same slot number as the
-    ## block which is what happens when `process_block` is called separately
-    skipLastStateRootCalculation ##\
-    ## When process_slots() is being called as part of a state_transition(),
-    ## the hash_tree_root() from the block will fill in the state.root so it
-    ## should skip calculating that last state root.
+
+    slotProcessed
+      ## Allow blocks to be applied to states with the same slot number as the
+      ## block which is what happens when `process_block` is called separately
+
+    skipLastStateRootCalculation
+      ## When process_slots() is being called as part of a state_transition(),
+      ## the hash_tree_root() from the block will fill in the state.root so it
+      ## should skip calculating that last state root.
+
+    localOrigin
+      ## The block or attestation has local origin which allows us to skip some
+      ## of the validation checks (e.g. we don't need to check our own signature).
+      ## Please note that this is also used to skip over third party signatures
+      ## because these are validated before entering the various pools that we
+      ## use as inputs when building blocks.
 
   UpdateFlags* = set[UpdateFlag]
+
+template shouldSkipBls*(flags: UpdateFlags): bool =
+  {skipBlsValidation, localOrigin} * flags != {}

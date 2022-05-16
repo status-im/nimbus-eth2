@@ -85,7 +85,7 @@ proc process_randao(
   let
     epoch = state.get_current_epoch()
 
-  if skipBlsValidation notin flags:
+  if not flags.shouldSkipBls:
     let proposer_pubkey = state.validators.asSeq()[proposer_index.get].pubkey
 
     if not verify_epoch_signature(
@@ -154,7 +154,7 @@ proc check_proposer_slashing*(
     return err("check_proposer_slashing: slashed proposer")
 
   # Verify signatures
-  if skipBlsValidation notin flags:
+  if not flags.shouldSkipBls:
     for signed_header in [proposer_slashing.signed_header_1,
         proposer_slashing.signed_header_2]:
       if not verify_block_signature(
@@ -294,8 +294,22 @@ proc process_deposit*(cfg: RuntimeConfig,
     # Increase balance by deposit amount
     increase_balance(state, index.ValidatorIndex, amount)
   else:
-    # Verify the deposit signature (proof of possession) which is not checked
-    # by the deposit contract
+    # We must verify the deposit signature which is not checked by the
+    # deposit contract. This check can be omitted only when replying
+    # previously verified blocks.
+    #
+    # Please note that we use the `skipBlsValidation` flag instead of
+    # the more common `shouldSkipBls` because it is not possible to
+    # validate the signature upfront in eth1_monitor - even deposits
+    # with invalid signatures must contribute to the accumulating deposit
+    # root and all merkle proofs.
+    #
+    # When we create a block, we pass only the `localOrigin` flag which is
+    # enough to ensure that other signed messages such as voluntary exits
+    # and slashings messages have been already verified by the gossip
+    # validators (otherwise, they wouldn't be in the pools used as inputs
+    # when creating the block), but this is not the case for deposits
+    # which are truly verified for the first time here.
     if skipBlsValidation in flags or verify_deposit_signature(cfg, deposit.data):
       # New validator! Add validator and balance entries
       if not state.validators.add(get_validator_from_deposit(deposit.data)):
@@ -356,7 +370,7 @@ proc check_voluntary_exit*(
     return err("Exit: not in validator set long enough")
 
   # Verify signature
-  if skipBlsValidation notin flags:
+  if not flags.shouldSkipBls:
     if not verify_voluntary_exit_signature(
         state.fork, state.genesis_validators_root, voluntary_exit,
         validator[].pubkey, signed_voluntary_exit.signature):
