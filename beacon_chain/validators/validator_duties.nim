@@ -426,8 +426,6 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
                         fee_recipient: ethtypes.Address,
                         execution_engine: Eth1Monitor):
                         Future[Option[bellatrix.PayloadID]] {.async.} =
-  const web3Timeout = 3.seconds
-
   let
     timestamp = compute_timestamp_at_slot(state, state.slot)
     random = get_randao_mix(state, get_current_epoch(state))
@@ -436,7 +434,7 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
         execution_engine.forkchoiceUpdated(
           head_block_hash, finalized_block_hash, timestamp, random.data,
           fee_recipient),
-        web3Timeout):
+        FORKCHOICEUPDATED_TIMEOUT):
           info "forkchoice_updated: forkchoiceUpdated timed out"
           default(ForkchoiceUpdatedResponse)
     payloadId = forkchoiceResponse.payloadId
@@ -473,6 +471,9 @@ proc getExecutionPayload(node: BeaconNode, proposalState: auto):
     # Minimize window for Eth1 monitor to shut down connection
     await node.consensusManager.eth1Monitor.ensureDataProvider()
 
+    # https://github.com/ethereum/execution-apis/blob/2c3dffa1ad301a5b1d46212e1bd65e918265cd6f/src/engine/specification.md#request-2
+    const GETPAYLOAD_TIMEOUT = 1.seconds
+
     let
       feeRecipient =
         if node.config.suggestedFeeRecipient.isSome:
@@ -488,11 +489,17 @@ proc getExecutionPayload(node: BeaconNode, proposalState: auto):
       payload_id = (await forkchoice_updated(
         proposalState.bellatrixData.data, latestHead, latestFinalized,
         feeRecipient, node.consensusManager.eth1Monitor))
-      payload = await get_execution_payload(
-        payload_id, node.consensusManager.eth1Monitor)
+      payload = awaitWithTimeout(
+        get_execution_payload(payload_id, node.consensusManager.eth1Monitor),
+        GETPAYLOAD_TIMEOUT):
+          info "getExecutionPayload: getPayload timed out; using empty execution payload"
+          empty_execution_payload
       executionPayloadStatus =
-        await node.consensusManager.eth1Monitor.newExecutionPayload(
-          payload)
+        awaitWithTimeout(
+          node.consensusManager.eth1Monitor.newExecutionPayload(payload),
+          NEWPAYLOAD_TIMEOUT):
+            info "getExecutionPayload: newPayload timed out"
+            PayloadExecutionStatus.syncing
 
     if executionPayloadStatus != PayloadExecutionStatus.valid:
       info "getExecutionPayload: newExecutionPayload not valid; using empty execution payload",

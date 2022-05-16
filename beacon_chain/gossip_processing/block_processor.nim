@@ -32,8 +32,6 @@ export sszdump, signatures_batch
 declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
-const web3Timeout = 4.seconds
-
 type
   BlockEntry* = object
     blck*: ForkedSignedBeaconBlock
@@ -349,7 +347,7 @@ proc runForkchoiceUpdated(
     discard awaitWithTimeout(
       forkchoiceUpdated(
         self.consensusManager.eth1Monitor, headBlockRoot, finalizedBlockRoot),
-      web3Timeout):
+      FORKCHOICEUPDATED_TIMEOUT):
         debug "runForkChoiceUpdated: forkchoiceUpdated timed out"
         default(ForkchoiceUpdatedResponse)
   except CatchableError as err:
@@ -386,7 +384,7 @@ proc newExecutionPayload*(
         awaitWithTimeout(
             eth1Monitor.newPayload(
               executionPayload.asEngineExecutionPayload),
-            web3Timeout):
+            NEWPAYLOAD_TIMEOUT):
           info "newPayload: newPayload timed out"
           PayloadStatusV1(status: PayloadExecutionStatus.syncing)
       payloadStatus = payloadResponse.status
