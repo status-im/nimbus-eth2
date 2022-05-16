@@ -1,12 +1,12 @@
 # How to run Geth
 
-- Clone Geth: `git clone --branch merge-kiln-v2 https://github.com/MariusVanDerWijden/go-ethereum.git ~/go-ethereum`
+- Clone Geth: `git clone https://github.com/ethereum/go-ethereum.git ~/go-ethereum`
 - Build Geth with `make geth`
-- Run `scripts/run-catalyst.sh` to run Geth. It listens on port 8551.
+- Run `scripts/run-catalyst.sh` to run Geth. It listens on port 8545.
 
 # Verify Geth is working
 
-- Clone Nimbus and check out the `kiln` branch
+- Clone Nimbus and check out the `kiln-dev-auth` branch
 - Run `scripts/run-catalyst.sh`. This depends on the paths set up in the first section. If those are changed, adjust accordingly.
 - While the Geth console is running, run `scripts/check_merge_test_vectors.sh`.
 
