@@ -287,7 +287,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
         dres.get().pubkeys
 
     var response: DeleteRemoteKeystoresResponse
-    for index, key in keys.pairs():
+    for index, key in keys:
       let status = node.removeValidator(key)
       response.data.add(status)
     return RestApiResponse.jsonResponsePlain(response)

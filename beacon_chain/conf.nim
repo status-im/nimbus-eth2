@@ -868,7 +868,7 @@ type
 
   AnyConf* = BeaconNodeConf | ValidatorClientConf | SigningNodeConf
 
-proc defaultDataDir*(config: AnyConf): string =
+proc defaultDataDir*[Conf](config: Conf): string =
   let dataDir = when defined(windows):
     "AppData" / "Roaming" / "Nimbus"
   elif defined(macosx):
@@ -981,10 +981,10 @@ proc parseCmdArg*(T: type enr.Record, p: string): T
 func completeCmdArg*(T: type enr.Record, val: string): seq[string] =
   return @[]
 
-func validatorsDir*(config: AnyConf): string =
+func validatorsDir*[Conf](config: Conf): string =
   string config.validatorsDirFlag.get(InputDir(config.dataDir / "validators"))
 
-func secretsDir*(config: AnyConf): string =
+func secretsDir*[Conf](config: Conf): string =
   string config.secretsDirFlag.get(InputDir(config.dataDir / "secrets"))
 
 func walletsDir*(config: BeaconNodeConf): string =

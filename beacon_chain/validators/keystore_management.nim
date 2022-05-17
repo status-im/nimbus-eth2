@@ -966,13 +966,13 @@ proc generateDistirbutedStore*(rng: var BrHmacDrbgContext,
                                remoteSignersUrls: seq[string],
                                threshold: uint32): Result[void, KeystoreGenerationError] =
   var signers: seq[RemoteSignerInfo]
-  for (idx, share) in pairs(shares):
+  for idx, share in shares:
     var password = KeystorePass.init ncrutils.toHex(getRandomBytes(rng, 32))
     # remote signer shares
     defer: burnMem(password)
     ? saveKeystore(rng,
-                   shareValidatorDir & "/" & $idx,
-                   shareSecretsDir & "/" & $idx,
+                   shareValidatorDir / $share.id,
+                   shareSecretsDir / $share.id,
                    share.key, share.key.toPubKey,
                    makeKeyPath(validatorIdx, signingKeyKind),
                    password.str,
