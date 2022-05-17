@@ -296,7 +296,7 @@ proc process_deposit*(cfg: RuntimeConfig,
   else:
     # Verify the deposit signature (proof of possession) which is not checked
     # by the deposit contract
-    if skipBlsValidation in flags or verify_deposit_signature(cfg, deposit.data):
+    if verify_deposit_signature(cfg, deposit.data):
       # New validator! Add validator and balance entries
       if not state.validators.add(get_validator_from_deposit(deposit.data)):
         return err("process_deposit: too many validators")

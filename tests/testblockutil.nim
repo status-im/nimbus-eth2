@@ -124,9 +124,11 @@ proc addTestBlock*(
       sync_aggregate,
       default(ExecutionPayload),
       noRollback,
-      cache)
+      cache,
+      verificationFlags = {skipBlsValidation})
 
-  doAssert message.isOk(), "Should have created a valid block!"
+  if message.isErr:
+    raiseAssert "Failed to create a block: " & $message.error
 
   let
     new_block = signBlock(
