@@ -1,4 +1,47 @@
-2022-03-12 v22.4.0
+2022-05-17 v22.5.0
+==================
+
+Nimbus `v22.5.0` is a `low-urgency` maintenance release. It implements the proposer boosting fork-choice policy and is compliant with the latest [Bellatrix specifications](https://github.com/ethereum/consensus-specs#bellatrix-also-known-as-the-merge). It also provides an early preview of our built-in support for [BLS threshold signatures](https://notes.ethereum.org/@djrtwo/blst-rfp) (via regular Web3Signer instances): this marks the first step of our long-term [secret-shared validators roadmap](https://github.com/status-im/nimbus-eth2/issues/3416) which enables node operators / staking pools to deploy Nimbus in secure high availability setups (guaranteeing ~100% uptime).
+
+### Improvements:
+
+* A safer fork-choice algorithm which implements the proposer boosting policy
+  https://github.com/ethereum/consensus-specs/pull/2353
+  https://github.com/status-im/nimbus-eth2/pull/3565
+
+* A completely revamped snappy implementation which brings significant speed-ups
+  https://github.com/status-im/nimbus-eth2/pull/3564
+
+* Support for the latest Bellatrix specifications (a.k.a. The Merge) + all Kiln testnets
+  https://github.com/status-im/nimbus-eth2/pull/3590
+
+* An initial preview release fеaturing built-in support for distributed keystores, (part of our [secret shared validators roadmap]( https://github.com/status-im/nimbus-eth2/issues/3416))
+  https://github.com/status-im/nimbus-eth2/pull/3616
+
+* Reduced CPU usage when serving blocks to other syncing clients
+  https://github.com/status-im/nimbus-eth2/pull/3598
+
+* A more spec-compliant implementation of the `/eth/v1/config/spec` REST end-point (implementing the v1.1.10 version of the spec)
+  https://github.com/status-im/nimbus-eth2/pull/3614
+
+* Improved compatibility with all versions of Web3Signer
+  https://github.com/status-im/nimbus-eth2/pull/3640
+
+### We've fixed:
+
+* The potential for missed block proposals in the case where an invalid deposit is submitted to the deposit contract
+  https://github.com/status-im/nimbus-eth2/pull/3607
+  https://github.com/status-im/nimbus-eth2/pull/3639
+
+* A crash triggered by the use of Web3Signer remote keystores
+  https://github.com/status-im/nimbus-eth2/pull/3616
+
+* A rare crash triggered when Nimbus is performing a large number of concurrent HTTP requests
+  https://github.com/status-im/nim-chronos/pull/272
+  https://github.com/status-im/nim-chronos/pull/273
+
+
+2022-04-12 v22.4.0
 ==================
 
 Nimbus `v22.4.0` is a `low-urgency` upgrade which brings with it further optimisations, and better user experience around [trusted node sync](https://nimbus.guide/trusted-node-sync.html). It lays the foundations for upcoming the merge hard-fork which will be fully supported in our next release (`v22.5.0`).
