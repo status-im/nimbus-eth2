@@ -205,7 +205,7 @@ proc signWithRemoteValidator*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
                               blck: ForkedBeaconBlock): Future[SignatureResult]
                              {.async.} =
-  let request = Web3SignerRequest.init(fork, genesis_validators_root, blck)
+  let request = Web3SignerRequest.init(fork, genesis_validators_root, blck.Web3SignerForkedBeaconBlock)
   debug "Signing block proposal using remote signer",
         validator = shortLog(v)
   return await v.signData(request)
