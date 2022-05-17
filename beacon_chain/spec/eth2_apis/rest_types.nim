@@ -489,7 +489,7 @@ type
         serializedFieldName: "block".}: phase0.BeaconBlock
     of Web3SignerRequestKind.BlockV2:
       beaconBlock* {.
-        serializedFieldName: "beacon_block".}: ForkedBeaconBlock
+        serializedFieldName: "beacon_block".}: Web3SignerForkedBeaconBlock
     of Web3SignerRequestKind.Deposit:
       deposit*: Web3SignerDepositData
     of Web3SignerRequestKind.RandaoReveal:
@@ -658,7 +658,7 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest, data: ForkedBeaconBlock,
+           genesis_validators_root: Eth2Digest, data: Web3SignerForkedBeaconBlock,
            signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
           ): Web3SignerRequest =
   Web3SignerRequest(

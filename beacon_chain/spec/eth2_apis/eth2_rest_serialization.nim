@@ -665,9 +665,9 @@ proc readValue*(
       reader, "Expected a valid hex string with " & $value.len() & " bytes")
 
 ## ForkedBeaconBlock
-proc readValue*(reader: var JsonReader[RestJson],
-                value: var ForkedBeaconBlock) {.
-     raises: [IOError, SerializationError, Defect].} =
+proc readValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
+    reader: var JsonReader[RestJson],
+    value: var BlockType) {.raises: [IOError, SerializationError, Defect].} =
   var
     version: Option[BeaconBlockFork]
     data: Option[JsonString]
@@ -680,17 +680,17 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "ForkedBeaconBlock")
       let vres = reader.readValue(string)
       case vres
-      of "phase0":
+      of "PHASE0", "phase0":
         version = some(BeaconBlockFork.Phase0)
-      of "altair":
+      of "ALTAIR", "altair":
         version = some(BeaconBlockFork.Altair)
-      of "bellatrix":
+      of "BELLATRIX", "bellatrix":
         version = some(BeaconBlockFork.Bellatrix)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
-    of "data":
+    of "block", "block_header", "data":
       if data.isSome():
-        reader.raiseUnexpectedField("Multiple data fields found",
+        reader.raiseUnexpectedField("Multiple block or block_header fields found",
                                     "ForkedBeaconBlock")
       data = some(reader.readValue(JsonString))
     else:
@@ -711,7 +711,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         none[phase0.BeaconBlock]()
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect phase0 block format")
-    value = ForkedBeaconBlock.init(res.get())
+    value = ForkedBeaconBlock.init(res.get()).BlockType
   of BeaconBlockFork.Altair:
     let res =
       try:
@@ -721,7 +721,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         none[altair.BeaconBlock]()
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect altair block format")
-    value = ForkedBeaconBlock.init(res.get())
+    value = ForkedBeaconBlock.init(res.get()).BlockType
   of BeaconBlockFork.Bellatrix:
     let res =
       try:
@@ -731,20 +731,29 @@ proc readValue*(reader: var JsonReader[RestJson],
         none[bellatrix.BeaconBlock]()
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect bellatrix block format")
-    value = ForkedBeaconBlock.init(res.get())
+    value = ForkedBeaconBlock.init(res.get()).BlockType
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedBeaconBlock) {.
-     raises: [IOError, Defect].} =
+
+proc writeValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
+    writer: var JsonWriter[RestJson],
+    value: BlockType) {.raises: [IOError, Defect].} =
+
+  template forkIdentifier(id: string): auto =
+    when BlockType is ForkedBeaconBlock:
+      id
+    else:
+      (static toUpperAscii id)
+
   writer.beginRecord()
   case value.kind
   of BeaconBlockFork.Phase0:
-    writer.writeField("version", "phase0")
+    writer.writeField("version", forkIdentifier "phase0")
     writer.writeField("data", value.phase0Data)
   of BeaconBlockFork.Altair:
-    writer.writeField("version", "altair")
+    writer.writeField("version", forkIdentifier "altair")
     writer.writeField("data", value.altairData)
   of BeaconBlockFork.Bellatrix:
-    writer.writeField("version", "bellatrix")
+    writer.writeField("version", forkIdentifier "bellatrix")
     writer.writeField("data", value.bellatrixData)
   writer.endRecord()
 
@@ -1452,7 +1461,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
       let data =
         block:
-          let res = decodeJsonString(ForkedBeaconBlock, data.get(), true)
+          let res = decodeJsonString(Web3SignerForkedBeaconBlock, data.get(), true)
           if res.isErr():
             reader.raiseUnexpectedValue(
               "Incorrect field `beacon_block` format")

@@ -107,6 +107,8 @@ type
     of BeaconBlockFork.Altair:    altairData*:    altair.BeaconBlock
     of BeaconBlockFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
 
+  Web3SignerForkedBeaconBlock* {.borrow: `.`} = distinct ForkedBeaconBlock
+
   ForkedTrustedBeaconBlock* = object
     case kind*: BeaconBlockFork
     of BeaconBlockFork.Phase0:    phase0Data*:     phase0.TrustedBeaconBlock
@@ -345,8 +347,8 @@ template asTrusted*(x: ForkedSignedBeaconBlock): ForkedTrustedSignedBeaconBlock 
   isomorphicCast[ForkedTrustedSignedBeaconBlock](x)
 
 template withBlck*(
-    x: ForkedBeaconBlock | ForkedSignedBeaconBlock |
-       ForkedTrustedSignedBeaconBlock,
+    x: ForkedBeaconBlock | Web3SignerForkedBeaconBlock |
+    ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock,
     body: untyped): untyped =
   case x.kind
   of BeaconBlockFork.Phase0:
@@ -367,6 +369,8 @@ func proposer_index*(x: ForkedBeaconBlock): uint64 =
 
 func hash_tree_root*(x: ForkedBeaconBlock): Eth2Digest =
   withBlck(x): hash_tree_root(blck)
+
+func hash_tree_root*(x: Web3SignerForkedBeaconBlock): Eth2Digest {.borrow.}
 
 template getForkedBlockField*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock, y: untyped): untyped =
   # unsafeAddr avoids a copy of the field in some cases

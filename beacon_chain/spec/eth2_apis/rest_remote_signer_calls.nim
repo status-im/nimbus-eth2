@@ -12,7 +12,7 @@ import
   nimcrypto/utils as ncrutils,
   serialization, json_serialization,
   json_serialization/std/[options, net, sets],
-  stew/[results, base10],
+  stew/[results, base10, byteutils],
   "."/[rest_types, eth2_rest_serialization]
 
 export chronos, httpclient, client, rest_types, eth2_rest_serialization, results
@@ -58,16 +58,19 @@ declareHistogram nbc_remote_signer_time,
    buckets = delayBuckets
 
 proc getUpcheck*(): RestResponse[Web3SignerStatusResponse] {.
-     rest, endpoint: "/upcheck", meth: MethodGet.}
+     rest, endpoint: "/upcheck",
+     meth: MethodGet, accept: "application/json" .}
   ## https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Server-Status
 
 proc getKeys*(): RestResponse[Web3SignerKeysResponse] {.
-     rest, endpoint: "/api/v1/eth2/publicKeys", meth: MethodGet.}
+     rest, endpoint: "/api/v1/eth2/publicKeys",
+     meth: MethodGet, accept: "application/json" .}
   ## https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Public-Key
 
 proc signDataPlain*(identifier: ValidatorPubKey,
                     body: Web3SignerRequest): RestPlainResponse {.
-     rest, endpoint: "/api/v1/eth2/sign/{identifier}", meth: MethodPost.}
+     rest, endpoint: "/api/v1/eth2/sign/{identifier}",
+     meth: MethodPost, accept: "application/json" .}
   # https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing
 
 proc signData*(client: RestClientRef, identifier: ValidatorPubKey,
@@ -77,7 +80,8 @@ proc signData*(client: RestClientRef, identifier: ValidatorPubKey,
   inc(nbc_remote_signer_requests)
   let response =
     try:
-      await client.signDataPlain(identifier, body)
+      await client.signDataPlain(identifier, body,
+                                 restAcceptType = "application/json")
     except RestError as exc:
       let msg = "[" & $exc.name & "] " & $exc.msg
       debug "Error occured while generating signature",
@@ -101,19 +105,27 @@ proc signData*(client: RestClientRef, identifier: ValidatorPubKey,
     case response.status
     of 200:
       inc(nbc_remote_signer_200_responses)
-      let res = decodeBytes(Web3SignerSignatureResponse, response.data,
-                            response.contentType)
-      if res.isErr():
-        let msg = "Unable to decode remote signer response [" &
-                  $res.error() & "]"
-        inc(nbc_remote_signer_failures)
-        return Web3SignerDataResponse.err(msg)
-      let sig = res.get().signature.load()
-      if sig.isNone():
+      let sig = if response.contentType.contains("text/plain"):
+        let asStr = fromBytes(string, response.data)
+        let sigFromText = fromHex(ValidatorSig, asStr)
+        if sigFromText.isErr:
+          return Web3SignerDataResponse.err("Unable to decode signature from plain text")
+        sigFromText.get.load
+      else:
+        let res = decodeBytes(Web3SignerSignatureResponse, response.data,
+                              response.contentType)
+        if res.isErr:
+          let msg = "Unable to decode remote signer response [" & $res.error() & "]"
+          inc(nbc_remote_signer_failures)
+          return Web3SignerDataResponse.err(msg)
+        res.get.signature.load
+
+      if sig.isNone:
         let msg = "Remote signer returns invalid signature"
         inc(nbc_remote_signer_failures)
         return Web3SignerDataResponse.err(msg)
-      Web3SignerDataResponse.ok(sig.get())
+
+      Web3SignerDataResponse.ok(sig.get)
     of 400:
       inc(nbc_remote_signer_400_responses)
       let res = decodeBytes(Web3SignerErrorResponse, response.data,
