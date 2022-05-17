@@ -10,6 +10,7 @@ import stew/[assign2, results, base10, byteutils], presto/common,
        json_serialization/std/[options, net, sets]
 import ".."/[eth2_ssz_serialization, forks, keystore],
        ".."/datatypes/[phase0, altair, bellatrix],
+       ".."/mev/bellatrix_mev,
        ".."/../validators/slashing_protection_common,
        "."/[rest_types, rest_keymanager_types]
 import nimcrypto/utils as ncrutils
@@ -54,6 +55,8 @@ type
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
     bellatrix.SignedBeaconBlock |
+    SignedBlindedBeaconBlock |
+    SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
     Web3SignerRequest |
     KeystoresAndSlashingProtection |
