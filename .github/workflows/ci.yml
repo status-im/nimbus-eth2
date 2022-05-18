@@ -232,8 +232,8 @@ jobs:
       - name: Run tests
         run: |
           if [[ "${{ matrix.branch }}" == "version-1-6" ]]; then
-            # hide the CI failure in GitHub's UI
-            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test || true
+            # change to "|| true" to hide the CI failures in GitHub's UI (escape hatch if a blocker is detected in 1.6)
+            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test || false
           else
             ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test
           fi
