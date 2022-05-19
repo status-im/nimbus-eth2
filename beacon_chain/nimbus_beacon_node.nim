@@ -405,7 +405,7 @@ proc init*(T: type BeaconNode,
     quit 1
 
   let optJwtSecret =
-    block:
+    if cfg.BELLATRIX_FORK_EPOCH != FAR_FUTURE_EPOCH:
       let jwtSecret = rng[].checkJwtSecret(
         string(config.dataDir), config.jwtSecret)
       if jwtSecret.isErr:
@@ -414,6 +414,8 @@ proc init*(T: type BeaconNode,
          quit 1
 
       some jwtSecret.get
+    else:
+      none(seq[byte])
 
   template getDepositContractSnapshot: auto =
     if depositContractSnapshot.isSome:
