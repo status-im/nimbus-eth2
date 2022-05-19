@@ -258,6 +258,8 @@ proc initFullNode(
       AttestationPool.init(dag, quarantine, onAttestationReceived))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, onSyncContribution))
+    lightClientPool = newClone(
+      LightClientPool())
     exitPool = newClone(
       ExitPool.init(dag, onVoluntaryExitAdded))
     consensusManager = ConsensusManager.new(
@@ -277,8 +279,8 @@ proc initFullNode(
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool, exitPool,
-      node.attachedValidators, syncCommitteeMsgPool, quarantine, rng,
-      getBeaconTime, taskpool)
+      node.attachedValidators, syncCommitteeMsgPool, lightClientPool,
+      quarantine, rng, getBeaconTime, taskpool)
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,

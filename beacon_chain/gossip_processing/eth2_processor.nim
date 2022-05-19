@@ -19,15 +19,15 @@ import
   ../spec/datatypes/[altair, phase0],
   ../consensus_object_pools/[
     block_clearance, block_quarantine, blockchain_dag, exit_pool, attestation_pool,
-    sync_committee_msg_pool],
+    light_client_pool, sync_committee_msg_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation]
 
 export
   results, bearssl, taskpools, block_clearance, blockchain_dag, exit_pool, attestation_pool,
-  sync_committee_msg_pool, validator_pool, beacon_clock, gossip_validation,
-  block_processor, batch_validation, block_quarantine
+  light_client_pool, sync_committee_msg_pool, validator_pool, beacon_clock,
+  gossip_validation, block_processor, batch_validation, block_quarantine
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_attestations_received,
@@ -117,6 +117,7 @@ type
     attestationPool*: ref AttestationPool
     validatorPool: ref ValidatorPool
     syncCommitteeMsgPool: ref SyncCommitteeMsgPool
+    lightClientPool: ref LightClientPool
 
     doppelgangerDetection*: DoppelgangerProtection
 
@@ -156,6 +157,7 @@ proc new*(T: type Eth2Processor,
           exitPool: ref ExitPool,
           validatorPool: ref ValidatorPool,
           syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
+          lightClientPool: ref LightClientPool,
           quarantine: ref Quarantine,
           rng: ref BrHmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
@@ -173,6 +175,7 @@ proc new*(T: type Eth2Processor,
     exitPool: exitPool,
     validatorPool: validatorPool,
     syncCommitteeMsgPool: syncCommitteeMsgPool,
+    lightClientPool: lightClientPool,
     quarantine: quarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
@@ -554,8 +557,8 @@ proc lightClientFinalityUpdateValidator*(
 
   let
     wallTime = self.getCurrentBeaconTime()
-    v = self.dag.validateLightClientFinalityUpdate(
-      finality_update, wallTime)
+    v = validateLightClientFinalityUpdate(
+      self.lightClientPool[], self.dag, finality_update, wallTime)
   if v.isOk():
     trace "LC finality update validated"
 
@@ -578,8 +581,8 @@ proc lightClientOptimisticUpdateValidator*(
 
   let
     wallTime = self.getCurrentBeaconTime()
-    v = self.dag.validateLightClientOptimisticUpdate(
-      optimistic_update, wallTime)
+    v = validateLightClientOptimisticUpdate(
+      self.lightClientPool[], self.dag, optimistic_update, wallTime)
   if v.isOk():
     trace "LC optimistic update validated"
 

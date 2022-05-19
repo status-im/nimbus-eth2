@@ -13,7 +13,6 @@
 import
   # Status libraries
   stew/bitops2,
-  chronos,
   # Beacon chain internals
   ../spec/datatypes/altair,
   ./block_dag
@@ -80,21 +79,3 @@ type
 
     importTailSlot*: Slot
       ## The earliest slot for which light client data is imported.
-
-    latestForwardedFinalitySlot*: Slot
-      ## Latest finality update that was forwarded on libp2p gossip.
-      ## Tracks `finality_update.finalized_header.slot`.
-
-    latestForwardedOptimisticSlot*: Slot
-      ## Latest optimistic update that was forwarded on libp2p gossip.
-      ## Tracks `optimistic_update.attested_header.slot`.
-
-    latestBroadcastedSlot*: Slot
-      ## Latest slot for which updates were broadcasted on libp2p gossip.
-      ## Tracks `update.signature_slot`.
-
-    broadcastGossipFut*: Future[void]
-      ## Task to broadcast libp2p gossip. Started when a sync committee message
-      ## is sent. Tracked separately from `handleValidatorDuties` to catch the
-      ## case where `node.attachedValidators[].count == 0` at function start,
-      ## and then a sync committee message gets sent from a remote VC via REST.

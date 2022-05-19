@@ -21,7 +21,7 @@ import
     beaconstate, state_transition_block, forks, helpers, network, signatures],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, block_quarantine, exit_pool, spec_cache,
-    sync_committee_msg_pool],
+    light_client_pool, sync_committee_msg_pool],
   ".."/[beacon_clock],
   ./batch_validation
 
@@ -1034,11 +1034,11 @@ proc validateContribution*(
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_finality_update
 proc validateLightClientFinalityUpdate*(
-    dag: ChainDAGRef,
+    pool: var LightClientPool, dag: ChainDAGRef,
     finality_update: altair.LightClientFinalityUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
   let finalized_slot = finality_update.finalized_header.slot
-  if finalized_slot <= dag.lightClientCache.latestForwardedFinalitySlot:
+  if finalized_slot <= pool.latestForwardedFinalitySlot:
     # [IGNORE] No other `finality_update` with a lower or equal
     # `finalized_header.slot` was already forwarded on the network.
     return errIgnore("LightClientFinalityUpdate: slot already forwarded")
@@ -1057,16 +1057,16 @@ proc validateLightClientFinalityUpdate*(
     # exactly.
     return errIgnore("LightClientFinalityUpdate: not matching local")
 
-  dag.lightClientCache.latestForwardedFinalitySlot = finalized_slot
+  pool.latestForwardedFinalitySlot = finalized_slot
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_optimistic_update
 proc validateLightClientOptimisticUpdate*(
-    dag: ChainDAGRef,
+    pool: var LightClientPool, dag: ChainDAGRef,
     optimistic_update: altair.LightClientOptimisticUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
   let attested_slot = optimistic_update.attested_header.slot
-  if attested_slot <= dag.lightClientCache.latestForwardedOptimisticSlot:
+  if attested_slot <= pool.latestForwardedOptimisticSlot:
     # [IGNORE] No other `optimistic_update` with a lower or equal
     # `attested_header.slot` was already forwarded on the network.
     return errIgnore("LightClientOptimisticUpdate: slot already forwarded")
@@ -1085,5 +1085,5 @@ proc validateLightClientOptimisticUpdate*(
     # exactly.
     return errIgnore("LightClientOptimisticUpdate: not matching local")
 
-  dag.lightClientCache.latestForwardedOptimisticSlot = attested_slot
+  pool.latestForwardedOptimisticSlot = attested_slot
   ok()

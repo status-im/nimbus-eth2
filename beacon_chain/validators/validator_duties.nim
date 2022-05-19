@@ -266,31 +266,31 @@ proc handleLightClientUpdates(node: BeaconNode, slot: Slot) {.async.} =
     return
 
   let finalized_slot = latest.finalized_header.slot
-  if finalized_slot > node.dag.lightClientCache.latestForwardedFinalitySlot:
+  if finalized_slot > node.lightClientPool[].latestForwardedFinalitySlot:
     template msg(): auto = latest
     node.network.broadcastLightClientFinalityUpdate(msg)
-    node.dag.lightClientCache.latestForwardedFinalitySlot = finalized_slot
+    node.lightClientPool[].latestForwardedFinalitySlot = finalized_slot
     beacon_light_client_finality_updates_sent.inc()
     notice "LC finality update sent", message = shortLog(msg)
 
   let attested_slot = latest.attested_header.slot
-  if attested_slot > node.dag.lightClientCache.latestForwardedOptimisticSlot:
+  if attested_slot > node.lightClientPool[].latestForwardedOptimisticSlot:
     let msg = latest.toOptimistic
     node.network.broadcastLightClientOptimisticUpdate(msg)
-    node.dag.lightClientCache.latestForwardedOptimisticSlot = attested_slot
+    node.lightClientPool[].latestForwardedOptimisticSlot = attested_slot
     beacon_light_client_optimistic_updates_sent.inc()
     notice "LC optimistic update sent", message = shortLog(msg)
 
 proc scheduleSendingLightClientUpdates(node: BeaconNode, slot: Slot) =
   if not node.config.serveLightClientData.get:
     return
-  if node.dag.lightClientCache.broadcastGossipFut != nil:
+  if node.lightClientPool[].broadcastGossipFut != nil:
     return
-  if slot <= node.dag.lightClientCache.latestBroadcastedSlot:
+  if slot <= node.lightClientPool[].latestBroadcastedSlot:
     return
-  node.dag.lightClientCache.latestBroadcastedSlot = slot
+  node.lightClientPool[].latestBroadcastedSlot = slot
 
-  template fut(): auto = node.dag.lightClientCache.broadcastGossipFut
+  template fut(): auto = node.lightClientPool[].broadcastGossipFut
   fut = node.handleLightClientUpdates(slot)
   fut.addCallback do (p: pointer) {.gcsafe.}:
     fut = nil
