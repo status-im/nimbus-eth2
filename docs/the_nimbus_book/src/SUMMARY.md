@@ -48,6 +48,12 @@
 - [Migrate from another client](./migration.md)
 - [Validate with a Raspberry Pi](./pi-guide.md)
 
+# Security
+- [Security Issues / Responsible Disclosure](./security_issues.md)
+- [Security Audit](./audit.md)
+- [Reproducible Builds](./distribution_internals.md)
+
+
 # Downloads
 - [Download binaries](./binaries.md)
 - [Download Docker images](./docker.md)
@@ -62,7 +68,5 @@
 - [For developers](./developers.md)
 - [Contribute](./contribute.md)
 - [Resources](./resources.md)
-- [Binary distribution internals](./distribution_internals.md)
 - [Prater testnet](./prater.md)
-- [Security Audit](./audit.md)
 - [FAQ](./faq.md)
