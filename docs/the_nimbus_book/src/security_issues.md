@@ -1,14 +1,11 @@
 ## Security related issues
-***For any security related issues, follow responsible disclosure standards. Do not file public issues. ***
+**For any security related issues, follow responsible disclosure standards. Do not file public issues.**
 
 
-*Please file a report at the ethereum bug bounty program in order to receive a reward for your findings.*
- 
-
-***https://ethereum.org/en/bug-bounty/***
+*Please file a report at the ethereum [bug bounty program](https://ethereum.org/en/bug-bounty/) in order to receive a reward for your findings.*
 
 
-***When in doubt, please send an encrypted email to security@status.im and ask ([gpg key](https://github.com/status-im/status-security/blob/master/pgp-keys/security%40status.im.asc)).***
+*When in doubt, please send an encrypted email to security@status.im and ask ([gpg key](https://github.com/status-im/status-security/blob/master/pgp-keys/security%40status.im.asc)).*
 
 
 *Security related issues are (sufficient but not necessary criteria):*
