@@ -6,11 +6,10 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[base64, json, options, os, strutils],
+  std/[base64, json, options, strutils],
   chronicles,
-  bearssl,
   nimcrypto/[hmac, utils],
-  stew/[byteutils, results]
+  stew/results
 
 {.push raises: [Defect].}
 
@@ -49,10 +48,8 @@ proc getSignedToken*(key: openArray[byte], payload: string): string =
 proc getSignedIatToken*(key: openArray[byte], time: int64): string =
   getSignedToken(key, $getIatToken(time))
 
-proc checkJwtSecret*(
-    rng: var BrHmacDrbgContext, dataDir: string, jwtSecret: Option[string]):
+proc checkJwtSecret*(jwtSecret: Option[string]):
     Result[seq[byte], cstring] =
-
   # If such a parameter is given, but the file cannot be read, or does not
   # contain a hex-encoded key of at least 256 bits, the client should treat
   # this as an error: either abort the startup, or show error and continue
@@ -60,27 +57,7 @@ proc checkJwtSecret*(
   const MIN_SECRET_LEN = 32
 
   if jwtSecret.isNone:
-    # If such a parameter is not given, the client SHOULD generate such a
-    # token, valid for the duration of the execution, and store it the
-    # hex-encoded secret as a jwt.hex file on the filesystem. This file can
-    # then be used to provision the counterpart client.
-    #
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.8/src/engine/authentication.md#key-distribution
-    const jwtSecretFilename = "jwt.hex"
-    let jwtSecretPath = dataDir / jwtSecretFilename
-
-    var newSecret: seq[byte]
-    newSecret.setLen(MIN_SECRET_LEN)
-    rng.brHmacDrbgGenerate(newSecret)
-    try:
-      writeFile(jwtSecretPath, newSecret.to0xHex())
-    except IOError as exc:
-      # Allow continuing to run, though this is effectively fatal for a merge
-      # client using authentication. This keeps it lower-risk initially.
-      warn "Could not write JWT secret to data directory",
-        jwtSecretPath,
-        err = exc.msg
-    return ok(newSecret)
+    return err("JWT secret not found")
 
   try:
     let lines = readLines(jwtSecret.get, 1)

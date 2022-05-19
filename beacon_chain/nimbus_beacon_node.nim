@@ -406,8 +406,7 @@ proc init*(T: type BeaconNode,
 
   let optJwtSecret =
     block:
-      let jwtSecret = rng[].checkJwtSecret(
-        string(config.dataDir), config.jwtSecret)
+      let jwtSecret = checkJwtSecret(config.jwtSecret)
       if jwtSecret.isErr:
          fatal "Specified a JWT secret file which couldn't be loaded",
            err = jwtSecret.error
@@ -1774,8 +1773,7 @@ proc doCreateTestnet*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.rais
                else: (waitFor getEth1BlockHash(
                  config.web3Urls[0], blockId("latest"),
                  block:
-                   let jwtSecret = rng.checkJwtSecret(
-                     string(config.dataDir), config.jwtSecret)
+                   let jwtSecret = checkJwtSecret(config.jwtSecret)
                    if jwtSecret.isErr:
                       fatal "Specified a JWT secret file which couldn't be loaded",
                         err = jwtSecret.error
@@ -1854,7 +1852,7 @@ proc doRecord(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
   of RecordCmd.print:
     echo $config.recordPrint
 
-proc doWeb3Cmd(config: BeaconNodeConf, rng: var BrHmacDrbgContext)
+proc doWeb3Cmd(config: BeaconNodeConf)
     {.raises: [Defect, CatchableError].} =
   case config.web3Cmd:
   of Web3Cmd.test:
@@ -1863,8 +1861,7 @@ proc doWeb3Cmd(config: BeaconNodeConf, rng: var BrHmacDrbgContext)
     waitFor testWeb3Provider(config.web3TestUrl,
                              metadata.cfg.DEPOSIT_CONTRACT_ADDRESS,
                              block:
-                               let jwtSecret = rng.checkJwtSecret(
-                                 string(config.dataDir), config.jwtSecret)
+                               let jwtSecret = checkJwtSecret(config.jwtSecret)
 
                                if jwtSecret.isErr:
                                  fatal "Specified a JWT secret file which couldn't be loaded",
@@ -1935,7 +1932,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableEr
   of BNStartUpCmd.deposits: doDeposits(config, rng[])
   of BNStartUpCmd.wallets: doWallets(config, rng[])
   of BNStartUpCmd.record: doRecord(config, rng[])
-  of BNStartUpCmd.web3: doWeb3Cmd(config, rng[])
+  of BNStartUpCmd.web3: doWeb3Cmd(config)
   of BNStartUpCmd.slashingdb: doSlashingInterchange(config)
   of BNStartUpCmd.trustedNodeSync:
     let
