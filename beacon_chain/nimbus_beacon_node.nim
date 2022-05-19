@@ -296,6 +296,7 @@ proc initFullNode(
   node.quarantine = quarantine
   node.attestationPool = attestationPool
   node.syncCommitteeMsgPool = syncCommitteeMsgPool
+  node.lightClientPool = lightClientPool
   node.exitPool = exitPool
   node.processor = processor
   node.blockProcessor = blockProcessor
