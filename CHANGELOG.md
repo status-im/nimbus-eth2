@@ -1,3 +1,21 @@
+2022-05-20 v22.5.1
+==================
+
+Nimbus `v22.5.1` is a `low-urgency` maintenance release addressing a Web3 compatibility regression and introducing Ropsten testnet support.
+
+### Improvements:
+
+* Support for the Ropsten testnet, intended for merge testing
+  https://github.com/status-im/nimbus-eth2/pull/3648
+
+### Fixes:
+
+* Restore compatibility with certain Web3 endpoints
+  https://github.com/status-im/nimbus-eth2/pull/3645
+
+* More spec-compliant handling of JSON fields in REST, for better compatibility with added and optional fields
+  https://github.com/status-im/nimbus-eth2/pull/3647
+
 2022-05-17 v22.5.0
 ==================
 
