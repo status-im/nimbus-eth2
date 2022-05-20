@@ -67,5 +67,5 @@ The `prater` testnet runs on
 
 ```bash
 # using a local Goerli instance
-WEB3_URL="ws://localhost:8545" ./run-mainnet-node.sh --max-peers=150
+WEB3_URL="ws://localhost:8545" ./run-prater-node.sh --max-peers=150
 ```
