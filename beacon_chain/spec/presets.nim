@@ -169,6 +169,7 @@ when const_preset == "mainnet":
     # canonical network names include:
     # * 'mainnet' - there can be only one
     # * 'prater' - testnet
+    # * 'ropsten' - testnet
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "mainnet",
 
@@ -271,6 +272,7 @@ elif const_preset == "minimal":
     # canonical network names include:
     # * 'mainnet' - there can be only one
     # * 'prater' - testnet
+    # * 'ropsten' - testnet
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "minimal",
 

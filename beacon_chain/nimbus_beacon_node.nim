@@ -429,7 +429,8 @@ proc init*(T: type BeaconNode,
       if snapshotRes.isErr:
         fatal "Failed to locate the deposit contract deployment block",
               depositContract = cfg.DEPOSIT_CONTRACT_ADDRESS,
-              deploymentBlock = $depositContractDeployedAt
+              deploymentBlock = $depositContractDeployedAt,
+              err = snapshotRes.error
         quit 1
       else:
         some snapshotRes.get
