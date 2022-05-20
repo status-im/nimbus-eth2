@@ -689,7 +689,10 @@ proc readValue*(
       reader, "Expected a valid hex string with " & $value.len() & " bytes")
 
 template unrecognizedFieldWarning =
-   warn "JSON field not recognized by the current version of Nimbus. Consider upgrading",
+  # TODO: There should be a different notification mechanism for informing the
+  #       caller of a deserialization routine for unexpected fields.
+  #       The chonicles import in this module should be removed.
+  debug "JSON field not recognized by the current version of Nimbus. Consider upgrading",
         fieldName, typeName = typetraits.name(typeof value)
 
 ## ForkedBeaconBlock
