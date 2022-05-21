@@ -4,19 +4,6 @@ import common, api
 
 logScope: service = "fork_service"
 
-proc validateForkSchedule(forks: openArray[Fork]): bool {.raises: [Defect].} =
-  # Check if `forks` list is linked list.
-  var current_version = forks[0].current_version
-  for index, item in forks:
-    if index > 0:
-      if item.previous_version != current_version:
-        return false
-    else:
-      if item.previous_version != item.current_version:
-        return false
-    current_version = item.current_version
-  true
-
 proc sortForks(forks: openArray[Fork]): Result[seq[Fork], cstring] {.
      raises: [Defect].} =
   proc cmp(x, y: Fork): int {.closure.} =
@@ -27,10 +14,8 @@ proc sortForks(forks: openArray[Fork]): Result[seq[Fork], cstring] {.
   if len(forks) == 0:
     return err("Empty fork schedule")
 
-  let sortedForks = sorted(forks, cmp)
-  if not(validateForkSchedule(sortedForks)):
-    return err("Invalid fork schedule")
-  ok(sortedForks)
+  # TODO validity and correct handling of multiple forks per epoch unspecified
+  ok(sorted(forks, cmp))
 
 proc pollForFork(vc: ValidatorClientRef) {.async.} =
   let sres = vc.getCurrentSlot()

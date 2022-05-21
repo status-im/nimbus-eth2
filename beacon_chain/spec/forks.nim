@@ -457,8 +457,9 @@ func altairFork*(cfg: RuntimeConfig): Fork =
     epoch: cfg.ALTAIR_FORK_EPOCH)
 
 func bellatrixFork*(cfg: RuntimeConfig): Fork =
-  # TODO in theory, the altair + merge forks could be in same epoch, so the
-  # previous fork version would be the GENESIS_FORK_VERSION
+  # TODO https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/beacon-chain.md#testing
+  # provides an example of `previous_version` also being BELLATRIX_FORK_VERSION
+  # in certain testing scenarios
   Fork(
     previous_version: cfg.ALTAIR_FORK_VERSION,
     current_version: cfg.BELLATRIX_FORK_VERSION,
@@ -482,13 +483,20 @@ func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   of BeaconStateFork.Altair:    cfg.BELLATRIX_FORK_EPOCH
   of BeaconStateFork.Phase0:    cfg.ALTAIR_FORK_EPOCH
 
-func getForkSchedule*(cfg: RuntimeConfig): array[3, Fork] =
+func getForkSchedule*(cfg: RuntimeConfig): seq[Fork] =
   ## This procedure returns list of known and/or scheduled forks.
   ##
   ## This procedure is used by HTTP REST framework and validator client.
-  ##
-  ## NOTE: Update this procedure when new fork will be scheduled.
-  [cfg.genesisFork(), cfg.altairFork(), cfg.bellatrixFork()]
+
+  # NOTE: Update this function when new fork will be scheduled.
+  static: doAssert BeaconStateFork.Bellatrix == high(BeaconStateFork)
+
+  var forkSchedule = @[cfg.bellatrixFork()]
+  for forkInfo in [cfg.altairFork(), cfg.genesisFork()]:
+    # Detect multiple fork transitions on same epoch transition
+    if forkInfo.epoch != forkSchedule[0].epoch:
+      forkSchedule.insert(forkInfo, 0)
+  forkSchedule
 
 type
   # The first few fields of a state, shared across all forks
