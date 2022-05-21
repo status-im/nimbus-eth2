@@ -1292,6 +1292,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       providerNetwork = awaitWithRetries m.dataProvider.web3.provider.net_version()
       expectedNetwork = case m.eth1Network.get
         of mainnet: "1"
+        of ropsten: "3"
         of rinkeby: "4"
         of goerli:  "5"
     if expectedNetwork != providerNetwork:

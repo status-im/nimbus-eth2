@@ -7,7 +7,8 @@
 import std/typetraits
 import stew/[assign2, results, base10, byteutils], presto/common,
        libp2p/peerid, serialization, json_serialization,
-       json_serialization/std/[options, net, sets]
+       json_serialization/std/[options, net, sets],
+       chronicles
 import ".."/[eth2_ssz_serialization, forks, keystore],
        ".."/datatypes/[phase0, altair, bellatrix],
        ".."/mev/bellatrix_mev,
@@ -16,13 +17,40 @@ import ".."/[eth2_ssz_serialization, forks, keystore],
 import nimcrypto/utils as ncrutils
 
 export
-  eth2_ssz_serialization, results, peerid, common, serialization,
+  eth2_ssz_serialization, results, peerid, common, serialization, chronicles,
   json_serialization, options, net, sets, rest_types, slashing_protection_common
 
 from web3/ethtypes import BlockHash
 export ethtypes.BlockHash
 
 Json.createFlavor RestJson
+
+## The RestJson format implements JSON serialization in the way specified
+## by the Beacon API:
+##
+## https://ethereum.github.io/beacon-APIs/
+##
+## In this format, we must always set `allowUnknownFields = true` in the
+## decode calls in order to conform the following spec:
+##
+## All JSON responses return the requested data under a data key in the top
+## level of their response.  Additional metadata may or may not be present
+## in other keys at the top level of the response, dependent on the endpoint.
+## The rules that require an increase in version number are as follows:
+##
+## - no field that is listed in an endpoint shall be removed without an increase
+##   in the version number
+##
+## - no field that is listed in an endpoint shall be altered in terms of format
+##   (e.g. from a string to an array) without an increase in the version number
+##
+## Note that it is possible for a field to be added to an endpoint's data or
+## metadata without an increase in the version number.
+##
+## TODO nim-json-serializations should allow setting up this policy per format
+##
+## This also means that when new fields are introduced to the object definitions
+## below, one must use the `Option[T]` type.
 
 const
   DecimalSet = {'0' .. '9'}
@@ -92,12 +120,6 @@ type
     Web3SignerKeysResponse |
     Web3SignerSignatureResponse |
     Web3SignerStatusResponse
-
-  # These types may be extended with additional fields in the future.
-  # Locally unknown fields are silently ignored when decoding them.
-  ExtensibleDecodeTypes* =
-    GetSpecResponse |
-    GetSpecVCResponse
 
   SszDecodeTypes* =
     GetPhase0StateSszResponse |
@@ -338,7 +360,9 @@ proc decodeJsonString*[T](t: typedesc[T],
                           data: JsonString,
                           requireAllFields = true): Result[T, cstring] =
   try:
-    ok(RestJson.decode(string(data), T, requireAllFields = requireAllFields))
+    ok(RestJson.decode(string(data), T,
+                       requireAllFields = requireAllFields,
+                       allowUnknownFields = true))
   except SerializationError:
     err("Unable to deserialize data")
 
@@ -664,6 +688,13 @@ proc readValue*(
     raiseUnexpectedValue(
       reader, "Expected a valid hex string with " & $value.len() & " bytes")
 
+template unrecognizedFieldWarning =
+  # TODO: There should be a different notification mechanism for informing the
+  #       caller of a deserialization routine for unexpected fields.
+  #       The chonicles import in this module should be removed.
+  debug "JSON field not recognized by the current version of Nimbus. Consider upgrading",
+        fieldName, typeName = typetraits.name(typeof value)
+
 ## ForkedBeaconBlock
 proc readValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
     reader: var JsonReader[RestJson],
@@ -694,7 +725,7 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
                                     "ForkedBeaconBlock")
       data = some(reader.readValue(JsonString))
     else:
-      reader.raiseUnexpectedField(fieldName, "ForkedBeaconBlock")
+      unrecognizedFieldWarning()
 
   if version.isNone():
     reader.raiseUnexpectedValue("Field version is missing")
@@ -705,8 +736,10 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
   of BeaconBlockFork.Phase0:
     let res =
       try:
-        some(RestJson.decode(string(data.get()), phase0.BeaconBlock,
-                             requireAllFields = true))
+        some(RestJson.decode(string(data.get()),
+                             phase0.BeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
       except SerializationError:
         none[phase0.BeaconBlock]()
     if res.isNone():
@@ -715,8 +748,10 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
   of BeaconBlockFork.Altair:
     let res =
       try:
-        some(RestJson.decode(string(data.get()), altair.BeaconBlock,
-                             requireAllFields = true))
+        some(RestJson.decode(string(data.get()),
+                             altair.BeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
       except SerializationError:
         none[altair.BeaconBlock]()
     if res.isNone():
@@ -725,8 +760,10 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
   of BeaconBlockFork.Bellatrix:
     let res =
       try:
-        some(RestJson.decode(string(data.get()), bellatrix.BeaconBlock,
-                             requireAllFields = true))
+        some(RestJson.decode(string(data.get()),
+                             bellatrix.BeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
       except SerializationError:
         none[bellatrix.BeaconBlock]()
     if res.isNone():
@@ -835,8 +872,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestPublishedBeaconBlockBody")
       execution_payload = some(reader.readValue(ExecutionPayload))
     else:
-      # Ignore unknown fields
-      discard
+      unrecognizedFieldWarning()
 
   if randao_reveal.isNone():
     reader.raiseUnexpectedValue("Field `randao_reveal` is missing")
@@ -949,8 +985,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestPublishedBeaconBlock")
       blockBody = some(reader.readValue(RestPublishedBeaconBlockBody))
     else:
-      # Ignore unknown fields
-      discard
+      unrecognizedFieldWarning()
 
   if slot.isNone():
     reader.raiseUnexpectedValue("Field `slot` is missing")
@@ -1017,8 +1052,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestPublishedSignedBeaconBlock")
       signature = some(reader.readValue(ValidatorSig))
     else:
-      # Ignore unknown fields
-      discard
+      unrecognizedFieldWarning()
 
   if signature.isNone():
     reader.raiseUnexpectedValue("Field `signature` is missing")
@@ -1081,7 +1115,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "ForkedSignedBeaconBlock")
       data = some(reader.readValue(JsonString))
     else:
-      reader.raiseUnexpectedField(fieldName, "ForkedSignedBeaconBlock")
+      unrecognizedFieldWarning()
 
   if version.isNone():
     reader.raiseUnexpectedValue("Field version is missing")
@@ -1092,8 +1126,10 @@ proc readValue*(reader: var JsonReader[RestJson],
   of BeaconBlockFork.Phase0:
     let res =
       try:
-        some(RestJson.decode(string(data.get()), phase0.SignedBeaconBlock,
-                             requireAllFields = true))
+        some(RestJson.decode(string(data.get()),
+                             phase0.SignedBeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
       except SerializationError:
         none[phase0.SignedBeaconBlock]()
     if res.isNone():
@@ -1102,8 +1138,10 @@ proc readValue*(reader: var JsonReader[RestJson],
   of BeaconBlockFork.Altair:
     let res =
       try:
-        some(RestJson.decode(string(data.get()), altair.SignedBeaconBlock,
-                             requireAllFields = true))
+        some(RestJson.decode(string(data.get()),
+                             altair.SignedBeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
       except SerializationError:
         none[altair.SignedBeaconBlock]()
     if res.isNone():
@@ -1112,8 +1150,10 @@ proc readValue*(reader: var JsonReader[RestJson],
   of BeaconBlockFork.Bellatrix:
     let res =
       try:
-        some(RestJson.decode(string(data.get()), bellatrix.SignedBeaconBlock,
-                             requireAllFields = true))
+        some(RestJson.decode(string(data.get()),
+                             bellatrix.SignedBeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
       except SerializationError:
         none[bellatrix.SignedBeaconBlock]()
     if res.isNone():
@@ -1165,7 +1205,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "ForkedBeaconState")
       data = some(reader.readValue(JsonString))
     else:
-      reader.raiseUnexpectedField(fieldName, "ForkedBeaconState")
+      unrecognizedFieldWarning()
 
   if version.isNone():
     reader.raiseUnexpectedValue("Field version is missing")
@@ -1188,7 +1228,10 @@ proc readValue*(reader: var JsonReader[RestJson],
   of BeaconStateFork.Phase0:
     try:
       tmp[].phase0Data.data = RestJson.decode(
-        string(data.get()), phase0.BeaconState, requireAllFields = true)
+        string(data.get()),
+        phase0.BeaconState,
+        requireAllFields = true,
+        allowUnknownFields = true)
     except SerializationError:
       reader.raiseUnexpectedValue("Incorrect phase0 beacon state format")
 
@@ -1196,7 +1239,10 @@ proc readValue*(reader: var JsonReader[RestJson],
   of BeaconStateFork.Altair:
     try:
       tmp[].altairData.data = RestJson.decode(
-        string(data.get()), altair.BeaconState, requireAllFields = true)
+        string(data.get()),
+        altair.BeaconState,
+        requireAllFields = true,
+        allowUnknownFields = true)
     except SerializationError:
       reader.raiseUnexpectedValue("Incorrect altair beacon state format")
 
@@ -1204,7 +1250,10 @@ proc readValue*(reader: var JsonReader[RestJson],
   of BeaconStateFork.Bellatrix:
     try:
       tmp[].bellatrixData.data = RestJson.decode(
-        string(data.get()), bellatrix.BeaconState, requireAllFields = true)
+        string(data.get()),
+        bellatrix.BeaconState,
+        requireAllFields = true,
+        allowUnknownFields = true)
     except SerializationError:
       reader.raiseUnexpectedValue("Incorrect altair beacon state format")
     toValue(bellatrixData)
@@ -1382,8 +1431,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       dataName = fieldName
       data = some(reader.readValue(JsonString))
     else:
-      # We ignore all unknown fields.
-      discard
+      unrecognizedFieldWarning()
 
   if requestKind.isNone():
     reader.raiseUnexpectedValue("Field `type` is missing")
@@ -1620,10 +1668,11 @@ proc readValue*(reader: var JsonReader[RestJson],
           reader.raiseUnexpectedValue("Invalid `status` value")
       )
     else:
-      # We ignore all unknown fields.
-      discard
+      unrecognizedFieldWarning()
+
   if status.isNone():
     reader.raiseUnexpectedValue("Field `status` is missing")
+
   value = RemoteKeystoreStatus(status: status.get(), message: message)
 
 ## ScryptSalt
@@ -1675,8 +1724,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Pbkdf2Params) {.
                                     "Pbkdf2Params")
       salt = some(reader.readValue(Pbkdf2Salt))
     else:
-       # Ignore unknown field names.
-      discard
+      unrecognizedFieldWarning()
 
   if dklen.isNone():
     reader.raiseUnexpectedValue("Field `dklen` is missing")
@@ -1749,8 +1797,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ScryptParams) {.
                                     "ScryptParams")
       salt = some(reader.readValue(ScryptSalt))
     else:
-      # Ignore unknown field names.
-      discard
+      unrecognizedFieldWarning()
 
   if dklen.isNone():
     reader.raiseUnexpectedValue("Field `dklen` is missing")
@@ -1833,8 +1880,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Keystore) {.
         reader.raiseUnexpectedValue("Unexpected negative `version` value")
       version = some(res)
     else:
-       # Ignore unknown field names.
-      discard
+      unrecognizedFieldWarning()
 
   if crypto.isNone():
     reader.raiseUnexpectedValue("Field `crypto` is missing")
@@ -1888,8 +1934,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           "KeystoresAndSlashingProtection")
       slashing = some(reader.readValue(SPDIR))
     else:
-      # Ignore unknown field names.
-      discard
+      unrecognizedFieldWarning()
 
   if len(keystores) == 0:
     reader.raiseUnexpectedValue("Missing `keystores` value")
@@ -1912,7 +1957,7 @@ proc decodeBody*[T](t: typedesc[T],
     return err("Unsupported content type")
   let data =
     try:
-      RestJson.decode(body.data, T)
+      RestJson.decode(body.data, T, allowUnknownFields = true)
     except SerializationError as exc:
       return err("Unable to deserialize data")
     except CatchableError:
@@ -1959,11 +2004,10 @@ proc encodeBytes*[T: EncodeArrays](value: T,
 
 proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openArray[byte],
                                   contentType: string): RestResult[T] =
-  const isExtensibleType = t is ExtensibleDecodeTypes
   case contentType
   of "application/json":
     try:
-      ok RestJson.decode(value, T, allowUnknownFields = isExtensibleType)
+      ok RestJson.decode(value, T, allowUnknownFields = true)
     except SerializationError:
       err("Serialization error")
   else:

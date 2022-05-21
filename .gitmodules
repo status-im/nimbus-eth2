@@ -223,3 +223,7 @@
 	url = https://github.com/status-im/nim-toml-serialization.git
 	ignore = untracked
 	branch = master
+[submodule "vendor/merge-testnets"]
+	path = vendor/merge-testnets
+	url = https://github.com/eth-clients/merge-testnets.git
+	branch = main

@@ -37,6 +37,7 @@ type
 
   Eth1Network* = enum
     mainnet
+    ropsten
     rinkeby
     goerli
 
@@ -86,6 +87,7 @@ type
 
 const
   eth2NetworksDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-networks"
+  mergeTestnetsDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/merge-testnets"
 
 proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError, Defect].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
@@ -115,6 +117,7 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       genesisPath = path & "/genesis.ssz"
       genesisDepositsSnapshotPath = path & "/genesis_deposit_contract_snapshot.ssz"
       configPath = path & "/config.yaml"
+      deployBlockPath = path & "/deploy_block.txt"
       depositContractBlockPath = path & "/deposit_contract_block.txt"
       bootstrapNodesPath = path & "/bootstrap_nodes.txt"
       bootEnrPath = path & "/boot_enr.yaml"
@@ -134,8 +137,16 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
         readFile(depositContractBlockPath).strip
       else:
         ""
+
+      deployBlock = if fileExists(deployBlockPath):
+        readFile(deployBlockPath).strip
+      else:
+        ""
+
       depositContractDeployedAt = if depositContractBlock.len > 0:
         BlockHashOrNumber.init(depositContractBlock)
+      elif deployBlock.len > 0:
+        BlockHashOrNumber.init(deployBlock)
       else:
         BlockHashOrNumber(isHash: false, number: 1)
 
@@ -217,11 +228,16 @@ template eth2Network(path: string, eth1Network: Eth1Network): Eth2NetworkMetadat
   loadCompileTimeNetworkMetadata(eth2NetworksDir & "/" & path,
                                  some eth1Network)
 
+template mergeTestnet(path: string, eth1Network: Eth1Network): Eth2NetworkMetadata =
+  loadCompileTimeNetworkMetadata(mergeTestnetsDir & "/" & path,
+                                 some eth1Network)
+
 when not defined(gnosisChainBinary):
   when const_preset == "mainnet":
     const
       mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
       praterMetadata* = eth2Network("shared/prater", goerli)
+      ropstenMetadata = mergeTestnet("ropsten-beacon-chain", ropsten)
 
   proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
     template loadRuntimeMetadata: auto =
@@ -242,6 +258,8 @@ when not defined(gnosisChainBinary):
           mainnetMetadata
         of "prater":
           praterMetadata
+        of "ropsten":
+          ropstenMetadata
         else:
           loadRuntimeMetadata()
       else:
