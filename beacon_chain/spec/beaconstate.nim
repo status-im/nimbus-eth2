@@ -963,9 +963,10 @@ func get_sync_committee_cache*(
     s.incl(pk)
 
   var pubkeyIndices: Table[ValidatorPubKey, ValidatorIndex]
-  for i, v in state.validators:
-    if v.pubkey in s:
-      pubkeyIndices[v.pubkey] = i.ValidatorIndex
+  for vidx in state.validators.vindices:
+    let pubkey = state.validators[vidx].pubkey
+    if pubkey in s:
+      pubkeyIndices[pubkey] = vidx
 
   var res: SyncCommitteeCache
   try:

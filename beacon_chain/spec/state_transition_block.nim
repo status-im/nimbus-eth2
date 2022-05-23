@@ -45,7 +45,7 @@ func process_block_header*(
   if proposer_index.isNone:
     return err("process_block_header: proposer missing")
 
-  if not (blck.proposer_index.ValidatorIndex == proposer_index.get):
+  if not (blck.proposer_index == proposer_index.get):
     return err("process_block_header: proposer index incorrect")
 
   # Verify that the parent matches
@@ -126,15 +126,11 @@ func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
 proc check_proposer_slashing*(
     state: ForkyBeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags):
-    Result[void, cstring] =
+    Result[ValidatorIndex, cstring] =
 
   let
     header_1 = proposer_slashing.signed_header_1.message
     header_2 = proposer_slashing.signed_header_2.message
-
-  # Not from spec
-  if header_1.proposer_index >= state.validators.lenu64:
-    return err("check_proposer_slashing: invalid proposer index")
 
   # Verify header slots match
   if not (header_1.slot == header_2.slot):
@@ -149,6 +145,9 @@ proc check_proposer_slashing*(
     return err("check_proposer_slashing: headers not different")
 
   # Verify the proposer is slashable
+  if header_1.proposer_index >= state.validators.lenu64:
+    return err("check_proposer_slashing: invalid proposer index")
+
   let proposer = unsafeAddr state.validators.asSeq()[header_1.proposer_index]
   if not is_slashable_validator(proposer[], get_current_epoch(state)):
     return err("check_proposer_slashing: slashed proposer")
@@ -163,11 +162,12 @@ proc check_proposer_slashing*(
           signed_header.signature):
         return err("check_proposer_slashing: invalid signature")
 
-  ok()
+  # Verified above against state.validators
+  ValidatorIndex.init(header_1.proposer_index)
 
 proc check_proposer_slashing*(
     state: var ForkedHashedBeaconState; proposer_slashing: SomeProposerSlashing;
-    flags: UpdateFlags): Result[void, cstring] =
+    flags: UpdateFlags): Result[ValidatorIndex, cstring] =
   withState(state):
     check_proposer_slashing(state.data, proposer_slashing, flags)
 
@@ -177,11 +177,8 @@ proc process_proposer_slashing*(
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
     cache: var StateCache):
     Result[void, cstring] =
-  ? check_proposer_slashing(state, proposer_slashing, flags)
-  slash_validator(
-    cfg, state,
-    proposer_slashing.signed_header_1.message.proposer_index.ValidatorIndex,
-    cache)
+  let proposer_index = ? check_proposer_slashing(state, proposer_slashing, flags)
+  slash_validator(cfg, state, proposer_index, cache)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#is_slashable_attestation_data
@@ -224,7 +221,9 @@ proc check_attester_slashing*(
       system.cmp):
     if is_slashable_validator(
         state.validators.asSeq()[index], get_current_epoch(state)):
-      slashed_indices.add index.ValidatorIndex
+      slashed_indices.add ValidatorIndex.init(index).expect(
+        "checked by is_valid_indexed_attestation")
+
   if slashed_indices.len == 0:
     return err("Attester slashing: Trying to slash participant(s) twice")
 
@@ -244,27 +243,24 @@ proc process_attester_slashing*(
     flags: UpdateFlags,
     cache: var StateCache
     ): Result[void, cstring] =
-  let attester_slashing_validity =
-    check_attester_slashing(state, attester_slashing, flags)
+  let slashed_attesters =
+    ? check_attester_slashing(state, attester_slashing, flags)
 
-  if attester_slashing_validity.isErr:
-    return err(attester_slashing_validity.error)
-
-  for index in attester_slashing_validity.value:
+  for index in slashed_attesters:
     slash_validator(cfg, state, index, cache)
 
   ok()
 
-func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey): int =
+func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
+    Opt[ValidatorIndex] =
   # This linear scan is unfortunate, but should be fairly fast as we do a simple
   # byte comparison of the key. The alternative would be to build a Table, but
   # given that each block can hold no more than 16 deposits, it's slower to
   # build the table and use it for lookups than to scan it like this.
   # Once we have a reusable, long-lived cache, this should be revisited
-  for i in 0 ..< state.validators.len:
-    if state.validators.asSeq[i].pubkey == pubkey:
-      return i
-  -1
+  for vidx in state.validators.vindices:
+    if state.validators.asSeq[vidx].pubkey == pubkey:
+      return Opt[ValidatorIndex].ok(vidx)
 
 proc process_deposit*(cfg: RuntimeConfig,
                       state: var ForkyBeaconState,
@@ -290,9 +286,9 @@ proc process_deposit*(cfg: RuntimeConfig,
     amount = deposit.data.amount
     index = findValidatorIndex(state, pubkey)
 
-  if index != -1:
+  if index.isSome():
     # Increase balance by deposit amount
-    increase_balance(state, index.ValidatorIndex, amount)
+    increase_balance(state, index.get(), amount)
   else:
     # Verify the deposit signature (proof of possession) which is not checked
     # by the deposit contract
@@ -327,11 +323,10 @@ proc check_voluntary_exit*(
     cfg: RuntimeConfig,
     state: ForkyBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
-    flags: UpdateFlags): Result[void, cstring] =
+    flags: UpdateFlags): Result[ValidatorIndex, cstring] =
 
   let voluntary_exit = signed_voluntary_exit.message
 
-  # Not in spec. Check that validator_index is in range
   if voluntary_exit.validator_index >= state.validators.lenu64:
     return err("Exit: invalid validator index")
 
@@ -362,23 +357,13 @@ proc check_voluntary_exit*(
         validator[].pubkey, signed_voluntary_exit.signature):
       return err("Exit: invalid signature")
 
-  # Initiate exit
-  debug "Exit: checking voluntary exit (validator_leaving)",
-    index = voluntary_exit.validator_index,
-    num_validators = state.validators.len,
-    epoch = voluntary_exit.epoch,
-    current_epoch = get_current_epoch(state),
-    validator_slashed = validator[].slashed,
-    validator_withdrawable_epoch = validator[].withdrawable_epoch,
-    validator_exit_epoch = validator[].exit_epoch,
-    validator_effective_balance = validator[].effective_balance
-
-  ok()
+  # Checked above
+  ValidatorIndex.init(voluntary_exit.validator_index)
 
 proc check_voluntary_exit*(
     cfg: RuntimeConfig, state: ForkedHashedBeaconState;
     signed_voluntary_exit: SomeSignedVoluntaryExit;
-    flags: UpdateFlags): Result[void, cstring] =
+    flags: UpdateFlags): Result[ValidatorIndex, cstring] =
   withState(state):
     check_voluntary_exit(cfg, state.data, signed_voluntary_exit, flags)
 
@@ -389,10 +374,9 @@ proc process_voluntary_exit*(
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
-  ? check_voluntary_exit(cfg, state, signed_voluntary_exit, flags)
-  initiate_validator_exit(
-    cfg, state, signed_voluntary_exit.message.validator_index.ValidatorIndex,
-    cache)
+  let exited_validator =
+    ? check_voluntary_exit(cfg, state, signed_voluntary_exit, flags)
+  initiate_validator_exit(cfg, state, exited_validator, cache)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#operations

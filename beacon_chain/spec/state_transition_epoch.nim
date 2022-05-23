@@ -664,11 +664,10 @@ iterator get_flag_index_deltas*(
       info, flag_index)
     active_increments = get_active_increments(info)
 
-  for index in 0 ..< state.validators.len:
-    if not is_eligible_validator(info.validators[index]):
+  for vidx in state.validators.vindices:
+    if not is_eligible_validator(info.validators[vidx]):
       continue
 
-    template vidx: ValidatorIndex = index.ValidatorIndex
     let base_reward = get_base_reward_increment(state, vidx, base_reward_per_increment)
     yield
       if is_unslashed_participating_index(
@@ -705,16 +704,15 @@ iterator get_inactivity_penalty_deltas*(
       cfg.INACTIVITY_SCORE_BIAS * INACTIVITY_PENALTY_QUOTIENT_ALTAIR
     previous_epoch = get_previous_epoch(state)
 
-  for index in 0 ..< state.validators.len:
-    if not is_eligible_validator(info.validators[index]):
+  for vidx in state.validators.vindices:
+    if not is_eligible_validator(info.validators[vidx]):
       continue
 
-    template vidx: untyped = index.ValidatorIndex
     if not is_unslashed_participating_index(
         state, TIMELY_TARGET_FLAG_INDEX, previous_epoch, vidx):
       let
-        penalty_numerator = state.validators[index].effective_balance *
-          state.inactivity_scores[index]
+        penalty_numerator = state.validators[vidx].effective_balance *
+          state.inactivity_scores[vidx]
       yield (vidx, Gwei(penalty_numerator div penalty_denominator))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#modified-get_inactivity_penalty_deltas
@@ -729,16 +727,15 @@ iterator get_inactivity_penalty_deltas*(
       cfg.INACTIVITY_SCORE_BIAS * INACTIVITY_PENALTY_QUOTIENT_BELLATRIX
     previous_epoch = get_previous_epoch(state)
 
-  for index in 0 ..< state.validators.len:
-    if not is_eligible_validator(info.validators[index]):
+  for vidx in state.validators.vindices:
+    if not is_eligible_validator(info.validators[vidx]):
       continue
 
-    template vidx: untyped = index.ValidatorIndex
     if not is_unslashed_participating_index(
         state, TIMELY_TARGET_FLAG_INDEX, previous_epoch, vidx):
       let
-        penalty_numerator = state.validators[index].effective_balance *
-          state.inactivity_scores[index]
+        penalty_numerator = state.validators[vidx].effective_balance *
+          state.inactivity_scores[vidx]
       yield (vidx, Gwei(penalty_numerator div penalty_denominator))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#rewards-and-penalties-1
@@ -819,22 +816,22 @@ func process_registry_updates*(
   # the current epoch, 1 + MAX_SEED_LOOKAHEAD epochs ahead. Thus caches
   # remain valid for this epoch through though this function along with
   # the rest of the epoch transition.
-  for index in 0..<state.validators.len():
-    if is_eligible_for_activation_queue(state.validators.asSeq()[index]):
-      state.validators[index].activation_eligibility_epoch =
+  for vidx in state.validators.vindices:
+    if is_eligible_for_activation_queue(state.validators.asSeq()[vidx]):
+      state.validators[vidx].activation_eligibility_epoch =
         get_current_epoch(state) + 1
 
-    if is_active_validator(state.validators.asSeq()[index], get_current_epoch(state)) and
-        state.validators.asSeq()[index].effective_balance <= cfg.EJECTION_BALANCE:
-      initiate_validator_exit(cfg, state, index.ValidatorIndex, cache)
+    if is_active_validator(state.validators.asSeq()[vidx], get_current_epoch(state)) and
+        state.validators.asSeq()[vidx].effective_balance <= cfg.EJECTION_BALANCE:
+      initiate_validator_exit(cfg, state, vidx, cache)
 
   ## Queue validators eligible for activation and not dequeued for activation
-  var activation_queue : seq[tuple[a: Epoch, b: int]] = @[]
-  for index in 0..<state.validators.len():
-    let validator = unsafeAddr state.validators.asSeq()[index]
+  var activation_queue : seq[tuple[a: Epoch, b: ValidatorIndex]] = @[]
+  for vidx in state.validators.vindices:
+    let validator = unsafeAddr state.validators.asSeq()[vidx]
     if is_eligible_for_activation(state, validator[]):
       activation_queue.add (
-        validator[].activation_eligibility_epoch, index)
+        validator[].activation_eligibility_epoch, vidx)
 
   activation_queue.sort(system.cmp)
 
@@ -845,8 +842,8 @@ func process_registry_updates*(
     if i.uint64 >= churn_limit:
       break
     let
-      (_, index) = epoch_and_index
-    state.validators[index].activation_epoch =
+      (_, vidx) = epoch_and_index
+    state.validators[vidx].activation_epoch =
       compute_activation_exit_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#slashings
@@ -895,12 +892,12 @@ func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) =
     adjusted_total_slashing_balance = get_adjusted_total_slashing_balance(
       state, total_balance)
 
-  for index in 0..<state.validators.len:
-    let validator = unsafeAddr state.validators.asSeq()[index]
+  for vidx in state.validators.vindices:
+    let validator = unsafeAddr state.validators.asSeq()[vidx]
     if slashing_penalty_applies(validator[], epoch):
       let penalty = validator[].get_slashing_penalty(
         adjusted_total_slashing_balance, total_balance)
-      decrease_balance(state, index.ValidatorIndex, penalty)
+      decrease_balance(state, vidx, penalty)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#eth1-data-votes-updates
 func process_eth1_data_reset*(state: var ForkyBeaconState) =
