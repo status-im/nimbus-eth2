@@ -349,7 +349,7 @@ proc signAggregateAndProof*(v: AttachedValidator,
       await signWithRemoteValidator(v, fork, genesis_validators_root,
                                               aggregate_and_proof)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#prepare-sync-committee-message
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#prepare-sync-committee-message
 proc signSyncCommitteeMessage*(v: AttachedValidator,
                                fork: Fork,
                                genesis_validators_root: Eth2Digest,
@@ -379,7 +379,7 @@ proc signSyncCommitteeMessage*(v: AttachedValidator,
       )
     )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#aggregation-selection
 proc getSyncCommitteeSelectionProof*(v: AttachedValidator,
                                      fork: Fork,
                                      genesis_validators_root: Eth2Digest,
@@ -396,7 +396,7 @@ proc getSyncCommitteeSelectionProof*(v: AttachedValidator,
       await signWithRemoteValidator(v, fork, genesis_validators_root,
                                               slot, subcommittee_index)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#signature
 proc sign*(v: AttachedValidator, msg: ref SignedContributionAndProof,
            fork: Fork, genesis_validators_root: Eth2Digest
           ): Future[SignatureResult] {.async.} =
