@@ -21,7 +21,7 @@ import
     beaconstate, state_transition_block, forks, helpers, network, signatures],
   ../consensus_object_pools/[
     attestation_pool, blockchain_dag, block_quarantine, exit_pool, spec_cache,
-    sync_committee_msg_pool],
+    light_client_pool, sync_committee_msg_pool],
   ".."/[beacon_clock],
   ./batch_validation
 
@@ -1032,19 +1032,58 @@ proc validateContribution*(
 
   return ok((sig, participants))
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#optimistic_light_client_update
-proc validateOptimisticLightClientUpdate*(
-    dag: ChainDAGRef, optimistic_update: OptimisticLightClientUpdate):
-    Result[void, ValidationError] =
-  template local_update(): auto = dag.lightClientCache.optimisticUpdate
+# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_finality_update
+proc validateLightClientFinalityUpdate*(
+    pool: var LightClientPool, dag: ChainDAGRef,
+    finality_update: altair.LightClientFinalityUpdate,
+    wallTime: BeaconTime): Result[void, ValidationError] =
+  let finalized_slot = finality_update.finalized_header.slot
+  if finalized_slot <= pool.latestForwardedFinalitySlot:
+    # [IGNORE] No other `finality_update` with a lower or equal
+    # `finalized_header.slot` was already forwarded on the network.
+    return errIgnore("LightClientFinalityUpdate: slot already forwarded")
 
-  if optimistic_update != local_update:
-    # [IGNORE] The optimistic update is not attesting to the latest block's
-    # parent block.
-    if optimistic_update.attested_header != local_update.attested_header:
-      return errIgnore("OptimisticLightClientUpdate: not attesting to latest")
+  let
+    signature_slot = finality_update.signature_slot
+    currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+    forwardTime = signature_slot.light_client_finality_update_time
+  if currentTime < forwardTime:
+    # [IGNORE] The `finality_update` is received after the block at
+    # `signature_slot` was given enough time to propagate through the network.
+    return errIgnore("LightClientFinalityUpdate: received too early")
 
-    # [REJECT] The optimistic update does not match the expected value.
-    return errReject("OptimisticLightClientUpdate: not matching expected value")
+  if finality_update != dag.lightClientCache.latest:
+    # [IGNORE] The received `finality_update` matches the locally computed one
+    # exactly.
+    return errIgnore("LightClientFinalityUpdate: not matching local")
 
+  pool.latestForwardedFinalitySlot = finalized_slot
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_optimistic_update
+proc validateLightClientOptimisticUpdate*(
+    pool: var LightClientPool, dag: ChainDAGRef,
+    optimistic_update: altair.LightClientOptimisticUpdate,
+    wallTime: BeaconTime): Result[void, ValidationError] =
+  let attested_slot = optimistic_update.attested_header.slot
+  if attested_slot <= pool.latestForwardedOptimisticSlot:
+    # [IGNORE] No other `optimistic_update` with a lower or equal
+    # `attested_header.slot` was already forwarded on the network.
+    return errIgnore("LightClientOptimisticUpdate: slot already forwarded")
+
+  let
+    signature_slot = optimistic_update.signature_slot
+    currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+    forwardTime = signature_slot.light_client_optimistic_update_time
+  if currentTime < forwardTime:
+    # [IGNORE] The `optimistic_update` is received after the block at
+    # `signature_slot` was given enough time to propagate through the network.
+    return errIgnore("LightClientOptimisticUpdate: received too early")
+
+  if not optimistic_update.matches(dag.lightClientCache.latest):
+    # [IGNORE] The received `optimistic_update` matches the locally computed one
+    # exactly.
+    return errIgnore("LightClientOptimisticUpdate: not matching local")
+
+  pool.latestForwardedOptimisticSlot = attested_slot
   ok()

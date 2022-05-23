@@ -114,7 +114,14 @@ suite "EF - Altair - SSZ consensus objects " & preset():
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
-          of "LightClientUpdate": checkSSZ(LightClientUpdate, path, hash)
+          of "LightClientBootstrap":
+            checkSSZ(LightClientBootstrap, path, hash)
+          of "LightClientUpdate":
+            discard # Modified - checkSSZ(LightClientUpdate, path, hash)
+          of "LightClientFinalityUpdate":
+            checkSSZ(LightClientFinalityUpdate, path, hash)
+          of "LightClientOptimisticUpdate":
+            checkSSZ(LightClientOptimisticUpdate, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":

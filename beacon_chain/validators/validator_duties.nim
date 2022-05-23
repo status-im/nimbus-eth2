@@ -64,6 +64,12 @@ declareHistogram beacon_sync_committee_message_sent_delay,
   "Time(s) between slot start and sync committee message sent moment",
   buckets = delayBuckets
 
+declareCounter beacon_light_client_finality_updates_sent,
+  "Number of LC finality updates sent by this peer"
+
+declareCounter beacon_light_client_optimistic_updates_sent,
+  "Number of LC optimistic updates sent by this peer"
+
 declareCounter beacon_blocks_proposed,
   "Number of beacon chain blocks sent by this peer"
 
@@ -239,7 +245,57 @@ proc sendAttestation*(
         error = res.error()
       err(res.error()[1])
 
-proc sendSyncCommitteeMessage*(
+proc handleLightClientUpdates(node: BeaconNode, slot: Slot) {.async.} =
+  static: doAssert lightClientFinalityUpdateSlotOffset ==
+    lightClientOptimisticUpdateSlotOffset
+  let sendTime = node.beaconClock.fromNow(
+    slot.light_client_finality_update_time())
+  if sendTime.inFuture:
+    debug "Waiting to send LC updates", slot, delay = shortLog(sendTime.offset)
+    await sleepAsync(sendTime.offset)
+
+  template latest(): auto = node.dag.lightClientCache.latest
+  let signature_slot = latest.signature_slot
+  if slot != signature_slot:
+    return
+
+  template sync_aggregate(): auto = latest.sync_aggregate
+  template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
+  let num_active_participants = countOnes(sync_committee_bits).uint64
+  if num_active_participants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
+    return
+
+  let finalized_slot = latest.finalized_header.slot
+  if finalized_slot > node.lightClientPool[].latestForwardedFinalitySlot:
+    template msg(): auto = latest
+    node.network.broadcastLightClientFinalityUpdate(msg)
+    node.lightClientPool[].latestForwardedFinalitySlot = finalized_slot
+    beacon_light_client_finality_updates_sent.inc()
+    notice "LC finality update sent", message = shortLog(msg)
+
+  let attested_slot = latest.attested_header.slot
+  if attested_slot > node.lightClientPool[].latestForwardedOptimisticSlot:
+    let msg = latest.toOptimistic
+    node.network.broadcastLightClientOptimisticUpdate(msg)
+    node.lightClientPool[].latestForwardedOptimisticSlot = attested_slot
+    beacon_light_client_optimistic_updates_sent.inc()
+    notice "LC optimistic update sent", message = shortLog(msg)
+
+proc scheduleSendingLightClientUpdates(node: BeaconNode, slot: Slot) =
+  if not node.config.serveLightClientData.get:
+    return
+  if node.lightClientPool[].broadcastGossipFut != nil:
+    return
+  if slot <= node.lightClientPool[].latestBroadcastedSlot:
+    return
+  node.lightClientPool[].latestBroadcastedSlot = slot
+
+  template fut(): auto = node.lightClientPool[].broadcastGossipFut
+  fut = node.handleLightClientUpdates(slot)
+  fut.addCallback do (p: pointer) {.gcsafe.}:
+    fut = nil
+
+proc sendSyncCommitteeMessage(
     node: BeaconNode, msg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex,
     checkSignature: bool): Future[SendResult] {.async.} =
@@ -254,6 +310,7 @@ proc sendSyncCommitteeMessage*(
     if res.isGoodForSending:
       node.network.broadcastSyncCommitteeMessage(msg, subcommitteeIdx)
       beacon_sync_committee_messages_sent.inc()
+      node.scheduleSendingLightClientUpdates(msg.slot)
       SendResult.ok()
     else:
       notice "Sync committee message failed validation",
@@ -833,19 +890,6 @@ proc handleSyncCommitteeMessages(node: BeaconNode, head: BlockRef, slot: Slot) =
       asyncSpawn createAndSendSyncCommitteeMessage(node, slot, validator,
                                                    subcommitteeIdx, head)
 
-proc handleOptimisticLightClientUpdates(
-    node: BeaconNode, head: BlockRef, slot: Slot) =
-  if slot < node.dag.cfg.ALTAIR_FORK_EPOCH.start_slot():
-    return
-  doAssert head.parent != nil, "Newly proposed block lacks parent reference"
-  let msg = node.dag.lightClientCache.optimisticUpdate
-  if msg.attested_header.slot != head.parent.bid.slot:
-    notice "No optimistic light client update for proposed block",
-      slot = slot, block_root = shortLog(head.root)
-    return
-  node.network.broadcastOptimisticLightClientUpdate(msg)
-  notice "Sent optimistic light client update", message = shortLog(msg)
-
 proc signAndSendContribution(node: BeaconNode,
                              validator: AttachedValidator,
                              contribution: SyncCommitteeContribution,
@@ -1234,16 +1278,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   handleAttestations(node, head, slot)
   handleSyncCommitteeMessages(node, head, slot)
 
-  if node.config.serveLightClientData.get and didSubmitBlock:
-    let cutoff = node.beaconClock.fromNow(
-      slot.optimistic_light_client_update_time())
-    if cutoff.inFuture:
-      debug "Waiting to send optimistic light client update",
-        head = shortLog(head),
-        optimisticLightClientUpdateCutoff = shortLog(cutoff.offset)
-      await sleepAsync(cutoff.offset)
-    handleOptimisticLightClientUpdates(node, head, slot)
-
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#broadcast-aggregate
@@ -1400,31 +1434,11 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
         notice "Block published",
           blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
           signature = shortLog(blck.signature)
-
-        if node.config.serveLightClientData.get:
-          # The optimistic light client update is sent with a delay because it
-          # only validates once the new block has been processed by the peers.
-          # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#block-proposal
-          proc publishOptimisticLightClientUpdate() {.async.} =
-            let cutoff = node.beaconClock.fromNow(
-              wallTime.slotOrZero.optimistic_light_client_update_time())
-            if cutoff.inFuture:
-              debug "Waiting to publish optimistic light client update",
-                blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-                signature = shortLog(blck.signature),
-                optimisticLightClientUpdateCutoff = shortLog(cutoff.offset)
-              await sleepAsync(cutoff.offset)
-            handleOptimisticLightClientUpdates(
-              node, newBlockRef.get, wallTime.slotOrZero)
-
-          asyncSpawn publishOptimisticLightClientUpdate()
-
         true
       else:
         warn "Unable to add proposed block to block pool",
           blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
           signature = shortLog(blck.signature), err = newBlockRef.error()
-
         false
   return SendBlockResult.ok(accepted)
 

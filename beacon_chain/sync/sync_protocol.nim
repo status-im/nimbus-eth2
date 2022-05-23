@@ -26,16 +26,19 @@ logScope:
 
 const
   MAX_REQUEST_BLOCKS = 1024
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#configuration
-  MAX_REQUEST_LIGHT_CLIENT_UPDATES = 128
-
   blockByRootLookupCost = allowedOpsPerSecondCost(50)
   blockResponseCost = allowedOpsPerSecondCost(100)
   blockByRangeLookupCost = allowedOpsPerSecondCost(20)
-  lightClientUpdateResponseCost = allowedOpsPerSecondCost(100)
-  lightClientUpdateByRangeLookupCost = allowedOpsPerSecondCost(20)
+
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#configuration
+  MAX_REQUEST_LIGHT_CLIENT_UPDATES = 128
+  lightClientEmptyResponseCost = allowedOpsPerSecondCost(50)
   lightClientBootstrapLookupCost = allowedOpsPerSecondCost(5)
   lightClientBootstrapResponseCost = allowedOpsPerSecondCost(100)
+  lightClientUpdateResponseCost = allowedOpsPerSecondCost(100)
+  lightClientUpdateByRangeLookupCost = allowedOpsPerSecondCost(20)
+  lightClientFinalityUpdateResponseCost = allowedOpsPerSecondCost(100)
+  lightClientOptimisticUpdateResponseCost = allowedOpsPerSecondCost(100)
 
 type
   StatusMsg* = object
@@ -107,6 +110,29 @@ proc readChunkPayload*(
       return err(res.error)
   else:
     return neterr InvalidContextBytes
+
+proc readChunkPayload*(
+    conn: Connection, peer: Peer, maxChunkSize: uint32,
+    MsgType: type SomeLightClientObject):
+    Future[NetRes[MsgType]] {.async.} =
+  var contextBytes: ForkDigest
+  try:
+    await conn.readExactly(addr contextBytes, sizeof contextBytes)
+  except CatchableError:
+    return neterr UnexpectedEOF
+  let stateFork =
+    peer.network.forkDigests[].stateForkForDigest(contextBytes).valueOr:
+      return neterr InvalidContextBytes
+
+  let res =
+    if stateFork >= BeaconStateFork.Altair:
+      await eth2_network.readChunkPayload(conn, peer, maxChunkSize, MsgType)
+    else:
+      doAssert stateFork == BeaconStateFork.Phase0
+      return neterr InvalidContextBytes
+  if res.isErr:
+    return err(res.error)
+  return ok res.get
 
 func shortLog*(s: StatusMsg): auto =
   (
@@ -476,91 +502,6 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#bestlightclientupdatesbyrange
-  proc bestLightClientUpdatesByRange(
-      peer: Peer,
-      startPeriod: SyncCommitteePeriod,
-      reqCount: uint64,
-      response: MultipleChunksResponse[altair.LightClientUpdate])
-      {.async, libp2pProtocol("best_light_client_updates_by_range", 0,
-                              isLightClientRequest = true).} =
-    trace "Received LC updates by range request", peer, startPeriod, reqCount
-    if reqCount == 0'u64:
-      raise newException(InvalidInputsError, "Empty range requested")
-    let dag = peer.networkState.dag
-    doAssert dag.serveLightClientData
-
-    let
-      headPeriod = dag.head.slot.sync_committee_period
-      # Limit number of updates in response
-      maxSupportedCount =
-        if startPeriod > headPeriod:
-          0'u64
-        else:
-          min(headPeriod + 1 - startPeriod, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
-      count = min(reqCount, maxSupportedCount)
-      onePastPeriod = startPeriod + count
-
-    peer.updateRequestQuota(count.float * lightClientUpdateByRangeLookupCost)
-    peer.awaitNonNegativeRequestQuota()
-
-    var found = 0
-    for period in startPeriod..<onePastPeriod:
-      let update = dag.getBestLightClientUpdateForPeriod(period)
-      if update.isSome:
-        await response.write(update.get)
-        inc found
-
-    peer.updateRequestQuota(found.float * lightClientUpdateResponseCost)
-
-    debug "LC updates by range request done", peer, startPeriod, count, found
-
-    if found == 0 and count > 0:
-      raise newException(ResourceUnavailableError,
-                         "No light client update available")
-
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#getlatestlightclientupdate
-  proc latestLightClientUpdate(
-      peer: Peer,
-      response: SingleChunkResponse[altair.LightClientUpdate])
-      {.async, libp2pProtocol("latest_light_client_update", 0,
-                              isLightClientRequest = true).} =
-    trace "Received latest LC update request", peer
-    let dag = peer.networkState.dag
-    doAssert dag.serveLightClientData
-
-    peer.awaitNonNegativeRequestQuota()
-
-    let update = dag.getLatestLightClientUpdate
-    if update.isSome:
-      await response.send(update.get)
-    else:
-      raise newException(ResourceUnavailableError,
-                         "No light client update available")
-
-    peer.updateRequestQuota(lightClientUpdateResponseCost)
-
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#getoptimisticlightclientupdate
-  proc optimisticLightClientUpdate(
-      peer: Peer,
-      response: SingleChunkResponse[OptimisticLightClientUpdate])
-      {.async, libp2pProtocol("optimistic_light_client_update", 0,
-                              isLightClientRequest = true).} =
-    trace "Received optimistic LC update request", peer
-    let dag = peer.networkState.dag
-    doAssert dag.serveLightClientData
-
-    peer.awaitNonNegativeRequestQuota()
-
-    let optimistic_update = dag.getOptimisticLightClientUpdate
-    if optimistic_update.isSome:
-      await response.send(optimistic_update.get)
-    else:
-      raise newException(ResourceUnavailableError,
-                         "No optimistic light client update available")
-
-    peer.updateRequestQuota(lightClientUpdateResponseCost)
-
   # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#getlightclientbootstrap
   proc lightClientBootstrap(
       peer: Peer,
@@ -577,12 +518,114 @@ p2pProtocol BeaconSync(version = 1,
 
     let bootstrap = dag.getLightClientBootstrap(blockRoot)
     if bootstrap.isOk:
-      await response.send(bootstrap.get)
+      let
+        contextEpoch = bootstrap.get.header.slot.epoch
+        contextBytes = dag.forkDigestAtEpoch(contextEpoch).data
+      await response.send(bootstrap.get, contextBytes)
     else:
-      raise newException(ResourceUnavailableError,
-                         "No light client bootstrap available")
+      peer.updateRequestQuota(lightClientEmptyResponseCost)
+      raise newException(
+        ResourceUnavailableError, "LC bootstrap unavailable")
 
     peer.updateRequestQuota(lightClientBootstrapResponseCost)
+
+    debug "LC bootstrap request done", peer, blockRoot
+
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientupdatesbyrange
+  proc lightClientUpdatesByRange(
+      peer: Peer,
+      startPeriod: SyncCommitteePeriod,
+      reqCount: uint64,
+      response: MultipleChunksResponse[altair.LightClientUpdate])
+      {.async, libp2pProtocol("light_client_updates_by_range", 0,
+                              isLightClientRequest = true).} =
+    trace "Received LC updates by range request", peer, startPeriod, reqCount
+    let dag = peer.networkState.dag
+    doAssert dag.serveLightClientData
+
+    let
+      headPeriod = dag.head.slot.sync_committee_period
+      # Limit number of updates in response
+      maxSupportedCount =
+        if startPeriod > headPeriod:
+          0'u64
+        else:
+          min(headPeriod + 1 - startPeriod, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
+      count = min(reqCount, maxSupportedCount)
+      onePastPeriod = startPeriod + count
+    if count == 0:
+      peer.updateRequestQuota(lightClientEmptyResponseCost)
+
+    peer.updateRequestQuota(count.float * lightClientUpdateByRangeLookupCost)
+    peer.awaitNonNegativeRequestQuota()
+
+    var found = 0
+    for period in startPeriod..<onePastPeriod:
+      let update = dag.getLightClientUpdateForPeriod(period)
+      if update.isSome:
+        let
+          contextEpoch = update.get.attested_header.slot.epoch
+          contextBytes = dag.forkDigestAtEpoch(contextEpoch).data
+        await response.write(update.get, contextBytes)
+        inc found
+
+    peer.updateRequestQuota(found.float * lightClientUpdateResponseCost)
+
+    debug "LC updates by range request done", peer, startPeriod, count, found
+
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#getlightclientfinalityupdate
+  proc lightClientFinalityUpdate(
+      peer: Peer,
+      response: SingleChunkResponse[altair.LightClientFinalityUpdate])
+      {.async, libp2pProtocol("light_client_finality_update", 0,
+                              isLightClientRequest = true).} =
+    trace "Received LC finality update request", peer
+    let dag = peer.networkState.dag
+    doAssert dag.serveLightClientData
+
+    peer.awaitNonNegativeRequestQuota()
+
+    let finality_update = dag.getLightClientFinalityUpdate
+    if finality_update.isSome:
+      let
+        contextEpoch = finality_update.get.attested_header.slot.epoch
+        contextBytes = dag.forkDigestAtEpoch(contextEpoch).data
+      await response.send(finality_update.get, contextBytes)
+    else:
+      peer.updateRequestQuota(lightClientEmptyResponseCost)
+      raise newException(ResourceUnavailableError,
+                         "LC finality update unavailable")
+
+    peer.updateRequestQuota(lightClientFinalityUpdateResponseCost)
+
+    debug "LC finality update request done", peer
+
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#getlightclientoptimisticupdate
+  proc lightClientOptimisticUpdate(
+      peer: Peer,
+      response: SingleChunkResponse[altair.LightClientOptimisticUpdate])
+      {.async, libp2pProtocol("light_client_optimistic_update", 0,
+                              isLightClientRequest = true).} =
+    trace "Received LC optimistic update request", peer
+    let dag = peer.networkState.dag
+    doAssert dag.serveLightClientData
+
+    peer.awaitNonNegativeRequestQuota()
+
+    let optimistic_update = dag.getLightClientOptimisticUpdate
+    if optimistic_update.isSome:
+      let
+        contextEpoch = optimistic_update.get.attested_header.slot.epoch
+        contextBytes = dag.forkDigestAtEpoch(contextEpoch).data
+      await response.send(optimistic_update.get, contextBytes)
+    else:
+      peer.updateRequestQuota(lightClientEmptyResponseCost)
+      raise newException(ResourceUnavailableError,
+                         "LC optimistic update unavailable")
+
+    peer.updateRequestQuota(lightClientOptimisticUpdateResponseCost)
+
+    debug "LC optimistic update request done", peer
 
   proc goodbye(peer: Peer,
                reason: uint64)

@@ -19,15 +19,15 @@ import
   ../spec/datatypes/[altair, phase0],
   ../consensus_object_pools/[
     block_clearance, block_quarantine, blockchain_dag, exit_pool, attestation_pool,
-    sync_committee_msg_pool],
+    light_client_pool, sync_committee_msg_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation]
 
 export
   results, bearssl, taskpools, block_clearance, blockchain_dag, exit_pool, attestation_pool,
-  sync_committee_msg_pool, validator_pool, beacon_clock, gossip_validation,
-  block_processor, batch_validation, block_quarantine
+  light_client_pool, sync_committee_msg_pool, validator_pool, beacon_clock,
+  gossip_validation, block_processor, batch_validation, block_quarantine
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_attestations_received,
@@ -62,10 +62,14 @@ declareCounter beacon_sync_committee_contributions_received,
   "Number of valid sync committee contributions processed by this node"
 declareCounter beacon_sync_committee_contributions_dropped,
   "Number of invalid sync committee contributions dropped by this node", labels = ["reason"]
-declareCounter beacon_optimistic_light_client_updates_received,
-  "Number of valid optimistic light client updates processed by this node"
-declareCounter beacon_optimistic_light_client_updates_dropped,
-  "Number of invalid optimistic light client updates dropped by this node", labels = ["reason"]
+declareCounter beacon_light_client_finality_updates_received,
+  "Number of valid LC finality updates processed by this node"
+declareCounter beacon_light_client_finality_updates_dropped,
+  "Number of invalid LC finality updates dropped by this node", labels = ["reason"]
+declareCounter beacon_light_client_optimistic_updates_received,
+  "Number of valid LC optimistic updates processed by this node"
+declareCounter beacon_light_client_optimistic_updates_dropped,
+  "Number of invalid LC optimistic updates dropped by this node", labels = ["reason"]
 
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
@@ -113,6 +117,7 @@ type
     attestationPool*: ref AttestationPool
     validatorPool: ref ValidatorPool
     syncCommitteeMsgPool: ref SyncCommitteeMsgPool
+    lightClientPool: ref LightClientPool
 
     doppelgangerDetection*: DoppelgangerProtection
 
@@ -152,6 +157,7 @@ proc new*(T: type Eth2Processor,
           exitPool: ref ExitPool,
           validatorPool: ref ValidatorPool,
           syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
+          lightClientPool: ref LightClientPool,
           quarantine: ref Quarantine,
           rng: ref BrHmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
@@ -169,6 +175,7 @@ proc new*(T: type Eth2Processor,
     exitPool: exitPool,
     validatorPool: validatorPool,
     syncCommitteeMsgPool: syncCommitteeMsgPool,
+    lightClientPool: lightClientPool,
     quarantine: quarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
@@ -538,23 +545,50 @@ proc contributionValidator*(
 
     err(v.error())
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#optimistic_light_client_update
-proc optimisticLightClientUpdateValidator*(
+# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_finality_update
+proc lightClientFinalityUpdateValidator*(
     self: var Eth2Processor, src: MsgSource,
-    optimistic_update: OptimisticLightClientUpdate
+    finality_update: altair.LightClientFinalityUpdate
+): Result[void, ValidationError] =
+  logScope:
+    finality_update
+
+  debug "LC finality update received"
+
+  let
+    wallTime = self.getCurrentBeaconTime()
+    v = validateLightClientFinalityUpdate(
+      self.lightClientPool[], self.dag, finality_update, wallTime)
+  if v.isOk():
+    trace "LC finality update validated"
+
+    beacon_light_client_finality_updates_received.inc()
+  else:
+    debug "Dropping LC finality update", error = v.error
+    beacon_light_client_finality_updates_dropped.inc(1, [$v.error[0]])
+
+  v
+
+# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_optimistic_update
+proc lightClientOptimisticUpdateValidator*(
+    self: var Eth2Processor, src: MsgSource,
+    optimistic_update: altair.LightClientOptimisticUpdate
 ): Result[void, ValidationError] =
   logScope:
     optimistic_update
 
-  debug "Optimistic light client update received"
+  debug "LC optimistic update received"
 
-  let v = self.dag.validateOptimisticLightClientUpdate(optimistic_update)
+  let
+    wallTime = self.getCurrentBeaconTime()
+    v = validateLightClientOptimisticUpdate(
+      self.lightClientPool[], self.dag, optimistic_update, wallTime)
   if v.isOk():
-    trace "Optimistic light client update validated"
+    trace "LC optimistic update validated"
 
-    beacon_optimistic_light_client_updates_received.inc()
+    beacon_light_client_optimistic_updates_received.inc()
   else:
-    debug "Dropping optimistic light client update", error = v.error
-    beacon_optimistic_light_client_updates_dropped.inc(1, [$v.error[0]])
+    debug "Dropping LC optimistic update", error = v.error
+    beacon_light_client_optimistic_updates_dropped.inc(1, [$v.error[0]])
 
   v

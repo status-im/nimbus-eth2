@@ -158,20 +158,26 @@ proc loadChainDag(
     eventBus.emit("head-change", data)
   proc onChainReorg(data: ReorgInfoObject) =
     eventBus.emit("chain-reorg", data)
-  proc onOptimisticLightClientUpdate(data: OptimisticLightClientUpdate) =
+  proc onLightClientFinalityUpdate(data: altair.LightClientFinalityUpdate) =
+    discard
+  proc onLightClientOptimisticUpdate(data: altair.LightClientOptimisticUpdate) =
     discard
 
   let
     chainDagFlags =
       if config.verifyFinalization: {verifyFinalization}
       else: {}
-    onOptimisticLightClientUpdateCb =
-      if config.serveLightClientData.get: onOptimisticLightClientUpdate
+    onLightClientFinalityUpdateCb =
+      if config.serveLightClientData.get: onLightClientFinalityUpdate
+      else: nil
+    onLightClientOptimisticUpdateCb =
+      if config.serveLightClientData.get: onLightClientOptimisticUpdate
       else: nil
     dag = ChainDAGRef.init(
       cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
       onBlockAdded, onHeadChanged, onChainReorg,
-      onOptimisticLCUpdateCb = onOptimisticLightClientUpdateCb,
+      onLCFinalityUpdateCb = onLightClientFinalityUpdateCb,
+      onLCOptimisticUpdateCb = onLightClientOptimisticUpdateCb,
       serveLightClientData = config.serveLightClientData.get,
       importLightClientData = config.importLightClientData.get)
     databaseGenesisValidatorsRoot =
@@ -252,6 +258,8 @@ proc initFullNode(
       AttestationPool.init(dag, quarantine, onAttestationReceived))
     syncCommitteeMsgPool = newClone(
       SyncCommitteeMsgPool.init(rng, onSyncContribution))
+    lightClientPool = newClone(
+      LightClientPool())
     exitPool = newClone(
       ExitPool.init(dag, onVoluntaryExitAdded))
     consensusManager = ConsensusManager.new(
@@ -271,8 +279,8 @@ proc initFullNode(
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool, exitPool,
-      node.attachedValidators, syncCommitteeMsgPool, quarantine, rng,
-      getBeaconTime, taskpool)
+      node.attachedValidators, syncCommitteeMsgPool, lightClientPool,
+      quarantine, rng, getBeaconTime, taskpool)
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
@@ -288,6 +296,7 @@ proc initFullNode(
   node.quarantine = quarantine
   node.attestationPool = attestationPool
   node.syncCommitteeMsgPool = syncCommitteeMsgPool
+  node.lightClientPool = lightClientPool
   node.exitPool = exitPool
   node.processor = processor
   node.blockProcessor = blockProcessor
@@ -866,7 +875,9 @@ proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Sl
 
   if node.config.serveLightClientData.get:
     node.network.subscribe(
-      getOptimisticLightClientUpdateTopic(forkDigest), basicParams)
+      getLightClientFinalityUpdateTopic(forkDigest), basicParams)
+    node.network.subscribe(
+      getLightClientOptimisticUpdateTopic(forkDigest), basicParams)
 
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
@@ -880,7 +891,10 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
     getSyncCommitteeContributionAndProofTopic(forkDigest))
 
   if node.config.serveLightClientData.get:
-    node.network.unsubscribe(getOptimisticLightClientUpdateTopic(forkDigest))
+    node.network.unsubscribe(
+      getLightClientFinalityUpdateTopic(forkDigest))
+    node.network.unsubscribe(
+      getLightClientOptimisticUpdateTopic(forkDigest))
 
 proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   # Unlike trackNextSyncCommitteeTopics, just snap to the currently correct
@@ -1395,20 +1409,29 @@ proc installMessageValidators(node: BeaconNode) =
   installSyncCommitteeeValidators(forkDigests.altair)
   installSyncCommitteeeValidators(forkDigests.bellatrix)
 
-  template installOptimisticLightClientUpdateValidator(digest: auto) =
+  template installLightClientDataValidators(digest: auto) =
     node.network.addValidator(
-      getOptimisticLightClientUpdateTopic(digest),
-      proc(msg: OptimisticLightClientUpdate): ValidationResult =
+      getLightClientFinalityUpdateTopic(digest),
+      proc(msg: altair.LightClientFinalityUpdate): ValidationResult =
         if node.config.serveLightClientData.get:
           toValidationResult(
-            node.processor[].optimisticLightClientUpdateValidator(
+            node.processor[].lightClientFinalityUpdateValidator(
               MsgSource.gossip, msg))
         else:
-          debug "Ignoring optimistic light client update: Feature disabled"
           ValidationResult.Ignore)
 
-  installOptimisticLightClientUpdateValidator(forkDigests.altair)
-  installOptimisticLightClientUpdateValidator(forkDigests.bellatrix)
+    node.network.addValidator(
+      getLightClientOptimisticUpdateTopic(digest),
+      proc(msg: altair.LightClientOptimisticUpdate): ValidationResult =
+        if node.config.serveLightClientData.get:
+          toValidationResult(
+            node.processor[].lightClientOptimisticUpdateValidator(
+              MsgSource.gossip, msg))
+        else:
+          ValidationResult.Ignore)
+
+  installLightClientDataValidators(forkDigests.altair)
+  installLightClientDataValidators(forkDigests.bellatrix)
 
 proc stop(node: BeaconNode) =
   bnStatus = BeaconNodeStatus.Stopping

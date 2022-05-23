@@ -50,6 +50,7 @@ type
     quarantine*: ref Quarantine
     attestationPool*: ref AttestationPool
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
+    lightClientPool*: ref LightClientPool
     exitPool*: ref ExitPool
     eth1Monitor*: Eth1Monitor
     rpcServer*: RpcServer

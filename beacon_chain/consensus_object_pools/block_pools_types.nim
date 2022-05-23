@@ -216,8 +216,10 @@ type
       ## On beacon chain reorganization
     onFinHappened*: OnFinalizedCallback
       ## On finalization callback
-    onOptimisticLightClientUpdate*: OnOptimisticLightClientUpdateCallback
-      ## On `OptimisticLightClientUpdate` updated callback
+    onLightClientFinalityUpdate*: OnLightClientFinalityUpdateCallback
+      ## On new `LightClientFinalityUpdate` callback
+    onLightClientOptimisticUpdate*: OnLightClientOptimisticUpdateCallback
+      ## On new `LightClientOptimisticUpdate` callback
 
     headSyncCommittees*: SyncCommitteeCache
       ## A cache of the sync committees, as they appear in the head state -

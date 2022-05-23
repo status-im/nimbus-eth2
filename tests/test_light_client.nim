@@ -34,7 +34,7 @@ suite "Light client" & preset():
       verifier: var BatchVerifier,
       quarantine: var Quarantine,
       attested = true,
-      syncCommitteeRatio = 0.75) =
+      syncCommitteeRatio = 0.82) =
     var cache: StateCache
     const maxAttestedSlotsPerPeriod = 3 * SLOTS_PER_EPOCH
     while true:
@@ -89,22 +89,25 @@ suite "Light client" & preset():
     # Genesis
     check:
       dag.headState.kind == BeaconStateFork.Phase0
-      dag.getBestLightClientUpdateForPeriod(0.SyncCommitteePeriod).isNone
-      dag.getLatestLightClientUpdate.isNone
+      dag.getLightClientUpdateForPeriod(0.SyncCommitteePeriod).isNone
+      dag.getLightClientFinalityUpdate.isNone
+      dag.getLightClientOptimisticUpdate.isNone
 
     # Advance to last slot before Altair
     dag.advanceToSlot(altairStartSlot - 1, verifier, quarantine[])
     check:
       dag.headState.kind == BeaconStateFork.Phase0
-      dag.getBestLightClientUpdateForPeriod(0.SyncCommitteePeriod).isNone
-      dag.getLatestLightClientUpdate.isNone
+      dag.getLightClientUpdateForPeriod(0.SyncCommitteePeriod).isNone
+      dag.getLightClientFinalityUpdate.isNone
+      dag.getLightClientOptimisticUpdate.isNone
 
     # Advance to Altair
     dag.advanceToSlot(altairStartSlot, verifier, quarantine[])
     check:
       dag.headState.kind == BeaconStateFork.Altair
-      dag.getBestLightClientUpdateForPeriod(0.SyncCommitteePeriod).isNone
-      dag.getLatestLightClientUpdate.isNone
+      dag.getLightClientUpdateForPeriod(0.SyncCommitteePeriod).isNone
+      dag.getLightClientFinalityUpdate.isNone
+      dag.getLightClientOptimisticUpdate.isNone
 
   test "Light client sync":
     # Advance to Altair
@@ -136,32 +139,35 @@ suite "Light client" & preset():
     while store.finalized_header.slot.sync_committee_period + 1 < headPeriod:
       let
         period =
-          if store.next_sync_committee.isZeroMemory:
-            store.finalized_header.slot.sync_committee_period
-          else:
+          if store.is_next_sync_committee_known:
             store.finalized_header.slot.sync_committee_period + 1
-        bestUpdate = dag.getBestLightClientUpdateForPeriod(period)
+          else:
+            store.finalized_header.slot.sync_committee_period
+        update = dag.getLightClientUpdateForPeriod(period)
         res = process_light_client_update(
-          store, bestUpdate.get, currentSlot, cfg, genesis_validators_root)
+          store, update.get, currentSlot, cfg, genesis_validators_root)
       check:
-        bestUpdate.isSome
-        bestUpdate.get.finalized_header.slot.sync_committee_period == period
+        update.isSome
+        update.get.finalized_header.slot.sync_committee_period == period
         res.isOk
-        store.finalized_header == bestUpdate.get.finalized_header
+        if update.get.finalized_header.slot > bootstrap.get.header.slot:
+          store.finalized_header == update.get.finalized_header
+        else:
+          store.finalized_header == bootstrap.get.header
       inc numIterations
       if numIterations > 20: doAssert false # Avoid endless loop on test failure
 
     # Sync to latest update
     let
-      latestUpdate = dag.getLatestLightClientUpdate
+      finalityUpdate = dag.getLightClientFinalityUpdate
       res = process_light_client_update(
-        store, latestUpdate.get, currentSlot, cfg, genesis_validators_root)
+        store, finalityUpdate.get, currentSlot, cfg, genesis_validators_root)
     check:
-      latestUpdate.isSome
-      latestUpdate.get.attested_header.slot == dag.head.parent.slot
+      finalityUpdate.isSome
+      finalityUpdate.get.attested_header.slot == dag.head.parent.slot
       res.isOk
-      store.finalized_header == latestUpdate.get.finalized_header
-      store.optimistic_header == latestUpdate.get.attested_header
+      store.finalized_header == finalityUpdate.get.finalized_header
+      store.optimistic_header == finalityUpdate.get.attested_header
 
   test "Init from checkpoint":
     # Fetch genesis state

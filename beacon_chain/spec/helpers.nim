@@ -9,11 +9,15 @@
 
 {.push raises: [Defect].}
 
+# References to `vFuture` refer to the pre-release proposal of the libp2p based
+# light client sync protocol. Conflicting release versions are not in use.
+# https://github.com/ethereum/consensus-specs/pull/2802
+
 import
   # Standard lib
   std/[algorithm, math, sequtils, sets, tables],
   # Status libraries
-  stew/[bitops2, byteutils, endians2],
+  stew/[bitops2, byteutils, endians2, objects],
   chronicles,
   # Internal
   ./datatypes/[phase0, altair, bellatrix],
@@ -475,10 +479,118 @@ func has_flag*(flags: ParticipationFlags, flag_index: int): bool =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   (flags and flag) == flag
 
+# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#is_sync_committee_update
+template is_sync_committee_update*(update: SomeLightClientUpdate): bool =
+  when update is SomeLightClientUpdateWithSyncCommittee:
+    not isZeroMemory(update.next_sync_committee_branch)
+  else:
+    false
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#get_active_header
+template is_finality_update*(update: SomeLightClientUpdate): bool =
+  when update is SomeLightClientUpdateWithFinality:
+    not isZeroMemory(update.finality_branch)
+  else:
+    false
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#get_subtree_index
 func get_subtree_index*(idx: GeneralizedIndex): uint64 =
   doAssert idx > 0
   uint64(idx mod (type(idx)(1) shl log2trunc(idx)))
+
+# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#is_next_sync_committee_known
+template is_next_sync_committee_known*(store: LightClientStore): bool =
+  not isZeroMemory(store.next_sync_committee)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#get_safety_threshold
+func get_safety_threshold*(store: LightClientStore): uint64 =
+  max(
+    store.previous_max_active_participants,
+    store.current_max_active_participants
+  ) div 2
+
+# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#is_better_update
+type LightClientUpdateMetadata* = object
+  attested_slot*, finalized_slot*, signature_slot*: Slot
+  has_sync_committee*, has_finality*: bool
+  num_active_participants*: uint64
+
+func toMeta*(update: SomeLightClientUpdate): LightClientUpdateMetadata =
+  var meta {.noinit.}: LightClientUpdateMetadata
+  meta.attested_slot =
+    update.attested_header.slot
+  meta.finalized_slot =
+    when update is SomeLightClientUpdateWithFinality:
+      update.finalized_header.slot
+    else:
+      GENESIS_SLOT
+  meta.signature_slot =
+    update.signature_slot
+  meta.has_sync_committee =
+    when update is SomeLightClientUpdateWithSyncCommittee:
+      not update.next_sync_committee_branch.isZeroMemory
+    else:
+      false
+  meta.has_finality =
+    when update is SomeLightClientUpdateWithFinality:
+      not update.finality_branch.isZeroMemory
+    else:
+      false
+  meta.num_active_participants =
+    countOnes(update.sync_aggregate.sync_committee_bits).uint64
+  meta
+
+func is_better_data*(new_meta, old_meta: LightClientUpdateMetadata): bool =
+  # Compare supermajority (> 2/3) sync committee participation
+  const max_active_participants = SYNC_COMMITTEE_SIZE.uint64
+  let
+    new_has_supermajority =
+      new_meta.num_active_participants * 3 >= max_active_participants * 2
+    old_has_supermajority =
+      old_meta.num_active_participants * 3 >= max_active_participants * 2
+  if new_has_supermajority != old_has_supermajority:
+    return new_has_supermajority > old_has_supermajority
+  if not new_has_supermajority:
+    if new_meta.num_active_participants != old_meta.num_active_participants:
+      return new_meta.num_active_participants > old_meta.num_active_participants
+
+  # Compare presence of relevant sync committee
+  let
+    new_has_relevant_sync_committee = new_meta.has_sync_committee and
+      new_meta.attested_slot.sync_committee_period ==
+      new_meta.signature_slot.sync_committee_period
+    old_has_relevant_sync_committee = old_meta.has_sync_committee and
+      old_meta.attested_slot.sync_committee_period ==
+      old_meta.signature_slot.sync_committee_period
+  if new_has_relevant_sync_committee != old_has_relevant_sync_committee:
+    return new_has_relevant_sync_committee > old_has_relevant_sync_committee
+
+  # Compare indication of any finality
+  if new_meta.has_finality != old_meta.has_finality:
+    return new_meta.has_finality > old_meta.has_finality
+
+  # Compare sync committee finality
+  if new_meta.has_finality:
+    let
+      new_has_sync_committee_finality =
+        new_meta.finalized_slot.sync_committee_period ==
+        new_meta.attested_slot.sync_committee_period
+      old_has_sync_committee_finality =
+        old_meta.finalized_slot.sync_committee_period ==
+        old_meta.attested_slot.sync_committee_period
+    if new_has_sync_committee_finality != old_has_sync_committee_finality:
+      return new_has_sync_committee_finality > old_has_sync_committee_finality
+
+  # Tiebreaker 1: Sync committee participation beyond supermajority
+  if new_meta.num_active_participants != old_meta.num_active_participants:
+    return new_meta.num_active_participants > old_meta.num_active_participants
+
+  # Tiebreaker 2: Prefer older data (fewer changes to best data)
+  new_meta.attested_slot < old_meta.attested_slot
+
+template is_better_update*[A, B: SomeLightClientUpdate](
+    new_update: A, old_update: B): bool =
+  is_better_data(toMeta(new_update), toMeta(old_update))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(state: bellatrix.BeaconState): bool =

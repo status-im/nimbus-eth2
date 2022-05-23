@@ -556,10 +556,10 @@ proc updateBeaconMetrics(
 import blockchain_dag_light_client
 
 export
-  blockchain_dag_light_client.getBestLightClientUpdateForPeriod,
-  blockchain_dag_light_client.getLatestLightClientUpdate,
-  blockchain_dag_light_client.getOptimisticLightClientUpdate,
-  blockchain_dag_light_client.getLightClientBootstrap
+  blockchain_dag_light_client.getLightClientBootstrap,
+  blockchain_dag_light_client.getLightClientUpdateForPeriod,
+  blockchain_dag_light_client.getLightClientFinalityUpdate,
+  blockchain_dag_light_client.getLightClientOptimisticUpdate
 
 proc getViableHead(cfg: RuntimeConfig, db: BeaconChainDB): Opt[BlockId] =
   # When the database has been written with a pre-fork version of the
@@ -659,9 +659,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
            eraPath = ".",
            onBlockCb: OnBlockCallback = nil, onHeadCb: OnHeadCallback = nil,
-           onReorgCb: OnReorgCallback = nil,
-           onFinCb: OnFinalizedCallback = nil,
-           onOptimisticLCUpdateCb: OnOptimisticLightClientUpdateCallback = nil,
+           onReorgCb: OnReorgCallback = nil, onFinCb: OnFinalizedCallback = nil,
+           onLCFinalityUpdateCb: OnLightClientFinalityUpdateCallback = nil,
+           onLCOptimisticUpdateCb: OnLightClientOptimisticUpdateCallback = nil,
            serveLightClientData = false,
            importLightClientData = ImportLightClientData.None): ChainDAGRef =
   # TODO move fork version sanity checking elsewhere?
@@ -712,7 +712,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       onHeadChanged: onHeadCb,
       onReorgHappened: onReorgCb,
       onFinHappened: onFinCb,
-      onOptimisticLightClientUpdate: onOptimisticLCUpdateCb
+      onLightClientFinalityUpdate: onLCFinalityUpdateCb,
+      onLightClientOptimisticUpdate: onLCOptimisticUpdateCb
     )
     loadTick = Moment.now()
 
@@ -1636,6 +1637,7 @@ proc updateHead*(
       justified = shortLog(getStateField(
         dag.headState, current_justified_checkpoint)),
       finalized = shortLog(getStateField(dag.headState, finalized_checkpoint))
+    let oldFinalizedHead = dag.finalizedHead
 
     block:
       # Update `dag.finalizedBlocks` with all newly finalized blocks (those
@@ -1663,7 +1665,7 @@ proc updateHead*(
     dag.pruneBlocksDAG()
 
     # Update light client data
-    dag.processFinalizationForLightClient()
+    dag.processFinalizationForLightClient(oldFinalizedHead)
 
     # Send notification about new finalization point via callback.
     if not(isNil(dag.onFinHappened)):

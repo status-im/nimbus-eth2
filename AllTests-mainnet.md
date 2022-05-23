@@ -265,11 +265,11 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Light client processor [Preset: mainnet]
 ```diff
 + Duplicate bootstrap [Preset: mainnet]                                                      OK
-+ Forced update [Preset: mainnet]                                                            OK
 + Invalid bootstrap [Preset: mainnet]                                                        OK
++ Missing bootstrap (finality update) [Preset: mainnet]                                      OK
 + Missing bootstrap (optimistic update) [Preset: mainnet]                                    OK
 + Missing bootstrap (update) [Preset: mainnet]                                               OK
-+ Standard sync [Preset: mainnet]                                                            OK
++ Sync [Preset: mainnet]                                                                     OK
 ```
 OK: 6/6 Fail: 0/6 Skip: 0/6
 ## ListKeys requests [Preset: mainnet]
