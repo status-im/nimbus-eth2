@@ -30,7 +30,9 @@ from
 import
   TopicParams, validateParameters, init
 
-from consensus_object_pools/vanity_logs/pandas import getPandas
+from "."/consensus_object_pools/vanity_logs/pandas import getPandas
+from "."/validators/fee_recipients import
+  FeeRecipientTable, getFeeRecipientList
 
 when defined(windows):
   import winlean
@@ -542,6 +544,20 @@ proc init*(T: type BeaconNode,
   # Doesn't use std/random directly, but dependencies might
   randomize(rng[].rand(high(int)))
 
+  let feeRecipientTable =
+    if config.suggestedFeeRecipientFile.isSome:
+      let feeRecipientsList =
+        getFeeRecipientList(config.suggestedFeeRecipientFile.get)
+      if feeRecipientsList.isErr:
+        warn "Invalid suggested fee recipient file",
+          err = feeRecipientsList.error
+        # TODO https://github.com/nim-lang/Nim/issues/19802
+        (static(default(FeeRecipientTable)))
+      else:
+        feeRecipientsList.get
+    else:
+      (static(default(FeeRecipientTable)))
+
   let
     validatorMonitor = newClone(ValidatorMonitor.init(
       config.validatorMonitorAuto, config.validatorMonitorTotals))
@@ -682,7 +698,8 @@ proc init*(T: type BeaconNode,
     gossipState: {},
     beaconClock: beaconClock,
     validatorMonitor: validatorMonitor,
-    stateTtlCache: stateTtlCache
+    stateTtlCache: stateTtlCache,
+    feeRecipientTable: feeRecipientTable
   )
 
   node.initFullNode(

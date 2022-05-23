@@ -42,6 +42,7 @@ import
 from eth/async_utils import awaitWithTimeout
 from web3/engine_api import ForkchoiceUpdatedResponse
 from web3/engine_api_types import PayloadExecutionStatus
+from "."/fee_recipients import getFeeRecipient
 
 # Metrics for tracking attestation and beacon block loss
 const delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
@@ -511,7 +512,12 @@ proc get_execution_payload(
     asConsensusExecutionPayload(
       await execution_engine.getPayload(payload_id.get))
 
-proc getExecutionPayload(node: BeaconNode, proposalState: auto):
+proc getFeeRecipient(node: BeaconNode, pubkey: ValidatorPubKey): Eth1Address =
+  getFeeRecipient(
+    node.config.suggestedFeeRecipient, node.feeRecipientTable, pubkey)
+
+proc getExecutionPayload(
+    node: BeaconNode, proposalState: auto, pubkey: ValidatorPubKey):
     Future[ExecutionPayload] {.async.} =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/validator.md#executionpayload
 
@@ -532,11 +538,6 @@ proc getExecutionPayload(node: BeaconNode, proposalState: auto):
     const GETPAYLOAD_TIMEOUT = 1.seconds
 
     let
-      feeRecipient =
-        if node.config.suggestedFeeRecipient.isSome:
-          node.config.suggestedFeeRecipient.get
-        else:
-          default(Eth1Address)
       latestHead =
         if not node.dag.head.executionBlockRoot.isZero:
           node.dag.head.executionBlockRoot
@@ -545,7 +546,7 @@ proc getExecutionPayload(node: BeaconNode, proposalState: auto):
       latestFinalized = node.dag.finalizedHead.blck.executionBlockRoot
       payload_id = (await forkchoice_updated(
         proposalState.bellatrixData.data, latestHead, latestFinalized,
-        feeRecipient, node.consensusManager.eth1Monitor))
+        node.getFeeRecipient(pubkey), node.consensusManager.eth1Monitor))
       payload = awaitWithTimeout(
         get_execution_payload(payload_id, node.consensusManager.eth1Monitor),
         GETPAYLOAD_TIMEOUT):
@@ -623,7 +624,11 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
           not is_merge_transition_complete(proposalState.bellatrixData.data):
         default(bellatrix.ExecutionPayload)
       else:
-        (await getExecutionPayload(node, proposalState)),
+        let pubkey = node.dag.validatorKey(validator_index)
+        (await getExecutionPayload(
+          node, proposalState,
+          # TODO https://github.com/nim-lang/Nim/issues/19802
+          if pubkey.isSome: pubkey.get.toPubKey else: default(ValidatorPubKey))),
       noRollback, # Temporary state - no need for rollback
       cache)
     if res.isErr():
@@ -659,8 +664,8 @@ proc proposeBlock(node: BeaconNode,
       getStateField(node.dag.headState, genesis_validators_root)
     randao =
       block:
-        let res = await validator.genRandaoReveal(fork, genesis_validators_root,
-                                                  slot)
+        let res = await validator.genRandaoReveal(
+          fork, genesis_validators_root, slot)
         if res.isErr():
           error "Unable to generate randao reveal",
                 validator = shortLog(validator), error_msg = res.error()

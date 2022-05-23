@@ -26,6 +26,8 @@ import
   ./validators/[action_tracker, validator_monitor, validator_pool],
   ./rpc/state_ttl_cache
 
+from validators/fee_recipients import FeeRecipientTable
+
 export
   osproc, chronos, httpserver, presto, action_tracker, beacon_clock,
   beacon_chain_db, conf, attestation_pool, sync_committee_msg_pool,
@@ -70,6 +72,7 @@ type
     restKeysCache*: Table[ValidatorPubKey, ValidatorIndex]
     validatorMonitor*: ref ValidatorMonitor
     stateTtlCache*: StateTtlCache
+    feeRecipientTable*: FeeRecipientTable
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

@@ -25,6 +25,7 @@ import # Unit test
   ./test_eth1_monitor,
   ./test_eth2_ssz_serialization,
   ./test_exit_pool,
+  ./test_fee_recipients,
   ./test_forks,
   ./test_gossip_transition,
   ./test_gossip_validation,

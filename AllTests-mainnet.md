@@ -408,6 +408,13 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + roundtrip                                                                                  OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Suggested fee recipients
+```diff
++ getFeeRecipient                                                                            OK
++ parseFeeRecipientList invalid                                                              OK
++ parseFeeRecipientList valid                                                                OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Sync committee pool
 ```diff
 + Aggregating votes                                                                          OK
@@ -544,4 +551,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 301/306 Fail: 0/306 Skip: 5/306
+OK: 304/309 Fail: 0/309 Skip: 5/309
