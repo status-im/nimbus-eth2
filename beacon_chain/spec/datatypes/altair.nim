@@ -145,7 +145,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#syncaggregatorselectiondata
   SyncAggregatorSelectionData* = object
     slot*: Slot
-    subcommittee_index*: uint64 #  # `SyncSubcommitteeIndex` after validation
+    subcommittee_index*: uint64 # `SyncSubcommitteeIndex` after validation
 
   ### Modified/overloaded
 
