@@ -1,8 +1,34 @@
-import std/algorithm
+import std/[algorithm, sequtils, typetraits]
 import chronicles
 import common, api
 
 logScope: service = "fork_service"
+
+proc validateForkSchedule(forks: openArray[Fork]): bool {.raises: [Defect].} =
+  ## Check if `forks` list is linked list or involves a multiple-fork-per-epoch
+  ## transition.
+  var
+    known_fork_versions: HashSet[seq[byte]]
+    is_linked_list = true
+    current_version = forks[0].current_version
+  for index, item in forks:
+    template inclForkVersion(kfv: untyped, fv: Version) =
+      kfv.incl fv.distinctBase.toSeq
+    known_fork_versions.inclForkVersion item.previous_version
+    known_fork_versions.inclForkVersion item.current_version
+    if index > 0:
+      if item.previous_version != current_version:
+        # Don't know until end of list if gaps are okay, so can't early-exit
+        is_linked_list = false
+    else:
+      if item.previous_version != item.current_version:
+        is_linked_list = false
+    current_version = item.current_version
+
+  # When there are more versions than entries, one might legitimately see a gap
+  # in `fork_version`s, but this is an atypical configuration seen primarily in
+  # test networks.
+  is_linked_list or known_fork_versions.card > forks.len
 
 proc sortForks(forks: openArray[Fork]): Result[seq[Fork], cstring] {.
      raises: [Defect].} =
@@ -14,8 +40,10 @@ proc sortForks(forks: openArray[Fork]): Result[seq[Fork], cstring] {.
   if len(forks) == 0:
     return err("Empty fork schedule")
 
-  # TODO validity and correct handling of multiple forks per epoch unspecified
-  ok(sorted(forks, cmp))
+  let sortedForks = sorted(forks, cmp)
+  if not(validateForkSchedule(sortedForks)):
+    return err("Invalid fork schedule")
+  ok(sortedForks)
 
 proc pollForFork(vc: ValidatorClientRef) {.async.} =
   let sres = vc.getCurrentSlot()
