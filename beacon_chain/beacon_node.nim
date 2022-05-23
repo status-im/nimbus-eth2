@@ -53,7 +53,6 @@ type
     lightClientPool*: ref LightClientPool
     exitPool*: ref ExitPool
     eth1Monitor*: Eth1Monitor
-    rpcServer*: RpcServer
     restServer*: RestServerRef
     keymanagerServer*: RestServerRef
     keymanagerToken*: Option[string]
