@@ -5,17 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# This file contains data types that are part of the spec and thus subject to
-# serialization and spec updates.
-#
-# The spec folder in general contains code that has been hoisted from the
-# specification and that follows the spec as closely as possible, so as to make
-# it easy to keep up-to-date.
-#
-# These datatypes are used as specifications for serialization - thus should not
-# be altered outside of what the spec says. Likewise, they should not be made
-# `ref` - this can be achieved by wrapping them in higher-level
-# types / composition
+# Types specific to altair (ie known to have changed across hard forks) - see
+# `base` for types and guidelines common across forks
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will
 #      likely change in future versions of the language:
@@ -106,43 +97,43 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#synccommitteemessage
   SyncCommitteeMessage* = object
-    slot*: Slot ##\
-    ## Slot to which this contribution pertains
+    slot*: Slot
+      ## Slot to which this contribution pertains
 
-    beacon_block_root*: Eth2Digest ##\
-    ## Block root for this signature
+    beacon_block_root*: Eth2Digest
+      ## Block root for this signature
 
-    validator_index*: uint64 ##\
-    ## Index of the validator that produced this signature
+    validator_index*: uint64 # `ValidatorIndex` after validation
+      ## Index of the validator that produced this signature
 
-    signature*: ValidatorSig ##\
-    ## Signature by the validator over the block root of `slot`
+    signature*: ValidatorSig
+      ## Signature by the validator over the block root of `slot`
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#synccommitteecontribution
   SyncCommitteeAggregationBits* =
     BitArray[SYNC_SUBCOMMITTEE_SIZE]
 
   SyncCommitteeContribution* = object
-    slot*: Slot ##\
-    ## Slot to which this contribution pertains
+    slot*: Slot
+      ## Slot to which this contribution pertains
 
-    beacon_block_root*: Eth2Digest ##\
-    ## Block root for this contribution
+    beacon_block_root*: Eth2Digest
+      ## Block root for this contribution
 
-    subcommittee_index*: uint64 ##\
-    ## The subcommittee this contribution pertains to out of the broader sync
-    ## committee
+    subcommittee_index*: uint64 # `SyncSubcommitteeIndex` after validation
+      ## The subcommittee this contribution pertains to out of the broader sync
+      ## committee
 
-    aggregation_bits*: SyncCommitteeAggregationBits ##\
-    ## A bit is set if a signature from the validator at the corresponding
-    ## index in the subcommittee is present in the aggregate `signature`.
+    aggregation_bits*: SyncCommitteeAggregationBits
+      ## A bit is set if a signature from the validator at the corresponding
+      ## index in the subcommittee is present in the aggregate `signature`.
 
-    signature*: ValidatorSig  ##\
-    ## Signature by the validator(s) over the block root of `slot`
+    signature*: ValidatorSig
+      ## Signature by the validator(s) over the block root of `slot`
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#contributionandproof
   ContributionAndProof* = object
-    aggregator_index*: uint64
+    aggregator_index*: uint64 # `ValidatorIndex` after validation
     contribution*: SyncCommitteeContribution
     selection_proof*: ValidatorSig
 
@@ -154,27 +145,29 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#syncaggregatorselectiondata
   SyncAggregatorSelectionData* = object
     slot*: Slot
-    subcommittee_index*: uint64
+    subcommittee_index*: uint64 #  # `SyncSubcommitteeIndex` after validation
 
   ### Modified/overloaded
 
   # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientbootstrap
   LightClientBootstrap* = object
-    # The requested beacon block header
     header*: BeaconBlockHeader
+      ## The requested beacon block header
 
-    # Current sync committee corresponding to `header`
     current_sync_committee*: SyncCommittee
+      ## Current sync committee corresponding to `header`
+
     current_sync_committee_branch*:
       array[log2trunc(CURRENT_SYNC_COMMITTEE_INDEX), Eth2Digest]
 
   # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
-    # The beacon block header that is attested to by the sync committee
     attested_header*: BeaconBlockHeader
+      ## The beacon block header that is attested to by the sync committee
 
-    # Next sync committee corresponding to `attested_header`
     next_sync_committee*: SyncCommittee
+      ## Next sync committee corresponding to `attested_header`,
+      ## if signature is from current sync committee
     next_sync_committee_branch*:
       array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
 
@@ -183,10 +176,9 @@ type
     finality_branch*:
       array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
 
-    # Sync committee aggregate signature
     sync_aggregate*: SyncAggregate
-    # Slot at which the aggregate signature was created (untrusted)
     signature_slot*: Slot
+      ## Slot at which the aggregate signature was created (untrusted)
 
   # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientfinalityupdate
   LightClientFinalityUpdate* = object
@@ -231,22 +223,22 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#lightclientstore
   LightClientStore* = object
-    finalized_header*: BeaconBlockHeader ##\
-    ## Beacon block header that is finalized
+    finalized_header*: BeaconBlockHeader
+      ## Beacon block header that is finalized
 
-    # Sync committees corresponding to the header
     current_sync_committee*: SyncCommittee
+      ## Sync committees corresponding to the header
     next_sync_committee*: SyncCommittee
 
-    best_valid_update*: Option[LightClientUpdate] ##\
-    ## Best available header to switch finalized head to if we see nothing else
+    best_valid_update*: Option[LightClientUpdate]
+      ## Best available header to switch finalized head to if we see nothing else
 
-    optimistic_header*: BeaconBlockHeader ##\
-    ## Most recent available reasonably-safe header
+    optimistic_header*: BeaconBlockHeader
+      ## Most recent available reasonably-safe header
 
-    # Max number of active participants in a sync committee (used to calculate
-    # safety threshold)
     previous_max_active_participants*: uint64
+      ## Max number of active participants in a sync committee (used to compute
+      ## safety threshold)
     current_max_active_participants*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#beaconstate
@@ -258,11 +250,11 @@ type
     fork*: Fork
 
     # History
-    latest_block_header*: BeaconBlockHeader ##\
-    ## `latest_block_header.state_root == ZERO_HASH` temporarily
+    latest_block_header*: BeaconBlockHeader
+      ## `latest_block_header.state_root == ZERO_HASH` temporarily
 
-    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
-    ## Needed to process attestations, older to newer
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+      ## Needed to process attestations, older to newer
 
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
@@ -275,14 +267,14 @@ type
 
     # Registry
     validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
-    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
-    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
-    ## Per-epoch sums of slashed effective balances
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, Gwei]
+      ## Per-epoch sums of slashed effective balances
 
     # Participation
     previous_epoch_participation*: EpochParticipationFlags
@@ -291,8 +283,8 @@ type
     # Finality
     justification_bits*: JustificationBits
 
-    previous_justified_checkpoint*: Checkpoint ##\
-    ## Previous epoch snapshot
+    previous_justified_checkpoint*: Checkpoint
+      ## Previous epoch snapshot
 
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
@@ -343,27 +335,28 @@ type
     ## is formed.
 
     slot*: Slot
-    proposer_index*: uint64
+    proposer_index*: uint64 # `ValidatorIndex` after validation
 
-    parent_root*: Eth2Digest ##\
-    ## Root hash of the previous block
+    parent_root*: Eth2Digest
+      ## Root hash of the previous block
 
-    state_root*: Eth2Digest ##\
-    ## The state root, _after_ this block has been processed
+    state_root*: Eth2Digest
+      ## The state root, _after_ this block has been processed
 
     body*: BeaconBlockBody
 
   SigVerifiedBeaconBlock* = object
     ## A BeaconBlock that contains verified signatures
     ## but that has not been verified for state transition
+
     slot*: Slot
-    proposer_index*: uint64
+    proposer_index*: uint64 # `ValidatorIndex` after validation
 
-    parent_root*: Eth2Digest ##\
-    ## Root hash of the previous block
+    parent_root*: Eth2Digest
+      ## Root hash of the previous block
 
-    state_root*: Eth2Digest ##\
-    ## The state root, _after_ this block has been processed
+    state_root*: Eth2Digest
+      ## The state root, _after_ this block has been processed
 
     body*: SigVerifiedBeaconBlockBody
 
@@ -385,19 +378,19 @@ type
     ##      then, the type must be manually kept compatible with its untrusted
     ##      cousin.
     slot*: Slot
-    proposer_index*: uint64
-    parent_root*: Eth2Digest ##\
-    state_root*: Eth2Digest ##\
+    proposer_index*: uint64 # `ValidatorIndex` after validation
+    parent_root*: Eth2Digest
+    state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
-    eth1_data*: Eth1Data ##\
-    ## Eth1 data vote
+    eth1_data*: Eth1Data
+      ## Eth1 data vote
 
-    graffiti*: GraffitiBytes ##\
-    ## Arbitrary data
+    graffiti*: GraffitiBytes
+      ## Arbitrary data
 
     # Operations
     proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
@@ -531,7 +524,7 @@ type
       List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Represent in full
-    balances*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Mod-increment
     randao_mix*: Eth2Digest

@@ -15,7 +15,43 @@
 # These datatypes are used as specifications for serialization - thus should not
 # be altered outside of what the spec says. Likewise, they should not be made
 # `ref` - this can be achieved by wrapping them in higher-level
-# types / composition
+# types / composition.
+#
+# Most integers in the spec correspond to little-endian `uint64` in their binary
+# SSZ encoding and thus may take values from the full `uint64` range. Some
+# integers have maximum valid values specified in spec constants, but still use
+# an `uint64` in the SSZ encoding, meaning that out-of-range values may be seen
+# in the encoded byte stream.
+#
+# In types derived from the spec, we use unsigned integers throughout which
+# cover the full range of possible values in the binary encoding. This leads to
+# some friction compared to "normal" Nim code, and special care must be taken
+# on the boundary between the "raw" `uint64` data from the wire (which may not
+# be trusted, generally) and "sanitized" data. In many cases, we use `uint64`
+# directly in code:
+#
+# * Unsigned arithmetic is not overflow-checked - instead, it wraps at the
+#   boundary
+# * Converting an unsigned integer to a signed integer may lead to a Defect -
+#   before doing so, the value must always be checked in the unsigned domain
+# * Because unsigned arithmetic was added late to the language, there are
+#   lingering edge cases and bugs - when using features on the boundary between
+#   signed and unsigned, careful testing is advised
+#
+# In cases where the range of valid values are statically known, we further
+# "sanitize" data using `distinct` types such as `CommitteeIndex` - in these
+# cases, two levels of sanitization is possible:
+#
+# * static range checking, where valid range is known at compile time
+# * dynamic range checking, where valid is tied to a particular state or block,
+#   such as a list index
+#
+# For static range checking, we use `distinct` types to mark that the range
+# check has been performed. However, this does not imply that the value is
+# valid for a particular state or block - dynamic range checking must still be
+# performed at every usage site - this applies in particular to `ValidatorIndex`
+# and `CommitteeIndex` which have upper bounds in the spec that are far above
+# their dynamically valid range when used to access lists in the state.
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will
 #      likely change in future versions of the language:
@@ -37,21 +73,6 @@ import
 export
   tables, results, json_serialization, timer, sszTypes, beacon_time, crypto,
   digest, presets
-
-# Presently, we're reusing the data types from the serialization (uint64) in the
-# objects we pass around to the beacon chain logic, thus keeping the two
-# similar. This is convenient for keeping up with the specification, but
-# will eventually need a more robust approach such that we don't run into
-# over- and underflows.
-# Some of the open questions are being tracked here:
-# https://github.com/ethereum/consensus-specs/issues/224
-#
-# The present approach causes some problems due to how Nim treats unsigned
-# integers - here's no high(uint64), arithmetic support is incomplete, there's
-# no over/underflow checking available
-#
-# Eventually, we could also differentiate between user/tainted data and
-# internal state that's gone through sanity checks already.
 
 const SPEC_VERSION* = "1.1.10"
 ## Spec version we're aiming to be compatible with, right now
@@ -113,19 +134,23 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#custom-types
   Eth2Domain* = array[32, byte]
 
-  # https://github.com/nim-lang/Nim/issues/574 and be consistent across
-  # 32-bit and 64-bit word platforms.
-  # The distinct types here should only be used when data has been de-tainted
-  # following overflow checks - they cannot be used in SSZ objects as SSZ
-  # instances are not invalid _per se_ when they hold an out-of-bounds index -
-  # that is part of consensus.
-  # VALIDATOR_REGISTRY_LIMIT is 1^40 in spec 1.0, but if the number of
-  # validators ever grows near 1^32 that we support here, we'll have bigger
-  # issues than the size of this type to take care of. Until then, we'll use
-  # uint32 as it halves memory requirements for active validator sets,
-  # improves consistency on 32-vs-64-bit platforms and works better with
-  # Nim seq constraints.
   ValidatorIndex* = distinct uint32
+    ## Each validator has an index that is used in lieu of the public key to
+    ## identify the validator. The index is assigned according to the order of
+    ## deposits in the deposit contract, skipping the invalid ones
+    ## (deposit index >= validator index).
+    ##
+    ## According to the spec, up to 1^40 (VALIDATOR_REGISTRY_LIMIT) validator
+    ## indices may be assigned, but given that each validator has an entry in
+    ## the beacon state and we keep the full beacon state in memory,
+    ## pragmatically a much lower limit applies.
+    ##
+    ## In the wire encoding, validator indices are `uint64`, but we use `uint32`
+    ## instead to save memory and to work around limitations in seq indexing on
+    ## 32-bit platforms (https://github.com/nim-lang/Nim/issues/574).
+    ##
+    ## `ValidatorIndex` is not used in types used for serialization (to allow
+    ## reading invalid data) - validation happens on use instead, via `init`.
 
   CommitteeIndex* = distinct uint8
     ## Index identifying a per-slot committee - depending on the active
@@ -137,8 +162,8 @@ type
     ## a committee index is valid for a particular state, see
     ## `check_attestation_index`.
     ##
-    ## `CommitteeIndex` is not used in `datatypes` to allow reading invalid data
-    ## (validation happens on use instead, via `init`).
+    ## `CommitteIndex` is not used in types used for serialization (to allow
+    ## reading invalid data) - validation happens on use instead, via `init`.
 
   SubnetId* = distinct uint8
     ## The subnet id maps which gossip subscription to use to publish an
@@ -223,7 +248,7 @@ type
   AttestationData* = object
     slot*: Slot
 
-    index*: uint64
+    index*: uint64 ## `CommitteeIndex` after validation
 
     # LMD GHOST vote
     beacon_block_root*: Eth2Digest
@@ -234,8 +259,8 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#deposit
   Deposit* = object
-    proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH + 1, Eth2Digest] ##\
-    ## Merkle path to deposit root
+    proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH + 1, Eth2Digest]
+      ## Merkle path to deposit root
 
     data*: DepositData
 
@@ -256,10 +281,9 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
-    epoch*: Epoch ##\
-    ## Earliest epoch when voluntary exit can be processed
-
-    validator_index*: uint64
+    epoch*: Epoch
+      ## Earliest epoch when voluntary exit can be processed
+    validator_index*: uint64 # `ValidatorIndex` after validation
 
   SomeAttestation* = Attestation | TrustedAttestation
   SomeIndexedAttestation* = IndexedAttestation | TrustedIndexedAttestation
@@ -287,23 +311,23 @@ type
   Validator* = object
     pubkey*: ValidatorPubKey
 
-    withdrawal_credentials*: Eth2Digest ##\
-    ## Commitment to pubkey for withdrawals and transfers
+    withdrawal_credentials*: Eth2Digest
+      ## Commitment to pubkey for withdrawals and transfers
 
-    effective_balance*: uint64 ##\
-    ## Balance at stake
+    effective_balance*: Gwei
+      ## Balance at stake
 
     slashed*: bool
 
     # Status epochs
-    activation_eligibility_epoch*: Epoch ##\
-    ## When criteria for activation were met
+    activation_eligibility_epoch*: Epoch
+      ## When criteria for activation were met
 
     activation_epoch*: Epoch
     exit_epoch*: Epoch
 
-    withdrawable_epoch*: Epoch ##\
-    ## When validator can withdraw or transfer funds
+    withdrawable_epoch*: Epoch
+      ## When validator can withdraw or transfer funds
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#pendingattestation
   PendingAttestation* = object
@@ -312,7 +336,7 @@ type
 
     inclusion_delay*: uint64
 
-    proposer_index*: uint64
+    proposer_index*: uint64 # `ValidatorIndex` after validation
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#historicalbatch
   HistoricalBatch* = object
@@ -324,8 +348,8 @@ type
     previous_version*: Version
     current_version*: Version
 
-    epoch*: Epoch ##\
-    ## Epoch of latest fork
+    epoch*: Epoch
+      ## Epoch of latest fork
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#eth1data
   Eth1Data* = object
@@ -345,7 +369,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
-    proposer_index*: uint64
+    proposer_index*: uint64 # `ValidatorIndex` after validation
     parent_root*: Eth2Digest
     state_root*: Eth2Digest
     body_root*: Eth2Digest
@@ -368,7 +392,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
-    aggregator_index*: uint64
+    aggregator_index*: uint64 # `ValidatorIndex` after validation
     aggregate*: Attestation
     selection_proof*: ValidatorSig
 
@@ -384,8 +408,7 @@ type
   # This doesn't know about forks or branches in the DAG. It's for straight,
   # linear chunks of the chain.
   StateCache* = object
-    shuffled_active_validator_indices*:
-      Table[Epoch, seq[ValidatorIndex]]
+    shuffled_active_validator_indices*: Table[Epoch, seq[ValidatorIndex]]
     beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
 
@@ -403,23 +426,23 @@ type
 
     pubkey* {.dontSerialize.}: ValidatorPubKey
 
-    withdrawal_credentials* {.dontSerialize.}: Eth2Digest ##\
-    ## Commitment to pubkey for withdrawals and transfers
+    withdrawal_credentials* {.dontSerialize.}: Eth2Digest
+      ## Commitment to pubkey for withdrawals and transfers
 
-    effective_balance*: uint64 ##\
-    ## Balance at stake
+    effective_balance*: Gwei
+      ## Balance at stake
 
     slashed*: bool
 
     # Status epochs
-    activation_eligibility_epoch*: Epoch ##\
-    ## When criteria for activation were met
+    activation_eligibility_epoch*: Epoch
+      ## When criteria for activation were met
 
     activation_epoch*: Epoch
     exit_epoch*: Epoch
 
-    withdrawable_epoch*: Epoch ##\
-    ## When validator can withdraw or transfer funds
+    withdrawable_epoch*: Epoch
+      ## When validator can withdraw or transfer funds
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#eth2-field
   ENRForkID* = object
@@ -444,11 +467,11 @@ type
     penalties*: Gwei
 
   InclusionInfo* = object
-    # The distance between the attestation slot and the slot that attestation
-    # was included in block.
     delay*: uint64
-    # The index of the proposer at the slot where the attestation was included.
-    proposer_index*: uint64
+      ## The distance between the attestation slot and the slot that attestation
+      ## was included in block.
+    proposer_index*: uint64 # `ValidatorIndex` after validation
+      ## The index of the proposer at the slot where the attestation was included
 
   RewardFlags* {.pure.} = enum
     isSlashed
@@ -475,7 +498,7 @@ type
     ## reward processing
 
     # The validator's effective balance in the _current_ epoch.
-    current_epoch_effective_balance*: uint64
+    current_epoch_effective_balance*: Gwei
 
     # True if the validator had an attestation included in the _previous_ epoch.
     is_previous_epoch_attester*: Option[InclusionInfo]
@@ -583,17 +606,37 @@ template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =
   template toSszType(x: T): uint64 =
     {.error: "Limited types should not be used with SSZ (abi differences)".}
 
-template makeLimitedU64*(T: untyped, limit: uint64) =
-  makeLimitedUInt(T, limit)
-
 template makeLimitedU8*(T: untyped, limit: uint8) =
   makeLimitedUInt(T, limit)
 
 template makeLimitedU16*(T: type, limit: uint16) =
   makeLimitedUInt(T, limit)
 
+template makeLimitedU64*(T: untyped, limit: uint64) =
+  makeLimitedUInt(T, limit)
+
 makeLimitedU64(CommitteeIndex, MAX_COMMITTEES_PER_SLOT)
 makeLimitedU64(SubnetId, ATTESTATION_SUBNET_COUNT)
+
+const
+  validatorIndexLimit = min(uint64(int32.high), VALIDATOR_REGISTRY_LIMIT)
+    ## Because we limit ourselves to what is practically possible to index in a
+    ## seq, we will discard some otherwise "potentially valid" validator indices
+    ## here - this is a tradeoff made for code simplicity.
+    ##
+    ## In general, `ValidatorIndex` is assumed to be convertible to/from an
+    ## `int`. This should be valid for a long time, because
+    ## https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md#configuration
+    ## notes that "The maximum supported validator count is 2**22 (=4,194,304),
+    ## or ~134 million ETH staking. Assuming 32 slots per epoch and 64
+    ## committees per slot, this gets us to a max 2048 validators in a
+    ## committee."
+    ## That's only active validators, so in principle, it can grow larger, but
+    ## it should be orders of magnitude more validators than expected in the
+    ## next couple of years, than int32 indexing supports.
+static: doAssert high(int) >= high(int32)
+
+makeLimitedU64(ValidatorIndex, validatorIndexLimit)
 
 func init*(T: type CommitteeIndex, index, committees_per_slot: uint64):
     Result[CommitteeIndex, cstring] =
@@ -601,14 +644,6 @@ func init*(T: type CommitteeIndex, index, committees_per_slot: uint64):
     ok(CommitteeIndex(index))
   else:
     err("Committee index out of range for epoch")
-
-proc writeValue*(writer: var JsonWriter, value: ValidatorIndex)
-                {.raises: [IOError, Defect].} =
-  writeValue(writer, distinctBase value)
-
-proc readValue*(reader: var JsonReader, value: var ValidatorIndex)
-               {.raises: [IOError, SerializationError, Defect].} =
-  value = ValidatorIndex reader.readValue(distinctBase ValidatorIndex)
 
 template writeValue*(
     writer: var JsonWriter, value: Version | ForkDigest | DomainType) =
@@ -638,18 +673,6 @@ proc writeValue*(writer: var JsonWriter, value: JustificationBits)
     {.raises: [IOError, Defect].} =
   writer.writeValue $value
 
-# In general, ValidatorIndex is assumed to be convertible to/from an int. This
-# should be valid for a long time, because
-# https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md#configuration
-# notes that "The maximum supported validator count is 2**22 (=4,194,304), or
-# ~134 million ETH staking. Assuming 32 slots per epoch and 64 committees per
-# slot, this gets us to a max 2048 validators in a committee."
-#
-# That's only active validators, so in principle, it can grow larger, but it
-# should be orders of magnitude more validators than expected in the next in
-# the next couple of years, than int32 indexing supports.
-static: doAssert high(int) >= high(int32)
-
 # `ValidatorIndex` seq handling.
 template `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
   a[b.int] = c
@@ -657,24 +680,15 @@ template `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
 template `[]`*[T](a: seq[T], b: ValidatorIndex): auto = # Also var seq (!)
   a[b.int]
 
-# `ValidatorIndex` Nim integration
-template `==`*(x, y: ValidatorIndex) : bool =
-  distinctBase(x) == distinctBase(y)
+iterator vindices*(
+    a: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
+  for i in 0..<a.len():
+    yield i.ValidatorIndex
 
-template `<`*(x, y: ValidatorIndex): bool =
-  distinctBase(x) < distinctBase(y)
-
-template hash*(x: ValidatorIndex): Hash =
-  hash distinctBase(x)
-
-template `$`*(x: ValidatorIndex): string =
-  $ distinctBase(x)
-
-template `==`*(x: uint64, y: ValidatorIndex): bool =
-  x == uint64(y)
-
-template `==`*(x: ValidatorIndex, y: uint64): bool =
-  uint64(x) == y
+iterator vindices*(
+    a: List[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
+  for i in 0..<a.len():
+    yield i.ValidatorIndex
 
 template `==`*(x, y: JustificationBits): bool =
   distinctBase(x) == distinctBase(y)

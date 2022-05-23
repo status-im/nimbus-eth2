@@ -5,17 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# This file contains data types that are part of the spec and thus subject to
-# serialization and spec updates.
-#
-# The spec folder in general contains code that has been hoisted from the
-# specification and that follows the spec as closely as possible, so as to make
-# it easy to keep up-to-date.
-#
-# These datatypes are used as specifications for serialization - thus should not
-# be altered outside of what the spec says. Likewise, they should not be made
-# `ref` - this can be achieved by wrapping them in higher-level
-# types / composition
+# Types specific to phase0 (ie known to have changed across hard forks) - see
+# `base` for types and guidelines common across forks
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will
 #      likely change in future versions of the language:
@@ -40,11 +31,11 @@ type
     fork*: Fork
 
     # History
-    latest_block_header*: BeaconBlockHeader ##\
-    ## `latest_block_header.state_root == ZERO_HASH` temporarily
+    latest_block_header*: BeaconBlockHeader
+      ## `latest_block_header.state_root == ZERO_HASH` temporarily
 
-    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
-    ## Needed to process attestations, older to newer
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+      ## Needed to process attestations, older to newer
 
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
@@ -57,14 +48,14 @@ type
 
     # Registry
     validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
-    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
-    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
-    ## Per-epoch sums of slashed effective balances
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, Gwei]
+      ## Per-epoch sums of slashed effective balances
 
     # Attestations
     previous_epoch_attestations*:
@@ -75,8 +66,8 @@ type
     # Finality
     justification_bits*: JustificationBits
 
-    previous_justified_checkpoint*: Checkpoint ##\
-    ## Previous epoch snapshot
+    previous_justified_checkpoint*: Checkpoint
+      ## Previous epoch snapshot
 
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
@@ -100,13 +91,13 @@ type
     ## is formed.
 
     slot*: Slot
-    proposer_index*: uint64
+    proposer_index*: uint64 # `ValidatorIndex` after validation
 
-    parent_root*: Eth2Digest ##\
-    ## Root hash of the previous block
+    parent_root*: Eth2Digest
+      ## Root hash of the previous block
 
-    state_root*: Eth2Digest ##\
-    ## The state root, _after_ this block has been processed
+    state_root*: Eth2Digest
+      ## The state root, _after_ this block has been processed
 
     body*: BeaconBlockBody
 
@@ -119,13 +110,13 @@ type
     ## A BeaconBlock that contains verified signatures
     ## but that has not been verified for state transition
     slot*: Slot
-    proposer_index*: uint64
+    proposer_index*: uint64 # `ValidatorIndex` after validation
 
-    parent_root*: Eth2Digest ##\
-    ## Root hash of the previous block
+    parent_root*: Eth2Digest
+      ## Root hash of the previous block
 
-    state_root*: Eth2Digest ##\
-    ## The state root, _after_ this block has been processed
+    state_root*: Eth2Digest
+      ## The state root, _after_ this block has been processed
 
     body*: SigVerifiedBeaconBlockBody
 
@@ -147,9 +138,9 @@ type
     ##      then, the type must be manually kept compatible with its untrusted
     ##      cousin.
     slot*: Slot
-    proposer_index*: uint64
-    parent_root*: Eth2Digest ##\
-    state_root*: Eth2Digest ##\
+    proposer_index*: uint64 # `ValidatorIndex` after validation
+    parent_root*: Eth2Digest
+    state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#beaconblockbody

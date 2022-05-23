@@ -360,22 +360,22 @@ func is_withdrawable_validator*(validator: Validator, epoch: Epoch): bool =
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#get_active_validator_indices
 iterator get_active_validator_indices*(state: ForkyBeaconState, epoch: Epoch):
     ValidatorIndex =
-  for idx in 0..<state.validators.len:
-    if is_active_validator(state.validators[idx], epoch):
-      yield idx.ValidatorIndex
+  for vidx in state.validators.vindices:
+    if is_active_validator(state.validators[vidx], epoch):
+      yield vidx
 
 func get_active_validator_indices*(state: ForkyBeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   ## Return the sequence of active validator indices at ``epoch``.
   var res = newSeqOfCap[ValidatorIndex](state.validators.len)
-  for idx in get_active_validator_indices(state, epoch):
-    res.add idx
+  for vidx in get_active_validator_indices(state, epoch):
+    res.add vidx
   res
 
 func get_active_validator_indices_len*(state: ForkyBeaconState, epoch: Epoch):
     uint64 =
-  for idx in 0..<state.validators.len:
-    if is_active_validator(state.validators[idx], epoch):
+  for vidx in state.validators.vindices:
+    if is_active_validator(state.validators[vidx], epoch):
       inc result
 
 func get_active_validator_indices_len*(

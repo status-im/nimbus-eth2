@@ -676,7 +676,12 @@ proc validateAggregate*(
   # [REJECT] The aggregator's validator index is within the committee -- i.e.
   # aggregate_and_proof.aggregator_index in get_beacon_committee(state,
   # aggregate.data.slot, aggregate.data.index).
-  if aggregate_and_proof.aggregator_index.ValidatorIndex notin
+
+  let aggregator_index =
+    ValidatorIndex.init(aggregate_and_proof.aggregator_index).valueOr:
+      return checkedReject("Aggregate: invalid aggregator index")
+
+  if aggregator_index notin
       get_beacon_committee(epochRef, slot, committee_index):
     return checkedReject("Aggregate: aggregator's validator index not in committee")
 
