@@ -101,12 +101,12 @@ func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_finality_update
 func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientFinalityUpdate`.
-  eth2Prefix(forkDigest) & "light_client_finality_update_v0/ssz_snappy"
+  eth2Prefix(forkDigest) & "light_client_finality_update/ssz_snappy"
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_optimistic_update
 func getLightClientOptimisticUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientOptimisticUpdate`.
-  eth2Prefix(forkDigest) & "light_client_optimistic_update_v0/ssz_snappy"
+  eth2Prefix(forkDigest) & "light_client_optimistic_update/ssz_snappy"
 
 func getENRForkID*(cfg: RuntimeConfig,
                    epoch: Epoch,

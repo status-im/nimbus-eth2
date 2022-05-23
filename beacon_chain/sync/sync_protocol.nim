@@ -507,7 +507,7 @@ p2pProtocol BeaconSync(version = 1,
       peer: Peer,
       blockRoot: Eth2Digest,
       response: SingleChunkResponse[altair.LightClientBootstrap])
-      {.async, libp2pProtocol("light_client_bootstrap", 0,
+      {.async, libp2pProtocol("light_client_bootstrap", 1,
                               isLightClientRequest = true).} =
     trace "Received LC bootstrap request", peer, blockRoot
     let dag = peer.networkState.dag
@@ -537,7 +537,7 @@ p2pProtocol BeaconSync(version = 1,
       startPeriod: SyncCommitteePeriod,
       reqCount: uint64,
       response: MultipleChunksResponse[altair.LightClientUpdate])
-      {.async, libp2pProtocol("light_client_updates_by_range", 0,
+      {.async, libp2pProtocol("light_client_updates_by_range", 1,
                               isLightClientRequest = true).} =
     trace "Received LC updates by range request", peer, startPeriod, reqCount
     let dag = peer.networkState.dag
@@ -577,7 +577,7 @@ p2pProtocol BeaconSync(version = 1,
   proc lightClientFinalityUpdate(
       peer: Peer,
       response: SingleChunkResponse[altair.LightClientFinalityUpdate])
-      {.async, libp2pProtocol("light_client_finality_update", 0,
+      {.async, libp2pProtocol("light_client_finality_update", 1,
                               isLightClientRequest = true).} =
     trace "Received LC finality update request", peer
     let dag = peer.networkState.dag
@@ -604,7 +604,7 @@ p2pProtocol BeaconSync(version = 1,
   proc lightClientOptimisticUpdate(
       peer: Peer,
       response: SingleChunkResponse[altair.LightClientOptimisticUpdate])
-      {.async, libp2pProtocol("light_client_optimistic_update", 0,
+      {.async, libp2pProtocol("light_client_optimistic_update", 1,
                               isLightClientRequest = true).} =
     trace "Received LC optimistic update request", peer
     let dag = peer.networkState.dag
