@@ -44,7 +44,7 @@ func decrease_balance*(
     decrease_balance(state.balances[index], delta)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#deposits
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#modified-process_deposit
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#modified-process_deposit
 func get_validator_from_deposit*(deposit: DepositData):
     Validator =
   let
@@ -120,8 +120,8 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var ForkyBeaconState,
     validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#modified-slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#modified-slash_validator
 func get_slashing_penalty*(state: ForkyBeaconState,
                            validator_effective_balance: Gwei): Gwei =
   # TODO Consider whether this is better than splitting the functions apart; in
@@ -317,7 +317,7 @@ func get_initial_beacon_block*(state: phase0.HashedBeaconState):
   phase0.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#initialize-state-for-pure-altair-testnets-and-test-vectors
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#initialize-state-for-pure-altair-testnets-and-test-vectors
 func get_initial_beacon_block*(state: altair.HashedBeaconState):
     altair.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
@@ -542,7 +542,7 @@ func check_attestation_index*(
     Result[CommitteeIndex, cstring] =
   check_attestation_index(data.index, committees_per_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(state: altair.BeaconState | bellatrix.BeaconState,
                                                 data: AttestationData,
                                                 inclusion_delay: uint64): seq[int] =
@@ -587,7 +587,7 @@ func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): 
   get_total_balance(
     state, cache.get_shuffled_active_validator_indices(state, epoch))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#get_base_reward_per_increment
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment_sqrt*(
     total_active_balance_sqrt: uint64): Gwei =
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div total_active_balance_sqrt
@@ -596,7 +596,7 @@ func get_base_reward_per_increment*(
     total_active_balance: Gwei): Gwei =
   get_base_reward_per_increment_sqrt(integer_squareroot(total_active_balance))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#get_base_reward
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
     state: altair.BeaconState | bellatrix.BeaconState, index: ValidatorIndex,
     base_reward_per_increment: Gwei): Gwei =
@@ -720,7 +720,7 @@ proc process_attestation*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#get_next_sync_committee_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#get_next_sync_committee_indices
 func get_next_sync_committee_keys(state: altair.BeaconState | bellatrix.BeaconState):
     array[SYNC_COMMITTEE_SIZE, ValidatorPubKey] =
   ## Return the sequence of sync committee indices, with possible duplicates,
@@ -756,7 +756,7 @@ func get_next_sync_committee_keys(state: altair.BeaconState | bellatrix.BeaconSt
     i += 1'u64
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#get_next_sync_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#get_next_sync_committee
 func get_next_sync_committee*(state: altair.BeaconState | bellatrix.BeaconState):
     SyncCommittee =
   ## Return the *next* sync committee for a given ``state``.
@@ -773,7 +773,7 @@ func get_next_sync_committee*(state: altair.BeaconState | bellatrix.BeaconState)
   res.aggregate_pubkey = finish(attestersAgg).toPubKey()
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/fork.md#upgrading-the-state
 func translate_participation(
     state: var altair.BeaconState,
     pending_attestations: openArray[phase0.PendingAttestation]) =

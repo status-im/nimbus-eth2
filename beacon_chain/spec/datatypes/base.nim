@@ -390,7 +390,7 @@ type
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
 
   # This matches the mutable state of the Solidity deposit contract
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/solidity_deposit_contract/deposit_contract.sol
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/solidity_deposit_contract/deposit_contract.sol
   DepositContractState* = object
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
@@ -522,7 +522,7 @@ const
   DOMAIN_SELECTION_PROOF* = DomainType([byte 0x05, 0x00, 0x00, 0x00])
   DOMAIN_AGGREGATE_AND_PROOF* = DomainType([byte 0x06, 0x00, 0x00, 0x00])
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#domain-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#domain-types
   DOMAIN_SYNC_COMMITTEE* = DomainType([byte 0x07, 0x00, 0x00, 0x00])
   DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF* = DomainType([byte 0x08, 0x00, 0x00, 0x00])
   DOMAIN_CONTRIBUTION_AND_PROOF* = DomainType([byte 0x09, 0x00, 0x00, 0x00])

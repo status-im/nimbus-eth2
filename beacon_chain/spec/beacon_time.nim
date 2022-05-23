@@ -144,10 +144,10 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#broadcast-aggregate
   aggregateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  * 2 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#prepare-sync-committee-message
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#prepare-sync-committee-message
   syncCommitteeMessageSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#broadcast-sync-committee-contribution
   syncContributionSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  * 2 div INTERVALS_PER_SLOT)
   # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_finality_update
@@ -221,7 +221,7 @@ iterator slots*(epoch: Epoch): Slot =
   for slot in start_slot ..< start_slot + SLOTS_PER_EPOCH:
     yield slot
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#sync-committee
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#sync-committee
 template sync_committee_period*(epoch: Epoch): SyncCommitteePeriod =
   if epoch == FAR_FUTURE_EPOCH: FAR_FUTURE_PERIOD
   else: SyncCommitteePeriod(epoch div EPOCHS_PER_SYNC_COMMITTEE_PERIOD)

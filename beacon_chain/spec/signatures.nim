@@ -233,7 +233,7 @@ proc verify_voluntary_exit_signature*(
 
     blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#prepare-sync-committee-message
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#prepare-sync-committee-message
 func compute_sync_committee_message_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     slot: Slot, beacon_block_root: Eth2Digest): Eth2Digest =
@@ -268,7 +268,7 @@ proc verify_sync_committee_signature*(
 
   blsFastAggregateVerify(pubkeys, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#aggregation-selection
 func compute_sync_committee_selection_proof_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     slot: Slot, subcommittee_index: SyncSubcommitteeIndex): Eth2Digest =
@@ -299,7 +299,7 @@ proc verify_sync_committee_selection_proof*(
 
     blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#signature
 func compute_contribution_and_proof_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     msg: ContributionAndProof): Eth2Digest =
@@ -318,7 +318,7 @@ proc get_contribution_and_proof_signature*(
   blsSign(privkey, signing_root.data)
 
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#aggregation-selection
 func is_sync_committee_aggregator*(signature: ValidatorSig): bool =
   let
     signatureDigest = eth2digest(signature.blob)

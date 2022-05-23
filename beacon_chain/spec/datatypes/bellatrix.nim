@@ -22,7 +22,7 @@ import
 export json_serialization, base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/beacon-chain.md#transition-settings
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#transition-settings
   TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH* = FAR_FUTURE_EPOCH
 
   # https://github.com/ethereum/execution-apis/blob/2c3dffa1ad301a5b1d46212e1bd65e918265cd6f/src/engine/specification.md#request-1
@@ -32,7 +32,7 @@ const
   NEWPAYLOAD_TIMEOUT* = 8.seconds
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#custom-types
   Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
 
   ExecutionAddress* = object
@@ -90,7 +90,7 @@ type
     parent_hash*: Eth2Digest
     total_difficulty*: Eth2Digest   # uint256
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
