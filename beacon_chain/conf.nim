@@ -337,6 +337,26 @@ type
         defaultValueDesc: ""
         name: "status-bar-contents" }: string
 
+      rpcEnabled* {.
+        hidden
+        desc: "Enable the JSON-RPC server (deprecated for removal)"
+        defaultValue: false
+        name: "rpc" }: bool
+
+      rpcPort* {.
+        hidden
+        desc: "HTTP port for the JSON-RPC service (deprecated for removal)"
+        defaultValue: 9190
+        defaultValueDesc: "9190"
+        name: "rpc-port" }: Port
+
+      rpcAddress* {.
+        hidden
+        desc: "Listening address of the RPC server (deprecated for removal)"
+        defaultValue: defaultAdminListenAddress
+        defaultValueDesc: "127.0.0.1"
+        name: "rpc-address" }: ValidIpAddress
+
       restEnabled* {.
         desc: "Enable the REST server"
         defaultValue: false

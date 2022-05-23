@@ -577,6 +577,9 @@ proc init*(T: type BeaconNode,
       config.web3ForcePolling,
       optJwtSecret)
 
+  if config.rpcEnabled:
+    warn "JSON-RPC service support has been removed from Nimbus. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
+
   let restServer = if config.restEnabled:
     RestServerRef.init(
       config.restAddress,
