@@ -587,8 +587,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         request.is_aggregator)
 
       let validator_pubkey =
-        getStateField(node.dag.headState, validators)
-          .asSeq()[request.validator_index].pubkey
+        getStateField(node.dag.headState, validators)[
+          request.validator_index].pubkey
 
       node.validatorMonitor[].addAutoMonitor(
         validator_pubkey, ValidatorIndex(request.validator_index))
@@ -620,8 +620,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(Http400,
                                              InvalidValidatorIndexValueError)
           let validator_pubkey =
-            getStateField(node.dag.headState, validators)
-              .asSeq()[item.validator_index].pubkey
+            getStateField(node.dag.headState, validators)[
+              item.validator_index].pubkey
 
           node.syncCommitteeMsgPool
             .syncCommitteeSubscriptions[validator_pubkey] = item.until_epoch

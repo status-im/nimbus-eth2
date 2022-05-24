@@ -231,7 +231,7 @@ func is_unslashed_participating_index(
       unsafeAddr state.previous_epoch_participation
 
   is_active_validator(state.validators[validator_index], epoch) and
-    has_flag(epoch_participation[].asSeq()[validator_index], flag_index) and
+    has_flag(epoch_participation[][validator_index], flag_index) and
     not state.validators[validator_index].slashed
 
 # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#justification-and-finalization
@@ -452,7 +452,7 @@ func get_base_reward_sqrt*(state: phase0.BeaconState, index: ValidatorIndex,
     total_balance_sqrt: auto): Gwei =
   # Spec function recalculates total_balance every time, which creates an
   # O(n^2) situation.
-  let effective_balance = state.validators.asSeq()[index].effective_balance
+  let effective_balance = state.validators[index].effective_balance
   effective_balance * BASE_REWARD_FACTOR div
     total_balance_sqrt div BASE_REWARDS_PER_EPOCH
 
@@ -756,7 +756,7 @@ func process_rewards_and_penalties(
   # update the raw list directly
   state.balances.clearCache()
   for idx, v in info.validators:
-    var balance = state.balances.asSeq()[idx]
+    var balance = state.balances[idx]
     increase_balance(balance, v.delta.rewards)
     decrease_balance(balance, v.delta.penalties)
     state.balances.asSeq()[idx] = balance
@@ -791,7 +791,7 @@ func process_rewards_and_penalties(
   # update the raw list directly
   state.balances.clearCache()
   for index in 0 ..< len(state.validators):
-    var balance = state.balances.asSeq()[index]
+    var balance = state.balances[index]
     increase_balance(balance, info.validators[index].delta.rewards)
     decrease_balance(balance, info.validators[index].delta.penalties)
     state.balances.asSeq()[index] = balance
@@ -817,18 +817,18 @@ func process_registry_updates*(
   # remain valid for this epoch through though this function along with
   # the rest of the epoch transition.
   for vidx in state.validators.vindices:
-    if is_eligible_for_activation_queue(state.validators.asSeq()[vidx]):
-      state.validators[vidx].activation_eligibility_epoch =
+    if is_eligible_for_activation_queue(state.validators[vidx]):
+      state.validators.mitem(vidx).activation_eligibility_epoch =
         get_current_epoch(state) + 1
 
-    if is_active_validator(state.validators.asSeq()[vidx], get_current_epoch(state)) and
-        state.validators.asSeq()[vidx].effective_balance <= cfg.EJECTION_BALANCE:
+    if is_active_validator(state.validators[vidx], get_current_epoch(state)) and
+        state.validators[vidx].effective_balance <= cfg.EJECTION_BALANCE:
       initiate_validator_exit(cfg, state, vidx, cache)
 
   ## Queue validators eligible for activation and not dequeued for activation
   var activation_queue : seq[tuple[a: Epoch, b: ValidatorIndex]] = @[]
   for vidx in state.validators.vindices:
-    let validator = unsafeAddr state.validators.asSeq()[vidx]
+    let validator = unsafeAddr state.validators[vidx]
     if is_eligible_for_activation(state, validator[]):
       activation_queue.add (
         validator[].activation_eligibility_epoch, vidx)
@@ -843,7 +843,7 @@ func process_registry_updates*(
       break
     let
       (_, vidx) = epoch_and_index
-    state.validators[vidx].activation_epoch =
+    state.validators.mitem(vidx).activation_epoch =
       compute_activation_exit_epoch(get_current_epoch(state))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#slashings
@@ -893,7 +893,7 @@ func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) =
       state, total_balance)
 
   for vidx in state.validators.vindices:
-    let validator = unsafeAddr state.validators.asSeq()[vidx]
+    let validator = unsafeAddr state.validators[vidx]
     if slashing_penalty_applies(validator[], epoch):
       let penalty = validator[].get_slashing_penalty(
         adjusted_total_slashing_balance, total_balance)
@@ -911,14 +911,14 @@ func process_eth1_data_reset*(state: var ForkyBeaconState) =
 func process_effective_balance_updates*(state: var ForkyBeaconState) =
   # Update effective balances with hysteresis
   for index in 0..<state.validators.len:
-    let balance = state.balances.asSeq()[index]
+    let balance = state.balances[index]
     const
       HYSTERESIS_INCREMENT =
         EFFECTIVE_BALANCE_INCREMENT div HYSTERESIS_QUOTIENT
       DOWNWARD_THRESHOLD =
         HYSTERESIS_INCREMENT * HYSTERESIS_DOWNWARD_MULTIPLIER
       UPWARD_THRESHOLD = HYSTERESIS_INCREMENT * HYSTERESIS_UPWARD_MULTIPLIER
-    let effective_balance = state.validators.asSeq()[index].effective_balance
+    let effective_balance = state.validators[index].effective_balance
     if balance + DOWNWARD_THRESHOLD < effective_balance or
         effective_balance + UPWARD_THRESHOLD < balance:
       let new_effective_balance =
@@ -927,7 +927,7 @@ func process_effective_balance_updates*(state: var ForkyBeaconState) =
           MAX_EFFECTIVE_BALANCE)
       # Protect against unnecessary cache invalidation
       if new_effective_balance != effective_balance:
-        state.validators[index].effective_balance = new_effective_balance
+        state.validators.mitem(index).effective_balance = new_effective_balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#slashings-balances-updates
 func process_slashings_reset*(state: var ForkyBeaconState) =
