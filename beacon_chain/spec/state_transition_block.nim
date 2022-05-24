@@ -178,7 +178,7 @@ proc process_proposer_slashing*(
     cache: var StateCache):
     Result[void, cstring] =
   let proposer_index = ? check_proposer_slashing(state, proposer_slashing, flags)
-  slash_validator(cfg, state, proposer_index, cache)
+  ? slash_validator(cfg, state, proposer_index, cache)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#is_slashable_attestation_data
@@ -247,7 +247,7 @@ proc process_attester_slashing*(
     ? check_attester_slashing(state, attester_slashing, flags)
 
   for index in slashed_attesters:
-    slash_validator(cfg, state, index, cache)
+    ? slash_validator(cfg, state, index, cache)
 
   ok()
 
@@ -376,7 +376,7 @@ proc process_voluntary_exit*(
     cache: var StateCache): Result[void, cstring] =
   let exited_validator =
     ? check_voluntary_exit(cfg, state, signed_voluntary_exit, flags)
-  initiate_validator_exit(cfg, state, exited_validator, cache)
+  ? initiate_validator_exit(cfg, state, exited_validator, cache)
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#operations

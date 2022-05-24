@@ -329,6 +329,7 @@ suite "EF - ForkChoice" & preset():
     # test: tests/fork_choice/scenarios/no_votes.nim
     #       "Ensure the head is still 4 whilst the justified epoch is 0."
     "on_block_future_block",
+    "discard_equivocations" # TODO
   ]
 
   for fork in [BeaconBlockFork.Phase0]: # TODO: init ChainDAG from Merge/Altair

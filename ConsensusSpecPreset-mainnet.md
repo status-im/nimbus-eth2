@@ -744,8 +744,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
 + Registry updates - ejection [Preset: mainnet]                                              OK
 + Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Altair - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
@@ -901,8 +902,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
 + Registry updates - ejection [Preset: mainnet]                                              OK
 + Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Bellatrix - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
@@ -962,6 +964,7 @@ OK: 38/38 Fail: 0/38 Skip: 0/38
 ## EF - ForkChoice [Preset: mainnet]
 ```diff
 + ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
+  ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/discard_equivocations        Skip
 + ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/genesis                      OK
 + ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
 + ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
@@ -972,7 +975,7 @@ OK: 38/38 Fail: 0/38 Skip: 0/38
 + ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               OK
 + ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
 ```
-OK: 9/10 Fail: 0/10 Skip: 1/10
+OK: 9/11 Fail: 0/11 Skip: 2/11
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -1025,8 +1028,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
 + Registry updates - ejection [Preset: mainnet]                                              OK
 + Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## EF - Phase 0 - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
@@ -1220,4 +1224,4 @@ OK: 44/44 Fail: 0/44 Skip: 0/44
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 1035/1038 Fail: 0/1038 Skip: 3/1038
+OK: 1038/1042 Fail: 0/1042 Skip: 4/1042
