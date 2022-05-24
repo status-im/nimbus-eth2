@@ -37,9 +37,6 @@ const
 
   defaultEth2TcpPort* = 9000
 
-  # This is not part of the spec yet! Keep in sync with BASE_RPC_PORT
-  defaultEth2RpcPort* = 9190
-
   # This is not part of the spec! But its port which uses Lighthouse
   DefaultEth2RestPort* = 5052
 

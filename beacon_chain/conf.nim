@@ -338,18 +338,21 @@ type
         name: "status-bar-contents" }: string
 
       rpcEnabled* {.
-        desc: "Enable the JSON-RPC server (deprecated)"
+        hidden
+        desc: "Enable the JSON-RPC server (deprecated for removal)"
         defaultValue: false
         name: "rpc" }: bool
 
       rpcPort* {.
-        desc: "HTTP port for the JSON-RPC service"
-        defaultValue: defaultEth2RpcPort
+        hidden
+        desc: "HTTP port for the JSON-RPC service (deprecated for removal)"
+        defaultValue: 9190
         defaultValueDesc: "9190"
         name: "rpc-port" }: Port
 
       rpcAddress* {.
-        desc: "Listening address of the RPC server"
+        hidden
+        desc: "Listening address of the RPC server (deprecated for removal)"
         defaultValue: defaultAdminListenAddress
         defaultValueDesc: "127.0.0.1"
         name: "rpc-address" }: ValidIpAddress

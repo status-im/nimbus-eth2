@@ -14,7 +14,7 @@ import
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
   eth/keys,
-  ./rpc/[rest_api, rpc_api, state_ttl_cache],
+  ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[engine_authentication, weak_subjectivity],
   ./validators/[keystore_management, validator_duties],
@@ -577,10 +577,8 @@ proc init*(T: type BeaconNode,
       config.web3ForcePolling,
       optJwtSecret)
 
-  let rpcServer = if config.rpcEnabled:
-    RpcServer.init(config.rpcAddress, config.rpcPort)
-  else:
-    nil
+  if config.rpcEnabled:
+    warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
 
   let restServer = if config.restEnabled:
     RestServerRef.init(
@@ -676,7 +674,6 @@ proc init*(T: type BeaconNode,
     config: config,
     attachedValidators: validatorPool,
     eth1Monitor: eth1Monitor,
-    rpcServer: rpcServer,
     restServer: restServer,
     keymanagerServer: keymanagerServer,
     keymanagerToken: keymanagerToken,
@@ -1293,16 +1290,6 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
 func connectedPeersCount(node: BeaconNode): int =
   len(node.network.peerPool)
 
-proc installRpcHandlers(rpcServer: RpcServer, node: BeaconNode) {.
-    raises: [Defect, CatchableError].} =
-  rpcServer.installBeaconApiHandlers(node)
-  rpcServer.installConfigApiHandlers(node)
-  rpcServer.installDebugApiHandlers(node)
-  rpcServer.installEventApiHandlers(node)
-  rpcServer.installNimbusApiHandlers(node)
-  rpcServer.installNodeApiHandlers(node)
-  rpcServer.installValidatorApiHandlers(node)
-
 proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installBeaconApiHandlers(node)
   restServer.router.installConfigApiHandlers(node)
@@ -1464,10 +1451,6 @@ proc startBackfillTask(node: BeaconNode) {.async.} =
 
 proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   bnStatus = BeaconNodeStatus.Running
-
-  if not(isNil(node.rpcServer)):
-    node.rpcServer.installRpcHandlers(node)
-    node.rpcServer.start()
 
   if not(isNil(node.restServer)):
     node.restServer.installRestHandlers(node)
