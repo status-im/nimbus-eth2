@@ -62,9 +62,6 @@ The following options are available:
      --metrics-port            Listening HTTP port of the metrics server [=8008].
      --status-bar              Display a status bar at the bottom of the terminal screen [=true].
      --status-bar-contents     Textual template for the contents of the status bar.
-     --rpc                     Enable the JSON-RPC server (deprecated) [=false].
-     --rpc-port                HTTP port for the JSON-RPC service [=9190].
-     --rpc-address             Listening address of the RPC server [=127.0.0.1].
      --rest                    Enable the REST server [=false].
      --rest-port               Port for the REST server [=5052].
      --rest-address            Listening address of the REST server [=127.0.0.1].
