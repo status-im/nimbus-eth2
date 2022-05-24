@@ -179,10 +179,12 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
           # which should identify the network with high likelihood.
           let data = (genesisData[0 ..< 40].toHex())
           data in [
+            # Kiln
+            "0C572B620000000099B09FCD43E5905236C370F184056BEC6E6638CFC31A323B304FC4AA789CB4AD",
+            # Ropsten
+            "F0DB94620000000044F1E56283CA88B35C789F7F449E52339BC1FEFE3A45913A43A6D16EDCD33CF1",
             # Prater
             "60F4596000000000043DB0D9A83813551EE2F33450D23797757D430911A9320530AD8A0EABC43EFB",
-            # Kiln
-            "0C572B620000000099B09FCD43E5905236C370F184056BEC6E6638CFC31A323B304FC4AA789CB4AD"
           ]
         else:
           false
