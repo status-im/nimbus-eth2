@@ -34,7 +34,6 @@ fi
 : ${DATA_DIR_NAME:="shared_${NETWORK}_${NODE_ID}"}
 : ${DATA_DIR:="build/data/${DATA_DIR_NAME}"}
 : ${BASE_P2P_PORT:=9000}
-: ${BASE_RPC_PORT:=9190}
 : ${BASE_REST_PORT:=5052}
 
 # Windows detection
@@ -97,8 +96,6 @@ exec ${WINPTY} build/${NBC_BINARY} \
   --udp-port=$(( ${BASE_P2P_PORT} + ${NODE_ID} )) \
   --rest \
   --rest-port=$(( ${BASE_REST_PORT} + ${NODE_ID} )) \
-  --rpc \
-  --rpc-port=$(( ${BASE_RPC_PORT} +${NODE_ID} )) \
   --metrics \
   ${EXTRA_ARGS} \
   $@
