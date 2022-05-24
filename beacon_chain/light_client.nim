@@ -162,6 +162,16 @@ proc createLightClient*(
     dumpEnabled = false, dumpDirInvalid = ".", dumpDirIncoming = ".",
     cfg, forkDigests, getBeaconTime, genesis_validators_root)
 
+proc start*(lightClient: LightClient) =
+  notice "Starting light client",
+    trusted_block_root = lightClient.trustedBlockRoot
+  lightClient.manager.start()
+
+from
+  libp2p/protocols/pubsub/gossipsub
+import
+  TopicParams, validateParameters, init
+
 proc installMessageValidators*(lightClient: LightClient) =
   template getLocalWallPeriod(): auto =
     lightClient.getBeaconTime().slotOrZero().sync_committee_period
@@ -193,16 +203,6 @@ proc installMessageValidators*(lightClient: LightClient) =
               MsgSource.gossip, msg))
         else:
           ValidationResult.Ignore)
-
-proc start*(lightClient: LightClient) =
-  notice "Starting light client",
-    trusted_block_root = lightClient.trustedBlockRoot
-  lightClient.manager.start()
-
-from
-  libp2p/protocols/pubsub/gossipsub
-import
-  TopicParams, validateParameters, init
 
 const lightClientTopicParams = TopicParams.init()
 static: lightClientTopicParams.validateParameters().tryGet()
