@@ -716,19 +716,19 @@ done
 if [ "$LC_NODES" -ge "1" ]; then
   echo "Waiting for Altair finalization"
   ALTAIR_FORK_EPOCH="$(
-    curl -s "http://localhost:${BASE_REST_PORT}/eth/v1/config/fork_schedule" | \
-      jq -r '.data[1].epoch')"
+    curl -s "http://localhost:${BASE_REST_PORT}/eth/v1/config/spec" | \
+      jq -r '.data.ALTAIR_FORK_EPOCH')"
   while :; do
     CURRENT_FORK_EPOCH="$(
       curl -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/states/finalized/fork" | \
-      jq -r '.data.epoch')"
+        jq -r '.data.epoch')"
     if [ "${CURRENT_FORK_EPOCH}" -ge "${ALTAIR_FORK_EPOCH}" ]; then
       break
     fi
     sleep 1
   done
 
-  echo "Altair finalized, launching $LC_NODES light clients"
+  echo "Altair finalized, launching $LC_NODES light client(s)"
   LC_BOOTSTRAP_NODE="$(
     curl -s "http://localhost:${BASE_REST_PORT}/eth/v1/node/identity" | jq -r '.data.enr')"
   LC_TRUSTED_BLOCK_ROOT="$(
