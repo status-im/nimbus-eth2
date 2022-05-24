@@ -181,9 +181,6 @@ proc installMessageValidators*(lightClient: LightClient) =
     lightClient.network.addValidator(
       getLightClientFinalityUpdateTopic(digest),
       proc(msg: altair.LightClientFinalityUpdate): ValidationResult =
-        let
-          wallTime = lightClient.getBeaconTime()
-          wallPeriod = wallTime.slotOrZero().sync_committee_period
         if lightClient.manager.isGossipSupported(getLocalWallPeriod()):
           toValidationResult(
             lightClient.processor[].lightClientFinalityUpdateValidator(
@@ -194,9 +191,6 @@ proc installMessageValidators*(lightClient: LightClient) =
     lightClient.network.addValidator(
       getLightClientOptimisticUpdateTopic(digest),
       proc(msg: altair.LightClientOptimisticUpdate): ValidationResult =
-        let
-          wallTime = lightClient.getBeaconTime()
-          wallPeriod = wallTime.slotOrZero().sync_committee_period
         if lightClient.manager.isGossipSupported(getLocalWallPeriod()):
           toValidationResult(
             lightClient.processor[].lightClientOptimisticUpdateValidator(
