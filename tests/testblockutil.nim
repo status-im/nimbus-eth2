@@ -170,7 +170,7 @@ func makeAttestationData*(
     "Computed epoch was " & $slot.epoch &
     "  while the state current_epoch was " & $current_epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.uint64,

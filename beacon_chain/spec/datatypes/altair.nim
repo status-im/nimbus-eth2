@@ -221,7 +221,7 @@ type
     LightClientBootstrap |
     SomeLightClientUpdate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/sync-protocol.md#lightclientstore
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/sync-protocol.md#lightclientstore
   LightClientStore* = object
     finalized_header*: BeaconBlockHeader
       ## Beacon block header that is finalized
@@ -326,7 +326,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -454,7 +454,7 @@ type
     # [New in Altair]
     sync_aggregate*: TrustedSyncAggregate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig

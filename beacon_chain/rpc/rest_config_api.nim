@@ -183,7 +183,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           DEPOSIT_CONTRACT_ADDRESS:
             $cfg.DEPOSIT_CONTRACT_ADDRESS,
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#constants
           # GENESIS_SLOT
           # GENESIS_EPOCH
           # FAR_FUTURE_EPOCH
@@ -237,7 +237,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             to0xHex(DOMAIN_CONTRIBUTION_AND_PROOF.data),
           # PARTICIPATION_FLAG_WEIGHTS
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#constants
           TARGET_AGGREGATORS_PER_COMMITTEE:
             Base10.toString(TARGET_AGGREGATORS_PER_COMMITTEE),
           RANDOM_SUBNETS_PER_VALIDATOR:

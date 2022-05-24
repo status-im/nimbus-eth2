@@ -31,7 +31,7 @@ const
   TTFB_TIMEOUT* = 5.seconds
   RESP_TIMEOUT* = 10.seconds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/p2p-interface.md#configuration
   GOSSIP_MAX_SIZE_BELLATRIX* = 10 * 1024 * 1024 # bytes
   MAX_CHUNK_SIZE_BELLATRIX* = 10 * 1024 * 1024 # bytes
 
@@ -62,7 +62,7 @@ func getAttesterSlashingsTopic*(forkDigest: ForkDigest): string =
 func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicAggregateAndProofsSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
     committees_per_slot: uint64, slot: Slot, committee_index: CommitteeIndex):
     SubnetId =
@@ -78,7 +78,7 @@ func compute_subnet_for_attestation*(
     (committees_since_epoch_start + committee_index.asUInt64) mod
     ATTESTATION_SUBNET_COUNT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#broadcast-attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#broadcast-attestation
 func getAttestationTopic*(forkDigest: ForkDigest,
                           subnetId: SubnetId): string =
   ## For subscribing and unsubscribing to/from a subnet.
