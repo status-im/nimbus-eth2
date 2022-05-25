@@ -776,8 +776,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection [Preset: minimal]                                              OK
 + Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
 + Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
+OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Altair - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
@@ -948,8 +949,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection [Preset: minimal]                                              OK
 + Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
 + Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
+OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Bellatrix - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
@@ -1018,6 +1020,7 @@ OK: 38/38 Fail: 0/38 Skip: 0/38
 ## EF - ForkChoice [Preset: minimal]
 ```diff
   ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/chain_no_attestations        Skip
+  ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/discard_equivocations        Skip
   ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/filtered_block_tree          Skip
   ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/genesis                      Skip
   ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  Skip
@@ -1038,7 +1041,7 @@ OK: 38/38 Fail: 0/38 Skip: 0/38
   ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               Skip
   ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo Skip
 ```
-OK: 0/20 Fail: 0/20 Skip: 20/20
+OK: 0/21 Fail: 0/21 Skip: 21/21
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -1095,8 +1098,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection [Preset: minimal]                                              OK
 + Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
 + Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
+OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Phase 0 - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
@@ -1297,4 +1301,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 30/30 Fail: 0/30 Skip: 0/30
 
 ---TOTAL---
-OK: 1085/1107 Fail: 0/1107 Skip: 22/1107
+OK: 1088/1111 Fail: 0/1111 Skip: 23/1111

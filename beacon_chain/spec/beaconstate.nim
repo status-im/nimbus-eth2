@@ -79,12 +79,13 @@ func get_validator_churn_limit*(
       state, state.get_current_epoch(), cache) div cfg.CHURN_LIMIT_QUOTIENT)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#initiate_validator_exit
-func initiate_validator_exit*(cfg: RuntimeConfig, state: var ForkyBeaconState,
-                              index: ValidatorIndex, cache: var StateCache) =
+func initiate_validator_exit*(
+    cfg: RuntimeConfig, state: var ForkyBeaconState,
+    index: ValidatorIndex, cache: var StateCache): Result[void, cstring] =
   ## Initiate the exit of the validator with index ``index``.
 
   if state.validators.asSeq()[index].exit_epoch != FAR_FUTURE_EPOCH:
-    return # Before touching cache
+    return ok() # Before touching cache
 
   # Return if validator already initiated exit
   let validator = addr state.validators[index]
@@ -116,8 +117,15 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var ForkyBeaconState,
 
   # Set validator exit epoch and withdrawable epoch
   validator.exit_epoch = exit_queue_epoch
+
+  if  validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY <
+      validator.exit_epoch:
+    return err("initiate_validator_exit: exit_epoch overflowed")
+
   validator.withdrawable_epoch =
     validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
+
+  ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#modified-slash_validator
@@ -157,10 +165,11 @@ func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): G
 # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
-    slashed_index: ValidatorIndex, cache: var StateCache) =
+    slashed_index: ValidatorIndex, cache: var StateCache):
+    Result[void, cstring] =
   ## Slash the validator with index ``index``.
   let epoch = get_current_epoch(state)
-  initiate_validator_exit(cfg, state, slashed_index, cache)
+  ? initiate_validator_exit(cfg, state, slashed_index, cache)
   let validator = addr state.validators[slashed_index]
 
   trace "slash_validator: ejecting validator via slashing (validator_leaving)",
@@ -185,7 +194,7 @@ proc slash_validator*(
   let proposer_index = get_beacon_proposer_index(state, cache)
   if proposer_index.isNone:
     debug "No beacon proposer index and probably no active validators"
-    return
+    return ok()
 
   # Apply proposer and whistleblower rewards
   let
@@ -199,6 +208,8 @@ proc slash_validator*(
   doAssert(whistleblower_reward >= proposer_reward, "Spec bug: underflow in slash_validator")
   increase_balance(
     state, whistleblower_index, whistleblower_reward - proposer_reward)
+
+  ok()
 
 func genesis_time_from_eth1_timestamp*(cfg: RuntimeConfig, eth1_timestamp: uint64): uint64 =
   eth1_timestamp + cfg.GENESIS_DELAY
