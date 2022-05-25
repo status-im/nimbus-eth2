@@ -83,7 +83,7 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var ForkyBeaconState,
                               index: ValidatorIndex, cache: var StateCache) =
   ## Initiate the exit of the validator with index ``index``.
 
-  if state.validators[index].exit_epoch != FAR_FUTURE_EPOCH:
+  if state.validators.item(index).exit_epoch != FAR_FUTURE_EPOCH:
     return # Before touching cache
 
   # Return if validator already initiated exit
@@ -101,14 +101,14 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var ForkyBeaconState,
   var exit_queue_epoch = compute_activation_exit_epoch(get_current_epoch(state))
   # Compute max exit epoch
   for idx in 0..<state.validators.len:
-    let exit_epoch = state.validators[idx].exit_epoch
+    let exit_epoch = state.validators.item(idx).exit_epoch
     if exit_epoch != FAR_FUTURE_EPOCH and exit_epoch > exit_queue_epoch:
       exit_queue_epoch = exit_epoch
 
   var
     exit_queue_churn: int
   for idx in 0..<state.validators.len:
-    if state.validators[idx].exit_epoch == exit_queue_epoch:
+    if state.validators.item(idx).exit_epoch == exit_queue_epoch:
       exit_queue_churn += 1
 
   if exit_queue_churn.uint64 >= get_validator_churn_limit(cfg, state, cache):
@@ -275,10 +275,10 @@ proc initialize_beacon_state_from_eth1*(
           deposit = shortLog(deposit)
 
   # Process activations
-  for validator_index in 0 ..< state.validators.len:
+  for vidx in state.validators.vindices:
     let
-      balance = state.balances[validator_index]
-      validator = addr state.validators.mitem(validator_index)
+      balance = state.balances.item(vidx)
+      validator = addr state.validators.mitem(vidx)
 
     validator.effective_balance = min(
       balance - balance mod EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
@@ -652,9 +652,9 @@ func get_proposer_reward*(state: ForkyBeaconState,
       state, attestation.data, attestation.aggregation_bits, cache):
     for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
       if flag_index in participation_flag_indices and
-         not has_flag(epoch_participation.asSeq[index], flag_index):
-        epoch_participation.asSeq[index] =
-          add_flag(epoch_participation.asSeq[index], flag_index)
+         not has_flag(epoch_participation.item(index), flag_index):
+        epoch_participation[index] =
+          add_flag(epoch_participation.item(index), flag_index)
         # these are all valid; TODO statically verify or do it type-safely
         result += get_base_reward(
           state, index, base_reward_per_increment) * weight.uint64
@@ -793,7 +793,7 @@ func translate_participation(
         state, data, attestation.aggregation_bits, cache):
       for flag_index in participation_flag_indices:
         state.previous_epoch_participation[index] =
-          add_flag(state.previous_epoch_participation[index], flag_index)
+          add_flag(state.previous_epoch_participation.item(index), flag_index)
 
 func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
     ref altair.BeaconState =

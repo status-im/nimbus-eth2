@@ -274,7 +274,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
               # There is no indices, so we going to filter all the validators.
               for index, validator in getStateField(state, validators):
                 let
-                  balance = getStateField(state, balances)[index]
+                  balance = getStateField(state, balances).item(index)
                   status =
                     block:
                       let sres = validator.getStatus(current_epoch)
@@ -289,8 +289,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           else:
             for index in indices:
               let
-                validator = getStateField(state, validators)[index]
-                balance = getStateField(state, balances)[index]
+                validator = getStateField(state, validators).item(index)
+                balance = getStateField(state, balances).item(index)
                 status =
                   block:
                     let sres = validator.getStatus(current_epoch)
@@ -355,8 +355,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
             index
 
       let
-        validator = getStateField(state, validators)[vindex]
-        balance = getStateField(state, balances)[vindex]
+        validator = getStateField(state, validators).item(vindex)
+        balance = getStateField(state, balances).item(vindex)
         status =
           block:
             let sres = validator.getStatus(current_epoch)
@@ -451,7 +451,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                                   balance))
           else:
             for index in indices:
-              let balance = getStateField(state, balances)[index]
+              let balance = getStateField(state, balances).item(index)
               res.add(RestValidatorBalance.init(index, balance))
           res
       return RestApiResponse.jsonResponse(response)

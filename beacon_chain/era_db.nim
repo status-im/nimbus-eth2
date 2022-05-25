@@ -205,7 +205,7 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
           key = withState(state[]):
             if proposer >= state.data.validators.lenu64:
               return err("Invalid proposer in block")
-            state.data.validators[proposer].pubkey
+            state.data.validators.item(proposer).pubkey
           cooked = key.load()
           sig = blck[].signature.load()
 

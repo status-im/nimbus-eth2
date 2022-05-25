@@ -53,7 +53,7 @@ func process_block_header*(
     return err("process_block_header: previous block root mismatch")
 
   # Verify proposer is not slashed
-  if state.validators[blck.proposer_index].slashed:
+  if state.validators.item(blck.proposer_index).slashed:
     return err("process_block_header: proposer slashed")
 
   # Cache current block as the new latest block
@@ -86,7 +86,7 @@ proc process_randao(
     epoch = state.get_current_epoch()
 
   if skipBlsValidation notin flags:
-    let proposer_pubkey = state.validators[proposer_index.get].pubkey
+    let proposer_pubkey = state.validators.item(proposer_index.get).pubkey
 
     if not verify_epoch_signature(
         state.fork, state.genesis_validators_root, epoch, proposer_pubkey,

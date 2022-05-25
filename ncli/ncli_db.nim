@@ -932,7 +932,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
         for index, validator in info.validators:
           template rp: untyped = rewardsAndPenalties[index]
 
-          checkBalance(index, validator, state.data.balances[index].int64,
+          checkBalance(index, validator, state.data.balances.item(index).int64,
                        previousEpochBalances[index].int64, rp)
 
           when infoFork == EpochInfoFork.Phase0:
