@@ -443,8 +443,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
 
     if executionPayloadStatus in [
         PayloadExecutionStatus.invalid,
-        PayloadExecutionStatus.invalid_block_hash,
-        PayloadExecutionStatus.invalid_terminal_block]:
+        PayloadExecutionStatus.invalid_block_hash]:
       debug "runQueueProcessingLoop: execution payload invalid",
         executionPayloadStatus
       if not blck.resfut.isNil:

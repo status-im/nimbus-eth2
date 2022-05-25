@@ -528,7 +528,7 @@ proc getExecutionPayload(node: BeaconNode, proposalState: auto):
     # Minimize window for Eth1 monitor to shut down connection
     await node.consensusManager.eth1Monitor.ensureDataProvider()
 
-    # https://github.com/ethereum/execution-apis/blob/2c3dffa1ad301a5b1d46212e1bd65e918265cd6f/src/engine/specification.md#request-2
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/specification.md#request-2
     const GETPAYLOAD_TIMEOUT = 1.seconds
 
     let
