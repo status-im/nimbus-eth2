@@ -108,23 +108,6 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + parent sanity                                                                              OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## DeleteKeys requests [Preset: mainnet]
-```diff
-+ Deleting not existing key [Preset: mainnet]                                                OK
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
-## DeleteRemoteKeys requests [Preset: mainnet]
-```diff
-+ Deleting existing local key and remote key [Preset: mainnet]                               OK
-+ Deleting not existing key [Preset: mainnet]                                                OK
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
-```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Diverging hardforks
 ```diff
 + Non-tail block in common                                                                   OK
@@ -222,22 +205,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + is_aggregator                                                                              OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
-## ImportKeystores requests [Preset: mainnet]
-```diff
-+ ImportKeystores/ListKeystores/DeleteKeystores [Preset: mainnet]                            OK
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
-## ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys [Preset: mainnet]
-```diff
-+ Importing list of remote keys [Preset: mainnet]                                            OK
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Interop
 ```diff
 + Interop genesis                                                                            OK
@@ -283,22 +250,6 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Sync [Preset: mainnet]                                                                     OK
 ```
 OK: 6/6 Fail: 0/6 Skip: 0/6
-## ListKeys requests [Preset: mainnet]
-```diff
-+ Correct token provided [Preset: mainnet]                                                   OK
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
-## ListRemoteKeys requests [Preset: mainnet]
-```diff
-+ Correct token provided [Preset: mainnet]                                                   OK
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Message signatures
 ```diff
 + Aggregate and proof signatures                                                             OK
