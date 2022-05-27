@@ -42,6 +42,9 @@ if [[ ${PIPESTATUS[0]} != 4 ]]; then
   exit 1
 fi
 
+CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit 1; }
+JQ_BINARY="$(command -v jq)" || { echo "Jq not installed. Aborting."; exit 1; }
+
 OPTS="ht:n:d:g"
 LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:"
 
@@ -308,7 +311,7 @@ LH_BINARY="lighthouse-${LH_VERSION}"
 
 if [[ "${USE_VC}" == "1" && "${LIGHTHOUSE_VC_NODES}" != "0" && ! -e "build/${LH_BINARY}" ]]; then
   pushd "build" >/dev/null
-  curl -sSLO "${LH_URL}"
+  "${CURL_BINARY}" -sSLO "${LH_URL}"
   tar -xzf "${LH_TARBALL}" # contains just one file named "lighthouse"
   rm lighthouse-* # deletes both the tarball and old binary versions
   mv lighthouse "${LH_BINARY}"
@@ -716,12 +719,12 @@ done
 if [ "$LC_NODES" -ge "1" ]; then
   echo "Waiting for Altair finalization"
   ALTAIR_FORK_EPOCH="$(
-    curl -s "http://localhost:${BASE_REST_PORT}/eth/v1/config/spec" | \
-      jq -r '.data.ALTAIR_FORK_EPOCH')"
+    "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/config/spec" | \
+      "${JQ_BINARY}" -r '.data.ALTAIR_FORK_EPOCH')"
   while :; do
     CURRENT_FORK_EPOCH="$(
-      curl -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/states/finalized/fork" | \
-        jq -r '.data.epoch')"
+      "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/states/finalized/fork" | \
+        "${JQ_BINARY}" -r '.data.epoch')"
     if [ "${CURRENT_FORK_EPOCH}" -ge "${ALTAIR_FORK_EPOCH}" ]; then
       break
     fi
@@ -730,9 +733,11 @@ if [ "$LC_NODES" -ge "1" ]; then
 
   echo "Altair finalized, launching $LC_NODES light client(s)"
   LC_BOOTSTRAP_NODE="$(
-    curl -s "http://localhost:${BASE_REST_PORT}/eth/v1/node/identity" | jq -r '.data.enr')"
+    "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/node/identity" | \
+      "${JQ_BINARY}" -r '.data.enr')"
   LC_TRUSTED_BLOCK_ROOT="$(
-    curl -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/headers/finalized" | jq -r '.data.root')"
+    "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/headers/finalized" | \
+      "${JQ_BINARY}" -r '.data.root')"
   for NUM_LC in $(seq 0 $(( LC_NODES - 1 ))); do
     ./build/nimbus_light_client \
       --log-level="${LOG_LEVEL}" \
