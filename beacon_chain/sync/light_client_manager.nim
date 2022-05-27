@@ -392,9 +392,7 @@ proc loop(self: LightClientManager) {.async.} =
   var nextFetchTime = self.getBeaconTime()
   while true:
     # Periodically wake and check for changes
-    let
-      wallTime = self.getBeaconTime()
-      wallSlot = wallTime.slotOrZero()
+    let wallTime = self.getBeaconTime()
     if wallTime < nextFetchTime or
         self.network.peerPool.lenAvailable < 1:
       await sleepAsync(chronos.seconds(2))
@@ -417,7 +415,7 @@ proc loop(self: LightClientManager) {.async.} =
     let
       finalized = self.getFinalizedPeriod()
       optimistic = self.getOptimisticPeriod()
-      current = wallSlot.sync_committee_period
+      current = wallTime.slotOrZero().sync_committee_period
       isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown()
 
       didProgress =
@@ -435,7 +433,7 @@ proc loop(self: LightClientManager) {.async.} =
           await self.query(OptimisticUpdate)
 
       schedulingMode =
-        if not didProgress or not self.isGossipSupported(wallSlot):
+        if not didProgress or not self.isGossipSupported(current):
           Soon
         elif not allowWaitNextPeriod:
           CurrentPeriod
