@@ -358,29 +358,29 @@ template query[E](
 ): Future[bool] =
   self.query(e, Nothing())
 
+type SchedulingMode = enum
+  Soon,
+  SamePeriod,
+  NextPeriod
+
 func fetchTime(
     self: LightClientManager,
     wallTime: BeaconTime,
-    didRecentlyProgress: bool,
-    allowWaitNextPeriod = false
+    schedulingMode: SchedulingMode
 ): BeaconTime =
   let
     remainingTime =
-      if didRecentlyProgress:
+      case schedulingMode:
+      of Soon:
+        chronos.seconds(0)
+      of SamePeriod:
         let
-          deadlineSlot =
-            if allowWaitNextPeriod:
-              wallTime.slotOrZero() + SLOTS_PER_SYNC_COMMITTEE_PERIOD
-            else:
-              let wallPeriod = wallTime.slotOrZero().sync_committee_period
-              (wallPeriod + 1).start_slot - 1
+          wallPeriod = wallTime.slotOrZero().sync_committee_period
+          deadlineSlot = (wallPeriod + 1).start_slot - 1
           deadline = deadlineSlot.start_beacon_time()
-        if deadline >= wallTime:
-          chronos.nanoseconds((deadline - wallTime).nanoseconds)
-        else:
-          chronos.nanoseconds(0)
-      else:
-        chronos.nanoseconds(0)
+        chronos.nanoseconds((deadline - wallTime).nanoseconds)
+      of NextPeriod:
+        chronos.seconds(SLOTS_PER_SYNC_COMMITTEE_PERIOD * SECONDS_PER_SLOT)
     minDelay = max(remainingTime div 8, chronos.seconds(30))
     jitterSeconds = (minDelay * 2).seconds
     jitterDelay = chronos.seconds(self.rng[].rand(jitterSeconds).int64)
@@ -391,7 +391,9 @@ proc loop(self: LightClientManager) {.async.} =
   var nextFetchTime = self.getBeaconTime()
   while true:
     # Periodically wake and check for changes
-    let wallTime = self.getBeaconTime()
+    let
+      wallTime = self.getBeaconTime()
+      wallSlot = wallTime.slotOrZero()
     if wallTime < nextFetchTime or
         self.network.peerPool.lenAvailable < 1:
       await sleepAsync(chronos.seconds(2))
@@ -406,7 +408,7 @@ proc loop(self: LightClientManager) {.async.} =
 
       let didProgress = await self.query(Bootstrap, trustedBlockRoot.get)
       if not didProgress:
-        nextFetchTime = self.fetchTime(wallTime, didProgress)
+        nextFetchTime = self.fetchTime(wallTime, Soon)
       continue
 
     # Fetch updates
@@ -414,7 +416,7 @@ proc loop(self: LightClientManager) {.async.} =
     let
       finalized = self.getFinalizedPeriod()
       optimistic = self.getOptimisticPeriod()
-      current = wallTime.slotOrZero().sync_committee_period
+      current = wallSlot.sync_committee_period
       isNextSyncCommitteeKnown = self.isNextSyncCommitteeKnown()
 
       didProgress =
@@ -431,7 +433,15 @@ proc loop(self: LightClientManager) {.async.} =
           allowWaitNextPeriod = true
           await self.query(OptimisticUpdate)
 
-    nextFetchTime = self.fetchTime(wallTime, didProgress, allowWaitNextPeriod)
+      schedulingMode =
+        if not didProgress or not self.isGossipSupported(wallSlot):
+          Soon
+        elif not allowWaitNextPeriod:
+          CurrentPeriod
+        else:
+          NextPeriod
+
+    nextFetchTime = self.fetchTime(wallTime, schedulingMode)
 
 proc start*(self: var LightClientManager) =
   ## Start light client manager's loop.
