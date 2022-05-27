@@ -380,7 +380,8 @@ func fetchTime(
           deadline = deadlineSlot.start_beacon_time()
         chronos.nanoseconds((deadline - wallTime).nanoseconds)
       of NextPeriod:
-        chronos.seconds(SLOTS_PER_SYNC_COMMITTEE_PERIOD * SECONDS_PER_SLOT)
+        chronos.seconds(
+          (SLOTS_PER_SYNC_COMMITTEE_PERIOD * SECONDS_PER_SLOT).int64)
     minDelay = max(remainingTime div 8, chronos.seconds(30))
     jitterSeconds = (minDelay * 2).seconds
     jitterDelay = chronos.seconds(self.rng[].rand(jitterSeconds).int64)
