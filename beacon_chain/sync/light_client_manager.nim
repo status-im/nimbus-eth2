@@ -360,7 +360,7 @@ template query[E](
 
 type SchedulingMode = enum
   Soon,
-  SamePeriod,
+  CurrentPeriod,
   NextPeriod
 
 func fetchTime(
@@ -373,7 +373,7 @@ func fetchTime(
       case schedulingMode:
       of Soon:
         chronos.seconds(0)
-      of SamePeriod:
+      of CurrentPeriod:
         let
           wallPeriod = wallTime.slotOrZero().sync_committee_period
           deadlineSlot = (wallPeriod + 1).start_slot - 1
