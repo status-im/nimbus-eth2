@@ -1711,7 +1711,7 @@ proc new*(T: type Eth2Node,
       when config is BeaconNodeConf:
         if msg.isLightClientRequest and not config.serveLightClientData.get:
           continue
-      when config is LightClientConf:
+      elif config is LightClientConf:
         if not msg.isRequired:
           continue
       if msg.protocolMounter != nil:
