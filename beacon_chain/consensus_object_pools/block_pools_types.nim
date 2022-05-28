@@ -19,9 +19,11 @@ import
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client
 
+from "."/pandas/pandas import PandaTexts
+
 export
   options, sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
-  block_pools_types_light_client, validator_monitor
+  block_pools_types_light_client, validator_monitor, PandaTexts
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
 # relationships and allowing various forms of lookups
@@ -199,6 +201,10 @@ type
       ## database. We use a ref type to facilitate sharing this small
       ## value with other components which don't have access to the
       ## full ChainDAG.
+
+    pandaTexts*: PandaTexts
+      ## Upon the merge activating, these get displayed, first when the head
+      ## is post-merge and then when the merge is finalized.
 
     # -----------------------------------
     # Data to enable light clients to stay in sync with the network

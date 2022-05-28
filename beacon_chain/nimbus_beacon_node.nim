@@ -30,6 +30,8 @@ from
 import
   TopicParams, validateParameters, init
 
+from consensus_object_pools/pandas/pandas import getPandas
+
 when defined(windows):
   import winlean
 
@@ -179,7 +181,8 @@ proc loadChainDag(
       onLCFinalityUpdateCb = onLightClientFinalityUpdateCb,
       onLCOptimisticUpdateCb = onLightClientOptimisticUpdateCb,
       serveLightClientData = config.serveLightClientData.get,
-      importLightClientData = config.importLightClientData.get)
+      importLightClientData = config.importLightClientData.get,
+      pandaTexts = getPandas(detectTTY(config.logStdout)))
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState, genesis_validators_root)
 

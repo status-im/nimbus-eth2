@@ -663,7 +663,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            onLCFinalityUpdateCb: OnLightClientFinalityUpdateCallback = nil,
            onLCOptimisticUpdateCb: OnLightClientOptimisticUpdateCallback = nil,
            serveLightClientData = false,
-           importLightClientData = ImportLightClientData.None): ChainDAGRef =
+           importLightClientData = ImportLightClientData.None,
+           pandaTexts = default(PandaTexts)): ChainDAGRef =
   # TODO move fork version sanity checking elsewhere?
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
@@ -704,6 +705,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       # allow skipping some validation.
       updateFlags: {verifyFinalization} * updateFlags,
       cfg: cfg,
+
+      pandaTexts: pandaTexts,
 
       serveLightClientData: serveLightClientData,
       importLightClientData: importLightClientData,
@@ -1547,8 +1550,16 @@ proc updateHead*(
     error "Cannot update head to block without parent"
     return
 
+  template getHeadStateMergeComplete(): bool =
+    withState(dag.headState):
+      when stateFork >= BeaconStateFork.Bellatrix:
+        is_merge_transition_complete(state.data)
+      else:
+        false
+
   let
     lastHeadStateRoot = getStateRoot(dag.headState)
+    lastHeadMergeComplete = getHeadStateMergeComplete()
 
   # Start off by making sure we have the right state - updateState will try
   # to use existing in-memory states to make this smooth
@@ -1562,7 +1573,11 @@ proc updateHead*(
     fatal "Unable to load head state during head update, database corrupt?",
       lastHead = shortLog(lastHead)
     quit 1
+
   dag.head = newHead
+
+  if getHeadStateMergeComplete() and not lastHeadMergeComplete:
+    dag.pandaTexts.headPanda()
 
   dag.db.putHeadBlock(newHead.root)
 
@@ -1658,6 +1673,10 @@ proc updateHead*(
       dag.finalizedHead = finalizedHead
 
       dag.db.updateFinalizedBlocks(newFinalized)
+
+    if  oldFinalizedHead.blck.executionBlockRoot.isZero and
+        not dag.finalizedHead.blck.executionBlockRoot.isZero:
+      dag.pandaTexts.finalizedPanda()
 
     # Pruning the block dag is required every time the finalized head changes
     # in order to clear out blocks that are no longer viable and should
