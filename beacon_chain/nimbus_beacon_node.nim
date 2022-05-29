@@ -30,7 +30,7 @@ from
 import
   TopicParams, validateParameters, init
 
-from consensus_object_pools/pandas/pandas import getPandas
+from consensus_object_pools/vanity_logs/pandas import getPandas
 
 when defined(windows):
   import winlean
@@ -182,7 +182,7 @@ proc loadChainDag(
       onLCOptimisticUpdateCb = onLightClientOptimisticUpdateCb,
       serveLightClientData = config.serveLightClientData.get,
       importLightClientData = config.importLightClientData.get,
-      pandaTexts = getPandas(detectTTY(config.logStdout)))
+      vanityLogs = getPandas(detectTTY(config.logStdout)))
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState, genesis_validators_root)
 

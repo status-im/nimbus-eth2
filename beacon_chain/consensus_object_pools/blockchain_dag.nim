@@ -664,7 +664,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            onLCOptimisticUpdateCb: OnLightClientOptimisticUpdateCallback = nil,
            serveLightClientData = false,
            importLightClientData = ImportLightClientData.None,
-           pandaTexts = default(PandaTexts)): ChainDAGRef =
+           vanityLogs = default(VanityLogs)): ChainDAGRef =
   # TODO move fork version sanity checking elsewhere?
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
@@ -706,7 +706,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       updateFlags: {verifyFinalization} * updateFlags,
       cfg: cfg,
 
-      pandaTexts: pandaTexts,
+      vanityLogs: vanityLogs,
 
       serveLightClientData: serveLightClientData,
       importLightClientData: importLightClientData,
@@ -1577,7 +1577,7 @@ proc updateHead*(
   dag.head = newHead
 
   if getHeadStateMergeComplete() and not lastHeadMergeComplete:
-    dag.pandaTexts.headPanda()
+    dag.vanityLogs.onMergeTransitionBlock()
 
   dag.db.putHeadBlock(newHead.root)
 
@@ -1676,7 +1676,7 @@ proc updateHead*(
 
     if  oldFinalizedHead.blck.executionBlockRoot.isZero and
         not dag.finalizedHead.blck.executionBlockRoot.isZero:
-      dag.pandaTexts.finalizedPanda()
+      dag.vanityLogs.onFinalizedMergeTransitionBlock()
 
     # Pruning the block dag is required every time the finalized head changes
     # in order to clear out blocks that are no longer viable and should

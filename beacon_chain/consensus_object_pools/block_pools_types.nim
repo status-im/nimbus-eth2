@@ -19,11 +19,11 @@ import
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client
 
-from "."/pandas/pandas import PandaTexts
+from "."/vanity_logs/pandas import VanityLogs
 
 export
   options, sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
-  block_pools_types_light_client, validator_monitor, PandaTexts
+  block_pools_types_light_client, validator_monitor, VanityLogs
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
 # relationships and allowing various forms of lookups
@@ -202,9 +202,11 @@ type
       ## value with other components which don't have access to the
       ## full ChainDAG.
 
-    pandaTexts*: PandaTexts
-      ## Upon the merge activating, these get displayed, first when the head
-      ## is post-merge and then when the merge is finalized.
+    vanityLogs*: VanityLogs
+      ## Upon the merge activating, these get displayed, at least once when the
+      ## head becomes post-merge and then when the merge is finalized. If chain
+      ## reorgs happen around the initial merge onMergeTransitionBlock might be
+      ## called several times.
 
     # -----------------------------------
     # Data to enable light clients to stay in sync with the network
