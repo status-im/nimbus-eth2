@@ -477,7 +477,6 @@ type
         defaultValueDesc: "50"
         name: "sync-horizon" }: uint64
 
-      # https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/merge/client-settings.md#override-terminal-total-difficulty
       # TODO nim-confutils on 32-bit platforms overflows decoding integers
       # requiring 64-bit representations and doesn't build when specifying
       # UInt256 directly, so pass this through for decoding elsewhere.
@@ -501,7 +500,7 @@ type
         defaultValue: false
         name: "validator-monitor-totals" }: bool
 
-      # https://github.com/ethereum/consensus-specs/blob/v1.1.10/sync/optimistic.md#fork-choice-poisoning
+      # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#fork-choice-poisoning
       safeSlotsToImportOptimistically* {.
         hidden
         desc: "Modify SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY"
