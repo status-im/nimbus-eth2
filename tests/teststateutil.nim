@@ -26,16 +26,16 @@ proc valid_deposit(state: var ForkyHashedBeaconState) =
 
   let pre_val_count = state.data.validators.len
   let pre_balance = if validator_index < pre_val_count:
-                      state.data.balances[validator_index]
+                      state.data.balances.item(validator_index)
                     else:
                       0
   doAssert process_deposit(defaultRuntimeConfig, state.data, deposit, {}).isOk
   doAssert state.data.validators.len == pre_val_count + 1
   doAssert state.data.balances.len == pre_val_count + 1
-  doAssert state.data.balances[validator_index] == pre_balance + deposit.data.amount
-  doAssert state.data.validators[validator_index].effective_balance ==
+  doAssert state.data.balances.item(validator_index) == pre_balance + deposit.data.amount
+  doAssert state.data.validators.item(validator_index).effective_balance ==
     round_multiple_down(
-      min(MAX_EFFECTIVE_BALANCE, state.data.balances[validator_index]),
+      min(MAX_EFFECTIVE_BALANCE, state.data.balances.item(validator_index)),
       EFFECTIVE_BALANCE_INCREMENT
     )
   state.root = hash_tree_root(state.data)

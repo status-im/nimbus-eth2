@@ -217,7 +217,7 @@ suite "Gossip validation - Extra": # Not based on preset config
       subcommittee = toSeq(syncCommittee.syncSubcommittee(subcommitteeIdx))
       index = subcommittee[0]
       expectedCount = subcommittee.count(index)
-      pubkey = state[].data.validators[index].pubkey
+      pubkey = state[].data.validators.item(index).pubkey
       keystoreData = KeystoreData(kind: KeystoreKind.Local,
                                   privateKey: MockPrivKeys[index])
       validator = AttachedValidator(pubkey: pubkey,

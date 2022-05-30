@@ -51,7 +51,7 @@ func addMockAttestations*(
       for v in 0 ..< committee.len * 2 div 3 + 1:
         if remaining_balance > 0:
           # Beware of the underflows, use int
-          remaining_balance -= state.validators[v].effective_balance.int64
+          remaining_balance -= state.validators.item(v).effective_balance.int64
           aggregation_bits[v] = true
         else:
           break

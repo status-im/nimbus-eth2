@@ -53,7 +53,7 @@ func process_block_header*(
     return err("process_block_header: previous block root mismatch")
 
   # Verify proposer is not slashed
-  if state.validators.asSeq()[blck.proposer_index].slashed:
+  if state.validators.item(blck.proposer_index).slashed:
     return err("process_block_header: proposer slashed")
 
   # Cache current block as the new latest block
@@ -86,7 +86,7 @@ proc process_randao(
     epoch = state.get_current_epoch()
 
   if skipBlsValidation notin flags:
-    let proposer_pubkey = state.validators.asSeq()[proposer_index.get].pubkey
+    let proposer_pubkey = state.validators.item(proposer_index.get).pubkey
 
     if not verify_epoch_signature(
         state.fork, state.genesis_validators_root, epoch, proposer_pubkey,
@@ -99,7 +99,7 @@ proc process_randao(
     mix = get_randao_mix(state, epoch)
     rr = eth2digest(body.randao_reveal.toRaw()).data
 
-  state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data =
+  state.randao_mixes.mitem(epoch mod EPOCHS_PER_HISTORICAL_VECTOR).data =
     mix.data xor rr
 
   ok()
@@ -148,7 +148,7 @@ proc check_proposer_slashing*(
   if header_1.proposer_index >= state.validators.lenu64:
     return err("check_proposer_slashing: invalid proposer index")
 
-  let proposer = unsafeAddr state.validators.asSeq()[header_1.proposer_index]
+  let proposer = unsafeAddr state.validators[header_1.proposer_index]
   if not is_slashable_validator(proposer[], get_current_epoch(state)):
     return err("check_proposer_slashing: slashed proposer")
 
@@ -220,7 +220,7 @@ proc check_attester_slashing*(
       attestation_1.attesting_indices.asSeq, it in attesting_indices_2),
       system.cmp):
     if is_slashable_validator(
-        state.validators.asSeq()[index], get_current_epoch(state)):
+        state.validators[index], get_current_epoch(state)):
       slashed_indices.add ValidatorIndex.init(index).expect(
         "checked by is_valid_indexed_attestation")
 
@@ -330,7 +330,7 @@ proc check_voluntary_exit*(
   if voluntary_exit.validator_index >= state.validators.lenu64:
     return err("Exit: invalid validator index")
 
-  let validator = unsafeAddr state.validators.asSeq()[voluntary_exit.validator_index]
+  let validator = unsafeAddr state.validators[voluntary_exit.validator_index]
 
   # Verify the validator is active
   if not is_active_validator(validator[], get_current_epoch(state)):
@@ -436,7 +436,7 @@ proc process_sync_aggregate*(
     var participant_pubkeys: seq[ValidatorPubKey]
     for i in 0 ..< state.current_sync_committee.pubkeys.len:
       if sync_aggregate.sync_committee_bits[i]:
-        participant_pubkeys.add state.current_sync_committee.pubkeys[i]
+        participant_pubkeys.add state.current_sync_committee.pubkeys.data[i]
 
     # p2p-interface message validators check for empty sync committees, so it
     # shouldn't run except as part of test suite.

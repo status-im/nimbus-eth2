@@ -75,8 +75,12 @@ func inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
     inspectType(tImpl[0], xSubField, ySubField, stmts)
   of {nnkSym, nnkBracketExpr}:
     if tImpl.kind == nnkBracketExpr:
+      if tImpl[0].eqIdent"HashList" or tImpl[0].eqIdent"HashArray":
+        # TODO  resolve trouble with overloaded `[]` template
+        discard
+      else:
       # doAssert tImpl[0].eqIdent"List" or tImpl[0].eqIdent"seq" or tImpl[0].eqIdent"array", "Error: unsupported generic type: " & $tImpl[0]
-      compareContainerStmt(xSubField, ySubField, stmts)
+        compareContainerStmt(xSubField, ySubField, stmts)
     elif $tImpl in builtinTypes:
       compareStmt(xSubField, ySubField, stmts)
     elif $tImpl in ["ValidatorSig", "ValidatorPubKey"]:

@@ -169,13 +169,13 @@ func getBeaconBlockExits*(pool: var ExitPool, state: ForkyBeaconState): BeaconBl
     res: BeaconBlockExits
 
   getExitMessagesForBlock(
-    pool.attester_slashings, state.validators.asSeq(), indices,
+    pool.attester_slashings, state.validators, indices,
     res.attester_slashings)
   getExitMessagesForBlock(
-    pool.proposer_slashings, state.validators.asSeq(), indices,
+    pool.proposer_slashings, state.validators, indices,
     res.proposer_slashings)
   getExitMessagesForBlock(
-    pool.voluntary_exits, state.validators.asSeq(), indices,
+    pool.voluntary_exits, state.validators, indices,
     res.voluntary_exits)
 
   res

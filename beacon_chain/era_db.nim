@@ -203,9 +203,9 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
         let
           proposer = getForkedBlockField(blck[], proposer_index)
           key = withState(state[]):
-            if proposer >= state.data.validators.asSeq().lenu64:
+            if proposer >= state.data.validators.lenu64:
               return err("Invalid proposer in block")
-            state.data.validators.asSeq()[proposer].pubkey
+            state.data.validators.item(proposer).pubkey
           cooked = key.load()
           sig = blck[].signature.load()
 
@@ -374,7 +374,7 @@ iterator getBlockIds*(
     for i in x..<state[].block_roots.len():
       # TODO these are not actually valid BlockId instances in the case where
       #      the slot is missing a block - use index to filter..
-      yield BlockId(root: state[].block_roots[i], slot: slot)
+      yield BlockId(root: state[].block_roots.data[i], slot: slot)
       slot += 1
 
 proc new*(

@@ -375,7 +375,7 @@ func get_active_validator_indices*(state: ForkyBeaconState, epoch: Epoch):
 func get_active_validator_indices_len*(state: ForkyBeaconState, epoch: Epoch):
     uint64 =
   for vidx in state.validators.vindices:
-    if is_active_validator(state.validators[vidx], epoch):
+    if is_active_validator(state.validators.item(vidx), epoch):
       inc result
 
 func get_active_validator_indices_len*(

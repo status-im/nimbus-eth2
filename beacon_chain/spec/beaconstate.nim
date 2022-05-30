@@ -26,7 +26,7 @@ func increase_balance*(
     state: var ForkyBeaconState, index: ValidatorIndex, delta: Gwei) =
   ## Increase the validator balance at index ``index`` by ``delta``.
   if delta != 0: # avoid dirtying the balance cache if not needed
-    increase_balance(state.balances[index], delta)
+    increase_balance(state.balances.mitem(index), delta)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#decrease_balance
 func decrease_balance*(balance: var Gwei, delta: Gwei) =
@@ -41,7 +41,7 @@ func decrease_balance*(
   ## Decrease the validator balance at index ``index`` by ``delta``, with
   ## underflow protection.
   if delta != 0: # avoid dirtying the balance cache if not needed
-    decrease_balance(state.balances[index], delta)
+    decrease_balance(state.balances.mitem(index), delta)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#deposits
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#modified-process_deposit
@@ -84,11 +84,11 @@ func initiate_validator_exit*(
     index: ValidatorIndex, cache: var StateCache): Result[void, cstring] =
   ## Initiate the exit of the validator with index ``index``.
 
-  if state.validators.asSeq()[index].exit_epoch != FAR_FUTURE_EPOCH:
+  if state.validators.item(index).exit_epoch != FAR_FUTURE_EPOCH:
     return ok() # Before touching cache
 
   # Return if validator already initiated exit
-  let validator = addr state.validators[index]
+  let validator = addr state.validators.mitem(index)
 
   trace "Validator exiting",
     index = index,
@@ -102,14 +102,14 @@ func initiate_validator_exit*(
   var exit_queue_epoch = compute_activation_exit_epoch(get_current_epoch(state))
   # Compute max exit epoch
   for idx in 0..<state.validators.len:
-    let exit_epoch = state.validators.asSeq()[idx].exit_epoch
+    let exit_epoch = state.validators.item(idx).exit_epoch
     if exit_epoch != FAR_FUTURE_EPOCH and exit_epoch > exit_queue_epoch:
       exit_queue_epoch = exit_epoch
 
   var
     exit_queue_churn: int
   for idx in 0..<state.validators.len:
-    if state.validators.asSeq()[idx].exit_epoch == exit_queue_epoch:
+    if state.validators.item(idx).exit_epoch == exit_queue_epoch:
       exit_queue_churn += 1
 
   if exit_queue_churn.uint64 >= get_validator_churn_limit(cfg, state, cache):
@@ -170,7 +170,8 @@ proc slash_validator*(
   ## Slash the validator with index ``index``.
   let epoch = get_current_epoch(state)
   ? initiate_validator_exit(cfg, state, slashed_index, cache)
-  let validator = addr state.validators[slashed_index]
+
+  let validator = addr state.validators.mitem(slashed_index)
 
   trace "slash_validator: ejecting validator via slashing (validator_leaving)",
     index = slashed_index,
@@ -184,7 +185,7 @@ proc slash_validator*(
   validator.slashed = true
   validator.withdrawable_epoch =
     max(validator.withdrawable_epoch, epoch + EPOCHS_PER_SLASHINGS_VECTOR)
-  state.slashings[int(epoch mod EPOCHS_PER_SLASHINGS_VECTOR)] +=
+  state.slashings.mitem(int(epoch mod EPOCHS_PER_SLASHINGS_VECTOR)) +=
     validator.effective_balance
 
   decrease_balance(state, slashed_index,
@@ -286,10 +287,10 @@ proc initialize_beacon_state_from_eth1*(
           deposit = shortLog(deposit)
 
   # Process activations
-  for validator_index in 0 ..< state.validators.len:
+  for vidx in state.validators.vindices:
     let
-      balance = state.balances.asSeq()[validator_index]
-      validator = addr state.validators[validator_index]
+      balance = state.balances.item(vidx)
+      validator = addr state.validators.mitem(vidx)
 
     validator.effective_balance = min(
       balance - balance mod EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
@@ -388,7 +389,7 @@ template get_total_balance(
   ## Math safe up to ~10B ETH, afterwhich this overflows uint64.
   var res = 0.Gwei
   for validator_index in validator_indices:
-    res += state.validators.asSeq()[validator_index].effective_balance
+    res += state.validators[validator_index].effective_balance
   max(EFFECTIVE_BALANCE_INCREMENT, res)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
@@ -663,9 +664,9 @@ func get_proposer_reward*(state: ForkyBeaconState,
       state, attestation.data, attestation.aggregation_bits, cache):
     for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
       if flag_index in participation_flag_indices and
-         not has_flag(epoch_participation.asSeq[index], flag_index):
-        epoch_participation.asSeq[index] =
-          add_flag(epoch_participation.asSeq[index], flag_index)
+         not has_flag(epoch_participation.item(index), flag_index):
+        epoch_participation[index] =
+          add_flag(epoch_participation.item(index), flag_index)
         # these are all valid; TODO statically verify or do it type-safely
         result += get_base_reward(
           state, index, base_reward_per_increment) * weight.uint64
@@ -804,7 +805,7 @@ func translate_participation(
         state, data, attestation.aggregation_bits, cache):
       for flag_index in participation_flag_indices:
         state.previous_epoch_participation[index] =
-          add_flag(state.previous_epoch_participation[index], flag_index)
+          add_flag(state.previous_epoch_participation.item(index), flag_index)
 
 func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
     ref altair.BeaconState =
