@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -83,6 +83,19 @@ proc updateLogLevel*(logLevel: string) {.raises: [Defect, ValueError].} =
       if not setTopicState(topicName, settings.state, settings.logLevel):
         warn "Unrecognized logging topic", topic = topicName
 
+proc detectTTY*(stdoutKind: StdoutLogKind): StdoutLogKind =
+  if stdoutKind == StdoutLogKind.Auto:
+    if isatty(stdout):
+      # On a TTY, let's be fancy
+      StdoutLogKind.Colors
+    else:
+      # When there's no TTY, we output no colors because this matches what
+      # released binaries were doing before auto-detection was around and
+      # looks decent in systemd-captured journals.
+      StdoutLogKind.NoColors
+  else:
+    stdoutKind
+
 proc setupLogging*(
     logLevel: string, stdoutKind: StdoutLogKind, logFile: Option[OutFile]) =
   # In the cfg file for nimbus, we create two formats: textlines and json.
@@ -135,18 +148,7 @@ proc setupLogging*(
 
     defaultChroniclesStream.outputs[1].writer = fileWriter
 
-    let tmp =
-      if stdoutKind == StdoutLogKind.Auto:
-        if isatty(stdout):
-          # On a TTY, let's be fancy
-          StdoutLogKind.Colors
-        else:
-          # When there's no TTY, we output no colors because this matches what
-          # released binaries were doing before auto-detection was around and
-          # looks decent in systemd-captured journals.
-          StdoutLogKind.NoColors
-      else:
-        stdoutKind
+    let tmp = detectTTY(stdoutKind)
 
     case tmp
     of StdoutLogKind.Auto: raiseAssert "checked above"
