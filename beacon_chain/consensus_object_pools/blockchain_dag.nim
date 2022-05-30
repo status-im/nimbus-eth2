@@ -856,7 +856,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         "low to be loadable")
 
       db.getBeaconBlockSummary(backfillRoot).expect(
-        "Backfill block must have a summary")
+        "Backfill block must have a summary: " & $backfillRoot)
     else:
       withBlck(tailBlock): blck.message.toBeaconBlockSummary()
 
@@ -935,7 +935,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     summariesDur = summariesTick - loadTick,
     finalizedDur = finalizedTick - summariesTick,
     frontfillDur = frontfillTick - finalizedTick,
-    keysDur = Moment.now() - finalizedTick
+    keysDur = Moment.now() - frontfillTick
 
   dag.initLightClientCache()
 
