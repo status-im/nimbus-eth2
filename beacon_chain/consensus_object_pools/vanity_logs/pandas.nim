@@ -15,6 +15,7 @@ type
     onMergeTransitionBlock*:          proc() {.gcsafe, raises: [Defect].}
     onFinalizedMergeTransitionBlock*: proc() {.gcsafe, raises: [Defect].}
 
+# Created by http://beatscribe.com/ (beatscribe#1008 on Discord)
 # These need to be the main body of the log not to be reformatted or escaped.
 proc mono🐼()  = notice "text-version.txt".staticRead
 proc color🐼() = notice "color-version.ans".staticRead
