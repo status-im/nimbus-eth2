@@ -639,10 +639,6 @@ type
           desc: "URL of the beacon node REST service"
           name: "rest-url" }: Option[Uri]
 
-        rpcUrlForExit* {.
-          desc: "URL of the beacon node JSON-RPC service"
-          name: "rpc-url" }:  Option[Uri]
-
     of BNStartUpCmd.record:
       case recordCmd* {.command.}: RecordCmd
       of RecordCmd.create:

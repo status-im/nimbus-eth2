@@ -9,7 +9,7 @@
 import
   std/[os, sequtils, times],
   bearssl, chronicles,
-  ./spec/eth2_apis/[rpc_beacon_client, rest_beacon_client],
+  ./spec/eth2_apis/rest_beacon_client,
   ./spec/signatures,
   ./validators/keystore_management,
   "."/[conf, beacon_clock, filepath]
@@ -107,85 +107,6 @@ proc askForExitConfirmation(): ClientExitAction =
     ClientExitAction.confirmation
   else:
     ClientExitAction.quiting
-
-proc rpcValidatorExit(config: BeaconNodeConf) {.async.} =
-  warn "The JSON-PRC API is deprecated. Consider using the REST API"
-
-  let port = try:
-    let value = parseInt(config.rpcUrlForExit.get.port)
-    if value < Port.low.int or value > Port.high.int:
-      raise newException(ValueError,
-        "The port number must be between " & $Port.low & " and " & $Port.high)
-    Port value
-  except CatchableError as err:
-    fatal "Invalid port number", err = err.msg
-    quit 1
-
-  let rpcClient = newRpcHttpClient()
-
-  try:
-    await connect(rpcClient, config.rpcUrlForExit.get.hostname, port,
-                  secure = config.rpcUrlForExit.get.scheme in ["https", "wss"])
-  except CatchableError as err:
-    fatal "Failed to connect to the beacon node RPC service", err = err.msg
-    quit 1
-
-  let (validator, validatorIdx, _, _) = try:
-    await rpcClient.get_v1_beacon_states_stateId_validators_validatorId(
-      "head", config.exitedValidator)
-  except CatchableError as err:
-    fatal "Failed to obtain information for validator", err = err.msg
-    quit 1
-
-  let exitAtEpoch = if config.exitAtEpoch.isSome:
-    Epoch config.exitAtEpoch.get
-  else:
-    let headSlot = try:
-      await rpcClient.getBeaconHead()
-    except CatchableError as err:
-      fatal "Failed to obtain the current head slot", err = err.msg
-      quit 1
-    headSlot.epoch
-
-  let fork = try:
-    await rpcClient.get_v1_beacon_states_fork("head")
-  except CatchableError as err:
-    fatal "Failed to obtain the fork id of the head state", err = err.msg
-    quit 1
-
-  let genesis_validators_root = try:
-    (await rpcClient.get_v1_beacon_genesis()).genesis_validators_root
-  except CatchableError as err:
-    fatal "Failed to obtain the genesis validators root of the network",
-           err = err.msg
-    quit 1
-
-  let
-    validatorKeyAsStr = "0x" & $validator.pubkey
-    signedExit = getSignedExitMessage(config,
-                                      validatorKeyAsStr,
-                                      exitAtEpoch,
-                                      validatorIdx,
-                                      fork,
-                                      genesis_validators_root)
-
-  try:
-    let choice = askForExitConfirmation()
-    if choice == ClientExitAction.quiting:
-      quit 0
-    elif choice == ClientExitAction.confirmation:
-      let success = await rpcClient.post_v1_beacon_pool_voluntary_exits(signedExit)
-      if success:
-        echo "Successfully published voluntary exit for validator " &
-              $validatorIdx & "(" & validatorKeyAsStr[0..9] & ")."
-        quit 0
-      else:
-        echo "The voluntary exit was not submitted successfully. Please try again."
-        quit 1
-  except CatchableError as err:
-    fatal "Failed to send the signed exit message to the beacon node RPC",
-           err = err.msg
-    quit 1
 
 proc restValidatorExit(config: BeaconNodeConf) {.async.} =
   let
@@ -327,12 +248,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
     quit 1
 
 proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
-  if isSome(config.restUrlForExit):
-    await restValidatorExit(config)
-  elif isSome(config.rpcUrlForExit):
-    await rpcValidatorExit(config)
-  else:
-    await restValidatorExit(config)
+  await restValidatorExit(config)
 
 proc doDeposits*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
     raises: [Defect, CatchableError].} =
