@@ -171,7 +171,7 @@ proc slash_validator*(
   let epoch = get_current_epoch(state)
   ? initiate_validator_exit(cfg, state, slashed_index, cache)
 
-  let validator = addr state.validators.item(slashed_index)
+  let validator = addr state.validators.mitem(slashed_index)
 
   trace "slash_validator: ejecting validator via slashing (validator_leaving)",
     index = slashed_index,
