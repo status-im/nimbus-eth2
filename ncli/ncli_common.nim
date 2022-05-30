@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  re, strutils, os, math,
+  std/[os, re, strutils],
   stew/bitops2,
   ../beacon_chain/spec/[
     datatypes/base,

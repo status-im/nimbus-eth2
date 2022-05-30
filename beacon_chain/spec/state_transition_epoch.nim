@@ -798,7 +798,8 @@ func process_rewards_and_penalties(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#registry-updates
 func process_registry_updates*(
-    cfg: RuntimeConfig, state: var ForkyBeaconState, cache: var StateCache) =
+    cfg: RuntimeConfig, state: var ForkyBeaconState, cache: var StateCache):
+    Result[void, cstring] =
   ## Process activation eligibility and ejections
 
   # Make visible, e.g.,
@@ -821,10 +822,9 @@ func process_registry_updates*(
       state.validators.mitem(vidx).activation_eligibility_epoch =
         get_current_epoch(state) + 1
 
-    if is_active_validator(
-        state.validators.item(vidx), get_current_epoch(state)) and
+    if is_active_validator(state.validators.item(vidx), get_current_epoch(state)) and
         state.validators.item(vidx).effective_balance <= cfg.EJECTION_BALANCE:
-      initiate_validator_exit(cfg, state, vidx, cache)
+      ? initiate_validator_exit(cfg, state, vidx, cache)
 
   ## Queue validators eligible for activation and not dequeued for activation
   var activation_queue : seq[tuple[a: Epoch, b: ValidatorIndex]] = @[]
@@ -846,6 +846,8 @@ func process_registry_updates*(
       (_, vidx) = epoch_and_index
     state.validators.mitem(vidx).activation_epoch =
       compute_activation_exit_epoch(get_current_epoch(state))
+
+  ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#slashings
@@ -1035,7 +1037,7 @@ func process_inactivity_updates*(
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig, state: var phase0.BeaconState, flags: UpdateFlags,
-    cache: var StateCache, info: var phase0.EpochInfo) =
+    cache: var StateCache, info: var phase0.EpochInfo): Result[void, cstring] =
   let currentEpoch = get_current_epoch(state)
   trace "process_epoch",
     current_epoch = currentEpoch
@@ -1055,7 +1057,7 @@ proc process_epoch*(
     doAssert state.finalized_checkpoint.epoch + 3 >= currentEpoch
 
   process_rewards_and_penalties(state, info)
-  process_registry_updates(cfg, state, cache)
+  ? process_registry_updates(cfg, state, cache)
   process_slashings(state, info.balances.current_epoch)
   process_eth1_data_reset(state)
   process_effective_balance_updates(state)
@@ -1063,6 +1065,8 @@ proc process_epoch*(
   process_randao_mixes_reset(state)
   process_historical_roots_update(state)
   process_participation_record_updates(state)
+
+  ok()
 
 func init*(
     info: var altair.EpochInfo,
@@ -1088,8 +1092,8 @@ func init*(
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig, state: var (altair.BeaconState | bellatrix.BeaconState),
-    flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo)
-    =
+    flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
+    Result[void, cstring] =
   let currentEpoch = get_current_epoch(state)
   trace "process_epoch",
     current_epoch = currentEpoch
@@ -1115,21 +1119,17 @@ proc process_epoch*(
   process_rewards_and_penalties(cfg, state, info)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#registry-updates
-  process_registry_updates(cfg, state, cache)
+  ? process_registry_updates(cfg, state, cache)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#slashings
   process_slashings(state, info.balances.current_epoch)
 
   process_eth1_data_reset(state)
-
   process_effective_balance_updates(state)
-
   process_slashings_reset(state)
-
   process_randao_mixes_reset(state)
-
   process_historical_roots_update(state)
-
   process_participation_flag_updates(state)  # [New in Altair]
-
   process_sync_committee_updates(state)  # [New in Altair]
+
+  ok()
