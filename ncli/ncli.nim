@@ -1,7 +1,8 @@
 import
   std/[os, strutils, stats],
   confutils, chronicles, json_serialization,
-  stew/byteutils,
+  stew/[byteutils, io2],
+  snappy,
   ../research/simutils,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
   ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
@@ -80,14 +81,30 @@ template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
   of BeaconStateFork.Altair:    SSZ.saveFile(filename, value.altairData.data)
   of BeaconStateFork.Bellatrix: SSZ.saveFile(filename, value.bellatrixData.data)
 
+proc loadFile(filename: string, T: type): T =
+  let
+    ext = splitFile(filename).ext
+    bytes = readAllBytes(filename).expect("file exists")
+  if cmpIgnoreCase(ext, ".ssz") == 0:
+    SSZ.decode(bytes, T)
+  elif cmpIgnoreCase(ext, ".ssz_snappy") == 0:
+    SSZ.decode(snappy.decode(bytes), T)
+  elif cmpIgnoreCase(ext, ".json") == 0:
+    # JSON.loadFile(file, t)
+    echo "TODO needs porting to RestJson"
+    quit 1
+  else:
+    echo "Unknown file type: ", ext
+    quit 1
+
 proc doTransition(conf: NcliConf) =
   let
     stateY = (ref ForkedHashedBeaconState)(
       phase0Data: phase0.HashedBeaconState(
-        data: SSZ.loadFile(conf.preState, phase0.BeaconState)),
+        data: loadFile(conf.preState, phase0.BeaconState)),
       kind: BeaconStateFork.Phase0
     )
-    blckX = SSZ.loadFile(conf.blck, phase0.SignedBeaconBlock)
+    blckX = loadFile(conf.blck, phase0.SignedBeaconBlock)
     flags = if not conf.verifyStateRoot: {skipStateRootValidation} else: {}
 
   setStateRoot(stateY[], hash_tree_root(stateY[].phase0Data.data))
@@ -116,7 +133,7 @@ proc doSlots(conf: NcliConf) =
   let
     stateY = withTimerRet(timers[tLoadState]): (ref ForkedHashedBeaconState)(
       phase0Data: phase0.HashedBeaconState(
-        data: SSZ.loadFile(conf.preState2, phase0.BeaconState)),
+        data: loadFile(conf.preState2, phase0.BeaconState)),
       kind: BeaconStateFork.Phase0
     )
 
@@ -146,17 +163,7 @@ proc doSSZ(conf: NcliConf) =
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
   template printit(t: untyped) {.dirty.} =
-    let v = newClone(
-      if cmpIgnoreCase(ext, ".ssz") == 0:
-        SSZ.loadFile(file, t)
-      elif cmpIgnoreCase(ext, ".json") == 0:
-        # JSON.loadFile(file, t)
-        echo "TODO needs porting to RestJson"
-        quit 1
-      else:
-        echo "Unknown file type: ", ext
-        quit 1
-    )
+    let v = newClone(loadFile(file, t))
 
     case conf.cmd:
     of hashTreeRoot:
@@ -169,7 +176,6 @@ proc doSSZ(conf: NcliConf) =
     else:
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
-  let ext = splitFile(file).ext
 
   case kind
   of "attester_slashing": printit(AttesterSlashing)
