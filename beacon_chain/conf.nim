@@ -46,6 +46,7 @@ const
   defaultListenAddress* = (static ValidIpAddress.init("0.0.0.0"))
   defaultAdminListenAddress* = (static ValidIpAddress.init("127.0.0.1"))
   defaultSigningNodeRequestTimeout* = 60
+  defaultBeaconNode* = "http://127.0.0.1:" & $DefaultEth2RestPort
 
 when defined(windows):
   {.pragma: windowsOnly.}
@@ -637,6 +638,8 @@ type
 
         restUrlForExit* {.
           desc: "URL of the beacon node REST service"
+          defaultValue: defaultBeaconNode
+          defaultValueDesc: "http://127.0.0.1:5052"
           name: "rest-url" }: Option[Uri]
 
     of BNStartUpCmd.record:
@@ -696,7 +699,8 @@ type
     of BNStartUpCmd.trustedNodeSync:
       trustedNodeUrl* {.
         desc: "URL of the REST API to sync from"
-        defaultValue: "http://localhost:5052"
+        defaultValue: defaultBeaconNode
+        defaultValueDesc: "http://127.0.0.1:5052"
         name: "trusted-node-url"
       .}: string
 
@@ -788,6 +792,8 @@ type
 
     beaconNodes* {.
       desc: "URL addresses to one or more beacon node HTTP REST APIs",
+      defaultValue: @[defaultBeaconNode]
+      defaultValueDesc: "http://127.0.0.1:5052"
       name: "beacon-node" }: seq[string]
 
   SigningNodeConf* = object
