@@ -351,6 +351,20 @@ func stateForkForDigest*(
   else:
     err()
 
+func atStateFork*(
+    forkDigests: ForkDigests, stateFork: BeaconStateFork): ForkDigest =
+  case stateFork
+  of BeaconStateFork.Bellatrix:
+    forkDigests.bellatrix
+  of BeaconStateFork.Altair:
+    forkDigests.altair
+  of BeaconStateFork.Phase0:
+    forkDigests.phase0
+
+template atEpoch*(
+    forkDigests: ForkDigests, epoch: Epoch, cfg: RuntimeConfig): ForkDigest =
+  forkDigests.atStateFork(cfg.stateForkAtEpoch(epoch))
+
 template asSigned*(x: ForkedTrustedSignedBeaconBlock): ForkedSignedBeaconBlock =
   isomorphicCast[ForkedSignedBeaconBlock](x)
 

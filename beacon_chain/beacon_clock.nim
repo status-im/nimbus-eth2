@@ -56,6 +56,9 @@ proc now*(c: BeaconClock): BeaconTime =
   ## Current time, in slots - this may end up being less than GENESIS_SLOT(!)
   toBeaconTime(c, getTime())
 
+func getBeaconTimeFn*(c: BeaconClock): GetBeaconTimeFn =
+  return proc(): BeaconTime = c.now()
+
 proc fromNow*(c: BeaconClock, t: BeaconTime): tuple[inFuture: bool, offset: Duration] =
   let now = c.now()
   if t > now:

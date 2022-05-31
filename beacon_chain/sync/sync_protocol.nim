@@ -31,7 +31,7 @@ const
   blockByRangeLookupCost = allowedOpsPerSecondCost(20)
 
   # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#configuration
-  MAX_REQUEST_LIGHT_CLIENT_UPDATES = 128
+  MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
   lightClientEmptyResponseCost = allowedOpsPerSecondCost(50)
   lightClientBootstrapLookupCost = allowedOpsPerSecondCost(5)
   lightClientBootstrapResponseCost = allowedOpsPerSecondCost(100)
@@ -59,9 +59,12 @@ type
     else:
       index: uint32
 
-  BeaconSyncNetworkState* = ref object
-    dag*: ChainDAGRef
-    getBeaconTime*: GetBeaconTimeFn
+  BeaconSyncNetworkState = ref object
+    dag: ChainDAGRef
+    cfg: RuntimeConfig
+    forkDigests: ref ForkDigests
+    genesisBlockRoot: Eth2Digest
+    getBeaconTime: GetBeaconTimeFn
 
   BeaconSyncPeerState* = ref object
     statusLastTime*: chronos.Moment
@@ -151,17 +154,29 @@ func disconnectReasonName(reason: uint64): string =
   elif reason == uint64(FaultOrError): "Fault or error"
   else: "Disconnected (" & $reason & ")"
 
+func forkDigestAtEpoch(state: BeaconSyncNetworkState,
+                       epoch: Epoch): ForkDigest =
+  state.forkDigests[].atEpoch(epoch, state.cfg)
+
 proc getCurrentStatus(state: BeaconSyncNetworkState): StatusMsg =
   let
     dag = state.dag
     wallSlot = state.getBeaconTime().slotOrZero
 
-  StatusMsg(
-    forkDigest: dag.forkDigestAtEpoch(wallSlot.epoch),
-    finalizedRoot: dag.finalizedHead.blck.root,
-    finalizedEpoch: dag.finalizedHead.slot.epoch,
-    headRoot: dag.head.root,
-    headSlot: dag.head.slot)
+  if dag != nil:
+    StatusMsg(
+      forkDigest: state.forkDigestAtEpoch(wallSlot.epoch),
+      finalizedRoot: dag.finalizedHead.blck.root,
+      finalizedEpoch: dag.finalizedHead.slot.epoch,
+      headRoot: dag.head.root,
+      headSlot: dag.head.slot)
+  else:
+    StatusMsg(
+      forkDigest: state.forkDigestAtEpoch(wallSlot.epoch),
+      finalizedRoot: state.genesisBlockRoot,
+      finalizedEpoch: GENESIS_EPOCH,
+      headRoot: state.genesisBlockRoot,
+      headSlot: GENESIS_SLOT)
 
 proc checkStatusMsg(state: BeaconSyncNetworkState, status: StatusMsg):
     Result[void, cstring] =
@@ -176,15 +191,20 @@ proc checkStatusMsg(state: BeaconSyncNetworkState, status: StatusMsg):
   if status.headSlot > wallSlot:
     return err("head more recent than wall clock")
 
-  if dag.forkDigestAtEpoch(wallSlot.epoch) != status.forkDigest:
+  if state.forkDigestAtEpoch(wallSlot.epoch) != status.forkDigest:
     return err("fork digests differ")
 
-  if status.finalizedEpoch <= dag.finalizedHead.slot.epoch:
-    let blockId = dag.getBlockIdAtSlot(status.finalizedEpoch.start_slot())
-    if blockId.isSome and
-        (not status.finalizedRoot.isZero) and
-        status.finalizedRoot != blockId.get().bid.root:
-      return err("peer following different finality")
+  if dag != nil:
+    if status.finalizedEpoch <= dag.finalizedHead.slot.epoch:
+      let blockId = dag.getBlockIdAtSlot(status.finalizedEpoch.start_slot())
+      if blockId.isSome and
+          (not status.finalizedRoot.isZero) and
+          status.finalizedRoot != blockId.get().bid.root:
+        return err("peer following different finality")
+  else:
+    if status.finalizedEpoch == GENESIS_EPOCH:
+      if status.finalizedRoot != state.genesisBlockRoot:
+        return err("peer following different finality")
 
   ok()
 
@@ -229,22 +249,22 @@ p2pProtocol BeaconSync(version = 1,
   proc status(peer: Peer,
               theirStatus: StatusMsg,
               response: SingleChunkResponse[StatusMsg])
-    {.async, libp2pProtocol("status", 1).} =
+    {.async, libp2pProtocol("status", 1, isRequired = true).} =
     let ourStatus = peer.networkState.getCurrentStatus()
     trace "Sending status message", peer = peer, status = ourStatus
     await response.send(ourStatus)
     discard await peer.handleStatus(peer.networkState, theirStatus)
 
   proc ping(peer: Peer, value: uint64): uint64
-    {.libp2pProtocol("ping", 1).} =
+    {.libp2pProtocol("ping", 1, isRequired = true).} =
     return peer.network.metadata.seq_number
 
   proc getMetaData(peer: Peer): phase0.MetaData
-    {.libp2pProtocol("metadata", 1).} =
+    {.libp2pProtocol("metadata", 1, isRequired = true).} =
     return peer.network.phase0metadata
 
   proc getMetadata_v2(peer: Peer): altair.MetaData
-    {.libp2pProtocol("metadata", 2).} =
+    {.libp2pProtocol("metadata", 2, isRequired = true).} =
     return peer.network.metadata
 
   proc beaconBlocksByRange(
@@ -439,7 +459,7 @@ p2pProtocol BeaconSync(version = 1,
 
         await response.writeBytesSZ(
           uncompressedLen, bytes,
-          dag.forkDigestAtEpoch(blocks[i].slot.epoch).data)
+          peer.networkState.forkDigestAtEpoch(blocks[i].slot.epoch).data)
 
         inc found
 
@@ -495,7 +515,7 @@ p2pProtocol BeaconSync(version = 1,
 
         await response.writeBytesSZ(
           uncompressedLen, bytes,
-          dag.forkDigestAtEpoch(blockRef.slot.epoch).data)
+          peer.networkState.forkDigestAtEpoch(blockRef.slot.epoch).data)
 
         inc found
 
@@ -520,7 +540,7 @@ p2pProtocol BeaconSync(version = 1,
     if bootstrap.isOk:
       let
         contextEpoch = bootstrap.get.header.slot.epoch
-        contextBytes = dag.forkDigestAtEpoch(contextEpoch).data
+        contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
       await response.send(bootstrap.get, contextBytes)
     else:
       peer.updateRequestQuota(lightClientEmptyResponseCost)
@@ -565,7 +585,7 @@ p2pProtocol BeaconSync(version = 1,
       if update.isSome:
         let
           contextEpoch = update.get.attested_header.slot.epoch
-          contextBytes = dag.forkDigestAtEpoch(contextEpoch).data
+          contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
         await response.write(update.get, contextBytes)
         inc found
 
@@ -589,7 +609,7 @@ p2pProtocol BeaconSync(version = 1,
     if finality_update.isSome:
       let
         contextEpoch = finality_update.get.attested_header.slot.epoch
-        contextBytes = dag.forkDigestAtEpoch(contextEpoch).data
+        contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
       await response.send(finality_update.get, contextBytes)
     else:
       peer.updateRequestQuota(lightClientEmptyResponseCost)
@@ -616,7 +636,7 @@ p2pProtocol BeaconSync(version = 1,
     if optimistic_update.isSome:
       let
         contextEpoch = optimistic_update.get.attested_header.slot.epoch
-        contextBytes = dag.forkDigestAtEpoch(contextEpoch).data
+        contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
       await response.send(optimistic_update.get, contextBytes)
     else:
       peer.updateRequestQuota(lightClientEmptyResponseCost)
@@ -629,7 +649,7 @@ p2pProtocol BeaconSync(version = 1,
 
   proc goodbye(peer: Peer,
                reason: uint64)
-    {.async, libp2pProtocol("goodbye", 1).} =
+    {.async, libp2pProtocol("goodbye", 1, isRequired = true).} =
     debug "Received Goodbye message", reason = disconnectReasonName(reason), peer
 
 proc useSyncV2*(state: BeaconSyncNetworkState): bool =
@@ -689,4 +709,19 @@ proc initBeaconSync*(network: Eth2Node, dag: ChainDAGRef,
                      getBeaconTime: GetBeaconTimeFn) =
   var networkState = network.protocolState(BeaconSync)
   networkState.dag = dag
+  networkState.cfg = dag.cfg
+  networkState.forkDigests = dag.forkDigests
+  networkState.genesisBlockRoot = dag.genesisBlockRoot
+  networkState.getBeaconTime = getBeaconTime
+
+proc initBeaconSync*(network: Eth2Node,
+                     cfg: RuntimeConfig,
+                     forkDigests: ref ForkDigests,
+                     genesisBlockRoot: Eth2Digest,
+                     getBeaconTime: GetBeaconTimeFn) =
+  var networkState = network.protocolState(BeaconSync)
+  networkState.dag = nil
+  networkState.cfg = cfg
+  networkState.forkDigests = forkDigests
+  networkState.genesisBlockRoot = genesisBlockRoot
   networkState.getBeaconTime = getBeaconTime

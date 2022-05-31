@@ -944,6 +944,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 template genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =
   getStateField(dag.headState, genesis_validators_root)
 
+proc genesisBlockRoot*(dag: ChainDAGRef): Eth2Digest =
+  dag.db.getGenesisBlock().expect("DB must be initialized with genesis block")
+
 func getEpochRef*(
     dag: ChainDAGRef, state: ForkedHashedBeaconState, cache: var StateCache): EpochRef =
   ## Get a cached `EpochRef` or construct one based on the given state - always
@@ -1047,12 +1050,6 @@ func stateCheckpoint*(dag: ChainDAGRef, bsi: BlockSlotId): BlockSlotId =
 
 template forkAtEpoch*(dag: ChainDAGRef, epoch: Epoch): Fork =
   forkAtEpoch(dag.cfg, epoch)
-
-func forkDigestAtEpoch*(dag: ChainDAGRef, epoch: Epoch): ForkDigest =
-  case dag.cfg.stateForkAtEpoch(epoch)
-  of BeaconStateFork.Bellatrix: dag.forkDigests.bellatrix
-  of BeaconStateFork.Altair:    dag.forkDigests.altair
-  of BeaconStateFork.Phase0:    dag.forkDigests.phase0
 
 proc getBlockRange*(
     dag: ChainDAGRef, startSlot: Slot, skipStep: uint64,

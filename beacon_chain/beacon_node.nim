@@ -36,8 +36,6 @@ export
 type
   RpcServer* = RpcHttpServer
 
-  GossipState* = set[BeaconStateFork]
-
   BeaconNode* = ref object
     nickname*: string
     graffitiBytes*: GraffitiBytes
