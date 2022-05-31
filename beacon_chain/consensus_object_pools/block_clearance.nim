@@ -316,7 +316,8 @@ proc addBackfillBlock*(
         head = shortLog(dag.head)
       quit 1
 
-    dag.backfill = blck.toBeaconBlockSummary()
+    # Signal that we're done by resetting backfill
+    reset(dag.backfill)
     dag.db.finalizedBlocks.insert(blck.slot, blockRoot)
     dag.updateFrontfillBlocks()
 
