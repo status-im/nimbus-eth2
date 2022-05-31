@@ -76,6 +76,8 @@ type
     lastDuplicateTick: BeaconTime # Moment when last duplicate update received
     numDuplicatesSinceProgress: int # Number of duplicates since last progress
 
+    latestFinalityUpdate: altair.LightClientOptimisticUpdate
+
 const
   # These constants have been chosen empirically and are not backed by spec
   duplicateRateLimit = chronos.seconds(5) # Rate limit for counting duplicates
@@ -355,37 +357,50 @@ proc addObject*(
 # ------------------------------------------------------------------------------
 
 func toValidationError(
-    v: Result[bool, BlockError],
-    wallTime: BeaconTime): Result[void, ValidationError] =
-  if v.isOk:
-    let didProgress = v.get
+    self: var LightClientProcessor,
+    r: Result[bool, BlockError],
+    wallTime: BeaconTime,
+    obj: SomeLightClientObject): Result[void, ValidationError] =
+  if r.isOk:
+    let didProgress = r.get
     if didProgress:
-      when v is SomeLightClientUpdate:
-        let
-          signature_slot = v.signature_slot
-          currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
-          forwardTime = signature_slot.light_client_optimistic_update_time
-        if currentTime < forwardTime:
-          # [IGNORE] The `finality_update` / `optimistic_update` is received
-          # after the block at `signature_slot` was given enough time to
-          # propagate through the network.
-          return errIgnore(typeof(v).name & ": received too early")
+      let
+        signature_slot = obj.signature_slot
+        currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+        forwardTime = signature_slot.light_client_finality_update_time
+      if currentTime < forwardTime:
+        # [IGNORE] The `finality_update` is received after the block
+        # at `signature_slot` was given enough time to propagate through
+        # the network.
+        # [IGNORE] The `optimistic_update` is received after the block
+        # at `signature_slot` was given enough time to propagate through
+        # the network.
+        return errIgnore(typeof(obj).name & ": received too early")
+      when obj is altair.LightClientFinalityUpdate:
+        self.latestFinalityUpdate = obj.toOptimistic
       ok()
     else:
-      # [IGNORE] The `finality_update` / `optimistic_update`
-      # advances the `finalized_header` / `optimistic_header`
-      # of the local `LightClientStore`.
-      errIgnore(typeof(v).name & ": no significant progress")
+      when obj is altair.LightClientOptimisticUpdate:
+        # [IGNORE] The `optimistic_update` either matches corresponding fields
+        # of the most recently forwarded `LightClientFinalityUpdate` (if any),
+        # or it advances the `optimistic_header` of the local `LightClientStore`
+        if obj == self.latestFinalityUpdate:
+          return ok()
+      # [IGNORE] The `finality_update` advances the `finalized_header` of the
+      # local `LightClientStore`.
+      errIgnore(typeof(obj).name & ": no significant progress")
   else:
-    case v.error
+    case r.error
     of BlockError.Invalid:
-      # [REJECT] The `finality_update` / `optimistic_update` is valid.
-      errReject($v.error)
+      # [REJECT] The `finality_update` is valid.
+      # [REJECT] The `optimistic_update` is valid.
+      errReject($r.error)
     of BlockError.MissingParent, BlockError.UnviableFork, BlockError.Duplicate:
       # [IGNORE] No other `finality_update` with a lower or equal
-      # `finalized_header.slot` / `attested_header.slot` was already
-      # forwarded on the network.
-      errIgnore($v.error)
+      # `finalized_header.slot` was already forwarded on the network.
+      # [IGNORE] No other `optimistic_update` with a lower or equal
+      # `attested_header.slot` was already forwarded on the network.
+      errIgnore($r.error)
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_finality_update
 proc lightClientFinalityUpdateValidator*(
@@ -395,7 +410,7 @@ proc lightClientFinalityUpdateValidator*(
   let
     wallTime = self.getBeaconTime()
     r = self.storeObject(src, wallTime, finality_update)
-    v = r.toValidationError(wallTime)
+    v = self.toValidationError(r, wallTime, finality_update)
   v
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_optimistic_update
@@ -406,5 +421,5 @@ proc lightClientOptimisticUpdateValidator*(
   let
     wallTime = self.getBeaconTime()
     r = self.storeObject(src, wallTime, optimistic_update)
-    v = r.toValidationError(wallTime)
+    v = self.toValidationError(r, wallTime, optimistic_update)
   v
