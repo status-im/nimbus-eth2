@@ -108,8 +108,7 @@ proc getShortMap*[T](req: SyncRequest[T],
   res
 
 proc contains*[T](req: SyncRequest[T], slot: Slot): bool {.inline.} =
-  slot >= req.slot and slot < req.slot + req.count and
-    ((slot - req.slot) == 0)
+  slot >= req.slot and slot < req.slot + req.count
 
 proc cmp*[T](a, b: SyncRequest[T]): int =
   cmp(uint64(a.slot), uint64(b.slot))
