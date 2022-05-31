@@ -46,7 +46,7 @@ type
 
   PayloadID* = array[8, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
@@ -59,13 +59,13 @@ type
     gas_used*: uint64
     timestamp*: uint64
     extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
-    base_fee_per_gas*: Eth2Digest  # base fee introduced in EIP-1559, little-endian serialized
+    base_fee_per_gas*: UInt256
 
     # Extra payload fields
     block_hash*: Eth2Digest # Hash of execution block
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/merge/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
@@ -78,7 +78,7 @@ type
     gas_used*: uint64
     timestamp*: uint64
     extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
-    base_fee_per_gas*: Eth2Digest  # base fee introduced in EIP-1559, little-endian serialized
+    base_fee_per_gas*: UInt256
 
     # Extra payload fields
     block_hash*: Eth2Digest  # Hash of execution block

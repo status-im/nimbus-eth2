@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -57,8 +57,8 @@ proc compareContainerStmt(xSubField, ySubField: NimNode, stmts: var NimNode) =
       )
 
 func inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
-  # echo "kind: " & $tImpl.kind
-  # echo "  -- field: " & $xSubField.toStrLit
+  # debugEcho "kind: " & $tImpl.kind
+  # debugEcho "  -- field: " & $xSubField.toStrLit
   case tImpl.kind
   of nnkObjectTy:
     # pass the records
@@ -85,6 +85,10 @@ func inspectType(tImpl, xSubField, ySubField: NimNode, stmts: var NimNode) =
       compareStmt(xSubField, ySubField, stmts)
     elif $tImpl in ["ValidatorSig", "ValidatorPubKey"]:
       # Workaround BlsValue being a case object
+      compareStmt(xSubField, ySubField, stmts)
+    elif $tImpl == "UInt256":
+      # It's not useful to treat this as a container, but something more like
+      # a built-in type.
       compareStmt(xSubField, ySubField, stmts)
     else:
       inspectType(tImpl.getTypeImpl(), xSubField, ySubField, stmts)

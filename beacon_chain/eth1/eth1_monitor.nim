@@ -323,8 +323,7 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
     extra_data:
       List[byte, MAX_EXTRA_DATA_BYTES].init(
         rpcExecutionPayload.extraData.distinctBase),
-    base_fee_per_gas:
-      Eth2Digest(data: rpcExecutionPayload.baseFeePerGas.toBytesLE),
+    base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
@@ -348,8 +347,7 @@ func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     timestamp: Quantity(executionPayload.timestamp),
     extraData:
       DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
-    baseFeePerGas:
-      UInt256.fromBytesLE(executionPayload.base_fee_per_gas.data),
+    baseFeePerGas: executionPayload.base_fee_per_gas,
     blockHash: executionPayload.block_hash.asBlockHash,
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction))
 
