@@ -122,7 +122,7 @@ func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
   for slot in epoch.slots():
     cache.beacon_proposer_indices.del slot
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState, previous_slot_state_root: Eth2Digest,

@@ -82,7 +82,7 @@ const
   ZERO_HASH* = Eth2Digest()
   MAX_GRAFFITI_SIZE* = 32
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#configuration
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
 
   SLOTS_PER_ETH1_VOTING_PERIOD* =

@@ -47,7 +47,7 @@ const
   GENESIS_SLOT* = Slot(0)
   GENESIS_EPOCH* = Epoch(0) # compute_epoch_at_slot(GENESIS_SLOT)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#constant
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/fork-choice.md#constant
   INTERVALS_PER_SLOT* = 3
 
   FAR_FUTURE_BEACON_TIME* = BeaconTime(ns_since_genesis: int64.high())

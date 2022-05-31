@@ -179,7 +179,7 @@ func init*(
         of BeaconStateFork.Phase0: false
         of BeaconStateFork.Altair: false
         of BeaconStateFork.Bellatrix:
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#is_merge_transition_complete
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
           state.bellatrixData.data.latest_execution_payload_header !=
             ExecutionPayloadHeader()
     )

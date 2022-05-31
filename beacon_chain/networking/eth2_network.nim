@@ -2476,7 +2476,7 @@ proc subscribeAttestationSubnets*(
 
 proc unsubscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # Nimbus won't score attestation subnets for now; we just rely on block and
   # aggregate which are more stable and reliable
 
