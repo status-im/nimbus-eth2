@@ -110,7 +110,8 @@ proc askForExitConfirmation(): ClientExitAction =
 
 proc restValidatorExit(config: BeaconNodeConf) {.async.} =
   let
-    client = RestClientRef.new(config.restUrlForExit)
+    client = RestClientRef.new(config.restUrlForExit).valueOr:
+      raise (ref RestError)(msg: $error)
 
     stateIdHead = StateIdent(kind: StateQueryKind.Named,
                              value: StateIdentType.Head)
