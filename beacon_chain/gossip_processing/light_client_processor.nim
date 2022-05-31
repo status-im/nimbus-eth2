@@ -376,8 +376,6 @@ func toValidationError(
         # at `signature_slot` was given enough time to propagate through
         # the network.
         return errIgnore(typeof(obj).name & ": received too early")
-      when obj is altair.LightClientFinalityUpdate:
-        self.latestFinalityUpdate = obj.toOptimistic
       ok()
     else:
       when obj is altair.LightClientOptimisticUpdate:
@@ -411,6 +409,8 @@ proc lightClientFinalityUpdateValidator*(
     wallTime = self.getBeaconTime()
     r = self.storeObject(src, wallTime, finality_update)
     v = self.toValidationError(r, wallTime, finality_update)
+  if v.isOk:
+    self.latestFinalityUpdate = finality_update.toOptimistic
   v
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_optimistic_update
@@ -422,4 +422,8 @@ proc lightClientOptimisticUpdateValidator*(
     wallTime = self.getBeaconTime()
     r = self.storeObject(src, wallTime, optimistic_update)
     v = self.toValidationError(r, wallTime, optimistic_update)
+  if v.isOk:
+    let latestFinalitySlot = self.latestFinalityUpdate.attested_header.slot
+    if optimistic_update.attested_header.slot >= latestFinalitySlot:
+      self.latestFinalityUpdate.reset() # Only forward once
   v
