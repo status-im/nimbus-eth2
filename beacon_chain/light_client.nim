@@ -332,10 +332,15 @@ proc updateGossipStatus*(
       let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
       lightClient.network.unsubscribe(
         getLightClientFinalityUpdateTopic(forkDigest))
+      lightClient.network.unsubscribe(
+        getLightClientOptimisticUpdateTopic(forkDigest))
 
   for gossipFork in newGossipForks:
     if gossipFork >= BeaconStateFork.Altair:
       let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
+      lightClient.network.subscribe(
+        getLightClientFinalityUpdateTopic(forkDigest),
+        lightClientTopicParams)
       lightClient.network.subscribe(
         getLightClientOptimisticUpdateTopic(forkDigest),
         lightClientTopicParams)
