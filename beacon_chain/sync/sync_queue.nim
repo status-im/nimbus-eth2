@@ -618,6 +618,8 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       missingParentSlot: Option[Slot]
 
       # compiler segfault if this is moved into the for loop, at time of writing
+      # TODO this does segfault in 1.2 but not 1.6, so remove workaround when 1.2
+      # is dropped.
       res: Result[void, BlockError]
 
     for blk in sq.blocks(item):

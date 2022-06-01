@@ -673,8 +673,18 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     for j in i+1 ..< forkVersions.len:
       doAssert forkVersions[i] != forkVersions[j]
 
-  doAssert cfg.ALTAIR_FORK_EPOCH <= cfg.BELLATRIX_FORK_EPOCH
-  doAssert cfg.BELLATRIX_FORK_EPOCH <= cfg.SHARDING_FORK_EPOCH
+  template assertForkEpochOrder(
+      firstForkEpoch: Epoch, secondForkEpoch: Epoch) =
+    doAssert firstForkEpoch <= secondForkEpoch
+
+    # TODO https://github.com/ethereum/consensus-specs/issues/2902 multiple
+    # fork transitions per epoch don't work in a well-defined way.
+    doAssert firstForkEpoch < secondForkEpoch or
+             firstForkEpoch in [GENESIS_EPOCH, FAR_FUTURE_EPOCH]
+
+  assertForkEpochOrder(cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH)
+  assertForkEpochorder(cfg.BELLATRIX_FORK_EPOCH, cfg.SHARDING_FORK_EPOCH)
+
   doAssert updateFlags in [{}, {verifyFinalization}],
     "Other flags not supported in ChainDAG"
 
