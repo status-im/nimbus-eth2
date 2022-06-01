@@ -638,7 +638,7 @@ type
 
         restUrlForExit* {.
           desc: "URL of the beacon node REST service"
-          defaultValue: resolveTAddress(defaultBeaconNode)
+          defaultValue: defaultBeaconNode
           defaultValueDesc: "http://127.0.0.1:5052"
           name: "rest-url" }: string
 
