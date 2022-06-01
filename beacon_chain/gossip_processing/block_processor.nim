@@ -370,8 +370,7 @@ proc newExecutionPayload*(
     timestamp = executionPayload.timestamp,
     extraDataLen = executionPayload.extra_data.len,
     blockHash = executionPayload.block_hash,
-    baseFeePerGas =
-      UInt256.fromBytesLE(executionPayload.base_fee_per_gas.data),
+    baseFeePerGas = executionPayload.base_fee_per_gas,
     numTransactions = executionPayload.transactions.len
 
   if eth1Monitor.isNil:
