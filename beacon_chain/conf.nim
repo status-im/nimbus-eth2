@@ -505,7 +505,7 @@ type
       safeSlotsToImportOptimistically* {.
         hidden
         desc: "Modify SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY"
-        # https://github.com/ethereum/consensus-specs/blob/v1.1.10/sync/optimistic.md#constants
+        # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#constants
         defaultValue: 128
         name: "safe-slots-to-import-optimistically" }: uint64
 
