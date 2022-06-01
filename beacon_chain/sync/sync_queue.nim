@@ -11,7 +11,6 @@ import std/[options, heapqueue, tables, strutils, sequtils, math, algorithm]
 import stew/[results, base10], chronos, chronicles
 import
   ../spec/datatypes/[base, phase0, altair],
-  ../spec/eth2_apis/rpc_types,
   ../spec/[helpers, forks],
   ../networking/[peer_pool, eth2_network],
   ../gossip_processing/block_processor,
