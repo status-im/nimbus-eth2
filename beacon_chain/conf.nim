@@ -453,7 +453,7 @@ type
       lightClientDataImportMode* {.
         hidden
         desc: "BETA: Which classes of light client data to import. " &
-              "Must be one of: none, only-new, full (slow startup), on-demand (may miss validator duties)"
+              "Must be one of: none, only-new, full"
         name: "light-client-data-import-mode" .}: Option[LightClientDataImportMode]
 
       lightClientDataMaxPeriods* {.

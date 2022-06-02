@@ -322,7 +322,7 @@ define CONNECT_TO_NETWORK_IN_DEV_MODE
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		--light-client-enable=on \
 		--light-client-data-serve=on \
-		--light-client-data-import-mode=only-new \
+		--light-client-data-import-mode=full \
 		--dump $(NODE_PARAMS)
 endef
 

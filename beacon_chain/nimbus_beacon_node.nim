@@ -336,6 +336,12 @@ proc initFullNode(
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
 
+  proc importTaskAllowed(): bool =
+    # Suspend background task as important validator actions are approaching
+    node.actionTracker.getNextProposalSlot(node.currentSlot) == FAR_FUTURE_SLOT
+
+  dag.setLightClientImportTaskAllowedCb(importTaskAllowed)
+
   node.dag = dag
   node.quarantine = quarantine
   node.attestationPool = attestationPool
@@ -1485,8 +1491,11 @@ proc stop(node: BeaconNode) =
     waitFor node.network.stop()
   except CatchableError as exc:
     warn "Couldn't stop network", msg = exc.msg
+  try:
+    waitFor node.dag.closeLightClientDataStore()
+  except CatchableError as exc:
+    warn "Couldn't close LC data store", msg = exc.msg
 
-  node.dag.closeLightClientDataStore()
   node.attachedValidators.slashingProtection.close()
   node.db.close()
   notice "Databases closed"

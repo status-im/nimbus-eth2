@@ -50,7 +50,7 @@ template readSszBytes*(
     data: openArray[byte], val: var auto, updateRoot: bool) =
   readSszValue(data, val)
 
-func readSszBytes(T: type, data: openArray[byte], updateRoot = true): T {.
+func readSszBytes*(T: type, data: openArray[byte], updateRoot = true): T {.
     raises: [Defect, MalformedSszError, SszSizeMismatchError].} =
   var res: T
   readSszBytes(data, res, updateRoot)

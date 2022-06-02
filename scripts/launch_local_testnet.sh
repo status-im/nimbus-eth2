@@ -879,7 +879,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
     --light-client-enable=on \
     --light-client-data-serve=on \
-    --light-client-data-import-mode=only-new \
+    --light-client-data-import-mode=full \
     ${EXTRA_ARGS} \
     &> "${DATA_DIR}/log${NUM_NODE}.txt" &
 

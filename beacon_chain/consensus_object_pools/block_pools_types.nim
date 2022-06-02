@@ -335,6 +335,10 @@ template setHeadCb*(dag: ChainDAGRef, cb: OnHeadCallback) =
 template setReorgCb*(dag: ChainDAGRef, cb: OnReorgCallback) =
   dag.onReorgHappened = cb
 
+template setLightClientImportTaskAllowedCb*(
+    dag: ChainDAGRef, cb: LightClientTaskAllowedCallback) =
+  dag.lcDataStore.importTaskAllowed = cb
+
 func shortLog*(v: EpochRef): string =
   # epoch:root when logging epoch, root:slot when logging slot!
   if v.isNil():

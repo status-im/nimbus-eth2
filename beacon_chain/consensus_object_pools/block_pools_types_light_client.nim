@@ -13,6 +13,7 @@
 import
   # Status libraries
   stew/bitops2,
+  chronos,
   # Beacon chain internals
   ../spec/datatypes/altair,
   ../light_client_data_db,
@@ -26,14 +27,14 @@ type
     OnlyNew = "only-new"
       ## Import only new light client data.
     Full = "full"
-      ## Import light client data for entire weak subjectivity period.
-    OnDemand = "on-demand"
-      ## Don't precompute historic data. Slow, may miss validator duties.
+      ## Import all light client data, backfilling historic data.
 
   OnLightClientFinalityUpdateCallback* =
     proc(data: altair.LightClientFinalityUpdate) {.gcsafe, raises: [Defect].}
   OnLightClientOptimisticUpdateCallback* =
     proc(data: altair.LightClientOptimisticUpdate) {.gcsafe, raises: [Defect].}
+
+  LightClientTaskAllowedCallback* = proc(): bool {.gcsafe, raises: [Defect].}
 
   CachedLightClientData* = object
     ## Cached data from historical non-finalized states to improve speed when
@@ -103,3 +104,10 @@ type
       ## On new `LightClientFinalityUpdate` callback
     onLightClientOptimisticUpdate*: OnLightClientOptimisticUpdateCallback
       ## On new `LightClientOptimisticUpdate` callback
+
+    # -----------------------------------
+    # Historic data import
+    importFut*: Future[void]
+      ## Background task for importing historic light client data
+    importTaskAllowed*: LightClientTaskAllowedCallback
+      ## Callback to determine whether LC background task is allowed to run
