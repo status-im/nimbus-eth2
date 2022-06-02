@@ -80,7 +80,7 @@ proc updateLightClientFromDag*(node: BeaconNode) =
   let
     dagHead = node.dag.finalizedHead
     dagPeriod = dagHead.slot.sync_committee_period
-  if dagHead.slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
+  if dagHead.slot < node.dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
     return
 
   let lcHeader = node.lightClient.finalizedHeader
