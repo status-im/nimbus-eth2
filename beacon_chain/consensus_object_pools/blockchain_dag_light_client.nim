@@ -122,6 +122,7 @@ proc existingCurrentSyncCommitteeForPeriod(
   if syncCommittee.isErr:
     error "Current sync committee failed to load unexpectedly",
       period, tail = dag.tail.slot
+    doAssert verifyFinalization notin dag.updateFlags
   syncCommittee
 
 template syncCommitteeRoot(
