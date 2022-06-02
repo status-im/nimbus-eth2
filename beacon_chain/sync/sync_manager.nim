@@ -11,7 +11,7 @@ import std/[options, heapqueue, tables, strutils, sequtils, algorithm]
 import stew/[results, base10], chronos, chronicles
 import
   ../spec/datatypes/[phase0, altair],
-  ../spec/eth2_apis/rpc_types,
+  ../spec/eth2_apis/rest_types,
   ../spec/[helpers, forks],
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../beacon_clock,
@@ -659,12 +659,12 @@ proc start*[A, B](man: SyncManager[A, B]) =
   ## Starts SyncManager's main loop.
   man.syncFut = man.syncLoop()
 
-proc getInfo*[A, B](man: SyncManager[A, B]): RpcSyncInfo =
+proc getInfo*[A, B](man: SyncManager[A, B]): RestSyncInfo =
   ## Returns current synchronization information for RPC call.
   let wallSlot = man.getLocalWallSlot()
   let headSlot = man.getLocalHeadSlot()
   let sync_distance = wallSlot - headSlot
-  (
+  RestSyncInfo(
     head_slot: headSlot,
     sync_distance: sync_distance,
     is_syncing: man.inProgress

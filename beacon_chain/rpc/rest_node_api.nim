@@ -7,7 +7,6 @@ import
   ../version, ../beacon_node, ../sync/sync_manager,
   ../networking/[eth2_network, peer_pool],
   ../spec/datatypes/base,
-  ../spec/eth2_apis/rpc_types,
   ./rest_utils
 
 export rest_utils
@@ -190,18 +189,19 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $dres.error())
         dres.get()
 
-    var res: seq[RpcNodePeer]
+    var res: seq[RestNodePeer]
     for peer in node.network.peers.values():
       if (peer.connectionState in connectionMask) and
          (peer.direction in directionMask):
-        let peer = (
+        let peer = RestNodePeer(
           peer_id: $peer.peerId,
           enr: if peer.enr.isSome(): peer.enr.get().toURI() else: "",
           last_seen_p2p_address: getLastSeenAddress(node, peer.peerId),
           state: peer.connectionState.toString(),
           direction: peer.direction.toString(),
-          agent: node.network.switch.peerStore.agentBook.get(peer.peerId),       # Fields `agent` and `proto` are not
-          proto: node.network.switch.peerStore.protoVersionBook.get(peer.peerId) # part of specification
+          # Fields `agent` and `proto` are not part of specification
+          agent: node.network.switch.peerStore.agentBook.get(peer.peerId),
+          proto: node.network.switch.peerStore.protoVersionBook.get(peer.peerId)
         )
         res.add(peer)
     return RestApiResponse.jsonResponseWMeta(res, (count: uint64(len(res))))
