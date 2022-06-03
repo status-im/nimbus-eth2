@@ -49,6 +49,8 @@ type
     ALTAIR_FORK_EPOCH*: Epoch
     BELLATRIX_FORK_VERSION*: Version
     BELLATRIX_FORK_EPOCH*: Epoch
+    CAPELLA_FORK_VERSION*: Version
+    CAPELLA_FORK_EPOCH*: Epoch
     SHARDING_FORK_VERSION*: Version
     SHARDING_FORK_EPOCH*: Epoch
 
@@ -148,6 +150,9 @@ const
 
     "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
     "MIN_ANCHOR_POW_BLOCK_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
+
+    "TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH", # Never pervasively implemented, still under discussion
+    "PROPOSER_SCORE_BOOST", # Isn't being used as a preset in the usual way: at any time, there's one correct value
   ]
 
 when const_preset == "mainnet":
@@ -157,7 +162,7 @@ when const_preset == "mainnet":
   # TODO Move this to RuntimeConfig
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/configs/mainnet.yaml
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/configs/mainnet.yaml
   # TODO Read these from yaml file
   const defaultRuntimeConfig* = RuntimeConfig(
     # Mainnet config
@@ -209,8 +214,11 @@ when const_preset == "mainnet":
     # Bellatrix
     BELLATRIX_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x00],
     BELLATRIX_FORK_EPOCH: Epoch(uint64.high),
+    # Capella
+    CAPELLA_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x00],
+    CAPELLA_FORK_EPOCH: Epoch(uint64.high),
     # Sharding
-    SHARDING_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x00],
+    SHARDING_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x00],
     SHARDING_FORK_EPOCH: Epoch(uint64.high),
 
 
@@ -242,11 +250,6 @@ when const_preset == "mainnet":
     CHURN_LIMIT_QUOTIENT: 65536,
 
 
-    # Fork choice
-    # ---------------------------------------------------------------
-    # 70%
-    # TODO PROPOSER_SCORE_BOOST: 70,
-
     # Deposit contract
     # ---------------------------------------------------------------
     # Ethereum PoW Mainnet
@@ -261,7 +264,7 @@ elif const_preset == "minimal":
 
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 6
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/configs/minimal.yaml
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/configs/minimal.yaml
   const defaultRuntimeConfig* = RuntimeConfig(
     # Minimal config
 
@@ -311,8 +314,11 @@ elif const_preset == "minimal":
     # Bellatrix
     BELLATRIX_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x01],
     BELLATRIX_FORK_EPOCH: Epoch(uint64.high),
+    # Capella
+    CAPELLA_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x01],
+    CAPELLA_FORK_EPOCH: Epoch(uint64.high),
     # Sharding
-    SHARDING_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x01],
+    SHARDING_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x01],
     SHARDING_FORK_EPOCH: Epoch(uint64.high),
 
 
@@ -342,12 +348,6 @@ elif const_preset == "minimal":
     MIN_PER_EPOCH_CHURN_LIMIT: 4,
     # [customized] scale queue churn at much lower validator counts for testing
     CHURN_LIMIT_QUOTIENT: 32,
-
-
-    # Fork choice
-    # ---------------------------------------------------------------
-    # 70%
-    # TODO PROPOSER_SCORE_BOOST: 70,
 
 
     # Deposit contract

@@ -162,6 +162,7 @@ type
     phase0*:    ForkDigest
     altair*:    ForkDigest
     bellatrix*: ForkDigest
+    capella*:   ForkDigest
     sharding*:  ForkDigest
 
 template toFork*[T: phase0.BeaconState | phase0.HashedBeaconState](
@@ -604,6 +605,8 @@ func init*(T: type ForkDigests,
       compute_fork_digest(cfg.ALTAIR_FORK_VERSION, genesis_validators_root),
     bellatrix:
       compute_fork_digest(cfg.BELLATRIX_FORK_VERSION, genesis_validators_root),
+    capella:
+      compute_fork_digest(cfg.CAPELLA_FORK_VERSION, genesis_validators_root),
     sharding:
       compute_fork_digest(cfg.SHARDING_FORK_VERSION, genesis_validators_root),
   )
