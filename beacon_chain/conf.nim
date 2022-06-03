@@ -516,10 +516,6 @@ type
         desc: "Suggested fee recipient"
         name: "suggested-fee-recipient" .}: Option[Address]
 
-      suggestedFeeRecipientFile* {.
-        desc: "Suggested fee recipient file"
-        name: "suggested-fee-recipient-file" .}: Option[string]
-
     of BNStartUpCmd.createTestnet:
       testnetDepositsFile* {.
         desc: "A LaunchPad deposits file for the genesis state validators"
