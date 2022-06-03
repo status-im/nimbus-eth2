@@ -297,7 +297,7 @@ type
     BYTES_PER_LOGS_BLOOM*: uint64
     MAX_EXTRA_DATA_BYTES*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/configs/mainnet.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/configs/mainnet.yaml
     PRESET_BASE*: string
     CONFIG_NAME*: string
     TERMINAL_TOTAL_DIFFICULTY*: UInt256
@@ -311,6 +311,8 @@ type
     ALTAIR_FORK_EPOCH*: uint64
     BELLATRIX_FORK_VERSION*: Version
     BELLATRIX_FORK_EPOCH*: uint64
+    CAPELLA_FORK_VERSION*: Version
+    CAPELLA_FORK_EPOCH*: uint64
     SHARDING_FORK_VERSION*: Version
     SHARDING_FORK_EPOCH*: uint64
     SECONDS_PER_SLOT*: uint64

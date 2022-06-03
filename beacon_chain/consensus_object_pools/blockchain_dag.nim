@@ -668,7 +668,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # TODO move fork version sanity checking elsewhere?
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
-     cfg.BELLATRIX_FORK_VERSION, cfg.SHARDING_FORK_VERSION]
+     cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
+     cfg.SHARDING_FORK_VERSION]
   for i in 0 ..< forkVersions.len:
     for j in i+1 ..< forkVersions.len:
       doAssert forkVersions[i] != forkVersions[j]
@@ -683,7 +684,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
              firstForkEpoch in [GENESIS_EPOCH, FAR_FUTURE_EPOCH]
 
   assertForkEpochOrder(cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH)
-  assertForkEpochorder(cfg.BELLATRIX_FORK_EPOCH, cfg.SHARDING_FORK_EPOCH)
+  assertForkEpochOrder(cfg.BELLATRIX_FORK_EPOCH, cfg.CAPELLA_FORK_EPOCH)
+  assertForkEpochOrder(cfg.CAPELLA_FORK_EPOCH, cfg.SHARDING_FORK_EPOCH)
 
   doAssert updateFlags in [{}, {verifyFinalization}],
     "Other flags not supported in ChainDAG"
