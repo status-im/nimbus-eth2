@@ -106,6 +106,7 @@ type
     DataEnclosedObject |
     DataMetaEnclosedObject |
     DataRootEnclosedObject |
+    DataVersionEnclosedObject |
     GetBlockV2Response |
     GetKeystoresResponse |
     GetRemoteKeystoresResponse |
