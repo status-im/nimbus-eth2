@@ -840,7 +840,7 @@ proc validateVoluntaryExit*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/p2p-interface.md#sync_committee_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/p2p-interface.md#sync_committee_subnet_id
 proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
     batchCrypto: ref BatchCrypto,

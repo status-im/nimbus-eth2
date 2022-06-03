@@ -93,7 +93,7 @@ export
 
 # API
 # ----------------------------------------------------------------------
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#bls-signatures
 
 func toPubKey*(privkey: ValidatorPrivKey): CookedPubKey =
   ## Derive a public key from a private key

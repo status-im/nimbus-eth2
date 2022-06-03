@@ -150,7 +150,7 @@ func process_attestations*(
     if v.flags.contains RewardFlags.isPreviousEpochHeadAttester:
       info.balances.previous_epoch_head_attesters_raw += validator_balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.1/specs/phase0/beacon-chain.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#helpers
 # get_eligible_validator_indices
 func is_eligible_validator*(validator: RewardStatus): bool =
   validator.flags.contains(RewardFlags.isActiveInPreviousEpoch) or
@@ -495,7 +495,7 @@ func get_attestation_component_delta(is_unslashed_attester: bool,
   else:
     RewardDelta(penalties: base_reward)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.1/specs/phase0/beacon-chain.md#components-of-attestation-deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#components-of-attestation-deltas
 func get_source_delta*(validator: RewardStatus,
                        base_reward: uint64,
                        balances: TotalBalances,
@@ -1121,7 +1121,7 @@ proc process_epoch*(
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#registry-updates
   ? process_registry_updates(cfg, state, cache)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#slashings
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#slashings
   process_slashings(state, info.balances.current_epoch)
 
   process_eth1_data_reset(state)
