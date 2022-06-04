@@ -666,10 +666,15 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            importLightClientData = ImportLightClientData.None,
            vanityLogs = default(VanityLogs)): ChainDAGRef =
   # TODO move fork version sanity checking elsewhere?
+
+  # TODO re-add cfg.CAPELLA_FORK_VERSION once eth-clients repos include it and
+  # fix SHARDING_FORK_VERSION to be its new FORK_VERSION. Until then make sure
+  # that it will never actually use the Capella fork.
+  doAssert cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
+
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
-     cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
-     cfg.SHARDING_FORK_VERSION]
+     cfg.BELLATRIX_FORK_VERSION, cfg.SHARDING_FORK_VERSION]
   for i in 0 ..< forkVersions.len:
     for j in i+1 ..< forkVersions.len:
       doAssert forkVersions[i] != forkVersions[j]
