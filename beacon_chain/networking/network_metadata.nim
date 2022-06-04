@@ -240,6 +240,9 @@ when not defined(gnosisChainBinary):
       mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
       praterMetadata* = eth2Network("shared/prater", goerli)
       ropstenMetadata = mergeTestnet("ropsten-beacon-chain", ropsten)
+    static:
+      for network in [mainnetMetadata, praterMetadata, ropstenMetadata]:
+        checkForkConsistency(network.cfg)
 
   proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
     template loadRuntimeMetadata: auto =
@@ -283,6 +286,8 @@ else:
   const
     gnosisMetadata* = loadCompileTimeNetworkMetadata(
       currentSourcePath.parentDir.replace('\\', '/') & "/../../media/gnosis")
+
+  static: checkForkConsistency(gnosisMetadata.cfg)
 
   proc checkNetworkParameterUse*(eth2Network: Option[string]) =
     # Support `gnosis-chain` as network name which was used in v22.3
