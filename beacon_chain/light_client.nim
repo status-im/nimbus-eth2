@@ -299,25 +299,35 @@ static: lightClientTopicParams.validateParameters().tryGet()
 
 proc updateGossipStatus*(
     lightClient: LightClient, slot: Slot, dagIsBehind = default(Option[bool])) =
+  template cfg(): auto = lightClient.cfg
+
   let
-    isBehind =
-      if lightClient.manager.isGossipSupported(slot.sync_committee_period):
-        false
-      elif dagIsBehind.isSome:
-        # While separate message validators can be installed for both
-        # full node and light client (both are called unless one rejects msg),
-        # only a single subscription can be installed per topic for now.
-        # The full node subscription is also handled here, even though it
-        # does not directly relate to the client side of the LC sync protocol
-        dagIsBehind.get
-      else:
-        true # Force `targetGossipState` to `{}`
+    epoch = slot.epoch
+
+    lcBehind =
+      not lightClient.manager.isGossipSupported(slot.sync_committee_period)
+    dagBehind =
+      # While separate message validators can be installed for both
+      # full node and light client (both are called unless one rejects msg),
+      # only a single subscription is supported per topic.
+      # The full node subscription is also handled in this module, even though
+      # it does not directly relate to the client side of the LC sync protocol
+      dagIsBehind.get(true)
+    isBehind = lcBehind and dagBehind
+
+    currentEpochTargetGossipState = getTargetGossipState(
+      epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH, isBehind)
     targetGossipState =
-      getTargetGossipState(
-        slot.epoch,
-        lightClient.cfg.ALTAIR_FORK_EPOCH,
-        lightClient.cfg.BELLATRIX_FORK_EPOCH,
-        isBehind)
+      if lcBehind or epoch < 1:
+        currentEpochTargetGossipState
+      else:
+        # The fork digest for light client topics depends on the attested slot,
+        # which is in the past relative to the signature slot (current slot).
+        # Therefore, LC topic subscriptions are kept for 1 extra epoch.
+        let previousEpochTargetGossipState = getTargetGossipState(
+          epoch - 1, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH, isBehind)
+        currentEpochTargetGossipState + previousEpochTargetGossipState
+
   template currentGossipState(): auto = lightClient.gossipState
   if currentGossipState == targetGossipState:
     return
