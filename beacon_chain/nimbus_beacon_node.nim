@@ -690,6 +690,8 @@ proc init*(T: type BeaconNode,
   node.initFullNode(
     rng, dag, taskpool, getBeaconTime)
 
+  node.updateLightClientFromDag()
+
   node
 
 func verifyFinalization(node: BeaconNode, slot: Slot) =
