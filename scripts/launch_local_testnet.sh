@@ -46,7 +46,7 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "Jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth:,light-clients:"
 
 # default values
 NUM_NODES="10"
@@ -73,6 +73,10 @@ REMOTE_SIGNER_NODES=0
 REMOTE_SIGNER_THRESHOLD=1
 REMOTE_VALIDATORS_COUNT=0
 LC_NODES=1
+ACCOUNT_PASSWORD="nimbus"
+RUN_GETH="0"
+GETH_BINARY="${HOME}/go-ethereum/build/bin/geth"
+GETH_BASE_HTTP_PORT="8550"
 
 print_help() {
   cat <<EOF
@@ -108,6 +112,7 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
                               restore signature of the original secret key
   --remote-signers            number of remote signing nodes
   --light-clients             number of light clients
+  --run-geth                  Run geth EL clients
 EOF
 }
 
@@ -217,6 +222,10 @@ while true; do
       LC_NODES="$2"
       shift 2
       ;;
+    --run-geth)
+      RUN_GETH="1"
+      shift
+      ;;
     --)
       shift
       break
@@ -242,6 +251,18 @@ if [[ "${LIGHTHOUSE_VC_NODES}" != "0" && "${CONST_PRESET}" != "mainnet" ]]; then
   echo "The prebuilt Lighthouse binary we're using only supports mainnet. Aborting."
   exit 1
 fi
+
+if [[ "${RUN_GETH}" == "1" ]]; then
+   if [[ ! -e "${GETH_BINARY}" ]]; then
+     echo "Missing geth executable"
+     exit 1
+   else
+     NUM_GETH_NODES=${NUM_NODES}
+     echo "Starting ${NUM_GETH_NODES} Geth Nodes ..."
+     . "./scripts/start_geth_nodes.sh"
+   fi
+fi
+
 
 scripts/makedir.sh "${DATA_DIR}"
 
@@ -272,6 +293,11 @@ fi
 if [[ "${OS}" != "windows" ]]; then
   which lsof &>/dev/null || \
     { echo "'lsof' not installed and we need it to check for ports already in use. Aborting."; exit 1; }
+
+  #TODO Stop geth nodes
+  #for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
+  #for PORT in $(( BASE_GETH_PORT + NUM_NODE )) $(( BASE_METRICS_PORT + NUM_NODE )) $(( BASE_REST_PORT + NUM_NODE )); do
+  #done
 
   for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     for PORT in $(( BASE_PORT + NUM_NODE )) $(( BASE_METRICS_PORT + NUM_NODE )) $(( BASE_REST_PORT + NUM_NODE )); do
@@ -371,12 +397,15 @@ cleanup() {
   pkill -f -P $$ nimbus_signing_node &>/dev/null || true
   pkill -f -P $$ nimbus_light_client &>/dev/null || true
   pkill -f -P $$ ${LH_BINARY} &>/dev/null || true
+  pkill -f -P $$ ${GETH_BINARY} &>/dev/null || true
   sleep 2
   pkill -f -9 -P $$ nimbus_beacon_node &>/dev/null || true
   pkill -f -9 -P $$ nimbus_validator_client &>/dev/null || true
   pkill -f -9 -P $$ nimbus_signing_node &>/dev/null || true
   pkill -f -9 -P $$ nimbus_light_client &>/dev/null || true
   pkill -f -9 -P $$ ${LH_BINARY} &>/dev/null || true
+  pkill -f -9 -P $$ ${GETH_BINARY} &>/dev/null || true
+
 
   # Delete all binaries we just built, because these are unusable outside this
   # local testnet.
@@ -389,6 +418,11 @@ cleanup() {
   if [[ -n "$ETH2_DOCKER_IMAGE" ]]; then
     docker rm $(docker stop $(docker ps -a -q --filter ancestor=$ETH2_DOCKER_IMAGE --format="{{.ID}}"))
   fi
+
+  for dir in "${GETH_DATA_DIRS[@]}"
+  do
+    rm -rf "${dir}"
+  done
 }
 trap 'cleanup' SIGINT SIGTERM EXIT
 
@@ -413,7 +447,7 @@ done
 
 # deposit and testnet creation
 PIDS=""
-WEB3_ARG="--web3-url=ws://127.0.0.1:8546"
+
 BOOTSTRAP_TIMEOUT=30 # in seconds
 DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -548,16 +582,20 @@ if [[ "${USE_VC}" == "1" ]]; then
   # if using validator client binaries in addition to beacon nodes we will
   # split the keys for this instance in half between the BN and the VC
   # and the validators for the BNs will be from the first half of all validators
-  VALIDATORS_PER_NODE=$((VALIDATORS_PER_NODE / 2 ))
-  NUM_JOBS=$((NUM_JOBS * 2 ))
+  VALIDATORS_PER_NODE=$(( VALIDATORS_PER_NODE / 2 ))
+  NUM_JOBS=$(( NUM_JOBS * 2 ))
 fi
 
 if [ "$REMOTE_SIGNER_NODES" -ge "0" ]; then
-  NUM_JOBS=$((NUM_JOBS + REMOTE_SIGNER_NODES ))
+  NUM_JOBS=$(( NUM_JOBS + REMOTE_SIGNER_NODES ))
 fi
 
 if [ "$LC_NODES" -ge "1" ]; then
-  NUM_JOBS=$((NUM_JOBS + LC_NODES ))
+  NUM_JOBS=$(( NUM_JOBS + LC_NODES ))
+fi
+
+if [ "${NUM_GETH_NODES}" -ge "0" ]; then
+  NUM_JOBS=$(( NUM_JOBS + NUM_GETH_NODES ))
 fi
 
 VALIDATORS_PER_VALIDATOR=$(( (SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS) / 2 ))
@@ -673,6 +711,9 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
       fi
     done
   fi
+
+  WEB3_ARG="--web3-url=http://127.0.0.1:${GETH_HTTP_PORTS[${NUM_NODE}]}"
+
 
   ${BEACON_NODE_COMMAND} \
     --config-file="${CLI_CONF_FILE}" \
