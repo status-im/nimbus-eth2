@@ -159,7 +159,6 @@ proc startSingleNodeNetwork {.raises: [CatchableError, Defect].} =
     "--keymanager-address=127.0.0.1",
     "--keymanager-port=" & $keymanagerPort,
     "--keymanager-token-file=" & tokenFilePath,
-    "--light-client-enable=off",
     "--serve-light-client-data=off",
     "--import-light-client-data=none",
     "--doppelganger-detection=off"], it))

@@ -43,7 +43,6 @@ type
 
   Eth2NetworkConfigDefaults* = object
     ## Network specific config defaults
-    lightClientEnable*: bool
     serveLightClientData*: bool
     importLightClientData*: ImportLightClientData
 
@@ -192,8 +191,6 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
 
       configDefaults =
         Eth2NetworkConfigDefaults(
-          lightClientEnable:
-            false, # Only produces debug logs so far
           serveLightClientData:
             shouldSupportLightClient,
           importLightClientData:

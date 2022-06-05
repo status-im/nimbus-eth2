@@ -1704,7 +1704,6 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
           `field` = metadata.configDefaults.`field`
       config.`field` = some metadata.configDefaults.`field`
 
-  applyConfigDefault(lightClientEnable)
   applyConfigDefault(serveLightClientData)
   applyConfigDefault(importLightClientData)
 

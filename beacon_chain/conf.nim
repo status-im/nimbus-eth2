@@ -269,7 +269,8 @@ type
       lightClientEnable* {.
         hidden
         desc: "BETA: Accelerate sync using light client."
-        name: "light-client-enable" .}: Option[bool]
+        defaultValue: false
+        name: "light-client-enable" .}: bool
 
       lightClientTrustedBlockRoot* {.
         hidden
