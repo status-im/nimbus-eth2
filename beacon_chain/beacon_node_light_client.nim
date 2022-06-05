@@ -25,6 +25,10 @@ proc initLightClient*(
     genesis_validators_root: Eth2Digest) =
   template config(): auto = node.config
 
+  # Creating a light client is not dependent on `lightClientEnable`
+  # because the light client module also handles gossip subscriptions
+  # for broadcasting light client data as a server.
+
   let lightClient = createLightClient(
     node.network, rng, config, cfg,
     forkDigests, getBeaconTime, genesis_validators_root)
