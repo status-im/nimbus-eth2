@@ -203,10 +203,11 @@ template logValidated(
   trace "LC finality update validated", finality_update = msg
   beacon_light_client_finality_updates_received.inc()
 
-template logDropped(
-    msg: altair.LightClientFinalityUpdate, e: ValidationError) =
-  debug "Dropping LC finality update", finality_update = msg, error = e
-  beacon_light_client_finality_updates_dropped.inc(1, [$e[0]])
+proc logDropped(
+    msg: altair.LightClientFinalityUpdate, es: varargs[ValidationError]) =
+  for e in es:
+    debug "Dropping LC finality update", finality_update = msg, error = e
+  beacon_light_client_finality_updates_dropped.inc(1, [$es[0][0]])
 
 template logReceived(
     msg: altair.LightClientOptimisticUpdate) =
@@ -217,10 +218,11 @@ template logValidated(
   trace "LC optimistic update validated", optimistic_update = msg
   beacon_light_client_optimistic_updates_received.inc()
 
-template logDropped(
-    msg: altair.LightClientOptimisticUpdate, e: ValidationError) =
-  debug "Dropping LC optimistic update", optimistic_update = msg, error = e
-  beacon_light_client_optimistic_updates_dropped.inc(1, [$e[0]])
+proc logDropped(
+    msg: altair.LightClientOptimisticUpdate, es: varargs[ValidationError]) =
+  for e in es:
+    debug "Dropping LC optimistic update", optimistic_update = msg, error = e
+  beacon_light_client_optimistic_updates_dropped.inc(1, [$es[0][0]])
 
 proc installMessageValidators*(
     lightClient: LightClient, eth2Processor: ref Eth2Processor = nil) =
@@ -234,8 +236,9 @@ proc installMessageValidators*(
       msg: T, validatorProcName: untyped): ValidationResult =
     msg.logReceived()
 
-    var error: ValidationError =
-      static: (ValidationResult.Ignore, cstring T.name & ": irrelevant")
+    var
+      ignoreErrors {.noinit.}: array[2, ValidationError]
+      numIgnoreErrors = 0
 
     let res1 =
       if eth2Processor != nil:
@@ -246,7 +249,8 @@ proc installMessageValidators*(
           msg.logDropped(v.error)
           return res
         if res == ValidationResult.Ignore:
-          error = v.error
+          ignoreErrors[numIgnoreErrors] = v.error
+          inc numIgnoreErrors
         res
       else:
         ValidationResult.Ignore
@@ -260,7 +264,8 @@ proc installMessageValidators*(
           msg.logDropped(v.error)
           return res
         if res == ValidationResult.Ignore:
-          error = v.error
+          ignoreErrors[numIgnoreErrors] = v.error
+          inc numIgnoreErrors
         res
       else:
         ValidationResult.Ignore
@@ -270,7 +275,11 @@ proc installMessageValidators*(
       return ValidationResult.Accept
 
     doAssert res1 == ValidationResult.Ignore and res2 == ValidationResult.Ignore
-    msg.logDropped(error)
+    if numIgnoreErrors == 0:
+      ignoreErrors[numIgnoreErrors] = static:
+        (ValidationResult.Ignore, cstring T.name & ": irrelevant")
+      inc numIgnoreErrors
+    msg.logDropped(ignoreErrors.toOpenArray(0, numIgnoreErrors - 1))
     ValidationResult.Ignore
 
   let forkDigests = lightClient.forkDigests
