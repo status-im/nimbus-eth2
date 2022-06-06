@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 BASEDIR="$(dirname "${BASH_SOURCE[0]}")"
 
 GETH_NUM_NODES="${GETH_NUM_NODES:-4}"
@@ -10,7 +12,7 @@ GETH_HTTP_BASE_PORT="${GETH_HTTP_BASE_PORT:-8545}"
 GETH_WS_BASE_PORT="${GETH_WS_BASE_PORT:-8546}"
 GETH_AUTH_RPC_PORT_BASE="${GETH_AUTH_RPC_PORT_BASE:-8551}"
 PORT_OFFSET=100
-GENESISJSON="${GENESISJSON:-${BASEDIR}/genesis.json}"
+GENESISJSON="${GENESISJSON:-${BASEDIR}/geth_genesis.json}"
 DISCOVER="--nodiscover"
 
 #These are used in the caller script

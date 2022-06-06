@@ -76,7 +76,6 @@ LC_NODES=1
 ACCOUNT_PASSWORD="nimbus"
 RUN_GETH="0"
 GETH_BINARY="${HOME}/go-ethereum/build/bin/geth"
-GETH_BASE_HTTP_PORT="8550"
 
 print_help() {
   cat <<EOF
