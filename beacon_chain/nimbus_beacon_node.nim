@@ -30,7 +30,7 @@ from
 import
   TopicParams, validateParameters, init
 
-from consensus_object_pools/vanity_logs/pandas import getPandas
+from "."/consensus_object_pools/vanity_logs/pandas import getPandas
 
 when defined(windows):
   import winlean

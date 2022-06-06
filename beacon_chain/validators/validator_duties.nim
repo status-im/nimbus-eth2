@@ -511,7 +511,46 @@ proc get_execution_payload(
     asConsensusExecutionPayload(
       await execution_engine.getPayload(payload_id.get))
 
-proc getExecutionPayload(node: BeaconNode, proposalState: auto):
+proc getSuggestedFeeRecipient(node: BeaconNode, pubkey: ValidatorPubKey):
+    Eth1Address =
+  template defaultSuggestedFeeRecipient(): Eth1Address =
+    if node.config.suggestedFeeRecipient.isSome:
+      node.config.suggestedFeeRecipient.get
+    else:
+      # https://github.com/nim-lang/Nim/issues/19802
+      (static(default(Eth1Address)))
+
+  const feeRecipientFilename = "suggested_fee_recipient.hex"
+  let
+    keyName = "0x" & pubkey.toHex()
+    feeRecipientPath =
+      node.config.validatorsDir() / keyName / feeRecipientFilename
+
+  # In this particular case, an error might be by design. If the file exists,
+  # but doesn't load or parse that's a more urgent matter to fix. Many people
+  # people might prefer, however, not to override their default suggested fee
+  # recipients per validator, so don't warn very loudly, if at all.
+  if not fileExists(feeRecipientPath):
+    debug "getSuggestedFeeRecipient: did not find fee recipient file; using default fee recipient",
+      feeRecipientPath
+    return defaultSuggestedFeeRecipient()
+
+  try:
+    # Avoid being overly flexible initially. Trailing whitespace is common
+    # enough it probably should be allowed, but it is reasonable to simply
+    # disallow the mostly-pointless flexibility of leading whitespace.
+    Eth1Address.fromHex(strip(
+      readFile(feeRecipientPath), leading = false, trailing = true))
+  except CatchableError as exc:
+    # Because the nonexistent validator case was already checked, any failure
+    # at this point is serious enough to alert the user.
+    warn "getSuggestedFeeRecipient: failed loading fee recipient file; falling back to default fee recipient",
+      feeRecipientPath,
+      err = exc.msg
+    defaultSuggestedFeeRecipient()
+
+proc getExecutionPayload(
+    node: BeaconNode, proposalState: auto, pubkey: ValidatorPubKey):
     Future[ExecutionPayload] {.async.} =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/validator.md#executionpayload
 
@@ -532,11 +571,6 @@ proc getExecutionPayload(node: BeaconNode, proposalState: auto):
     const GETPAYLOAD_TIMEOUT = 1.seconds
 
     let
-      feeRecipient =
-        if node.config.suggestedFeeRecipient.isSome:
-          node.config.suggestedFeeRecipient.get
-        else:
-          default(Eth1Address)
       latestHead =
         if not node.dag.head.executionBlockRoot.isZero:
           node.dag.head.executionBlockRoot
@@ -545,7 +579,8 @@ proc getExecutionPayload(node: BeaconNode, proposalState: auto):
       latestFinalized = node.dag.finalizedHead.blck.executionBlockRoot
       payload_id = (await forkchoice_updated(
         proposalState.bellatrixData.data, latestHead, latestFinalized,
-        feeRecipient, node.consensusManager.eth1Monitor))
+        node.getSuggestedFeeRecipient(pubkey),
+        node.consensusManager.eth1Monitor))
       payload = awaitWithTimeout(
         get_execution_payload(payload_id, node.consensusManager.eth1Monitor),
         GETPAYLOAD_TIMEOUT):
@@ -623,7 +658,11 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
           not is_merge_transition_complete(proposalState.bellatrixData.data):
         default(bellatrix.ExecutionPayload)
       else:
-        (await getExecutionPayload(node, proposalState)),
+        let pubkey = node.dag.validatorKey(validator_index)
+        (await getExecutionPayload(
+          node, proposalState,
+          # TODO https://github.com/nim-lang/Nim/issues/19802
+          if pubkey.isSome: pubkey.get.toPubKey else: default(ValidatorPubKey))),
       noRollback, # Temporary state - no need for rollback
       cache)
     if res.isErr():
@@ -659,8 +698,8 @@ proc proposeBlock(node: BeaconNode,
       getStateField(node.dag.headState, genesis_validators_root)
     randao =
       block:
-        let res = await validator.genRandaoReveal(fork, genesis_validators_root,
-                                                  slot)
+        let res = await validator.genRandaoReveal(
+          fork, genesis_validators_root, slot)
         if res.isErr():
           error "Unable to generate randao reveal",
                 validator = shortLog(validator), error_msg = res.error()
