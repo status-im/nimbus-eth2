@@ -425,6 +425,10 @@ type
     data*: T
     meta*: JsonNode
 
+  DataVersionEnclosedObject*[T] = object
+    data*: T
+    version*: JsonNode
+
   DataRootEnclosedObject*[T] = object
     dependent_root*: Eth2Digest
     data*: T
@@ -537,7 +541,7 @@ type
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
-  GetHeaderResponse* = DataEnclosedObject[SignedBuilderBid]
+  GetHeaderResponse* = DataVersionEnclosedObject[SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]
   GetPeerResponse* = DataMetaEnclosedObject[RestNodePeer]

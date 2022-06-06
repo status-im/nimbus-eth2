@@ -10,7 +10,7 @@ import ".."/datatypes/[altair, bellatrix]
 {.push raises: [Defect].}
 
 type
-  # https://github.com/ethereum/builder-specs/blob/v0.0.0/specs/README.md#validatorregistrationv1
+  # https://github.com/ethereum/builder-specs/blob/v0.1.0/specs/README.md#validatorregistrationv1
   ValidatorRegistrationV1 = object
     fee_recipient*: ExecutionAddress
     gas_limit*: uint64
@@ -22,18 +22,18 @@ type
     message*: ValidatorRegistrationV1
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/builder-specs/blob/v0.0.0/specs/README.md#builderbid
+  # https://github.com/ethereum/builder-specs/blob/v0.1.0/specs/README.md#builderbid
   BuilderBid = object
     header*: ExecutionPayloadHeader
-    value*: Eth2Digest   # uint256
+    value*: UInt256
     pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/builder-specs/blob/v0.0.0/specs/README.md#signedbuilderbid
+  # https://github.com/ethereum/builder-specs/blob/v0.1.0/specs/README.md#signedbuilderbid
   SignedBuilderBid* = object
     message*: BuilderBid
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/builder-specs/blob/v0.0.0/specs/README.md#blindedbeaconblockbody
+  # https://github.com/ethereum/builder-specs/blob/v0.1.0/specs/README.md#blindedbeaconblockbody
   BlindedBeaconBlockBody = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -46,7 +46,7 @@ type
     sync_aggregate*: SyncAggregate
     execution_payload_header*: ExecutionPayloadHeader
 
-  # https://github.com/ethereum/builder-specs/blob/v0.0.0/specs/README.md#blindedbeaconblock
+  # https://github.com/ethereum/builder-specs/blob/v0.1.0/specs/README.md#blindedbeaconblock
   BlindedBeaconBlock* = object
     slot*: Slot
     proposer_index*: uint64
@@ -54,7 +54,7 @@ type
     state_root*: Eth2Digest
     body*: BlindedBeaconBlockBody
 
-  # https://github.com/ethereum/builder-specs/blob/v0.0.0/specs/README.md#signedblindedbeaconblock
+  # https://github.com/ethereum/builder-specs/blob/v0.1.0/specs/README.md#signedblindedbeaconblock
   SignedBlindedBeaconBlock* = object
     message*: BlindedBeaconBlock
     signature*: ValidatorSig
