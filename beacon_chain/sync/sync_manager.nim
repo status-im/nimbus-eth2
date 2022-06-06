@@ -167,9 +167,9 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
   try:
     let res =
       if peer.useSyncV2():
-        await beaconBlocksByRange_v2(peer, req.slot, req.count, req.step)
+        await beaconBlocksByRange_v2(peer, req.slot, req.count, 1)
       else:
-        (await beaconBlocksByRange(peer, req.slot, req.count, req.step)).map(
+        (await beaconBlocksByRange(peer, req.slot, req.count, 1)).map(
           proc(blcks: seq[phase0.SignedBeaconBlock]): auto =
             blcks.mapIt(newClone(ForkedSignedBeaconBlock.init(it))))
 
