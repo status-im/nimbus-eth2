@@ -41,7 +41,7 @@ type
     syncFut, processFut: Future[void]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md
-proc reportOptimisticCandidateBlock(optSync: LCOptimisticSync) =
+proc reportOptimisticCandidateBlock(optSync: LCOptimisticSync) {.gcsafe.} =
   if optSync.processFut != nil:
     return
 
@@ -210,7 +210,7 @@ proc syncUsingSyncManager(optSync: LCOptimisticSync) {.async.} =
     cancellationRequested,
     syncDur = Moment.now() - startTick
 
-proc continueSync(optSync: LCOptimisticSync) =
+proc continueSync(optSync: LCOptimisticSync) {.gcsafe.} =
   let
     currentHeadSlot = optSync.lcBlocks.getHeadSlot()
     targetHeadSlot = optSync.optimisticBid.slot
