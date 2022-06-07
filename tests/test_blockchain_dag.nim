@@ -8,9 +8,7 @@
 {.used.}
 
 import
-  chronicles,
   unittest2,
-  stew/assign2,
   eth/keys, taskpools,
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/[beaconstate, forks, helpers, signatures, state_transition],

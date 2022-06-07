@@ -8,7 +8,6 @@
 {.used.}
 
 import
-  chronicles,
   unittest2,
   ../beacon_chain/spec/forks,
   ../beacon_chain/spec/datatypes/phase0,

@@ -10,11 +10,10 @@
 import
   std/[os, options, json, typetraits, uri, algorithm],
   unittest2, chronos, chronicles, stint, json_serialization,
-  blscurve, eth/keys, nimcrypto/utils,
+  blscurve, eth/keys,
   libp2p/crypto/crypto as lcrypto,
   stew/[io2, byteutils],
   ../beacon_chain/filepath,
-  ../beacon_chain/networking/network_metadata,
   ../beacon_chain/spec/eth2_merkleization,
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/[crypto, keystore],

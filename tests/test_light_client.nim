@@ -12,7 +12,7 @@
 
 import
   # Status libraries
-  chronicles, eth/keys, stew/objects, taskpools,
+  eth/keys, stew/objects, taskpools,
   # Beacon chain internals
   ../beacon_chain/consensus_object_pools/
     [block_clearance, block_quarantine, blockchain_dag],

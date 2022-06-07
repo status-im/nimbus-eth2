@@ -12,7 +12,6 @@ import
   unittest2,
   stew/byteutils, blscurve, eth/keys, json_serialization,
   libp2p/crypto/crypto as lcrypto,
-  nimcrypto/utils as ncrutils,
   ../beacon_chain/spec/[crypto, keystore],
   ./testutil
 

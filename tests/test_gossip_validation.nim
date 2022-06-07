@@ -12,12 +12,12 @@ import
   std/sequtils,
   # Status lib
   unittest2,
-  chronicles, chronos,
+  chronos,
   eth/keys, taskpools,
   # Internal
   ../beacon_chain/[beacon_clock],
   ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
-  ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
+  ../beacon_chain/fork_choice/fork_choice,
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool,
     sync_committee_msg_pool],
