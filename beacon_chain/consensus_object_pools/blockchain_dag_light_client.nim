@@ -113,24 +113,17 @@ proc getExistingForkedBlock*(
     doAssert verifyFinalization notin dag.updateFlags
   bdata
 
-proc currentSyncCommitteeForPeriod(
+proc existingCurrentSyncCommitteeForPeriod(
     dag: ChainDAGRef,
     tmpState: var ForkedHashedBeaconState,
     period: SyncCommitteePeriod): Opt[SyncCommittee] =
-  ## Fetch a `SyncCommittee` for a given sync committee period.
-  ## For non-finalized periods, follow the chain as selected by fork choice.
-  let earliestSlot = dag.computeEarliestLightClientSlot
-  doAssert period >= earliestSlot.sync_committee_period
-  let
-    periodStartSlot = period.start_slot
-    syncCommitteeSlot = max(periodStartSlot, earliestSlot)
-    bsi = ? dag.getExistingBlockIdAtSlot(syncCommitteeSlot)
-  dag.withUpdatedExistingState(tmpState, bsi) do:
-    withState(state):
-      when stateFork >= BeaconStateFork.Altair:
-        ok state.data.current_sync_committee
-      else: raiseAssert "Unreachable"
-  do: err()
+  ## Wrapper around `currentSyncCommitteeForPeriod` for states known to exist.
+  let syncCommittee = dag.currentSyncCommitteeForPeriod(tmpState, period)
+  if syncCommittee.isErr:
+    error "Current sync committee failed to load unexpectedly",
+      period, tail = dag.tail.slot
+    doAssert verifyFinalization notin dag.updateFlags
+  syncCommittee
 
 template syncCommitteeRoot(
     state: HashedBeaconStateWithSyncCommittee): Eth2Digest =
@@ -795,7 +788,7 @@ proc getLightClientBootstrap*(
       bootstrap.header =
         blck.toBeaconBlockHeader
       bootstrap.current_sync_committee =
-        ? dag.currentSyncCommitteeForPeriod(tmpState[], period)
+        ? dag.existingCurrentSyncCommitteeForPeriod(tmpState[], period)
       bootstrap.current_sync_committee_branch =
         cachedBootstrap.current_sync_committee_branch
       return ok bootstrap

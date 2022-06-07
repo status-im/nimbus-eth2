@@ -122,10 +122,3 @@ type LightClientConf* = object
     desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
     defaultValue: 0
     name: "stop-at-epoch" }: uint64
-
-func parseCmdArg*(T: type Eth2Digest, input: string): T
-                 {.raises: [ValueError, Defect].} =
-  Eth2Digest.fromHex(input)
-
-func completeCmdArg*(T: type Eth2Digest, input: string): seq[string] =
-  return @[]

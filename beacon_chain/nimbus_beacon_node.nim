@@ -19,8 +19,8 @@ import
   ./spec/[engine_authentication, weak_subjectivity],
   ./validators/[keystore_management, validator_duties],
   "."/[
-    beacon_node, deposits, interop, nimbus_binary_common, statusbar,
-    trusted_node_sync, wallets]
+    beacon_node, beacon_node_light_client, deposits, interop,
+    nimbus_binary_common, statusbar, trusted_node_sync, wallets]
 
 when defined(posix):
   import system/ansi_c
@@ -237,6 +237,7 @@ proc initFullNode(
         discard trackFinalizedState(eth1Monitor,
                                     finalizedEpochRef.eth1_data,
                                     finalizedEpochRef.eth1_deposit_index)
+      node.updateLightClientFromDag()
       eventBus.emit("finalization", data)
 
   func getLocalHeadSlot(): Slot =
@@ -664,7 +665,7 @@ proc init*(T: type BeaconNode,
       else:
         nil
 
-  var node = BeaconNode(
+  let node = BeaconNode(
     nickname: nickname,
     graffitiBytes: if config.graffiti.isSome: config.graffiti.get
                    else: defaultGraffitiBytes(),
@@ -682,11 +683,14 @@ proc init*(T: type BeaconNode,
     gossipState: {},
     beaconClock: beaconClock,
     validatorMonitor: validatorMonitor,
-    stateTtlCache: stateTtlCache
-  )
+    stateTtlCache: stateTtlCache)
 
+  node.initLightClient(
+    rng, cfg, dag.forkDigests, getBeaconTime, dag.genesis_validators_root)
   node.initFullNode(
     rng, dag, taskpool, getBeaconTime)
+
+  node.updateLightClientFromDag()
 
   node
 
@@ -870,12 +874,6 @@ proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Sl
 
   node.network.updateSyncnetsMetadata(currentSyncCommitteeSubnets)
 
-  if node.config.serveLightClientData.get:
-    node.network.subscribe(
-      getLightClientFinalityUpdateTopic(forkDigest), basicParams)
-    node.network.subscribe(
-      getLightClientOptimisticUpdateTopic(forkDigest), basicParams)
-
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -886,12 +884,6 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
   node.network.unsubscribe(
     getSyncCommitteeContributionAndProofTopic(forkDigest))
-
-  if node.config.serveLightClientData.get:
-    node.network.unsubscribe(
-      getLightClientFinalityUpdateTopic(forkDigest))
-    node.network.unsubscribe(
-      getLightClientOptimisticUpdateTopic(forkDigest))
 
 proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   # Unlike trackNextSyncCommitteeTopics, just snap to the currently correct
@@ -1009,12 +1001,14 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     headDistance =
       if slot > head.slot: (slot - head.slot).uint64
       else: 0'u64
+    isBehind =
+      headDistance > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER
     targetGossipState =
       getTargetGossipState(
         slot.epoch,
         node.dag.cfg.ALTAIR_FORK_EPOCH,
         node.dag.cfg.BELLATRIX_FORK_EPOCH,
-        headDistance > TOPIC_SUBSCRIBE_THRESHOLD_SLOTS + HYSTERESIS_BUFFER)
+        isBehind)
 
   doAssert targetGossipState.card <= 2
 
@@ -1089,6 +1083,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
   node.gossipState = targetGossipState
   node.updateAttestationSubnetHandlers(slot)
+  node.updateLightClientGossipStatus(slot, isBehind)
 
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # Things we do when slot processing has ended and we're about to wait for the
@@ -1393,29 +1388,7 @@ proc installMessageValidators(node: BeaconNode) =
   installSyncCommitteeeValidators(forkDigests.altair)
   installSyncCommitteeeValidators(forkDigests.bellatrix)
 
-  template installLightClientDataValidators(digest: auto) =
-    node.network.addValidator(
-      getLightClientFinalityUpdateTopic(digest),
-      proc(msg: altair.LightClientFinalityUpdate): ValidationResult =
-        if node.config.serveLightClientData.get:
-          toValidationResult(
-            node.processor[].lightClientFinalityUpdateValidator(
-              MsgSource.gossip, msg))
-        else:
-          ValidationResult.Ignore)
-
-    node.network.addValidator(
-      getLightClientOptimisticUpdateTopic(digest),
-      proc(msg: altair.LightClientOptimisticUpdate): ValidationResult =
-        if node.config.serveLightClientData.get:
-          toValidationResult(
-            node.processor[].lightClientOptimisticUpdateValidator(
-              MsgSource.gossip, msg))
-        else:
-          ValidationResult.Ignore)
-
-  installLightClientDataValidators(forkDigests.altair)
-  installLightClientDataValidators(forkDigests.bellatrix)
+  node.installLightClientMessageValidators()
 
 proc stop(node: BeaconNode) =
   bnStatus = BeaconNodeStatus.Stopping
@@ -1462,6 +1435,7 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     wallTime = node.beaconClock.now()
     wallSlot = wallTime.slotOrZero()
 
+  node.startLightClient()
   node.requestManager.start()
   node.syncManager.start()
 
@@ -1723,21 +1697,18 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
   # works
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
-  if config.serveLightClientData.isNone:
-    if metadata.configDefaults.serveLightClientData:
-      info "Applying network config default",
-        serveLightClientData = metadata.configDefaults.serveLightClientData,
-        eth2Network = config.eth2Network
-    config.serveLightClientData =
-      some metadata.configDefaults.serveLightClientData
-  if config.importLightClientData.isNone:
-    if metadata.configDefaults.importLightClientData !=
-        ImportLightClientData.None:
-      info "Applying network config default",
-        importLightClientData = metadata.configDefaults.importLightClientData,
-        eth2Network = config.eth2Network
-    config.importLightClientData =
-      some metadata.configDefaults.importLightClientData
+
+  template applyConfigDefault(field: untyped): untyped =
+    if config.`field`.isNone:
+      if not metadata.configDefaults.`field`.isZeroMemory:
+        info "Applying network config default",
+          eth2Network = config.eth2Network,
+          `field` = metadata.configDefaults.`field`
+      config.`field` = some metadata.configDefaults.`field`
+
+  applyConfigDefault(lightClientEnable)
+  applyConfigDefault(serveLightClientData)
+  applyConfigDefault(importLightClientData)
 
   let node = BeaconNode.init(
     metadata.cfg,

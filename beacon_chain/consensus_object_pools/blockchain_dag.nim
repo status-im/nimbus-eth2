@@ -520,6 +520,26 @@ proc getForkedBlock*(
     # In case we didn't have a summary - should be rare, but ..
     dag.db.getForkedBlock(root)
 
+proc currentSyncCommitteeForPeriod*(
+    dag: ChainDAGRef,
+    tmpState: var ForkedHashedBeaconState,
+    period: SyncCommitteePeriod): Opt[SyncCommittee] =
+  ## Fetch a `SyncCommittee` for a given sync committee period.
+  ## For non-finalized periods, follow the chain as selected by fork choice.
+  let earliestSlot = max(dag.tail.slot, dag.cfg.ALTAIR_FORK_EPOCH.start_slot)
+  if period < earliestSlot.sync_committee_period:
+    return err()
+  let
+    periodStartSlot = period.start_slot
+    syncCommitteeSlot = max(periodStartSlot, earliestSlot)
+    bsi = ? dag.getBlockIdAtSlot(syncCommitteeSlot)
+  dag.withUpdatedState(tmpState, bsi) do:
+    withState(state):
+      when stateFork >= BeaconStateFork.Altair:
+        ok state.data.current_sync_committee
+      else: err()
+  do: err()
+
 proc updateBeaconMetrics(
     state: ForkedHashedBeaconState, bid: BlockId, cache: var StateCache) =
   # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
