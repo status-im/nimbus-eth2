@@ -33,18 +33,18 @@ proc initLightClient*(
     node.network, rng, config, cfg,
     forkDigests, getBeaconTime, genesis_validators_root)
 
-  if config.lightClientEnable:
+  if config.lightClientEnable.get:
     lightClient.trustedBlockRoot = config.lightClientTrustedBlockRoot
 
   elif config.lightClientTrustedBlockRoot.isSome:
     warn "Ignoring `lightClientTrustedBlockRoot`, light client not enabled",
-      lightClientEnable = config.lightClientEnable,
+      lightClientEnable = config.lightClientEnable.get,
       lightClientTrustedBlockRoot = config.lightClientTrustedBlockRoot
 
   node.lightClient = lightClient
 
 proc startLightClient*(node: BeaconNode) =
-  if not node.config.lightClientEnable:
+  if not node.config.lightClientEnable.get:
     return
 
   node.lightClient.start()
@@ -54,7 +54,7 @@ proc installLightClientMessageValidators*(node: BeaconNode) =
     if node.config.serveLightClientData.get:
       # Process gossip using both full node and light client
       node.processor
-    elif node.config.lightClientEnable:
+    elif node.config.lightClientEnable.get:
       # Only process gossip using light client
       nil
     else:
@@ -76,7 +76,7 @@ proc updateLightClientGossipStatus*(
   node.lightClient.updateGossipStatus(slot, some isBehind)
 
 proc updateLightClientFromDag*(node: BeaconNode) =
-  if not node.config.lightClientEnable:
+  if not node.config.lightClientEnable.get:
     return
   if node.config.lightClientTrustedBlockRoot.isSome:
     return
