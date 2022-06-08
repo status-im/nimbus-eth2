@@ -130,9 +130,7 @@ proc start*(optSync: LCOptimisticSync) =
 
 func supportsRetarget(syncStrategy: SyncStrategy): bool =
   case syncStrategy
-  of SyncStrategy.None:
-    true
-  of SyncStrategy.RequestManager:
+  of SyncStrategy.None, SyncStrategy.RequestManager:
     true
   of SyncStrategy.SyncManager:
     false
