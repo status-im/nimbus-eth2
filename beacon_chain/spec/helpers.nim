@@ -609,7 +609,9 @@ func is_merge_transition_block(
     state: bellatrix.BeaconState,
     body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
           bellatrix.SigVerifiedBeaconBlockBody): bool =
-  not is_merge_transition_complete(state) and body.is_execution_block()
+  const defaultBellatrixExecutionPayload = default(bellatrix.ExecutionPayload)
+  not is_merge_transition_complete(state) and
+    body.execution_payload != defaultBellatrixExecutionPayload
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
