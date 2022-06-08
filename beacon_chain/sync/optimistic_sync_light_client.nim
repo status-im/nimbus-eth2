@@ -177,7 +177,7 @@ proc syncUsingSyncManager(optSync: LCOptimisticSync) {.async.} =
     if not cancellationRequested:
       optSync.lcBlocks.getBackfillSlot()
     else:
-      # Report out-of-bands completion of sync
+      # Report out-of-band completion of sync
       optSync.lcBlocks.getFrontfillSlot()
 
   func getFinalizedSlot(): Slot =
@@ -243,7 +243,7 @@ proc continueSync(optSync: LCOptimisticSync) {.gcsafe.} =
       optSync.syncFut.cancel()
     return
 
-  # When retargetting ongoing sync is not possible, cancel on finality change
+  # When retargeting ongoing sync is not possible, cancel on finality change
   if not optSync.syncStrategy.supportsRetarget:
     if currentFinalizedSlot != targetFinalizedSlot and optSync.syncFut != nil:
       if not optSync.syncFut.finished:
