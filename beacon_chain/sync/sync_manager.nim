@@ -658,14 +658,3 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 proc start*[A, B](man: SyncManager[A, B]) =
   ## Starts SyncManager's main loop.
   man.syncFut = man.syncLoop()
-
-proc getInfo*[A, B](man: SyncManager[A, B]): RestSyncInfo =
-  ## Returns current synchronization information for RPC call.
-  let wallSlot = man.getLocalWallSlot()
-  let headSlot = man.getLocalHeadSlot()
-  let sync_distance = wallSlot - headSlot
-  RestSyncInfo(
-    head_slot: headSlot,
-    sync_distance: sync_distance,
-    is_syncing: man.inProgress
-  )
