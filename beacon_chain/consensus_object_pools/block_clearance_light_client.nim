@@ -219,7 +219,9 @@ proc setHeadBid*(lcBlocks: var LCBlocks, headBid: BlockId) =
   debug "New LC head block", headBid
   if lcBlocks.maxSlots == 0:
     discard
-  elif headBid.slot >= lcBlocks.headSlot + lcBlocks.maxSlots.uint64 or (
+
+  elif lcBlocks.headSlot == FAR_FUTURE_SLOT or
+      headBid.slot >= lcBlocks.headSlot + lcBlocks.maxSlots.uint64 or (
       lcBlocks.headSlot - lcBlocks.cache.lenu64 != FAR_FUTURE_SLOT and
       headBid.slot <= lcBlocks.headSlot - lcBlocks.cache.lenu64):
     lcBlocks.cache.clear()
