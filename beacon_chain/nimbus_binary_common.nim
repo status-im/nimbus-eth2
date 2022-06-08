@@ -11,7 +11,7 @@
 
 import
   # Standard library
-  std/[os, tables, strutils, terminal, typetraits],
+  std/[tables, strutils, terminal, typetraits],
 
   # Nimble packages
   chronos, confutils, toml_serialization,
@@ -95,6 +95,9 @@ proc detectTTY*(stdoutKind: StdoutLogKind): StdoutLogKind =
       StdoutLogKind.NoColors
   else:
     stdoutKind
+
+when defaultChroniclesStream.outputs.type.arity == 2:
+  from std/os import splitFile
 
 proc setupLogging*(
     logLevel: string, stdoutKind: StdoutLogKind, logFile: Option[OutFile]) =

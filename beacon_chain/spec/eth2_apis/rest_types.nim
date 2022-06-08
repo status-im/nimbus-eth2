@@ -14,7 +14,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[json, typetraits],
+  std/json,
   stew/base10, web3/ethtypes,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix],
