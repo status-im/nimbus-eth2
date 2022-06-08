@@ -455,6 +455,18 @@ proc getPayload*(p: Eth1Monitor,
     epr.complete(default(engine_api.ExecutionPayloadV1))
     return epr
 
+  if p.dataProvider.web3.isNil:
+    warn "getPayload: nil dataProvider.web3"
+    var epr: Future[engine_api.ExecutionPayloadV1] # TODO refactor
+    epr.complete(default(engine_api.ExecutionPayloadV1))
+    return epr
+
+  if p.dataProvider.web3.provider.isNil:
+    warn "getPayload: nil dataProvider.web3.provider"
+    var epr: Future[engine_api.ExecutionPayloadV1] # TODO refactor
+    epr.complete(default(engine_api.ExecutionPayloadV1))
+    return epr
+
   p.dataProvider.web3.provider.engine_getPayloadV1(FixedBytes[8] payloadId)
 
 proc newPayload*(p: Eth1Monitor, payload: engine_api.ExecutionPayloadV1):
