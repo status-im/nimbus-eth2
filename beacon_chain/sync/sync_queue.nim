@@ -7,7 +7,7 @@
 
 {.push raises: [Defect].}
 
-import std/[options, heapqueue, tables, strutils, sequtils, math, algorithm]
+import std/[options, heapqueue, tables, strutils, sequtils, math]
 import stew/[results, base10], chronos, chronicles
 import
   ../spec/datatypes/[base, phase0, altair],
@@ -134,8 +134,8 @@ proc checkResponse*[T](req: SyncRequest[T],
       inc(dindex)
     else:
       return false
-    slot = slot + 1
-    rindex = rindex + 1'u64
+    slot += 1'u64
+    rindex += 1'u64
 
   if dindex == len(data):
     return true
