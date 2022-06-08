@@ -8,7 +8,7 @@
 {.push raises: [Defect].}
 
 import
-  options, stew/endians2,
+  std/options,
   ./mocking/mock_deposits,
   ./helpers/math_helpers,
   ../beacon_chain/spec/[

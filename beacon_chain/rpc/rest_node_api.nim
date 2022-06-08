@@ -90,7 +90,7 @@ proc getLastSeenAddress(node: BeaconNode, id: PeerId): string =
   # TODO (cheatfate): We need to provide filter here, which will be able to
   # filter such multiaddresses like `/ip4/0.0.0.0` or local addresses or
   # addresses with peer ids.
-  let addrs = node.network.switch.peerStore.addressBook.get(id).toSeq()
+  let addrs = node.network.switch.peerStore[AddressBook][id]
   if len(addrs) > 0:
     $addrs[len(addrs) - 1]
   else:
@@ -200,8 +200,8 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
           state: peer.connectionState.toString(),
           direction: peer.direction.toString(),
           # Fields `agent` and `proto` are not part of specification
-          agent: node.network.switch.peerStore.agentBook.get(peer.peerId),
-          proto: node.network.switch.peerStore.protoVersionBook.get(peer.peerId)
+          agent: node.network.switch.peerStore[AgentBook][peer.peerId],
+          proto: node.network.switch.peerStore[ProtoVersionBook][peer.peerId]
         )
         res.add(peer)
     return RestApiResponse.jsonResponseWMeta(res, (count: uint64(len(res))))
@@ -242,8 +242,8 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         last_seen_p2p_address: getLastSeenAddress(node, peer.peerId),
         state: peer.connectionState.toString(),
         direction: peer.direction.toString(),
-        agent: node.network.switch.peerStore.agentBook.get(peer.peerId),       # Fields `agent` and `proto` are not
-        proto: node.network.switch.peerStore.protoVersionBook.get(peer.peerId) # part of specification
+        agent: node.network.switch.peerStore[AgentBook][peer.peerId],       # Fields `agent` and `proto` are not
+        proto: node.network.switch.peerStore[ProtoVersionBook][peer.peerId] # part of specification
       )
     )
 

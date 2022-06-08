@@ -8,7 +8,6 @@
 # All tests except scenarios, which as compiled separately for mainnet and minimal
 
 import
-  chronicles,
   ./testutil
 
 import # Unit test
