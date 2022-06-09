@@ -132,12 +132,11 @@ proc processBlock(
         debug "Head LC block from unviable fork"
       return err(BlockError.UnviableFork)
 
-    let index = lcBlocks.getCacheIndex(blck.slot)
+    let index = 0 # Head slot is always mapped to index 0, it cannot be empty
     if index >= lcBlocks.cache.len:
       lcBlocks.backfill.slot = blck.slot
       debug "Final head LC block"
       return ok()
-    doAssert index == 0
 
     lcBlocks.backfill = blck.toBeaconBlockSummary()
     let existing = lcBlocks.cache[index]
