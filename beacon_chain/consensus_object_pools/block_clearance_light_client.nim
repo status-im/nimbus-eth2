@@ -132,7 +132,7 @@ proc processBlock(
         debug "Head LC block from unviable fork"
       return err(BlockError.UnviableFork)
 
-    let index = 0 # Head slot is always mapped to index 0, it cannot be empty
+    const index = 0 # Head block is always mapped to index 0, it cannot be empty
     if index >= lcBlocks.cache.len:
       lcBlocks.backfill.slot = blck.slot
       debug "Final head LC block"
