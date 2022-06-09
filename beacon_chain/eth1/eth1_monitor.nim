@@ -11,7 +11,7 @@ import
   std/[deques, options, strformat, strutils, sequtils, tables,
        typetraits, uri, json],
   # Nimble packages:
-  chronos, json, metrics, chronicles/timings, stint/endians2,
+  chronos, metrics, chronicles/timings, stint/endians2,
   web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
   eth/common/eth_types,
   eth/async_utils, stew/[byteutils, objects, shims/hashes],
