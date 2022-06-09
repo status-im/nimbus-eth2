@@ -18,7 +18,6 @@ type
     slots = "Apply empty slots"
 
   NcliConf* = object
-
     eth2Network* {.
       desc: "The Eth2 network preset to use"
       name: "network" }: Option[string]
@@ -99,22 +98,19 @@ proc loadFile(filename: string, T: type): T =
 
 proc doTransition(conf: NcliConf) =
   let
-    stateY = (ref ForkedHashedBeaconState)(
-      phase0Data: phase0.HashedBeaconState(
-        data: loadFile(conf.preState, phase0.BeaconState)),
-      kind: BeaconStateFork.Phase0
-    )
-    blckX = loadFile(conf.blck, phase0.SignedBeaconBlock)
+    cfg = getRuntimeConfig(conf.eth2Network)
+    stateY = newClone(readSszForkedHashedBeaconState(
+      cfg, readAllBytes(conf.preState).tryGet()))
+    blckX = readSszForkedSignedBeaconBlock(
+      cfg, readAllBytes(conf.blck).tryGet())
     flags = if not conf.verifyStateRoot: {skipStateRootValidation} else: {}
-
-  setStateRoot(stateY[], hash_tree_root(stateY[].phase0Data.data))
 
   var
     cache = StateCache()
     info = ForkedEpochInfo()
-  let res = state_transition(
-    getRuntimeConfig(conf.eth2Network), stateY[], blckX, cache, info,
-    flags, noRollback)
+  let res = withBlck(blckX):
+    state_transition(
+      cfg, stateY[], blck, cache, info, flags, noRollback)
   if res.isErr():
     error "State transition failed", error = res.error()
     quit 1
@@ -131,14 +127,10 @@ proc doSlots(conf: NcliConf) =
 
   var timers: array[Timers, RunningStat]
   let
-    stateY = withTimerRet(timers[tLoadState]): (ref ForkedHashedBeaconState)(
-      phase0Data: phase0.HashedBeaconState(
-        data: loadFile(conf.preState2, phase0.BeaconState)),
-      kind: BeaconStateFork.Phase0
-    )
-
-  setStateRoot(stateY[], hash_tree_root(stateY[].phase0Data.data))
-
+    cfg = getRuntimeConfig(conf.eth2Network)
+    stateY = withTimerRet(timers[tLoadState]):
+      newClone(readSszForkedHashedBeaconState(
+        cfg, readAllBytes(conf.preState2).tryGet()))
   var
     cache = StateCache()
     info = ForkedEpochInfo()
@@ -146,11 +138,11 @@ proc doSlots(conf: NcliConf) =
     let isEpoch = (getStateField(stateY[], slot) + 1).is_epoch
     withTimer(timers[if isEpoch: tApplyEpochSlot else: tApplySlot]):
       process_slots(
-        defaultRuntimeConfig, stateY[], getStateField(stateY[], slot) + 1,
+        cfg, stateY[], getStateField(stateY[], slot) + 1,
         cache, info, {}).expect("should be able to advance slot")
 
   withTimer(timers[tSaveState]):
-    saveSSZFile(conf.postState, stateY[])
+    saveSSZFile(conf.postState2, stateY[])
 
   printTimers(false, timers)
 
@@ -200,7 +192,8 @@ proc doSSZ(conf: NcliConf) =
   of "voluntary_exit": printit(VoluntaryExit)
 
 when isMainModule:
-  let conf = NcliConf.load()
+  let
+    conf = NcliConf.load()
 
   case conf.cmd:
   of hashTreeRoot: doSSZ(conf)
