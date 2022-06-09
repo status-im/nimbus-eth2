@@ -110,12 +110,12 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## DeleteKeys requests [Preset: mainnet]
 ```diff
-+ Deleting not existing key [Preset: mainnet]                                                OK
-+ Invalid Authorization Header [Preset: mainnet]                                             OK
-+ Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
+- Deleting not existing key [Preset: mainnet]                                                Fail
+- Invalid Authorization Header [Preset: mainnet]                                             Fail
+- Invalid Authorization Token [Preset: mainnet]                                              Fail
+- Missing Authorization header [Preset: mainnet]                                             Fail
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 0/4 Fail: 4/4 Skip: 0/4
 ## DeleteRemoteKeys requests [Preset: mainnet]
 ```diff
 + Deleting existing local key and remote key [Preset: mainnet]                               OK
@@ -224,12 +224,12 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## ImportKeystores requests [Preset: mainnet]
 ```diff
-+ ImportKeystores/ListKeystores/DeleteKeystores [Preset: mainnet]                            OK
+- ImportKeystores/ListKeystores/DeleteKeystores [Preset: mainnet]                            Fail
 + Invalid Authorization Header [Preset: mainnet]                                             OK
 + Invalid Authorization Token [Preset: mainnet]                                              OK
-+ Missing Authorization header [Preset: mainnet]                                             OK
+- Missing Authorization header [Preset: mainnet]                                             Fail
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 2/4 Fail: 2/4 Skip: 0/4
 ## ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys [Preset: mainnet]
 ```diff
 + Importing list of remote keys [Preset: mainnet]                                            OK
@@ -339,6 +339,11 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + vesion 2 single remote                                                                     OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Serialization/deserialization  [Preset: mainnet]
+```diff
++ Deserialization test vectors                                                               OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -568,4 +573,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 317/322 Fail: 0/322 Skip: 5/322
+OK: 312/323 Fail: 6/323 Skip: 5/323
