@@ -8,9 +8,6 @@
 {.push raises: [Defect].}
 
 import
-  stew/results,
-  serialization,
-  eth/db/kvstore,
   ./spec/datatypes/[base, altair, bellatrix],
   ./spec/[eth2_ssz_serialization, eth2_merkleization]
 

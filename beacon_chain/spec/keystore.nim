@@ -29,7 +29,7 @@ import nimcrypto/utils as ncrutils
 export
   results, burnMem, writeValue, readValue
 
-{.localPassc: "-fno-lto".} # no LTO for crypto
+{.localPassC: "-fno-lto".} # no LTO for crypto
 
 type
   KeystoreMode* = enum
