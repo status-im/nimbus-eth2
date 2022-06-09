@@ -13,7 +13,7 @@
 
 import
   # Standard library
-  std/[os, osproc, sequtils, streams, tables],
+  std/[os, sequtils, tables],
 
   # Nimble packages
   stew/[assign2, byteutils, objects],
