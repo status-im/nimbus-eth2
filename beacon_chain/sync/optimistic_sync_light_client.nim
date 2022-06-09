@@ -31,7 +31,7 @@ type
     network: Eth2Node
     getBeaconTime: GetBeaconTimeFn
     optimisticProcessor: MsgTrustedBlockProcessor
-    safeSlotsToImportOptimistically: uint64
+    safeSlotsToImportOptimistically: uint16
     lcBlocks: LCBlocks
     blockVerifier: request_manager.BlockVerifier
     requestManager: RequestManager
@@ -68,7 +68,7 @@ proc reportOptimisticCandidateBlock(optSync: LCOptimisticSync) {.gcsafe.} =
         # Else, block must be deep (min `SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY`)
         let
           minAge = optSync.safeSlotsToImportOptimistically
-          maxSlot = max(currentSlot, minAge.Slot) - minAge
+          maxSlot = max(currentSlot, minAge.Slot) - minAge.uint64
         optSync.lcBlocks.getLatestBlockThroughSlot(maxSlot)
   if signedBlock.isOk:
     let bid = signedBlock.get.toBlockId()
@@ -86,13 +86,9 @@ proc initLCOptimisticSync*(
     network: Eth2Node,
     getBeaconTime: GetBeaconTimeFn,
     optimisticProcessor: MsgTrustedBlockProcessor,
-    safeSlotsToImportOptimistically: uint64): LCOptimisticSync =
-  const
-    numExtraSlots = 2 * SLOTS_PER_EPOCH + 1
-    supportedSafeSlots = (int.high - numExtraSlots.int).uint64
-  let
-    safeSlots = min(safeSlotsToImportOptimistically, supportedSafeSlots)
-    maxSlots = (safeSlots + numExtraSlots).int
+    safeSlotsToImportOptimistically: uint16): LCOptimisticSync =
+  const numExtraSlots = 2 * SLOTS_PER_EPOCH.int + 1
+  let maxSlots = safeSlotsToImportOptimistically.int + numExtraSlots
 
   let optSync = LCOptimisticSync(
     network: network,

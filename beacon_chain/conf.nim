@@ -517,7 +517,7 @@ type
         desc: "Modify SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY"
         # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#constants
         defaultValue: 128
-        name: "safe-slots-to-import-optimistically" }: uint64
+        name: "safe-slots-to-import-optimistically" }: uint16
 
       # Same option as appears in Lighthouse and Prysm
       # https://lighthouse-book.sigmaprime.io/suggested-fee-recipient.html
