@@ -281,7 +281,11 @@ proc checkForPotentialDoppelganger(
           validatorIndex,
           validatorPubkey,
           attestation = shortLog(attestation)
-        quit QuitFailure
+
+        # Avoid colliding with
+        # https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Process%20Exit%20Codes
+        const QuitDoppelganger = 1031
+        quit QuitDoppelganger
 
 proc attestationValidator*(
     self: ref Eth2Processor, src: MsgSource,
