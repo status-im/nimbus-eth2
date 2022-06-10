@@ -17,9 +17,9 @@ type
 
 # Created by http://beatscribe.com/ (beatscribe#1008 on Discord)
 # These need to be the main body of the log not to be reformatted or escaped.
-proc mono🐼()  = notice "text-version.txt".staticRead
-proc color🐼() = notice "color-version.ans".staticRead
-proc blink🐼() = notice "blink-version.ans".staticRead
+proc mono🐼()  = notice "\n" & "text-version.txt".staticRead
+proc color🐼() = notice "\n" & "color-version.ans".staticRead
+proc blink🐼() = notice "\n" & "blink-version.ans".staticRead
 
 func getPandas*(stdoutKind: StdoutLogKind): VanityLogs =
   case stdoutKind

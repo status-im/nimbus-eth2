@@ -1,5 +1,4 @@
 import
-  std/[sequtils],
   stew/[byteutils, results],
   chronicles,
   eth/p2p/discoveryv5/enr,
