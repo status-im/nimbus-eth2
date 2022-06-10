@@ -22,7 +22,7 @@ import
     blockchain_dag, block_quarantine, exit_pool, attestation_pool,
     sync_committee_msg_pool],
   ./spec/datatypes/base,
-  ./sync/[sync_manager, request_manager],
+  ./sync/[optimistic_sync_light_client, sync_manager, request_manager],
   ./validators/[action_tracker, validator_monitor, validator_pool],
   ./rpc/state_ttl_cache
 
@@ -30,9 +30,9 @@ export
   osproc, chronos, httpserver, presto, action_tracker,
   beacon_clock, beacon_chain_db, conf, light_client,
   attestation_pool, sync_committee_msg_pool, validator_pool,
-  eth2_network, eth1_monitor, request_manager, sync_manager,
-  eth2_processor, blockchain_dag, block_quarantine, base, exit_pool,
-  validator_monitor, consensus_manager
+  eth2_network, eth1_monitor, optimistic_sync_light_client,
+  request_manager, sync_manager, eth2_processor, blockchain_dag,
+  block_quarantine, base, exit_pool, validator_monitor, consensus_manager
 
 type
   RpcServer* = RpcHttpServer
@@ -45,6 +45,7 @@ type
     db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
+    lcOptSync*: LCOptimisticSync
     lightClient*: LightClient
     dag*: ChainDAGRef
     quarantine*: ref Quarantine

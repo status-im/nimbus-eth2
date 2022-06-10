@@ -15,6 +15,7 @@ import # Unit test
   ./test_attestation_pool,
   ./test_beacon_chain_db,
   ./test_beacon_time,
+  ./test_block_clearance_light_client,
   ./test_block_dag,
   ./test_block_processor,
   ./test_block_quarantine,

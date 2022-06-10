@@ -512,7 +512,7 @@ proc is_valid_indexed_attestation*(
 # Attestation validation
 # ------------------------------------------------------------------------------------------
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#attestations
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 
 func check_attestation_slot_target*(data: AttestationData): Result[Slot, cstring] =
   if not (data.target.epoch == epoch(data.slot)):

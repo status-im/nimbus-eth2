@@ -9,7 +9,7 @@ You can pass any `nimbus_beacon_node` options to the `prater` and `mainnet` scri
 To see a list of the command line options availabe to you, with descriptions, run:
 
 ```
-build/./nimbus_beacon_node --help
+build/nimbus_beacon_node --help
 ```
 
 You should see the following output:
@@ -128,3 +128,10 @@ num-threads = 0
 trusted-node-url = "http://192.168.1.20:5052"
 ```
 
+# Exit Codes
+
+| Exit code | Description |
+|-----------|---------|
+| 0 |  Successful exit |
+| 1 | Generic failure or unspecified error |
+| 1031 | Doppelganger detection; one might prefer not to restart automatically |

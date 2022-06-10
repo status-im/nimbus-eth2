@@ -1,9 +1,10 @@
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
-import std/[typetraits, strutils, sets]
+
+import std/[typetraits, sets]
 import stew/[results, base10], chronicles
 import ".."/[beacon_chain_db, beacon_node],
        ".."/networking/eth2_network,

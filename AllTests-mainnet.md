@@ -55,6 +55,17 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + basics                                                                                     OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## Block clearance (light client) [Preset: mainnet]
+```diff
++ Delayed finality update                                                                    OK
++ Error conditions                                                                           OK
++ Incremental sync                                                                           OK
++ Initial sync                                                                               OK
++ Low slot numbers                                                                           OK
++ Reorg                                                                                      OK
++ Reverse incremental sync                                                                   OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
@@ -544,4 +555,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 1/1 Fail: 0/1 Skip: 0/1
 
 ---TOTAL---
-OK: 301/306 Fail: 0/306 Skip: 5/306
+OK: 308/313 Fail: 0/313 Skip: 5/313

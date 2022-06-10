@@ -126,7 +126,7 @@ template init(T: type RestServerRef,
 
     res.get()
 
-# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
+# https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_slot, "Latest slot of the beacon chain state"
 declareGauge beacon_current_epoch, "Current epoch"
 

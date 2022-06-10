@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[typetraits, sequtils, strutils, sets],
+  std/[typetraits, sequtils, sets],
   stew/[results, base10],
   chronicles,
   ./rest_utils,

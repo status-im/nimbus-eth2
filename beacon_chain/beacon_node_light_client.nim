@@ -29,11 +29,56 @@ proc initLightClient*(
   # because the light client module also handles gossip subscriptions
   # for broadcasting light client data as a server.
 
-  let lightClient = createLightClient(
-    node.network, rng, config, cfg,
-    forkDigests, getBeaconTime, genesis_validators_root)
+  let
+    optimisticProcessor = proc(signedBlock: ForkedMsgTrustedSignedBeaconBlock):
+        Future[void] {.async.} =
+      debug "New LC optimistic block",
+        opt = signedBlock.toBlockId(),
+        dag = node.dag.head.bid,
+        wallSlot = node.currentSlot
+      return
+    optSync = initLCOptimisticSync(
+      node.network, getBeaconTime, optimisticProcessor,
+      config.safeSlotsToImportOptimistically)
+
+    lightClient = createLightClient(
+      node.network, rng, config, cfg,
+      forkDigests, getBeaconTime, genesis_validators_root)
 
   if config.lightClientEnable.get:
+    proc shouldSyncOptimistically(slot: Slot): bool =
+      const
+        # Minimum number of slots to be ahead of DAG to use optimistic sync
+        minProgress = 8 * SLOTS_PER_EPOCH
+        # Maximum age of light client optimistic header to use optimistic sync
+        maxAge = 2 * SLOTS_PER_EPOCH
+
+      if slot < getStateField(node.dag.headState, slot) + minProgress:
+        false
+      elif getBeaconTime().slotOrZero > slot + maxAge:
+        false
+      else:
+        true
+
+    proc onFinalizedHeader(lightClient: LightClient) =
+      let optimisticHeader = lightClient.optimisticHeader.valueOr:
+        return
+      if not shouldSyncOptimistically(optimisticHeader.slot):
+        return
+      let finalizedHeader = lightClient.finalizedHeader.valueOr:
+        return
+      optSync.setOptimisticHeader(optimisticHeader)
+      optSync.setFinalizedHeader(finalizedHeader)
+
+    proc onOptimisticHeader(lightClient: LightClient) =
+      let optimisticHeader = lightClient.optimisticHeader.valueOr:
+        return
+      if not shouldSyncOptimistically(optimisticHeader.slot):
+        return
+      optSync.setOptimisticHeader(optimisticHeader)
+
+    lightClient.onFinalizedHeader = onFinalizedHeader
+    lightClient.onOptimisticHeader = onOptimisticHeader
     lightClient.trustedBlockRoot = config.lightClientTrustedBlockRoot
 
   elif config.lightClientTrustedBlockRoot.isSome:
@@ -41,12 +86,14 @@ proc initLightClient*(
       lightClientEnable = config.lightClientEnable.get,
       lightClientTrustedBlockRoot = config.lightClientTrustedBlockRoot
 
+  node.lcOptSync = optSync
   node.lightClient = lightClient
 
 proc startLightClient*(node: BeaconNode) =
   if not node.config.lightClientEnable.get:
     return
 
+  node.lcOptSync.start()
   node.lightClient.start()
 
 proc installLightClientMessageValidators*(node: BeaconNode) =
