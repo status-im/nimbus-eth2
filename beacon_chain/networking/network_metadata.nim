@@ -178,6 +178,7 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
           #
           # Comparing the first 40 bytes covers those two fields,
           # which should identify the network with high likelihood.
+          # ''.join('%02X'%b for b in open("network_name/genesis.ssz", "rb").read()[:40])
           let data = (genesisData[0 ..< 40].toHex())
           data in [
             # Kiln
@@ -186,6 +187,8 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
             "F0DB94620000000044F1E56283CA88B35C789F7F449E52339BC1FEFE3A45913A43A6D16EDCD33CF1",
             # Prater
             "60F4596000000000043DB0D9A83813551EE2F33450D23797757D430911A9320530AD8A0EABC43EFB",
+            # Sepolia
+            "607DB06200000000D8EA171F3C94AEA21EBC42A1ED61052ACF3F9209C00E4EFBAADDAC09ED9B8078",
           ]
         else:
           false
