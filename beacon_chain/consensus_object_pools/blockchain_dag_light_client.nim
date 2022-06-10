@@ -168,7 +168,6 @@ proc deleteLightClientData*(dag: ChainDAGRef, bid: BlockId) =
   dag.lightClientCache.data.del bid
 
 func handleUnexpectedLightClientError(dag: ChainDAGRef, buggedSlot: Slot) =
-  ## Light client data is expected to be available from `earliestSlot` onward.
   ## If there is an unexpected error, adjust `importTailSlot` to keep track of
   ## section for which complete light client data is available, and to avoid
   ## failed lookups of cached light client data.
