@@ -676,7 +676,9 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     ${STOP_AT_EPOCH_FLAG} \
     --rest-port="$(( BASE_REST_PORT + NUM_NODE ))" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
-    --serve-light-client-data=1 --import-light-client-data=only-new \
+    --light-client-enable=on \
+    --serve-light-client-data=on \
+    --import-light-client-data=only-new \
     ${EXTRA_ARGS} \
     &> "${DATA_DIR}/log${NUM_NODE}.txt" &
 

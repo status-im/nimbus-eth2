@@ -309,7 +309,9 @@ define CONNECT_TO_NETWORK_IN_DEV_MODE
 		--network=$(1) $(3) $(GOERLI_TESTNETS_PARAMS) \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
-		--serve-light-client-data=1 --import-light-client-data=only-new \
+		--light-client-enable=on \
+		--serve-light-client-data=on \
+		--import-light-client-data=only-new \
 		--dump $(NODE_PARAMS)
 endef
 

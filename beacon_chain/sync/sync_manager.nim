@@ -12,7 +12,7 @@ import stew/[results, base10], chronos, chronicles
 import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,
-  ../spec/[helpers, forks],
+  ../spec/[helpers, forks, network],
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../beacon_clock,
   "."/[sync_protocol, sync_queue]
