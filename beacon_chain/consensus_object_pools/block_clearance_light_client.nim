@@ -71,7 +71,7 @@ func getBackfillRoot*(lcBlocks: LCBlocks): Option[Eth2Digest] =
   else:
     some lcBlocks.backfill.parent_root
 
-func getCacheIndex(lcBlocks: LCBlocks, slot: Slot): Natural =
+func getCacheIndex(lcBlocks: LCBlocks, slot: Slot): uint64 =
   if slot < lcBlocks.headSlot and lcBlocks.headSlot != FAR_FUTURE_SLOT:
     lcBlocks.headSlot - slot
   else:
@@ -83,7 +83,7 @@ func getBlockAtSlot*(
     return err()
 
   let index = lcBlocks.getCacheIndex(slot)
-  if index >= lcBlocks.cache.len:
+  if index >= lcBlocks.cache.lenu64:
     return err()
   let existing = lcBlocks.cache[index]
   if existing == nil:
@@ -96,7 +96,7 @@ func getLatestBlockThroughSlot*(
     return err()
 
   let startIndex = lcBlocks.getCacheIndex(maxSlot)
-  for i in startIndex ..< lcBlocks.cache.len:
+  for i in startIndex ..< lcBlocks.cache.lenu64:
     let blck = lcBlocks.cache[i]
     if blck != nil:
       return ok blck[]
@@ -132,8 +132,8 @@ proc processBlock(
         debug "Head LC block from unviable fork"
       return err(BlockError.UnviableFork)
 
-    const index = 0 # Head block is always mapped to index 0, it cannot be empty
-    if index >= lcBlocks.cache.len:
+    const index = 0'u64 # Head block is always mapped to index 0 (never empty)
+    if index >= lcBlocks.cache.lenu64:
       lcBlocks.backfill.slot = blck.slot
       debug "Final head LC block"
       return ok()
@@ -155,7 +155,7 @@ proc processBlock(
   # Handle duplicate block
   if blck.slot >= lcBlocks.getBackfillSlot():
     let index = lcBlocks.getCacheIndex(blck.slot)
-    doAssert index < lcBlocks.cache.len
+    doAssert index < lcBlocks.cache.lenu64
     let existing = lcBlocks.cache[index]
     if existing == nil:
       debug "Duplicate LC block for empty slot"
@@ -189,13 +189,13 @@ proc processBlock(
   let
     previousIndex = lcBlocks.getCacheIndex(lcBlocks.backfill.slot)
     index = lcBlocks.getCacheIndex(blck.slot)
-  for i in previousIndex + 1 ..< min(index, lcBlocks.cache.len):
+  for i in previousIndex + 1 ..< min(index, lcBlocks.cache.lenu64):
     let existing = lcBlocks.cache[i]
     if existing != nil:
       warn "LC block reorg to empty", existing = existing[]
       lcBlocks.cache[i] = nil
 
-  if index >= lcBlocks.cache.len:
+  if index >= lcBlocks.cache.lenu64:
     lcBlocks.backfill.slot = blck.slot
     debug "Final LC block"
     return ok()
@@ -265,7 +265,7 @@ proc setFinalizedBid*(lcBlocks: var LCBlocks, finalizedBid: BlockId) =
   if finalizedBid.slot <= lcBlocks.headSlot and
       finalizedBid.slot >= lcBlocks.getBackfillSlot:
     let index = lcBlocks.getCacheIndex(finalizedBid.slot)
-    doAssert index < lcBlocks.cache.len
+    doAssert index < lcBlocks.cache.lenu64
     let existing = lcBlocks.cache[index]
     if existing == nil or finalizedBid.root != existing[].root:
       if existing != nil:
@@ -293,7 +293,8 @@ proc addBlock*(
       lcBlocks.setFinalizedBid(lcBlocks.finalizedBid)
       return err(BlockError.UnviableFork)
 
-  for i in lcBlocks.getCacheIndex(signedBlock.slot) + 1 ..< lcBlocks.cache.len:
+  let slot = signedBlock.slot
+  for i in lcBlocks.getCacheIndex(slot) + 1 ..< lcBlocks.cache.lenu64:
     let existing = lcBlocks.cache[i]
     if existing != nil:
       let res =
