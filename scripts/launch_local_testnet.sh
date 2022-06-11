@@ -14,6 +14,15 @@ set -eu
 
 cd "$(dirname "${BASH_SOURCE[0]}")"/..
 
+
+VERBOSE="0"
+
+log() {
+  if [[ "${VERBOSE}" -ge "1" ]]; then
+    echo "${@}"
+  fi
+}
+
 # OS detection
 OS="linux"
 if uname | grep -qi darwin; then
@@ -46,9 +55,10 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "Jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth:,light-clients:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,light-clients:,run-nimbus-el,verbose"
 
 # default values
+NIMFLAGS="${NIMFLAGS:-""}"
 NUM_NODES="10"
 DATA_DIR="local_testnet_data"
 USE_HTOP="1"
@@ -72,10 +82,20 @@ ETH2_DOCKER_IMAGE=""
 REMOTE_SIGNER_NODES=0
 REMOTE_SIGNER_THRESHOLD=1
 REMOTE_VALIDATORS_COUNT=0
-LC_NODES=1
+LC_NODES=0
 ACCOUNT_PASSWORD="nimbus"
 RUN_GETH="0"
-GETH_BINARY="${HOME}/go-ethereum/build/bin/geth"
+DL_GETH="0"
+CLEANUP_DIRS=()
+
+#NIMBUS EL VARS
+RUN_NIMBUS="0"
+NIMBUS_EL_BINARY="../nimbus-eth1/build/nimbus"
+
+EL_HTTP_PORTS=()
+PROCS_TO_KILL=("nimbus_beacon_node" "nimbus_validator_client" "nimbus_signing_node" "nimbus_light_client")
+
+
 
 print_help() {
   cat <<EOF
@@ -111,7 +131,10 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
                               restore signature of the original secret key
   --remote-signers            number of remote signing nodes
   --light-clients             number of light clients
+  --run-nimbus-el             Run nimbush-eth1 as EL
   --run-geth                  Run geth EL clients
+  --dl-geth                   Download geth binary if not found
+  --verbose                   Verbose output
 EOF
 }
 
@@ -225,6 +248,18 @@ while true; do
       RUN_GETH="1"
       shift
       ;;
+    --dl-geth)
+      DL_GETH="1"
+      shift
+      ;;
+    --run-nimbus-el)
+      RUN_NIMBUS="1"
+      shift
+      ;;
+    --verbose)
+      VERBOSE="1"
+      shift
+      ;;
     --)
       shift
       break
@@ -243,6 +278,7 @@ if [[ $# != 0 ]]; then
 fi
 
 if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
+  log "Deleting ${DATA_DIR}"
   rm -rf "${DATA_DIR}"
 fi
 
@@ -250,18 +286,6 @@ if [[ "${LIGHTHOUSE_VC_NODES}" != "0" && "${CONST_PRESET}" != "mainnet" ]]; then
   echo "The prebuilt Lighthouse binary we're using only supports mainnet. Aborting."
   exit 1
 fi
-
-if [[ "${RUN_GETH}" == "1" ]]; then
-   if [[ ! -e "${GETH_BINARY}" ]]; then
-     echo "Missing geth executable"
-     exit 1
-   else
-     NUM_GETH_NODES=${NUM_NODES}
-     echo "Starting ${NUM_GETH_NODES} Geth Nodes ..."
-     . "./scripts/start_geth_nodes.sh"
-   fi
-fi
-
 
 scripts/makedir.sh "${DATA_DIR}"
 
@@ -288,15 +312,63 @@ else
   NPROC="$(nproc)"
 fi
 
+if [[ "${RUN_NIMBUS}" == "1" && "${RUN_GETH}" == "1" ]]; then
+  echo "Use only one EL - geth or nimbus"
+  exit 1
+fi
+
+
+if [[ "${RUN_GETH}" == "1" ]]; then
+  . ./scripts/geth_vars.sh
+fi
+
+if [[ "${RUN_NIMBUS}" == "1" ]]; then
+  . ./scripts/nimbus_el_vars.sh
+fi
+
+
 # kill lingering processes from a previous run
 if [[ "${OS}" != "windows" ]]; then
   which lsof &>/dev/null || \
     { echo "'lsof' not installed and we need it to check for ports already in use. Aborting."; exit 1; }
 
-  #TODO Stop geth nodes
-  #for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
-  #for PORT in $(( BASE_GETH_PORT + NUM_NODE )) $(( BASE_METRICS_PORT + NUM_NODE )) $(( BASE_REST_PORT + NUM_NODE )); do
-  #done
+
+  #Stop geth nodes
+  if [[ "${RUN_GETH}" == "1" ]]; then
+    for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
+      for PORT in $(( NUM_NODE * GETH_PORT_OFFSET + GETH_NET_BASE_PORT )) $(( NUM_NODE * GETH_PORT_OFFSET + GETH_HTTP_BASE_PORT )) \
+                  $(( NUM_NODE * GETH_PORT_OFFSET + GETH_WS_BASE_PORT )) $(( NUM_NODE * GETH_PORT_OFFSET + GETH_AUTH_RPC_PORT_BASE )); do
+        for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
+          echo -n "Found old geth processes listening on port ${PORT}, with PID ${PID}. "
+          if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
+            echo "Killing it."
+            kill -9 "${PID}" || true
+          else
+            echo "Aborting."
+            exit 1
+          fi
+        done
+      done
+    done
+  fi
+
+  if [[ "${RUN_NIMBUS}" == "1" ]]; then
+    for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
+      for PORT in $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_NET_BASE_PORT )) $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_HTTP_BASE_PORT )) \
+                  $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_WS_BASE_PORT )) $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_AUTH_RPC_PORT_BASE )); do
+        for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
+          echo -n "Found old nimbus EL processes listening on port ${PORT}, with PID ${PID}. "
+          if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
+            echo "Killing it."
+            kill -9 "${PID}" || true
+          else
+            echo "Aborting."
+            exit 1
+          fi
+        done
+      done
+    done
+  fi
 
   for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     for PORT in $(( BASE_PORT + NUM_NODE )) $(( BASE_METRICS_PORT + NUM_NODE )) $(( BASE_REST_PORT + NUM_NODE )); do
@@ -304,7 +376,7 @@ if [[ "${OS}" != "windows" ]]; then
         echo -n "Found old process listening on port ${PORT}, with PID ${PID}. "
         if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
           echo "Killing it."
-          kill -9 ${PID} || true
+          kill -9 "${PID}" || true
         else
           echo "Aborting."
           exit 1
@@ -312,6 +384,73 @@ if [[ "${OS}" != "windows" ]]; then
       done
     done
   done
+fi
+
+download_geth() {
+
+  GETH_VERSION="1.10.18-de23cf91"
+
+#  "https://gethstore.blob.core.windows.net/builds/geth-linux-amd64-1.10.18-de23cf91.tar.gz"
+#  "https://gethstore.blob.core.windows.net/builds/geth-darwin-amd64-1.10.18-de23cf91.tar.gz"
+#  "https://gethstore.blob.core.windows.net/builds/geth-windows-amd64-1.10.18-de23cf91.zip"
+
+  GETH_URL="https://gethstore.blob.core.windows.net/builds/"
+
+  case "${OS}" in
+    linux)
+      GETH_TARBALL="geth-linux-amd64-${GETH_VERSION}.tar.gz"
+      ;;
+    macos)
+      GETH_TARBALL="geth-darwin-amd64-${GETH_VERSION}.tar.gz"
+      ;;
+    windows)
+      GETH_TARBALL="geth-windows-amd64-${GETH_VERSION}.zip"
+      ;;
+  esac
+
+  if [[ ! -e "build/${GETH_BINARY}" ]]; then
+    log "Downloading Geth binary"
+    pushd "build" >/dev/null
+    "${CURL_BINARY}" -sSLO "${GETH_URL}/${GETH_TARBALL}"
+    local tmp_extract_dir
+    tmp_extract_dir=$(mktemp -d geth-extract-XXX)
+    CLEANUP_DIRS+=("${tmp_extract_dir}")
+    tar -xzf "${GETH_TARBALL}" --directory "${tmp_extract_dir}" --strip-components=1
+    mv "${tmp_extract_dir}/geth" .
+    GETH_BINARY="${PWD}/geth"
+    popd >/dev/null
+  fi
+}
+
+GETH_NUM_NODES="${NUM_NODES}"
+NIMBUSEL_NUM_NODES="${NUM_NODES}"
+
+if [[ "${RUN_GETH}" == "1" ]]; then
+  if [[ ! -e "${GETH_BINARY}" && "${DL_GETH}" == "1" ]]; then
+    log "Downloading geth ..."
+    download_geth
+  else
+    echo "Missing geth executable"
+    exit 1
+  fi
+
+  log "Starting ${GETH_NUM_NODES} Geth Nodes ..."
+  . "./scripts/start_geth_nodes.sh"
+  EL_HTTP_PORTS+=("${GETH_HTTP_PORTS[@]}")
+  PROCS_TO_KILL+=("${GETH_BINARY}")
+  CLEANUP_DIRS+=("${GETH_DATA_DIRS[@]}")
+fi
+
+if [[ "${RUN_NIMBUS}" == "1" ]]; then
+  if [[ ! -e "${NIMBUS_EL_BINARY}" ]]; then
+    echo "Missing nimbus EL executable"
+    exit 1
+  fi
+
+  . "./scripts/start_nimbus_el_nodes.sh"
+  EL_HTTP_PORTS+=("${NIMBUSEL_HTTP_PORTS[@]}")
+  PROCS_TO_KILL+=("${NIMBUS_EL_BINARY}")
+  CLEANUP_DIRS+=("${NIMBUSEL_DATA_DIRS[@]}")
 fi
 
 # Download the Lighthouse binary.
@@ -336,6 +475,7 @@ LH_URL="https://github.com/sigp/lighthouse/releases/download/v${LH_VERSION}/${LH
 LH_BINARY="lighthouse-${LH_VERSION}"
 
 if [[ "${USE_VC}" == "1" && "${LIGHTHOUSE_VC_NODES}" != "0" && ! -e "build/${LH_BINARY}" ]]; then
+  echo "Downloading Lighthouse binary"
   pushd "build" >/dev/null
   "${CURL_BINARY}" -sSLO "${LH_URL}"
   tar -xzf "${LH_TARBALL}" # contains just one file named "lighthouse"
@@ -383,6 +523,7 @@ for BINARY in ${BINARIES}; do
     break
   fi
 done
+
 if [[ "${REUSE_BINARIES}" == "0" || "${BINARIES_MISSING}" == "1" ]]; then
   ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
 fi
@@ -391,20 +532,19 @@ fi
 # instance as the parent and the target process name as a pattern to the
 # "pkill" command.
 cleanup() {
-  pkill -f -P $$ nimbus_beacon_node &>/dev/null || true
-  pkill -f -P $$ nimbus_validator_client &>/dev/null || true
-  pkill -f -P $$ nimbus_signing_node &>/dev/null || true
-  pkill -f -P $$ nimbus_light_client &>/dev/null || true
-  pkill -f -P $$ ${LH_BINARY} &>/dev/null || true
-  pkill -f -P $$ ${GETH_BINARY} &>/dev/null || true
-  sleep 2
-  pkill -f -9 -P $$ nimbus_beacon_node &>/dev/null || true
-  pkill -f -9 -P $$ nimbus_validator_client &>/dev/null || true
-  pkill -f -9 -P $$ nimbus_signing_node &>/dev/null || true
-  pkill -f -9 -P $$ nimbus_light_client &>/dev/null || true
-  pkill -f -9 -P $$ ${LH_BINARY} &>/dev/null || true
-  pkill -f -9 -P $$ ${GETH_BINARY} &>/dev/null || true
+  log "Cleaning up"
 
+  for proc in "${PROCS_TO_KILL[@]}"
+  do
+    pkill -f -P $$ "${proc}" &>/dev/null || true
+  done
+
+  sleep 2
+
+  for proc in "${PROCS_TO_KILL[@]}"
+  do
+    pkill -f -9 -P $$ "${proc}" &>/dev/null || true
+  done
 
   # Delete all binaries we just built, because these are unusable outside this
   # local testnet.
@@ -418,11 +558,13 @@ cleanup() {
     docker rm $(docker stop $(docker ps -a -q --filter ancestor=$ETH2_DOCKER_IMAGE --format="{{.ID}}"))
   fi
 
-  for dir in "${GETH_DATA_DIRS[@]}"
+  for dir in "${CLEANUP_DIRS[@]}"
   do
+    log "Deleting ${dir}"
     rm -rf "${dir}"
   done
 }
+
 trap 'cleanup' SIGINT SIGTERM EXIT
 
 # timeout - implemented with a background job
@@ -593,8 +735,12 @@ if [ "$LC_NODES" -ge "1" ]; then
   NUM_JOBS=$(( NUM_JOBS + LC_NODES ))
 fi
 
-if [ "${NUM_GETH_NODES}" -ge "0" ]; then
-  NUM_JOBS=$(( NUM_JOBS + NUM_GETH_NODES ))
+if [ "${RUN_GETH}" == "1" ]; then
+  NUM_JOBS=$(( NUM_JOBS + GETH_NUM_NODES ))
+fi
+
+if [ "${RUN_NIMBUS}" == "1" ]; then
+  NUM_JOBS=$(( NUM_JOBS + NIMBUSEL_NUM_NODES ))
 fi
 
 VALIDATORS_PER_VALIDATOR=$(( (SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS) / 2 ))
@@ -711,7 +857,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     done
   fi
 
-  WEB3_ARG="--web3-url=http://127.0.0.1:${GETH_HTTP_PORTS[${NUM_NODE}]}"
+  WEB3_ARG="--web3-url=http://127.0.0.1:${EL_HTTP_PORTS[${NUM_NODE}]}"
 
 
   ${BEACON_NODE_COMMAND} \
@@ -782,12 +928,14 @@ if [ "$LC_NODES" -ge "1" ]; then
   while :; do
     CURRENT_FORK_EPOCH="$(
       "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/states/finalized/fork" | \
-        "${JQ_BINARY}" -r '.data.epoch')"
+        tee -a curl_result.txt | "${JQ_BINARY}" -r '.data.epoch')"
     if [ "${CURRENT_FORK_EPOCH}" -ge "${ALTAIR_FORK_EPOCH}" ]; then
       break
     fi
     sleep 1
   done
+
+  log "After ALTAIR_FORK_EPOCH"
 
   echo "Altair finalized, launching $LC_NODES light client(s)"
   LC_BOOTSTRAP_NODE="$(
