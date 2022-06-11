@@ -209,7 +209,7 @@ template lazy_header(name: untyped): untyped {.dirty.} =
         dag.handleUnexpectedLightClientError(bid.slot)
         `name _ ok` = false
       else:
-        target = bdata.get.toBeaconBlockHeader
+        target = bdata.get.toBeaconBlockHeader()
         `name _ ptr` = addr target
     `name _ ok`
 
@@ -664,7 +664,7 @@ proc initLightClientUpdateForPeriod(
       return
     withStateAndBlck(state, bdata):
       when stateFork >= BeaconStateFork.Altair:
-        update.attested_header = blck.toBeaconBlockHeader
+        update.attested_header = blck.toBeaconBlockHeader()
         update.next_sync_committee = state.data.next_sync_committee
         state.data.build_proof(
           altair.NEXT_SYNC_COMMITTEE_INDEX,
@@ -686,7 +686,7 @@ proc initLightClientUpdateForPeriod(
       dag.handleUnexpectedLightClientError(finalizedBid.slot)
       return
     withBlck(bdata):
-      update.finalized_header = blck.toBeaconBlockHeader
+      update.finalized_header = blck.toBeaconBlockHeader()
   let bdata = dag.getExistingForkedBlock(signatureBid).valueOr:
     dag.handleUnexpectedLightClientError(signatureBid.slot)
     return
@@ -822,7 +822,7 @@ proc getLightClientBootstrap*(
       var tmpState = assignClone(dag.headState)
       var bootstrap {.noinit.}: altair.LightClientBootstrap
       bootstrap.header =
-        blck.toBeaconBlockHeader
+        blck.toBeaconBlockHeader()
       bootstrap.current_sync_committee =
         ? dag.existingCurrentSyncCommitteeForPeriod(tmpState[], period)
       bootstrap.current_sync_committee_branch =
