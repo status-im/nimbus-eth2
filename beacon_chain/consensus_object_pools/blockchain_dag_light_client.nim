@@ -34,6 +34,28 @@ template nextEpochBoundarySlot(slot: Slot): Slot =
   ## referring to a block at given slot.
   (slot + (SLOTS_PER_EPOCH - 1)).epoch.start_slot
 
+func computeEarliestLightClientSlot(dag: ChainDAGRef): Slot =
+  ## Compute the earliest slot for which light client data is retained.
+  let
+    minSupportedSlot = max(
+      dag.cfg.ALTAIR_FORK_EPOCH.start_slot,
+      dag.lightClientCache.importTailSlot)
+    currentSlot = getStateField(dag.headState, slot)
+  if currentSlot < minSupportedSlot:
+    return minSupportedSlot
+
+  let
+    MIN_EPOCHS_FOR_BLOCK_REQUESTS =
+      dag.cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY +
+      dag.cfg.CHURN_LIMIT_QUOTIENT div 2
+    MIN_SLOTS_FOR_BLOCK_REQUESTS =
+      MIN_EPOCHS_FOR_BLOCK_REQUESTS * SLOTS_PER_EPOCH
+  if currentSlot - minSupportedSlot < MIN_SLOTS_FOR_BLOCK_REQUESTS:
+    return minSupportedSlot
+
+  let earliestSlot = currentSlot - MIN_SLOTS_FOR_BLOCK_REQUESTS
+  max(earliestSlot.sync_committee_period.start_slot, minSupportedSlot)
+
 proc updateExistingState(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
     save: bool, cache: var StateCache): bool =
@@ -171,28 +193,6 @@ func handleUnexpectedLightClientError(dag: ChainDAGRef, buggedSlot: Slot) =
   doAssert verifyFinalization notin dag.updateFlags
   if buggedSlot >= dag.lightClientCache.importTailSlot:
     dag.lightClientCache.importTailSlot = buggedSlot + 1
-
-func computeEarliestLightClientSlot(dag: ChainDAGRef): Slot =
-  ## Compute the earliest slot for which light client data is retained.
-  let
-    minSupportedSlot = max(
-      dag.cfg.ALTAIR_FORK_EPOCH.start_slot,
-      dag.lightClientCache.importTailSlot)
-    currentSlot = getStateField(dag.headState, slot)
-  if currentSlot < minSupportedSlot:
-    return minSupportedSlot
-
-  let
-    MIN_EPOCHS_FOR_BLOCK_REQUESTS =
-      dag.cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY +
-      dag.cfg.CHURN_LIMIT_QUOTIENT div 2
-    MIN_SLOTS_FOR_BLOCK_REQUESTS =
-      MIN_EPOCHS_FOR_BLOCK_REQUESTS * SLOTS_PER_EPOCH
-  if currentSlot - minSupportedSlot < MIN_SLOTS_FOR_BLOCK_REQUESTS:
-    return minSupportedSlot
-
-  let earliestSlot = currentSlot - MIN_SLOTS_FOR_BLOCK_REQUESTS
-  max(earliestSlot.sync_committee_period.start_slot, minSupportedSlot)
 
 template lazy_header(name: untyped): untyped {.dirty.} =
   ## `createLightClientUpdates` helper to lazily load a known block header.
