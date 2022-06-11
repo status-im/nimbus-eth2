@@ -31,9 +31,6 @@ import
   ../validators/keystore_management,
   "."/[eth2_discovery, libp2p_json_serialization, peer_pool, peer_scores]
 
-when chronicles.enabledLogLevel == LogLevel.TRACE:
-  import std/sequtils
-
 export
   tables, chronos, version, multiaddress, peerinfo, p2pProtocol, connection,
   libp2p_json_serialization, eth2_ssz_serialization, results, eth2_discovery,
@@ -2447,15 +2444,17 @@ proc traceMessage(fut: FutureBase, topic: string) =
 
 proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
   try:
-    let
-      uncompressed = SSZ.encode(msg)
-      compressed = try: snappy.encode(uncompressed)
-      except InputTooLarge:
-        raiseAssert "More than 4gb? not likely.."
+    let uncompressed = SSZ.encode(msg)
 
     # This is only for messages we create. A message this large amounts to an
     # internal logic error.
     doAssert uncompressed.len <= maxGossipMaxSize()
+
+    let compressed =
+      try: snappy.encode(uncompressed)
+      except InputTooLarge:
+        raiseAssert "More than 4gb? not likely.."
+
     inc nbc_gossip_messages_sent
 
     var futSnappy = node.pubsub.publish(topic, compressed)
@@ -2465,7 +2464,7 @@ proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
 
 proc subscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # Nimbus won't score attestation subnets for now, we just rely on block and
   # aggregate which are more stable and reliable
 
