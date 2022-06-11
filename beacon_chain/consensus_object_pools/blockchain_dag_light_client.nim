@@ -454,7 +454,7 @@ proc processFinalizationForLightClient*(
   # Prune light client data that is no longer referrable by future updates
   var bidsToDelete: seq[BlockId]
   for bid, data in dag.lightClientCache.data:
-    if bid.slot >= finalizedSlot:
+    if bid.slot >= dag.finalizedHead.blck.slot:
       continue
     bidsToDelete.add bid
   for bid in bidsToDelete:
