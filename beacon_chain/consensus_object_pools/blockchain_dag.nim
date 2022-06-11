@@ -539,6 +539,12 @@ func isNextSyncCommitteeFinalized*(
   else:
     true
 
+func firstNonFinalizedPeriod*(dag: ChainDAGRef): SyncCommitteePeriod =
+  if dag.finalizedHead.slot >= dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
+    dag.finalizedHead.slot.sync_committee_period + 1
+  else:
+    dag.cfg.ALTAIR_FORK_EPOCH.sync_committee_period
+
 proc updateBeaconMetrics(
     state: ForkedHashedBeaconState, bid: BlockId, cache: var StateCache) =
   # https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#additional-metrics

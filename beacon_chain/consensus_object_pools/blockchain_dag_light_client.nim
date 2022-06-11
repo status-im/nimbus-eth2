@@ -396,16 +396,11 @@ proc processHeadChangeForLightClient*(dag: ChainDAGRef) =
   # only refers to sync committees as selected by fork choice
   let headPeriod = dag.head.slot.sync_committee_period
   if not dag.isNextSyncCommitteeFinalized(headPeriod):
-    let
-      earliestPeriod = earliestSlot.sync_committee_period
-      firstNonFinalizedPeriod =
-        if dag.finalizedHead.slot >= dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
-          max(dag.finalizedHead.slot.sync_committee_period + 1, earliestPeriod)
-        else:
-          earliestPeriod
-    if headPeriod > firstNonFinalizedPeriod:
+    let lowPeriod =
+      max(dag.firstNonFinalizedPeriod, earliestSlot.sync_committee_period)
+    if headPeriod > lowPeriod:
       var tmpState = assignClone(dag.headState)
-      for period in firstNonFinalizedPeriod ..< headPeriod:
+      for period in lowPeriod ..< headPeriod:
         let
           syncCommitteeRoot =
             dag.syncCommitteeRootForPeriod(tmpState[], period).valueOr:
@@ -484,10 +479,10 @@ proc processFinalizationForLightClient*(
 
   # Prune best `LightClientUpdate` referring to non-finalized sync committees
   # that are no longer relevant, i.e., orphaned or too old
-  let finalizedPeriod = finalizedSlot.sync_committee_period
+  let firstNonFinalizedPeriod = dag.firstNonFinalizedPeriod
   var keysToDelete: seq[(SyncCommitteePeriod, Eth2Digest)]
   for (period, committeeRoot) in dag.lightClientCache.pendingBest.keys:
-    if period <= finalizedPeriod:
+    if period < firstNonFinalizedPeriod:
       keysToDelete.add (period, committeeRoot)
   for key in keysToDelete:
     dag.lightClientCache.pendingBest.del key
