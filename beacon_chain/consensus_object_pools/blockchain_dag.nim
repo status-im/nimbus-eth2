@@ -57,21 +57,11 @@ proc putBlock*(
   dag.db.putBlock(signedBlock)
 
 proc updateState*(
-    dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId, save: bool,
-    cache: var StateCache): bool {.gcsafe.}
-
-template withStateVars*(
-    stateInternal: var ForkedHashedBeaconState, body: untyped): untyped =
-  ## Inject a few more descriptive names for the members of `stateData` -
-  ## the stateData instance may get mutated through these names as well
-  template state(): ForkedHashedBeaconState {.inject, used.} = stateInternal
-  template stateRoot(): Eth2Digest {.inject, used.} =
-    getStateRoot(stateInternal)
-
-  body
+    dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
+    save: bool, cache: var StateCache): bool {.gcsafe.}
 
 template withUpdatedState*(
-    dag: ChainDAGRef, state: var ForkedHashedBeaconState,
+    dag: ChainDAGRef, stateParam: var ForkedHashedBeaconState,
     bsiParam: BlockSlotId, okBody: untyped, failureBody: untyped): untyped =
   ## Helper template that updates stateData to a particular BlockSlot - usage of
   ## stateData is unsafe outside of block, or across `await` boundaries
@@ -79,11 +69,10 @@ template withUpdatedState*(
   block:
     let bsi {.inject.} = bsiParam
     var cache {.inject.} = StateCache()
-    if updateState(dag, state, bsi, false, cache):
+    if updateState(dag, stateParam, bsi, false, cache):
       template bid(): BlockId {.inject, used.} = bsi.bid
-
-      withStateVars(state):
-        okBody
+      template state(): ForkedHashedBeaconState {.inject, used.} = stateParam
+      okBody
     else:
       failureBody
 
