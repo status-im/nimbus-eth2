@@ -136,13 +136,10 @@ proc getExistingLightClientData(
     err()
 
 proc cacheLightClientData(
-    dag: ChainDAGRef,
-    state: HashedBeaconStateWithSyncCommittee,
-    blck: TrustedSignedBeaconBlockWithSyncAggregate) =
+    dag: ChainDAGRef, state: HashedBeaconStateWithSyncCommittee, bid: BlockId) =
   ## Cache data for a given block and its post-state to speed up creating future
   ## `LightClientUpdate` and `LightClientBootstrap` instances that refer to this
   ## block and state.
-  let bid = BlockId(root: blck.root, slot: blck.message.slot)
   var cachedData {.noinit.}: CachedLightClientData
   state.data.build_proof(
     altair.CURRENT_SYNC_COMMITTEE_INDEX,
@@ -376,10 +373,10 @@ proc processNewBlockForLightClient*(
     return
 
   when signedBlock is bellatrix.TrustedSignedBeaconBlock:
-    dag.cacheLightClientData(state.bellatrixData, signedBlock)
+    dag.cacheLightClientData(state.bellatrixData, signedBlock.toBlockId())
     dag.createLightClientUpdates(state.bellatrixData, signedBlock, parentBid)
   elif signedBlock is altair.TrustedSignedBeaconBlock:
-    dag.cacheLightClientData(state.altairData, signedBlock)
+    dag.cacheLightClientData(state.altairData, signedBlock.toBlockId())
     dag.createLightClientUpdates(state.altairData, signedBlock, parentBid)
   elif signedBlock is phase0.TrustedSignedBeaconBlock:
     raiseAssert "Unreachable" # `earliestSlot` cannot be before Altair
@@ -765,7 +762,7 @@ proc initLightClientCache*(dag: ChainDAGRef) =
     withStateAndBlck(dag.headState, bdata):
       when stateFork >= BeaconStateFork.Altair:
         # Cache light client data (non-finalized blocks may refer to this)
-        dag.cacheLightClientData(state, blck)
+        dag.cacheLightClientData(state, blck.toBlockId())
 
         # Create `LightClientUpdate` instances
         if bid.slot != lowSlot:
