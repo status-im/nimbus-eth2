@@ -10,7 +10,7 @@
 # Mostly a duplication of "tests/simulation/{start.sh,run_node.sh}", but with a focus on
 # replicating testnets as closely as possible, which means following the Docker execution labyrinth.
 
-set -e
+set -eu
 
 cd "$(dirname "${BASH_SOURCE[0]}")"/..
 
@@ -62,6 +62,7 @@ BASE_METRICS_PORT="8008"
 BASE_REST_PORT="7500"
 REUSE_EXISTING_DATA_DIR="0"
 REUSE_BINARIES="0"
+NIMFLAGS=""
 ENABLE_LOGTRACE="0"
 STOP_AT_EPOCH_FLAG=""
 TIMEOUT_DURATION="0"
@@ -622,13 +623,19 @@ metrics = true
 metrics-address = "127.0.0.1"
 END_CLI_CONFIG
 
-for NUM_REMOTE in $(seq 0 $(( REMOTE_SIGNER_NODES - 1 ))); do
-  ./build/nimbus_signing_node \
-    --validators-dir="${DATA_DIR}/validators_shares/${NUM_REMOTE}" \
-    --secrets-dir="${DATA_DIR}/secrets_shares/${NUM_REMOTE}" \
-    --bind-port=$(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE )) \
-    > "${DATA_DIR}/log_remote_signer_${NUM_REMOTE}.txt" &
-done
+# https://ss64.com/osx/seq.html documents that at macOS seq(1) counts backwards
+# as probably do some others
+if ((REMOTE_SIGNER_NODES > 0)); then
+  for NUM_REMOTE in $(seq 0 $(( REMOTE_SIGNER_NODES - 1 ))); do
+    # TODO find some way for this and other background-launched processes to
+    # still participate in set -e, ideally
+    ./build/nimbus_signing_node \
+      --validators-dir="${DATA_DIR}/validators_shares/${NUM_REMOTE}" \
+      --secrets-dir="${DATA_DIR}/secrets_shares/${NUM_REMOTE}" \
+      --bind-port=$(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE )) \
+      > "${DATA_DIR}/log_remote_signer_${NUM_REMOTE}.txt" &
+  done
+fi
 
 # give each node time to load keys
 sleep 10
