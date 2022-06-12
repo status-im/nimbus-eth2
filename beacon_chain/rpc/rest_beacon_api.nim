@@ -950,7 +950,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            InvalidAttesterSlashingObjectError,
                                            $dres.error())
         dres.get()
-    let res = node.sendAttesterSlashing(slashing)
+    let res = await node.sendAttesterSlashing(slashing)
     if res.isErr():
       return RestApiResponse.jsonError(Http400,
                                        AttesterSlashingValidationError,
@@ -982,7 +982,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            InvalidProposerSlashingObjectError,
                                            $dres.error())
         dres.get()
-    let res = node.sendProposerSlashing(slashing)
+    let res = await node.sendProposerSlashing(slashing)
     if res.isErr():
       return RestApiResponse.jsonError(Http400,
                                        ProposerSlashingValidationError,
@@ -1045,7 +1045,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            InvalidVoluntaryExitObjectError,
                                            $dres.error())
         dres.get()
-    let res = node.sendVoluntaryExit(exit)
+    let res = await node.sendVoluntaryExit(exit)
     if res.isErr():
       return RestApiResponse.jsonError(Http400,
                                        VoluntaryExitValidationError,

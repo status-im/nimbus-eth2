@@ -83,7 +83,6 @@ declarePublicGauge(attached_validator_balance_total,
 logScope: topics = "beacval"
 
 type
-  SendResult* = Result[void, cstring]
   SendBlockResult* = Result[bool, cstring]
   ForkedBlockResult* = Result[ForkedBeaconBlock, string]
 
@@ -236,9 +235,14 @@ proc sendAttestation*(
 
   return
     if res.isGoodForSending:
-      node.network.broadcastAttestation(subnet_id, attestation)
-      beacon_attestations_sent.inc()
-      ok()
+      let sendResult =
+        await node.network.broadcastAttestation(subnet_id, attestation)
+      if sendResult.isOk:
+        beacon_attestations_sent.inc()
+      else:
+        notice "Produced attestation failed to send",
+          error = sendResult.error()
+      sendResult
     else:
       notice "Produced attestation failed validation",
         attestation = shortLog(attestation),
@@ -268,18 +272,27 @@ proc handleLightClientUpdates(node: BeaconNode, slot: Slot) {.async.} =
   let finalized_slot = latest.finalized_header.slot
   if finalized_slot > node.lightClientPool[].latestForwardedFinalitySlot:
     template msg(): auto = latest
-    node.network.broadcastLightClientFinalityUpdate(msg)
-    node.lightClientPool[].latestForwardedFinalitySlot = finalized_slot
-    beacon_light_client_finality_updates_sent.inc()
-    notice "LC finality update sent", message = shortLog(msg)
+    let sendResult = await node.network.broadcastLightClientFinalityUpdate(msg)
+    if sendResult.isOk:
+      node.lightClientPool[].latestForwardedFinalitySlot = finalized_slot
+      beacon_light_client_finality_updates_sent.inc()
+      notice "LC finality update sent", message = shortLog(msg)
+    else:
+      notice "LC finality update failed to send",
+        error = sendResult.error()
 
   let attested_slot = latest.attested_header.slot
   if attested_slot > node.lightClientPool[].latestForwardedOptimisticSlot:
     let msg = latest.toOptimistic
-    node.network.broadcastLightClientOptimisticUpdate(msg)
-    node.lightClientPool[].latestForwardedOptimisticSlot = attested_slot
-    beacon_light_client_optimistic_updates_sent.inc()
-    notice "LC optimistic update sent", message = shortLog(msg)
+    let sendResult =
+      await node.network.broadcastLightClientOptimisticUpdate(msg)
+    if sendResult.isOk:
+      node.lightClientPool[].latestForwardedOptimisticSlot = attested_slot
+      beacon_light_client_optimistic_updates_sent.inc()
+      notice "LC optimistic update sent", message = shortLog(msg)
+    else:
+      notice "LC optimistic update failed to send",
+        error = sendResult.error()
 
 proc scheduleSendingLightClientUpdates(node: BeaconNode, slot: Slot) =
   if not node.config.serveLightClientData.get:
@@ -308,10 +321,15 @@ proc sendSyncCommitteeMessage(
 
   return
     if res.isGoodForSending:
-      node.network.broadcastSyncCommitteeMessage(msg, subcommitteeIdx)
-      beacon_sync_committee_messages_sent.inc()
-      node.scheduleSendingLightClientUpdates(msg.slot)
-      SendResult.ok()
+      let sendResult =
+        await node.network.broadcastSyncCommitteeMessage(msg, subcommitteeIdx)
+      if sendResult.isOk:
+        beacon_sync_committee_messages_sent.inc()
+        node.scheduleSendingLightClientUpdates(msg.slot)
+      else:
+        notice "Sync committee message failed to send",
+          error = sendResult.error()
+      sendResult
     else:
       notice "Sync committee message failed validation",
              msg, error = res.error()
@@ -409,9 +427,14 @@ proc sendSyncCommitteeContribution*(
 
   return
     if res.isGoodForSending:
-      node.network.broadcastSignedContributionAndProof(msg)
-      beacon_sync_committee_contributions_sent.inc()
-      ok()
+      let sendResult =
+        await node.network.broadcastSignedContributionAndProof(msg)
+      if sendResult.isOk:
+        beacon_sync_committee_contributions_sent.inc()
+      else:
+        notice "Sync committee contribution failed to send",
+          error = sendResult.error()
+      sendResult
     else:
       notice "Sync committee contribution failed validation",
               msg, error = res.error()
@@ -760,7 +783,15 @@ proc proposeBlock(node: BeaconNode,
     # example a delay in signing.
     # We'll start broadcasting it before integrating fully in the chaindag
     # so that it can start propagating through the network ASAP.
-    node.network.broadcastBeaconBlock(signedBlock)
+    let sendResult = await node.network.broadcastBeaconBlock(signedBlock)
+
+    if sendResult.isErr:
+      notice "Block failed to send",
+        blockRoot = shortLog(blockRoot), blck = shortLog(blck),
+        signature = shortLog(signature), validator = shortLog(validator),
+        error = sendResult.error()
+
+      return head
 
     let
       wallTime = node.beaconClock.now()
@@ -1145,7 +1176,12 @@ proc sendAggregatedAttestations(
       signedAP = SignedAggregateAndProof(
         message: aggregateAndProof,
         signature: sig)
-    node.network.broadcastAggregateAndProof(signedAP)
+    let sendResult = await node.network.broadcastAggregateAndProof(signedAP)
+
+    if sendResult.isErr:
+      notice "Aggregated attestation failed to send",
+        error = sendResult.error()
+      return
 
     # The subnet on which the attestations (should have) arrived
     let
@@ -1345,7 +1381,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
 proc sendAttestation*(node: BeaconNode,
                       attestation: Attestation): Future[SendResult] {.async.} =
-  # REST/JSON-RPC API helper procedure.
+  # REST helper procedure.
   let
     target = node.dag.getBlockRef(attestation.data.target.root).valueOr:
       notice "Attempt to send attestation for unknown target",
@@ -1386,67 +1422,82 @@ proc sendAttestation*(node: BeaconNode,
 proc sendAggregateAndProof*(node: BeaconNode,
                             proof: SignedAggregateAndProof): Future[SendResult] {.
      async.} =
-  # REST/JSON-RPC API helper procedure.
+  # REST helper procedure.
   let res =
     await node.processor.aggregateValidator(MsgSource.api, proof)
   return
     if res.isGoodForSending:
-      node.network.broadcastAggregateAndProof(proof)
+      let sendResult = await node.network.broadcastAggregateAndProof(proof)
 
-      notice "Aggregated attestation sent",
-        attestation = shortLog(proof.message.aggregate),
-        aggregator_index = proof.message.aggregator_index,
-        signature = shortLog(proof.signature)
+      if sendResult.isOk:
+        notice "Aggregated attestation sent",
+          attestation = shortLog(proof.message.aggregate),
+          aggregator_index = proof.message.aggregator_index,
+          signature = shortLog(proof.signature)
+      else:
+        notice "Aggregated attestation failed to send",
+          error = sendResult.error()
 
-      ok()
+      sendResult
     else:
-      notice "Aggregate and proof failed validation",
-            proof = shortLog(proof.message.aggregate), error = res.error()
+      notice "Aggregated attestation failed validation",
+             proof = shortLog(proof.message.aggregate), error = res.error()
 
       err(res.error()[1])
 
-proc sendVoluntaryExit*(node: BeaconNode,
-                        exit: SignedVoluntaryExit): SendResult =
-  # REST/JSON-RPC API helper procedure.
+proc sendVoluntaryExit*(
+    node: BeaconNode, exit: SignedVoluntaryExit):
+    Future[SendResult] {.async.} =
+  # REST helper procedure.
   let res =
     node.processor[].voluntaryExitValidator(MsgSource.api, exit)
   if res.isGoodForSending:
-    node.network.broadcastVoluntaryExit(exit)
-    ok()
+    let sendResult = await node.network.broadcastVoluntaryExit(exit)
+    if sendResult.isErr:
+      notice "Voluntary exit request failed to send",
+        error = sendResult.error()
+    return sendResult
   else:
     notice "Voluntary exit request failed validation",
            exit = shortLog(exit.message), error = res.error()
-    err(res.error()[1])
+    return err(res.error()[1])
 
-proc sendAttesterSlashing*(node: BeaconNode,
-                           slashing: AttesterSlashing): SendResult =
-  # REST/JSON-RPC API helper procedure.
+proc sendAttesterSlashing*(
+  node: BeaconNode, slashing: AttesterSlashing): Future[SendResult] {.async.} =
+  # REST helper procedure.
   let res =
     node.processor[].attesterSlashingValidator(MsgSource.api, slashing)
   if res.isGoodForSending:
-    node.network.broadcastAttesterSlashing(slashing)
-    ok()
+    let sendResult = await node.network.broadcastAttesterSlashing(slashing)
+    if sendResult.isErr:
+      notice "Attester slashing request failed to send",
+        error = sendResult.error()
+    return sendResult
   else:
     notice "Attester slashing request failed validation",
            slashing = shortLog(slashing), error = res.error()
-    err(res.error()[1])
+    return err(res.error()[1])
 
-proc sendProposerSlashing*(node: BeaconNode,
-                           slashing: ProposerSlashing): SendResult =
-  # REST/JSON-RPC API helper procedure.
+proc sendProposerSlashing*(
+    node: BeaconNode, slashing: ProposerSlashing): Future[SendResult]
+    {.async.} =
+  # REST helper procedure.
   let res =
     node.processor[].proposerSlashingValidator(MsgSource.api, slashing)
   if res.isGoodForSending:
-    node.network.broadcastProposerSlashing(slashing)
-    ok()
+    let sendResult = await node.network.broadcastProposerSlashing(slashing)
+    if sendResult.isErr:
+      notice "Proposer slashing request failed to send",
+        error = sendResult.error()
+    return sendResult
   else:
     notice "Proposer slashing request failed validation",
            slashing = shortLog(slashing), error = res.error()
-    err(res.error()[1])
+    return err(res.error()[1])
 
 proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
                      ): Future[SendBlockResult] {.async.} =
-  # REST/JSON-RPC API helper procedure.
+  # REST helper procedure.
   block:
     # Start with a quick gossip validation check such that broadcasting the
     # block doesn't get the node into trouble
@@ -1459,7 +1510,12 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
   # The block passed basic gossip validation - we can "safely" broadcast it now.
   # In fact, per the spec, we should broadcast it even if it later fails to
   # apply to our state.
-  node.network.broadcastBeaconBlock(forked)
+  let sendResult = await node.network.broadcastBeaconBlock(forked)
+  if sendResult.isErr:
+    notice "Block failed to send",
+      blockRoot = shortLog(forked.root), blck = shortLog(forked),
+      error = sendResult.error()
+    return SendBlockResult.err(sendResult.error())
 
   let
     wallTime = node.beaconClock.now()
