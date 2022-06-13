@@ -240,7 +240,7 @@ proc sendAttestation*(
       if sendResult.isOk:
         beacon_attestations_sent.inc()
       else:
-        notice "Produced attestation failed to send",
+        warn "Produced attestation failed to send",
           error = sendResult.error()
       sendResult
     else:
@@ -273,12 +273,15 @@ proc handleLightClientUpdates(node: BeaconNode, slot: Slot) {.async.} =
   if finalized_slot > node.lightClientPool[].latestForwardedFinalitySlot:
     template msg(): auto = latest
     let sendResult = await node.network.broadcastLightClientFinalityUpdate(msg)
+
+    # Optimization for message with ephemeral validity, whether sent or not
+    node.lightClientPool[].latestForwardedFinalitySlot = finalized_slot
+
     if sendResult.isOk:
-      node.lightClientPool[].latestForwardedFinalitySlot = finalized_slot
       beacon_light_client_finality_updates_sent.inc()
       notice "LC finality update sent", message = shortLog(msg)
     else:
-      notice "LC finality update failed to send",
+      warn "LC finality update failed to send",
         error = sendResult.error()
 
   let attested_slot = latest.attested_header.slot
@@ -286,12 +289,15 @@ proc handleLightClientUpdates(node: BeaconNode, slot: Slot) {.async.} =
     let msg = latest.toOptimistic
     let sendResult =
       await node.network.broadcastLightClientOptimisticUpdate(msg)
+
+    # Optimization for message with ephemeral validity, whether sent or not
+    node.lightClientPool[].latestForwardedOptimisticSlot = attested_slot
+
     if sendResult.isOk:
-      node.lightClientPool[].latestForwardedOptimisticSlot = attested_slot
       beacon_light_client_optimistic_updates_sent.inc()
       notice "LC optimistic update sent", message = shortLog(msg)
     else:
-      notice "LC optimistic update failed to send",
+      warn "LC optimistic update failed to send",
         error = sendResult.error()
 
 proc scheduleSendingLightClientUpdates(node: BeaconNode, slot: Slot) =
@@ -327,7 +333,7 @@ proc sendSyncCommitteeMessage(
         beacon_sync_committee_messages_sent.inc()
         node.scheduleSendingLightClientUpdates(msg.slot)
       else:
-        notice "Sync committee message failed to send",
+        warn "Sync committee message failed to send",
           error = sendResult.error()
       sendResult
     else:
@@ -432,7 +438,7 @@ proc sendSyncCommitteeContribution*(
       if sendResult.isOk:
         beacon_sync_committee_contributions_sent.inc()
       else:
-        notice "Sync committee contribution failed to send",
+        warn "Sync committee contribution failed to send",
           error = sendResult.error()
       sendResult
     else:
@@ -786,7 +792,7 @@ proc proposeBlock(node: BeaconNode,
     let sendResult = await node.network.broadcastBeaconBlock(signedBlock)
 
     if sendResult.isErr:
-      notice "Block failed to send",
+      warn "Block failed to send",
         blockRoot = shortLog(blockRoot), blck = shortLog(blck),
         signature = shortLog(signature), validator = shortLog(validator),
         error = sendResult.error()
@@ -1179,7 +1185,7 @@ proc sendAggregatedAttestations(
     let sendResult = await node.network.broadcastAggregateAndProof(signedAP)
 
     if sendResult.isErr:
-      notice "Aggregated attestation failed to send",
+      warn "Aggregated attestation failed to send",
         error = sendResult.error()
       return
 
@@ -1435,7 +1441,7 @@ proc sendAggregateAndProof*(node: BeaconNode,
           aggregator_index = proof.message.aggregator_index,
           signature = shortLog(proof.signature)
       else:
-        notice "Aggregated attestation failed to send",
+        warn "Aggregated attestation failed to send",
           error = sendResult.error()
 
       sendResult
@@ -1454,7 +1460,7 @@ proc sendVoluntaryExit*(
   if res.isGoodForSending:
     let sendResult = await node.network.broadcastVoluntaryExit(exit)
     if sendResult.isErr:
-      notice "Voluntary exit request failed to send",
+      warn "Voluntary exit request failed to send",
         error = sendResult.error()
     return sendResult
   else:
@@ -1470,7 +1476,7 @@ proc sendAttesterSlashing*(
   if res.isGoodForSending:
     let sendResult = await node.network.broadcastAttesterSlashing(slashing)
     if sendResult.isErr:
-      notice "Attester slashing request failed to send",
+      warn "Attester slashing request failed to send",
         error = sendResult.error()
     return sendResult
   else:
@@ -1487,7 +1493,7 @@ proc sendProposerSlashing*(
   if res.isGoodForSending:
     let sendResult = await node.network.broadcastProposerSlashing(slashing)
     if sendResult.isErr:
-      notice "Proposer slashing request failed to send",
+      warn "Proposer slashing request failed to send",
         error = sendResult.error()
     return sendResult
   else:
@@ -1512,7 +1518,7 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
   # apply to our state.
   let sendResult = await node.network.broadcastBeaconBlock(forked)
   if sendResult.isErr:
-    notice "Block failed to send",
+    warn "Block failed to send",
       blockRoot = shortLog(forked.root), blck = shortLog(forked),
       error = sendResult.error()
     return SendBlockResult.err(sendResult.error())
