@@ -259,7 +259,11 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
       distance = wallSlot - headSlot
       info = RestSyncInfo(
         head_slot: headSlot, sync_distance: distance,
-        is_syncing: distance != 0'u64
+        is_syncing:
+          if isNil(node.syncManager):
+            false
+          else:
+            node.syncManager.inProgress
       )
     return RestApiResponse.jsonResponse(info)
 
