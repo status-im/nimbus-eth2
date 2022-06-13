@@ -170,18 +170,18 @@ proc loadChainDag(
       if config.verifyFinalization: {verifyFinalization}
       else: {}
     onLightClientFinalityUpdateCb =
-      if config.serveLightClientData.get: onLightClientFinalityUpdate
+      if config.lightClientDataServe.get: onLightClientFinalityUpdate
       else: nil
     onLightClientOptimisticUpdateCb =
-      if config.serveLightClientData.get: onLightClientOptimisticUpdate
+      if config.lightClientDataServe.get: onLightClientOptimisticUpdate
       else: nil
     dag = ChainDAGRef.init(
       cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
       onBlockAdded, onHeadChanged, onChainReorg,
       onLCFinalityUpdateCb = onLightClientFinalityUpdateCb,
       onLCOptimisticUpdateCb = onLightClientOptimisticUpdateCb,
-      serveLightClientData = config.serveLightClientData.get,
-      importLightClientData = config.importLightClientData.get,
+      lightClientDataServe = config.lightClientDataServe.get,
+      lightClientDataImportMode = config.lightClientDataImportMode.get,
       vanityLogs = getPandas(detectTTY(config.logStdout)))
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState, genesis_validators_root)
@@ -1707,8 +1707,8 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
       config.`field` = some metadata.configDefaults.`field`
 
   applyConfigDefault(lightClientEnable)
-  applyConfigDefault(serveLightClientData)
-  applyConfigDefault(importLightClientData)
+  applyConfigDefault(lightClientDataServe)
+  applyConfigDefault(lightClientDataImportMode)
 
   let node = BeaconNode.init(
     metadata.cfg,

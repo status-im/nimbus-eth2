@@ -29,7 +29,7 @@ import
   ./filepath
 
 from consensus_object_pools/block_pools_types_light_client
-  import ImportLightClientData
+  import LightClientDataImportMode
 
 export
   uri, nat, enr,
@@ -445,16 +445,16 @@ type
         desc: "A file specifying the authorization token required for accessing the keymanager API"
         name: "keymanager-token-file" }: Option[InputFile]
 
-      serveLightClientData* {.
+      lightClientDataServe* {.
         hidden
         desc: "BETA: Serve data for enabling light clients to stay in sync with the network"
-        name: "serve-light-client-data"}: Option[bool]
+        name: "light-client-data-serve"}: Option[bool]
 
-      importLightClientData* {.
+      lightClientDataImportMode* {.
         hidden
         desc: "BETA: Which classes of light client data to import. " &
               "Must be one of: none, only-new, full (slow startup), on-demand (may miss validator duties)"
-        name: "import-light-client-data"}: Option[ImportLightClientData]
+        name: "light-client-data-import-mode"}: Option[LightClientDataImportMode]
 
       inProcessValidators* {.
         desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"

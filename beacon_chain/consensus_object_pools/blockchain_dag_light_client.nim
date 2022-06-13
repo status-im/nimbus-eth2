@@ -187,7 +187,7 @@ proc cacheLightClientData*(
 proc deleteLightClientData*(dag: ChainDAGRef, bid: BlockId) =
   ## Delete cached light client data for a given block. This needs to be called
   ## when a block becomes unreachable due to finalization of a different fork.
-  if dag.importLightClientData == ImportLightClientData.None:
+  if dag.lightClientDataImportMode == LightClientDataImportMode.None:
     return
 
   dag.lightClientCache.data.del bid
@@ -355,7 +355,7 @@ proc processNewBlockForLightClient*(
     signedBlock: ForkyTrustedSignedBeaconBlock,
     parentBid: BlockId) =
   ## Update light client data with information from a new block.
-  if dag.importLightClientData == ImportLightClientData.None:
+  if dag.lightClientDataImportMode == LightClientDataImportMode.None:
     return
   if signedBlock.message.slot < dag.computeEarliestLightClientSlot:
     return
@@ -374,7 +374,7 @@ proc processNewBlockForLightClient*(
 proc processHeadChangeForLightClient*(dag: ChainDAGRef) =
   ## Update light client data to account for a new head block.
   ## Note that `dag.finalizedHead` is not yet updated when this is called.
-  if dag.importLightClientData == ImportLightClientData.None:
+  if dag.lightClientDataImportMode == LightClientDataImportMode.None:
     return
   if dag.head.slot < dag.computeEarliestLightClientSlot:
     return
@@ -406,7 +406,7 @@ proc processFinalizationForLightClient*(
   ## Prune cached data that is no longer useful for creating future
   ## `LightClientUpdate` and `LightClientBootstrap` instances.
   ## This needs to be called whenever `finalized_checkpoint` changes.
-  if dag.importLightClientData == ImportLightClientData.None:
+  if dag.lightClientDataImportMode == LightClientDataImportMode.None:
     return
   let
     earliestSlot = dag.computeEarliestLightClientSlot
@@ -662,10 +662,10 @@ proc initLightClientUpdateForPeriod(
 
 proc initLightClientCache*(dag: ChainDAGRef) =
   ## Initialize cached light client data
-  if dag.importLightClientData == ImportLightClientData.None:
+  if dag.lightClientDataImportMode == LightClientDataImportMode.None:
     return
   dag.lightClientCache.importTailSlot = dag.tail.slot
-  if dag.importLightClientData == ImportLightClientData.OnlyNew:
+  if dag.lightClientDataImportMode == LightClientDataImportMode.OnlyNew:
     dag.lightClientCache.importTailSlot = dag.head.slot
   var earliestSlot = dag.computeEarliestLightClientSlot
   if dag.head.slot < earliestSlot:
@@ -738,7 +738,7 @@ proc initLightClientCache*(dag: ChainDAGRef) =
     initDur = lightClientEndTick - lightClientStartTick
 
   # Import historic data
-  if dag.importLightClientData == ImportLightClientData.Full:
+  if dag.lightClientDataImportMode == LightClientDataImportMode.Full:
     let earliestPeriod = earliestSlot.sync_committee_period
     for period in earliestPeriod ..< finalizedPeriod:
       dag.initLightClientBootstrapForPeriod(period)
@@ -747,7 +747,7 @@ proc initLightClientCache*(dag: ChainDAGRef) =
 proc getLightClientBootstrap*(
     dag: ChainDAGRef,
     blockRoot: Eth2Digest): Opt[altair.LightClientBootstrap] =
-  if not dag.serveLightClientData:
+  if not dag.lightClientDataServe:
     return err()
 
   let bdata = dag.getForkedBlock(blockRoot).valueOr:
@@ -766,7 +766,7 @@ proc getLightClientBootstrap*(
         return err()
       var cachedBootstrap = dag.lightClientCache.bootstrap.getOrDefault(slot)
       if cachedBootstrap.current_sync_committee_branch.isZeroMemory:
-        if dag.importLightClientData == ImportLightClientData.OnDemand:
+        if dag.lightClientDataImportMode == LightClientDataImportMode.OnDemand:
           let bsi = ? dag.getExistingBlockIdAtSlot(slot)
           var tmpState = assignClone(dag.headState)
           dag.withUpdatedExistingState(tmpState[], bsi) do:
@@ -799,10 +799,10 @@ proc getLightClientBootstrap*(
 proc getLightClientUpdateForPeriod*(
     dag: ChainDAGRef,
     period: SyncCommitteePeriod): Option[altair.LightClientUpdate] =
-  if not dag.serveLightClientData:
+  if not dag.lightClientDataServe:
     return
 
-  if dag.importLightClientData == ImportLightClientData.OnDemand:
+  if dag.lightClientDataImportMode == LightClientDataImportMode.OnDemand:
     dag.initLightClientUpdateForPeriod(period)
   result = some(dag.lightClientCache.best.getOrDefault(period))
   let numParticipants = countOnes(result.get.sync_aggregate.sync_committee_bits)
@@ -811,7 +811,7 @@ proc getLightClientUpdateForPeriod*(
 
 proc getLightClientFinalityUpdate*(
     dag: ChainDAGRef): Option[altair.LightClientFinalityUpdate] =
-  if not dag.serveLightClientData:
+  if not dag.lightClientDataServe:
     return
 
   result = some(dag.lightClientCache.latest)
@@ -821,7 +821,7 @@ proc getLightClientFinalityUpdate*(
 
 proc getLightClientOptimisticUpdate*(
     dag: ChainDAGRef): Option[altair.LightClientOptimisticUpdate] =
-  if not dag.serveLightClientData:
+  if not dag.lightClientDataServe:
     return
 
   result = some(dag.lightClientCache.latest.toOptimistic)

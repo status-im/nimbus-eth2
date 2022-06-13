@@ -160,8 +160,8 @@ proc startSingleNodeNetwork {.raises: [CatchableError, Defect].} =
     "--keymanager-port=" & $keymanagerPort,
     "--keymanager-token-file=" & tokenFilePath,
     "--light-client-enable=off",
-    "--serve-light-client-data=off",
-    "--import-light-client-data=none",
+    "--light-client-data-serve=off",
+    "--light-client-data-import-mode=none",
     "--doppelganger-detection=off"], it))
   except Exception as exc: # TODO fix confutils exceptions
     raiseAssert exc.msg

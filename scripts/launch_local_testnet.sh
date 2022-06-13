@@ -684,8 +684,8 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --rest-port="$(( BASE_REST_PORT + NUM_NODE ))" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
     --light-client-enable=on \
-    --serve-light-client-data=on \
-    --import-light-client-data=only-new \
+    --light-client-data-serve=on \
+    --light-client-data-import-mode=only-new \
     ${EXTRA_ARGS} \
     &> "${DATA_DIR}/log${NUM_NODE}.txt" &
 

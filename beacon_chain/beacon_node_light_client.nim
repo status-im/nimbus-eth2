@@ -98,7 +98,7 @@ proc startLightClient*(node: BeaconNode) =
 
 proc installLightClientMessageValidators*(node: BeaconNode) =
   let eth2Processor =
-    if node.config.serveLightClientData.get:
+    if node.config.lightClientDataServe.get:
       # Process gossip using both full node and light client
       node.processor
     elif node.config.lightClientEnable.get:
@@ -113,7 +113,7 @@ proc installLightClientMessageValidators*(node: BeaconNode) =
 proc updateLightClientGossipStatus*(
     node: BeaconNode, slot: Slot, dagIsBehind: bool) =
   let isBehind =
-    if node.config.serveLightClientData.get:
+    if node.config.lightClientDataServe.get:
       # Forward DAG's readiness to handle light client gossip
       dagIsBehind
     else:

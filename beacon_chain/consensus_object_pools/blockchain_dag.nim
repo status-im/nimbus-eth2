@@ -682,8 +682,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            onReorgCb: OnReorgCallback = nil, onFinCb: OnFinalizedCallback = nil,
            onLCFinalityUpdateCb: OnLightClientFinalityUpdateCallback = nil,
            onLCOptimisticUpdateCb: OnLightClientOptimisticUpdateCallback = nil,
-           serveLightClientData = false,
-           importLightClientData = ImportLightClientData.None,
+           lightClientDataServe = false,
+           lightClientDataImportMode = LightClientDataImportMode.None,
            vanityLogs = default(VanityLogs)): ChainDAGRef =
   cfg.checkForkConsistency()
 
@@ -720,8 +720,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
       vanityLogs: vanityLogs,
 
-      serveLightClientData: serveLightClientData,
-      importLightClientData: importLightClientData,
+      lightClientDataServe: lightClientDataServe,
+      lightClientDataImportMode: lightClientDataImportMode,
 
       onBlockAdded: onBlockCb,
       onHeadChanged: onHeadCb,
