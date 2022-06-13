@@ -67,12 +67,12 @@ proc updateExistingState(
   ok
 
 template withUpdatedExistingState(
-    dag: ChainDAGRef, state: var ForkedHashedBeaconState,
+    dag: ChainDAGRef, stateParam: var ForkedHashedBeaconState,
     bsiParam: BlockSlotId, okBody: untyped, failureBody: untyped): untyped =
   ## Wrapper around `withUpdatedState` for states expected to exist.
   block:
     let bsi = bsiParam
-    dag.withUpdatedState(state, bsiParam) do:
+    dag.withUpdatedState(stateParam, bsiParam) do:
       okBody
     do:
       error "State failed to load unexpectedly", bsi, tail = dag.tail.slot
@@ -511,13 +511,12 @@ proc initLightClientBootstrapForPeriod(
       if not dag.updateExistingState(
           tmpState[], bid.atSlot, save = false, tmpCache):
         continue
-      withStateVars(tmpState[]):
-        withState(state):
-          when stateFork >= BeaconStateFork.Altair:
-            state.data.build_proof(
-              altair.CURRENT_SYNC_COMMITTEE_INDEX,
-              cachedBootstrap.current_sync_committee_branch)
-          else: raiseAssert "Unreachable"
+      withState(tmpState[]):
+        when stateFork >= BeaconStateFork.Altair:
+          state.data.build_proof(
+            altair.CURRENT_SYNC_COMMITTEE_INDEX,
+            cachedBootstrap.current_sync_committee_branch)
+        else: raiseAssert "Unreachable"
       dag.lightClientCache.bootstrap[bid.slot] = cachedBootstrap
 
 proc initLightClientUpdateForPeriod(
@@ -719,19 +718,18 @@ proc initLightClientCache*(dag: ChainDAGRef) =
         dag.headState, bid.atSlot, save = false, cache):
       handleUnexpectedError(bid)
       continue
-    withStateVars(dag.headState):
-      let bdata = dag.getExistingForkedBlock(bid).valueOr:
-        handleUnexpectedError(bid)
-        continue
-      withStateAndBlck(state, bdata):
-        when stateFork >= BeaconStateFork.Altair:
-          # Cache light client data (non-finalized blocks may refer to this)
-          dag.cacheLightClientData(state, blck)
+    let bdata = dag.getExistingForkedBlock(bid).valueOr:
+      handleUnexpectedError(bid)
+      continue
+    withStateAndBlck(dag.headState, bdata):
+      when stateFork >= BeaconStateFork.Altair:
+        # Cache light client data (non-finalized blocks may refer to this)
+        dag.cacheLightClientData(state, blck)
 
-          # Create `LightClientUpdate` instances
-          if bid.slot != lowSlot:
-            dag.createLightClientUpdates(state, blck, parentBid = blocks[i + 1])
-        else: raiseAssert "Unreachable"
+        # Create `LightClientUpdate` instances
+        if bid.slot != lowSlot:
+          dag.createLightClientUpdates(state, blck, parentBid = blocks[i + 1])
+      else: raiseAssert "Unreachable"
 
   let lightClientEndTick = Moment.now()
   debug "Initialized cached light client data",
