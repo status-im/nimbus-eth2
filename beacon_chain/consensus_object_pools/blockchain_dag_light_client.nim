@@ -67,12 +67,12 @@ proc updateExistingState(
   ok
 
 template withUpdatedExistingState(
-    dag: ChainDAGRef, state: var ForkedHashedBeaconState,
+    dag: ChainDAGRef, stateParam: var ForkedHashedBeaconState,
     bsiParam: BlockSlotId, okBody: untyped, failureBody: untyped): untyped =
   ## Wrapper around `withUpdatedState` for states expected to exist.
   block:
     let bsi = bsiParam
-    dag.withUpdatedState(state, bsiParam) do:
+    dag.withUpdatedState(stateParam, bsiParam) do:
       okBody
     do:
       error "State failed to load unexpectedly", bsi, tail = dag.tail.slot
