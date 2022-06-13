@@ -72,6 +72,7 @@ type
     restKeysCache*: Table[ValidatorPubKey, ValidatorIndex]
     validatorMonitor*: ref ValidatorMonitor
     stateTtlCache*: StateTtlCache
+    nextExchangeTransitionConfTime*: Moment
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
