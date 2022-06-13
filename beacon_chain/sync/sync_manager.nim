@@ -562,18 +562,29 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 
     let
       pivot = man.progressPivot
-      progress = float(
-        if man.queue.kind == SyncQueueKind.Forward: man.queue.outSlot - pivot
-        else: pivot - man.queue.outSlot)
-      total = float(
-        if man.queue.kind == SyncQueueKind.Forward: man.queue.finalSlot - pivot
-        else: pivot - man.queue.finalSlot)
+      progress =
+        case man.queue.kind
+        of SyncQueueKind.Forward:
+          man.queue.outSlot - pivot
+        of SyncQueueKind.Backward:
+          pivot - man.queue.outSlot
+      total =
+        case man.queue.kind
+        of SyncQueueKind.Forward:
+          man.queue.finalSlot + 1'u64 - pivot
+        of SyncQueueKind.Backward:
+          pivot + 1'u64 - man.queue.finalSlot
       remaining = total - progress
-      done = if total > 0.0: progress / total else: 1.0
+      done =
+        if total > 0:
+          progress.float / total.float
+        else:
+          1.0
       timeleft =
         if man.avgSyncSpeed >= 0.001:
-          Duration.fromFloatSeconds(remaining / man.avgSyncSpeed)
-        else: InfiniteDuration
+          Duration.fromFloatSeconds(remaining.float / man.avgSyncSpeed)
+        else:
+          InfiniteDuration
       currentSlot = Base10.toString(
         if man.queue.kind == SyncQueueKind.Forward:
           max(uint64(man.queue.outSlot), 1'u64) - 1'u64
