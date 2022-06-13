@@ -223,7 +223,7 @@ func isGoodForSending(validationResult: ValidationRes): bool =
   # to ensure that the message will reach as many peers as possible.
   validationResult.isOk() or validationResult.error[0] == ValidationResult.Ignore
 
-proc sendAttestation*(
+proc sendAttestation(
     node: BeaconNode, attestation: Attestation,
     subnet_id: SubnetId, checkSignature: bool): Future[SendResult] {.async.} =
   # Validate attestation before sending it via gossip - validation will also
@@ -239,9 +239,6 @@ proc sendAttestation*(
         await node.network.broadcastAttestation(subnet_id, attestation)
       if sendResult.isOk:
         beacon_attestations_sent.inc()
-      else:
-        warn "Produced attestation failed to send",
-          error = sendResult.error()
       sendResult
     else:
       notice "Produced attestation failed validation",
@@ -332,9 +329,6 @@ proc sendSyncCommitteeMessage(
       if sendResult.isOk:
         beacon_sync_committee_messages_sent.inc()
         node.scheduleSendingLightClientUpdates(msg.slot)
-      else:
-        warn "Sync committee message failed to send",
-          error = sendResult.error()
       sendResult
     else:
       notice "Sync committee message failed validation",
@@ -437,9 +431,6 @@ proc sendSyncCommitteeContribution*(
         await node.network.broadcastSignedContributionAndProof(msg)
       if sendResult.isOk:
         beacon_sync_committee_contributions_sent.inc()
-      else:
-        warn "Sync committee contribution failed to send",
-          error = sendResult.error()
       sendResult
     else:
       notice "Sync committee contribution failed validation",
@@ -468,7 +459,11 @@ proc createAndSendAttestation(node: BeaconNode,
 
     let res = await node.sendAttestation(
       attestation, subnet_id, checkSignature = false)
-    if not res.isOk(): # Logged in sendAttestation
+    if not res.isOk():
+      warn "Attestation failed",
+        validator = shortLog(validator),
+        attestation = shortLog(attestation),
+        error = res.error()
       return
 
     if node.config.dumpEnabled:
@@ -932,7 +927,8 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
     let res = await node.sendSyncCommitteeMessage(
       msg, subcommitteeIdx, checkSignature = false)
     if res.isErr():
-      # Logged in sendSyncCommitteeMessage
+      warn "Sync committee message failed",
+        error = res.error()
       return
 
     if node.config.dumpEnabled:
@@ -1440,9 +1436,6 @@ proc sendAggregateAndProof*(node: BeaconNode,
           attestation = shortLog(proof.message.aggregate),
           aggregator_index = proof.message.aggregator_index,
           signature = shortLog(proof.signature)
-      else:
-        warn "Aggregated attestation failed to send",
-          error = sendResult.error()
 
       sendResult
     else:
@@ -1458,11 +1451,7 @@ proc sendVoluntaryExit*(
   let res =
     node.processor[].voluntaryExitValidator(MsgSource.api, exit)
   if res.isGoodForSending:
-    let sendResult = await node.network.broadcastVoluntaryExit(exit)
-    if sendResult.isErr:
-      warn "Voluntary exit request failed to send",
-        error = sendResult.error()
-    return sendResult
+    return await node.network.broadcastVoluntaryExit(exit)
   else:
     notice "Voluntary exit request failed validation",
            exit = shortLog(exit.message), error = res.error()
@@ -1474,11 +1463,7 @@ proc sendAttesterSlashing*(
   let res =
     node.processor[].attesterSlashingValidator(MsgSource.api, slashing)
   if res.isGoodForSending:
-    let sendResult = await node.network.broadcastAttesterSlashing(slashing)
-    if sendResult.isErr:
-      warn "Attester slashing request failed to send",
-        error = sendResult.error()
-    return sendResult
+    return await node.network.broadcastAttesterSlashing(slashing)
   else:
     notice "Attester slashing request failed validation",
            slashing = shortLog(slashing), error = res.error()
@@ -1491,11 +1476,7 @@ proc sendProposerSlashing*(
   let res =
     node.processor[].proposerSlashingValidator(MsgSource.api, slashing)
   if res.isGoodForSending:
-    let sendResult = await node.network.broadcastProposerSlashing(slashing)
-    if sendResult.isErr:
-      warn "Proposer slashing request failed to send",
-        error = sendResult.error()
-    return sendResult
+    return await node.network.broadcastProposerSlashing(slashing)
   else:
     notice "Proposer slashing request failed validation",
            slashing = shortLog(slashing), error = res.error()
@@ -1518,9 +1499,6 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
   # apply to our state.
   let sendResult = await node.network.broadcastBeaconBlock(forked)
   if sendResult.isErr:
-    warn "Block failed to send",
-      blockRoot = shortLog(forked.root), blck = shortLog(forked),
-      error = sendResult.error()
     return SendBlockResult.err(sendResult.error())
 
   let
