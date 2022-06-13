@@ -199,8 +199,7 @@ template lazy_header(name: untyped): untyped {.dirty.} =
   var
     `name _ ptr`: ptr[BeaconBlockHeader]
     `name _ ok` = true
-  template `assign _ name`(target: var BeaconBlockHeader,
-                           bid: BlockId): bool =
+  template `assign _ name`(target: var BeaconBlockHeader, bid: BlockId): bool =
     if `name _ ptr` != nil:
       target = `name _ ptr`[]
     elif `name _ ok`:
