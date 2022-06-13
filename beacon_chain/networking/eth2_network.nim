@@ -254,6 +254,9 @@ template neterr*(kindParam: Eth2NetworkingErrorKind): auto =
 declareCounter nbc_gossip_messages_sent,
   "Number of gossip messages sent by this peer"
 
+declareCounter nbc_gossip_failed_no_peers,
+  "Number of gossip messages that failed because no per-topic peers were available"
+
 declareCounter nbc_gossip_messages_received,
   "Number of gossip messages received by this peer"
 
@@ -2437,6 +2440,7 @@ proc broadcast(node: Eth2Node, topic: string, msg: auto):
       inc nbc_gossip_messages_sent
       return ok()
     else:
+      inc nbc_gossip_failed_no_peers
       return err("No peers on libp2p topic")
   except IOError as exc:
     raiseAssert exc.msg # TODO in-memory compression shouldn't fail
@@ -2522,7 +2526,7 @@ proc getWallEpoch(node: Eth2Node): Epoch =
 
 proc broadcastAttestation*(
     node: Eth2Node, subnet_id: SubnetId, attestation: Attestation):
-    Future[SendResult] {.async.} =
+    Future[SendResult] =
   # Regardless of the contents of the attestation,
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/p2p-interface.md#transitioning-the-gossip
   # implies that pre-fork, messages using post-fork digests might be
@@ -2532,80 +2536,73 @@ proc broadcastAttestation*(
   let
     forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)
     topic = getAttestationTopic(forkPrefix, subnet_id)
-  return await node.broadcast(topic, attestation)
+  node.broadcast(topic, attestation)
 
 proc broadcastVoluntaryExit*(
-    node: Eth2Node, exit: SignedVoluntaryExit): Future[SendResult] {.async.} =
+    node: Eth2Node, exit: SignedVoluntaryExit): Future[SendResult] =
   let topic = getVoluntaryExitsTopic(node.forkDigestAtEpoch(node.getWallEpoch))
-  return await node.broadcast(topic, exit)
+  node.broadcast(topic, exit)
 
 proc broadcastAttesterSlashing*(
-    node: Eth2Node, slashing: AttesterSlashing): Future[SendResult] {.async.} =
+    node: Eth2Node, slashing: AttesterSlashing): Future[SendResult] =
   let topic = getAttesterSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
-  return await node.broadcast(topic, slashing)
+  node.broadcast(topic, slashing)
 
 proc broadcastProposerSlashing*(
-    node: Eth2Node, slashing: ProposerSlashing): Future[SendResult] {.async.} =
+    node: Eth2Node, slashing: ProposerSlashing): Future[SendResult] =
   let topic = getProposerSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
-  return await node.broadcast(topic, slashing)
+  node.broadcast(topic, slashing)
 
 proc broadcastAggregateAndProof*(
-    node: Eth2Node, proof: SignedAggregateAndProof):
-    Future[SendResult] {.async.} =
+    node: Eth2Node, proof: SignedAggregateAndProof): Future[SendResult] =
   let topic = getAggregateAndProofsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
-  return await node.broadcast(topic, proof)
+  node.broadcast(topic, proof)
 
 proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: phase0.SignedBeaconBlock):
-    Future[SendResult] {.async.} =
+    node: Eth2Node, blck: phase0.SignedBeaconBlock): Future[SendResult] =
   let topic = getBeaconBlocksTopic(node.forkDigests.phase0)
-  return await node.broadcast(topic, blck)
+  node.broadcast(topic, blck)
 
 proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: altair.SignedBeaconBlock):
-    Future[SendResult] {.async.} =
+    node: Eth2Node, blck: altair.SignedBeaconBlock): Future[SendResult] =
   let topic = getBeaconBlocksTopic(node.forkDigests.altair)
-  return await node.broadcast(topic, blck)
+  node.broadcast(topic, blck)
 
 proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: bellatrix.SignedBeaconBlock):
-    Future[SendResult] {.async.} =
+    node: Eth2Node, blck: bellatrix.SignedBeaconBlock): Future[SendResult] =
   let topic = getBeaconBlocksTopic(node.forkDigests.bellatrix)
-  return await node.broadcast(topic, blck)
+  node.broadcast(topic, blck)
 
 proc broadcastBeaconBlock*(
-    node: Eth2Node, forked: ForkedSignedBeaconBlock):
-    Future[SendResult] {.async.} =
-  withBlck(forked): return await node.broadcastBeaconBlock(blck)
+    node: Eth2Node, forked: ForkedSignedBeaconBlock): Future[SendResult] =
+  withBlck(forked): node.broadcastBeaconBlock(blck)
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,
-    subcommitteeIdx: SyncSubcommitteeIndex):
-    Future[SendResult] {.async.} =
+    subcommitteeIdx: SyncSubcommitteeIndex): Future[SendResult] =
   let topic = getSyncCommitteeTopic(
     node.forkDigestAtEpoch(node.getWallEpoch), subcommitteeIdx)
-  return await node.broadcast(topic, msg)
+  node.broadcast(topic, msg)
 
 proc broadcastSignedContributionAndProof*(
-    node: Eth2Node, msg: SignedContributionAndProof):
-    Future[SendResult] {.async.} =
+    node: Eth2Node, msg: SignedContributionAndProof): Future[SendResult] =
   let topic = getSyncCommitteeContributionAndProofTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
-  return await node.broadcast(topic, msg)
+  node.broadcast(topic, msg)
 
 proc broadcastLightClientFinalityUpdate*(
     node: Eth2Node, msg: altair.LightClientFinalityUpdate):
-    Future[SendResult] {.async.} =
+    Future[SendResult] =
   let topic = getLightClientFinalityUpdateTopic(
     node.forkDigestAtEpoch(msg.attested_header.slot.epoch))
-  return await node.broadcast(topic, msg)
+  node.broadcast(topic, msg)
 
 proc broadcastLightClientOptimisticUpdate*(
     node: Eth2Node, msg: altair.LightClientOptimisticUpdate):
-    Future[SendResult] {.async.} =
+    Future[SendResult] =
   let topic = getLightClientOptimisticUpdateTopic(
     node.forkDigestAtEpoch(msg.attested_header.slot.epoch))
-  return await node.broadcast(topic, msg)
+  node.broadcast(topic, msg)
