@@ -34,7 +34,7 @@ template nextEpochBoundarySlot(slot: Slot): Slot =
   ## referring to a block at given slot.
   (slot + (SLOTS_PER_EPOCH - 1)).epoch.start_slot
 
-func computeEarliestLightClientSlot*(dag: ChainDAGRef): Slot =
+func computeEarliestLightClientSlot(dag: ChainDAGRef): Slot =
   ## Compute the earliest slot for which light client data is retained.
   let
     minSupportedSlot = max(
@@ -95,16 +95,7 @@ proc existingParent(dag: ChainDAGRef, bid: BlockId): Opt[BlockId] =
     doAssert verifyFinalization notin dag.updateFlags
   parent
 
-proc getExistingForkedBlock(dag: ChainDAGRef, root: Eth2Digest):
-    Opt[ForkedTrustedSignedBeaconBlock] =
-  ## Wrapper around `getForkedBlock` for blocks expected to exist.
-  let bdata = dag.getForkedBlock(root)
-  if bdata.isErr:
-    error "Block failed to load unexpectedly", root, tail = dag.tail.slot
-    doAssert verifyFinalization notin dag.updateFlags
-  bdata
-
-proc getExistingForkedBlock*(
+proc getExistingForkedBlock(
     dag: ChainDAGRef, bid: BlockId): Opt[ForkedTrustedSignedBeaconBlock] =
   ## Wrapper around `getForkedBlock` for blocks expected to exist.
   let bdata = dag.getForkedBlock(bid)
