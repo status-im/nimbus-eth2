@@ -203,7 +203,7 @@ template lazy_header(name: untyped): untyped {.dirty.} =
     else:
       let bdata = dag.getExistingForkedBlock(bid)
       if bdata.isOk:
-        target = bdata.get.toBeaconBlockHeader
+        target = bdata.get.toBeaconBlockHeader()
         `name ptr` = addr target
       bdata.isOk
 
@@ -297,10 +297,9 @@ proc createLightClientUpdates(
   if attested_period == signature_period:
     template next_sync_committee(): auto = state.data.next_sync_committee
 
-    let isNextSyncCommitteeFinalized =
-      attested_period.start_slot <= dag.finalizedHead.slot
+    let isCommitteeFinalized = dag.isNextSyncCommitteeFinalized(attested_period)
     var best =
-      if isNextSyncCommitteeFinalized:
+      if isCommitteeFinalized:
         dag.lightClientCache.best.getOrDefault(attested_period)
       else:
         let key = (attested_period, state.syncCommitteeRoot)
@@ -334,14 +333,14 @@ proc createLightClientUpdates(
       best.sync_aggregate = isomorphicCast[SyncAggregate](sync_aggregate)
       best.signature_slot = signature_slot
 
-      if isNextSyncCommitteeFinalized:
+      if isCommitteeFinalized:
         dag.lightClientCache.best[attested_period] = best
-        debug "Best update for period improved",
+        debug "Best LC update for period improved",
           period = attested_period, update = best
       else:
         let key = (attested_period, state.syncCommitteeRoot)
         dag.lightClientCache.pendingBest[key] = best
-        debug "Best update for period improved",
+        debug "Best LC update for period improved",
           period = key, update = best
 
   if newFinality and dag.onLightClientFinalityUpdate != nil:
@@ -376,17 +375,20 @@ proc processHeadChangeForLightClient*(dag: ChainDAGRef) =
   ## Note that `dag.finalizedHead` is not yet updated when this is called.
   if dag.importLightClientData == ImportLightClientData.None:
     return
-  if dag.head.slot < dag.computeEarliestLightClientSlot:
+  let earliestSlot = dag.computeEarliestLightClientSlot
+  if dag.head.slot < earliestSlot:
     return
 
   # Update `best` from `pendingBest` to ensure light client data
   # only refers to sync committees as selected by fork choice
   let headPeriod = dag.head.slot.sync_committee_period
-  if headPeriod.start_slot > dag.finalizedHead.slot:
-    let finalizedPeriod = dag.finalizedHead.slot.sync_committee_period
-    if headPeriod > finalizedPeriod + 1:
+  if not dag.isNextSyncCommitteeFinalized(headPeriod):
+    let
+      earliestPeriod = earliestSlot.sync_committee_period
+      lowPeriod = max(dag.firstNonFinalizedPeriod, earliestPeriod)
+    if headPeriod > lowPeriod:
       var tmpState = assignClone(dag.headState)
-      for period in finalizedPeriod + 1 ..< headPeriod:
+      for period in lowPeriod ..< headPeriod:
         let
           syncCommitteeRoot =
             dag.syncCommitteeRootForPeriod(tmpState[], period).valueOr:
@@ -394,7 +396,7 @@ proc processHeadChangeForLightClient*(dag: ChainDAGRef) =
           key = (period, syncCommitteeRoot)
         dag.lightClientCache.best[period] =
           dag.lightClientCache.pendingBest.getOrDefault(key)
-    withState(dag.headState):
+    withState(dag.headState): # Common case separate to avoid `tmpState` copy
       when stateFork >= BeaconStateFork.Altair:
         let key = (headPeriod, state.syncCommitteeRoot)
         dag.lightClientCache.best[headPeriod] =
@@ -435,7 +437,7 @@ proc processFinalizationForLightClient*(
   # Prune light client data that is no longer referrable by future updates
   var bidsToDelete: seq[BlockId]
   for bid, data in dag.lightClientCache.data:
-    if bid.slot >= finalizedSlot:
+    if bid.slot >= dag.finalizedHead.blck.slot:
       continue
     bidsToDelete.add bid
   for bid in bidsToDelete:
@@ -460,10 +462,10 @@ proc processFinalizationForLightClient*(
 
   # Prune best `LightClientUpdate` referring to non-finalized sync committees
   # that are no longer relevant, i.e., orphaned or too old
-  let finalizedPeriod = finalizedSlot.sync_committee_period
+  let firstNonFinalizedPeriod = dag.firstNonFinalizedPeriod
   var keysToDelete: seq[(SyncCommitteePeriod, Eth2Digest)]
   for (period, committeeRoot) in dag.lightClientCache.pendingBest.keys:
-    if period <= finalizedPeriod:
+    if period < firstNonFinalizedPeriod:
       keysToDelete.add (period, committeeRoot)
   for key in keysToDelete:
     dag.lightClientCache.pendingBest.del key
@@ -473,20 +475,20 @@ proc initLightClientBootstrapForPeriod(
     period: SyncCommitteePeriod) =
   ## Compute and cache `LightClientBootstrap` data for all finalized
   ## epoch boundary blocks within a given sync committee period.
-  let periodStartSlot = period.start_slot
-  if periodStartSlot > dag.finalizedHead.slot:
+  if not dag.isNextSyncCommitteeFinalized(period):
     return
   let
     earliestSlot = dag.computeEarliestLightClientSlot
+    periodStartSlot = period.start_slot
     periodEndSlot = periodStartSlot + SLOTS_PER_SYNC_COMMITTEE_PERIOD - 1
   if periodEndSlot < earliestSlot:
     return
 
   let startTick = Moment.now()
-  debug "Caching bootstrap data for period", period
+  debug "Caching LC bootstrap data for period", period
   defer:
     let endTick = Moment.now()
-    debug "Bootstrap data for period cached", period,
+    debug "LC bootstrap data for period cached", period,
       cacheDur = endTick - startTick
 
   let
@@ -525,23 +527,24 @@ proc initLightClientUpdateForPeriod(
   ## Compute and cache the best `LightClientUpdate` within a given
   ## sync committee period up through the finalized head block.
   ## Non-finalized blocks are processed incrementally.
-  let periodStartSlot = period.start_slot
-  if periodStartSlot > dag.finalizedHead.slot:
+  if not dag.isNextSyncCommitteeFinalized(period):
     return
   let
     earliestSlot = dag.computeEarliestLightClientSlot
+    periodStartSlot = period.start_slot
     periodEndSlot = periodStartSlot + SLOTS_PER_SYNC_COMMITTEE_PERIOD - 1
   if periodEndSlot < earliestSlot:
     return
   if dag.lightClientCache.best.hasKey(period):
     return
+
   let startTick = Moment.now()
-  debug "Computing best update for period", period
+  debug "Computing best LC update for period", period
   proc logBest(endTick = Moment.now()) =
     # Using a helper function reduces code size as the `defer` beneath is
     # replicated on every `return`, and the log statement allocates another
     # copy of the arguments on the stack for each instantiation (~1 MB stack!)
-    debug "Best update for period computed",
+    debug "Best LC update for period computed",
       period, update = dag.lightClientCache.best.getOrDefault(period),
       computeDur = endTick - startTick
   defer: logBest()
@@ -582,8 +585,7 @@ proc initLightClientUpdateForPeriod(
       return
     highBid = highBsi.bid
     maxParticipantsBid = dag.maxParticipantsBlock(highBid, lowSlot).valueOr:
-      dag.lightClientCache.best[period] =
-        default(altair.LightClientUpdate)
+      dag.lightClientCache.best[period] = default(altair.LightClientUpdate)
       return
 
   # The block with highest participation may refer to a `finalized_checkpoint`
@@ -622,7 +624,7 @@ proc initLightClientUpdateForPeriod(
       finalizedBid = finalizedBsi.bid # For fallback `break` at start of loop
 
   # Save best light client data for given period
-  var update {.noinit.}: LightClientUpdate
+  var update {.noinit.}: altair.LightClientUpdate
   let attestedBid = dag.existingParent(signatureBid).valueOr:
     return
   dag.withUpdatedExistingState(tmpState[], attestedBid.atSlot) do:
@@ -630,7 +632,7 @@ proc initLightClientUpdateForPeriod(
       return
     withStateAndBlck(state, bdata):
       when stateFork >= BeaconStateFork.Altair:
-        update.attested_header = blck.toBeaconBlockHeader
+        update.attested_header = blck.toBeaconBlockHeader()
         update.next_sync_committee = state.data.next_sync_committee
         state.data.build_proof(
           altair.NEXT_SYNC_COMMITTEE_INDEX,
@@ -649,7 +651,7 @@ proc initLightClientUpdateForPeriod(
     let bdata = dag.getExistingForkedBlock(finalizedBid).valueOr:
       return
     withBlck(bdata):
-      update.finalized_header = blck.toBeaconBlockHeader
+      update.finalized_header = blck.toBeaconBlockHeader()
   let bdata = dag.getExistingForkedBlock(signatureBid).valueOr:
     return
   withBlck(bdata):
@@ -786,7 +788,7 @@ proc getLightClientBootstrap*(
       var tmpState = assignClone(dag.headState)
       var bootstrap {.noinit.}: altair.LightClientBootstrap
       bootstrap.header =
-        blck.toBeaconBlockHeader
+        blck.toBeaconBlockHeader()
       bootstrap.current_sync_committee =
         ? dag.existingCurrentSyncCommitteeForPeriod(tmpState[], period)
       bootstrap.current_sync_committee_branch =
