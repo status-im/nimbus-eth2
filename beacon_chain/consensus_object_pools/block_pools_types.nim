@@ -185,10 +185,10 @@ type
 
     cfg*: RuntimeConfig
 
-    serveLightClientData*: bool
+    lightClientDataServe*: bool
       ## Whether to make local light client data available or not
 
-    importLightClientData*: ImportLightClientData
+    lightClientDataImportMode*: LightClientDataImportMode
       ## Which classes of light client data to import
 
     epochRefs*: array[32, EpochRef]

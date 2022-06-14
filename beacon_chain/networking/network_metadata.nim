@@ -19,7 +19,7 @@ import
   ../spec/datatypes/phase0
 
 from ../consensus_object_pools/block_pools_types_light_client
-  import ImportLightClientData
+  import LightClientDataImportMode
 
 # ATTENTION! This file will produce a large C file, because we are inlining
 # genesis states as C literals in the generated code (and blobs in the final
@@ -44,8 +44,8 @@ type
   Eth2NetworkConfigDefaults* = object
     ## Network specific config defaults
     lightClientEnable*: bool
-    serveLightClientData*: bool
-    importLightClientData*: ImportLightClientData
+    lightClientDataServe*: bool
+    lightClientDataImportMode*: LightClientDataImportMode
 
   Eth2NetworkMetadata* = object
     case incompatible*: bool
@@ -197,13 +197,13 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
         Eth2NetworkConfigDefaults(
           lightClientEnable:
             false, # Only produces debug logs so far
-          serveLightClientData:
+          lightClientDataServe:
             shouldSupportLightClient,
-          importLightClientData:
+          lightClientDataImportMode:
             if shouldSupportLightClient:
-              ImportLightClientData.OnlyNew
+              LightClientDataImportMode.OnlyNew
             else:
-              ImportLightClientData.None
+              LightClientDataImportMode.None
         )
 
     Eth2NetworkMetadata(

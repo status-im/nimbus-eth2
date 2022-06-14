@@ -282,7 +282,7 @@ proc handleLightClientUpdates(node: BeaconNode, slot: Slot) {.async.} =
     notice "LC optimistic update sent", message = shortLog(msg)
 
 proc scheduleSendingLightClientUpdates(node: BeaconNode, slot: Slot) =
-  if not node.config.serveLightClientData.get:
+  if not node.config.lightClientDataServe.get:
     return
   if node.lightClientPool[].broadcastGossipFut != nil:
     return

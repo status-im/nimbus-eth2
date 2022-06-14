@@ -1706,7 +1706,7 @@ proc new*(T: type Eth2Node,
 
     for msg in proto.messages:
       when config is BeaconNodeConf:
-        if msg.isLightClientRequest and not config.serveLightClientData.get:
+        if msg.isLightClientRequest and not config.lightClientDataServe.get:
           continue
       elif config is LightClientConf:
         if not msg.isRequired:
