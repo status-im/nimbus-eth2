@@ -254,9 +254,6 @@ template neterr*(kindParam: Eth2NetworkingErrorKind): auto =
 declareCounter nbc_gossip_messages_sent,
   "Number of gossip messages sent by this peer"
 
-declareCounter nbc_gossip_failed_no_peers,
-  "Number of gossip messages that failed because no per-topic peers were available"
-
 declareCounter nbc_gossip_messages_received,
   "Number of gossip messages received by this peer"
 
@@ -2442,7 +2439,6 @@ proc broadcast(node: Eth2Node, topic: string, msg: auto):
       inc nbc_gossip_messages_sent
       return ok()
     else:
-      inc nbc_gossip_failed_no_peers
       return err("No peers on libp2p topic")
   except IOError as exc:
     raiseAssert exc.msg # TODO in-memory compression shouldn't fail
