@@ -74,7 +74,7 @@ def runStages(nodeDir) {
 			// archive testnet logs
 			sh """#!/bin/bash
 			for D in local_testnet0_data local_testnet1_data resttest0_data; do
-				[[ -d "\$D" ]] && tar czf "\${D}-\${NODE_NAME}.tar.gz "\${D}"/*.txt || true
+				[[ -d "\$D" ]] && tar czf "\${D}-\${NODE_NAME}.tar.gz" "\${D}"/*.txt || true
 			done
 			"""
 			try {

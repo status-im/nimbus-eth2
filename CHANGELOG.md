@@ -1,3 +1,16 @@
+2022-05-30 v22.5.2
+==================
+
+Nimbus `v22.5.2` is a `low-urgency` maintenance release updating Ropsten testnet support.
+
+### Fixes:
+
+* Modify proposer boost from 70% to 40% to improve network consensus
+  https://github.com/status-im/nimbus-eth2/commit/14dc3855f6cd06579294322a6ed206f678c8530f
+
+* Update Ropsten TTD to a large enough number it can't be readily triggered by mining
+  https://github.com/status-im/nimbus-eth2/pull/3668
+
 2022-05-20 v22.5.1
 ==================
 
