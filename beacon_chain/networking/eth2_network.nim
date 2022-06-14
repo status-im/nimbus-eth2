@@ -2436,7 +2436,9 @@ proc broadcast(node: Eth2Node, topic: string, msg: auto):
         raiseAssert "More than 4gb? not likely.."
 
     let peers = await node.pubsub.publish(topic, compressed)
-    if peers > 0:
+
+    # TODO remove workaround for sync committee BN/VC log spam
+    if peers > 0 or find(topic, "sync_committee_") != -1:
       inc nbc_gossip_messages_sent
       return ok()
     else:
