@@ -13,14 +13,14 @@ def runStages(nodeDir) {
 	sh "mkdir -p ${nodeDir}"
 	dir(nodeDir) {
 		try {
-			stage("Clone") {
+			stage("Clone") { timeout(10) {
 				/* source code checkout */
 				checkout scm
 				/* we need to update the submodules before caching kicks in */
 				sh "git submodule update --init --recursive"
-			}
+			} }
 
-			stage("Preparations") {
+			stage("Preparations") { timeout(10) {
 				sh """#!/bin/bash
 				set -e
 				# macOS shows scary warnings if there are old libraries and object files laying around
@@ -29,29 +29,29 @@ def runStages(nodeDir) {
 				make -j${env.NPROC} QUICK_AND_DIRTY_COMPILER=1 update
 				./scripts/setup_scenarios.sh
 				"""
-			}
+			} }
 
-			stage("Tools") {
+			stage("Tools") { timeout(30) {
 				sh """#!/bin/bash
 				set -e
 				make -j${env.NPROC} LOG_LEVEL=TRACE
 				"""
-			}
+			} }
 
-			stage("Test suite") {
+			stage("Test suite") { timeout(60) {
 				sh "make -j${env.NPROC} DISABLE_TEST_FIXTURES_SCRIPT=1 test"
-			}
+			} }
 
-			stage("REST test suite") {
+			stage("REST test suite") { timeout(5) {
 				sh """#!/bin/bash
 				set -e
 				./tests/simulation/restapi.sh --data-dir resttest0_data --base-port \$(( 9100 + EXECUTOR_NUMBER * 100 )) \
 					--base-rest-port \$(( 7100 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \
 				\$(( 8108 + EXECUTOR_NUMBER * 100 )) --resttest-delay 30 --kill-old-processes
 				"""
-			}
+			} }
 
-			stage("Testnet finalization") {
+			stage("Testnet finalization") { timeout(75) {
 				// EXECUTOR_NUMBER will be 0 or 1, since we have 2 executors per Jenkins node
 				sh """#!/bin/bash
 				set -e
@@ -66,7 +66,7 @@ def runStages(nodeDir) {
 					--kill-old-processes \
 					-- --verify-finalization --discv5:no
 				"""
-			}
+			} }
 		} catch(e) {
 			// we need to rethrow the exception here
 			throw e
@@ -93,7 +93,7 @@ def runStages(nodeDir) {
 parallel(
 	"Linux": {
 		throttle(['nimbus-eth2']) {
-			timeout(time: 5, unit: 'HOURS') {
+			timeout(time: 24, unit: 'HOURS') { // includes time in build queue
 				node("linux") {
 					withEnv(["NPROC=${sh(returnStdout: true, script: 'nproc').trim()}"]) {
 						runStages("linux")
@@ -104,7 +104,7 @@ parallel(
 	},
 	"macOS (AMD64)": {
 		throttle(['nimbus-eth2']) {
-			timeout(time: 5, unit: 'HOURS') {
+			timeout(time: 24, unit: 'HOURS') { // includes time in build queue
 				node("macos && x86_64") {
 					withEnv(["NPROC=${sh(returnStdout: true, script: 'sysctl -n hw.logicalcpu').trim()}"]) {
 						runStages("macos_amd64")
@@ -115,7 +115,7 @@ parallel(
 	},
 	"macOS (ARM64)": {
 		throttle(['nimbus-eth2']) {
-			timeout(time: 5, unit: 'HOURS') {
+			timeout(time: 24, unit: 'HOURS') { // includes time in build queue
 				node("macos && arm64") {
 					withEnv(["NPROC=${sh(returnStdout: true, script: 'sysctl -n hw.logicalcpu').trim()}"]) {
 						runStages("macos_arm64")
