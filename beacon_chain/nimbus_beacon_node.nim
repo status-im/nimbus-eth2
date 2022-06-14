@@ -1272,7 +1272,7 @@ proc onSecond(node: BeaconNode, time: Moment) =
   updateThreadMetrics()
 
   ## This procedure will be called once per minute.
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.8/src/engine/specification.md#engine_exchangetransitionconfigurationv1
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/specification.md#engine_exchangetransitionconfigurationv1
   if time > node.nextExchangeTransitionConfTime and not node.eth1Monitor.isNil:
     node.nextExchangeTransitionConfTime = time + chronos.minutes(1)
     traceAsyncErrors node.eth1Monitor.exchangeTransitionConfiguration()
