@@ -23,7 +23,7 @@ type
   OnLightClientOptimisticUpdateCallback* =
     proc(data: altair.LightClientOptimisticUpdate) {.gcsafe, raises: [Defect].}
 
-  ImportLightClientData* {.pure.} = enum
+  LightClientDataImportMode* {.pure.} = enum
     ## Controls which classes of light client data are imported.
     None = "none"
       ## Import no light client data.

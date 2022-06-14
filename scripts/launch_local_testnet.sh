@@ -684,8 +684,8 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --rest-port="$(( BASE_REST_PORT + NUM_NODE ))" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
     --light-client-enable=on \
-    --serve-light-client-data=on \
-    --import-light-client-data=only-new \
+    --light-client-data-serve=on \
+    --light-client-data-import-mode=only-new \
     ${EXTRA_ARGS} \
     &> "${DATA_DIR}/log${NUM_NODE}.txt" &
 
@@ -727,9 +727,16 @@ done
 # light clients
 if [ "$LC_NODES" -ge "1" ]; then
   echo "Waiting for Altair finalization"
-  ALTAIR_FORK_EPOCH="$(
-    "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/config/spec" | \
-      "${JQ_BINARY}" -r '.data.ALTAIR_FORK_EPOCH')"
+  while :; do
+    ALTAIR_FORK_EPOCH="$(
+      "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/config/spec" | \
+        "${JQ_BINARY}" -r '.data.ALTAIR_FORK_EPOCH')"
+    if [ "${ALTAIR_FORK_EPOCH}" -eq "${ALTAIR_FORK_EPOCH}" ]; then # check for number
+      break
+    fi
+    echo "ALTAIR_FORK_EPOCH: ${ALTAIR_FORK_EPOCH}"
+    sleep 1
+  done
   while :; do
     CURRENT_FORK_EPOCH="$(
       "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/states/finalized/fork" | \

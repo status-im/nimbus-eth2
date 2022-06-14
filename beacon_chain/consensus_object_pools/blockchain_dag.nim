@@ -515,12 +515,12 @@ proc currentSyncCommitteeForPeriod*(
     period: SyncCommitteePeriod): Opt[SyncCommittee] =
   ## Fetch a `SyncCommittee` for a given sync committee period.
   ## For non-finalized periods, follow the chain as selected by fork choice.
-  let earliestSlot = max(dag.tail.slot, dag.cfg.ALTAIR_FORK_EPOCH.start_slot)
-  if period < earliestSlot.sync_committee_period:
+  let lowSlot = max(dag.tail.slot, dag.cfg.ALTAIR_FORK_EPOCH.start_slot)
+  if period < lowSlot.sync_committee_period:
     return err()
   let
     periodStartSlot = period.start_slot
-    syncCommitteeSlot = max(periodStartSlot, earliestSlot)
+    syncCommitteeSlot = max(periodStartSlot, lowSlot)
     bsi = ? dag.getBlockIdAtSlot(syncCommitteeSlot)
   dag.withUpdatedState(tmpState, bsi) do:
     withState(state):
@@ -528,6 +528,22 @@ proc currentSyncCommitteeForPeriod*(
         ok state.data.current_sync_committee
       else: err()
   do: err()
+
+func isNextSyncCommitteeFinalized*(
+    dag: ChainDAGRef, period: SyncCommitteePeriod): bool =
+  let finalizedSlot = dag.finalizedHead.slot
+  if finalizedSlot < period.start_slot:
+    false
+  elif finalizedSlot < dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
+    false # Fork epoch not necessarily tied to sync committee period boundary
+  else:
+    true
+
+func firstNonFinalizedPeriod*(dag: ChainDAGRef): SyncCommitteePeriod =
+  if dag.finalizedHead.slot >= dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
+    dag.finalizedHead.slot.sync_committee_period + 1
+  else:
+    dag.cfg.ALTAIR_FORK_EPOCH.sync_committee_period
 
 proc updateBeaconMetrics(
     state: ForkedHashedBeaconState, bid: BlockId, cache: var StateCache) =
@@ -671,8 +687,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            onReorgCb: OnReorgCallback = nil, onFinCb: OnFinalizedCallback = nil,
            onLCFinalityUpdateCb: OnLightClientFinalityUpdateCallback = nil,
            onLCOptimisticUpdateCb: OnLightClientOptimisticUpdateCallback = nil,
-           serveLightClientData = false,
-           importLightClientData = ImportLightClientData.None,
+           lightClientDataServe = false,
+           lightClientDataImportMode = LightClientDataImportMode.None,
            vanityLogs = default(VanityLogs)): ChainDAGRef =
   cfg.checkForkConsistency()
 
@@ -709,8 +725,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
       vanityLogs: vanityLogs,
 
-      serveLightClientData: serveLightClientData,
-      importLightClientData: importLightClientData,
+      lightClientDataServe: lightClientDataServe,
+      lightClientDataImportMode: lightClientDataImportMode,
 
       onBlockAdded: onBlockCb,
       onHeadChanged: onHeadCb,
