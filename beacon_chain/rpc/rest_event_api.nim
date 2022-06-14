@@ -97,7 +97,7 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400, "Invalid topics value",
                                            $topics.error())
         let res = validateEventTopics(topics.get(),
-                                      node.dag.lightClientDataServe)
+                                      node.dag.lcDataStore.serve)
         if res.isErr():
           return RestApiResponse.jsonError(Http400, "Invalid topics value",
                                            $res.error())
@@ -150,12 +150,12 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                               "contribution_and_proof")
           res.add(handler)
         if EventTopic.LightClientFinalityUpdate in eventTopics:
-          doAssert node.dag.lightClientDataServe
+          doAssert node.dag.lcDataStore.serve
           let handler = response.eventHandler(node.eventBus.finUpdateQueue,
                                               "light_client_finality_update_v0")
           res.add(handler)
         if EventTopic.LightClientOptimisticUpdate in eventTopics:
-          doAssert node.dag.lightClientDataServe
+          doAssert node.dag.lcDataStore.serve
           let handler = response.eventHandler(node.eventBus.optUpdateQueue,
                                               "light_client_optimistic_update_v0")
           res.add(handler)

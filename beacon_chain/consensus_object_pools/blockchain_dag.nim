@@ -725,15 +725,16 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
       vanityLogs: vanityLogs,
 
-      lightClientDataServe: lightClientDataServe,
-      lightClientDataImportMode: lightClientDataImportMode,
+      lcDataStore: initLightClientDataStore(
+        serve = lightClientDataServe,
+        importMode = lightClientDataImportMode,
+        onLCFinalityUpdateCb = onLCFinalityUpdateCb,
+        onLCOptimisticUpdateCb = onLCOptimisticUpdateCb),
 
       onBlockAdded: onBlockCb,
       onHeadChanged: onHeadCb,
       onReorgHappened: onReorgCb,
-      onFinHappened: onFinCb,
-      onLightClientFinalityUpdate: onLCFinalityUpdateCb,
-      onLightClientOptimisticUpdate: onLCOptimisticUpdateCb
+      onFinHappened: onFinCb
     )
     loadTick = Moment.now()
 

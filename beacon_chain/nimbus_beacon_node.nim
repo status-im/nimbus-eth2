@@ -1317,7 +1317,7 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installNimbusApiHandlers(node)
   restServer.router.installNodeApiHandlers(node)
   restServer.router.installValidatorApiHandlers(node)
-  if node.dag.lightClientDataServe:
+  if node.dag.lcDataStore.serve:
     restServer.router.installLightClientApiHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =
