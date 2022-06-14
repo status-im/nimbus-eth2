@@ -526,12 +526,12 @@ proc currentSyncCommitteeForPeriod*(
     period: SyncCommitteePeriod): Opt[SyncCommittee] =
   ## Fetch a `SyncCommittee` for a given sync committee period.
   ## For non-finalized periods, follow the chain as selected by fork choice.
-  let earliestSlot = max(dag.tail.slot, dag.cfg.ALTAIR_FORK_EPOCH.start_slot)
-  if period < earliestSlot.sync_committee_period:
+  let lowSlot = max(dag.tail.slot, dag.cfg.ALTAIR_FORK_EPOCH.start_slot)
+  if period < lowSlot.sync_committee_period:
     return err()
   let
     periodStartSlot = period.start_slot
-    syncCommitteeSlot = max(periodStartSlot, earliestSlot)
+    syncCommitteeSlot = max(periodStartSlot, lowSlot)
     bsi = ? dag.getBlockIdAtSlot(syncCommitteeSlot)
   dag.withUpdatedState(tmpState, bsi) do:
     withState(state):
