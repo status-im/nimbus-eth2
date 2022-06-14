@@ -696,7 +696,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         of SyncQueueKind.Forward:
           if safeSlot < req.slot:
             let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
-            warn "Unexpected missing parent, rewind happens",
+            debug "Unexpected missing parent, rewind happens",
                  request = req, rewind_to_slot = rewindSlot,
                  rewind_point = sq.rewind, finalized_slot = safeSlot,
                  blocks_count = len(item.data),
