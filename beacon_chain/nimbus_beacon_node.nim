@@ -1568,6 +1568,12 @@ when not defined(windows):
       # The status bar feature would allow the user to specify an
       # arbitrary expression that is resolvable through this API.
       case expr.toLowerAscii
+      of "version":
+        versionAsStr
+
+      of "full_version":
+        fullVersionStr
+
       of "connected_peers":
         $(node.connectedPeersCount)
 
