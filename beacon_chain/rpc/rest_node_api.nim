@@ -253,7 +253,19 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getSyncingStatus
   router.api(MethodGet, "/eth/v1/node/syncing") do () -> RestApiResponse:
-    return RestApiResponse.jsonResponse(node.syncManager.getInfo())
+    let
+      wallSlot = node.beaconClock.now().slotOrZero()
+      headSlot = node.dag.head.slot
+      distance = wallSlot - headSlot
+      info = RestSyncInfo(
+        head_slot: headSlot, sync_distance: distance,
+        is_syncing:
+          if isNil(node.syncManager):
+            false
+          else:
+            node.syncManager.inProgress
+      )
+    return RestApiResponse.jsonResponse(info)
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getHealth
   router.api(MethodGet, "/eth/v1/node/health") do () -> RestApiResponse:
