@@ -2439,6 +2439,7 @@ proc broadcast(node: Eth2Node, topic: string, msg: auto):
       inc nbc_gossip_messages_sent
       return ok()
     else:
+      # Increments libp2p_gossipsub_failed_publish metric
       return err("No peers on libp2p topic")
   except IOError as exc:
     raiseAssert exc.msg # TODO in-memory compression shouldn't fail
