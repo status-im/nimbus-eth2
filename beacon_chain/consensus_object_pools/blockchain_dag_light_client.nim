@@ -228,7 +228,7 @@ proc createLightClientUpdates(
   ## post-state must be cached (`cacheLightClientData`) before calling this.
 
   # Verify sync committee has sufficient participants
-  template sync_aggregate(): auto = blck.message.body.sync_aggregate
+  template sync_aggregate(): auto = blck.asSigned().message.body.sync_aggregate
   template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
   let num_active_participants = countOnes(sync_committee_bits).uint64
   if num_active_participants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
@@ -275,7 +275,7 @@ proc createLightClientUpdates(
     else:
       latest.finalized_header.reset()
       latest.finality_branch.reset()
-    latest.sync_aggregate = isomorphicCast[SyncAggregate](sync_aggregate)
+    latest.sync_aggregate = sync_aggregate
     latest.signature_slot = signature_slot
     newOptimistic = true
 
@@ -319,7 +319,7 @@ proc createLightClientUpdates(
       else:
         best.finalized_header.reset()
         best.finality_branch.reset()
-      best.sync_aggregate = isomorphicCast[SyncAggregate](sync_aggregate)
+      best.sync_aggregate = sync_aggregate
       best.signature_slot = signature_slot
 
       if isCommitteeFinalized:
@@ -645,8 +645,7 @@ proc initLightClientUpdateForPeriod(
     return
   withBlck(bdata):
     when stateFork >= BeaconStateFork.Altair:
-      update.sync_aggregate =
-        isomorphicCast[SyncAggregate](blck.message.body.sync_aggregate)
+      update.sync_aggregate = blck.asSigned().message.body.sync_aggregate
     else: raiseAssert "Unreachable"
   update.signature_slot = signatureBid.slot
   dag.lightClientCache.best[period] = update
