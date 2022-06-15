@@ -262,16 +262,13 @@ template finalizedDepositsMerkleizer(m: Eth1Monitor): auto =
   m.depositsChain.finalizedDepositsMerkleizer
 
 proc fixupWeb3Urls*(web3Url: var string) =
-  var normalizedUrl = web3Url
+  var normalizedUrl = toLowerAscii(web3Url)
   if not (normalizedUrl.startsWith("https://") or
           normalizedUrl.startsWith("http://") or
           normalizedUrl.startsWith("wss://") or
           normalizedUrl.startsWith("ws://")):
-    normalizedUrl = "ws://" & normalizedUrl
     warn "The Web3 URL does not specify a protocol. Assuming a WebSocket server", web3Url
-
-  # We do this at the end in order to allow the warning above to print the original value
-  web3Url = normalizedUrl
+    web3Url = "ws://" & web3Url
 
 template toGaugeValue(x: Quantity): int64 =
   toGaugeValue(distinctBase x)
