@@ -8,9 +8,11 @@
 import
   std/[base64, json, options, os, strutils],
   chronicles,
-  bearssl,
+  bearssl/rand,
   nimcrypto/[hmac, utils],
   stew/[byteutils, results]
+
+export rand, results
 
 {.push raises: [Defect].}
 
@@ -50,7 +52,7 @@ proc getSignedIatToken*(key: openArray[byte], time: int64): string =
   getSignedToken(key, $getIatToken(time))
 
 proc checkJwtSecret*(
-    rng: var BrHmacDrbgContext, dataDir: string, jwtSecret: Option[string]):
+    rng: var HmacDrbgContext, dataDir: string, jwtSecret: Option[string]):
     Result[seq[byte], cstring] =
 
   # If such a parameter is given, but the file cannot be read, or does not
@@ -69,9 +71,7 @@ proc checkJwtSecret*(
     const jwtSecretFilename = "jwt.hex"
     let jwtSecretPath = dataDir / jwtSecretFilename
 
-    var newSecret: seq[byte]
-    newSecret.setLen(MIN_SECRET_LEN)
-    rng.brHmacDrbgGenerate(newSecret)
+    let newSecret = rng.generateBytes(MIN_SECRET_LEN)
     try:
       writeFile(jwtSecretPath, newSecret.to0xHex())
     except IOError as exc:

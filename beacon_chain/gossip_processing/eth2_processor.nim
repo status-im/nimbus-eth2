@@ -13,7 +13,7 @@
 
 import
   std/tables,
-  stew/results, bearssl,
+  stew/results,
   chronicles, chronos, metrics, taskpools,
   ../spec/[helpers, forks],
   ../spec/datatypes/[altair, phase0],
@@ -25,7 +25,7 @@ import
   "."/[gossip_validation, block_processor, batch_validation]
 
 export
-  results, bearssl, taskpools, block_clearance, blockchain_dag, exit_pool, attestation_pool,
+  results, taskpools, block_clearance, blockchain_dag, exit_pool, attestation_pool,
   light_client_pool, sync_committee_msg_pool, validator_pool, beacon_clock,
   gossip_validation, block_processor, batch_validation, block_quarantine
 
@@ -156,7 +156,7 @@ proc new*(T: type Eth2Processor,
           syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
           lightClientPool: ref LightClientPool,
           quarantine: ref Quarantine,
-          rng: ref BrHmacDrbgContext,
+          rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
           taskpool: TaskPoolPtr
          ): ref Eth2Processor =

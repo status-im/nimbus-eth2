@@ -7,7 +7,6 @@
 
 import
   std/[sequtils, tables],
-  bearssl,
   stew/shims/[sets, hashes], chronicles,
   eth/p2p/discoveryv5/random2,
   ../spec/datatypes/base,
@@ -39,7 +38,7 @@ type
     slot*: Slot
 
   ActionTracker* = object
-    rng: ref BrHmacDrbgContext
+    rng: ref HmacDrbgContext
 
     subscribeAllAttnets: bool
 
@@ -263,7 +262,7 @@ func updateActions*(
         (1'u32 shl (slot mod SLOTS_PER_EPOCH))
 
 func init*(
-    T: type ActionTracker, rng: ref BrHmacDrbgContext,
+    T: type ActionTracker, rng: ref HmacDrbgContext,
     subscribeAllAttnets: bool): T =
   T(
     rng: rng,

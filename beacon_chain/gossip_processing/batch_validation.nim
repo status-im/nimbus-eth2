@@ -121,7 +121,7 @@ const
   BatchedCryptoSize = 72
 
 proc new*(
-    T: type BatchCrypto, rng: ref BrHmacDrbgContext,
+    T: type BatchCrypto, rng: ref HmacDrbgContext,
     eager: Eager, taskpool: TaskPoolPtr): ref BatchCrypto =
   (ref BatchCrypto)(
     verifier: BatchVerifier(rng: rng, taskpool: taskpool),

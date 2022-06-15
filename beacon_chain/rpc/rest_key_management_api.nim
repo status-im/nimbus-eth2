@@ -6,7 +6,7 @@
 
 import std/[tables, os, strutils, uri]
 import chronos, chronicles, confutils,
-       stew/[base10, results, io2], bearssl, blscurve
+       stew/[base10, results, io2], blscurve
 import ".."/validators/slashing_protection
 import ".."/[conf, version, filepath, beacon_node]
 import ".."/spec/[keystore, crypto]
