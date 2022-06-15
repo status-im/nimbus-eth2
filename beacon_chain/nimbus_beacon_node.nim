@@ -9,7 +9,7 @@
 
 import
   std/[os, random, sequtils, terminal, times],
-  bearssl, chronicles, chronos,
+  bearssl, chronos, chronicles, chronicles/chronos_tools,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
@@ -559,8 +559,8 @@ proc init*(T: type BeaconNode,
     dag = loadChainDag(
       config, cfg, db, eventBus,
       validatorMonitor, networkGenesisValidatorsRoot)
-    beaconClock = BeaconClock.init(
-      getStateField(dag.headState, genesis_time))
+    genesisTime = getStateField(dag.headState, genesis_time)
+    beaconClock = BeaconClock.init(genesisTime)
     getBeaconTime = beaconClock.getBeaconTimeFn()
 
   if config.weakSubjectivityCheckpoint.isSome:
@@ -665,6 +665,13 @@ proc init*(T: type BeaconNode,
       else:
         nil
 
+    bellatrixEpochTime =
+      genesisTime + cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH * SECONDS_PER_SLOT
+
+    nextExchangeTransitionConfTime =
+      max(Moment.init(int64 bellatrixEpochTime, Second),
+          Moment.now)
+
   let node = BeaconNode(
     nickname: nickname,
     graffitiBytes: if config.graffiti.isSome: config.graffiti.get
@@ -683,7 +690,8 @@ proc init*(T: type BeaconNode,
     gossipState: {},
     beaconClock: beaconClock,
     validatorMonitor: validatorMonitor,
-    stateTtlCache: stateTtlCache)
+    stateTtlCache: stateTtlCache,
+    nextExchangeTransitionConfTime: nextExchangeTransitionConfTime)
 
   node.initLightClient(
     rng, cfg, dag.forkDigests, getBeaconTime, dag.genesis_validators_root)
@@ -1255,13 +1263,19 @@ proc handleMissingBlocks(node: BeaconNode) =
     debug "Requesting detected missing blocks", blocks = shortLog(missingBlocks)
     node.requestManager.fetchAncestorBlocks(missingBlocks)
 
-proc onSecond(node: BeaconNode) =
+proc onSecond(node: BeaconNode, time: Moment) =
   ## This procedure will be called once per second.
   if not(node.syncManager.inProgress):
     node.handleMissingBlocks()
 
   # Nim GC metrics (for the main thread)
   updateThreadMetrics()
+
+  ## This procedure will be called once per minute.
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/specification.md#engine_exchangetransitionconfigurationv1
+  if time > node.nextExchangeTransitionConfTime and not node.eth1Monitor.isNil:
+    node.nextExchangeTransitionConfTime = time + chronos.minutes(1)
+    traceAsyncErrors node.eth1Monitor.exchangeTransitionConfiguration()
 
   if node.config.stopAtSyncedEpoch != 0 and
       node.dag.head.slot.epoch >= node.config.stopAtSyncedEpoch:
@@ -1276,7 +1290,7 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
     await chronos.sleepAsync(sleepTime)
     let afterSleep = chronos.now(chronos.Moment)
     let sleepTime = afterSleep - start
-    node.onSecond()
+    node.onSecond(start)
     let finished = chronos.now(chronos.Moment)
     let processingTime = finished - afterSleep
     ticks_delay.set(sleepTime.nanoseconds.float / nanosecondsIn1s)

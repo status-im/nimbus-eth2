@@ -571,11 +571,16 @@ proc getExecutionPayload(
     const GETPAYLOAD_TIMEOUT = 1.seconds
 
     let
+      terminalBlockHash =
+        if node.eth1Monitor.terminalBlockHash.isSome:
+          node.eth1Monitor.terminalBlockHash.get.asEth2Digest
+        else:
+          default(Eth2Digest)
       latestHead =
         if not node.dag.head.executionBlockRoot.isZero:
           node.dag.head.executionBlockRoot
         else:
-          default(Eth2Digest)
+          terminalBlockHash
       latestFinalized = node.dag.finalizedHead.blck.executionBlockRoot
       payload_id = (await forkchoice_updated(
         proposalState.bellatrixData.data, latestHead, latestFinalized,
@@ -653,9 +658,10 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       else:
         node.syncCommitteeMsgPool[].produceSyncAggregate(head.root),
       if  slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
-          # TODO when Eth1Monitor TTD following comes in, actually detect
-          # transition block directly
-          not is_merge_transition_complete(proposalState.bellatrixData.data):
+          not (
+            is_merge_transition_complete(proposalState.bellatrixData.data) or
+            ((not node.eth1Monitor.isNil) and
+             node.eth1Monitor.terminalBlockHash.isSome)):
         default(bellatrix.ExecutionPayload)
       else:
         let pubkey = node.dag.validatorKey(validator_index)
