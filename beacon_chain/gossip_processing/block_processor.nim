@@ -508,8 +508,8 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       # validity; otherwise it would not be necessary to ask the EL.
       #
       # The main reason this isn't done more adjacently in this code flow is to
-      # outright invalid cases, where the EL can reject a payload, without even
-      # running forkchoiceUpdated on it.
+      # catch outright invalid cases, where the EL can reject a payload, without
+      # even running forkchoiceUpdated on it.
       let curBh =
         blck.blck.bellatrixData.message.body.execution_payload.block_hash
       if curBh != lastFcHead:
