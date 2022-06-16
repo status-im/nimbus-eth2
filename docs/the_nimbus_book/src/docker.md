@@ -18,7 +18,7 @@ The wrapper script outlined below will set the data directory automatically.
 
 ```text
 mkdir data
-docker run -it --rm -v ${PWD}/data://home/user/nimbus-eth2/build/data statusim/nimbus-eth2:amd64-latest --data-dir=build/data/shared_mainnet_0 --network=mainnet [other options]
+docker run -it --rm -v ${PWD}/data:/home/user/nimbus-eth2/build/data statusim/nimbus-eth2:amd64-latest --data-dir=build/data/shared_mainnet_0 --network=mainnet [other options]
 ```
 
 ### Wrapper script
