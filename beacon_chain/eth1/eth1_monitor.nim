@@ -1343,6 +1343,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
         of ropsten: "3"
         of rinkeby: "4"
         of goerli:  "5"
+        of sepolia: "11155111"
     if expectedNetwork != providerNetwork:
       fatal "The specified web3 provider serves data for a different network",
              expectedNetwork, providerNetwork

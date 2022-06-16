@@ -27,6 +27,7 @@ BASE_REST_PORT := 5052
 BASE_METRICS_PORT := 8008
 
 ROPSTEN_WEB3_URL := "--web3-url=wss://ropsten.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
+SEPOLIA_WEB3_URL := "--web3-url=https://rpc.sepolia.dev --web3-url=https://www.sepoliarpc.space"
 GOERLI_WEB3_URL := "--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 GNOSIS_WEB3_URLS := "--web3-url=wss://rpc.gnosischain.com/wss --web3-url=wss://xdai.poanetwork.dev/wss"
 
@@ -444,6 +445,35 @@ ropsten-dev-deposit: | ropsten-build deposit_contract
 
 clean-ropsten:
 	$(call CLEAN_NETWORK,ropsten)
+
+###
+### Sepolia
+###
+sepolia-build: | nimbus_beacon_node nimbus_signing_node
+
+# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
+sepolia: | sepolia-build
+	$(call CONNECT_TO_NETWORK,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
+
+sepolia-vc: | sepolia-build nimbus_validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
+
+sepolia-lc: | nimbus_light_client
+	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,sepolia)
+
+ifneq ($(LOG_LEVEL), TRACE)
+sepolia-dev:
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+else
+sepolia-dev: | sepolia-build
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
+endif
+
+sepolia-dev-deposit: | sepolia-build deposit_contract
+	$(call MAKE_DEPOSIT,sepolia,$(SEPOLIA_WEB3_URL))
+
+clean-sepolia:
+	$(call CLEAN_NETWORK,sepolia)
 
 ###
 ### Gnosis chain binary

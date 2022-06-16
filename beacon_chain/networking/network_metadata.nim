@@ -40,6 +40,7 @@ type
     ropsten
     rinkeby
     goerli
+    sepolia
 
   Eth2NetworkConfigDefaults* = object
     ## Network specific config defaults
@@ -246,8 +247,9 @@ when not defined(gnosisChainBinary):
       mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
       praterMetadata* = eth2Network("shared/prater", goerli)
       ropstenMetadata = mergeTestnet("ropsten-beacon-chain", ropsten)
+      sepoliaMetadata = mergeTestnet("sepolia", sepolia)
     static:
-      for network in [mainnetMetadata, praterMetadata, ropstenMetadata]:
+      for network in [mainnetMetadata, praterMetadata, ropstenMetadata, sepoliaMetadata]:
         checkForkConsistency(network.cfg)
 
   proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
@@ -271,6 +273,8 @@ when not defined(gnosisChainBinary):
           praterMetadata
         of "ropsten":
           ropstenMetadata
+        of "sepolia":
+          sepoliaMetadata
         else:
           loadRuntimeMetadata()
       else:
