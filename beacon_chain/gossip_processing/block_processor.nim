@@ -23,8 +23,6 @@ import
   ../beacon_clock,
   ../sszdump
 
-from std/options import `$`
-
 export sszdump, signatures_batch
 
 # Block Processor
@@ -322,6 +320,8 @@ proc processBlock(self: var BlockProcessor, entry: BlockEntry) =
       if res.isOk(): Result[void, BlockError].ok()
       else: Result[void, BlockError].err(res.error()))
 
+func `$`(h: BlockHash): string = $h.asEth2Digest
+
 proc runForkchoiceUpdated(
     self: ref BlockProcessor, headBlockRoot, finalizedBlockRoot: Eth2Digest):
     Future[bool] {.async.} =
@@ -423,8 +423,6 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       # larger network reads when under load.
       idleTimeout = 10.milliseconds
 
-      defaultBellatrixPayload = default(bellatrix.ExecutionPayload)
-
     discard await idleAsync().withTimeout(idleTimeout)
 
     let
@@ -432,8 +430,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       hasExecutionPayload = blck.blck.kind >= BeaconBlockFork.Bellatrix
       executionPayloadStatus =
         if  hasExecutionPayload and
-            blck.blck.bellatrixData.message.body.execution_payload !=
-              defaultBellatrixPayload:
+            blck.blck.bellatrixData.message.body.is_execution_block:
           # Eth1 syncing is asynchronous from this
 
           # TODO self.consensusManager.eth1Monitor.terminalBlockHash.isSome
@@ -462,6 +459,8 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
         PayloadExecutionStatus.invalid_block_hash]:
       debug "runQueueProcessingLoop: execution payload invalid",
         executionPayloadStatus
+      # Every loop iteration ends with some version of blck.resfut.complete(),
+      # including processBlock(), otherwise the sync manager stalls.
       if not blck.resfut.isNil:
         blck.resfut.complete(Result[void, BlockError].err(BlockError.Invalid))
       continue
@@ -510,6 +509,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       # The main reason this isn't done more adjacently in this code flow is to
       # catch outright invalid cases, where the EL can reject a payload, without
       # even running forkchoiceUpdated on it.
+      static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
       let curBh =
         blck.blck.bellatrixData.message.body.execution_payload.block_hash
       if curBh != lastFcHead:
