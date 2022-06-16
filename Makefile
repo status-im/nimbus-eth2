@@ -27,7 +27,7 @@ BASE_REST_PORT := 5052
 BASE_METRICS_PORT := 8008
 
 ROPSTEN_WEB3_URL := "--web3-url=wss://ropsten.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
-SEPOLIA_WEB3_URL := ""
+SEPOLIA_WEB3_URL := "--web3-url=https://rpc.sepolia.dev --web3-url=https://www.sepoliarpc.space"
 GOERLI_WEB3_URL := "--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 GNOSIS_WEB3_URLS := "--web3-url=wss://rpc.gnosischain.com/wss --web3-url=wss://xdai.poanetwork.dev/wss"
 
