@@ -1056,7 +1056,13 @@ proc detectPrimaryProviderComingOnline(m: Eth1Monitor) {.async.} =
       continue
 
     var tempProvider = tempProviderRes.get
-    let testRequest = tempProvider.web3.provider.net_version()
+
+    # Use one of the get/request-type methods from
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/specification.md#underlying-protocol
+    # which does nit take parameters and returns a small structure, to ensure
+    # this works with engine API endpoints. Either eth_chainId or eth_syncing
+    # works for this purpose.
+    let testRequest = tempProvider.web3.provider.eth_syncing()
 
     yield testRequest or sleepAsync(web3Timeouts)
 
@@ -1524,8 +1530,6 @@ proc testWeb3Provider*(web3Url: Uri,
       awaitWithRetries web3.provider.eth_getBlockByNumber(blockId("latest"), false)
     syncStatus = mustSucceed "get sync status":
       awaitWithRetries web3.provider.eth_syncing()
-    listening = mustSucceed "get network listening":
-      awaitWithRetries web3.provider.net_listening()
     peers =
       try:
         awaitWithRetries web3.provider.net_peerCount()
@@ -1538,7 +1542,6 @@ proc testWeb3Provider*(web3Url: Uri,
 
   echo "Client Version: ", clientVersion
   echo "Network Version: ", networkVersion
-  echo "Network Listening: ", listening
   echo "Network Peers: ", peers
   echo "Syncing: ", syncStatus
   echo "Latest block: ", latestBlock.number.uint64
