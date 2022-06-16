@@ -336,6 +336,206 @@ proc runTests {.async.} =
           ]
         )
 
+  suite "Serialization/deserialization " & preset():
+    proc `==`(a, b: Kdf): bool =
+      if (a.function != b.function) or (a.message != b.message):
+        return false
+      case a.function
+      of KdfKind.kdfPbkdf2:
+        (a.pbkdf2Params.dklen == b.pbkdf2Params.dklen) and
+          (a.pbkdf2Params.c == b.pbkdf2Params.c) and
+          (a.pbkdf2Params.prf == b.pbkdf2Params.prf) and
+          (seq[byte](a.pbkdf2Params.salt) == seq[byte](b.pbkdf2Params.salt))
+      of KdfKind.kdfScrypt:
+        (a.scryptParams.dklen == b.scryptParams.dklen) and
+          (a.scryptParams.n == b.scryptParams.n) and
+          (a.scryptParams.p == b.scryptParams.p) and
+          (a.scryptParams.r == b.scryptParams.r) and
+          (seq[byte](a.scryptParams.salt) == seq[byte](b.scryptParams.salt))
+
+    proc `==`(a, b: Checksum): bool =
+      if a.function != b.function:
+        return false
+      case a.function
+      of ChecksumFunctionKind.sha256Checksum:
+        a.message.data == b.message.data
+
+    proc `==`(a, b: Cipher): bool =
+      if (a.function != b.function) or
+         (seq[byte](a.message) != seq[byte](b.message)):
+        return false
+      case a.function
+      of CipherFunctionKind.aes128CtrCipher:
+        seq[byte](a.params.iv) == seq[byte](b.params.iv)
+
+    proc `==`(a, b: Crypto): bool =
+      (a.kdf == b.kdf) and (a.checksum == b.checksum) and
+        (a.cipher == b.cipher)
+
+    proc `==`(a, b: Keystore): bool =
+      (a.crypto == b.crypto) and (a.pubkey == b.pubkey) and
+        (string(a.path) == string(b.path)) and
+        (a.description[] == b.description[]) and (a.uuid == b.uuid) and
+        (a.version == b.version)
+
+    test "Deserialization test vectors":
+      let
+        kdf1 = Kdf(
+          function: KdfKind.kdfPbkdf2,
+          pbkdf2Params: Pbkdf2Params(
+            dklen: 32'u64,
+            c: 262144'u64,
+            prf: PrfKind.HmacSha256,
+            salt: Pbkdf2Salt(hexToSeqByte("d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"))
+          ),
+          message: ""
+        )
+        kdf2 = Kdf(
+          function: KdfKind.kdfScrypt,
+          scryptParams: ScryptParams(
+            dklen: 32'u64, n: 262144, p: 1, r: 8,
+            salt: ScryptSalt(hexToSeqByte("d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"))),
+          message: ""
+        )
+        checksum1 = Checksum(
+          function: ChecksumFunctionKind.sha256Checksum,
+          params: Sha256Params(),
+          message: Sha256Digest(MDigest[256].fromHex("0x88c0059314a3db1b2e86d4b0d37ac7ade7c6e56e3d3e34af298254f35c8b501e"))
+        )
+        checksum2 = Checksum(
+          function: ChecksumFunctionKind.sha256Checksum,
+          params: Sha256Params(),
+          message: Sha256Digest(MDigest[256].fromHex("0xadb59d10d2436c12f2fe229f27ec598739da92686485e9fed5255d3ed9bb1c1f"))
+        )
+        checksum3 = Checksum(
+          function: ChecksumFunctionKind.sha256Checksum,
+          params: Sha256Params(),
+          message: Sha256Digest(MDigest[256].fromHex("0xea4d7f495ac74bbf431ef340f15ee1aea75811bd1bab8dd64b3c2dfc041d5d90"))
+        )
+        checksum4 = Checksum(
+          function: ChecksumFunctionKind.sha256Checksum,
+          params: Sha256Params(),
+          message: Sha256Digest(MDigest[256].fromHex("0x71ed99dab563f1e9f1190b0de9d92d3266df2223036e7dc3ca9d9599478fe5a4"))
+        )
+        cipher1 = Cipher(
+          function: CipherFunctionKind.aes128CtrCipher,
+          params: Aes128CtrParams(iv: Aes128CtrIv(hexToSeqByte("264daa3f303d7259501c93d997d84fe6"))),
+          message: CipherBytes(hexToSeqByte("c071f12ec97eb449422de643e737924e02eec266f3b56cde476eae4fad5c6e64"))
+        )
+        cipher2 = Cipher(
+          function: CipherFunctionKind.aes128CtrCipher,
+          params: Aes128CtrParams(iv: Aes128CtrIv(hexToSeqByte("264daa3f303d7259501c93d997d84fe6"))),
+          message: CipherBytes(hexToSeqByte("8d192da5a06c001eca9c954812ce165d007c889d7711b12faa7a9d6f4d5cc6ae"))
+        )
+        cipher3 = Cipher(
+          function: CipherFunctionKind.aes128CtrCipher,
+          params: Aes128CtrParams(iv: Aes128CtrIv(hexToSeqByte("264daa3f303d7259501c93d997d84fe6"))),
+          message: CipherBytes(hexToSeqByte("c40a44096120e406a011ec5a22d7cbb24126436c471e21b10f078c722c6d0c3f"))
+        )
+        cipher4 = Cipher(
+          function: CipherFunctionKind.aes128CtrCipher,
+          params: Aes128CtrParams(iv: Aes128CtrIv(hexToSeqByte("264daa3f303d7259501c93d997d84fe6"))),
+          message: CipherBytes(hexToSeqByte("896298820832505128a09f51d72e4fa143b40997c3bafc40e213bf52cc6da4f5"))
+        )
+        keystore1 = Keystore(
+          crypto: Crypto(kdf: kdf1, checksum: checksum1, cipher: cipher1),
+          pubkey: ValidatorPubKey.fromHex("0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798").get(),
+          path: KeyPath("m/12381/60/0/0"),
+          description: newClone("Test keystore"),
+          uuid: "a3331c0c-a013-4754-a122-9988b3381fec",
+          version: 4
+        )
+        keystore2 = Keystore(
+          crypto: Crypto(kdf: kdf1, checksum: checksum2, cipher: cipher2),
+          pubkey: ValidatorPubKey.fromHex("0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228").get(),
+          path: KeyPath("m/12381/60/0/0"),
+          description: newClone("Test keystore"),
+          uuid: "905dd873-48af-416a-8c80-4283d5af84f9",
+          version: 4
+        )
+        keystore3 = Keystore(
+          crypto: Crypto(kdf: kdf2, checksum: checksum3, cipher: cipher3),
+          pubkey: ValidatorPubKey.fromHex("0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798").get(),
+          path: KeyPath("m/12381/60/0/0"),
+          description: newClone("Test keystore"),
+          uuid: "ad1bf334-faaa-4257-8e28-81a45722e87b",
+          version: 4
+        )
+        keystore4 = Keystore(
+          crypto: Crypto(kdf: kdf2, checksum: checksum4, cipher: cipher4),
+          pubkey: ValidatorPubKey.fromHex("0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228").get(),
+          path: KeyPath("m/12381/60/0/0"),
+          description: newClone("Test keystore"),
+          uuid: "d91bcde8-8bf5-45c6-b04d-c10d99ae9b6b",
+          version: 4
+        )
+
+      const
+        Vector1 = r"{""keystores"":[""{\""crypto\"":{\""kdf\"":{\""function\"":\""pbkdf2\"",\""params\"":{\""dklen\"":32,\""c\"":262144,\""prf\"":\""hmac-sha256\"",\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0x88c0059314a3db1b2e86d4b0d37ac7ade7c6e56e3d3e34af298254f35c8b501e\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c071f12ec97eb449422de643e737924e02eec266f3b56cde476eae4fad5c6e64\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""a3331c0c-a013-4754-a122-9988b3381fec\"",\""version\"":4}""],""passwords"":[""7465737470617373776f7264f09f9491""]}"
+        Vector2 = r"{""keystores"":[""{\""crypto\"":{\""kdf\"":{\""function\"":\""pbkdf2\"",\""params\"":{\""dklen\"":32,\""c\"":262144,\""prf\"":\""hmac-sha256\"",\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0x88c0059314a3db1b2e86d4b0d37ac7ade7c6e56e3d3e34af298254f35c8b501e\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c071f12ec97eb449422de643e737924e02eec266f3b56cde476eae4fad5c6e64\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""a3331c0c-a013-4754-a122-9988b3381fec\"",\""version\"":4}"",""{\""crypto\"":{\""kdf\"":{\""function\"":\""pbkdf2\"",\""params\"":{\""dklen\"":32,\""c\"":262144,\""prf\"":\""hmac-sha256\"",\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0xadb59d10d2436c12f2fe229f27ec598739da92686485e9fed5255d3ed9bb1c1f\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""8d192da5a06c001eca9c954812ce165d007c889d7711b12faa7a9d6f4d5cc6ae\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""905dd873-48af-416a-8c80-4283d5af84f9\"",\""version\"":4}""],""passwords"":[""7465737470617373776f7264f09f9491"",""7465737470617373776f7264f09f9491""]}"
+        Vector3 = r"{""keystores"":[""{\""crypto\"":{\""kdf\"":{\""function\"":\""scrypt\"",\""params\"":{\""dklen\"":32,\""n\"":262144,\""p\"":1,\""r\"":8,\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0xea4d7f495ac74bbf431ef340f15ee1aea75811bd1bab8dd64b3c2dfc041d5d90\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c40a44096120e406a011ec5a22d7cbb24126436c471e21b10f078c722c6d0c3f\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""ad1bf334-faaa-4257-8e28-81a45722e87b\"",\""version\"":4}""],""passwords"":[""7465737470617373776f7264f09f9491""]}"
+        Vector4 = r"{""keystores"":[""{\""crypto\"":{\""kdf\"":{\""function\"":\""scrypt\"",\""params\"":{\""dklen\"":32,\""n\"":262144,\""p\"":1,\""r\"":8,\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0xea4d7f495ac74bbf431ef340f15ee1aea75811bd1bab8dd64b3c2dfc041d5d90\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c40a44096120e406a011ec5a22d7cbb24126436c471e21b10f078c722c6d0c3f\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""ad1bf334-faaa-4257-8e28-81a45722e87b\"",\""version\"":4}"",""{\""crypto\"":{\""kdf\"":{\""function\"":\""scrypt\"",\""params\"":{\""dklen\"":32,\""n\"":262144,\""p\"":1,\""r\"":8,\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0x71ed99dab563f1e9f1190b0de9d92d3266df2223036e7dc3ca9d9599478fe5a4\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""896298820832505128a09f51d72e4fa143b40997c3bafc40e213bf52cc6da4f5\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""d91bcde8-8bf5-45c6-b04d-c10d99ae9b6b\"",\""version\"":4}""],""passwords"":[""7465737470617373776f7264f09f9491"",""7465737470617373776f7264f09f9491""]}"
+        Vector5 = r"{""keystores"":[""{\""crypto\"":{\""kdf\"":{\""function\"":\""pbkdf2\"",\""params\"":{\""dklen\"":32,\""c\"":262144,\""prf\"":\""hmac-sha256\"",\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0x88c0059314a3db1b2e86d4b0d37ac7ade7c6e56e3d3e34af298254f35c8b501e\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c071f12ec97eb449422de643e737924e02eec266f3b56cde476eae4fad5c6e64\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""a3331c0c-a013-4754-a122-9988b3381fec\"",\""version\"":4}"",""{\""crypto\"":{\""kdf\"":{\""function\"":\""scrypt\"",\""params\"":{\""dklen\"":32,\""n\"":262144,\""p\"":1,\""r\"":8,\""salt\"":\""d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3\""},\""message\"":\""\""},\""checksum\"":{\""function\"":\""sha256\"",\""params\"":{},\""message\"":\""0xea4d7f495ac74bbf431ef340f15ee1aea75811bd1bab8dd64b3c2dfc041d5d90\""},\""cipher\"":{\""function\"":\""aes-128-ctr\"",\""params\"":{\""iv\"":\""264daa3f303d7259501c93d997d84fe6\""},\""message\"":\""c40a44096120e406a011ec5a22d7cbb24126436c471e21b10f078c722c6d0c3f\""}},\""description\"":\""Test keystore\"",\""pubkey\"":\""0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798\"",\""path\"":\""m/12381/60/0/0\"",\""uuid\"":\""ad1bf334-faaa-4257-8e28-81a45722e87b\"",\""version\"":4}""],""passwords"":[""7465737470617373776f7264f09f9491"", ""7465737470617373776f7264f09f9491""]}"
+
+      let
+        r1 = decodeBytes(KeystoresAndSlashingProtection,
+                         Vector1.toOpenArrayByte(0, len(Vector1) - 1),
+                         "application/json")
+        r2 = decodeBytes(KeystoresAndSlashingProtection,
+                         Vector2.toOpenArrayByte(0, len(Vector2) - 1),
+                         "application/json")
+        r3 = decodeBytes(KeystoresAndSlashingProtection,
+                         Vector3.toOpenArrayByte(0, len(Vector3) - 1),
+                         "application/json")
+        r4 = decodeBytes(KeystoresAndSlashingProtection,
+                         Vector4.toOpenArrayByte(0, len(Vector4) - 1),
+                         "application/json")
+        r5 = decodeBytes(KeystoresAndSlashingProtection,
+                         Vector5.toOpenArrayByte(0, len(Vector5) - 1),
+                         "application/json")
+
+      check:
+        r1.isOk() == true
+        r2.isOk() == true
+        r3.isOk() == true
+        r4.isOk() == true
+        r5.isOk() == true
+
+      let
+        d1 = r1.get()
+        d2 = r2.get()
+        d3 = r3.get()
+        d4 = r4.get()
+        d5 = r5.get()
+
+      check:
+        len(d1.keystores) == 1
+        len(d2.keystores) == 2
+        len(d3.keystores) == 1
+        len(d4.keystores) == 2
+        len(d5.keystores) == 2
+        d1.keystores[0] == keystore1
+        d2.keystores[0] == keystore1
+        d2.keystores[1] == keystore2
+        d3.keystores[0] == keystore3
+        d4.keystores[0] == keystore3
+        d4.keystores[1] == keystore4
+        d5.keystores[0] == keystore1
+        d5.keystores[1] == keystore3
+        len(d1.passwords) == 1
+        len(d2.passwords) == 2
+        len(d3.passwords) == 1
+        len(d4.passwords) == 2
+        len(d5.passwords) == 2
+        d1.passwords == @["7465737470617373776f7264f09f9491"]
+        d2.passwords == @["7465737470617373776f7264f09f9491",
+                          "7465737470617373776f7264f09f9491"]
+        d3.passwords == @["7465737470617373776f7264f09f9491"]
+        d4.passwords == @["7465737470617373776f7264f09f9491",
+                          "7465737470617373776f7264f09f9491"]
+        d5.passwords == @["7465737470617373776f7264f09f9491",
+                          "7465737470617373776f7264f09f9491"]
+
   suite "ListKeys requests" & preset():
     asyncTest "Correct token provided" & preset():
       let
