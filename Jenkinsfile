@@ -78,7 +78,7 @@ def runStages(nodeDir) {
 			done
 			"""
 			try {
-				archiveArtifacts("*.tar.bz2")
+				archiveArtifacts("*.tar.gz")
 			} catch(e) {
 				println("Couldn't archive artefacts.")
 				println(e.toString());
