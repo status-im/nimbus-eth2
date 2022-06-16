@@ -362,8 +362,8 @@ proc generateMnemonic*(
       rng.generateBytes(32)
     else:
       doAssert entropyParam.len >= 128 and
-              entropyParam.len <= 256 and
-              entropyParam.len mod 32 == 0
+               entropyParam.len <= 256 and
+               entropyParam.len mod 32 == 0
       @entropyParam
 
   let
