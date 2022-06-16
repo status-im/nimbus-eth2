@@ -502,11 +502,10 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       # sequence of
       # - newPayload(execution payload with block hash `h`) followed by
       # - forkchoiceUpdated(head = `h`)
-      # This is intrinsically somewhat optimistic, because it's not possible a
-      # CL to even get Geth to state whether an execution payload is valid, in
-      # general, without setting the forkchoiceUpdated head to a block hash of
-      # some execution payload that it doesn't, in fact, know the validity of;
-      # otherwise it wouldn't be asking the EL.
+      # This is intrinsically somewhat optimistic, because determining the 
+      # validity of an execution payload requires the forkchoiceUpdated 
+      # head to be set to a block hash of some execution payload with unknown
+      # validity; otherwise it would not be necessary to ask the EL.
       #
       # The main reason this isn't done more adjacently in this code flow is to
       # outright invalid cases, where the EL can reject a payload, without even
