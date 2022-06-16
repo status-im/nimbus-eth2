@@ -75,7 +75,10 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlotId(bslot):
       return
         if contentType == jsonMediaType:
-          RestApiResponse.jsonResponsePlain(state)
+          RestApiResponse.jsonResponseState(
+            state,
+            node.getStateOptimistic(state)
+          )
         elif contentType == sszMediaType:
           withState(state):
             RestApiResponse.sszResponse(state.data)
@@ -88,6 +91,19 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v1/debug/beacon/heads") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(
       node.dag.heads.mapIt((root: it.root, slot: it.slot))
+    )
+
+  # https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeadsV2
+  router.api(MethodGet,
+             "/eth/v2/debug/beacon/heads") do () -> RestApiResponse:
+    return RestApiResponse.jsonResponse(
+      node.dag.heads.mapIt(
+        (
+          root: it.root,
+          slot: it.slot,
+          execution_optimistic: node.getBlockRefOptimistic(it)
+        )
+      )
     )
 
   # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
@@ -106,4 +122,9 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     MethodGet,
     "/api/eth/v1/debug/beacon/heads",
     "/eth/v1/debug/beacon/heads"
+  )
+  router.redirect(
+    MethodGet,
+    "/api/eth/v2/debug/beacon/heads",
+    "/eth/v2/debug/beacon/heads"
   )

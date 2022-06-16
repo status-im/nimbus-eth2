@@ -272,6 +272,45 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
 proc getRouter*(allowedOrigin: Option[string]): RestRouter =
   RestRouter.init(validate, allowedOrigin = allowedOrigin)
 
+template isCurrentStateFork*(node: BeaconNode, fork: BeaconStateFork): bool =
+  stateForkAtEpoch(node.dag.cfg,
+                   node.beaconClock.now().slotOrZero().epoch()) == fork
+
+template isCurrentBlockFork*(node: BeaconNode, fork: BeaconBlockFork): bool =
+  blockForkAtEpoch(node.dag.cfg,
+                   node.beaconClock.now().slotOrZero().epoch()) == fork
+
+proc getStateOptimistic*(node: BeaconNode,
+                         state: ForkedHashedBeaconState): Option[bool] =
+  if node.isCurrentStateFork(BeaconStateFork.Bellatrix):
+    case state.kind
+    of BeaconStateFork.Phase0, BeaconStateFork.Altair:
+      some[bool](false)
+    of BeaconStateFork.Bellatrix:
+      some[bool](false)
+  else:
+    none[bool]()
+
+proc getBlockOptimistic*(node: BeaconNode,
+                         blck: ForkedTrustedSignedBeaconBlock |
+                               ForkedSignedBeaconBlock): Option[bool] =
+  if node.isCurrentBlockFork(BeaconBlockFork.Bellatrix):
+    case blck.kind
+    of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
+      some[bool](false)
+    of BeaconBlockFork.Bellatrix:
+      some[bool](false)
+  else:
+    none[bool]()
+
+proc getBlockRefOptimistic*(node: BeaconNode, blck: BlockRef): bool =
+  let blck = node.dag.getForkedBlock(blck.bid).get()
+  case blck.kind
+  of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
+    false
+  of BeaconBlockFork.Bellatrix:
+    false
+
 const
   jsonMediaType* = MediaType.init("application/json")
   sszMediaType* = MediaType.init("application/octet-stream")

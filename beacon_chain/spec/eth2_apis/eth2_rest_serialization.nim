@@ -163,7 +163,8 @@ proc prepareJsonStringResponse*(t: typedesc[RestApiResponse], d: auto): string =
   res
 
 proc jsonResponseWRoot*(t: typedesc[RestApiResponse], data: auto,
-                        dependent_root: Eth2Digest): RestApiResponse =
+                        dependent_root: Eth2Digest,
+                        execOpt: Option[bool]): RestApiResponse =
   let res =
     block:
       var default: seq[byte]
@@ -172,6 +173,8 @@ proc jsonResponseWRoot*(t: typedesc[RestApiResponse], data: auto,
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
         writer.writeField("dependent_root", dependent_root)
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
         writer.writeField("data", data)
         writer.endRecord()
         stream.getOutput(seq[byte])
@@ -189,6 +192,80 @@ proc jsonResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
+        writer.writeField("data", data)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/json")
+
+proc jsonResponseBlock*(t: typedesc[RestApiResponse],
+                        data: ForkedSignedBeaconBlock,
+                        execOpt: Option[bool]): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("version", data.kind.toString())
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
+        withBlck(data):
+          writer.writeField("data", blck)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/json")
+
+proc jsonResponseState*(t: typedesc[RestApiResponse],
+                        forkedState: ForkedHashedBeaconState,
+                        execOpt: Option[bool]): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("version", forkedState.kind.toString())
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
+        # TODO (cheatfate): Unable to use `forks.withState()` template here
+        # because of compiler issues and some kind of generic sandwich.
+        case forkedState.kind
+        of BeaconStateFork.Bellatrix:
+          writer.writeField("data", forkedState.bellatrixData.data)
+        of BeaconStateFork.Altair:
+          writer.writeField("data", forkedState.altairData.data)
+        of BeaconStateFork.Phase0:
+          writer.writeField("data", forkedState.phase0Data.data)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/json")
+
+
+proc jsonResponseWOpt*(t: typedesc[RestApiResponse], data: auto,
+                       execOpt: Option[bool]): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
         writer.writeField("data", data)
         writer.endRecord()
         stream.getOutput(seq[byte])
