@@ -958,11 +958,14 @@ func completeCmdArg*(T: type PubKey0x, input: string): seq[string] =
 func parseCmdArg*(T: type Checkpoint, input: string): T
                  {.raises: [ValueError, Defect].} =
   let sepIdx = find(input, ':')
-  if sepIdx == -1:
+  if sepIdx == -1 or sepIdx == input.len - 1:
     raise newException(ValueError,
       "The weak subjectivity checkpoint must be provided in the `block_root:epoch_number` format")
-  T(root: Eth2Digest.fromHex(input[0 ..< sepIdx]),
-    epoch: parseBiggestUInt(input[sepIdx .. ^1]).Epoch)
+
+  var root: Eth2Digest
+  hexToByteArrayStrict(input[0 ..< sepIdx], root.data)
+
+  T(root: root, epoch: parseBiggestUInt(input[sepIdx + 1 .. ^1]).Epoch)
 
 func completeCmdArg*(T: type Checkpoint, input: string): seq[string] =
   return @[]
