@@ -175,6 +175,7 @@ when const_preset == "mainnet":
     # * 'mainnet' - there can be only one
     # * 'prater' - testnet
     # * 'ropsten' - testnet
+    # * 'sepolia' - testnet
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "mainnet",
 
@@ -276,6 +277,7 @@ elif const_preset == "minimal":
     # * 'mainnet' - there can be only one
     # * 'prater' - testnet
     # * 'ropsten' - testnet
+    # * 'sepolia' - testnet
     # Must match the regex: [a-z0-9\-]
     CONFIG_NAME: "minimal",
 
