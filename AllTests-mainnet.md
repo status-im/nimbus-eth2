@@ -553,6 +553,19 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + should register stability subnets on attester duties                                       OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## weak-subjectivity-checkpoint
+```diff
++ Correct values                                                                             OK
++ invalid characters in root                                                                 OK
++ longer root                                                                                OK
++ missing epoch                                                                              OK
++ missing root                                                                               OK
++ missing separator                                                                          OK
++ negative epoch                                                                             OK
++ non-number epoch                                                                           OK
++ shorter root                                                                               OK
+```
+OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 308/313 Fail: 0/313 Skip: 5/313
+OK: 317/322 Fail: 0/322 Skip: 5/322
