@@ -963,7 +963,7 @@ func parseCmdArg*(T: type Checkpoint, input: string): T
       "The weak subjectivity checkpoint must be provided in the `block_root:epoch_number` format")
 
   var root: Eth2Digest
-  hexToByteArrayStrict(input[0 ..< sepIdx], root.data)
+  hexToByteArrayStrict(input.toOpenArray(0, sepIdx - 1), root.data)
 
   T(root: root, epoch: parseBiggestUInt(input[sepIdx + 1 .. ^1]).Epoch)
 
