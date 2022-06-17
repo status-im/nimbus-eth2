@@ -22,7 +22,7 @@ suite "Merge test vectors":
         existingBlock.hash.asEth2Digest,
         existingBlock.hash.asEth2Digest,
         existingBlock.timestamp.uint64 + 12,
-        default(Eth2Digest).data,  # Random
+        ZERO_HASH.data,  # Random
         feeRecipient)
       payload =         waitFor web3Provider.getPayload(
         array[8, byte] (payloadId.payloadId.get))
@@ -31,7 +31,7 @@ suite "Merge test vectors":
         payload.blockHash.asEth2Digest,
         payload.blockHash.asEth2Digest,
         existingBlock.timestamp.uint64 + 24,
-        default(Eth2Digest).data,  # Random
+        ZERO_HASH.data,  # Random
         feeRecipient)
 
       payload2 =         waitFor web3Provider.getPayload(
@@ -41,7 +41,7 @@ suite "Merge test vectors":
         payload2.blockHash.asEth2Digest,
         payload2.blockHash.asEth2Digest,
         existingBlock.timestamp.uint64 + 36,
-        default(Eth2Digest).data,  # Random
+        ZERO_HASH.data,  # Random
         feeRecipient)
 
     check:

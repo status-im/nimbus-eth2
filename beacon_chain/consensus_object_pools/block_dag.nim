@@ -61,7 +61,7 @@ func init*(
     T: type BlockRef, root: Eth2Digest,
     blck: phase0.SomeBeaconBlock | altair.SomeBeaconBlock |
           phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock): BlockRef =
-  BlockRef.init(root, Eth2Digest(), blck.slot)
+  BlockRef.init(root, ZERO_HASH, blck.slot)
 
 func init*(
     T: type BlockRef, root: Eth2Digest,
