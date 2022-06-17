@@ -1,32 +1,10 @@
 # JSON-RPC API
 
-> The Nimbus JSON-RPC API has been deprecated and it’s scheduled for removal in version v22.6 of Nimbus (to be released in June 2022).
-  If you are currently relying on the JSON-RPC API, please consider switching to the [official REST API](./rest-api.md).
+> ⚠ As of v22.6.0, the Nimbus JSON-RPC interface has been **removed** following an extended deprecation period. You are encouraged to migrate your applications to the [REST API](./rest-api.md).
 
-The `JSON-RPC API` is a collection of APIs for querying the state of the application at runtime.
+The JSON-RPC API pre-dated the REST API and was based on early designs of the beacon chain.
 
-The API is based on an early version of the common [beacon APIs](https://github.com/ethereum/beacon-APIs) with the exception that `JSON-RPC` is used instead of [http `REST`](./rest-api.md) (the method names, parameters and results are all the same except for the encoding / access method).
-
-The `JSON-RPC API` should not be exposed to the public internet.
-
-## Introduction
-
-The `nimbus-eth2` API is implemented using JSON-RPC 2.0. To query it, you can use a JSON-RPC library in the language of your choice, or a tool like `curl` to access it from the command line. A tool like [jq](https://stedolan.github.io/jq/) is helpful to pretty-print the responses.
-
-```
-curl -d '{"jsonrpc":"2.0","id":"id","method":"peers","params":[] }' -H 'Content-Type: application/json' localhost:9190 -s | jq
-```
-
-Before you can access the API, make sure it's enabled using the RPC flag (`nimbus_beacon_node --rpc`):
-
-```
-     --rpc                     Enable the JSON-RPC server.
-     --rpc-port                HTTP port for the JSON-RPC service.
-     --rpc-address             Listening address of the RPC server.
-```
-
-One difference is that currently endpoints that correspond to specific ones from the [spec](https://ethereum.github.io/eth2.0-APIs/) are named weirdly - for example an endpoint such as [`getGenesis`](https://ethereum.github.io/eth2.0-APIs/#/Beacon/getGenesis) is currently named `get_v1_beacon_genesis` which would map 1:1 to the actual REST path in the future - verbose but unambiguous.
-
+This guide is kept for historical reference, as well as to aid migration.
 
 ## Beacon chain API
 

@@ -1,16 +1,24 @@
-# Install dependencies
+# Prepare your machine
 
 The Nimbus beacon node runs on Linux, macOS, Windows, and Android.
 
-To get the best performance, Nimbus should be [built from source](./build.md) on the machine that it will run.
+## System requirements
 
-[Binaries](https://github.com/status-im/nimbus-eth2/releases/latest) are provided for the most common platforms.
+Check that your machine matches the [minimal system requirements](./hardware.md).
 
 ## Time
 
-The beacon chain relies on your computer having the correct time set (plus or minus 0.5 seconds).
+The beacon chain relies on your computer having the correct time set (plus or minus 0.5 seconds). It is important that you periodically synchronize the time with an NTP server.
 
-We recommended you run a high quality time service on your computer such as [chrony](https://chrony.tuxfamily.org/).
+If the above sounds like latin to you, don't worry. You should be fine as long as you haven't messed around with the time and date settings on your computer (they should be set automatically).
+
+### Windows and macOS
+
+Make sure that the options for setting time automatically are enabled.
+
+### Linux
+
+On Linux, it is recommended to install [chrony](https://chrony.tuxfamily.org/).
 
 To install it:
 
@@ -25,15 +33,13 @@ dnf install chrony
 yourAURmanager chrony
 ```
 
-It's available on most package managers.
-
 Once installed, the default configuration works well.
 
 At a minimum, you should run an NTP client (such as chrony) on the server.  Note that most operating systems (including macOS') automatically sync with NTP by default.
 
-If the above sounds like latin to you, don't worry. You should be fine as long as you haven't messed around with the time and date settings on your computer (they should be set automatically).
-
 ## Building from source
+
+> 🛈 If you are planning to use the precompiled binaries, you can skip this section and go straight to the [binaries](./binaries.md)!
 
 When building from source, you will need additional build dependencies to be installed:
 

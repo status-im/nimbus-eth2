@@ -2,13 +2,13 @@
 
 ## Prerequisites
 
-Before building and running the application, make sure you've gone through the [installed the required dependencies](./install.md).
+Before building and running the application, make sure you've installed the [required dependencies](./install.md).
 
 ## Building the node
 
-### 1. Clone the nim beacon chain repository
+### 1. Clone the `nimbus-eth2` repository
 
-```
+```sh
 git clone https://github.com/status-im/nimbus-eth2
 cd nimbus-eth2
 ```
@@ -17,8 +17,8 @@ cd nimbus-eth2
 
 To build the Nimbus beacon node and it's dependencies, run:
 
-```
-make nimbus_beacon_node
+```sh
+make -j4 nimbus_beacon_node
 ```
 
-
+> 🛈 Omit `-j4` on systems with 4GB of memory or less.

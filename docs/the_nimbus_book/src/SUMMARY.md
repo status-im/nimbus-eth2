@@ -3,6 +3,7 @@
 - [Design goals](./philosophy.md)
 - [System requirements](./hardware.md)
 - [Mainnet checklist](./preparation.md)
+- [Merge readiness](./merge.md)
 
 # Quickstart
 - [Run the beacon node](./quick-start.md)

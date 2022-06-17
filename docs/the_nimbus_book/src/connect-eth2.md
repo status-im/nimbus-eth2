@@ -1,8 +1,12 @@
-# Connect your validator to eth2
+# Start performing validator duties
+
+Once your keys have been [imported](./keys.md), it is time to restart the beacon node and start validating!
+
+## (Re)start the node
+
+Press `ctrl-c` to stop the beacon node if it's running, then use the same command as before to run it again:
 
 **Prater**
-
-To connect your validator to the Prater testnet, from the `nimbus-eth2` repository run:
 
 ```
  ./run-prater-beacon-node.sh
@@ -10,23 +14,16 @@ To connect your validator to the Prater testnet, from the `nimbus-eth2` reposito
 
 **Mainnet**
 
-To connect your validator to mainnet, from the `nimbus-eth2` repository run:
-
 ```
 ./run-mainnet-beacon-node.sh
 ```
 
-In both cases, you'll be asked to enter your [Web3 provider URL](./start-syncing.md#web3-provider-url) again.
+## Check the logs
 
-> **Note:** If your beacon node is already running, you'll need to shut it down gracefully (`Ctrl+c`) and re-run the above command.
-
-To ensure your Validator is correctly monitoring the eth1 chain, it's important you enter a valid web3 provider.
-
-Your beacon node will launch and connect your validator to the eth2 network. To check that this has happened correctly, check your logs for the following:
+Your beacon node will launch and connect your validator to the beacon chain network. To check that keys were imported correctly, look for `Local validator attached` in the logs:
 
 ```
-INF 2020-11-18 11:20:00.181+01:00 Launching beacon node 
+INF 2020-11-18 11:20:00.181+01:00 Launching beacon node
 ...
 NOT 2020-11-18 11:20:02.091+01:00 Local validator attached
 ```
-

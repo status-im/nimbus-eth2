@@ -108,7 +108,7 @@ WRN 2021-01-08 06:32:46.975+00:00 Local timer is broken or peer's status informa
 This is likely due to the fact that your local clock is off. To compare your local time with a internet time, run:
 
 ```
-cat </dev/tcp/time.nist.gov/13 ; date -u 
+cat </dev/tcp/time.nist.gov/13 ; date -u
 ```
 
 The first line in the output will give you internet time. And the second line will give you the time according to your machine. These shouldn't be more than a second apart.
@@ -126,7 +126,7 @@ It's because your node can't connect to the web3 provider you have specified. Pl
 
 ### Discovered new external address warning log
 
-```console
+```
 WRN 2021-03-11 13:26:25.943-08:00
 Discovered new external address but ENR auto update is off
 topics="discv5" tid=77655 file=protocol.nim:940 majority=Some("myIPaddressHere":9000) previous=None[Address]

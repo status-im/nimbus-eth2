@@ -13,7 +13,7 @@ Connecting to `prater` and setting up a validator follows the same procedure as 
 
 You can connect to any network provided that you have a configuration and genesis file, using the `network` option:
 
-```console
+```sh
 build/nimbus_beacon_node --network:path/to/network --data-dir:path/to/data
 ```
 

@@ -12,7 +12,7 @@ When installing Nimbus via your package manager, a user and service will already
 
 It is recommended that you create a dedicated user and group for running Nimbus. The same user can also be used for the execution client.
 
-```console
+```sh
 # Create the `nimbus` group
 sudo groupadd nimbus
 
@@ -26,7 +26,7 @@ sudo useradd -g nimbus nimbus -m -d /var/lib/nimbus
 
 A good starting point is the [example service file](https://github.com/status-im/nimbus-eth2/blob/unstable/scripts/package_image/usr/lib/systemd/system/nimbus_beacon_node.service) in the Nimbus repository.
 
-```console
+```sh
 # Download example service file and save it to `/etc/systemd/system/nimbus_beacon_node.service`
 curl -s https://raw.githubusercontent.com/status-im/nimbus-eth2/stable/scripts/package_image/usr/lib/systemd/system/nimbus_beacon_node.service | sudo tee /etc/systemd/system/nimbus_beacon_node.service > /dev/null
 ```
@@ -39,7 +39,7 @@ The format of service files is documented in the [systemd manual](https://www.fr
 
 Services are configured either by editing the service file directly or using `systemctl edit` to create an override.
 
-```console
+```sh
 # Edit the systemd file to match your installation
 sudo vi /etc/systemd/system/nimbus_beacon_node.service
 
@@ -61,13 +61,13 @@ The example assumes Nimbus was installed in `/usr/bin/nimbus_beacon_node` - if y
 
 Every time you add or update a service, the `systemd` daemon must be notified of the changes:
 
-```console
+```sh
 sudo systemctl daemon-reload
 ```
 
 ### 4. Start the service
 
-```console
+```sh
 # start the beacon node
 sudo systemctl start nimbus_beacon_node
 
@@ -79,21 +79,21 @@ sudo systemctl enable nimbus_beacon_node
 
 `systemctl status` will show if your beacon node is up and running, or has stopped for some reason.
 
-```console
+```sh
 sudo systemctl status nimbus_beacon_node.service
 ```
 
-You can also inspect the logs using the following command:
+You can also follow the logs using the following command:
 
-```console
-sudo journalctl -u nimbus_beacon_node.service
+```sh
+sudo journalctl -uf nimbus_beacon_node.service
 ```
 
-This will show you the Nimbus logs at the default setting -- it should include regular "slot start" messages which will show your [sync progress](./keep-an-eye.md#keep-track-of-your-syncing-progress).
+This will show you the Nimbus logs at the default setting  -- it should include regular "slot start" messages which will show your [sync progress](./keep-an-eye.md#keep-track-of-your-syncing-progress). Press `ctrl-c` to stop following the logs.
 
 To rewind logs - by one day, say - run:
 
-```console
+```sh
 sudo journalctl -u nimbus_beacon_node.service --since yesterday
 ```
 

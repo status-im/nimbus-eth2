@@ -1,12 +1,12 @@
-# Run an Execution client
+# Run an execution client
 
-In order to be able to produce blocks and process incoming validator deposits from the execution layer, you'll need to run an execution client in together with the beacon node.
+In order to be able to produce blocks and process incoming validator deposits, you'll need to run an execution client in together with the beacon node.
 
-Nimbus has been tested all the major execution clients - see the [execution client comparison](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients) for more information.
+Nimbus has been tested all major execution clients - see the [execution client comparison](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients) for more information.
 
-By default, Nimbus uses WebSockets to communicate with the execution client, connecting to a server on the same machine using port 8546: http://localhost:8546.
+By default, Nimbus uses WebSockets to communicate with the execution client, connecting to http://localhost:8546. You can provide a different URL with the `--web3-url` parameter.
 
-> ⚠ You need to run your own execution client after The Merge - third-party services like Infura, Alchemy and Pocket will no longer be enough.
+> ⚠ You need to run your own execution client after [the merge](./merge.md) - third-party services like Infura, Alchemy and Pocket will be sufficient.
 
 ## Nimbus
 
@@ -37,7 +37,7 @@ geth --ws
 
 ### 3. Leave Geth running
 
-Let it sync - Geth uses a fast sync mode by default. It may take anywhere between a few hours and a couple of days.
+Let it sync - Geth uses snap sync by default. It may take anywhere between a few hours and a couple of days.
 
 >**N.B.** It is safe to run Nimbus and start validating even if Geth hasn't fully synced yet
 
