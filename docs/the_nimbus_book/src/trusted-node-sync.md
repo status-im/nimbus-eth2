@@ -2,11 +2,11 @@
 
 > **Note:** This feature is available from `v1.7.0` onwards
 
-When you [start the beacon node](./quick-start.md) for the first time, it will connect to the beacon chain network and start syncing automatically, a process that can take several days.
+When you [start the beacon node](./quick-start.md) for the first time, it will connect to the beacon chain network and start syncing automatically - a process that can take several days.
 
-Trusted node sync allows you to get started more quickly with Nimbus by fetching a recent checkpoint from a trusted node (we will expect it will save you 1 to 2 days).
+Trusted node sync allows you to get started more quickly with Nimbus by fetching a recent checkpoint from a trusted node - you can get started in minutes instead of days.
 
-To use trusted node sync, you must have access to a node that you trust that exposes the Ethereum [Beacon API](./rest-api.md) (for example a locally running backup node).
+To use trusted node sync, you must have access to a node that you trust that exposes the [Beacon API](./rest-api.md) (for example a locally running backup node).
 
 Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.
 

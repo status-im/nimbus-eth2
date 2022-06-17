@@ -1,14 +1,18 @@
 # Install dependencies
 
-The Nimbus beacon chain can run on Linux, macOS, Windows, and Android. At the moment, Nimbus has to be built from source, which means you'll need to install some dependencies.
+The Nimbus beacon node runs on Linux, macOS, Windows, and Android.
+
+To get the best performance, Nimbus should be [built from source](./build.md) on the machine that it will run.
+
+[Binaries](https://github.com/status-im/nimbus-eth2/releases/latest) are provided for the most common platforms.
 
 ## Time
 
 The beacon chain relies on your computer having the correct time set (plus or minus 0.5 seconds).
 
 We recommended you run a high quality time service on your computer such as [chrony](https://chrony.tuxfamily.org/).
-Chrony is much more performant than the default NTP server.
-It's a simple install: 
+
+To install it:
 
 ```sh
 # Debian and Ubuntu
@@ -21,21 +25,21 @@ dnf install chrony
 yourAURmanager chrony
 ```
 
-Chrony will uninstall any existing NTP servers.
-
 It's available on most package managers.
 
-Once installed, the default configuration is good enough.
+Once installed, the default configuration works well.
 
 At a minimum, you should run an NTP client (such as chrony) on the server.  Note that most operating systems (including macOS') automatically sync with NTP by default.
 
 If the above sounds like latin to you, don't worry. You should be fine as long as you haven't messed around with the time and date settings on your computer (they should be set automatically).
 
-## External Dependencies
+## Building from source
+
+When building from source, you will need additional build dependencies to be installed:
 
 - Developer tools (C compiler, Make, Bash, Git)
 
-Nimbus will build its own local copy of Nim, so Nim is not an external dependency,
+Nimbus will build Nim as part of its build process - you do not need to have the Nim compiler installed.
 
 ### Linux
 
@@ -73,7 +77,7 @@ Install Mingw-w64 for your architecture using the "[MinGW-W64 Online Installer](
 
 Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build `nimbus-eth2`.
 
-> **Note:** If the online installer isn't working you can try installing`Mingw-w64` through [MSYS2](https://www.msys2.org/).
+> **Note:** If the online installer isn't working you can try installing `Mingw-w64` through [MSYS2](https://www.msys2.org/).
 
 ### Android
 
