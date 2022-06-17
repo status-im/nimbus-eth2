@@ -37,6 +37,15 @@ export
 type
   RpcServer* = RpcHttpServer
 
+  EventBus* = object
+    blocksQueue*: AsyncEventQueue[ForkedTrustedSignedBeaconBlock]
+    headQueue*: AsyncEventQueue[HeadChangeInfoObject]
+    reorgQueue*: AsyncEventQueue[ReorgInfoObject]
+    attestQueue*: AsyncEventQueue[Attestation]
+    contribQueue*: AsyncEventQueue[SignedContributionAndProof]
+    exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
+    finalQueue*: AsyncEventQueue[FinalizationInfoObject]
+
   BeaconNode* = ref object
     nickname*: string
     graffitiBytes*: GraffitiBytes
@@ -57,7 +66,7 @@ type
     restServer*: RestServerRef
     keymanagerServer*: RestServerRef
     keymanagerToken*: Option[string]
-    eventBus*: AsyncEventBus
+    eventBus*: EventBus
     vcProcess*: Process
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerId]
