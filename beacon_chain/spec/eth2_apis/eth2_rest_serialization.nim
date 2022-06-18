@@ -128,7 +128,50 @@ type
     GetPhase0StateSszResponse |
     GetPhase0BlockSszResponse
 
+  AltairBeaconState = altair.BeaconState
+  BellatrixBeaconState = bellatrix.BeaconState
+
 {.push raises: [Defect].}
+
+proc writePreviousEpochParticipation(writer: var JsonWriter[RestJson],
+                                     values: EpochParticipationFlags)
+                                    {.raises: [IOError, Defect].} =
+  for e in writer.stepwiseArrayCreation(values):
+    writer.writeValue $e
+
+proc readPreviousEpochParticipation(
+    reader: var JsonReader[RestJson]): EpochParticipationFlags
+    {.raises: [SerializationError, IOError, Defect].} =
+  # Please note that this function won't compute the cached hash tree roots
+  # immediately. They will be computed on the first HTR attempt.
+
+  for e in reader.readArray(string):
+    let parsed = try:
+      parseBiggestUint(e)
+    except ValueError as err:
+      reader.raiseUnexpectedValue("A string-encoded 8-bit usigned integer value expected")
+
+    if parsed > uint8.high:
+      reader.raiseUnexpectedValue("The usigned integer value should fit in 8 bits")
+
+    if not result.data.add(uint8(parsed)):
+      reader.raiseUnexpectedValue("The participation flags list size exceeds limit")
+
+RestJson.useCustomSerialization(AltairBeaconState.current_epoch_participation):
+  read: readPreviousEpochParticipation(reader)
+  write: writePreviousEpochParticipation(writer, value)
+
+RestJson.useCustomSerialization(BellatrixBeaconState.current_epoch_participation):
+  read: readPreviousEpochParticipation(reader)
+  write: writePreviousEpochParticipation(writer, value)
+
+RestJson.useCustomSerialization(AltairBeaconState.previous_epoch_participation):
+  read: readPreviousEpochParticipation(reader)
+  write: writePreviousEpochParticipation(writer, value)
+
+RestJson.useCustomSerialization(BellatrixBeaconState.previous_epoch_participation):
+  read: readPreviousEpochParticipation(reader)
+  write: writePreviousEpochParticipation(writer, value)
 
 proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
   let res =
@@ -1261,8 +1304,8 @@ proc readValue*(reader: var JsonReader[RestJson],
       reader.raiseUnexpectedValue("Incorrect altair beacon state format")
     toValue(bellatrixData)
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState) {.
-     raises: [IOError, Defect].} =
+proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState)
+                {.raises: [IOError, Defect].} =
   writer.beginRecord()
   case value.kind
   of BeaconStateFork.Phase0:
