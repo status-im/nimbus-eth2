@@ -33,7 +33,7 @@ const
 type
   EventTopic* {.pure.} = enum
     Head, Block, Attestation, VoluntaryExit, FinalizedCheckpoint, ChainReorg,
-    ContributionAndProof
+    ContributionAndProof, LightClientFinalityUpdate, LightClientOptimisticUpdate
 
   EventTopics* = set[EventTopic]
 

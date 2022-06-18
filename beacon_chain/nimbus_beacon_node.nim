@@ -161,9 +161,9 @@ proc loadChainDag(
   proc onChainReorg(data: ReorgInfoObject) =
     eventBus.reorgQueue.emit(data)
   proc onLightClientFinalityUpdate(data: altair.LightClientFinalityUpdate) =
-    discard
+    eventBus.finUpdateQueue.emit(data)
   proc onLightClientOptimisticUpdate(data: altair.LightClientOptimisticUpdate) =
-    discard
+    eventBus.optUpdateQueue.emit(data)
 
   let
     chainDagFlags =
@@ -1315,6 +1315,8 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installNimbusApiHandlers(node)
   restServer.router.installNodeApiHandlers(node)
   restServer.router.installValidatorApiHandlers(node)
+  if node.dag.lightClientDataServe:
+    restServer.router.installLightClientApiHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#attestations-and-aggregation
