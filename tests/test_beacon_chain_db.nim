@@ -88,8 +88,8 @@ suite "Beacon chain DB" & preset():
     var
       db = BeaconChainDB.new("", inMemory = true)
     check:
-      db.getPhase0StateRef(Eth2Digest()).isNil
-      db.getBlock(Eth2Digest(), phase0.TrustedSignedBeaconBlock).isNone
+      db.getPhase0StateRef(ZERO_HASH).isNil
+      db.getBlock(ZERO_HASH, phase0.TrustedSignedBeaconBlock).isNone
 
   test "sanity check phase 0 blocks" & preset():
     let db = BeaconChainDB.new("", inMemory = true)
@@ -496,12 +496,12 @@ suite "FinalizedBlocks" & preset():
       s.low.isNone
       s.high.isNone
 
-    s.insert(Slot 0, Eth2Digest())
+    s.insert(Slot 0, ZERO_HASH)
     check:
       s.low.get() == Slot 0
       s.high.get() == Slot 0
 
-    s.insert(Slot 5, Eth2Digest())
+    s.insert(Slot 5, ZERO_HASH)
     check:
       s.low.get() == Slot 0
       s.high.get() == Slot 5

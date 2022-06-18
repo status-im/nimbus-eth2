@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2020-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   stew/io2,
   stats, os, strformat, times,
@@ -108,7 +115,7 @@ proc loadGenesis*(validators: Natural, validate: bool):
     let res = (ref ForkedHashedBeaconState)(
       kind: BeaconStateFork.Phase0,
       phase0Data: initialize_hashed_beacon_state_from_eth1(
-        cfg, Eth2Digest(), 0, deposits, flags))
+        cfg, ZERO_HASH, 0, deposits, flags))
 
     echo &"Saving to {genesisFn}..."
     SSZ.saveFile(genesisFn, res.phase0Data.data)

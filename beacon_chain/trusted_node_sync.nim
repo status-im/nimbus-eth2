@@ -20,9 +20,6 @@ type
     summaries: Table[Eth2Digest, BeaconBlockSummary]
     slots: seq[Option[Eth2Digest]]
 
-const
-  emptyHash = Eth2Digest()
-
 proc updateSlots(cache: var DbCache, root: Eth2Digest, slot: Slot) =
   # The slots mapping stores one linear block history - we construct it by
   # starting from a given root/slot and walking the known parents as far back
@@ -40,7 +37,7 @@ proc updateSlots(cache: var DbCache, root: Eth2Digest, slot: Slot) =
       let slot = v[].slot
 
       for i in slot.int + 1..<lastSlot.int: # Avoid re-querying known gaps
-        cache.slots[i] = some(emptyHash)
+        cache.slots[i] = some(ZERO_HASH)
 
       cache.slots[slot.int] = some(root)
 
@@ -315,7 +312,7 @@ proc doTrustedNodeSync*(
       processed += 1
       var blck = await fut
       if blck.isNone():
-        dbCache.slots[slot.int] = some emptyHash
+        dbCache.slots[slot.int] = some ZERO_HASH
         return
 
       let data = blck.get()
@@ -336,7 +333,7 @@ proc doTrustedNodeSync*(
             quit 1
 
           let knownRoot = dbCache.slots[childSlot.int].get()
-          if knownRoot == emptyHash:
+          if knownRoot == ZERO_HASH:
             childSlot += 1
             continue
 

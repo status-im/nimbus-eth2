@@ -1307,8 +1307,7 @@ proc registerSyntheticAttestation*(
     checkStatus()
   block:
     let status = db.sqlInsertAtt.exec(
-      (valID, int64 source, int64 target,
-      Eth2Digest().data))
+      (valID, int64 source, int64 target, ZERO_HASH.data))
     checkStatus()
   block:
     let status = db.sqlCommitTransaction.exec()

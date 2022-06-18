@@ -23,7 +23,7 @@ func makeBlock(slot: Slot, parent: Eth2Digest): ForkedSignedBeaconBlock =
 suite "Block quarantine":
   test "Unviable smoke test":
     let
-      b0 = makeBlock(Slot 0, Eth2Digest())
+      b0 = makeBlock(Slot 0, ZERO_HASH)
       b1 = makeBlock(Slot 1, b0.root)
       b2 = makeBlock(Slot 2, b1.root)
       b3 = makeBlock(Slot 3, b2.root)

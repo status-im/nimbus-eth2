@@ -752,8 +752,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # Load head -> finalized, or all summaries in case the finalized block table
   # hasn't been written yet
   for blck in db.getAncestorSummaries(head.root):
-    let newRef = BlockRef.init(
-      blck.root, default(Eth2Digest), blck.summary.slot)
+    let newRef = BlockRef.init(blck.root, ZERO_HASH, blck.summary.slot)
     if headRef == nil:
       doAssert blck.root == head.root
       headRef = newRef
