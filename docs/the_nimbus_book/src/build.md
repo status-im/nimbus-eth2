@@ -21,4 +21,4 @@ To build the Nimbus beacon node and it's dependencies, run:
 make -j4 nimbus_beacon_node
 ```
 
-> 🛈 Omit `-j4` on systems with 4GB of memory or less.
+> ℹ️ Omit `-j4` on systems with 4GB of memory or less.

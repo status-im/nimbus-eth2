@@ -12,6 +12,8 @@ If you are planning to become a validator, you should ensure that your beacon no
 
 Using Nimbus, you can connect either to a testnet, or mainnet. Mainnet is the main ethereum network where real assets are at stake, while testnets are used by users and developers alike to test their node and setup before committing real assets.
 
+> If this is the first time you're setting up your node, it is recommended you run it on a testnet first. Later, when everything is working, you can easily switch to mainned.
+
 ### Testnet
 
 To start syncing the `prater` testnet , from the `nimbus-eth2` repository, run:
@@ -50,19 +52,19 @@ INF 2020-12-01 11:26:36.285+00:00 Slot end                                   top
 
 While running, the beacon node will store chain data and other information in `build/data/` in the directory where you installed Nimbus. You can change the storage location with the `--data-dir` option:
 
-```
+```sh
 ./run-mainnet-beacon-node.sh --data-dir=/data/mainnet
 ```
 
 You will need to pass `--data-dir` to all commands, including when importing your keys!
 
-> 🛈 Don't forget to put `=` after `--data-dir`!
+> ℹ️ Don't forget to put `=` after `--data-dir`!
 
 ## Command line options
 
 You can add command line options to the startup command - for example, to change the port to 9100, use:
 
-```
+```sh
 ./run-prater-beacon-node.sh --tcp-port=9100 --udp-port=9100
 ```
 

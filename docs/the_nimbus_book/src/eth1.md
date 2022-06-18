@@ -6,7 +6,7 @@ Nimbus has been tested all major execution clients - see the [execution client c
 
 By default, Nimbus uses WebSockets to communicate with the execution client, connecting to http://localhost:8546. You can provide a different URL with the `--web3-url` parameter.
 
-> ⚠ You need to run your own execution client after [the merge](./merge.md) - third-party services like Infura, Alchemy and Pocket will be sufficient.
+> ⚠️ You need to run your own execution client after [the merge](./merge.md) - third-party services like Infura, Alchemy and Pocket will be sufficient.
 
 ## Nimbus
 

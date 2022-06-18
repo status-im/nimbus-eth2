@@ -8,7 +8,7 @@ The easiest way to get your deposit in is to follow the Ethereum Foundation's la
 
 **Mainnet**: [https://launchpad.ethereum.org/](https://launchpad.ethereum.org/)
 
-> ⚠️  If you are making a mainnet deposit make sure you verify that the deposit contract you are interacting with is the correct one.
+> ⚠️ If you are making a mainnet deposit make sure you verify that the deposit contract you are interacting with is the correct one.
 >
 > You should verify that the address is indeed: [0x00000000219ab540356cBB839Cbe05303d7705Fa](https://etherscan.io/address/0x00000000219ab540356cBB839Cbe05303d7705Fa)
 

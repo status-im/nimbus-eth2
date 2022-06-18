@@ -39,7 +39,7 @@ At a minimum, you should run an NTP client (such as chrony) on the server.  Note
 
 ## Building from source
 
-> 🛈 If you are planning to use the precompiled binaries, you can skip this section and go straight to the [binaries](./binaries.md)!
+> ℹ️ If you are planning to use the precompiled binaries, you can skip this section and go straight to the [binaries](./binaries.md)!
 
 When building from source, you will need additional build dependencies to be installed:
 

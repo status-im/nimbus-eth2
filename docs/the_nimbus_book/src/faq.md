@@ -6,7 +6,7 @@
 
 You can check the version through a number of methods:
 
-```console
+```sh
 # Run the beacon node with the --version flag:
 build/nimbus_beacon_node --version
 
@@ -21,7 +21,7 @@ curl -s http://localhost:9100/eth/v1/node/version
 
 The metrics server is disabled by default: enable it by passing `--metrics` to the run command:
 
-```
+```sh
 ./run-mainnet-beacon-node.sh --metrics ...
 ```
 
@@ -29,7 +29,7 @@ The metrics server is disabled by default: enable it by passing `--metrics` to t
 
 The REST server is disabled by default: enable it by passing `--rest` to the run command:
 
-```
+```sh
 ./run-mainnet-beacon-node.sh --metrics ...
 ```
 
@@ -95,7 +95,7 @@ Here is how to fix them.
 
 Run:
 
-```
+```sh
 # Changing ownership to `user:group` for all files/directories in <data-dir>.
 chown user:group -R <data-dir>
 # Set permissions to (rwx------ 0700) for all directories starting from <data-dir>
@@ -119,7 +119,7 @@ In sum:
 
 From inside `Git Bash`, run:
 
-```
+```sh
 # Set permissions for all the directories starting from <data-dir>
 find <data-dir> -type d -exec icacls {} /inheritance:r /grant:r $USERDOMAIN\\$USERNAME:\(OI\)\(CI\)\(F\) \;
 

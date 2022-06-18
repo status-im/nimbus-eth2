@@ -21,7 +21,7 @@ One of the most important aspects of the Raspberry Pi experience is trying to ma
 - Basic understanding of the [command line](https://www.learnenough.com/command-line-tutorial/basics)
 - 200GB SSD (2TB recommended if also running execution client)
 
-> ⚠️  You will need an SSD to run the Nimbus (without an SSD drive you have absolutely no chance of syncing the Ethereum blockchain). You have two options:
+> ⚠️ You will need an SSD to run the Nimbus (without an SSD drive you have absolutely no chance of syncing the Ethereum blockchain). You have two options:
 >
 > 1. Use an USB portable SSD disk such as the Samsung T5 Portable SSD.
 >

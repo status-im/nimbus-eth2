@@ -33,7 +33,7 @@ curl -s https://raw.githubusercontent.com/status-im/nimbus-eth2/stable/scripts/p
 
 The format of service files is documented in the [systemd manual](https://www.freedesktop.org/software/systemd/man/systemd.service.html).
 
-> 🛈 Automatic restarts increase the risk that the doppelganger detection fails - set `RestartPreventExitStatus=1031` to prevent this from happening
+> ℹ️ Automatic restarts increase the risk that the doppelganger detection fails - set `RestartPreventExitStatus=1031` to prevent this from happening
 
 ### 3. Configure your service
 
