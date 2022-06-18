@@ -4,19 +4,30 @@
 
 ### How do I check which version of Nimbus I'm currently running?
 
-If you've enabled RPC, the version is available via
+You can check the version through a number of methods:
 
+```console
+# Run the beacon node with the --version flag:
+build/nimbus_beacon_node --version
+
+# Query the metrics server - requires running with the '--metrics' option
+curl -s http://localhost:8008/metrics | grep version
+
+# Query the REST API - requires running with the '--rest' option
+curl -s http://localhost:9100/eth/v1/node/version
 ```
-curl -d '{"jsonrpc":"2.0","method":"get_v1_node_version","params":[],"id":1}' -H 'Content-Type: application/json' localhost:9190 -s
-```
-
-
-You can also run `build/nimbus_beacon_node --version`
-
 
 ### Why are metrics not working?
 
-The metrics server is disabled by default, enable it by passing `--metrics` to the run command:
+The metrics server is disabled by default: enable it by passing `--metrics` to the run command:
+
+```
+./run-mainnet-beacon-node.sh --metrics ...
+```
+
+### Why is the REST server not working?
+
+The REST server is disabled by default: enable it by passing `--rest` to the run command:
 
 ```
 ./run-mainnet-beacon-node.sh --metrics ...
@@ -34,15 +45,15 @@ You can think of it as a small penalty that you pay only on first launch and res
 
 While we strongly recommend it, you can disable it with an explicit flag (`--doppelganger-detection=false`) if you don't plan on moving your setup.
 
-### What's the best way to stress test my eth1 + eth2 setup before committing with real ETH?
+### What's the best way to stress test my execution + consensus setup before committing with real ETH?
 
-We recommend [running a Nimbus beacon node](./quick-start.md) on [Prater](./prater.md) and a mainnet [eth1 client](./eth1.md) on the same machine.
+We recommend running [a Nimbus beacon node](./quick-start.md) on [Prater](./prater.md) and a mainnet [execution client](./eth1.md) on the same machine - this will simulate the load of running a mainnet validator.
 
-To stress test it, `add--subscribe-all-subnets` to the [beacon node options](./options.md). This represents more or less the maximum load you could have on eth2.
+To stress test it, add `--subscribe-all-subnets` to the [beacon node options](./options.md). This simulates the maximum load that the consensus layer will put on the machine should you run 64 validators or more on it.
 
 ### How do I add an additional validator?
 
-To add an additional validator, just follow [the same steps](./keys.md) as you did when you added your first. You'll have to restart the beacon node for the changes to take effect.
+To add an additional validator, follow [the same steps](./keys.md) as you did when you added your first. You'll have to restart the beacon node for the changes to take effect.
 
 > Note that a single Nimbus instance is able to handle multiple validators.
 
@@ -50,10 +61,10 @@ To add an additional validator, just follow [the same steps](./keys.md) as you d
 
 ### How can I improve my peer count?
 
-See [here](./networking.md).
+See [the networking guide](./networking.md).
 
 ### How do I fix the discovered new external address warning log?
- 
+
 ```
 WRN 2021-03-15 02:23:37.569+00:00 Discovered new external address but ENR auto update is off topics="discv5"...
 ```
@@ -132,7 +143,7 @@ In sum:
 
 ### What exactly is a validator?
 
-A validator is an entity that participates in the consensus of the Ethereum 2.0 protocol.
+A validator is an entity that participates in the consensus of the Ethereum protocol.
 
 Or in plain english, a human running a computer process. This process proposes and vouches for new blocks to be added to the blockchain.
 
@@ -148,13 +159,14 @@ You can think of it as a transfer of funds between Ethereum 1.0 accounts and Eth
 It specifies who is staking, who is validating, how much is being staked, and who can withdraw the funds.
 
 ### Why do validators need to have funds at stake?
+
 Validators need to have funds at stake so they can be penalized for behaving dishonestly.
 
 In other words, to keep them honest, their actions need to have financial consequences.
 
 ### How much ETH does a validator need to stake?
 
-Before a validator can start to secure the network, he or she needs to stake **32 ETH**. This forms the validator's initial balance.
+Before a validator can start to secure the network, they need to stake **32 ETH**. This forms the validator's initial balance.
 
 ### Is there any advantage to having more than 32 ETH at stake?
 

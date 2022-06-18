@@ -35,7 +35,8 @@ type
     lcBlocks: LCBlocks
     blockVerifier: request_manager.BlockVerifier
     requestManager: RequestManager
-    finalizedBid, optimisticBid, optimisticCandidateBid: BlockId
+    finalizedBid, optimisticBid: BlockId
+    lastReportedSlot: Slot
     finalizedIsExecutionBlock: Option[bool]
     syncStrategy: SyncStrategy
     syncFut, processFut: Future[void]
@@ -60,20 +61,34 @@ proc reportOptimisticCandidateBlock(optSync: LCOptimisticSync) {.gcsafe.} =
 
   let
     currentSlot = optSync.lcBlocks.getHeadSlot()
-    signedBlock =
+    maxSlot =
       if optSync.finalizedIsExecutionBlock.get(false):
         # If finalized is execution block, can import any later block
-        optSync.lcBlocks.getLatestBlockThroughSlot(currentSlot)
+        currentSlot
       else:
         # Else, block must be deep (min `SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY`)
-        let
-          minAge = optSync.safeSlotsToImportOptimistically
-          maxSlot = max(currentSlot, minAge.Slot) - minAge.uint64
-        optSync.lcBlocks.getLatestBlockThroughSlot(maxSlot)
-  if signedBlock.isOk:
-    let bid = signedBlock.get.toBlockId()
-    if bid.slot > optSync.optimisticCandidateBid.slot:
-      optSync.optimisticCandidateBid = bid
+        let minAge = optSync.safeSlotsToImportOptimistically
+        max(currentSlot, minAge.Slot) - minAge.uint64
+
+  if maxSlot > optSync.lastReportedSlot:
+    const minGapSize = SLOTS_PER_EPOCH
+    var signedBlock: Opt[ForkedMsgTrustedSignedBeaconBlock]
+    if maxSlot - optSync.lastReportedSlot >= minGapSize:
+      # Large gap, skip to latest
+      signedBlock = optSync.lcBlocks.getLatestBlockThroughSlot(maxSlot)
+    elif optSync.lcBlocks.getFrontfillSlot() <= optSync.lastReportedSlot + 1 and
+        optSync.lcBlocks.getBackfillSlot() > optSync.lastReportedSlot + 1:
+      # Small gap, but still downloading
+      discard
+    else:
+      # Report next sequential block (even if it is slightly outdated)
+      for slot in optSync.lastReportedSlot + 1 .. maxSlot:
+        signedBlock = optSync.lcBlocks.getBlockAtSlot(slot)
+        if signedBlock.isOk:
+          break
+
+    if signedBlock.isOk and signedBlock.get.slot > optSync.lastReportedSlot:
+      optSync.lastReportedSlot = signedBlock.get.slot
       optSync.processFut = optSync.optimisticProcessor(signedBlock.get)
 
       proc handleFinishedProcess(future: pointer) =

@@ -960,10 +960,11 @@ func clear*(cache: var StateCache) =
   cache.sync_committees.clear
 
 func checkForkConsistency*(cfg: RuntimeConfig) =
-  # TODO re-add cfg.CAPELLA_FORK_VERSION once eth-clients repos include it and
-  # fix SHARDING_FORK_VERSION to be its new FORK_VERSION. Until then make sure
+  # TODO add cfg.CAPELLA_FORK_VERSION once merge-testnets repo includes it and
+  # fixes SHARDING_FORK_VERSION to be a new FORK_VERSION. Until then make sure
   # that it will never actually use the Capella fork.
   doAssert cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
+  doAssert cfg.SHARDING_FORK_EPOCH == FAR_FUTURE_EPOCH
 
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,

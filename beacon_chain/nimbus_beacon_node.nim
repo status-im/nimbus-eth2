@@ -149,17 +149,17 @@ proc loadChainDag(
     config: BeaconNodeConf,
     cfg: RuntimeConfig,
     db: BeaconChainDB,
-    eventBus: AsyncEventBus,
+    eventBus: EventBus,
     validatorMonitor: ref ValidatorMonitor,
     networkGenesisValidatorsRoot: Option[Eth2Digest]): ChainDAGRef =
   info "Loading block DAG from database", path = config.databaseDir
 
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
-    eventBus.emit("signed-beacon-block", data)
+    eventBus.blocksQueue.emit(data)
   proc onHeadChanged(data: HeadChangeInfoObject) =
-    eventBus.emit("head-change", data)
+    eventBus.headQueue.emit(data)
   proc onChainReorg(data: ReorgInfoObject) =
-    eventBus.emit("chain-reorg", data)
+    eventBus.reorgQueue.emit(data)
   proc onLightClientFinalityUpdate(data: altair.LightClientFinalityUpdate) =
     discard
   proc onLightClientOptimisticUpdate(data: altair.LightClientOptimisticUpdate) =
@@ -220,17 +220,17 @@ proc initFullNode(
   template config(): auto = node.config
 
   proc onAttestationReceived(data: Attestation) =
-    node.eventBus.emit("attestation-received", data)
+    node.eventBus.attestQueue.emit(data)
   proc onSyncContribution(data: SignedContributionAndProof) =
-    node.eventBus.emit("sync-contribution-and-proof", data)
+    node.eventBus.contribQueue.emit(data)
   proc onVoluntaryExitAdded(data: SignedVoluntaryExit) =
-    node.eventBus.emit("voluntary-exit", data)
+    node.eventBus.exitQueue.emit(data)
   proc makeOnFinalizationCb(
       # This `nimcall` functions helps for keeping track of what
       # needs to be captured by the onFinalization closure.
-      eventBus: AsyncEventBus,
+      eventBus: EventBus,
       eth1Monitor: Eth1Monitor): OnFinalizedCallback {.nimcall.} =
-    static: doAssert (eventBus is ref) and (eth1Monitor is ref)
+    static: doAssert (eth1Monitor is ref)
     return proc(dag: ChainDAGRef, data: FinalizationInfoObject) =
       if eth1Monitor != nil:
         let finalizedEpochRef = dag.getFinalizedEpochRef()
@@ -238,7 +238,7 @@ proc initFullNode(
                                     finalizedEpochRef.eth1_data,
                                     finalizedEpochRef.eth1_deposit_index)
       node.updateLightClientFromDag()
-      eventBus.emit("finalization", data)
+      eventBus.finalQueue.emit(data)
 
   func getLocalHeadSlot(): Slot =
     dag.head.slot
@@ -370,7 +370,15 @@ proc init*(T: type BeaconNode,
     raise newException(Defect, "Failure in taskpool initialization.")
 
   let
-    eventBus = newAsyncEventBus()
+    eventBus = EventBus(
+      blocksQueue: newAsyncEventQueue[ForkedTrustedSignedBeaconBlock](),
+      headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
+      reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
+      attestQueue: newAsyncEventQueue[Attestation](),
+      contribQueue: newAsyncEventQueue[SignedContributionAndProof](),
+      exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
+      finalQueue: newAsyncEventQueue[FinalizationInfoObject]()
+    )
     db = BeaconChainDB.new(config.databaseDir, inMemory = false)
 
   var

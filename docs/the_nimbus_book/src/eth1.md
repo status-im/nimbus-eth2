@@ -1,25 +1,26 @@
-# Run an Execution layer node
+# Run an Execution client
 
-In order to process incoming validator deposits from the Execution layer, you'll need to run an EL client in parallel to your CL client. 
+In order to be able to produce blocks and process incoming validator deposits from the execution layer, you'll need to run an execution client in together with the beacon node.
 
-On this page we provide instructions for using Geth (however, any reputable EL client shOuld do the trick).
+Nimbus has been tested all the major execution clients - see the [execution client comparison](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients) for more information.
 
-> **Note:** If you have a > 500GB SSD, and your [hardware](./hardware.md) can handle it, we strongly recommend running your own eth1 client. This will help ensure the network stays as decentralised as possible. If you can't however, the next best option is to set up a 3rd part provider like [infura](./infura-guide.md).
+By default, Nimbus uses WebSockets to communicate with the execution client, connecting to a server on the same machine using port 8546: http://localhost:8546.
+
+> ⚠ You need to run your own execution client after The Merge - third-party services like Infura, Alchemy and Pocket will no longer be enough.
 
 ## Nimbus
-In parallel to `nimbus-eth2` we are working hard on our [our EL client](https://github.com/status-im/nimbus-eth1). While this is  very much a project in development (i.e. not yet ready for public consumption), we welcome you to experiment with it.
 
-## Nethermind
-*TBC*
+In parallel to `nimbus-eth2`, we are working hard on the [Nimbus execution client](https://github.com/status-im/nimbus-eth1). While this is very much a project in development (i.e. not yet ready for public consumption), we welcome you to experiment with it.
 
 ## Geth
 
 ### 1. Install Geth
-If you're running MacOS, follow the instructions [listed here](https://github.com/ethereum/go-ethereum/wiki/Installation-Instructions-for-Mac) to install geth. Otherwise [see here](https://github.com/ethereum/go-ethereum/wiki/Installing-Geth).
+
+See the [Installing Geth](https://geth.ethereum.org/docs/install-and-build/installing-geth) for instructions on installing Geth.
 
 ### 2. Start Geth
 
-Once you have geth installed, use the following command to start your eth1 node:
+Once you have geth installed, make sure to enable the JSON-RPC WebSocket interface when running geth:
 
 **Testnet**
 ```
@@ -57,7 +58,20 @@ INFO [05-29|01:16:14] Imported new chain segment               blocks=1 txs=11  
 
 Geth accepts connections from the loopback interface (`127.0.0.1`), with default WebSocket port `8546`. This means that your default Web3 provider URL should be: `ws://127.0.0.1:8546`
 
+## Nethermind
 
+See the [Getting started](https://docs.nethermind.io/nethermind/first-steps-with-nethermind/getting-started) guide to set up Nethermind.
 
+Make sure to enable the [JSON-RPC](https://docs.nethermind.io/nethermind/first-steps-with-nethermind/running-nethermind-post-merge#jsonrpc-configuration-module) interface over WebSockets.
 
+## Besu
 
+See the [Besu documentation](https://besu.hyperledger.org/en/stable/) for instructions on setting up Besu.
+
+Make sure to enable the [JSON-RPC](https://besu.hyperledger.org/en/stable/HowTo/Interact/APIs/Using-JSON-RPC-API/) WebSocket interface.
+
+## Erigon
+
+See the [Erigon README](https://github.com/ledgerwatch/erigon#getting-started=) for instructions on setting up Erigon.
+
+Make sure to enable the [JSON-RPC](https://github.com/ledgerwatch/erigon#beacon-chain=) WebSocket interface.

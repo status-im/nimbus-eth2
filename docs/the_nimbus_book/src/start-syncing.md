@@ -6,7 +6,7 @@ This is particularly important if you are joining a network that's been running 
 
 > **Tip:** If you'd like to sync faster and start attesting immediately, we recommend taking a look at [trusted node sync](./trusted-node-sync.md)
 
-> **N.B.** In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client (**web3 provider**) in parallel to your eth2 client. See [here](./eth1.md) for instructions on how to do so.
+> **N.B.** In order to process incoming validator deposits, you'll need to run an execution client (**web3 provider**) in parallel to your eth2 client. See [here](./eth1.md) for instructions on how to do so.
 
 ### Testnet
 
@@ -51,10 +51,10 @@ You can pass any `nimbus_beacon_node` options to the `prater` and `mainnet` scri
 ./run-prater-beacon-node.sh --tcp-port=9100 --udp-port=9100
 ```
 
-To see a list of the command line options availabe to you, with descriptions, navigate to the `build` directory and run:
+To see a list of the command line options availabe to you, with descriptions, run:
 
 ```
-./nimbus_beacon_node --help
+./build/nimbus_beacon_node --help
 ```
 ### Keep track of your sync progress
 

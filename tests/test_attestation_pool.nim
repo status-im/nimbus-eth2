@@ -167,7 +167,7 @@ suite "Attestation pool processing" & preset():
 
     let
       # Someone votes for a different root
-      att3 = makeAttestation(state[], Eth2Digest(), bc1[2], cache)
+      att3 = makeAttestation(state[], ZERO_HASH, bc1[2], cache)
     pool[].addAttestation(
       att3, @[bc1[2]], att3.loadSig, att3.data.slot.start_beacon_time)
 
@@ -182,7 +182,7 @@ suite "Attestation pool processing" & preset():
 
     let
       # Someone votes for a different root
-      att4 = makeAttestation(state[], Eth2Digest(), bc1[2], cache)
+      att4 = makeAttestation(state[], ZERO_HASH, bc1[2], cache)
     pool[].addAttestation(
       att4, @[bc1[2]], att3.loadSig, att3.data.slot.start_beacon_time)
 

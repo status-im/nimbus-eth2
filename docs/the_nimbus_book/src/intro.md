@@ -4,7 +4,7 @@
 
 Nimbus is a client implementation for both the `consensus layer` (eth2) and `execution layer` (eth1) that strives to be as [lightweight as possible](https://our.status.im/ethereum-is-green/) in terms of resources used. This allows it to perform well on embedded systems, resource-restricted devices -- including Raspberry Pis and mobile devices.
 
-However, resource-restricted hardware is not the only thing Nimbus is good for. Its low resource consumption makes it easy to run Nimbus together with other workloads on your server (this is especially valuable for stakers looking to lower the cost of their server instances).
+However, resource-restricted hardware is not the only thing Nimbus is good for. Its low resource consumption makes it an excellent choice to pair with an [execution client](./eth1) and makes it easy to run together with other workloads on your server, lowering the total cost.
 
 </br>
 
@@ -12,20 +12,17 @@ However, resource-restricted hardware is not the only thing Nimbus is good for. 
 
 </br>
 
-This book explains the ways in which you can use Nimbus to either monitor the eth2 chain or become a fully-fledged validator.
+This book explains the ways in which you can use Nimbus to either monitor the beacon chain or become a fully-fledged validator.
 
 > **N.B.** The reality is that we are very early in the eth2 validating life cycle. Validating is not for everyone yet, and it comes with both risks and responsibilities. It isn't a particularly easy way to make money. You'll need to put effort into updating your software, researching hard-forks, having a robust setup... . As such, you should only stake if you are genuinely interested in securing the protocol.
 
 
-
-### Helpful resources
+## Helpful resources
 
 - [nimbus-eth2 repository](https://github.com/status-im/nimbus-eth2)
 - [eth2 specification](https://github.com/ethereum/consensus-specs/tree/v1.2.0-rc.1#phase-0)
-- [Ben Edgington's annotated spec](https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/) 
-
+- [Ben Edgington's annotated spec](https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/)
 - [Vitalik's annotated spec](https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md)
-
 - [Danny Ryan's annotated spec](https://notes.ethereum.org/@djrtwo/Bkn3zpwxB)
 
 
@@ -35,7 +32,10 @@ Need help with anything? Join us on [Status](https://join.status.im/nimbus-gener
 
 ### Donate
 
-If you'd like to contribute to Nimbus development, our donation address is [`0x70E47C843E0F6ab0991A3189c28F2957eb6d3842`](https://etherscan.io/address/0x70E47C843E0F6ab0991A3189c28F2957eb6d3842)
+If you'd like to contribute to Nimbus development:
+
+* Our donation address is [`0x70E47C843E0F6ab0991A3189c28F2957eb6d3842`](https://etherscan.io/address/0x70E47C843E0F6ab0991A3189c28F2957eb6d3842)
+* We're also listed on [GitCoin](https://gitcoin.co/grants/137/nimbus-2)
 
 ### Stay updated
 Subscribe to our newsletter [here](https://subscribe.nimbus.guide/).

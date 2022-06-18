@@ -40,7 +40,7 @@ suite "MEV tests":
         existingBlock.hash.asEth2Digest,
         existingBlock.hash.asEth2Digest,
         existingBlock.timestamp.uint64 + 12,
-        default(Eth2Digest).data,  # Random
+        ZERO_HASH.data,  # Random
         feeRecipient)
       blindedHeader = waitFor restClient.getHeader(
         1.Slot, existingBlock.hash.asEth2Digest, pubKey)
