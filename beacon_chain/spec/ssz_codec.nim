@@ -14,7 +14,7 @@ import
   ./datatypes/base
 
 from ./datatypes/altair import
-  EpochParticipationFlags, asHashList
+  ParticipationFlags, EpochParticipationFlags, asHashList
 
 export codec, base, typetraits, EpochParticipationFlags
 
