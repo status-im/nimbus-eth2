@@ -1,8 +1,11 @@
-# Copyright (c) 2018-2020 Status Research & Development GmbH
+# beacon_chain
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
 
 import
   stew/results,
@@ -14,40 +17,20 @@ export rest_utils
 
 logScope: topics = "rest_eventapi"
 
-proc validateEventTopics(events: seq[EventTopic]): Result[EventTopics,
-                                                          cstring] =
+proc validateEventTopics(events: seq[EventTopic],
+                         withLightClient: bool): Result[EventTopics, cstring] =
   const NonUniqueError = cstring("Event topics must be unique")
+  const UnsupportedError = cstring("Unsupported event topic value")
   var res: set[EventTopic]
   for item in events:
-    case item
-    of EventTopic.Head:
-      if EventTopic.Head in res:
-        return err(NonUniqueError)
-      res.incl(EventTopic.Head)
-    of EventTopic.Block:
-      if EventTopic.Block in res:
-        return err(NonUniqueError)
-      res.incl(EventTopic.Block)
-    of EventTopic.Attestation:
-      if EventTopic.Attestation in res:
-        return err(NonUniqueError)
-      res.incl(EventTopic.Attestation)
-    of EventTopic.VoluntaryExit:
-      if EventTopic.VoluntaryExit in res:
-        return err(NonUniqueError)
-      res.incl(EventTopic.VoluntaryExit)
-    of EventTopic.FinalizedCheckpoint:
-      if EventTopic.FinalizedCheckpoint in res:
-        return err(NonUniqueError)
-      res.incl(EventTopic.FinalizedCheckpoint)
-    of EventTopic.ChainReorg:
-      if EventTopic.ChainReorg in res:
-        return err(NonUniqueError)
-      res.incl(EventTopic.ChainReorg)
-    of EventTopic.ContributionAndProof:
-      if EventTopic.ContributionAndProof in res:
-        return err(NonUniqueError)
-      res.incl(EventTopic.ContributionAndProof)
+    if item in res:
+      return err(NonUniqueError)
+    if not withLightClient and item in [
+        EventTopic.LightClientFinalityUpdate,
+        EventTopic.LightClientOptimisticUpdate]:
+      return err(UnsupportedError)
+    res.incl(item)
+
   if res == {}:
     err("Empty topics list")
   else:
@@ -105,6 +88,7 @@ proc eventHandler*[T](response: HttpResponseRef,
 
 proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Events/eventstream
+  # https://github.com/ethereum/beacon-APIs/pull/181
   router.api(MethodGet, "/eth/v1/events") do (
     topics: seq[EventTopic]) -> RestApiResponse:
     let eventTopics =
@@ -112,7 +96,8 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if topics.isErr():
           return RestApiResponse.jsonError(Http400, "Invalid topics value",
                                            $topics.error())
-        let res = validateEventTopics(topics.get())
+        let res = validateEventTopics(topics.get(),
+                                      node.dag.lightClientDataServe)
         if res.isErr():
           return RestApiResponse.jsonError(Http400, "Invalid topics value",
                                            $res.error())
@@ -163,6 +148,16 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if EventTopic.ContributionAndProof in eventTopics:
           let handler = response.eventHandler(node.eventBus.contribQueue,
                                               "contribution_and_proof")
+          res.add(handler)
+        if EventTopic.LightClientFinalityUpdate in eventTopics:
+          doAssert node.dag.lightClientDataServe
+          let handler = response.eventHandler(node.eventBus.finUpdateQueue,
+                                              "light_client_finality_update_v0")
+          res.add(handler)
+        if EventTopic.LightClientOptimisticUpdate in eventTopics:
+          doAssert node.dag.lightClientDataServe
+          let handler = response.eventHandler(node.eventBus.optUpdateQueue,
+                                              "light_client_optimistic_update_v0")
           res.add(handler)
         res
 

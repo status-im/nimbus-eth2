@@ -19,7 +19,8 @@ import
   ../spec/[helpers, forks, network],
   ".."/[beacon_clock],
   ../networking/eth2_network,
-  ../consensus_object_pools/blockchain_dag
+  ../consensus_object_pools/blockchain_dag,
+  ../rpc/rest_constants
 
 logScope:
   topics = "sync"
@@ -548,8 +549,7 @@ p2pProtocol BeaconSync(version = 1,
       await response.send(bootstrap.get, contextBytes)
     else:
       peer.updateRequestQuota(lightClientEmptyResponseCost)
-      raise newException(
-        ResourceUnavailableError, "LC bootstrap unavailable")
+      raise newException(ResourceUnavailableError, LCBootstrapUnavailable)
 
     peer.updateRequestQuota(lightClientBootstrapResponseCost)
 
@@ -609,7 +609,7 @@ p2pProtocol BeaconSync(version = 1,
 
     peer.awaitNonNegativeRequestQuota()
 
-    let finality_update = dag.getLightClientFinalityUpdate
+    let finality_update = dag.getLightClientFinalityUpdate()
     if finality_update.isSome:
       let
         contextEpoch = finality_update.get.attested_header.slot.epoch
@@ -617,8 +617,7 @@ p2pProtocol BeaconSync(version = 1,
       await response.send(finality_update.get, contextBytes)
     else:
       peer.updateRequestQuota(lightClientEmptyResponseCost)
-      raise newException(ResourceUnavailableError,
-                         "LC finality update unavailable")
+      raise newException(ResourceUnavailableError, LCFinUpdateUnavailable)
 
     peer.updateRequestQuota(lightClientFinalityUpdateResponseCost)
 
@@ -636,7 +635,7 @@ p2pProtocol BeaconSync(version = 1,
 
     peer.awaitNonNegativeRequestQuota()
 
-    let optimistic_update = dag.getLightClientOptimisticUpdate
+    let optimistic_update = dag.getLightClientOptimisticUpdate()
     if optimistic_update.isSome:
       let
         contextEpoch = optimistic_update.get.attested_header.slot.epoch
@@ -644,8 +643,7 @@ p2pProtocol BeaconSync(version = 1,
       await response.send(optimistic_update.get, contextBytes)
     else:
       peer.updateRequestQuota(lightClientEmptyResponseCost)
-      raise newException(ResourceUnavailableError,
-                         "LC optimistic update unavailable")
+      raise newException(ResourceUnavailableError, LCOptUpdateUnavailable)
 
     peer.updateRequestQuota(lightClientOptimisticUpdateResponseCost)
 

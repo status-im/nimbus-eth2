@@ -1,3 +1,4 @@
+# beacon_chain
 # Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -2147,6 +2148,10 @@ proc decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.ChainReorg)
   of "contribution_and_proof":
     ok(EventTopic.ContributionAndProof)
+  of "light_client_finality_update_v0":
+    ok(EventTopic.LightClientFinalityUpdate)
+  of "light_client_optimistic_update_v0":
+    ok(EventTopic.LightClientOptimisticUpdate)
   else:
     err("Incorrect event's topic value")
 
@@ -2185,6 +2190,11 @@ proc decodeString*(t: typedesc[Slot], value: string): Result[Slot, cstring] =
 proc decodeString*(t: typedesc[Epoch], value: string): Result[Epoch, cstring] =
   let res = ? Base10.decode(uint64, value)
   ok(Epoch(res))
+
+proc decodeString*(t: typedesc[SyncCommitteePeriod],
+                   value: string): Result[SyncCommitteePeriod, cstring] =
+  let res = ? Base10.decode(uint64, value)
+  ok(SyncCommitteePeriod(res))
 
 proc decodeString*(t: typedesc[uint64],
                    value: string): Result[uint64, cstring] =
