@@ -32,8 +32,8 @@ proc importKeystoresPlain*(body: KeystoresAndSlashingProtection
   ## https://ethereum.github.io/keymanager-APIs/#/Keymanager/ImportKeystores
 
 proc deleteKeysPlain*(body: DeleteKeystoresBody): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/keystores/delete",
-     meth: MethodPost.}
+     rest, endpoint: "/eth/v1/keystores",
+     meth: MethodDelete.}
   ## https://ethereum.github.io/keymanager-APIs/#/Keymanager/DeleteKeys
 
 proc listKeys*(client: RestClientRef,
