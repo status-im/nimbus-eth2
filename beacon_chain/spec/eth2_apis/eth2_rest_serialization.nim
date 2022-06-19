@@ -1919,7 +1919,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   writer.writeField("keystores", keystores)
   writer.writeField("passwords", value.passwords)
   if value.slashing_protection.isSome():
-    let slashingProtection = RestJson.encode(value.slashing_protection)
+    let slashingProtection = RestJson.encode(value.slashing_protection.get)
     writer.writeField("slashing_protection", slashingProtection)
   writer.endRecord()
 
