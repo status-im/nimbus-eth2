@@ -4,9 +4,9 @@ In order to be able to produce blocks and process incoming validator deposits, y
 
 Nimbus has been tested all major execution clients - see the [execution client comparison](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients) for more information.
 
-By default, Nimbus uses WebSockets to communicate with the execution client, connecting to http://localhost:8546. You can provide a different URL with the `--web3-url` parameter.
+By default, Nimbus uses WebSockets to communicate with the execution client, connecting to ws://localhost:8546. You can provide a different URL with the `--web3-url` parameter.
 
-> ⚠️ You need to run your own execution client after [the merge](./merge.md) - third-party services like Infura, Alchemy and Pocket will be sufficient.
+> ⚠️ You need to run your own execution client after [the merge](./merge.md) - relying on third-party services such as Infura, Alchemy and Pocket will not be possible.
 
 ## Nimbus
 
