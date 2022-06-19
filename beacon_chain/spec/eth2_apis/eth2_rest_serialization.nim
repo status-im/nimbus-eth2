@@ -11,6 +11,7 @@ import stew/[assign2, results, base10, byteutils], presto/common,
        json_serialization/std/[options, net, sets],
        chronicles
 import ".."/[eth2_ssz_serialization, forks, keystore],
+       ".."/../consensus_object_pools/block_pools_types,
        ".."/datatypes/[phase0, altair, bellatrix],
        ".."/mev/bellatrix_mev,
        ".."/../validators/slashing_protection_common,
@@ -2064,6 +2065,57 @@ proc dump*(value: KeystoresAndSlashingProtection): string {.
   var writer = JsonWriter[RestJson].init(stream)
   writer.writeValue(value)
   stream.getOutput(string)
+
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: HeadChangeInfoObject) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("slot", value.slot)
+  writer.writeField("block", value.block_root)
+  writer.writeField("state", value.state_root)
+  writer.writeField("epoch_transition", value.epoch_transition)
+  writer.writeField("previous_duty_dependent_root",
+                    value.previous_duty_dependent_root)
+  writer.writeField("current_duty_dependent_root",
+                    value.current_duty_dependent_root)
+  if value.optimistic.isSome():
+    writer.writeField("execution_optimistic", value.optimistic.get())
+  writer.endRecord()
+
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: ReorgInfoObject) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("slot", value.slot)
+  writer.writeField("depth", value.depth)
+  writer.writeField("old_head_block", value.old_head_block)
+  writer.writeField("new_head_block", value.new_head_block)
+  writer.writeField("old_head_state", value.old_head_state)
+  writer.writeField("new_head_state", value.new_head_state)
+  if value.optimistic.isSome():
+    writer.writeField("execution_optimistic", value.optimistic.get())
+  writer.endRecord()
+
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: FinalizationInfoObject) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("block", value.block_root)
+  writer.writeField("state", value.state_root)
+  writer.writeField("epoch", value.epoch)
+  if value.optimistic.isSome():
+    writer.writeField("execution_optimistic", value.optimistic.get())
+  writer.endRecord()
+
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: EventBeaconBlockObject) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("slot", value.slot)
+  writer.writeField("block", value.block_root)
+  if value.optimistic.isSome():
+    writer.writeField("execution_optimistic", value.optimistic.get())
+  writer.endRecord()
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:
