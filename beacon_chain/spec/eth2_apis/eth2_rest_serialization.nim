@@ -1959,6 +1959,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           try:
             RestJson.decode(item, Keystore, allowUnknownFields = true)
           except SerializationError as exc:
+            # TODO re-raise the exception by adjusting the column index, so the user
+            # will get an accurate syntax error within the larger message
             reader.raiseUnexpectedValue("Invalid keystore format")
         res.add(key)
       res
