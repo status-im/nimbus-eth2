@@ -121,7 +121,8 @@ type
     Web3SignerErrorResponse |
     Web3SignerKeysResponse |
     Web3SignerSignatureResponse |
-    Web3SignerStatusResponse
+    Web3SignerStatusResponse |
+    KeystoresAndSlashingProtection
 
   SszDecodeTypes* =
     GetPhase0StateSszResponse |
@@ -1909,43 +1910,83 @@ proc writeValue*(writer: var JsonWriter[RestJson],
                  value: KeystoresAndSlashingProtection) {.
      raises: [IOError, Defect].} =
   writer.beginRecord()
-  writer.writeField("keystores", value.keystores)
+  let keystores =
+    block:
+      var res: seq[string]
+      for keystore in value.keystores:
+        let encoded = RestJson.encode(keystore)
+        res.add(encoded)
+      res
+  writer.writeField("keystores", keystores)
   writer.writeField("passwords", value.passwords)
   if value.slashing_protection.isSome():
-    writer.writeField("slashing_protection", value.slashing_protection)
+    let slashingProtection = RestJson.encode(value.slashing_protection.get)
+    writer.writeField("slashing_protection", slashingProtection)
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson],
                 value: var KeystoresAndSlashingProtection) {.
      raises: [SerializationError, IOError, Defect].} =
   var
-    keystores: seq[Keystore]
+    strKeystores: seq[string]
     passwords: seq[string]
-    slashing: Option[SPDIR]
+    strSlashing: Option[string]
 
   for fieldName in readObjectFields(reader):
     case fieldName
     of "keystores":
-      keystores = reader.readValue(seq[Keystore])
+      strKeystores = reader.readValue(seq[string])
     of "passwords":
       passwords = reader.readValue(seq[string])
     of "slashing_protection":
-      if slashing.isSome():
+      if strSlashing.isSome():
         reader.raiseUnexpectedField(
           "Multiple `slashing_protection` fields found",
           "KeystoresAndSlashingProtection")
-      slashing = some(reader.readValue(SPDIR))
+      strSlashing = some(reader.readValue(string))
     else:
       unrecognizedFieldWarning()
 
-  if len(keystores) == 0:
-    reader.raiseUnexpectedValue("Missing `keystores` value")
+  if len(strKeystores) == 0:
+    reader.raiseUnexpectedValue("Missing or empty `keystores` value")
   if len(passwords) == 0:
-    reader.raiseUnexpectedValue("Missing `passwords` value")
+    reader.raiseUnexpectedValue("Missing or empty `passwords` value")
+
+  let keystores =
+    block:
+      var res: seq[Keystore]
+      for item in strKeystores:
+        let key =
+          try:
+            RestJson.decode(item, Keystore, allowUnknownFields = true)
+          except SerializationError as exc:
+            # TODO re-raise the exception by adjusting the column index, so the user
+            # will get an accurate syntax error within the larger message
+            reader.raiseUnexpectedValue("Invalid keystore format")
+        res.add(key)
+      res
+
+  let slashing =
+    if strSlashing.isSome():
+      let db =
+        try:
+          RestJson.decode(strSlashing.get(), SPDIR, allowUnknownFields = true)
+        except SerializationError as exc:
+          reader.raiseUnexpectedValue("Invalid slashing protection format")
+      some(db)
+    else:
+      none[SPDIR]()
 
   value = KeystoresAndSlashingProtection(
     keystores: keystores, passwords: passwords, slashing_protection: slashing
   )
+
+proc dump*(value: KeystoresAndSlashingProtection): string {.
+     raises: [IOError, Defect].} =
+  var stream = memoryOutput()
+  var writer = JsonWriter[RestJson].init(stream)
+  writer.writeValue(value)
+  stream.getOutput(string)
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:
