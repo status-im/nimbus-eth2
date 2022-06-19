@@ -2148,6 +2148,10 @@ proc decodeString*(t: typedesc[EventTopic],
     ok(EventTopic.ChainReorg)
   of "contribution_and_proof":
     ok(EventTopic.ContributionAndProof)
+  of "light_client_finality_update_v0":
+    ok(EventTopic.LightClientFinalityUpdate)
+  of "light_client_optimistic_update_v0":
+    ok(EventTopic.LightClientOptimisticUpdate)
   else:
     err("Incorrect event's topic value")
 
