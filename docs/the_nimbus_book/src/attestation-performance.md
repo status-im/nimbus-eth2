@@ -1,6 +1,8 @@
 # Monitor attestation performance
 
-Use the `ncli_db validatorPerf` command to create a report for the attestation performance of your validator over time.
+`ncli_db validatorPerf` is an advanced tool that helps you monitor the performance of your validator over time.
+
+The tool requires that you [built nimbus from source](./build.md).
 
 ## Steps
 

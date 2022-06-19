@@ -1,6 +1,6 @@
 # Supplying your own Infura endpoint
 
-> ⚠ After The Merge, you will need to run your own [execution client](./eth1.md).
+> ⚠️ After The Merge, you will need to run your own [execution client](./eth1.md).
 
 In a nutshell, Infura is a hosted ethereum node cluster that lets you make requests to the eth1 blockchain without requiring you to set up your own eth1 node.
 
@@ -50,7 +50,7 @@ You'll be directed to the settings page of your newly created project
 
 ### 6. Select endpoint
 
-> ⚠️  **Warning:** if you're connecting to mainnet, you should skip this step
+> ⚠️ If you're connecting to mainnet, you should skip this step
 
 If you're connecting to a testnet, in the `KEYS` section, click on the dropdown menu to the right of `ENDPOINTS`, and select `GÖRLI`
 
