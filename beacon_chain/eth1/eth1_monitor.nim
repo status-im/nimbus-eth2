@@ -1469,7 +1469,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
         m.terminalBlockHash = some terminalBlockCandidate.hash
         m.terminalBlockNumber = some terminalBlockCandidate.number
 
-    if shouldProcessDeposits:
+    if shouldProcessDeposits and scratchMerkleizer != nil:
       if m.latestEth1BlockNumber <= m.cfg.ETH1_FOLLOW_DISTANCE:
         continue
 
