@@ -954,7 +954,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     frontfillDur = frontfillTick - finalizedTick,
     keysDur = Moment.now() - frontfillTick
 
-  dag.initLightClientCache()
+  dag.initLightClientDataCache()
 
   dag
 

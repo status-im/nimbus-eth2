@@ -52,7 +52,7 @@ type
     current_sync_committee_branch*:
       array[log2trunc(altair.CURRENT_SYNC_COMMITTEE_INDEX), Eth2Digest]
 
-  LightClientCache* = object
+  LightClientDataCache* = object
     data*: Table[BlockId, CachedLightClientData]
       ## Cached data for creating future `LightClientUpdate` instances.
       ## Key is the block ID of which the post state was used to get the data.
@@ -84,7 +84,7 @@ type
     # -----------------------------------
     # Light client data
 
-    cache*: LightClientCache
+    cache*: LightClientDataCache
       ## Cached data to accelerate serving light client data
 
     # -----------------------------------

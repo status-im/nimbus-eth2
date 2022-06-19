@@ -710,7 +710,7 @@ proc initLightClientUpdateForPeriod(
   update.signature_slot = signatureBid.slot
   dag.lcDataStore.cache.best[period] = update
 
-proc initLightClientCache*(dag: ChainDAGRef) =
+proc initLightClientDataCache*(dag: ChainDAGRef) =
   ## Initialize cached light client data
   if dag.lcDataStore.importMode == LightClientDataImportMode.None:
     return
