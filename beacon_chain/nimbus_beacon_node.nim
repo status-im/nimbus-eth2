@@ -1318,24 +1318,13 @@ proc onSecond(node: BeaconNode, time: Moment) =
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/specification.md#engine_exchangetransitionconfigurationv1
   if time > node.nextExchangeTransitionConfTime and not node.eth1Monitor.isNil:
     node.nextExchangeTransitionConfTime = time + chronos.minutes(1)
-    traceAsyncErrors node.eth1Monitor.exchangeTransitionConfiguration()
+    if node.currentSlot.epoch >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+      traceAsyncErrors node.eth1Monitor.exchangeTransitionConfiguration()
 
   if node.config.stopAtSyncedEpoch != 0 and
       node.dag.head.slot.epoch >= node.config.stopAtSyncedEpoch:
     notice "Shutting down after having reached the target synced epoch"
     bnStatus = BeaconNodeStatus.Stopping
-
-proc onMinute(node: BeaconNode) {.async.} =
-  ## This procedure will be called once per minute.
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.8/src/engine/specification.md#engine_exchangetransitionconfigurationv1
-  if  not node.eth1Monitor.isNil and
-      node.currentSlot.epoch >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-    try:
-      # TODO could create a bool-succeed-or-not interface to this function
-      await node.eth1Monitor.exchangeTransitionConfiguration()
-    except CatchableError as exc:
-      debug "onMinute: exchangeTransitionConfiguration failed",
-        error = exc.msg
 
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
   const
@@ -1351,15 +1340,6 @@ proc runOnSecondLoop(node: BeaconNode) {.async.} =
     let processingTime = finished - afterSleep
     ticks_delay.set(sleepTime.nanoseconds.float / nanosecondsIn1s)
     trace "onSecond task completed", sleepTime, processingTime
-
-proc runOnMinuteLoop(node: BeaconNode) {.async.} =
-  const
-    sleepTime = chronos.seconds(60)
-    nanosecondsIn60s = float(sleepTime.nanoseconds)
-  while true:
-    await chronos.sleepAsync(sleepTime)
-    await node.onMinute()
-    trace "onMinute task completed"
 
 func connectedPeersCount(node: BeaconNode): int =
   len(node.network.peerPool)
@@ -1525,7 +1505,6 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
 
   asyncSpawn runSlotLoop(node, wallTime, onSlotStart)
   asyncSpawn runOnSecondLoop(node)
-  asyncSpawn runOnMinuteLoop(node)
   asyncSpawn runQueueProcessingLoop(node.blockProcessor)
 
   ## Ctrl+C handling

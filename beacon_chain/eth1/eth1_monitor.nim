@@ -591,7 +591,7 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[void] {.async.} =
         p.terminalBlockNumber.get
       else:
         # https://github.com/nim-lang/Nim/issues/19802
-        (static(default(Quantity)))
+        (static(default(Quantity))))
   let ecTransitionConfiguration =
     await p.dataProvider.web3.provider.engine_exchangeTransitionConfigurationV1(
       ccTransitionConfiguration)
@@ -1403,6 +1403,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     if expectedNetwork != providerNetwork:
       fatal "The specified web3 provider serves data for a different network",
              expectedNetwork, providerNetwork
+      quit 1
 
   var mustUsePolling = m.forcePolling or
                        web3Url.startsWith("http://") or
@@ -1436,7 +1437,6 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     let startBlock = awaitWithRetries(
       m.dataProvider.getBlockByHash(m.depositsChain.finalizedBlockHash.asBlockHash))
 
-    doAssert m.depositsChain.blocks.len == 0
     m.depositsChain.addBlock Eth1Block(
       number: Eth1BlockNumber startBlock.number,
       timestamp: Eth1BlockTimestamp startBlock.timestamp,

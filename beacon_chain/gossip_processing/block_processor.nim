@@ -542,7 +542,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
         executionPayloadStatus
 
       await self.runForkchoiceUpdated(
-        self.consensusManager.dag.head.executionBlockRoot,
+        blck.blck.bellatrixData.message.body.execution_payload.block_hash,
         self.consensusManager.dag.finalizedHead.blck.executionBlockRoot)
 
       if not blck.resfut.isNil:
