@@ -79,7 +79,7 @@ type
   ParticipationFlags* = uint8
 
   EpochParticipationFlags* =
-    HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+    distinct HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#syncaggregate
   SyncAggregate* = object
@@ -579,6 +579,27 @@ template `[]`*(arr: array[SYNC_COMMITTEE_SIZE, auto] | seq;
 
 makeLimitedU8(SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
 makeLimitedU16(IndexInSyncCommittee, SYNC_COMMITTEE_SIZE)
+
+template asHashList*(epochFlags: EpochParticipationFlags): untyped =
+  HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
+
+template item*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex): ParticipationFlags =
+  asHashList(epochFlags).item(idx)
+
+template `[]`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex|uint64): ParticipationFlags =
+  asHashList(epochFlags)[idx]
+
+template `[]=`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex, flags: ParticipationFlags) =
+  asHashList(epochFlags)[idx] = flags
+
+template add*(epochFlags: var EpochParticipationFlags, flags: ParticipationFlags): bool =
+  asHashList(epochFlags).add flags
+
+template len*(epochFlags: EpochParticipationFlags): int =
+  asHashList(epochFlags).len
+
+template data*(epochFlags: EpochParticipationFlags): untyped =
+  asHashList(epochFlags).data
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (

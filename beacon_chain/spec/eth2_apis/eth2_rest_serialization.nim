@@ -133,15 +133,15 @@ type
 
 {.push raises: [Defect].}
 
-proc writePreviousEpochParticipation(writer: var JsonWriter[RestJson],
-                                     values: EpochParticipationFlags)
-                                    {.raises: [IOError, Defect].} =
-  for e in writer.stepwiseArrayCreation(values):
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 epochFlags: EpochParticipationFlags)
+                {.raises: [IOError, Defect].} =
+  for e in writer.stepwiseArrayCreation(epochFlags.asHashList):
     writer.writeValue $e
 
-proc readPreviousEpochParticipation(
-    reader: var JsonReader[RestJson]): EpochParticipationFlags
-    {.raises: [SerializationError, IOError, Defect].} =
+proc readValue*(reader: var JsonReader[RestJson],
+                epochFlags: var EpochParticipationFlags)
+               {.raises: [SerializationError, IOError, Defect].} =
   # Please note that this function won't compute the cached hash tree roots
   # immediately. They will be computed on the first HTR attempt.
 
@@ -154,24 +154,8 @@ proc readPreviousEpochParticipation(
     if parsed > uint8.high:
       reader.raiseUnexpectedValue("The usigned integer value should fit in 8 bits")
 
-    if not result.data.add(uint8(parsed)):
+    if not epochFlags.data.add(uint8(parsed)):
       reader.raiseUnexpectedValue("The participation flags list size exceeds limit")
-
-RestJson.useCustomSerialization(AltairBeaconState.current_epoch_participation):
-  read: readPreviousEpochParticipation(reader)
-  write: writePreviousEpochParticipation(writer, value)
-
-RestJson.useCustomSerialization(BellatrixBeaconState.current_epoch_participation):
-  read: readPreviousEpochParticipation(reader)
-  write: writePreviousEpochParticipation(writer, value)
-
-RestJson.useCustomSerialization(AltairBeaconState.previous_epoch_participation):
-  read: readPreviousEpochParticipation(reader)
-  write: writePreviousEpochParticipation(writer, value)
-
-RestJson.useCustomSerialization(BellatrixBeaconState.previous_epoch_participation):
-  read: readPreviousEpochParticipation(reader)
-  write: writePreviousEpochParticipation(writer, value)
 
 proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
   let res =

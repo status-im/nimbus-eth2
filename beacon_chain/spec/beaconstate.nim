@@ -670,7 +670,7 @@ func get_proposer_reward*(state: ForkyBeaconState,
         # these are all valid; TODO statically verify or do it type-safely
         result += get_base_reward(
           state, index, base_reward_per_increment) * weight.uint64
-  epoch_participation.clearCache()
+  epoch_participation.asHashList.clearCache()
 
   let proposer_reward_denominator =
     (WEIGHT_DENOMINATOR.uint64 - PROPOSER_WEIGHT.uint64) *
@@ -810,11 +810,11 @@ func translate_participation(
 func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
     ref altair.BeaconState =
   var
-    empty_participation = EpochParticipationFlags()
+    empty_participation: EpochParticipationFlags
     inactivity_scores = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]()
 
   doAssert empty_participation.data.setLen(pre.validators.len)
-  empty_participation.resetCache()
+  empty_participation.asHashList.resetCache()
 
   doAssert inactivity_scores.data.setLen(pre.validators.len)
   inactivity_scores.resetCache()
