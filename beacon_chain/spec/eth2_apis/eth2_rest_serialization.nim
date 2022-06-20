@@ -130,6 +130,30 @@ type
 
 {.push raises: [Defect].}
 
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 epochFlags: EpochParticipationFlags)
+                {.raises: [IOError, Defect].} =
+  for e in writer.stepwiseArrayCreation(epochFlags.asHashList):
+    writer.writeValue $e
+
+proc readValue*(reader: var JsonReader[RestJson],
+                epochFlags: var EpochParticipationFlags)
+               {.raises: [SerializationError, IOError, Defect].} =
+  # Please note that this function won't compute the cached hash tree roots
+  # immediately. They will be computed on the first HTR attempt.
+
+  for e in reader.readArray(string):
+    let parsed = try:
+      parseBiggestUint(e)
+    except ValueError as err:
+      reader.raiseUnexpectedValue("A string-encoded 8-bit usigned integer value expected")
+
+    if parsed > uint8.high:
+      reader.raiseUnexpectedValue("The usigned integer value should fit in 8 bits")
+
+    if not epochFlags.data.add(uint8(parsed)):
+      reader.raiseUnexpectedValue("The participation flags list size exceeds limit")
+
 proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
   let res =
     block:
@@ -1261,8 +1285,8 @@ proc readValue*(reader: var JsonReader[RestJson],
       reader.raiseUnexpectedValue("Incorrect altair beacon state format")
     toValue(bellatrixData)
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState) {.
-     raises: [IOError, Defect].} =
+proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState)
+                {.raises: [IOError, Defect].} =
   writer.beginRecord()
   case value.kind
   of BeaconStateFork.Phase0:

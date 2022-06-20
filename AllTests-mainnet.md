@@ -110,12 +110,12 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## DeleteKeys requests [Preset: mainnet]
 ```diff
-- Deleting not existing key [Preset: mainnet]                                                Fail
-- Invalid Authorization Header [Preset: mainnet]                                             Fail
-- Invalid Authorization Token [Preset: mainnet]                                              Fail
-- Missing Authorization header [Preset: mainnet]                                             Fail
++ Deleting not existing key [Preset: mainnet]                                                OK
++ Invalid Authorization Header [Preset: mainnet]                                             OK
++ Invalid Authorization Token [Preset: mainnet]                                              OK
++ Missing Authorization header [Preset: mainnet]                                             OK
 ```
-OK: 0/4 Fail: 4/4 Skip: 0/4
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## DeleteRemoteKeys requests [Preset: mainnet]
 ```diff
 + Deleting existing local key and remote key [Preset: mainnet]                               OK
@@ -224,12 +224,12 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## ImportKeystores requests [Preset: mainnet]
 ```diff
-- ImportKeystores/ListKeystores/DeleteKeystores [Preset: mainnet]                            Fail
++ ImportKeystores/ListKeystores/DeleteKeystores [Preset: mainnet]                            OK
 + Invalid Authorization Header [Preset: mainnet]                                             OK
 + Invalid Authorization Token [Preset: mainnet]                                              OK
-- Missing Authorization header [Preset: mainnet]                                             Fail
++ Missing Authorization header [Preset: mainnet]                                             OK
 ```
-OK: 2/4 Fail: 2/4 Skip: 0/4
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys [Preset: mainnet]
 ```diff
 + Importing list of remote keys [Preset: mainnet]                                            OK
@@ -573,4 +573,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 312/323 Fail: 6/323 Skip: 5/323
+OK: 318/323 Fail: 0/323 Skip: 5/323

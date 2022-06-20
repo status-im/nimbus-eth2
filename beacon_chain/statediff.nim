@@ -189,9 +189,9 @@ func applyDiff*(
   assign(state.slashings.mitem(epochIndex), stateDiff.slashing)
 
   assign(
-    state.previous_epoch_participation, stateDiff.previous_epoch_participation)
+    state.previous_epoch_participation.data, stateDiff.previous_epoch_participation)
   assign(
-    state.current_epoch_participation, stateDiff.current_epoch_participation)
+    state.current_epoch_participation.data, stateDiff.current_epoch_participation)
 
   state.justification_bits = stateDiff.justification_bits
   assign(

@@ -989,7 +989,7 @@ func process_participation_flag_updates*(state: var (altair.BeaconState | bellat
   # grows. New elements are automatically initialized to 0, as required.
   doAssert state.current_epoch_participation.data.setLen(state.validators.len)
 
-  state.current_epoch_participation.resetCache()
+  state.current_epoch_participation.asHashList.resetCache()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#sync-committee-updates
 func process_sync_committee_updates*(
