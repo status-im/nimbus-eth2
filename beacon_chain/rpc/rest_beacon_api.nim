@@ -837,14 +837,24 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if not node.dag.getBlockSSZ(bid, data):
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
-        RestApiResponse.response(data, Http200, $sszMediaType)
+        let
+          fork = node.dag.cfg.blockForkAtEpoch(bid.slot.epoch)
+          headers = [("eth-consensus-version", fork.toString())]
+
+        RestApiResponse.response(data, Http200, $sszMediaType,
+                                 headers = headers)
       elif contentType == jsonMediaType:
         let bdata = node.dag.getForkedBlock(bid).valueOr:
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
+        let
+          fork = node.dag.cfg.blockForkAtEpoch(bid.slot.epoch)
+          headers = [("eth-consensus-version", fork.toString())]
+
         RestApiResponse.jsonResponseBlock(
           bdata.asSigned(),
-          node.getBlockOptimistic(bdata)
+          node.getBlockOptimistic(bdata),
+          headers
         )
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)

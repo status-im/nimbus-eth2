@@ -204,7 +204,9 @@ proc jsonResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
 
 proc jsonResponseBlock*(t: typedesc[RestApiResponse],
                         data: ForkedSignedBeaconBlock,
-                        execOpt: Option[bool]): RestApiResponse =
+                        execOpt: Option[bool],
+                        headers: openArray[tuple[key: string, value: string]]
+                       ): RestApiResponse =
   let res =
     block:
       var default: seq[byte]
@@ -223,38 +225,40 @@ proc jsonResponseBlock*(t: typedesc[RestApiResponse],
         default
       except IOError:
         default
-  RestApiResponse.response(res, Http200, "application/json")
+  RestApiResponse.response(res, Http200, "application/json",
+                           headers = headers)
 
 proc jsonResponseState*(t: typedesc[RestApiResponse],
                         forkedState: ForkedHashedBeaconState,
                         execOpt: Option[bool]): RestApiResponse =
-  let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("version", forkedState.kind.toString())
-        if execOpt.isSome():
-          writer.writeField("execution_optimistic", execOpt.get())
-        # TODO (cheatfate): Unable to use `forks.withState()` template here
-        # because of compiler issues and some kind of generic sandwich.
-        case forkedState.kind
-        of BeaconStateFork.Bellatrix:
-          writer.writeField("data", forkedState.bellatrixData.data)
-        of BeaconStateFork.Altair:
-          writer.writeField("data", forkedState.altairData.data)
-        of BeaconStateFork.Phase0:
-          writer.writeField("data", forkedState.phase0Data.data)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except SerializationError:
-        default
-      except IOError:
-        default
-  RestApiResponse.response(res, Http200, "application/json")
-
+  let
+    headers = [("eth-consensus-version", forkedState.kind.toString())]
+    res =
+      block:
+        var default: seq[byte]
+        try:
+          var stream = memoryOutput()
+          var writer = JsonWriter[RestJson].init(stream)
+          writer.beginRecord()
+          writer.writeField("version", forkedState.kind.toString())
+          if execOpt.isSome():
+            writer.writeField("execution_optimistic", execOpt.get())
+          # TODO (cheatfate): Unable to use `forks.withState()` template here
+          # because of compiler issues and some kind of generic sandwich.
+          case forkedState.kind
+          of BeaconStateFork.Bellatrix:
+            writer.writeField("data", forkedState.bellatrixData.data)
+          of BeaconStateFork.Altair:
+            writer.writeField("data", forkedState.altairData.data)
+          of BeaconStateFork.Phase0:
+            writer.writeField("data", forkedState.phase0Data.data)
+          writer.endRecord()
+          stream.getOutput(seq[byte])
+        except SerializationError:
+          default
+        except IOError:
+          default
+  RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc jsonResponseWOpt*(t: typedesc[RestApiResponse], data: auto,
                        execOpt: Option[bool]): RestApiResponse =
@@ -419,7 +423,9 @@ proc jsonErrorList*(t: typedesc[RestApiResponse],
         default
   RestApiResponse.error(status, data, "application/json")
 
-proc sszResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
+proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
+                  headers: openArray[tuple[key: string, value: string]]
+                 ): RestApiResponse =
   let res =
     block:
       var default: seq[byte]
@@ -432,7 +438,8 @@ proc sszResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
         default
       except IOError:
         default
-  RestApiResponse.response(res, Http200, "application/octet-stream")
+  RestApiResponse.response(res, Http200, "application/octet-stream",
+                           headers = headers)
 
 template hexOriginal(data: openArray[byte]): string =
   to0xHex(data)
