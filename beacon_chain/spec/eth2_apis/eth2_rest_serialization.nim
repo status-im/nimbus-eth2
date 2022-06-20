@@ -128,9 +128,6 @@ type
     GetPhase0StateSszResponse |
     GetPhase0BlockSszResponse
 
-  AltairBeaconState = altair.BeaconState
-  BellatrixBeaconState = bellatrix.BeaconState
-
 {.push raises: [Defect].}
 
 proc writeValue*(writer: var JsonWriter[RestJson],
