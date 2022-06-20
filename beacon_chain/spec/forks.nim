@@ -249,6 +249,24 @@ template init*(T: type ForkedTrustedSignedBeaconBlock, blck: altair.TrustedSigne
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: bellatrix.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Bellatrix,  bellatrixData: blck)
 
+template toString*(kind: BeaconBlockFork): string =
+  case kind
+  of BeaconBlockFork.Phase0:
+    "phase0"
+  of BeaconBlockFork.Altair:
+    "altair"
+  of BeaconBlockFork.Bellatrix:
+    "bellatrix"
+
+template toString*(kind: BeaconStateFork): string =
+  case kind
+  of BeaconStateFork.Phase0:
+    "phase0"
+  of BeaconStateFork.Altair:
+    "altair"
+  of BeaconStateFork.Bellatrix:
+    "bellatrix"
+
 template toFork*[T:
     phase0.SignedBeaconBlock |
     phase0.SigVerifiedSignedBeaconBlock |

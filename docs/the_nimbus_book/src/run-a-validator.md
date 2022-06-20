@@ -1,17 +1,18 @@
 # Run a validator
+
 Once your beacon node is [running and synced](./quick-start.md), the next step is to run a validator.
 
 ## 1. Deposit
 
 [Make a deposit](./deposit.md) for your validator
 
-## 2. Import 
+## 2. Import
 
 [Import your validator keys](./keys.md) into Nimbus
 
-## 3. Connect 
+## 3. Validate
 
-[Connect your validator](./connect-eth2.md) to eth2
+[Start performing duties](./connect-eth2.md) by restarting the node
 
 
 </br>

@@ -22,7 +22,7 @@ It is possibly to use trusted node sync with a third-party API provider -- see [
 
 To sync Mainnet, from the `nimbus-eth2` directory run:
 
-```bash
+```sh
 build/nimbus_beacon_node trustedNodeSync --network:mainnet \
  --data-dir=build/data/shared_mainnet_0 \
  --trusted-node-url=http://localhost:5052
@@ -32,7 +32,7 @@ build/nimbus_beacon_node trustedNodeSync --network:mainnet \
 
 To sync Prater, from the `nimbus-eth2` directory run:
 
-```bash
+```sh
 build/nimbus_beacon_node trustedNodeSync --network:prater \
  --data-dir=build/data/shared_prater_0  \
  --trusted-node-url=http://localhost:5052
@@ -45,7 +45,7 @@ build/nimbus_beacon_node trustedNodeSync --network:prater \
 
 When performing a trusted node sync, you can manually verify that the correct chain was synced by comparing the head hash with other sources (e.g. your friends, forums, chats and web sites). If you're syncing using your own backup node you can retrieve the current head from the node using:
 
-```
+```sh
 # Make sure to enable the `--rest` option when running your node:
 
 curl http://localhost:5052/eth/v1/beacon/blocks/head/root
@@ -87,7 +87,7 @@ build/nimbus_beacon_node trustedNodeSync --blockId:0x239940f2537f5bbee1a3829f905
 
 If you have a state and a block file available, you can start the node using the finalized checkpoint options:
 
-```
+```sh
 # Obtain a state and a block from a Beacon API - these must be in SSZ format:
 
 curl -o state.32000.ssz -H 'Accept: application/octet-stream' http://localhost:5052/eth/v2/debug/beacon/states/32000
@@ -100,6 +100,6 @@ build/nimbus_beacon_node --data-dir:trusted --finalized-checkpoint-block=block.3
 
 When performing checkpoint sync, the historical state data from the time before the checkpoint is not available. To recreate the indices and caches necessary for historical state access, run trusted node sync with the `--reindex` flag - this can be done on an already-synced node as well, in which case the process will simply resume where it left off:
 
-```
+```sh
 build/nimbus_beacon_node trustedNodeSync --reindex=true
 ```

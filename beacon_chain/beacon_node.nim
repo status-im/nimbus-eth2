@@ -21,7 +21,7 @@ import
   ./consensus_object_pools/[
     blockchain_dag, block_quarantine, exit_pool, attestation_pool,
     sync_committee_msg_pool],
-  ./spec/datatypes/base,
+  ./spec/datatypes/[base, altair],
   ./sync/[optimistic_sync_light_client, sync_manager, request_manager],
   ./validators/[action_tracker, validator_monitor, validator_pool],
   ./rpc/state_ttl_cache
@@ -38,9 +38,11 @@ type
   RpcServer* = RpcHttpServer
 
   EventBus* = object
-    blocksQueue*: AsyncEventQueue[ForkedTrustedSignedBeaconBlock]
+    blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
+    finUpdateQueue*: AsyncEventQueue[altair.LightClientFinalityUpdate]
+    optUpdateQueue*: AsyncEventQueue[altair.LightClientOptimisticUpdate]
     attestQueue*: AsyncEventQueue[Attestation]
     contribQueue*: AsyncEventQueue[SignedContributionAndProof]
     exitQueue*: AsyncEventQueue[SignedVoluntaryExit]

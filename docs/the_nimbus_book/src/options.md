@@ -1,12 +1,16 @@
 # Command line options
 
-You can pass any `nimbus_beacon_node` options to the `run-prater-beacon-node.sh` and `run-mainnet-beacon-node.sh` scripts. For example, if you want to launch Nimbus on mainnet with different base ports than the default `9000/udp` and `9000/tcp`, say `9100/udp` and `9100/tcp`, run:
+Command line options allow you to customize the way your beacon node operates.
+
+You pass options to the beacon node by adding them to the command line. For example, if you want to launch Nimbus on mainnet with different base ports than the default `9000/udp` and `9000/tcp`, say `9100/udp` and `9100/tcp`, run:
 
 ```
 ./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
 ```
 
-To see a list of the command line options availabe to you, with descriptions, run:
+## Available options
+
+To see the full list of command line options availabe to you, with descriptions, run:
 
 ```
 build/nimbus_beacon_node --help
@@ -103,6 +107,8 @@ The following options are available:
 ...
 ```
 
+## Configuration files
+
 All command line options can also be provided in a [TOML](https://toml.io/en/)
 config file specified through the `--config-file` flag. Within the config file,
 you need to use the long names of all options. Please note that certain options
@@ -128,7 +134,7 @@ num-threads = 0
 trusted-node-url = "http://192.168.1.20:5052"
 ```
 
-# Exit Codes
+## Exit Codes
 
 | Exit code | Description |
 |-----------|---------|

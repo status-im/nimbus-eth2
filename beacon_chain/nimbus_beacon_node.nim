@@ -152,18 +152,25 @@ proc loadChainDag(
     eventBus: EventBus,
     validatorMonitor: ref ValidatorMonitor,
     networkGenesisValidatorsRoot: Option[Eth2Digest]): ChainDAGRef =
+  var dag: ChainDAGRef
   info "Loading block DAG from database", path = config.databaseDir
 
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
-    eventBus.blocksQueue.emit(data)
+    # TODO (cheatfate): Proper implementation required
+    let optimistic =
+      if isNil(dag):
+        none[bool]()
+      else:
+        if dag.getHeadStateMergeComplete(): some(false) else: none[bool]()
+    eventBus.blocksQueue.emit(EventBeaconBlockObject.init(data, optimistic))
   proc onHeadChanged(data: HeadChangeInfoObject) =
     eventBus.headQueue.emit(data)
   proc onChainReorg(data: ReorgInfoObject) =
     eventBus.reorgQueue.emit(data)
   proc onLightClientFinalityUpdate(data: altair.LightClientFinalityUpdate) =
-    discard
+    eventBus.finUpdateQueue.emit(data)
   proc onLightClientOptimisticUpdate(data: altair.LightClientOptimisticUpdate) =
-    discard
+    eventBus.optUpdateQueue.emit(data)
 
   let
     chainDagFlags =
@@ -175,14 +182,17 @@ proc loadChainDag(
     onLightClientOptimisticUpdateCb =
       if config.lightClientDataServe.get: onLightClientOptimisticUpdate
       else: nil
-    dag = ChainDAGRef.init(
-      cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
-      onBlockAdded, onHeadChanged, onChainReorg,
-      onLCFinalityUpdateCb = onLightClientFinalityUpdateCb,
-      onLCOptimisticUpdateCb = onLightClientOptimisticUpdateCb,
-      lightClientDataServe = config.lightClientDataServe.get,
-      lightClientDataImportMode = config.lightClientDataImportMode.get,
-      vanityLogs = getPandas(detectTTY(config.logStdout)))
+
+  dag = ChainDAGRef.init(
+    cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
+    onBlockAdded, onHeadChanged, onChainReorg,
+    onLCFinalityUpdateCb = onLightClientFinalityUpdateCb,
+    onLCOptimisticUpdateCb = onLightClientOptimisticUpdateCb,
+    lightClientDataServe = config.lightClientDataServe.get,
+    lightClientDataImportMode = config.lightClientDataImportMode.get,
+    vanityLogs = getPandas(detectTTY(config.logStdout)))
+
+  let
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState, genesis_validators_root)
 
@@ -371,9 +381,11 @@ proc init*(T: type BeaconNode,
 
   let
     eventBus = EventBus(
-      blocksQueue: newAsyncEventQueue[ForkedTrustedSignedBeaconBlock](),
+      blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
       headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
       reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
+      finUpdateQueue: newAsyncEventQueue[altair.LightClientFinalityUpdate](),
+      optUpdateQueue: newAsyncEventQueue[altair.LightClientOptimisticUpdate](),
       attestQueue: newAsyncEventQueue[Attestation](),
       contribQueue: newAsyncEventQueue[SignedContributionAndProof](),
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
@@ -1315,6 +1327,8 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installNimbusApiHandlers(node)
   restServer.router.installNodeApiHandlers(node)
   restServer.router.installValidatorApiHandlers(node)
+  if node.dag.lightClientDataServe:
+    restServer.router.installLightClientApiHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#attestations-and-aggregation

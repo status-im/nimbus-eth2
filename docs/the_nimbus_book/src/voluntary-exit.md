@@ -4,7 +4,7 @@ Voluntary exits allow validators to permanently stop performing their duties, an
 
 Exits are subject to a wait period that depends on the length of the exit queue. While a validator is exiting, it still must perform its duties in order not to lose funds to inactivity penalities.
 
-> ⚠️  Voluntary exits are **irreversible**. You won't be able to validate again with the same key. And you won't be able to withdraw your stake until the Eth1 and Eth2 merge. *Note that voluntary exits won't be processed if the chain isn't finalising.*
+> ⚠️ Voluntary exits are **irreversible**. You won't be able to validate again with the same key. And you won't be able to withdraw your stake until the Eth1 and Eth2 merge. *Note that voluntary exits won't be processed if the chain isn't finalising.*
 
 To perform a voluntary exit, make sure your beacon node is running with the `--rest`option enabled (e.g. `./run-mainnet-beacon-node.sh --rest`), then run:
 

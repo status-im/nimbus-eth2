@@ -3338,8 +3338,8 @@
   {
     "topics": ["key_management", "delete_keys"],
     "request": {
-      "url": "/eth/v1/keystores/delete",
-      "method": "POST",
+      "url": "/eth/v1/keystores",
+      "method": "DELETE",
       "headers": {"Accept": "application/json", "Authorization": "Bearer testToken"},
       "body": {"content-type": "application/json", "data": "{\"pubkeys\":[\"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001\"]}"
       }

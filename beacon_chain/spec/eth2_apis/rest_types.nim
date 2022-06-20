@@ -33,7 +33,7 @@ const
 type
   EventTopic* {.pure.} = enum
     Head, Block, Attestation, VoluntaryExit, FinalizedCheckpoint, ChainReorg,
-    ContributionAndProof
+    ContributionAndProof, LightClientFinalityUpdate, LightClientOptimisticUpdate
 
   EventTopics* = set[EventTopic]
 
@@ -210,6 +210,7 @@ type
     head_slot*: Slot
     sync_distance*: uint64
     is_syncing*: bool
+    is_optimistic*: Option[bool]
 
   RestPeerCount* = object
     disconnected*: uint64

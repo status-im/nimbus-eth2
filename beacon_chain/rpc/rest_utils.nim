@@ -1,3 +1,12 @@
+# beacon_chain
+# Copyright (c) 2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
+
 import std/[options, macros],
        stew/byteutils, presto,
        ../spec/[forks],
@@ -36,6 +45,8 @@ proc validate(key: string, value: string): int =
   of "{block_id}":
     0
   of "{validator_id}":
+    0
+  of "{block_root}":
     0
   else:
     1
@@ -260,6 +271,40 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
 
 proc getRouter*(allowedOrigin: Option[string]): RestRouter =
   RestRouter.init(validate, allowedOrigin = allowedOrigin)
+
+proc getStateOptimistic*(node: BeaconNode,
+                         state: ForkedHashedBeaconState): Option[bool] =
+  if node.dag.getHeadStateMergeComplete():
+    case state.kind
+    of BeaconStateFork.Phase0, BeaconStateFork.Altair:
+      some[bool](false)
+    of BeaconStateFork.Bellatrix:
+      # TODO (cheatfate): Proper implementation required.
+      some[bool](false)
+  else:
+    none[bool]()
+
+proc getBlockOptimistic*(node: BeaconNode,
+                         blck: ForkedTrustedSignedBeaconBlock |
+                               ForkedSignedBeaconBlock): Option[bool] =
+  if node.dag.getHeadStateMergeComplete():
+    case blck.kind
+    of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
+      some[bool](false)
+    of BeaconBlockFork.Bellatrix:
+      # TODO (cheatfate): Proper implementation required.
+      some[bool](false)
+  else:
+    none[bool]()
+
+proc getBlockRefOptimistic*(node: BeaconNode, blck: BlockRef): bool =
+  let blck = node.dag.getForkedBlock(blck.bid).get()
+  case blck.kind
+  of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
+    false
+  of BeaconBlockFork.Bellatrix:
+    # TODO (cheatfate): Proper implementation required.
+    false
 
 const
   jsonMediaType* = MediaType.init("application/json")

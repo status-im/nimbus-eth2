@@ -257,13 +257,21 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
       wallSlot = node.beaconClock.now().slotOrZero()
       headSlot = node.dag.head.slot
       distance = wallSlot - headSlot
+      isSyncing =
+        if isNil(node.syncManager):
+          false
+        else:
+          node.syncManager.inProgress
+      isOptimistic =
+        if node.dag.getHeadStateMergeComplete():
+          # TODO (cheatfate): Proper implementation required
+          some(false)
+        else:
+          none[bool]()
+
       info = RestSyncInfo(
         head_slot: headSlot, sync_distance: distance,
-        is_syncing:
-          if isNil(node.syncManager):
-            false
-          else:
-            node.syncManager.inProgress
+        is_syncing: isSyncing, is_optimistic: isOptimistic
       )
     return RestApiResponse.jsonResponse(info)
 

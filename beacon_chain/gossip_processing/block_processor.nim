@@ -335,8 +335,7 @@ proc runForkchoiceUpdated(
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/validator.md#executionpayload
   # notes "`finalized_block_hash` is the hash of the latest finalized execution
   # payload (`Hash32()` if none yet finalized)"
-  if headBlockRoot.isZero:
-    return false
+  doAssert not headBlockRoot.isZero
 
   try:
     # Minimize window for Eth1 monitor to shut down connection
@@ -428,9 +427,11 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
     let
       blck = await self[].blockQueue.popFirst()
       hasExecutionPayload = blck.blck.kind >= BeaconBlockFork.Bellatrix
+      isExecutionBlock =
+        hasExecutionPayload and
+          blck.blck.bellatrixData.message.body.is_execution_block
       executionPayloadStatus =
-        if  hasExecutionPayload and
-            blck.blck.bellatrixData.message.body.is_execution_block:
+        if isExecutionBlock:
           # Eth1 syncing is asynchronous from this
 
           # TODO self.consensusManager.eth1Monitor.terminalBlockHash.isSome
@@ -465,7 +466,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
         blck.resfut.complete(Result[void, BlockError].err(BlockError.Invalid))
       continue
 
-    if hasExecutionPayload:
+    if isExecutionBlock:
       # The EL client doesn't know here whether the payload is valid, because,
       # for example, in Geth's case, its parent isn't known. When Geth logs an
       # "Ignoring payload with missing parent" message, this is the result. It
@@ -515,7 +516,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       if curBh != lastFcHead:
         lastFcHead = curBh
         if await self.runForkchoiceUpdated(
-            blck.blck.bellatrixData.message.body.execution_payload.block_hash,
+            curBh,
             self.consensusManager.dag.finalizedHead.blck.executionBlockRoot):
           # Geth seldom seems to return VALID to newPayload alone, even when
           # it has all the relevant information.

@@ -8,9 +8,11 @@ To update to the latest version, either download the binary or compile the beaco
 
 > **Tip:** To check which version of Nimbus you're currently running, run `build/nimbus_beacon_node --version`
 
-## Download the binary
+## Binaries
 
-Open the latest [Nimbus release](https://github.com/status-im/nimbus-eth2/releases/latest) and copy the link for the file that works on your system.
+Open the latest [Nimbus release](https://github.com/status-im/nimbus-eth2/releases/latest) and download the file that corresponds to your operation system and machine.
+
+Once downloaded, unpack the binaries in the same folder as your current version, overwriting the existing files.
 
 ```
 wget <insert download link here>
@@ -18,18 +20,21 @@ tar -xzf nimbus-eth2_Linux_arm64v8*.tar.gz -C nimbus-eth2
 rm nimbus-eth2_Linux_arm64v8*.tar.gz
 ```
 
-## Compile the beacon node release
+## Build from source
+
+Upgrading Nimbus when built from source is similar to the installation process.
 
 Run:
 
-```
+```bash
+# Download the updated source code
 git pull && make update
 ```
 
 Followed by:
 
 ```
-make nimbus_beacon_node
+make -j4 nimbus_beacon_node
 ```
 
 Now, restart your node.
