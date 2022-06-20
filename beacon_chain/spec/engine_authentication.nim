@@ -83,6 +83,7 @@ proc checkJwtSecret*(
     return ok(newSecret)
 
   try:
+    # TODO replace with separate function
     let lines = readLines(jwtSecret.get, 1)
     if lines.len > 0:
       # Secret JWT key is parsed in constant time using nimcrypto:
