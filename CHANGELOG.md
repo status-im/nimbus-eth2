@@ -1,7 +1,7 @@
 2022-06-20 v22.6.0
 ==================
 
-Nimbus `v22.6.0` brings support for the merge testnets Ropsten and Sepolia (please stay tuned for TTD announcements for tha later) and a lot of polish where we've taken the time to address a long list of UX improvements and minor bug fixes suggested or reported by our users. We are deeply grateful to everybody who contributed valuable feedback for this release.
+Nimbus `v22.6.0` brings support for the merge testnets Ropsten and Sepolia (please stay tuned for TTD announcements for the latter) and a lot of polish where we've taken the time to address a long list of UX improvements and bug fixes suggested or reported by our users. We are deeply grateful to everybody who contributed valuable feedback for this release.
 
 ### Improvements
 
