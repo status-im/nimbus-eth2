@@ -210,6 +210,7 @@ type
     head_slot*: Slot
     sync_distance*: uint64
     is_syncing*: bool
+    is_optimistic*: Option[bool]
 
   RestPeerCount* = object
     disconnected*: uint64

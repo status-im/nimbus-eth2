@@ -2124,6 +2124,17 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: RestSyncInfo) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("head_slot", value.head_slot)
+  writer.writeField("sync_distance", value.sync_distance)
+  writer.writeField("is_syncing", value.is_syncing)
+  if value.is_optimistic.isSome():
+    writer.writeField("is_optimistic", value.is_optimistic.get())
+  writer.endRecord()
+
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:
     ok(Eth2Digest(data: hexToByteArray[32](value)))
