@@ -294,6 +294,7 @@ type
     epoch_transition*: bool
     previous_duty_dependent_root*: Eth2Digest
     current_duty_dependent_root*: Eth2Digest
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
   ReorgInfoObject* = object
     slot*: Slot
@@ -302,11 +303,18 @@ type
     new_head_block*: Eth2Digest
     old_head_state*: Eth2Digest
     new_head_state*: Eth2Digest
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
   FinalizationInfoObject* = object
     block_root* {.serializedFieldName: "block".}: Eth2Digest
     state_root* {.serializedFieldName: "state".}: Eth2Digest
     epoch*: Epoch
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
+
+  EventBeaconBlockObject* = object
+    slot*: Slot
+    block_root* {.serializedFieldName: "block".}: Eth2Digest
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
 template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 
@@ -355,34 +363,48 @@ func blockRef*(key: KeyedBlockRef): BlockRef =
 
 func init*(t: typedesc[HeadChangeInfoObject], slot: Slot, blockRoot: Eth2Digest,
            stateRoot: Eth2Digest, epochTransition: bool,
-           previousDutyDepRoot: Eth2Digest,
-           currentDutyDepRoot: Eth2Digest): HeadChangeInfoObject =
+           previousDutyDepRoot: Eth2Digest, currentDutyDepRoot: Eth2Digest,
+           optimistic: Option[bool]): HeadChangeInfoObject =
   HeadChangeInfoObject(
     slot: slot,
     block_root: blockRoot,
     state_root: stateRoot,
     epoch_transition: epochTransition,
     previous_duty_dependent_root: previousDutyDepRoot,
-    current_duty_dependent_root: currentDutyDepRoot
+    current_duty_dependent_root: currentDutyDepRoot,
+    optimistic: optimistic
   )
 
 func init*(t: typedesc[ReorgInfoObject], slot: Slot, depth: uint64,
            oldHeadBlockRoot: Eth2Digest, newHeadBlockRoot: Eth2Digest,
-           oldHeadStateRoot: Eth2Digest,
-           newHeadStateRoot: Eth2Digest): ReorgInfoObject =
+           oldHeadStateRoot: Eth2Digest, newHeadStateRoot: Eth2Digest,
+           optimistic: Option[bool]): ReorgInfoObject =
   ReorgInfoObject(
     slot: slot,
     depth: depth,
     old_head_block: oldHeadBlockRoot,
     new_head_block: newHeadBlockRoot,
     old_head_state: oldHeadStateRoot,
-    new_head_state: newHeadStateRoot
+    new_head_state: newHeadStateRoot,
+    optimistic: optimistic
   )
 
 func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
-           stateRoot: Eth2Digest, epoch: Epoch): FinalizationInfoObject =
+           stateRoot: Eth2Digest, epoch: Epoch,
+           optimistic: Option[bool]): FinalizationInfoObject =
   FinalizationInfoObject(
     block_root: blockRoot,
     state_root: stateRoot,
-    epoch: epoch
+    epoch: epoch,
+    optimistic: optimistic
   )
+
+func init*(t: typedesc[EventBeaconBlockObject],
+           v: ForkedTrustedSignedBeaconBlock,
+           optimistic: Option[bool]): EventBeaconBlockObject =
+  withBlck(v):
+    EventBeaconBlockObject(
+      slot: blck.message.slot,
+      block_root: blck.root,
+      optimistic: optimistic
+    )
