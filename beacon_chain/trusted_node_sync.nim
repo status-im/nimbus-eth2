@@ -7,7 +7,7 @@
 {.push raises: [Defect].}
 
 import
-  stew/[assign2, base10],
+  stew/base10,
   chronicles, chronos,
   ./sync/sync_manager,
   ./consensus_object_pools/blockchain_dag,
