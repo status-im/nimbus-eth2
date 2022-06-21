@@ -25,8 +25,10 @@ NODE_ID := 0
 BASE_PORT := 9000
 BASE_REST_PORT := 5052
 BASE_METRICS_PORT := 8008
+EXECUTOR_NUMBER := 0
 
 ROPSTEN_WEB3_URL := "--web3-url=wss://ropsten.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
+SEPOLIA_WEB3_URL := "--web3-url=https://rpc.sepolia.dev --web3-url=https://www.sepoliarpc.space"
 GOERLI_WEB3_URL := "--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 GNOSIS_WEB3_URLS := "--web3-url=wss://rpc.gnosischain.com/wss --web3-url=wss://xdai.poanetwork.dev/wss"
 
@@ -35,17 +37,17 @@ CPU_LIMIT := 0
 BUILD_END_MSG := "\\x1B[92mBuild completed successfully:\\x1B[39m"
 
 ifeq ($(CPU_LIMIT), 0)
-  CPU_LIMIT_CMD :=
+	CPU_LIMIT_CMD :=
 else
-  CPU_LIMIT_CMD := cpulimit --limit=$(CPU_LIMIT) --foreground --
+	CPU_LIMIT_CMD := cpulimit --limit=$(CPU_LIMIT) --foreground --
 endif
 
 # TODO: move this to nimbus-build-system
 ifeq ($(shell uname), Darwin)
-  # Scary warnings in large volume: https://github.com/status-im/nimbus-eth2/issues/3076
-  SILENCE_WARNINGS := 2>&1 | grep -v "failed to insert symbol" | grep -v "could not find object file symbol for symbol" || true
+	# Scary warnings in large volume: https://github.com/status-im/nimbus-eth2/issues/3076
+	SILENCE_WARNINGS := 2>&1 | grep -v "failed to insert symbol" | grep -v "could not find object file symbol for symbol" || true
 else
-  SILENCE_WARNINGS :=
+	SILENCE_WARNINGS :=
 endif
 
 # unconditionally built by the default Make target
@@ -60,6 +62,7 @@ TOOLS := \
 	ncli_split_keystore \
 	wss_sim \
 	stack_sizes \
+	nimbus_light_client \
 	nimbus_validator_client \
 	nimbus_signing_node \
 	validator_db_aggregator
@@ -144,6 +147,15 @@ update: | update-common
 # nim-libbacktrace
 libbacktrace:
 	+ "$(MAKE)" -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
+
+restapi-test:
+	./tests/simulation/restapi.sh \
+		--data-dir resttest0_data \
+		--base-port $$(( 9100 + EXECUTOR_NUMBER * 100 )) \
+		--base-rest-port $$(( 7100 + EXECUTOR_NUMBER * 100 )) \
+		--base-metrics-port $$(( 8108 + EXECUTOR_NUMBER * 100 )) \
+		--resttest-delay 30 \
+		--kill-old-processes
 
 # test binaries that can output an XML report
 XML_TEST_BINARIES := \
@@ -267,12 +279,12 @@ clean_eth2_network_simulation_all:
 	rm -rf tests/simulation/{data,validators}
 
 GOERLI_TESTNETS_PARAMS := \
-  --tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
-  --udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
-  --metrics \
-  --metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
-  --rest \
-  --rest-port=$$(( $(BASE_REST_PORT) +$(NODE_ID) ))
+	--tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
+	--udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
+	--metrics \
+	--metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
+	--rest \
+	--rest-port=$$(( $(BASE_REST_PORT) +$(NODE_ID) ))
 
 eth2_network_simulation: | build deps clean_eth2_network_simulation_all
 	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start-in-tmux.sh
@@ -281,7 +293,7 @@ eth2_network_simulation: | build deps clean_eth2_network_simulation_all
 #- https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
 #- macOS doesn't support "=" at the end of "define FOO": https://stackoverflow.com/questions/13260396/gnu-make-3-81-eval-function-not-working
 define CONNECT_TO_NETWORK
-  scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
+	scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
@@ -297,7 +309,7 @@ define CONNECT_TO_NETWORK
 endef
 
 define CONNECT_TO_NETWORK_IN_DEV_MODE
-  scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
+	scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
@@ -308,7 +320,9 @@ define CONNECT_TO_NETWORK_IN_DEV_MODE
 		--network=$(1) $(3) $(GOERLI_TESTNETS_PARAMS) \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
-		--serve-light-client-data=1 --import-light-client-data=only-new \
+		--light-client-enable=on \
+		--light-client-data-serve=on \
+		--light-client-data-import-mode=only-new \
 		--dump $(NODE_PARAMS)
 endef
 
@@ -338,6 +352,16 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_vc_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		--rest-port=$$(( $(BASE_REST_PORT) +$(NODE_ID) ))
+endef
+
+define CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT
+	scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
+
+	$(CPU_LIMIT_CMD) build/nimbus_light_client \
+		--network=$(1) \
+		--log-level="$(RUNTIME_LOG_LEVEL)" \
+		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_lc_$$(date +"%Y%m%d%H%M%S").log \
+		--trusted-block-root="$(LC_TRUSTED_BLOCK_ROOT)"
 endef
 
 define MAKE_DEPOSIT_DATA
@@ -386,6 +410,9 @@ prater: | prater-build
 prater-vc: | prater-build nimbus_validator_client
 	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,prater,nimbus_beacon_node,$(GOERLI_WEB3_URL))
 
+prater-lc: | nimbus_light_client
+	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,prater)
+
 ifneq ($(LOG_LEVEL), TRACE)
 prater-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
@@ -412,6 +439,9 @@ ropsten: | ropsten-build
 ropsten-vc: | ropsten-build nimbus_validator_client
 	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,ropsten,nimbus_beacon_node,$(ROPSTEN_WEB3_URL))
 
+ropsten-lc: | nimbus_light_client
+	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,ropsten)
+
 ifneq ($(LOG_LEVEL), TRACE)
 ropsten-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
@@ -425,6 +455,35 @@ ropsten-dev-deposit: | ropsten-build deposit_contract
 
 clean-ropsten:
 	$(call CLEAN_NETWORK,ropsten)
+
+###
+### Sepolia
+###
+sepolia-build: | nimbus_beacon_node nimbus_signing_node
+
+# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
+sepolia: | sepolia-build
+	$(call CONNECT_TO_NETWORK,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
+
+sepolia-vc: | sepolia-build nimbus_validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
+
+sepolia-lc: | nimbus_light_client
+	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,sepolia)
+
+ifneq ($(LOG_LEVEL), TRACE)
+sepolia-dev:
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+else
+sepolia-dev: | sepolia-build
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
+endif
+
+sepolia-dev-deposit: | sepolia-build deposit_contract
+	$(call MAKE_DEPOSIT,sepolia,$(SEPOLIA_WEB3_URL))
+
+clean-sepolia:
+	$(call CLEAN_NETWORK,sepolia)
 
 ###
 ### Gnosis chain binary
@@ -532,9 +591,9 @@ libnfuzz.a: | build deps
 		[[ -e "$@" ]] && mv "$@" build/ || true # workaround for https://github.com/nim-lang/Nim/issues/12745
 
 book:
-	which mdbook &>/dev/null || { echo "'mdbook' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	which mdbook-toc &>/dev/null || { echo "'mdbook-toc' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	which mdbook-open-on-gh &>/dev/null || { echo "'mdbook-open-on-gh' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook --version)" = "mdbook v0.4.18" ]] || { echo "'mdbook v0.4.18' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-toc --version)" == "mdbook-toc 0.8.0" ]] || { echo "'mdbook-toc 0.8.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-open-on-gh --version)" == "mdbook-open-on-gh 2.1.0" ]] || { echo "'mdbook-open-on-gh 2.1.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	cd docs/the_nimbus_book && \
 	mdbook build
 
@@ -557,7 +616,7 @@ publish-book: | book auditors-book
 	cp -a docs/the_auditors_handbook/book/* tmp-book/auditors-book/ && \
 	cd tmp-book && \
 	git add . && { \
-		git commit -m "make publish-book" && \
+		git commit -m "make publish-book $$(git rev-parse --short HEAD)" && \
 		git push origin gh-pages || true; } && \
 	cd .. && \
 	git worktree remove -f tmp-book && \

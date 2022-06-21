@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -23,8 +23,7 @@ suite "Beacon state" & preset():
 
   test "Smoke test initialize_beacon_state_from_eth1" & preset():
     let state = newClone(initialize_beacon_state_from_eth1(
-      cfg, Eth2Digest(), 0,
-      makeInitialDeposits(SLOTS_PER_EPOCH, {}), {}))
+      cfg, ZERO_HASH, 0, makeInitialDeposits(SLOTS_PER_EPOCH, {}), {}))
     check: state.validators.lenu64 == SLOTS_PER_EPOCH
 
   test "process_slots":
@@ -32,7 +31,7 @@ suite "Beacon state" & preset():
       state = (ref ForkedHashedBeaconState)(
         kind: BeaconStateFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
-          defaultRuntimeConfig, Eth2Digest(), 0,
+          defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
       cache: StateCache
       info: ForkedEpochInfo
@@ -46,7 +45,7 @@ suite "Beacon state" & preset():
       state = (ref ForkedHashedBeaconState)(
         kind: BeaconStateFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
-          defaultRuntimeConfig, Eth2Digest(), 0,
+          defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
       genBlock = get_initial_beacon_block(state[])
       cache: StateCache
@@ -72,7 +71,7 @@ suite "Beacon state" & preset():
       state = (ref ForkedHashedBeaconState)(
         kind: BeaconStateFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
-          defaultRuntimeConfig, Eth2Digest(), 0,
+          defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
       cache: StateCache
       info: ForkedEpochInfo
@@ -97,7 +96,7 @@ suite "Beacon state" & preset():
       state = (ref ForkedHashedBeaconState)(
         kind: BeaconStateFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
-          defaultRuntimeConfig, Eth2Digest(), 0,
+          defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
       genBlock = get_initial_beacon_block(state[])
       cache: StateCache

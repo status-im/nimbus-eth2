@@ -1,14 +1,14 @@
 # Keep an eye on your validator
- 
- 
+
+
 The best way to keep track of your validator's status is using the `beaconcha.in` explorer (click on the orange magnifying glass at the very top and paste in your validator's public key):
- 
- - **Testnet:** [prater.beaconcha.in](https:/prater.beaconcha.in) 
+
+ - **Testnet:** [prater.beaconcha.in](https:/prater.beaconcha.in)
  - **Mainnet:** [beaconcha.in](https://beaconcha.in/)
- 
+
 If you deposit after the [genesis](https://hackmd.io/@benjaminion/genesis) state was decided, your validator(s) will be put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.
 
- 
+
 You can even create an account ([testnet link](https://prater.beaconcha.in/register), [mainnet link](https://beaconcha.in/register)) to add alerts and keep track of your validator's performance ([testnet link](https://prater.beaconcha.in/dashboard), [mainnet link](https://beaconcha.in/dashboard)).
 
 -------------------------------
@@ -34,35 +34,35 @@ Note that the port number is displayed directly after the IP -- in the above cas
 To keep track of your sync progress, pay attention to the `Slot start` messages in your logs:
 
 ```
-INF 2021-05-24 14:53:59.067+02:00 Slot start                                 
-topics="beacnde" tid=3485464 file=nimbus_beacon_node.nim:968 lastSlot=1253067 wallSlot=1253068 delay=67ms515us0ns
-peers=22
-head=eb994064:90753 
-headEpoch=2836 
-finalized=031b9591:90688 
-finalizedEpoch=2834 
-sync="PPPPPDDDDP:10:15.4923:7.7398:01d17h43m (90724)"
+INF 2022-06-16 13:23:11.008+02:00 Slot start
+  topics="beacnde"
+  slot=4046214
+  epoch=126444
+  sync="00h37m (99.38%) 11.0476slots/s (DDQQDDDPDD:4021215)"
+  peers=55
+  head=5d59aba3:4021234
+  finalized=125661:82616f78
+  delay=8ms245us608ns
 ```
 
 Where:
-- `peers` tells you how many peers you're currently connected to (in the above case, 35 peers)
-- `finalized` tells you the most recent finalized epoch you've synced to so far (the 8765th epoch)
-- `head` tells you the most recent slot you've synced to so far (the 2nd slot of the 8767th epoch)
-- `sync` tells you how fast you're syncing right now (`15.4923` blocks per second), your average sync speed since you stared (`7.7398` blocks per second), the time left until you're fully synced (`01d17h43m`) how many blocks you've synced so far (`90724`), along with information about 10 sync workers linked to the 10 most performant peers you are currently connected to (represented by a string of letters and a number).
+- `slot` is the current time on the beacon chain, measured in "slots"
+- `epoch` shows the current epoch - each epoch has 32 slots, and each validator performs one attestation per epoch
+- `peers` tells you how many peers you're currently connected to - depending on the number of attached validators, you may need anywhere from 10 to 60 peers connected
+- `sync` tells you if your client is synced and can perform duties, or how long it will take to get there - in the case of [trusted node sync](./trusted-node-sync.md) it may also show `backfill` in which case duties are being performed but more bandwidth than usual is being used to download historical blocks
+- `head` tells you the most recent block you've synced to so far (`5d59aba3` is the first part of the block hash, `4021234` is the slot number)
+- `finalized` tells you the most recent finalized epoch you've synced to so far (`125661` is the epoch, `82616f78` is the checkpoint hash)
 
-The string of letters -- what we call the `sync worker map` (in the above case represented by `wPwwwwwDwwDPwPPPwwww`) represents the status of the sync workers mentioned above, where:
+The string of letters -- what we call the `sync worker map` (in the above case represented by `DDQQDDDPDD`) represents the peers you are syncing from, where:
 
 ```
     s - sleeping (idle),
     w - waiting for a peer from PeerPool,
     R - requesting blocks from peer
     D - downloading blocks from peer
+    Q - queued/waiting for ancestor blocks
     P - processing/verifying blocks
     U - updating peer's status information
 ```
 
-The number following it (in the above case represented by `10`) represents the number of workers that are currently active (i.e not sleeping or waiting for a peer).
-
-> **Note:** You can also use you the RPC calls outlined in the [API page](./api.md) to retrieve similar information.
-
-
+> **Note:** You can also use you calls outlined in the [REST API page](./rest-api.md) to retrieve similar information.

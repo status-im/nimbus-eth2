@@ -375,7 +375,7 @@ func get_active_validator_indices*(state: ForkyBeaconState, epoch: Epoch):
 func get_active_validator_indices_len*(state: ForkyBeaconState, epoch: Epoch):
     uint64 =
   for vidx in state.validators.vindices:
-    if is_active_validator(state.validators[vidx], epoch):
+    if is_active_validator(state.validators.item(vidx), epoch):
       inc result
 
 func get_active_validator_indices_len*(
@@ -596,6 +596,13 @@ template is_better_update*[A, B: SomeLightClientUpdate](
 func is_merge_transition_complete*(state: bellatrix.BeaconState): bool =
   const defaultExecutionPayloadHeader = default(ExecutionPayloadHeader)
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#helpers
+func is_execution_block*(
+  body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
+        bellatrix.SigVerifiedBeaconBlockBody): bool =
+  const defaultBellatrixExecutionPayload = default(bellatrix.ExecutionPayload)
+  body.execution_payload != defaultBellatrixExecutionPayload
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#is_merge_transition_block
 func is_merge_transition_block(

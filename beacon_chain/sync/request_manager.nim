@@ -15,7 +15,7 @@ import
   ../networking/eth2_network,
   ../consensus_object_pools/block_quarantine,
   "."/sync_protocol, "."/sync_manager
-export sync_manager
+export block_quarantine, sync_manager
 
 logScope:
   topics = "requman"

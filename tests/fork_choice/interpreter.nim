@@ -70,7 +70,7 @@ func apply(ctx: var ForkChoiceBackend, id: int, op: Operation) =
       op.finalized_checkpoint,
       op.justified_state_balances,
       # Don't use proposer boosting
-      default(Eth2Digest)
+      ZERO_HASH
     )
     if op.kind == FindHead:
       doAssert r.isOk(), &"find_head (op #{id}) returned an error: {r.error}"

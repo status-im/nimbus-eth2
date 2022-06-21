@@ -1,7 +1,14 @@
+# beacon_chain
+# Copyright (c) 2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 {.used.}
 
 import
-  std/[json, typetraits, sequtils],
+  std/[typetraits, sequtils],
   unittest2, eth/keys, stew/byteutils,
   ../beacon_chain/spec/[crypto, keystore],
   ./testutil
@@ -18,9 +25,7 @@ suite "Key spliting":
     salt = hexToSeqByte "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
     iv = hexToSeqByte "264daa3f303d7259501c93d997d84fe6"
     rng = keys.newRng()
-
-  var msg = newSeq[byte](32)
-  brHmacDrbgGenerate(rng[], msg)
+    msg = rng[].generateBytes(32)
 
   test "single share":
     let maybeShares = generateSecretShares(privateKey, rng[], 1, 1)

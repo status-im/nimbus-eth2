@@ -19,9 +19,11 @@ import
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client
 
+from "."/vanity_logs/pandas import VanityLogs
+
 export
   options, sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
-  block_pools_types_light_client, validator_monitor
+  block_pools_types_light_client, validator_monitor, VanityLogs
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
 # relationships and allowing various forms of lookups
@@ -183,10 +185,10 @@ type
 
     cfg*: RuntimeConfig
 
-    serveLightClientData*: bool
+    lightClientDataServe*: bool
       ## Whether to make local light client data available or not
 
-    importLightClientData*: ImportLightClientData
+    lightClientDataImportMode*: LightClientDataImportMode
       ## Which classes of light client data to import
 
     epochRefs*: array[32, EpochRef]
@@ -199,6 +201,12 @@ type
       ## database. We use a ref type to facilitate sharing this small
       ## value with other components which don't have access to the
       ## full ChainDAG.
+
+    vanityLogs*: VanityLogs
+      ## Upon the merge activating, these get displayed, at least once when the
+      ## head becomes post-merge and then when the merge is finalized. If chain
+      ## reorgs happen around the initial merge onMergeTransitionBlock might be
+      ## called several times.
 
     # -----------------------------------
     # Data to enable light clients to stay in sync with the network
@@ -286,6 +294,7 @@ type
     epoch_transition*: bool
     previous_duty_dependent_root*: Eth2Digest
     current_duty_dependent_root*: Eth2Digest
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
   ReorgInfoObject* = object
     slot*: Slot
@@ -294,11 +303,18 @@ type
     new_head_block*: Eth2Digest
     old_head_state*: Eth2Digest
     new_head_state*: Eth2Digest
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
   FinalizationInfoObject* = object
     block_root* {.serializedFieldName: "block".}: Eth2Digest
     state_root* {.serializedFieldName: "state".}: Eth2Digest
     epoch*: Epoch
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
+
+  EventBeaconBlockObject* = object
+    slot*: Slot
+    block_root* {.serializedFieldName: "block".}: Eth2Digest
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
 template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 
@@ -347,34 +363,48 @@ func blockRef*(key: KeyedBlockRef): BlockRef =
 
 func init*(t: typedesc[HeadChangeInfoObject], slot: Slot, blockRoot: Eth2Digest,
            stateRoot: Eth2Digest, epochTransition: bool,
-           previousDutyDepRoot: Eth2Digest,
-           currentDutyDepRoot: Eth2Digest): HeadChangeInfoObject =
+           previousDutyDepRoot: Eth2Digest, currentDutyDepRoot: Eth2Digest,
+           optimistic: Option[bool]): HeadChangeInfoObject =
   HeadChangeInfoObject(
     slot: slot,
     block_root: blockRoot,
     state_root: stateRoot,
     epoch_transition: epochTransition,
     previous_duty_dependent_root: previousDutyDepRoot,
-    current_duty_dependent_root: currentDutyDepRoot
+    current_duty_dependent_root: currentDutyDepRoot,
+    optimistic: optimistic
   )
 
 func init*(t: typedesc[ReorgInfoObject], slot: Slot, depth: uint64,
            oldHeadBlockRoot: Eth2Digest, newHeadBlockRoot: Eth2Digest,
-           oldHeadStateRoot: Eth2Digest,
-           newHeadStateRoot: Eth2Digest): ReorgInfoObject =
+           oldHeadStateRoot: Eth2Digest, newHeadStateRoot: Eth2Digest,
+           optimistic: Option[bool]): ReorgInfoObject =
   ReorgInfoObject(
     slot: slot,
     depth: depth,
     old_head_block: oldHeadBlockRoot,
     new_head_block: newHeadBlockRoot,
     old_head_state: oldHeadStateRoot,
-    new_head_state: newHeadStateRoot
+    new_head_state: newHeadStateRoot,
+    optimistic: optimistic
   )
 
 func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
-           stateRoot: Eth2Digest, epoch: Epoch): FinalizationInfoObject =
+           stateRoot: Eth2Digest, epoch: Epoch,
+           optimistic: Option[bool]): FinalizationInfoObject =
   FinalizationInfoObject(
     block_root: blockRoot,
     state_root: stateRoot,
-    epoch: epoch
+    epoch: epoch,
+    optimistic: optimistic
   )
+
+func init*(t: typedesc[EventBeaconBlockObject],
+           v: ForkedTrustedSignedBeaconBlock,
+           optimistic: Option[bool]): EventBeaconBlockObject =
+  withBlck(v):
+    EventBeaconBlockObject(
+      slot: blck.message.slot,
+      block_root: blck.root,
+      optimistic: optimistic
+    )

@@ -13,7 +13,7 @@
 
 import
   # Standard library
-  std/[os, osproc, sequtils, streams, tables],
+  std/[os, sequtils, tables],
 
   # Nimble packages
   stew/[assign2, byteutils, objects],
@@ -83,7 +83,6 @@ declarePublicGauge(attached_validator_balance_total,
 logScope: topics = "beacval"
 
 type
-  SendResult* = Result[void, cstring]
   SendBlockResult* = Result[bool, cstring]
   ForkedBlockResult* = Result[ForkedBeaconBlock, string]
 
@@ -224,7 +223,7 @@ func isGoodForSending(validationResult: ValidationRes): bool =
   # to ensure that the message will reach as many peers as possible.
   validationResult.isOk() or validationResult.error[0] == ValidationResult.Ignore
 
-proc sendAttestation*(
+proc sendAttestation(
     node: BeaconNode, attestation: Attestation,
     subnet_id: SubnetId, checkSignature: bool): Future[SendResult] {.async.} =
   # Validate attestation before sending it via gossip - validation will also
@@ -236,9 +235,11 @@ proc sendAttestation*(
 
   return
     if res.isGoodForSending:
-      node.network.broadcastAttestation(subnet_id, attestation)
-      beacon_attestations_sent.inc()
-      ok()
+      let sendResult =
+        await node.network.broadcastAttestation(subnet_id, attestation)
+      if sendResult.isOk:
+        beacon_attestations_sent.inc()
+      sendResult
     else:
       notice "Produced attestation failed validation",
         attestation = shortLog(attestation),
@@ -268,21 +269,36 @@ proc handleLightClientUpdates(node: BeaconNode, slot: Slot) {.async.} =
   let finalized_slot = latest.finalized_header.slot
   if finalized_slot > node.lightClientPool[].latestForwardedFinalitySlot:
     template msg(): auto = latest
-    node.network.broadcastLightClientFinalityUpdate(msg)
+    let sendResult = await node.network.broadcastLightClientFinalityUpdate(msg)
+
+    # Optimization for message with ephemeral validity, whether sent or not
     node.lightClientPool[].latestForwardedFinalitySlot = finalized_slot
-    beacon_light_client_finality_updates_sent.inc()
-    notice "LC finality update sent", message = shortLog(msg)
+
+    if sendResult.isOk:
+      beacon_light_client_finality_updates_sent.inc()
+      notice "LC finality update sent", message = shortLog(msg)
+    else:
+      warn "LC finality update failed to send",
+        error = sendResult.error()
 
   let attested_slot = latest.attested_header.slot
   if attested_slot > node.lightClientPool[].latestForwardedOptimisticSlot:
     let msg = latest.toOptimistic
-    node.network.broadcastLightClientOptimisticUpdate(msg)
+    let sendResult =
+      await node.network.broadcastLightClientOptimisticUpdate(msg)
+
+    # Optimization for message with ephemeral validity, whether sent or not
     node.lightClientPool[].latestForwardedOptimisticSlot = attested_slot
-    beacon_light_client_optimistic_updates_sent.inc()
-    notice "LC optimistic update sent", message = shortLog(msg)
+
+    if sendResult.isOk:
+      beacon_light_client_optimistic_updates_sent.inc()
+      notice "LC optimistic update sent", message = shortLog(msg)
+    else:
+      warn "LC optimistic update failed to send",
+        error = sendResult.error()
 
 proc scheduleSendingLightClientUpdates(node: BeaconNode, slot: Slot) =
-  if not node.config.serveLightClientData.get:
+  if not node.config.lightClientDataServe.get:
     return
   if node.lightClientPool[].broadcastGossipFut != nil:
     return
@@ -308,10 +324,12 @@ proc sendSyncCommitteeMessage(
 
   return
     if res.isGoodForSending:
-      node.network.broadcastSyncCommitteeMessage(msg, subcommitteeIdx)
-      beacon_sync_committee_messages_sent.inc()
-      node.scheduleSendingLightClientUpdates(msg.slot)
-      SendResult.ok()
+      let sendResult =
+        await node.network.broadcastSyncCommitteeMessage(msg, subcommitteeIdx)
+      if sendResult.isOk:
+        beacon_sync_committee_messages_sent.inc()
+        node.scheduleSendingLightClientUpdates(msg.slot)
+      sendResult
     else:
       notice "Sync committee message failed validation",
              msg, error = res.error()
@@ -409,9 +427,11 @@ proc sendSyncCommitteeContribution*(
 
   return
     if res.isGoodForSending:
-      node.network.broadcastSignedContributionAndProof(msg)
-      beacon_sync_committee_contributions_sent.inc()
-      ok()
+      let sendResult =
+        await node.network.broadcastSignedContributionAndProof(msg)
+      if sendResult.isOk:
+        beacon_sync_committee_contributions_sent.inc()
+      sendResult
     else:
       notice "Sync committee contribution failed validation",
               msg, error = res.error()
@@ -439,7 +459,11 @@ proc createAndSendAttestation(node: BeaconNode,
 
     let res = await node.sendAttestation(
       attestation, subnet_id, checkSignature = false)
-    if not res.isOk(): # Logged in sendAttestation
+    if not res.isOk():
+      warn "Attestation failed",
+        validator = shortLog(validator),
+        attestation = shortLog(attestation),
+        error = res.error()
       return
 
     if node.config.dumpEnabled:
@@ -511,7 +535,46 @@ proc get_execution_payload(
     asConsensusExecutionPayload(
       await execution_engine.getPayload(payload_id.get))
 
-proc getExecutionPayload(node: BeaconNode, proposalState: auto):
+proc getSuggestedFeeRecipient(node: BeaconNode, pubkey: ValidatorPubKey):
+    Eth1Address =
+  template defaultSuggestedFeeRecipient(): Eth1Address =
+    if node.config.suggestedFeeRecipient.isSome:
+      node.config.suggestedFeeRecipient.get
+    else:
+      # https://github.com/nim-lang/Nim/issues/19802
+      (static(default(Eth1Address)))
+
+  const feeRecipientFilename = "suggested_fee_recipient.hex"
+  let
+    keyName = "0x" & pubkey.toHex()
+    feeRecipientPath =
+      node.config.validatorsDir() / keyName / feeRecipientFilename
+
+  # In this particular case, an error might be by design. If the file exists,
+  # but doesn't load or parse that's a more urgent matter to fix. Many people
+  # people might prefer, however, not to override their default suggested fee
+  # recipients per validator, so don't warn very loudly, if at all.
+  if not fileExists(feeRecipientPath):
+    debug "getSuggestedFeeRecipient: did not find fee recipient file; using default fee recipient",
+      feeRecipientPath
+    return defaultSuggestedFeeRecipient()
+
+  try:
+    # Avoid being overly flexible initially. Trailing whitespace is common
+    # enough it probably should be allowed, but it is reasonable to simply
+    # disallow the mostly-pointless flexibility of leading whitespace.
+    Eth1Address.fromHex(strip(
+      readFile(feeRecipientPath), leading = false, trailing = true))
+  except CatchableError as exc:
+    # Because the nonexistent validator case was already checked, any failure
+    # at this point is serious enough to alert the user.
+    warn "getSuggestedFeeRecipient: failed loading fee recipient file; falling back to default fee recipient",
+      feeRecipientPath,
+      err = exc.msg
+    defaultSuggestedFeeRecipient()
+
+proc getExecutionPayload(
+    node: BeaconNode, proposalState: auto, pubkey: ValidatorPubKey):
     Future[ExecutionPayload] {.async.} =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/validator.md#executionpayload
 
@@ -532,20 +595,21 @@ proc getExecutionPayload(node: BeaconNode, proposalState: auto):
     const GETPAYLOAD_TIMEOUT = 1.seconds
 
     let
-      feeRecipient =
-        if node.config.suggestedFeeRecipient.isSome:
-          node.config.suggestedFeeRecipient.get
+      terminalBlockHash =
+        if node.eth1Monitor.terminalBlockHash.isSome:
+          node.eth1Monitor.terminalBlockHash.get.asEth2Digest
         else:
-          default(Eth1Address)
+          default(Eth2Digest)
       latestHead =
         if not node.dag.head.executionBlockRoot.isZero:
           node.dag.head.executionBlockRoot
         else:
-          default(Eth2Digest)
+          terminalBlockHash
       latestFinalized = node.dag.finalizedHead.blck.executionBlockRoot
       payload_id = (await forkchoice_updated(
         proposalState.bellatrixData.data, latestHead, latestFinalized,
-        feeRecipient, node.consensusManager.eth1Monitor))
+        node.getSuggestedFeeRecipient(pubkey),
+        node.consensusManager.eth1Monitor))
       payload = awaitWithTimeout(
         get_execution_payload(payload_id, node.consensusManager.eth1Monitor),
         GETPAYLOAD_TIMEOUT):
@@ -618,12 +682,17 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
       else:
         node.syncCommitteeMsgPool[].produceSyncAggregate(head.root),
       if  slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
-          # TODO when Eth1Monitor TTD following comes in, actually detect
-          # transition block directly
-          not is_merge_transition_complete(proposalState.bellatrixData.data):
+          not (
+            is_merge_transition_complete(proposalState.bellatrixData.data) or
+            ((not node.eth1Monitor.isNil) and
+             node.eth1Monitor.terminalBlockHash.isSome)):
         default(bellatrix.ExecutionPayload)
       else:
-        (await getExecutionPayload(node, proposalState)),
+        let pubkey = node.dag.validatorKey(validator_index)
+        (await getExecutionPayload(
+          node, proposalState,
+          # TODO https://github.com/nim-lang/Nim/issues/19802
+          if pubkey.isSome: pubkey.get.toPubKey else: default(ValidatorPubKey))),
       noRollback, # Temporary state - no need for rollback
       cache)
     if res.isErr():
@@ -659,8 +728,8 @@ proc proposeBlock(node: BeaconNode,
       getStateField(node.dag.headState, genesis_validators_root)
     randao =
       block:
-        let res = await validator.genRandaoReveal(fork, genesis_validators_root,
-                                                  slot)
+        let res = await validator.genRandaoReveal(
+          fork, genesis_validators_root, slot)
         if res.isErr():
           error "Unable to generate randao reveal",
                 validator = shortLog(validator), error_msg = res.error()
@@ -721,7 +790,15 @@ proc proposeBlock(node: BeaconNode,
     # example a delay in signing.
     # We'll start broadcasting it before integrating fully in the chaindag
     # so that it can start propagating through the network ASAP.
-    node.network.broadcastBeaconBlock(signedBlock)
+    let sendResult = await node.network.broadcastBeaconBlock(signedBlock)
+
+    if sendResult.isErr:
+      warn "Block failed to send",
+        blockRoot = shortLog(blockRoot), blck = shortLog(blck),
+        signature = shortLog(signature), validator = shortLog(validator),
+        error = sendResult.error()
+
+      return head
 
     let
       wallTime = node.beaconClock.now()
@@ -856,7 +933,8 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
     let res = await node.sendSyncCommitteeMessage(
       msg, subcommitteeIdx, checkSignature = false)
     if res.isErr():
-      # Logged in sendSyncCommitteeMessage
+      warn "Sync committee message failed",
+        error = res.error()
       return
 
     if node.config.dumpEnabled:
@@ -1106,7 +1184,12 @@ proc sendAggregatedAttestations(
       signedAP = SignedAggregateAndProof(
         message: aggregateAndProof,
         signature: sig)
-    node.network.broadcastAggregateAndProof(signedAP)
+    let sendResult = await node.network.broadcastAggregateAndProof(signedAP)
+
+    if sendResult.isErr:
+      warn "Aggregated attestation failed to send",
+        error = sendResult.error()
+      return
 
     # The subnet on which the attestations (should have) arrived
     let
@@ -1148,7 +1231,7 @@ proc updateValidatorMetrics*(node: BeaconNode) =
           stateRoot = getStateRoot(node.dag.headState)
         0.Gwei
       else:
-        getStateField(node.dag.headState, balances).asSeq()[v.index.get()]
+        getStateField(node.dag.headState, balances).item(v.index.get())
 
     if i < 64:
       attached_validator_balance.set(
@@ -1306,7 +1389,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
 proc sendAttestation*(node: BeaconNode,
                       attestation: Attestation): Future[SendResult] {.async.} =
-  # REST/JSON-RPC API helper procedure.
+  # REST helper procedure.
   let
     target = node.dag.getBlockRef(attestation.data.target.root).valueOr:
       notice "Attempt to send attestation for unknown target",
@@ -1347,67 +1430,67 @@ proc sendAttestation*(node: BeaconNode,
 proc sendAggregateAndProof*(node: BeaconNode,
                             proof: SignedAggregateAndProof): Future[SendResult] {.
      async.} =
-  # REST/JSON-RPC API helper procedure.
+  # REST helper procedure.
   let res =
     await node.processor.aggregateValidator(MsgSource.api, proof)
   return
     if res.isGoodForSending:
-      node.network.broadcastAggregateAndProof(proof)
+      let sendResult = await node.network.broadcastAggregateAndProof(proof)
 
-      notice "Aggregated attestation sent",
-        attestation = shortLog(proof.message.aggregate),
-        aggregator_index = proof.message.aggregator_index,
-        signature = shortLog(proof.signature)
+      if sendResult.isOk:
+        notice "Aggregated attestation sent",
+          attestation = shortLog(proof.message.aggregate),
+          aggregator_index = proof.message.aggregator_index,
+          signature = shortLog(proof.signature)
 
-      ok()
+      sendResult
     else:
-      notice "Aggregate and proof failed validation",
-            proof = shortLog(proof.message.aggregate), error = res.error()
+      notice "Aggregated attestation failed validation",
+             proof = shortLog(proof.message.aggregate), error = res.error()
 
       err(res.error()[1])
 
-proc sendVoluntaryExit*(node: BeaconNode,
-                        exit: SignedVoluntaryExit): SendResult =
-  # REST/JSON-RPC API helper procedure.
+proc sendVoluntaryExit*(
+    node: BeaconNode, exit: SignedVoluntaryExit):
+    Future[SendResult] {.async.} =
+  # REST helper procedure.
   let res =
     node.processor[].voluntaryExitValidator(MsgSource.api, exit)
   if res.isGoodForSending:
-    node.network.broadcastVoluntaryExit(exit)
-    ok()
+    return await node.network.broadcastVoluntaryExit(exit)
   else:
     notice "Voluntary exit request failed validation",
            exit = shortLog(exit.message), error = res.error()
-    err(res.error()[1])
+    return err(res.error()[1])
 
-proc sendAttesterSlashing*(node: BeaconNode,
-                           slashing: AttesterSlashing): SendResult =
-  # REST/JSON-RPC API helper procedure.
+proc sendAttesterSlashing*(
+  node: BeaconNode, slashing: AttesterSlashing): Future[SendResult] {.async.} =
+  # REST helper procedure.
   let res =
     node.processor[].attesterSlashingValidator(MsgSource.api, slashing)
   if res.isGoodForSending:
-    node.network.broadcastAttesterSlashing(slashing)
-    ok()
+    return await node.network.broadcastAttesterSlashing(slashing)
   else:
     notice "Attester slashing request failed validation",
            slashing = shortLog(slashing), error = res.error()
-    err(res.error()[1])
+    return err(res.error()[1])
 
-proc sendProposerSlashing*(node: BeaconNode,
-                           slashing: ProposerSlashing): SendResult =
-  # REST/JSON-RPC API helper procedure.
+proc sendProposerSlashing*(
+    node: BeaconNode, slashing: ProposerSlashing): Future[SendResult]
+    {.async.} =
+  # REST helper procedure.
   let res =
     node.processor[].proposerSlashingValidator(MsgSource.api, slashing)
   if res.isGoodForSending:
-    node.network.broadcastProposerSlashing(slashing)
-    ok()
+    return await node.network.broadcastProposerSlashing(slashing)
   else:
     notice "Proposer slashing request failed validation",
            slashing = shortLog(slashing), error = res.error()
-    err(res.error()[1])
+    return err(res.error()[1])
 
 proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
                      ): Future[SendBlockResult] {.async.} =
-  # REST/JSON-RPC API helper procedure.
+  # REST helper procedure.
   block:
     # Start with a quick gossip validation check such that broadcasting the
     # block doesn't get the node into trouble
@@ -1420,7 +1503,9 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
   # The block passed basic gossip validation - we can "safely" broadcast it now.
   # In fact, per the spec, we should broadcast it even if it later fails to
   # apply to our state.
-  node.network.broadcastBeaconBlock(forked)
+  let sendResult = await node.network.broadcastBeaconBlock(forked)
+  if sendResult.isErr:
+    return SendBlockResult.err(sendResult.error())
 
   let
     wallTime = node.beaconClock.now()

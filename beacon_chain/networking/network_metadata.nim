@@ -19,7 +19,7 @@ import
   ../spec/datatypes/phase0
 
 from ../consensus_object_pools/block_pools_types_light_client
-  import ImportLightClientData
+  import LightClientDataImportMode
 
 # ATTENTION! This file will produce a large C file, because we are inlining
 # genesis states as C literals in the generated code (and blobs in the final
@@ -40,11 +40,13 @@ type
     ropsten
     rinkeby
     goerli
+    sepolia
 
   Eth2NetworkConfigDefaults* = object
     ## Network specific config defaults
-    serveLightClientData*: bool
-    importLightClientData*: ImportLightClientData
+    lightClientEnable*: bool
+    lightClientDataServe*: bool
+    lightClientDataImportMode*: LightClientDataImportMode
 
   Eth2NetworkMetadata* = object
     case incompatible*: bool
@@ -164,7 +166,7 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       else:
         ""
 
-      enableLightClientData =
+      shouldSupportLightClient =
         if genesisData.len >= 40:
           # SSZ processing at compile time does not work well.
           #
@@ -177,6 +179,7 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
           #
           # Comparing the first 40 bytes covers those two fields,
           # which should identify the network with high likelihood.
+          # ''.join('%02X'%b for b in open("network_name/genesis.ssz", "rb").read()[:40])
           let data = (genesisData[0 ..< 40].toHex())
           data in [
             # Kiln
@@ -185,19 +188,23 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
             "F0DB94620000000044F1E56283CA88B35C789F7F449E52339BC1FEFE3A45913A43A6D16EDCD33CF1",
             # Prater
             "60F4596000000000043DB0D9A83813551EE2F33450D23797757D430911A9320530AD8A0EABC43EFB",
+            # Sepolia
+            "607DB06200000000D8EA171F3C94AEA21EBC42A1ED61052ACF3F9209C00E4EFBAADDAC09ED9B8078",
           ]
         else:
           false
 
       configDefaults =
         Eth2NetworkConfigDefaults(
-          serveLightClientData:
-            enableLightClientData,
-          importLightClientData:
-            if enableLightClientData:
-              ImportLightClientData.OnlyNew
+          lightClientEnable:
+            false, # Only produces debug logs so far
+          lightClientDataServe:
+            shouldSupportLightClient,
+          lightClientDataImportMode:
+            if shouldSupportLightClient:
+              LightClientDataImportMode.OnlyNew
             else:
-              ImportLightClientData.None
+              LightClientDataImportMode.None
         )
 
     Eth2NetworkMetadata(
@@ -240,6 +247,10 @@ when not defined(gnosisChainBinary):
       mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
       praterMetadata* = eth2Network("shared/prater", goerli)
       ropstenMetadata = mergeTestnet("ropsten-beacon-chain", ropsten)
+      sepoliaMetadata = mergeTestnet("sepolia", sepolia)
+    static:
+      for network in [mainnetMetadata, praterMetadata, ropstenMetadata, sepoliaMetadata]:
+        checkForkConsistency(network.cfg)
 
   proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
     template loadRuntimeMetadata: auto =
@@ -262,6 +273,8 @@ when not defined(gnosisChainBinary):
           praterMetadata
         of "ropsten":
           ropstenMetadata
+        of "sepolia":
+          sepoliaMetadata
         else:
           loadRuntimeMetadata()
       else:
@@ -283,6 +296,8 @@ else:
   const
     gnosisMetadata* = loadCompileTimeNetworkMetadata(
       currentSourcePath.parentDir.replace('\\', '/') & "/../../media/gnosis")
+
+  static: checkForkConsistency(gnosisMetadata.cfg)
 
   proc checkNetworkParameterUse*(eth2Network: Option[string]) =
     # Support `gnosis-chain` as network name which was used in v22.3

@@ -55,6 +55,17 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + basics                                                                                     OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## Block clearance (light client) [Preset: mainnet]
+```diff
++ Delayed finality update                                                                    OK
++ Error conditions                                                                           OK
++ Incremental sync                                                                           OK
++ Initial sync                                                                               OK
++ Low slot numbers                                                                           OK
++ Reorg                                                                                      OK
++ Reverse incremental sync                                                                   OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
@@ -328,6 +339,11 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + vesion 2 single remote                                                                     OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Serialization/deserialization  [Preset: mainnet]
+```diff
++ Deserialization test vectors                                                               OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -542,6 +558,19 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + should register stability subnets on attester duties                                       OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## weak-subjectivity-checkpoint
+```diff
++ Correct values                                                                             OK
++ invalid characters in root                                                                 OK
++ longer root                                                                                OK
++ missing epoch                                                                              OK
++ missing root                                                                               OK
++ missing separator                                                                          OK
++ negative epoch                                                                             OK
++ non-number epoch                                                                           OK
++ shorter root                                                                               OK
+```
+OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 301/306 Fail: 0/306 Skip: 5/306
+OK: 318/323 Fail: 0/323 Skip: 5/323

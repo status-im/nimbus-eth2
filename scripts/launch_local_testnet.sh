@@ -10,7 +10,7 @@
 # Mostly a duplication of "tests/simulation/{start.sh,run_node.sh}", but with a focus on
 # replicating testnets as closely as possible, which means following the Docker execution labyrinth.
 
-set -e
+set -eu
 
 cd "$(dirname "${BASH_SOURCE[0]}")"/..
 
@@ -42,8 +42,11 @@ if [[ ${PIPESTATUS[0]} != 4 ]]; then
   exit 1
 fi
 
+CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit 1; }
+JQ_BINARY="$(command -v jq)" || { echo "Jq not installed. Aborting."; exit 1; }
+
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,light-clients:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:"
 
 # default values
 NUM_NODES="10"
@@ -59,6 +62,7 @@ BASE_METRICS_PORT="8008"
 BASE_REST_PORT="7500"
 REUSE_EXISTING_DATA_DIR="0"
 REUSE_BINARIES="0"
+NIMFLAGS=""
 ENABLE_LOGTRACE="0"
 STOP_AT_EPOCH_FLAG=""
 TIMEOUT_DURATION="0"
@@ -68,6 +72,7 @@ ETH2_DOCKER_IMAGE=""
 REMOTE_SIGNER_NODES=0
 REMOTE_SIGNER_THRESHOLD=1
 REMOTE_VALIDATORS_COUNT=0
+LC_NODES=1
 
 print_help() {
   cat <<EOF
@@ -102,6 +107,7 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --threshold                 used by a threshold secret sharing mechanism and determine how many shares are need to
                               restore signature of the original secret key
   --remote-signers            number of remote signing nodes
+  --light-clients             number of light clients
 EOF
 }
 
@@ -207,6 +213,10 @@ while true; do
       LIGHTHOUSE_VC_NODES="$2"
       shift 2
       ;;
+    --light-clients)
+      LC_NODES="$2"
+      shift 2
+      ;;
     --)
       shift
       break
@@ -302,7 +312,7 @@ LH_BINARY="lighthouse-${LH_VERSION}"
 
 if [[ "${USE_VC}" == "1" && "${LIGHTHOUSE_VC_NODES}" != "0" && ! -e "build/${LH_BINARY}" ]]; then
   pushd "build" >/dev/null
-  curl -sSLO "${LH_URL}"
+  "${CURL_BINARY}" -sSLO "${LH_URL}"
   tar -xzf "${LH_TARBALL}" # contains just one file named "lighthouse"
   rm lighthouse-* # deletes both the tarball and old binary versions
   mv lighthouse "${LH_BINARY}"
@@ -318,6 +328,10 @@ fi
 
 if [[ "${USE_VC}" == "1" ]]; then
   BINARIES="${BINARIES} nimbus_validator_client"
+fi
+
+if [ "$LC_NODES" -ge "1" ]; then
+  BINARIES="${BINARIES} nimbus_light_client"
 fi
 
 if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
@@ -355,11 +369,13 @@ cleanup() {
   pkill -f -P $$ nimbus_beacon_node &>/dev/null || true
   pkill -f -P $$ nimbus_validator_client &>/dev/null || true
   pkill -f -P $$ nimbus_signing_node &>/dev/null || true
+  pkill -f -P $$ nimbus_light_client &>/dev/null || true
   pkill -f -P $$ ${LH_BINARY} &>/dev/null || true
   sleep 2
   pkill -f -9 -P $$ nimbus_beacon_node &>/dev/null || true
   pkill -f -9 -P $$ nimbus_validator_client &>/dev/null || true
   pkill -f -9 -P $$ nimbus_signing_node &>/dev/null || true
+  pkill -f -9 -P $$ nimbus_light_client &>/dev/null || true
   pkill -f -9 -P $$ ${LH_BINARY} &>/dev/null || true
 
   # Delete all binaries we just built, because these are unusable outside this
@@ -391,7 +407,7 @@ fi
 REMOTE_URLS=""
 
 for NUM_REMOTE in $(seq 0 $(( REMOTE_SIGNER_NODES - 1 ))); do
-  REMOTE_PORT=$(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE )) 
+  REMOTE_PORT=$(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE ))
   REMOTE_URLS="${REMOTE_URLS} --remote-signer=http://127.0.0.1:${REMOTE_PORT}"
 done
 
@@ -538,6 +554,10 @@ if [ "$REMOTE_SIGNER_NODES" -ge "0" ]; then
   NUM_JOBS=$((NUM_JOBS + REMOTE_SIGNER_NODES ))
 fi
 
+if [ "$LC_NODES" -ge "1" ]; then
+  NUM_JOBS=$((NUM_JOBS + LC_NODES ))
+fi
+
 VALIDATORS_PER_VALIDATOR=$(( (SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS) / 2 ))
 VALIDATOR_OFFSET=$((SYSTEM_VALIDATORS / 2))
 
@@ -603,13 +623,19 @@ metrics = true
 metrics-address = "127.0.0.1"
 END_CLI_CONFIG
 
-for NUM_REMOTE in $(seq 0 $(( REMOTE_SIGNER_NODES - 1 ))); do
-  ./build/nimbus_signing_node \
-    --validators-dir="${DATA_DIR}/validators_shares/${NUM_REMOTE}" \
-    --secrets-dir="${DATA_DIR}/secrets_shares/${NUM_REMOTE}" \
-    --bind-port=$(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE )) \
-    > "${DATA_DIR}/log_remote_signer_${NUM_REMOTE}.txt" &
-done
+# https://ss64.com/osx/seq.html documents that at macOS seq(1) counts backwards
+# as probably do some others
+if ((REMOTE_SIGNER_NODES > 0)); then
+  for NUM_REMOTE in $(seq 0 $(( REMOTE_SIGNER_NODES - 1 ))); do
+    # TODO find some way for this and other background-launched processes to
+    # still participate in set -e, ideally
+    ./build/nimbus_signing_node \
+      --validators-dir="${DATA_DIR}/validators_shares/${NUM_REMOTE}" \
+      --secrets-dir="${DATA_DIR}/secrets_shares/${NUM_REMOTE}" \
+      --bind-port=$(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE )) \
+      > "${DATA_DIR}/log_remote_signer_${NUM_REMOTE}.txt" &
+  done
+fi
 
 # give each node time to load keys
 sleep 10
@@ -650,14 +676,16 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --config-file="${CLI_CONF_FILE}" \
     --tcp-port=$(( BASE_PORT + NUM_NODE )) \
     --udp-port=$(( BASE_PORT + NUM_NODE )) \
-    --max-peers=$(( NUM_NODES - 1 )) \
+    --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
     --data-dir="${CONTAINER_NODE_DATA_DIR}" \
     ${BOOTSTRAP_ARG} \
     ${WEB3_ARG} \
     ${STOP_AT_EPOCH_FLAG} \
     --rest-port="$(( BASE_REST_PORT + NUM_NODE ))" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
-    --serve-light-client-data=1 --import-light-client-data=only-new \
+    --light-client-enable=on \
+    --light-client-data-serve=on \
+    --light-client-data-import-mode=only-new \
     ${EXTRA_ARGS} \
     &> "${DATA_DIR}/log${NUM_NODE}.txt" &
 
@@ -696,6 +724,53 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   fi
 done
 
+# light clients
+if [ "$LC_NODES" -ge "1" ]; then
+  echo "Waiting for Altair finalization"
+  while :; do
+    ALTAIR_FORK_EPOCH="$(
+      "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/config/spec" | \
+        "${JQ_BINARY}" -r '.data.ALTAIR_FORK_EPOCH')"
+    if [ "${ALTAIR_FORK_EPOCH}" -eq "${ALTAIR_FORK_EPOCH}" ]; then # check for number
+      break
+    fi
+    echo "ALTAIR_FORK_EPOCH: ${ALTAIR_FORK_EPOCH}"
+    sleep 1
+  done
+  while :; do
+    CURRENT_FORK_EPOCH="$(
+      "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/states/finalized/fork" | \
+        "${JQ_BINARY}" -r '.data.epoch')"
+    if [ "${CURRENT_FORK_EPOCH}" -ge "${ALTAIR_FORK_EPOCH}" ]; then
+      break
+    fi
+    sleep 1
+  done
+
+  echo "Altair finalized, launching $LC_NODES light client(s)"
+  LC_BOOTSTRAP_NODE="$(
+    "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/node/identity" | \
+      "${JQ_BINARY}" -r '.data.enr')"
+  LC_TRUSTED_BLOCK_ROOT="$(
+    "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/headers/finalized" | \
+      "${JQ_BINARY}" -r '.data.root')"
+  for NUM_LC in $(seq 0 $(( LC_NODES - 1 ))); do
+    ./build/nimbus_light_client \
+      --log-level="${LOG_LEVEL}" \
+      --log-format="json" \
+      --network="${CONTAINER_DATA_DIR}" \
+      --bootstrap-node="${LC_BOOTSTRAP_NODE}" \
+      --tcp-port=$(( BASE_PORT + NUM_NODES + NUM_LC )) \
+      --udp-port=$(( BASE_PORT + NUM_NODES + NUM_LC )) \
+      --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
+      --nat="extip:127.0.0.1" \
+      --trusted-block-root="${LC_TRUSTED_BLOCK_ROOT}" \
+      ${STOP_AT_EPOCH_FLAG} \
+      &> "${DATA_DIR}/log_lc${NUM_LC}.txt" &
+    PIDS="${PIDS},$!"
+  done
+fi
+
 # give the regular nodes time to crash
 sleep 5
 BG_JOBS="$(jobs | wc -l | tr -d ' ')"
@@ -703,7 +778,7 @@ if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
   BG_JOBS=$(( BG_JOBS - 1 )) # minus the timeout bg job
 fi
 if [[ "$BG_JOBS" != "$NUM_JOBS" ]]; then
-  echo "$(( NUM_JOBS - BG_JOBS )) nimbus_beacon_node/nimbus_validator_client instance(s) exited early. Aborting."
+  echo "$(( NUM_JOBS - BG_JOBS )) nimbus_beacon_node/nimbus_validator_client/nimbus_light_client instance(s) exited early. Aborting."
   dump_logs
   dump_logtrace
   exit 1

@@ -10,7 +10,6 @@
 import
   std/[sets, tables],
   stew/shims/hashes,
-  bearssl,
   eth/p2p/discoveryv5/random2,
   chronicles,
   ../spec/[crypto, digest],
@@ -55,14 +54,14 @@ type
     bestContributions*: Table[Eth2Digest, BestSyncSubcommitteeContributions]
     onContributionReceived*: OnSyncContributionCallback
 
-    rng: ref BrHmacDrbgContext
+    rng: ref HmacDrbgContext
     syncCommitteeSubscriptions*: Table[ValidatorPubKey, Epoch]
 
 func hash*(x: SyncCommitteeMsgKey): Hash =
   hashAllFields(x)
 
 func init*(T: type SyncCommitteeMsgPool,
-           rng: ref BrHmacDrbgContext,
+           rng: ref HmacDrbgContext,
            onSyncContribution: OnSyncContributionCallback = nil
           ): SyncCommitteeMsgPool =
   T(rng: rng, onContributionReceived: onSyncContribution)

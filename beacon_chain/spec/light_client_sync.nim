@@ -136,7 +136,7 @@ proc validate_light_client_update*(
     newSeqOfCap[ValidatorPubKey](num_active_participants)
   for idx, bit in sync_aggregate.sync_committee_bits:
     if bit:
-      participant_pubkeys.add(sync_committee.pubkeys[idx])
+      participant_pubkeys.add(sync_committee.pubkeys.data[idx])
   let
     fork_version = cfg.forkVersionAtEpoch(update.signature_slot.epoch)
     domain = compute_domain(

@@ -14,7 +14,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[json, typetraits],
+  std/json,
   stew/base10, web3/ethtypes,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix],
@@ -33,7 +33,7 @@ const
 type
   EventTopic* {.pure.} = enum
     Head, Block, Attestation, VoluntaryExit, FinalizedCheckpoint, ChainReorg,
-    ContributionAndProof
+    ContributionAndProof, LightClientFinalityUpdate, LightClientOptimisticUpdate
 
   EventTopics* = set[EventTopic]
 
@@ -210,6 +210,7 @@ type
     head_slot*: Slot
     sync_distance*: uint64
     is_syncing*: bool
+    is_optimistic*: Option[bool]
 
   RestPeerCount* = object
     disconnected*: uint64
@@ -297,7 +298,7 @@ type
     BYTES_PER_LOGS_BLOOM*: uint64
     MAX_EXTRA_DATA_BYTES*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/configs/mainnet.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/configs/mainnet.yaml
     PRESET_BASE*: string
     CONFIG_NAME*: string
     TERMINAL_TOTAL_DIFFICULTY*: UInt256
@@ -311,6 +312,8 @@ type
     ALTAIR_FORK_EPOCH*: uint64
     BELLATRIX_FORK_VERSION*: Version
     BELLATRIX_FORK_EPOCH*: uint64
+    CAPELLA_FORK_VERSION*: Version
+    CAPELLA_FORK_EPOCH*: uint64
     SHARDING_FORK_VERSION*: Version
     SHARDING_FORK_EPOCH*: uint64
     SECONDS_PER_SLOT*: uint64
@@ -422,6 +425,10 @@ type
   DataMetaEnclosedObject*[T] = object
     data*: T
     meta*: JsonNode
+
+  DataVersionEnclosedObject*[T] = object
+    data*: T
+    version*: JsonNode
 
   DataRootEnclosedObject*[T] = object
     dependent_root*: Eth2Digest
@@ -535,7 +542,7 @@ type
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
-  GetHeaderResponse* = DataEnclosedObject[SignedBuilderBid]
+  GetHeaderResponse* = DataVersionEnclosedObject[SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]
   GetPeerResponse* = DataMetaEnclosedObject[RestNodePeer]

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -33,7 +33,7 @@ import
 # - https://notes.ethereum.org/@djrtwo/Bkn3zpwxB#Validator-responsibilities
 #
 # Phase 0 spec - Honest Validator - how to avoid slashing
-# - https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#how-to-avoid-slashing
+# - https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#how-to-avoid-slashing
 #
 # In-depth reading on slashing conditions
 #
@@ -55,7 +55,7 @@ import
 #   2. An attester can get slashed for signing
 #      two attestations that together violate
 #      the Casper FFG slashing conditions.
-# - https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/validator.md#ffg-vote
+# - https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#ffg-vote
 #   The "source" is the current_justified_epoch
 #   The "target" is the current_epoch
 #
@@ -1307,8 +1307,7 @@ proc registerSyntheticAttestation*(
     checkStatus()
   block:
     let status = db.sqlInsertAtt.exec(
-      (valID, int64 source, int64 target,
-      Eth2Digest().data))
+      (valID, int64 source, int64 target, ZERO_HASH.data))
     checkStatus()
   block:
     let status = db.sqlCommitTransaction.exec()

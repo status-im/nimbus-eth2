@@ -80,10 +80,10 @@ type
 proc toInfo(node: BeaconNode, peerId: PeerId): RestPeerInfo =
   RestPeerInfo(
     peerId: $peerId,
-    addrs: node.network.switch.peerStore.addressBook.get(peerId).toSeq().mapIt($it),
-    protocols: node.network.switch.peerStore.protoBook.get(peerId).toSeq(),
-    protoVersion: node.network.switch.peerStore.protoVersionBook.get(peerId),
-    agentVersion: node.network.switch.peerStore.agentBook.get(peerId)
+    addrs: node.network.switch.peerStore[AddressBook][peerId].mapIt($it),
+    protocols: node.network.switch.peerStore[ProtoBook][peerId],
+    protoVersion: node.network.switch.peerStore[ProtoVersionBook][peerId],
+    agentVersion: node.network.switch.peerStore[AgentBook][peerId]
   )
 
 proc toNode(v: PubSubPeer, backoff: Moment): RestPubSubPeer =

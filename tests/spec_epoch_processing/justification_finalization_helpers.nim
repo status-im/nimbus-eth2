@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  strformat, tables,
+  std/strformat,
   # Specs
   ../../beacon_chain/spec/datatypes/phase0,
   ../../beacon_chain/spec/[beaconstate, validator, helpers],
@@ -51,7 +51,7 @@ func addMockAttestations*(
       for v in 0 ..< committee.len * 2 div 3 + 1:
         if remaining_balance > 0:
           # Beware of the underflows, use int
-          remaining_balance -= state.validators[v].effective_balance.int64
+          remaining_balance -= state.validators.item(v).effective_balance.int64
           aggregation_bits[v] = true
         else:
           break

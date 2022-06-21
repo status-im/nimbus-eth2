@@ -88,7 +88,7 @@ proc verify_epoch_signature*(
 func compute_block_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader |
-          # https://github.com/ethereum/builder-specs/blob/v0.0.0/specs/README.md#signing
+          # https://github.com/ethereum/builder-specs/blob/v0.1.0/specs/README.md#signing
           BlindedBeaconBlock): Eth2Digest =
   let
     epoch = epoch(slot)

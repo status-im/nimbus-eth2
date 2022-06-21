@@ -42,14 +42,15 @@ func setValidatorStatuses(
   doAssert validators.len == hl.len
 
   for i in 0 ..< hl.len:
-    validators[i].effective_balance = hl[i].effective_balance
-    validators[i].slashed = hl[i].slashed
+    let validator = addr validators.mitem(i)
+    validator[].effective_balance = hl[i].effective_balance
+    validator[].slashed = hl[i].slashed
 
-    validators[i].activation_eligibility_epoch =
+    validator[].activation_eligibility_epoch =
       hl[i].activation_eligibility_epoch
-    validators[i].activation_epoch = hl[i].activation_epoch
-    validators[i].exit_epoch = hl[i].exit_epoch
-    validators[i].withdrawable_epoch = hl[i].withdrawable_epoch
+    validator[].activation_epoch = hl[i].activation_epoch
+    validator[].exit_epoch = hl[i].exit_epoch
+    validator[].withdrawable_epoch = hl[i].withdrawable_epoch
 
 func replaceOrAddEncodeEth1Votes[T, U](votes0, votes1: HashList[T, U]):
     (bool, List[T, U]) =
@@ -184,13 +185,13 @@ func applyDiff*(
   # >=1 value from it
   let epochIndex =
     state.slot.epoch.uint64 mod EPOCHS_PER_HISTORICAL_VECTOR.uint64
-  assign(state.randao_mixes[epochIndex], stateDiff.randao_mix)
-  assign(state.slashings[epochIndex], stateDiff.slashing)
+  assign(state.randao_mixes.mitem(epochIndex), stateDiff.randao_mix)
+  assign(state.slashings.mitem(epochIndex), stateDiff.slashing)
 
   assign(
-    state.previous_epoch_participation, stateDiff.previous_epoch_participation)
+    state.previous_epoch_participation.data, stateDiff.previous_epoch_participation)
   assign(
-    state.current_epoch_participation, stateDiff.current_epoch_participation)
+    state.current_epoch_participation.data, stateDiff.current_epoch_participation)
 
   state.justification_bits = stateDiff.justification_bits
   assign(

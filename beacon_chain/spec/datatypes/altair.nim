@@ -79,7 +79,7 @@ type
   ParticipationFlags* = uint8
 
   EpochParticipationFlags* =
-    HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+    distinct HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#syncaggregate
   SyncAggregate* = object
@@ -432,7 +432,7 @@ type
 
   SyncnetBits* = BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
     attnets*: AttnetBits
@@ -480,15 +480,31 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
+  MsgTrustedSignedBeaconBlock* = object
+    message*: TrustedBeaconBlock
+    signature*: ValidatorSig
+
+    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+
   TrustedSignedBeaconBlock* = object
     message*: TrustedBeaconBlock
     signature*: TrustedSig
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  SomeSignedBeaconBlock* = SignedBeaconBlock | SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock
-  SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
-  SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
+  SomeSignedBeaconBlock* =
+    SignedBeaconBlock |
+    SigVerifiedSignedBeaconBlock |
+    MsgTrustedSignedBeaconBlock |
+    TrustedSignedBeaconBlock
+  SomeBeaconBlock* =
+    BeaconBlock |
+    SigVerifiedBeaconBlock |
+    TrustedBeaconBlock
+  SomeBeaconBlockBody* =
+    BeaconBlockBody |
+    SigVerifiedBeaconBlockBody |
+    TrustedBeaconBlockBody
 
   SomeSyncAggregate* = SyncAggregate | TrustedSyncAggregate
 
@@ -563,6 +579,27 @@ template `[]`*(arr: array[SYNC_COMMITTEE_SIZE, auto] | seq;
 
 makeLimitedU8(SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
 makeLimitedU16(IndexInSyncCommittee, SYNC_COMMITTEE_SIZE)
+
+template asHashList*(epochFlags: EpochParticipationFlags): untyped =
+  HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
+
+template item*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex): ParticipationFlags =
+  asHashList(epochFlags).item(idx)
+
+template `[]`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex|uint64): ParticipationFlags =
+  asHashList(epochFlags)[idx]
+
+template `[]=`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex, flags: ParticipationFlags) =
+  asHashList(epochFlags)[idx] = flags
+
+template add*(epochFlags: var EpochParticipationFlags, flags: ParticipationFlags): bool =
+  asHashList(epochFlags).add flags
+
+template len*(epochFlags: EpochParticipationFlags): int =
+  asHashList(epochFlags).len
+
+template data*(epochFlags: EpochParticipationFlags): untyped =
+  asHashList(epochFlags).data
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (
@@ -729,13 +766,26 @@ func clear*(info: var EpochInfo) =
   info.validators.setLen(0)
   info.balances = UnslashedParticipatingBalances()
 
-template asSigned*(x: SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock):
-    SignedBeaconBlock =
+template asSigned*(
+    x: SigVerifiedSignedBeaconBlock |
+       MsgTrustedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): SignedBeaconBlock =
   isomorphicCast[SignedBeaconBlock](x)
 
-template asSigVerified*(x: SignedBeaconBlock | TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+template asSigVerified*(
+    x: SignedBeaconBlock |
+       MsgTrustedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
   isomorphicCast[SigVerifiedSignedBeaconBlock](x)
 
+template asMsgTrusted*(
+    x: SignedBeaconBlock |
+       SigVerifiedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): MsgTrustedSignedBeaconBlock =
+  isomorphicCast[MsgTrustedSignedBeaconBlock](x)
+
 template asTrusted*(
-    x: SignedBeaconBlock | SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
+    x: SignedBeaconBlock |
+       SigVerifiedSignedBeaconBlock |
+       MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)

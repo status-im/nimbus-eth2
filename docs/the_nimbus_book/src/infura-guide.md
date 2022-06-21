@@ -1,11 +1,12 @@
 # Supplying your own Infura endpoint
 
+> ⚠️ After The Merge, you will need to run your own [execution client](./eth1.md).
 
 In a nutshell, Infura is a hosted ethereum node cluster that lets you make requests to the eth1 blockchain without requiring you to set up your own eth1 node.
 
 While we do support Infura to process incoming validator deposits, we recommend running your own eth1 node to avoid relying on a third-party-service.
 
-> **Note:** Nimbus currently supports remote Infura nodes and [local Geth nodes](./eth1.md#geth). In the future, we plan on having our own eth1 client -- [Nimbus 1](https://github.com/status-im/nimbus) -- be the recommended default.
+> **Note:** Nimbus currently supports remote Infura nodes and [local execution nodes](./eth1.md). In the future, we plan on having our own eth1 client -- [Nimbus 1](https://github.com/status-im/nimbus) -- be the recommended default.
 
 ### 1. Visit Infura.io
 
@@ -49,7 +50,7 @@ You'll be directed to the settings page of your newly created project
 
 ### 6. Select endpoint
 
-> ⚠️  **Warning:** if you're connecting to mainnet, you should skip this step
+> ⚠️ If you're connecting to mainnet, you should skip this step
 
 If you're connecting to a testnet, in the `KEYS` section, click on the dropdown menu to the right of `ENDPOINTS`, and select `GÖRLI`
 
@@ -58,7 +59,7 @@ If you're connecting to a testnet, in the `KEYS` section, click on the dropdown 
 
 ### 7. Copy one of the endpoints
 
- 
+
 You can use either endpoint but we recommend you copy the `wss`
 
 ![](https://i.imgur.com/fZ6Bcjy.png)

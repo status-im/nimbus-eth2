@@ -12,7 +12,7 @@
 
 import
   # Status libraries
-  chronicles, eth/keys, stew/objects, taskpools,
+  eth/keys, stew/objects, taskpools,
   # Beacon chain internals
   ../beacon_chain/consensus_object_pools/
     [block_clearance, block_quarantine, blockchain_dag],
@@ -79,8 +79,8 @@ suite "Light client" & preset():
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = ChainDAGRef.init(
         cfg, makeTestDB(num_validators), validatorMonitor, {},
-        serveLightClientData = true,
-        importLightClientData = ImportLightClientData.OnlyNew)
+        lightClientDataServe = true,
+        lightClientDataImportMode = LightClientDataImportMode.OnlyNew)
       quarantine = newClone(Quarantine.init())
       taskpool = Taskpool.new()
     var verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
@@ -185,8 +185,8 @@ suite "Light client" & preset():
       dag.headState, dag.getForkedBlock(dag.head.bid).get)
     let cpDag = ChainDAGRef.init(
       cfg, cpDb, validatorMonitor, {},
-      serveLightClientData = true,
-      importLightClientData = ImportLightClientData.Full)
+      lightClientDataServe = true,
+      lightClientDataImportMode = LightClientDataImportMode.Full)
 
     # Advance by a couple epochs
     for i in 1'u64 .. 10:

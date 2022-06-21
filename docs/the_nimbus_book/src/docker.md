@@ -6,19 +6,23 @@ We have version-specific Docker tags (`statusim/nimbus-eth2:amd64-v1.2.3`) and a
 
 These images are simply the contents of [release tarballs](./binaries.md) inside a `debian:bullseye-slim` image, running under a user imaginatively named `user`, with UID:GID of 1000:1000.
 
-The unpacked archive is in `/home/user/nimbus-eth2` which is also the default *WORKDIR*. The default *ENTRYPOINT* is the binary itself: `/home/user/nimbus-eth2/build/nimbus\_beacon\_node`
+The unpacked archive is in `/home/user/nimbus-eth2` which is also the default *WORKDIR*. The default *ENTRYPOINT* is the binary itself: `/home/user/nimbus-eth2/build/nimbus_beacon_node`
 
 ## Usage
 
-You need to create an external data directory and mount it as a volume inside the container, with  mounting point: `/home/user/nimbus-eth2/build/data`
+Before running nimbus via docker, you need to prepare a data directory and mount it in docker.
+
+It is recommended that you mount the directory at `/home/user/nimbus-eth2/build/data` and pass `--data-dir=build/data/shared_mainnet_0` to all `nimbus_becaon_node` commands.
+
+The wrapper script outlined below will set the data directory automatically.
 
 ```text
 mkdir data
-docker run -it --rm -v ${PWD}/data:/home/user/nimbus-eth2/build/data statusim/nimbus-eth2:amd64-latest [nimbus_beacon_node args here]
+docker run -it --rm -v ${PWD}/data:/home/user/nimbus-eth2/build/data statusim/nimbus-eth2:amd64-latest --data-dir=build/data/shared_mainnet_0 --network=mainnet [other options]
 ```
 
-
 ### Wrapper script
+
 If you wish, you can choose to use a wrapper script instead:
 
 ```text
@@ -27,6 +31,7 @@ docker run -it --rm -v ${PWD}/data:/home/user/nimbus-eth2/build/data -e WEB3_URL
 ```
 
 ### Docker compose
+
 Our preferred setup is using `docker-compose`. You can use one of our [example configuration files](https://github.com/status-im/nimbus-eth2/tree/stable/docker/dist/binaries) as a base for your own custom configuration:
 
 ```text

@@ -8,9 +8,7 @@
 {.used.}
 
 import
-  chronicles,
   unittest2,
-  stew/assign2,
   eth/keys, taskpools,
   ../beacon_chain/spec/datatypes/base,
   ../beacon_chain/spec/[beaconstate, forks, helpers, signatures, state_transition],
@@ -294,7 +292,7 @@ suite "Block pool altair processing" & preset():
 
   test "Invalid signatures" & preset():
     let badSignature = get_slot_signature(
-      Fork(), Eth2Digest(), 42.Slot,
+      Fork(), ZERO_HASH, 42.Slot,
       MockPrivKeys[ValidatorIndex(0)]).toValidatorSig()
 
     check:
@@ -607,9 +605,7 @@ suite "Old database versions" & preset():
   setup:
     let
       genState = newClone(initialize_hashed_beacon_state_from_eth1(
-        defaultRuntimeConfig,
-        Eth2Digest(),
-        0,
+        defaultRuntimeConfig, ZERO_HASH, 0,
         makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),
         {skipBlsValidation}))
       genBlock = get_initial_beacon_block(genState[])
@@ -723,9 +719,7 @@ suite "Backfill":
       genState = (ref ForkedHashedBeaconState)(
         kind: BeaconStateFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
-          defaultRuntimeConfig,
-          Eth2Digest(),
-          0,
+          defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),
           {skipBlsValidation}))
       tailState = assignClone(genState[])

@@ -10,7 +10,8 @@
 import
   std/[os, strutils, terminal, wordwrap, unicode],
   chronicles, chronos, json_serialization, zxcvbn,
-  serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
+  bearssl/rand,
+  serialization, blscurve, eth/common/eth_types, eth/keys, confutils,
   nimbus_security_resources,
   ".."/spec/[eth2_merkleization, keystore, crypto],
   ".."/spec/datatypes/base,
@@ -21,7 +22,7 @@ import
   ./validator_pool
 
 export
-  keystore, validator_pool, crypto
+  keystore, validator_pool, crypto, rand
 
 when defined(windows):
   import stew/[windows/acl]
@@ -679,7 +680,7 @@ proc loadNetKeystore*(keystorePath: string,
     else:
       return
 
-proc saveNetKeystore*(rng: var BrHmacDrbgContext, keystorePath: string,
+proc saveNetKeystore*(rng: var HmacDrbgContext, keystorePath: string,
                       netKey: lcrypto.PrivateKey, insecurePwd: Option[string]
                      ): Result[void, KeystoreGenerationError] =
   let password =
@@ -783,7 +784,7 @@ proc createValidatorFiles*(validatorsDir, keystoreDir, keystoreFile,
   success = true
   ok()
 
-proc saveKeystore*(rng: var BrHmacDrbgContext,
+proc saveKeystore*(rng: var HmacDrbgContext,
                    validatorsDir, secretsDir: string,
                    signingKey: ValidatorPrivKey,
                    signingPubKey: CookedPubKey,
@@ -917,7 +918,7 @@ proc importKeystore*(pool: var ValidatorPool, conf: AnyConf,
   ok(KeystoreData.init(cookedKey, keystore.remotes, keystore.threshold))
 
 proc importKeystore*(pool: var ValidatorPool,
-                     rng: var BrHmacDrbgContext,
+                     rng: var HmacDrbgContext,
                      conf: AnyConf, keystore: Keystore,
                      password: string): ImportResult[KeystoreData] {.
      raises: [Defect].} =
@@ -956,7 +957,7 @@ proc importKeystore*(pool: var ValidatorPool,
 
   ok(KeystoreData.init(privateKey, keystore))
 
-proc generateDistirbutedStore*(rng: var BrHmacDrbgContext,
+proc generateDistirbutedStore*(rng: var HmacDrbgContext,
                                shares: seq[SecretShare],
                                pubKey: ValidatorPubKey,
                                validatorIdx: Natural,
@@ -967,7 +968,7 @@ proc generateDistirbutedStore*(rng: var BrHmacDrbgContext,
                                threshold: uint32): Result[void, KeystoreGenerationError] =
   var signers: seq[RemoteSignerInfo]
   for idx, share in shares:
-    var password = KeystorePass.init ncrutils.toHex(getRandomBytes(rng, 32))
+    var password = KeystorePass.init ncrutils.toHex(rng.generateBytes(32))
     # remote signer shares
     defer: burnMem(password)
     ? saveKeystore(rng,
@@ -987,7 +988,7 @@ proc generateDistirbutedStore*(rng: var BrHmacDrbgContext,
   saveKeystore(remoteValidatorDir, pubKey, signers, threshold)
 
 proc generateDeposits*(cfg: RuntimeConfig,
-                       rng: var BrHmacDrbgContext,
+                       rng: var HmacDrbgContext,
                        seed: KeySeed,
                        firstValidatorIdx, totalNewValidators: int,
                        validatorsDir: string,
@@ -1021,7 +1022,7 @@ proc generateDeposits*(cfg: RuntimeConfig,
     derivedKey = deriveChildKey(derivedKey, 0) # This is the signing key
     let signingPubKey = derivedKey.toPubKey
 
-    var password = KeystorePass.init ncrutils.toHex(getRandomBytes(rng, 32))
+    var password = KeystorePass.init ncrutils.toHex(rng.generateBytes(32))
     defer: burnMem(password)
     ? saveKeystore(rng, validatorsDir, secretsDir,
                    derivedKey, signingPubKey,
@@ -1121,7 +1122,7 @@ proc resetAttributesNoError() =
     try: stdout.resetAttributes()
     except IOError: discard
 
-proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
+proc importKeystoresFromDir*(rng: var HmacDrbgContext,
                              importedDir, validatorsDir, secretsDir: string) =
   var password: string  # TODO consider using a SecretString type
   defer: burnMem(password)
@@ -1161,7 +1162,8 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
           let privKey = ValidatorPrivKey.fromRaw(secret)
           if privKey.isOk:
             let pubkey = privKey.value.toPubKey
-            var password = KeystorePass.init ncrutils.toHex(getRandomBytes(rng, 32))
+            var
+              password = KeystorePass.init ncrutils.toHex(rng.generateBytes(32))
             defer: burnMem(password)
             let status = saveKeystore(rng, validatorsDir, secretsDir,
                                       privKey.value, pubkey,
@@ -1205,7 +1207,7 @@ template ask(prompt: string): string =
   except IOError:
     return err "failure to read data from stdin"
 
-proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
+proc pickPasswordAndSaveWallet(rng: var HmacDrbgContext,
                                config: BeaconNodeConf,
                                seed: KeySeed): Result[WalletPathPair, string] =
   echoP "When you perform operations with your wallet such as withdrawals " &
@@ -1275,7 +1277,7 @@ else:
     echo "\e[1;1H\e[2J\e[3J"
 
 proc createWalletInteractively*(
-    rng: var BrHmacDrbgContext,
+    rng: var HmacDrbgContext,
     config: BeaconNodeConf): Result[CreatedWallet, string] =
 
   if config.nonInteractive:
@@ -1380,7 +1382,7 @@ proc createWalletInteractively*(
   let walletPath = ? pickPasswordAndSaveWallet(rng, config, seed)
   return ok CreatedWallet(walletPath: walletPath, seed: seed)
 
-proc restoreWalletInteractively*(rng: var BrHmacDrbgContext,
+proc restoreWalletInteractively*(rng: var HmacDrbgContext,
                                  config: BeaconNodeConf) =
   var
     enteredMnemonic: string

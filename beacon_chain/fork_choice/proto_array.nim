@@ -103,7 +103,7 @@ func init*(T: type ProtoArray,
     indices: {node.root: 0}.toTable()
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/fork-choice.md#configuration
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
 const PROPOSER_SCORE_BOOST* = 40
 func calculateProposerBoost(validatorBalances: openArray[Gwei]): int64 =
@@ -506,7 +506,7 @@ func nodeLeadsToViableHead(self: ProtoArray, node: ProtoNode): FcResult[bool] =
 
 func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool =
   ## This is the equivalent of `filter_block_tree` function in eth2 spec
-  ## https://github.com/ethereum/consensus-specs/blob/v0.10.0/specs/phase0/fork-choice.md#filter_block_tree
+  ## https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/fork-choice.md#filter_block_tree
   ##
   ## Any node that has a different finalized or justified epoch
   ## should not be viable for the head.
