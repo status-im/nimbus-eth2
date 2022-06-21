@@ -407,7 +407,8 @@ template awaitWithRetries*[T](lazyFutExpr: Future[T],
     if not f.finished:
       await cancelAndWait(f)
     elif f.failed:
-      static: doAssert f.error of CatchableError
+      when not (f.error of CatchableError):
+        static: doAssert false, "f.error not CatchableError"
       debug "Web3 request failed", req = reqType, err = f.error.msg
       inc failed_web3_requests
     else:

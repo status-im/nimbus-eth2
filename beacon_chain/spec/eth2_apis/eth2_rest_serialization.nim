@@ -145,7 +145,7 @@ proc readValue*(reader: var JsonReader[RestJson],
 
   for e in reader.readArray(string):
     let parsed = try:
-      parseBiggestUint(e)
+      parseBiggestUInt(e)
     except ValueError as err:
       reader.raiseUnexpectedValue("A string-encoded 8-bit usigned integer value expected")
 

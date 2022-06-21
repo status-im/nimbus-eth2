@@ -6,7 +6,6 @@
 
 import stew/[byteutils, base10], chronicles
 import ".."/beacon_node,
-       ".."/eth1/eth1_monitor,
        ".."/spec/forks,
        "."/rest_utils
 from ../fork_choice/proto_array import PROPOSER_SCORE_BOOST
