@@ -12,6 +12,8 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/eth2_apis/rest_types
 
+logScope: service = "sync_committee_service"
+
 type
   ContributionItem* = object
     aggregator_index: uint64
@@ -297,13 +299,18 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
     let delay = vc.getDelay(slot.sync_committee_message_deadline())
     debug "Producing sync committee messages", delay = delay, slot = slot,
           duties_count = len(duties)
+
   let beaconBlockRoot =
     block:
       try:
         let res = await vc.getHeadBlockRoot()
         res.root
+      except ValidatorApiError as exc:
+        error "Unable to retrieve head block's root to sign", reason = exc.msg
+        return
       except CatchableError as exc:
-        error "Could not request sync message block root to sign"
+        error "Unexpected error while requesting sync message block root",
+              err_name = exc.name, err_msg = exc.msg, slot = slot
         return
 
   try:
