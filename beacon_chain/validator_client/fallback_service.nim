@@ -2,6 +2,14 @@ import common
 
 logScope: service = "fallback_service"
 
+type
+  BeaconNodesCounters* = object
+    online*: int
+    offline*: int
+    uninitalized*: int
+    incompatible*: int
+    nosync*: int
+
 proc onlineNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
   vc.beaconNodes.filterIt(it.status == RestBeaconNodeStatus.Online)
 
@@ -14,6 +22,22 @@ proc unusableNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
 proc unusableNodesCount*(vc: ValidatorClientRef): int =
   vc.beaconNodes.countIt(it.status != RestBeaconNodeStatus.Online)
 
+proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
+  var res = BeaconNodesCounters()
+  for node in vc.beaconNodes:
+    case node.status
+    of RestBeaconNodeStatus.Uninitalized:
+      inc(res.uninitalized)
+    of RestBeaconNodeStatus.Offline:
+      inc(res.offline)
+    of RestBeaconNodeStatus.Incompatible:
+      inc(res.incompatible)
+    of RestBeaconNodeStatus.NotSynced:
+      inc(res.nosync)
+    of RestBeaconNodeStatus.Online:
+      inc(res.online)
+  res
+
 proc waitOnlineNodes*(vc: ValidatorClientRef) {.async.} =
   doAssert(not(isNil(vc.fallbackService)))
   while true:
@@ -22,7 +46,7 @@ proc waitOnlineNodes*(vc: ValidatorClientRef) {.async.} =
     else:
       if vc.fallbackService.onlineEvent.isSet():
         vc.fallbackService.onlineEvent.clear()
-        warn "No suitable beacon nodes available",
+        warn "Connection with beacon node(s) has been lost",
               online_nodes = vc.onlineNodesCount(),
               unusable_nodes = vc.unusableNodesCount(),
               total_nodes = len(vc.beaconNodes)
@@ -131,11 +155,11 @@ proc checkSync(vc: ValidatorClientRef,
   node.syncInfo = some(syncInfo)
   node.status =
     if not(syncInfo.is_syncing) or (syncInfo.sync_distance < SYNC_TOLERANCE):
-      debug "Beacon node is in sync", sync_distance = syncInfo.sync_distance,
+      info "Beacon node is in sync", sync_distance = syncInfo.sync_distance,
            head_slot = syncInfo.head_slot
       RestBeaconNodeStatus.Online
     else:
-      info "Beacon node not in sync", sync_distance = syncInfo.sync_distance,
+      warn "Beacon node not in sync", sync_distance = syncInfo.sync_distance,
            head_slot = syncInfo.head_slot
       RestBeaconNodeStatus.NotSynced
 
@@ -160,7 +184,7 @@ proc checkOnline(node: BeaconNodeServerRef) {.async.} =
             error_message = exc.msg
       node.status = RestBeaconNodeStatus.Offline
       return
-  debug "Beacon node has been identified", agent = agent.version
+  info "Beacon node has been identified", agent = agent.version
   node.ident = some(agent.version)
   node.status = RestBeaconNodeStatus.Online
 
@@ -201,6 +225,16 @@ proc mainLoop(service: FallbackServiceRef) {.async.} =
       await sleepAsync(2.seconds)
       if service.client.onlineNodesCount() != 0:
         service.onlineEvent.fire()
+      else:
+        let counter = service.client.getNodeCounts()
+        warn "No suitable beacon nodes available",
+             online_nodes = counter.online,
+             offline_nodes = counter.offline,
+             uninitalized_nodes = counter.uninitalized,
+             incompatible_nodes = counter.incompatible,
+             nonsynced_nodes = counter.nosync,
+             total_nodes = len(service.client.beaconNodes)
+
   except CancelledError as exc:
     debug "Service interrupted"
   except CatchableError as exc:
