@@ -8,11 +8,10 @@
 
 import
   std/os,
-  bearssl,
   ./validators/keystore_management,
   ./conf
 
-proc doWallets*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
+proc doWallets*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     raises: [Defect, CatchableError].} =
   case config.walletsCmd:
   of WalletsCmd.create:

@@ -8,7 +8,7 @@
 
 import
   std/[os, sequtils, times],
-  bearssl, chronicles,
+  chronicles,
   ./spec/eth2_apis/rest_beacon_client,
   ./spec/signatures,
   ./validators/keystore_management,
@@ -236,7 +236,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
 proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
   await restValidatorExit(config)
 
-proc doDeposits*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
+proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     raises: [Defect, CatchableError].} =
   case config.depositsCmd
   of DepositsCmd.createTestnetDeposits:

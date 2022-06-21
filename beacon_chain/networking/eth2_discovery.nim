@@ -9,7 +9,7 @@
 
 import
   std/[os, strutils],
-  chronicles, stew/shims/net, stew/results, bearssl,
+  chronicles, stew/shims/net, stew/results,
   eth/keys, eth/p2p/discoveryv5/[enr, protocol, node],
   ".."/[conf, conf_light_client]
 
@@ -80,7 +80,7 @@ proc new*(T: type Eth2DiscoveryProtocol,
           config: BeaconNodeConf | LightClientConf,
           enrIp: Option[ValidIpAddress], enrTcpPort, enrUdpPort: Option[Port],
           pk: PrivateKey,
-          enrFields: openArray[(string, seq[byte])], rng: ref BrHmacDrbgContext):
+          enrFields: openArray[(string, seq[byte])], rng: ref HmacDrbgContext):
           T =
   # TODO
   # Implement more configuration options:

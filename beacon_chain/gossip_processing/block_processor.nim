@@ -89,7 +89,7 @@ proc addBlock*(
 proc new*(T: type BlockProcessor,
           dumpEnabled: bool,
           dumpDirInvalid, dumpDirIncoming: string,
-          rng: ref BrHmacDrbgContext, taskpool: TaskPoolPtr,
+          rng: ref HmacDrbgContext, taskpool: TaskPoolPtr,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
           getBeaconTime: GetBeaconTimeFn): ref BlockProcessor =

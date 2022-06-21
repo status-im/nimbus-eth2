@@ -54,7 +54,7 @@ func optimisticHeader*(lightClient: LightClient): Opt[BeaconBlockHeader] =
 
 proc createLightClient(
     network: Eth2Node,
-    rng: ref BrHmacDrbgContext,
+    rng: ref HmacDrbgContext,
     dumpEnabled: bool,
     dumpDirInvalid, dumpDirIncoming: string,
     cfg: RuntimeConfig,
@@ -136,7 +136,7 @@ proc createLightClient(
 
 proc createLightClient*(
     network: Eth2Node,
-    rng: ref BrHmacDrbgContext,
+    rng: ref HmacDrbgContext,
     config: BeaconNodeConf,
     cfg: RuntimeConfig,
     forkDigests: ref ForkDigests,
@@ -150,7 +150,7 @@ proc createLightClient*(
 
 proc createLightClient*(
     network: Eth2Node,
-    rng: ref BrHmacDrbgContext,
+    rng: ref HmacDrbgContext,
     config: LightClientConf,
     cfg: RuntimeConfig,
     forkDigests: ref ForkDigests,

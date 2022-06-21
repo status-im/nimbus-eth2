@@ -9,7 +9,7 @@
 
 import
   std/[os, random, sequtils, terminal, times],
-  bearssl, chronos, chronicles, chronicles/chronos_tools,
+  chronos, chronicles, chronicles/chronos_tools,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
@@ -223,7 +223,7 @@ proc checkWeakSubjectivityCheckpoint(
 
 proc initFullNode(
     node: BeaconNode,
-    rng: ref BrHmacDrbgContext,
+    rng: ref HmacDrbgContext,
     dag: ChainDAGRef,
     taskpool: TaskPoolPtr,
     getBeaconTime: GetBeaconTimeFn) =
@@ -347,7 +347,7 @@ const SlashingDbName = "slashing_protection"
 
 proc init*(T: type BeaconNode,
            cfg: RuntimeConfig,
-           rng: ref BrHmacDrbgContext,
+           rng: ref HmacDrbgContext,
            config: BeaconNodeConf,
            depositContractDeployedAt: BlockHashOrNumber,
            eth1Network: Option[Eth1Network],
@@ -1699,7 +1699,7 @@ when not defined(windows):
 
     asyncSpawn statusBarUpdatesPollingLoop()
 
-proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.raises: [Defect, CatchableError].} =
+proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.raises: [Defect, CatchableError].} =
   info "Launching beacon node",
       version = fullVersionStr,
       bls_backend = $BLS_BACKEND,
@@ -1774,7 +1774,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref BrHmacDrbgContext) {.r
   else:
     node.start()
 
-proc doCreateTestnet*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.raises: [Defect, CatchableError].} =
+proc doCreateTestnet*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.raises: [Defect, CatchableError].} =
   let launchPadDeposits = try:
     Json.loadFile(config.testnetDepositsFile.string, seq[LaunchPadDeposit])
   except SerializationError as err:
@@ -1845,7 +1845,7 @@ proc doCreateTestnet*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.rais
     writeFile(bootstrapFile, bootstrapEnr.tryGet().toURI)
     echo "Wrote ", bootstrapFile
 
-proc doRecord(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
+proc doRecord(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     raises: [Defect, CatchableError].} =
   case config.recordCmd:
   of RecordCmd.create:
@@ -1873,7 +1873,7 @@ proc doRecord(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
   of RecordCmd.print:
     echo $config.recordPrint
 
-proc doWeb3Cmd(config: BeaconNodeConf, rng: var BrHmacDrbgContext)
+proc doWeb3Cmd(config: BeaconNodeConf, rng: var HmacDrbgContext)
     {.raises: [Defect, CatchableError].} =
   case config.web3Cmd:
   of Web3Cmd.test:

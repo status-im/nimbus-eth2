@@ -18,7 +18,7 @@ logScope: topics = "beacnde"
 
 proc initLightClient*(
     node: BeaconNode,
-    rng: ref BrHmacDrbgContext,
+    rng: ref HmacDrbgContext,
     cfg: RuntimeConfig,
     forkDigests: ref ForkDigests,
     getBeaconTime: GetBeaconTimeFn,
