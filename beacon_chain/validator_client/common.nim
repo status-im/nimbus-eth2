@@ -257,7 +257,7 @@ proc getDurationToNextAttestation*(vc: ValidatorClientRef,
       let duty = item.duties.getOrDefault(epoch, DefaultDutyAndProof)
       if not(duty.isDefault()):
         let dutySlotTime = duty.data.slot
-        if duty.data.slot < minSlot:
+        if (duty.data.slot < minSlot) and (duty.data.slot >= slot):
           minSlot = duty.data.slot
     if minSlot != FAR_FUTURE_SLOT:
       break
@@ -275,7 +275,7 @@ proc getDurationToNextBlock*(vc: ValidatorClientRef, slot: Slot): string =
     if not(data.isDefault()):
       for item in data.duties:
         if item.duty.pubkey in vc.attachedValidators:
-          if item.duty.slot < minSlot:
+          if (item.duty.slot < minSlot) and (item.duty.slot >= slot):
             minSlot = item.duty.slot
     if minSlot != FAR_FUTURE_SLOT:
       break
