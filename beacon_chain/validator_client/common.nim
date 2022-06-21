@@ -52,6 +52,7 @@ type
   DutiesServiceRef* = ref object of ClientServiceRef
 
   FallbackServiceRef* = ref object of ClientServiceRef
+    onlineEvent*: AsyncEvent
 
   ForkServiceRef* = ref object of ClientServiceRef
 
@@ -143,7 +144,8 @@ type
 
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
-  DefaultSyncDutyAndProof* = SyncDutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
+  DefaultSyncDutyAndProof* =
+    SyncDutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
   SlotDuration* = int64(SECONDS_PER_SLOT).seconds
   OneThirdDuration* = int64(SECONDS_PER_SLOT).seconds div INTERVALS_PER_SLOT
 
@@ -336,5 +338,5 @@ proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
       break
   res
 
-proc getSubcommitteeIndex*(syncCommitteeIndex: IndexInSyncCommittee): SyncSubcommitteeIndex =
-  SyncSubcommitteeIndex(uint16(syncCommitteeIndex) div SYNC_SUBCOMMITTEE_SIZE)
+proc getSubcommitteeIndex*(index: IndexInSyncCommittee): SyncSubcommitteeIndex =
+  SyncSubcommitteeIndex(uint16(index) div SYNC_SUBCOMMITTEE_SIZE)
