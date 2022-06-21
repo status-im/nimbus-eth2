@@ -364,24 +364,30 @@ proc pollForSyncCommitteeDuties* (vc: ValidatorClientRef) {.async.} =
 
     if vc.attachedValidators.count() != 0:
       var counts: array[2, tuple[epoch: Epoch, count: int]]
-      counts[0] = (currentEpoch, await vc.pollForSyncCommitteeDuties(currentEpoch))
-      counts[1] = (nextEpoch, await vc.pollForSyncCommitteeDuties(nextEpoch))
+      counts[0] =
+        (currentEpoch, await vc.pollForSyncCommitteeDuties(currentEpoch))
+      counts[1] =
+        (nextEpoch, await vc.pollForSyncCommitteeDuties(nextEpoch))
 
       if (counts[0].count == 0) and (counts[1].count == 0):
-        debug "No new sync committee member's duties received", slot = currentSlot
+        debug "No new sync committee member's duties received",
+              slot = currentSlot
 
       let subscriptions =
         block:
           var res: seq[RestSyncCommitteeSubscription]
           for item in counts:
             if item.count > 0:
-              let subscriptionsInfo = vc.syncMembersSubscriptionInfoForEpoch(item.epoch)
+              let subscriptionsInfo =
+                vc.syncMembersSubscriptionInfoForEpoch(item.epoch)
               for subInfo in subscriptionsInfo:
                 let sub = RestSyncCommitteeSubscription(
                   validator_index: subInfo.validator_index,
-                  sync_committee_indices: subInfo.validator_sync_committee_indices,
-                  until_epoch: (currentEpoch + EPOCHS_PER_SYNC_COMMITTEE_PERIOD -
-                    currentEpoch.since_sync_committee_period_start()).Epoch
+                  sync_committee_indices:
+                    subInfo.validator_sync_committee_indices,
+                  until_epoch:
+                    (currentEpoch + EPOCHS_PER_SYNC_COMMITTEE_PERIOD -
+                      currentEpoch.since_sync_committee_period_start()).Epoch
                 )
                 res.add(sub)
           res
@@ -514,7 +520,8 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
       checkAndRestart(AttesterLoop, fut1, service.attesterDutiesLoop())
       checkAndRestart(ProposerLoop, fut2, service.proposerDutiesLoop())
       checkAndRestart(IndicesLoop, fut3, service.validatorIndexLoop())
-      checkAndRestart(SyncCommitteeLoop, fut4, service.syncCommitteeeDutiesLoop())
+      checkAndRestart(SyncCommitteeLoop,
+                      fut4, service.syncCommitteeeDutiesLoop())
   except CatchableError as exc:
     warn "Service crashed with unexpected error", err_name = exc.name,
          err_msg = exc.msg

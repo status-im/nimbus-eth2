@@ -20,16 +20,17 @@ type
     subcommitteeIdx: SyncSubcommitteeIndex
 
 proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
-                                slot: Slot,
-                                beaconBlockRoot: Eth2Digest,
-                                duty: SyncDutyAndProof): Future[bool] {.async.} =
+                                slot: Slot, beaconBlockRoot: Eth2Digest,
+                                duty: SyncDutyAndProof): Future[bool] {.
+     async.} =
   let
     vc = service.client
     fork = vc.forkAtEpoch(slot.epoch)
     genesisValidatorsRoot = vc.beaconGenesis.genesis_validators_root
 
     vindex = duty.data.validator_index
-    subcommitteeIdx = getSubcommitteeIndex(duty.data.validator_sync_committee_index)
+    subcommitteeIdx = getSubcommitteeIndex(
+      duty.data.validator_sync_committee_index)
 
     validator =
       block:
@@ -89,14 +90,16 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
 proc produceAndPublishSyncCommitteeMessages(service: SyncCommitteeServiceRef,
                                             slot: Slot,
                                             beaconBlockRoot: Eth2Digest,
-                                            duties: seq[SyncDutyAndProof]) {.async.} =
+                                            duties: seq[SyncDutyAndProof]) {.
+     async.} =
   let vc = service.client
 
   let pendingSyncCommitteeMessages =
     block:
       var res: seq[Future[bool]]
       for duty in duties:
-        debug "Serving sync message duty", duty = duty.data, epoch = slot.epoch()
+        debug "Serving sync message duty", duty = duty.data,
+              epoch = slot.epoch()
         res.add(service.serveSyncCommitteeMessage(slot,
                                                   beaconBlockRoot,
                                                   duty))
@@ -125,14 +128,16 @@ proc produceAndPublishSyncCommitteeMessages(service: SyncCommitteeServiceRef,
       (succeed, errored, failed)
 
   let delay = vc.getDelay(slot.attestation_deadline())
-  debug "Sync committee message statistics", total = len(pendingSyncCommitteeMessages),
+  debug "Sync committee message statistics",
+        total = len(pendingSyncCommitteeMessages),
         succeed = statistics[0], failed_to_deliver = statistics[1],
         not_accepted = statistics[2], delay = delay, slot = slot,
         duties_count = len(duties)
 
 proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
                                 proof: ContributionAndProof,
-                                validator: AttachedValidator): Future[bool] {.async.} =
+                                validator: AttachedValidator): Future[bool] {.
+     async.} =
   let
     vc = service.client
     slot = proof.contribution.slot
@@ -226,8 +231,9 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
                     beaconBlockRoot = shortLog(beaconBlockRoot)
               return
             except CatchableError as exc:
-              error "Unexpected error occurred while getting sync message contribution",
-                    slot = slot, beaconBlockRoot = shortLog(beaconBlockRoot),
+              error "Unexpected error occurred while getting sync message "&
+                    "contribution", slot = slot,
+                    beaconBlockRoot = shortLog(beaconBlockRoot),
                     err_name = exc.name, err_msg = exc.msg
               return
 
@@ -262,7 +268,8 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
         (succeed, errored, failed)
 
     let delay = vc.getDelay(slot.aggregate_deadline())
-    debug "Sync message contribution statistics", total = len(pendingAggregates),
+    debug "Sync message contribution statistics",
+          total = len(pendingAggregates),
           succeed = statistics[0], failed_to_deliver = statistics[1],
           not_accepted = statistics[2], delay = delay, slot = slot
 
@@ -271,7 +278,8 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
 
 proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
                                          slot: Slot,
-                                         duties: seq[SyncDutyAndProof]) {.async.} =
+                                         duties: seq[SyncDutyAndProof]) {.
+     async.} =
   let
     vc = service.client
     startTime = Moment.now()
