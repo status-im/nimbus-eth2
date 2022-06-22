@@ -66,6 +66,9 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
             validator = shortLog(validator),
             validator_index = vindex
       return false
+    except CancelledError:
+      debug "Publish sync committee message request was interrupted"
+      return false
     except CatchableError as exc:
       error "Unexpected error occurred while publishing sync committee message",
             message = shortLog(message),
@@ -176,6 +179,9 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
             validator_index = validatorIdx,
             err_msg = err.msg
       false
+    except CancelledError:
+      debug "Publish sync contribution request was interrupted"
+      return false
     except CatchableError as err:
       error "Unexpected error occurred while publishing sync contribution",
             contribution = shortLog(proof.contribution),
@@ -231,6 +237,9 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
             except ValidatorApiError:
               error "Unable to get sync message contribution data", slot = slot,
                     beaconBlockRoot = shortLog(beaconBlockRoot)
+              return
+            except CancelledError:
+              debug "Request for sync message contribution was interrupted"
               return
             except CatchableError as exc:
               error "Unexpected error occurred while getting sync message "&
@@ -291,6 +300,9 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
     await vc.waitForBlockPublished(slot).wait(nanoseconds(timeout.nanoseconds))
     let dur = Moment.now() - startTime
     debug "Block proposal awaited", slot = slot, duration = dur
+  except CancelledError:
+    debug "Block proposal waiting was interrupted"
+    return
   except AsyncTimeoutError:
     let dur = Moment.now() - startTime
     debug "Block was not produced in time", slot = slot, duration = dur
@@ -308,6 +320,9 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
       except ValidatorApiError as exc:
         error "Unable to retrieve head block's root to sign", reason = exc.msg
         return
+      except CancelledError:
+        debug "Block root request was interrupted"
+        return
       except CatchableError as exc:
         error "Unexpected error while requesting sync message block root",
               err_name = exc.name, err_msg = exc.msg, slot = slot
@@ -320,6 +335,9 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
   except ValidatorApiError:
     error "Unable to proceed sync committee messages", slot = slot,
            duties_count = len(duties)
+    return
+  except CancelledError:
+    debug "Sync committee producing process was interrupted"
     return
   except CatchableError as exc:
     error "Unexpected error while producing sync committee messages",
@@ -351,19 +369,33 @@ proc spawnSyncCommitteeTasks(service: SyncCommitteeServiceRef, slot: Slot) =
 proc mainLoop(service: SyncCommitteeServiceRef) {.async.} =
   let vc = service.client
   service.state = ServiceState.Running
-  try:
-    while true:
-      let sleepTime =
-        syncCommitteeMessageSlotOffset + vc.beaconClock.durationToNextSlot()
+  debug "Service started"
 
-      let sres = vc.getCurrentSlot()
-      if sres.isSome():
-        let currentSlot = sres.get()
-        service.spawnSyncCommitteeTasks(currentSlot)
-      await sleepAsync(sleepTime)
-  except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-         err_msg = exc.msg
+  while true:
+    # This loop could look much more nicer/better, when
+    # https://github.com/nim-lang/Nim/issues/19911 will be fixed, so it could
+    # become safe to combine loops, breaks and exception handlers.
+    let breakLoop =
+      try:
+        let sleepTime =
+          syncCommitteeMessageSlotOffset + vc.beaconClock.durationToNextSlot()
+
+        let sres = vc.getCurrentSlot()
+        if sres.isSome():
+          let currentSlot = sres.get()
+          service.spawnSyncCommitteeTasks(currentSlot)
+        await sleepAsync(sleepTime)
+        false
+      except CancelledError:
+        debug "Service interrupted"
+        true
+      except CatchableError as exc:
+        warn "Service crashed with unexpected error", err_name = exc.name,
+             err_msg = exc.msg
+        true
+
+    if breakLoop:
+      break
 
 proc init*(t: typedesc[SyncCommitteeServiceRef],
            vc: ValidatorClientRef): Future[SyncCommitteeServiceRef] {.async.} =

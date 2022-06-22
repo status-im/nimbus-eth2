@@ -218,28 +218,40 @@ proc checkNodes*(service: FallbackServiceRef) {.async.} =
     raise exc
 
 proc mainLoop(service: FallbackServiceRef) {.async.} =
+  let vc = service.client
   service.state = ServiceState.Running
-  try:
-    while true:
-      await service.checkNodes()
-      await sleepAsync(2.seconds)
-      if service.client.onlineNodesCount() != 0:
-        service.onlineEvent.fire()
-      else:
-        let counter = service.client.getNodeCounts()
-        warn "No suitable beacon nodes available",
-             online_nodes = counter.online,
-             offline_nodes = counter.offline,
-             uninitalized_nodes = counter.uninitalized,
-             incompatible_nodes = counter.incompatible,
-             nonsynced_nodes = counter.nosync,
-             total_nodes = len(service.client.beaconNodes)
+  debug "Service started"
 
-  except CancelledError as exc:
-    debug "Service interrupted"
-  except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-         err_msg = exc.msg
+  while true:
+    # This loop could look much more nicer/better, when
+    # https://github.com/nim-lang/Nim/issues/19911 will be fixed, so it could
+    # become safe to combine loops, breaks and exception handlers.
+    let breakLoop =
+      try:
+        await service.checkNodes()
+        await sleepAsync(2.seconds)
+        if service.client.onlineNodesCount() != 0:
+          service.onlineEvent.fire()
+        else:
+          let counter = vc.getNodeCounts()
+          warn "No suitable beacon nodes available",
+               online_nodes = counter.online,
+               offline_nodes = counter.offline,
+               uninitalized_nodes = counter.uninitalized,
+               incompatible_nodes = counter.incompatible,
+               nonsynced_nodes = counter.nosync,
+               total_nodes = len(vc.beaconNodes)
+        false
+      except CancelledError as exc:
+        debug "Service interrupted"
+        true
+      except CatchableError as exc:
+        warn "Service crashed with unexpected error", err_name = exc.name,
+             err_msg = exc.msg
+        true
+
+    if breakLoop:
+      break
 
 proc init*(t: typedesc[FallbackServiceRef],
            vc: ValidatorClientRef): Future[FallbackServiceRef] {.async.} =

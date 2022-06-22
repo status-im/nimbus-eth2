@@ -54,6 +54,9 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
       except ValidatorApiError:
         error "Unable to get head state's validator information"
         return
+      except CancelledError:
+        debug "Validator's indices request was interrupted"
+        return
       except CatchableError as exc:
         error "Unexpected error occurred while getting validator information",
               err_name = exc.name, err_msg = exc.msg
@@ -103,6 +106,9 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
         await vc.getAttesterDuties(epoch, indices)
       except ValidatorApiError:
         error "Unable to get attester duties", epoch = epoch
+        return 0
+      except CancelledError:
+        debug "Attester duties request was interrupted"
         return 0
       except CatchableError as exc:
         error "Unexpected error occured while getting attester duties",
@@ -208,6 +214,9 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
           await vc.getSyncCommitteeDuties(epoch, indices)
         except ValidatorApiError:
           error "Unable to get sync committee duties", epoch = epoch
+          return 0
+        except CancelledError:
+          debug "Request for sync committee duties was interrupted"
           return 0
         except CatchableError as exc:
           error "Unexpected error occurred while getting sync committee duties",
@@ -429,6 +438,8 @@ proc pollForBeaconProposers*(vc: ValidatorClientRef) {.async.} =
       except ValidatorApiError:
         debug "Unable to get proposer duties", slot = currentSlot,
               epoch = currentEpoch
+      except CancelledError:
+        debug "Proposer duties request was interrupted"
       except CatchableError as exc:
         debug "Unexpected error occured while getting proposer duties",
               slot = currentSlot, epoch = currentEpoch, err_name = exc.name,
@@ -486,7 +497,7 @@ template checkAndRestart(serviceLoop: DutiesServiceLoop,
       debug "The loop ended unexpectedly with an error",
             error_name = error.name, error_msg = error.msg, loop = serviceLoop
     elif future.cancelled():
-      debug "The loop is interrupted unexpectedly", loop = serviceLoop
+      debug "The loop was interrupted", loop = serviceLoop
     else:
       debug "The loop is finished unexpectedly without an error",
             loop = serviceLoop
@@ -494,37 +505,42 @@ template checkAndRestart(serviceLoop: DutiesServiceLoop,
 
 proc mainLoop(service: DutiesServiceRef) {.async.} =
   service.state = ServiceState.Running
+  debug "Service started"
 
-  try:
-    var
-      fut1 = service.attesterDutiesLoop()
-      fut2 = service.proposerDutiesLoop()
-      fut3 = service.validatorIndexLoop()
-      fut4 = service.syncCommitteeeDutiesLoop()
+  var
+    fut1 = service.attesterDutiesLoop()
+    fut2 = service.proposerDutiesLoop()
+    fut3 = service.validatorIndexLoop()
+    fut4 = service.syncCommitteeeDutiesLoop()
 
-    while true:
-      var breakLoop = false
+  while true:
+    # This loop could look much more nicer/better, when
+    # https://github.com/nim-lang/Nim/issues/19911 will be fixed, so it could
+    # become safe to combine loops, breaks and exception handlers.
+    let breakLoop =
       try:
         discard await race(fut1, fut2, fut3, fut4)
+        checkAndRestart(AttesterLoop, fut1, service.attesterDutiesLoop())
+        checkAndRestart(ProposerLoop, fut2, service.proposerDutiesLoop())
+        checkAndRestart(IndicesLoop, fut3, service.validatorIndexLoop())
+        checkAndRestart(SyncCommitteeLoop,
+                        fut4, service.syncCommitteeeDutiesLoop())
+        false
       except CancelledError:
         if not(fut1.finished()): fut1.cancel()
         if not(fut2.finished()): fut2.cancel()
         if not(fut3.finished()): fut3.cancel()
         if not(fut4.finished()): fut4.cancel()
         await allFutures(fut1, fut2, fut3, fut4)
-        breakLoop = true
+        debug "Service interrupted"
+        true
+      except CatchableError as exc:
+        warn "Service crashed with unexpected error", err_name = exc.name,
+             err_msg = exc.msg
+        true
 
-      if breakLoop:
-        break
-
-      checkAndRestart(AttesterLoop, fut1, service.attesterDutiesLoop())
-      checkAndRestart(ProposerLoop, fut2, service.proposerDutiesLoop())
-      checkAndRestart(IndicesLoop, fut3, service.validatorIndexLoop())
-      checkAndRestart(SyncCommitteeLoop,
-                      fut4, service.syncCommitteeeDutiesLoop())
-  except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-         err_msg = exc.msg
+    if breakLoop:
+      break
 
 proc init*(t: typedesc[DutiesServiceRef],
            vc: ValidatorClientRef): Future[DutiesServiceRef] {.async.} =
