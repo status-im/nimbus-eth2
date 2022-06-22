@@ -406,8 +406,9 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
   var
     optForkchoiceHeadSlot = GENESIS_SLOT # safe default
     optForkchoiceHeadRoot: Eth2Digest
+    optForkchoiceFinalizedRoot: Eth2Digest
 
-    # don't keep spamming same fcU to Geth; might be restarting sync each time
+    # don't keep fcUing same fcU to Geth; might be restarting sync each time
     lastFcHead: Eth2Digest
 
   while true:
@@ -455,6 +456,13 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
           # Vacuously
           PayloadExecutionStatus.valid
 
+    debug "FOO1",
+      blckSrc = blck.src,
+      isOpt = blck.src == MsgSource.optSync
+
+    # optSync blocks should always be of Bellatrix or newer forks.
+    doAssert blck.src != MsgSource.optSync or hasExecutionPayload
+
     if executionPayloadStatus in [
         PayloadExecutionStatus.invalid,
         PayloadExecutionStatus.invalid_block_hash]:
@@ -463,7 +471,11 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       # Every loop iteration ends with some version of blck.resfut.complete(),
       # including processBlock(), otherwise the sync manager stalls.
       if not blck.resfut.isNil:
-        blck.resfut.complete(Result[void, BlockError].err(BlockError.Invalid))
+        blck.resfut.complete(Result[void, BlockError].err(
+          if blck.src != MsgSource.optSync:
+            BlockError.Invalid
+          else:
+            BlockError.MissingParent))
       continue
 
     if isExecutionBlock:
@@ -511,12 +523,28 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       # catch outright invalid cases, where the EL can reject a payload, without
       # even running forkchoiceUpdated on it.
       static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
-      let curBh =
-        blck.blck.bellatrixData.message.body.execution_payload.block_hash
-      if curBh != lastFcHead:
-        lastFcHead = curBh
+      let
+        curBh =
+          blck.blck.bellatrixData.message.body.execution_payload.block_hash
+        preferBlockExecutionPayloadHash =
+          blck.blck.bellatrixData.message.slot + SLOTS_PER_EPOCH * 16 >=
+            optForkchoiceHeadSlot
+        usedBh =
+          if preferBlockExecutionPayloadHash:
+            blck.blck.bellatrixData.message.body.execution_payload.block_hash
+          else:
+            optForkchoiceHeadRoot
+
+      if usedBh != lastFcHead:
+        lastFcHead = usedBh
+
+        if blck.src == MsgSource.optSync:
+          optForkchoiceHeadSlot = blck.blck.bellatrixData.message.slot
+          optForkchoiceHeadRoot =
+            blck.blck.bellatrixData.message.body.execution_payload.block_hash
+
         if await self.runForkchoiceUpdated(
-            curBh,
+            usedBh,
             self.consensusManager.dag.finalizedHead.blck.executionBlockRoot):
           # Geth seldom seems to return VALID to newPayload alone, even when
           # it has all the relevant information.

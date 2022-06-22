@@ -265,6 +265,28 @@ proc initFullNode(
   func getFrontfillSlot(): Slot =
     dag.frontfill.slot
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.1.9/sync/optimistic.md#constants
+  # TODO use config settin
+  const
+    SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY = 128
+    OPTIMISTIC_SYNC_WINDOW_SLOTS = 64
+
+  proc getOptimisticStartSlot(): Slot =
+    const SLOT_OFFSET =
+      SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY + OPTIMISTIC_SYNC_WINDOW_SLOTS
+    let localWallSlot = getLocalWallSlot()
+    if localWallSlot >= SLOT_OFFSET:
+      localWallSlot - SLOT_OFFSET
+    else:
+      0.Slot
+
+  proc getOptimisticEndSlot(): Slot =
+    let localWallSlot = getLocalWallSlot()
+    if localWallSlot >= SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY:
+      localWallSlot - SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY
+    else:
+      0.Slot
+
   let
     quarantine = newClone(
       Quarantine.init())
@@ -290,6 +312,17 @@ proc initFullNode(
       let resfut = newFuture[Result[void, BlockError]]("blockVerifier")
       blockProcessor[].addBlock(MsgSource.gossip, signedBlock, resfut)
       resfut
+    optimisticBlockVerifier = proc(signedBlock: ForkedSignedBeaconBlock):
+        Future[Result[void, BlockError]] =
+      let resfut = newFuture[Result[void, BlockError]]("optimisticBlockVerifier")
+      static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
+      if  dag.headState.kind >= BeaconStateFork.Bellatrix and
+          signedBlock.kind >= BeaconBlockFork.Bellatrix and
+          signedBlock.bellatrixData.message.body.is_execution_block:
+        blockProcessor[].addBlock(MsgSource.optSync, signedBlock, resfut)
+      else:
+        resfut.complete(Result[void, BlockError].ok())
+      resfut
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool, exitPool,
@@ -303,6 +336,11 @@ proc initFullNode(
       node.network.peerPool, SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.backfill.slot, blockVerifier, maxHeadAge = 0)
+    optimisticSyncManager = newSyncManager[Peer, PeerID](
+      node.network.peerPool, SyncQueueKind.Forward, getOptimisticStartSlot,
+      getOptimisticEndSlot,
+      getOptimisticStartSlot, # match with head slot, because going back pointless
+      getBackfillSlot, getFrontfillSlot, dag.tail.slot, optimisticBlockVerifier)
 
   dag.setFinalizationCb makeOnFinalizationCb(node.eventBus, node.eth1Monitor)
 
@@ -318,6 +356,7 @@ proc initFullNode(
   node.requestManager = RequestManager.init(node.network, blockVerifier)
   node.syncManager = syncManager
   node.backfiller = backfiller
+  node.optimisticSyncManager = optimisticSyncManager
 
   debug "Loading validators", validatorsDir = config.validatorsDir()
 
@@ -1474,6 +1513,7 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   node.startLightClient()
   node.requestManager.start()
   node.syncManager.start()
+  node.optimisticSyncManager.start()
 
   if node.dag.needsBackfill(): asyncSpawn node.startBackfillTask()
 

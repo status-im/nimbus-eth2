@@ -73,6 +73,7 @@ type
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerId]
     backfiller*: SyncManager[Peer, PeerId]
+    optimisticSyncManager*: SyncManager[Peer, PeerId]
     genesisSnapshotContent*: string
     actionTracker*: ActionTracker
     processor*: ref Eth2Processor
