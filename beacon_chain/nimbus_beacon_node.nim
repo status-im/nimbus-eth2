@@ -435,7 +435,9 @@ proc init*(T: type BeaconNode,
     quit 1
 
   let optJwtSecret =
-    if cfg.BELLATRIX_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    # Some Web3 endpoints aren't compatible with JWT, but if explicitly chosen,
+    # use it regardless.
+    if config.jwtSecret.isSome:
       let jwtSecret = rng[].checkJwtSecret(
         string(config.dataDir), config.jwtSecret)
       if jwtSecret.isErr:
