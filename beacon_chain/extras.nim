@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -34,5 +34,7 @@ type
     ## When process_slots() is being called as part of a state_transition(),
     ## the hash_tree_root() from the block will fill in the state.root so it
     ## should skip calculating that last state root.
+    enableTestnetFeatures ##\
+    ## Whether to opt into testnet specific logic.
 
   UpdateFlags* = set[UpdateFlag]

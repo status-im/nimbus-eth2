@@ -151,7 +151,8 @@ proc loadChainDag(
     db: BeaconChainDB,
     eventBus: EventBus,
     validatorMonitor: ref ValidatorMonitor,
-    networkGenesisValidatorsRoot: Option[Eth2Digest]): ChainDAGRef =
+    networkGenesisValidatorsRoot: Option[Eth2Digest],
+    shouldEnableTestnetFeatures: bool): ChainDAGRef =
   info "Loading block DAG from database", path = config.databaseDir
 
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
@@ -166,6 +167,9 @@ proc loadChainDag(
     eventBus.optUpdateQueue.emit(data)
 
   let
+    extraFlags =
+      if shouldEnableTestnetFeatures: {enableTestnetFeatures}
+      else: {}
     chainDagFlags =
       if config.verifyFinalization: {verifyFinalization}
       else: {}
@@ -176,7 +180,7 @@ proc loadChainDag(
       if config.lightClientDataServe.get: onLightClientOptimisticUpdate
       else: nil
     dag = ChainDAGRef.init(
-      cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
+      cfg, db, validatorMonitor, extraFlags + chainDagFlags, config.eraDir,
       onBlockAdded, onHeadChanged, onChainReorg,
       onLCFinalityUpdateCb = onLightClientFinalityUpdateCb,
       onLCOptimisticUpdateCb = onLightClientOptimisticUpdateCb,
@@ -568,7 +572,8 @@ proc init*(T: type BeaconNode,
         none(Eth2Digest)
     dag = loadChainDag(
       config, cfg, db, eventBus,
-      validatorMonitor, networkGenesisValidatorsRoot)
+      validatorMonitor, networkGenesisValidatorsRoot,
+      genesisStateContents.shouldEnableTestnetFeatures)
     genesisTime = getStateField(dag.headState, genesis_time)
     beaconClock = BeaconClock.init(genesisTime)
     getBeaconTime = beaconClock.getBeaconTimeFn()
