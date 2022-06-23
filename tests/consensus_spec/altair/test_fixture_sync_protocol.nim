@@ -239,7 +239,6 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
         default(array[log2trunc(altair.NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest])
 
     # Finality is unchanged
-    let
       finality_header = BeaconBlockHeader()
       finality_branch =
         default(array[log2trunc(altair.FINALIZED_ROOT_INDEX), Eth2Digest])
@@ -292,13 +291,11 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
 
     # Sync committee is updated
     template next_sync_committee(): auto = state.next_sync_committee
-    var next_sync_committee_branch {.noinit.}:
-      array[log2trunc(altair.NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
-    state.build_proof(
-      altair.NEXT_SYNC_COMMITTEE_INDEX, next_sync_committee_branch)
+    let
+      next_sync_committee_branch =
+        state.build_proof(altair.NEXT_SYNC_COMMITTEE_INDEX).get
 
     # Finality is unchanged
-    let
       finality_header = BeaconBlockHeader()
       finality_branch =
         default(array[log2trunc(altair.FINALIZED_ROOT_INDEX), Eth2Digest])
@@ -364,12 +361,9 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
     check:
       finalized_header.slot == start_slot(state.finalized_checkpoint.epoch)
       finalized_header.hash_tree_root() == state.finalized_checkpoint.root
-    var finality_branch {.noinit.}:
-      array[log2trunc(altair.FINALIZED_ROOT_INDEX), Eth2Digest]
-    state.build_proof(
-      altair.FINALIZED_ROOT_INDEX, finality_branch)
-
     let
+      finality_branch = state.build_proof(altair.FINALIZED_ROOT_INDEX).get
+
       update = altair.LightClientUpdate(
         attested_header: attested_header,
         next_sync_committee: next_sync_committee,
