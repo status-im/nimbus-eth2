@@ -82,7 +82,7 @@ ETH2_DOCKER_IMAGE=""
 REMOTE_SIGNER_NODES=0
 REMOTE_SIGNER_THRESHOLD=1
 REMOTE_VALIDATORS_COUNT=0
-LC_NODES=0
+LC_NODES=1
 ACCOUNT_PASSWORD="nimbus"
 RUN_GETH="0"
 DL_GETH="0"
@@ -94,8 +94,6 @@ NIMBUS_EL_BINARY="../nimbus-eth1/build/nimbus"
 
 EL_HTTP_PORTS=()
 PROCS_TO_KILL=("nimbus_beacon_node" "nimbus_validator_client" "nimbus_signing_node" "nimbus_light_client")
-
-
 
 print_help() {
   cat <<EOF
@@ -558,11 +556,13 @@ cleanup() {
     docker rm $(docker stop $(docker ps -a -q --filter ancestor=$ETH2_DOCKER_IMAGE --format="{{.ID}}"))
   fi
 
-  for dir in "${CLEANUP_DIRS[@]}"
-  do
-    log "Deleting ${dir}"
-    rm -rf "${dir}"
-  done
+  if [ ${#CLEANUP_DIRS[@]} -ne 0 ]; then # check if the array is empty
+    for dir in "${CLEANUP_DIRS[@]}"
+    do
+      log "Deleting ${dir}"
+      rm -rf "${dir}"
+    done
+  fi
 }
 
 trap 'cleanup' SIGINT SIGTERM EXIT
@@ -854,7 +854,11 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     done
   fi
 
-  WEB3_ARG="--web3-url=http://127.0.0.1:${EL_HTTP_PORTS[${NUM_NODE}]}"
+  if [ ${#EL_HTTP_PORTS[@]} -eq 0 ]; then # check if the array is empty
+    WEB3_ARG=""
+  else
+    WEB3_ARG="--web3-url=http://127.0.0.1:${EL_HTTP_PORTS[${NUM_NODE}]}"
+  fi
 
   ${BEACON_NODE_COMMAND} \
     --config-file="${CLI_CONF_FILE}" \
