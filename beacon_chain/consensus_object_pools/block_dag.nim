@@ -8,6 +8,7 @@
 {.push raises: [Defect].}
 
 import
+  std/options,
   chronicles,
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/forks
@@ -31,7 +32,7 @@ type
     bid*: BlockId ##\
       ## Root that can be used to retrieve block data from database
 
-    executionBlockRoot*: Eth2Digest
+    executionBlockRoot*: Option[Eth2Digest]
 
     parent*: BlockRef ##\
     ## Not nil, except for the finalized head
@@ -54,7 +55,7 @@ func init*(
     slot: Slot): BlockRef =
   BlockRef(
     bid: BlockId(root: root, slot: slot),
-    executionBlockRoot: executionPayloadRoot,
+    executionBlockRoot: some executionPayloadRoot,
   )
 
 func init*(

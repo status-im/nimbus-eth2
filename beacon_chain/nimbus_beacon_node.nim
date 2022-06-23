@@ -322,7 +322,8 @@ proc initFullNode(
       dag, attestationPool, quarantine, node.eth1Monitor)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime)
+      rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime,
+      config.safeSlotsToImportOptimistically)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock):
         Future[Result[void, BlockError]] =
       # The design with a callback for block verification is unusual compared
@@ -1287,6 +1288,8 @@ func syncStatus(node: BeaconNode): string =
     node.syncManager.syncStatus
   elif node.backfiller.inProgress:
     "backfill: " & node.backfiller.syncStatus
+  elif node.dag.is_optimistic(node.dag.head.root):
+    "opt synced"
   else:
     "synced"
 

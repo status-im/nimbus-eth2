@@ -165,12 +165,11 @@ func init*(
       attester_dependent_root: attester_dependent_root,
       merge_transition_complete:
         case state.kind:
-        of BeaconStateFork.Phase0: false
-        of BeaconStateFork.Altair: false
+        of BeaconStateFork.Phase0, BeaconStateFork.Altair: false
         of BeaconStateFork.Bellatrix:
           # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
           state.bellatrixData.data.latest_execution_payload_header !=
-            ExecutionPayloadHeader()
+            (static(ExecutionPayloadHeader()))
     )
     epochStart = epoch.start_slot()
 
@@ -950,6 +949,17 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   dag.initLightClientDataCache()
 
+  # If these aren't actually optimistic, the first fcU will resolve that
+  withState(dag.headState):
+    when stateFork >= BeaconStateFork.Bellatrix:
+      template executionPayloadHeader(): auto =
+        state().data.latest_execution_payload_header
+      const emptyExecutionPayloadHeader =
+        default(type(executionPayloadHeader))
+      if executionPayloadHeader != emptyExecutionPayloadHeader:
+        dag.optimisticRoots.incl dag.head.root
+        dag.optimisticRoots.incl dag.finalizedHead.blck.root
+
   dag
 
 template genesis_validators_root*(dag: ChainDAGRef): Eth2Digest =
@@ -1375,6 +1385,8 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
       "finalizedHead parent should have been pruned from memory already"
 
     while cur.blck.parent != nil:
+      dag.optimisticRoots.excl cur.blck.root
+
       # TODO: should we move that disk I/O to `onSlotEnd`
       dag.delState(cur.toBlockSlotId().expect("not nil"))
 
@@ -1393,6 +1405,75 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     currentCandidateHeads = dag.heads.len,
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#helpers
+template is_optimistic*(dag: ChainDAGRef, root: Eth2Digest): bool =
+  root in dag.optimisticRoots
+
+proc markBlockInvalid*(dag: ChainDAGRef, root: Eth2Digest) =
+  let blck = dag.getBlockRef(root).valueOr:
+    return
+  logScope: blck = shortLog(blck)
+
+  if not dag.is_optimistic(root):
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#transitioning-from-valid---invalidated-or-invalidated---valid
+    # "It is outside of the scope of the specification since it's only possible
+    # with a faulty EE. Such a scenario requires manual intervention."
+    warn "markBlockInvalid: attempt to invalidate valid block"
+    doAssert verifyFinalization notin dag.updateFlags
+    return
+
+  if root == dag.finalizedHead.blck.root:
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#re-orgs
+    # "If the justified checkpoint transitions from `NOT_VALIDATED` ->
+    # `INVALIDATED`, a consensus engine MAY choose to alert the user and force
+    # the application to exit."
+    #
+    # But be slightly less aggressive, and only check finalized.
+    warn "markBlockInvalid: finalized block invalidated"
+    doAssert verifyFinalization notin dag.updateFlags
+    return
+
+  dag.optimisticRoots.excl root
+
+  debug "markBlockInvalid"
+
+  # TODO copied from inner loop in pruneBlocksDAG, could refactor
+  dag.delState(blck.bid.atSlot())
+
+  # TODO These are gated by cur.isProposed in pruneBlocksDAG, but here should
+  # not be necessary or useful
+  dag.deleteLightClientData(blck.bid)
+  dag.forkBlocks.excl(KeyedBlockRef.init(blck))
+  dag.db.delBlock(root)
+
+proc markBlockVerified*(
+    dag: ChainDAGRef, quarantine: var Quarantine, root: Eth2Digest) =
+  # Might be called when block was never optimistic to begin with. In that
+  # circumstance, bail early.
+  if not dag.is_optimistic(root):
+    return
+
+  var cur = dag.getBlockRef(root).valueOr:
+    return
+  logScope: blck = shortLog(cur)
+
+  debug "markBlockVerified",
+    blck = shortLog(cur)
+
+  while true:
+    if not dag.is_optimistic(cur.bid.root):
+      return
+
+    dag.optimisticRoots.excl cur.bid.root
+
+    debug "markBlockVerified ancestor",
+      blck = shortLog(cur)
+
+    if cur.parent.isNil:
+      break
+
+    cur = cur.parent
 
 iterator syncSubcommittee*(
     syncCommittee: openArray[ValidatorIndex],
@@ -1533,6 +1614,27 @@ template getHeadStateMergeComplete*(dag: ChainDAGRef): bool =
     else:
       false
 
+proc loadExecutionBlockRoot*(dag: ChainDAGRef, blck: BlockRef): Eth2Digest =
+  if dag.cfg.blockForkAtEpoch(blck.bid.slot.epoch) < BeaconBlockFork.Bellatrix:
+    return ZERO_HASH
+
+  if blck.executionBlockRoot.isSome:
+    return blck.executionBlockRoot.get
+
+  let blockData = dag.getForkedBlock(blck.bid).valueOr:
+    blck.executionBlockRoot = some ZERO_HASH
+    return ZERO_HASH
+
+  let executionBlockRoot =
+    withBlck(blockData):
+      when stateFork >= BeaconStateFork.Bellatrix:
+        blck.message.body.execution_payload.block_hash
+      else:
+        ZERO_HASH
+  blck.executionBlockRoot = some executionBlockRoot
+
+  executionBlockRoot
+
 proc updateHead*(
     dag: ChainDAGRef,
     newHead: BlockRef,
@@ -1614,7 +1716,8 @@ proc updateHead*(
       stateRoot = shortLog(getStateRoot(dag.headState)),
       justified = shortLog(getStateField(
         dag.headState, current_justified_checkpoint)),
-      finalized = shortLog(getStateField(dag.headState, finalized_checkpoint))
+      finalized = shortLog(getStateField(dag.headState, finalized_checkpoint)),
+      isOptHead = dag.is_optimistic(newHead.root)
 
     if not(isNil(dag.onReorgHappened)):
       let
@@ -1635,7 +1738,8 @@ proc updateHead*(
       stateRoot = shortLog(getStateRoot(dag.headState)),
       justified = shortLog(getStateField(
         dag.headState, current_justified_checkpoint)),
-      finalized = shortLog(getStateField(dag.headState, finalized_checkpoint))
+      finalized = shortLog(getStateField(dag.headState, finalized_checkpoint)),
+      isOptHead = dag.is_optimistic(newHead.root)
 
     if not(isNil(dag.onHeadChanged)):
       let
@@ -1685,8 +1789,8 @@ proc updateHead*(
 
       dag.db.updateFinalizedBlocks(newFinalized)
 
-    if  oldFinalizedHead.blck.executionBlockRoot.isZero and
-        not dag.finalizedHead.blck.executionBlockRoot.isZero:
+    if  dag.loadExecutionBlockRoot(oldFinalizedHead.blck).isZero and
+        not dag.loadExecutionBlockRoot(dag.finalizedHead.blck).isZero:
       dag.vanityLogs.onFinalizedMergeTransitionBlock()
 
     # Pruning the block dag is required every time the finalized head changes
