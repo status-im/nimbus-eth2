@@ -349,8 +349,12 @@ proc createLightClientUpdates(
           period = key, update = best
 
   if newFinality and dag.onLightClientFinalityUpdate != nil:
+    info "FOO73",
+      latest = shortLog(latest)
     dag.onLightClientFinalityUpdate(latest)
   if newOptimistic and dag.onLightClientOptimisticUpdate != nil:
+    info "FOO79",
+      latest = shortLog(latest)
     dag.onLightClientOptimisticUpdate(latest.toOptimistic)
 
 proc processNewBlockForLightClient*(

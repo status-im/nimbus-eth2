@@ -43,8 +43,12 @@ type
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md
 proc reportOptimisticCandidateBlock(optSync: LCOptimisticSync) {.gcsafe.} =
+  info "FOO2"
+
   if optSync.processFut != nil:
     return
+
+  info "FOO___"
 
   # Check if finalized is execution block (implies that justified is, too)
   if optSync.finalizedIsExecutionBlock.isNone:
@@ -70,6 +74,8 @@ proc reportOptimisticCandidateBlock(optSync: LCOptimisticSync) {.gcsafe.} =
         let minAge = optSync.safeSlotsToImportOptimistically
         max(currentSlot, minAge.Slot) - minAge.uint64
 
+  info "FOO8"
+
   if maxSlot > optSync.lastReportedSlot:
     const minGapSize = SLOTS_PER_EPOCH
     var signedBlock: Opt[ForkedMsgTrustedSignedBeaconBlock]
@@ -87,7 +93,12 @@ proc reportOptimisticCandidateBlock(optSync: LCOptimisticSync) {.gcsafe.} =
         if signedBlock.isOk:
           break
 
+    info "FOO89"
     if signedBlock.isOk and signedBlock.get.slot > optSync.lastReportedSlot:
+      info "FOO39",
+        slot = signedBlock.get.slot,
+        lastReportedSlot = optSync.lastReportedSlot,
+        blck = shortLog(signedBlock.get)
       optSync.lastReportedSlot = signedBlock.get.slot
       optSync.processFut = optSync.optimisticProcessor(signedBlock.get)
 
@@ -114,8 +125,12 @@ proc initLCOptimisticSync*(
 
   proc blockVerifier(signedBlock: ForkedSignedBeaconBlock):
       Future[Result[void, BlockError]] =
+    info "FOO37",
+      blck = shortLog(signedBlock)
     let res = optSync.lcBlocks.addBlock(signedBlock)
     if res.isOk:
+      info "FOO29",
+        blck = shortLog(signedBlock)
       if optSync.syncStrategy == SyncStrategy.RequestManager:
         let root = optSync.lcBlocks.getBackfillRoot()
         if root.isSome:
@@ -133,6 +148,8 @@ proc initLCOptimisticSync*(
 
   optSync.blockVerifier = blockVerifier
   optSync.requestManager = RequestManager.init(network, optSync.blockVerifier)
+
+  info "FOO9"
 
   optSync
 

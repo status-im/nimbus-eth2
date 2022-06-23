@@ -51,16 +51,20 @@ proc initLightClient*(
         # Minimum number of slots to be ahead of DAG to use optimistic sync
         minProgress = 8 * SLOTS_PER_EPOCH
         # Maximum age of light client optimistic header to use optimistic sync
-        maxAge = 2 * SLOTS_PER_EPOCH
+        maxAge = 3 * SLOTS_PER_EPOCH
 
-      if slot < getStateField(node.dag.headState, slot) + minProgress:
-        false
-      elif getBeaconTime().slotOrZero > slot + maxAge:
+      info "FOO3",
+        slot,
+        wallSlot = getBeaconTime().slotOrZero
+
+      if getBeaconTime().slotOrZero > slot + maxAge:
         false
       else:
         true
 
     proc onFinalizedHeader(lightClient: LightClient) =
+      info "FOO4",
+        lightClientOptimisticHeader = lightClient.optimisticHeader
       let optimisticHeader = lightClient.optimisticHeader.valueOr:
         return
       if not shouldSyncOptimistically(optimisticHeader.slot):
@@ -69,13 +73,20 @@ proc initLightClient*(
         return
       optSync.setOptimisticHeader(optimisticHeader)
       optSync.setFinalizedHeader(finalizedHeader)
+      info "FOO83",
+        optimisticHeader,
+        finalizedHeader
 
     proc onOptimisticHeader(lightClient: LightClient) =
+      info "FOO5",
+        lightClientOptimisticHeader = lightClient.optimisticHeader
       let optimisticHeader = lightClient.optimisticHeader.valueOr:
         return
       if not shouldSyncOptimistically(optimisticHeader.slot):
         return
       optSync.setOptimisticHeader(optimisticHeader)
+      info "FOO84",
+        optimisticHeader
 
     lightClient.onFinalizedHeader = onFinalizedHeader
     lightClient.onOptimisticHeader = onOptimisticHeader
@@ -92,6 +103,9 @@ proc initLightClient*(
 proc startLightClient*(node: BeaconNode) =
   if not node.config.lightClientEnable.get:
     return
+
+
+  info "FOO6: Starting light client"
 
   node.lcOptSync.start()
   node.lightClient.start()

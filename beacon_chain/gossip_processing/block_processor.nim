@@ -407,6 +407,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
     optForkchoiceHeadSlot = GENESIS_SLOT # safe default
     optForkchoiceHeadRoot: Eth2Digest
     optForkchoiceFinalizedRoot: Eth2Digest
+    ignoreOptSync = false
 
     # don't keep fcUing same fcU to Geth; might be restarting sync each time
     lastFcHead: Eth2Digest
@@ -431,6 +432,11 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       isExecutionBlock =
         hasExecutionPayload and
           blck.blck.bellatrixData.message.body.is_execution_block
+
+    if ignoreOptSync and blck.src == MsgSource.optSync:
+      continue
+
+    let
       executionPayloadStatus =
         if isExecutionBlock:
           # Eth1 syncing is asynchronous from this
@@ -501,8 +507,9 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       # cause a sync deadlock unless the EL can be convinced to sync back, or
       # the CL is rather more open-endedly optimistic (potentially for entire
       # weak subjectivity periods) than seems optimal.
-      debug "runQueueProcessingLoop: execution payload accepted or syncing",
-        executionPayloadStatus
+      debug "runQueueProcessingLoop: execution payload",
+        executionPayloadStatus,
+        blck = shortLog(blck.blck.bellatrixData)
 
       # Always do this. Geth will only initiate syncing or reorgs with this
       # combination of newPayload and forkchoiceUpdated. By design this must
@@ -560,4 +567,5 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
 
     # When newPayload, rather than forkchoiceUpdated, has returned valid.
     doAssert executionPayloadStatus == PayloadExecutionStatus.valid
+    ignoreOptSync = true
     self[].processBlock(blck)
