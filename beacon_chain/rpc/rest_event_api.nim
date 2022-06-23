@@ -53,12 +53,7 @@ proc eventHandler*[T](response: HttpResponseRef,
         empty
 
     for event in events:
-      let jsonRes =
-        when T is ForkedTrustedSignedBeaconBlock:
-          let blockInfo = RestBlockInfo.init(event)
-          RestApiResponse.prepareJsonStringResponse(blockInfo)
-        else:
-          RestApiResponse.prepareJsonStringResponse(event)
+      let jsonRes =  RestApiResponse.prepareJsonStringResponse(event)
 
       exitLoop =
         if response.state != HttpResponseState.Sending:

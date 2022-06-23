@@ -272,6 +272,40 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
 proc getRouter*(allowedOrigin: Option[string]): RestRouter =
   RestRouter.init(validate, allowedOrigin = allowedOrigin)
 
+proc getStateOptimistic*(node: BeaconNode,
+                         state: ForkedHashedBeaconState): Option[bool] =
+  if node.dag.getHeadStateMergeComplete():
+    case state.kind
+    of BeaconStateFork.Phase0, BeaconStateFork.Altair:
+      some[bool](false)
+    of BeaconStateFork.Bellatrix:
+      # TODO (cheatfate): Proper implementation required.
+      some[bool](false)
+  else:
+    none[bool]()
+
+proc getBlockOptimistic*(node: BeaconNode,
+                         blck: ForkedTrustedSignedBeaconBlock |
+                               ForkedSignedBeaconBlock): Option[bool] =
+  if node.dag.getHeadStateMergeComplete():
+    case blck.kind
+    of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
+      some[bool](false)
+    of BeaconBlockFork.Bellatrix:
+      # TODO (cheatfate): Proper implementation required.
+      some[bool](false)
+  else:
+    none[bool]()
+
+proc getBlockRefOptimistic*(node: BeaconNode, blck: BlockRef): bool =
+  let blck = node.dag.getForkedBlock(blck.bid).get()
+  case blck.kind
+  of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
+    false
+  of BeaconBlockFork.Bellatrix:
+    # TODO (cheatfate): Proper implementation required.
+    false
+
 const
   jsonMediaType* = MediaType.init("application/json")
   sszMediaType* = MediaType.init("application/octet-stream")

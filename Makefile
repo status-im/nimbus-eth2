@@ -25,6 +25,7 @@ NODE_ID := 0
 BASE_PORT := 9000
 BASE_REST_PORT := 5052
 BASE_METRICS_PORT := 8008
+EXECUTOR_NUMBER := 0
 
 ROPSTEN_WEB3_URL := "--web3-url=wss://ropsten.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 SEPOLIA_WEB3_URL := "--web3-url=https://rpc.sepolia.dev --web3-url=https://www.sepoliarpc.space"
@@ -146,6 +147,15 @@ update: | update-common
 # nim-libbacktrace
 libbacktrace:
 	+ "$(MAKE)" -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
+
+restapi-test:
+	./tests/simulation/restapi.sh \
+		--data-dir resttest0_data \
+		--base-port $$(( 9100 + EXECUTOR_NUMBER * 100 )) \
+		--base-rest-port $$(( 7100 + EXECUTOR_NUMBER * 100 )) \
+		--base-metrics-port $$(( 8108 + EXECUTOR_NUMBER * 100 )) \
+		--resttest-delay 30 \
+		--kill-old-processes
 
 # test binaries that can output an XML report
 XML_TEST_BINARIES := \
@@ -581,9 +591,9 @@ libnfuzz.a: | build deps
 		[[ -e "$@" ]] && mv "$@" build/ || true # workaround for https://github.com/nim-lang/Nim/issues/12745
 
 book:
-	which mdbook &>/dev/null || { echo "'mdbook' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	which mdbook-toc &>/dev/null || { echo "'mdbook-toc' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	which mdbook-open-on-gh &>/dev/null || { echo "'mdbook-open-on-gh' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook --version)" = "mdbook v0.4.18" ]] || { echo "'mdbook v0.4.18' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-toc --version)" == "mdbook-toc 0.8.0" ]] || { echo "'mdbook-toc 0.8.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-open-on-gh --version)" == "mdbook-open-on-gh 2.1.0" ]] || { echo "'mdbook-open-on-gh 2.1.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	cd docs/the_nimbus_book && \
 	mdbook build
 
@@ -606,7 +616,7 @@ publish-book: | book auditors-book
 	cp -a docs/the_auditors_handbook/book/* tmp-book/auditors-book/ && \
 	cd tmp-book && \
 	git add . && { \
-		git commit -m "make publish-book" && \
+		git commit -m "make publish-book $$(git rev-parse --short HEAD)" && \
 		git push origin gh-pages || true; } && \
 	cd .. && \
 	git worktree remove -f tmp-book && \

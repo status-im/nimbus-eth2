@@ -339,6 +339,11 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + vesion 2 single remote                                                                     OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Serialization/deserialization  [Preset: mainnet]
+```diff
++ Deserialization test vectors                                                               OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -568,4 +573,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 317/322 Fail: 0/322 Skip: 5/322
+OK: 318/323 Fail: 0/323 Skip: 5/323

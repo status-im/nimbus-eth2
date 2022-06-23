@@ -16,10 +16,10 @@ import
   std/[os, sequtils, tables],
 
   # Nimble packages
-  stew/[assign2, byteutils, objects],
+  stew/[byteutils, objects],
   chronos, metrics,
   chronicles, chronicles/timings,
-  json_serialization/std/[options, sets, net], serialization/errors,
+  json_serialization/std/[options, sets, net],
   eth/db/kvstore,
   eth/keys, eth/p2p/discoveryv5/[protocol, enr],
   web3/ethtypes,
@@ -36,7 +36,7 @@ import
   ../networking/eth2_network,
   ../sszdump, ../sync/sync_manager,
   ../gossip_processing/[block_processor, consensus_manager],
-  ".."/[conf, beacon_clock, beacon_node, version],
+  ".."/[conf, beacon_clock, beacon_node],
   "."/[slashing_protection, validator_pool, keystore_management]
 
 from eth/async_utils import awaitWithTimeout
@@ -526,7 +526,7 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
     none(bellatrix.PayloadID)
 
 proc get_execution_payload(
-    payload_id: Option[bellatrix.PayloadId], execution_engine: Eth1Monitor):
+    payload_id: Option[bellatrix.PayloadID], execution_engine: Eth1Monitor):
     Future[bellatrix.ExecutionPayload] {.async.} =
   return if payload_id.isNone():
     # Pre-merge, empty payload

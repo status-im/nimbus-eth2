@@ -43,12 +43,7 @@ def runStages(nodeDir) {
 			} }
 
 			stage("REST test suite") { timeout(5) {
-				sh """#!/bin/bash
-				set -e
-				./tests/simulation/restapi.sh --data-dir resttest0_data --base-port \$(( 9100 + EXECUTOR_NUMBER * 100 )) \
-					--base-rest-port \$(( 7100 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \
-				\$(( 8108 + EXECUTOR_NUMBER * 100 )) --resttest-delay 30 --kill-old-processes
-				"""
+				sh "make restapi-test"
 			} }
 
 			stage("Testnet finalization") { timeout(75) {

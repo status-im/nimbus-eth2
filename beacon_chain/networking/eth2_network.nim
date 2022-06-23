@@ -12,7 +12,7 @@ import
   std/[typetraits, os, sequtils, strutils, algorithm, math, tables],
 
   # Status libs
-  stew/[leb128, endians2, results, byteutils, io2, bitops2], bearssl,
+  stew/[leb128, endians2, results, byteutils, io2, bitops2],
   stew/shims/net as stewNet,
   stew/shims/[macros],
   faststreams/[inputs, outputs, buffers], snappy, snappy/faststreams,
@@ -75,7 +75,7 @@ type
     forkId*: ENRForkID
     discoveryForkId*: ENRForkID
     forkDigests*: ref ForkDigests
-    rng*: ref BrHmacDrbgContext
+    rng*: ref HmacDrbgContext
     peers*: Table[PeerId, Peer]
     validTopics: HashSet[string]
     peerPingerHeartbeatFut: Future[void]
@@ -1645,7 +1645,7 @@ proc new(T: type Eth2Node,
          switch: Switch, pubsub: GossipSub,
          ip: Option[ValidIpAddress], tcpPort, udpPort: Option[Port],
          privKey: keys.PrivateKey, discovery: bool,
-         rng: ref BrHmacDrbgContext): T {.raises: [Defect, CatchableError].} =
+         rng: ref HmacDrbgContext): T {.raises: [Defect, CatchableError].} =
   when not defined(local_testnet):
     let
       connectTimeout = chronos.minutes(1)
@@ -2034,7 +2034,7 @@ proc initAddress(T: type MultiAddress, str: string): T =
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
-proc optimisticgetRandomNetKeys*(rng: var BrHmacDrbgContext): NetKeyPair =
+proc optimisticgetRandomNetKeys*(rng: var HmacDrbgContext): NetKeyPair =
   let res = PrivateKey.random(Secp256k1, rng)
   if res.isErr():
     fatal "Could not generate random network key file"
@@ -2045,7 +2045,7 @@ proc optimisticgetRandomNetKeys*(rng: var BrHmacDrbgContext): NetKeyPair =
     pubKey = privKey.getPublicKey().expect("working public key from random")
   NetKeyPair(seckey: privKey, pubkey: pubKey)
 
-proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
+proc getPersistentNetKeys*(rng: var HmacDrbgContext,
                            config: BeaconNodeConf): NetKeyPair =
   case config.cmd
   of BNStartUpCmd.noCommand, BNStartUpCmd.record:
@@ -2178,7 +2178,7 @@ func gossipId(
 
 proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
                      seckey: PrivateKey, address: MultiAddress,
-                     rng: ref BrHmacDrbgContext): Switch {.raises: [Defect, CatchableError].} =
+                     rng: ref HmacDrbgContext): Switch {.raises: [Defect, CatchableError].} =
   SwitchBuilder
     .new()
     .withPrivateKey(seckey)
@@ -2213,7 +2213,7 @@ template gossipMaxSize(T: untyped): uint32 =
   static: doAssert maxSize <= maxGossipMaxSize()
   maxSize.uint32
 
-proc createEth2Node*(rng: ref BrHmacDrbgContext,
+proc createEth2Node*(rng: ref HmacDrbgContext,
                      config: BeaconNodeConf | LightClientConf,
                      netKeys: NetKeyPair,
                      cfg: RuntimeConfig,

@@ -11,6 +11,7 @@ import stew/[assign2, results, base10, byteutils], presto/common,
        json_serialization/std/[options, net, sets],
        chronicles
 import ".."/[eth2_ssz_serialization, forks, keystore],
+       ".."/../consensus_object_pools/block_pools_types,
        ".."/datatypes/[phase0, altair, bellatrix],
        ".."/mev/bellatrix_mev,
        ".."/../validators/slashing_protection_common,
@@ -130,6 +131,30 @@ type
 
 {.push raises: [Defect].}
 
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 epochFlags: EpochParticipationFlags)
+                {.raises: [IOError, Defect].} =
+  for e in writer.stepwiseArrayCreation(epochFlags.asHashList):
+    writer.writeValue $e
+
+proc readValue*(reader: var JsonReader[RestJson],
+                epochFlags: var EpochParticipationFlags)
+               {.raises: [SerializationError, IOError, Defect].} =
+  # Please note that this function won't compute the cached hash tree roots
+  # immediately. They will be computed on the first HTR attempt.
+
+  for e in reader.readArray(string):
+    let parsed = try:
+      parseBiggestUInt(e)
+    except ValueError as err:
+      reader.raiseUnexpectedValue("A string-encoded 8-bit usigned integer value expected")
+
+    if parsed > uint8.high:
+      reader.raiseUnexpectedValue("The usigned integer value should fit in 8 bits")
+
+    if not epochFlags.data.add(uint8(parsed)):
+      reader.raiseUnexpectedValue("The participation flags list size exceeds limit")
+
 proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
   let res =
     block:
@@ -163,7 +188,8 @@ proc prepareJsonStringResponse*(t: typedesc[RestApiResponse], d: auto): string =
   res
 
 proc jsonResponseWRoot*(t: typedesc[RestApiResponse], data: auto,
-                        dependent_root: Eth2Digest): RestApiResponse =
+                        dependent_root: Eth2Digest,
+                        execOpt: Option[bool]): RestApiResponse =
   let res =
     block:
       var default: seq[byte]
@@ -172,6 +198,8 @@ proc jsonResponseWRoot*(t: typedesc[RestApiResponse], data: auto,
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
         writer.writeField("dependent_root", dependent_root)
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
         writer.writeField("data", data)
         writer.endRecord()
         stream.getOutput(seq[byte])
@@ -189,6 +217,84 @@ proc jsonResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
+        writer.writeField("data", data)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/json")
+
+proc jsonResponseBlock*(t: typedesc[RestApiResponse],
+                        data: ForkedSignedBeaconBlock,
+                        execOpt: Option[bool],
+                        headers: openArray[tuple[key: string, value: string]]
+                       ): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("version", data.kind.toString())
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
+        withBlck(data):
+          writer.writeField("data", blck)
+        writer.endRecord()
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/json",
+                           headers = headers)
+
+proc jsonResponseState*(t: typedesc[RestApiResponse],
+                        forkedState: ForkedHashedBeaconState,
+                        execOpt: Option[bool]): RestApiResponse =
+  let
+    headers = [("eth-consensus-version", forkedState.kind.toString())]
+    res =
+      block:
+        var default: seq[byte]
+        try:
+          var stream = memoryOutput()
+          var writer = JsonWriter[RestJson].init(stream)
+          writer.beginRecord()
+          writer.writeField("version", forkedState.kind.toString())
+          if execOpt.isSome():
+            writer.writeField("execution_optimistic", execOpt.get())
+          # TODO (cheatfate): Unable to use `forks.withState()` template here
+          # because of compiler issues and some kind of generic sandwich.
+          case forkedState.kind
+          of BeaconStateFork.Bellatrix:
+            writer.writeField("data", forkedState.bellatrixData.data)
+          of BeaconStateFork.Altair:
+            writer.writeField("data", forkedState.altairData.data)
+          of BeaconStateFork.Phase0:
+            writer.writeField("data", forkedState.phase0Data.data)
+          writer.endRecord()
+          stream.getOutput(seq[byte])
+        except SerializationError:
+          default
+        except IOError:
+          default
+  RestApiResponse.response(res, Http200, "application/json", headers = headers)
+
+proc jsonResponseWOpt*(t: typedesc[RestApiResponse], data: auto,
+                       execOpt: Option[bool]): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        if execOpt.isSome():
+          writer.writeField("execution_optimistic", execOpt.get())
         writer.writeField("data", data)
         writer.endRecord()
         stream.getOutput(seq[byte])
@@ -341,7 +447,9 @@ proc jsonErrorList*(t: typedesc[RestApiResponse],
         default
   RestApiResponse.error(status, data, "application/json")
 
-proc sszResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
+proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
+                  headers: openArray[tuple[key: string, value: string]]
+                 ): RestApiResponse =
   let res =
     block:
       var default: seq[byte]
@@ -354,7 +462,8 @@ proc sszResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
         default
       except IOError:
         default
-  RestApiResponse.response(res, Http200, "application/octet-stream")
+  RestApiResponse.response(res, Http200, "application/octet-stream",
+                           headers = headers)
 
 template hexOriginal(data: openArray[byte]): string =
   to0xHex(data)
@@ -1261,8 +1370,8 @@ proc readValue*(reader: var JsonReader[RestJson],
       reader.raiseUnexpectedValue("Incorrect altair beacon state format")
     toValue(bellatrixData)
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState) {.
-     raises: [IOError, Defect].} =
+proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState)
+                {.raises: [IOError, Defect].} =
   writer.beginRecord()
   case value.kind
   of BeaconStateFork.Phase0:
@@ -1987,6 +2096,68 @@ proc dump*(value: KeystoresAndSlashingProtection): string {.
   var writer = JsonWriter[RestJson].init(stream)
   writer.writeValue(value)
   stream.getOutput(string)
+
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: HeadChangeInfoObject) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("slot", value.slot)
+  writer.writeField("block", value.block_root)
+  writer.writeField("state", value.state_root)
+  writer.writeField("epoch_transition", value.epoch_transition)
+  writer.writeField("previous_duty_dependent_root",
+                    value.previous_duty_dependent_root)
+  writer.writeField("current_duty_dependent_root",
+                    value.current_duty_dependent_root)
+  if value.optimistic.isSome():
+    writer.writeField("execution_optimistic", value.optimistic.get())
+  writer.endRecord()
+
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: ReorgInfoObject) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("slot", value.slot)
+  writer.writeField("depth", value.depth)
+  writer.writeField("old_head_block", value.old_head_block)
+  writer.writeField("new_head_block", value.new_head_block)
+  writer.writeField("old_head_state", value.old_head_state)
+  writer.writeField("new_head_state", value.new_head_state)
+  if value.optimistic.isSome():
+    writer.writeField("execution_optimistic", value.optimistic.get())
+  writer.endRecord()
+
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: FinalizationInfoObject) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("block", value.block_root)
+  writer.writeField("state", value.state_root)
+  writer.writeField("epoch", value.epoch)
+  if value.optimistic.isSome():
+    writer.writeField("execution_optimistic", value.optimistic.get())
+  writer.endRecord()
+
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: EventBeaconBlockObject) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("slot", value.slot)
+  writer.writeField("block", value.block_root)
+  if value.optimistic.isSome():
+    writer.writeField("execution_optimistic", value.optimistic.get())
+  writer.endRecord()
+
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: RestSyncInfo) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("head_slot", value.head_slot)
+  writer.writeField("sync_distance", value.sync_distance)
+  writer.writeField("is_syncing", value.is_syncing)
+  if value.is_optimistic.isSome():
+    writer.writeField("is_optimistic", value.is_optimistic.get())
+  writer.endRecord()
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:

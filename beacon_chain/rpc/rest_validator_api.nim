@@ -96,8 +96,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                     )
                   )
         res
+
+    # TODO (cheatfate): Proper implementation required
+    let optimistic =
+      if node.dag.getHeadStateMergeComplete(): some(false) else: none[bool]()
+
     return RestApiResponse.jsonResponseWRoot(
-      duties, epochRef.attester_dependent_root)
+      duties, epochRef.attester_dependent_root, optimistic)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties
   router.api(MethodGet, "/eth/v1/validator/duties/proposer/{epoch}") do (
@@ -142,8 +147,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               )
             )
         res
+
+    # TODO (cheatfate): Proper implementation required
+    let optimistic =
+      if node.dag.getHeadStateMergeComplete(): some(false) else: none[bool]()
+
     return RestApiResponse.jsonResponseWRoot(
-      duties, epochRef.proposer_dependent_root)
+      duties, epochRef.proposer_dependent_root, optimistic)
 
   router.api(MethodPost, "/eth/v1/validator/duties/sync/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
@@ -226,6 +236,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       headSyncPeriod = sync_committee_period(headEpoch)
 
     if qSyncPeriod == headSyncPeriod:
+      let optimistic = node.getStateOptimistic(node.dag.headState)
       let res = withState(node.dag.headState):
         when stateFork >= BeaconStateFork.Altair:
           produceResponse(indexList,
@@ -233,8 +244,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                           state.data.validators.asSeq)
         else:
           emptyResponse()
-      return RestApiResponse.jsonResponse(res)
+      return RestApiResponse.jsonResponseWOpt(res, optimistic)
     elif qSyncPeriod == (headSyncPeriod + 1):
+      let optimistic = node.getStateOptimistic(node.dag.headState)
       let res = withState(node.dag.headState):
         when stateFork >= BeaconStateFork.Altair:
           produceResponse(indexList,
@@ -242,7 +254,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                           state.data.validators.asSeq)
         else:
           emptyResponse()
-      return RestApiResponse.jsonResponse(res)
+      return RestApiResponse.jsonResponseWOpt(res, optimistic)
     elif qSyncPeriod > headSyncPeriod:
       # The requested epoch may still be too far in the future.
       if not(node.isSynced(node.dag.head)):
@@ -265,6 +277,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
       node.withStateForBlockSlotId(bsi):
+        let optimistic = node.getStateOptimistic(state)
         let res = withState(state):
           when stateFork >= BeaconStateFork.Altair:
             produceResponse(indexList,
@@ -272,7 +285,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                             state.data.validators.asSeq)
           else:
             emptyResponse()
-        return RestApiResponse.jsonResponse(res)
+        return RestApiResponse.jsonResponseWOpt(res, optimistic)
 
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 

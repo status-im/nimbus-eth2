@@ -7,7 +7,7 @@
 
 import std/sequtils
 import chronicles
-import ".."/[version, beacon_node],
+import ".."/beacon_node,
        ".."/spec/forks,
        "."/[rest_utils, state_ttl_cache]
 
@@ -42,7 +42,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         case state.kind
         of BeaconStateFork.Phase0:
           if contentType == sszMediaType:
-            RestApiResponse.sszResponse(state.phase0Data.data)
+            RestApiResponse.sszResponse(state.phase0Data.data, [])
           elif contentType == jsonMediaType:
             RestApiResponse.jsonResponse(state.phase0Data.data)
           else:
@@ -75,10 +75,14 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     node.withStateForBlockSlotId(bslot):
       return
         if contentType == jsonMediaType:
-          RestApiResponse.jsonResponsePlain(state)
+          RestApiResponse.jsonResponseState(
+            state,
+            node.getStateOptimistic(state)
+          )
         elif contentType == sszMediaType:
+          let headers = [("eth-consensus-version", state.kind.toString())]
           withState(state):
-            RestApiResponse.sszResponse(state.data)
+            RestApiResponse.sszResponse(state.data, headers)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
@@ -88,6 +92,19 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v1/debug/beacon/heads") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(
       node.dag.heads.mapIt((root: it.root, slot: it.slot))
+    )
+
+  # https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeadsV2
+  router.api(MethodGet,
+             "/eth/v2/debug/beacon/heads") do () -> RestApiResponse:
+    return RestApiResponse.jsonResponse(
+      node.dag.heads.mapIt(
+        (
+          root: it.root,
+          slot: it.slot,
+          execution_optimistic: node.getBlockRefOptimistic(it)
+        )
+      )
     )
 
   # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
@@ -106,4 +123,9 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     MethodGet,
     "/api/eth/v1/debug/beacon/heads",
     "/eth/v1/debug/beacon/heads"
+  )
+  router.redirect(
+    MethodGet,
+    "/api/eth/v2/debug/beacon/heads",
+    "/eth/v2/debug/beacon/heads"
   )

@@ -38,7 +38,7 @@ type
   RpcServer* = RpcHttpServer
 
   EventBus* = object
-    blocksQueue*: AsyncEventQueue[ForkedTrustedSignedBeaconBlock]
+    blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
     reorgQueue*: AsyncEventQueue[ReorgInfoObject]
     finUpdateQueue*: AsyncEventQueue[altair.LightClientFinalityUpdate]

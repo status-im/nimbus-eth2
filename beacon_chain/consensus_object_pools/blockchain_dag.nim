@@ -1532,6 +1532,13 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
     statePruneDur = statePruneTick - startTick,
     epochRefPruneDur = epochRefPruneTick - statePruneTick
 
+template getHeadStateMergeComplete*(dag: ChainDAGRef): bool =
+  withState(dag.headState):
+    when stateFork >= BeaconStateFork.Bellatrix:
+      is_merge_transition_complete(state.data)
+    else:
+      false
+
 proc updateHead*(
     dag: ChainDAGRef,
     newHead: BlockRef,
@@ -1564,16 +1571,9 @@ proc updateHead*(
     error "Cannot update head to block without parent"
     return
 
-  template getHeadStateMergeComplete(): bool =
-    withState(dag.headState):
-      when stateFork >= BeaconStateFork.Bellatrix:
-        is_merge_transition_complete(state.data)
-      else:
-        false
-
   let
     lastHeadStateRoot = getStateRoot(dag.headState)
-    lastHeadMergeComplete = getHeadStateMergeComplete()
+    lastHeadMergeComplete = dag.getHeadStateMergeComplete()
 
   # Start off by making sure we have the right state - updateState will try
   # to use existing in-memory states to make this smooth
@@ -1590,7 +1590,7 @@ proc updateHead*(
 
   dag.head = newHead
 
-  if getHeadStateMergeComplete() and not lastHeadMergeComplete:
+  if dag.getHeadStateMergeComplete() and not lastHeadMergeComplete:
     dag.vanityLogs.onMergeTransitionBlock()
 
   dag.db.putHeadBlock(newHead.root)
@@ -1623,10 +1623,15 @@ proc updateHead*(
       finalized = shortLog(getStateField(dag.headState, finalized_checkpoint))
 
     if not(isNil(dag.onReorgHappened)):
-      let data = ReorgInfoObject.init(dag.head.slot, uint64(ancestorDepth),
-                                      lastHead.root, newHead.root,
-                                      lastHeadStateRoot,
-                                      getStateRoot(dag.headState))
+      let
+        # TODO (cheatfate): Proper implementation required
+        optimistic =
+          if dag.getHeadStateMergeComplete(): some(false) else: none[bool]()
+        data = ReorgInfoObject.init(dag.head.slot, uint64(ancestorDepth),
+                                    lastHead.root, newHead.root,
+                                    lastHeadStateRoot,
+                                    getStateRoot(dag.headState),
+                                    optimistic)
       dag.onReorgHappened(data)
 
     # A reasonable criterion for "reorganizations of the chain"
@@ -1647,10 +1652,13 @@ proc updateHead*(
         depRoot = withState(dag.headState): state.proposer_dependent_root
         prevDepRoot = withState(dag.headState): state.attester_dependent_root
         epochTransition = (finalizedHead != dag.finalizedHead)
-      let data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
-                                           getStateRoot(dag.headState),
-                                           epochTransition, depRoot,
-                                           prevDepRoot)
+        # TODO (cheatfate): Proper implementation required
+        optimistic =
+          if dag.getHeadStateMergeComplete(): some(false) else: none[bool]()
+        data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
+                                         getStateRoot(dag.headState),
+                                         epochTransition, depRoot,
+                                         prevDepRoot, optimistic)
       dag.onHeadChanged(data)
 
   withState(dag.headState):
@@ -1709,11 +1717,13 @@ proc updateHead*(
             int(dag.finalizedHead.slot mod SLOTS_PER_HISTORICAL_ROOT)]
         else:
           Eth2Digest() # The thing that finalized was >8192 blocks old?
+      # TODO (cheatfate): Proper implementation required
+      let optimistic =
+        if dag.getHeadStateMergeComplete(): some(false) else: none[bool]()
 
       let data = FinalizationInfoObject.init(
-        dag.finalizedHead.blck.root,
-        stateRoot,
-        dag.finalizedHead.slot.epoch)
+        dag.finalizedHead.blck.root, stateRoot, dag.finalizedHead.slot.epoch,
+        optimistic)
       dag.onFinHappened(dag, data)
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =

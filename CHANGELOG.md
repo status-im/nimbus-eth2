@@ -1,3 +1,87 @@
+2022-06-20 v22.6.0
+==================
+
+Nimbus `v22.6.0` brings support for the merge testnets Ropsten and Sepolia (please stay tuned for TTD announcements for the latter) and a lot of polish where we've taken the time to address a long list of UX improvements and bug fixes suggested or reported by our users. We are deeply grateful to everybody who contributed valuable feedback for this release.
+
+### Improvements
+
+* TTD detection and Panda art for the merge!
+  https://github.com/status-im/nimbus-eth2/pull/3670
+  https://github.com/status-im/nimbus-eth2/pull/3745
+
+* The execution layer priority fees recipient address can be configured individually for each validator.
+  https://github.com/status-im/nimbus-eth2/pull/3652
+
+* Through better defaults, the parameters `--rest-url`, `--trusted-node-url` can be omitted if the targeted node is running on the same machine.
+  https://github.com/status-im/nimbus-eth2/pull/3689
+
+* Improved spec-compliance with the Beacon API and the Engine API as defined after the merge.
+  https://github.com/status-im/nimbus-eth2/pull/3679
+  https://github.com/status-im/nimbus-eth2/pull/3780
+
+* The custom error code `1031` will signal a detected doppelganger on the network. This can be handled in the Nimbus's service supervisor to prevent an automatic restart.
+  https://github.com/status-im/nimbus-eth2/pull/3728
+
+* The Nimbus status bar can be configured to display the current version number.
+  https://github.com/status-im/nimbus-eth2/pull/3747
+
+* Specifying the `--terminal-total-difficulty-override` parameter is no longer necessary for the Ropsten network.
+  https://github.com/status-im/nimbus-eth2/pull/3754
+
+* Built-in support for the Sepolia network which will launch on June 20th and reach TTD shortly after.
+  https://github.com/status-im/nimbus-eth2/pull/3762
+
+* More robust syncing with the connected execution layer node in Bellatrix-enabled networks.
+  https://github.com/status-im/nimbus-eth2/pull/3759
+
+* The `web3 test` command is now compatible with nodes that have been configured to serve only the Engine API.
+  https://github.com/status-im/nimbus-eth2/pull/3761
+
+### Fixes
+
+* A rare crash triggered when using a HTTP web3 URL.
+  https://github.com/status-im/nimbus-eth2/pull/3669
+
+* ERA checkpoint sync failing with "Backfill block must have a summary".
+  https://github.com/status-im/nimbus-eth2/pull/3675
+
+* Incorrect sync progress indicator shortly after a trusted node sync
+  https://github.com/status-im/nimbus-eth2/pull/3736
+
+* Incorrect values returned by the `/eth/v1/node/syncing` API under rare circumstances.
+  https://github.com/status-im/nimbus-eth2/pull/3720
+
+* Misleading log message when an attestation was not delivered to any peer.
+  https://github.com/status-im/nimbus-eth2/pull/3737
+
+* Incorrect handling of case-sensitive web3 URLs.
+  https://github.com/status-im/nimbus-eth2/pull/3757
+
+* Incorrect encoding of the `current_epoch_participation` and `previous_epoch_participation` fields in the REST requests returning `BeaconState` results.
+  https://github.com/status-im/nimbus-eth2/pull/3776
+
+* Incorrect URL for the Keymanager delete keystores request.
+  https://github.com/status-im/nimbus-eth2/pull/3727
+
+* Non-standard encoding required by the Keymanager API for the import keystores request.
+  https://github.com/status-im/nimbus-eth2/pull/3768
+
+* A significant source of omitted events in the REST events API.
+  https://github.com/status-im/nimbus-eth2/pull/3664
+
+* Incorrect parsing of the `weak-subjectivity-checkpoint` parameter.
+  https://github.com/status-im/nimbus-eth2/pull/3765
+
+* Lack of support for trailing commas in lists and inline tables in the TOML config files.
+  https://github.com/status-im/nim-toml-serialization/pull/47
+
+
+### Removed functionality:
+
+* The Nimbus-specific JSON-RPC service which was deprecated in version v22.3.0 is now removed. If you are currently relying on the JSON-RPC API, please consider switching to the official [REST API](https://nimbus.guide/rest-api.html). Using any of the `--rpc` flags will now result in a warning.
+  https://github.com/status-im/nimbus-eth2/pull/3656
+
+
 2022-05-30 v22.5.2
 ==================
 
