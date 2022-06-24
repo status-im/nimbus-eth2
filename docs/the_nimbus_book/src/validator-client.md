@@ -20,7 +20,7 @@ When upgrading, don't forget to upgrade the validator client also, with the same
 
 ## Setup
 
-To run a separate validator client, you must first make sure that your beacon node has its REST API enabled - make sure that you've started with the `--rest` option.
+To run a separate validator client, you must first make sure that your beacon node has its REST API enabled - start it with the `--rest` option.
 
 Next, choose a data directory for the validator client and import the keys there:
 
@@ -36,7 +36,9 @@ build/nimbus_beacon_node deposits import \
 With the keys imported, you are ready to start validator client:
 
 ```sh
-build/nimbus_validator_client --network:prater --data-dir:build/data/vc_shared_prater_0
+build/nimbus_validator_client \
+  --network:prater \
+  --data-dir:build/data/vc_shared_prater_0
 ```
 
 ## Options
@@ -50,5 +52,8 @@ build/nimbus_validator_client --help
 The client will by defualt connect to a beacon node on the same machine as the validator client. Pick a different node with `--beacon-node`:
 
 ```sh
-build/nimbus_validator_client --network:prater --beacon-node:http://host:port/
+build/nimbus_validator_client \
+  --network:prater \
+  --data-dir:build/data/vc_shared_prater_0 \
+  --beacon-node:http://host:port/
 ```
