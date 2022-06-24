@@ -87,7 +87,13 @@ type
     else:
       incompatibilityDesc*: string
 
-func shouldEnableTestnetFeatures*(genesisData: string): bool =
+type DeploymentPhase* {.pure.} = enum
+  None,
+  Devnet,
+  Testnet,
+  Mainnet
+
+func deploymentPhase*(genesisData: string): DeploymentPhase =
   # SSZ processing at compile time does not work well.
   #
   # `BeaconState` layout:
@@ -101,18 +107,35 @@ func shouldEnableTestnetFeatures*(genesisData: string): bool =
   # which should identify the network with high likelihood.
   # ''.join('%02X'%b for b in open("network_name/genesis.ssz", "rb").read()[:40])
   if genesisData.len < 40:
-    return false
+    return DeploymentPhase.None
+
+  const
+    mainnets = [
+      # Mainnet
+      "5730C65F000000004B363DB94E286120D76EB905340FDD4E54BFE9F06BF33FF6CF5AD27F511BFE95",
+    ]
+    testnets = [
+      # Kiln
+      "0C572B620000000099B09FCD43E5905236C370F184056BEC6E6638CFC31A323B304FC4AA789CB4AD",
+      # Ropsten
+      "F0DB94620000000044F1E56283CA88B35C789F7F449E52339BC1FEFE3A45913A43A6D16EDCD33CF1",
+      # Prater
+      "60F4596000000000043DB0D9A83813551EE2F33450D23797757D430911A9320530AD8A0EABC43EFB",
+      # Sepolia
+      "607DB06200000000D8EA171F3C94AEA21EBC42A1ED61052ACF3F9209C00E4EFBAADDAC09ED9B8078",
+    ]
+    devnets = [
+      "placeholder",
+    ]
+
   let data = (genesisData[0 ..< 40].toHex())
-  data in [
-    # Kiln
-    "0C572B620000000099B09FCD43E5905236C370F184056BEC6E6638CFC31A323B304FC4AA789CB4AD",
-    # Ropsten
-    "F0DB94620000000044F1E56283CA88B35C789F7F449E52339BC1FEFE3A45913A43A6D16EDCD33CF1",
-    # Prater
-    "60F4596000000000043DB0D9A83813551EE2F33450D23797757D430911A9320530AD8A0EABC43EFB",
-    # Sepolia
-    "607DB06200000000D8EA171F3C94AEA21EBC42A1ED61052ACF3F9209C00E4EFBAADDAC09ED9B8078",
-  ]
+  if data in mainnets:
+    return DeploymentPhase.Mainnet
+  if data in testnets:
+    return DeploymentPhase.Testnet
+  if data in devnets:
+    return DeploymentPhase.Devnet
+  DeploymentPhase.None
 
 const
   eth2NetworksDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-networks"
@@ -193,16 +216,16 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       else:
         ""
 
-      shouldEnableTestnetFeatures = genesisData.shouldEnableTestnetFeatures
+      deploymentPhase = genesisData.deploymentPhase
 
       configDefaults =
         Eth2NetworkConfigDefaults(
           lightClientEnable:
             false, # Only produces debug logs so far
           lightClientDataServe:
-            shouldEnableTestnetFeatures,
+            deploymentPhase <= DeploymentPhase.Testnet,
           lightClientDataImportMode:
-            if shouldEnableTestnetFeatures:
+            if deploymentPhase <= DeploymentPhase.Testnet:
               LightClientDataImportMode.OnlyNew
             else:
               LightClientDataImportMode.None

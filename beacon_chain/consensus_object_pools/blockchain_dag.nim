@@ -692,7 +692,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            vanityLogs = default(VanityLogs)): ChainDAGRef =
   cfg.checkForkConsistency()
 
-  doAssert updateFlags - {verifyFinalization, enableTestnetFeatures} == {},
+  doAssert updateFlags - {verifyFinalization, enableTestFeatures} == {},
     "Other flags not supported in ChainDAG"
 
   # TODO we require that the db contains both a head and a tail block -

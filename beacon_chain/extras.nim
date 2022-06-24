@@ -34,7 +34,7 @@ type
     ## When process_slots() is being called as part of a state_transition(),
     ## the hash_tree_root() from the block will fill in the state.root so it
     ## should skip calculating that last state root.
-    enableTestnetFeatures ##\
-    ## Whether to opt into testnet specific logic.
+    enableTestFeatures ##\
+    ## Whether to enable extra features for testing.
 
   UpdateFlags* = set[UpdateFlag]
