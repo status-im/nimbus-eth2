@@ -27,7 +27,7 @@ if [ ${PIPESTATUS[0]} != 4 ]; then
 fi
 
 OPTS="ht:"
-LONGOPTS="help,tarball:"
+LONGOPTS="help,tarball:,install-fpm"
 
 # default values
 TARBALL=""
@@ -39,6 +39,7 @@ Usage: $(basename "$0") --tarball dist/nimbus-eth2_Linux_amd64_1.5.4_382be3fd.ta
 
   -h, --help                  this help message
   -t, --tarball               tarball produced by "make dist-..."
+  --install-fpm               install the appropriate fpm version with "gem'
 EOF
 }
 
@@ -59,6 +60,10 @@ while true; do
     -t|--tarball)
       TARBALL="$2"
       shift 2
+      ;;
+    --install-fpm)
+      INSTALL_FPM="1"
+      shift 1
       ;;
     --)
       shift
@@ -96,12 +101,21 @@ PKG_IMG_DIR="${SCRIPT_DIR}/package_image"
 BINARIES="nimbus_beacon_node"
 PKG_VERSION="$(echo "${TARBALL}" | sed 's/^.*_\([^_]\+\)_[^_]\+$/\1/')"
 TARBALL_TOP_DIR="$(echo "${TARBALL}" | sed 's#^.*/\([^/]\+\)\.tar\.gz$#\1#')"
-PKG_PATH_DEB="${SCRIPT_DIR}/../build/${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH_DEB}.deb"
-PKG_PATH_RPM="${SCRIPT_DIR}/../build/${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH_RPM}.rpm"
+PKG_PATH_DEB="${SCRIPT_DIR}/../dist/${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH_DEB}.deb"
+PKG_PATH_RPM="${SCRIPT_DIR}/../dist/${PKG_NAME}_${PKG_VERSION}_${PKG_ARCH_RPM}.rpm"
 
-if ! command -v fpm &> /dev/null;then
-  printf "Please install FPM! \nhttps://fpm.readthedocs.io/en/latest/installation.html\n"
-  exit 1
+FPM_VERSION=1.14.2
+if [[ "$(fpm -v)" != "$FPM_VERSION" ]] ; then
+  if [[ "$INSTALL_FPM" == "1" ]] ; then
+    gem install fpm -v $FPM_VERSION
+  else
+    cat << EOF
+Please install FPM $FPM_VERSION (https://fpm.readthedocs.io/en/latest/installation.html):
+
+gem install fpm -v $FPM_VERSION
+EOF
+    exit 1
+  fi
 fi
 
 BIN_DIR="${PKG_IMG_DIR}/usr/bin"
