@@ -18,7 +18,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/eth/v0/beacon/light_client/bootstrap/{block_root}") do (
     block_root: Eth2Digest) -> RestApiResponse:
-    doAssert node.dag.lightClientDataServe
+    doAssert node.dag.lcDataStore.serve
     let vroot = block:
       if block_root.isErr():
         return RestApiResponse.jsonError(Http400, InvalidBlockRootValueError,
@@ -36,7 +36,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v0/beacon/light_client/updates") do (
     start_period: Option[SyncCommitteePeriod], count: Option[uint64]
     ) -> RestApiResponse:
-    doAssert node.dag.lightClientDataServe
+    doAssert node.dag.lcDataStore.serve
     let vstart = block:
       if start_period.isNone():
         return RestApiResponse.jsonError(Http400, MissingStartPeriodValueError)
@@ -75,7 +75,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/eth/v0/beacon/light_client/finality_update") do (
     ) -> RestApiResponse:
-    doAssert node.dag.lightClientDataServe
+    doAssert node.dag.lcDataStore.serve
     let finality_update = node.dag.getLightClientFinalityUpdate()
     if finality_update.isSome:
       return RestApiResponse.jsonResponse(finality_update)
@@ -86,7 +86,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/eth/v0/beacon/light_client/optimistic_update") do (
     ) -> RestApiResponse:
-    doAssert node.dag.lightClientDataServe
+    doAssert node.dag.lcDataStore.serve
     let optimistic_update = node.dag.getLightClientOptimisticUpdate()
     if optimistic_update.isSome:
       return RestApiResponse.jsonResponse(optimistic_update)

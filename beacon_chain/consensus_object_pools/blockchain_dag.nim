@@ -692,7 +692,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            vanityLogs = default(VanityLogs)): ChainDAGRef =
   cfg.checkForkConsistency()
 
-  doAssert updateFlags in [{}, {verifyFinalization}],
+  doAssert updateFlags - {verifyFinalization, enableTestFeatures} == {},
     "Other flags not supported in ChainDAG"
 
   # TODO we require that the db contains both a head and a tail block -
@@ -720,20 +720,21 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
       # The only allowed flag right now is verifyFinalization, as the others all
       # allow skipping some validation.
-      updateFlags: {verifyFinalization} * updateFlags,
+      updateFlags: {verifyFinalization, enableTestFeatures} * updateFlags,
       cfg: cfg,
 
       vanityLogs: vanityLogs,
 
-      lightClientDataServe: lightClientDataServe,
-      lightClientDataImportMode: lightClientDataImportMode,
+      lcDataStore: initLightClientDataStore(
+        serve = lightClientDataServe,
+        importMode = lightClientDataImportMode,
+        onLCFinalityUpdateCb = onLCFinalityUpdateCb,
+        onLCOptimisticUpdateCb = onLCOptimisticUpdateCb),
 
       onBlockAdded: onBlockCb,
       onHeadChanged: onHeadCb,
       onReorgHappened: onReorgCb,
-      onFinHappened: onFinCb,
-      onLightClientFinalityUpdate: onLCFinalityUpdateCb,
-      onLightClientOptimisticUpdate: onLCOptimisticUpdateCb
+      onFinHappened: onFinCb
     )
     loadTick = Moment.now()
 
@@ -953,7 +954,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     frontfillDur = frontfillTick - finalizedTick,
     keysDur = Moment.now() - frontfillTick
 
-  dag.initLightClientCache()
+  dag.initLightClientDataCache()
 
   dag
 
