@@ -151,7 +151,8 @@ proc loadChainDag(
     db: BeaconChainDB,
     eventBus: EventBus,
     validatorMonitor: ref ValidatorMonitor,
-    networkGenesisValidatorsRoot: Option[Eth2Digest]): ChainDAGRef =
+    networkGenesisValidatorsRoot: Option[Eth2Digest],
+    shouldEnableTestFeatures: bool): ChainDAGRef =
   var dag: ChainDAGRef
   info "Loading block DAG from database", path = config.databaseDir
 
@@ -173,6 +174,9 @@ proc loadChainDag(
     eventBus.optUpdateQueue.emit(data)
 
   let
+    extraFlags =
+      if shouldEnableTestFeatures: {enableTestFeatures}
+      else: {}
     chainDagFlags =
       if config.verifyFinalization: {verifyFinalization}
       else: {}
@@ -184,7 +188,7 @@ proc loadChainDag(
       else: nil
 
   dag = ChainDAGRef.init(
-    cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
+    cfg, db, validatorMonitor, extraFlags + chainDagFlags, config.eraDir,
     onBlockAdded, onHeadChanged, onChainReorg,
     onLCFinalityUpdateCb = onLightClientFinalityUpdateCb,
     onLCOptimisticUpdateCb = onLightClientOptimisticUpdateCb,
@@ -580,7 +584,8 @@ proc init*(T: type BeaconNode,
         none(Eth2Digest)
     dag = loadChainDag(
       config, cfg, db, eventBus,
-      validatorMonitor, networkGenesisValidatorsRoot)
+      validatorMonitor, networkGenesisValidatorsRoot,
+      genesisStateContents.deploymentPhase <= DeploymentPhase.Devnet)
     genesisTime = getStateField(dag.headState, genesis_time)
     beaconClock = BeaconClock.init(genesisTime)
     getBeaconTime = beaconClock.getBeaconTimeFn()
@@ -1329,7 +1334,7 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   restServer.router.installNimbusApiHandlers(node)
   restServer.router.installNodeApiHandlers(node)
   restServer.router.installValidatorApiHandlers(node)
-  if node.dag.lightClientDataServe:
+  if node.dag.lcDataStore.serve:
     restServer.router.installLightClientApiHandlers(node)
 
 proc installMessageValidators(node: BeaconNode) =

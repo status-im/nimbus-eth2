@@ -18,11 +18,6 @@ import
   ./block_dag
 
 type
-  OnLightClientFinalityUpdateCallback* =
-    proc(data: altair.LightClientFinalityUpdate) {.gcsafe, raises: [Defect].}
-  OnLightClientOptimisticUpdateCallback* =
-    proc(data: altair.LightClientOptimisticUpdate) {.gcsafe, raises: [Defect].}
-
   LightClientDataImportMode* {.pure.} = enum
     ## Controls which classes of light client data are imported.
     None = "none"
@@ -33,6 +28,11 @@ type
       ## Import light client data for entire weak subjectivity period.
     OnDemand = "on-demand"
       ## Don't precompute historic data. Slow, may miss validator duties.
+
+  OnLightClientFinalityUpdateCallback* =
+    proc(data: altair.LightClientFinalityUpdate) {.gcsafe, raises: [Defect].}
+  OnLightClientOptimisticUpdateCallback* =
+    proc(data: altair.LightClientOptimisticUpdate) {.gcsafe, raises: [Defect].}
 
   CachedLightClientData* = object
     ## Cached data from historical non-finalized states to improve speed when
@@ -52,7 +52,7 @@ type
     current_sync_committee_branch*:
       array[log2trunc(altair.CURRENT_SYNC_COMMITTEE_INDEX), Eth2Digest]
 
-  LightClientCache* = object
+  LightClientDataCache* = object
     data*: Table[BlockId, CachedLightClientData]
       ## Cached data for creating future `LightClientUpdate` instances.
       ## Key is the block ID of which the post state was used to get the data.
@@ -79,3 +79,26 @@ type
 
     importTailSlot*: Slot
       ## The earliest slot for which light client data is imported.
+
+  LightClientDataStore* = object
+    # -----------------------------------
+    # Light client data
+
+    cache*: LightClientDataCache
+      ## Cached data to accelerate serving light client data
+
+    # -----------------------------------
+    # Config
+
+    serve*: bool
+      ## Whether to make local light client data available or not
+    importMode*: LightClientDataImportMode
+      ## Which classes of light client data to import
+
+    # -----------------------------------
+    # Callbacks
+
+    onLightClientFinalityUpdate*: OnLightClientFinalityUpdateCallback
+      ## On new `LightClientFinalityUpdate` callback
+    onLightClientOptimisticUpdate*: OnLightClientOptimisticUpdateCallback
+      ## On new `LightClientOptimisticUpdate` callback

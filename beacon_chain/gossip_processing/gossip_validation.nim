@@ -1057,7 +1057,7 @@ proc validateLightClientFinalityUpdate*(
     # `signature_slot` was given enough time to propagate through the network.
     return errIgnore("LightClientFinalityUpdate: received too early")
 
-  if finality_update != dag.lightClientCache.latest:
+  if finality_update != dag.lcDataStore.cache.latest:
     # [IGNORE] The received `finality_update` matches the locally computed one
     # exactly.
     return errIgnore("LightClientFinalityUpdate: not matching local")
@@ -1085,7 +1085,7 @@ proc validateLightClientOptimisticUpdate*(
     # `signature_slot` was given enough time to propagate through the network.
     return errIgnore("LightClientOptimisticUpdate: received too early")
 
-  if not optimistic_update.matches(dag.lightClientCache.latest):
+  if not optimistic_update.matches(dag.lcDataStore.cache.latest):
     # [IGNORE] The received `optimistic_update` matches the locally computed one
     # exactly.
     return errIgnore("LightClientOptimisticUpdate: not matching local")

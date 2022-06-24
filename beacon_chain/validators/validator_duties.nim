@@ -255,7 +255,7 @@ proc handleLightClientUpdates(node: BeaconNode, slot: Slot) {.async.} =
     debug "Waiting to send LC updates", slot, delay = shortLog(sendTime.offset)
     await sleepAsync(sendTime.offset)
 
-  template latest(): auto = node.dag.lightClientCache.latest
+  template latest(): auto = node.dag.lcDataStore.cache.latest
   let signature_slot = latest.signature_slot
   if slot != signature_slot:
     return
