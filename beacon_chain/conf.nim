@@ -456,6 +456,11 @@ type
               "Must be one of: none, only-new, full (slow startup), on-demand (may miss validator duties)"
         name: "light-client-data-import-mode" .}: Option[LightClientDataImportMode]
 
+      lightClientDataMaxPeriods* {.
+        hidden
+        desc: "BETA: Maximum number of sync committee periods to retain light client data"
+        name: "light-client-data-max-periods" .}: Option[uint64]
+
       inProcessValidators* {.
         desc: "Disable the push model (the beacon node tells a signing process with the private keys of the validators what to sign and when) and load the validators in the beacon node itself"
         defaultValue: true # the use of the nimbus_signing_process binary by default will be delayed until async I/O over stdin/stdout is developed for the child process.
