@@ -1,4 +1,4 @@
-NIMBUSEL_DISCOVERY="--discovery=V5"
+NIMBUSEL_DISCOVERY="--discovery=None"
 
 NIMBUSEL_PORT_OFFSET="${PORT_OFFSET:-100}"
 NIMBUSEL_BINARY="${NIMBUSEL_BINARY:-"${HOME}/work/nimbus-eth1/build/nimbus"}"
