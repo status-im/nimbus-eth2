@@ -189,16 +189,14 @@ proc initLightClientBootstrapForPeriod(
       boundarySlot = bid.slot.nextEpochBoundarySlot
     if boundarySlot == nextBoundarySlot and bid.slot >= lowSlot and
         not dag.lcDataStore.cache.bootstrap.hasKey(bid.slot):
-      var cachedBootstrap {.noinit.}: CachedLightClientBootstrap
       if not dag.updateExistingState(
           tmpState[], bid.atSlot, save = false, tmpCache):
         dag.handleUnexpectedLightClientError(bid.slot)
         continue
-      withState(tmpState[]):
+      var cachedBootstrap {.noinit.}: CachedLightClientBootstrap
+      cachedBootstrap.current_sync_committee_branch = withState(tmpState[]):
         when stateFork >= BeaconStateFork.Altair:
-          state.data.build_proof(
-            altair.CURRENT_SYNC_COMMITTEE_INDEX,
-            cachedBootstrap.current_sync_committee_branch)
+          state.data.build_proof(altair.CURRENT_SYNC_COMMITTEE_INDEX).get
         else: raiseAssert "Unreachable"
       dag.lcDataStore.cache.bootstrap[bid.slot] = cachedBootstrap
 
@@ -335,15 +333,13 @@ proc initLightClientUpdateForPeriod(
       when stateFork >= BeaconStateFork.Altair:
         update.attested_header = blck.toBeaconBlockHeader()
         update.next_sync_committee = state.data.next_sync_committee
-        state.data.build_proof(
-          altair.NEXT_SYNC_COMMITTEE_INDEX,
-          update.next_sync_committee_branch)
+        update.next_sync_committee_branch =
+           state.data.build_proof(altair.NEXT_SYNC_COMMITTEE_INDEX).get
         if finalizedBid.slot == FAR_FUTURE_SLOT:
           update.finality_branch.reset()
         else:
-          state.data.build_proof(
-            altair.FINALIZED_ROOT_INDEX,
-            update.finality_branch)
+          update.finality_branch =
+             state.data.build_proof(altair.FINALIZED_ROOT_INDEX).get
       else: raiseAssert "Unreachable"
   do:
     dag.handleUnexpectedLightClientError(attestedBid.slot)
@@ -379,18 +375,15 @@ proc cacheLightClientData(
   ## Cache data for a given block and its post-state to speed up creating future
   ## `LightClientUpdate` and `LightClientBootstrap` instances that refer to this
   ## block and state.
-  var cachedData {.noinit.}: CachedLightClientData
-  state.data.build_proof(
-    altair.CURRENT_SYNC_COMMITTEE_INDEX,
-    cachedData.current_sync_committee_branch)
-  state.data.build_proof(
-    altair.NEXT_SYNC_COMMITTEE_INDEX,
-    cachedData.next_sync_committee_branch)
-  cachedData.finalized_slot =
-    state.data.finalized_checkpoint.epoch.start_slot
-  state.data.build_proof(
-    altair.FINALIZED_ROOT_INDEX,
-    cachedData.finality_branch)
+  let cachedData = CachedLightClientData(
+    current_sync_committee_branch:
+      state.data.build_proof(altair.CURRENT_SYNC_COMMITTEE_INDEX).get,
+    next_sync_committee_branch:
+      state.data.build_proof(altair.NEXT_SYNC_COMMITTEE_INDEX).get,
+    finalized_slot:
+      state.data.finalized_checkpoint.epoch.start_slot,
+    finality_branch:
+      state.data.build_proof(altair.FINALIZED_ROOT_INDEX).get)
   if dag.lcDataStore.cache.data.hasKeyOrPut(bid, cachedData):
     doAssert false, "Redundant `cacheLightClientData` call"
 
@@ -811,11 +804,9 @@ proc getLightClientBootstrap*(
           let bsi = ? dag.getExistingBlockIdAtSlot(slot)
           var tmpState = assignClone(dag.headState)
           dag.withUpdatedExistingState(tmpState[], bsi) do:
-            withState(state):
+            cachedBootstrap.current_sync_committee_branch = withState(state):
               when stateFork >= BeaconStateFork.Altair:
-                state.data.build_proof(
-                  altair.CURRENT_SYNC_COMMITTEE_INDEX,
-                  cachedBootstrap.current_sync_committee_branch)
+                state.data.build_proof(altair.CURRENT_SYNC_COMMITTEE_INDEX).get
               else: raiseAssert "Unreachable"
           do: return err()
           dag.lcDataStore.cache.bootstrap[slot] = cachedBootstrap

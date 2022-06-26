@@ -47,7 +47,7 @@ proc runTest(identifier: string) =
                                    altair.BeaconState))
 
       var computedProof = newSeq[Eth2Digest](log2trunc(proof.leaf_index))
-      build_proof(state[], proof.leaf_index, computedProof)
+      build_proof(state[], proof.leaf_index, computedProof).get
 
       check:
         computedProof == proof.branch.mapIt(Eth2Digest.fromHex(it))
