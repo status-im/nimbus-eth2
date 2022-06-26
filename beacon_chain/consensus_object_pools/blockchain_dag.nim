@@ -720,7 +720,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
       # The only allowed flag right now is verifyFinalization, as the others all
       # allow skipping some validation.
-      updateFlags: {verifyFinalization} * updateFlags,
+      updateFlags: {verifyFinalization, enableTestFeatures} * updateFlags,
       cfg: cfg,
 
       vanityLogs: vanityLogs,
