@@ -415,7 +415,8 @@ proc mainLoop(service: AttestationServiceRef) {.async.} =
 proc init*(t: typedesc[AttestationServiceRef],
            vc: ValidatorClientRef): Future[AttestationServiceRef] {.async.} =
   debug "Initializing service"
-  var res = AttestationServiceRef(client: vc, state: ServiceState.Initialized)
+  let res = AttestationServiceRef(name: "attestation_service",
+                                  client: vc, state: ServiceState.Initialized)
   return res
 
 proc start*(service: AttestationServiceRef) =

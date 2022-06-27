@@ -97,7 +97,8 @@ proc mainLoop(service: ForkServiceRef) {.async.} =
 proc init*(t: typedesc[ForkServiceRef],
             vc: ValidatorClientRef): Future[ForkServiceRef] {.async.} =
   debug "Initializing service"
-  var res = ForkServiceRef(client: vc, state: ServiceState.Initialized)
+  let res = ForkServiceRef(name: "fork_service",
+                           client: vc, state: ServiceState.Initialized)
   await vc.pollForFork()
   return res
 

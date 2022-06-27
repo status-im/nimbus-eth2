@@ -45,6 +45,7 @@ type
     proposers*: seq[ValidatorPubKey]
 
   ClientServiceRef* = ref object of RootObj
+    name*: string
     state*: ServiceState
     lifeFut*: Future[void]
     client*: ValidatorClientRef
@@ -126,7 +127,9 @@ type
     attestationService*: AttestationServiceRef
     blockService*: BlockServiceRef
     syncCommitteeService*: SyncCommitteeServiceRef
-    runSlotLoop*: Future[void]
+    runSlotLoopFut*: Future[void]
+    sigintHandleFut*: Future[void]
+    sigtermHandleFut*: Future[void]
     beaconClock*: BeaconClock
     attachedValidators*: ValidatorPool
     forks*: seq[Fork]
@@ -170,11 +173,13 @@ chronicles.expandIt(RestAttesterDuty):
   validator_committee_index = it.validator_committee_index
 
 proc stop*(csr: ClientServiceRef) {.async.} =
+  debug "Stopping service", service_name = csr.name
   if csr.state == ServiceState.Running:
     csr.state = ServiceState.Closing
     if not(csr.lifeFut.finished()):
       await csr.lifeFut.cancelAndWait()
     csr.state = ServiceState.Closed
+    debug "Service stopped", service_name = csr.name
 
 proc isDefault*(dap: DutyAndProof): bool =
   dap.epoch == Epoch(0xFFFF_FFFF_FFFF_FFFF'u64)

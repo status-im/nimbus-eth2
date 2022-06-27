@@ -256,7 +256,8 @@ proc mainLoop(service: FallbackServiceRef) {.async.} =
 proc init*(t: typedesc[FallbackServiceRef],
            vc: ValidatorClientRef): Future[FallbackServiceRef] {.async.} =
   debug "Initializing service"
-  var res = FallbackServiceRef(client: vc, state: ServiceState.Initialized,
+  var res = FallbackServiceRef(name: "fallback_service", client: vc,
+                               state: ServiceState.Initialized,
                                onlineEvent: newAsyncEvent())
   # Perform initial nodes check.
   await res.checkNodes()

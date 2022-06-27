@@ -105,6 +105,10 @@ proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
   return res
 
 proc asyncInit(vc: ValidatorClientRef) {.async.} =
+  when declared(waitSignal):
+    vc.sigintHandleFut = waitSignal(SIGINT)
+    vc.sigtermHandleFut = waitSignal(SIGTERM)
+
   vc.beaconGenesis = await vc.initGenesis()
   info "Genesis information", genesis_time = vc.beaconGenesis.genesis_time,
     genesis_fork_version = vc.beaconGenesis.genesis_fork_version,
@@ -129,7 +133,7 @@ proc asyncInit(vc: ValidatorClientRef) {.async.} =
   vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
 
 proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
-                 lastSlot: Slot) {.async.} =
+                 lastSlot: Slot): Future[bool] {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
   ## wallTime: current system time - we will strive to perform all duties up
@@ -147,13 +151,16 @@ proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
     expectedSlot = lastSlot + 1
     delay = wallTime - expectedSlot.start_beacon_time()
 
-  checkIfShouldStopAtEpoch(wallSlot.slot, vc.config.stopAtEpoch)
+  if checkIfShouldStopAtEpoch(wallSlot.slot, vc.config.stopAtEpoch):
+    return true
 
   info "Slot start",
     slot = shortLog(wallSlot.slot),
     attestationIn = vc.getDurationToNextAttestation(wallSlot.slot),
     blockIn = vc.getDurationToNextBlock(wallSlot.slot),
     delay = shortLog(delay)
+
+  return false
 
 proc asyncRun(vc: ValidatorClientRef) {.async.} =
   vc.fallbackService.start()
@@ -162,7 +169,45 @@ proc asyncRun(vc: ValidatorClientRef) {.async.} =
   vc.attestationService.start()
   vc.syncCommitteeService.start()
 
-  await runSlotLoop(vc, vc.beaconClock.now(), onSlotStart)
+  when declared(waitSignal):
+    vc.runSlotLoopFut = runSlotLoop(vc, vc.beaconClock.now(), onSlotStart)
+    await race(vc.runSlotLoopFut, vc.sigintHandleFut, vc.sigtermHandleFut)
+
+    if vc.runSlotLoopFut.finished():
+      if vc.runSlotLoopFut.failed():
+        let exc = vc.runSlotLoopFut.readError()
+        error "Abnormal program termination, trying to shutdown gracefully",
+              err_name = $exc.name, err_msg = $exc.msg
+    else:
+      let signal =
+        if vc.sigintHandleFut.finished():
+          "SIGINT"
+        else:
+          "SIGTERM"
+      error "Got interrupt, trying to shutdown gracefully", signal = signal
+  else:
+    vc.runSlotLoopFut = runSlotLoop(vc, vc.beaconClock.now(), onSlotStart)
+    await vc.runSlotLoopFut
+
+  debug "Closing slashing_protection database"
+  vc.attachedValidators.slashingProtection.close()
+
+  debug "Stopping main processing loop"
+  var pending: seq[Future[void]]
+  if not(vc.runSlotLoopFut.finished()):
+    pending.add(vc.runSlotLoopFut.cancelAndWait())
+  if not(vc.sigintHandleFut.finished()):
+    pending.add(vc.sigintHandleFut.cancelAndWait())
+  if not(vc.sigtermHandleFut.finished()):
+    pending.add(vc.sigtermHandleFut.cancelAndWait())
+  debug "Stopping running services"
+  pending.add(vc.fallbackService.stop())
+  pending.add(vc.forkService.stop())
+  pending.add(vc.dutiesService.stop())
+  pending.add(vc.attestationService.stop())
+  pending.add(vc.syncCommitteeService.stop())
+  await allFutures(pending)
+  info "Validator client stopped"
 
 programMain:
   let config = makeBannerAndConfig("Nimbus validator client " & fullVersionStr,

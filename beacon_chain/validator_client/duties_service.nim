@@ -544,7 +544,8 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
 
 proc init*(t: typedesc[DutiesServiceRef],
            vc: ValidatorClientRef): Future[DutiesServiceRef] {.async.} =
-  var res = DutiesServiceRef(client: vc, state: ServiceState.Initialized)
+  let res = DutiesServiceRef(name: "duties_service",
+                             client: vc, state: ServiceState.Initialized)
   debug "Initializing service"
   # We query for indices first, to avoid empty queries for duties.
   await vc.pollForValidatorIndices()

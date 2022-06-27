@@ -400,8 +400,8 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async.} =
 proc init*(t: typedesc[SyncCommitteeServiceRef],
            vc: ValidatorClientRef): Future[SyncCommitteeServiceRef] {.async.} =
   debug "Initializing service"
-  var res = SyncCommitteeServiceRef(client: vc,
-                                    state: ServiceState.Initialized)
+  let res = SyncCommitteeServiceRef(name: "sync_committee_service",
+                                    client: vc, state: ServiceState.Initialized)
   return res
 
 proc start*(service: SyncCommitteeServiceRef) =

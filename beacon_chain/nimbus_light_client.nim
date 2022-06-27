@@ -29,7 +29,8 @@ proc onSecond(
     getBeaconTime: GetBeaconTimeFn) =
   ## This procedure will be called once per second.
   let wallSlot = getBeaconTime().slotOrZero()
-  checkIfShouldStopAtEpoch(wallSlot, config.stopAtEpoch)
+  if checkIfShouldStopAtEpoch(wallSlot, config.stopAtEpoch):
+    quit(0)
 
   lightClient.updateGossipStatus(wallSlot + 1)
 
