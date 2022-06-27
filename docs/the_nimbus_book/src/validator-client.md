@@ -4,7 +4,7 @@
 
 By default, Nimbus loads validator keys into the main beacon node process, which is a simple, safe and efficient way to run a validator.
 
-Advanced users may wish to run validators in a separate process, allowing more flexible deployment strategies. The Nimbus beacon node supports both it's own and third-party validator clients via the built-in [REST API](./rest-api.md).
+Advanced users may wish to run validators in a separate process, allowing more flexible deployment strategies. The Nimbus beacon node supports both its own and third-party validator clients via the built-in [REST API](./rest-api.md).
 
 > ⚠️ So far, all slashings with known causes have been linked to overly complex setups involving separation between beacon node and validator client! Only use this setup if you've taken steps to mitigate the increased risk.
 
