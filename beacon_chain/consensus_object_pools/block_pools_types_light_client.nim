@@ -76,7 +76,7 @@ type
     # Light client data
 
     cache*: LightClientDataCache
-      ## Cached data to accelerate serving light client data
+      ## Cached data to accelerate creating light client data
 
     # -----------------------------------
     # Config
