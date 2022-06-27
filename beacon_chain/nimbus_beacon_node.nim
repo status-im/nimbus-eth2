@@ -194,6 +194,7 @@ proc loadChainDag(
     onLCOptimisticUpdateCb = onLightClientOptimisticUpdateCb,
     lightClientDataServe = config.lightClientDataServe.get,
     lightClientDataImportMode = config.lightClientDataImportMode.get,
+    lightClientDataMaxPeriods = config.lightClientDataMaxPeriods,
     vanityLogs = getPandas(detectTTY(config.logStdout)))
 
   let

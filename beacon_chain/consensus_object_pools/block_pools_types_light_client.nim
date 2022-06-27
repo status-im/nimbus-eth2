@@ -77,7 +77,7 @@ type
       ## Tracks light client data for the latest slot that was signed by
       ## at least `MIN_SYNC_COMMITTEE_PARTICIPANTS`. May be older than head.
 
-    importTailSlot*: Slot
+    tailSlot*: Slot
       ## The earliest slot for which light client data is imported.
 
   LightClientDataStore* = object
@@ -94,6 +94,8 @@ type
       ## Whether to make local light client data available or not
     importMode*: LightClientDataImportMode
       ## Which classes of light client data to import
+    maxPeriods*: uint64
+      ## Maximum number of sync committee periods to retain light client data
 
     # -----------------------------------
     # Callbacks

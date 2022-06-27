@@ -689,6 +689,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            onLCOptimisticUpdateCb: OnLightClientOptimisticUpdateCallback = nil,
            lightClientDataServe = false,
            lightClientDataImportMode = LightClientDataImportMode.None,
+           lightClientDataMaxPeriods = none(uint64),
            vanityLogs = default(VanityLogs)): ChainDAGRef =
   cfg.checkForkConsistency()
 
@@ -728,6 +729,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       lcDataStore: initLightClientDataStore(
         serve = lightClientDataServe,
         importMode = lightClientDataImportMode,
+        maxPeriods = lightClientDataMaxPeriods.get(cfg.defaultLCDataMaxPeriods),
         onLCFinalityUpdateCb = onLCFinalityUpdateCb,
         onLCOptimisticUpdateCb = onLCOptimisticUpdateCb),
 

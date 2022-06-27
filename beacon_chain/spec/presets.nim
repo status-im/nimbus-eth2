@@ -479,3 +479,12 @@ template name*(cfg: RuntimeConfig): string =
     cfg.CONFIG_NAME
   else:
     const_preset
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#configuration
+func MIN_EPOCHS_FOR_BLOCK_REQUESTS*(cfg: RuntimeConfig): uint64 =
+  cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY + cfg.CHURN_LIMIT_QUOTIENT div 2
+
+func defaultLCDataMaxPeriods*(cfg: RuntimeConfig): uint64 =
+  const epochsPerPeriod = EPOCHS_PER_SYNC_COMMITTEE_PERIOD
+  let maxEpochs = cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS
+  (maxEpochs + epochsPerPeriod - 1) div epochsPerPeriod
