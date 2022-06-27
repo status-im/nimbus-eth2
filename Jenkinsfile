@@ -13,7 +13,7 @@ def runStages(nodeDir) {
 	sh "mkdir -p ${nodeDir}"
 	dir(nodeDir) {
 		try {
-			stage("Clone") { timeout(10) {
+			stage("Clone") { timeout(15) {
 				/* source code checkout */
 				checkout scm
 				/* we need to update the submodules before caching kicks in */
