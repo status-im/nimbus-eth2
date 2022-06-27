@@ -16,7 +16,12 @@ The validator client is currently only available when built from source. To buil
 make -j4 nimbus_validator_client
 ```
 
-When upgrading, don't forget to upgrade the validator client also, with the same command as above!
+When upgrading, follow the [upgrade guide](./keep-updated.md) but use the following command to update both beacon node and validator client at the same time:
+
+```sh
+# after "git pull && make update":
+make -j4 nimbus_beacon_node nimbus_validator_client
+```
 
 ## Setup
 
@@ -37,7 +42,6 @@ With the keys imported, you are ready to start validator client:
 
 ```sh
 build/nimbus_validator_client \
-  --network:prater \
   --data-dir:build/data/vc_shared_prater_0
 ```
 
@@ -53,7 +57,6 @@ The client will by defualt connect to a beacon node on the same machine as the v
 
 ```sh
 build/nimbus_validator_client \
-  --network:prater \
   --data-dir:build/data/vc_shared_prater_0 \
   --beacon-node:http://host:port/
 ```
