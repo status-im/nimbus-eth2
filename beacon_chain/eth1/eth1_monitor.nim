@@ -1355,8 +1355,9 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
           of goerli:  5.Quantity
           of sepolia: 11155111.Quantity   # https://chainid.network/
       if expectedChain != providerChain:
-        fatal "The specified web3 provider serves data for a different chain",
-               expectedChain, providerChain
+        fatal "The specified Web3 provider serves data for a different chain",
+               expectedChain = distinctBase(expectedChain),
+               providerChain = distinctBase(providerChain)
         quit 1
     except CatchableError as exc:
       # Typically because it's not synced through EIP-155, assuming this Web3
