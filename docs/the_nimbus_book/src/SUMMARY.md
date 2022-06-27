@@ -27,6 +27,7 @@
 - [Add an additional validator](./additional-validator.md)
 - [Monitor attestation performance](./attestation-performance.md)
 - [Monitor specific validators](./validator-monitor.md)
+- [Run a separate validator client](./validator-client.md)
 
 # How-to (misc)
 - [Upgrade / downgrade Nimbus](./keep-updated.md)
