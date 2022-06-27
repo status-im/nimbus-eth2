@@ -58,36 +58,6 @@ MISSING_BINARY_HELP
   exit 1
 fi
 
-WEB3_URL_OPT_PRESENT=0
-for op in "$@"; do
-  if [[ "${op}" =~ ^--web3-url=.*$ ]]; then
-    WEB3_URL_OPT_PRESENT=1
-    break
-  fi
-done
-
-if [[ "${WEB3_URL}" == "" && "${WEB3_URL_OPT_PRESENT}" == "0" ]]; then
-  cat <<WEB3_HELP
-
-To monitor the Eth1 validator deposit contract, you'll need to pair
-the Nimbus beacon node with a Web3 provider capable of serving Eth1
-event logs. This could be a locally running Eth1 client such as Geth
-or a cloud service such as Infura. For more information please see
-our setup guides:
-
-https://nimbus.guide/eth1.html
-
-WEB3_HELP
-
-  echo -n "Please enter a Web3 provider URL: "
-  read WEB3_URL
-fi
-
-EXTRA_ARGS=""
-if [[ "${WEB3_URL}" != "" ]]; then
-  EXTRA_ARGS="--web3-url=${WEB3_URL}"
-fi
-
 # Allow the binary to receive signals directly.
 exec ${WINPTY} build/${NBC_BINARY} \
   --network=${NETWORK} \
@@ -98,4 +68,4 @@ exec ${WINPTY} build/${NBC_BINARY} \
   --rest-port=$(( ${BASE_REST_PORT} + ${NODE_ID} )) \
   --metrics \
   ${EXTRA_ARGS} \
-  $@
+  "$@"
