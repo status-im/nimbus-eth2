@@ -149,6 +149,15 @@ type
 
   ### Modified/overloaded
 
+  FinalityBranch* =
+    array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
+
+  CurrentSyncCommitteeBranch* =
+    array[log2trunc(CURRENT_SYNC_COMMITTEE_INDEX), Eth2Digest]
+
+  NextSyncCommitteeBranch* =
+    array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
+
   # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientbootstrap
   LightClientBootstrap* = object
     header*: BeaconBlockHeader
@@ -156,9 +165,7 @@ type
 
     current_sync_committee*: SyncCommittee
       ## Current sync committee corresponding to `header`
-
-    current_sync_committee_branch*:
-      array[log2trunc(CURRENT_SYNC_COMMITTEE_INDEX), Eth2Digest]
+    current_sync_committee_branch*: CurrentSyncCommitteeBranch
 
   # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
@@ -168,13 +175,11 @@ type
     next_sync_committee*: SyncCommittee
       ## Next sync committee corresponding to `attested_header`,
       ## if signature is from current sync committee
-    next_sync_committee_branch*:
-      array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
+    next_sync_committee_branch*: NextSyncCommitteeBranch
 
     # The finalized beacon block header attested to by Merkle branch
     finalized_header*: BeaconBlockHeader
-    finality_branch*:
-      array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
+    finality_branch*: FinalityBranch
 
     sync_aggregate*: SyncAggregate
     signature_slot*: Slot
@@ -187,8 +192,7 @@ type
 
     # The finalized beacon block header attested to by Merkle branch
     finalized_header*: BeaconBlockHeader
-    finality_branch*:
-      array[log2trunc(FINALIZED_ROOT_INDEX), Eth2Digest]
+    finality_branch*: FinalityBranch
 
     # Sync committee aggregate signature
     sync_aggregate*: SyncAggregate
