@@ -47,11 +47,14 @@ build/nimbus_validator_client \
 
 ## Options
 
-`nimbus_validator_client` supports command line options similar to the beacon node:
+The validator client shares many of its options with the beacon node. To see the available command line options, run:
+
 ```sh
 # See help
 build/nimbus_validator_client --help
 ```
+
+### `--beacon-node`
 
 The client will by defualt connect to a beacon node on the same machine as the validator client. Pick a different node with `--beacon-node`:
 
