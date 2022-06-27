@@ -137,13 +137,13 @@ func initLightClientDataStore*(
     onLightClientOptimisticUpdate: onLCOptimisticUpdateCb)
 
 func targetLightClientTailSlot(dag: ChainDAGRef): Slot =
-   ## Earliest slot for which light client data is retained.
-   let
-     maxPeriods = dag.lcDataStore.maxPeriods
-     headPeriod = dag.head.slot.sync_committee_period
-     lowSlot = max(dag.tail.slot, dag.cfg.ALTAIR_FORK_EPOCH.start_slot)
-     tail = max(headPeriod + 1, maxPeriods.SyncCommitteePeriod) - maxPeriods
-   max(tail.start_slot, lowSlot)
+  ## Earliest slot for which light client data is retained.
+  let
+    maxPeriods = dag.lcDataStore.maxPeriods
+    headPeriod = dag.head.slot.sync_committee_period
+    lowSlot = max(dag.tail.slot, dag.cfg.ALTAIR_FORK_EPOCH.start_slot)
+    tail = max(headPeriod + 1, maxPeriods.SyncCommitteePeriod) - maxPeriods
+  max(tail.start_slot, lowSlot)
 
 func handleUnexpectedLightClientError(dag: ChainDAGRef, buggedSlot: Slot) =
   ## If there is an unexpected error, adjust `tailSlot` to keep track of the
