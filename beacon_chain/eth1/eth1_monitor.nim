@@ -1345,15 +1345,15 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     try:
       let
         providerChain =
-          (awaitWithRetries m.dataProvider.web3.provider.eth_chainId()).uint64
+          awaitWithRetries m.dataProvider.web3.provider.eth_chainId()
 
         # https://eips.ethereum.org/EIPS/eip-155#list-of-chain-ids
         expectedChain = case m.eth1Network.get
-          of mainnet: 1'u64
-          of ropsten: 3'u64
-          of rinkeby: 4'u64
-          of goerli:  5'u64
-          of sepolia: 11155111'u64   # https://chainid.network/
+          of mainnet: 1.Quantity
+          of ropsten: 3.Quantity
+          of rinkeby: 4.Quantity
+          of goerli:  5.Quantity
+          of sepolia: 11155111.Quantity   # https://chainid.network/
       if expectedChain != providerChain:
         fatal "The specified web3 provider serves data for a different chain",
                expectedChain, providerChain
