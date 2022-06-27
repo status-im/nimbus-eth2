@@ -475,7 +475,7 @@ proc init*(T: type BeaconNode,
       none(DepositContractSnapshot)
 
   if config.web3Urls.len() == 0:
-    if BELLATRIX_FORK_EPOCH == FAR_FUTURE_EPOCH:
+    if cfg.BELLATRIX_FORK_EPOCH == FAR_FUTURE_EPOCH:
       notice "Running without execution client - validator features partially disabled (see https://nimbus.guide/eth1.html)"
     else:
       notice "Running without execution client - validator features disabled (see https://nimbus.guide/eth1.html)"
