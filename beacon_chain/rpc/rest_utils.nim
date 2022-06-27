@@ -274,7 +274,7 @@ proc getRouter*(allowedOrigin: Option[string]): RestRouter =
 
 proc getStateOptimistic*(node: BeaconNode,
                          state: ForkedHashedBeaconState): Option[bool] =
-  if node.dag.getHeadStateMergeComplete():
+  if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
     case state.kind
     of BeaconStateFork.Phase0, BeaconStateFork.Altair:
       some[bool](false)
@@ -287,7 +287,7 @@ proc getStateOptimistic*(node: BeaconNode,
 proc getBlockOptimistic*(node: BeaconNode,
                          blck: ForkedTrustedSignedBeaconBlock |
                                ForkedSignedBeaconBlock): Option[bool] =
-  if node.dag.getHeadStateMergeComplete():
+  if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
     case blck.kind
     of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
       some[bool](false)
