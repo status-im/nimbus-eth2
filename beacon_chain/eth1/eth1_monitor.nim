@@ -1060,8 +1060,7 @@ proc detectPrimaryProviderComingOnline(m: Eth1Monitor) {.async.} =
     # Use one of the get/request-type methods from
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/specification.md#underlying-protocol
     # which does nit take parameters and returns a small structure, to ensure
-    # this works with engine API endpoints. Either eth_chainId or eth_syncing
-    # works for this purpose.
+    # this works with engine API endpoints.
     let testRequest = tempProvider.web3.provider.eth_syncing()
 
     yield testRequest or sleepAsync(web3Timeouts)
@@ -1342,18 +1341,28 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     contract = $m.depositContractAddress
 
   if isFirstRun and m.eth1Network.isSome:
-    let
-      providerNetwork = awaitWithRetries m.dataProvider.web3.provider.net_version()
-      expectedNetwork = case m.eth1Network.get
-        of mainnet: "1"
-        of ropsten: "3"
-        of rinkeby: "4"
-        of goerli:  "5"
-        of sepolia: "11155111"
-    if expectedNetwork != providerNetwork:
-      fatal "The specified web3 provider serves data for a different network",
-             expectedNetwork, providerNetwork
-      quit 1
+    try:
+      let
+        providerChain =
+          awaitWithRetries m.dataProvider.web3.provider.eth_chainId()
+
+        # https://eips.ethereum.org/EIPS/eip-155#list-of-chain-ids
+        expectedChain = case m.eth1Network.get
+          of mainnet: 1.Quantity
+          of ropsten: 3.Quantity
+          of rinkeby: 4.Quantity
+          of goerli:  5.Quantity
+          of sepolia: 11155111.Quantity   # https://chainid.network/
+      if expectedChain != providerChain:
+        fatal "The specified Web3 provider serves data for a different chain",
+               expectedChain = distinctBase(expectedChain),
+               providerChain = distinctBase(providerChain)
+        quit 1
+    except CatchableError as exc:
+      # Typically because it's not synced through EIP-155, assuming this Web3
+      # endpoint has been otherwise working.
+      debug "startEth1Syncing: eth_chainId failed: ",
+        error = exc.msg
 
   var mustUsePolling = m.forcePolling or
                        web3Url.startsWith("http://") or
@@ -1525,8 +1534,6 @@ proc testWeb3Provider*(web3Url: Uri,
     web3 = mustSucceed "connect to web3 provider":
       await newWeb3(
         $web3Url, getJsonRpcRequestHeaders(jwtSecret))
-    networkVersion = mustSucceed "get network version":
-      awaitWithRetries web3.provider.net_version()
     latestBlock = mustSucceed "get latest block":
       awaitWithRetries web3.provider.eth_getBlockByNumber(blockId("latest"), false)
     syncStatus = mustSucceed "get sync status":
@@ -1542,12 +1549,18 @@ proc testWeb3Provider*(web3Url: Uri,
       awaitWithRetries web3.provider.eth_mining()
 
   echo "Client Version: ", clientVersion
-  echo "Network Version: ", networkVersion
   echo "Network Peers: ", peers
   echo "Syncing: ", syncStatus
   echo "Latest block: ", latestBlock.number.uint64
   echo "Last Known Nonce: ", web3.lastKnownNonce
   echo "Mining: ", mining
+
+  try:
+    let chainId = awaitWithRetries web3.provider.eth_chainId()
+    echo "Chain ID: ", chainId.uint64
+  except DataProviderFailure as exc:
+    # Typically because it's not synced through EIP-155.
+    echo "Web3 provider does not provide chain ID: " & exc.msg
 
   let ns = web3.contractSender(DepositContract, depositContractAddress)
   try:
