@@ -1,6 +1,6 @@
 import
   std/os,
-  bearssl, nimcrypto/utils, confutils, eth/keys,
+  nimcrypto/utils, confutils, eth/keys,
   ../beacon_chain/validators/keystore_management,
   ../beacon_chain/spec/[keystore, crypto],
   ../beacon_chain/conf

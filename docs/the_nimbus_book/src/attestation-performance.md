@@ -1,6 +1,8 @@
 # Monitor attestation performance
 
-Use the `ncli_db validatorPerf` command to create a report for the attestation performance of your validator over time.
+`ncli_db validatorPerf` is an advanced tool that helps you monitor the performance of your validator over time.
+
+The tool requires that you [built nimbus from source](./build.md).
 
 ## Steps
 
@@ -32,9 +34,9 @@ The following options are available:
 
 Where:
 
-- The `network` can either be `mainnet`, `prater` or `ropsten`
+- The `network` can either be `mainnet`, `prater`, `ropsten` or `sepolia`
 
-- The default location of the `db`  is either `build/data/shared_mainnet_0/db`, `build/data/shared_prater_0/db` or `build/data/shared_ropsten_0/db`
+- The default location of the `db`  is `build/data/shared_mainnet_0/db` for `mainnet`, `build/data/shared_prater_0/db` for `prater`, etc.
 
 
 Near the bottom, you should see

@@ -6,9 +6,9 @@
 
 import std/[tables, os, strutils, uri]
 import chronos, chronicles, confutils,
-       stew/[base10, results, io2], bearssl, blscurve
+       stew/[base10, results, io2], blscurve
 import ".."/validators/slashing_protection
-import ".."/[conf, version, filepath, beacon_node]
+import ".."/[conf, filepath, beacon_node]
 import ".."/spec/[keystore, crypto]
 import ".."/rpc/rest_utils
 import ".."/validators/[keystore_management, validator_pool, validator_duties]
@@ -165,7 +165,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
     return RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Keymanager/DeleteKeys
-  router.api(MethodPost, "/api/eth/v1/keystores/delete") do (
+  router.api(MethodDelete, "/api/eth/v1/keystores") do (
       contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, node)
     if authStatus.isErr():
@@ -369,9 +369,9 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
     "/api/eth/v1/keystores")
 
   router.redirect(
-    MethodPost,
-    "/eth/v1/keystores/delete",
-    "/api/eth/v1/keystores/delete")
+    MethodDelete,
+    "/eth/v1/keystores",
+    "/api/eth/v1/keystores")
 
   router.redirect(
     MethodGet,

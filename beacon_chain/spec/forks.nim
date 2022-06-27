@@ -131,10 +131,21 @@ type
     altair.SigVerifiedSignedBeaconBlock |
     bellatrix.SigVerifiedSignedBeaconBlock
 
+  ForkyMsgTrustedSignedBeaconBlock* =
+    phase0.MsgTrustedSignedBeaconBlock |
+    altair.MsgTrustedSignedBeaconBlock |
+    bellatrix.MsgTrustedSignedBeaconBlock
+
   ForkyTrustedSignedBeaconBlock* =
     phase0.TrustedSignedBeaconBlock |
     altair.TrustedSignedBeaconBlock |
     bellatrix.TrustedSignedBeaconBlock
+
+  ForkedMsgTrustedSignedBeaconBlock* = object
+    case kind*: BeaconBlockFork
+    of BeaconBlockFork.Phase0:    phase0Data*:    phase0.MsgTrustedSignedBeaconBlock
+    of BeaconBlockFork.Altair:    altairData*:    altair.MsgTrustedSignedBeaconBlock
+    of BeaconBlockFork.Bellatrix: bellatrixData*: bellatrix.MsgTrustedSignedBeaconBlock
 
   ForkedTrustedSignedBeaconBlock* = object
     case kind*: BeaconBlockFork
@@ -145,6 +156,7 @@ type
   SomeForkySignedBeaconBlock* =
     ForkySignedBeaconBlock |
     ForkySigVerifiedSignedBeaconBlock |
+    ForkyMsgTrustedSignedBeaconBlock |
     ForkyTrustedSignedBeaconBlock
 
   EpochInfoFork* {.pure.} = enum
@@ -162,6 +174,7 @@ type
     phase0*:    ForkDigest
     altair*:    ForkDigest
     bellatrix*: ForkDigest
+    capella*:   ForkDigest
     sharding*:  ForkDigest
 
 template toFork*[T: phase0.BeaconState | phase0.HashedBeaconState](
@@ -222,6 +235,13 @@ template init*(T: type ForkedSignedBeaconBlock, forked: ForkedBeaconBlock,
                                                  root: blockRoot,
                                                  signature: signature))
 
+template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: phase0.MsgTrustedSignedBeaconBlock): T =
+  T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
+template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: altair.MsgTrustedSignedBeaconBlock): T =
+  T(kind: BeaconBlockFork.Altair, altairData: blck)
+template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: bellatrix.MsgTrustedSignedBeaconBlock): T =
+  T(kind: BeaconBlockFork.Bellatrix,  bellatrixData: blck)
+
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: phase0.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: altair.TrustedSignedBeaconBlock): T =
@@ -229,21 +249,42 @@ template init*(T: type ForkedTrustedSignedBeaconBlock, blck: altair.TrustedSigne
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: bellatrix.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Bellatrix,  bellatrixData: blck)
 
+template toString*(kind: BeaconBlockFork): string =
+  case kind
+  of BeaconBlockFork.Phase0:
+    "phase0"
+  of BeaconBlockFork.Altair:
+    "altair"
+  of BeaconBlockFork.Bellatrix:
+    "bellatrix"
+
+template toString*(kind: BeaconStateFork): string =
+  case kind
+  of BeaconStateFork.Phase0:
+    "phase0"
+  of BeaconStateFork.Altair:
+    "altair"
+  of BeaconStateFork.Bellatrix:
+    "bellatrix"
+
 template toFork*[T:
     phase0.SignedBeaconBlock |
     phase0.SigVerifiedSignedBeaconBlock |
+    phase0.MsgTrustedSignedBeaconBlock |
     phase0.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Phase0
 template toFork*[T:
     altair.SignedBeaconBlock |
     altair.SigVerifiedSignedBeaconBlock |
+    altair.MsgTrustedSignedBeaconBlock |
     altair.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Altair
 template toFork*[T:
     bellatrix.SignedBeaconBlock |
     bellatrix.SigVerifiedSignedBeaconBlock |
+    bellatrix.MsgTrustedSignedBeaconBlock |
     bellatrix.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Bellatrix
@@ -365,15 +406,25 @@ template atEpoch*(
     forkDigests: ForkDigests, epoch: Epoch, cfg: RuntimeConfig): ForkDigest =
   forkDigests.atStateFork(cfg.stateForkAtEpoch(epoch))
 
-template asSigned*(x: ForkedTrustedSignedBeaconBlock): ForkedSignedBeaconBlock =
+template asSigned*(
+    x: ForkedMsgTrustedSignedBeaconBlock |
+       ForkedTrustedSignedBeaconBlock): ForkedSignedBeaconBlock =
   isomorphicCast[ForkedSignedBeaconBlock](x)
 
-template asTrusted*(x: ForkedSignedBeaconBlock): ForkedTrustedSignedBeaconBlock =
+template asMsgTrusted*(
+    x: ForkedSignedBeaconBlock |
+       ForkedTrustedSignedBeaconBlock): ForkedMsgTrustedSignedBeaconBlock =
+  isomorphicCast[ForkedMsgTrustedSignedBeaconBlock](x)
+
+template asTrusted*(
+    x: ForkedSignedBeaconBlock |
+       ForkedMsgTrustedSignedBeaconBlock): ForkedTrustedSignedBeaconBlock =
   isomorphicCast[ForkedTrustedSignedBeaconBlock](x)
 
 template withBlck*(
     x: ForkedBeaconBlock | Web3SignerForkedBeaconBlock |
-    ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock,
+       ForkedSignedBeaconBlock | ForkedMsgTrustedSignedBeaconBlock |
+       ForkedTrustedSignedBeaconBlock,
     body: untyped): untyped =
   case x.kind
   of BeaconBlockFork.Phase0:
@@ -397,38 +448,51 @@ func hash_tree_root*(x: ForkedBeaconBlock): Eth2Digest =
 
 func hash_tree_root*(x: Web3SignerForkedBeaconBlock): Eth2Digest {.borrow.}
 
-template getForkedBlockField*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock, y: untyped): untyped =
+template getForkedBlockField*(
+    x: ForkedSignedBeaconBlock |
+       ForkedMsgTrustedSignedBeaconBlock |
+       ForkedTrustedSignedBeaconBlock,
+    y: untyped): untyped =
   # unsafeAddr avoids a copy of the field in some cases
   (case x.kind
   of BeaconBlockFork.Phase0:    unsafeAddr x.phase0Data.message.y
   of BeaconBlockFork.Altair:    unsafeAddr x.altairData.message.y
   of BeaconBlockFork.Bellatrix: unsafeAddr x.bellatrixData.message.y)[]
 
-template signature*(x: ForkedSignedBeaconBlock): ValidatorSig =
+template signature*(x: ForkedSignedBeaconBlock |
+                       ForkedMsgTrustedSignedBeaconBlock): ValidatorSig =
   withBlck(x): blck.signature
 
 template signature*(x: ForkedTrustedSignedBeaconBlock): TrustedSig =
   withBlck(x): blck.signature
 
-template root*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): Eth2Digest =
+template root*(x: ForkedSignedBeaconBlock |
+                  ForkedMsgTrustedSignedBeaconBlock |
+                  ForkedTrustedSignedBeaconBlock): Eth2Digest =
   withBlck(x): blck.root
 
-template slot*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): Slot =
+template slot*(x: ForkedSignedBeaconBlock |
+                  ForkedMsgTrustedSignedBeaconBlock |
+                  ForkedTrustedSignedBeaconBlock): Slot =
   withBlck(x): blck.message.slot
 
 template shortLog*(x: ForkedBeaconBlock): auto =
   withBlck(x): shortLog(blck)
 
-template shortLog*(x: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): auto =
+template shortLog*(x: ForkedSignedBeaconBlock |
+                      ForkedMsgTrustedSignedBeaconBlock |
+                      ForkedTrustedSignedBeaconBlock): auto =
   withBlck(x): shortLog(blck)
 
 chronicles.formatIt ForkedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedSignedBeaconBlock: it.shortLog
+chronicles.formatIt ForkedMsgTrustedSignedBeaconBlock: it.shortLog
 chronicles.formatIt ForkedTrustedSignedBeaconBlock: it.shortLog
 
 template withStateAndBlck*(
     s: ForkedHashedBeaconState,
     b: ForkedBeaconBlock | ForkedSignedBeaconBlock |
+       ForkedMsgTrustedSignedBeaconBlock |
        ForkedTrustedSignedBeaconBlock,
     body: untyped): untyped =
   case s.kind
@@ -464,10 +528,10 @@ template toBeaconBlockHeader*(
   blck.message.toBeaconBlockHeader
 
 template toBeaconBlockHeader*(
-    blckParam: ForkedTrustedSignedBeaconBlock): BeaconBlockHeader =
-  ## Reduce a given `ForkedTrustedSignedBeaconBlock` to its `BeaconBlockHeader`.
-  withBlck(blckParam):
-    blck.toBeaconBlockHeader()
+    blckParam: ForkedMsgTrustedSignedBeaconBlock |
+               ForkedTrustedSignedBeaconBlock): BeaconBlockHeader =
+  ## Reduce a given signed beacon block to its `BeaconBlockHeader`.
+  withBlck(blckParam): blck.toBeaconBlockHeader()
 
 func genesisFork*(cfg: RuntimeConfig): Fork =
   Fork(
@@ -604,12 +668,19 @@ func init*(T: type ForkDigests,
       compute_fork_digest(cfg.ALTAIR_FORK_VERSION, genesis_validators_root),
     bellatrix:
       compute_fork_digest(cfg.BELLATRIX_FORK_VERSION, genesis_validators_root),
+    capella:
+      compute_fork_digest(cfg.CAPELLA_FORK_VERSION, genesis_validators_root),
     sharding:
       compute_fork_digest(cfg.SHARDING_FORK_VERSION, genesis_validators_root),
   )
 
+func toBlockId*(header: BeaconBlockHeader): BlockId =
+  BlockId(root: header.hash_tree_root(), slot: header.slot)
+
 func toBlockId*(blck: SomeForkySignedBeaconBlock): BlockId =
   BlockId(root: blck.root, slot: blck.message.slot)
 
-func toBlockId*(blck: ForkedSignedBeaconBlock | ForkedTrustedSignedBeaconBlock): BlockId =
+func toBlockId*(blck: ForkedSignedBeaconBlock |
+                      ForkedMsgTrustedSignedBeaconBlock |
+                      ForkedTrustedSignedBeaconBlock): BlockId =
   withBlck(blck): BlockId(root: blck.root, slot: blck.message.slot)

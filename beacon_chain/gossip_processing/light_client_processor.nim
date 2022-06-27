@@ -18,6 +18,8 @@ import
 
 export sszdump, eth2_processor, gossip_validation
 
+logScope: topics = "gossip_lc"
+
 # Light Client Processor
 # ------------------------------------------------------------------------------
 # The light client processor handles received light client objects
@@ -73,6 +75,8 @@ type
     lastProgressTick: BeaconTime # Moment when last update made progress
     lastDuplicateTick: BeaconTime # Moment when last duplicate update received
     numDuplicatesSinceProgress: int # Number of duplicates since last progress
+
+    latestFinalityUpdate: altair.LightClientOptimisticUpdate
 
 const
   # These constants have been chosen empirically and are not backed by spec
@@ -217,6 +221,47 @@ proc processObject(
 
   res
 
+template withReportedProgress(expectFinalityUpdate: bool, body: untyped): bool =
+  block:
+    let
+      previousWasInitialized = store[].isSome
+      previousFinalized =
+        if store[].isSome:
+          store[].get.finalized_header
+        else:
+          BeaconBlockHeader()
+      previousOptimistic =
+        if store[].isSome:
+          store[].get.optimistic_header
+        else:
+          BeaconBlockHeader()
+
+    body
+
+    var didProgress = false
+
+    if store[].isSome != previousWasInitialized:
+      didProgress = true
+      if self.onStoreInitialized != nil:
+        self.onStoreInitialized()
+        self.onStoreInitialized = nil
+
+    if store[].get.optimistic_header != previousOptimistic:
+      when not expectFinalityUpdate:
+        didProgress = true
+      if self.onOptimisticHeader != nil:
+        self.onOptimisticHeader()
+
+    if store[].get.finalized_header != previousFinalized:
+      didProgress = true
+      if self.onFinalizedHeader != nil:
+        self.onFinalizedHeader()
+
+    didProgress
+
+template withReportedProgress(body: untyped): bool =
+  withReportedProgress(false, body)
+
 proc storeObject*(
     self: var LightClientProcessor,
     src: MsgSource, wallTime: BeaconTime,
@@ -227,59 +272,48 @@ proc storeObject*(
   let
     startTick = Moment.now()
     store = self.store
-    previousFinalized =
-      if store[].isSome:
-        store[].get.finalized_header
-      else:
-        BeaconBlockHeader()
-    previousOptimistic =
-      if store[].isSome:
-        store[].get.optimistic_header
-      else:
-        BeaconBlockHeader()
 
-  ? self.processObject(obj, wallTime)
+    didProgress =
+      withReportedProgress(obj is SomeLightClientUpdateWithFinality):
+        ? self.processObject(obj, wallTime)
 
-  let
-    storeObjectTick = Moment.now()
-    storeObjectDur = storeObjectTick - startTick
+        let
+          storeObjectTick = Moment.now()
+          storeObjectDur = storeObjectTick - startTick
 
-  light_client_store_object_duration_seconds.observe(
-    storeObjectDur.toFloatSeconds())
+        light_client_store_object_duration_seconds.observe(
+          storeObjectDur.toFloatSeconds())
 
-  let objSlot =
-    when obj is altair.LightClientBootstrap:
-      obj.header.slot
-    elif obj is SomeLightClientUpdateWithFinality:
-      obj.finalized_header.slot
-    else:
-      obj.attested_header.slot
-  debug "LC object processed",
-    finalizedSlot = store[].get.finalized_header.slot,
-    optimisticSlot = store[].get.optimistic_header.slot,
-    kind = typeof(obj).name,
-    objectSlot = objSlot,
-    storeObjectDur
-
-  when obj is altair.LightClientBootstrap:
-    if self.onStoreInitialized != nil:
-      self.onStoreInitialized()
-      self.onStoreInitialized = nil
-
-  var didProgress = false
-
-  if store[].get.optimistic_header != previousOptimistic:
-    when obj isnot SomeLightClientUpdateWithFinality:
-      didProgress = true
-    if self.onOptimisticHeader != nil:
-      self.onOptimisticHeader()
-
-  if store[].get.finalized_header != previousFinalized:
-    didProgress = true
-    if self.onFinalizedHeader != nil:
-      self.onFinalizedHeader()
-
+        let objSlot =
+          when obj is altair.LightClientBootstrap:
+            obj.header.slot
+          elif obj is SomeLightClientUpdateWithFinality:
+            obj.finalized_header.slot
+          else:
+            obj.attested_header.slot
+        debug "LC object processed",
+          finalizedSlot = store[].get.finalized_header.slot,
+          optimisticSlot = store[].get.optimistic_header.slot,
+          kind = typeof(obj).name,
+          objectSlot = objSlot,
+          storeObjectDur
   ok didProgress
+
+proc resetToFinalizedHeader*(
+    self: var LightClientProcessor,
+    header: BeaconBlockHeader,
+    current_sync_committee: SyncCommittee) =
+  let store = self.store
+
+  discard withReportedProgress:
+    store[] = some LightClientStore(
+      finalized_header: header,
+      current_sync_committee: current_sync_committee,
+      optimistic_header: header)
+
+    debug "LC reset to finalized header",
+      finalizedSlot = store[].get.finalized_header.slot,
+      optimisticSlot = store[].get.optimistic_header.slot
 
 # Enqueue
 # ------------------------------------------------------------------------------
@@ -322,70 +356,61 @@ proc addObject*(
 # Message validators
 # ------------------------------------------------------------------------------
 
-declareCounter lc_light_client_finality_updates_received,
-  "Number of valid LC finality updates processed by this LC"
-declareCounter lc_light_client_finality_updates_dropped,
-  "Number of invalid LC finality updates dropped by this LC", labels = ["reason"]
-declareCounter lc_light_client_optimistic_updates_received,
-  "Number of valid LC optimistic updates processed by this LC"
-declareCounter lc_light_client_optimistic_updates_dropped,
-  "Number of invalid LC optimistic updates dropped by this LC", labels = ["reason"]
-
 func toValidationError(
-    v: Result[bool, BlockError],
-    wallTime: BeaconTime): Result[void, ValidationError] =
-  if v.isOk:
-    let didProgress = v.get
+    self: var LightClientProcessor,
+    r: Result[bool, BlockError],
+    wallTime: BeaconTime,
+    obj: SomeLightClientObject): Result[void, ValidationError] =
+  if r.isOk:
+    let didProgress = r.get
     if didProgress:
-      when v is SomeLightClientUpdate:
-        let
-          signature_slot = v.signature_slot
-          currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
-          forwardTime = signature_slot.light_client_optimistic_update_time
-        if currentTime < forwardTime:
-          # [IGNORE] The `finality_update` / `optimistic_update` is received
-          # after the block at `signature_slot` was given enough time to
-          # propagate through the network.
-          return errIgnore(typeof(v).name & ": received too early")
+      let
+        signature_slot = obj.signature_slot
+        currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+        forwardTime = signature_slot.light_client_finality_update_time
+      if currentTime < forwardTime:
+        # [IGNORE] The `finality_update` is received after the block
+        # at `signature_slot` was given enough time to propagate through
+        # the network.
+        # [IGNORE] The `optimistic_update` is received after the block
+        # at `signature_slot` was given enough time to propagate through
+        # the network.
+        return errIgnore(typeof(obj).name & ": received too early")
       ok()
     else:
-      # [IGNORE] The `finality_update` / `optimistic_update`
-      # advances the `finalized_header` / `optimistic_header`
-      # of the local `LightClientStore`.
-      errIgnore(typeof(v).name & ": no significant progress")
+      when obj is altair.LightClientOptimisticUpdate:
+        # [IGNORE] The `optimistic_update` either matches corresponding fields
+        # of the most recently forwarded `LightClientFinalityUpdate` (if any),
+        # or it advances the `optimistic_header` of the local `LightClientStore`
+        if obj == self.latestFinalityUpdate:
+          return ok()
+      # [IGNORE] The `finality_update` advances the `finalized_header` of the
+      # local `LightClientStore`.
+      errIgnore(typeof(obj).name & ": no significant progress")
   else:
-    case v.error
+    case r.error
     of BlockError.Invalid:
-      # [REJECT] The `finality_update` / `optimistic_update` is valid.
-      errReject($v.error)
+      # [REJECT] The `finality_update` is valid.
+      # [REJECT] The `optimistic_update` is valid.
+      errReject($r.error)
     of BlockError.MissingParent, BlockError.UnviableFork, BlockError.Duplicate:
       # [IGNORE] No other `finality_update` with a lower or equal
-      # `finalized_header.slot` / `attested_header.slot` was already
-      # forwarded on the network.
-      errIgnore($v.error)
+      # `finalized_header.slot` was already forwarded on the network.
+      # [IGNORE] No other `optimistic_update` with a lower or equal
+      # `attested_header.slot` was already forwarded on the network.
+      errIgnore($r.error)
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_finality_update
 proc lightClientFinalityUpdateValidator*(
     self: var LightClientProcessor, src: MsgSource,
     finality_update: altair.LightClientFinalityUpdate
 ): Result[void, ValidationError] =
-  logScope:
-    finality_update
-
-  debug "LC finality update received"
-
   let
     wallTime = self.getBeaconTime()
     r = self.storeObject(src, wallTime, finality_update)
-    v = r.toValidationError(wallTime)
-  if v.isOk():
-    trace "LC finality update validated"
-
-    lc_light_client_finality_updates_received.inc()
-  else:
-    debug "Dropping LC finality update", error = v.error
-    lc_light_client_finality_updates_dropped.inc(1, [$v.error[0]])
-
+    v = self.toValidationError(r, wallTime, finality_update)
+  if v.isOk:
+    self.latestFinalityUpdate = finality_update.toOptimistic
   v
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_optimistic_update
@@ -393,21 +418,12 @@ proc lightClientOptimisticUpdateValidator*(
     self: var LightClientProcessor, src: MsgSource,
     optimistic_update: altair.LightClientOptimisticUpdate
 ): Result[void, ValidationError] =
-  logScope:
-    optimistic_update
-
-  debug "LC optimistic update received"
-
   let
     wallTime = self.getBeaconTime()
     r = self.storeObject(src, wallTime, optimistic_update)
-    v = r.toValidationError(wallTime)
-  if v.isOk():
-    trace "LC optimistic update validated"
-
-    lc_light_client_optimistic_updates_received.inc()
-  else:
-    debug "Dropping LC optimistic update", error = v.error
-    lc_light_client_optimistic_updates_dropped.inc(1, [$v.error[0]])
-
+    v = self.toValidationError(r, wallTime, optimistic_update)
+  if v.isOk:
+    let latestFinalitySlot = self.latestFinalityUpdate.attested_header.slot
+    if optimistic_update.attested_header.slot >= latestFinalitySlot:
+      self.latestFinalityUpdate.reset() # Only forward once
   v

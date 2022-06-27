@@ -810,7 +810,7 @@ proc validateProposerSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#voluntary_exit
 proc validateVoluntaryExit*(
     pool: ExitPool, signed_voluntary_exit: SignedVoluntaryExit):
     Result[void, ValidationError] =
@@ -840,7 +840,7 @@ proc validateVoluntaryExit*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/p2p-interface.md#sync_committee_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/p2p-interface.md#sync_committee_subnet_id
 proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
     batchCrypto: ref BatchCrypto,
@@ -1057,7 +1057,7 @@ proc validateLightClientFinalityUpdate*(
     # `signature_slot` was given enough time to propagate through the network.
     return errIgnore("LightClientFinalityUpdate: received too early")
 
-  if finality_update != dag.lightClientCache.latest:
+  if finality_update != dag.lcDataStore.cache.latest:
     # [IGNORE] The received `finality_update` matches the locally computed one
     # exactly.
     return errIgnore("LightClientFinalityUpdate: not matching local")
@@ -1085,7 +1085,7 @@ proc validateLightClientOptimisticUpdate*(
     # `signature_slot` was given enough time to propagate through the network.
     return errIgnore("LightClientOptimisticUpdate: received too early")
 
-  if not optimistic_update.matches(dag.lightClientCache.latest):
+  if not optimistic_update.matches(dag.lcDataStore.cache.latest):
     # [IGNORE] The received `optimistic_update` matches the locally computed one
     # exactly.
     return errIgnore("LightClientOptimisticUpdate: not matching local")

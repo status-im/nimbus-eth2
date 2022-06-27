@@ -21,11 +21,11 @@ export
   eth2_merkleization, eth2_ssz_serialization,
   block_pools_types, results, beacon_chain_db
 
-# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
+# https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_head_root, "Root of the head block of the beacon chain"
 declareGauge beacon_head_slot, "Slot of the head block of the beacon chain"
 
-# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
+# https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_finalized_epoch, "Current finalized epoch" # On epoch transition
 declareGauge beacon_finalized_root, "Current finalized root" # On epoch transition
 declareGauge beacon_current_justified_epoch, "Current justified epoch" # On epoch transition
@@ -57,21 +57,11 @@ proc putBlock*(
   dag.db.putBlock(signedBlock)
 
 proc updateState*(
-    dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId, save: bool,
-    cache: var StateCache): bool {.gcsafe.}
-
-template withStateVars*(
-    stateInternal: var ForkedHashedBeaconState, body: untyped): untyped =
-  ## Inject a few more descriptive names for the members of `stateData` -
-  ## the stateData instance may get mutated through these names as well
-  template state(): ForkedHashedBeaconState {.inject, used.} = stateInternal
-  template stateRoot(): Eth2Digest {.inject, used.} =
-    getStateRoot(stateInternal)
-
-  body
+    dag: ChainDAGRef, state: var ForkedHashedBeaconState, bsi: BlockSlotId,
+    save: bool, cache: var StateCache): bool {.gcsafe.}
 
 template withUpdatedState*(
-    dag: ChainDAGRef, state: var ForkedHashedBeaconState,
+    dag: ChainDAGRef, stateParam: var ForkedHashedBeaconState,
     bsiParam: BlockSlotId, okBody: untyped, failureBody: untyped): untyped =
   ## Helper template that updates stateData to a particular BlockSlot - usage of
   ## stateData is unsafe outside of block, or across `await` boundaries
@@ -79,11 +69,10 @@ template withUpdatedState*(
   block:
     let bsi {.inject.} = bsiParam
     var cache {.inject.} = StateCache()
-    if updateState(dag, state, bsi, false, cache):
+    if updateState(dag, stateParam, bsi, false, cache):
       template bid(): BlockId {.inject, used.} = bsi.bid
-
-      withStateVars(state):
-        okBody
+      template state(): ForkedHashedBeaconState {.inject, used.} = stateParam
+      okBody
     else:
       failureBody
 
@@ -520,9 +509,45 @@ proc getForkedBlock*(
     # In case we didn't have a summary - should be rare, but ..
     dag.db.getForkedBlock(root)
 
+proc currentSyncCommitteeForPeriod*(
+    dag: ChainDAGRef,
+    tmpState: var ForkedHashedBeaconState,
+    period: SyncCommitteePeriod): Opt[SyncCommittee] =
+  ## Fetch a `SyncCommittee` for a given sync committee period.
+  ## For non-finalized periods, follow the chain as selected by fork choice.
+  let lowSlot = max(dag.tail.slot, dag.cfg.ALTAIR_FORK_EPOCH.start_slot)
+  if period < lowSlot.sync_committee_period:
+    return err()
+  let
+    periodStartSlot = period.start_slot
+    syncCommitteeSlot = max(periodStartSlot, lowSlot)
+    bsi = ? dag.getBlockIdAtSlot(syncCommitteeSlot)
+  dag.withUpdatedState(tmpState, bsi) do:
+    withState(state):
+      when stateFork >= BeaconStateFork.Altair:
+        ok state.data.current_sync_committee
+      else: err()
+  do: err()
+
+func isNextSyncCommitteeFinalized*(
+    dag: ChainDAGRef, period: SyncCommitteePeriod): bool =
+  let finalizedSlot = dag.finalizedHead.slot
+  if finalizedSlot < period.start_slot:
+    false
+  elif finalizedSlot < dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
+    false # Fork epoch not necessarily tied to sync committee period boundary
+  else:
+    true
+
+func firstNonFinalizedPeriod*(dag: ChainDAGRef): SyncCommitteePeriod =
+  if dag.finalizedHead.slot >= dag.cfg.ALTAIR_FORK_EPOCH.start_slot:
+    dag.finalizedHead.slot.sync_committee_period + 1
+  else:
+    dag.cfg.ALTAIR_FORK_EPOCH.sync_committee_period
+
 proc updateBeaconMetrics(
     state: ForkedHashedBeaconState, bid: BlockId, cache: var StateCache) =
-  # https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#additional-metrics
+  # https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#additional-metrics
   # both non-negative, so difference can't overflow or underflow int64
 
   beacon_head_root.set(bid.root.toGaugeValue)
@@ -662,20 +687,13 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            onReorgCb: OnReorgCallback = nil, onFinCb: OnFinalizedCallback = nil,
            onLCFinalityUpdateCb: OnLightClientFinalityUpdateCallback = nil,
            onLCOptimisticUpdateCb: OnLightClientOptimisticUpdateCallback = nil,
-           serveLightClientData = false,
-           importLightClientData = ImportLightClientData.None,
+           lightClientDataServe = false,
+           lightClientDataImportMode = LightClientDataImportMode.None,
+           lightClientDataMaxPeriods = none(uint64),
            vanityLogs = default(VanityLogs)): ChainDAGRef =
-  # TODO move fork version sanity checking elsewhere?
-  let forkVersions =
-    [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
-     cfg.BELLATRIX_FORK_VERSION, cfg.SHARDING_FORK_VERSION]
-  for i in 0 ..< forkVersions.len:
-    for j in i+1 ..< forkVersions.len:
-      doAssert forkVersions[i] != forkVersions[j]
+  cfg.checkForkConsistency()
 
-  doAssert cfg.ALTAIR_FORK_EPOCH <= cfg.BELLATRIX_FORK_EPOCH
-  doAssert cfg.BELLATRIX_FORK_EPOCH <= cfg.SHARDING_FORK_EPOCH
-  doAssert updateFlags in [{}, {verifyFinalization}],
+  doAssert updateFlags - {verifyFinalization, enableTestFeatures} == {},
     "Other flags not supported in ChainDAG"
 
   # TODO we require that the db contains both a head and a tail block -
@@ -703,20 +721,22 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
       # The only allowed flag right now is verifyFinalization, as the others all
       # allow skipping some validation.
-      updateFlags: {verifyFinalization} * updateFlags,
+      updateFlags: {verifyFinalization, enableTestFeatures} * updateFlags,
       cfg: cfg,
 
       vanityLogs: vanityLogs,
 
-      serveLightClientData: serveLightClientData,
-      importLightClientData: importLightClientData,
+      lcDataStore: initLightClientDataStore(
+        serve = lightClientDataServe,
+        importMode = lightClientDataImportMode,
+        maxPeriods = lightClientDataMaxPeriods.get(cfg.defaultLCDataMaxPeriods),
+        onLCFinalityUpdateCb = onLCFinalityUpdateCb,
+        onLCOptimisticUpdateCb = onLCOptimisticUpdateCb),
 
       onBlockAdded: onBlockCb,
       onHeadChanged: onHeadCb,
       onReorgHappened: onReorgCb,
-      onFinHappened: onFinCb,
-      onLightClientFinalityUpdate: onLCFinalityUpdateCb,
-      onLightClientOptimisticUpdate: onLCOptimisticUpdateCb
+      onFinHappened: onFinCb
     )
     loadTick = Moment.now()
 
@@ -735,8 +755,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # Load head -> finalized, or all summaries in case the finalized block table
   # hasn't been written yet
   for blck in db.getAncestorSummaries(head.root):
-    let newRef = BlockRef.init(
-      blck.root, default(Eth2Digest), blck.summary.slot)
+    let newRef = BlockRef.init(blck.root, ZERO_HASH, blck.summary.slot)
     if headRef == nil:
       doAssert blck.root == head.root
       headRef = newRef
@@ -937,7 +956,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     frontfillDur = frontfillTick - finalizedTick,
     keysDur = Moment.now() - frontfillTick
 
-  dag.initLightClientCache()
+  dag.initLightClientDataCache()
 
   dag
 
@@ -1515,6 +1534,13 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
     statePruneDur = statePruneTick - startTick,
     epochRefPruneDur = epochRefPruneTick - statePruneTick
 
+template getHeadStateMergeComplete*(dag: ChainDAGRef): bool =
+  withState(dag.headState):
+    when stateFork >= BeaconStateFork.Bellatrix:
+      is_merge_transition_complete(state.data)
+    else:
+      false
+
 proc updateHead*(
     dag: ChainDAGRef,
     newHead: BlockRef,
@@ -1547,16 +1573,9 @@ proc updateHead*(
     error "Cannot update head to block without parent"
     return
 
-  template getHeadStateMergeComplete(): bool =
-    withState(dag.headState):
-      when stateFork >= BeaconStateFork.Bellatrix:
-        is_merge_transition_complete(state.data)
-      else:
-        false
-
   let
     lastHeadStateRoot = getStateRoot(dag.headState)
-    lastHeadMergeComplete = getHeadStateMergeComplete()
+    lastHeadMergeComplete = dag.getHeadStateMergeComplete()
 
   # Start off by making sure we have the right state - updateState will try
   # to use existing in-memory states to make this smooth
@@ -1573,7 +1592,7 @@ proc updateHead*(
 
   dag.head = newHead
 
-  if getHeadStateMergeComplete() and not lastHeadMergeComplete:
+  if dag.getHeadStateMergeComplete() and not lastHeadMergeComplete:
     dag.vanityLogs.onMergeTransitionBlock()
 
   dag.db.putHeadBlock(newHead.root)
@@ -1606,10 +1625,15 @@ proc updateHead*(
       finalized = shortLog(getStateField(dag.headState, finalized_checkpoint))
 
     if not(isNil(dag.onReorgHappened)):
-      let data = ReorgInfoObject.init(dag.head.slot, uint64(ancestorDepth),
-                                      lastHead.root, newHead.root,
-                                      lastHeadStateRoot,
-                                      getStateRoot(dag.headState))
+      let
+        # TODO (cheatfate): Proper implementation required
+        optimistic =
+          if dag.getHeadStateMergeComplete(): some(false) else: none[bool]()
+        data = ReorgInfoObject.init(dag.head.slot, uint64(ancestorDepth),
+                                    lastHead.root, newHead.root,
+                                    lastHeadStateRoot,
+                                    getStateRoot(dag.headState),
+                                    optimistic)
       dag.onReorgHappened(data)
 
     # A reasonable criterion for "reorganizations of the chain"
@@ -1630,10 +1654,13 @@ proc updateHead*(
         depRoot = withState(dag.headState): state.proposer_dependent_root
         prevDepRoot = withState(dag.headState): state.attester_dependent_root
         epochTransition = (finalizedHead != dag.finalizedHead)
-      let data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
-                                           getStateRoot(dag.headState),
-                                           epochTransition, depRoot,
-                                           prevDepRoot)
+        # TODO (cheatfate): Proper implementation required
+        optimistic =
+          if dag.getHeadStateMergeComplete(): some(false) else: none[bool]()
+        data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
+                                         getStateRoot(dag.headState),
+                                         epochTransition, depRoot,
+                                         prevDepRoot, optimistic)
       dag.onHeadChanged(data)
 
   withState(dag.headState):
@@ -1692,11 +1719,13 @@ proc updateHead*(
             int(dag.finalizedHead.slot mod SLOTS_PER_HISTORICAL_ROOT)]
         else:
           Eth2Digest() # The thing that finalized was >8192 blocks old?
+      # TODO (cheatfate): Proper implementation required
+      let optimistic =
+        if dag.getHeadStateMergeComplete(): some(false) else: none[bool]()
 
       let data = FinalizationInfoObject.init(
-        dag.finalizedHead.blck.root,
-        stateRoot,
-        dag.finalizedHead.slot.epoch)
+        dag.finalizedHead.blck.root, stateRoot, dag.finalizedHead.slot.epoch,
+        optimistic)
       dag.onFinHappened(dag, data)
 
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =

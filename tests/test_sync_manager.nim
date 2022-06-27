@@ -101,7 +101,7 @@ suite "SyncManager test suite":
       r11e == r11
       r11.item == p1
       r11e.item == r11.item
-      r11.slot == Slot(0) and r11.count == 1'u64 and r11.step == 1'u64
+      r11.slot == Slot(0) and r11.count == 1'u64
 
   template passThroughLimitsTest(kind: SyncQueueKind) =
     let
@@ -188,7 +188,6 @@ suite "SyncManager test suite":
         req1.isEmpty() == false
         req1.slot == item[3][0]
         req1.count == item[3][1]
-        req1.step == 1'u64
         req2.isEmpty() == true
 
   template twoFullRequests(kkind: SyncQueueKind) =
@@ -249,12 +248,12 @@ suite "SyncManager test suite":
     case kkind
     of SyncQueueKind.Forward:
       check:
-        r21.slot == Slot(0) and r21.count == 1'u64 and r21.step == 1'u64
-        r22.slot == Slot(1) and r22.count == 1'u64 and r22.step == 1'u64
+        r21.slot == Slot(0) and r21.count == 1'u64
+        r22.slot == Slot(1) and r22.count == 1'u64
     of SyncQueueKind.Backward:
       check:
-        r21.slot == Slot(1) and r21.count == 1'u64 and r21.step == 1'u64
-        r22.slot == Slot(0) and r22.count == 1'u64 and r22.step == 1'u64
+        r21.slot == Slot(1) and r21.count == 1'u64
+        r22.slot == Slot(0) and r22.count == 1'u64
 
   template done(b: BlockEntry) =
     b.resfut.complete(Result[void, BlockError].ok())
@@ -961,12 +960,11 @@ suite "SyncManager test suite":
     let chain2 = newSeq[ref ForkedSignedBeaconBlock]()
 
     for counter in countdown(32'u64, 2'u64):
-      let req = SyncRequest[SomeTPeer](slot: Slot(1), count: counter,
-                                      step: 1'u64)
+      let req = SyncRequest[SomeTPeer](slot: Slot(1), count: counter)
       let sr = SyncResult[SomeTPeer](request: req, data: chain1)
       check sr.hasEndGap() == true
 
-    let req = SyncRequest[SomeTPeer](slot: Slot(1), count: 1'u64, step: 1'u64)
+    let req = SyncRequest[SomeTPeer](slot: Slot(1), count: 1'u64)
     let sr1 = SyncResult[SomeTPeer](request: req, data: chain1)
     let sr2 = SyncResult[SomeTPeer](request: req, data: chain2)
     check:
@@ -978,12 +976,11 @@ suite "SyncManager test suite":
     let chain2 = newSeq[ref ForkedSignedBeaconBlock]()
 
     for counter in countdown(32'u64, 2'u64):
-      let req = SyncRequest[SomeTPeer](slot: Slot(10), count: counter,
-                                       step: 1'u64)
+      let req = SyncRequest[SomeTPeer](slot: Slot(10), count: counter)
       let sr = SyncResult[SomeTPeer](request: req, data: chain1)
       check sr.getLastNonEmptySlot() == Slot(10)
 
-    let req = SyncRequest[SomeTPeer](slot: Slot(100), count: 1'u64, step: 1'u64)
+    let req = SyncRequest[SomeTPeer](slot: Slot(100), count: 1'u64)
     let sr = SyncResult[SomeTPeer](request: req, data: chain2)
     check sr.getLastNonEmptySlot() == Slot(100)
 
@@ -994,59 +991,22 @@ suite "SyncManager test suite":
       while counter < req.count:
         if not(req.contains(slot)):
           return false
-        slot = slot + req.step
+        slot = slot + 1
         counter = counter + 1'u64
       return true
 
-    var req1 = SyncRequest[SomeTPeer](slot: Slot(5), count: 10'u64, step: 1'u64)
-    var req2 = SyncRequest[SomeTPeer](slot: Slot(1), count: 10'u64, step: 2'u64)
-    var req3 = SyncRequest[SomeTPeer](slot: Slot(2), count: 10'u64, step: 3'u64)
-    var req4 = SyncRequest[SomeTPeer](slot: Slot(3), count: 10'u64, step: 4'u64)
-    var req5 = SyncRequest[SomeTPeer](slot: Slot(4), count: 10'u64, step: 5'u64)
+    var req1 = SyncRequest[SomeTPeer](slot: Slot(5), count: 10'u64)
 
     check:
       req1.checkRange() == true
-      req2.checkRange() == true
-      req3.checkRange() == true
-      req4.checkRange() == true
-      req5.checkRange() == true
 
       req1.contains(Slot(4)) == false
       req1.contains(Slot(15)) == false
 
-      req2.contains(Slot(0)) == false
-      req2.contains(Slot(21)) == false
-      req2.contains(Slot(20)) == false
-
-      req3.contains(Slot(0)) == false
-      req3.contains(Slot(1)) == false
-      req3.contains(Slot(32)) == false
-      req3.contains(Slot(31)) == false
-      req3.contains(Slot(30)) == false
-
-      req4.contains(Slot(0)) == false
-      req4.contains(Slot(1)) == false
-      req4.contains(Slot(2)) == false
-      req4.contains(Slot(43)) == false
-      req4.contains(Slot(42)) == false
-      req4.contains(Slot(41)) == false
-      req4.contains(Slot(40)) == false
-
-      req5.contains(Slot(0)) == false
-      req5.contains(Slot(1)) == false
-      req5.contains(Slot(2)) == false
-      req5.contains(Slot(3)) == false
-      req5.contains(Slot(54)) == false
-      req5.contains(Slot(53)) == false
-      req5.contains(Slot(52)) == false
-      req5.contains(Slot(51)) == false
-      req5.contains(Slot(50)) == false
-
   test "[SyncQueue] checkResponse() test":
     let chain = createChain(Slot(10), Slot(20))
-    let r1 = SyncRequest[SomeTPeer](slot: Slot(11), count: 1'u64, step: 1'u64)
-    let r21 = SyncRequest[SomeTPeer](slot: Slot(11), count: 2'u64, step: 1'u64)
-    let r22 = SyncRequest[SomeTPeer](slot: Slot(11), count: 2'u64, step: 2'u64)
+    let r1 = SyncRequest[SomeTPeer](slot: Slot(11), count: 1'u64)
+    let r21 = SyncRequest[SomeTPeer](slot: Slot(11), count: 2'u64)
 
     check:
       checkResponse(r1, @[chain[1]]) == true
@@ -1066,19 +1026,6 @@ suite "SyncManager test suite":
       checkResponse(r21, @[chain[2], chain[1]]) == false
       checkResponse(r21, @[chain[2], chain[3]]) == false
       checkResponse(r21, @[chain[3]]) == false
-
-      checkResponse(r22, @[chain[1]]) == true
-      checkResponse(r22, @[]) == true
-      checkResponse(r22, @[chain[1], chain[3]]) == true
-      checkResponse(r22, @[chain[3]]) == true
-      checkResponse(r22, @[chain[1], chain[3], chain[5]]) == false
-      checkResponse(r22, @[chain[0], chain[1]]) == false
-      checkResponse(r22, @[chain[1], chain[2]]) == false
-      checkResponse(r22, @[chain[2], chain[3]]) == false
-      checkResponse(r22, @[chain[3], chain[4]]) == false
-      checkResponse(r22, @[chain[4], chain[5]]) == false
-      checkResponse(r22, @[chain[4]]) == false
-      checkResponse(r22, @[chain[3], chain[1]]) == false
 
   test "[SyncQueue#Forward] getRewindPoint() test":
     let aq = newAsyncQueue[BlockEntry]()

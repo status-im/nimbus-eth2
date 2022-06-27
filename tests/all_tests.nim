@@ -8,7 +8,6 @@
 # All tests except scenarios, which as compiled separately for mainnet and minimal
 
 import
-  chronicles,
   ./testutil
 
 import # Unit test
@@ -16,9 +15,11 @@ import # Unit test
   ./test_attestation_pool,
   ./test_beacon_chain_db,
   ./test_beacon_time,
+  ./test_block_clearance_light_client,
   ./test_block_dag,
   ./test_block_processor,
   ./test_block_quarantine,
+  ./test_conf,
   ./test_datatypes,
   ./test_discovery,
   ./test_engine_authentication,

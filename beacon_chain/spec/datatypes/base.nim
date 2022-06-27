@@ -444,7 +444,7 @@ type
     withdrawable_epoch*: Epoch
       ## When validator can withdraw or transfer funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#eth2-field
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#eth2-field
   ENRForkID* = object
     fork_digest*: ForkDigest
     next_fork_version*: Version
@@ -958,3 +958,28 @@ func clear*(cache: var StateCache) =
   cache.shuffled_active_validator_indices.clear
   cache.beacon_proposer_indices.clear
   cache.sync_committees.clear
+
+func checkForkConsistency*(cfg: RuntimeConfig) =
+  doAssert cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
+  doAssert cfg.SHARDING_FORK_EPOCH == FAR_FUTURE_EPOCH
+
+  let forkVersions =
+    [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
+     cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
+     cfg.SHARDING_FORK_VERSION]
+  for i in 0 ..< forkVersions.len:
+    for j in i+1 ..< forkVersions.len:
+      doAssert distinctBase(forkVersions[i]) != distinctBase(forkVersions[j])
+
+  template assertForkEpochOrder(
+      firstForkEpoch: Epoch, secondForkEpoch: Epoch) =
+    doAssert distinctBase(firstForkEpoch) <= distinctBase(secondForkEpoch)
+
+    # TODO https://github.com/ethereum/consensus-specs/issues/2902 multiple
+    # fork transitions per epoch don't work in a well-defined way.
+    doAssert distinctBase(firstForkEpoch) < distinctBase(secondForkEpoch) or
+             firstForkEpoch in [GENESIS_EPOCH, FAR_FUTURE_EPOCH]
+
+  assertForkEpochOrder(cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH)
+  assertForkEpochOrder(cfg.BELLATRIX_FORK_EPOCH, cfg.CAPELLA_FORK_EPOCH)
+  assertForkEpochOrder(cfg.CAPELLA_FORK_EPOCH, cfg.SHARDING_FORK_EPOCH)

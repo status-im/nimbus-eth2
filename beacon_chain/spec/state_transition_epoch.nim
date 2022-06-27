@@ -150,7 +150,7 @@ func process_attestations*(
     if v.flags.contains RewardFlags.isPreviousEpochHeadAttester:
       info.balances.previous_epoch_head_attesters_raw += validator_balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.1/specs/phase0/beacon-chain.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#helpers
 # get_eligible_validator_indices
 func is_eligible_validator*(validator: RewardStatus): bool =
   validator.flags.contains(RewardFlags.isActiveInPreviousEpoch) or
@@ -495,7 +495,7 @@ func get_attestation_component_delta(is_unslashed_attester: bool,
   else:
     RewardDelta(penalties: base_reward)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.1/specs/phase0/beacon-chain.md#components-of-attestation-deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#components-of-attestation-deltas
 func get_source_delta*(validator: RewardStatus,
                        base_reward: uint64,
                        balances: TotalBalances,
@@ -989,7 +989,7 @@ func process_participation_flag_updates*(state: var (altair.BeaconState | bellat
   # grows. New elements are automatically initialized to 0, as required.
   doAssert state.current_epoch_participation.data.setLen(state.validators.len)
 
-  state.current_epoch_participation.resetCache()
+  state.current_epoch_participation.asHashList.resetCache()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#sync-committee-updates
 func process_sync_committee_updates*(
@@ -1038,23 +1038,23 @@ func process_inactivity_updates*(
 proc process_epoch*(
     cfg: RuntimeConfig, state: var phase0.BeaconState, flags: UpdateFlags,
     cache: var StateCache, info: var phase0.EpochInfo): Result[void, cstring] =
-  let currentEpoch = get_current_epoch(state)
+  let current_epoch = get_current_epoch(state)
   trace "process_epoch",
-    current_epoch = currentEpoch
+    current_epoch
   init(info, state)
   info.process_attestations(state, cache)
 
   process_justification_and_finalization(state, info.balances, flags)
 
   # state.slot hasn't been incremented yet.
-  if verifyFinalization in flags and currentEpoch >= 2:
-    doAssert state.current_justified_checkpoint.epoch + 2 >= currentEpoch
+  if verifyFinalization in flags and current_epoch >= 2:
+    doAssert state.current_justified_checkpoint.epoch + 2 >= current_epoch
 
-  if verifyFinalization in flags and currentEpoch >= 3:
+  if verifyFinalization in flags and current_epoch >= 3:
     # Rule 2/3/4 finalization results in the most pessimal case. The other
     # three finalization rules finalize more quickly as long as the any of
     # the finalization rules triggered.
-    doAssert state.finalized_checkpoint.epoch + 3 >= currentEpoch
+    doAssert state.finalized_checkpoint.epoch + 3 >= current_epoch
 
   process_rewards_and_penalties(state, info)
   ? process_registry_updates(cfg, state, cache)
@@ -1115,13 +1115,13 @@ proc process_epoch*(
 
   process_inactivity_updates(cfg, state, info)  # [New in Altair]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.1/specs/phase0/beacon-chain.md#rewards-and-penalties-1
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#process_rewards_and_penalties
   process_rewards_and_penalties(cfg, state, info)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#registry-updates
   ? process_registry_updates(cfg, state, cache)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#slashings
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#slashings
   process_slashings(state, info.balances.current_epoch)
 
   process_eth1_data_reset(state)

@@ -11,8 +11,8 @@ import std/[options, heapqueue, tables, strutils, sequtils, algorithm]
 import stew/[results, base10], chronos, chronicles
 import
   ../spec/datatypes/[phase0, altair],
-  ../spec/eth2_apis/rpc_types,
-  ../spec/[helpers, forks],
+  ../spec/eth2_apis/rest_types,
+  ../spec/[helpers, forks, network],
   ../networking/[peer_pool, peer_scores, eth2_network],
   ../beacon_clock,
   "."/[sync_protocol, sync_queue]
@@ -167,9 +167,9 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
   try:
     let res =
       if peer.useSyncV2():
-        await beaconBlocksByRange_v2(peer, req.slot, req.count, req.step)
+        await beaconBlocksByRange_v2(peer, req.slot, req.count, 1'u64)
       else:
-        (await beaconBlocksByRange(peer, req.slot, req.count, req.step)).map(
+        (await beaconBlocksByRange(peer, req.slot, req.count, 1'u64)).map(
           proc(blcks: seq[phase0.SignedBeaconBlock]): auto =
             blcks.mapIt(newClone(ForkedSignedBeaconBlock.init(it))))
 
@@ -562,18 +562,29 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 
     let
       pivot = man.progressPivot
-      progress = float(
-        if man.queue.kind == SyncQueueKind.Forward: man.queue.outSlot - pivot
-        else: pivot - man.queue.outSlot)
-      total = float(
-        if man.queue.kind == SyncQueueKind.Forward: man.queue.finalSlot - pivot
-        else: pivot - man.queue.finalSlot)
+      progress =
+        case man.queue.kind
+        of SyncQueueKind.Forward:
+          man.queue.outSlot - pivot
+        of SyncQueueKind.Backward:
+          pivot - man.queue.outSlot
+      total =
+        case man.queue.kind
+        of SyncQueueKind.Forward:
+          man.queue.finalSlot + 1'u64 - pivot
+        of SyncQueueKind.Backward:
+          pivot + 1'u64 - man.queue.finalSlot
       remaining = total - progress
-      done = if total > 0.0: progress / total else: 1.0
+      done =
+        if total > 0:
+          progress.float / total.float
+        else:
+          1.0
       timeleft =
         if man.avgSyncSpeed >= 0.001:
-          Duration.fromFloatSeconds(remaining / man.avgSyncSpeed)
-        else: InfiniteDuration
+          Duration.fromFloatSeconds(remaining.float / man.avgSyncSpeed)
+        else:
+          InfiniteDuration
       currentSlot = Base10.toString(
         if man.queue.kind == SyncQueueKind.Forward:
           max(uint64(man.queue.outSlot), 1'u64) - 1'u64
@@ -658,14 +669,3 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
 proc start*[A, B](man: SyncManager[A, B]) =
   ## Starts SyncManager's main loop.
   man.syncFut = man.syncLoop()
-
-proc getInfo*[A, B](man: SyncManager[A, B]): RpcSyncInfo =
-  ## Returns current synchronization information for RPC call.
-  let wallSlot = man.getLocalWallSlot()
-  let headSlot = man.getLocalHeadSlot()
-  let sync_distance = wallSlot - headSlot
-  (
-    head_slot: headSlot,
-    sync_distance: sync_distance,
-    is_syncing: man.inProgress
-  )

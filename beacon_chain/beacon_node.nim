@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -14,27 +14,39 @@ import
   chronos, json_rpc/servers/httpserver, presto,
 
   # Local modules
-  "."/[beacon_clock, beacon_chain_db, conf],
+  "."/[beacon_clock, beacon_chain_db, conf, light_client],
   ./gossip_processing/[eth2_processor, block_processor, consensus_manager],
   ./networking/eth2_network,
   ./eth1/eth1_monitor,
   ./consensus_object_pools/[
     blockchain_dag, block_quarantine, exit_pool, attestation_pool,
     sync_committee_msg_pool],
-  ./spec/datatypes/base,
-  ./sync/[sync_manager, request_manager],
+  ./spec/datatypes/[base, altair],
+  ./sync/[optimistic_sync_light_client, sync_manager, request_manager],
   ./validators/[action_tracker, validator_monitor, validator_pool],
   ./rpc/state_ttl_cache
 
 export
-  osproc, chronos, httpserver, presto, action_tracker, beacon_clock,
-  beacon_chain_db, conf, attestation_pool, sync_committee_msg_pool,
-  validator_pool, eth2_network, eth1_monitor, request_manager, sync_manager,
-  eth2_processor, blockchain_dag, block_quarantine, base, exit_pool,
-  validator_monitor, consensus_manager
+  osproc, chronos, httpserver, presto, action_tracker,
+  beacon_clock, beacon_chain_db, conf, light_client,
+  attestation_pool, sync_committee_msg_pool, validator_pool,
+  eth2_network, eth1_monitor, optimistic_sync_light_client,
+  request_manager, sync_manager, eth2_processor, blockchain_dag,
+  block_quarantine, base, exit_pool, validator_monitor, consensus_manager
 
 type
   RpcServer* = RpcHttpServer
+
+  EventBus* = object
+    blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
+    headQueue*: AsyncEventQueue[HeadChangeInfoObject]
+    reorgQueue*: AsyncEventQueue[ReorgInfoObject]
+    finUpdateQueue*: AsyncEventQueue[altair.LightClientFinalityUpdate]
+    optUpdateQueue*: AsyncEventQueue[altair.LightClientOptimisticUpdate]
+    attestQueue*: AsyncEventQueue[Attestation]
+    contribQueue*: AsyncEventQueue[SignedContributionAndProof]
+    exitQueue*: AsyncEventQueue[SignedVoluntaryExit]
+    finalQueue*: AsyncEventQueue[FinalizationInfoObject]
 
   BeaconNode* = ref object
     nickname*: string
@@ -44,6 +56,8 @@ type
     db*: BeaconChainDB
     config*: BeaconNodeConf
     attachedValidators*: ref ValidatorPool
+    lcOptSync*: LCOptimisticSync
+    lightClient*: LightClient
     dag*: ChainDAGRef
     quarantine*: ref Quarantine
     attestationPool*: ref AttestationPool
@@ -54,7 +68,7 @@ type
     restServer*: RestServerRef
     keymanagerServer*: RestServerRef
     keymanagerToken*: Option[string]
-    eventBus*: AsyncEventBus
+    eventBus*: EventBus
     vcProcess*: Process
     requestManager*: RequestManager
     syncManager*: SyncManager[Peer, PeerId]
@@ -70,6 +84,7 @@ type
     restKeysCache*: Table[ValidatorPubKey, ValidatorIndex]
     validatorMonitor*: ref ValidatorMonitor
     stateTtlCache*: StateTtlCache
+    nextExchangeTransitionConfTime*: Moment
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

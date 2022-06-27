@@ -46,7 +46,7 @@ type
 
   PayloadID* = array[8, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
@@ -59,13 +59,13 @@ type
     gas_used*: uint64
     timestamp*: uint64
     extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
-    base_fee_per_gas*: Eth2Digest  # base fee introduced in EIP-1559, little-endian serialized
+    base_fee_per_gas*: UInt256
 
     # Extra payload fields
     block_hash*: Eth2Digest # Hash of execution block
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/merge/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
@@ -78,7 +78,7 @@ type
     gas_used*: uint64
     timestamp*: uint64
     extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
-    base_fee_per_gas*: Eth2Digest  # base fee introduced in EIP-1559, little-endian serialized
+    base_fee_per_gas*: UInt256
 
     # Extra payload fields
     block_hash*: Eth2Digest  # Hash of execution block
@@ -87,7 +87,7 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/fork-choice.md#powblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/fork-choice.md#powblock
   PowBlock* = object
     block_hash*: Eth2Digest
     parent_hash*: Eth2Digest
@@ -217,7 +217,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -235,7 +235,7 @@ type
     sync_aggregate*: SyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload  # [New in Merge]
+    execution_payload*: ExecutionPayload  # [New in Bellatrix]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -313,15 +313,31 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
+  MsgTrustedSignedBeaconBlock* = object
+    message*: TrustedBeaconBlock
+    signature*: ValidatorSig
+
+    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+
   TrustedSignedBeaconBlock* = object
     message*: TrustedBeaconBlock
     signature*: TrustedSig
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  SomeSignedBeaconBlock* = SignedBeaconBlock | SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock
-  SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
-  SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
+  SomeSignedBeaconBlock* =
+    SignedBeaconBlock |
+    SigVerifiedSignedBeaconBlock |
+    MsgTrustedSignedBeaconBlock |
+    TrustedSignedBeaconBlock
+  SomeBeaconBlock* =
+    BeaconBlock |
+    SigVerifiedBeaconBlock |
+    TrustedBeaconBlock
+  SomeBeaconBlockBody* =
+    BeaconBlockBody |
+    SigVerifiedBeaconBlockBody |
+    TrustedBeaconBlockBody
 
   BlockParams = object
     parentHash*: string
@@ -378,13 +394,26 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
-template asSigned*(x: SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock):
-    SignedBeaconBlock =
+template asSigned*(
+    x: SigVerifiedSignedBeaconBlock |
+       MsgTrustedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): SignedBeaconBlock =
   isomorphicCast[SignedBeaconBlock](x)
 
-template asSigVerified*(x: SignedBeaconBlock | TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+template asSigVerified*(
+    x: SignedBeaconBlock |
+       MsgTrustedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
   isomorphicCast[SigVerifiedSignedBeaconBlock](x)
 
+template asMsgTrusted*(
+    x: SignedBeaconBlock |
+       SigVerifiedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): MsgTrustedSignedBeaconBlock =
+  isomorphicCast[MsgTrustedSignedBeaconBlock](x)
+
 template asTrusted*(
-    x: SignedBeaconBlock | SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
+    x: SignedBeaconBlock |
+       SigVerifiedSignedBeaconBlock |
+       MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)

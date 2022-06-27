@@ -25,8 +25,10 @@ NODE_ID := 0
 BASE_PORT := 9000
 BASE_REST_PORT := 5052
 BASE_METRICS_PORT := 8008
+EXECUTOR_NUMBER := 0
 
 ROPSTEN_WEB3_URL := "--web3-url=wss://ropsten.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
+SEPOLIA_WEB3_URL := "--web3-url=https://rpc.sepolia.dev --web3-url=https://www.sepoliarpc.space"
 GOERLI_WEB3_URL := "--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 GNOSIS_WEB3_URLS := "--web3-url=wss://rpc.gnosischain.com/wss --web3-url=wss://xdai.poanetwork.dev/wss"
 
@@ -145,6 +147,15 @@ update: | update-common
 # nim-libbacktrace
 libbacktrace:
 	+ "$(MAKE)" -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
+
+restapi-test:
+	./tests/simulation/restapi.sh \
+		--data-dir resttest0_data \
+		--base-port $$(( 9100 + EXECUTOR_NUMBER * 100 )) \
+		--base-rest-port $$(( 7100 + EXECUTOR_NUMBER * 100 )) \
+		--base-metrics-port $$(( 8108 + EXECUTOR_NUMBER * 100 )) \
+		--resttest-delay 30 \
+		--kill-old-processes
 
 # test binaries that can output an XML report
 XML_TEST_BINARIES := \
@@ -309,7 +320,9 @@ define CONNECT_TO_NETWORK_IN_DEV_MODE
 		--network=$(1) $(3) $(GOERLI_TESTNETS_PARAMS) \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
-		--serve-light-client-data=1 --import-light-client-data=only-new \
+		--light-client-enable=on \
+		--light-client-data-serve=on \
+		--light-client-data-import-mode=only-new \
 		--dump $(NODE_PARAMS)
 endef
 
@@ -444,6 +457,35 @@ clean-ropsten:
 	$(call CLEAN_NETWORK,ropsten)
 
 ###
+### Sepolia
+###
+sepolia-build: | nimbus_beacon_node nimbus_signing_node
+
+# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
+sepolia: | sepolia-build
+	$(call CONNECT_TO_NETWORK,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
+
+sepolia-vc: | sepolia-build nimbus_validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
+
+sepolia-lc: | nimbus_light_client
+	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,sepolia)
+
+ifneq ($(LOG_LEVEL), TRACE)
+sepolia-dev:
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+else
+sepolia-dev: | sepolia-build
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
+endif
+
+sepolia-dev-deposit: | sepolia-build deposit_contract
+	$(call MAKE_DEPOSIT,sepolia,$(SEPOLIA_WEB3_URL))
+
+clean-sepolia:
+	$(call CLEAN_NETWORK,sepolia)
+
+###
 ### Gnosis chain binary
 ###
 
@@ -549,9 +591,9 @@ libnfuzz.a: | build deps
 		[[ -e "$@" ]] && mv "$@" build/ || true # workaround for https://github.com/nim-lang/Nim/issues/12745
 
 book:
-	which mdbook &>/dev/null || { echo "'mdbook' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	which mdbook-toc &>/dev/null || { echo "'mdbook-toc' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	which mdbook-open-on-gh &>/dev/null || { echo "'mdbook-open-on-gh' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook --version)" = "mdbook v0.4.18" ]] || { echo "'mdbook v0.4.18' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-toc --version)" == "mdbook-toc 0.8.0" ]] || { echo "'mdbook-toc 0.8.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-open-on-gh --version)" == "mdbook-open-on-gh 2.1.0" ]] || { echo "'mdbook-open-on-gh 2.1.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	cd docs/the_nimbus_book && \
 	mdbook build
 
@@ -574,7 +616,7 @@ publish-book: | book auditors-book
 	cp -a docs/the_auditors_handbook/book/* tmp-book/auditors-book/ && \
 	cd tmp-book && \
 	git add . && { \
-		git commit -m "make publish-book" && \
+		git commit -m "make publish-book $$(git rev-parse --short HEAD)" && \
 		git push origin gh-pages || true; } && \
 	cd .. && \
 	git worktree remove -f tmp-book && \

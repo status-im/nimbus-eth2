@@ -244,6 +244,14 @@ jobs:
           cat > release_notes.md <<EOF
           ## Notes
 
+          ## Urgency guidelines
+
+          `low-urgency`: update at your own convenience, sometime within our normal update cycle of two weeks
+
+          `medium-urgency`: may contain an important stability fix, it is better to update sooner rather than later
+
+          `high-urgency`: update as soon as you can, this is a critical update required for Nimbus to function correctly
+
           ## SHA512 checksums
 
           \`\`\`text

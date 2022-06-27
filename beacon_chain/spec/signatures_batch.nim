@@ -17,12 +17,12 @@ import
   blscurve,
   stew/[byteutils, results],
   taskpools,
-  bearssl,
+  bearssl/rand,
   # Internal
   "."/[helpers, beaconstate, forks, signatures],
   "."/datatypes/[altair, bellatrix, phase0]
 
-export results, altair, phase0, taskpools, bearssl, signatures
+export results, rand, altair, phase0, taskpools, signatures
 
 type
   TaskPoolPtr* = Taskpool
@@ -30,7 +30,7 @@ type
   BatchVerifier* = object
     sigVerifCache*: BatchedBLSVerifierCache ##\
     ## A cache for batch BLS signature verification contexts
-    rng*: ref BrHmacDrbgContext  ##\
+    rng*: ref HmacDrbgContext  ##\
     ## A reference to the Nimbus application-wide RNG
 
     taskpool*: TaskPoolPtr
@@ -411,8 +411,7 @@ proc collectSignatureSets*(
   ok()
 
 proc batchVerify*(verifier: var BatchVerifier, sigs: openArray[SignatureSet]): bool =
-  var bytes: array[32, byte]
-  verifier.rng[].brHmacDrbgGenerate(bytes)
+  let bytes = verifier.rng[].generate(array[32, byte])
   try:
     verifier.taskpool.batchVerify(verifier.sigVerifCache, sigs, bytes)
   except Exception as exc:

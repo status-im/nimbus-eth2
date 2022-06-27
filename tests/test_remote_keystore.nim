@@ -8,10 +8,9 @@
 {.used.}
 
 import
-  std/[json, typetraits],
+  std/typetraits,
   unittest2, json_serialization,
-  blscurve, eth/keys, libp2p/crypto/crypto as lcrypto,
-  nimcrypto/utils as ncrutils,
+  blscurve,
   ../beacon_chain/spec/[crypto, keystore],
   ./testutil
 

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020 Status Research & Development GmbH
+# Copyright (c) 2020-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,8 +7,7 @@
 
 {.used.}
 
-import chronicles, chronos
-import eth/keys
+import chronos
 import ../beacon_chain/spec/[datatypes/base, forks, presets]
 import ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, exit_pool]

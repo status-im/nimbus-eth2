@@ -8,7 +8,7 @@
 
 import
   std/[os, sequtils, times],
-  bearssl, chronicles,
+  chronicles,
   ./spec/eth2_apis/rest_beacon_client,
   ./spec/signatures,
   ./validators/keystore_management,
@@ -110,22 +110,8 @@ proc askForExitConfirmation(): ClientExitAction =
 
 proc restValidatorExit(config: BeaconNodeConf) {.async.} =
   let
-    address = if isNone(config.restUrlForExit):
-      resolveTAddress("127.0.0.1", Port(DefaultEth2RestPort))[0]
-    else:
-      let taseq = try:
-        resolveTAddress($config.restUrlForExit.get().hostname &
-                        ":" &
-                        $config.restUrlForExit.get().port)
-      except CatchableError as err:
-        fatal "Failed to resolve address", err = err.msg
-        quit 1
-      if len(taseq) == 1:
-        taseq[0]
-      else:
-        taseq[1]
-
-    client = RestClientRef.new(address)
+    client = RestClientRef.new(config.restUrlForExit).valueOr:
+      raise (ref RestError)(msg: $error)
 
     stateIdHead = StateIdent(kind: StateQueryKind.Named,
                              value: StateIdentType.Head)
@@ -250,7 +236,7 @@ proc restValidatorExit(config: BeaconNodeConf) {.async.} =
 proc handleValidatorExitCommand(config: BeaconNodeConf) {.async.} =
   await restValidatorExit(config)
 
-proc doDeposits*(config: BeaconNodeConf, rng: var BrHmacDrbgContext) {.
+proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
     raises: [Defect, CatchableError].} =
   case config.depositsCmd
   of DepositsCmd.createTestnetDeposits:

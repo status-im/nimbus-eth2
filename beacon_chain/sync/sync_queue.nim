@@ -7,11 +7,10 @@
 
 {.push raises: [Defect].}
 
-import std/[options, heapqueue, tables, strutils, sequtils, math, algorithm]
+import std/[options, heapqueue, tables, strutils, sequtils, math]
 import stew/[results, base10], chronos, chronicles
 import
   ../spec/datatypes/[base, phase0, altair],
-  ../spec/eth2_apis/rpc_types,
   ../spec/[helpers, forks],
   ../networking/[peer_pool, eth2_network],
   ../gossip_processing/block_processor,
@@ -38,7 +37,6 @@ type
     index*: uint64
     slot*: Slot
     count*: uint64
-    step*: uint64
     item*: T
 
   SyncResult*[T] = object
@@ -105,12 +103,11 @@ proc getShortMap*[T](req: SyncRequest[T],
           break
     else:
       res.add('.')
-    slider = slider + req.step
+    slider = slider + 1
   res
 
 proc contains*[T](req: SyncRequest[T], slot: Slot): bool {.inline.} =
-  slot >= req.slot and slot < req.slot + req.count * req.step and
-    ((slot - req.slot) mod req.step == 0)
+  slot >= req.slot and slot < req.slot + req.count
 
 proc cmp*[T](a, b: SyncRequest[T]): int =
   cmp(uint64(a.slot), uint64(b.slot))
@@ -137,8 +134,8 @@ proc checkResponse*[T](req: SyncRequest[T],
       inc(dindex)
     else:
       return false
-    slot = slot + req.step
-    rindex = rindex + 1'u64
+    slot += 1'u64
+    rindex += 1'u64
 
   if dindex == len(data):
     return true
@@ -153,26 +150,26 @@ proc getFullMap*[T](req: SyncRequest[T],
 proc init[T](t1: typedesc[SyncRequest], kind: SyncQueueKind, start: Slot,
              finish: Slot, t2: typedesc[T]): SyncRequest[T] =
   let count = finish - start + 1'u64
-  SyncRequest[T](kind: kind, slot: start, count: count, step: 1'u64)
+  SyncRequest[T](kind: kind, slot: start, count: count)
 
 proc init[T](t1: typedesc[SyncRequest], kind: SyncQueueKind, slot: Slot,
              count: uint64, item: T): SyncRequest[T] =
-  SyncRequest[T](kind: kind, slot: slot, count: count, item: item, step: 1'u64)
+  SyncRequest[T](kind: kind, slot: slot, count: count, item: item)
 
 proc init[T](t1: typedesc[SyncRequest], kind: SyncQueueKind, start: Slot,
              finish: Slot, item: T): SyncRequest[T] =
   let count = finish - start + 1'u64
-  SyncRequest[T](kind: kind, slot: start, count: count, step: 1'u64, item: item)
+  SyncRequest[T](kind: kind, slot: start, count: count, item: item)
 
 proc empty*[T](t: typedesc[SyncRequest], kind: SyncQueueKind,
                t2: typedesc[T]): SyncRequest[T] {.inline.} =
-  SyncRequest[T](kind: kind, step: 0'u64, count: 0'u64)
+  SyncRequest[T](kind: kind, count: 0'u64)
 
 proc setItem*[T](sr: var SyncRequest[T], item: T) =
   sr.item = item
 
 proc isEmpty*[T](sr: SyncRequest[T]): bool {.inline.} =
-  (sr.step == 0'u64) and (sr.count == 0'u64)
+  (sr.count == 0'u64)
 
 proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               queueKind: SyncQueueKind,
@@ -263,8 +260,7 @@ proc `<`*[T](a, b: SyncResult[T]): bool =
     a.request.slot > b.request.slot
 
 proc `==`*[T](a, b: SyncRequest[T]): bool =
-  (a.kind == b.kind) and (a.slot == b.slot) and (a.count == b.count) and
-    (a.step == b.step)
+  (a.kind == b.kind) and (a.slot == b.slot) and (a.count == b.count)
 
 proc lastSlot*[T](req: SyncRequest[T]): Slot =
   ## Returns last slot for request ``req``.
@@ -618,6 +614,8 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       missingParentSlot: Option[Slot]
 
       # compiler segfault if this is moved into the for loop, at time of writing
+      # TODO this does segfault in 1.2 but not 1.6, so remove workaround when 1.2
+      # is dropped.
       res: Result[void, BlockError]
 
     for blk in sq.blocks(item):
@@ -698,7 +696,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         of SyncQueueKind.Forward:
           if safeSlot < failSlot:
             let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
-            warn "Unexpected missing parent, rewind happens",
+            debug "Unexpected missing parent, rewind happens",
                  request = req, rewind_to_slot = rewindSlot,
                  rewind_point = sq.rewind, finalized_slot = safeSlot,
                  blocks_count = len(item.data),
@@ -808,12 +806,10 @@ func updateRequestForNewSafeSlot[T](sq: SyncQueue[T], sr: var SyncRequest[T]) =
       # Request is only partially relevant.
       let
         numSlotsDone = outSlot - lowSlot
-        numStepsDone = (numSlotsDone + sr.step - 1) div sr.step
-      sr.slot += numStepsDone * sr.step
-      sr.count -= numStepsDone
+      sr.slot += numSlotsDone
+      sr.count -= numSlotsDone
     else:
       # Entire request is no longer relevant.
-      sr.step = 0
       sr.count = 0
   of SyncQueueKind.Backward:
     if outSlot >= highSlot:
@@ -823,11 +819,9 @@ func updateRequestForNewSafeSlot[T](sq: SyncQueue[T], sr: var SyncRequest[T]) =
       # Request is only partially relevant.
       let
         numSlotsDone = highSlot - outSlot
-        numStepsDone = (numSlotsDone + sr.step - 1) div sr.step
-      sr.count -= numStepsDone
+      sr.count -= numSlotsDone
     else:
       # Entire request is no longer relevant.
-      sr.step = 0
       sr.count = 0
 
 proc pop*[T](sq: SyncQueue[T], maxslot: Slot, item: T): SyncRequest[T] =

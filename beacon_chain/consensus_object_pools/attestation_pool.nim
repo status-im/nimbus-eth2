@@ -490,7 +490,7 @@ func init(
           if participation_bitmap[validator_index] != 0:
             # If any flag got set, there was an attestation from this validator.
             validator_bits[index_in_committee] = true
-        result.add((slot, committee_index.uint64), validator_bits)
+        result[(slot, committee_index.uint64)] = validator_bits
 
   # This treats all types of rewards as equivalent, which isn't ideal
   update_attestation_pool_cache(

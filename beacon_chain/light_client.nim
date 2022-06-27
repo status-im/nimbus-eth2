@@ -54,7 +54,7 @@ func optimisticHeader*(lightClient: LightClient): Opt[BeaconBlockHeader] =
 
 proc createLightClient(
     network: Eth2Node,
-    rng: ref BrHmacDrbgContext,
+    rng: ref HmacDrbgContext,
     dumpEnabled: bool,
     dumpDirInvalid, dumpDirIncoming: string,
     cfg: RuntimeConfig,
@@ -136,7 +136,7 @@ proc createLightClient(
 
 proc createLightClient*(
     network: Eth2Node,
-    rng: ref BrHmacDrbgContext,
+    rng: ref HmacDrbgContext,
     config: BeaconNodeConf,
     cfg: RuntimeConfig,
     forkDigests: ref ForkDigests,
@@ -150,7 +150,7 @@ proc createLightClient*(
 
 proc createLightClient*(
     network: Eth2Node,
-    rng: ref BrHmacDrbgContext,
+    rng: ref HmacDrbgContext,
     config: LightClientConf,
     cfg: RuntimeConfig,
     forkDigests: ref ForkDigests,
@@ -167,61 +167,167 @@ proc start*(lightClient: LightClient) =
     trusted_block_root = lightClient.trustedBlockRoot
   lightClient.manager.start()
 
+proc resetToFinalizedHeader*(
+    lightClient: LightClient,
+    header: BeaconBlockHeader,
+    current_sync_committee: SyncCommittee) =
+  lightClient.processor[].resetToFinalizedHeader(header, current_sync_committee)
+
+import metrics
+
 from
   libp2p/protocols/pubsub/gossipsub
 import
   TopicParams, validateParameters, init
 
-proc installMessageValidators*(lightClient: LightClient) =
+from
+  ./gossip_processing/eth2_processor
+import
+  lightClientFinalityUpdateValidator, lightClientOptimisticUpdateValidator
+
+declareCounter beacon_light_client_finality_updates_received,
+  "Number of valid LC finality updates processed by this node"
+declareCounter beacon_light_client_finality_updates_dropped,
+  "Number of invalid LC finality updates dropped by this node", labels = ["reason"]
+declareCounter beacon_light_client_optimistic_updates_received,
+  "Number of valid LC optimistic updates processed by this node"
+declareCounter beacon_light_client_optimistic_updates_dropped,
+  "Number of invalid LC optimistic updates dropped by this node", labels = ["reason"]
+
+template logReceived(
+    msg: altair.LightClientFinalityUpdate) =
+  debug "LC finality update received", finality_update = msg
+
+template logValidated(
+    msg: altair.LightClientFinalityUpdate) =
+  trace "LC finality update validated", finality_update = msg
+  beacon_light_client_finality_updates_received.inc()
+
+proc logDropped(
+    msg: altair.LightClientFinalityUpdate, es: varargs[ValidationError]) =
+  for e in es:
+    debug "Dropping LC finality update", finality_update = msg, error = e
+  beacon_light_client_finality_updates_dropped.inc(1, [$es[0][0]])
+
+template logReceived(
+    msg: altair.LightClientOptimisticUpdate) =
+  debug "LC optimistic update received", optimistic_update = msg
+
+template logValidated(
+    msg: altair.LightClientOptimisticUpdate) =
+  trace "LC optimistic update validated", optimistic_update = msg
+  beacon_light_client_optimistic_updates_received.inc()
+
+proc logDropped(
+    msg: altair.LightClientOptimisticUpdate, es: varargs[ValidationError]) =
+  for e in es:
+    debug "Dropping LC optimistic update", optimistic_update = msg, error = e
+  beacon_light_client_optimistic_updates_dropped.inc(1, [$es[0][0]])
+
+proc installMessageValidators*(
+    lightClient: LightClient, eth2Processor: ref Eth2Processor = nil) =
+  # When registering multiple message validators, IGNORE results take precedence
+  # over ACCEPT results. However, because the opposite behaviour is needed here,
+  # we handle both full node and light client validation in this module
   template getLocalWallPeriod(): auto =
     lightClient.getBeaconTime().slotOrZero().sync_committee_period
+
+  template validate[T: SomeLightClientObject](
+      msg: T, validatorProcName: untyped): ValidationResult =
+    msg.logReceived()
+
+    var
+      ignoreErrors {.noinit.}: array[2, ValidationError]
+      numIgnoreErrors = 0
+
+    let res1 =
+      if eth2Processor != nil:
+        let
+          v = eth2Processor[].`validatorProcName`(MsgSource.gossip, msg)
+          res = v.toValidationResult()
+        if res == ValidationResult.Reject:
+          msg.logDropped(v.error)
+          return res
+        if res == ValidationResult.Ignore:
+          ignoreErrors[numIgnoreErrors] = v.error
+          inc numIgnoreErrors
+        res
+      else:
+        ValidationResult.Ignore
+
+    let res2 =
+      if lightClient.manager.isGossipSupported(getLocalWallPeriod()):
+        let
+          v = lightClient.processor[].`validatorProcName`(MsgSource.gossip, msg)
+          res = v.toValidationResult()
+        if res == ValidationResult.Reject:
+          msg.logDropped(v.error)
+          return res
+        if res == ValidationResult.Ignore:
+          ignoreErrors[numIgnoreErrors] = v.error
+          inc numIgnoreErrors
+        res
+      else:
+        ValidationResult.Ignore
+
+    if res1 == ValidationResult.Accept or res2 == ValidationResult.Accept:
+      msg.logValidated()
+      return ValidationResult.Accept
+
+    doAssert res1 == ValidationResult.Ignore and res2 == ValidationResult.Ignore
+    if numIgnoreErrors == 0:
+      ignoreErrors[numIgnoreErrors] = static:
+        (ValidationResult.Ignore, cstring T.name & ": irrelevant")
+      inc numIgnoreErrors
+    msg.logDropped(ignoreErrors.toOpenArray(0, numIgnoreErrors - 1))
+    ValidationResult.Ignore
 
   let forkDigests = lightClient.forkDigests
   for digest in [forkDigests.altair, forkDigests.bellatrix]:
     lightClient.network.addValidator(
       getLightClientFinalityUpdateTopic(digest),
       proc(msg: altair.LightClientFinalityUpdate): ValidationResult =
-        if lightClient.manager.isGossipSupported(getLocalWallPeriod()):
-          toValidationResult(
-            lightClient.processor[].lightClientFinalityUpdateValidator(
-              MsgSource.gossip, msg))
-        else:
-          ValidationResult.Ignore)
+        validate(msg, lightClientFinalityUpdateValidator))
 
     lightClient.network.addValidator(
       getLightClientOptimisticUpdateTopic(digest),
       proc(msg: altair.LightClientOptimisticUpdate): ValidationResult =
-        if lightClient.manager.isGossipSupported(getLocalWallPeriod()):
-          toValidationResult(
-            lightClient.processor[].lightClientOptimisticUpdateValidator(
-              MsgSource.gossip, msg))
-        else:
-          ValidationResult.Ignore)
+        validate(msg, lightClientOptimisticUpdateValidator))
 
 const lightClientTopicParams = TopicParams.init()
 static: lightClientTopicParams.validateParameters().tryGet()
 
 proc updateGossipStatus*(
     lightClient: LightClient, slot: Slot, dagIsBehind = default(Option[bool])) =
+  template cfg(): auto = lightClient.cfg
+
   let
-    isBehind =
-      if lightClient.manager.isGossipSupported(slot.sync_committee_period):
-        false
-      elif dagIsBehind.isSome:
-        # While separate message validators can be installed for both
-        # full node and light client (both are called unless one rejects msg),
-        # only a single subscription can be installed per topic for now.
-        # The full node subscription is also handled here, even though it
-        # does not directly relate to the client side of the LC sync protocol
-        dagIsBehind.get
-      else:
-        true # Force `targetGossipState` to `{}`
+    epoch = slot.epoch
+
+    lcBehind =
+      not lightClient.manager.isGossipSupported(slot.sync_committee_period)
+    dagBehind =
+      # While separate message validators can be installed for both
+      # full node and light client (both are called unless one rejects msg),
+      # only a single subscription is supported per topic.
+      # The full node subscription is also handled in this module, even though
+      # it does not directly relate to the client side of the LC sync protocol
+      dagIsBehind.get(true)
+    isBehind = lcBehind and dagBehind
+
+    currentEpochTargetGossipState = getTargetGossipState(
+      epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH, isBehind)
     targetGossipState =
-      getTargetGossipState(
-        slot.epoch,
-        lightClient.cfg.ALTAIR_FORK_EPOCH,
-        lightClient.cfg.BELLATRIX_FORK_EPOCH,
-        isBehind)
+      if lcBehind or epoch < 1:
+        currentEpochTargetGossipState
+      else:
+        # The fork digest for light client topics depends on the attested slot,
+        # which is in the past relative to the signature slot (current slot).
+        # Therefore, LC topic subscriptions are kept for 1 extra epoch.
+        let previousEpochTargetGossipState = getTargetGossipState(
+          epoch - 1, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH, isBehind)
+        currentEpochTargetGossipState + previousEpochTargetGossipState
+
   template currentGossipState(): auto = lightClient.gossipState
   if currentGossipState == targetGossipState:
     return
@@ -245,10 +351,15 @@ proc updateGossipStatus*(
       let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
       lightClient.network.unsubscribe(
         getLightClientFinalityUpdateTopic(forkDigest))
+      lightClient.network.unsubscribe(
+        getLightClientOptimisticUpdateTopic(forkDigest))
 
   for gossipFork in newGossipForks:
     if gossipFork >= BeaconStateFork.Altair:
       let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
+      lightClient.network.subscribe(
+        getLightClientFinalityUpdateTopic(forkDigest),
+        lightClientTopicParams)
       lightClient.network.subscribe(
         getLightClientOptimisticUpdateTopic(forkDigest),
         lightClientTopicParams)

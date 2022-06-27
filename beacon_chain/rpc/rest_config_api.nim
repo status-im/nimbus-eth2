@@ -6,7 +6,6 @@
 
 import stew/[byteutils, base10], chronicles
 import ".."/beacon_node,
-       ".."/eth1/eth1_monitor,
        ".."/spec/forks,
        "."/rest_utils
 from ../fork_choice/proto_array import PROPOSER_SCORE_BOOST
@@ -123,7 +122,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_EXTRA_DATA_BYTES:
             Base10.toString(uint64(MAX_EXTRA_DATA_BYTES)),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/configs/mainnet.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/configs/mainnet.yaml
           PRESET_BASE:
             cfg.PRESET_BASE,
           CONFIG_NAME:
@@ -150,6 +149,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             "0x" & $cfg.BELLATRIX_FORK_VERSION,
           BELLATRIX_FORK_EPOCH:
             Base10.toString(uint64(cfg.BELLATRIX_FORK_EPOCH)),
+          CAPELLA_FORK_VERSION:
+            "0x" & $cfg.CAPELLA_FORK_VERSION,
+          CAPELLA_FORK_EPOCH:
+            Base10.toString(uint64(cfg.CAPELLA_FORK_EPOCH)),
           SHARDING_FORK_VERSION:
             "0x" & $cfg.SHARDING_FORK_VERSION,
           SHARDING_FORK_EPOCH:

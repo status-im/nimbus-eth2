@@ -8,7 +8,7 @@
 {.used.}
 
 import
-  std/[json, options, sequtils],
+  std/[json, sequtils],
   unittest2,
   ../beacon_chain/spec/engine_authentication
 

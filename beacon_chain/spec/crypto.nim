@@ -30,12 +30,12 @@ import
   stew/[endians2, objects, results, byteutils],
   blscurve,
   chronicles,
-  bearssl,
+  bearssl/rand,
   json_serialization
 
 from nimcrypto/utils import burnMem
 
-export options, results, json_serialization, blscurve
+export options, results, blscurve, rand, json_serialization
 
 # Type definitions
 # ----------------------------------------------------------------------
@@ -93,7 +93,7 @@ export
 
 # API
 # ----------------------------------------------------------------------
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#bls-signatures
 
 func toPubKey*(privkey: ValidatorPrivKey): CookedPubKey =
   ## Derive a public key from a private key
@@ -488,11 +488,10 @@ func infinity*(T: type ValidatorSig): T =
 func burnMem*(key: var ValidatorPrivKey) =
   burnMem(addr key, sizeof(ValidatorPrivKey))
 
-proc keyGen(rng: var BrHmacDrbgContext): BlsResult[blscurve.SecretKey] =
+proc keyGen(rng: var HmacDrbgContext): BlsResult[blscurve.SecretKey] =
   var
-    bytes: array[32, byte]
     pubkey: blscurve.PublicKey
-  brHmacDrbgGenerate(rng, bytes)
+  let bytes = rng.generate(array[32, byte])
   result.ok default(blscurve.SecretKey)
   if not keyGen(bytes, pubkey, result.value):
     return err "key generation failed"
@@ -502,7 +501,7 @@ proc secretShareId(x: uint32) : blscurve.ID =
   blscurve.ID.fromUint32(bytes)
 
 func generateSecretShares*(sk: ValidatorPrivKey,
-                           rng: var BrHmacDrbgContext,
+                           rng: var HmacDrbgContext,
                            k: uint32, n: uint32): BlsResult[seq[SecretShare]] =
   doAssert k > 0 and k <= n
 
@@ -533,10 +532,8 @@ func recoverSignature*(sings: seq[SignatureShare]): CookedSig =
 
 proc confirmShares*(pubKey: ValidatorPubKey,
                     shares: seq[SecretShare],
-                    rng: var BrHmacDrbgContext): bool =
-  var confirmationData: array[32, byte]
-  brHmacDrbgGenerate(rng, confirmationData)
-
+                    rng: var HmacDrbgContext): bool =
+  let confirmationData = rng.generate(array[32, byte])
   var signs: seq[SignatureShare]
   for share in items(shares):
     let signature = share.key.blsSign(confirmationData).toSignatureShare(share.id);

@@ -184,6 +184,7 @@ programMain:
       servers
 
   if len(beaconNodes) == 0:
+    # This should not happen, thanks to defaults in `conf.nim`
     fatal "Not enough beacon nodes in command line"
     quit 1
 

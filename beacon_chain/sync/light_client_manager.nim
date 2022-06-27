@@ -56,7 +56,7 @@ type
 
   LightClientManager* = object
     network: Eth2Node
-    rng: ref BrHmacDrbgContext
+    rng: ref HmacDrbgContext
     getTrustedBlockRoot: GetTrustedBlockRootCallback
     bootstrapVerifier: BootstrapVerifier
     updateVerifier: UpdateVerifier
@@ -72,7 +72,7 @@ type
 func init*(
     T: type LightClientManager,
     network: Eth2Node,
-    rng: ref BrHmacDrbgContext,
+    rng: ref HmacDrbgContext,
     getTrustedBlockRoot: GetTrustedBlockRootCallback,
     bootstrapVerifier: BootstrapVerifier,
     updateVerifier: UpdateVerifier,

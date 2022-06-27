@@ -101,7 +101,7 @@ type
 
     body*: BeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
     attnets*: AttnetBits
@@ -218,15 +218,31 @@ type
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
+  MsgTrustedSignedBeaconBlock* = object
+    message*: TrustedBeaconBlock
+    signature*: ValidatorSig
+
+    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+
   TrustedSignedBeaconBlock* = object
     message*: TrustedBeaconBlock
     signature*: TrustedSig
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
 
-  SomeSignedBeaconBlock* = SignedBeaconBlock | SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock
-  SomeBeaconBlock* = BeaconBlock | SigVerifiedBeaconBlock | TrustedBeaconBlock
-  SomeBeaconBlockBody* = BeaconBlockBody | SigVerifiedBeaconBlockBody | TrustedBeaconBlockBody
+  SomeSignedBeaconBlock* =
+    SignedBeaconBlock |
+    SigVerifiedSignedBeaconBlock |
+    MsgTrustedSignedBeaconBlock |
+    TrustedSignedBeaconBlock
+  SomeBeaconBlock* =
+    BeaconBlock |
+    SigVerifiedBeaconBlock |
+    TrustedBeaconBlock
+  SomeBeaconBlockBody* =
+    BeaconBlockBody |
+    SigVerifiedBeaconBlockBody |
+    TrustedBeaconBlockBody
 
   EpochInfo* = object
     ## Information about the outcome of epoch processing
@@ -261,13 +277,26 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
-template asSigned*(x: SigVerifiedSignedBeaconBlock | TrustedSignedBeaconBlock):
-    SignedBeaconBlock =
+template asSigned*(
+    x: SigVerifiedSignedBeaconBlock |
+       MsgTrustedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): SignedBeaconBlock =
   isomorphicCast[SignedBeaconBlock](x)
 
-template asSigVerified*(x: SignedBeaconBlock | TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+template asSigVerified*(
+    x: SignedBeaconBlock |
+       MsgTrustedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
   isomorphicCast[SigVerifiedSignedBeaconBlock](x)
 
+template asMsgTrusted*(
+    x: SignedBeaconBlock |
+       SigVerifiedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): MsgTrustedSignedBeaconBlock =
+  isomorphicCast[MsgTrustedSignedBeaconBlock](x)
+
 template asTrusted*(
-    x: SignedBeaconBlock | SigVerifiedSignedBeaconBlock): TrustedSignedBeaconBlock =
+    x: SignedBeaconBlock |
+       SigVerifiedSignedBeaconBlock |
+       MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
   isomorphicCast[TrustedSignedBeaconBlock](x)

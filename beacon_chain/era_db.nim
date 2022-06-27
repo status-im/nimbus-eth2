@@ -352,10 +352,10 @@ proc getPartialState(
     false
 
 iterator getBlockIds*(
-    db: EraDB, historical_roots: openArray[Eth2Digest], startSlot: Slot): BlockId =
+    db: EraDB, historical_roots: openArray[Eth2Digest], start_slot: Slot): BlockId =
   var
     state = (ref PartialBeaconState)() # avoid stack overflow
-    slot = startSlot
+    slot = start_slot
 
   while true:
     # `case` ensures we're on a fork for which the `PartialBeaconState`

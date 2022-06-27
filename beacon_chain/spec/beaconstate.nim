@@ -143,8 +143,8 @@ func get_slashing_penalty*(state: ForkyBeaconState,
   else:
     {.fatal: "invalid BeaconState type".}
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#modified-slash_validator
 func get_whistleblower_reward*(validator_effective_balance: Gwei): Gwei =
   validator_effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT
@@ -160,7 +160,7 @@ func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): G
   else:
     {.fatal: "invalid BeaconState type".}
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.6/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
@@ -512,7 +512,7 @@ proc is_valid_indexed_attestation*(
 # Attestation validation
 # ------------------------------------------------------------------------------------------
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#attestations
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 
 func check_attestation_slot_target*(data: AttestationData): Result[Slot, cstring] =
   if not (data.target.epoch == epoch(data.slot)):
@@ -670,7 +670,7 @@ func get_proposer_reward*(state: ForkyBeaconState,
         # these are all valid; TODO statically verify or do it type-safely
         result += get_base_reward(
           state, index, base_reward_per_increment) * weight.uint64
-  epoch_participation.clearCache()
+  epoch_participation.asHashList.clearCache()
 
   let proposer_reward_denominator =
     (WEIGHT_DENOMINATOR.uint64 - PROPOSER_WEIGHT.uint64) *
@@ -810,11 +810,11 @@ func translate_participation(
 func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
     ref altair.BeaconState =
   var
-    empty_participation = EpochParticipationFlags()
+    empty_participation: EpochParticipationFlags
     inactivity_scores = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]()
 
   doAssert empty_participation.data.setLen(pre.validators.len)
-  empty_participation.resetCache()
+  empty_participation.asHashList.resetCache()
 
   doAssert inactivity_scores.data.setLen(pre.validators.len)
   inactivity_scores.resetCache()

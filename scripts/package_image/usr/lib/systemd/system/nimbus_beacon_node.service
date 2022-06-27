@@ -50,6 +50,9 @@ WorkingDirectory=/var/lib/nimbus
 TimeoutSec=1200
 Restart=always
 
+# Don't restart when Doppelganger detection has been activated
+RestartPreventExitStatus=1031
+
 ExecStart=/usr/bin/nimbus_beacon_node \
   --network=${NETWORK} \
   --data-dir="${DATA_DIR_PREFIX}/shared_${NETWORK}_0" \
