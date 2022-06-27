@@ -171,7 +171,8 @@ proc asyncRun(vc: ValidatorClientRef) {.async.} =
 
   when declared(waitSignal):
     vc.runSlotLoopFut = runSlotLoop(vc, vc.beaconClock.now(), onSlotStart)
-    await race(vc.runSlotLoopFut, vc.sigintHandleFut, vc.sigtermHandleFut)
+    discard await race(vc.runSlotLoopFut, vc.sigintHandleFut,
+                       vc.sigtermHandleFut)
 
     if vc.runSlotLoopFut.finished():
       if vc.runSlotLoopFut.failed():
