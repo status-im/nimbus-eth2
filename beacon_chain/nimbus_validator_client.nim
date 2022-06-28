@@ -19,7 +19,7 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
     try:
       await allFutures(pending)
     except CancelledError as exc:
-      warn "Unexpected cancellation interrupt"
+      debug "Gensis information request was interrupted"
       raise exc
 
     let (errorNodes, genesisList) =
@@ -104,34 +104,6 @@ proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
     await sleepAsync(genesisTime.offset)
   return res
 
-proc asyncInit(vc: ValidatorClientRef) {.async.} =
-  when declared(waitSignal):
-    vc.sigintHandleFut = waitSignal(SIGINT)
-    vc.sigtermHandleFut = waitSignal(SIGTERM)
-
-  vc.beaconGenesis = await vc.initGenesis()
-  info "Genesis information", genesis_time = vc.beaconGenesis.genesis_time,
-    genesis_fork_version = vc.beaconGenesis.genesis_fork_version,
-    genesis_root = vc.beaconGenesis.genesis_validators_root
-
-  vc.beaconClock = await vc.initClock()
-
-  if not(await initValidators(vc)):
-    fatal "Could not initialize local validators"
-
-  info "Initializing slashing protection", path = vc.config.validatorsDir()
-  vc.attachedValidators.slashingProtection =
-    SlashingProtectionDB.init(
-      vc.beaconGenesis.genesis_validators_root,
-      vc.config.validatorsDir(), "slashing_protection"
-    )
-
-  vc.fallbackService = await FallbackServiceRef.init(vc)
-  vc.forkService = await ForkServiceRef.init(vc)
-  vc.dutiesService = await DutiesServiceRef.init(vc)
-  vc.attestationService = await AttestationServiceRef.init(vc)
-  vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
-
 proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -162,6 +134,35 @@ proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
 
   return false
 
+proc asyncInit(vc: ValidatorClientRef) {.async.} =
+  vc.beaconGenesis = await vc.initGenesis()
+  info "Genesis information", genesis_time = vc.beaconGenesis.genesis_time,
+    genesis_fork_version = vc.beaconGenesis.genesis_fork_version,
+    genesis_root = vc.beaconGenesis.genesis_validators_root
+
+  vc.beaconClock = await vc.initClock()
+
+  if not(await initValidators(vc)):
+    fatal "Could not initialize local validators"
+
+  info "Initializing slashing protection", path = vc.config.validatorsDir()
+  vc.attachedValidators.slashingProtection =
+    SlashingProtectionDB.init(
+      vc.beaconGenesis.genesis_validators_root,
+      vc.config.validatorsDir(), "slashing_protection"
+    )
+
+  try:
+    vc.fallbackService = await FallbackServiceRef.init(vc)
+    vc.forkService = await ForkServiceRef.init(vc)
+    vc.dutiesService = await DutiesServiceRef.init(vc)
+    vc.attestationService = await AttestationServiceRef.init(vc)
+    vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
+  except CancelledError:
+    debug "Initialization process interrupted"
+    info "Closing slashing protection", path = vc.config.validatorsDir()
+    vc.attachedValidators.slashingProtection.close()
+
 proc asyncRun(vc: ValidatorClientRef) {.async.} =
   vc.fallbackService.start()
   vc.forkService.start()
@@ -169,30 +170,17 @@ proc asyncRun(vc: ValidatorClientRef) {.async.} =
   vc.attestationService.start()
   vc.syncCommitteeService.start()
 
-  when declared(waitSignal):
-    vc.runSlotLoopFut = runSlotLoop(vc, vc.beaconClock.now(), onSlotStart)
-    discard await race(vc.runSlotLoopFut, vc.sigintHandleFut,
-                       vc.sigtermHandleFut)
-
-    if vc.runSlotLoopFut.finished():
-      if vc.runSlotLoopFut.failed():
-        let exc = vc.runSlotLoopFut.readError()
-        error "Abnormal program termination, trying to shutdown gracefully",
-              err_name = $exc.name, err_msg = $exc.msg
-    else:
-      let signal =
-        if vc.sigintHandleFut.finished():
-          "SIGINT"
-        else:
-          "SIGTERM"
-      error "Got interrupt, trying to shutdown gracefully", signal = signal
-  else:
+  try:
     vc.runSlotLoopFut = runSlotLoop(vc, vc.beaconClock.now(), onSlotStart)
     await vc.runSlotLoopFut
+  except CancelledError:
+    debug "Main loop interrupted"
+  except CatchableError as exc:
+    debug "Main loop failed with an error", err_name = $exc.name,
+          err_msg = $exc.msg
 
-  debug "Closing slashing_protection database"
+  info "Closing slashing protection", path = vc.config.validatorsDir()
   vc.attachedValidators.slashingProtection.close()
-
   debug "Stopping main processing loop"
   var pending: seq[Future[void]]
   if not(vc.runSlotLoopFut.finished()):
@@ -209,6 +197,40 @@ proc asyncRun(vc: ValidatorClientRef) {.async.} =
   pending.add(vc.syncCommitteeService.stop())
   await allFutures(pending)
   info "Validator client stopped"
+
+template runWithSignals(vc: ValidatorClientRef, body: untyped): bool =
+  let future = body
+  discard await race(future, vc.sigintHandleFut, vc.sigtermHandleFut)
+  if future.finished():
+    if future.failed() or future.cancelled():
+      let exc = future.readError()
+      debug "Validator client initialization failed", err_name = $exc.name,
+            err_msg = $exc.msg
+      var pending: seq[Future[void]]
+      if not(vc.sigintHandleFut.finished()):
+        pending.add(cancelAndWait(vc.sigintHandleFut))
+      if not(vc.sigtermHandleFut.finished()):
+        pending.add(cancelAndWait(vc.sigtermHandleFut))
+      await allFutures(pending)
+      false
+    else:
+      true
+  else:
+    let signal = if vc.sigintHandleFut.finished(): "SIGINT" else: "SIGTERM"
+    error "Got interrupt, trying to shutdown gracefully", signal = signal
+    var pending = @[cancelAndWait(future)]
+    if not(vc.sigintHandleFut.finished()):
+      pending.add(cancelAndWait(vc.sigintHandleFut))
+    if not(vc.sigtermHandleFut.finished()):
+      pending.add(cancelAndWait(vc.sigtermHandleFut))
+    await allFutures(pending)
+    false
+
+proc asyncLoop*(vc: ValidatorClientRef) {.async.} =
+  if not(vc.runWithSignals(asyncInit(vc))):
+    return
+  if not(vc.runWithSignals(asyncRun(vc))):
+    return
 
 programMain:
   let config = makeBannerAndConfig("Nimbus validator client " & fullVersionStr,
@@ -239,13 +261,27 @@ programMain:
                                        config,
                                        beacon_nodes_count = len(beaconNodes)
 
-  var vc = ValidatorClientRef(
-    config: config,
-    beaconNodes: beaconNodes,
-    graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
-    nodesAvailable: newAsyncEvent(),
-    forksAvailable: newAsyncEvent()
-  )
+  var vc =
+    when declared(waitSignal):
+      ValidatorClientRef(
+        config: config,
+        beaconNodes: beaconNodes,
+        graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
+        nodesAvailable: newAsyncEvent(),
+        forksAvailable: newAsyncEvent(),
+        sigintHandleFut: waitSignal(SIGINT),
+        sigtermHandleFut: waitSignal(SIGTERM)
+      )
+    else:
+      ValidatorClientRef(
+        config: config,
+        beaconNodes: beaconNodes,
+        graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
+        nodesAvailable: newAsyncEvent(),
+        forksAvailable: newAsyncEvent(),
+        sigintHandleFut: newFuture[void]("sigint_placeholder"),
+        sigtermHandleFut: newFuture[void]("sigterm_placeholder")
+      )
 
-  waitFor asyncInit(vc)
-  waitFor asyncRun(vc)
+  waitFor asyncLoop(vc)
+  info "Validator client stopped"
