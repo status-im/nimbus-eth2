@@ -263,7 +263,7 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         else:
           node.syncManager.inProgress
       isOptimistic =
-        if node.dag.getHeadStateMergeComplete():
+        if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
           # TODO (cheatfate): Proper implementation required
           some(false)
         else:

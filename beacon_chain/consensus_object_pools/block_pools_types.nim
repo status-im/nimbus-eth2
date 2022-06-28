@@ -335,6 +335,15 @@ func shortLog*(v: EpochKey): string =
 template setFinalizationCb*(dag: ChainDAGRef, cb: OnFinalizedCallback) =
   dag.onFinHappened = cb
 
+template setBlockCb*(dag: ChainDAGRef, cb: OnBlockCallback) =
+  dag.onBlockAdded = cb
+
+template setHeadCb*(dag: ChainDAGRef, cb: OnHeadCallback) =
+  dag.onHeadChanged = cb
+
+template setReorgCb*(dag: ChainDAGRef, cb: OnReorgCallback) =
+  dag.onReorgHappened = cb
+
 func shortLog*(v: EpochRef): string =
   # epoch:root when logging epoch, root:slot when logging slot!
   if v.isNil():
@@ -363,40 +372,36 @@ func blockRef*(key: KeyedBlockRef): BlockRef =
 
 func init*(t: typedesc[HeadChangeInfoObject], slot: Slot, blockRoot: Eth2Digest,
            stateRoot: Eth2Digest, epochTransition: bool,
-           previousDutyDepRoot: Eth2Digest, currentDutyDepRoot: Eth2Digest,
-           optimistic: Option[bool]): HeadChangeInfoObject =
+           previousDutyDepRoot: Eth2Digest,
+           currentDutyDepRoot: Eth2Digest): HeadChangeInfoObject =
   HeadChangeInfoObject(
     slot: slot,
     block_root: blockRoot,
     state_root: stateRoot,
     epoch_transition: epochTransition,
     previous_duty_dependent_root: previousDutyDepRoot,
-    current_duty_dependent_root: currentDutyDepRoot,
-    optimistic: optimistic
+    current_duty_dependent_root: currentDutyDepRoot
   )
 
 func init*(t: typedesc[ReorgInfoObject], slot: Slot, depth: uint64,
            oldHeadBlockRoot: Eth2Digest, newHeadBlockRoot: Eth2Digest,
-           oldHeadStateRoot: Eth2Digest, newHeadStateRoot: Eth2Digest,
-           optimistic: Option[bool]): ReorgInfoObject =
+           oldHeadStateRoot: Eth2Digest,
+           newHeadStateRoot: Eth2Digest): ReorgInfoObject =
   ReorgInfoObject(
     slot: slot,
     depth: depth,
     old_head_block: oldHeadBlockRoot,
     new_head_block: newHeadBlockRoot,
     old_head_state: oldHeadStateRoot,
-    new_head_state: newHeadStateRoot,
-    optimistic: optimistic
+    new_head_state: newHeadStateRoot
   )
 
 func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
-           stateRoot: Eth2Digest, epoch: Epoch,
-           optimistic: Option[bool]): FinalizationInfoObject =
+           stateRoot: Eth2Digest, epoch: Epoch): FinalizationInfoObject =
   FinalizationInfoObject(
     block_root: blockRoot,
     state_root: stateRoot,
-    epoch: epoch,
-    optimistic: optimistic
+    epoch: epoch
   )
 
 func init*(t: typedesc[EventBeaconBlockObject],

@@ -152,21 +152,8 @@ proc loadChainDag(
     eventBus: EventBus,
     validatorMonitor: ref ValidatorMonitor,
     networkGenesisValidatorsRoot: Option[Eth2Digest]): ChainDAGRef =
-  var dag: ChainDAGRef
   info "Loading block DAG from database", path = config.databaseDir
 
-  proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
-    # TODO (cheatfate): Proper implementation required
-    let optimistic =
-      if isNil(dag):
-        none[bool]()
-      else:
-        if dag.getHeadStateMergeComplete(): some(false) else: none[bool]()
-    eventBus.blocksQueue.emit(EventBeaconBlockObject.init(data, optimistic))
-  proc onHeadChanged(data: HeadChangeInfoObject) =
-    eventBus.headQueue.emit(data)
-  proc onChainReorg(data: ReorgInfoObject) =
-    eventBus.reorgQueue.emit(data)
   proc onLightClientFinalityUpdate(data: altair.LightClientFinalityUpdate) =
     eventBus.finUpdateQueue.emit(data)
   proc onLightClientOptimisticUpdate(data: altair.LightClientOptimisticUpdate) =
@@ -183,16 +170,14 @@ proc loadChainDag(
       if config.lightClientDataServe.get: onLightClientOptimisticUpdate
       else: nil
 
-  dag = ChainDAGRef.init(
-    cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
-    onBlockAdded, onHeadChanged, onChainReorg,
-    onLCFinalityUpdateCb = onLightClientFinalityUpdateCb,
-    onLCOptimisticUpdateCb = onLightClientOptimisticUpdateCb,
-    lightClientDataServe = config.lightClientDataServe.get,
-    lightClientDataImportMode = config.lightClientDataImportMode.get,
-    vanityLogs = getPandas(detectTTY(config.logStdout)))
+    dag = ChainDAGRef.init(
+      cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
+      onLCFinalityUpdateCb = onLightClientFinalityUpdateCb,
+      onLCOptimisticUpdateCb = onLightClientOptimisticUpdateCb,
+      lightClientDataServe = config.lightClientDataServe.get,
+      lightClientDataImportMode = config.lightClientDataImportMode.get,
+      vanityLogs = getPandas(detectTTY(config.logStdout)))
 
-  let
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState, genesis_validators_root)
 
@@ -235,6 +220,35 @@ proc initFullNode(
     node.eventBus.contribQueue.emit(data)
   proc onVoluntaryExitAdded(data: SignedVoluntaryExit) =
     node.eventBus.exitQueue.emit(data)
+  proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
+    # TODO (cheatfate): Proper implementation required
+    let optimistic =
+      if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
+        some(false)
+      else:
+        none[bool]()
+    node.eventBus.blocksQueue.emit(
+      EventBeaconBlockObject.init(data, optimistic))
+  proc onHeadChanged(data: HeadChangeInfoObject) =
+    # TODO (cheatfate): Proper implementation required
+    let eventData =
+      if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
+        var res = data
+        res.optimistic = some(false)
+        res
+      else:
+        data
+    node.eventBus.headQueue.emit(eventData)
+  proc onChainReorg(data: ReorgInfoObject) =
+    # TODO (cheatfate): Proper implementation required
+    let eventData =
+      if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
+        var res = data
+        res.optimistic = some(false)
+        res
+      else:
+        data
+    node.eventBus.reorgQueue.emit(eventData)
   proc makeOnFinalizationCb(
       # This `nimcall` functions helps for keeping track of what
       # needs to be captured by the onFinalization closure.
@@ -248,7 +262,15 @@ proc initFullNode(
                                     finalizedEpochRef.eth1_data,
                                     finalizedEpochRef.eth1_deposit_index)
       node.updateLightClientFromDag()
-      eventBus.finalQueue.emit(data)
+      # TODO (cheatfate): Proper implementation required
+      let eventData =
+        if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
+          var res = data
+          res.optimistic = some(false)
+          res
+        else:
+          data
+      eventBus.finalQueue.emit(eventData)
 
   func getLocalHeadSlot(): Slot =
     dag.head.slot
@@ -305,6 +327,9 @@ proc initFullNode(
       getFrontfillSlot, dag.backfill.slot, blockVerifier, maxHeadAge = 0)
 
   dag.setFinalizationCb makeOnFinalizationCb(node.eventBus, node.eth1Monitor)
+  dag.setBlockCb(onBlockAdded)
+  dag.setHeadCb(onHeadChanged)
+  dag.setReorgCb(onChainReorg)
 
   node.dag = dag
   node.quarantine = quarantine
