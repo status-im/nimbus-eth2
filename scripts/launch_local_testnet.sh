@@ -93,6 +93,7 @@ RUN_NIMBUS="0"
 NIMBUS_EL_BINARY="../nimbus-eth1/build/nimbus"
 
 EL_HTTP_PORTS=()
+EL_RPC_PORTS=()
 PROCS_TO_KILL=("nimbus_beacon_node" "nimbus_validator_client" "nimbus_signing_node" "nimbus_light_client")
 
 print_help() {
