@@ -712,11 +712,19 @@ proc init*(T: type BeaconNode,
       else:
         nil
 
-    bellatrixEpochTime =
-      genesisTime + cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH * SECONDS_PER_SLOT
+    maxSecondsInMomentType = Moment.high.epochSeconds
+    # If the Bellatrix epoch is above this value, the calculation
+    # below will overflow. This happens in practice for networks
+    # where the `BELLATRIX_FORK_EPOCH` is not yet specified.
+    maxSupportedBellatrixEpoch = (maxSecondsInMomentType.uint64 - genesisTime) div
+                                 (SLOTS_PER_EPOCH * SECONDS_PER_SLOT)
+    bellatrixEpochTime = if cfg.BELLATRIX_FORK_EPOCH < maxSupportedBellatrixEpoch:
+      int64(genesisTime + cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH * SECONDS_PER_SLOT)
+    else:
+      maxSecondsInMomentType
 
     nextExchangeTransitionConfTime =
-      max(Moment.init(int64 bellatrixEpochTime, Second),
+      max(Moment.init(bellatrixEpochTime, Second),
           Moment.now)
 
   let node = BeaconNode(
