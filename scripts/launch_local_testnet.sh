@@ -55,7 +55,7 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "Jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,light-clients:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,light-clients:,run-nimbus-el,verbose"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,light-clients:,run-nimbus-el,verbose"
 
 # default values
 NIMFLAGS="${NIMFLAGS:-""}"
@@ -82,7 +82,7 @@ ETH2_DOCKER_IMAGE=""
 REMOTE_SIGNER_NODES=0
 REMOTE_SIGNER_THRESHOLD=1
 REMOTE_VALIDATORS_COUNT=0
-LC_NODES=1
+LC_NODES=0
 ACCOUNT_PASSWORD="nimbus"
 RUN_GETH="0"
 DL_GETH="0"
@@ -424,17 +424,20 @@ GETH_NUM_NODES="${NUM_NODES}"
 NIMBUSEL_NUM_NODES="${NUM_NODES}"
 
 if [[ "${RUN_GETH}" == "1" ]]; then
-  if [[ ! -e "${GETH_BINARY}" && "${DL_GETH}" == "1" ]]; then
-    log "Downloading geth ..."
-    download_geth
-  else
-    echo "Missing geth executable"
-    exit 1
+  if [[ ! -e "${GETH_BINARY}" ]]; then
+    if [[ "${DL_GETH}" == "1" ]]; then
+      log "Downloading geth ..."
+      download_geth
+    else
+      echo "Missing geth executable"
+      exit 1
+    fi
   fi
 
   log "Starting ${GETH_NUM_NODES} Geth Nodes ..."
   . "./scripts/start_geth_nodes.sh"
   EL_HTTP_PORTS+=("${GETH_HTTP_PORTS[@]}")
+  EL_RPC_PORTS+=("${GETH_RPC_PORTS[@]}")
   PROCS_TO_KILL+=("${GETH_BINARY}")
   CLEANUP_DIRS+=("${GETH_DATA_DIRS[@]}")
 fi
@@ -447,6 +450,7 @@ if [[ "${RUN_NIMBUS}" == "1" ]]; then
 
   . "./scripts/start_nimbus_el_nodes.sh"
   EL_HTTP_PORTS+=("${NIMBUSEL_HTTP_PORTS[@]}")
+  EL_RPC_PORTS+=("${NIMBUSEL_RPC_PORTS[@]}")
   PROCS_TO_KILL+=("${NIMBUS_EL_BINARY}")
   CLEANUP_DIRS+=("${NIMBUSEL_DATA_DIRS[@]}")
 fi
@@ -854,10 +858,10 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     done
   fi
 
-  if [ ${#EL_HTTP_PORTS[@]} -eq 0 ]; then # check if the array is empty
+  if [ ${#EL_RPC_PORTS[@]} -eq 0 ]; then # check if the array is empty
     WEB3_ARG=""
   else
-    WEB3_ARG="--web3-url=http://127.0.0.1:${EL_HTTP_PORTS[${NUM_NODE}]}"
+    WEB3_ARG="--web3-url=http://127.0.0.1:${EL_RPC_PORTS[${NUM_NODE}]}"
   fi
 
   ${BEACON_NODE_COMMAND} \
@@ -874,6 +878,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --light-client-enable=on \
     --light-client-data-serve=on \
     --light-client-data-import-mode=only-new \
+    --jwt-secret=/tmp/jwtsecret \
     ${EXTRA_ARGS} \
     &> "${DATA_DIR}/log${NUM_NODE}.txt" &
 
@@ -928,7 +933,7 @@ if [ "$LC_NODES" -ge "1" ]; then
   while :; do
     CURRENT_FORK_EPOCH="$(
       "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/states/finalized/fork" | \
-        tee -a curl_result.txt | "${JQ_BINARY}" -r '.data.epoch')"
+      "${JQ_BINARY}" -r '.data.epoch')"
     if [ "${CURRENT_FORK_EPOCH}" -ge "${ALTAIR_FORK_EPOCH}" ]; then
       break
     fi
