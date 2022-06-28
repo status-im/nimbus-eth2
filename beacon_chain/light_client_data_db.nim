@@ -37,8 +37,8 @@ logScope: topics = "lcdata"
 # Furthermore, `LightClientUpdate` is consulted on each new block to attempt
 # improving it. Continuously decompressing and recompressing seems inefficient.
 # Finally, the libp2p context bytes depend on `attested_header.slot` to derive
-# the underlying fork digest. The table name is not sufficient to determine
-# this until one is made for each fork, even if there was no structural change.
+# the underlying fork digest. The table name is insufficient to determine this
+# unless one is made for each fork, even if there was no structural change.
 # SSZ storage selected due to the small size and reduced logic complexity.
 #
 # `sealed_sync_committee_periods` contains the sync committee periods for which
