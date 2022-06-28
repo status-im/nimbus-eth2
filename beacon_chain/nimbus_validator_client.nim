@@ -252,7 +252,7 @@ template runWithSignals(vc: ValidatorClientRef, body: untyped): bool =
       true
   else:
     let signal = if vc.sigintHandleFut.finished(): "SIGINT" else: "SIGTERM"
-    error "Got interrupt, trying to shutdown gracefully", signal = signal
+    info "Got interrupt, trying to shutdown gracefully", signal = signal
     var pending = @[cancelAndWait(future)]
     if not(vc.sigintHandleFut.finished()):
       pending.add(cancelAndWait(vc.sigintHandleFut))
