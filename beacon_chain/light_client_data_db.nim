@@ -34,8 +34,11 @@ logScope: topics = "lcdata"
 # sync committee period, so storing the full sync committee is acceptable.
 # This data could be stored as SZSSZ to avoid on-the-fly compression when a
 # libp2p request is handled. However, the space savings are quite small.
-# Furthermore, the libp2p context bytes depend on `attested_header.slot`, so
-# this would need to be stored separately to avoid having to decompress.
+# Furthermore, `LightClientUpdate` is consulted on each new block to attempt
+# improving it. Continuously decompressing and recompressing seems inefficient.
+# Finally, the libp2p context bytes depend on `attested_header.slot` to derive
+# the underlying fork digest. The table name is not sufficient to determine
+# this until one is made for each fork, even if there was no structural change.
 # SSZ storage selected due to the small size and reduced logic complexity.
 #
 # `sealed_sync_committee_periods` contains the sync committee periods for which
