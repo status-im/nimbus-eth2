@@ -4,7 +4,13 @@ In order to be able to produce blocks and process incoming validator deposits, y
 
 Nimbus has been tested all major execution clients - see the [execution client comparison](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients) for more information.
 
-By default, Nimbus uses WebSockets to communicate with the execution client, connecting to ws://localhost:8546. You can provide a different URL with the `--web3-url` parameter.
+The `--web3-url` option informs the beacon node how to connect to the execution client - both `http://` and `ws://` URL:s are supported.
+
+Assuming the execution client is running on the same computer as the beacon node:
+
+```sh
+./run-mainnet-beacon-node.sh --web3-url=ws://127.0.0.1:8546
+```
 
 > ⚠️ You need to run your own execution client after [the merge](./merge.md) - relying on third-party services such as Infura, Alchemy and Pocket will not be possible.
 
@@ -54,7 +60,6 @@ INFO [05-29|01:16:10] Imported new chain segment               blocks=1 txs=0   
 INFO [05-29|01:16:10] Imported new chain segment               blocks=1 txs=1   mgas=0.021  elapsed=7.382ms   mgasps=2.845   number=3785447 hash=39986c…dd2a01
 INFO [05-29|01:16:14] Imported new chain segment               blocks=1 txs=11  mgas=1.135  elapsed=22.281ms  mgasps=50.943  number=3785444 hash=277bb9…623d8c
 ```
-
 
 Geth accepts connections from the loopback interface (`127.0.0.1`), with default WebSocket port `8546`. This means that your default Web3 provider URL should be: `ws://127.0.0.1:8546`
 
