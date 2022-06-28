@@ -177,16 +177,14 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
     # Sync committee signing the attested_header
       (sync_aggregate, signature_slot) = get_sync_aggregate(cfg, forked[])
       next_sync_committee = SyncCommittee()
-      next_sync_committee_branch =
-        default(array[log2trunc(altair.NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest])
+      next_sync_committee_branch = default(altair.NextSyncCommitteeBranch)
 
     # Ensure that finality checkpoint is genesis
     check state.finalized_checkpoint.epoch == 0
     # Finality is unchanged
     let
       finality_header = BeaconBlockHeader()
-      finality_branch =
-        default(array[log2trunc(altair.FINALIZED_ROOT_INDEX), Eth2Digest])
+      finality_branch = default(altair.FinalityBranch)
 
       update = altair.LightClientUpdate(
         attested_header: attested_header,
@@ -235,13 +233,11 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
     # Sync committee signing the attested_header
       (sync_aggregate, signature_slot) = get_sync_aggregate(cfg, forked[])
       next_sync_committee = SyncCommittee()
-      next_sync_committee_branch =
-        default(array[log2trunc(altair.NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest])
+      next_sync_committee_branch = default(altair.NextSyncCommitteeBranch)
 
     # Finality is unchanged
       finality_header = BeaconBlockHeader()
-      finality_branch =
-        default(array[log2trunc(altair.FINALIZED_ROOT_INDEX), Eth2Digest])
+      finality_branch = default(altair.FinalityBranch)
 
       update = altair.LightClientUpdate(
         attested_header: attested_header,
@@ -297,8 +293,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
 
     # Finality is unchanged
       finality_header = BeaconBlockHeader()
-      finality_branch =
-        default(array[log2trunc(altair.FINALIZED_ROOT_INDEX), Eth2Digest])
+      finality_branch = default(altair.FinalityBranch)
 
       update = altair.LightClientUpdate(
         attested_header: attested_header,
@@ -354,8 +349,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
 
     # Updated sync_committee and finality
       next_sync_committee = SyncCommittee()
-      next_sync_committee_branch =
-        default(array[log2trunc(altair.NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest])
+      next_sync_committee_branch = default(altair.NextSyncCommitteeBranch)
       finalized_block = blocks[SLOTS_PER_EPOCH - 1].altairData
       finalized_header = finalized_block.toBeaconBlockHeader
     check:
