@@ -99,7 +99,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     # TODO (cheatfate): Proper implementation required
     let optimistic =
-      if node.dag.getHeadStateMergeComplete(): some(false) else: none[bool]()
+      if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+        some(false)
+      else:
+        none[bool]()
 
     return RestApiResponse.jsonResponseWRoot(
       duties, epochRef.attester_dependent_root, optimistic)
@@ -150,7 +153,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     # TODO (cheatfate): Proper implementation required
     let optimistic =
-      if node.dag.getHeadStateMergeComplete(): some(false) else: none[bool]()
+      if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+        some(false)
+      else:
+        none[bool]()
 
     return RestApiResponse.jsonResponseWRoot(
       duties, epochRef.proposer_dependent_root, optimistic)
