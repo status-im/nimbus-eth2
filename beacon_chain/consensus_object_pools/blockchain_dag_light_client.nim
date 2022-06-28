@@ -16,6 +16,7 @@ import
   chronos,
   # Beacon chain internals
   ../spec/datatypes/[phase0, altair, bellatrix],
+  ../light_client_data_db,
   "."/[block_pools_types, blockchain_dag]
 
 logScope: topics = "chaindag"
@@ -126,12 +127,28 @@ proc syncCommitteeRootForPeriod(
 proc initLightClientDataStore*(
     config: LightClientDataConfig, cfg: RuntimeConfig): LightClientDataStore =
   ## Initialize light client data store.
-  LightClientDataStore(
+  var lcDataStore = LightClientDataStore(
     serve: config.serve,
     importMode: config.importMode,
     maxPeriods: config.maxPeriods.get(cfg.defaultLightClientDataMaxPeriods),
     onLightClientFinalityUpdate: config.onLightClientFinalityUpdate,
     onLightClientOptimisticUpdate: config.onLightClientOptimisticUpdate)
+
+  if config.serve or config.importMode != LightClientDataImportMode.None:
+    lcDataStore.db =
+      if config.dbDir.isSome:
+        initLightClientDataDB(config.dbDir.get, inMemory = false).valueOr:
+          warn "Falling back to in-memory LC data DB"
+          initLightClientDataDB(config.dbDir.get, inMemory = true).expect(
+            "In-memory LC data DB expected to succeed")
+      else:
+        initLightClientDataDB(".", inMemory = true).expect(
+          "In-memory LC data DB expected to succeed")
+
+  lcDataStore
+
+proc closeLightClientDataStore*(dag: ChainDAGRef) =
+  dag.lcDataStore.db.close()
 
 func targetLightClientTailSlot(dag: ChainDAGRef): Slot =
   ## Earliest slot for which light client data is retained.
@@ -152,11 +169,13 @@ func handleUnexpectedLightClientError(dag: ChainDAGRef, buggedSlot: Slot) =
 
 proc initLightClientBootstrapForPeriod(
     dag: ChainDAGRef,
-    period: SyncCommitteePeriod) =
+    period: SyncCommitteePeriod): Opt[void] =
   ## Compute and cache `LightClientBootstrap` data for all finalized
   ## epoch boundary blocks within a given sync committee period.
   if not dag.isNextSyncCommitteeFinalized(period):
-    return
+    return ok()
+  if dag.lcDataStore.db.isPeriodSealed(period):
+    return ok()
 
   let startTick = Moment.now()
   debug "Caching historic LC bootstrap data", period
@@ -173,6 +192,7 @@ proc initLightClientBootstrapForPeriod(
     lowBoundarySlot = lowSlot.nextEpochBoundarySlot
     highBoundarySlot = highSlot.nextEpochBoundarySlot
   var
+    res = ok()
     tmpState = assignClone(dag.headState)
     tmpCache: StateCache
     nextBoundarySlot = lowBoundarySlot
@@ -181,30 +201,33 @@ proc initLightClientBootstrapForPeriod(
     let
       bsi = dag.getExistingBlockIdAtSlot(nextBoundarySlot).valueOr:
         dag.handleUnexpectedLightClientError(nextBoundarySlot)
+        res.err()
         continue
       bid = bsi.bid
       boundarySlot = bid.slot.nextEpochBoundarySlot
     if boundarySlot == nextBoundarySlot and bid.slot >= lowSlot and
-        not dag.lcDataStore.cache.currentBranches.hasKey(bid.slot):
+        not dag.lcDataStore.db.hasCurrentSyncCommitteeBranch(bid.slot):
       if not dag.updateExistingState(
           tmpState[], bid.atSlot, save = false, tmpCache):
         dag.handleUnexpectedLightClientError(bid.slot)
+        res.err()
         continue
       let branch = withState(tmpState[]):
         when stateFork >= BeaconStateFork.Altair:
           state.data.build_proof(altair.CURRENT_SYNC_COMMITTEE_INDEX).get
         else: raiseAssert "Unreachable"
-      dag.lcDataStore.cache.currentBranches[bid.slot] = branch
+      dag.lcDataStore.db.putCurrentSyncCommitteeBranch(bid.slot, branch)
+  res
 
 proc initLightClientUpdateForPeriod(
-    dag: ChainDAGRef, period: SyncCommitteePeriod) =
+    dag: ChainDAGRef, period: SyncCommitteePeriod): Opt[void] =
   ## Compute and cache the best `LightClientUpdate` within a given
   ## sync committee period up through the finalized head block.
-  ## Non-finalized blocks are processed incrementally.
+  ## Non-finalized blocks are processed incrementally by other functions.
   if not dag.isNextSyncCommitteeFinalized(period):
-    return
-  if dag.lcDataStore.cache.bestUpdates.hasKey(period):
-    return
+    return ok()
+  if dag.lcDataStore.db.isPeriodSealed(period):
+    return ok()
 
   let startTick = Moment.now()
   debug "Computing best historic LC update", period
@@ -213,35 +236,35 @@ proc initLightClientUpdateForPeriod(
     # replicated on every `return`, and the log statement allocates another
     # copy of the arguments on the stack for each instantiation (~1 MB stack!)
     debug "Best historic LC update computed",
-      period, update = dag.lcDataStore.cache.bestUpdates.getOrDefault(period),
+      period, update = dag.lcDataStore.db.getBestUpdate(period),
       computeDur = endTick - startTick
   defer: logBest()
 
   proc maxParticipantsBlock(
       dag: ChainDAGRef, highBid: BlockId, lowSlot: Slot
-  ): tuple[bid: Opt[BlockId], ok: bool] =
+  ): tuple[bid: Opt[BlockId], res: Opt[void]] =
     ## Determine the earliest block with most sync committee signatures among
     ## ancestors of `highBid` with at least `lowSlot` as parent block slot.
     ## Return `err` if no block with `MIN_SYNC_COMMITTEE_PARTICIPANTS` exists.
-    ## `bool` in result indicates whether no unexpected errors occurred.
+    ## `res` in result indicates whether no unexpected errors occurred.
     var
       maxParticipants = MIN_SYNC_COMMITTEE_PARTICIPANTS
       maxBid: Opt[BlockId]
-      allOk = true
+      res = Opt[void].ok()
       bid = highBid
     while true:
       if bid.slot <= lowSlot:
         break
       let parentBid = dag.existingParent(bid).valueOr:
         dag.handleUnexpectedLightClientError(bid.slot)
-        allOk = false
+        res.err()
         break
       if parentBid.slot < lowSlot:
         break
       let
         bdata = dag.getExistingForkedBlock(bid).valueOr:
           dag.handleUnexpectedLightClientError(bid.slot)
-          allOk = false
+          res.err()
           break
         numParticipants =
           withBlck(bdata):
@@ -252,7 +275,7 @@ proc initLightClientUpdateForPeriod(
         maxParticipants = numParticipants
         maxBid.ok bid
       bid = parentBid
-    (bid: maxBid, ok: allOk)
+    (bid: maxBid, res: res)
 
   # Determine the block in the period with highest sync committee participation
   let
@@ -260,22 +283,26 @@ proc initLightClientUpdateForPeriod(
     periodEndSlot = periodStartSlot + SLOTS_PER_SYNC_COMMITTEE_PERIOD - 1
     lowSlot = max(periodStartSlot, dag.targetLightClientTailSlot)
     highSlot = min(periodEndSlot, dag.finalizedHead.blck.slot)
+    fullPeriodCovered = (dag.finalizedHead.slot > periodEndSlot)
     highBsi = dag.getExistingBlockIdAtSlot(highSlot).valueOr:
       dag.handleUnexpectedLightClientError(highSlot)
-      return
+      return err()
     highBid = highBsi.bid
     maxParticipantsRes = dag.maxParticipantsBlock(highBid, lowSlot)
     maxParticipantsBid = maxParticipantsRes.bid.valueOr:
-      if maxParticipantsRes.ok: # No single valid block exists in the period
-        dag.lcDataStore.cache.bestUpdates[period] =
-          default(altair.LightClientUpdate)
-      return
+      const update = default(altair.LightClientUpdate)
+      if fullPeriodCovered and maxParticipantsRes.res.isOk: # No block in period
+        dag.lcDataStore.db.putBestUpdate(period, update)
+      else:
+        dag.lcDataStore.db.putUpdateIfBetter(period, update)
+      return maxParticipantsRes.res
 
   # The block with highest participation may refer to a `finalized_checkpoint`
   # in a different sync committee period. If that is the case, search for a
   # later block with a `finalized_checkpoint` within the given sync committee
   # period, despite it having a lower sync committee participation
   var
+    res = ok()
     tmpState = assignClone(dag.headState)
     signatureBid {.noinit.}, finalizedBid {.noinit.}: BlockId
   signatureBid.slot = FAR_FUTURE_SLOT
@@ -287,12 +314,15 @@ proc initLightClientUpdateForPeriod(
       let
         nextLowSlot = signatureBid.slot + 1
         signatureRes = dag.maxParticipantsBlock(highBid, nextLowSlot)
+      if signatureRes.res.isErr:
+        res.err()
       signatureBid = signatureRes.bid.valueOr:
         signatureBid = maxParticipantsBid
         break
     let
       attestedBid = dag.existingParent(signatureBid).valueOr:
         dag.handleUnexpectedLightClientError(signatureBid.slot)
+        res.err()
         continue
       finalizedEpoch = block:
         dag.withUpdatedExistingState(tmpState[], attestedBid.atSlot) do:
@@ -302,12 +332,14 @@ proc initLightClientUpdateForPeriod(
             else: raiseAssert "Unreachable"
         do:
           dag.handleUnexpectedLightClientError(attestedBid.slot)
+          res.err()
           continue
       finalizedSlot = finalizedEpoch.start_slot
       finalizedBsi =
         if finalizedSlot >= dag.tail.slot:
           dag.getExistingBlockIdAtSlot(finalizedSlot).valueOr:
             dag.handleUnexpectedLightClientError(finalizedSlot)
+            res.err()
             continue
         else:
           continue
@@ -321,11 +353,11 @@ proc initLightClientUpdateForPeriod(
   var update {.noinit.}: altair.LightClientUpdate
   let attestedBid = dag.existingParent(signatureBid).valueOr:
     dag.handleUnexpectedLightClientError(signatureBid.slot)
-    return
+    return err()
   dag.withUpdatedExistingState(tmpState[], attestedBid.atSlot) do:
     let bdata = dag.getExistingForkedBlock(bid).valueOr:
       dag.handleUnexpectedLightClientError(bid.slot)
-      return
+      return err()
     withStateAndBlck(state, bdata):
       when stateFork >= BeaconStateFork.Altair:
         update.attested_header = blck.toBeaconBlockHeader()
@@ -340,24 +372,44 @@ proc initLightClientUpdateForPeriod(
       else: raiseAssert "Unreachable"
   do:
     dag.handleUnexpectedLightClientError(attestedBid.slot)
-    return
+    return err()
   if finalizedBid.slot == FAR_FUTURE_SLOT or finalizedBid.slot == GENESIS_SLOT:
     update.finalized_header.reset()
   else:
     let bdata = dag.getExistingForkedBlock(finalizedBid).valueOr:
       dag.handleUnexpectedLightClientError(finalizedBid.slot)
-      return
+      return err()
     withBlck(bdata):
       update.finalized_header = blck.toBeaconBlockHeader()
   let bdata = dag.getExistingForkedBlock(signatureBid).valueOr:
     dag.handleUnexpectedLightClientError(signatureBid.slot)
-    return
+    return err()
   withBlck(bdata):
     when stateFork >= BeaconStateFork.Altair:
       update.sync_aggregate = blck.asSigned().message.body.sync_aggregate
     else: raiseAssert "Unreachable"
   update.signature_slot = signatureBid.slot
-  dag.lcDataStore.cache.bestUpdates[period] = update
+
+  if fullPeriodCovered and res.isOk:
+    dag.lcDataStore.db.putBestUpdate(period, update)
+  else:
+    dag.lcDataStore.db.putUpdateIfBetter(period, update)
+  res
+
+proc initLightClientDataForPeriod(
+    dag: ChainDAGRef, period: SyncCommitteePeriod): Opt[void] =
+  ## Import light client data for a given sync committee period.
+  if dag.lcDataStore.db.isPeriodSealed(period):
+    return ok()
+  let
+    fullPeriodCovered = (dag.finalizedHead.slot >= (period + 1).start_slot)
+    res1 = dag.initLightClientBootstrapForPeriod(period)
+    res2 = dag.initLightClientUpdateForPeriod(period)
+  if res1.isErr or res2.isErr:
+    return err()
+  if fullPeriodCovered:
+    dag.lcDataStore.db.sealPeriod(period)
+  ok()
 
 proc getLightClientData(
     dag: ChainDAGRef,
@@ -504,7 +556,7 @@ proc createLightClientUpdates(
     let isCommitteeFinalized = dag.isNextSyncCommitteeFinalized(attested_period)
     var best =
       if isCommitteeFinalized:
-        dag.lcDataStore.cache.bestUpdates.getOrDefault(attested_period)
+        dag.lcDataStore.db.getBestUpdate(attested_period)
       else:
         let key = (attested_period, state.syncCommitteeRoot)
         dag.lcDataStore.cache.pendingBest.getOrDefault(key)
@@ -540,7 +592,7 @@ proc createLightClientUpdates(
       best.signature_slot = signature_slot
 
       if isCommitteeFinalized:
-        dag.lcDataStore.cache.bestUpdates[attested_period] = best
+        dag.lcDataStore.db.putBestUpdate(attested_period, best)
         debug "Best LC update improved", period = attested_period, update = best
       else:
         let key = (attested_period, state.syncCommitteeRoot)
@@ -556,6 +608,9 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
   ## Initialize cached light client data
   if dag.lcDataStore.importMode == LightClientDataImportMode.None:
     return
+
+  # Prune non-finalized data
+  dag.lcDataStore.db.delPeriodsFrom(dag.firstNonFinalizedPeriod)
 
   # Initialize tail slot
   let targetTailSlot = dag.targetLightClientTailSlot
@@ -577,12 +632,11 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
     return
   dag.lcDataStore.cache.tailSlot = finalizedSlot
   let finalizedPeriod = finalizedSlot.sync_committee_period
-  dag.initLightClientBootstrapForPeriod(finalizedPeriod)
-  dag.initLightClientUpdateForPeriod(finalizedPeriod)
+  var res = dag.initLightClientDataForPeriod(finalizedPeriod)
 
   let lightClientStartTick = Moment.now()
   logScope: lightClientDataMaxPeriods = dag.lcDataStore.maxPeriods
-  debug "Initializing cached LC data"
+  debug "Initializing cached LC data", res
 
   # Build list of block to process.
   # As it is slow to load states in descending order,
@@ -594,6 +648,7 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
     blocks.add bid
     bid = dag.existingParent(bid).valueOr:
       dag.handleUnexpectedLightClientError(bid.slot)
+      res.err()
       break
   if bid.slot == finalizedSlot:
     blocks.add bid
@@ -609,9 +664,11 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
     if not dag.updateExistingState(
         dag.headState, bid.atSlot, save = false, cache):
       dag.handleUnexpectedLightClientError(bid.slot)
+      res.err()
       continue
     let bdata = dag.getExistingForkedBlock(bid).valueOr:
       dag.handleUnexpectedLightClientError(bid.slot)
+      res.err()
       continue
     withStateAndBlck(dag.headState, bdata):
       when stateFork >= BeaconStateFork.Altair:
@@ -626,7 +683,9 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
 
   let lightClientEndTick = Moment.now()
   debug "Initialized cached LC data",
-    initDur = lightClientEndTick - lightClientStartTick
+    initDur = lightClientEndTick - lightClientStartTick, res
+  if res.isErr:
+    return
   if dag.lcDataStore.importMode == LightClientDataImportMode.OnDemand:
     return
 
@@ -638,17 +697,12 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
     # https://github.com/nim-lang/Nim/pull/19926
     var period = finalizedPeriod - 1
     while period >= targetTailPeriod:
-      dag.initLightClientBootstrapForPeriod(period)
-      dag.initLightClientUpdateForPeriod(period)
+      if dag.initLightClientDataForPeriod(period).isErr:
+        res.err()
       if period <= targetTailPeriod:
         break
       dec period
-  if dag.lcDataStore.cache.tailSlot == targetTailSlot:
-    debug "Historic LC data imported"
-  else:
-    # `handleUnexpectedLightClientError` updates `tailSlot`
-    warn "Error while importing historic LC data",
-      errorSlot = dag.lcDataStore.cache.tailSlot - 1, targetTailSlot
+    debug "Historic LC data imported", res
 
 proc processNewBlockForLightClient*(
     dag: ChainDAGRef,
@@ -696,13 +750,13 @@ proc processHeadChangeForLightClient*(dag: ChainDAGRef) =
               dag.handleUnexpectedLightClientError(period.start_slot)
               continue
           key = (period, syncCommitteeRoot)
-        dag.lcDataStore.cache.bestUpdates[period] =
-          dag.lcDataStore.cache.pendingBest.getOrDefault(key)
+        dag.lcDataStore.db.putBestUpdate(
+          period, dag.lcDataStore.cache.pendingBest.getOrDefault(key))
     withState(dag.headState): # Common case separate to avoid `tmpState` copy
       when stateFork >= BeaconStateFork.Altair:
         let key = (headPeriod, state.syncCommitteeRoot)
-        dag.lcDataStore.cache.bestUpdates[headPeriod] =
-          dag.lcDataStore.cache.pendingBest.getOrDefault(key)
+        dag.lcDataStore.db.putBestUpdate(
+          headPeriod, dag.lcDataStore.cache.pendingBest.getOrDefault(key))
       else: raiseAssert "Unreachable" # `tailSlot` cannot be before Altair
 
 proc processFinalizationForLightClient*(
@@ -728,12 +782,24 @@ proc processFinalizationForLightClient*(
         break
       bid = bsi.bid
     if bid.slot >= lowSlot:
-      dag.lcDataStore.cache.currentBranches[bid.slot] =
-        dag.getLightClientData(bid).current_sync_committee_branch
+      dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
+        bid.slot, dag.getLightClientData(bid).current_sync_committee_branch)
     boundarySlot = bid.slot.nextEpochBoundarySlot
     if boundarySlot < SLOTS_PER_EPOCH:
       break
     boundarySlot -= SLOTS_PER_EPOCH
+
+  # Seal sync committee periods for which data can no longer improve further
+  let
+    oldFinalizedPeriod = oldFinalizedHead.slot.sync_committee_period
+    newFinalizedPeriod = dag.finalizedHead.slot.sync_committee_period
+  if newFinalizedPeriod > oldFinalizedPeriod:
+    for period in countdown(newFinalizedPeriod - 1, oldFinalizedPeriod):
+      if dag.lcDataStore.cache.tailSlot > period.start_slot:
+        break
+      debug "Best LC update sealed",
+        period, update = dag.lcDataStore.db.getBestUpdate(period)
+      dag.lcDataStore.db.sealPeriod(period)
 
   # Prune light client data that is no longer referrable by future updates
   var bidsToDelete: seq[BlockId]
@@ -744,25 +810,9 @@ proc processFinalizationForLightClient*(
   for bid in bidsToDelete:
     dag.lcDataStore.cache.data.del bid
 
-  let
-    targetTailSlot = dag.targetLightClientTailSlot
-    targetTailPeriod = targetTailSlot.sync_committee_period
-
-  # Prune bootstrap data that is no longer relevant
-  var slotsToDelete: seq[Slot]
-  for slot in dag.lcDataStore.cache.currentBranches.keys:
-    if slot < targetTailSlot:
-      slotsToDelete.add slot
-  for slot in slotsToDelete:
-    dag.lcDataStore.cache.currentBranches.del slot
-
-  # Prune best `LightClientUpdate` that are no longer relevant
-  var periodsToDelete: seq[SyncCommitteePeriod]
-  for period in dag.lcDataStore.cache.bestUpdates.keys:
-    if period < targetTailPeriod:
-      periodsToDelete.add period
-  for period in periodsToDelete:
-    dag.lcDataStore.cache.bestUpdates.del period
+  # Prune seal tracking data that is no longer relevant
+  let targetTailPeriod = dag.targetLightClientTailSlot.sync_committee_period
+  dag.lcDataStore.db.keepPeriodsFrom(targetTailPeriod)
 
   # Prune best `LightClientUpdate` referring to non-finalized sync committees
   # that are no longer relevant, i.e., orphaned or too old
@@ -787,13 +837,13 @@ proc getLightClientBootstrap*(
   withBlck(bdata):
     let slot = blck.message.slot
     when stateFork >= BeaconStateFork.Altair:
-      if slot < dag.lcDataStore.cache.tailSlot:
+      if slot < dag.targetLightClientTailSlot:
         debug "LC bootstrap unavailable: Block too old", slot
         return err()
       if slot > dag.finalizedHead.blck.slot:
         debug "LC bootstrap unavailable: Not finalized", blockRoot
         return err()
-      var branch = dag.lcDataStore.cache.currentBranches.getOrDefault(slot)
+      var branch = dag.lcDataStore.db.getCurrentSyncCommitteeBranch(slot)
       if branch.isZeroMemory:
         if dag.lcDataStore.importMode == LightClientDataImportMode.OnDemand:
           let bsi = ? dag.getExistingBlockIdAtSlot(slot)
@@ -804,7 +854,7 @@ proc getLightClientBootstrap*(
                 state.data.build_proof(altair.CURRENT_SYNC_COMMITTEE_INDEX).get
               else: raiseAssert "Unreachable"
           do: return err()
-          dag.lcDataStore.cache.currentBranches[slot] = branch
+          dag.lcDataStore.db.putCurrentSyncCommitteeBranch(slot, branch)
         else:
           debug "LC bootstrap unavailable: Data not cached", slot
           return err()
@@ -830,8 +880,9 @@ proc getLightClientUpdateForPeriod*(
     return
 
   if dag.lcDataStore.importMode == LightClientDataImportMode.OnDemand:
-    dag.initLightClientUpdateForPeriod(period)
-  result = some(dag.lcDataStore.cache.bestUpdates.getOrDefault(period))
+    if dag.initLightClientUpdateForPeriod(period).isErr:
+      return
+  result = some(dag.lcDataStore.db.getBestUpdate(period))
   let numParticipants = countOnes(result.get.sync_aggregate.sync_committee_bits)
   if numParticipants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
     result.reset()

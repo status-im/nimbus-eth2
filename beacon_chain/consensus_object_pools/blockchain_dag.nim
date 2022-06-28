@@ -581,6 +581,7 @@ proc updateBeaconMetrics(
 import blockchain_dag_light_client
 
 export
+  blockchain_dag_light_client.closeLightClientDataStore,
   blockchain_dag_light_client.getLightClientBootstrap,
   blockchain_dag_light_client.getLightClientUpdateForPeriod,
   blockchain_dag_light_client.getLightClientFinalityUpdate,

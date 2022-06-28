@@ -177,6 +177,7 @@ proc loadChainDag(
       cfg, db, validatorMonitor, extraFlags + chainDagFlags, config.eraDir,
       vanityLogs = getPandas(detectTTY(config.logStdout)),
       lcDataConfig = LightClientDataConfig(
+        dbDir: some config.cachesDir,
         serve: config.lightClientDataServe.get,
         importMode: config.lightClientDataImportMode.get,
         maxPeriods: config.lightClientDataMaxPeriods,
@@ -1486,6 +1487,7 @@ proc stop(node: BeaconNode) =
   except CatchableError as exc:
     warn "Couldn't stop network", msg = exc.msg
 
+  node.dag.closeLightClientDataStore()
   node.attachedValidators.slashingProtection.close()
   node.db.close()
   notice "Databases closed"
