@@ -124,6 +124,8 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
         # changed it means that some reorg was happened in beacon node and we
         # should re-request all queries again.
         offset = 0
+        duties.setLen(0)
+        currentRoot = none[Eth2Digest]()
         continue
 
     for item in res.data:
@@ -135,7 +137,6 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
     relevantDuties = duties.filterIt(
       checkDuty(it) and (it.pubkey in vc.attachedValidators)
     )
-    dependentRoot = currentRoot.get()
     genesisRoot = vc.beaconGenesis.genesis_validators_root
 
   let addOrReplaceItems =
@@ -146,16 +147,16 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
         let map = vc.attesters.getOrDefault(duty.pubkey)
         let epochDuty = map.duties.getOrDefault(epoch, DefaultDutyAndProof)
         if not(epochDuty.isDefault()):
-          if epochDuty.dependentRoot != dependentRoot:
+          if epochDuty.dependentRoot != currentRoot.get():
             res.add((epoch, duty))
             if not(alreadyWarned):
               warn "Attester duties re-organization",
                    prior_dependent_root = epochDuty.dependentRoot,
-                   dependent_root = dependentRoot
+                   dependent_root = currentRoot.get()
               alreadyWarned = true
         else:
           info "Received new attester duty", duty, epoch = epoch,
-                                             dependent_root = dependentRoot
+                                             dependent_root = currentRoot.get()
           res.add((epoch, duty))
       res
 
@@ -181,13 +182,13 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
             error "Unable to create slot signature using remote signer",
                   validator = shortLog(validators[index]),
                   error_msg = sigRes.error()
-            DutyAndProof.init(item.epoch, dependentRoot, item.duty,
+            DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
                               none[ValidatorSig]())
           else:
-            DutyAndProof.init(item.epoch, dependentRoot, item.duty,
+            DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
                               some(sigRes.get()))
         else:
-          DutyAndProof.init(item.epoch, dependentRoot, item.duty,
+          DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
                             none[ValidatorSig]())
 
       var validatorDuties = vc.attesters.getOrDefault(item.duty.pubkey)
