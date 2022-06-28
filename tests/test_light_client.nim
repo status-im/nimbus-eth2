@@ -79,8 +79,9 @@ suite "Light client" & preset():
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = ChainDAGRef.init(
         cfg, makeTestDB(num_validators), validatorMonitor, {},
-        lightClientDataServe = true,
-        lightClientDataImportMode = LightClientDataImportMode.OnlyNew)
+        lcDataConfig = LightClientDataConfig(
+          serve: true,
+          importMode: LightClientDataImportMode.OnlyNew))
       quarantine = newClone(Quarantine.init())
       taskpool = Taskpool.new()
     var verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
@@ -185,8 +186,9 @@ suite "Light client" & preset():
       dag.headState, dag.getForkedBlock(dag.head.bid).get)
     let cpDag = ChainDAGRef.init(
       cfg, cpDb, validatorMonitor, {},
-      lightClientDataServe = true,
-      lightClientDataImportMode = LightClientDataImportMode.Full)
+      lcDataConfig = LightClientDataConfig(
+        serve: true,
+        importMode: LightClientDataImportMode.Full))
 
     # Advance by a couple epochs
     for i in 1'u64 .. 10:

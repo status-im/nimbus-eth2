@@ -685,12 +685,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            eraPath = ".",
            onBlockCb: OnBlockCallback = nil, onHeadCb: OnHeadCallback = nil,
            onReorgCb: OnReorgCallback = nil, onFinCb: OnFinalizedCallback = nil,
-           onLCFinalityUpdateCb: OnLightClientFinalityUpdateCallback = nil,
-           onLCOptimisticUpdateCb: OnLightClientOptimisticUpdateCallback = nil,
-           lightClientDataServe = false,
-           lightClientDataImportMode = LightClientDataImportMode.None,
-           lightClientDataMaxPeriods = none(uint64),
-           vanityLogs = default(VanityLogs)): ChainDAGRef =
+           vanityLogs = default(VanityLogs),
+           lcDataConfig = default(LightClientDataConfig)): ChainDAGRef =
   cfg.checkForkConsistency()
 
   doAssert updateFlags - {verifyFinalization, enableTestFeatures} == {},
@@ -726,12 +722,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
       vanityLogs: vanityLogs,
 
-      lcDataStore: initLightClientDataStore(
-        serve = lightClientDataServe,
-        importMode = lightClientDataImportMode,
-        maxPeriods = lightClientDataMaxPeriods.get(cfg.defaultLCDataMaxPeriods),
-        onLCFinalityUpdateCb = onLCFinalityUpdateCb,
-        onLCOptimisticUpdateCb = onLCOptimisticUpdateCb),
+      lcDataStore: initLightClientDataStore(lcDataConfig, cfg),
 
       onBlockAdded: onBlockCb,
       onHeadChanged: onHeadCb,

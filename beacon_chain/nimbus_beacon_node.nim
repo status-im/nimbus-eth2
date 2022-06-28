@@ -175,14 +175,14 @@ proc loadChainDag(
       else: nil
     dag = ChainDAGRef.init(
       cfg, db, validatorMonitor, extraFlags + chainDagFlags, config.eraDir,
-      onLCFinalityUpdateCb = onLightClientFinalityUpdateCb,
-      onLCOptimisticUpdateCb = onLightClientOptimisticUpdateCb,
-      lightClientDataServe = config.lightClientDataServe.get,
-      lightClientDataImportMode = config.lightClientDataImportMode.get,
-      lightClientDataMaxPeriods = config.lightClientDataMaxPeriods,
-      vanityLogs = getPandas(detectTTY(config.logStdout)))
+      vanityLogs = getPandas(detectTTY(config.logStdout)),
+      lcDataConfig = LightClientDataConfig(
+        serve: config.lightClientDataServe.get,
+        importMode: config.lightClientDataImportMode.get,
+        maxPeriods: config.lightClientDataMaxPeriods,
+        onLightClientFinalityUpdate: onLightClientFinalityUpdateCb,
+        onLightClientOptimisticUpdate: onLightClientOptimisticUpdateCb))
 
-  let
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState, genesis_validators_root)
 
