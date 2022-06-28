@@ -233,6 +233,40 @@ proc asyncLoop*(vc: ValidatorClientRef) {.async.} =
   if not(vc.runWithSignals(asyncRun(vc))):
     return
 
+template runWithSignals(vc: ValidatorClientRef, body: untyped): bool =
+  let future = body
+  discard await race(future, vc.sigintHandleFut, vc.sigtermHandleFut)
+  if future.finished():
+    if future.failed() or future.cancelled():
+      let exc = future.readError()
+      debug "Validator client initialization failed", err_name = $exc.name,
+            err_msg = $exc.msg
+      var pending: seq[Future[void]]
+      if not(vc.sigintHandleFut.finished()):
+        pending.add(cancelAndWait(vc.sigintHandleFut))
+      if not(vc.sigtermHandleFut.finished()):
+        pending.add(cancelAndWait(vc.sigtermHandleFut))
+      await allFutures(pending)
+      false
+    else:
+      true
+  else:
+    let signal = if vc.sigintHandleFut.finished(): "SIGINT" else: "SIGTERM"
+    error "Got interrupt, trying to shutdown gracefully", signal = signal
+    var pending = @[cancelAndWait(future)]
+    if not(vc.sigintHandleFut.finished()):
+      pending.add(cancelAndWait(vc.sigintHandleFut))
+    if not(vc.sigtermHandleFut.finished()):
+      pending.add(cancelAndWait(vc.sigtermHandleFut))
+    await allFutures(pending)
+    false
+
+proc asyncLoop*(vc: ValidatorClientRef) {.async.} =
+  if not(vc.runWithSignals(asyncInit(vc))):
+    return
+  if not(vc.runWithSignals(asyncRun(vc))):
+    return
+
 programMain:
   let config = makeBannerAndConfig("Nimbus validator client " & fullVersionStr,
                                    ValidatorClientConf)
