@@ -13,7 +13,6 @@
 import
   # Status libraries
   stew/[bitops2, objects],
-  chronos,
   # Beacon chain internals
   ../spec/datatypes/[phase0, altair, bellatrix],
   "."/[block_pools_types, blockchain_dag]

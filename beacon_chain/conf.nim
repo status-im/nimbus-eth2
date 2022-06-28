@@ -21,7 +21,6 @@ import
   eth/common/eth_types as commonEthTypes, eth/net/nat,
   eth/p2p/discoveryv5/enr,
   json_serialization, web3/[ethtypes, confutils_defs],
-
   ./spec/[keystore, network, crypto],
   ./spec/datatypes/base,
   ./networking/network_metadata,

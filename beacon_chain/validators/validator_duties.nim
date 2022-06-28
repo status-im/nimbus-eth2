@@ -441,21 +441,24 @@ proc createAndSendAttestation(node: BeaconNode,
                               fork: Fork,
                               genesis_validators_root: Eth2Digest,
                               validator: AttachedValidator,
-                              attestationData: AttestationData,
+                              data: AttestationData,
                               committeeLen: int,
                               indexInCommittee: int,
                               subnet_id: SubnetId) {.async.} =
   try:
-    var attestation =
-      block:
-        let res = await validator.produceAndSignAttestation(
-          attestationData, committeeLen, indexInCommittee, fork,
-          genesis_validators_root)
+    let
+      signature = block:
+        let res = await validator.getAttestationSignature(
+          fork, genesis_validators_root, data)
         if res.isErr():
-          error "Unable to sign attestation", validator = shortLog(validator),
-                error_msg = res.error()
+          warn "Unable to sign attestation", validator = shortLog(validator),
+                data = shortLog(data), error_msg = res.error()
           return
         res.get()
+      attestation =
+        Attestation.init(
+          [uint64 indexInCommittee], committeeLen, data, signature).expect(
+            "valid data")
 
     let res = await node.sendAttestation(
       attestation, subnet_id, checkSignature = false)
@@ -467,12 +470,11 @@ proc createAndSendAttestation(node: BeaconNode,
       return
 
     if node.config.dumpEnabled:
-      dump(node.config.dumpDirOutgoing, attestation.data,
-           validator.pubkey)
+      dump(node.config.dumpDirOutgoing, attestation.data, validator.pubkey)
 
     let
       wallTime = node.beaconClock.now()
-      delay = wallTime - attestationData.slot.attestation_deadline()
+      delay = wallTime - data.slot.attestation_deadline()
 
     notice "Attestation sent",
       attestation = shortLog(attestation), validator = shortLog(validator),
@@ -482,7 +484,7 @@ proc createAndSendAttestation(node: BeaconNode,
   except CatchableError as exc:
     # An error could happen here when the signature task fails - we must
     # not leak the exception because this is an asyncSpawn task
-    notice "Error sending attestation", err = exc.msg
+    warn "Error sending attestation", err = exc.msg
 
 proc getBlockProposalEth1Data*(node: BeaconNode,
                                state: ForkedHashedBeaconState):
@@ -724,15 +726,14 @@ proc proposeBlock(node: BeaconNode,
 
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
-    genesis_validators_root =
-      getStateField(node.dag.headState, genesis_validators_root)
+    genesis_validators_root = node.dag.genesis_validators_root
     randao =
       block:
-        let res = await validator.genRandaoReveal(
-          fork, genesis_validators_root, slot)
+        let res = await validator.getEpochSignature(
+          fork, genesis_validators_root, slot.epoch)
         if res.isErr():
-          error "Unable to generate randao reveal",
-                validator = shortLog(validator), error_msg = res.error()
+          warn "Unable to generate randao reveal",
+               validator = shortLog(validator), error_msg = res.error()
           return head
         res.get()
 
@@ -764,11 +765,11 @@ proc proposeBlock(node: BeaconNode,
     let
       signature =
         block:
-          let res = await validator.signBlockProposal(
+          let res = await validator.getBlockSignature(
             fork, genesis_validators_root, slot, blockRoot, forkedBlck)
           if res.isErr():
-            error "Unable to sign block proposal",
-                  validator = shortLog(validator), error_msg = res.error()
+            warn "Unable to sign block",
+                 validator = shortLog(validator), error_msg = res.error()
             return head
           res.get()
       signedBlock =
@@ -874,8 +875,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       tmp.get()
     committees_per_slot = get_committee_count_per_slot(epochRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
-    genesis_validators_root =
-      getStateField(node.dag.headState, genesis_validators_root)
+    genesis_validators_root = node.dag.genesis_validators_root
 
   for committee_index in get_committee_indices(committees_per_slot):
     let committee = get_beacon_committee(epochRef, slot, committee_index)
@@ -920,11 +920,10 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
       genesis_validators_root = node.dag.genesis_validators_root
       msg =
         block:
-          let res = await signSyncCommitteeMessage(validator, fork,
-                                                   genesis_validators_root,
-                                                   slot, head.root)
+          let res = await validator.getSyncCommitteeMessage(
+            fork, genesis_validators_root, slot, head.root)
           if res.isErr():
-            error "Unable to sign committee message using remote signer",
+            warn "Unable to sign committee message",
                   validator = shortLog(validator), slot = slot,
                   block_root = shortLog(head.root)
             return
@@ -973,20 +972,24 @@ proc signAndSendContribution(node: BeaconNode,
                              contribution: SyncCommitteeContribution,
                              selectionProof: ValidatorSig) {.async.} =
   try:
-    let msg = (ref SignedContributionAndProof)(
-      message: ContributionAndProof(
-        aggregator_index: uint64 validator.index.get,
-        contribution: contribution,
-        selection_proof: selectionProof))
+    let
+      fork = node.dag.forkAtEpoch(contribution.slot.epoch)
+      genesis_validators_root = node.dag.genesis_validators_root
+      msg = (ref SignedContributionAndProof)(
+        message: ContributionAndProof(
+          aggregator_index: uint64 validator.index.get,
+          contribution: contribution,
+          selection_proof: selectionProof))
 
-    let res = await validator.sign(
-      msg, node.dag.forkAtEpoch(contribution.slot.epoch),
-      node.dag.genesis_validators_root)
+    msg[].signature = block:
+      let res = await validator.getContributionAndProofSignature(
+        fork, genesis_validators_root, msg[].message)
 
-    if res.isErr():
-      error "Unable to sign sync committee contribution usign remote signer",
-            validator = shortLog(validator), error_msg = res.error()
-      return
+      if res.isErr():
+        warn "Unable to sign sync committee contribution",
+              validator = shortLog(validator), error_msg = res.error()
+        return
+      res.get()
 
     # Failures logged in sendSyncCommitteeContribution
     discard await node.sendSyncCommitteeContribution(msg[], false)
@@ -994,7 +997,7 @@ proc signAndSendContribution(node: BeaconNode,
   except CatchableError as exc:
     # An error could happen here when the signature task fails - we must
     # not leak the exception because this is an asyncSpawn task
-    notice "Error sending sync committee contribution", err = exc.msg
+    warn "Error sending sync committee contribution", err = exc.msg
 
 proc handleSyncCommitteeContributions(node: BeaconNode,
                                       head: BlockRef, slot: Slot) {.async.} =
@@ -1043,7 +1046,7 @@ proc handleSyncCommitteeContributions(node: BeaconNode,
 
       let selectionProofRes = proof.read()
       if selectionProofRes.isErr():
-        error "Unable to sign selection proof using remote signer",
+        warn "Unable to generate selection proof",
               validator = shortLog(candidateAggregators[i].validator),
               slot, head, subnet_id = candidateAggregators[i].subcommitteeIdx
         continue
@@ -1135,8 +1138,7 @@ proc sendAggregatedAttestations(
       tmp.get()
 
     fork = node.dag.forkAtEpoch(slot.epoch)
-    genesis_validators_root =
-      getStateField(node.dag.headState, genesis_validators_root)
+    genesis_validators_root = node.dag.genesis_validators_root
     committees_per_slot = get_committee_count_per_slot(epochRef)
 
   var
@@ -1152,8 +1154,8 @@ proc sendAggregatedAttestations(
       let validator = node.getAttachedValidator(epochRef, validator_index)
       if validator != nil:
         # the validator index and private key pair.
-        slotSigs.add getSlotSig(validator, fork,
-          genesis_validators_root, slot)
+        slotSigs.add validator.getSlotSignature(
+          fork, genesis_validators_root, slot)
         slotSigsData.add (committee_index, validator_index, validator)
 
   await allFutures(slotSigs)
@@ -1163,7 +1165,7 @@ proc sendAggregatedAttestations(
     let
       data = slotSigsData[i]
       slotSig = slotSigs[i].read().valueOr:
-        error "Unable to create slot signature using remote signer",
+        warn "Unable to create slot signature",
               validator = shortLog(data.v),
               slot, error = error
         continue
@@ -1174,10 +1176,10 @@ proc sendAggregatedAttestations(
           continue
 
       sig = block:
-        let res = await signAggregateAndProof(data.v,
-          aggregateAndProof, fork, genesis_validators_root)
+        let res = await getAggregateAndProofSignature(data.v,
+          fork, genesis_validators_root, aggregateAndProof)
         if res.isErr():
-          error "Unable to sign aggregated attestation using remote signer",
+          warn "Unable to sign aggregate",
                 validator = shortLog(data.v), error_msg = res.error()
           return
         res.get()
@@ -1542,8 +1544,7 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
     return
 
   let
-    genesis_validators_root =
-      getStateField(node.dag.headState, genesis_validators_root)
+    genesis_validators_root = node.dag.genesis_validators_root
     head = node.dag.head
 
   # Getting the slot signature is expensive but cached - in "normal" cases we'll
@@ -1570,10 +1571,10 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
           let
             subnet_id = compute_subnet_for_attestation(
               committees_per_slot, slot, committee_index)
-          let slotSigRes = await getSlotSig(validator, fork,
-                                            genesis_validators_root, slot)
+          let slotSigRes = await validator.getSlotSignature(
+            fork, genesis_validators_root, slot)
           if slotSigRes.isErr():
-            error "Unable to create slot signature using remote signer",
+            error "Unable to create slot signature",
                   validator = shortLog(validator),
                   error_msg = slotSigRes.error()
             continue

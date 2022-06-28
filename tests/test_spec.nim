@@ -122,3 +122,11 @@ suite "Beacon state" & preset():
       state[].phase0Data.dependent_root(Epoch(1)) ==
         state[].phase0Data.data.get_block_root_at_slot(Epoch(1).start_slot - 1)
       state[].phase0Data.dependent_root(Epoch(0)) == genBlock.root
+
+  test "merklizer state roundtrip":
+    let
+      dcs = DepositContractState()
+      merkleizer = DepositsMerkleizer.init(dcs)
+
+    check:
+      dcs == merkleizer.toDepositContractState()

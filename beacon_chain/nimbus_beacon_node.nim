@@ -14,6 +14,7 @@ import
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
   eth/keys,
+  ./consensus_object_pools/vanity_logs/pandas,
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[engine_authentication, weak_subjectivity],
@@ -29,8 +30,6 @@ from
   libp2p/protocols/pubsub/gossipsub
 import
   TopicParams, validateParameters, init
-
-from "."/consensus_object_pools/vanity_logs/pandas import getPandas
 
 when defined(windows):
   import winlean
@@ -144,6 +143,22 @@ declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version",
 versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
 
 logScope: topics = "beacnde"
+
+func getPandas(stdoutKind: StdoutLogKind): VanityLogs =
+  case stdoutKind
+  of StdoutLogKind.Auto: raiseAssert "inadmissable here"
+  of StdoutLogKind.Colors:
+    VanityLogs(
+      onMergeTransitionBlock:          color🐼,
+      onFinalizedMergeTransitionBlock: blink🐼)
+  of StdoutLogKind.NoColors:
+    VanityLogs(
+      onMergeTransitionBlock:          mono🐼,
+      onFinalizedMergeTransitionBlock: mono🐼)
+  of StdoutLogKind.Json, StdoutLogKind.None:
+    VanityLogs(
+      onMergeTransitionBlock:          (proc() = notice "🐼 Proof of Stake Activated 🐼"),
+      onFinalizedMergeTransitionBlock: (proc() = notice "🐼 Proof of Stake Finalized 🐼"))
 
 proc loadChainDag(
     config: BeaconNodeConf,
