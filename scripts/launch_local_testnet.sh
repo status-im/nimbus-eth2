@@ -865,6 +865,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     WEB3_ARG="--web3-url=http://127.0.0.1:${EL_RPC_PORTS[${NUM_NODE}]}"
   fi
 
+  # TODO re-add --jwt-secret
   ${BEACON_NODE_COMMAND} \
     --config-file="${CLI_CONF_FILE}" \
     --tcp-port=$(( BASE_PORT + NUM_NODE )) \
@@ -879,7 +880,6 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --light-client-enable=on \
     --light-client-data-serve=on \
     --light-client-data-import-mode=only-new \
-    --jwt-secret=/tmp/jwtsecret \
     ${EXTRA_ARGS} \
     &> "${DATA_DIR}/log${NUM_NODE}.txt" &
 
