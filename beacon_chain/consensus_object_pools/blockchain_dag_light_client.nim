@@ -122,18 +122,15 @@ proc syncCommitteeRootForPeriod(
       else: raiseAssert "Unreachable"
   do: err()
 
-func initLightClientDataStore*(
-    serve: bool, importMode: LightClientDataImportMode, maxPeriods: uint64,
-    onLCFinalityUpdateCb: OnLightClientFinalityUpdateCallback = nil,
-    onLCOptimisticUpdateCb: OnLightClientOptimisticUpdateCallback = nil
-): LightClientDataStore =
+proc initLightClientDataStore*(
+    config: LightClientDataConfig, cfg: RuntimeConfig): LightClientDataStore =
   ## Initialize light client data store.
   LightClientDataStore(
-    serve: serve,
-    importMode: importMode,
-    maxPeriods: maxPeriods,
-    onLightClientFinalityUpdate: onLCFinalityUpdateCb,
-    onLightClientOptimisticUpdate: onLCOptimisticUpdateCb)
+    serve: config.serve,
+    importMode: config.importMode,
+    maxPeriods: config.maxPeriods.get(cfg.defaultLightClientDataMaxPeriods),
+    onLightClientFinalityUpdate: config.onLightClientFinalityUpdate,
+    onLightClientOptimisticUpdate: config.onLightClientOptimisticUpdate)
 
 func targetLightClientTailSlot(dag: ChainDAGRef): Slot =
   ## Earliest slot for which light client data is retained.

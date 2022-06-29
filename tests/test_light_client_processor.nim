@@ -30,8 +30,9 @@ suite "Light client processor" & preset():
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = ChainDAGRef.init(
       cfg, makeTestDB(numValidators), validatorMonitor, {},
-      lightClientDataServe = true,
-      lightClientDataImportMode = LightClientDataImportMode.OnlyNew)
+      lcDataConfig = LightClientDataConfig(
+        serve: true,
+        importMode: LightClientDataImportMode.OnlyNew))
     quarantine = newClone(Quarantine.init())
     taskpool = Taskpool.new()
   var verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)

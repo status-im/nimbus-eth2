@@ -484,7 +484,7 @@ template name*(cfg: RuntimeConfig): string =
 func MIN_EPOCHS_FOR_BLOCK_REQUESTS*(cfg: RuntimeConfig): uint64 =
   cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY + cfg.CHURN_LIMIT_QUOTIENT div 2
 
-func defaultLCDataMaxPeriods*(cfg: RuntimeConfig): uint64 =
+func defaultLightClientDataMaxPeriods*(cfg: RuntimeConfig): uint64 =
   const epochsPerPeriod = EPOCHS_PER_SYNC_COMMITTEE_PERIOD
   let maxEpochs = cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS
   (maxEpochs + epochsPerPeriod - 1) div epochsPerPeriod

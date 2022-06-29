@@ -190,14 +190,14 @@ proc loadChainDag(
       else: nil
     dag = ChainDAGRef.init(
       cfg, db, validatorMonitor, extraFlags + chainDagFlags, config.eraDir,
-      onLCFinalityUpdateCb = onLightClientFinalityUpdateCb,
-      onLCOptimisticUpdateCb = onLightClientOptimisticUpdateCb,
-      lightClientDataServe = config.lightClientDataServe.get,
-      lightClientDataImportMode = config.lightClientDataImportMode.get,
-      lightClientDataMaxPeriods = config.lightClientDataMaxPeriods,
-      vanityLogs = getPandas(detectTTY(config.logStdout)))
+      vanityLogs = getPandas(detectTTY(config.logStdout)),
+      lcDataConfig = LightClientDataConfig(
+        serve: config.lightClientDataServe.get,
+        importMode: config.lightClientDataImportMode.get,
+        maxPeriods: config.lightClientDataMaxPeriods,
+        onLightClientFinalityUpdate: onLightClientFinalityUpdateCb,
+        onLightClientOptimisticUpdate: onLightClientOptimisticUpdateCb))
 
-  let
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState, genesis_validators_root)
 
@@ -514,6 +514,12 @@ proc init*(T: type BeaconNode,
     else:
       none(DepositContractSnapshot)
 
+  if config.web3Urls.len() == 0:
+    if cfg.BELLATRIX_FORK_EPOCH == FAR_FUTURE_EPOCH:
+      notice "Running without execution client - validator features partially disabled (see https://nimbus.guide/eth1.html)"
+    else:
+      notice "Running without execution client - validator features disabled (see https://nimbus.guide/eth1.html)"
+
   var eth1Monitor: Eth1Monitor
   if not ChainDAGRef.isInitialized(db).isOk():
     var
@@ -733,11 +739,19 @@ proc init*(T: type BeaconNode,
       else:
         nil
 
-    bellatrixEpochTime =
-      genesisTime + cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH * SECONDS_PER_SLOT
+    maxSecondsInMomentType = Moment.high.epochSeconds
+    # If the Bellatrix epoch is above this value, the calculation
+    # below will overflow. This happens in practice for networks
+    # where the `BELLATRIX_FORK_EPOCH` is not yet specified.
+    maxSupportedBellatrixEpoch = (maxSecondsInMomentType.uint64 - genesisTime) div
+                                 (SLOTS_PER_EPOCH * SECONDS_PER_SLOT)
+    bellatrixEpochTime = if cfg.BELLATRIX_FORK_EPOCH < maxSupportedBellatrixEpoch:
+      int64(genesisTime + cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH * SECONDS_PER_SLOT)
+    else:
+      maxSecondsInMomentType
 
     nextExchangeTransitionConfTime =
-      max(Moment.init(int64 bellatrixEpochTime, Second),
+      max(Moment.init(bellatrixEpochTime, Second),
           Moment.now)
 
   let node = BeaconNode(

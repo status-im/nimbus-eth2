@@ -71,6 +71,18 @@ type
     tailSlot*: Slot
       ## The earliest slot for which light client data is imported.
 
+  LightClientDataConfig* = object
+    serve*: bool
+      ## Whether to make local light client data available or not
+    importMode*: LightClientDataImportMode
+      ## Which classes of light client data to import
+    maxPeriods*: Option[uint64]
+      ## Maximum number of sync committee periods to retain light client data
+    onLightClientFinalityUpdate*: OnLightClientFinalityUpdateCallback
+      ## On new `LightClientFinalityUpdate` callback
+    onLightClientOptimisticUpdate*: OnLightClientOptimisticUpdateCallback
+      ## On new `LightClientOptimisticUpdate` callback
+
   LightClientDataStore* = object
     # -----------------------------------
     # Light client data

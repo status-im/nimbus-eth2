@@ -93,6 +93,7 @@ RUN_NIMBUS="0"
 NIMBUS_EL_BINARY="../nimbus-eth1/build/nimbus"
 
 EL_HTTP_PORTS=()
+EL_RPC_PORTS=()
 PROCS_TO_KILL=("nimbus_beacon_node" "nimbus_validator_client" "nimbus_signing_node" "nimbus_light_client")
 
 print_help() {
@@ -864,6 +865,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     WEB3_ARG="--web3-url=http://127.0.0.1:${EL_RPC_PORTS[${NUM_NODE}]}"
   fi
 
+  # TODO re-add --jwt-secret
   ${BEACON_NODE_COMMAND} \
     --config-file="${CLI_CONF_FILE}" \
     --tcp-port=$(( BASE_PORT + NUM_NODE )) \
@@ -878,7 +880,6 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --light-client-enable=on \
     --light-client-data-serve=on \
     --light-client-data-import-mode=only-new \
-    --jwt-secret=/tmp/jwtsecret \
     ${EXTRA_ARGS} \
     &> "${DATA_DIR}/log${NUM_NODE}.txt" &
 
