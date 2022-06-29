@@ -183,7 +183,6 @@ proc loadChainDag(
         maxPeriods: config.lightClientDataMaxPeriods,
         onLightClientFinalityUpdate: onLightClientFinalityUpdateCb,
         onLightClientOptimisticUpdate: onLightClientOptimisticUpdateCb))
-
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState, genesis_validators_root)
 
