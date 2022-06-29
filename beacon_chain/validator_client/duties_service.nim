@@ -17,8 +17,8 @@ chronicles.formatIt(DutiesServiceLoop):
 
 proc checkDuty(duty: RestAttesterDuty): bool =
   (duty.committee_length <= MAX_VALIDATORS_PER_COMMITTEE) and
-  (uint64(duty.committee_index) <= MAX_COMMITTEES_PER_SLOT) and
-  (uint64(duty.validator_committee_index) <= duty.committee_length) and
+  (uint64(duty.committee_index) < MAX_COMMITTEES_PER_SLOT) and
+  (uint64(duty.validator_committee_index) < duty.committee_length) and
   (uint64(duty.validator_index) <= VALIDATOR_REGISTRY_LIMIT)
 
 proc checkSyncDuty(duty: RestSyncCommitteeDuty): bool =
@@ -159,7 +159,8 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
     for item in addOrReplaceItems:
       let validator = vc.attachedValidators.getValidator(item.duty.pubkey)
       let fork = vc.forkAtEpoch(item.duty.slot.epoch)
-      let future = validator.getSlotSig(fork, genesisRoot, item.duty.slot)
+      let future = validator.getSlotSignature(
+        fork, genesisRoot, item.duty.slot)
       pending.add(future)
       validators.add(validator)
 

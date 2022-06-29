@@ -12,8 +12,7 @@ import
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/spec/datatypes/[phase0, altair],
   ../beacon_chain/spec/[beaconstate, forks, helpers],
-  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_pools_types],
-  ../beacon_chain/eth1/eth1_monitor
+  ../beacon_chain/consensus_object_pools/[blockchain_dag, block_pools_types]
 
 template withTimer*(stats: var RunningStat, body: untyped) =
   # TODO unify timing somehow

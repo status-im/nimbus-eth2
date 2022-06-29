@@ -28,7 +28,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
       res.get()
   let fork = vc.forkAtEpoch(adata.slot.epoch)
 
-  # TODO: signing_root is recomputed in signBlockProposal just after,
+  # TODO: signing_root is recomputed in getAttestationSignature just after,
   # but not for locally attached validators.
   let signingRoot =
     compute_attestation_signing_root(
@@ -47,17 +47,20 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
          validator_index = vindex, badVoteDetails = $notSlashable.error
     return false
 
-  let attestation =
-    block:
-      let res = await validator.produceAndSignAttestation(adata,
-        int(duty.data.committee_length),
-        Natural(duty.data.validator_committee_index),
-        fork, vc.beaconGenesis.genesis_validators_root)
+  let attestation = block:
+    let signature = block:
+      let res = await validator.getAttestationSignature(
+        fork, vc.beaconGenesis.genesis_validators_root, adata)
       if res.isErr():
         error "Unable to sign attestation", validator = shortLog(validator),
               error_msg = res.error()
         return false
       res.get()
+
+    Attestation.init(
+      [duty.data.validator_committee_index],
+      int(duty.data.committee_length), adata, signature).expect(
+        "data validity checked earlier")
 
   debug "Sending attestation", attestation = shortLog(attestation),
         validator = shortLog(validator), validator_index = vindex,
@@ -110,8 +113,8 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
 
   let signature =
     block:
-      let res = await signAggregateAndProof(validator, proof, fork,
-                                            genesisRoot)
+      let res = await getAggregateAndProofSignature(
+        validator, fork, genesisRoot, proof)
       if res.isErr():
         error "Unable to sign aggregate and proof using remote signer",
               validator = shortLog(validator),

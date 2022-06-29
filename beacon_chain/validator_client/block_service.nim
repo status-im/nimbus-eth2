@@ -24,7 +24,8 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
   try:
     let randaoReveal =
       block:
-        let res = await validator.genRandaoReveal(fork, genesisRoot, slot)
+        let res = await validator.getEpochSignature(
+          fork, genesisRoot, slot.epoch)
         if res.isErr():
           error "Unable to generate randao reveal usint remote signer",
                 validator = shortLog(validator), error_msg = res.error()
@@ -44,7 +45,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
         return
 
     let blockRoot = withBlck(beaconBlock): hash_tree_root(blck)
-    # TODO: signing_root is recomputed in signBlockProposal just after
+    # TODO: signing_root is recomputed in getBlockSignature just after
     let signing_root = compute_block_signing_root(fork, genesisRoot, slot,
                                                   blockRoot)
     let notSlashable = vc.attachedValidators
@@ -55,7 +56,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     if notSlashable.isOk():
       let signature =
         block:
-          let res = await validator.signBlockProposal(fork, genesisRoot,
+          let res = await validator.getBlockSignature(fork, genesisRoot,
                                                       slot, blockRoot,
                                                       beaconBlock)
           if res.isErr():

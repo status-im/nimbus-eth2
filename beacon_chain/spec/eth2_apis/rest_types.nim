@@ -121,7 +121,7 @@ type
     slot*: Slot
     beacon_block_root*: Eth2Digest
     subcommittee_index*: uint64
-    aggregation_bits*: SyncCommitteeAggregationBits ##\
+    aggregation_bits*: SyncCommitteeAggregationBits
     signature*: ValidatorSig
 
   RestContributionAndProof* = object

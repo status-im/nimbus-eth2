@@ -144,9 +144,9 @@ cli do(validatorsDir: string, secretsDir: string,
         blockAggregates = aggregates.filterIt(
           it.data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= slot and
           slot <= it.data.slot + SLOTS_PER_EPOCH)
-        randao_reveal =
-            validators[proposer].genRandaoReveal(
-              fork, genesis_validators_root, slot).toValidatorSig()
+        randao_reveal = get_epoch_signature(
+          fork, genesis_validators_root, slot.epoch,
+          validators[proposer]).toValidatorSig()
         message = makeBeaconBlock(
           cfg,
           state[],

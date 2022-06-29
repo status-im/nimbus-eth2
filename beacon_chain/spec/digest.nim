@@ -28,21 +28,32 @@ import
   chronicles,
   nimcrypto/[sha2, hash],
   stew/[byteutils, endians2, objects],
-  json_serialization,
-  blscurve
+  json_serialization
 
 export
   # Exports from sha2 / hash are explicit to avoid exporting upper-case `$` and
   # constant-time `==`
-  sha2.update, hash.fromHex, json_serialization
+  hash.fromHex, json_serialization
 
 type
   Eth2Digest* = MDigest[32 * 8] ## `hash32` from spec
 
-when BLS_BACKEND == BLST:
+const PREFER_BLST_SHA256* {.booldefine.} = true
+
+when PREFER_BLST_SHA256:
+  import blscurve
+  when BLS_BACKEND == BLST:
+    const USE_BLST_SHA256 = true
+  else:
+    const USE_BLST_SHA256 = false
+else:
+  const USE_BLST_SHA256 = false
+
+when USE_BLST_SHA256:
   export blscurve.update
   type Eth2DigestCtx* = BLST_SHA256_CTX
 else:
+  export sha2.update
   type Eth2DigestCtx* = sha2.sha256
 
 func `$`*(x: Eth2Digest): string =
@@ -60,13 +71,13 @@ chronicles.formatIt Eth2Digest:
 func eth2digest*(v: openArray[byte]): Eth2Digest {.noinit.} =
   ## Apply the Eth2 Hash function
   ## Do NOT use for secret data.
-  when BLS_BACKEND == BLST:
+  when USE_BLST_SHA256:
     # BLST has a fast assembly optimized SHA256
     result.data.bls_sha256_digest(v)
   else:
     # We use the init-update-finish interface to avoid
     # the expensive burning/clearing memory (20~30% perf)
-    let ctx: Eth2DigestCtx
+    var ctx {.noinit.}: Eth2DigestCtx
     ctx.init()
     ctx.update(v)
     ctx.finish()
@@ -83,9 +94,9 @@ template withEth2Hash*(body: untyped): Eth2Digest =
       body
       finish(h)
   else:
-    when BLS_BACKEND == BLST:
+    when USE_BLST_SHA256:
       block:
-        var h  {.inject, noinit.}: Eth2DigestCtx
+        var h {.inject, noinit.}: Eth2DigestCtx
         init(h)
         body
         var res {.noinit.}: Eth2Digest
@@ -93,7 +104,7 @@ template withEth2Hash*(body: untyped): Eth2Digest =
         res
     else:
       block:
-        let h  {.inject, noinit.}: Eth2DigestCtx
+        var h {.inject, noinit.}: Eth2DigestCtx
         init(h)
         body
         finish(h)
