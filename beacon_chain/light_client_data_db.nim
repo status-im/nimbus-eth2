@@ -86,6 +86,12 @@ type
       ## Tracks the finalized sync committee periods for which complete data
       ## has been imported (from `dag.tail.slot`).
 
+# No `uint64` support in Sqlite
+template isSupportedBySQLite(slot: Slot): bool =
+  slot <= int64.high.Slot
+template isSupportedBySQLite(period: SyncCommitteePeriod): bool =
+  period <= int64.high.SyncCommitteePeriod
+
 proc initCurrentSyncCommitteeBranchStore(
     backend: SqStoreRef): KvResult[CurrentSyncCommitteeBranchStore] =
   ? backend.exec("""
@@ -124,8 +130,8 @@ proc initCurrentSyncCommitteeBranchStore(
 
 func hasCurrentSyncCommitteeBranch*(
     db: LightClientDataDB, slot: Slot): bool =
-  if slot > int64.high.Slot:
-    return false  # No `uint64` support
+  if not slot.isSupportedBySQLite:
+    return false
   var exists: int64
   for res in db.currentBranches.containsStmt.exec(slot.int64, exists):
     res.expect("SQL query OK")
@@ -135,8 +141,8 @@ func hasCurrentSyncCommitteeBranch*(
 
 proc getCurrentSyncCommitteeBranch*(
     db: LightClientDataDB, slot: Slot): altair.CurrentSyncCommitteeBranch =
-  if slot > int64.high.Slot:
-    return  # No `uint64` support
+  if not slot.isSupportedBySQLite:
+    return default(altair.CurrentSyncCommitteeBranch)
   var branch: seq[byte]
   for res in db.currentBranches.getStmt.exec(slot.int64, branch):
     res.expect("SQL query OK")
@@ -145,13 +151,13 @@ proc getCurrentSyncCommitteeBranch*(
     except MalformedSszError, SszSizeMismatchError:
       error "LC store corrupted", store = "currentBranches", slot,
         exc = getCurrentException().name, err = getCurrentExceptionMsg()
-      return
+      return default(altair.CurrentSyncCommitteeBranch)
 
 func putCurrentSyncCommitteeBranch*(
     db: LightClientDataDB, slot: Slot,
     branch: altair.CurrentSyncCommitteeBranch) =
-  if slot > int64.high.Slot:
-    return  # No `uint64` support
+  if not slot.isSupportedBySQLite:
+    return
   let res = db.currentBranches.putStmt.exec((slot.int64, SSZ.encode(branch)))
   res.expect("SQL query OK")
 
@@ -198,7 +204,7 @@ proc initBestUpdateStore(
 proc getBestUpdate*(
     db: LightClientDataDB, period: SyncCommitteePeriod
 ): altair.LightClientUpdate =
-  doAssert period <= int64.high.SyncCommitteePeriod
+  doAssert period.isSupportedBySQLite
   var update: seq[byte]
   for res in db.bestUpdates.getStmt.exec(period.int64, update):
     res.expect("SQL query OK")
@@ -207,12 +213,12 @@ proc getBestUpdate*(
     except MalformedSszError, SszSizeMismatchError:
       error "LC store corrupted", store = "bestUpdates", period,
         exc = getCurrentException().name, err = getCurrentExceptionMsg()
-      return
+      return default(altair.LightClientUpdate)
 
 func putBestUpdate*(
     db: LightClientDataDB, period: SyncCommitteePeriod,
     update: altair.LightClientUpdate) =
-  doAssert period <= int64.high.SyncCommitteePeriod
+  doAssert period.isSupportedBySQLite
   let numParticipants = countOnes(update.sync_aggregate.sync_committee_bits)
   if numParticipants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
     let res = db.bestUpdates.delStmt.exec(period.int64)
@@ -265,7 +271,7 @@ proc initSealedPeriodStore(
 
 func isPeriodSealed*(
     db: LightClientDataDB, period: SyncCommitteePeriod): bool =
-  doAssert period <= int64.high.SyncCommitteePeriod
+  doAssert period.isSupportedBySQLite
   var exists: int64
   for res in db.sealedPeriods.containsStmt.exec(period.int64, exists):
     res.expect("SQL query OK")
@@ -275,13 +281,13 @@ func isPeriodSealed*(
 
 func sealPeriod*(
     db: LightClientDataDB, period: SyncCommitteePeriod) =
-  doAssert period <= int64.high.SyncCommitteePeriod
+  doAssert period.isSupportedBySQLite
   let res = db.sealedPeriods.putStmt.exec(period.int64)
   res.expect("SQL query OK")
 
 func delPeriodsFrom*(
     db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =
-  doAssert minPeriod <= int64.high.SyncCommitteePeriod
+  doAssert minPeriod.isSupportedBySQLite
   let res1 = db.sealedPeriods.delFromStmt.exec(minPeriod.int64)
   res1.expect("SQL query OK")
   let res2 = db.bestUpdates.delFromStmt.exec(minPeriod.int64)
@@ -289,7 +295,7 @@ func delPeriodsFrom*(
 
 func keepPeriodsFrom*(
     db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =
-  doAssert minPeriod <= int64.high.SyncCommitteePeriod
+  doAssert minPeriod.isSupportedBySQLite
   let res1 = db.sealedPeriods.keepFromStmt.exec(minPeriod.int64)
   res1.expect("SQL query OK")
   let res2 = db.bestUpdates.keepFromStmt.exec(minPeriod.int64)
