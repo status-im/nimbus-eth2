@@ -88,8 +88,6 @@ proc addResolvedHeadBlock(
 
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
-  # TODO these might assume full blocks, but also, probably required for normal
-  # functioning
   if onBlockAdded != nil:
     onBlockAdded(blockRef, trustedBlock, epochRef)
   if not(isNil(dag.onBlockAdded)):

@@ -51,24 +51,24 @@ template root*(blck: BlockRef): Eth2Digest = blck.bid.root
 template slot*(blck: BlockRef): Slot = blck.bid.slot
 
 func init*(
-    T: type BlockRef, root: Eth2Digest, executionPayloadRoot: Eth2Digest,
-    slot: Slot): BlockRef =
+    T: type BlockRef, root: Eth2Digest,
+    executionPayloadRoot: Option[Eth2Digest], slot: Slot): BlockRef =
   BlockRef(
     bid: BlockId(root: root, slot: slot),
-    executionBlockRoot: some executionPayloadRoot,
+    executionBlockRoot: executionPayloadRoot,
   )
 
 func init*(
     T: type BlockRef, root: Eth2Digest,
     blck: phase0.SomeBeaconBlock | altair.SomeBeaconBlock |
           phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock): BlockRef =
-  BlockRef.init(root, ZERO_HASH, blck.slot)
+  BlockRef.init(root, some ZERO_HASH, blck.slot)
 
 func init*(
     T: type BlockRef, root: Eth2Digest,
     blck: bellatrix.SomeBeaconBlock | bellatrix.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
-    root, Eth2Digest(blck.body.execution_payload.block_hash), blck.slot)
+    root, some Eth2Digest(blck.body.execution_payload.block_hash), blck.slot)
 
 func parent*(bs: BlockSlot): BlockSlot =
   ## Return a blockslot representing the previous slot, using the parent block
