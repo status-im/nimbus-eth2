@@ -2307,7 +2307,8 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
     pubsub = GossipSub.init(
       switch = switch,
       msgIdProvider = msgIdProvider,
-      triggerSelf = true,
+      # We process messages in the validator, so we don't need data callbacks
+      triggerSelf = false,
       sign = false,
       verifySignature = false,
       anonymize = true,
