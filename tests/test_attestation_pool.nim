@@ -90,19 +90,20 @@ suite "Attestation pool processing" & preset():
 
     check:
       # Added attestation, should get it back
-      toSeq(pool[].attestations(none(Slot), none(CommitteeIndex))) ==
+      toSeq(pool[].attestations(Opt.none(Slot), Opt.none(CommitteeIndex))) ==
         @[attestation]
       toSeq(pool[].attestations(
-        some(attestation.data.slot), none(CommitteeIndex))) == @[attestation]
-      toSeq(pool[].attestations(
-        some(attestation.data.slot), some(attestation.data.index.CommitteeIndex))) ==
+        Opt.some(attestation.data.slot), Opt.none(CommitteeIndex))) ==
         @[attestation]
-      toSeq(pool[].attestations(none(Slot), some(attestation.data.index.CommitteeIndex))) ==
-        @[attestation]
-      toSeq(pool[].attestations(some(
-        attestation.data.slot + 1), none(CommitteeIndex))) == []
       toSeq(pool[].attestations(
-        none(Slot), some(CommitteeIndex(attestation.data.index + 1)))) == []
+        Opt.some(attestation.data.slot), Opt.some(attestation.data.index.CommitteeIndex))) ==
+        @[attestation]
+      toSeq(pool[].attestations(Opt.none(Slot), Opt.some(attestation.data.index.CommitteeIndex))) ==
+        @[attestation]
+      toSeq(pool[].attestations(Opt.some(
+        attestation.data.slot + 1), Opt.none(CommitteeIndex))) == []
+      toSeq(pool[].attestations(
+        Opt.none(Slot), Opt.some(CommitteeIndex(attestation.data.index + 1)))) == []
 
       process_slots(
         defaultRuntimeConfig, state[],
