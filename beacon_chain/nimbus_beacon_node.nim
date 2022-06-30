@@ -241,30 +241,27 @@ proc initFullNode(
   proc onVoluntaryExitAdded(data: SignedVoluntaryExit) =
     node.eventBus.exitQueue.emit(data)
   proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
-    # TODO (cheatfate): Proper implementation required
     let optimistic =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
-        some(false)
+        some node.dag.is_optimistic(data.root)
       else:
         none[bool]()
     node.eventBus.blocksQueue.emit(
       EventBeaconBlockObject.init(data, optimistic))
   proc onHeadChanged(data: HeadChangeInfoObject) =
-    # TODO (cheatfate): Proper implementation required
     let eventData =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
         var res = data
-        res.optimistic = some(false)
+        res.optimistic = some node.dag.is_optimistic(data.block_root)
         res
       else:
         data
     node.eventBus.headQueue.emit(eventData)
   proc onChainReorg(data: ReorgInfoObject) =
-    # TODO (cheatfate): Proper implementation required
     let eventData =
       if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
         var res = data
-        res.optimistic = some(false)
+        res.optimistic = some node.dag.is_optimistic(data.new_head_block)
         res
       else:
         data
@@ -282,11 +279,10 @@ proc initFullNode(
                                     finalizedEpochRef.eth1_data,
                                     finalizedEpochRef.eth1_deposit_index)
       node.updateLightClientFromDag()
-      # TODO (cheatfate): Proper implementation required
       let eventData =
         if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
           var res = data
-          res.optimistic = some(false)
+          res.optimistic = some node.dag.is_optimistic(data.block_root)
           res
         else:
           data
